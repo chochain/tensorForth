@@ -27,11 +27,7 @@
 #define MAX_SYMBOL_COUNT 	256
 
 /* cueForth can minimize usage for micro device */
-#define CUEF_USE_STRING 	1
-#define CUEF_USE_CONSOLE	0
-#define CUEF_USE_FLOAT  	1
-#define CUEF_USE_ARRAY  	1
-#define CUEF_USE_MATH   	0
+#define CUEF_ENABLE_CDP     0
 /*
  * 32it alignment is required
  * 	  0: Byte alignment
@@ -50,11 +46,8 @@
 #define CUEF_32BIT_ALIGN_REQUIRED 	1
 #define CUEF_HEAP_SIZE 				(64*1024)
 #define CUEF_STRBUF_SIZE			(256-1)
-#define CUEF_OUTPUT_BUF_SIZE        4096
-
-/* CUDA dependent flags */
-#define CUDA_MIN_MEMBLOCK_SIZE		0x200
-#define CUDA_ENABLE_CDP            	0
+#define CUEF_IBUF_SIZE         		1024
+#define CUEF_OBUF_SIZE        		4096
 
 #endif // CUEF_SRC_CUEF_CONFIG_H_
 
