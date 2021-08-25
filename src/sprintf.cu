@@ -11,8 +11,8 @@
   </pre>
 */
 #include "cuef.h"
-#include "console.h"
 #include "sprintf.h"
+#include "util.h"
 
 //================================================================
 /*! initialize data container.
@@ -68,7 +68,7 @@ SPrinter::_next()
     U8  ch = '\0';
     this->fmt = (PrintFormat){0};
 
-    while (_size(pf) && (ch = *this->fstr) != '\0') {
+    while (_size() && (ch = *this->fstr) != '\0') {
         this->fstr++;
         if (ch == '%') {
             if (*this->fstr == '%') {	// is "%%"
@@ -78,7 +78,7 @@ SPrinter::_next()
         }
         *this->p++ = ch;
     }
-    return -(_size(pf) && ch != '\0');
+    return -(_size() && ch != '\0');
 
 PARSE_FLAG:
     // parse format - '%' [flag] [width] [.prec] type
@@ -125,15 +125,15 @@ __GPU__ int
 SPrinter::_char(U8 ch)
 {
     if (this->fmt.minus) {
-        if (_size(pf)) *this->p++ = ch;
+        if (_size()) *this->p++ = ch;
         else return -1;
     }
     for (int i=0; i < this->fmt.width; i++) {
-        if (_size(pf)) *this->p++ = ' ';
+        if (_size()) *this->p++ = ' ';
         else return -1;
     }
     if (!this->fmt.minus) {
-        if (_size(pf)) *this->p++ = ch;
+        if (_size()) *this->p++ = ch;
         else return -1;
     }
     return 0;
@@ -188,7 +188,7 @@ SPrinter::_int(int value, int base)
         pad = '0';
         if (sign) {
             *this->p++ = sign;
-            if (!_size(pf)) return -1;
+            if (!_size()) return -1;
             this->fmt.width--;
         }
     }
@@ -224,8 +224,8 @@ SPrinter::_str(U8 *str, U8 pad)
     S32 tw = len;
     if (this->fmt.width > len) tw = this->fmt.width;
 
-    ASSERT(len <= _size(pf));
-    ASSERT(tw  <= _size(pf));
+    ASSERT(len <= _size());
+    ASSERT(tw  <= _size());
 
     S32 n_pad = tw - len;
     S32 minus = this->fmt.minus;
@@ -263,7 +263,7 @@ SPrinter::_float(double v)
 
     while (*this->p != '\0') this->p++;
 
-    return _size(pf);
+    return _size();
 }
 
 //================================================================
@@ -304,11 +304,4 @@ SPrinter::print(const U8 *fstr, ...)
     va_end(ap);
     _done();
 }
-
-SStream::SStream() : sp(new SPrinter(buf, CUEF_CONSOLE_BUF_SIZE) {}
-SStream::operator<<(U8 ch)              { sp.print("%c", ch); }
-SStream::operator<<(int i, int base=10) { sp.print((base==10 ? "%d" : "%x"), i); }
-SStream::operator<<(U8 *str)            { sp.print("%s", str); }
-SStream::operator<<(float f)            { sp.print("%f", (float)f); }
-
 

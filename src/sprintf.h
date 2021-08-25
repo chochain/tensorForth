@@ -48,5 +48,5 @@ class SPrinter {
 public:    
     __GPU__ SPrinter(U8 *buf, U32 sz);
     __GPU__ void print(const U8 *fstr, ...);			// fstr is always static string (char *)
-}
+};
 #endif // CUEF_SRC_SPRINTF_H_
