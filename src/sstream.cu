@@ -14,10 +14,15 @@
 #define _LOCK		{ MUTEX_LOCK(_mutex_ss); }
 #define _UNLOCK		{ MUTEX_FREE(_mutex_ss); }
 
+namespace cuef {
+
 __GPU__ volatile int _mutex_ss;
 
+__GPU__
+sstream::sstream(U8 *buf, int sz) : buf(buf), sz(sz) {}
+
 __GPU__ void
-SStream::_write(GT gt, U8 *buf, int sz)
+sstream::_write(GT gt, U8 *buf, int sz)
 {
 	if (threadIdx.x!=0) return;						// only thread 0 within a block can write
 
@@ -29,7 +34,7 @@ SStream::_write(GT gt, U8 *buf, int sz)
 
 	n->id   = blockIdx.x;							// VM.id
 	n->gt   = gt;
-	n->size = sz + (-sz & 0x3);						// 32-bit alignment
+	n->size = ALIGN4(sz);							// 32-bit alignment
 
 	_output_ptr  = U8PADD(n->data, n->size);		// advance pointer to next print block
 	*_output_ptr = (U8)GT_EMPTY;
@@ -38,7 +43,7 @@ SStream::_write(GT gt, U8 *buf, int sz)
 }
 
 __GPU__ U8*
-SStream::_va_arg(U8 *p)
+sstream::_va_arg(U8 *p)
 {
     U8 ch;
     while ((ch = *p) != '\0') {
@@ -78,23 +83,26 @@ PARSE_WIDTH:
 
   @param  c	character
 */
-__GPU__ void
-SStream::operator<<(U8 c)
+__GPU__ sstream&
+sstream::operator<<(U8 c)
 {
-	U8 buf[2] = { c, '\0' };
+	char buf[2] = { c, '\0' };
 	_write(GT_STR, (U8*)buf, 2);
+	return *this;
 }
 
-__GPU__ void
-SStream::operator<<(GI i)
+__GPU__ sstream&
+sstream::operator<<(GI i)
 {
 	_write(base==10 ? GT_INT : GT_HEX, (U8*)&i, sizeof(GI));
+	return *this;
 }
 
-__GPU__ void
-SStream::operator<<(GF f)
+__GPU__ sstream&
+sstream::operator<<(GF f)
 {
 	_write(GT_FLOAT, (U8*)&f, sizeof(GF));
+	return *this;
 }
 
 
@@ -103,19 +111,56 @@ SStream::operator<<(GF f)
 
   @param str	str
 */
-__GPU__ void
-SStream::operator<<(const U8 *str)
+__GPU__ sstream&
+sstream::operator<<(const char *str)
 {
 	U8 *p = (U8*)str;
 	int i = 0;	while (*p++ != '\0') i++;	// mini strlen
 	_write(GT_STR, (U8*)str, ALIGN4(i+1));
+	return *this;
 }
 
-__GPU__ void
-SStream::operator<<(struct print_base &b)
+__GPU__ sstream&
+sstream::operator<<(string s)
 {
-	base = b.base;
+	this << s.c_str();
+	return *this;
 }
+
+
+__GPU__ sstream&
+sstream::str(const char *str)
+{
+	// TODO
+	return *this;
+}
+
+__GPU__ sstream&
+sstream::str(string str)
+{
+	// TODO
+	return *this;
+}
+
+__GPU__ sstream& sstream::operator<<(_setbase b) { base  = b.base;  return *this; }
+__GPU__ sstream& sstream::operator<<(_setw    w) { width = w.width; return *this; }
+__GPU__ sstream& sstream::operator<<(_setfill f) { fill  = f.fill;  return *this; }
+__GPU__ sstream& sstream::operator<<(_setprec p) { prec  = p.prec;  return *this; }
+
+__GPU__ sstream&
+sstream::operator>>(char **pstr)
+{
+	// TODO
+	return *this;
+}
+
+__GPU__ sstream&
+sstream::getline(string s, char delim)
+{
+	// TODO
+}
+
+} // namespace cuef
 
 __GPU__ int _output_size;
 __GPU__ U8  *_output_buf;
