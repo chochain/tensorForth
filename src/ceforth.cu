@@ -1,5 +1,6 @@
-#include <iomanip>          // setbase, setw, setfill
 #include "ceforth.h"
+
+namespace cuef {
 
 __GPU__ int code_fence = 0, code_ip = 0;
 ///
@@ -8,40 +9,48 @@ __GPU__ int code_fence = 0, code_ip = 0;
 __GPU__ Code::Code(string n, fop fn, bool im) {
 	name = n; token = code_fence++; immd = im; xt = fn;
 }
-__GPU__ Code::Code(string n, bool f)   { name = n; if (f) token = code_fence++; }
-__GPU__ Code::Code(Code *c, DTYPE v)   { name = c->name; xt = c->xt; qf.push(v); }
-__GPU__ Code::Code(Code *c, string s)  { name = c->name; xt = c->xt; if (s!=string()) literal = s;  }
+__GPU__ Code::Code(string n, bool f)  { name = n; if (f) token = code_fence++; }
+__GPU__ Code::Code(Code *c, DTYPE v)  { name = c->name; xt = c->xt; qf.push(v); }
+__GPU__ Code::Code(Code *c, string s) { name = c->name; xt = c->xt; if (s.size()>0) literal = s; }
 
-__GPU__ Code*  Code::addcode(Code* w)  { pf.push(w);   return this; }
-__GPU__ string Code::to_s()    { return name + " " + to_string(token) + (immd ? "*" : ""); }
+__GPU__ Code*  Code::addcode(Code* w) { pf.push(w); return this; }
+__GPU__ string Code::to_s()      {
+	string s(40);
+	s << name << " ";
+//	s << to_string(token);
+	s << (immd ? "*" : "");
+	return s;
+	}
 __GPU__ string Code::see(int dp) {
-    stringstream cout("");
-    auto see_pf = [&cout](int dp, string s, ForthList<Code*> &a) {   // lambda for indentation and recursive dump
-        int i = dp; cout << ENDL; while (i--) cout << "  "; cout << s;
-        for (int i=0; i<a.size(); i++) cout << a[i]->see(dp + 1);
+    string buf(128);
+    auto see_pf = [&buf](int dp, string s, vector<Code*> &a) {   	// lambda for indentation and recursive dump
+        int i = dp; buf << ENDL;
+        while (i--) buf << "  ";
+        buf << s;
+        for (int i=0, n=a.size(); i<n; i++) buf << a[i]->see(dp + 1);
     };
-    auto see_qf = [&cout](ForthList<DTYPE> &a) {
-    	cout << " = "; for (int i=0; i<a.size(); i++) cout << a[i] << " ";
+    auto see_qf = [&buf](vector<DTYPE> &a) {
+    	buf << " = "; for (int i=0, n=a.size(); i<n; i++) buf << a[i] << " ";
     };
-    see_pf(dp, "[ " + to_s(), pf);
-    if (pf1.size() > 0) see_pf(dp, "1--", pf1);
-    if (pf2.size() > 0) see_pf(dp, "2--", pf2);
+    see_pf(dp, buf << "[ " << to_s(), pf);
+    if (pf1.size() > 0) see_pf(dp, buf << "1--", pf1);
+    if (pf2.size() > 0) see_pf(dp, buf << "2--", pf2);
     if (qf.size()  > 0) see_qf(qf);
-    cout << "]";
-    return cout.str();
+    buf << "]";
+    return buf;
 }
 __GPU__ void Code::nest() {
     if (xt) xt(this);
     else {
     	int tmp = code_ip; code_ip = 0;
-        for (Code* w : pf.v) { yield(); w->nest(); code_ip++; } /// run inner interpreter
+        for (int i=0, n=pf.size(); i<n; i++) { yield(); pf[i]->nest(); code_ip++; } 	/// run inner interpreter
         code_ip = tmp;
     }
 }
 ///
 /// ForthVM class constructor
 ///
-__GPU__ ForthVM::ForthVM(istream &in, ostream &out) : cin(in), cout(out) {}
+__GPU__ ForthVM::ForthVM(sstream &in, sstream &out) : cin(in), cout(out) {}
 ///
 /// dictionary and input stream search functions
 ///
@@ -56,20 +65,22 @@ __GPU__ Code *ForthVM::find(string s) {
     return NULL;
 }
 __GPU__ string ForthVM::next_idiom(char delim) {
-    string s; delim ? getline(cin, s, delim) : cin >> s; return s;
+    string s;
+    delim ? cin.getline(s, delim) : cin >> s;
+    return s;
 }
 __GPU__ void ForthVM::dot_r(int n, DTYPE v) {
     cout << setw(n) << setfill(' ') << v;
 }
 __GPU__ void ForthVM::ss_dump() {
-    cout << " <"; for (DTYPE i : ss.v) { cout << i << " "; }
+    cout << " <";
+    for (int i=0, n=ss.size(); i<n; i++) { cout << ss[i] << " "; }
     cout << top << "> ok" << ENDL;
 }
 __GPU__ void ForthVM::words() {
-    int i = 0;
-    for (Code* w : dict.v) {
-        if ((i++ % 10) == 0) { cout << ENDL; yield(); }
-        cout << w->to_s() << " ";
+    for (int i=0, n=dict.size(); i<n; i++) {
+        if ((i % 10) == 0) { cout << ENDL; yield(); }
+        cout << dict[i]->to_s() << " ";
     }
 }
 __GPU__ void ForthVM::call(Code *w) {
@@ -86,11 +97,14 @@ __GPU__ void ForthVM::call(Code *w) {
     WP = tmp;                                           /// * restore call frame
     yield();
 }
+__GPU__ void ForthVM::call(vector<Code*> pf) {
+	for (int i=0, n=pf.size(); i<n; i++) call(pf[i]);
+}
 ///
 /// macros to reduce verbosity (but harder to single-step debug)
 ///
-#define CODE(s, g) new Code(string(s), [this](Code *c){ g; })
-#define IMMD(s, g) new Code(string(s), [this](Code *c){ g; }, true)
+#define CODE(s, g) new Code(string((char*)s), [this](Code *c){ g; })
+#define IMMD(s, g) new Code(string((char*)s), [this](Code *c){ g; }, true)
 #define INT(f)         (static_cast<int>(f))
 #define ALU(a, OP, b)  (INT(a) OP INT(b))
 #define BOOL(f) ((f) ? -1 : 0)
@@ -162,7 +176,7 @@ __GPU__ void ForthVM::init() {
     CODE(".",       cout << POP() << " "),
     CODE(".r",      int n = INT(POP()); dot_r(n, POP())),
     CODE("u.r",     int n = INT(POP()); dot_r(n, abs(POP()))),
-    CODE(".f",      int n = INT(POP()); cout << setprecision(n) << POP()),
+    CODE(".f",      int n = INT(POP()); cout << setprec(n) << POP()),
     CODE("key",     PUSH(next_idiom()[0])),
     CODE("emit",    char b = (char)POP(); cout << b),
     CODE("space",   cout << " "),
@@ -188,9 +202,7 @@ __GPU__ void ForthVM::init() {
     /// @defgroup Branching ops
     /// @brief - if...then, if...else...then
     /// @{
-    IMMD("bran",
-        bool f = POP() != 0;                        // check flag
-        for (Code* w : (f ? c->pf.v : c->pf1.v)) call(w)),
+    IMMD("bran", bool f = POP() != 0; call(f ? c->pf : c->pf1)),
     IMMD("if",
         dict[-1]->addcode(new Code(find("bran")));
         dict.push(new Code("temp"))),               // use last cell of dictionay as scratch pad
@@ -216,12 +228,12 @@ __GPU__ void ForthVM::init() {
     /// @{
     CODE("loop",
         while (true) {
-            for (Code* w : c->pf.v) call(w);                       // begin...
+            call(c->pf);                                           // begin...
             int f = INT(top);
             if (c->stage == 0 && (top = ss.pop(), f != 0)) break;  // ...until
             if (c->stage == 1) continue;                           // ...again
             if (c->stage == 2 && (top = ss.pop(), f == 0)) break;  // while...repeat
-            for (Code* w : c->pf1.v) call(w);
+            call(c->pf1);
         }),
     IMMD("begin",
         dict[-1]->addcode(new Code(find("loop")));
@@ -245,12 +257,12 @@ __GPU__ void ForthVM::init() {
     /// @brief  - for...next, for...aft...then...next
     /// @{
     CODE("cycle",
-        do { for (Code* w : c->pf.v) call(w); }
-        while (c->stage == 0 && rs.dec_i() >= 0);    // for...next only
-        while (c->stage > 0) {                       // aft
-            for (Code* w : c->pf2.v) call(w);        // then...next
+        do { call(c->pf); }
+        while (c->stage == 0 && rs.dec_i() >= 0);   // for...next only
+        while (c->stage > 0) {                      // aft
+            call(c->pf2);        					// then...next
             if (rs.dec_i() < 0) break;
-            for (Code* w : c->pf1.v) call(w);        // aft...then
+            call(c->pf1);					        // aft...then
         }
         rs.pop()),
     IMMD("for",
@@ -299,7 +311,7 @@ __GPU__ void ForthVM::init() {
         last->pf[0]->token = last->token;
         last->pf[0]->qf.clear()),
     CODE("does",
-        ForthList<Code*> &src = dict[WP]->pf;               // source word : xx create...does...;
+        vector<Code*> &src = dict[WP]->pf;               	// source word : xx create...does...;
         int i = code_ip; int n = src.size();
         while (++i < n) dict[-1]->pf.push(src[i])),         // copy words after "does" to new the word
     CODE("to",                                              // n -- , compile only
@@ -312,7 +324,7 @@ __GPU__ void ForthVM::init() {
             tgt->pf.merge(dict[POP()]->pf);
         }),
     CODE("[to]",
-        ForthList<Code*> &src = dict[WP]->pf;               // source word : xx create...does...;
+        vector<Code*> &src = dict[WP]->pf;               	// source word : xx create...does...;
         src[++code_ip]->pf[0]->qf[0] = POP()),              // change the following constant
     /// @}
     /// @defgroup Debug ops
@@ -332,7 +344,7 @@ __GPU__ void ForthVM::init() {
     CODE("boot", dict.clear(code_fence=find("boot")->token + 1))
     /// @}
     };
-    dict.merge((Code*)prim, code_fence);       /// * populate dictionary
+    dict.merge((Code*)prim, code_fence);            /// * populate dictionary
 }
 ///
 /// ForthVM Outer interpreter
@@ -342,13 +354,13 @@ __GPU__ void ForthVM::outer() {
     while (cin >> idiom) {
         //Serial.print(idiom.c_str()); Serial.print("=>");
     	//printf("%s=>", idiom.c_str());
-        Code *w = find(idiom);                          /// * search through dictionary
-        if (w) {                                        /// * word found?
+        Code *w = find(idiom);                      /// * search through dictionary
+        if (w) {                                    /// * word found?
             //Serial.println(w->to_s().c_str());
             //printf("%s\n", w->to_s().c_str());
-            if (compile && !w->immd)                    /// * in compile mode?
-                dict[-1]->addcode(w);                   /// * add to colon word
-            else call(w);                               /// * execute forth word
+            if (compile && !w->immd)                /// * in compile mode?
+                dict[-1]->addcode(w);               /// * add to colon word
+            else call(w);                           /// * execute forth word
             continue;
         }
         // try as a number
@@ -357,13 +369,15 @@ __GPU__ void ForthVM::outer() {
         //Serial.println(n, base);
         //printf("%d\n", n);
         if (*p != '\0') {                           /// * not number
-            cout << idiom << "? " << ENDL;          ///> display error prompt
+            cout << idiom;
+            cout << "? ";
+            cout << ENDL;          ///> display error prompt
             compile = false;                        ///> reset to interpreter mode
-            getline(cin, idiom, '\n');              ///> skip the entire line
+            cin.getline(idiom, '\n');               ///> skip the entire line
             continue;
         }
         // is a number
-        if (compile)                           /// * a number in compile mode?
+        if (compile)                                /// * a number in compile mode?
             dict[-1]->addcode(new Code(find("dolit"), n)); ///> add to current word
         else PUSH(n);                           	///> or, add value onto data stack
     }
@@ -371,21 +385,14 @@ __GPU__ void ForthVM::outer() {
 }
 
 /// main program
-__KERN__ int eforth_init(U8 *cin, U8 *cout) {
-	if (threadId.x!=0 || blockId.x!=0) return 0;
+__KERN__ void vm_pool_init(U8 *cin, U8 *cout) {
+	if (threadIdx.x!=0 || blockIdx.x!=0) return;
     string cmd;
 
-    ForthVM *vm = new ForthVM(forth_in, forth_out);		// create FVM instance
+    ForthVM *vm = new ForthVM(cin, cout);		// create FVM instance
     vm->init();                                 		// initialize dictionary
 
-    while (getline(cin, cmd)) {							// fetch user input
-    	//printf("cmd=<%s>\n", line.c_str());
-    	forth_in.clear();								// clear any input stream error bit
-    	forth_in.str(cmd);								// send command to FVM
-        vm->outer();									// execute outer interpreter
-        cout << forth_out.str();						// send VM result to output
-        forth_out.str(string());						// clear output buffer
-    }
-    cout << "done!" << ENDL;
-    return 0;
+    return;
 }
+
+} // namespace cuef
