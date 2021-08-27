@@ -25,9 +25,6 @@ using namespace std;
 #define MUTEX_LOCK(p)  		while (atomicCAS((int *)&p, 0, 1)!=0)
 #define MUTEX_FREE(p)  		atomicExch((int *)&p, 0)
 
-#define ALIGN4(sz)			((sz) + (-(sz) & 0x3))
-#define ALIGN8(sz) 			((sz) + (-(sz) & 0x7))
-#define ALIGN16(sz)  		((sz) + (-(sz) & 0xf))
 #define ASSERT(X) \
 	if (!(X)) PRINTF("ASSERT tid %d: line %d in %s\n", threadIdx.x, __LINE__, __FILE__);
 #define GPU_SYNC()			{ cudaDeviceSynchronize(); }
@@ -73,6 +70,7 @@ class CueForth {
 	istream &cin;
 	ostream &cout;
 
+	U8 *heap;
 	U8 *ibuf;
 	U8 *obuf;
 
@@ -81,8 +79,8 @@ class CueForth {
 
 public:
     CueForth(istream &in, ostream &out);
-    __HOST__ int   setup(int set, int trace);
+    __HOST__ int   setup(int step=0, int trace=0);
     __HOST__ int   run();
-    __HOST__ void  teardown(int sig);
+    __HOST__ void  teardown(int sig=0);
 };
 #endif // CUEF_SRC_CUEF_H_

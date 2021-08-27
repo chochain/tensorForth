@@ -2,6 +2,7 @@
   @brief
   cueForth value definitions non-optimized
 */
+#include <iostream>
 #include "cuef.h"
 
 // forward declaration for implementation
@@ -43,12 +44,12 @@ CueForth::setup(int step, int trace)
 
 	PRINTF("cueForth initializing...");
 
-	//U8 *mem  = cuef_host_heap = (U8*)cuda_malloc(CUEF_HEAP_SIZE, 1);	// allocate main block (i.e. RAM)
-	//if (!mem)  return -10;
+	heap = (U8*)_malloc(CUEF_HEAP_SIZE, 1);					// allocate main block (i.e. RAM)
+	if (!heap)  return -10;
 	ibuf = (U8*)_malloc(CUEF_IBUF_SIZE, 1);					// allocate main block (i.e. RAM)
 	if (!ibuf)  return -11;
 	obuf = (U8*)_malloc(CUEF_OBUF_SIZE, 1);					// allocate output buffer
-	if (!obuf) return -12;
+	if (!obuf)  return -12;
 
 	//mmu_init<<<1,1>>>(mem, CUEF_HEAP_SIZE);				// setup memory management
 	eforth_init<<<1,1>>>(ibuf, obuf);						// setup basic classes	(TODO: => ROM)
@@ -82,5 +83,18 @@ CueForth::run()
 __HOST__ void
 CueForth::teardown(int sig)
 {
+	if (obuf) _free(obuf);
+	if (ibuf) _free(ibuf);
+	if (heap) _free(heap);
 	cudaDeviceReset();
 }
+
+int main(int argc, char**argv) {
+	CueForth *f = new CueForth(cin, cout);
+	f->setup();
+	cout << "cueForth starting..." << ENDL;
+	f->run();
+	f->teardown();
+    cout << "done!" << ENDL;
+}
+
