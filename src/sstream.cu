@@ -15,35 +15,16 @@
 #define _UNLOCK		{ MUTEX_FREE(_mutex_ss); }
 
 namespace cuef {
-
+///
+/// istream class
+///
 __GPU__ volatile int _mutex_ss;
 
 __GPU__
-sstream::sstream(U8 *buf, int sz) : buf(buf), sz(sz) {}
-
-__GPU__ void
-sstream::_write(GT gt, U8 *buf, int sz)
-{
-	if (threadIdx.x!=0) return;						// only thread 0 within a block can write
-
-	_LOCK;
-
-	print_node *n = (print_node *)_output_ptr;
-	U8 *d = n->data, *s = buf;
-	for (int i=0; i<sz; i++, *d++=*s++);			// mini memcpy
-
-	n->id   = blockIdx.x;							// VM.id
-	n->gt   = gt;
-	n->size = ALIGN4(sz);							// 32-bit alignment
-
-	_output_ptr  = U8PADD(n->data, n->size);		// advance pointer to next print block
-	*_output_ptr = (U8)GT_EMPTY;
-
-	_UNLOCK;
-}
+istream::istream(U8 *buf, int sz) : buf(buf), sz(0) {}
 
 __GPU__ U8*
-sstream::_va_arg(U8 *p)
+istream::_va_arg(U8 *p)
 {
     U8 ch;
     while ((ch = *p) != '\0') {
@@ -78,41 +59,107 @@ PARSE_WIDTH:
     return p;
 }
 
+__GPU__ istream&
+istream::str(const char *str)
+{
+	return *this;
+}
+
+__GPU__ istream&
+istream::str(string &str)
+{
+	// TODO
+	return *this;
+}
+
+__GPU__ istream&
+istream::getline(string &s, char delim)
+{
+    while (d==" " &&
+           (buf[sz]==' ' || buf[sz]=='\t')) sz++; // skip leading blanks and tabs
+    int i = sz;
+    while (buf[i] && buf[i]!=delim) i++;
+    s.clear();
+    if (buf[i] == delim) {
+        s.merge(&buf[sz], i-sz);
+        sz = i;
+    }
+    return *this;
+}
+
+__GPU__ istream&
+istream::operator>>(string &s)
+{
+	return *this;
+}
+///
+/// iomanip classes
+///
+__GPU__ sstream& sstream::operator<<(_setbase b) { base  = b.base;  return *this; }
+__GPU__ sstream& sstream::operator<<(_setw    w) { width = w.width; return *this; }
+__GPU__ sstream& sstream::operator<<(_setfill f) { fill  = f.fill;  return *this; }
+__GPU__ sstream& sstream::operator<<(_setprec p) { prec  = p.prec;  return *this; }
+///
+/// ostream class
+///
+__GPU__
+ostream::ostream(U8 *buf, int sz) : buf(buf), sz(sz) {}
+
+__GPU__ void
+ostream::_write(GT gt, U8 *buf, int sz)
+{
+	if (threadIdx.x!=0) return;						// only thread 0 within a block can write
+
+	_LOCK;
+
+	print_node *n = (print_node *)_output_ptr;
+	U8 *d = n->data, *s = buf;
+	for (int i=0; i<sz; i++, *d++=*s++);			// mini memcpy
+
+	n->id   = blockIdx.x;							// VM.id
+	n->gt   = gt;
+	n->size = ALIGN4(sz);							// 32-bit alignment
+
+	_output_ptr  = U8PADD(n->data, n->size);		// advance pointer to next print block
+	*_output_ptr = (U8)GT_EMPTY;
+
+	_UNLOCK;
+}
+
 //================================================================
 /*! output a character
 
   @param  c	character
 */
-__GPU__ sstream&
-sstream::operator<<(U8 c)
+__GPU__ ostream&
+ostream::operator<<(U8 c)
 {
 	char buf[2] = { c, '\0' };
 	_write(GT_STR, (U8*)buf, 2);
 	return *this;
 }
 
-__GPU__ sstream&
-sstream::operator<<(GI i)
+__GPU__ ostream&
+ostream::operator<<(GI i)
 {
 	_write(base==10 ? GT_INT : GT_HEX, (U8*)&i, sizeof(GI));
 	return *this;
 }
 
-__GPU__ sstream&
-sstream::operator<<(GF f)
+__GPU__ ostream&
+ostream::operator<<(GF f)
 {
 	_write(GT_FLOAT, (U8*)&f, sizeof(GF));
 	return *this;
 }
-
 
 //================================================================
 /*! output string
 
   @param str	str
 */
-__GPU__ sstream&
-sstream::operator<<(const char *str)
+__GPU__ ostream&
+ostream::operator<<(const char *str)
 {
 	U8 *p = (U8*)str;
 	int i = 0;	while (*p++ != '\0') i++;	// mini strlen
@@ -120,44 +167,11 @@ sstream::operator<<(const char *str)
 	return *this;
 }
 
-__GPU__ sstream&
-sstream::operator<<(string s)
+__GPU__ ostream&
+ostream::operator<<(string &s)
 {
 	this << s.c_str();
 	return *this;
-}
-
-
-__GPU__ sstream&
-sstream::str(const char *str)
-{
-	// TODO
-	return *this;
-}
-
-__GPU__ sstream&
-sstream::str(string str)
-{
-	// TODO
-	return *this;
-}
-
-__GPU__ sstream& sstream::operator<<(_setbase b) { base  = b.base;  return *this; }
-__GPU__ sstream& sstream::operator<<(_setw    w) { width = w.width; return *this; }
-__GPU__ sstream& sstream::operator<<(_setfill f) { fill  = f.fill;  return *this; }
-__GPU__ sstream& sstream::operator<<(_setprec p) { prec  = p.prec;  return *this; }
-
-__GPU__ sstream&
-sstream::operator>>(char **pstr)
-{
-	// TODO
-	return *this;
-}
-
-__GPU__ sstream&
-sstream::getline(string s, char delim)
-{
-	// TODO
 }
 
 } // namespace cuef
