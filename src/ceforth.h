@@ -56,7 +56,7 @@ public:
 #endif // NO_FUNCTION
     __GPU__ Code(string n, bool f=false);             /// new colon word or temp
     __GPU__ Code(Code *c,  DTYPE d);                  /// dolit, dovar
-    __GPU__ Code(Code *c,  string s);      	  		  /// dotstr
+    __GPU__ Code(Code *c,  string s=string(""));      /// dotstr
 
     __GPU__ Code     *addcode(Code *w);               /// append colon word
     __GPU__ string   to_s();                          /// debugging
@@ -78,7 +78,7 @@ public:
     bool  compile = false;                  /// compiling flag
     int   base    = 10;                     /// numeric radix
     int   WP      = 0;                      /// instruction and parameter pointers
-    DTYPE top     = -1.0;                   /// cached top of stack
+    DTYPE top     = DVAL;                   /// cached top of stack
 
     __GPU__ ForthVM(sstream &in, sstream &out);
 
@@ -89,6 +89,7 @@ private:
     __GPU__ DTYPE POP();
     __GPU__ DTYPE PUSH(DTYPE v);
     
+    __GPU__ Code *find(const char *s);              /// search dictionary reversely
     __GPU__ Code *find(string s);                   /// search dictionary reversely
     __GPU__ string next_idiom(char delim=0);
     __GPU__ void call(Code *c);                     /// execute a word
