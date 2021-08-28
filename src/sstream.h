@@ -14,6 +14,7 @@
 #define CUEF_SRC_SSTREAM_H_
 #include "cuef.h"
 #include "vector.h"
+#include "string.h"
 
 //================================================================
 /*! printf internal version data container.
@@ -26,29 +27,6 @@ typedef struct {
 } print_node;
 
 namespace cuef {
-///
-/// stringbuf class
-///
-struct string : public vector<char>
-{
-	__GPU__ string(int asz=16) {
-		n = 0; if (asz>0) v = (char*)malloc(sz=asz);
-	}
-	__GPU__ string(char *s, int asz=16) {
-		n  = STRLENB(s);
-		sz = ALIGN4(asz>n ? asz : n);
-		v  = (char*)malloc(sz);
-		MEMCPY(v, s, n);
-	}
-	__GPU__ ~string() { if (v) free(v); }
-
-	__GPU__ string& operator<<(string s)     { merge(s.v, s.size());        return *this; }
-	__GPU__ string& operator<<(const char *s){ merge((char*)s, STRLENB(s)); return *this; }
-	__GPU__ bool    operator==(string s)     { return STRCMP(v, s.v); }
-
-	__GPU__ char *c_str() { return v; }
-};
-    
 //================================================================
 /*!@brief
   define the value type.
@@ -60,9 +38,27 @@ typedef enum {
     GT_FLOAT,
     GT_STR,
 } GT;
-
 ///
-/// iomanip
+/// istream class
+///
+class istream
+{
+	U8   *buf = NULL;
+    int  sz   = 0;
+	int  idx  = 0;
+    
+    __GPU__  U8   *_va_arg(U8 *p);
+public:
+    __GPU__  istream(U8 *buf, int sz);
+    
+    // object output
+    __GPU__  istream& str(const char *s);
+    __GPU__  istream& str(string &s);
+    __GPU__  istream& getline(string &s, char delim);
+    __GPU__  istream& operator>>(string &s);
+};
+///
+/// iomanip classes
 ///
 class _setbase { public: int  base;  __GPU__ _setbase(int b) : base(b)  {}};
 class _setw    { public: int  width; __GPU__ _setw(int w)    : width(w) {}};
@@ -73,39 +69,34 @@ __GPU__ __INLINE__ _setw    setw(int w)     { return _setw(w);    }
 __GPU__ __INLINE__ _setfill setfill(char f) { return _setfill(f); }
 __GPU__ __INLINE__ _setprec setprec(int p)  { return _setprec(p); }
 ///
-/// sstream class
+/// ostream class
 ///
-class sstream
+class ostream
 {
-
-	U8   *buf;
+	U8   *buf = NULL;
 	int  sz   = 0;
 	int  base = 10;
 	char fill = ' ';
 	int  prec = 6;
 
     __GPU__  void _write(GT gt, U8 *buf, int sz);
-    __GPU__  U8   *_va_arg(U8 *p);
     
 public:
-    __GPU__  sstream(U8 *buf, int sz);
-
-    __GPU__ sstream& operator<<(U8 c);
-    __GPU__ sstream& operator<<(GI i);
-    __GPU__ sstream& operator<<(GF f);
-    __GPU__ sstream& operator<<(const char *str);
-    __GPU__ sstream& operator<<(string s);
-
-    __GPU__ sstream& operator<<(_setbase b);
-    __GPU__ sstream& operator<<(_setw    w);
-    __GPU__ sstream& operator<<(_setfill f);
-    __GPU__ sstream& operator<<(_setprec p);
-
-    __GPU__ sstream& str(const char *s);
-    __GPU__ sstream& str(string s);
-    __GPU__ sstream& operator>>(char **str);
-    __GPU__ sstream& getline(string s, char delim);
+    __GPU__  ostream(U8 *buf, int sz);
+    
+    // object input
+    __GPU__ ostream& operator<<(U8 c);
+    __GPU__ ostream& operator<<(GI i);
+    __GPU__ ostream& operator<<(GF f);
+    __GPU__ ostream& operator<<(const char *str);
+    __GPU__ ostream& operator<<(string &s);
+    // control
+    __GPU__ ostream& operator<<(_setbase b);
+    __GPU__ ostream& operator<<(_setw    w);
+    __GPU__ ostream& operator<<(_setfill f);
+    __GPU__ ostream& operator<<(_setprec p);
 };
+
 
 }   // namespace cuef
 
