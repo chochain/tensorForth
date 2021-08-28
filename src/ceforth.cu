@@ -58,7 +58,11 @@ __GPU__ __INLINE__ DTYPE ForthVM::POP()         { DTYPE n = top; top = ss.pop();
 __GPU__ __INLINE__ DTYPE ForthVM::PUSH(DTYPE v) { ss.push(top); return top = v; }
 
 /// search dictionary reversely
-__GPU__ Code *ForthVM::find(string s) {
+__GPU__ Code *ForthVM::find(const char *name) {
+	string s(name);
+	return find(s);
+}
+__GPU__ Code *ForthVM::find(string &s) {
     for (int i = dict.size() - 1; i >= 0; --i) {
         if (s == dict[i]->name) return dict[i];
     }
@@ -112,7 +116,7 @@ __GPU__ void ForthVM::call(vector<Code*> pf) {
 /// dictionary initializer
 ///
 __GPU__ void ForthVM::init() {
-    const Code* prim[] = {       /// singleton, build once onl
+	const Code* prim[] = {       /// singleton, build once onl
     ///
     /// @defgroup Stack op
     /// @{
@@ -344,7 +348,7 @@ __GPU__ void ForthVM::init() {
     CODE("boot", dict.clear(code_fence=find("boot")->token + 1))
     /// @}
     };
-    dict.merge((Code*)prim, code_fence);            /// * populate dictionary
+    dict.v = (Code**)&prim;           				/// * populate dictionary
 }
 ///
 /// ForthVM Outer interpreter

@@ -90,7 +90,7 @@ private:
     __GPU__ DTYPE PUSH(DTYPE v);
     
     __GPU__ Code *find(const char *s);              /// search dictionary reversely
-    __GPU__ Code *find(string s);                   /// search dictionary reversely
+    __GPU__ Code *find(string &s);                  /// search dictionary reversely
     __GPU__ string next_idiom(char delim=0);
     __GPU__ void call(Code *c);                     /// execute a word
     __GPU__ void call(vector<Code*> pf);
