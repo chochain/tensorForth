@@ -8,7 +8,7 @@ namespace cuef {
 ///
 template<class T>
 struct vector {
-    T 	*v;             /// use proxy pattern
+    T *v;               /// use proxy pattern
     int n  =0;          /// number of elements stored
     int sz =0;          /// allocated size
 
@@ -23,6 +23,10 @@ struct vector {
     }
     __device__ vector& merge(T *a, int len) {
     	for (int i=0; i<len; i++) push(*a++);
+    	return *this;
+    }
+    __device__ vector& merge(vector<T> a) {
+    	for (int i=0; i<a.n; i++) push(a[i]);
     	return *this;
     }
 
