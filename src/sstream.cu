@@ -23,42 +23,6 @@ __GPU__ volatile int _mutex_ss;
 __GPU__
 istream::istream(U8 *buf) : buf(buf) {}
 
-__GPU__ U8*
-istream::_va_arg(U8 *p)
-{
-    U8 ch;
-    while ((ch = *p) != '\0') {
-        p++;
-        if (ch == '%') {
-            if (*p == '%') p++;	// is "%%"
-            else 	       goto PARSE_FLAG;
-        }
-    }
-    if (ch == '\0') return NULL;
-
-PARSE_FLAG:
-    // parse format - '%' [flag] [width] [.precision] type
-    //   e.g. "%05d"
-    while ((ch = *p)) {
-        switch(ch) {
-        case '+': case ' ': case '-': case '0': break;
-        default : goto PARSE_WIDTH;
-        }
-        p++;
-    }
-
-PARSE_WIDTH:
-    int n;
-    while ((n = *p - '0'), (0 <= n & n <= 9)) p++;
-    if (*p == '.') {
-        p++;
-        while ((n = *p - '0'), (0 <= n && n <= 9)) p++;
-    }
-    if (*p) ch = *p++;
-
-    return p;
-}
-
 __GPU__ istream&
 istream::str(const char *s, int sz)
 {

@@ -17,17 +17,6 @@
 #include "string.h"
 
 //================================================================
-/*! printf internal version data container.
-*/
-typedef struct {
-	U32	id   : 12;
-    U32 gt 	 : 4;
-    U32	size : 16;
-    U8	data[];          								// different from *data
-} print_node;
-
-namespace cuef {
-//================================================================
 /*!@brief
   define the value type.
 */
@@ -38,6 +27,18 @@ typedef enum {
     GT_FLOAT,
     GT_STR,
 } GT;
+
+//================================================================
+/*! printf internal version data container.
+*/
+typedef struct {
+	U32	id   : 12;
+    GT  gt 	 : 4;
+    U32	size : 16;
+    U8	data[];          								// different from *data
+} print_node;
+
+namespace cuef {
 ///
 /// istream class
 ///
@@ -46,7 +47,6 @@ class istream
 	U8   *buf = NULL;
 	int  idx  = 0;
     
-    __GPU__  U8   *_va_arg(U8 *p);
 public:
     __GPU__  istream(U8 *buf);
     
