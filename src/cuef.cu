@@ -92,9 +92,9 @@ CueForth::teardown(int sig)
 int main(int argc, char**argv) {
 	CueForth *f = new CueForth(cin, cout);
 	f->setup();
-	cout << "cueForth starting..." << ENDL;
+	cout << "cueForth starting..." << endl;
 	f->run();
 	f->teardown();
-    cout << "done!" << ENDL;
+    cout << "done!" << endl;
 }
 
