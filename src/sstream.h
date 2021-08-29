@@ -44,18 +44,17 @@ typedef enum {
 class istream
 {
 	U8   *buf = NULL;
-    int  sz   = 0;
 	int  idx  = 0;
     
     __GPU__  U8   *_va_arg(U8 *p);
 public:
-    __GPU__  istream(U8 *buf, int sz);
+    __GPU__  istream(U8 *buf);
     
     // object output
-    __GPU__  istream& str(const char *s);
-    __GPU__  istream& str(string &s);
-    __GPU__  istream& getline(string &s, char delim);
-    __GPU__  istream& operator>>(string &s);
+    __GPU__  istream& str(const char *s, int sz=0);
+    __GPU__  istream& str(string& s);
+    __GPU__  int      getline(string& s, char delim=' ');
+    __GPU__  int      operator>>(string& s);
 };
 ///
 /// iomanip classes
@@ -76,25 +75,25 @@ class ostream
 	U8   *buf = NULL;
 	int  sz   = 0;
 	int  base = 10;
+	int  width= 6;
 	char fill = ' ';
 	int  prec = 6;
 
-    __GPU__  void _write(GT gt, U8 *buf, int sz);
+    __GPU__  void _write(GT gt, U8 *v, int sz);
     
 public:
-    __GPU__  ostream(U8 *buf, int sz);
-    
-    // object input
-    __GPU__ ostream& operator<<(U8 c);
-    __GPU__ ostream& operator<<(GI i);
-    __GPU__ ostream& operator<<(GF f);
-    __GPU__ ostream& operator<<(const char *str);
-    __GPU__ ostream& operator<<(string &s);
-    // control
+    __GPU__  ostream(U8 *buf, int sz=CUEF_OBUF_SIZE);
+    // iomanip control
     __GPU__ ostream& operator<<(_setbase b);
     __GPU__ ostream& operator<<(_setw    w);
     __GPU__ ostream& operator<<(_setfill f);
     __GPU__ ostream& operator<<(_setprec p);
+    // object input
+    __GPU__ ostream& operator<<(U8 c);
+    __GPU__ ostream& operator<<(GI i);
+    __GPU__ ostream& operator<<(GF f);
+    __GPU__ ostream& operator<<(const char *s);
+    __GPU__ ostream& operator<<(string &s);
 };
 
 

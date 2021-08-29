@@ -21,7 +21,7 @@ namespace cuef {
 __GPU__ volatile int _mutex_ss;
 
 __GPU__
-istream::istream(U8 *buf, int sz) : buf(buf), sz(0) {}
+istream::istream(U8 *buf) : buf(buf) {}
 
 __GPU__ U8*
 istream::_va_arg(U8 *p)
@@ -60,61 +60,56 @@ PARSE_WIDTH:
 }
 
 __GPU__ istream&
-istream::str(const char *str)
+istream::str(const char *s, int sz)
 {
+	MEMCPY(buf, s, sz ? sz : STRLENB(s));
+	idx = 0;
 	return *this;
 }
 
 __GPU__ istream&
-istream::str(string &str)
+istream::str(string& s)
 {
-	// TODO
+	str(s.c_str(), s.size());
 	return *this;
 }
 
-__GPU__ istream&
-istream::getline(string &s, char delim)
+__GPU__ int
+istream::getline(string& s, char delim)
 {
-    while (d==" " &&
-           (buf[sz]==' ' || buf[sz]=='\t')) sz++; // skip leading blanks and tabs
-    int i = sz;
+    while (delim==' ' &&
+           (buf[idx]==' ' || buf[idx]=='\t')) idx++; // skip leading blanks and tabs
+    int i = idx;
     while (buf[i] && buf[i]!=delim) i++;
-    s.clear();
-    if (buf[i] == delim) {
-        s.merge(&buf[sz], i-sz);
-        sz = i;
-    }
-    return *this;
+    if (buf[i] != delim) return 0;
+    s.n = 0;
+    s.merge((char*)&buf[idx], i-idx);
+    idx = i;
+    return s.n;
 }
 
-__GPU__ istream&
-istream::operator>>(string &s)
+__GPU__ int
+istream::operator>>(string& s)
 {
-	return *this;
+	return getline(s);
 }
-///
-/// iomanip classes
-///
-__GPU__ sstream& sstream::operator<<(_setbase b) { base  = b.base;  return *this; }
-__GPU__ sstream& sstream::operator<<(_setw    w) { width = w.width; return *this; }
-__GPU__ sstream& sstream::operator<<(_setfill f) { fill  = f.fill;  return *this; }
-__GPU__ sstream& sstream::operator<<(_setprec p) { prec  = p.prec;  return *this; }
 ///
 /// ostream class
 ///
 __GPU__
 ostream::ostream(U8 *buf, int sz) : buf(buf), sz(sz) {}
-
+///
+/// output buffer writer
+///
 __GPU__ void
-ostream::_write(GT gt, U8 *buf, int sz)
+ostream::_write(GT gt, U8 *v, int sz)
 {
 	if (threadIdx.x!=0) return;						// only thread 0 within a block can write
 
 	_LOCK;
 
 	print_node *n = (print_node *)_output_ptr;
-	U8 *d = n->data, *s = buf;
-	for (int i=0; i<sz; i++, *d++=*s++);			// mini memcpy
+	MEMCPY(n->data, v, sz);
 
 	n->id   = blockIdx.x;							// VM.id
 	n->gt   = gt;
@@ -125,7 +120,13 @@ ostream::_write(GT gt, U8 *buf, int sz)
 
 	_UNLOCK;
 }
-
+///
+/// iomanip classes
+///
+__GPU__ ostream& ostream::operator<<(_setbase b) { base  = b.base;  return *this; }
+__GPU__ ostream& ostream::operator<<(_setw    w) { width = w.width; return *this; }
+__GPU__ ostream& ostream::operator<<(_setfill f) { fill  = f.fill;  return *this; }
+__GPU__ ostream& ostream::operator<<(_setprec p) { prec  = p.prec;  return *this; }
 //================================================================
 /*! output a character
 
@@ -134,8 +135,8 @@ ostream::_write(GT gt, U8 *buf, int sz)
 __GPU__ ostream&
 ostream::operator<<(U8 c)
 {
-	char buf[2] = { c, '\0' };
-	_write(GT_STR, (U8*)buf, 2);
+	U8 buf[2] = { c, '\0' };
+	_write(GT_STR, buf, 2);
 	return *this;
 }
 
@@ -159,18 +160,19 @@ ostream::operator<<(GF f)
   @param str	str
 */
 __GPU__ ostream&
-ostream::operator<<(const char *str)
+ostream::operator<<(const char *s)
 {
-	U8 *p = (U8*)str;
-	int i = 0;	while (*p++ != '\0') i++;	// mini strlen
-	_write(GT_STR, (U8*)str, ALIGN4(i+1));
+	int i = STRLENB(s);
+	_write(GT_STR, (U8*)s, i);
 	return *this;
 }
 
 __GPU__ ostream&
 ostream::operator<<(string &s)
 {
-	this << s.c_str();
+	U8 *s1 = (U8*)s.c_str();
+	int i  = STRLENB(s1);
+	_write(GT_STR, s1, i);
 	return *this;
 }
 
