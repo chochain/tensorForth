@@ -55,9 +55,9 @@ __device__ double		d_atof(const char *s);
 #define STRCAT(d,s)     d_strcat((char*)d, (char*)s)
 #define STRCUT(d,n)		d_strcut((char*)d, (int)n)
 
-#define HASH(s)			d_hash((char*)(s))
-#define ATOI(s, base)   d_atoi((char*)(s), base)
-#define ATOF(s)			d_atof((char*)(s))
+#define HASH(s)			    d_hash((char*)(s))
+#define STRTOL(s, p, base)  d_strtol((char*)(s), (char**)p, base)
+#define STRLTOF(s, p)		d_strtof((char*)(s))
 
 #else
 
@@ -72,10 +72,9 @@ __device__ double		d_atof(const char *s);
 #define STRCAT(d,s)     strcat(d, s)
 #define STRCUT(s,sz)	substr(s, sz)
 
-#define HASH(s)			calc_hash(s)			// add implementation
-
-#define ATOI(s)			atol(s)
-#define ATOF(s)			atof(s)
+#define HASH(s)			    calc_hash(s)			// add implementation
+#define STRTOL(s, p, base)	strtol(s, p, base)
+#define STRTOF(s, p)		strtof(s, p)
 
 #endif	// defined(__CUDACC__)
 

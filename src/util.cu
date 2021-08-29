@@ -372,11 +372,11 @@ d_hash(const char *s)
   @param  base	n base.
   @return	result.
 */
-__device__ int
-d_atoi(const char *s, size_t base)
+__device__ long
+d_strtol(const char *s, char** p, size_t base)
 {
-    int ret  = 0;
-    int sign = 0;
+    long ret  = 0;
+    int  sign = 0;
 
 REDO:
     switch(*s) {
@@ -384,7 +384,7 @@ REDO:
     case '+': s++;	        break;
     case ' ': s++;          goto REDO;
     }
-
+    *p = '\0';
     char ch;
     int  n;
     while ((ch = *s++) != '\0') {
@@ -392,8 +392,8 @@ REDO:
         else if ('A' <= ch) 			 n = ch - 'A' + 10;
         else if ('0' <= ch && ch <= '9') n = ch - '0';
         else break;
-
         if (n >= base) break;
+        *p = (char*)s;
 
         ret = ret * base + n;
     }
@@ -401,7 +401,7 @@ REDO:
 }
 
 __device__ double
-d_atof(const char *s)
+d_strtof(const char *s, char** p)
 {
     int sign = 1, esign = 1, state=0;
     int r = 0, e = 0;
@@ -410,14 +410,15 @@ d_atof(const char *s)
     while ((*s<'0' || *s>'9') && *s!='+' && *s!='-') s++;
 
     if (*s=='+' || *s=='-') sign = *s++=='-' ? -1 : 1;
-
+    
+    *p = '\0';
     while (*s!='\0' && *s!='\n' && *s!=' ' && *s!='\t') {
-    	if      (state==0 && *s>='0' && *s<='9') {	// integer
+    	if (state==0 && *s>='0' && *s<='9') {	    // integer
     		v = (*s - '0') + v * 10;
     	}
     	else if (state==1 && *s>='0' && *s<='9') {	// decimal
-    			f = (*s - '0') + f * 10;
-    			r--;
+            f = (*s - '0') + f * 10;
+            r--;
         }
     	else if (state==2) {						// exponential
             if (*s=='-') {
@@ -426,6 +427,7 @@ d_atof(const char *s)
             }
             if (*s>='0' && *s<='9') e = (*s - '0') + e * 10;
         }
+        *p = (char*)s;
         state = (*s=='e' || *s=='E') ? 2 : ((*s=='.') ? 1 : state);
         s++;
     }
