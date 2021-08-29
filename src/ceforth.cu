@@ -6,31 +6,30 @@ __GPU__ int code_fence = 0, code_ip = 0;
 ///
 /// Code class constructors
 ///
-__GPU__ Code::Code(string n, fop fn, bool im) {
-	name = n; token = code_fence++; immd = im; xt = fn;
+template<typename F>
+__GPU__ Code::Code(string n, F fn, bool im) {
+    name = n; token = code_fence++; immd = im; xt = new function<F>(fn);
 }
 __GPU__ Code::Code(string n, bool f)  { name = n; if (f) token = code_fence++; }
 __GPU__ Code::Code(Code *c, DTYPE v)  { name = c->name; xt = c->xt; qf.push(v); }
 __GPU__ Code::Code(Code *c, string s) { name = c->name; xt = c->xt; if (s.size()>0) literal = s; }
 
 __GPU__ Code*  Code::addcode(Code* w) { pf.push(w); return this; }
-__GPU__ string Code::to_s()      {
-	string s(40);
-	s << name << " ";
-//	s << to_string(token);
-	s << (immd ? "*" : "");
+__GPU__ string& Code::to_s()      {
+	string& s = *new string(40);
+	s << name << " " << token << (immd ? "*" : "");
 	return s;
-	}
-__GPU__ string Code::see(int dp) {
-    string buf(128);
-    auto see_pf = [&buf](int dp, string s, vector<Code*> &a) {   	// lambda for indentation and recursive dump
+}
+__GPU__ string& Code::see(int dp) {
+    string& buf = *new string(256);
+    auto see_pf = [&buf](int dp, string s, vector<Code*>& pf) {   	// lambda for indentation and recursive dump
         int i = dp; buf << ENDL;
         while (i--) buf << "  ";
         buf << s;
-        for (int i=0, n=a.size(); i<n; i++) buf << a[i]->see(dp + 1);
+        for (int i=0, n=pf.size(); i<n; i++) buf << pf[i]->see(dp + 1);
     };
-    auto see_qf = [&buf](vector<DTYPE> &a) {
-    	buf << " = "; for (int i=0, n=a.size(); i<n; i++) buf << a[i] << " ";
+    auto see_qf = [&buf](vector<DTYPE> &qf) {
+    	buf << " = "; for (int i=0, n=qf.size(); i<n; i++) buf << qf[i] << " ";
     };
     see_pf(dp, buf << "[ " << to_s(), pf);
     if (pf1.size() > 0) see_pf(dp, buf << "1--", pf1);
@@ -40,17 +39,16 @@ __GPU__ string Code::see(int dp) {
     return buf;
 }
 __GPU__ void Code::nest() {
-    if (xt) xt(this);
-    else {
-    	int tmp = code_ip; code_ip = 0;
-        for (int i=0, n=pf.size(); i<n; i++) { yield(); pf[i]->nest(); code_ip++; } 	/// run inner interpreter
-        code_ip = tmp;
-    }
+    if (xt) { (*xt)(this); return; }
+    
+    int tmp = code_ip; code_ip = 0;
+    for (int i=0, n=pf.size(); i<n; i++) { yield(); pf[i]->nest(); code_ip++; } 	/// run inner interpreter
+    code_ip = tmp;
 }
 ///
 /// ForthVM class constructor
 ///
-__GPU__ ForthVM::ForthVM(sstream &in, sstream &out) : cin(in), cout(out) {}
+__GPU__ ForthVM::ForthVM(istream &in, ostream &out) : cin(in), cout(out) {}
 ///
 /// dictionary and input stream search functions
 ///
@@ -68,8 +66,8 @@ __GPU__ Code *ForthVM::find(string &s) {
     }
     return NULL;
 }
-__GPU__ string ForthVM::next_idiom(char delim) {
-    string s;
+__GPU__ string& ForthVM::next_idiom(char delim) {
+    string& s = *new string();
     delim ? cin.getline(s, delim) : cin >> s;
     return s;
 }
@@ -333,7 +331,6 @@ __GPU__ void ForthVM::init() {
     /// @}
     /// @defgroup Debug ops
     /// @{
-    CODE("bye",   exit(0)),
     CODE("here",  PUSH(dict[-1]->token)),
     CODE("words", words()),
     CODE(".s",    ss_dump()),
@@ -369,7 +366,7 @@ __GPU__ void ForthVM::outer() {
         }
         // try as a number
         char *p;
-        int n = (int)strtol(idiom.c_str(), &p, base);
+        int n = (int)idiom.to_i(&p, base);
         //Serial.println(n, base);
         //printf("%d\n", n);
         if (*p != '\0') {                           /// * not number
@@ -389,9 +386,11 @@ __GPU__ void ForthVM::outer() {
 }
 
 /// main program
-__KERN__ void vm_pool_init(U8 *cin, U8 *cout) {
+__KERN__ void vm_pool_init(U8 *ibuf, U8 *obuf) {
 	if (threadIdx.x!=0 || blockIdx.x!=0) return;
-    string cmd;
+
+	istream cin(ibuf);
+	ostream cout(obuf);
 
     ForthVM *vm = new ForthVM(cin, cout);		// create FVM instance
     vm->init();                                 		// initialize dictionary

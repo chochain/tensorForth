@@ -9,10 +9,9 @@
 #include "cuef.h"
 
 #define ENDL            "\n"
-#define millis()        chrono::duration_cast<chrono::milliseconds>( \
-							chrono::steady_clock::now().time_since_epoch()).count()
-#define delay(ms)       this_thread::sleep_for(chrono::milliseconds(ms))
-#define yield()         this_thread::yield()
+#define millis()        clock()
+#define delay(ms)       { clock_t t = clock()+ms; while (clock()<t); }
+#define yield()
 
 typedef GF    DTYPE;
 #define DVAL  0.0f
@@ -20,19 +19,15 @@ typedef GF    DTYPE;
 namespace cuef {
 
 class Code;                                 /// forward declaration
-#if NO_FUNCTION
 struct fop {                                /// alternate solution for function
-    virtual void operator()(Code*) = 0;
+    __GPU__ virtual void operator()(Code*) = 0;
 };
 template<typename F>
-struct XT : fop {
-    F fp;
-    XT(F &f) : fp(f) {}
-    virtual void operator()(Code *c) { fp(c); }
+struct function : fop {
+    F& fp;
+    __GPU__ function(F& f) : fp(f) {}
+    __GPU__ void operator()(Code *c) { fp(c); }
 };
-#else
-using fop = std::function<void(Code*)>;     /// Forth operator
-#endif // NO_FUNCTION
 
 class Code {
 public:
@@ -40,7 +35,7 @@ public:
     int    token = 0;                       /// dictionary order token
     bool   immd  = false;                   /// immediate flag
     int    stage = 0;                       /// branching stage
-    fop    xt    = NULL;                    /// primitive function
+    fop    *xt   = NULL;                    /// primitive function
     string literal;                         /// string literal
 
     vector<Code*> pf;
@@ -48,19 +43,15 @@ public:
     vector<Code*> pf2;
     vector<DTYPE> qf;
 
-#if NO_FUNCTION
     template<typename F>
     __GPU__ Code(string n, F fn, bool im=false);	  /// primitive
-#else
-    __GPU__ Code(string n, fop fn, bool im=false);    /// primitive
-#endif // NO_FUNCTION
     __GPU__ Code(string n, bool f=false);             /// new colon word or temp
     __GPU__ Code(Code *c,  DTYPE d);                  /// dolit, dovar
     __GPU__ Code(Code *c,  string s=string(""));      /// dotstr
 
     __GPU__ Code     *addcode(Code *w);               /// append colon word
-    __GPU__ string   to_s();                          /// debugging
-    __GPU__ string   see(int dp);
+    __GPU__ string&  to_s();                          /// debugging
+    __GPU__ string&  see(int dp);
     __GPU__ void     nest();                          /// execute word
 };
 ///
@@ -68,8 +59,8 @@ public:
 ///
 class ForthVM {
 public:
-    sstream       &cin;                     /// stream input
-	sstream       &cout;				    /// stream output
+    istream       &cin;                     /// stream input
+	ostream       &cout;				    /// stream output
 
     vector<DTYPE> rs;                       /// return stack
     vector<DTYPE> ss;                       /// parameter stack
@@ -80,7 +71,7 @@ public:
     int   WP      = 0;                      /// instruction and parameter pointers
     DTYPE top     = DVAL;                   /// cached top of stack
 
-    __GPU__ ForthVM(sstream &in, sstream &out);
+    __GPU__ ForthVM(istream &in, ostream &out);
 
     __GPU__ void init();
     __GPU__ void outer();
@@ -91,7 +82,7 @@ private:
     
     __GPU__ Code *find(const char *s);              /// search dictionary reversely
     __GPU__ Code *find(string &s);                  /// search dictionary reversely
-    __GPU__ string next_idiom(char delim=0);
+    __GPU__ string& next_idiom(char delim=0);
     __GPU__ void call(Code *c);                     /// execute a word
     __GPU__ void call(vector<Code*> pf);
     
