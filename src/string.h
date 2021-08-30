@@ -23,46 +23,30 @@ struct string : public vector<char>
 
 	__GPU__ string& operator<<(string& s)    { merge(s.v, s.size());        return *this; }
 	__GPU__ string& operator<<(const char *s){ merge((char*)s, STRLENB(s)); return *this; }
-	__GPU__ string& operator<<(int i) {
-		string s(16);
-		//TODO
-		return *this;
-	}
+	__GPU__ string& operator<<(int i) {	return to_string(i); }
 	__GPU__ string& operator<<(float v)      {
-		string s(16);
+		if (v < 0) { v = -v; push('-'); }
+		int vi = static_cast<int>(v);
+		to_string(vi);
+		push('.');
+		to_string(static_cast<int>(1000000*(v - vi)));
 		return *this;
 	}
 	__GPU__ bool    operator==(string& s)    { return STRCMP(v, s.v)==0; }
 	__GPU__ string& substr(int i)    { string *s = new string(&v[i], n-i); return *s; }
+	__GPU__ string& to_string(int v, int base=10) {
+	    int x = v;
+	    if (x < 0) { x=-x; push('-'); }
+	    do {
+	        int dx = x % 10;
+	        push((char)(dx+'0'));
+	        x /= 10;
+	    } while (x != 0);
+	    return *this;
+	}
 	__GPU__ const char *c_str() { return v; }
-	__GPU__ int  to_i(char **p, int base=10) {
-        char c, *s = v;
-        int  acc=0, neg = 0;
-        *p = '\0';
-        // handle leading blank and +/- sign
-        do { c = *s++; } while (c==' ' || c=='\t');
-        if (c == '-') { neg = 1; c = *s++; }
-        else if (c == '+') c = *s++;
-        // handle hex number
-        if (c == '0' && (*s == 'x' || *s == 'X')) {
-            if (base == 16) {
-                c = s[1];
-                s += 2;
-                base = 16;
-            }
-            else return 0;
-        }
-        // process string
-        while (c=*s++) {
-            if (c>='0' && c<='9') c -= '0';
-            else if ((c&0x5f) >= 'A') c = (c&0x5f) - 'A';
-            else if (c >= base) break;
-            *p  =  s;
-            acc *= base;
-            acc += c;
-        }
-        return neg ? -acc : acc;
- 	}
+	__GPU__ int   to_i(char **p, int base=10) { return (int)STRTOL(v, p, base); }
+    __GPU__ float to_f(char **p)              { return (float)STRTOF(v, p);     }
 };
     
 } // namespace cuef

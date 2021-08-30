@@ -38,15 +38,14 @@ __device__ int     		d_strcmp(const char *s1, const char *s2);
 __device__ char*		d_strchr(const char *s,  const char c);
 __device__ char*		d_strcat(char *d,  const char *s);
 __device__ char*     	d_strcut(const char *s, int n);			// take n utf8 chars from the string
-
+__device__ long			d_strtol(const char *s, char **p, size_t base);
+__device__ double		d_strtof(const char *s, char **p);
 __device__ int 			d_hash(const char *s);
-__device__ int 			d_atoi(const char *s, size_t base);
-__device__ double		d_atof(const char *s);
-
+// memory util
 #define MEMCPY(d,s,n)   memcpy(d,s,n)
 #define MEMSET(d,v,n)   memset(d,v,n)
 #define MEMCMP(d,s,n)   d_memcmp(d,s,n)
-
+// string util
 #define STRLEN(s)		d_strlen((char*)(s), 0)
 #define STRLENB(s)		d_strlen((char*)(s), 1)
 #define STRCPY(d,s)		MEMCPY(d,s,STRLENB(s)+1)
@@ -54,10 +53,10 @@ __device__ double		d_atof(const char *s);
 #define STRCHR(d,c)     d_strchr((char*)d,c)
 #define STRCAT(d,s)     d_strcat((char*)d, (char*)s)
 #define STRCUT(d,n)		d_strcut((char*)d, (int)n)
-
+// conversion
+#define STRTOL(s, p, base)  d_strtol((char*)(s), (char**)(p), base)
+#define STRTOF(s, p)		d_strtof((char*)(s), (char**)(p))
 #define HASH(s)			    d_hash((char*)(s))
-#define STRTOL(s, p, base)  d_strtol((char*)(s), (char**)p, base)
-#define STRLTOF(s, p)		d_strtof((char*)(s))
 
 #else
 

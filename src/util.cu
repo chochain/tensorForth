@@ -357,12 +357,6 @@ d_strcut(const char *s, int n)
 	return p;
 }
 
-__device__ int
-d_hash(const char *s)
-{
-	return _hash(s, STRLENB(s));
-}
-
 //================================================================
 /*!@brief
 
@@ -431,7 +425,14 @@ d_strtof(const char *s, char** p)
         state = (*s=='e' || *s=='E') ? 2 : ((*s=='.') ? 1 : state);
         s++;
     }
-    return sign
-    		* (v + (f==0 ? 0.0f : f * exp10((double)r)))
-    		* (e==0 ? 1.0f : exp10((double)esign * e));
+    return sign *
+    	(v + (f==0 ? 0.0f : f * exp10((double)r))) *
+        (e==0 ? 1.0f : exp10((double)esign * e));
 }
+
+__device__ int
+d_hash(const char *s)
+{
+	return _hash(s, STRLENB(s));
+}
+
