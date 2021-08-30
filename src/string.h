@@ -1,6 +1,6 @@
 #ifndef __EFORTH_SRC_STRING_H
 #define __EFORTH_SRC_STRING_H
-#include "util.h"
+#include "vector.h"
 
 #define STRING_BUF_SIZE  16
 
@@ -10,43 +10,62 @@ namespace cuef {
 ///
 struct string : public vector<char>
 {
+    ///
+    /// constructors
+    ///
 	__GPU__ string(int asz=STRING_BUF_SIZE) {
-		n = 0; if (asz>0) v = (char*)malloc(sz=asz);
+		_n = 0; if (asz>0) _v = (char*)malloc(_sz=ALIGN4(asz));
 	}
 	__GPU__ string(const char *s, int asz=STRING_BUF_SIZE) {
-		n  = STRLENB(s)+1;								// '\0'
-		sz = ALIGN4(asz>n ? asz : n);
-		v  = (char*)malloc(sz);
-		MEMCPY(v, s, n);
+		_n  = STRLENB(s);
+		_sz = ALIGN4(asz>(_n+1) ? asz : (_n+1));
+        _v  = (char*)malloc(_sz);
+        MEMCPY(_v, s, _n+1);
 	}
-	__GPU__ ~string() { if (v) free(v); }
-
-	__GPU__ string& operator<<(string& s)    { merge(s.v, s.size());        return *this; }
-	__GPU__ string& operator<<(const char *s){ merge((char*)s, STRLENB(s)); return *this; }
-	__GPU__ string& operator<<(int i) {	return to_string(i); }
-	__GPU__ string& operator<<(float v)      {
-		if (v < 0) { v = -v; push('-'); }
-		int vi = static_cast<int>(v);
-		to_string(vi);
+    ///
+    /// string export
+    ///
+    __GPU__ string& str()         { _v[_n] = '\0'; return *this; }
+	__GPU__ char    *c_str()      { return str()._v; }
+	__GPU__ string& substr(int i) {
+        string *s = new string(&_v[i], _n-i);
+        return *s;
+    }
+    ///
+    /// compare
+    ///
+	__GPU__ bool operator==(const char *s2) { return STRCMP(_v, s2)==0; }
+	__GPU__ friend bool operator==(const string& s1, const string& s2) {
+        return STRCMP(s1._v, s2._v)==0;
+    }
+    ///
+    /// assignment
+    ///
+	__GPU__ string& operator<<(const char *s) { merge((char*)s, STRLENB(s)); return str(); }
+	__GPU__ string& operator<<(string& s)     { merge(s._v, s.size());       return str(); }
+	__GPU__ string& operator<<(int i) {
+        char s[20];
+        ITOA(i, s, 10);
+        merge(s, STRLENB(s));
+        return str(); 
+    }
+	__GPU__ string& operator<<(float f) {
+        char s[20];
+		if (f < 0) { f = -f; push('-'); }
+		int i = static_cast<int>(f);
+        int d = static_cast<int>(round(1000000*(f - i)));
+		ITOA(i, s, 10);
+        merge(s, STRLENB(s));
 		push('.');
-		to_string(static_cast<int>(1000000*(v - vi)));
-		return *this;
+        ITOA(d, s, 10);
+        merge(s, STRLENB(s));
+        return str();
 	}
-	__GPU__ bool    operator==(string& s)    { return STRCMP(v, s.v)==0; }
-	__GPU__ string& substr(int i)    { string *s = new string(&v[i], n-i); return *s; }
-	__GPU__ string& to_string(int v, int base=10) {
-	    int x = v;
-	    if (x < 0) { x=-x; push('-'); }
-	    do {
-	        int dx = x % 10;
-	        push((char)(dx+'0'));
-	        x /= 10;
-	    } while (x != 0);
-	    return *this;
-	}
-	__GPU__ const char *c_str() { return v; }
-	__GPU__ int   to_i(char **p, int base=10) { return (int)STRTOL(v, p, base); }
-    __GPU__ float to_f(char **p)              { return (float)STRTOF(v, p);     }
+    ///
+    /// conversion
+    ///
+	__GPU__ int   to_i(char **p, int base=10) { return (int)STRTOL(_v, p, base); }
+    __GPU__ float to_f(char **p)              { return (float)STRTOF(_v, p);     }
 };
     
 } // namespace cuef
