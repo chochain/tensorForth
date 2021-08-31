@@ -13,31 +13,6 @@
 #define CUEF_SRC_ISTREAM_H_
 #include "string.h"
 
-typedef uint32_t  U32;
-typedef uint8_t   U8;
-
-//================================================================
-/*!@brief
-  define the value type.
-*/
-typedef enum {
-    GT_EMPTY = 0,
-    GT_INT,
-    GT_HEX,
-    GT_FLOAT,
-    GT_STR,
-} GT;
-
-//================================================================
-/*! printf internal version data container.
-*/
-typedef struct {
-	U32	id   : 12;
-    GT  gt 	 : 4;
-    U32	size : 16;
-    U8	data[];          								// different from *data
-} print_node;
-
 namespace cuef {
 ///
 /// istream class
@@ -45,8 +20,8 @@ namespace cuef {
 class istream
 {
 	char *_buf = NULL;  /// input buffer
-    int  _max  = 0;     /// max length of input buffer
 	int  _idx  = 0;     /// current buffer index
+    int  _max  = 0;     /// max length of input buffer
     int  _sz   = 0;     /// size processed
     
     __GPU__ int _tok(char delim) {
@@ -58,7 +33,7 @@ class istream
         return i;
     }
 public:
-    __GPU__  istream(char *buf) : _buf(buf) {}
+    __GPU__  istream(char *buf=NULL) : _buf(buf) {}
     ///
     /// intialize
     ///
