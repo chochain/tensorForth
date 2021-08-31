@@ -13,9 +13,6 @@
 #define CUEF_SRC_OSTREAM_H_
 #include "string.h"
 
-typedef uint32_t  U32;
-typedef uint8_t   U8;
-
 //================================================================
 /*!@brief
   define the value type.
@@ -50,22 +47,42 @@ __GPU__ __INLINE__ _setbase setbase(int b)  { return _setbase(b); }
 __GPU__ __INLINE__ _setw    setw(int w)     { return _setw(w);    }
 __GPU__ __INLINE__ _setfill setfill(char f) { return _setfill(f); }
 __GPU__ __INLINE__ _setprec setprec(int p)  { return _setprec(p); }
+
+#define _LOCK		{ MUTEX_LOCK(_mutex_ss); }
+#define _UNLOCK		{ MUTEX_FREE(_mutex_ss); }
+
+__GPU__ volatile int _mutex_ss;
 ///
 /// ostream class
 ///
 class ostream
 {
 	char *_buf = NULL;
+	char *_ptr = 0;
 	int  _sz   = 0;
 	int  _base = 10;
 	int  _width= 6;
 	char _fill = ' ';
 	int  _prec = 6;
 
-    __GPU__  void _write(GT gt, U8 *v, int sz);
+    __GPU__  void _write(GT gt, U8 *v, int sz) {
+        if (threadIdx.x!=0) return;						// only thread 0 within a block can write
+
+        _LOCK;
+        print_node *n = (print_node *)_ptr;
+        MEMCPY(n->data, v, sz);
+
+        n->id   = blockIdx.x;							// VM.id
+        n->gt   = gt;
+        n->size = ALIGN4(sz);							// 32-bit alignment
+
+        _ptr  = (char*)U8PADD(n->data, n->size);		// advance pointer to next print block
+        *_ptr = (U8)GT_EMPTY;
+        _UNLOCK;
+    }        
     
 public:
-    __GPU__  ostream(char *buf, int sz=CUEF_OBUF_SIZE) : _buf(buf), _sz(sz) {}
+    __GPU__  ostream(char *buf, int sz=CUEF_OBUF_SIZE) : _buf(buf), _ptr(buf), _sz(sz) {}
     ///
     /// iomanip control
     ///
