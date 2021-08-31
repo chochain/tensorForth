@@ -5,8 +5,6 @@
 ///
 #define  CATCH_CONFIG_MAIN
 #include "../../../catch2/catch.hpp"
-
-#define __GPU__
 #include "../src/string.h"
 
 using namespace cuef;

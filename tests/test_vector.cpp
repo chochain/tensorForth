@@ -6,8 +6,6 @@
 #include <sstream>
 #define  CATCH_CONFIG_MAIN
 #include "../../../catch2/catch.hpp"
-
-#define __GPU__
 #include "../src/vector.h"
 
 using namespace cuef;

@@ -5,16 +5,7 @@
 ///
 #define  CATCH_CONFIG_MAIN
 #include "../../../catch2/catch.hpp"
-
-#define CUEF_OBUF_SIZE 1024
-#define __GPU__
-#define __KERN__
-#define __HOST__
-#define __INLINE__
-typedef int   GI;
-typedef float GF;
-
-#include "../src/sstream.h"
+#include "../src/istream.h"
 
 using namespace cuef;
 
