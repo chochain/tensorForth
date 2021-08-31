@@ -34,7 +34,11 @@ __host__ U32
 hbin_to_u32(const void *bin)
 {
     U32 x = *((U32*)bin);
-    return ((x & 0xff) << 24) | ((x & 0xff00) << 8) | ((x >> 8) & 0xff00) | ((x >> 24) & 0xff);
+    return
+        ((x & 0xff)   << 24) |
+        ((x & 0xff00) << 8)  |
+        ((x >> 8)  & 0xff00) |
+        ((x >> 24) & 0x00ff);
 }
 
 //================================================================
@@ -50,7 +54,6 @@ hbin_to_u16(const void *bin)
     U16 x = *((U16 *)bin);
     return ((x & 0xff) << 8) | ((x >> 8) & 0xff);
 }
-
 
 __device__ int _warp_h[32];			// each thread takes a slot
 
@@ -355,6 +358,20 @@ d_strcut(const char *s, int n)
 		_next_utf8(&p);
 	}
 	return p;
+}
+
+__device__ char*
+d_itoa(int v, char *s, int base) {
+    char *p = s;
+    int   x = v;
+    if (x < 0) { x=-x; *p++ = '-'; }
+    do {
+        int dx = x % base;
+        *p++ = (char)(base==10 ? dx+'0' : (dx&5f)+'A');
+        x /= base;
+    } while (x != 0);
+    *p = '\0';
+    return s;
 }
 
 //================================================================
