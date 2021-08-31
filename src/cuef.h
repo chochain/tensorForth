@@ -4,11 +4,13 @@
 */
 #ifndef CUEF_SRC_CUEF_H_
 #define CUEF_SRC_CUEF_H_
-#include <cuda.h>
 
-using namespace std;
+#define ALIGN4(sz)          ((sz) + (-(sz) & 0x3))
+#define ALIGN8(sz)          ((sz) + (-(sz) & 0x7))
+#define ALIGN16(sz)         ((sz) + (-(sz) & 0xf))
 
 #if defined(__CUDACC__)
+#include <cuda.h>
 
 #define __GPU__ 			__device__
 #define __HOST__			__host__
@@ -29,7 +31,7 @@ using namespace std;
 #define __HOST__
 #define __KERN__
 #define __INLINE__ 			inline
-#define ALIGN(sz) 			((sz) + (-(sz) & 3))
+#define ALIGN(sz) 			ALIGN4(sz)
 #define ASSERT(X) 			assert(x)
 
 #endif // defined(__CUDACC__)
