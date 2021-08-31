@@ -60,15 +60,23 @@ __GPU__ Code *ForthVM::find(const char *name) {
 	string s(name);
 	return find(s);
 }
+///
+/// find word through vocabularies
+/// should change this into parallel
+///
 __GPU__ Code *ForthVM::find(string &s) {
-    for (int i = dict.size() - 1; i >= 0; --i) {
-        if (s == dict[i]->name) return dict[i];
+	vector<Code*> voc[] = { dict, prim }, *d = voc;
+	for (int j=0; j<2; j++, d++) {
+		for (int i = d->size() - 1; i >= 0; --i) {
+			if (s == (*d)[i]->name) return (*d)[i];
+		}
     }
     return NULL;
 }
 __GPU__ string& ForthVM::next_idiom(char delim) {
     string& s = *new string();
-    delim ? cin.getline(s, delim) : cin >> s;
+    if (delim) cin.getline(s, delim);
+    else cin >> s;
     return s;
 }
 __GPU__ void ForthVM::dot_r(int n, DTYPE v) {
@@ -80,10 +88,13 @@ __GPU__ void ForthVM::ss_dump() {
     cout << top << "> ok" << ENDL;
 }
 __GPU__ void ForthVM::words() {
-    for (int i=0, n=dict.size(); i<n; i++) {
-        if ((i % 10) == 0) { cout << ENDL; yield(); }
-        cout << dict[i]->to_s() << " ";
-    }
+	vector<Code*> voc[] = { dict, prim }, *d = voc;
+	for (int j=0; j<2; j++, d++) {
+		for (int i=0, n=d->size(); i<n; i++) {
+			if ((i % 10) == 0) { cout << ENDL; yield(); }
+			cout << (*d)[i]->to_s() << " ";
+		}
+	}
 }
 __GPU__ void ForthVM::call(Code *w) {
     int tmp = WP;                                       /// * setup call frame
@@ -345,7 +356,11 @@ __GPU__ void ForthVM::init() {
     CODE("boot", dict.clear(code_fence=find("boot")->token + 1))
     /// @}
     };
-    dict.v = (Code**)&prim;           				/// * populate dictionary
+	///
+	/// populate primitive dictionary (in constant memory)
+	///
+    this->prim._v = (Code**)&prim;
+    this->prim._n = this->prim._sz = code_fence;;
 }
 ///
 /// ForthVM Outer interpreter
@@ -370,9 +385,7 @@ __GPU__ void ForthVM::outer() {
         //Serial.println(n, base);
         //printf("%d\n", n);
         if (*p != '\0') {                           /// * not number
-            cout << idiom;
-            cout << "? ";
-            cout << ENDL;          ///> display error prompt
+            cout << idiom << "? " << ENDL;          /// * display error prompt
             compile = false;                        ///> reset to interpreter mode
             cin.getline(idiom, '\n');               ///> skip the entire line
             continue;
@@ -383,19 +396,6 @@ __GPU__ void ForthVM::outer() {
         else PUSH(n);                           	///> or, add value onto data stack
     }
     if (!compile) ss_dump();  /// * dump stack and display ok prompt
-}
-
-/// main program
-__KERN__ void vm_pool_init(U8 *ibuf, U8 *obuf) {
-	if (threadIdx.x!=0 || blockIdx.x!=0) return;
-
-	istream cin(ibuf);
-	ostream cout(obuf);
-
-    ForthVM *vm = new ForthVM(cin, cout);		// create FVM instance
-    vm->init();                                 		// initialize dictionary
-
-    return;
 }
 
 } // namespace cuef

@@ -1,12 +1,8 @@
 #ifndef __EFORTH_SRC_CEFORTH_H
 #define __EFORTH_SRC_CEFORTH_H
+#include "cuef.h"
 #include "vector.h"         // cueForth vector
 #include "sstream.h"		// cueForth sstream
-#include <functional>       // function
-#include <exception>
-#include <chrono>
-#include <thread>
-#include "cuef.h"
 
 #define ENDL            "\n"
 #define millis()        clock()
@@ -64,7 +60,8 @@ public:
 
     vector<DTYPE> rs;                       /// return stack
     vector<DTYPE> ss;                       /// parameter stack
-    vector<Code*> dict;                     /// dictionary
+    vector<Code*> prim;                     /// primitives
+    vector<Code*> dict;						/// dictionary
 
     bool  compile = false;                  /// compiling flag
     int   base    = 10;                     /// numeric radix
@@ -92,7 +89,5 @@ private:
 };
 
 } // namespace cuef
-
-extern __KERN__ void vm_pool_init(U8 *cin, U8 *cout);
 
 #endif // __EFORTH_SRC_CEFORTH_H
