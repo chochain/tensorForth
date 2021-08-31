@@ -367,7 +367,7 @@ d_itoa(int v, char *s, int base) {
     if (x < 0) { x=-x; *p++ = '-'; }
     do {
         int dx = x % base;
-        *p++ = (char)(base==10 ? dx+'0' : (dx&5f)+'A');
+        *p++ = (char)(base==10 ? dx+'0' : (dx&0x5f)+'A');
         x /= base;
     } while (x != 0);
     *p = '\0';

@@ -10,10 +10,7 @@
 */
 #ifndef CUEF_SRC_UTIL_H_
 #define CUEF_SRC_UTIL_H_
-
-#define ALIGN4(sz)          ((sz) + (-(sz) & 0x3))
-#define ALIGN8(sz)          ((sz) + (-(sz) & 0x7))
-#define ALIGN16(sz)         ((sz) + (-(sz) & 0xf))
+#include "cuef.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -24,26 +21,26 @@ unsigned int  hbin_to_u16(const void *bin);
 
 #if defined(__CUDACC__)
 
-__device__ unsigned long bin_to_u32(const void *bin);
-__device__ unsigned int  bin_to_u16(const void *bin);
+__GPU__ unsigned long bin_to_u32(const void *bin);
+__GPU__ unsigned int  bin_to_u16(const void *bin);
 
-__device__ void         u16_to_bin(unsigned int s, const void *bin);
-__device__ void         u32_to_bin(unsigned long l, const void *bin);
+__GPU__ void         u16_to_bin(unsigned int s, const void *bin);
+__GPU__ void         u32_to_bin(unsigned long l, const void *bin);
 
-__device__ void         *d_memcpy(void *d, const void *s, size_t n);
-__device__ void         *d_memset(void *d, int c, size_t n);
-__device__ int          d_memcmp(const void *s1, const void *s2, size_t n);
+__GPU__ void         *d_memcpy(void *d, const void *s, size_t n);
+__GPU__ void         *d_memset(void *d, int c, size_t n);
+__GPU__ int          d_memcmp(const void *s1, const void *s2, size_t n);
 
-__device__ int          d_strlen(const char *s, int raw);
-__device__ int          d_strcmp(const char *s1, const char *s2);
-__device__ char*        d_strchr(const char *s,  const char c);
-__device__ char*        d_strcat(char *d,  const char *s);
-__device__ char*        d_strcut(const char *s, int n);         // take n utf8 chars from the string
+__GPU__ int          d_strlen(const char *s, int raw);
+__GPU__ int          d_strcmp(const char *s1, const char *s2);
+__GPU__ char*        d_strchr(const char *s,  const char c);
+__GPU__ char*        d_strcat(char *d,  const char *s);
+__GPU__ char*        d_strcut(const char *s, int n);         // take n utf8 chars from the string
     
-__device__ char*        d_itoa(int v, const char *s, int base=10);
-__device__ long         d_strtol(const char *s, char **p, int base=10);
-__device__ double       d_strtof(const char *s, char **p);
-__device__ int          d_hash(const char *s);
+__GPU__ char*        d_itoa(int v, const char *s, int base=10);
+__GPU__ long         d_strtol(const char *s, char **p, int base=10);
+__GPU__ double       d_strtof(const char *s, char **p);
+__GPU__ int          d_hash(const char *s);
     
 // memory util
 #define MEMCPY(d,s,n)   memcpy(d,s,n)
