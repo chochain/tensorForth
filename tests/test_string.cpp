@@ -26,7 +26,7 @@ TEST_CASE("string class")
         "jkl",
         "mnopqr"
     };
-    int nn = sizeof(aa)/sizeof(int);
+    int nn = sizeof(aa)/sizeof(char*);
     const char *rst[nn] = {
         "abc",
         "abcdefghi",
