@@ -4,16 +4,9 @@
 */
 #ifndef CUEF_SRC_CUEF_H_
 #define CUEF_SRC_CUEF_H_
-//#include <cstdio>
-//#include <cstdint>
 #include <cuda.h>
-#include <sstream>
-#include "cuef_config.h"
 
 using namespace std;
-
-#define PRINTF				printf
-#define NA(msg)				({ PRINTF("method not supported: %s\n", msg); })
 
 #if defined(__CUDACC__)
 
@@ -33,8 +26,8 @@ using namespace std;
 #else  // defined(__CUDACC__)
 
 #define __GPU__
-#define __KERN__
 #define __HOST__
+#define __KERN__
 #define __INLINE__ 			inline
 #define ALIGN(sz) 			((sz) + (-(sz) & 3))
 #define ASSERT(X) 			assert(x)
@@ -66,21 +59,4 @@ typedef S32			GP;						// offset, i.e. object pointer
 #define U8PADD(p, n)	((U8*)(p) + (n))	// add
 #define U8PSUB(p, n)	((U8*)(p) - (n))	// sub
 
-class CueForth {
-	istream &cin;
-	ostream &cout;
-
-	U8 *heap;
-	U8 *ibuf;
-	U8 *obuf;
-
-    __HOST__ void* _malloc(int sz, int type);
-    __HOST__ void  _free(void *mem);
-
-public:
-    CueForth(istream &in, ostream &out);
-    __HOST__ int   setup(int step=0, int trace=0);
-    __HOST__ int   run();
-    __HOST__ void  teardown(int sig=0);
-};
 #endif // CUEF_SRC_CUEF_H_
