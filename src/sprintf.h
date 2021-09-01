@@ -15,7 +15,7 @@
 #define CUEF_SRC_SPRINTF_H_
 #include <cstdio>
 #include <cstdarg>
-#include "cuef.h"
+#include "util.h"
 
 //================================================================
 /*! printf internal version data container.

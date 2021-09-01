@@ -10,9 +10,8 @@
 
   </pre>
 */
-#include "cuef.h"
-#include "sprintf.h"
 #include "util.h"
+#include "sprintf.h"
 
 //================================================================
 /*! initialize data container.
@@ -304,4 +303,3 @@ SPrinter::print(const U8 *fstr, ...)
     va_end(ap);
     _done();
 }
-
