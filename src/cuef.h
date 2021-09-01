@@ -20,6 +20,8 @@
 #define MUTEX_LOCK(p)  		while (atomicCAS((int *)&p, 0, 1)!=0)
 #define MUTEX_FREE(p)  		atomicExch((int *)&p, 0)
 
+#define PRINTF				printf
+#define NA(msg)				({ PRINTF("method not supported: %s\n", msg); })
 #define ASSERT(X) \
 	if (!(X)) PRINTF("ASSERT tid %d: line %d in %s\n", threadIdx.x, __LINE__, __FILE__);
 #define GPU_SYNC()			{ cudaDeviceSynchronize(); }
@@ -32,6 +34,8 @@
 #define __KERN__
 #define __INLINE__ 			inline
 #define ALIGN(sz) 			ALIGN4(sz)
+#define PRINTF				printf
+#define NA(msg)				({ PRINTF("method not supported: %s\n", msg); })
 #define ASSERT(X) 			assert(x)
 
 #endif // defined(__CUDACC__)

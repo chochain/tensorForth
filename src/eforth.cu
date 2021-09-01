@@ -368,7 +368,6 @@ __GPU__ void ForthVM::init() {
 __GPU__ void ForthVM::outer() {
     string idiom;
     while (cin >> idiom) {
-        //Serial.print(idiom.c_str()); Serial.print("=>");
     	//printf("%s=>", idiom.c_str());
         Code *w = find(idiom);                      /// * search through dictionary
         if (w) {                                    /// * word found?
@@ -381,8 +380,7 @@ __GPU__ void ForthVM::outer() {
         }
         // try as a number
         char *p;
-        int n = (int)idiom.to_i(&p, base);
-        //Serial.println(n, base);
+        int n = idiom.to_i(&p, base);
         //printf("%d\n", n);
         if (*p != '\0') {                           /// * not number
             cout << idiom << "? " << ENDL;          /// * display error prompt

@@ -10,22 +10,21 @@
 
 using namespace std;
 
-#define PRINTF				printf
-#define NA(msg)				({ PRINTF("method not supported: %s\n", msg); })
-
 class CueForth {
 	istream &cin;
 	ostream &cout;
 
-	U8 *heap;
-	U8 *ibuf;
-	U8 *obuf;
+	U8 *_heap;
+	U8 *_ibuf;
+	U8 *_obuf;
 
     __HOST__ void* _malloc(int sz, int type);
     __HOST__ void  _free(void *mem);
 
 public:
     CueForth(istream &in, ostream &out);
+    ~CueForth();
+
     __HOST__ int   setup(int step=0, int trace=0);
     __HOST__ int   run();
     __HOST__ void  teardown(int sig=0);
