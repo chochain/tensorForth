@@ -37,7 +37,7 @@ __GPU__ char*        d_strchr(const char *s,  const char c);
 __GPU__ char*        d_strcat(char *d,  const char *s);
 __GPU__ char*        d_strcut(const char *s, int n);         // take n utf8 chars from the string
     
-__GPU__ char*        d_itoa(int v, const char *s, int base=10);
+__GPU__ char*        d_itoa(int v, char *s, int base=10);
 __GPU__ long         d_strtol(const char *s, char **p, int base=10);
 __GPU__ double       d_strtof(const char *s, char **p);
 __GPU__ int          d_hash(const char *s);
@@ -56,8 +56,8 @@ __GPU__ int          d_hash(const char *s);
 #define STRCUT(d,n)     d_strcut((char*)d, (int)n)
 // conversion
 #define ITOA(i,s,b)     d_itoa((int)(i), (char*)(s), b)
-#define STRTOL(s,p,b)   d_strtol((char*)(s), (char**)(p), b)
-#define STRTOF(s,p)     d_strtof((char*)(s), (char**)(p))
+#define STRTOL(s,p,b)   d_strtol((const char*)(s), (char**)(p), (int)b)
+#define STRTOF(s,p)     d_strtof((const char*)(s), (char**)(p))
 #define HASH(s)         d_hash((char*)(s))
 
 #else

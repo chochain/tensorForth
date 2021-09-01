@@ -20,9 +20,6 @@
 namespace cg = cooperative_groups;
 #endif // CUEF_ENABLE_CDP
 
-typedef unsigned char U8;
-typedef unsigned int  U16;
-typedef unsigned long U32;
 typedef int           WORD;
 #define WSIZE   	  (sizeof(WORD))
 #define	WMASK		  (WSIZE-1)
@@ -30,7 +27,7 @@ typedef int           WORD;
 #define DYNA_HASH_THRESHOLD     128
 #define HASH_K 					1000003
 
-__host__ U32
+__HOST__ unsigned long
 hbin_to_u32(const void *bin)
 {
     U32 x = *((U32*)bin);
@@ -48,16 +45,16 @@ hbin_to_u32(const void *bin)
   @param  s	Pointer of memory.
   @return	16bit unsigned value.
 */
-__host__ U16
+__HOST__ unsigned int
 hbin_to_u16(const void *bin)
 {
     U16 x = *((U16 *)bin);
     return ((x & 0xff) << 8) | ((x >> 8) & 0xff);
 }
 
-__device__ int _warp_h[32];			// each thread takes a slot
+__GPU__ int _warp_h[32];			// each thread takes a slot
 
-__device__ __inline__ void
+__GPU__ __inline__ void
 _next_utf8(char **sp)
 {
 	char c = **sp;
@@ -71,7 +68,7 @@ _next_utf8(char **sp)
 	*sp+=b;
 }
 
-__device__ int
+__GPU__ int
 _loop_hash(const char *str, int bsz)
 {
 	// a simple polynomial hashing algorithm
@@ -89,7 +86,7 @@ _loop_hash(const char *str, int bsz)
   @param  str	Target string.
   @return int	Symbol value.
 */
-__global__ void
+__KERN__ void
 _dyna_hash(int *hash, const char *str, int sz)
 {
 	int x = threadIdx.x;									// row-major
@@ -102,7 +99,7 @@ _dyna_hash(int *hash, const char *str, int sz)
 	if (x==0) *hash += h;
 }
 
-__global__ void
+__KERN__ void
 _dyna_hash2d(int *hash, const char *str, int bsz)
 {
 	auto blk = cg::this_thread_block();						// C++11
@@ -125,7 +122,7 @@ _dyna_hash2d(int *hash, const char *str, int bsz)
 }
 #endif // CUEF_ENABLE_CDP
 
-__device__ int
+__GPU__ int
 _hash(const char *str, int bsz)
 {
 	if (bsz < DYNA_HASH_THRESHOLD) return _loop_hash(str, bsz);
@@ -161,7 +158,7 @@ _hash(const char *str, int bsz)
   @param  s	Pointer of memory.
   @return	32bit unsigned value.
 */
-__device__ U32
+__GPU__ unsigned long
 bin_to_u32(const void *s)
 {
 #if CUEF_32BIT_ALIGN_REQUIRED
@@ -180,7 +177,7 @@ bin_to_u32(const void *s)
   @param  s	Pointer of memory.
   @return	16bit unsigned value.
 */
-__device__ U16
+__GPU__ unsigned int
 bin_to_u16(const void *s)
 {
 #if CUEF_32BIT_ALIGN_REQUIRED
@@ -199,7 +196,7 @@ bin_to_u16(const void *s)
   @param  bin Pointer of memory.
   @return sizeof(U16).
 */
-__device__ void
+__GPU__ void
 u16_to_bin(U16 s, char *bin)
 {
     *bin++ = (s >> 8) & 0xff;
@@ -213,7 +210,7 @@ u16_to_bin(U16 s, char *bin)
   @param  bin Pointer of memory.
   @return sizeof(U32).
 */
-__device__ void
+__GPU__ void
 u32_to_bin(U32 l, char *bin)
 {
     *bin++ = (l >> 24) & 0xff;
@@ -226,17 +223,17 @@ u32_to_bin(U32 l, char *bin)
  *
  *   TODO: alignment of ss is still
  */
-__device__ void*
+__GPU__ void*
 d_memcpy(void *d, const void *s, size_t n)
 {
 	if (n==0 || d==s) return d;
 
 	char *ds = (char*)d, *ss = (char*)s;
-	size_t t = (uintptr_t)ss;								// take low bits
+	size_t t = (U32A)ss;									// take low bits
 
-	if ((U32)ds < (U32)ss) {								// copy forward
-		if ((t | (uintptr_t)ds) & WMASK) {
-			int i = (((t ^ (uintptr_t)ds) & WMASK) || (n < WSIZE))		// align operands
+	if ((U32A)ds < (U32A)ss) {								// copy forward
+		if ((t | (U32A)ds) & WMASK) {
+			int i = (((t ^ (U32A)ds) & WMASK) || (n < WSIZE))		// align operands
 				? n
 				: WSIZE - (t & WMASK);
 			n -= i;
@@ -248,8 +245,8 @@ d_memcpy(void *d, const void *s, size_t n)
 	else {													// copy backward
 		ss += n;
 		ds += n;
-		if ((t | (uintptr_t)ds) & WMASK) {
-			int i = (((t ^ (uintptr_t)ds) & WMASK) || (n <= WSIZE))
+		if ((t | (U32A)ds) & WMASK) {
+			int i = (((t ^ (U32A)ds) & WMASK) || (n <= WSIZE))
 				? n
 				: t & WMASK;
 			n -= i;
@@ -261,7 +258,7 @@ d_memcpy(void *d, const void *s, size_t n)
 	return d;
 }
 
-__device__ void*
+__GPU__ void*
 d_memset(void *d, int c, size_t n)
 {
     char *s = (char*)d;
@@ -284,7 +281,7 @@ d_memset(void *d, int c, size_t n)
      * already took care of any head/tail that get cut off
      * by the alignment. */
 
-    size_t k = -(uintptr_t)s & 3;
+    size_t k = -(U32A)s & 3;
     s += k;
     n -= k;
     n &= -4;			// change of sign???
@@ -300,7 +297,7 @@ d_memset(void *d, int c, size_t n)
     return d;
 }
 
-__device__ int
+__GPU__ int
 d_memcmp(const void *s1, const void *s2, size_t n)
 {
 	char *p1=(char*)s1, *p2=(char*)s2;
@@ -310,7 +307,7 @@ d_memcmp(const void *s1, const void *s2, size_t n)
 	return 0;
 }
 
-__device__ int
+__GPU__ int
 d_strlen(const char *str, int raw)
 {
 	int  n  = 0;
@@ -321,19 +318,19 @@ d_strlen(const char *str, int raw)
 	return (s && raw) ? s - str : n;
 }
 
-__device__ void
+__GPU__ void
 d_strcpy(char *d, const char *s)
 {
     d_memcpy(d, s, STRLENB(s)+1);
 }
 
-__device__ int
+__GPU__ int
 d_strcmp(const char *s1, const char *s2)
 {
     return d_memcmp(s1, s2, STRLENB(s1));
 }
 
-__device__ char*
+__GPU__ char*
 d_strchr(const char *s, const char c)
 {
 	char *p = (char*)s;
@@ -343,14 +340,14 @@ d_strchr(const char *s, const char c)
     return NULL;
 }
 
-__device__ char*
+__GPU__ char*
 d_strcat(char *d, const char *s)
 {
 	d_memcpy(d+STRLENB(d), s, STRLENB(s)+1);
     return d;
 }
 
-__device__ char*
+__GPU__ char*
 d_strcut(const char *s, int n)
 {
 	char *p = (char*)s;
@@ -360,7 +357,7 @@ d_strcut(const char *s, int n)
 	return p;
 }
 
-__device__ char*
+__GPU__ char*
 d_itoa(int v, char *s, int base) {
     char *p = s;
     int   x = v;
@@ -383,8 +380,8 @@ d_itoa(int v, char *s, int base) {
   @param  base	n base.
   @return	result.
 */
-__device__ long
-d_strtol(const char *s, char** p, size_t base)
+__GPU__ long
+d_strtol(const char *s, char** p, int base)
 {
     long ret  = 0;
     int  sign = 0;
@@ -411,7 +408,7 @@ REDO:
     return (sign) ? -ret : ret;
 }
 
-__device__ double
+__GPU__ double
 d_strtof(const char *s, char** p)
 {
     int sign = 1, esign = 1, state=0;
@@ -447,9 +444,8 @@ d_strtof(const char *s, char** p)
         (e==0 ? 1.0f : exp10((double)esign * e));
 }
 
-__device__ int
+__GPU__ int
 d_hash(const char *s)
 {
 	return _hash(s, STRLENB(s));
 }
-
