@@ -11,6 +11,7 @@
 */
 #ifndef CUEF_SRC_OSTREAM_H_
 #define CUEF_SRC_OSTREAM_H_
+#include "cuef_config.h"
 #include "string.h"
 
 //================================================================
@@ -51,7 +52,8 @@ __GPU__ __INLINE__ _setprec setprec(int p)  { return _setprec(p); }
 #define _LOCK		{ MUTEX_LOCK(_mutex_ss); }
 #define _UNLOCK		{ MUTEX_FREE(_mutex_ss); }
 
-__GPU__ volatile int _mutex_ss;
+__GPU__ extern volatile int _mutex_ss;
+
 ///
 /// ostream class
 ///
