@@ -32,6 +32,7 @@ class istream
         _sz = (delim!=' ' && x) ? i=0 : i - _idx + x;
         return i;
     }
+
 public:
     __GPU__  istream(char *buf=NULL) : _buf(buf) {}
     ///
