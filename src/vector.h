@@ -2,6 +2,10 @@
 #define __EFORTH_SRC_VECTOR_H
 #include "util.h"
 
+#define ALIGN4(sz)          ((sz) + (-(sz) & 0x3))
+#define ALIGN8(sz)          ((sz) + (-(sz) & 0x7))
+#define ALIGN16(sz)         ((sz) + (-(sz) & 0xf))
+
 namespace cuef {
 ///
 /// vector template class
@@ -12,6 +16,8 @@ struct vector {
     int _n  =0;         /// number of elements stored
     int _sz =0;         /// allocated size
 
+    __GPU__ vector() {}
+    __GPU__ vector(T a[], int len) { merge((T*)a, len); }
     __GPU__ ~vector() { if (_v) free(_v); }
     //
     // operator overloading
