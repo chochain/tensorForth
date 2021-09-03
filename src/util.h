@@ -20,8 +20,9 @@ uint32_t hbin_to_u32(const void *bin);
 uint16_t hbin_to_u16(const void *bin);
 
 #if defined(__CUDACC__)
+#ifndef __GPU__
 #define __GPU__      __device__
-
+#endif
 __GPU__ uint32_t     bin_to_u32(const void *bin);
 __GPU__ uint16_t     bin_to_u16(const void *bin);
 
@@ -38,7 +39,7 @@ __GPU__ char*        d_strchr(const char *s,  const char c);
 __GPU__ char*        d_strcat(char *d,  const char *s);
 __GPU__ char*        d_strcut(const char *s, int n);         // take n utf8 chars from the string
     
-__GPU__ char*        d_itoa(int v, char *s, int base=10);
+__GPU__ int          d_itoa(int v, char *s, int base=10);
 __GPU__ long         d_strtol(const char *s, char **p, int base=10);
 __GPU__ double       d_strtof(const char *s, char **p);
 __GPU__ int          d_hash(const char *s);

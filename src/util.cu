@@ -11,8 +11,6 @@
 
   </pre>
 */
-#include <stdint.h>
-#include "cuef_config.h"
 #include "util.h"
 
 #if CUEF_ENABLE_CDP
@@ -52,9 +50,7 @@ hbin_to_u16(const void *bin)
     return ((x & 0xff) << 8) | ((x >> 8) & 0xff);
 }
 
-__GPU__ int _warp_h[32];			// each thread takes a slot
-
-__GPU__ __inline__ void
+__GPU__ void
 _next_utf8(char **sp)
 {
 	char c = **sp;
@@ -121,7 +117,7 @@ _dyna_hash2d(int *hash, const char *str, int bsz)
 	*hash = h[0];
 }
 #endif // CUEF_ENABLE_CDP
-
+__GPU__ int _warp_h[32];			// each thread takes a slot
 __GPU__ int
 _hash(const char *str, int bsz)
 {
@@ -357,18 +353,18 @@ d_strcut(const char *s, int n)
 	return p;
 }
 
-__GPU__ char*
+__GPU__ int
 d_itoa(int v, char *s, int base) {
     char *p = s;
     int   x = v;
     if (x < 0) { x=-x; *p++ = '-'; }
     do {
         int dx = x % base;
-        *p++ = (char)(base==10 ? dx+'0' : (dx&0x5f)+'A');
+        *p++ = (char)(base==16 ? (dx&0x5f)+'A' : dx+'0');
         x /= base;
     } while (x != 0);
     *p = '\0';
-    return s;
+    return (int)(p - s);
 }
 
 //================================================================
