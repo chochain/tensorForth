@@ -10,22 +10,23 @@
 */
 #ifndef CUEF_SRC_UTIL_H_
 #define CUEF_SRC_UTIL_H_
-#include "cuef.h"
+#include <stdint.h>
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-unsigned long hbin_to_u32(const void *bin);
-unsigned int  hbin_to_u16(const void *bin);
+uint32_t hbin_to_u32(const void *bin);
+uint16_t hbin_to_u16(const void *bin);
 
 #if defined(__CUDACC__)
+#define __GPU__      __device__
 
-__GPU__ unsigned long bin_to_u32(const void *bin);
-__GPU__ unsigned int  bin_to_u16(const void *bin);
+__GPU__ uint32_t     bin_to_u32(const void *bin);
+__GPU__ uint16_t     bin_to_u16(const void *bin);
 
-__GPU__ void         u16_to_bin(unsigned int s, const void *bin);
-__GPU__ void         u32_to_bin(unsigned long l, const void *bin);
+__GPU__ void         u16_to_bin(uint16_t s, const void *bin);
+__GPU__ void         u32_to_bin(uint32_t l, const void *bin);
 
 __GPU__ void         *d_memcpy(void *d, const void *s, size_t n);
 __GPU__ void         *d_memset(void *d, int c, size_t n);

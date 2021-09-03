@@ -27,10 +27,10 @@ typedef int           WORD;
 #define DYNA_HASH_THRESHOLD     128
 #define HASH_K 					1000003
 
-__HOST__ unsigned long
+uint32_t
 hbin_to_u32(const void *bin)
 {
-    U32 x = *((U32*)bin);
+    uint32_t x = *((uint32_t*)bin);
     return
         ((x & 0xff)   << 24) |
         ((x & 0xff00) << 8)  |
@@ -45,10 +45,10 @@ hbin_to_u32(const void *bin)
   @param  s	Pointer of memory.
   @return	16bit unsigned value.
 */
-__HOST__ unsigned int
+uint16_t
 hbin_to_u16(const void *bin)
 {
-    U16 x = *((U16 *)bin);
+    uint16_t x = *((uint16_t *)bin);
     return ((x & 0xff) << 8) | ((x >> 8) & 0xff);
 }
 
@@ -158,14 +158,14 @@ _hash(const char *str, int bsz)
   @param  s	Pointer of memory.
   @return	32bit unsigned value.
 */
-__GPU__ unsigned long
+__GPU__ uint32_t
 bin_to_u32(const void *s)
 {
 #if CUEF_32BIT_ALIGN_REQUIRED
-    U8 *p = (U8*)s;
-    return (U32)(p[0]<<24) | (p[1]<<16) |  (p[2]<<8) | p[3];
+    char *p = (char*)s;
+    return (uint32_t)(p[0]<<24) | (p[1]<<16) |  (p[2]<<8) | p[3];
 #else
-    U32 x = *((U32*)s);
+    uint32_t x = *((uint32_t*)s);
     return (x << 24) | ((x & 0xff00) << 8) | ((x >> 8) & 0xff00) | (x >> 24);
 #endif
 }
@@ -177,14 +177,14 @@ bin_to_u32(const void *s)
   @param  s	Pointer of memory.
   @return	16bit unsigned value.
 */
-__GPU__ unsigned int
+__GPU__ uint16_t
 bin_to_u16(const void *s)
 {
 #if CUEF_32BIT_ALIGN_REQUIRED
-    U8 *p = (U8*)s;
-    return (U16)(p[0]<<8) | p[1];
+    char *p = (char*)s;
+    return (uint16_t)(p[0]<<8) | p[1];
 #else
-    U16 x = *((U16*)s);
+    uint16_t x = *((uint16_t*)s);
     return (x << 8) | (x >> 8);
 #endif
 }
@@ -197,7 +197,7 @@ bin_to_u16(const void *s)
   @return sizeof(U16).
 */
 __GPU__ void
-u16_to_bin(U16 s, char *bin)
+u16_to_bin(uint16_t s, char *bin)
 {
     *bin++ = (s >> 8) & 0xff;
     *bin   = s & 0xff;
@@ -211,7 +211,7 @@ u16_to_bin(U16 s, char *bin)
   @return sizeof(U32).
 */
 __GPU__ void
-u32_to_bin(U32 l, char *bin)
+u32_to_bin(uint32_t l, char *bin)
 {
     *bin++ = (l >> 24) & 0xff;
     *bin++ = (l >> 16) & 0xff;
@@ -229,11 +229,11 @@ d_memcpy(void *d, const void *s, size_t n)
 	if (n==0 || d==s) return d;
 
 	char *ds = (char*)d, *ss = (char*)s;
-	size_t t = (U32A)ss;									// take low bits
+	size_t t = (uintptr_t)ss;								// take low bits
 
-	if ((U32A)ds < (U32A)ss) {								// copy forward
-		if ((t | (U32A)ds) & WMASK) {
-			int i = (((t ^ (U32A)ds) & WMASK) || (n < WSIZE))		// align operands
+	if ((uintptr_t)ds < (uintptr_t)ss) {					// copy forward
+		if ((t | (uintptr_t)ds) & WMASK) {
+			int i = (((t ^ (uintptr_t)ds) & WMASK) || (n < WSIZE))		// align operands
 				? n
 				: WSIZE - (t & WMASK);
 			n -= i;
@@ -245,8 +245,8 @@ d_memcpy(void *d, const void *s, size_t n)
 	else {													// copy backward
 		ss += n;
 		ds += n;
-		if ((t | (U32A)ds) & WMASK) {
-			int i = (((t ^ (U32A)ds) & WMASK) || (n <= WSIZE))
+		if ((t | (uintptr_t)ds) & WMASK) {
+			int i = (((t ^ (uintptr_t)ds) & WMASK) || (n <= WSIZE))
 				? n
 				: t & WMASK;
 			n -= i;
@@ -281,7 +281,7 @@ d_memset(void *d, int c, size_t n)
      * already took care of any head/tail that get cut off
      * by the alignment. */
 
-    size_t k = -(U32A)s & 3;
+    size_t k = -(uintptr_t)s & 3;
     s += k;
     n -= k;
     n &= -4;			// change of sign???
