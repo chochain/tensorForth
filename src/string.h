@@ -34,23 +34,21 @@ struct string : public vector<char>
     ///
     /// compare
     ///
-	__GPU__ bool operator==(const char *s2) { return STRCMP(_v, s2)==0; }
-	__GPU__ friend bool operator==(const string& s1, const string& s2) {
-        return STRCMP(s1._v, s2._v)==0;
-    }
+	__GPU__ bool operator==(const char *s2)   { return MEMCMP(_v, s2, _n)==0; }
+	__GPU__ bool operator==(const string& s2) { return MEMCMP(_v, s2._v, _n)==0; }
     ///
     /// assignment
     ///
 	__GPU__ string& operator<<(const char *s) { merge((char*)s, STRLENB(s)); return str(); }
 	__GPU__ string& operator<<(string& s)     { merge(s._v, s.size());       return str(); }
 	__GPU__ string& operator<<(int i) {
-        char s[20];
+        char s[40];
         ITOA(i, s, 10);
         merge(s, STRLENB(s));
         return str(); 
     }
 	__GPU__ string& operator<<(float f) {
-        char s[20];
+        char s[40];
 		if (f < 0) { f = -f; push('-'); }
 		int i = static_cast<int>(f);
         int d = static_cast<int>(round(1000000*(f - i)));
