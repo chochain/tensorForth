@@ -6,6 +6,10 @@
 #include <sstream>
 #define  CATCH_CONFIG_MAIN
 #include "../../../catch2/catch.hpp"
+
+#define __GPU__
+#define __INLINE__
+
 #include "../src/vector.h"
 
 using namespace cuef;
@@ -95,6 +99,26 @@ TEST_CASE("vector class")
         REQUIRE(v3._sz==8);
         REQUIRE(v3.size()==nn);
         REQUIRE(dump(v3)==rst[nn]);
+    }
+    SECTION("=") {
+        vector<int> v1;
+        v1.merge(aa, nn);
+        REQUIRE(v1._sz==8);
+        REQUIRE(v1.size()==nn);
+        REQUIRE(dump(v1)==rst[nn]);
+        vector<int>& v2 = v1;          // alias
+        REQUIRE(v2._sz==8);
+        REQUIRE(v2.size()==nn);
+        REQUIRE(dump(v2)==rst[nn]);
+        vector<int> v3 = v1;           // call constructor
+        REQUIRE(v3._sz==8);
+        REQUIRE(v3.size()==nn);
+        REQUIRE(dump(v3)==rst[nn]);
+        vector<int> v4;
+        v4 = v1;                       // call operator=
+        REQUIRE(v4._sz==8);
+        REQUIRE(v4.size()==nn);
+        REQUIRE(dump(v4)==rst[nn]);
     }
     SECTION("dec_i") {
         vector<int> v1;
