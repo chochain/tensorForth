@@ -5,6 +5,9 @@
 ///
 #define  CATCH_CONFIG_MAIN
 #include "../../../catch2/catch.hpp"
+
+#define  __GPU__
+#define  __INLINE__
 #include "../src/string.h"
 
 using namespace cuef;
@@ -39,29 +42,42 @@ TEST_CASE("string class")
         REQUIRE(v1.size()==0);
         REQUIRE(v1._sz==STRING_BUF_SIZE*2);
     }
-    SECTION("constructor(str, n)") {
+    SECTION("constructor(str)") {
+        int len = strlen(rst[1]);
         string v1(rst[1]);
-        REQUIRE(v1.size()==(int)strlen(rst[1]));
-        REQUIRE(v1._sz==STRING_BUF_SIZE);
+        REQUIRE(v1._n==len);
+        REQUIRE(v1.size()==len);
+        REQUIRE(v1._sz==12);
         REQUIRE(strcmp(dump(v1), rst[1])==0);
         string v2(rst[3]);
         REQUIRE(v2.size()==(int)strlen(rst[3]));
-        REQUIRE(v2._sz==STRING_BUF_SIZE+4);
+        REQUIRE(v2._sz==20);
         REQUIRE(strcmp(dump(v2), rst[3])==0);
     }
-    SECTION("str(), c_str(), ==(string), ==(char*)") {
+    SECTION("=,c_str()") {
+        int len = strlen(rst[1]);
         string v1(rst[1]);
-        string& v2  = v1.str();
-        char    *s2 = v1.c_str();
-        REQUIRE(strcmp(v2._v, rst[1])==0);
-        REQUIRE(strcmp(s2, rst[1])==0);
-        REQUIRE(v1==v2);
-        REQUIRE(v1==s2);
+        REQUIRE(memcmp(v1._v, rst[1], len)==0);
+        string v2 = v1;          // = constructor
+        REQUIRE(memcmp(v2._v, rst[1], len)==0);
+        string v3;           
+        v3 = v1;                 // =(string)
+        REQUIRE(memcmp(v3._v, rst[1], len)==0);
+        char   *s4 = v1.c_str();
+        REQUIRE(strcmp(s4, rst[1])==0);
+    }
+    SECTION("==(string), ==(char*)") {
+        string v1(rst[1]);
+        string v2 = v1;          // = constructor
+        char   *s2 = v1.c_str();
+        string v3;
+        REQUIRE((v1==v2));
+        REQUIRE((v1==s2));
     }
     SECTION("substr(i)") {
         string v1(rst[1]);
-        for (int i=0; i<6; i++) {
-            string &v2 = v1.substr(i);
+        for (int i=0; i<1; i++) {
+            string v2 = v1.substr(i);
             REQUIRE(strcmp(dump(v2), &rst[1][i])==0);
         }
     }

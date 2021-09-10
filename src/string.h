@@ -1,8 +1,9 @@
 #ifndef __EFORTH_SRC_STRING_H
 #define __EFORTH_SRC_STRING_H
 #include "vector.h"
+#include <stdio.h>
 
-#define STRING_BUF_SIZE  16
+#define STRING_BUF_SIZE  8
 
 namespace cuef {
 ///
@@ -14,50 +15,55 @@ struct string : public vector<char>
     /// constructors
     ///
 	__GPU__ string(int asz=STRING_BUF_SIZE) {
-		_n = 0; if (asz>0) _v = (char*)malloc(_sz=ALIGN4(asz));
+		if (asz>0) _v = (char*)malloc(_sz=ALIGN4(asz));
 	}
-	__GPU__ string(const char *s, int asz=STRING_BUF_SIZE) {
-		_n  = STRLENB(s);
-		_sz = ALIGN4(asz>(_n+1) ? asz : (_n+1));
-        _v  = (char*)malloc(_sz);
-        MEMCPY(_v, s, _n+1);
-	}
+    __GPU__ string(const char *s) {
+        _n = STRLENB(s);
+        _v = (char*)malloc(_sz=ALIGN4(_n+1));
+        MEMCPY(_v, s, _n);
+    }
+    __GPU__ string(string& s) {
+        _n = s._n;
+        _v = (char*)malloc(_sz=ALIGN4(_n+1));
+        MEMCPY(_v, s.c_str(), _n);
+    }
     ///
     /// string export
     ///
-    __GPU__ string& str()         { _v[_n] = '\0'; return *this; }
-	__GPU__ char    *c_str()      { return str()._v; }
+    __GPU__ __INLINE__ string& str()     { _v[_n]='\0'; return *this; }
+	__GPU__ __INLINE__ char    *c_str()  { _v[_n]='\0'; return _v;    }
 	__GPU__ string& substr(int i) {
-        string *s = new string(&_v[i], _n-i);
-        return *s;
+        _v[_n] = '\0';
+        string& s = *new string(&_v[i]);
+        return s;
     }
     ///
     /// compare
     ///
-	__GPU__ bool operator==(const char *s2)   { return MEMCMP(_v, s2, _n)==0; }
-	__GPU__ bool operator==(const string& s2) { return MEMCMP(_v, s2._v, _n)==0; }
+	__GPU__ bool operator==(const char *s2)   { return memcmp(_v, s2, _n)==0; }
+	__GPU__ bool operator==(const string& s2) { return memcmp(_v, s2._v, _n)==0; }
     ///
     /// assignment
     ///
-	__GPU__ string& operator<<(const char *s) { merge((char*)s, STRLENB(s)); return str(); }
-	__GPU__ string& operator<<(string& s)     { merge(s._v, s.size());       return str(); }
+	__GPU__ string& operator<<(const char *s) { merge((char*)s, STRLENB(s)); return *this; }
+	__GPU__ string& operator<<(string& s)     { merge(s._v, s._n); return *this; }
 	__GPU__ string& operator<<(int i) {
-        char s[40];
-        ITOA(i, s, 10);
-        merge(s, STRLENB(s));
-        return str(); 
+        char s[36];
+        int n = ITOA(i, s, 10);
+        merge(s, n);
+        return *this;
     }
 	__GPU__ string& operator<<(float f) {
-        char s[40];
+        char s[36];
 		if (f < 0) { f = -f; push('-'); }
 		int i = static_cast<int>(f);
         int d = static_cast<int>(round(1000000*(f - i)));
-		ITOA(i, s, 10);
-        merge(s, STRLENB(s));
+		int n = ITOA(i, s, 10);
+        merge(s, n);
 		push('.');
-        ITOA(d, s, 10);
-        merge(s, STRLENB(s));
-        return str();
+        n = ITOA(d, s, 10);
+        merge(s, n);
+        return *this;
 	}
     ///
     /// conversion
