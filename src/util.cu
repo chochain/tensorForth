@@ -355,16 +355,19 @@ d_strcut(const char *s, int n)
 
 __GPU__ int
 d_itoa(int v, char *s, int base) {
-    char *p = s;
-    int   x = v;
-    if (x < 0) { x=-x; *p++ = '-'; }
+    char b[36], *p = &b[35];
+    bool     sign = base==10 && v<0;
+    uint32_t x    = sign ? -v : v;
+    *p-- = '\0';
     do {
-        int dx = x % base;
-        *p++ = (char)(base==16 ? (dx&0x5f)+'A' : dx+'0');
+        uint32_t dx = x % base;
+        *p-- = (char)(dx>9 ? (dx-10)+'A' : dx+'0');
         x /= base;
     } while (x != 0);
-    *p = '\0';
-    return (int)(p - s);
+    if (sign) *p--='-';
+    x = &b[35] - p;
+    d_memcpy(s, (p+1), x);
+    return x-1;
 }
 
 //================================================================
@@ -380,7 +383,7 @@ __GPU__ long
 d_strtol(const char *s, char** p, int base)
 {
     long ret  = 0;
-    int  sign = 0;
+    bool sign = 0;
 
 REDO:
     switch(*s) {
@@ -388,16 +391,16 @@ REDO:
     case '+': s++;	        break;
     case ' ': s++;          goto REDO;
     }
-    *p = '\0';
+    *p = NULL;
     char ch;
     int  n;
     while ((ch = *s++) != '\0') {
+        *p = (char*)s;
         if      ('a' <= ch) 			 n = ch - 'a' + 10;
         else if ('A' <= ch) 			 n = ch - 'A' + 10;
         else if ('0' <= ch && ch <= '9') n = ch - '0';
         else break;
         if (n >= base) break;
-        *p = (char*)s;
 
         ret = ret * base + n;
     }
@@ -415,7 +418,7 @@ d_strtof(const char *s, char** p)
 
     if (*s=='+' || *s=='-') sign = *s++=='-' ? -1 : 1;
     
-    *p = '\0';
+    *p = NULL;
     while (*s!='\0' && *s!='\n' && *s!=' ' && *s!='\t') {
     	if (state==0 && *s>='0' && *s<='9') {	    // integer
     		v = (*s - '0') + v * 10;
@@ -431,9 +434,9 @@ d_strtof(const char *s, char** p)
             }
             if (*s>='0' && *s<='9') e = (*s - '0') + e * 10;
         }
-        *p = (char*)s;
         state = (*s=='e' || *s=='E') ? 2 : ((*s=='.') ? 1 : state);
         s++;
+        *p = (char*)s;
     }
     return sign *
     	(v + (f==0 ? 0.0f : f * exp10((double)r))) *
