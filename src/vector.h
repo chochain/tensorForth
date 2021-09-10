@@ -1,6 +1,6 @@
 #ifndef __EFORTH_SRC_VECTOR_H
 #define __EFORTH_SRC_VECTOR_H
-#include "util.h"
+#include "util.h"       /// also defined __GPU__
 
 #define ALIGN4(sz)          ((sz) + (-(sz) & 0x3))
 #define ALIGN8(sz)          ((sz) + (-(sz) & 0x7))
@@ -18,7 +18,8 @@ struct vector {
 
     __GPU__ vector() {}
     __GPU__ vector(T a[], int len) { merge((T*)a, len); }
-    __GPU__ ~vector() { if (_v) free(_v); }
+    __GPU__ vector(vector<T>& a)   { merge(a); }
+    __GPU__ ~vector() { if (_v) free(_v);  }
     //
     // operator overloading
     //
@@ -28,10 +29,11 @@ struct vector {
         return *this;
     }
     __GPU__ vector& merge(vector<T>& a) {
-        for (int i=0; i<a.size(); i++) push(a[i]);
+        for (int i=0; i<a._n; i++) push(a[i]);
         return *this;
     }
     __GPU__ vector& operator+=(vector<T>& a) { merge(a); return *this; }
+    __GPU__ vector& operator=(vector<T>& a)  { _n=0; merge(a); return *this; }
 
     __GPU__ int     size() { return _n; }
     __GPU__ vector& push(T t) {
