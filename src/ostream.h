@@ -37,7 +37,7 @@ typedef struct {
     GT  gt   : 4;
     U32	size : 16;
     U8  data[];      // different from *data
-} print_node;
+} obuf_node;
 
 namespace cuef {
 ///
@@ -66,10 +66,10 @@ class ostream
 
     __GPU__  void _write(GT gt, U8 *v, int sz) {
         if (threadIdx.x!=0) return;						// only thread 0 within a block can write
-        if ((sizeof(print_node)+ALIGN4(sz))>size()) return; // too big
+        if ((sizeof(obuf_node)+ALIGN4(sz))>size()) return; // too big
 
         //_LOCK;
-        print_node *n = (print_node *)_ptr;
+        obuf_node *n = (obuf_node *)_ptr;
 
         n->id   = blockIdx.x;				// VM.id
         n->gt   = gt;

@@ -44,7 +44,7 @@ TEST_CASE("ostream class")
             int n = strlen(aa[i]);
             for (int j=0; j<n; j++) {
                 v1 << (U8)aa[i][j];
-                REQUIRE(v1.tellp()==(j+1)*(sizeof(print_node)+4));
+                REQUIRE(v1.tellp()==(j+1)*(sizeof(obuf_node)+4));
             }
             v1.clear();
             REQUIRE(v1.tellp()==0);
@@ -57,7 +57,7 @@ TEST_CASE("ostream class")
         ostream v1(buf);
         for (int i=0; i<ni; i++) {
             v1 << ii[i];
-            REQUIRE(v1.tellp()==(i+1)*(sizeof(print_node)+4));
+            REQUIRE(v1.tellp()==(i+1)*(sizeof(obuf_node)+4));
         }
     }
     GF ff[] = { 123.0, -456.0, 7890.123 };
@@ -67,7 +67,7 @@ TEST_CASE("ostream class")
         ostream v1(buf);
         for (int i=0; i<nf; i++) {
             v1 << ff[i];
-            REQUIRE(v1.tellp()==(i+1)*(sizeof(print_node)+4));
+            REQUIRE(v1.tellp()==(i+1)*(sizeof(obuf_node)+4));
         }
     }
     SECTION("<<(char*)") {
@@ -76,7 +76,7 @@ TEST_CASE("ostream class")
         for (int i=0; i<na; i++) {
             v1 << aa[i];
             int n = ALIGN4(strlen(aa[i])+1);
-            REQUIRE(v1.tellp()==(sizeof(print_node)+n));
+            REQUIRE(v1.tellp()==(sizeof(obuf_node)+n));
             v1.clear();
         }
     }
@@ -90,7 +90,7 @@ TEST_CASE("ostream class")
             v1 << s;
             int n = ALIGN4(strlen(aa[i])+1);
             printf("n=%d", n);
-            REQUIRE(v1.tellp()==(sizeof(print_node)+n));
+            REQUIRE(v1.tellp()==(sizeof(obuf_node)+n));
             v1.clear();
         }
     }
