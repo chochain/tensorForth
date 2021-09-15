@@ -5,6 +5,11 @@
 ///
 #define  CATCH_CONFIG_MAIN
 #include "../../../catch2/catch.hpp"
+#define  __GPU__
+#define  __INLINE__
+#define  CUEF_USE_STRING   1
+
+#include "../src/string.h"
 #include "../src/istream.h"
 
 using namespace cuef;
@@ -13,8 +18,8 @@ TEST_CASE("istream class")
 {
     const char *aa[] = {
         "abc def",
-        "  abc def",
-        "\tabc def",
+        "  abc  def ",
+        " \tabc def",
         "abcdefghi jklmnopqr"
     };
     int nn = sizeof(aa)/sizeof(char*);
@@ -24,16 +29,17 @@ TEST_CASE("istream class")
         { "abc", "def" },
         { "abcdefghi", "jklmnopqr" }
     };
-    SECTION("str(char*,sz), str(string&), size(), gcount()") {
-        istream v1;
-        istream v2;
-        for (int i=0; i<nn; i++) {
-            v1.str(aa[i]);
-            string s2(aa[i]);
-            v2.str(s2);
-            REQUIRE(v1.size()==(int)strlen(aa[i]));
-            REQUIRE(v2.gcount()==(int)strlen(aa[i]));
-        }
+    SECTION("is(int),str(char*,sz),str(string&),gcount(),tellg()") {
+        istream v1(16);
+        REQUIRE(v1.gcount()==16);
+        REQUIRE(v1.tellg()==0);
+        istream v2(13);
+        REQUIRE(v2.gcount()==16);
+        REQUIRE(v2.tellg()==0);
+        istream v3;
+        v3.str((char*)aa[3]);
+        REQUIRE(v3.gcount()==ALIGN4(strlen(aa[3])));
+        REQUIRE(v3.tellg()==0);
     }
     SECTION("getline(char*)") {
         char buf[20];
@@ -43,6 +49,17 @@ TEST_CASE("istream class")
             v1.getline(buf);
             REQUIRE(strcmp(buf, rst[i][0])==0);
             v1.getline(buf);
+            REQUIRE(strcmp(buf, rst[i][1])==0);
+        }
+    }
+    SECTION(">>(char*)") {
+        char buf[20];
+        istream v1;
+        for (int i=0; i<nn; i++) {
+            v1.str(aa[i]);
+            v1 >> buf;
+            REQUIRE(strcmp(buf, rst[i][0])==0);
+            v1 >> buf;
             REQUIRE(strcmp(buf, rst[i][1])==0);
         }
     }
@@ -57,7 +74,7 @@ TEST_CASE("istream class")
             REQUIRE(strcmp(s.c_str(), rst[i][1])==0);
         }
     }
-    SECTION(">>(char*), >>(string&)") {
+    SECTION(">>(string&)") {
         char buf[20];
         string s;
         istream v1;

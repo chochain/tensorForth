@@ -11,7 +11,7 @@
 */
 #ifndef CUEF_SRC_ISTREAM_H_
 #define CUEF_SRC_ISTREAM_H_
-#include "string.h"
+#include "util.h"
 
 namespace cuef {
 ///
@@ -21,57 +21,63 @@ class istream
 {
 	char *_buf = NULL;  /// input buffer
 	int  _idx  = 0;     /// current buffer index
-    int  _max  = 0;     /// max length of input buffer
-    int  _sz   = 0;     /// size processed
+    int  _gn   = 0;     /// number of byte processed
     
     __GPU__ int _tok(char delim) {
-        while (delim==' ' &&
-               (_buf[_idx]==' ' || _buf[_idx]=='\t')) _idx++; // skip leading blanks and tabs
-        int i = _idx;  while (i<_max && _buf[i]!=delim) i++;
-        int x = i>=_max;
-        _sz = (delim!=' ' && x) ? i=0 : i - _idx + x;
-        return i;
+        char *c = &_buf[_idx];
+        while (delim==' ' && (*c==' ' || *c=='\t')) (c++, _idx++); // skip leading blanks and tabs
+        int nidx=_idx; while (*c && *c!=delim) (c++, nidx++);
+        _gn = (delim!=' ' && *c!=delim) ? nidx=0 : nidx - _idx;    // not found or end of input string
+        return nidx;
     }
 
 public:
-    __GPU__  istream(char *buf=NULL) : _buf(buf) {}
+    __GPU__  istream(int sz=0) { if (sz) _buf = new char[_gn=ALIGN4(sz)]; }
+    __GPU__  ~istream()        { if (_buf) delete[] _buf; }
     ///
-    /// intialize
+    /// intialize by a given string
     ///
     __GPU__  istream& str(const char *s, int sz=0) {
-        _sz  = _max = sz ? sz : STRLENB(s);
-        _buf = (char*)s;
+        if (_buf) delete[] _buf;
+        _buf = new char[_gn = ALIGN4(sz ? sz : STRLENB(s))];
+        MEMCPY(_buf, s, _gn);
         _idx = 0;
         return *this;
-    }
-    __GPU__  istream& str(string& s) {
-        str(s.c_str(), s.size()); return *this;
     }
     ///
     /// sizing
     ///
-    __GPU__ int size()   { return _max; }
-    __GPU__ int gcount() { return _sz;  }
+    __GPU__ int gcount() { return _gn;  }
+    __GPU__ int tellg()  { return _idx; }
     //
     /// parser
     ///
     __GPU__ istream& getline(char *s, char delim=' ') {
-        int i = _tok(delim); if (i==0) return *this;
-        MEMCPY(s, &_buf[_idx], _sz);
-        s[_sz+1] = '\0';                         // terminated with '\0'
-        _idx = i;
+        int nidx = _tok(delim);             // index to next token
+        if (nidx==0) return *this;          // no token processed
+        MEMCPY(s, &_buf[_idx], _gn);
+        s[_gn + 1] = '\0';                  // terminated with '\0'
+        _idx = nidx;                        // advance index
         return *this;
+    }
+    __GPU__  int operator>>(char *s)   { getline(s); return _gn; }
+    
+#if CUEF_USE_STRING
+#include "string.h"
+    __GPU__  istream& str(string& s) {
+        str(s.c_str(), s.size()); return *this;
     }
     __GPU__ istream& getline(string& s, char delim=' ') {
-        int i = _tok(delim); if (i==0) return *this;
+        int nidx = _tok(delim);
+        if (nidx==0) return *this;
         s._n = 0;
-        s.merge(&_buf[_idx], _sz);
-        s._v[_sz+1] = '\0';
-        _idx = i;
+        s.merge(&_buf[_idx], _gn);
+        s._v[_gn + 1] = '\0';
+        _idx = nidx;
         return *this;
     }
-    __GPU__  int operator>>(char *s)   { getline(s); return _sz; }
-    __GPU__  int operator>>(string& s) { getline(s); return _sz; }
+    __GPU__  int operator>>(string& s) { getline(s); return _gn; }
+#endif // CUEF_USE_STRING
 };
 
 } // namespace cuef
