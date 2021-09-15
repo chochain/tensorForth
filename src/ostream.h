@@ -11,8 +11,11 @@
 */
 #ifndef CUEF_SRC_OSTREAM_H_
 #define CUEF_SRC_OSTREAM_H_
-#include "cuef_config.h"
+#include "cuef.h"
+
+#ifdef CUEF_USE_STRING
 #include "string.h"
+#endif // CUEF_USE_STRING
 
 //================================================================
 /*!@brief
@@ -31,9 +34,9 @@ typedef enum {
 */
 typedef struct {
 	U32	id   : 12;
-    GT  gt 	 : 4;
+    GT  gt   : 4;
     U32	size : 16;
-    U8	data[];          								// different from *data
+    U8  data[];      // different from *data
 } print_node;
 
 namespace cuef {
@@ -48,12 +51,6 @@ __GPU__ __INLINE__ _setbase setbase(int b)  { return _setbase(b); }
 __GPU__ __INLINE__ _setw    setw(int w)     { return _setw(w);    }
 __GPU__ __INLINE__ _setfill setfill(char f) { return _setfill(f); }
 __GPU__ __INLINE__ _setprec setprec(int p)  { return _setprec(p); }
-
-#define _LOCK		{ MUTEX_LOCK(_mutex_ss); }
-#define _UNLOCK		{ MUTEX_FREE(_mutex_ss); }
-
-__GPU__ extern volatile int _mutex_ss;
-
 ///
 /// ostream class
 ///
@@ -69,22 +66,33 @@ class ostream
 
     __GPU__  void _write(GT gt, U8 *v, int sz) {
         if (threadIdx.x!=0) return;						// only thread 0 within a block can write
+        if ((sizeof(print_node)+ALIGN4(sz))>size()) return; // too big
 
-        _LOCK;
+        //_LOCK;
         print_node *n = (print_node *)_ptr;
+
+        n->id   = blockIdx.x;				// VM.id
+        n->gt   = gt;
+        n->size = ALIGN4(sz);				// 32-bit alignment
+
         MEMCPY(n->data, v, sz);
 
-        n->id   = blockIdx.x;							// VM.id
-        n->gt   = gt;
-        n->size = ALIGN4(sz);							// 32-bit alignment
-
-        _ptr  = (char*)U8PADD(n->data, n->size);		// advance pointer to next print block
-        *_ptr = (U8)GT_EMPTY;
-        _UNLOCK;
+        _ptr  = ((char*)(n->data))+n->size;// advance pointer to next print block
+        *_ptr = (char)GT_EMPTY;
+        //_UNLOCK;
     }        
     
 public:
+    ///
+    /// constructor with managed memory buffer
+    ///
     __GPU__  ostream(char *buf, int sz=CUEF_OBUF_SIZE) : _buf(buf), _ptr(buf), _sz(sz) {}
+    ///
+    /// clear output buffer
+    ///
+    __GPU__  ostream& clear() { _ptr = _buf; return *this; }
+    __GPU__  U32 tellp()      { return (U32)(_ptr - _buf); }
+    __GPU__  U32 size()       { return (U32)_sz; }
     ///
     /// iomanip control
     ///
@@ -113,12 +121,12 @@ public:
         _write(GT_STR, (U8*)s, i);
         return *this;
     }
+#if CUEF_USE_STRING
     __GPU__ ostream& operator<<(string &s) {
-        U8 *s1 = (U8*)s.c_str();
-        int i  = STRLENB(s1);
-        _write(GT_STR, s1, i);
+        _write(GT_STR, (U8*)s.c_str(), s.size()+1);
         return *this;
     }
+#endif // CUEF_USE_STRING
 };
 
 }   // namespace cuef
