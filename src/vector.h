@@ -2,9 +2,6 @@
 #define __EFORTH_SRC_VECTOR_H
 #include "util.h"       /// also defined __GPU__
 
-#define ALIGN4(sz)          ((sz) + (-(sz) & 0x3))
-#define ALIGN8(sz)          ((sz) + (-(sz) & 0x7))
-#define ALIGN16(sz)         ((sz) + (-(sz) & 0xf))
 #define VECTOR_INC          4
 
 namespace cuef {
