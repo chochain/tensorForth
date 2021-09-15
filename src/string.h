@@ -3,7 +3,8 @@
 #include "vector.h"
 #include <stdio.h>
 
-#define STRING_BUF_SIZE  8
+#define CUEF_FLOAT_PRECISION  1000000     /* 6-digit */
+#define STRING_BUF_SIZE       8
 
 namespace cuef {
 ///
@@ -45,6 +46,7 @@ struct string : public vector<char>
     ///
     /// assignment
     ///
+	__GPU__ string& operator<<(const char c)  { push(c); return *this; }
 	__GPU__ string& operator<<(const char *s) { merge((char*)s, STRLENB(s)); return *this; }
 	__GPU__ string& operator<<(string& s)     { merge(s._v, s._n); return *this; }
 	__GPU__ string& operator<<(int i) {
@@ -56,11 +58,8 @@ struct string : public vector<char>
 	__GPU__ string& operator<<(float f) {
 		if (f < 0) { f = -f; push('-'); }
 		int i = static_cast<int>(f);
-        int d = static_cast<int>(round(1000000*(f - i)));
-        *this << i;
-        push('.');
-        *this << d;
-        return *this;
+        int d = static_cast<int>(round(CUEF_FLOAT_PRECISION*(f - i)));
+        return *this << i << '.' << d;
 	}
     ///
     /// conversion
