@@ -15,23 +15,23 @@ struct string : public vector<char>
     /// constructors
     ///
 	__GPU__ string(int asz=STRING_BUF_SIZE) {
-		if (asz>0) _v = (char*)malloc(_sz=ALIGN4(asz));
+		if (asz>0) _v = new char[_sz=ALIGN4(asz)];
 	}
     __GPU__ string(const char *s) {
         _n = STRLENB(s);
-        _v = (char*)malloc(_sz=ALIGN4(_n+1));
+        _v = new char[_sz=ALIGN4(_n+1)];
         MEMCPY(_v, s, _n);
     }
     __GPU__ string(string& s) {
         _n = s._n;
-        _v = (char*)malloc(_sz=ALIGN4(_n+1));
+        _v = new char[_sz=ALIGN4(_n+1)];
         MEMCPY(_v, s.c_str(), _n);
     }
     ///
     /// string export
     ///
-    __GPU__ __INLINE__ string& str()     { _v[_n]='\0'; return *this; }
-	__GPU__ __INLINE__ char    *c_str()  { _v[_n]='\0'; return _v;    }
+    __GPU__ __INLINE__ string& str() { _v[_n]='\0'; return *this; }
+	__GPU__ __INLINE__ char *c_str() { _v[_n]='\0'; return _v;    }
 	__GPU__ string& substr(int i) {
         _v[_n] = '\0';
         string& s = *new string(&_v[i]);
@@ -54,15 +54,12 @@ struct string : public vector<char>
         return *this;
     }
 	__GPU__ string& operator<<(float f) {
-        char s[36];
 		if (f < 0) { f = -f; push('-'); }
 		int i = static_cast<int>(f);
         int d = static_cast<int>(round(1000000*(f - i)));
-		int n = ITOA(i, s, 10);
-        merge(s, n);
-		push('.');
-        n = ITOA(d, s, 10);
-        merge(s, n);
+        *this << i;
+        push('.');
+        *this << d;
         return *this;
 	}
     ///
