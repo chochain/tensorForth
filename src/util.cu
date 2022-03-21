@@ -5,13 +5,13 @@
     String hasher
 
   <pre>
-  Copyright (C) 2019- GreenII
+  Copyright (C) 2022- GreenII
 
   This file is distributed under BSD 3-Clause License.
 
   </pre>
 */
-#include "cuef.h"
+#include "cuef_types.h"
 #include "util.h"
 
 #if CUEF_ENABLE_CDP

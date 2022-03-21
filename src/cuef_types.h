@@ -1,9 +1,16 @@
 /*! @file
   @brief
-  cueForth macros and internal class definitions
+  cueForth macros and internal type definitions
+
+  <pre>
+  Copyright (C) 2022- GreenII
+
+  This file is distributed under BSD 3-Clause License.
+
+  </pre>
 */
-#ifndef CUEF_SRC_CUEF_H_
-#define CUEF_SRC_CUEF_H_
+#ifndef CUEF_SRC_CUEF_TYPES_H_
+#define CUEF_SRC_CUEF_TYPES_H_
 
 #define ALIGN4(sz)          ((sz) + (-(sz) & 0x3))
 #define ALIGN8(sz)          ((sz) + (-(sz) & 0x7))
@@ -65,4 +72,4 @@ typedef S32         GP;                     // offset, i.e. object pointer
 #define U8PADD(p, n)    ((U8*)(p) + (n))    // add
 #define U8PSUB(p, n)    ((U8*)(p) - (n))    // sub
 
-#endif // CUEF_SRC_CUEF_H_
+#endif // CUEF_SRC_CUEF_TYPES_H_

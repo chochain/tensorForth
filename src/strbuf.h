@@ -1,3 +1,14 @@
+/*! @file
+  @brief
+  cueForth string buffer class
+
+  <pre>
+  Copyright (C) 2022- GreenII
+
+  This file is distributed under BSD 3-Clause License.
+
+  </pre>
+*/
 #ifndef __EFORTH_SRC_STRBUF_H
 #define __EFORTH_SRC_STRBUF_H
 #include "vector.h"
