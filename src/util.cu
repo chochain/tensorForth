@@ -11,6 +11,7 @@
 
   </pre>
 */
+#include "cuef.h"
 #include "util.h"
 
 #if CUEF_ENABLE_CDP
@@ -19,11 +20,11 @@ namespace cg = cooperative_groups;
 #endif // CUEF_ENABLE_CDP
 
 typedef int           WORD;
-#define WSIZE   	  (sizeof(WORD))
-#define	WMASK		  (WSIZE-1)
+#define WSIZE         (sizeof(WORD))
+#define WMASK         (WSIZE-1)
 
 #define DYNA_HASH_THRESHOLD     128
-#define HASH_K 					1000003
+#define HASH_K                  1000003
 
 uint32_t
 hbin_to_u32(const void *bin)
@@ -40,8 +41,8 @@ hbin_to_u32(const void *bin)
 /*!@brief
   Get 16bit value from memory big endian.
 
-  @param  s	Pointer of memory.
-  @return	16bit unsigned value.
+  @param  s Pointer of memory.
+  @return   16bit unsigned value.
 */
 uint16_t
 hbin_to_u16(const void *bin)
@@ -53,22 +54,22 @@ hbin_to_u16(const void *bin)
 __GPU__ void
 _next_utf8(char **sp)
 {
-	char c = **sp;
-	int  b = 0;
-	if      (c>0 && c<=127) 		b=1;
-	else if ((c & 0xE0) == 0xC0) 	b=2;
-	else if ((c & 0xF0) == 0xE0) 	b=3;
-	else if ((c & 0xF8) == 0xF0) 	b=4;
-	else *sp=NULL;					// invalid utf8
+    char c = **sp;
+    int  b = 0;
+    if      (c>0 && c<=127)         b=1;
+    else if ((c & 0xE0) == 0xC0)    b=2;
+    else if ((c & 0xF0) == 0xE0)    b=3;
+    else if ((c & 0xF8) == 0xF0)    b=4;
+    else *sp=NULL;                  // invalid utf8
 
-	*sp+=b;
+    *sp+=b;
 }
 
 __GPU__ int
 _loop_hash(const char *str, int bsz)
 {
-	// a simple polynomial hashing algorithm
-	int h = 0;
+    // a simple polynomial hashing algorithm
+    int h = 0;
     for (int i=0; i<bsz; i++) {
         h = h * HASH_K + str[i];
     }
@@ -79,80 +80,80 @@ _loop_hash(const char *str, int bsz)
 //================================================================
 /*! Calculate hash value
 
-  @param  str	Target string.
-  @return int	Symbol value.
+  @param  str   Target string.
+  @return int   Symbol value.
 */
 __KERN__ void
 _dyna_hash(int *hash, const char *str, int sz)
 {
-	int x = threadIdx.x;									// row-major
-	int m = __ballot_sync(0xffffffff, x<sz);				// ballot_mask
-	int h = x<sz ? str[x] : 0;								// move to register
+    int x = threadIdx.x;                                    // row-major
+    int m = __ballot_sync(0xffffffff, x<sz);                // ballot_mask
+    int h = x<sz ? str[x] : 0;                              // move to register
 
-	for (int n=16; x<sz && n>0; n>>=1) {
-		h += HASH_K*__shfl_down_sync(m, h, n);				// shuffle down
-	}
-	if (x==0) *hash += h;
+    for (int n=16; x<sz && n>0; n>>=1) {
+        h += HASH_K*__shfl_down_sync(m, h, n);              // shuffle down
+    }
+    if (x==0) *hash += h;
 }
 
 __KERN__ void
 _dyna_hash2d(int *hash, const char *str, int bsz)
 {
-	auto blk = cg::this_thread_block();						// C++11
+    auto blk = cg::this_thread_block();                     // C++11
 
-	extern __shared__ int h[];
+    extern __shared__ int h[];
 
-	int x = threadIdx.x;
-	int y = threadIdx.y*blockDim.x;
-	h[x+y] = 0;
+    int x = threadIdx.x;
+    int y = threadIdx.y*blockDim.x;
+    h[x+y] = 0;
 
-	for (int n=0; n<blockDim.y; n++) {
-		if ((x+y)<bsz) h[y] += HASH_K*h[y+n*blockDim.x];
-		blk.sync();
-	}
-	for (int n=blockDim.x>>1, off=n+y; n>0; off=(n>>=1)+y) {
-		if (x<n && (x+off)<bsz) h[x+y] += HASH_K*h[x+off];
-		blk.sync();
-	}
-	*hash = h[0];
+    for (int n=0; n<blockDim.y; n++) {
+        if ((x+y)<bsz) h[y] += HASH_K*h[y+n*blockDim.x];
+        blk.sync();
+    }
+    for (int n=blockDim.x>>1, off=n+y; n>0; off=(n>>=1)+y) {
+        if (x<n && (x+off)<bsz) h[x+y] += HASH_K*h[x+off];
+        blk.sync();
+    }
+    *hash = h[0];
 }
 #endif // CUEF_ENABLE_CDP
-__GPU__ int _warp_h[32];			// each thread takes a slot
+__GPU__ int _warp_h[32];            // each thread takes a slot
 __GPU__ int
 _hash(const char *str, int bsz)
 {
-	if (bsz < DYNA_HASH_THRESHOLD) return _loop_hash(str, bsz);
+    if (bsz < DYNA_HASH_THRESHOLD) return _loop_hash(str, bsz);
 
-	int x  = threadIdx.x;
-	int *h = &_warp_h[x];   *h=0;                           // each calling thread takes a slot
+    int x  = threadIdx.x;
+    int *h = &_warp_h[x];   *h=0;                           // each calling thread takes a slot
 
 #if CUDA_ENABLE_CDP
-	cudaStream_t st;
-	cudaStreamCreateWithFlags(&st, cudaStreamNonBlocking);  // wrapper overhead ~= 84us
+    cudaStream_t st;
+    cudaStreamCreateWithFlags(&st, cudaStreamNonBlocking);  // wrapper overhead ~= 84us
 
-	for (int i=0; i<bsz; i+=32) {
-		_dyna_hash<<<1,32,0,st>>>(h, &str[i], bsz-i);
-		GPU_SYNC();                            				// sync all children threads
-	}
+    for (int i=0; i<bsz; i+=32) {
+        _dyna_hash<<<1,32,0,st>>>(h, &str[i], bsz-i);
+        GPU_SYNC();                                         // sync all children threads
+    }
 
-	dim3 xyz(32, (bsz>>5)+1, 0);
-	int  blk = bsz+(-bsz&0x1f);
-	_dyna_hash2d<<<1,xyz,blk*sizeof(int)>>>(h, str, bsz);
+    dim3 xyz(32, (bsz>>5)+1, 0);
+    int  blk = bsz+(-bsz&0x1f);
+    _dyna_hash2d<<<1,xyz,blk*sizeof(int)>>>(h, str, bsz);
 
-	GPU_SYNC();
+    GPU_SYNC();
 
-	cudaStreamDestroy(st);
+    cudaStreamDestroy(st);
 #endif // CUDA_ENABLE_CDP
 
-	return *h;
+    return *h;
 }
 
 //================================================================
 /*!@brief
   little endian to big endian converter
 
-  @param  s	Pointer of memory.
-  @return	32bit unsigned value.
+  @param  s Pointer of memory.
+  @return   32bit unsigned value.
 */
 __GPU__ uint32_t
 bin_to_u32(const void *s)
@@ -170,8 +171,8 @@ bin_to_u32(const void *s)
 /*!@brief
   Get 16bit value from memory big endian.
 
-  @param  s	Pointer of memory.
-  @return	16bit unsigned value.
+  @param  s Pointer of memory.
+  @return   16bit unsigned value.
 */
 __GPU__ uint16_t
 bin_to_u16(const void *s)
@@ -222,36 +223,36 @@ u32_to_bin(uint32_t l, char *bin)
 __GPU__ void*
 d_memcpy(void *d, const void *s, size_t n)
 {
-	if (n==0 || d==s) return d;
+    if (n==0 || d==s) return d;
 
-	char *ds = (char*)d, *ss = (char*)s;
-	size_t t = (uintptr_t)ss;								// take low bits
+    char *ds = (char*)d, *ss = (char*)s;
+    size_t t = (uintptr_t)ss;                               // take low bits
 
-	if ((uintptr_t)ds < (uintptr_t)ss) {					// copy forward
-		if ((t | (uintptr_t)ds) & WMASK) {
-			int i = (((t ^ (uintptr_t)ds) & WMASK) || (n < WSIZE))		// align operands
-				? n
-				: WSIZE - (t & WMASK);
-			n -= i;
-			for (; i; i--) *ds++ = *ss++;					// leading bytes
-		}
-		for (int i=n/WSIZE; i; i--) { *(WORD*)ds=*(WORD*)ss; ds+=WSIZE; ss+=WSIZE; }
-		for (int i=n&WMASK; i; i--) *ds++ = *ss++;			// trailing bytes
-	}
-	else {													// copy backward
-		ss += n;
-		ds += n;
-		if ((t | (uintptr_t)ds) & WMASK) {
-			int i = (((t ^ (uintptr_t)ds) & WMASK) || (n <= WSIZE))
-				? n
-				: t & WMASK;
-			n -= i;
-			for (; i; i--) *--ds = *--ss;					// leading bytes
-		}
-		for (int i=n/WSIZE; i; i--) { ss-=WSIZE; ds-=WSIZE; *(WORD*)ds=*(WORD*)ss; }
-		for (int i=n&WMASK; i; i--) *--ds = *--ss;
-	}
-	return d;
+    if ((uintptr_t)ds < (uintptr_t)ss) {                    // copy forward
+        if ((t | (uintptr_t)ds) & WMASK) {
+            int i = (((t ^ (uintptr_t)ds) & WMASK) || (n < WSIZE))      // align operands
+                ? n
+                : WSIZE - (t & WMASK);
+            n -= i;
+            for (; i; i--) *ds++ = *ss++;                   // leading bytes
+        }
+        for (int i=n/WSIZE; i; i--) { *(WORD*)ds=*(WORD*)ss; ds+=WSIZE; ss+=WSIZE; }
+        for (int i=n&WMASK; i; i--) *ds++ = *ss++;          // trailing bytes
+    }
+    else {                                                  // copy backward
+        ss += n;
+        ds += n;
+        if ((t | (uintptr_t)ds) & WMASK) {
+            int i = (((t ^ (uintptr_t)ds) & WMASK) || (n <= WSIZE))
+                ? n
+                : t & WMASK;
+            n -= i;
+            for (; i; i--) *--ds = *--ss;                   // leading bytes
+        }
+        for (int i=n/WSIZE; i; i--) { ss-=WSIZE; ds-=WSIZE; *(WORD*)ds=*(WORD*)ss; }
+        for (int i=n&WMASK; i; i--) *--ds = *--ss;
+    }
+    return d;
 }
 
 __GPU__ void*
@@ -280,7 +281,7 @@ d_memset(void *d, int c, size_t n)
     size_t k = -(uintptr_t)s & 3;
     s += k;
     n -= k;
-    n &= -4;			// change of sign???
+    n &= -4;            // change of sign???
     n /= 4;
 
     uint32_t *ws = (uint32_t *)s;
@@ -296,22 +297,22 @@ d_memset(void *d, int c, size_t n)
 __GPU__ int
 d_memcmp(const void *s1, const void *s2, size_t n)
 {
-	char *p1=(char*)s1, *p2=(char*)s2;
-	for (; n; n--, p1++, p2++) {
-		if (*p1 != *p2) return *p1 - *p2;
-	}
-	return 0;
+    char *p1=(char*)s1, *p2=(char*)s2;
+    for (; n; n--, p1++, p2++) {
+        if (*p1 != *p2) return *p1 - *p2;
+    }
+    return 0;
 }
 
 __GPU__ int
 d_strlen(const char *str, int raw)
 {
-	int  n  = 0;
-	char *s = (char*)str;
-	for (int i=0; s && *s!='\0'; i++, n++) {
-		_next_utf8(&s);
-	}
-	return (s && raw) ? s - str : n;
+    int  n  = 0;
+    char *s = (char*)str;
+    for (int i=0; s && *s!='\0'; i++, n++) {
+        _next_utf8(&s);
+    }
+    return (s && raw) ? s - str : n;
 }
 
 __GPU__ void
@@ -329,9 +330,9 @@ d_strcmp(const char *s1, const char *s2)
 __GPU__ char*
 d_strchr(const char *s, const char c)
 {
-	char *p = (char*)s;
+    char *p = (char*)s;
     for (; p && *p!='\0'; p++) {
-    	if (*p==c) return p;
+        if (*p==c) return p;
     }
     return NULL;
 }
@@ -339,18 +340,18 @@ d_strchr(const char *s, const char c)
 __GPU__ char*
 d_strcat(char *d, const char *s)
 {
-	d_memcpy(d+STRLENB(d), s, STRLENB(s)+1);
+    d_memcpy(d+STRLENB(d), s, STRLENB(s)+1);
     return d;
 }
 
 __GPU__ char*
 d_strcut(const char *s, int n)
 {
-	char *p = (char*)s;
-	for (int i=0; n && i<n && p && *p!='\0'; i++) {
-		_next_utf8(&p);
-	}
-	return p;
+    char *p = (char*)s;
+    for (int i=0; n && i<n && p && *p!='\0'; i++) {
+        _next_utf8(&p);
+    }
+    return p;
 }
 
 __GPU__ int
@@ -375,9 +376,9 @@ d_itoa(int v, char *s, int base) {
 
   convert ASCII string to integer Guru version
 
-  @param  s	source string.
-  @param  base	n base.
-  @return	result.
+  @param  s source string.
+  @param  base  n base.
+  @return   result.
 */
 __GPU__ long
 d_strtol(const char *s, char** p, int base)
@@ -387,8 +388,8 @@ d_strtol(const char *s, char** p, int base)
 
 REDO:
     switch(*s) {
-    case '-': sign = 1;		// fall through.
-    case '+': s++;	        break;
+    case '-': sign = 1;     // fall through.
+    case '+': s++;          break;
     case ' ': s++;          goto REDO;
     }
     *p = NULL;
@@ -396,8 +397,8 @@ REDO:
     int  n;
     while ((ch = *s++) != '\0') {
         *p = (char*)s;
-        if      ('a' <= ch) 			 n = ch - 'a' + 10;
-        else if ('A' <= ch) 			 n = ch - 'A' + 10;
+        if      ('a' <= ch)              n = ch - 'a' + 10;
+        else if ('A' <= ch)              n = ch - 'A' + 10;
         else if ('0' <= ch && ch <= '9') n = ch - '0';
         else break;
         if (n >= base) break;
@@ -420,14 +421,14 @@ d_strtof(const char *s, char** p)
     
     *p = NULL;
     while (*s!='\0' && *s!='\n' && *s!=' ' && *s!='\t') {
-    	if (state==0 && *s>='0' && *s<='9') {	    // integer
-    		v = (*s - '0') + v * 10;
-    	}
-    	else if (state==1 && *s>='0' && *s<='9') {	// decimal
+        if (state==0 && *s>='0' && *s<='9') {       // integer
+            v = (*s - '0') + v * 10;
+        }
+        else if (state==1 && *s>='0' && *s<='9') {  // decimal
             f = (*s - '0') + f * 10;
             r--;
         }
-    	else if (state==2) {						// exponential
+        else if (state==2) {                        // exponential
             if (*s=='-') {
                 esign = -1;
                 s++;
@@ -439,12 +440,12 @@ d_strtof(const char *s, char** p)
         *p = (char*)s;
     }
     return sign *
-    	(v + (f==0 ? 0.0f : f * exp10((double)r))) *
+        (v + (f==0 ? 0.0f : f * exp10((double)r))) *
         (e==0 ? 1.0f : exp10((double)esign * e));
 }
 
 __GPU__ int
 d_hash(const char *s)
 {
-	return _hash(s, STRLENB(s));
+    return _hash(s, STRLENB(s));
 }
