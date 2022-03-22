@@ -12,10 +12,10 @@ struct Vector {
     int idx = 0;         /// number of elements stored
     int max = N;         /// allocated size
 
-    __GPU__ Vector() { if (N) v = new T[N]; }
+    __GPU__ Vector()               { if (N) v = new T[N]; }
     __GPU__ Vector(T a[], int len) { merge((T*)a, len); }
     __GPU__ Vector(Vector<T>& a)   { merge(a); }
-    __GPU__ ~Vector() { if (v) delete[] v; }
+    __GPU__ ~Vector()              { if (v) delete[] v; }
     //
     // operator overloading
     //
@@ -37,6 +37,9 @@ struct Vector {
         v[idx++] = t;
         return *this;
     }
+    __GPU__ Vector& push(T *t, int sz) {
+    	for (int i=0; i<sz; i++) push(*(t+i));
+    }
     __GPU__ T&  pop()  { return idx>0 ? v[--idx] : v[0]; }
     __GPU__ T&  dec_i() { return v[idx - 1] -= 1; } /// decrement stack top
     __GPU__ Vector& clear(int i=0)  { if (i<idx) idx = i; return *this; }
@@ -48,7 +51,7 @@ struct Vector {
         // LOCK
         T *nv = new T[x];                          // allocate new block of memory
         if (v) {
-            memcpy(nv, v, sizeof(T)*idx);         // deep copy
+            memcpy(nv, v, sizeof(T)*idx);          // deep copy
             delete[] v;
         }
         v   = nv;
