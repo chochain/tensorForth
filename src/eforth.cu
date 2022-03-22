@@ -17,19 +17,6 @@ __GPU__ int ForthVM::find(const char *s) {
     return -1;
 }
 /*
-///
-/// find word through vocabularies
-/// should change this into parallel
-///
-__GPU__ Code *ForthVM::find(const char *name) {
-	Vector<Code*> voc[] = { dict, prim }, *d = voc;
-	for (int j=0; j<2; j++, d++) {
-		for (int i = d->size() - 1; i >= 0; --i) {
-			if (d_strcmp(s, (*d)[i]->name)==0) return (*d)[i];
-		}
-    }
-    return NULL;
-}
 __GPU__ char *ForthVM::next_idiom(char delim) {
     StrBuf& s = *new StrBuf();
     if (delim) cin.getline(s, delim);
@@ -49,9 +36,9 @@ enum {
     NOP = 0, DOVAR, DOLIT, DOSTR, DOTSTR, BRAN, ZBRAN, DONEXT, DOES, TOR
 } forth_opcode;
 
-    ///
-    /// Forth compiler functions
-    ///
+///
+/// Forth compiler functions
+///
 __GPU__ void ForthVM::add_iu(IU i) {            /** add an instruction into pmem */
         pmem.push((U8*)&i, sizeof(IU));  XIP += sizeof(IU);
     }  
@@ -59,7 +46,8 @@ __GPU__ void ForthVM::add_du(DU v) {            /** add a cell into pmem        
         pmem.push((U8*)&v, sizeof(DU)),  XIP += sizeof(DU);
     }  
 __GPU__ void ForthVM::add_str(const char *s) {  /** add a string to pmem         */
-        int sz = STRLEN(s); pmem.push((U8*)s,  sz); XIP += sz;
+        int sz = STRLEN(s);
+        pmem.push((U8*)s,  sz); XIP += sz;
     }
 __GPU__ void ForthVM::colon(const char *name) {
     char *nfa = STR(HERE);                  // current pmem pointer
@@ -95,36 +83,13 @@ __GPU__ void ForthVM::nest(IU c) {
     IP0 = PFA(WP=rs.pop());                 /// * restore call frame
     IP  = PMEM0 + rs.pop();
 }
-/*
-__GPU__ StrBuf& Code::to_s()      {
-	StrBuf& s = *new StrBuf(40);
-	s << name << " " << token << (immd ? "*" : "");
-	return s;
-}
-__GPU__ StrBuf& Code::see(int dp) {
-    StrBuf& buf = *new StrBuf(256);
-    auto see_pf = [&buf](int dp, string s, vector<Code*>& pf) {   	// lambda for indentation and recursive dump
-        int i = dp; buf << ENDL;
-        while (i--) buf << "  ";
-        buf << s;
-        for (int i=0, n=pf.size(); i<n; i++) buf << pf[i]->see(dp + 1);
-    };
-    auto see_qf = [&buf](vector<DU> &qf) {
-    	buf << " = "; for (int i=0, n=qf.size(); i<n; i++) buf << qf[i] << " ";
-    };
-    see_pf(dp, buf << "[ " << to_s(), pf);
-    if (pf1.size() > 0) see_pf(dp, buf << "1--", pf1);
-    if (pf2.size() > 0) see_pf(dp, buf << "2--", pf2);
-    if (qf.size()  > 0) see_qf(qf);
-    buf << "]";
-    return buf;
-}
-*/
 ///==============================================================================
 ///
 /// debug functions
 ///
-__GPU__ void ForthVM::dot_r(int n, int v) { fout << setw(n) << setfill(' ') << v; }
+__GPU__ void ForthVM::dot_r(int n, DU v) {
+	fout << setw(n) << setfill(' ') << v;
+}
 __GPU__ void ForthVM::to_s(IU c) {
     fout << dict[c].name << " " << c << (dict[c].immd ? "* " : " ");
 }
@@ -183,40 +148,6 @@ __GPU__ void ForthVM::mem_dump(IU p0, DU sz) {
     }
     fout << setbase(base);
 }
-/*
-__GPU__ void ForthVM::dot_r(int n, DU v) {
-    cout << setw(n) << setfill(' ') << v;
-}
-__GPU__ void ForthVM::ss_dump() {
-    cout << " <";
-    for (int i=0, n=ss.size(); i<n; i++) { cout << ss[i] << " "; }
-    cout << top << "> ok" << ENDL;
-}
-__GPU__ void ForthVM::words() {
-	vector<Code*> voc[] = { dict, prim }, *d = voc;
-	for (int j=0; j<2; j++, d++) {
-		for (int i=0, n=d->size(); i<n; i++) {
-			if ((i % 10) == 0) { cout << ENDL; yield(); }
-			cout << (*d)[i]->to_s() << " ";
-		}
-	}
-}
-__GPU__ void ForthVM::call(Code *w) {
-    int tmp = WP;                                       /// * setup call frame
-    WP = w->token;
-    w->nest(); 											/// * run inner interpreter recursively
-    try { w->nest(); }
-    catch (exception& e) {
-        string msg = e.what();                          /// * capture exception message
-        if (msg != string()) cout << msg << ENDL;
-    }
-    WP = tmp;                                           /// * restore call frame
-    yield();
-}
-__GPU__ void ForthVM::call(vector<Code*> pf) {
-	for (int i=0, n=pf.size(); i<n; i++) call(pf[i]);
-}
-*/
 ///================================================================================
 ///
 /// macros to reduce verbosity
@@ -495,35 +426,3 @@ __GPU__ void ForthVM::outer(const char *cmd, void(*callback)(int, const char*)) 
     }
     if (!compile) ss_dump();
 }
-/*
-__GPU__ void ForthVM::outer() {
-    string idiom;
-    while (cin >> idiom) {
-    	//printf("%s=>", idiom.c_str());
-        Code *w = find(idiom);                      /// * search through dictionary
-        if (w) {                                    /// * word found?
-            //Serial.println(w->to_s().c_str());
-            //printf("%s\n", w->to_s().c_str());
-            if (compile && !w->immd)                /// * in compile mode?
-                dict[-1]->addcode(w);               /// * add to colon word
-            else call(w);                           /// * execute forth word
-            continue;
-        }
-        // try as a number
-        char *p;
-        int n = idiom.to_i(&p, base);
-        //printf("%d\n", n);
-        if (*p != '\0') {                           /// * not number
-            cout << idiom << "? " << ENDL;          /// * display error prompt
-            compile = false;                        ///> reset to interpreter mode
-            cin.getline(idiom, '\n');               ///> skip the entire line
-            continue;
-        }
-        // is a number
-        if (compile)                                /// * a number in compile mode?
-            dict[-1]->addcode(new Code(find("dolit"), n)); ///> add to current word
-        else PUSH(n);                           	///> or, add value onto data stack
-    }
-    if (!compile) ss_dump();  /// * dump stack and display ok prompt
-}
-*/
