@@ -15,13 +15,13 @@ typedef GF    DTYPE;
 
 class Code;                                 /// forward declaration
 struct fop {                                /// alternate solution for function
-    __GPU__ virtual void operator()(Code*) = 0;
+    __GPU__ virtual void operator()(IU) = 0;
 };
 template<typename F>
 struct function : fop {
     F& fp;
     __GPU__ function(F& f) : fp(f) {}
-    __GPU__ void operator()(Code *c) { fp(c); }
+    __GPU__ void operator()(IU c) { fp(c); }
 };
 
 class Code {
