@@ -25,39 +25,39 @@ struct StrBuf : public Vector<char>
     /// constructors
     ///
     __GPU__ StrBuf(int asz=STRBUF_SIZE) {
-        if (asz>0) _v = new char[_sz=ALIGN4(asz)];
+        if (asz>0) v = new char[max=ALIGN4(asz)];
     }
     __GPU__ StrBuf(const char *s) {
-        _n = STRLENB(s);
-        _v = new char[_sz=ALIGN4(_n+1)];
-        MEMCPY(_v, s, _n);
+        idx = STRLENB(s);
+        v = new char[max=ALIGN4(idx+1)];
+        MEMCPY(v, s, idx);
     }
     __GPU__ StrBuf(StrBuf& s) {
-        _n = s._n;
-        _v = new char[_sz=ALIGN4(_n+1)];
-        MEMCPY(_v, s.c_str(), _n);
+        idx = s.idx;
+        v = new char[max=ALIGN4(idx+1)];
+        MEMCPY(v, s.c_str(), idx);
     }
     ///
     /// StrBuf export
     ///
-    __GPU__ __INLINE__ StrBuf& str() { _v[_n]='\0'; return *this; }
-    __GPU__ __INLINE__ char *c_str() { _v[_n]='\0'; return _v;    }
+    __GPU__ __INLINE__ StrBuf& str() { v[idx]='\0'; return *this; }
+    __GPU__ __INLINE__ char *c_str() { v[idx]='\0'; return v;    }
     __GPU__ StrBuf& substr(int i) {
-        _v[_n] = '\0';
-        StrBuf& s = *new StrBuf(&_v[i]);
+        v[idx] = '\0';
+        StrBuf& s = *new StrBuf(&v[i]);
         return s;
     }
     ///
     /// compare
     ///
-    __GPU__ bool operator==(const char *s2)   { return memcmp(_v, s2, _n)==0; }
-    __GPU__ bool operator==(const StrBuf& s2) { return memcmp(_v, s2._v, _n)==0; }
+    __GPU__ bool operator==(const char *s2)   { return memcmp(v, s2, idx)==0; }
+    __GPU__ bool operator==(const StrBuf& s2) { return memcmp(v, s2.v, idx)==0; }
     ///
     /// assignment
     ///
     __GPU__ StrBuf& operator<<(const char c)  { push(c); return *this; }
     __GPU__ StrBuf& operator<<(const char *s) { merge((char*)s, STRLENB(s)); return *this; }
-    __GPU__ StrBuf& operator<<(StrBuf& s)     { merge(s._v, s._n); return *this; }
+    __GPU__ StrBuf& operator<<(StrBuf& s)     { merge(s.v, s.idx); return *this; }
     __GPU__ StrBuf& operator<<(int i) {
         char s[36];
         int n = ITOA(i, s, 10);
@@ -73,7 +73,7 @@ struct StrBuf : public Vector<char>
     ///
     /// conversion
     ///
-    __GPU__ int   to_i(char **p, int base=10) { return (int)STRTOL(_v, p, base); }
-    __GPU__ float to_f(char **p)              { return (float)STRTOF(_v, p);     }
+    __GPU__ int   to_i(char **p, int base=10) { return (int)STRTOL(v, p, base); }
+    __GPU__ float to_f(char **p)              { return (float)STRTOF(v, p);     }
 };
 #endif // __EFORTH_SRC_STRBUF_H
