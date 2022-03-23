@@ -149,6 +149,11 @@ __GPU__ void ForthVM::mem_dump(IU p0, int sz) {
 #define BOOL(f)       ((f)?-1:0)
 #define ALU(a, OP, b) (INT(a) OP INT(b))
 ///
+/// global memory access macros
+///
+#define     PEEK(a)    (U8)(*(U8*)((uintptr_t)(a)))
+#define     POKE(a, c) (*(U8*)((uintptr_t)(a))=(U8)(c))
+///
 /// dictionary initializer
 ///
 __GPU__ void ForthVM::init() {
