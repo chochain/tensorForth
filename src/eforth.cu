@@ -88,7 +88,7 @@ __GPU__ void ForthVM::to_s(IU c) {
 ///
 /// recursively disassemble colon word
 ///
-__GPU__ void ForthVM::see(IU *cp, IU *ip, int dp=0) {
+__GPU__ void ForthVM::see(IU *cp, IU *ip, int dp) {
     fout << ENDL; for (int i=dp; i>0; i--) fout << "  ";            // indentation
     if (dp) fout << "[" << setw(2) << *ip << ": ";                  // ip offset
     else    fout << "[ ";
@@ -123,7 +123,7 @@ __GPU__ void ForthVM::ss_dump() {
     fout << " <"; for (int i=0; i<ss.idx; i++) { fout << ss[i] << " "; }
     fout << top << "> ok" << ENDL;
 }
-__GPU__ void ForthVM::mem_dump(IU p0, DU sz) {
+__GPU__ void ForthVM::mem_dump(IU p0, int sz) {
     fout << setbase(16) << setfill('0') << ENDL;
     for (IU i=ALIGN16(p0); i<=ALIGN16(p0+sz); i+=16) {
         fout << setw(4) << i << ": ";
@@ -348,7 +348,7 @@ __GPU__ void ForthVM::init() {
     CODE("'",     IU w = find(next_word()); PUSH(w)),
     CODE(".s",    ss_dump()),
     CODE("see",   IU w = find(next_word()); IU ip=0; see(&w, &ip)),
-    CODE("dump",  DU n = POP(); IU a = POP(); mem_dump(a, n)),
+    CODE("dump",  DU n = POP(); IU a = POP(); mem_dump(a, INT(n))),
     CODE("peek",  DU a = POP(); PUSH(PEEK(a))),
     CODE("poke",  DU a = POP(); POKE(a, POP())),
     CODE("forget",
