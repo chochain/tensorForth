@@ -9,8 +9,6 @@
 #define millis()        clock()
 #define delay(ms)       { clock_t t = clock()+ms; while (clock()<t); }
 #define yield()
-
-typedef GF    DTYPE;
 #define DVAL  0.0f
 
 class Code;                                 /// forward declaration
@@ -46,7 +44,8 @@ public:
 ///
 /// Forth Virtual Machine operational macros
 ///
-#define STRLEN(s) (ALIGN(d_strlen(s,0)+1))  /** calculate string size with alignment     */
+#define INT(f)    (static_cast<int>(f))     /** cast float to int                        */
+#define STRLEN4(s)(ALIGN4(d_strlen(s,0)+1)) /** calculate string size with alignment     */
 #define XIP       (dict[-1].len)            /** parameter field tail of latest word      */
 #define PFA(w)    ((U8*)&pmem[dict[w].pfa]) /** parameter field pointer of a word        */
 #define PFLEN(w)  (dict[w].len)             /** parameter field length of a word         */
@@ -64,6 +63,8 @@ public:
 ///
 class ForthVM {
 public:
+	StrBuf        &fin;
+	StrBuf        &fout;
 //  istream       &cin;                     /// stream input
 //	ostream       &cout;				    /// stream output
 
@@ -82,7 +83,7 @@ public:
  //   __GPU__ ForthVM(istream &in, ostream &out);
 
     __GPU__ void init();
-    __GPU__ void outer();
+    __GPU__ void outer(const char *cmd, void(*callback)(int, const char*));
 
 private:
     __GPU__ DU   POP()        { DU n=top; top=ss.pop(); return n; }
@@ -101,7 +102,7 @@ private:
     /// Forth inner interpreter
     ///
     __GPU__ char *next_word();
-    __GPU__ char *scan();
+    __GPU__ char *scan(char c);
     __GPU__ void nest(IU c);
     __GPU__ void call(Code *c);             /// execute a word
     ///
