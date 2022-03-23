@@ -9,10 +9,9 @@
 #define millis()        clock()
 #define delay(ms)       { clock_t t = clock()+ms; while (clock()<t); }
 #define yield()
-#define DVAL  0.0f
+#define DVAL            0.0f
 
-class Code;                                 /// forward declaration
-struct fop {                                /// alternate solution for function
+struct fop {                /// alternate solution for function
     __GPU__ virtual void operator()(IU) = 0;
 };
 template<typename F>
@@ -36,8 +35,8 @@ public:
     };
     template<typename F>    /// template function for lambda
     __GPU__ Code(const char *n, F f, bool im=false) : name(n) {
-        xt = new function<F>(f);
-        immd = im ? 1 : 0;
+    	xt   = new function<F>(f);
+    	immd = im ? 1 : 0;
     }
     __GPU__ Code() {}       /// create a blank struct (for initilization)
 };
@@ -52,7 +51,7 @@ public:
 #define CELL(a)   (*(DU*)&pmem[a])          /** fetch a cell from parameter memory       */
 #define STR(a)    ((char*)&pmem[a])         /** fetch string pointer to parameter memory */
 #define JMPIP     (IP0 + *(IU*)IP)          /** branching target address                 */
-#define SETJMP(a) (*(IU*)(PFA(-1) + (a)))   /** address offset for branching opcodes     */
+#define SETJMP(a) (*(IU*)(PFA(-1) + INT(a)))/** address offset for branching opcodes     */
 #define HERE      (pmem.idx)                /** current parameter memory index           */
 #define IPOFF     ((IU)(IP - PMEM0))        /** IP offset relative parameter memory root */
 #define CALL(c)\
@@ -113,6 +112,6 @@ private:
     __GPU__ void see(IU *cp, IU *ip, int dp=0);
     __GPU__ void words();
     __GPU__ void ss_dump();
-    __GPU__ void mem_dump(IU p0, DU sz);
+    __GPU__ void mem_dump(IU p0, int sz);
 };
 #endif // __EFORTH_SRC_EFORTH_H
