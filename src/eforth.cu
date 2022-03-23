@@ -16,14 +16,6 @@ __GPU__ int ForthVM::find(const char *s) {
     }
     return -1;
 }
-/*
-__GPU__ char *ForthVM::next_idiom(char delim) {
-    StrBuf& s = *new StrBuf();
-    if (delim) cin.getline(s, delim);
-    else cin >> s;
-    return s.to_str();
-}
-*/
 ///==============================================================================
 ///                   
 /// colon word compiler
@@ -46,12 +38,12 @@ __GPU__ void ForthVM::add_du(DU v) {            /** add a cell into pmem        
         pmem.push((U8*)&v, sizeof(DU)),  XIP += sizeof(DU);
     }  
 __GPU__ void ForthVM::add_str(const char *s) {  /** add a string to pmem         */
-        int sz = STRLEN(s);
+        int sz = STRLEN4(s);
         pmem.push((U8*)s,  sz); XIP += sz;
     }
 __GPU__ void ForthVM::colon(const char *name) {
     char *nfa = STR(HERE);                  // current pmem pointer
-    int sz = STRLEN(name);                  // string length, aligned
+    int sz = STRLEN4(name);                 // string length, aligned
     pmem.push((U8*)name,  sz);              // setup raw name field
     Code c(nfa, [](int){});                 // create a new word on dictionary
     c.def = 1;                              // specify a colon word
@@ -62,7 +54,7 @@ __GPU__ void ForthVM::colon(const char *name) {
 ///
 /// Forth inner interpreter (colon word handler)
 ///
-__GPU__ __INLINE__ char *next_word()  {      // get next idiom
+__GPU__ __INLINE__ char *next_word()  {     // get next idiom
     fin >> strbuf; return (char*)strbuf.c_str();
 }
 __GPU__ __INLINE__ char *scan(char c) {
@@ -81,7 +73,7 @@ __GPU__ void ForthVM::nest(IU c) {
     catch(...) {}                           ///> protect if any exeception
     yield();                                ///> give other tasks some time
     IP0 = PFA(WP=rs.pop());                 /// * restore call frame
-    IP  = PMEM0 + rs.pop();
+    IP  = PMEM0 + INT(rs.pop());
 }
 ///==============================================================================
 ///
@@ -113,7 +105,7 @@ __GPU__ void ForthVM::see(IU *cp, IU *ip, int dp=0) {
         fout << "= " << *(DU*)(cp+1); *ip += sizeof(DU); break;
     case DOSTR: case DOTSTR:
         fout << "= \"" << (char*)(cp+1) << '"';
-        *ip += STRLEN((char*)(cp+1)); break;
+        *ip += STRLEN4((char*)(cp+1)); break;
     case BRAN: case ZBRAN: case DONEXT:
         fout << "j" << *(cp+1); *ip += sizeof(IU); break;
     }
@@ -152,11 +144,10 @@ __GPU__ void ForthVM::mem_dump(IU p0, DU sz) {
 ///
 /// macros to reduce verbosity
 ///
-#define CODE(s, g)    { s, [this](IU c){ g; }, 0 }
-#define IMMD(s, g)    { s, [this](IU c){ g; }, 1 }
+#define CODE(s, g)    { s, [this](IU c){ g; }}
+#define IMMD(s, g)    { s, [this](IU c){ g; }, true }
 #define BOOL(f)       ((f)?-1:0)
-#define INT(f)         (static_cast<int>(f))
-#define ALU(a, OP, b)  (INT(a) OP INT(b))
+#define ALU(a, OP, b) (INT(a) OP INT(b))
 ///
 /// dictionary initializer
 ///
@@ -171,10 +162,10 @@ __GPU__ void ForthVM::init() {
     CODE("dolit",   PUSH(*(DU*)IP); IP += sizeof(DU)),
     CODE("dostr",
         const char *s = (const char*)IP;           // get string pointer
-        PUSH(IPOFF); IP += STRLEN(s)),
+        PUSH(IPOFF); IP += STRLEN4(s)),
     CODE("dotstr",
         const char *s = (const char*)IP;           // get string pointer
-        fout << s;  IP += STRLEN(s)),              // send to output console
+        fout << s;  IP += STRLEN4(s)),             // send to output console
     CODE("branch" , IP = JMPIP),                           // unconditional branch
     CODE("0branch", IP = POP() ? IP + sizeof(IU) : JMPIP), // conditional branch
     CODE("donext",
@@ -215,18 +206,18 @@ __GPU__ void ForthVM::init() {
     CODE("*",    top *= ss.pop()),
     CODE("-",    top =  ss.pop() - top),
     CODE("/",    top =  ss.pop() / top),
-    CODE("mod",  top =  ss.pop() % top),
+    CODE("mod",  top =  INT(ss.pop()) % INT(top)),
     CODE("*/",   top =  ss.pop() * ss.pop() / top),
     CODE("/mod",
         DU n = ss.pop(); DU t = top;
-        ss.push(n % t); top = (n / t)),
+        ss.push(INT(n) % INT(t)); top = (n / t)),
     CODE("*/mod",
         DU n = ss.pop() * ss.pop();
         DU t = top;
-        ss.push(n % t); top = (n / t)),
-    CODE("and",  top = ss.pop() & top),
-    CODE("or",   top = ss.pop() | top),
-    CODE("xor",  top = ss.pop() ^ top),
+        ss.push(INT(n) % INT(t)); top = (n / t)),
+    CODE("and",  top = INT(ss.pop()) & INT(top)),
+    CODE("or",   top = INT(ss.pop()) | INT(top)),
+    CODE("xor",  top = INT(ss.pop()) ^ INT(top)),
     CODE("abs",  top = abs(top)),
     CODE("negate", top = -top),
     CODE("max",  DU n=ss.pop(); top = (top>n)?top:n),
@@ -283,7 +274,7 @@ __GPU__ void ForthVM::init() {
     /// @defgroup Branching ops
     /// @brief - if...then, if...else...then
     /// @{
-    IMMD("if",      add_iu(ZBRAN); PUSH(XIP); add_iu(0)),      // if    ( -- here ) 
+    IMMD("if",      add_iu(ZBRAN); PUSH(XIP); add_iu(0)),        // if    ( -- here )
     IMMD("else",                                                 // else ( here -- there )
         add_iu(BRAN);
         IU h=XIP;   add_iu(0); SETJMP(POP()) = XIP; PUSH(h)),
@@ -361,7 +352,7 @@ __GPU__ void ForthVM::init() {
     CODE("peek",  DU a = POP(); PUSH(PEEK(a))),
     CODE("poke",  DU a = POP(); POKE(a, POP())),
     CODE("forget",
-        IU w = find(next_word());
+        int w = find(next_word());
         if (w<0) return;
         IU b = find("boot")+1;
         dict.clear(w > b ? w : b)),
@@ -410,7 +401,7 @@ __GPU__ void ForthVM::outer(const char *cmd, void(*callback)(int, const char*)) 
         }
         // try as a number
         char *p;
-        int n = static_cast<int>(strtol(idiom, &p, base));
+        int n = INT(strtol(idiom, &p, base));
         //printf("%d\n", n);
         if (*p != '\0') {                    /// * not number
             fout << idiom << "? " << ENDL;   ///> display error prompt
