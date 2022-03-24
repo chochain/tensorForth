@@ -11,7 +11,8 @@
 */
 #ifndef CUEF_SRC_OSTREAM_H_
 #define CUEF_SRC_OSTREAM_H_
-#include "cuef.h"
+#include "cuef_config.h"
+#include "cuef_types.h"
 
 #ifdef CUEF_USE_STRING
 #include "string.h"
@@ -33,13 +34,12 @@ typedef enum {
 /*! printf internal version data container.
 */
 typedef struct {
-	U32	id   : 12;
+    U32 id   : 12;
     GT  gt   : 4;
-    U32	size : 16;
+    U32 size : 16;
     U8  data[];      // different from *data
 } obuf_node;
 
-namespace cuef {
 ///
 /// iomanip classes
 ///
@@ -56,32 +56,32 @@ __GPU__ __INLINE__ _setprec setprec(int p)  { return _setprec(p); }
 ///
 class ostream
 {
-	char *_buf = NULL;
-	char *_ptr = 0;
-	int  _sz   = 0;
-	int  _base = 10;
-	int  _width= 6;
-	char _fill = ' ';
-	int  _prec = 6;
+    char *_buf = NULL;
+    char *_ptr = 0;
+    int  _sz   = 0;
+    int  _base = 10;
+    int  _width= 6;
+    char _fill = ' ';
+    int  _prec = 6;
 
     __GPU__  void _write(GT gt, U8 *v, int sz) {
-        if (threadIdx.x!=0) return;						// only thread 0 within a block can write
+        if (threadIdx.x!=0) return;                     // only thread 0 within a block can write
         if ((sizeof(obuf_node)+ALIGN4(sz))>size()) return; // too big
 
         //_LOCK;
         obuf_node *n = (obuf_node *)_ptr;
 
-        n->id   = blockIdx.x;				// VM.id
+        n->id   = blockIdx.x;               // VM.id
         n->gt   = gt;
-        n->size = ALIGN4(sz);				// 32-bit alignment
+        n->size = ALIGN4(sz);               // 32-bit alignment
 
         MEMCPY(n->data, v, sz);
 
         _ptr  = ((char*)(n->data))+n->size;// advance pointer to next print block
         *_ptr = (char)GT_EMPTY;
         //_UNLOCK;
-    }        
-    
+    }
+
 public:
     ///
     /// constructor with managed memory buffer
@@ -129,5 +129,4 @@ public:
 #endif // CUEF_USE_STRING
 };
 
-}   // namespace cuef
 #endif // CUEF_SRC_OSTREAM_H_
