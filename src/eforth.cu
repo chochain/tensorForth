@@ -27,7 +27,6 @@ __GPU__ int ForthVM::find(const char *s) {
 enum {
     NOP = 0, DOVAR, DOLIT, DOSTR, DOTSTR, BRAN, ZBRAN, DONEXT, DOES, TOR
 } forth_opcode;
-
 ///
 /// Forth compiler functions
 ///
@@ -38,12 +37,12 @@ __GPU__ void ForthVM::add_du(DU v) {            /** add a cell into pmem        
         pmem.push((U8*)&v, sizeof(DU)),  XIP += sizeof(DU);
     }  
 __GPU__ void ForthVM::add_str(const char *s) {  /** add a string to pmem         */
-        int sz = STRLEN4(s);
+        int sz = STRASZ(s);
         pmem.push((U8*)s,  sz); XIP += sz;
     }
 __GPU__ void ForthVM::colon(const char *name) {
     char *nfa = STR(HERE);                  // current pmem pointer
-    int sz = STRLEN4(name);                 // string length, aligned
+    int sz = STRASZ(name);                  // string length, aligned
     pmem.push((U8*)name,  sz);              // setup raw name field
     Code c(nfa, [](int){});                 // create a new word on dictionary
     c.def = 1;                              // specify a colon word
@@ -63,14 +62,15 @@ __GPU__ __INLINE__ char *scan(char c) {
 __GPU__ void ForthVM::nest(IU c) {
     rs.push(IP - PMEM0); rs.push(WP);       /// * setup call frame
     IP0 = IP = PFA(WP=c);                   // CC: this takes 30ms/1K, need work
-    try {                                   // CC: is dict[c] kept in cache?
+//  try                                     // kernal does not support exception
+    {                                       // CC: is dict[c] kept in cache?
         U8 *ipx = IP + PFLEN(c);            // CC: this saves 350ms/1M
         while (IP < ipx) {        			/// * recursively call all children
             IU c1 = *IP; IP += sizeof(IU);  // CC: cost of (ipx, c1) on stack?
             CALL(c1);                       ///> execute child word
         }                                   ///> can do IP++ if pmem unit is 16-bit
     }
-    catch(...) {}                           ///> protect if any exeception
+//    catch(...) {}                         ///> protect if any exeception
     yield();                                ///> give other tasks some time
     IP0 = PFA(WP=rs.pop());                 /// * restore call frame
     IP  = PMEM0 + INT(rs.pop());
@@ -105,7 +105,7 @@ __GPU__ void ForthVM::see(IU *cp, IU *ip, int dp) {
         fout << "= " << *(DU*)(cp+1); *ip += sizeof(DU); break;
     case DOSTR: case DOTSTR:
         fout << "= \"" << (char*)(cp+1) << '"';
-        *ip += STRLEN4((char*)(cp+1)); break;
+        *ip += STRASZ((char*)(cp+1)); break;
     case BRAN: case ZBRAN: case DONEXT:
         fout << "j" << *(cp+1); *ip += sizeof(IU); break;
     }
@@ -151,8 +151,8 @@ __GPU__ void ForthVM::mem_dump(IU p0, int sz) {
 ///
 /// global memory access macros
 ///
-#define     PEEK(a)    (U8)(*(U8*)((uintptr_t)(a)))
-#define     POKE(a, c) (*(U8*)((uintptr_t)(a))=(U8)(c))
+#define PEEK(a)        (U8)(*(U8*)((uintptr_t)(a)))
+#define POKE(a, c)     (*(U8*)((uintptr_t)(a))=(U8)(c))
 ///
 /// dictionary initializer
 ///
@@ -167,10 +167,10 @@ __GPU__ void ForthVM::init() {
     CODE("dolit",   PUSH(*(DU*)IP); IP += sizeof(DU)),
     CODE("dostr",
         const char *s = (const char*)IP;           // get string pointer
-        PUSH(IPOFF); IP += STRLEN4(s)),
+        PUSH(IPOFF); IP += STRASZ(s)),
     CODE("dotstr",
         const char *s = (const char*)IP;           // get string pointer
-        fout << s;  IP += STRLEN4(s)),             // send to output console
+        fout << s;  IP += STRASZ(s)),             // send to output console
     CODE("branch" , IP = JMPIP),                           // unconditional branch
     CODE("0branch", IP = POP() ? IP + sizeof(IU) : JMPIP), // conditional branch
     CODE("donext",
@@ -254,7 +254,7 @@ __GPU__ void ForthVM::init() {
     CODE(".",       fout << POP() << " "),
     CODE(".r",      DU n = POP(); dot_r(n, POP())),
     CODE("u.r",     DU n = POP(); dot_r(n, abs(POP()))),
-    CODE(".f",      DU n = POP(); fout << setprecision(n) << POP()),
+    CODE(".f",      DU n = POP(); fout << setprec(n) << POP()),
     CODE("key",     PUSH(next_word()[0])),
     CODE("emit",    char b = (char)POP(); fout << b),
     CODE("space",   fout << " "),
