@@ -24,7 +24,7 @@ extern "C" {
 uint32_t hbin_to_u32(const void *bin);
 uint16_t hbin_to_u16(const void *bin);
 
-#if defined(__CUDACC__)
+#ifdef __CUDACC__
 #define __GPU__      __device__
     
 __GPU__ uint32_t     bin_to_u32(const void *bin);
@@ -37,8 +37,8 @@ __GPU__ void         *d_memcpy(void *d, const void *s, size_t n);
 __GPU__ void         *d_memset(void *d, int c, size_t n);
 __GPU__ int          d_memcmp(const void *s1, const void *s2, size_t n);
 
-__GPU__ int          d_strlen(const char *s, int raw);
-__GPU__ void         d_strcpy(char *s1, const char *s2);
+__GPU__ int          d_strlen(const char *s, bool raw);
+__GPU__ void         d_strcpy(char *d, const char *s);
 __GPU__ int          d_strcmp(const char *s1, const char *s2);
 __GPU__ int          d_strcasecmp(const char *s1, const char *s2);
 __GPU__ char*        d_strchr(const char *s,  const char c);
@@ -51,25 +51,25 @@ __GPU__ double       d_strtof(const char *s, char **p);
 __GPU__ int          d_hash(const char *s);
     
 // memory util
-#define MEMCPY(d,s,n)   memcpy(d,s,n)
-#define MEMSET(d,v,n)   memset(d,v,n)
-#define MEMCMP(d,s,n)   d_memcmp(d,s,n)
+#define MEMCPY(d,s,n)   memcpy((char*)(d), (const char*)(s), (size_t)(n))
+#define MEMSET(d,v,n)   memset((char*)(d), (int)(v), (size_t)(n))
+#define MEMCMP(d,s,n)   d_memcmp((const char*)(d), (const char*)(s), (size_t)(n))
 // string util
-#define STRLEN(s)       d_strlen((char*)(s), 0)
-#define STRLENB(s)      d_strlen((char*)(s), 1)
-#define STRCPY(d,s)     MEMCPY(d,s,STRLENB(s)+1)
-#define STRCMP(d,s)     MEMCMP(d,s,STRLENB(s))
-#define STRCASECMP(d,s) d_strcasecmp(d,s)
-#define STRCHR(d,c)     d_strchr((char*)d,c)
-#define STRCAT(d,s)     d_strcat((char*)d, (char*)s)
-#define STRCUT(d,n)     d_strcut((char*)d, (int)n)
+#define STRLEN(s)       d_strlen((const char*)(s), false)
+#define STRLENB(s)      d_strlen((const char*)(s), true)
+#define STRCPY(d,s)     MEMCPY((char*)(d), (const char*)(s), STRLENB(s)+1)
+#define STRCMP(d,s)     MEMCMP((const char*)(d), (const char*)(s), STRLENB(s))
+#define STRCASECMP(d,s) d_strcasecmp((const char*)(d), (const char*)(s))
+#define STRCHR(d,c)     d_strchr((char*)(d), (const char)(c))
+#define STRCAT(d,s)     d_strcat((char*)(d), (const char*)(s))
+#define STRCUT(d,n)     d_strcut((const char*)(d), (int)(n))
 // conversion
-#define ITOA(i,s,b)     d_itoa((int)(i), (char*)(s), b)
+#define ITOA(i,s,b)     d_itoa((int)(i), (char*)(s), (int)(b))
 #define STRTOL(s,p,b)   d_strtol((const char*)(s), (char**)(p), (int)b)
 #define STRTOF(s,p)     d_strtof((const char*)(s), (char**)(p))
-#define HASH(s)         d_hash((char*)(s))
+#define HASH(s)         d_hash((const char*)(s))
 
-#else
+#else  // ifndef __CUDACC__
 #include <stdio.h>
     
 #define MEMCPY(d,s,n)   memcpy(d,s,n)
@@ -90,7 +90,7 @@ __GPU__ int          d_hash(const char *s);
 #define STRTOL(s,p,b)   strtol(s,p,b)
 #define STRTOF(s,p)     strtof(s,p)
 
-#endif  // defined(__CUDACC__)
+#endif  // __CUDACC__
 
 #ifdef __cplusplus
 }
