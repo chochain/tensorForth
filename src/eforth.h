@@ -3,6 +3,7 @@
 #include "cuef_types.h"
 #include "vector.h"         // cueForth vector
 #include "strbuf.h"
+#include "istream.h"
 #include "ostream.h"
 //#include "sstream.h"		// cueForth sstream
 
@@ -63,9 +64,8 @@ public:
 ///
 class ForthVM {
 public:
-	StrBuf        &fin;
-//  istream       &cin;                     /// stream input
-	ostream       &fout;				    /// stream output
+    Istream       &fin;                     /// VM stream input
+	Ostream       &fout;				    /// VM stream output
 
     Vector<DU,   64>      rs;               /// return stack
     Vector<DU,   64>      ss;               /// parameter stack
@@ -79,10 +79,12 @@ public:
     U8    *PMEM0  = &pmem[0];
     U8    *IP = PMEM0, *IP0 = PMEM0;
 
+    char  idiom[80];
+
  //   __GPU__ ForthVM(istream &in, ostream &out);
 
     __GPU__ void init();
-    __GPU__ void outer(const char *cmd, void(*callback)(int, const char*));
+    __GPU__ void outer(const char *cmd);
 
 private:
     __GPU__ DU   POP()        { DU n=top; top=ss.pop(); return n; }
