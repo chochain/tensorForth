@@ -3,6 +3,7 @@
 #include "cuef_types.h"
 #include "vector.h"         // cueForth vector
 #include "strbuf.h"
+#include "ostream.h"
 //#include "sstream.h"		// cueForth sstream
 
 #define ENDL            "\n"
@@ -44,7 +45,7 @@ public:
 /// Forth Virtual Machine operational macros
 ///
 #define INT(f)    (static_cast<int>(f))     /** cast float to int                        */
-#define STRLEN4(s)(ALIGN4(d_strlen(s,0)+1)) /** calculate string size with alignment     */
+#define STRASZ(s) (ALIGN4(d_strlen(s,0)+1)) /** calculate string size with alignment     */
 #define XIP       (dict[-1].len)            /** parameter field tail of latest word      */
 #define PFA(w)    ((U8*)&pmem[dict[w].pfa]) /** parameter field pointer of a word        */
 #define PFLEN(w)  (dict[w].len)             /** parameter field length of a word         */
@@ -63,9 +64,8 @@ public:
 class ForthVM {
 public:
 	StrBuf        &fin;
-	StrBuf        &fout;
 //  istream       &cin;                     /// stream input
-//	ostream       &cout;				    /// stream output
+	ostream       &fout;				    /// stream output
 
     Vector<DU,   64>      rs;               /// return stack
     Vector<DU,   64>      ss;               /// parameter stack
