@@ -8,7 +8,7 @@
 /// dictionary search functions - can be adapted for ROM+RAM
 ///
 __GPU__ __INLINE__ int ForthVM::streq(const char *s1, const char *s2) {
-    return ucase ? strcasecmp(s1, s2)==0 : strcmp(s1, s2)==0;
+    return ucase ? STRCASECMP(s1, s2)==0 : STRCMP(s1, s2)==0;
 }
 __GPU__ int ForthVM::find(const char *s) {
     for (int i = dict.idx - (compile ? 2 : 1); i >= 0; --i) {
@@ -377,7 +377,7 @@ __GPU__ void ForthVM::init() {
     CODE("tone",  DU ch = POP(); ledcWriteTone(ch, POP())),
 #endif // ARDUINO
     /// @}
-    CODE("bye",   exit(0)),
+//CODE("bye",   exit(0)),
     CODE("boot",  dict.clear(find("boot") + 1); pmem.clear())
     };
     for (int i=0; i<sizeof(prim)/sizeof(Code); i++) {
@@ -403,7 +403,7 @@ __GPU__ void ForthVM::outer(const char *cmd) {
         }
         // try as a number
         char *p;
-        int n = INT(strtol(idiom, &p, base));
+        int n = STRTOL(idiom, &p, base);
         //printf("%d\n", n);
         if (*p != '\0') {                    /// * not number
             fout << idiom << "? " << ENDL;   ///> display error prompt
