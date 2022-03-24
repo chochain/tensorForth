@@ -53,11 +53,11 @@ __GPU__ void ForthVM::colon(const char *name) {
 ///
 /// Forth inner interpreter (colon word handler)
 ///
-__GPU__ __INLINE__ char *next_word()  {     // get next idiom
-    fin >> strbuf; return (char*)strbuf.c_str();
+__GPU__ __INLINE__ char *ForthVM::next_word()  {     // get next idiom
+    fin >> idiom; return idiom;
 }
-__GPU__ __INLINE__ char *scan(char c) {
-    getline(fin, strbuf, c); return (char*)strbuf.c_str();
+__GPU__ __INLINE__ char *ForthVM::scan(char c) {
+    fin.getline(idiom, c); return idiom;
 }
 __GPU__ void ForthVM::nest(IU c) {
     rs.push(IP - PMEM0); rs.push(WP);       /// * setup call frame
@@ -387,13 +387,10 @@ __GPU__ void ForthVM::init() {
 ///
 /// ForthVM Outer interpreter
 ///
-__GPU__ void ForthVM::outer(const char *cmd, void(*callback)(int, const char*)) {
-    fin.clear();                             /// clear input stream error bit if any
+__GPU__ void ForthVM::outer(const char *cmd) {
     fin.str(cmd);                            /// feed user command into input stream
-    fout_cb = callback;                      /// setup callback function
-    fout.str("");                            /// clean output buffer, ready for next
-    while (fin >> strbuf) {
-        const char *idiom = strbuf.c_str();
+    fout.clear();                            /// clean output buffer, ready for next
+    while (fin >> idiom) {
         //printf("%s=>",idiom);
         int w = find(idiom);                 /// * search through dictionary
         if (w>=0) {                          /// * word found?
