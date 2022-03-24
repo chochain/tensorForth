@@ -40,6 +40,7 @@ __GPU__ int          d_memcmp(const void *s1, const void *s2, size_t n);
 __GPU__ int          d_strlen(const char *s, int raw);
 __GPU__ void         d_strcpy(char *s1, const char *s2);
 __GPU__ int          d_strcmp(const char *s1, const char *s2);
+__GPU__ int          d_strcasecmp(const char *s1, const char *s2);
 __GPU__ char*        d_strchr(const char *s,  const char c);
 __GPU__ char*        d_strcat(char *d,  const char *s);
 __GPU__ char*        d_strcut(const char *s, int n);         // take n utf8 chars from the string
@@ -58,6 +59,7 @@ __GPU__ int          d_hash(const char *s);
 #define STRLENB(s)      d_strlen((char*)(s), 1)
 #define STRCPY(d,s)     MEMCPY(d,s,STRLENB(s)+1)
 #define STRCMP(d,s)     MEMCMP(d,s,STRLENB(s))
+#define STRCASECMP(d,s) d_strcasecmp(d,s)
 #define STRCHR(d,c)     d_strchr((char*)d,c)
 #define STRCAT(d,s)     d_strcat((char*)d, (char*)s)
 #define STRCUT(d,n)     d_strcut((char*)d, (int)n)
@@ -78,6 +80,7 @@ __GPU__ int          d_hash(const char *s);
 #define STRLENB(s)      STRLEN(s)
 #define STRCPY(d,s)     strcpy(d,s)
 #define STRCMP(s1,s2)   strcmp(s1,s2)
+#define STRCASECMP(s1,s2) strcasecmp(s1,s2)
 #define STRCHR(d,c)     strchr(d,c)
 #define STRCAT(d,s)     strcat(d,s)
 #define STRCUT(s,n)     substr(s,n)

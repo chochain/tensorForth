@@ -327,6 +327,21 @@ d_strcmp(const char *s1, const char *s2)
     return d_memcmp(s1, s2, STRLENB(s1));
 }
 
+__GPU__ int
+d_strcasecmp(const void *s1, const void *s2)
+{
+	size_t n = STRLENB(s1);
+    char *p1=(char*)s1, *p2=(char*)s2;
+    for (; n; n--, p1++, p2++) {
+    	char xp1 = *p1&0x7f;
+    	if (xp1 < 0x41 || xp1 > 0x5a) {
+    		if (*p1 != *p2) return *p1 - *p2;
+    	}
+    	else if ((*p1 & 0x5f) != (*p2 & 0x5f)) return *p1 - *p2;
+    }
+    return 0;
+}
+
 __GPU__ char*
 d_strchr(const char *s, const char c)
 {
