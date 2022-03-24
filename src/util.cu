@@ -27,8 +27,7 @@ typedef int           WORD;
 #define HASH_K                  1000003
 
 uint32_t
-hbin_to_u32(const void *bin)
-{
+hbin_to_u32(const void *bin) {
     uint32_t x = *((uint32_t*)bin);
     return
         ((x & 0xff)   << 24) |
@@ -45,15 +44,13 @@ hbin_to_u32(const void *bin)
   @return   16bit unsigned value.
 */
 uint16_t
-hbin_to_u16(const void *bin)
-{
+hbin_to_u16(const void *bin) {
     uint16_t x = *((uint16_t *)bin);
     return ((x & 0xff) << 8) | ((x >> 8) & 0xff);
 }
 
 __GPU__ void
-_next_utf8(char **sp)
-{
+_next_utf8(char **sp) {
     char c = **sp;
     int  b = 0;
     if      (c>0 && c<=127)         b=1;
@@ -66,8 +63,7 @@ _next_utf8(char **sp)
 }
 
 __GPU__ int
-_loop_hash(const char *str, int bsz)
-{
+_loop_hash(const char *str, int bsz) {
     // a simple polynomial hashing algorithm
     int h = 0;
     for (int i=0; i<bsz; i++) {
@@ -84,8 +80,7 @@ _loop_hash(const char *str, int bsz)
   @return int   Symbol value.
 */
 __KERN__ void
-_dyna_hash(int *hash, const char *str, int sz)
-{
+_dyna_hash(int *hash, const char *str, int sz) {
     int x = threadIdx.x;                                    // row-major
     int m = __ballot_sync(0xffffffff, x<sz);                // ballot_mask
     int h = x<sz ? str[x] : 0;                              // move to register
@@ -97,8 +92,7 @@ _dyna_hash(int *hash, const char *str, int sz)
 }
 
 __KERN__ void
-_dyna_hash2d(int *hash, const char *str, int bsz)
-{
+_dyna_hash2d(int *hash, const char *str, int bsz) {
     auto blk = cg::this_thread_block();                     // C++11
 
     extern __shared__ int h[];
@@ -120,8 +114,7 @@ _dyna_hash2d(int *hash, const char *str, int bsz)
 #endif // CUEF_ENABLE_CDP
 __GPU__ int _warp_h[32];            // each thread takes a slot
 __GPU__ int
-_hash(const char *str, int bsz)
-{
+_hash(const char *str, int bsz) {
     if (bsz < DYNA_HASH_THRESHOLD) return _loop_hash(str, bsz);
 
     int x  = threadIdx.x;
@@ -156,8 +149,7 @@ _hash(const char *str, int bsz)
   @return   32bit unsigned value.
 */
 __GPU__ uint32_t
-bin_to_u32(const void *s)
-{
+bin_to_u32(const void *s) {
 #if CUEF_32BIT_ALIGN_REQUIRED
     char *p = (char*)s;
     return (uint32_t)(p[0]<<24) | (p[1]<<16) |  (p[2]<<8) | p[3];
@@ -175,8 +167,7 @@ bin_to_u32(const void *s)
   @return   16bit unsigned value.
 */
 __GPU__ uint16_t
-bin_to_u16(const void *s)
-{
+bin_to_u16(const void *s) {
 #if CUEF_32BIT_ALIGN_REQUIRED
     char *p = (char*)s;
     return (uint16_t)(p[0]<<8) | p[1];
@@ -194,8 +185,7 @@ bin_to_u16(const void *s)
   @return sizeof(U16).
 */
 __GPU__ void
-u16_to_bin(uint16_t s, char *bin)
-{
+u16_to_bin(uint16_t s, char *bin) {
     *bin++ = (s >> 8) & 0xff;
     *bin   = s & 0xff;
 }
@@ -208,8 +198,7 @@ u16_to_bin(uint16_t s, char *bin)
   @return sizeof(U32).
 */
 __GPU__ void
-u32_to_bin(uint32_t l, char *bin)
-{
+u32_to_bin(uint32_t l, char *bin) {
     *bin++ = (l >> 24) & 0xff;
     *bin++ = (l >> 16) & 0xff;
     *bin++ = (l >> 8) & 0xff;
@@ -221,8 +210,7 @@ u32_to_bin(uint32_t l, char *bin)
  *   TODO: alignment of ss is still
  */
 __GPU__ void*
-d_memcpy(void *d, const void *s, size_t n)
-{
+d_memcpy(void *d, const void *s, size_t n) {
     if (n==0 || d==s) return d;
 
     char *ds = (char*)d, *ss = (char*)s;
@@ -256,8 +244,7 @@ d_memcpy(void *d, const void *s, size_t n)
 }
 
 __GPU__ void*
-d_memset(void *d, int c, size_t n)
-{
+d_memset(void *d, int c, size_t n) {
     char *s = (char*)d;
 
     /* Fill head and tail with minimal branching. Each
@@ -295,8 +282,7 @@ d_memset(void *d, int c, size_t n)
 }
 
 __GPU__ int
-d_memcmp(const void *s1, const void *s2, size_t n)
-{
+d_memcmp(const void *s1, const void *s2, size_t n) {
     char *p1=(char*)s1, *p2=(char*)s2;
     for (; n; n--, p1++, p2++) {
         if (*p1 != *p2) return *p1 - *p2;
@@ -305,8 +291,7 @@ d_memcmp(const void *s1, const void *s2, size_t n)
 }
 
 __GPU__ int
-d_strlen(const char *str, int raw)
-{
+d_strlen(const char *str, bool raw) {
     int  n  = 0;
     char *s = (char*)str;
     for (int i=0; s && *s!='\0'; i++, n++) {
@@ -316,21 +301,18 @@ d_strlen(const char *str, int raw)
 }
 
 __GPU__ void
-d_strcpy(char *d, const char *s)
-{
+d_strcpy(char *d, const char *s) {
     d_memcpy(d, s, STRLENB(s)+1);
 }
 
 __GPU__ int
-d_strcmp(const char *s1, const char *s2)
-{
+d_strcmp(const char *s1, const char *s2) {
     return d_memcmp(s1, s2, STRLENB(s1));
 }
 
 __GPU__ int
-d_strcasecmp(const void *s1, const void *s2)
-{
-	size_t n = STRLENB(s1);
+d_strcasecmp(const void *s1, const void *s2) {
+	int n = STRLENB(s1);
     char *p1=(char*)s1, *p2=(char*)s2;
     for (; n; n--, p1++, p2++) {
     	char xp1 = *p1&0x7f;
@@ -343,8 +325,7 @@ d_strcasecmp(const void *s1, const void *s2)
 }
 
 __GPU__ char*
-d_strchr(const char *s, const char c)
-{
+d_strchr(const char *s, const char c) {
     char *p = (char*)s;
     for (; p && *p!='\0'; p++) {
         if (*p==c) return p;
@@ -353,15 +334,13 @@ d_strchr(const char *s, const char c)
 }
 
 __GPU__ char*
-d_strcat(char *d, const char *s)
-{
+d_strcat(char *d, const char *s) {
     d_memcpy(d+STRLENB(d), s, STRLENB(s)+1);
     return d;
 }
 
 __GPU__ char*
-d_strcut(const char *s, int n)
-{
+d_strcut(const char *s, int n) {
     char *p = (char*)s;
     for (int i=0; n && i<n && p && *p!='\0'; i++) {
         _next_utf8(&p);
@@ -396,8 +375,7 @@ d_itoa(int v, char *s, int base) {
   @return   result.
 */
 __GPU__ long
-d_strtol(const char *s, char** p, int base)
-{
+d_strtol(const char *s, char** p, int base) {
     long ret  = 0;
     bool sign = 0;
 
@@ -424,8 +402,7 @@ REDO:
 }
 
 __GPU__ double
-d_strtof(const char *s, char** p)
-{
+d_strtof(const char *s, char** p) {
     int sign = 1, esign = 1, state=0;
     int r = 0, e = 0;
     long v = 0L, f = 0L;
@@ -460,7 +437,6 @@ d_strtof(const char *s, char** p)
 }
 
 __GPU__ int
-d_hash(const char *s)
-{
+d_hash(const char *s) {
     return _hash(s, STRLENB(s));
 }
