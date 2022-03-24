@@ -1,6 +1,6 @@
 /*! @file
   @brief
-  cueForth ostream module.
+  cueForth Ostream module.
 
   <pre>
   Copyright (C) 2021 GreenII
@@ -52,9 +52,9 @@ __GPU__ __INLINE__ _setw    setw(int w)     { return _setw(w);    }
 __GPU__ __INLINE__ _setfill setfill(char f) { return _setfill(f); }
 __GPU__ __INLINE__ _setprec setprec(int p)  { return _setprec(p); }
 ///
-/// ostream class
+/// Ostream class
 ///
-class ostream
+class Ostream
 {
     char *_buf = NULL;
     char *_ptr = 0;
@@ -86,47 +86,46 @@ public:
     ///
     /// constructor with managed memory buffer
     ///
-    __GPU__  ostream(char *buf, int sz=CUEF_OBUF_SIZE) : _buf(buf), _ptr(buf), _sz(sz) {}
+    __GPU__  Ostream(char *buf, int sz=CUEF_OBUF_SIZE) : _buf(buf), _ptr(buf), _sz(sz) {}
     ///
     /// clear output buffer
     ///
-    __GPU__  ostream& clear() { _ptr = _buf; return *this; }
+    __GPU__  Ostream& clear() { _ptr = _buf; return *this; }
     __GPU__  U32 tellp()      { return (U32)(_ptr - _buf); }
     __GPU__  U32 size()       { return (U32)_sz; }
     ///
     /// iomanip control
     ///
-    __GPU__ ostream& operator<<(_setbase b) { _base  = b.base;  return *this; }
-    __GPU__ ostream& operator<<(_setw    w) { _width = w.width; return *this; }
-    __GPU__ ostream& operator<<(_setfill f) { _fill  = f.fill;  return *this; }
-    __GPU__ ostream& operator<<(_setprec p) { _prec  = p.prec;  return *this; }
+    __GPU__ Ostream& operator<<(_setbase b) { _base  = b.base;  return *this; }
+    __GPU__ Ostream& operator<<(_setw    w) { _width = w.width; return *this; }
+    __GPU__ Ostream& operator<<(_setfill f) { _fill  = f.fill;  return *this; }
+    __GPU__ Ostream& operator<<(_setprec p) { _prec  = p.prec;  return *this; }
     ///
     /// object input
     ///
-    __GPU__ ostream& operator<<(U8 c) {
+    __GPU__ Ostream& operator<<(U8 c) {
         U8 buf[2] = { c, '\0' };
         _write(GT_STR, buf, 2);
         return *this;
     }
-    __GPU__ ostream& operator<<(GI i) {
+    __GPU__ Ostream& operator<<(GI i) {
         _write(_base==10 ? GT_INT : GT_HEX, (U8*)&i, sizeof(GI));
         return *this;
     }
-    __GPU__ ostream& operator<<(GF f) {
+    __GPU__ Ostream& operator<<(GF f) {
         _write(GT_FLOAT, (U8*)&f, sizeof(GF));
         return *this;
     }
-    __GPU__ ostream& operator<<(const char *s) {
+    __GPU__ Ostream& operator<<(const char *s) {
         int i = STRLENB(s)+1;
         _write(GT_STR, (U8*)s, i);
         return *this;
     }
 #if CUEF_USE_STRING
-    __GPU__ ostream& operator<<(string &s) {
+    __GPU__ Ostream& operator<<(string &s) {
         _write(GT_STR, (U8*)s.c_str(), s.size()+1);
         return *this;
     }
 #endif // CUEF_USE_STRING
 };
-
 #endif // CUEF_SRC_OSTREAM_H_
