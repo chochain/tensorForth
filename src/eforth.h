@@ -2,10 +2,8 @@
 #define __EFORTH_SRC_EFORTH_H
 #include "cuef_types.h"
 #include "vector.h"         // cueForth vector
-#include "strbuf.h"
-#include "istream.h"
-#include "ostream.h"
-//#include "sstream.h"		// cueForth sstream
+//#include "strbuf.h"
+#include "sstream.h"		// cueForth sstream
 
 #define ENDL            "\n"
 #define millis()        clock()
@@ -46,7 +44,7 @@ public:
 /// Forth Virtual Machine operational macros
 ///
 #define INT(f)    (static_cast<int>(f))     /** cast float to int                        */
-#define STRASZ(s) (ALIGN4(d_strlen(s,0)+1)) /** calculate string size with alignment     */
+#define STRASZ(s) (ALIGN(STRLENB(s)+1))     /** calculate string size with alignment     */
 #define XIP       (dict[-1].len)            /** parameter field tail of latest word      */
 #define PFA(w)    ((U8*)&pmem[dict[w].pfa]) /** parameter field pointer of a word        */
 #define PFLEN(w)  (dict[w].len)             /** parameter field length of a word         */
@@ -75,9 +73,9 @@ public:
     bool  compile = false, ucase = true;    /// compiling flag
     int   base    = 10;                     /// numeric radix
     DU    top     = DVAL;                   /// cached top of stack
-    IU    WP      = 0;                      /// instruction and parameter pointers
-    U8    *PMEM0  = &pmem[0];
-    U8    *IP = PMEM0, *IP0 = PMEM0;
+    IU    WP      = 0;                      /// word and parameter pointers
+    U8    *PMEM0  = &pmem[0];               /// cached base-memory pointer
+    U8    *IP = PMEM0, *IP0 = PMEM0;        /// current instruction pointer
 
     char  idiom[80];
 
