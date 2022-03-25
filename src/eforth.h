@@ -1,15 +1,14 @@
-#ifndef __EFORTH_SRC_EFORTH_H
-#define __EFORTH_SRC_EFORTH_H
+#ifndef CUEF_SRC_EFORTH_H
+#define CUEF_SRC_EFORTH_H
 #include "cuef_types.h"
+#include "util.h"
 #include "vector.h"         // cueForth vector
-//#include "strbuf.h"
 #include "sstream.h"		// cueForth sstream
 
 #define ENDL            "\n"
 #define millis()        clock()
 #define delay(ms)       { clock_t t = clock()+ms; while (clock()<t); }
 #define yield()
-#define DVAL            0.0f
 
 struct fop {                /// alternate solution for function
     __GPU__ virtual void operator()(IU) = 0;
@@ -72,17 +71,17 @@ public:
 
     bool  compile = false, ucase = true;    /// compiling flag
     int   base    = 10;                     /// numeric radix
-    DU    top     = DVAL;                   /// cached top of stack
+    DU    top     = DU0;                    /// cached top of stack
     IU    WP      = 0;                      /// word and parameter pointers
     U8    *PMEM0  = &pmem[0];               /// cached base-memory pointer
     U8    *IP = PMEM0, *IP0 = PMEM0;        /// current instruction pointer
 
-    char  idiom[80];
+    char  idiom[80];                        /// terminal input buffer
 
- //   __GPU__ ForthVM(istream &in, ostream &out);
+    __GPU__ ForthVM(Istream &in, Ostream &out) : fin(in), fout(out) {}
 
     __GPU__ void init();
-    __GPU__ void outer(const char *cmd);
+    __GPU__ void outer();
 
 private:
     __GPU__ DU   POP()        { DU n=top; top=ss.pop(); return n; }
@@ -114,4 +113,4 @@ private:
     __GPU__ void ss_dump();
     __GPU__ void mem_dump(IU p0, int sz);
 };
-#endif // __EFORTH_SRC_EFORTH_H
+#endif // CUEF_SRC_EFORTH_H
