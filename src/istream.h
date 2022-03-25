@@ -12,12 +12,10 @@
 #ifndef CUEF_SRC_ISTREAM_H_
 #define CUEF_SRC_ISTREAM_H_
 #include "util.h"
-#include "strbuf.h"
 ///
 /// istream class
 ///
-class Istream
-{
+class Istream {
     char *_buf = NULL;  /// input buffer
     int  _idx  = 0;     /// current buffer index
     int  _gn   = 0;     /// number of byte processed
@@ -31,6 +29,7 @@ class Istream
     }
 
 public:
+    __GPU__  Istream(char *s)  { _buf = s; }
     __GPU__  Istream(int sz=0) { if (sz) _buf = new char[_gn=ALIGN4(sz)]; }
     __GPU__  ~Istream()        { if (_buf) delete[] _buf; }
     ///
@@ -61,8 +60,8 @@ public:
     }
     __GPU__  int operator>>(char *s)   { getline(s); return _gn; }
 
-#if CUEF_USE_STRING
-#include "string.h"
+#if CUEF_USE_STRBUF
+#include "strbuf.h"
     __GPU__  Istream& str(string& s) {
         str(s.c_str(), s.size()); return *this;
     }
@@ -76,6 +75,6 @@ public:
         return *this;
     }
     __GPU__  int operator>>(string& s) { getline(s); return _gn; }
-#endif // CUEF_USE_STRING
+#endif // CUEF_USE_STRBUF
 };
 #endif // CUEF_SRC_ISTREAM_H_

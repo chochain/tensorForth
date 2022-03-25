@@ -14,9 +14,9 @@
 #include "cuef_config.h"
 #include "cuef_types.h"
 
-#ifdef CUEF_USE_STRING
-#include "string.h"
-#endif // CUEF_USE_STRING
+#if CUEF_USE_STRBUF
+#include "strbuf.h"
+#endif // CUEF_USE_STRBUF
 
 //================================================================
 /*!@brief
@@ -54,8 +54,7 @@ __GPU__ __INLINE__ _setprec setprec(int p)  { return _setprec(p); }
 ///
 /// Ostream class
 ///
-class Ostream
-{
+class Ostream {
     char *_buf = NULL;
     char *_ptr = 0;
     int  _sz   = 0;
@@ -90,6 +89,9 @@ public:
     ///
     /// clear output buffer
     ///
+    __GPU__  Ostream& setbuf(char *buf, int sz=CUEF_OBUF_SIZE) {
+    	_buf = _ptr = buf; _sz = sz;
+    }
     __GPU__  Ostream& clear() { _ptr = _buf; return *this; }
     __GPU__  U32 tellp()      { return (U32)(_ptr - _buf); }
     __GPU__  U32 size()       { return (U32)_sz; }
@@ -121,11 +123,11 @@ public:
         _write(GT_STR, (U8*)s, i);
         return *this;
     }
-#if CUEF_USE_STRING
+#if CUEF_USE_STRBUF
     __GPU__ Ostream& operator<<(string &s) {
         _write(GT_STR, (U8*)s.c_str(), s.size()+1);
         return *this;
     }
-#endif // CUEF_USE_STRING
+#endif // CUEF_USE_STRBUF
 };
 #endif // CUEF_SRC_OSTREAM_H_
