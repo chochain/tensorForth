@@ -14,11 +14,6 @@
 #include "istream.h"
 #include "ostream.h"
 
-// global output buffer for now, per session later
-extern __GPU__ GI  _output_size;
-extern __GPU__ U8  *_output_buf;
-extern __GPU__ U8  *_output_ptr;
-
 __KERN__ void        stream_init(U8 *buf, int sz);
 __HOST__ obuf_node*  stream_print(obuf_node *node, int trace);
 __HOST__ void        stream_flush(U8 *output_buf, int trace);
