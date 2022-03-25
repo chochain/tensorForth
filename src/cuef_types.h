@@ -71,6 +71,7 @@ typedef S32         GP;                     // offset, i.e. object pointer
 
 typedef U16         IU;                     // size of a instruction unit
 typedef F32         DU;                     // size of a data unit
+#define DU0         0.0f                    /* default data value */
 
 // pointer arithmetic, this will not work in multiple segment implementation
 #define U8PADD(p, n)    ((U8*)(p) + (n))    // add
