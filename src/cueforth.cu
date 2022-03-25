@@ -2,10 +2,12 @@
   @brief
   cueForth value definitions non-optimized
 */
-#include <iostream>
-#include "sstream.h"
-#include "eforth.h"
-#include "cueforth.h"
+#include <iostream>          // cin, cout
+using namespace std;
+
+#include "sstream.h"         // CUDA streams
+#include "eforth.h"          // eForth core
+#include "cueforth.h"        // wrapper
 
 // forward declaration for implementation
 extern "C" __KERN__ void mmu_init(void *ptr, U32 sz);
@@ -23,20 +25,21 @@ eforth_init(U8 *ibuf, U8 *obuf) {
 
     for (int i=0; i<MIN_VM_COUNT; i++) {
         vm_pool[i] = new ForthVM(*istr, *ostr);          // instantiate new Forth VMs
-        //vm_pool[i]->init();                              // initialize dictionary
+        vm_pool[i]->init();                              // initialize dictionary
     }
     return;
 }
 
-__KERN__ void eforth_exec() {
+__KERN__ void
+eforth_exec() {
     if (threadIdx.x!=0 || blockIdx.x!=0) return;
 
-    //vm_pool[0]->outer();
+    vm_pool[0]->outer();
 
     return;
 }
 
-CueForth::CueForth(istream &in, ostream &out) : cin(in), cout(out) {}
+CueForth::CueForth() {}
 CueForth::~CueForth() {
     if (_obuf) _free(_obuf);
     if (_ibuf) _free(_ibuf);
@@ -65,11 +68,8 @@ CueForth::_free(void *mem) {
 }
 
 __HOST__ int
-CueForth::setup(int step, int trace)
-{
+CueForth::setup(int step, int trace) {
     cudaDeviceReset();
-
-    printf("cueForth initializing...");
 
     _heap = (U8*)_malloc(CUEF_HEAP_SIZE, 1);                // allocate main block (i.e. RAM)
     if (!_heap)  return -10;
@@ -87,34 +87,28 @@ CueForth::setup(int step, int trace)
     cudaDeviceSetLimit(cudaLimitStackSize, (size_t)sz0*4);
     cudaDeviceGetLimit((size_t *)&sz1, cudaLimitStackSize);
 
-    printf("cueForth initialized, ready to go...");
-
     return 0;
 }
 
 __HOST__ int
-CueForth::run()
-{
-    printf("cueForth %s session starting...", CUEF_VERSION);
-    // kick up main loop until all VM are done
-    string idiom;
-    while (cin >> idiom) {
-        printf("%s=>", idiom.c_str());
-    }
-
-    printf("cueForth %s session completed.", CUEF_VERSION);
-
+CueForth::run() {
+	eforth_exec<<<1,1>>>();
     return 0;
 }
 
 __HOST__ void
 CueForth::teardown(int sig) {}
-
+///
+/// main program
+///
 int main(int argc, char**argv) {
-    CueForth *f = new CueForth(cin, cout);
+    CueForth *f = new CueForth();
+    cout << CUEF_VERSION << " initializing..." << endl;
     f->setup();
-    cout << "cueForth starting..." << endl;
+
+    cout << CUEF_VERSION << " starting..." << endl;
     f->run();
+
+    cout << CUEF_VERSION << " done." << endl;
     f->teardown();
-    cout << "done!" << endl;
 }
