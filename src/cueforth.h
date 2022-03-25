@@ -6,17 +6,17 @@
 #define CUEF_SRC_CUEFORTH_H_
 #include <sstream>
 #include "cuef_config.h"
-#include "cuef.h"
+#include "cuef_types.h"
 
 using namespace std;
 
 class CueForth {
-	istream &cin;
-	ostream &cout;
+    istream &cin;
+    ostream &cout;
 
-	U8 *_heap;
-	U8 *_ibuf;
-	U8 *_obuf;
+    U8 *_heap;
+    U8 *_ibuf;
+    U8 *_obuf;
 
     __HOST__ void* _malloc(int sz, int type);
     __HOST__ void  _free(void *mem);
