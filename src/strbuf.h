@@ -9,8 +9,8 @@
 
   </pre>
 */
-#ifndef __EFORTH_SRC_STRBUF_H
-#define __EFORTH_SRC_STRBUF_H
+#ifndef CUEF_SRC_STRBUF_H
+#define CUEF_SRC_STRBUF_H
 #include "vector.h"
 #include <stdio.h>
 
@@ -73,7 +73,7 @@ struct StrBuf : public Vector<char>
     ///
     /// conversion
     ///
-    __GPU__ int   to_i(char **p, int base=10) { return (int)STRTOL(v, p, base); }
-    __GPU__ float to_f(char **p)              { return (float)STRTOF(v, p);     }
+    __GPU__ int   to_i(char **p, int base=10) { return (int)STRTOL((char*)v, p, base); }
+    __GPU__ float to_f(char **p)              { return (float)STRTOF((char*)v, p);     }
 };
-#endif // __EFORTH_SRC_STRBUF_H
+#endif // CUEF_SRC_STRBUF_H

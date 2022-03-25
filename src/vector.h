@@ -1,5 +1,5 @@
-#ifndef __EFORTH_SRC_VECTOR_H
-#define __EFORTH_SRC_VECTOR_H
+#ifndef CUEF_SRC_VECTOR_H
+#define CUEF_SRC_VECTOR_H
 #include "util.h"       /// also defined __GPU__
 
 #define VECTOR_INC      4
@@ -60,5 +60,5 @@ struct Vector {
         return *this;
     }
 };
-#endif // __EFORTH_SRC_VECTOR_H
+#endif // CUEF_SRC_VECTOR_H
 
