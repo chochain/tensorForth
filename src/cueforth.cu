@@ -32,9 +32,9 @@ eforth_init(U8 *ibuf, U8 *obuf) {
 
 __KERN__ void
 eforth_exec() {
-    if (threadIdx.x!=0 || blockIdx.x!=0) return;
+    if (threadIdx.x!=0) return;
 
-    vm_pool[0]->outer();
+    vm_pool[blockIdx.x]->outer();
 
     return;
 }
@@ -108,6 +108,7 @@ int main(int argc, char**argv) {
 
     cout << CUEF_VERSION << " starting..." << endl;
     f->run();
+    GPU_SYNC();
 
     cout << CUEF_VERSION << " done." << endl;
     f->teardown();
