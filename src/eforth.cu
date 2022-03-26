@@ -1,16 +1,18 @@
+/*! @file
+  @brief
+  cueForth Forth Vritual Machine implementation
+*/
 #include "eforth.h"
-///
-/// ForthVM class constructor
-///
-//__GPU__ ForthVM::ForthVM(istream &in, ostream &out) : cin(in), cout(out) {}
-///==============================================================================
 ///
 /// dictionary search functions - can be adapted for ROM+RAM
 ///
-__GPU__ __INLINE__ int ForthVM::streq(const char *s1, const char *s2) {
-    return ucase ? STRCASECMP(s1, s2)==0 : STRCMP(s1, s2)==0;
+__GPU__ __INLINE__ int
+ForthVM::streq(const char *s1, const char *s2) {
+    //return ucase ? STRCASECMP(s1, s2)==0 : STRCMP(s1, s2)==0;
+	return 0;
 }
-__GPU__ int ForthVM::find(const char *s) {
+__GPU__ int
+ForthVM::find(const char *s) {
     for (int i = dict.idx - (compile ? 2 : 1); i >= 0; --i) {
         if (streq(s, dict[i].name)) return i;
     }
@@ -30,17 +32,21 @@ enum {
 ///
 /// Forth compiler functions
 ///
-__GPU__ void ForthVM::add_iu(IU i) {            /** add an instruction into pmem */
-        pmem.push((U8*)&i, sizeof(IU));  XIP += sizeof(IU);
-    }  
-__GPU__ void ForthVM::add_du(DU v) {            /** add a cell into pmem         */
-        pmem.push((U8*)&v, sizeof(DU)),  XIP += sizeof(DU);
-    }  
-__GPU__ void ForthVM::add_str(const char *s) {  /** add a string to pmem         */
-        int sz = STRASZ(s);
-        pmem.push((U8*)s,  sz); XIP += sz;
-    }
-__GPU__ void ForthVM::colon(const char *name) {
+__GPU__ void                                /// add an instruction into pmem
+ForthVM::add_iu(IU i) {
+	pmem.push((U8*)&i, sizeof(IU));  XIP += sizeof(IU);
+}
+__GPU__ void                                /// add a cell into pmem
+ForthVM::add_du(DU v) {
+	pmem.push((U8*)&v, sizeof(DU)),  XIP += sizeof(DU);
+}
+__GPU__ void
+ForthVM::add_str(const char *s) {           /// add a string to pmem
+    int sz = STRASZ(s);
+    pmem.push((U8*)s,  sz); XIP += sz;
+}
+__GPU__ void
+ForthVM::colon(const char *name) {
     char *nfa = STR(HERE);                  // current pmem pointer
     int sz = STRASZ(name);                  // string length, aligned
     pmem.push((U8*)name,  sz);              // setup raw name field
@@ -53,13 +59,16 @@ __GPU__ void ForthVM::colon(const char *name) {
 ///
 /// Forth inner interpreter (colon word handler)
 ///
-__GPU__ __INLINE__ char *ForthVM::next_word()  {     // get next idiom
+__GPU__ __INLINE__ char*
+ForthVM::next_word()  {     // get next idiom
     fin >> idiom; return idiom;
 }
-__GPU__ __INLINE__ char *ForthVM::scan(char c) {
+__GPU__ __INLINE__ char*
+ForthVM::scan(char c) {
     fin.getline(idiom, c); return idiom;
 }
-__GPU__ void ForthVM::nest(IU c) {
+__GPU__ void
+ForthVM::nest(IU c) {
     rs.push(IP - PMEM0); rs.push(WP);       /// * setup call frame
     IP0 = IP = PFA(WP=c);                   // CC: this takes 30ms/1K, need work
 //  try                                     // kernal does not support exception
@@ -79,16 +88,19 @@ __GPU__ void ForthVM::nest(IU c) {
 ///
 /// debug functions
 ///
-__GPU__ void ForthVM::dot_r(int n, DU v) {
+__GPU__ void
+ForthVM::dot_r(int n, DU v) {
 	fout << setw(n) << setfill(' ') << v;
 }
-__GPU__ void ForthVM::to_s(IU c) {
+__GPU__ void
+ForthVM::to_s(IU c) {
     fout << dict[c].name << " " << c << (dict[c].immd ? "* " : " ");
 }
 ///
 /// recursively disassemble colon word
 ///
-__GPU__ void ForthVM::see(IU *cp, IU *ip, int dp) {
+__GPU__ void
+ForthVM::see(IU *cp, IU *ip, int dp) {
     fout << ENDL; for (int i=dp; i>0; i--) fout << "  ";            // indentation
     if (dp) fout << "[" << setw(2) << *ip << ": ";                  // ip offset
     else    fout << "[ ";
@@ -111,7 +123,8 @@ __GPU__ void ForthVM::see(IU *cp, IU *ip, int dp) {
     }
     fout << "] ";
 }
-__GPU__ void ForthVM::words() {
+__GPU__ void
+ForthVM::words() {
 	fout << setbase(16);
     for (int i=0; i<dict.idx; i++) {
         if ((i%10)==0) { fout << ENDL; yield(); }
@@ -119,11 +132,13 @@ __GPU__ void ForthVM::words() {
     }
     fout << setbase(base);
 }
-__GPU__ void ForthVM::ss_dump() {
+__GPU__ void
+ForthVM::ss_dump() {
     fout << " <"; for (int i=0; i<ss.idx; i++) { fout << ss[i] << " "; }
     fout << top << "> ok" << ENDL;
 }
-__GPU__ void ForthVM::mem_dump(IU p0, int sz) {
+__GPU__ void
+ForthVM::mem_dump(IU p0, int sz) {
     fout << setbase(16) << setfill('0') << ENDL;
     for (IU i=ALIGN16(p0); i<=ALIGN16(p0+sz); i+=16) {
         fout << setw(4) << i << ": ";
@@ -156,7 +171,8 @@ __GPU__ void ForthVM::mem_dump(IU p0, int sz) {
 ///
 /// dictionary initializer
 ///
-__GPU__ void ForthVM::init() {
+__GPU__ void
+ForthVM::init() {
 	const Code prim[] = {       /// singleton, build once onl
 	///
 	/// @defgroup Execution flow ops
@@ -166,10 +182,10 @@ __GPU__ void ForthVM::init() {
     CODE("dovar",   PUSH(IPOFF); IP += sizeof(DU)),
     CODE("dolit",   PUSH(*(DU*)IP); IP += sizeof(DU)),
     CODE("dostr",
-        const char *s = (const char*)IP;           // get string pointer
+        char *s = (char*)IP;                      // get string pointer
         PUSH(IPOFF); IP += STRASZ(s)),
     CODE("dotstr",
-        const char *s = (const char*)IP;           // get string pointer
+        char *s = (char*)IP;                      // get string pointer
         fout << s;  IP += STRASZ(s)),             // send to output console
     CODE("branch" , IP = JMPIP),                           // unconditional branch
     CODE("0branch", IP = POP() ? IP + sizeof(IU) : JMPIP), // conditional branch
@@ -205,7 +221,7 @@ __GPU__ void ForthVM::init() {
         DU n = ss.pop(); DU m = ss.pop(); DU l = ss.pop();
         ss.push(n); PUSH(l); PUSH(m)),
     /// @}
-    /// @defgroup ALU ops
+    /// @defgroup FPU/ALU ops
     /// @{
     CODE("+",    top += ss.pop()),
     CODE("*",    top *= ss.pop()),
@@ -387,8 +403,8 @@ __GPU__ void ForthVM::init() {
 ///
 /// ForthVM Outer interpreter
 ///
-__GPU__ void ForthVM::outer(const char *cmd) {
-    fin.str(cmd);                            /// feed user command into input stream
+__GPU__ void
+ForthVM::outer() {
     fout.clear();                            /// clean output buffer, ready for next
     while (fin >> idiom) {
         //printf("%s=>",idiom);
@@ -403,7 +419,7 @@ __GPU__ void ForthVM::outer(const char *cmd) {
         }
         // try as a number
         char *p;
-        int n = STRTOL(idiom, &p, base);
+        int n = INT(STRTOL(idiom, &p, base));
         //printf("%d\n", n);
         if (*p != '\0') {                    /// * not number
             fout << idiom << "? " << ENDL;   ///> display error prompt
@@ -419,3 +435,5 @@ __GPU__ void ForthVM::outer(const char *cmd) {
     }
     if (!compile) ss_dump();
 }
+//=======================================================================================
+
