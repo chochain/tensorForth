@@ -10,7 +10,7 @@
  *   mmu : MMU alloc/free TLSF dump, default 0
  *   cc  : for my development only, default 0
  */
-#define CUEF_VERSION        "v1.0"
+#define CUEF_VERSION        "cueForth v1.0"
 #define CUEF_DEBUG          1
 #define MMU_DEBUG           0
 #define CC_DEBUG            0
