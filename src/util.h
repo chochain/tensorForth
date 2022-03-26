@@ -24,7 +24,7 @@ extern "C" {
 uint32_t hbin_to_u32(const void *bin);
 uint16_t hbin_to_u16(const void *bin);
 
-#ifdef __CUDACC__
+#if defined(__CUDACC__)
 #define __GPU__      __device__
     
 __GPU__ uint32_t     bin_to_u32(const void *bin);
@@ -65,11 +65,11 @@ __GPU__ int          d_hash(const char *s);
 #define STRCUT(d,n)     d_strcut((const char*)(d), (int)(n))
 // conversion
 #define ITOA(i,s,b)     d_itoa((int)(i), (char*)(s), (int)(b))
-#define STRTOL(s,p,b)   d_strtol((const char*)(s), (char**)(p), (int)b)
+#define STRTOL(s,p,b)   d_strtol((const char*)(s), (char**)(p), (int)(b))
 #define STRTOF(s,p)     d_strtof((const char*)(s), (char**)(p))
 #define HASH(s)         d_hash((const char*)(s))
 
-#else  // ifndef __CUDACC__
+#else  // !defined(__CUDACC__)
 #include <stdio.h>
     
 #define MEMCPY(d,s,n)   memcpy(d,s,n)
@@ -90,7 +90,7 @@ __GPU__ int          d_hash(const char *s);
 #define STRTOL(s,p,b)   strtol(s,p,b)
 #define STRTOF(s,p)     strtof(s,p)
 
-#endif  // __CUDACC__
+#endif // defined(__CUDACC__)
 
 #ifdef __cplusplus
 }
