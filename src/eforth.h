@@ -59,10 +59,13 @@ public:
 ///
 /// Forth virtual machine class
 ///
+typedef enum { VM_READY, VM_RUN, VM_WAIT, VM_STOP } vm_status;
+
 class ForthVM {
 public:
     Istream       &fin;                     /// VM stream input
 	Ostream       &fout;				    /// VM stream output
+	vm_status     status = VM_READY;        /// VM status
 
     Vector<DU,   64>      rs;               /// return stack
     Vector<DU,   64>      ss;               /// parameter stack

@@ -370,15 +370,11 @@ ForthVM::init() {
     CODE(".s",    ss_dump()),
     CODE("see",   IU w = find(next_word()); IU ip=0; see(&w, &ip)),
     CODE("dump",  DU n = POP(); IU a = POP(); mem_dump(a, INT(n))),
-    CODE("peek",  DU a = POP(); PUSH(PEEK(a))),
-    CODE("poke",  DU a = POP(); POKE(a, POP())),
     CODE("forget",
         int w = find(next_word());
         if (w<0) return;
         IU b = find("boot")+1;
         dict.clear(w > b ? w : b)),
-    CODE("clock", PUSH(millis())),
-    CODE("delay", delay(POP())),
 #if ARDUINO
     /// @}
     /// @defgroup Arduino specific ops
@@ -393,12 +389,20 @@ ForthVM::init() {
     CODE("tone",  DU ch = POP(); ledcWriteTone(ch, POP())),
 #endif // ARDUINO
     /// @}
-//CODE("bye",   exit(0)),
+	/// @defgroup System ops
+	/// @{
+    CODE("peek",  DU a = POP(); PUSH(PEEK(a))),
+    CODE("poke",  DU a = POP(); POKE(a, POP())),
+    CODE("clock", PUSH(millis())),
+    CODE("delay", delay(POP())),             // TODO: change to VM_WAIT
+    CODE("bye",   status = VM_STOP),
     CODE("boot",  dict.clear(find("boot") + 1); pmem.clear())
+	/// @}
     };
     for (int i=0; i<sizeof(prim)/sizeof(Code); i++) {
         dict.push(prim[i]);
     }
+    status = VM_RUN;
 }
 ///
 /// ForthVM Outer interpreter
