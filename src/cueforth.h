@@ -8,9 +8,10 @@
 #include "cuef_types.h"
 
 class CueForth {
-    U8   *_heap;
+	U8   *_heap;
     U8   *_ibuf;
     U8   *_obuf;
+    AIO  *aio;
 
     __HOST__ void* _malloc(int sz, int type);
     __HOST__ void  _free(void *mem);
