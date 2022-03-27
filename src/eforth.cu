@@ -8,8 +8,7 @@
 ///
 __GPU__ __INLINE__ int
 ForthVM::streq(const char *s1, const char *s2) {
-    //return ucase ? STRCASECMP(s1, s2)==0 : STRCMP(s1, s2)==0;
-	return 0;
+    return ucase ? STRCASECMP(s1, s2)==0 : STRCMP(s1, s2)==0;
 }
 __GPU__ int
 ForthVM::find(const char *s) {
@@ -19,7 +18,7 @@ ForthVM::find(const char *s) {
     return -1;
 }
 ///==============================================================================
-///                   
+///
 /// colon word compiler
 /// Note:
 ///   * we separate dict and pmem space to make word uniform in size
@@ -34,11 +33,11 @@ enum {
 ///
 __GPU__ void                                /// add an instruction into pmem
 ForthVM::add_iu(IU i) {
-	pmem.push((U8*)&i, sizeof(IU));  XIP += sizeof(IU);
+    pmem.push((U8*)&i, sizeof(IU));  XIP += sizeof(IU);
 }
 __GPU__ void                                /// add a cell into pmem
 ForthVM::add_du(DU v) {
-	pmem.push((U8*)&v, sizeof(DU)),  XIP += sizeof(DU);
+    pmem.push((U8*)&v, sizeof(DU)),  XIP += sizeof(DU);
 }
 __GPU__ void
 ForthVM::add_str(const char *s) {           /// add a string to pmem
@@ -74,7 +73,7 @@ ForthVM::nest(IU c) {
 //  try                                     // kernal does not support exception
     {                                       // CC: is dict[c] kept in cache?
         U8 *ipx = IP + PFLEN(c);            // CC: this saves 350ms/1M
-        while (IP < ipx) {        			/// * recursively call all children
+        while (IP < ipx) {                  /// * recursively call all children
             IU c1 = *IP; IP += sizeof(IU);  // CC: cost of (ipx, c1) on stack?
             CALL(c1);                       ///> execute child word
         }                                   ///> can do IP++ if pmem unit is 16-bit
@@ -90,7 +89,7 @@ ForthVM::nest(IU c) {
 ///
 __GPU__ void
 ForthVM::dot_r(int n, DU v) {
-	fout << setw(n) << setfill(' ') << v;
+    fout << setw(n) << setfill(' ') << v;
 }
 __GPU__ void
 ForthVM::to_s(IU c) {
@@ -125,7 +124,7 @@ ForthVM::see(IU *cp, IU *ip, int dp) {
 }
 __GPU__ void
 ForthVM::words() {
-	fout << setbase(16);
+    fout << setbase(16);
     for (int i=0; i<dict.idx; i++) {
         if ((i%10)==0) { fout << ENDL; yield(); }
         to_s(i);
@@ -173,12 +172,12 @@ ForthVM::mem_dump(IU p0, int sz) {
 ///
 __GPU__ void
 ForthVM::init() {
-	const Code prim[] = {       /// singleton, build once onl
-	///
-	/// @defgroup Execution flow ops
+    const Code prim[] = {       /// singleton, build once onl
+    ///
+    /// @defgroup Execution flow ops
     /// @brief - DO NOT change the sequence here (see forth_opcode enum)
-	/// @{
-	CODE("nop",     {}),
+    /// @{
+    CODE("nop",     {}),
     CODE("dovar",   PUSH(IPOFF); IP += sizeof(DU)),
     CODE("dolit",   PUSH(*(DU*)IP); IP += sizeof(DU)),
     CODE("dostr",
@@ -342,14 +341,14 @@ ForthVM::init() {
         colon(next_word());                                      // create a new word on dictionary
         add_iu(DOVAR)),                                          // dovar (+ parameter field)
     CODE("to",              // 3 to x                            // alter the value of a constant
-    	IU w = find(next_word());                                // to save the extra @ of a variable
-	    *(DU*)(PFA(w) + sizeof(IU)) = POP()),
-	CODE("is",              // ' y is x                          // alias a word
-		IU w = find(next_word());                                // can serve as a function pointer
+        IU w = find(next_word());                                // to save the extra @ of a variable
+        *(DU*)(PFA(w) + sizeof(IU)) = POP()),
+    CODE("is",              // ' y is x                          // alias a word
+        IU w = find(next_word());                                // can serve as a function pointer
         dict[POP()].pfa = dict[w].pfa),                          // but might leave a dangled block
     CODE("[to]",            // : xx 3 [to] y ;                   // alter constant in compile mode
         IU w = *(IU*)IP; IP += sizeof(IU);                       // fetch constant pfa from 'here'
-	    *(DU*)(PFA(w) + sizeof(IU)) = POP()),
+        *(DU*)(PFA(w) + sizeof(IU)) = POP()),
     ///
     /// be careful with memory access, especially BYTE because
     /// it could make access misaligned which slows the access speed by 2x
@@ -389,15 +388,15 @@ ForthVM::init() {
     CODE("tone",  DU ch = POP(); ledcWriteTone(ch, POP())),
 #endif // ARDUINO
     /// @}
-	/// @defgroup System ops
-	/// @{
+    /// @defgroup System ops
+    /// @{
     CODE("peek",  DU a = POP(); PUSH(PEEK(a))),
     CODE("poke",  DU a = POP(); POKE(a, POP())),
     CODE("clock", PUSH(millis())),
     CODE("delay", delay(POP())),             // TODO: change to VM_WAIT
     CODE("bye",   status = VM_STOP),
     CODE("boot",  dict.clear(find("boot") + 1); pmem.clear())
-	/// @}
+    /// @}
     };
     for (int i=0; i<sizeof(prim)/sizeof(Code); i++) {
         dict.push(prim[i]);
@@ -411,7 +410,7 @@ __GPU__ void
 ForthVM::outer() {
     fout.clear();                            /// clean output buffer, ready for next
     while (fin >> idiom) {
-        //printf("%s=>",idiom);
+        //printf("=>%s", idiom);
         int w = find(idiom);                 /// * search through dictionary
         if (w>=0) {                          /// * word found?
             //printf("%s %d\n", dict[w].name, w);
@@ -440,4 +439,3 @@ ForthVM::outer() {
     if (!compile) ss_dump();
 }
 //=======================================================================================
-
