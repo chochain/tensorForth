@@ -311,7 +311,7 @@ d_strcmp(const char *s1, const char *s2) {
 }
 
 __GPU__ int
-d_strcasecmp(const void *s1, const void *s2) {
+d_strcasecmp(const char *s1, const char *s2) {
 	int n = STRLENB(s1);
     char *p1=(char*)s1, *p2=(char*)s2;
     for (; n; n--, p1++, p2++) {
