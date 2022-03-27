@@ -3,7 +3,7 @@
 #include "cuef_types.h"
 #include "util.h"
 #include "vector.h"         // cueForth vector
-#include "sstream.h"		// cueForth sstream
+#include "aio.h"            // cueForth async IO (Istream, Ostream)
 
 #define ENDL            "\n"
 #define millis()        clock()
@@ -20,8 +20,7 @@ struct function : fop {
     __GPU__ void operator()(IU c) { fp(c); }
 };
 
-class Code {
-public:
+struct Code {               /// dictionary word/code object
     const char *name = 0;   /// name field
     union {                 /// either a primitive or colon word
         fop *xt = 0;        /// lambda pointer
@@ -69,8 +68,8 @@ public:
 
     Vector<DU,   64>      rs;               /// return stack
     Vector<DU,   64>      ss;               /// parameter stack
-    Vector<Code, 1024>    dict;				/// dictionary
-    Vector<U8,   48*1024> pmem;             /// primitives
+    Vector<Code, 1024>    dict;				/// dictionary, TODO: shared between VMs
+    Vector<U8,   48*1024> pmem;             /// primitives, TODO: shared between VMs
 
     bool  compile = false, ucase = true;    /// compiling flag
     int   base    = 10;                     /// numeric radix
@@ -81,7 +80,7 @@ public:
 
     char  idiom[80];                        /// terminal input buffer
 
-    __GPU__ ForthVM(Istream &in, Ostream &out) : fin(in), fout(out) {}
+    __GPU__ ForthVM(Istream *istr, Ostream *ostr) : fin(*istr), fout(*ostr) {}
 
     __GPU__ void init();
     __GPU__ void outer();
@@ -89,7 +88,7 @@ public:
 private:
     __GPU__ DU   POP()        { DU n=top; top=ss.pop(); return n; }
     __GPU__ DU   PUSH(DU v)   { ss.push(top); top = v; }
-    
+
     __GPU__ int  streq(const char *s1, const char *s2);
     __GPU__ int  find(const char *s);      /// search dictionary reversely
     ///
