@@ -27,16 +27,16 @@ eforth_init(U8 *ibuf, U8 *obuf) {
         vm_pool[i] = new ForthVM(*istr, *ostr);          // instantiate new Forth VMs
         vm_pool[i]->init();                              // initialize dictionary
     }
-    return;
 }
 
 __KERN__ void
 eforth_exec() {
     if (threadIdx.x!=0) return;
 
-    vm_pool[blockIdx.x]->outer();
-
-    return;
+    ForthVM *vm = vm_pool[blockIdx.x];
+    while (vm->status == VM_RUN) {
+        vm->outer();
+    }
 }
 
 CueForth::CueForth() {}
@@ -91,8 +91,22 @@ CueForth::setup(int step, int trace) {
 }
 
 __HOST__ int
+CueForth::is_running() {
+	int r = 0;
+	//LOCK();                 // TODO: lock on vm_pool
+	for (int i=0; i<MIN_VM_COUNT; i++) {
+		if (vm_pool[i]->status != VM_STOP) r = 1;
+	}
+	//UNLOCK();               // TODO:
+	return r;
+}
+
+__HOST__ int
 CueForth::run() {
-	eforth_exec<<<1,1>>>();
+	while (is_running() && cin >> _ibuf) {
+		eforth_exec<<<1,1>>>();
+		GPU_SYNC();
+	}
     return 0;
 }
 
