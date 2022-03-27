@@ -5,27 +5,23 @@
 #include <iostream>          // cin, cout
 using namespace std;
 
-#include "sstream.h"         // CUDA streams
+#include "cuef_config.h"
+#include "aio.h"             // CUDA async IO
 #include "eforth.h"          // eForth core
 #include "cueforth.h"        // wrapper
 
 // forward declaration for implementation
 extern "C" __KERN__ void mmu_init(void *ptr, U32 sz);
 
-__GPU__ ForthVM *vm_pool[MIN_VM_COUNT];
-__GPU__ Istream *istr;
-__GPU__ Ostream *ostr;
+__GPU__ __managed__ ForthVM *vm_pool[MIN_VM_COUNT];
 
 __KERN__ void
-eforth_init(U8 *ibuf, U8 *obuf) {
+eforth_init(Istream *istr, Ostream *ostr) {
     if (threadIdx.x!=0 || blockIdx.x!=0) return;
 
-    istr = new Istream((char*)ibuf);
-    ostr = new Ostream((char*)obuf);
-
     for (int i=0; i<MIN_VM_COUNT; i++) {
-        vm_pool[i] = new ForthVM(*istr, *ostr);          // instantiate new Forth VMs
-        vm_pool[i]->init();                              // initialize dictionary
+        vm_pool[i] = new ForthVM(istr, ostr);     // instantiate new Forth VMs
+        vm_pool[i]->init();                       // initialize dictionary
     }
 }
 
@@ -78,8 +74,10 @@ CueForth::setup(int step, int trace) {
     _obuf = (U8*)_malloc(CUEF_OBUF_SIZE, 1);                // allocate output buffer
     if (!_obuf)  return -12;
 
+    aio = new AIO((char*)_ibuf, (char*)_obuf);
+
     //mmu_init<<<1,1>>>(mem, CUEF_HEAP_SIZE);               // setup memory management
-    eforth_init<<<1,1>>>(_ibuf, _obuf);                     // setup basic classes  (TODO: => ROM)
+    eforth_init<<<1,1>>>(aio->istream(), aio->ostream());
     GPU_SYNC();
 
     U32 sz0, sz1;
@@ -103,9 +101,14 @@ CueForth::is_running() {
 
 __HOST__ int
 CueForth::run() {
-	while (is_running() && cin >> _ibuf) {
-		eforth_exec<<<1,1>>>();
-		GPU_SYNC();
+	while (is_running()) {
+		cin.getline((char*)_ibuf, CUEF_IBUF_SIZE);
+		if (*_ibuf) {
+			eforth_exec<<<1,1>>>();
+			GPU_SYNC();
+			aio->flush();
+		}
+		yield();
 	}
     return 0;
 }
@@ -122,7 +125,6 @@ int main(int argc, char**argv) {
 
     cout << CUEF_VERSION << " starting..." << endl;
     f->run();
-    GPU_SYNC();
 
     cout << CUEF_VERSION << " done." << endl;
     f->teardown();
