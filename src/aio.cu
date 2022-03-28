@@ -12,45 +12,43 @@
 #include <cstdio>
 #include "aio.h"
 
-__GPU__ Istream *istr;
-__GPU__ Ostream *ostr;
+__GPU__ __managed__ Istream *_istr;
+__GPU__ __managed__ Ostream *_ostr;
+obuf_node *_root;
+bool      _trace;
 
 __KERN__ void
 _aio_setup(char *ibuf, char *obuf) {
-    if (threadIdx.x!=0 || blockIdx.x!=0) return;
-
-    istr = new Istream(ibuf);
-    ostr = new Ostream(obuf);
+	if (threadIdx.x!=0 || blockIdx.x!=0) return;
+	_istr = new Istream(ibuf);
+	_ostr = new Ostream(obuf);
 }
 
 __KERN__ void
-_aio_reset() {
-    if (threadIdx.x!=0 || blockIdx.x!=0) return;
-
-    ostr->clear();
+_aio_clear() {
+	if (threadIdx.x!=0 || blockIdx.x!=0) return;
+	_ostr->clear();
 }
-
-#define NEXTNODE(n) ((obuf_node *)(node->data + node->size))
 ///
 /// AIO takes managed memory blocks as input and output buffers
 /// which can be access by both device and host
 ///
-AIO::AIO(char *ibuf, char *obuf) : _ibuf(ibuf), _obuf(obuf) {
-    _aio_setup<<<1,1>>>(ibuf, obuf);
-    trace = 1;
+Istream *AIO::istream() { return _istr; }
+Ostream *AIO::ostream() { return _ostr; }
+
+__HOST__ void
+AIO::init(char *ibuf, char *obuf, bool trace) {
+	_aio_setup<<<1,1>>>(ibuf, obuf);
+
+    _root  = (obuf_node*)obuf;                   // host buffer root
+    _trace = trace;
 }
-
-__HOST__ Istream*
-AIO::istream() { return istr; }
-
-__HOST__ Ostream*
-AIO::ostream() { return ostr; }
 
 __HOST__ obuf_node*
 AIO::_print_node(obuf_node *node) {
     U8 buf[80];                                 // check buffer overflow
 
-    if (trace) printf("<%d>", node->id);
+    if (_trace) printf("<%d>", node->id);
 
     switch (node->gt) {
     case GT_INT:
@@ -68,17 +66,18 @@ AIO::_print_node(obuf_node *node) {
         break;
     default: printf("print node type not supported: %d", node->gt); break;
     }
-    if (trace) printf("</%d>\n", node->id);
+    if (_trace) printf("</%d>\n", node->id);
 
     return node;
 }
 
+#define NEXTNODE(n) ((obuf_node *)(node->data + node->size))
 __HOST__ void
 AIO::flush() {
-    obuf_node *node = (obuf_node *)_obuf;
+    obuf_node *node = _root;
     while (node->gt != GT_EMPTY) {          // 0
         node = _print_node(node);
         node = NEXTNODE(node);
     }
-    _aio_reset<<<1,1>>>();
+    _aio_clear<<<1,1>>>();
 }

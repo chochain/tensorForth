@@ -16,17 +16,11 @@
 
 class AIO {
 public:
-    AIO(char *ibuf, char *obuf);
+    static Istream *istream();
+    static Ostream *ostream();
 
-    __HOST__ Istream *istream();
-    __HOST__ Ostream *ostream();
-    __HOST__ void flush();
-
-private:
-    char    *_ibuf;
-    char    *_obuf;
-    int     trace;
-
-    __HOST__ obuf_node* _print_node(obuf_node *node);
+    static __HOST__ void init(char *ibuf, char *obuf, bool trace);
+	static __HOST__ void flush();
+    static __HOST__ obuf_node* _print_node(obuf_node *node);
 };
 #endif // CUEF_SRC_AIO_H_
