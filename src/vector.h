@@ -4,18 +4,18 @@
 
 #define VECTOR_INC      4
 ///
-/// Vector template class
+/// Vector template class using device memory only
 ///
-template<class T, int N=0>
+template<class T, int N=VECTOR_INC>
 struct Vector {
     T   *v  = 0;         /// use proxy pattern
     int idx = 0;         /// number of elements stored
     int max = N;         /// allocated size
 
-    __GPU__ Vector()               { if (N) v = new T[N]; }
+    __GPU__ Vector()               { v = new T[N]; }
     __GPU__ Vector(T a[], int len) { merge((T*)a, len); }
     __GPU__ Vector(Vector<T>& a)   { merge(a); }
-    __GPU__ ~Vector()              { if (v) delete[] v; }
+    __GPU__ ~Vector()              { delete[] v; }
     //
     // operator overloading
     //
