@@ -71,12 +71,14 @@ public:
     Vector<Code, 1024>    dict;				/// dictionary, TODO: shared between VMs
     Vector<U8,   48*1024> pmem;             /// primitives, TODO: shared between VMs
 
-    bool  compile = false, ucase = true;    /// compiling flag
+    bool  compile = false;                  /// compiling flag
+    bool  ucase   = true;                   /// case insensitive
     int   base    = 10;                     /// numeric radix
     DU    top     = DU0;                    /// cached top of stack
     IU    WP      = 0;                      /// word and parameter pointers
     U8    *PMEM0  = &pmem[0];               /// cached base-memory pointer
-    U8    *IP = PMEM0, *IP0 = PMEM0;        /// current instruction pointer
+    U8    *IP0    = PMEM0;                  /// current instruction pointer
+    U8    *IP     = PMEM0;
 
     char  idiom[80];                        /// terminal input buffer
 
