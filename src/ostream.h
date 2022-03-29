@@ -31,11 +31,12 @@ typedef enum {
 /*! printf internal version data container.
 */
 typedef struct {
-    U32 id   : 12;
     GT  gt   : 4;
+    U32 id   : 12;
     U32 size : 16;
     U8  data[];      // different from *data
 } obuf_node;
+#define NODE_SZ  sizeof(U32)
 
 ///
 /// iomanip classes
@@ -51,34 +52,47 @@ __GPU__ __INLINE__ _setprec setprec(int p)  { return _setprec(p); }
 ///
 /// Ostream class
 ///
+#include <stdio.h>
 class Ostream : public Managed {
     char *_buf;
+    int  _max  = 0;
     int  _idx  = 0;
     int  _base = 10;
     int  _width= 6;
     char _fill = ' ';
     int  _prec = 6;
 
+    __GPU__ void _dump() {
+        for (int i=0; i<=_idx; i++) {
+        	printf("%02x %c ", _buf[i], _buf[i] < 0x20 ? '.' : _buf[i]);
+        }
+        printf("%c", '\n');
+
+    }
     __GPU__  void _write(GT gt, U8 *v, int sz) {
         if (threadIdx.x!=0) return;                                 // only thread 0 within a block can write
-        if ((sizeof(obuf_node)+ALIGN4(sz))>CUEF_OBUF_SIZE) return;  // too big
 
         //_LOCK;
         obuf_node *n = (obuf_node*)&_buf[_idx];                     // allocate next node
 
-        n->id   = blockIdx.x;    // VM.id
-        n->gt   = gt;            // data type
-        n->size = ALIGN4(sz);    // 32-bit alignment
+        n->gt   = gt;                // data type
+        n->id   = blockIdx.x;        // VM.id
+        n->size = ALIGN4(sz);        // 32-bit alignment
 
-        MEMCPY(n->data, v, sz);  // deep copy, TODO: shallow copy via managed memory
+        int inc = NODE_SZ + n->size; // calc node allocation size
 
-        _idx += sizeof(obuf_node) + n->size;                        // advance buffer pointer
-        _buf[_idx] = (char)GT_EMPTY;
+        printf("_idx %d += %d\n", _idx, inc);
+
+        if ((_idx + inc) > _max) inc = 0;     // overflow, skip
+        else MEMCPY(n->data, v, sz);          // deep copy, TODO: shallow copy via managed memory
+
+        _buf[(_idx += inc)] = (char)GT_EMPTY; // advance index and mark end of stream
         //_UNLOCK;
+        //_dump();
     }
 
 public:
-    Ostream(int sz=CUEF_OBUF_SIZE) { cudaMallocManaged(&_buf, sz); GPU_CHK(); }
+    Ostream(int sz=CUEF_OBUF_SIZE) { cudaMallocManaged(&_buf, _max=sz); GPU_CHK(); }
     ~Ostream()                     { GPU_SYNC(); cudaFree(_buf); }
     ///
     /// clear output buffer
