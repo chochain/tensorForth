@@ -19,15 +19,16 @@
 __HOST__ int
 AIO::readline() {
 	_istr->clear();
-	std::cin.getline(_istr->tib(), CUEF_IBUF_SIZE, '\n');
-	printf("<< %s\n", _istr->tib());
-	return strlen(_istr->tib());
+	char *tib = _istr->rdbuf();
+	std::cin.getline(tib, CUEF_IBUF_SIZE, '\n');
+	printf("<< %s\n", tib);
+	return strlen(tib);
 }
 
 #define NEXTNODE(n) ((obuf_node *)(node->data + node->size))
 __HOST__ void
 AIO::flush() {
-    obuf_node *node = _ostr->base();
+    obuf_node *node = (obuf_node*)_ostr->rdbuf();
     while (node->gt != GT_EMPTY) {          // 0
         node = _print_node(node);
         node = NEXTNODE(node);
