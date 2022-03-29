@@ -21,92 +21,61 @@ eforth_init(Istream *istr, Ostream *ostr) {
 
     for (int i=0; i<MIN_VM_COUNT; i++) {
         vm_pool[i] = new ForthVM(istr, ostr);     // instantiate new Forth VMs
-        vm_pool[i]->init();                       // initialize dictionary
+        //vm_pool[i]->init();                       // initialize dictionary
     }
 }
 
+#include <stdio.h>
 __KERN__ void
 eforth_exec() {
     if (threadIdx.x!=0) return;
 
+    vm_pool[0]->outer();
+    return;
+/*
     ForthVM *vm = vm_pool[blockIdx.x];
     while (vm->status == VM_RUN) {
         vm->outer();
     }
+*/
 }
 
-CueForth::CueForth() {}
-CueForth::~CueForth() {
-    if (_obuf) _free(_obuf);
-    if (_ibuf) _free(_ibuf);
-    if (_heap) _free(_heap);
-    cudaDeviceReset();
-}
-
-__HOST__ void*
-CueForth::_malloc(int sz, int type)
-{
-    void *mem;
-
-    // TODO: to add texture memory
-    switch (type) {
-    case 0:     cudaMalloc(&mem, sz); break;            // allocate device memory
-    default:    cudaMallocManaged(&mem, sz);            // managed (i.e. paged) memory
-    }
-    if (cudaSuccess != cudaGetLastError()) return NULL;
-
-    return mem;
-}
-
-__HOST__ void
-CueForth::_free(void *mem) {
-    cudaFree(mem);
-}
-
-__HOST__ int
-CueForth::setup(int step, int trace) {
+CueForth::CueForth(bool trace) {
     cudaDeviceReset();
 
-    _heap = (U8*)_malloc(CUEF_HEAP_SIZE, 1);                // allocate main block (i.e. RAM)
-    if (!_heap)  return -10;
-    _ibuf = (U8*)_malloc(CUEF_IBUF_SIZE, 1);                // allocate main block (i.e. RAM)
-    if (!_ibuf)  return -11;
-    _obuf = (U8*)_malloc(CUEF_OBUF_SIZE, 1);                // allocate output buffer
-    if (!_obuf)  return -12;
-
-    aio = new AIO((char*)_ibuf, (char*)_obuf);
+    aio = new AIO(trace);
 
     //mmu_init<<<1,1>>>(mem, CUEF_HEAP_SIZE);               // setup memory management
     eforth_init<<<1,1>>>(aio->istream(), aio->ostream());
-    GPU_SYNC();
-
-    U32 sz0, sz1;
-    cudaDeviceGetLimit((size_t *)&sz0, cudaLimitStackSize);
-    cudaDeviceSetLimit(cudaLimitStackSize, (size_t)sz0*4);
-    cudaDeviceGetLimit((size_t *)&sz1, cudaLimitStackSize);
-
-    return 0;
+    GPU_CHK();
+}
+CueForth::~CueForth() {
+	delete aio;
+	cudaDeviceReset();
 }
 
 __HOST__ int
 CueForth::is_running() {
 	int r = 0;
+	GPU_SYNC();
 	//LOCK();                 // TODO: lock on vm_pool
 	for (int i=0; i<MIN_VM_COUNT; i++) {
 		if (vm_pool[i]->status != VM_STOP) r = 1;
 	}
 	//UNLOCK();               // TODO:
+	GPU_SYNC();
 	return r;
 }
 
 __HOST__ int
 CueForth::run() {
-	while (is_running()) {
-		cin.getline((char*)_ibuf, CUEF_IBUF_SIZE);
-		if (*_ibuf) {
+	//int rr = is_running();
+	int i = 4;
+	while (--i) {
+		if (aio->readline()) {
 			eforth_exec<<<1,1>>>();
-			GPU_SYNC();
-			aio->flush();
+			GPU_CHK();
+			//aio->flush();
 		}
 		yield();
 	}
@@ -119,11 +88,10 @@ CueForth::teardown(int sig) {}
 /// main program
 ///
 int main(int argc, char**argv) {
-    CueForth *f = new CueForth();
-    cout << CUEF_VERSION << " initializing..." << endl;
-    f->setup();
+    cout << CUEF_VERSION << " init" << endl;
+    CueForth *f = new CueForth(true);
 
-    cout << CUEF_VERSION << " starting..." << endl;
+    cout << CUEF_VERSION << " start" << endl;
     f->run();
 
     cout << CUEF_VERSION << " done." << endl;
