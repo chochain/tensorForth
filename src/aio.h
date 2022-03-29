@@ -26,9 +26,7 @@ public:
 	__HOST__ Ostream *ostream() { return _ostr; }
 
 	__HOST__ int  readline();
+    __HOST__ void print_node(obuf_node *node);
 	__HOST__ void flush();
-
-private:
-    __HOST__ obuf_node* _print_node(obuf_node *node);
 };
 #endif // CUEF_SRC_AIO_H_

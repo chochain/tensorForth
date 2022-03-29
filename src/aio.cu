@@ -25,41 +25,29 @@ AIO::readline() {
 	return strlen(tib);
 }
 
-#define NEXTNODE(n) ((obuf_node *)(node->data + node->size))
+__HOST__ void
+AIO::print_node(obuf_node *node) {
+    if (_trace) printf("<%d>", node->id);
+
+    switch (node->gt) {
+    case GT_INT:   printf("%d", *((GI*)node->data)); break;
+    case GT_HEX:   printf("%x", *((GI*)node->data)); break;
+    case GT_FLOAT: printf("%g", *((GF*)node->data)); break;
+    case GT_STR:   printf("%s", (char*)node->data);  break;
+    default: printf("print node type not supported: %d", node->gt); break;
+    }
+    if (_trace) printf("</%d>\n", node->id);
+}
+
+#define NEXTNODE(n) ((obuf_node*)((char*)&node->data[0] + node->size))
 __HOST__ void
 AIO::flush() {
     obuf_node *node = (obuf_node*)_ostr->rdbuf();
     while (node->gt != GT_EMPTY) {          // 0
-        node = _print_node(node);
+        print_node(node);
         node = NEXTNODE(node);
     }
     _ostr->clear();
 }
 
-__HOST__ obuf_node*
-AIO::_print_node(obuf_node *node) {
-    U8 buf[80];                                 // check buffer overflow
-
-    if (_trace) printf("<%d>", node->id);
-
-    switch (node->gt) {
-    case GT_INT:
-        printf("%d", *((GI*)node->data));
-        break;
-    case GT_HEX:
-        printf("%x", *((GI*)node->data));
-        break;
-    case GT_FLOAT:
-        printf("%g", *((GF*)node->data));
-        break;
-    case GT_STR:
-        memcpy(buf, (U8*)node->data, node->size);
-        printf("%s", (U8*)buf);
-        break;
-    default: printf("print node type not supported: %d", node->gt); break;
-    }
-    if (_trace) printf("</%d>\n", node->id);
-
-    return node;
-}
 
