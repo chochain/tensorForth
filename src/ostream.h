@@ -52,9 +52,8 @@ __GPU__ __INLINE__ _setprec setprec(int p)  { return _setprec(p); }
 /// Ostream class
 ///
 class Ostream : public Managed {
-    char _buf[CUEF_OBUF_SIZE];
-    char *_ptr = 0;
-    int  _sz   = 0;
+    char *_buf;
+    int  _idx  = 0;
     int  _base = 10;
     int  _width= 6;
     char _fill = ' ';
@@ -65,27 +64,33 @@ class Ostream : public Managed {
         if ((sizeof(obuf_node)+ALIGN4(sz))>CUEF_OBUF_SIZE) return;  // too big
 
         //_LOCK;
-        obuf_node *n = (obuf_node *)_ptr;
+        obuf_node *n = (obuf_node*)&_buf[_idx];                     // allocate next node
 
-        n->id   = blockIdx.x;               // VM.id
-        n->gt   = gt;
-        n->size = ALIGN4(sz);               // 32-bit alignment
+        n->id   = blockIdx.x;    // VM.id
+        n->gt   = gt;            // data type
+        n->size = ALIGN4(sz);    // 32-bit alignment
 
-        MEMCPY(n->data, v, sz);
+        MEMCPY(n->data, v, sz);  // deep copy, TODO: shallow copy via managed memory
 
-        _ptr  = ((char*)(n->data))+n->size; // advance pointer to next print block
-        *_ptr = (char)GT_EMPTY;
+        _idx += sizeof(obuf_node) + n->size;                        // advance buffer pointer
+        _buf[_idx] = (char)GT_EMPTY;
         //_UNLOCK;
     }
 
 public:
-    __HOST__ obuf_node *base() { return (obuf_node*)_buf; }
+    Ostream(int sz=CUEF_OBUF_SIZE) { cudaMallocManaged(&_buf, sz); GPU_CHK(); }
+    ~Ostream()                     { GPU_SYNC(); cudaFree(_buf); }
     ///
     /// clear output buffer
     ///
-    __HOST__ Ostream& clear() { *(_ptr = _buf) = (char)GT_EMPTY; return *this; }
-    __HOST__ U32 tellp()      { return (U32)(_ptr - _buf); }
-    __HOST__ U32 size()       { return (U32)_sz; }
+    __HOST__ Ostream& clear() {
+    	// LOCK
+    	_buf[_idx=0] = (char)GT_EMPTY;
+    	// UNLOCK
+    	return *this;
+    }
+    __HOST__ char *rdbuf() { return _buf; }
+    __HOST__ U32 tellp()   { return (U32)_idx; }
     ///
     /// iomanip control
     ///
