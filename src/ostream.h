@@ -13,10 +13,7 @@
 #define CUEF_SRC_OSTREAM_H_
 #include "cuef_config.h"
 #include "cuef_types.h"
-
-#if CUEF_USE_STRBUF
-#include "strbuf.h"
-#endif // CUEF_USE_STRBUF
+#include "util.h"
 
 //================================================================
 /*!@brief
@@ -54,8 +51,8 @@ __GPU__ __INLINE__ _setprec setprec(int p)  { return _setprec(p); }
 ///
 /// Ostream class
 ///
-class Ostream {
-    char *_buf = NULL;
+class Ostream : public Managed {
+    char _buf[CUEF_OBUF_SIZE];
     char *_ptr = 0;
     int  _sz   = 0;
     int  _base = 10;
@@ -64,8 +61,8 @@ class Ostream {
     int  _prec = 6;
 
     __GPU__  void _write(GT gt, U8 *v, int sz) {
-        if (threadIdx.x!=0) return;                     // only thread 0 within a block can write
-        if ((sizeof(obuf_node)+ALIGN4(sz))>size()) return; // too big
+        if (threadIdx.x!=0) return;                                 // only thread 0 within a block can write
+        if ((sizeof(obuf_node)+ALIGN4(sz))>CUEF_OBUF_SIZE) return;  // too big
 
         //_LOCK;
         obuf_node *n = (obuf_node *)_ptr;
@@ -76,25 +73,19 @@ class Ostream {
 
         MEMCPY(n->data, v, sz);
 
-        _ptr  = ((char*)(n->data))+n->size;// advance pointer to next print block
+        _ptr  = ((char*)(n->data))+n->size; // advance pointer to next print block
         *_ptr = (char)GT_EMPTY;
         //_UNLOCK;
     }
 
 public:
-    ///
-    /// constructor with managed memory buffer
-    ///
-    __GPU__  Ostream(char *buf, int sz=CUEF_OBUF_SIZE) : _buf(buf), _ptr(buf), _sz(sz) {}
+    __HOST__ obuf_node *base() { return (obuf_node*)_buf; }
     ///
     /// clear output buffer
     ///
-    __GPU__  Ostream& setbuf(char *buf, int sz=CUEF_OBUF_SIZE) {
-    	_buf = _ptr = buf; _sz = sz;
-    }
-    __GPU__  Ostream& clear() { _ptr = _buf; return *this; }
-    __GPU__  U32 tellp()      { return (U32)(_ptr - _buf); }
-    __GPU__  U32 size()       { return (U32)_sz; }
+    __HOST__ Ostream& clear() { *(_ptr = _buf) = (char)GT_EMPTY; return *this; }
+    __HOST__ U32 tellp()      { return (U32)(_ptr - _buf); }
+    __HOST__ U32 size()       { return (U32)_sz; }
     ///
     /// iomanip control
     ///
@@ -123,11 +114,5 @@ public:
         _write(GT_STR, (U8*)s, i);
         return *this;
     }
-#if CUEF_USE_STRBUF
-    __GPU__ Ostream& operator<<(string &s) {
-        _write(GT_STR, (U8*)s.c_str(), s.size()+1);
-        return *this;
-    }
-#endif // CUEF_USE_STRBUF
 };
 #endif // CUEF_SRC_OSTREAM_H_

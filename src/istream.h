@@ -11,50 +11,51 @@
 */
 #ifndef CUEF_SRC_ISTREAM_H_
 #define CUEF_SRC_ISTREAM_H_
+#include "cuef_config.h"
+#include "cuef_types.h"
 #include "util.h"
 ///
 /// istream class
 ///
-class Istream {
-public:
-    char *_buf = NULL;  /// input buffer
-    int  _idx  = 0;     /// current buffer index
-    int  _gn   = 0;     /// number of byte processed
+#include <stdio.h>
+class Istream : public Managed {
+    char _buf[CUEF_IBUF_SIZE];  /// input buffer
+    int  _idx  = 0;             /// current buffer index
+    int  _gn   = 0;             /// number of byte processed
 
     __GPU__ int _tok(char delim) {
+        printf("_tok0: idx=%d, gn=%d ", _idx, _gn);
         char *c = &_buf[_idx];
         while (delim==' ' && (*c==' ' || *c=='\t')) (c++, _idx++); // skip leading blanks and tabs
         int nidx=_idx; while (*c && *c!=delim) (c++, nidx++);
         _gn = (delim!=' ' && *c!=delim) ? nidx=0 : nidx - _idx;    // not found or end of input string
+        printf("_tok1: idx=%d, gn=%d ", _idx, _gn);
         return nidx;
     }
-
-    __GPU__ Istream(char *s)  { _buf = s; }
-    __GPU__ Istream(int sz=0) { if (sz) _buf = new char[_gn=ALIGN4(sz)]; }
-    __GPU__ ~Istream()        { if (_buf) delete[] _buf; }
+public:
     ///
     /// intialize by a given string
     ///
-    __GPU__ Istream& str(const char *s, int sz=0) {
-        if (_buf) delete[] _buf;
-        _buf = new char[_gn = ALIGN4(sz ? sz : STRLENB(s))];
-        MEMCPY(_buf, s, _gn);
+    __HOST__ char     *tib()   { return _buf; }
+    __HOST__ Istream& clear()  { _idx = 0; _gn = 0; return *this; }
+    __HOST__ Istream& str(const char *s, int sz=0) {
+        memcpy(_buf, s, sz);
         _idx = 0;
         return *this;
     }
     ///
     /// sizing
     ///
-    __GPU__ int gcount() { return _gn;  }
-    __GPU__ int tellg()  { return _idx; }
+    __HOST__ int gcount() { return _gn;  }
+    __HOST__ int tellg()  { return _idx; }
     //
     /// parser
     ///
     __GPU__ Istream& get_idiom(char *s, char delim=' ') {
         int nidx = _tok(delim);             // index to next token
         if (nidx==0) return *this;          // no token processed
-        MEMCPY(s, &_buf[_idx], _gn);
-        s[_gn + 1] = '\0';                  // terminated with '\0'
+        memcpy(s, &_buf[_idx], _gn);
+        s[_gn] = '\0';                      // terminated with '\0'
         _idx = nidx;                        // advance index
         return *this;
     }
@@ -62,22 +63,5 @@ public:
     	return get_idiom(s, delim);
     }
     __GPU__ int operator>>(char *s)   { get_idiom(s); return _gn; }
-
-#if CUEF_USE_STRBUF
-#include "strbuf.h"
-    __GPU__  Istream& str(string& s) {
-        str(s.c_str(), s.size()); return *this;
-    }
-    __GPU__ Istream& get_idiom(string& s, char delim=' ') {
-        int nidx = _tok(delim);
-        if (nidx==0) return *this;
-        s._n = 0;
-        s.merge(&_buf[_idx], _gn);
-        s._v[_gn + 1] = '\0';
-        _idx = nidx;
-        return *this;
-    }
-    __GPU__  int operator>>(string& s) { get_idiom(s); return _gn; }
-#endif // CUEF_USE_STRBUF
 };
 #endif // CUEF_SRC_ISTREAM_H_
