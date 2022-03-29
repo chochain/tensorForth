@@ -9,39 +9,30 @@
 
   </pre>
 */
-#include <cstdio>
+#include <cstdio>        // printf
+#include <iostream>      // cin, cout
 #include "aio.h"
-
-__GPU__ __managed__ Istream *_istr;
-__GPU__ __managed__ Ostream *_ostr;
-obuf_node *_root;
-bool      _trace;
-
-__KERN__ void
-_aio_setup(char *ibuf, char *obuf) {
-	if (threadIdx.x!=0 || blockIdx.x!=0) return;
-	_istr = new Istream(ibuf);
-	_ostr = new Ostream(obuf);
-}
-
-__KERN__ void
-_aio_clear() {
-	if (threadIdx.x!=0 || blockIdx.x!=0) return;
-	_ostr->clear();
-}
 ///
 /// AIO takes managed memory blocks as input and output buffers
 /// which can be access by both device and host
 ///
-Istream *AIO::istream() { return _istr; }
-Ostream *AIO::ostream() { return _ostr; }
+__HOST__ int
+AIO::readline() {
+	_istr->clear();
+	std::cin.getline(_istr->tib(), CUEF_IBUF_SIZE, '\n');
+	printf("<< %s\n", _istr->tib());
+	return strlen(_istr->tib());
+}
 
+#define NEXTNODE(n) ((obuf_node *)(node->data + node->size))
 __HOST__ void
-AIO::init(char *ibuf, char *obuf, bool trace) {
-	_aio_setup<<<1,1>>>(ibuf, obuf);
-
-    _root  = (obuf_node*)obuf;                   // host buffer root
-    _trace = trace;
+AIO::flush() {
+    obuf_node *node = _ostr->base();
+    while (node->gt != GT_EMPTY) {          // 0
+        node = _print_node(node);
+        node = NEXTNODE(node);
+    }
+    _ostr->clear();
 }
 
 __HOST__ obuf_node*
@@ -71,13 +62,3 @@ AIO::_print_node(obuf_node *node) {
     return node;
 }
 
-#define NEXTNODE(n) ((obuf_node *)(node->data + node->size))
-__HOST__ void
-AIO::flush() {
-    obuf_node *node = _root;
-    while (node->gt != GT_EMPTY) {          // 0
-        node = _print_node(node);
-        node = NEXTNODE(node);
-    }
-    _aio_clear<<<1,1>>>();
-}

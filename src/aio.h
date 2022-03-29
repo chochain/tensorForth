@@ -14,13 +14,21 @@
 #include "istream.h"
 #include "ostream.h"
 
-class AIO {
+class AIO : public Managed {
 public:
-    static Istream *istream();
-    static Ostream *ostream();
+	Istream *_istr;		/// managed input stream
+	Ostream *_ostr;		/// managed output stream
+	bool    _trace;     /// debug tracing control
 
-    static __HOST__ void init(char *ibuf, char *obuf, bool trace);
-	static __HOST__ void flush();
-    static __HOST__ obuf_node* _print_node(obuf_node *node);
+	AIO(bool trace) : _istr(new Istream()), _ostr(new Ostream()), _trace(trace) {}
+
+	__HOST__ Istream *istream() { return _istr; }
+	__HOST__ Ostream *ostream() { return _ostr; }
+
+	__HOST__ int  readline();
+	__HOST__ void flush();
+
+private:
+    __HOST__ obuf_node* _print_node(obuf_node *node);
 };
 #endif // CUEF_SRC_AIO_H_
