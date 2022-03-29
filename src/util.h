@@ -36,7 +36,6 @@ __GPU__ void         u32_to_bin(uint32_t l, const void *bin);
 __GPU__ void         *d_memcpy(void *d, const void *s, size_t n);
 __GPU__ void         *d_memset(void *d, int c, size_t n);
 __GPU__ int          d_memcmp(const void *s1, const void *s2, size_t n);
-
 __GPU__ int          d_strlen(const char *s, bool raw);
 __GPU__ void         d_strcpy(char *d, const char *s);
 __GPU__ int          d_strcmp(const char *s1, const char *s2);
@@ -51,7 +50,7 @@ __GPU__ double       d_strtof(const char *s, char **p);
 __GPU__ int          d_hash(const char *s);
     
 // memory util
-#define MEMCPY(d,s,n)   memcpy((char*)(d), (const char*)(s), (size_t)(n))
+#define MEMCPY(d,s,n)   memcpy((char*)(d), (const char*)(s), (size_t)(n))       /** TODO: cudaMemcpyAsyn */
 #define MEMSET(d,v,n)   memset((char*)(d), (int)(v), (size_t)(n))
 #define MEMCMP(d,s,n)   d_memcmp((const char*)(d), (const char*)(s), (size_t)(n))
 // string util

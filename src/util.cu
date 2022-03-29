@@ -205,10 +205,18 @@ u32_to_bin(uint32_t l, char *bin) {
     *bin   = l & 0xff;
 }
 
+
+__GPU__ __INLINE__ void*
+d_memcpy(void *d, const void *s, size_t n) { memcpy(d, s, n); }
+
+__GPU__ __INLINE__ void*
+d_memset(void *d, int c, size_t n) { memset(d, c, n); }
+
 /* memcpy generic C-implementation,
  *
  *   TODO: alignment of ss is still
- */
+ *   Note: CUDA has implemented memcpy and memset in device
+ *
 __GPU__ void*
 d_memcpy(void *d, const void *s, size_t n) {
     if (n==0 || d==s) return d;
@@ -246,11 +254,9 @@ d_memcpy(void *d, const void *s, size_t n) {
 __GPU__ void*
 d_memset(void *d, int c, size_t n) {
     char *s = (char*)d;
-
-    /* Fill head and tail with minimal branching. Each
-     * conditional ensures that all the subsequently used
-     * offsets are well-defined and in the dest region. */
-
+    // Fill head and tail with minimal branching. Each
+    // conditional ensures that all the subsequently used
+    // offsets are well-defined and in the dest region.
     if (!n) return d;
     s[0] = s[n-1] = c;
     if (n <= 2) return d;
@@ -259,12 +265,10 @@ d_memset(void *d, int c, size_t n) {
     if (n <= 6) return d;
     s[3] = s[n-4] = c;
     if (n <= 8) return d;
-
-    /* Advance pointer to align it at a 4-byte boundary,
-     * and truncate n to a multiple of 4. The previous code
-     * already took care of any head/tail that get cut off
-     * by the alignment. */
-
+    // Advance pointer to align it at a 4-byte boundary,
+    // and truncate n to a multiple of 4. The previous code
+    // already took care of any head/tail that get cut off
+    // by the alignment.
     size_t k = -(uintptr_t)s & 3;
     s += k;
     n -= k;
@@ -275,11 +279,11 @@ d_memset(void *d, int c, size_t n) {
     uint32_t  wc = c & 0xFF;
     wc |= ((wc << 8) | (wc << 16) | (wc << 24));
 
-    /* Pure C fallback with no aliasing violations. */
     for (; n; n--) *ws++ = wc;
 
     return d;
 }
+*/
 
 __GPU__ int
 d_memcmp(const void *s1, const void *s2, size_t n) {
