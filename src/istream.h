@@ -19,7 +19,7 @@
 ///
 #include <stdio.h>
 class Istream : public Managed {
-    char _buf[CUEF_IBUF_SIZE];  /// input buffer
+    char *_buf;                 /// input buffer
     int  _idx  = 0;             /// current buffer index
     int  _gn   = 0;             /// number of byte processed
 
@@ -33,13 +33,20 @@ class Istream : public Managed {
         return nidx;
     }
 public:
+    Istream(int sz=CUEF_IBUF_SIZE) { cudaMallocManaged(&_buf, sz);	GPU_CHK(); }
+    ~Istream()                     { GPU_SYNC(); cudaFree(_buf); }
     ///
     /// intialize by a given string
     ///
-    __HOST__ char     *tib()   { return _buf; }
-    __HOST__ Istream& clear()  { _idx = 0; _gn = 0; return *this; }
+    __HOST__ char     *rdbuf() { return _buf; }
+    __HOST__ Istream& clear()  {
+    	//LOCK;
+    	_idx = _gn = 0;
+    	//UNLOCK;
+    	return *this;
+    }
     __HOST__ Istream& str(const char *s, int sz=0) {
-        memcpy(_buf, s, sz);
+        memcpy(_buf, s, sz ? sz : strlen(s));
         _idx = 0;
         return *this;
     }
