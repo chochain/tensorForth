@@ -62,13 +62,29 @@ class Ostream : public Managed {
     char _fill = ' ';
     int  _prec = 6;
 
-    __GPU__ void _dump() {
+#if CUEF_DEBUG
+    __GPU__ __INLINE__ void _debug(GT gt, U8 *v) {
+    	printf("%d>> obuf[%d] << ", blockIdx.x, _idx);
+    	switch(gt) {
+    	case GT_INT:   printf("%d\n", *(GI*)v); break;
+    	case GT_HEX:   printf("%x\n", *(GI*)v); break;
+    	case GT_FLOAT: printf("%G\n", *(GF*)v); break;
+    	case GT_STR:   printf("%s\n", v);       break;
+    	default:       printf("unknown type %d\n", gt);
+    	}
+    }
+    __GPU__ __INLINE__ void _dump() {
         for (int i=0; i<=_idx; i++) {
-        	printf("%02x %c ", _buf[i], _buf[i] < 0x20 ? '.' : _buf[i]);
+        	char c = _buf[i];
+        	printf("%02x %c ", c, c < 0x20 ? '.' : c);
         }
         printf("%c", '\n');
-
     }
+#else  // CUEF_DEBUG
+    __GPU__ __INLINE__ void _debug(GT, U8*) {}
+    __GPU__ __INLINE__ void _dump() {}
+#endif // CUEF_DEBUG
+
     __GPU__  void _write(GT gt, U8 *v, int sz) {
         if (threadIdx.x!=0) return;                                 // only thread 0 within a block can write
 
@@ -81,14 +97,14 @@ class Ostream : public Managed {
 
         int inc = NODE_SZ + n->size; // calc node allocation size
 
-        printf("_idx %d += %d\n", _idx, inc);
+        _debug(gt, v);
 
         if ((_idx + inc) > _max) inc = 0;     // overflow, skip
         else MEMCPY(n->data, v, sz);          // deep copy, TODO: shallow copy via managed memory
 
         _buf[(_idx += inc)] = (char)GT_EMPTY; // advance index and mark end of stream
         //_UNLOCK;
-        //_dump();
+        _dump();
     }
 
 public:
@@ -129,8 +145,8 @@ public:
         return *this;
     }
     __GPU__ Ostream& operator<<(const char *s) {
-        int i = STRLENB(s)+1;
-        _write(GT_STR, (U8*)s, i);
+        int len = STRLENB(s)+1;
+        _write(GT_STR, (U8*)s, len);
         return *this;
     }
 };

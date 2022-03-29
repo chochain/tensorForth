@@ -23,13 +23,17 @@ class Istream : public Managed {
     int  _idx  = 0;             /// current buffer index
     int  _gn   = 0;             /// number of byte processed
 
+#if CUEF_DEBUG
+    __GPU__ __INLINE__ void _debug() { printf("%d>> ibuf[%d] >> %d bytes\n", blockIdx.x, _idx, _gn); }
+#else
+    __GPU__ __INLINE__ void _debug() {}
+#endif // CUEF_DEBUG
+
     __GPU__ int _tok(char delim) {
-        printf("_tok0: idx=%d, gn=%d ", _idx, _gn);
-        char *c = &_buf[_idx];
-        while (delim==' ' && (*c==' ' || *c=='\t')) (c++, _idx++); // skip leading blanks and tabs
-        int nidx=_idx; while (*c && *c!=delim) (c++, nidx++);
-        _gn = (delim!=' ' && *c!=delim) ? nidx=0 : nidx - _idx;    // not found or end of input string
-        printf("_tok1: idx=%d, gn=%d ", _idx, _gn);
+        char *p = &_buf[_idx];
+        while (delim==' ' && (*p==' ' || *p=='\t')) (p++, _idx++); // skip leading blanks and tabs
+        int nidx=_idx; while (*p && *p!=delim) (p++, nidx++);      // advance pointers
+        _gn = (delim!=' ' && *p!=delim) ? nidx=0 : nidx - _idx;    // not found or end of input string
         return nidx;
     }
 public:
@@ -60,8 +64,11 @@ public:
     ///
     __GPU__ Istream& get_idiom(char *s, char delim=' ') {
         int nidx = _tok(delim);             // index to next token
+
+        _debug();
+
         if (nidx==0) return *this;          // no token processed
-        memcpy(s, &_buf[_idx], _gn);
+        memcpy(s, &_buf[_idx], _gn);        // CUDA memcpy
         s[_gn] = '\0';                      // terminated with '\0'
         _idx = nidx;                        // advance index
         return *this;
