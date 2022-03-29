@@ -24,24 +24,18 @@ struct StrBuf : public Vector<char>
     ///
     /// constructors
     ///
-    __GPU__ StrBuf(int asz=STRBUF_SIZE) {
-        if (asz>0) v = new char[max=ALIGN4(asz)];
-    }
-    __GPU__ StrBuf(const char *s) {
-        idx = STRLENB(s);
-        v = new char[max=ALIGN4(idx+1)];
+    __GPU__ StrBuf(int asz=STRBUF_SIZE) : v(new char[max=ALIGN4(asz)]) {}
+    __GPU__ StrBuf(const char *s) : idx(STRLENB(s)), max(ALIGN4(idx+1), v(new char[max]) {
         MEMCPY(v, s, idx);
     }
-    __GPU__ StrBuf(StrBuf& s) {
-        idx = s.idx;
-        v = new char[max=ALIGN4(idx+1)];
+    __GPU__ StrBuf(StrBuf& s) idx(s.idx), max(ALIGN4(idx+1)), v(new char[max]) {
         MEMCPY(v, s.c_str(), idx);
     }
     ///
     /// StrBuf export
     ///
     __GPU__ __INLINE__ StrBuf& str() { v[idx]='\0'; return *this; }
-    __GPU__ __INLINE__ char *c_str() { v[idx]='\0'; return v;    }
+    __GPU__ __INLINE__ char *c_str() { v[idx]='\0'; return v;     }
     __GPU__ StrBuf& substr(int i) {
         v[idx] = '\0';
         StrBuf& s = *new StrBuf(&v[i]);
