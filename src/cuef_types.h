@@ -33,7 +33,12 @@
 #define ASSERT(X) \
     if (!(X)) PRINTF("ASSERT tid %d: line %d in %s\n", threadIdx.x, __LINE__, __FILE__);
 #define GPU_SYNC()          { cudaDeviceSynchronize(); }
-#define GPU_CHK()           { cudaDeviceSynchronize(); ASSERT(cudaGetLastError()==cudaSuccess); }
+#define GPU_CHK()           { \
+	cudaDeviceSynchronize(); \
+	cudaError_t code = cudaGetLastError(); \
+	if (code != cudaSuccess) \
+		fprintf(stderr, "GPUassert: %s %s %d\n", cudaGetErrorString(code), __FILE__, __LINE__); \
+	}
 
 #else  // defined(__CUDACC__)
 
@@ -77,4 +82,17 @@ typedef F32         DU;                     // size of a data unit
 #define U8PADD(p, n)    ((U8*)(p) + (n))    // add
 #define U8PSUB(p, n)    ((U8*)(p) - (n))    // sub
 
+class Managed {
+public:
+	void *operator new(size_t sz) {
+		void *ptr;
+		cudaMallocManaged(&ptr, sz);
+		GPU_SYNC();
+		return ptr;
+	}
+	void operator delete(void *ptr) {
+		GPU_SYNC();
+		cudaFree(ptr);
+	}
+};
 #endif // CUEF_SRC_CUEF_TYPES_H_
