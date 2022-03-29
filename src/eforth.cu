@@ -64,7 +64,7 @@ ForthVM::next_word()  {     // get next idiom
 }
 __GPU__ __INLINE__ char*
 ForthVM::scan(char c) {
-    fin.getline(idiom, c); return idiom;
+    fin.get_idiom(idiom, c); return idiom;
 }
 __GPU__ void
 ForthVM::nest(IU c) {
