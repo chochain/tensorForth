@@ -32,6 +32,12 @@ struct Vector {
     __GPU__ Vector& operator=(Vector<T>& a)  { idx=0; merge(a); return *this; }
 
     __GPU__ int     size() { return idx; }
+    __GPU__ Vector& push(T *t) {
+        if ((idx+1) > max) resize(idx + VECTOR_INC);
+        //v[idx++] = t;
+        memcpy(&v[idx++], t, sizeof(T));
+        return *this;
+    }
     __GPU__ Vector& push(T t) {
         if ((idx+1) > max) resize(idx + VECTOR_INC);
         v[idx++] = t;
