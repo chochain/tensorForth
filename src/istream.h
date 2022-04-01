@@ -23,11 +23,11 @@ class Istream : public Managed {
     int  _idx  = 0;             /// current buffer index
     int  _gn   = 0;             /// number of byte processed
 
-#if CUEF_DEBUG
+#if CC_DEBUG
     __GPU__ __INLINE__ void _debug() { printf("%d>> ibuf[%d] >> %d bytes\n", blockIdx.x, _idx, _gn); }
-#else
+#else  // CC_DEBUG
     __GPU__ __INLINE__ void _debug() {}
-#endif // CUEF_DEBUG
+#endif // CC_DEBUG
 
     __GPU__ int _tok(char delim) {
         char *p = &_buf[_idx];

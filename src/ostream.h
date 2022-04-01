@@ -62,7 +62,7 @@ class Ostream : public Managed {
     char _fill = ' ';
     int  _prec = 6;
 
-#if CUEF_DEBUG
+#if CC_DEBUG
     __GPU__ __INLINE__ void _debug(GT gt, U8 *v) {
     	printf("%d>> obuf[%d] << ", blockIdx.x, _idx);
     	switch(gt) {
@@ -80,10 +80,10 @@ class Ostream : public Managed {
         }
         printf("%c", '\n');
     }
-#else  // CUEF_DEBUG
+#else  // CC_DEBUG
     __GPU__ __INLINE__ void _debug(GT, U8*) {}
     __GPU__ __INLINE__ void _dump() {}
-#endif // CUEF_DEBUG
+#endif // CC_DEBUG
 
     __GPU__  void _write(GT gt, U8 *v, int sz) {
         if (threadIdx.x!=0) return;                                 // only thread 0 within a block can write
