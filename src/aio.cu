@@ -29,11 +29,12 @@ __HOST__ void
 AIO::print_node(obuf_node *node) {
     if (_trace) printf("<%d>", node->id);
 
+    char *v = (char*)node->data;
     switch (node->gt) {
-    case GT_INT:   printf("%d", *((GI*)node->data)); break;
-    case GT_HEX:   printf("%x", *((GI*)node->data)); break;
-    case GT_FLOAT: printf("%g", *((GF*)node->data)); break;
-    case GT_STR:   printf("%s", (char*)node->data);  break;
+    case GT_INT:   printf("%d", *(GI*)v); break;
+    case GT_HEX:   printf("%x", *(GI*)v); break;
+    case GT_FLOAT: printf("%G", *(GF*)v); break;
+    case GT_STR:   printf("%s", v);       break;
     default: printf("print node type not supported: %d", node->gt); break;
     }
     if (_trace) printf("</%d>\n", node->id);
