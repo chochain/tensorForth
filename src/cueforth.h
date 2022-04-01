@@ -10,7 +10,7 @@ class CueForth {
     AIO  *aio;
 
 public:
-    CueForth(bool trace);
+    CueForth(bool trace=false);
     ~CueForth();
 
     __HOST__ int   is_running();

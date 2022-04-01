@@ -21,7 +21,7 @@ eforth_init(Istream *istr, Ostream *ostr) {
 
     for (int i=0; i<MIN_VM_COUNT; i++) {
         vm_pool[i] = new ForthVM(istr, ostr);     // instantiate new Forth VMs
-        //vm_pool[i]->init();                       // initialize dictionary
+        vm_pool[i]->init();                       // initialize dictionary
     }
 }
 
@@ -75,7 +75,7 @@ CueForth::run() {
 		if (aio->readline()) {
 			eforth_exec<<<1,1>>>();
 			GPU_CHK();
-			//aio->flush();
+			aio->flush();
 		}
 		yield();
 	}
@@ -89,7 +89,7 @@ CueForth::teardown(int sig) {}
 ///
 int main(int argc, char**argv) {
     cout << CUEF_VERSION << " init" << endl;
-    CueForth *f = new CueForth(true);
+    CueForth *f = new CueForth(CUEF_DEBUG);
 
     cout << CUEF_VERSION << " start" << endl;
     f->run();
