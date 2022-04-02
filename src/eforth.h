@@ -1,3 +1,7 @@
+/*! @file
+  @brief
+  cueForth - eForth core classes
+*/
 #ifndef CUEF_SRC_EFORTH_H
 #define CUEF_SRC_EFORTH_H
 #include "cuef_types.h"
@@ -20,13 +24,16 @@ struct fop {
 template<typename F>
 struct functor : fop {
     union {
-        F func;
-        F *fp;
+        F   op;             /// reference to lambda
+        U64 *fp;
     };
-    __GPU__ functor(F f) : func(f) {
-        printf("functor(f) fp=%p\n", fp);
+    __GPU__ functor(const F &f) : op(f) {
+    	printf("functor(f=%p)\n", fp);
     }
-    __GPU__ void operator()(IU c) { func(c); }
+    __GPU__ void operator()(IU c) {
+    	printf(">> op=%p\n", fp);
+    	op(c);
+    }
 };
 ///
 /// Code class for dictionary word
@@ -35,6 +42,7 @@ struct Code {               /// dictionary word/code object
     const char *name = 0;   /// name field
     union {
         fop *xt = 0;        /// lambda pointer (CUDA 49-bit)
+        U64 *fp;
         struct {
             U16 def:  1;    /// colon defined word
             U16 immd: 1;    /// immediate flag
@@ -43,18 +51,17 @@ struct Code {               /// dictionary word/code object
         };
     };
     template<typename F>    /// template function for lambda
-    __GPU__ Code(const char *n, F f, bool im=false) : name(n), xt(new functor<F>(f)) {
-        printf("Code(...) %p: %s\n", xt, name);
+    __GPU__ Code(const char *n, const F &f, bool im=false) : name(n), xt(new functor<F>(f)) {
+        printf("Code(...) %p %s\n", fp, name);
         immd = im ? 1 : 0;
     }
-    __GPU__ Code()  {}      /// default constructor, called by Vector
-    __GPU__ Code(Code &c) : name(c.name), xt(c.xt) {
-        printf("Code(Code) %p: %s\n", xt, name);
+    __GPU__ Code() {}      /// default constructor, called by new Vector
+    __GPU__ Code(const Code &c) : name(c.name), xt(c.xt) {  // called by Vector::push(T*)
+        printf("Code(Code) %p: %s\n", fp, name);
     }
     __GPU__ ~Code() {}
-
-    __GPU__ void operator=(Code &c) {
-        printf("Code(%p:%s) = %p: %s\n", xt, name, c.xt, c.name);
+    __GPU__ void operator=(const Code &c) {
+        printf("Code(%p:%s) = %p: %s\n", fp, name, c.fp, c.name);
         name = c.name; xt = c.xt;
     }
 };
