@@ -4,7 +4,7 @@
 
 #define VECTOR_INC      4
 ///
-/// Vector template class using device memory only
+/// Vector (device memory only) template class
 ///
 template<class T, int N=VECTOR_INC>
 struct Vector {
@@ -12,16 +12,16 @@ struct Vector {
     int idx = 0;         /// number of elements stored
     int max = N;         /// allocated size
 
-    __GPU__ Vector()               { v = new T[N]; }
-    __GPU__ Vector(T a[], int len) { merge((T*)a, len); }
-    __GPU__ Vector(Vector<T>& a)   { merge(a); }
-    __GPU__ ~Vector()              { delete[] v; }
+    __GPU__ Vector()             { v = new T[N]; }
+    __GPU__ Vector(T a[], int n) { merge((T*)a, n); }
+    __GPU__ Vector(Vector<T>& a) { merge(a); }
+    __GPU__ ~Vector()            { delete[] v; }
     //
     // operator overloading
     //
     __GPU__ T&      operator[](int i) { return i < 0 ? v[idx + i] : v[i]; }
-    __GPU__ Vector& merge(T *a, int len) {
-        for (int i=0; i<len; i++) push(a[i]);
+    __GPU__ Vector& merge(T *a, int n) {
+        for (int i=0; i<n; i++) push(a[i]);
         return *this;
     }
     __GPU__ Vector& merge(Vector<T>& a) {
@@ -32,19 +32,14 @@ struct Vector {
     __GPU__ Vector& operator=(Vector<T>& a)  { idx=0; merge(a); return *this; }
 
     __GPU__ int     size() { return idx; }
-    __GPU__ Vector& push(T *t) {
-        if ((idx+1) > max) resize(idx + VECTOR_INC);
-        //v[idx++] = t;
-        memcpy(&v[idx++], t, sizeof(T));
-        return *this;
-    }
-    __GPU__ Vector& push(T t) {
+    __GPU__ Vector& push(T t) {           /// aka assignment operator
         if ((idx+1) > max) resize(idx + VECTOR_INC);
         v[idx++] = t;
         return *this;
     }
-    __GPU__ Vector& push(T *t, int sz) {
-    	for (int i=0; i<sz; i++) push(*(t+i));
+    __GPU__ Vector& push(T *t) { push(*t); }       /// aka copy constructor
+    __GPU__ Vector& push(T *t, int n) {
+    	for (int i=0; i<n; i++) push(*(t+i));
     }
     __GPU__ T&  pop()  { return idx>0 ? v[--idx] : v[0]; }
     __GPU__ T&  dec_i() { return v[idx - 1] -= 1; } /// decrement stack top
