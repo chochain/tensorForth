@@ -9,22 +9,33 @@
 #define millis()        clock()
 #define delay(ms)       { clock_t t = clock()+ms; while (clock()<t); }
 #define yield()
-
-struct fop {                /// alternate solution for function
-    __GPU__ virtual void operator()(IU) = 0;
+///
+/// CUDA functor (device only) implementation
+/// Note: nvstd::function is too heavy (at 48-byte)
+/// TODO: Thrust
+///
+struct fop {
+    __GPU__  virtual void operator()(IU) = 0;
 };
 template<typename F>
-struct function : fop {
-    F& fp;
-    __GPU__ function(F& f) : fp(f) {}
-    __GPU__ void operator()(IU c) { fp(c); }
+struct functor : fop {
+    union {
+        F func;
+        F *fp;
+    };
+    __GPU__ functor(F f) : func(f) {
+        printf("functor(f) fp=%p\n", fp);
+    }
+    __GPU__ void operator()(IU c) { func(c); }
 };
-
+///
+/// Code class for dictionary word
+///
 struct Code {               /// dictionary word/code object
     const char *name = 0;   /// name field
-    union {                 /// either a primitive or colon word
-        fop *xt = 0;        /// lambda pointer
-        struct {            /// a colon word
+    union {
+        fop *xt = 0;        /// lambda pointer (CUDA 49-bit)
+        struct {
             U16 def:  1;    /// colon defined word
             U16 immd: 1;    /// immediate flag
             U16 len:  14;   /// len of pfa
@@ -32,11 +43,20 @@ struct Code {               /// dictionary word/code object
         };
     };
     template<typename F>    /// template function for lambda
-    __GPU__ Code(const char *n, F f, bool im=false) : name(n) {
-    	xt   = new function<F>(f);
-    	immd = im ? 1 : 0;
+    __GPU__ Code(const char *n, F f, bool im=false) : name(n), xt(new functor<F>(f)) {
+        printf("Code(...) %p: %s\n", xt, name);
+        immd = im ? 1 : 0;
     }
-    __GPU__ Code() {}       /// create a blank struct (for initilization)
+    __GPU__ Code()  {}      /// default constructor, called by Vector
+    __GPU__ Code(Code &c) : name(c.name), xt(c.xt) {
+        printf("Code(Code) %p: %s\n", xt, name);
+    }
+    __GPU__ ~Code() {}
+
+    __GPU__ void operator=(Code &c) {
+        printf("Code(%p:%s) = %p: %s\n", xt, name, c.xt, c.name);
+        name = c.name; xt = c.xt;
+    }
 };
 ///
 /// Forth Virtual Machine operational macros
@@ -53,7 +73,7 @@ struct Code {               /// dictionary word/code object
 #define HERE      (pmem.idx)                /** current parameter memory index           */
 #define IPOFF     ((IU)(IP - PMEM0))        /** IP offset relative parameter memory root */
 #define CALL(c)\
-	if (dict[c].def) nest(c);\
+    if (dict[c].def) nest(c);\
     else (*(fop*)(((uintptr_t)dict[c].xt)&~0x3))(c)
 ///
 /// Forth virtual machine class
@@ -63,12 +83,12 @@ typedef enum { VM_READY, VM_RUN, VM_WAIT, VM_STOP } vm_status;
 class ForthVM {
 public:
     Istream       &fin;                     /// VM stream input
-	Ostream       &fout;				    /// VM stream output
-	vm_status     status = VM_READY;        /// VM status
+    Ostream       &fout;                    /// VM stream output
+    vm_status     status = VM_READY;        /// VM status
 
     Vector<DU,   64>      rs;               /// return stack
     Vector<DU,   64>      ss;               /// parameter stack
-    Vector<Code, 1024>    dict;				/// dictionary, TODO: shared between VMs
+    Vector<Code, 1024>    dict;             /// dictionary, TODO: shared between VMs
     Vector<U8,   48*1024> pmem;             /// primitives, TODO: shared between VMs
 
     bool  compile = false;                  /// compiling flag
