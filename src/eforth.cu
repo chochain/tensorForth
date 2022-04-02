@@ -400,6 +400,8 @@ ForthVM::init() {
     };
     dict.push((Code*)prim, sizeof(prim)/sizeof(Code));
     status = VM_RUN;
+    
+    printf("init() this=%p sizeof(Code)=%d\n", this, sizeof(Code));
 };
 ///
 /// ForthVM Outer interpreter
@@ -416,15 +418,14 @@ ForthVM::outer() {
             }
             else {
                 printf(" call %p", dict[w].xt);
-            	//CALL(w);
+            	CALL(w);
             }                /// * execute forth word
             continue;
         }
         // try as a number
-        /*
         char *p;
         int n = INT(STRTOL(idiom, &p, base));
-        //printf("%d\n", n);
+        printf("%d\n", n);
         if (*p != '\0') {                    /// * not number
             fout << idiom << "? " << ENDL;   ///> display error prompt
             compile = false;                 ///> reset to interpreter mode
@@ -436,7 +437,6 @@ ForthVM::outer() {
             add_du(n);                       ///> data storage (32-bit integer now)
         }
         else PUSH(n);                        ///> or, add value onto data stack
-        */
     }
     if (!compile) ss_dump();
 }
