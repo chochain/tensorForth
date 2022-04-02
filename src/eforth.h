@@ -27,6 +27,7 @@ struct functor : fop {
         F   op;             /// reference to lambda
         U64 *fp;
     };
+#if CC_DEBUG
     __GPU__ functor(const F &f) : op(f) {
     	printf("functor(f=%p)\n", fp);
     }
@@ -34,6 +35,10 @@ struct functor : fop {
     	printf(">> op=%p\n", fp);
     	op(c);
     }
+#else
+    __GPU__ functor(const F &f) : op(f) {}
+    __GPU__ void operator()(IU c) { op(c); }
+#endif // CC_DEBUG
 };
 ///
 /// Code class for dictionary word
@@ -50,20 +55,31 @@ struct Code {               /// dictionary word/code object
             IU  pfa;        /// offset to pmem space
         };
     };
+    __GPU__ Code() {}      /// default constructor, called by new Vector
+    __GPU__ ~Code() {}
+
     template<typename F>    /// template function for lambda
+#if CC_DEBUG
     __GPU__ Code(const char *n, const F &f, bool im=false) : name(n), xt(new functor<F>(f)) {
         printf("Code(...) %p %s\n", fp, name);
         immd = im ? 1 : 0;
     }
-    __GPU__ Code() {}      /// default constructor, called by new Vector
     __GPU__ Code(const Code &c) : name(c.name), xt(c.xt) {  // called by Vector::push(T*)
         printf("Code(Code) %p: %s\n", fp, name);
     }
-    __GPU__ ~Code() {}
     __GPU__ void operator=(const Code &c) {
         printf("Code(%p:%s) = %p: %s\n", fp, name, c.fp, c.name);
         name = c.name; xt = c.xt;
     }
+#else
+    __GPU__ Code(const char *n, const F &f, bool im=false) : name(n), xt(new functor<F>(f)) {
+        immd = im ? 1 : 0;
+    }
+    __GPU__ Code(const Code &c) : name(c.name), xt(c.xt) {}
+    __GPU__ void operator=(const Code &c) {
+    	name = c.name; xt = c.xt;
+    }
+#endif // CC_DEBUG
 };
 ///
 /// Forth Virtual Machine operational macros
