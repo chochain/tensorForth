@@ -1,3 +1,9 @@
+/*! @file
+  @brief
+  cueForth Vector class (device only ) implementation
+
+  TODO: Thrust::d_vector
+*/
 #ifndef CUEF_SRC_VECTOR_H
 #define CUEF_SRC_VECTOR_H
 #include "util.h"       /// also defined __GPU__
@@ -32,16 +38,16 @@ struct Vector {
     __GPU__ Vector& operator=(Vector<T>& a)  { idx=0; merge(a); return *this; }
 
     __GPU__ int     size() { return idx; }
-    __GPU__ Vector& push(T t) {           /// aka assignment operator
+    __GPU__ Vector& push(T t) {                    /// aka assignment operator
         if ((idx+1) > max) resize(idx + VECTOR_INC);
-        v[idx++] = t;
+        v[idx++] = t;                              /// deep copy
         return *this;
     }
     __GPU__ Vector& push(T *t) { push(*t); }       /// aka copy constructor
     __GPU__ Vector& push(T *t, int n) {
-    	for (int i=0; i<n; i++) push(*(t+i));
+    	for (int i=0; i<n; i++) push((t+i));
     }
-    __GPU__ T&  pop()  { return idx>0 ? v[--idx] : v[0]; }
+    __GPU__ T&  pop()   { return idx>0 ? v[--idx] : v[0]; }
     __GPU__ T&  dec_i() { return v[idx - 1] -= 1; } /// decrement stack top
     __GPU__ Vector& clear(int i=0)  { if (i<idx) idx = i; return *this; }
     __GPU__ Vector& resize(int nsz) {
