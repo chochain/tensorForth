@@ -49,7 +49,7 @@ ForthVM::colon(const char *name) {
     char *nfa = STR(HERE);                  // current pmem pointer
     int sz = STRASZ(name);                  // string length, aligned
     pmem.push((U8*)name,  sz);              // setup raw name field
-    Code c(nfa, [](int){});                 // create a new word on dictionary
+    Code c(nfa, [](IU){});                  // create a new word on dictionary
     c.def = 1;                              // specify a colon word
     c.len = 0;                              // advance counter (by number of U16)
     c.pfa = HERE;                           // capture code field index
@@ -58,11 +58,11 @@ ForthVM::colon(const char *name) {
 ///
 /// Forth inner interpreter (colon word handler)
 ///
-__GPU__ __INLINE__ char*
+__GPU__ char*
 ForthVM::next_word()  {     // get next idiom
     fin >> idiom; return idiom;
 }
-__GPU__ __INLINE__ char*
+__GPU__ char*
 ForthVM::scan(char c) {
     fin.get_idiom(idiom, c); return idiom;
 }
@@ -158,8 +158,8 @@ ForthVM::mem_dump(IU p0, int sz) {
 ///
 /// macros to reduce verbosity
 ///
-#define CODE(s, g)    { s, [this](IU c){ g; }}
-#define IMMD(s, g)    { s, [this](IU c){ g; }, true }
+#define CODE(s, g)    { s, [this] __GPU__ (IU c){ g; }}
+#define IMMD(s, g)    { s, [this] __GPU__ (IU c){ g; }, true }
 #define BOOL(f)       ((f)?-1:0)
 #define ALU(a, OP, b) (INT(a) OP INT(b))
 ///
@@ -172,7 +172,7 @@ ForthVM::mem_dump(IU p0, int sz) {
 ///
 __GPU__ void
 ForthVM::init() {
-    const Code prim[] = {       /// singleton, build once onl
+	const Code prim[] = {       /// singleton, build once only
     ///
     /// @defgroup Execution flow ops
     /// @brief - DO NOT change the sequence here (see forth_opcode enum)
@@ -305,9 +305,9 @@ ForthVM::init() {
     /// @{
     IMMD("begin",   PUSH(XIP)),
     IMMD("again",   add_iu(BRAN);  add_iu(POP())),               // again    ( there -- )
-    IMMD("until",   add_iu(ZBRAN); add_iu(POP())),               // until    ( there -- ) 
-    IMMD("while",   add_iu(ZBRAN); PUSH(XIP); add_iu(0)),        // while    ( there -- there here ) 
-    IMMD("repeat",  add_iu(BRAN);                                // repeat    ( there1 there2 -- ) 
+    IMMD("until",   add_iu(ZBRAN); add_iu(POP())),               // until    ( there -- )
+    IMMD("while",   add_iu(ZBRAN); PUSH(XIP); add_iu(0)),        // while    ( there -- there here )
+    IMMD("repeat",  add_iu(BRAN);                                // repeat    ( there1 there2 -- )
         IU t=POP(); add_iu(POP()); SETJMP(t) = XIP),             // set forward and loop back address
     /// @}
     /// @defgrouop For loops
@@ -398,29 +398,30 @@ ForthVM::init() {
     CODE("boot",  dict.clear(find("boot") + 1); pmem.clear())
     /// @}
     };
-    for (int i=0; i<sizeof(prim)/sizeof(Code); i++) {
-        dict.push(prim[i]);
-    }
+    dict.push((Code*)prim, sizeof(prim)/sizeof(Code));
     status = VM_RUN;
-}
+};
 ///
 /// ForthVM Outer interpreter
 ///
 __GPU__ void
 ForthVM::outer() {
-    fout.clear();                            /// clean output buffer, ready for next
     while (fin >> idiom) {
-        //printf("=>%s", idiom);
+        printf("%d>> %s => ", blockIdx.x, idiom);
         int w = find(idiom);                 /// * search through dictionary
         if (w>=0) {                          /// * word found?
-            //printf("%s %d\n", dict[w].name, w);
+            printf("[%d]:%s %p\n", w, dict[w].name, dict[w].xt);
             if (compile && !dict[w].immd) {  /// * in compile mode?
                 add_iu(w);                   /// * add found word to new colon word
             }
-            else { CALL(w); }                /// * execute forth word
+            else {
+                printf(" call %p", dict[w].xt);
+            	//CALL(w);
+            }                /// * execute forth word
             continue;
         }
         // try as a number
+        /*
         char *p;
         int n = INT(STRTOL(idiom, &p, base));
         //printf("%d\n", n);
@@ -435,6 +436,7 @@ ForthVM::outer() {
             add_du(n);                       ///> data storage (32-bit integer now)
         }
         else PUSH(n);                        ///> or, add value onto data stack
+        */
     }
     if (!compile) ss_dump();
 }
