@@ -13,31 +13,31 @@ using namespace std;
 // forward declaration for implementation
 extern "C" __KERN__ void mmu_init(void *ptr, U32 sz);
 
-__GPU__ __managed__ ForthVM *vm_pool[MIN_VM_COUNT];
-
+__GPU__	__managed__ ForthVM *vm_pool[MIN_VM_COUNT];
+///
+/// instantiate VMs
+/// TODO: use shared memory
+///
 __KERN__ void
 eforth_init(Istream *istr, Ostream *ostr) {
-    if (threadIdx.x!=0 || blockIdx.x!=0) return;
+	int i = blockIdx.x;
+    if (threadIdx.x!=0) return;
 
-    for (int i=0; i<MIN_VM_COUNT; i++) {
-        vm_pool[i] = new ForthVM(istr, ostr);     // instantiate new Forth VMs
-        vm_pool[i]->init();                       // initialize dictionary
-    }
+    vm_pool[i] = new ForthVM(istr, ostr); // instantiate VM
+    vm_pool[i]->init();                   // initialize dictionary
 }
-
+///
+///
 #include <stdio.h>
 __KERN__ void
 eforth_exec() {
+	const char *s[] = {"READY", "RUN", "WAITING", "STOPPED"};
+	int i = blockIdx.x;
     if (threadIdx.x!=0) return;
 
-    vm_pool[0]->outer();
-    return;
-/*
-    ForthVM *vm = vm_pool[blockIdx.x];
-    while (vm->status == VM_RUN) {
-        vm->outer();
-    }
-*/
+    ForthVM *vm = vm_pool[i];
+    if (vm->status == VM_RUN) vm->outer();
+    else printf("VM[%d] %s\n", i, s[vm->status]);
 }
 
 CueForth::CueForth(bool trace) {
@@ -46,7 +46,7 @@ CueForth::CueForth(bool trace) {
     aio = new AIO(trace);
 
     //mmu_init<<<1,1>>>(mem, CUEF_HEAP_SIZE);               // setup memory management
-    eforth_init<<<1,1>>>(aio->istream(), aio->ostream());
+    eforth_init<<<MIN_VM_COUNT, 1>>>(aio->istream(), aio->ostream());
     GPU_CHK();
 }
 CueForth::~CueForth() {
@@ -60,7 +60,9 @@ CueForth::is_running() {
 	GPU_SYNC();
 	//LOCK();                 // TODO: lock on vm_pool
 	for (int i=0; i<MIN_VM_COUNT; i++) {
-		if (vm_pool[i]->status != VM_STOP) r = 1;
+		int st;
+		cudaMemcpy(&st, &vm_pool[i]->status, sizeof(int), cudaMemcpyDeviceToHost);
+		if (st != VM_STOP) r = 1;
 	}
 	//UNLOCK();               // TODO:
 	GPU_SYNC();
@@ -69,13 +71,13 @@ CueForth::is_running() {
 
 __HOST__ int
 CueForth::run() {
-	//int rr = is_running();
 	int i = 4;
-	while (--i) {
-		if (aio->readline()) {
-			eforth_exec<<<1,1>>>();
+	while (i--) {
+		//printf("run=%d\n", is_running());
+		if (aio->readline()) {      // feed from host console to managed input buffer
+			eforth_exec<<<1,1>>>(); // TODO: multiple VM destination, shared memory
 			GPU_CHK();
-			aio->flush();
+			aio->flush();           // flush output buffer
 		}
 		yield();
 	}
