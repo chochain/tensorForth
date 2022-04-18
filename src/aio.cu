@@ -21,7 +21,7 @@ AIO::readline() {
 	_istr->clear();
 	char *tib = _istr->rdbuf();
 	std::cin.getline(tib, CUEF_IBUF_SIZE, '\n');
-	printf("<< %s\n", tib);
+	if (_trace) printf("<< %s\n", tib);
 	return strlen(tib);
 }
 

@@ -11,7 +11,7 @@
  *   cc  : for my development only, default 0
  */
 #define CUEF_VERSION        "cueForth v1.0"
-#define CUEF_DEBUG          1
+#define CUEF_DEBUG          0
 #define MMU_DEBUG           0
 #define CC_DEBUG            0
 
