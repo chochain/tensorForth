@@ -408,7 +408,7 @@ ForthVM::init() {
 ///
 __GPU__ void
 ForthVM::outer() {
-    while (fin >> idiom) {
+    while (fin >> idiom) {                   /// loop throught tib
         printf("%d>> %s => ", blockIdx.x, idiom);
         int w = find(idiom);                 /// * search through dictionary
         if (w>=0) {                          /// * word found?
@@ -418,8 +418,8 @@ ForthVM::outer() {
             }
             else {
                 printf(" call %p", dict[w].xt);
-            	CALL(w);
-            }                /// * execute forth word
+            	CALL(w);                     /// * execute forth word
+            }
             continue;
         }
         // try as a number

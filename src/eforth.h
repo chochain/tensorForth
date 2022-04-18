@@ -101,7 +101,7 @@ struct Code {               /// dictionary word/code object
 ///
 /// Forth virtual machine class
 ///
-typedef enum { VM_READY, VM_RUN, VM_WAIT, VM_STOP } vm_status;
+typedef enum { VM_READY=0, VM_RUN, VM_WAIT, VM_STOP } vm_status;
 
 class ForthVM {
 public:
