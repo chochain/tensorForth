@@ -13,31 +13,46 @@ using namespace std;
 // forward declaration for implementation
 extern "C" __KERN__ void mmu_init(void *ptr, U32 sz);
 
-__GPU__	__managed__ ForthVM *vm_pool[MIN_VM_COUNT];
+__GPU__	ForthVM *vm_pool[MIN_VM_COUNT];
 ///
 /// instantiate VMs
 /// TODO: use shared memory
 ///
 __KERN__ void
-eforth_init(Istream *istr, Ostream *ostr) {
+cueforth_init(Istream *istr, Ostream *ostr) {
 	int i = blockIdx.x;
     if (threadIdx.x!=0) return;
 
-    vm_pool[i] = new ForthVM(istr, ostr); // instantiate VM
-    vm_pool[i]->init();                   // initialize dictionary
+	vm_pool[i] = new ForthVM(istr, ostr); // instantiate VM
+	vm_pool[i]->init();                   // initialize dictionary
+}
+///
+/// check VM status
+/// TODO: Dynamic Parallel
+///
+__KERN__ void
+cueforth_busy(int *busy) {
+	if (blockIdx.x != 0 || threadIdx.x != 0) return;
+
+	*busy = 0;
+	for (int i=0; i<MIN_VM_COUNT; i++) {
+		if (vm_pool[i]->status == VM_RUN) {
+			*busy = 1;
+			break;
+		}
+	}
 }
 ///
 ///
 #include <stdio.h>
 __KERN__ void
-eforth_exec() {
+cueforth_exec() {
 	const char *s[] = {"READY", "RUN", "WAITING", "STOPPED"};
-	int i = blockIdx.x;
     if (threadIdx.x!=0) return;
 
-    ForthVM *vm = vm_pool[i];
+    ForthVM *vm = vm_pool[blockIdx.x];
     if (vm->status == VM_RUN) vm->outer();
-    else printf("VM[%d] %s\n", i, s[vm->status]);
+    else 					  printf("VM[%d] %s\n", blockIdx.x, s[vm->status]);
 }
 
 CueForth::CueForth(bool trace) {
@@ -46,7 +61,7 @@ CueForth::CueForth(bool trace) {
     aio = new AIO(trace);
 
     //mmu_init<<<1,1>>>(mem, CUEF_HEAP_SIZE);               // setup memory management
-    eforth_init<<<MIN_VM_COUNT, 1>>>(aio->istream(), aio->ostream());
+    cueforth_init<<<MIN_VM_COUNT, 1>>>(aio->istream(), aio->ostream());
     GPU_CHK();
 }
 CueForth::~CueForth() {
@@ -56,28 +71,28 @@ CueForth::~CueForth() {
 
 __HOST__ int
 CueForth::is_running() {
-	int r = 0;
-	GPU_SYNC();
+	int h_busy;
+	int *d_busy = 0;
+	cudaMalloc((void**)&d_busy, sizeof(int));
 	//LOCK();                 // TODO: lock on vm_pool
-	for (int i=0; i<MIN_VM_COUNT; i++) {
-		int st;
-		cudaMemcpy(&st, &vm_pool[i]->status, sizeof(int), cudaMemcpyDeviceToHost);
-		if (st != VM_STOP) r = 1;
-	}
-	//UNLOCK();               // TODO:
+	cueforth_busy<<<1, 1>>>(d_busy);
 	GPU_SYNC();
-	return r;
+	//UNLOCK();               // TODO:
+
+	cudaMemcpy(&h_busy, d_busy, sizeof(int), cudaMemcpyDeviceToHost);
+	cudaFree(d_busy);
+
+	return h_busy;
 }
 
 __HOST__ int
 CueForth::run() {
-	int i = 4;
-	while (i--) {
-		//printf("run=%d\n", is_running());
-		if (aio->readline()) {      // feed from host console to managed input buffer
-			eforth_exec<<<1,1>>>(); // TODO: multiple VM destination, shared memory
+	int i = 10;
+	while (is_running() && i--) {
+		if (aio->readline()) {        // feed from host console to managed input buffer
+			cueforth_exec<<<1,1>>>(); // TODO: multiple VM destination, shared memory
 			GPU_CHK();
-			aio->flush();           // flush output buffer
+			aio->flush();             // flush output buffer
 		}
 		yield();
 	}
