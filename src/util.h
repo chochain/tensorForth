@@ -32,37 +32,38 @@ __GPU__ uint16_t     bin_to_u16(const void *bin);
 
 __GPU__ void         u16_to_bin(uint16_t s, const void *bin);
 __GPU__ void         u32_to_bin(uint32_t l, const void *bin);
-
-__GPU__ void         *d_memcpy(void *d, const void *s, size_t n);
-__GPU__ void         *d_memset(void *d, int c, size_t n);
-__GPU__ int          d_memcmp(const void *s1, const void *s2, size_t n);
+/// memory util
+#define              d_memcpy(t,s,n) memcpy(t,s,n)                       /* supported by CUDA 10 */
+#define              d_memset(t,c,n) memset(t,c,n)                       /* supported by CUDA 10 */
+__GPU__ int          d_memcmp(const void *t, const void *s, size_t n);
+/// string util
 __GPU__ int          d_strlen(const char *s, bool raw);
-__GPU__ void         d_strcpy(char *d, const char *s);
-__GPU__ int          d_strcmp(const char *s1, const char *s2);
-__GPU__ int          d_strcasecmp(const char *s1, const char *s2);
+__GPU__ void         d_strcpy(char *t, const char *s);
+__GPU__ int          d_strcmp(const char *t, const char *s);
+__GPU__ int          d_strcasecmp(const char *t, const char *s);
 __GPU__ char*        d_strchr(const char *s,  const char c);
-__GPU__ char*        d_strcat(char *d,  const char *s);
-__GPU__ char*        d_strcut(const char *s, int n);         // take n utf8 chars from the string
-    
+__GPU__ char*        d_strcat(char *t,  const char *s);
+__GPU__ char*        d_strcut(const char *s, int n);                     // take n utf8 chars from the string
+/// numeric conversion util
 __GPU__ int          d_itoa(int v, char *s, int base=10);
 __GPU__ long         d_strtol(const char *s, char **p, int base=10);
 __GPU__ double       d_strtof(const char *s, char **p);
 __GPU__ int          d_hash(const char *s);
     
-// memory util
-#define MEMCPY(d,s,n)   memcpy((char*)(d), (const char*)(s), (size_t)(n))       /** TODO: cudaMemcpyAsyn */
-#define MEMSET(d,v,n)   memset((char*)(d), (int)(v), (size_t)(n))
-#define MEMCMP(d,s,n)   d_memcmp((const char*)(d), (const char*)(s), (size_t)(n))
-// string util
+/// memory macros
+#define MEMCPY(t,s,n)   d_memcpy((char*)(t), (const char*)(s), (size_t)(n))       /** TODO: cudaMemcpyAsyn */
+#define MEMSET(t,v,n)   d_memset((char*)(t), (int)(v), (size_t)(n))
+#define MEMCMP(t,s,n)   d_memcmp((const char*)(t), (const char*)(s), (size_t)(n))
+/// string macros
 #define STRLEN(s)       d_strlen((const char*)(s), false)
 #define STRLENB(s)      d_strlen((const char*)(s), true)
-#define STRCPY(d,s)     MEMCPY((char*)(d), (const char*)(s), STRLENB(s)+1)
-#define STRCMP(d,s)     MEMCMP((const char*)(d), (const char*)(s), STRLENB(s))
-#define STRCASECMP(d,s) d_strcasecmp((const char*)(d), (const char*)(s))
-#define STRCHR(d,c)     d_strchr((char*)(d), (const char)(c))
-#define STRCAT(d,s)     d_strcat((char*)(d), (const char*)(s))
-#define STRCUT(d,n)     d_strcut((const char*)(d), (int)(n))
-// conversion
+#define STRCPY(t,s)     d_strcpy((char*)(t), (const char*)(s))
+#define STRCMP(t,s)     d_strcmp((const char*)(t), (const char*)(s))
+#define STRCASECMP(t,s) d_strcasecmp((const char*)(t), (const char*)(s))
+#define STRCHR(t,c)     d_strchr((char*)(t), (const char)(c))
+#define STRCAT(t,s)     d_strcat((char*)(t), (const char*)(s))
+#define STRCUT(s,n)     d_strcut((const char*)(s), (int)(n))
+/// numeric macros
 #define ITOA(i,s,b)     d_itoa((int)(i), (char*)(s), (int)(b))
 #define STRTOL(s,p,b)   d_strtol((const char*)(s), (char**)(p), (int)(b))
 #define STRTOF(s,p)     d_strtof((const char*)(s), (char**)(p))
@@ -71,17 +72,17 @@ __GPU__ int          d_hash(const char *s);
 #else  // !defined(__CUDACC__)
 #include <stdio.h>
     
-#define MEMCPY(d,s,n)   memcpy(d,s,n)
-#define MEMCMP(d,s,n)   memcmp(d,s,n)
-#define MEMSET(d,v,n)   memset(d,v,n)
+#define MEMCPY(t,s,n)   memcpy(t,s,n)
+#define MEMSET(t,v,n)   memset(t,v,n)
+#define MEMCMP(t,s,n)   memcmp(t,s,n)
 
 #define STRLEN(s)       (int)strlen((char*)s)
 #define STRLENB(s)      STRLEN(s)
-#define STRCPY(d,s)     strcpy(d,s)
-#define STRCMP(s1,s2)   strcmp(s1,s2)
-#define STRCASECMP(s1,s2) strcasecmp(s1,s2)
-#define STRCHR(d,c)     strchr(d,c)
-#define STRCAT(d,s)     strcat(d,s)
+#define STRCPY(t,s)     strcpy(t,s)
+#define STRCMP(t,s)     strcmp(t,s)
+#define STRCASECMP(t,s) strcasecmp(t,s)
+#define STRCHR(t,c)     strchr(t,c)
+#define STRCAT(t,s)     strcat(t,s)
 #define STRCUT(s,n)     substr(s,n)
 
 #define HASH(s)         calc_hash(s)            // add implementation

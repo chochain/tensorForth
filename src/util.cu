@@ -205,127 +205,61 @@ u32_to_bin(uint32_t l, char *bin) {
     *bin   = l & 0xff;
 }
 
+/*
+ * CUDA built-in already
+ *
+__GPU__ __INLINE__ void*
+d_memcpy(void *t, const void *s, size_t n) { memcpy(t, s, n); }
 
 __GPU__ __INLINE__ void*
-d_memcpy(void *d, const void *s, size_t n) { memcpy(d, s, n); }
-
-__GPU__ __INLINE__ void*
-d_memset(void *d, int c, size_t n) { memset(d, c, n); }
-
-/* memcpy generic C-implementation,
- *
- *   TODO: alignment of ss is still
- *   Note: CUDA has implemented memcpy and memset in device
- *
-__GPU__ void*
-d_memcpy(void *d, const void *s, size_t n) {
-    if (n==0 || d==s) return d;
-
-    char *ds = (char*)d, *ss = (char*)s;
-    size_t t = (uintptr_t)ss;                               // take low bits
-
-    if ((uintptr_t)ds < (uintptr_t)ss) {                    // copy forward
-        if ((t | (uintptr_t)ds) & WMASK) {
-            int i = (((t ^ (uintptr_t)ds) & WMASK) || (n < WSIZE))      // align operands
-                ? n
-                : WSIZE - (t & WMASK);
-            n -= i;
-            for (; i; i--) *ds++ = *ss++;                   // leading bytes
-        }
-        for (int i=n/WSIZE; i; i--) { *(WORD*)ds=*(WORD*)ss; ds+=WSIZE; ss+=WSIZE; }
-        for (int i=n&WMASK; i; i--) *ds++ = *ss++;          // trailing bytes
-    }
-    else {                                                  // copy backward
-        ss += n;
-        ds += n;
-        if ((t | (uintptr_t)ds) & WMASK) {
-            int i = (((t ^ (uintptr_t)ds) & WMASK) || (n <= WSIZE))
-                ? n
-                : t & WMASK;
-            n -= i;
-            for (; i; i--) *--ds = *--ss;                   // leading bytes
-        }
-        for (int i=n/WSIZE; i; i--) { ss-=WSIZE; ds-=WSIZE; *(WORD*)ds=*(WORD*)ss; }
-        for (int i=n&WMASK; i; i--) *--ds = *--ss;
-    }
-    return d;
-}
-
-__GPU__ void*
-d_memset(void *d, int c, size_t n) {
-    char *s = (char*)d;
-    // Fill head and tail with minimal branching. Each
-    // conditional ensures that all the subsequently used
-    // offsets are well-defined and in the dest region.
-    if (!n) return d;
-    s[0] = s[n-1] = c;
-    if (n <= 2) return d;
-    s[1] = s[n-2] = c;
-    s[2] = s[n-3] = c;
-    if (n <= 6) return d;
-    s[3] = s[n-4] = c;
-    if (n <= 8) return d;
-    // Advance pointer to align it at a 4-byte boundary,
-    // and truncate n to a multiple of 4. The previous code
-    // already took care of any head/tail that get cut off
-    // by the alignment.
-    size_t k = -(uintptr_t)s & 3;
-    s += k;
-    n -= k;
-    n &= -4;            // change of sign???
-    n /= 4;
-
-    uint32_t *ws = (uint32_t *)s;
-    uint32_t  wc = c & 0xFF;
-    wc |= ((wc << 8) | (wc << 16) | (wc << 24));
-
-    for (; n; n--) *ws++ = wc;
-
-    return d;
-}
+d_memset(void *t, int c, size_t n) { memset(t, c, n); }
 */
 
 __GPU__ int
-d_memcmp(const void *s1, const void *s2, size_t n) {
-    char *p1=(char*)s1, *p2=(char*)s2;
-    for (; n; n--, p1++, p2++) {
-        if (*p1 != *p2) return *p1 - *p2;
+d_memcmp(const void *t, const void *s, size_t n) {
+    char *p1=(char*)t, *p0=(char*)s;
+    for (; n; p1++, p0++, n--) {
+        if (*p1 != *p0) return *p1 - *p0;
     }
     return 0;
 }
 
 __GPU__ int
-d_strlen(const char *str, bool raw) {
-    int  n  = 0;
-    char *s = (char*)str;
-    for (int i=0; s && *s!='\0'; i++, n++) {
-        _next_utf8(&s);
+d_strlen(const char *s, bool raw) {
+    char *p0 = (char*)s;
+    int  n;
+    for (n=0; p0 && *p0; n++) {
+        _next_utf8(&p0);
     }
-    return (s && raw) ? s - str : n;
+    return (p0 && raw) ? p0 - s : n;
 }
 
 __GPU__ void
-d_strcpy(char *d, const char *s) {
-    d_memcpy(d, s, STRLENB(s)+1);
+d_strcpy(char *t, const char *s) {
+    char *p1=(char*)t, *p0=(char*)s;
+    while (*p0) *p1++ = *p0++;
 }
 
 __GPU__ int
-d_strcmp(const char *s1, const char *s2) {
-    return d_memcmp(s1, s2, STRLENB(s1));
-}
-
-__GPU__ int
-d_strcasecmp(const char *s1, const char *s2) {
-	int n = STRLENB(s1);
-    char *p1=(char*)s1, *p2=(char*)s2;
-    for (; n; n--, p1++, p2++) {
-    	char xp1 = *p1&0x7f;
-    	if (xp1 < 0x41 || xp1 > 0x5a) {
-    		if (*p1 != *p2) return *p1 - *p2;
-    	}
-    	else if ((*p1 & 0x5f) != (*p2 & 0x5f)) return *p1 - *p2;
+d_strcmp(const char *t, const char *s) {
+    char *p1=(char*)t, *p0=(char*)s;
+    for (; *p1 && *p0; p1++, p0++) {
+        if (*p1 != *p0) return *p1 - *p0;
     }
-    return 0;
+    return *p1 - *p0;
+}
+
+__GPU__ int
+d_strcasecmp(const char *t, const char *s) {
+    char *p1=(char*)t, *p0=(char*)s;
+    for (; *p1 && *p0; p1++, p0++) {
+    	char c = *p1&0x7f;
+    	if (c < 0x41 || c > 0x5a) {
+    		if (*p1 != *p0) return *p1 - *p0;
+    	}
+    	else if ((*p1 & 0x5f) != (*p0 & 0x5f)) return *p1 - *p0;
+    }
+    return *p1 - *p0;
 }
 
 __GPU__ char*
@@ -338,18 +272,18 @@ d_strchr(const char *s, const char c) {
 }
 
 __GPU__ char*
-d_strcat(char *d, const char *s) {
-    d_memcpy(d+STRLENB(d), s, STRLENB(s)+1);
-    return d;
+d_strcat(char *t, const char *s) {
+    d_memcpy(t+STRLENB(t), s, STRLENB(s)+1);
+    return t;
 }
 
 __GPU__ char*
 d_strcut(const char *s, int n) {
-    char *p = (char*)s;
-    for (int i=0; n && i<n && p && *p!='\0'; i++) {
-        _next_utf8(&p);
+    char *p0 = (char*)s;
+    for (int i=0; n && i<n && p0 && *p0!='\0'; i++) {
+        _next_utf8(&p0);
     }
-    return p;
+    return p0;
 }
 
 __GPU__ int
