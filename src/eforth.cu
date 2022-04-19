@@ -124,7 +124,7 @@ ForthVM::see(IU *cp, IU *ip, int dp) {
 }
 __GPU__ void
 ForthVM::words() {
-    fout << setbase(16);
+    fout << setbase(10);
     for (int i=0; i<dict.idx; i++) {
         if ((i%10)==0) { fout << ENDL; yield(); }
         to_s(i);
