@@ -134,7 +134,6 @@ private:
     __GPU__ DU   POP()        { DU n=top; top=ss.pop(); return n; }
     __GPU__ DU   PUSH(DU v)   { ss.push(top); top = v; }
 
-    __GPU__ int  streq(const char *s1, const char *s2);
     __GPU__ int  find(const char *s);      /// search dictionary reversely
     ///
     /// Forth compiler functions
