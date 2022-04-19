@@ -6,14 +6,13 @@
 ///
 /// dictionary search functions - can be adapted for ROM+RAM
 ///
-__GPU__ __INLINE__ int
-ForthVM::streq(const char *s1, const char *s2) {
-    return ucase ? STRCASECMP(s1, s2)==0 : STRCMP(s1, s2)==0;
-}
 __GPU__ int
 ForthVM::find(const char *s) {
+	printf("find(%s) => ", s);
     for (int i = dict.idx - (compile ? 2 : 1); i >= 0; --i) {
-        if (streq(s, dict[i].name)) return i;
+    	const char *t = dict[i].name;
+    	if (ucase && STRCASECMP(t, s)==0) return i;
+    	if (!ucase && STRCMP(t, s)==0) return i;
     }
     return -1;
 }
