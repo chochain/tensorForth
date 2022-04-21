@@ -11,6 +11,7 @@
 */
 #include <cstdio>        // printf
 #include <iostream>      // cin, cout
+#include <iomanip>       // setbase, setprecision
 #include "aio.h"
 ///
 /// AIO takes managed memory blocks as input and output buffers
@@ -21,23 +22,23 @@ AIO::readline() {
 	_istr->clear();
 	char *tib = _istr->rdbuf();
 	std::cin.getline(tib, CUEF_IBUF_SIZE, '\n');
-	if (_trace) printf("<< %s\n", tib);
+	if (_trace) std::cout << "<<" << tib << std::endl;
 	return strlen(tib);
 }
 
 __HOST__ void
 AIO::print_node(obuf_node *node) {
-    if (_trace) printf("<%d>", node->id);
+    if (_trace) std::cout << '<' << node->id << '>';
 
     char *v = (char*)node->data;
     switch (node->gt) {
-    case GT_INT:   printf("%d", *(GI*)v); break;
-    case GT_HEX:   printf("%x", *(GI*)v); break;
-    case GT_FLOAT: printf("%G", *(GF*)v); break;
-    case GT_STR:   printf("%s", v);       break;
-    default: printf("print node type not supported: %d", node->gt); break;
+    case GT_INT:   std::cout << std::setw(2) << (int)(*(GI*)v);           break;
+    case GT_HEX:   std::cout << std::setbase(16) << (int)(*(GI*)v);       break;
+    case GT_FLOAT: std::cout << std::setprecision(6) << (float)(*(GF*)v); break;
+    case GT_STR:   std::cout << v;                                        break;
+    default: std::cout << "print type not supported: " << (int)node->gt;  break;
     }
-    if (_trace) printf("</%d>\n", node->id);
+    if (_trace) std::cout << "</" << node->id << '>' << std::endl;
 }
 
 #define NEXTNODE(n) ((obuf_node*)((char*)&node->data[0] + node->size))
