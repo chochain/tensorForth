@@ -135,23 +135,26 @@ ForthVM::ss_dump() {
     fout << " <"; for (int i=0; i<ss.idx; i++) { fout << ss[i] << " "; }
     fout << top << "> ok" << ENDL;
 }
+#define C2H(c) { buf[x++] = i2h[(c)>>4]; buf[x++] = i2h[(c)&0xf]; }
+#define IU2H(i) { C2H((i)>>8); C2H((i)&0xff); }
 __GPU__ void
 ForthVM::mem_dump(IU p0, int sz) {
-    fout << setbase(16) << setfill('0') << ENDL;
+	const char *i2h = "0123456789abcdef";
+	char buf[80];
     for (IU i=ALIGN16(p0); i<=ALIGN16(p0+sz); i+=16) {
-        fout << setw(4) << i << ": ";
+    	int x = 0;
+    	IU2H(i); buf[x++] = ':'; buf[x++] = ' ';
         for (int j=0; j<16; j++) {
-            U8 c = pmem[i+j];
-            fout << setw(2) << (int)c << (j%4==3 ? "  " : " ");
-        }
-        for (int j=0; j<16; j++) {   // print and advance to next byte
             U8 c = pmem[i+j] & 0x7f;
-            fout << (char)((c==0x7f||c<0x20) ? '_' : c);
+            C2H(c);
+            buf[x++] = ' ';
+            if (j%4==3) buf[x++] = ' ';
+            buf[58+j]= (c==0x7f||c<0x20) ? '.' : c;
         }
-        fout << ENDL;
+        buf[74] = '\0';
+        fout << buf << ENDL;
         yield();
     }
-    fout << setbase(base);
 }
 ///================================================================================
 ///
@@ -438,5 +441,6 @@ ForthVM::outer() {
         else PUSH(n);                        ///> or, add value onto data stack
     }
     if (!compile) ss_dump();
+    mem_dump(0, 0x100);
 }
 //=======================================================================================
