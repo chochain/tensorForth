@@ -108,8 +108,8 @@ class Ostream : public Managed {
     }
 
 public:
-    Ostream(int sz=CUEF_OBUF_SIZE) { cudaMallocManaged(&_buf, _max=sz); GPU_CHK(); }
-    ~Ostream()                     { GPU_SYNC(); cudaFree(_buf); }
+    Ostream(int sz=CUEF_OBUF_SZ) { cudaMallocManaged(&_buf, _max=sz); GPU_CHK(); }
+    ~Ostream()                   { GPU_SYNC(); cudaFree(_buf); }
     ///
     /// clear output buffer
     ///

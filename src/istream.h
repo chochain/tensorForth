@@ -17,7 +17,6 @@
 ///
 /// istream class
 ///
-#include <stdio.h>
 class Istream : public Managed {
     char *_buf;                 /// input buffer
     int  _idx  = 0;             /// current buffer index
@@ -37,8 +36,8 @@ class Istream : public Managed {
         return nidx;
     }
 public:
-    Istream(int sz=CUEF_IBUF_SIZE) { cudaMallocManaged(&_buf, sz);	GPU_CHK(); }
-    ~Istream()                     { GPU_SYNC(); cudaFree(_buf); }
+    Istream(int sz=CUEF_IBUF_SZ) { cudaMallocManaged(&_buf, sz);	GPU_CHK(); }
+    ~Istream()                   { GPU_SYNC(); cudaFree(_buf); }
     ///
     /// intialize by a given string
     ///

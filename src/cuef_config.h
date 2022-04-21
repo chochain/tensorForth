@@ -26,7 +26,7 @@
 
 /* maximum size of exception stack and registers, which determine how deep call stack can go */
 #define VM_RESCUEF_STACK    8
-#define VM_REGFILE_SIZE     128
+#define VM_REGFILE_SZ       128
 
 /* max objects in symbol and global/constant caches allowed */
 #define MAX_CONST_COUNT     64
@@ -47,9 +47,12 @@
  *    1 : use C++ set
  */
 #define CUEF_32BIT_ALIGN_REQUIRED   1
-#define CUEF_HEAP_SIZE              (64*1024)
-#define CUEF_IBUF_SIZE              1024
-#define CUEF_OBUF_SIZE              4096
-#define CUEF_STRBUF_SIZE            (256-1)
+#define CUEF_HEAP_SZ                (48*1024)
+#define CUEF_RS_SZ                  64
+#define CUEF_SS_SZ                  64
+#define CUEF_DICT_SZ                1024
+#define CUEF_IBUF_SZ                1024
+#define CUEF_OBUF_SZ                8096
+#define CUEF_STRBUF_SZ              (256-1)
 
 #endif // CUEF_SRC_CUEF_CONFIG_H_
