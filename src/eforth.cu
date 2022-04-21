@@ -46,7 +46,7 @@ ForthVM::add_str(const char *s) {           /// add a string to pmem
 __GPU__ void
 ForthVM::colon(const char *name) {
     char *nfa = STR(HERE);                  // current pmem pointer
-    int sz = STRASZ(name);                  // string length, aligned
+    int sz = STRLENB(name)+1;               // string length + '\0'
     pmem.push((U8*)name,  sz);              // setup raw name field
     Code c(nfa, [](IU){});                  // create a new word on dictionary
     c.def = 1;                              // specify a colon word
@@ -105,7 +105,7 @@ ForthVM::see(IU *cp, IU *ip, int dp) {
     IU c = *cp;
     to_s(c);                                                        // name field
     if (dict[c].def) {                                              // a colon word
-        for (IU n=dict[c].len, ip1=0; ip1<n; ip1+=sizeof(IU)) {     // walk through children
+        for (IU ip1=0, n=dict[c].len; ip1<n; ip1+=sizeof(IU)) {     // walk through children
             IU *cp1 = (IU*)(PFA(c) + ip1);                          // next children node
             see(cp1, &ip1, dp+1);                                   // dive recursively
         }
@@ -121,6 +121,9 @@ ForthVM::see(IU *cp, IU *ip, int dp) {
     }
     fout << "] ";
 }
+///
+/// display dictionary word list
+///
 __GPU__ void
 ForthVM::words() {
     fout << setbase(10);
@@ -130,29 +133,36 @@ ForthVM::words() {
     }
     fout << setbase(base);
 }
+///
+/// Stack dump
+///
 __GPU__ void
 ForthVM::ss_dump() {
     fout << " <"; for (int i=0; i<ss.idx; i++) { fout << ss[i] << " "; }
     fout << top << "> ok" << ENDL;
 }
+///
+/// Forth pmem memory dump
+/// TODO: dynamic parallel
+///
 #define C2H(c) { buf[x++] = i2h[(c)>>4]; buf[x++] = i2h[(c)&0xf]; }
-#define IU2H(i) { C2H((i)>>8); C2H((i)&0xff); }
+#define IU2H(i){ C2H((i)>>8); C2H((i)&0xff); }
 __GPU__ void
 ForthVM::mem_dump(IU p0, int sz) {
 	const char *i2h = "0123456789abcdef";
 	char buf[80];
     for (IU i=ALIGN16(p0); i<=ALIGN16(p0+sz); i+=16) {
     	int x = 0;
-    	IU2H(i); buf[x++] = ':'; buf[x++] = ' ';
+    	buf[x++] = '\n'; IU2H(i); buf[x++] = ':'; buf[x++] = ' ';  // "%04x: "
         for (int j=0; j<16; j++) {
             U8 c = pmem[i+j] & 0x7f;
-            C2H(c);
+            C2H(c);                                                // "%02x "
             buf[x++] = ' ';
             if (j%4==3) buf[x++] = ' ';
-            buf[58+j]= (c==0x7f||c<0x20) ? '.' : c;
+            buf[59+j]= (c==0x7f||c<0x20) ? '.' : c;                // %c
         }
-        buf[74] = '\0';
-        fout << buf << ENDL;
+        buf[75] = '\0';
+        fout << buf;
         yield();
     }
 }
@@ -324,7 +334,7 @@ ForthVM::init() {
     /// @defgrouop Compiler ops
     /// @{
     CODE(":", colon(next_word()); compile=true),
-    IMMD(";", compile = false),
+    IMMD(";", compile = false; while (HERE & 3) { pmem.push(' '); }),   // 32-bit aligned
     CODE("variable",                                             // create a variable
         colon(next_word());                                      // create a new word on dictionary
         add_iu(DOVAR);                                           // dovar (+parameter field)
@@ -441,6 +451,5 @@ ForthVM::outer() {
         else PUSH(n);                        ///> or, add value onto data stack
     }
     if (!compile) ss_dump();
-    mem_dump(0, 0x100);
 }
 //=======================================================================================
