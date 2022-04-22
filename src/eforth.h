@@ -51,7 +51,8 @@ struct Code {               /// dictionary word/code object
         struct {
             U16 def:  1;    /// colon defined word
             U16 immd: 1;    /// immediate flag
-            U16 len:  14;   /// len of pfa
+            U16 xxx:  14;   /// reserved
+            U16 len;        /// len of pfa
             IU  pfa;        /// offset to pmem space
         };
     };
@@ -85,7 +86,7 @@ struct Code {               /// dictionary word/code object
 /// Forth Virtual Machine operational macros
 ///
 #define INT(f)    (static_cast<int>(f))     /** cast float to int                        */
-#define STRASZ(s) (ALIGN(STRLENB(s)+1))     /** calculate string size with alignment     */
+//#define STRASZ(s) (ALIGN(STRLENB(s)+1))     /** calculate string size with alignment     */
 #define XIP       (dict[-1].len)            /** parameter field tail of latest word      */
 #define PFA(w)    ((U8*)&pmem[dict[w].pfa]) /** parameter field pointer of a word        */
 #define PFLEN(w)  (dict[w].len)             /** parameter field length of a word         */
@@ -109,10 +110,10 @@ public:
     Ostream       &fout;                    /// VM stream output
     vm_status     status = VM_READY;        /// VM status
 
-    Vector<DU,   64>      rs;               /// return stack
-    Vector<DU,   64>      ss;               /// parameter stack
-    Vector<Code, 1024>    dict;             /// dictionary, TODO: shared between VMs
-    Vector<U8,   48*1024> pmem;             /// primitives, TODO: shared between VMs
+    Vector<DU,   CUEF_RS_SZ>   rs;          /// return stack
+    Vector<DU,   CUEF_SS_SZ>   ss;          /// parameter stack
+    Vector<Code, CUEF_DICT_SZ> dict;        /// dictionary, TODO: shared between VMs
+    Vector<U8,   CUEF_HEAP_SZ> pmem;        /// primitives, TODO: shared between VMs
 
     bool  compile = false;                  /// compiling flag
     bool  ucase   = true;                   /// case insensitive
@@ -138,6 +139,7 @@ private:
     ///
     /// Forth compiler functions
     ///
+    __GPU__ void align();                  /// align memory pointer (CUDA 32-bit)
     __GPU__ void add_iu(IU i);             /// add an instruction into pmem
     __GPU__ void add_du(DU v);             /// add a cell into pmem
     __GPU__ void add_str(const char *s);   /// add a string to pmem
