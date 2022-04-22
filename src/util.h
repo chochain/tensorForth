@@ -13,6 +13,7 @@
 #include <stdint.h>
 #include <stddef.h>
 
+#define ALIGN2(sz)          ((sz) + (sz & 0x1))
 #define ALIGN4(sz)          ((sz) + (-(sz) & 0x3))
 #define ALIGN8(sz)          ((sz) + (-(sz) & 0x7))
 #define ALIGN16(sz)         ((sz) + (-(sz) & 0xf))
