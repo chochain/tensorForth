@@ -40,14 +40,16 @@ ForthVM::add_du(DU v) {
 }
 __GPU__ void
 ForthVM::add_str(const char *s) {           /// add a string to pmem
-    int sz = STRASZ(s);
-    pmem.push((U8*)s,  sz); XIP += sz;
+    int inc= pmem.align();                  /// 32-bit aligned (for CUDA)
+    int sz = STRLENB(s)+1;                  /// string length
+    pmem.push((U8*)s, (sz=ALIGN(sz))); XIP += inc + sz;
 }
 __GPU__ void
 ForthVM::colon(const char *name) {
+	pmem.align();                           // 32-bit aligned (for CUDA)
     char *nfa = STR(HERE);                  // current pmem pointer
-    int sz = STRLENB(name)+1;               // string length + '\0'
-    pmem.push((U8*)name,  sz);              // setup raw name field
+    int sz = STRLENB(name)+1;               // aligned string length
+    pmem.push((U8*)name,  ALIGN(sz));       // setup raw name field
     Code c(nfa, [](IU){});                  // create a new word on dictionary
     c.def = 1;                              // specify a colon word
     c.len = 0;                              // advance counter (by number of U16)
@@ -92,7 +94,7 @@ ForthVM::dot_r(int n, DU v) {
 }
 __GPU__ void
 ForthVM::to_s(IU c) {
-    fout << dict[c].name << " " << c << (dict[c].immd ? "* " : " ");
+    fout << dict[c].name << (dict[c].def ? dict[c].len : 0) << "=" << c << (dict[c].immd ? "* " : " ");
 }
 ///
 /// recursively disassemble colon word
@@ -113,9 +115,13 @@ ForthVM::see(IU *cp, IU *ip, int dp) {
     switch (c) {
     case DOVAR: case DOLIT:
         fout << "= " << *(DU*)(cp+1); *ip += sizeof(DU); break;
-    case DOSTR: case DOTSTR:
-        fout << "= \"" << (char*)(cp+1) << '"';
-        *ip += STRASZ((char*)(cp+1)); break;
+    case DOSTR: case DOTSTR: {
+        int inc   = -(uintptr_t)(cp+1) & 3;                         // advance cp, calc alignment
+        char *cp1 = (char*)(cp+1) + inc;                            // get aligned string address
+        int sz    = STRLENB(cp1)+1;                                 // length of the string
+        *ip += inc + ALIGN(sz);                                     // advance IP
+        fout << "= \"" << cp1 << '"';
+    } break;
     case BRAN: case ZBRAN: case DONEXT:
         fout << "j" << *(cp+1); *ip += sizeof(IU); break;
     }
@@ -193,11 +199,15 @@ ForthVM::init() {
     CODE("dovar",   PUSH(IPOFF); IP += sizeof(DU)),
     CODE("dolit",   PUSH(*(DU*)IP); IP += sizeof(DU)),
     CODE("dostr",
-        char *s = (char*)IP;                      // get string pointer
-        PUSH(IPOFF); IP += STRASZ(s)),
+    	int  inc = -(uintptr_t)IP & 3;            // offset to 32-bit alignment
+        char *s  = (char*)(IP + inc);             // get string pointer
+        int  sz  = STRLENB(s)+1;
+        PUSH(IPOFF); IP += inc + ALIGN(sz)),
     CODE("dotstr",
-        char *s = (char*)IP;                      // get string pointer
-        fout << s;  IP += STRASZ(s)),             // send to output console
+    	int  inc = -(uintptr_t)IP & 3;            // offset to 32-bit alignment
+        char *s  = (char*)(IP + inc);             // get string pointer
+        int  sz  = STRLENB(s)+1;
+        fout << s;  IP += inc + ALIGN(sz)),       // send to output console
     CODE("branch" , IP = JMPIP),                           // unconditional branch
     CODE("0branch", IP = POP() ? IP + sizeof(IU) : JMPIP), // conditional branch
     CODE("donext",
@@ -334,7 +344,7 @@ ForthVM::init() {
     /// @defgrouop Compiler ops
     /// @{
     CODE(":", colon(next_word()); compile=true),
-    IMMD(";", compile = false; while (HERE & 3) { pmem.push(' '); }),   // 32-bit aligned
+    IMMD(";", compile = false),
     CODE("variable",                                             // create a variable
         colon(next_word());                                      // create a new word on dictionary
         add_iu(DOVAR);                                           // dovar (+parameter field)
@@ -414,6 +424,7 @@ ForthVM::init() {
     status = VM_RUN;
     
     printf("init() this=%p sizeof(Code)=%d\n", this, sizeof(Code));
+    printf("pmem.v=%p PMEM0=%p\n", pmem.v, PMEM0);
 };
 ///
 /// ForthVM Outer interpreter
@@ -428,10 +439,7 @@ ForthVM::outer() {
             if (compile && !dict[w].immd) {  /// * in compile mode?
                 add_iu(w);                   /// * add found word to new colon word
             }
-            else {
-                printf(" call %p", dict[w].xt);
-            	CALL(w);                     /// * execute forth word
-            }
+            else CALL(w);                    /// * execute forth word
             continue;
         }
         // try as a number
