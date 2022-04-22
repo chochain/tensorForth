@@ -3,15 +3,13 @@
   cueForth value definitions non-optimized
 */
 #include <iostream>          // cin, cout
+#include <signal.h>
 using namespace std;
 
 #include "cuef_config.h"
 #include "aio.h"             // CUDA async IO
 #include "eforth.h"          // eForth core
 #include "cueforth.h"        // wrapper
-
-// forward declaration for implementation
-extern "C" __KERN__ void mmu_init(void *ptr, U32 sz);
 
 __GPU__	ForthVM *vm_pool[MIN_VM_COUNT];
 ///
@@ -56,11 +54,8 @@ cueforth_exec() {
 }
 
 CueForth::CueForth(bool trace) {
-    cudaDeviceReset();
-
     aio = new AIO(trace);
 
-    //mmu_init<<<1,1>>>(mem, CUEF_HEAP_SIZE);               // setup memory management
     cueforth_init<<<MIN_VM_COUNT, 1>>>(aio->istream(), aio->ostream());
     GPU_CHK();
 }
@@ -104,7 +99,23 @@ CueForth::teardown(int sig) {}
 ///
 /// main program
 ///
+void sigsegv_handler(int sig, siginfo_t *si, void *arg) {
+	cout << "Exception caught at: " << si->si_addr << endl;
+	exit(1);
+}
+
+void sigtrap() {
+	struct sigaction sa;
+	memset(&sa, 0, sizeof(struct sigaction));
+	sigemptyset(&sa.sa_mask);
+	sa.sa_sigaction = sigsegv_handler;
+	sa.sa_flags     = SA_SIGINFO;
+	sigaction(SIGSEGV, &sa, NULL);
+}
+
 int main(int argc, char**argv) {
+	sigtrap();
+
     cout << CUEF_VERSION << " init" << endl;
     CueForth *f = new CueForth(CUEF_DEBUG);
 
