@@ -36,9 +36,11 @@
 #define GPU_CHK()           { \
 	cudaDeviceSynchronize(); \
 	cudaError_t code = cudaGetLastError(); \
-	if (code != cudaSuccess) \
+	if (code != cudaSuccess) { \
 		fprintf(stderr, "GPUassert: %s %s %d\n", cudaGetErrorString(code), __FILE__, __LINE__); \
-	}
+		cudaDeviceReset(); \
+	} \
+}
 
 #else  // defined(__CUDACC__)
 
