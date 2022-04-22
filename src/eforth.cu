@@ -32,24 +32,23 @@ enum {
 ///
 __GPU__ void                                /// add an instruction into pmem
 ForthVM::add_iu(IU i) {
-    pmem.push((U8*)&i, sizeof(IU));  XIP += sizeof(IU);
+    pmem.push((U8*)&i, sizeof(IU));  LWIP += sizeof(IU);
 }
 __GPU__ void                                /// add a cell into pmem
 ForthVM::add_du(DU v) {
-    pmem.push((U8*)&v, sizeof(DU)),  XIP += sizeof(DU);
+    pmem.push((U8*)&v, sizeof(DU)),  LWIP += sizeof(DU);
 }
 __GPU__ void
 ForthVM::add_str(const char *s) {           /// add a string to pmem
-    int inc= pmem.align();                  /// 32-bit aligned (for CUDA)
-    int sz = STRLENB(s)+1;                  /// string length
-    pmem.push((U8*)s, (sz=ALIGN(sz))); XIP += inc + sz;
+    int sz = STRLENB(s)+1; sz = ALIGN2(sz); /// string length
+    pmem.push((U8*)s, sz); LWIP += sz;
 }
 __GPU__ void
 ForthVM::colon(const char *name) {
 	pmem.align();                           // 32-bit aligned (for CUDA)
     char *nfa = STR(HERE);                  // current pmem pointer
     int sz = STRLENB(name)+1;               // aligned string length
-    pmem.push((U8*)name,  ALIGN(sz));       // setup raw name field
+    pmem.push((U8*)name,  ALIGN2(sz));      // setup raw name field
     Code c(nfa, [](IU){});                  // create a new word on dictionary
     c.def = 1;                              // specify a colon word
     c.len = 0;                              // advance counter (by number of U16)
@@ -94,7 +93,7 @@ ForthVM::dot_r(int n, DU v) {
 }
 __GPU__ void
 ForthVM::to_s(IU c) {
-    fout << dict[c].name << (dict[c].def ? dict[c].len : 0) << "=" << c << (dict[c].immd ? "* " : " ");
+    fout << dict[c].name << " " << c << (dict[c].immd ? "* " : " ");
 }
 ///
 /// recursively disassemble colon word
@@ -116,11 +115,10 @@ ForthVM::see(IU *cp, IU *ip, int dp) {
     case DOVAR: case DOLIT:
         fout << "= " << *(DU*)(cp+1); *ip += sizeof(DU); break;
     case DOSTR: case DOTSTR: {
-        int inc   = -(uintptr_t)(cp+1) & 3;                         // advance cp, calc alignment
-        char *cp1 = (char*)(cp+1) + inc;                            // get aligned string address
-        int sz    = STRLENB(cp1)+1;                                 // length of the string
-        *ip += inc + ALIGN(sz);                                     // advance IP
-        fout << "= \"" << cp1 << '"';
+    	char *s = (char*)(cp+1);
+    	int  sz = STRLENB(s)+1;
+        *ip += ALIGN2(sz);                                           // advance IP
+        fout << "= \"" << s << "\"";
     } break;
     case BRAN: case ZBRAN: case DONEXT:
         fout << "j" << *(cp+1); *ip += sizeof(IU); break;
@@ -199,15 +197,13 @@ ForthVM::init() {
     CODE("dovar",   PUSH(IPOFF); IP += sizeof(DU)),
     CODE("dolit",   PUSH(*(DU*)IP); IP += sizeof(DU)),
     CODE("dostr",
-    	int  inc = -(uintptr_t)IP & 3;            // offset to 32-bit alignment
-        char *s  = (char*)(IP + inc);             // get string pointer
+        char *s  = (char*)IP;                     // get string pointer
         int  sz  = STRLENB(s)+1;
-        PUSH(IPOFF); IP += inc + ALIGN(sz)),
+        PUSH(IPOFF); IP += ALIGN2(sz)),
     CODE("dotstr",
-    	int  inc = -(uintptr_t)IP & 3;            // offset to 32-bit alignment
-        char *s  = (char*)(IP + inc);             // get string pointer
+        char *s  = (char*)IP;                     // get string pointer
         int  sz  = STRLENB(s)+1;
-        fout << s;  IP += inc + ALIGN(sz)),       // send to output console
+        fout << s;  IP += ALIGN2(sz)),            // send to output console
     CODE("branch" , IP = JMPIP),                           // unconditional branch
     CODE("0branch", IP = POP() ? IP + sizeof(IU) : JMPIP), // conditional branch
     CODE("donext",
@@ -316,30 +312,30 @@ ForthVM::init() {
     /// @defgroup Branching ops
     /// @brief - if...then, if...else...then
     /// @{
-    IMMD("if",      add_iu(ZBRAN); PUSH(XIP); add_iu(0)),        // if    ( -- here )
+    IMMD("if",      add_iu(ZBRAN); PUSH(LWIP); add_iu(0)),       // if   ( -- here )
     IMMD("else",                                                 // else ( here -- there )
         add_iu(BRAN);
-        IU h=XIP;   add_iu(0); SETJMP(POP()) = XIP; PUSH(h)),
-    IMMD("then",    SETJMP(POP()) = XIP),                        // backfill jump address
+        IU h=LWIP;   add_iu(0); SETJMP(POP()) = LWIP; PUSH(h)),
+    IMMD("then",    SETJMP(POP()) = LWIP),                       // backfill jump address
     /// @}
     /// @defgroup Loops
     /// @brief  - begin...again, begin...f until, begin...f while...repeat
     /// @{
-    IMMD("begin",   PUSH(XIP)),
+    IMMD("begin",   PUSH(LWIP)),
     IMMD("again",   add_iu(BRAN);  add_iu(POP())),               // again    ( there -- )
     IMMD("until",   add_iu(ZBRAN); add_iu(POP())),               // until    ( there -- )
-    IMMD("while",   add_iu(ZBRAN); PUSH(XIP); add_iu(0)),        // while    ( there -- there here )
+    IMMD("while",   add_iu(ZBRAN); PUSH(LWIP); add_iu(0)),       // while    ( there -- there here )
     IMMD("repeat",  add_iu(BRAN);                                // repeat    ( there1 there2 -- )
-        IU t=POP(); add_iu(POP()); SETJMP(t) = XIP),             // set forward and loop back address
+        IU t=POP(); add_iu(POP()); SETJMP(t) = LWIP),            // set forward and loop back address
     /// @}
     /// @defgrouop For loops
     /// @brief  - for...next, for...aft...then...next
     /// @{
-    IMMD("for" ,    add_iu(TOR); PUSH(XIP)),                     // for ( -- here )
+    IMMD("for" ,    add_iu(TOR); PUSH(LWIP)),                    // for ( -- here )
     IMMD("next",    add_iu(DONEXT); add_iu(POP())),              // next ( here -- )
     IMMD("aft",                                                  // aft ( here -- here there )
         POP(); add_iu(BRAN);
-        IU h=XIP; add_iu(0); PUSH(XIP); PUSH(h)),
+        IU h=LWIP; add_iu(0); PUSH(LWIP); PUSH(h)),
     /// @}
     /// @defgrouop Compiler ops
     /// @{
