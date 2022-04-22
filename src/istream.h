@@ -67,9 +67,9 @@ public:
         _debug();
 
         if (nidx==0) return *this;          // no token processed
-        memcpy(s, &_buf[_idx], _gn);        // CUDA memcpy
+        MEMCPY(s, &_buf[_idx], _gn);        // CUDA memcpy
         s[_gn] = '\0';                      // terminated with '\0'
-        _idx = nidx;                        // advance index
+        _idx = nidx + (delim != ' ');       // advance index
         return *this;
     }
     __GPU__ Istream& getline(char *s, int sz, char delim='\n') {
