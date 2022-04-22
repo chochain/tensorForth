@@ -62,14 +62,14 @@ struct Code {               /// dictionary word/code object
     template<typename F>    /// template function for lambda
 #if CC_DEBUG
     __GPU__ Code(const char *n, const F &f, bool im=false) : name(n), xt(new functor<F>(f)) {
-        printf("Code(...) %p %s\n", fp, name);
+        printf("Code(...) %p: %s\n", fp, name);
         immd = im ? 1 : 0;
     }
     __GPU__ Code(const Code &c) : name(c.name), xt(c.xt) {  // called by Vector::push(T*)
         printf("Code(Code) %p: %s\n", fp, name);
     }
     __GPU__ void operator=(const Code &c) {
-        printf("Code(%p:%s) = %p: %s\n", fp, name, c.fp, c.name);
+        printf("Code(%p:%s) << %p: %s\n", fp, name, c.fp, c.name);
         name = c.name; xt = c.xt;
     }
 #else
@@ -86,10 +86,9 @@ struct Code {               /// dictionary word/code object
 /// Forth Virtual Machine operational macros
 ///
 #define INT(f)    (static_cast<int>(f))     /** cast float to int                        */
-//#define STRASZ(s) (ALIGN(STRLENB(s)+1))     /** calculate string size with alignment     */
-#define XIP       (dict[-1].len)            /** parameter field tail of latest word      */
 #define PFA(w)    ((U8*)&pmem[dict[w].pfa]) /** parameter field pointer of a word        */
 #define PFLEN(w)  (dict[w].len)             /** parameter field length of a word         */
+#define LWIP      (dict[-1].len)            /** parameter field tail of latest word      */
 #define CELL(a)   (*(DU*)&pmem[a])          /** fetch a cell from parameter memory       */
 #define STR(a)    ((char*)&pmem[a])         /** fetch string pointer to parameter memory */
 #define JMPIP     (IP0 + *(IU*)IP)          /** branching target address                 */
@@ -104,6 +103,10 @@ struct Code {               /// dictionary word/code object
 ///
 typedef enum { VM_READY=0, VM_RUN, VM_WAIT, VM_STOP } vm_status;
 
+struct Heap : public Vector<U8, CUEF_HEAP_SZ> {
+    __GPU__ int align(){ int i = (-idx & 3); idx += i; return i; }  /// 4-unit aligned (for char memory)
+};
+
 class ForthVM {
 public:
     Istream       &fin;                     /// VM stream input
@@ -113,7 +116,7 @@ public:
     Vector<DU,   CUEF_RS_SZ>   rs;          /// return stack
     Vector<DU,   CUEF_SS_SZ>   ss;          /// parameter stack
     Vector<Code, CUEF_DICT_SZ> dict;        /// dictionary, TODO: shared between VMs
-    Vector<U8,   CUEF_HEAP_SZ> pmem;        /// primitives, TODO: shared between VMs
+    Heap                       pmem;        /// primitives, TODO: shared between VMs
 
     bool  compile = false;                  /// compiling flag
     bool  ucase   = true;                   /// case insensitive

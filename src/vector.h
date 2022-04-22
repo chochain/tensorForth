@@ -12,7 +12,7 @@
 ///
 /// Vector (device memory only) template class
 ///
-template<class T, int N=VECTOR_INC>
+template<typename T, int N=VECTOR_INC>
 struct Vector {
     T   *v  = 0;         /// use proxy pattern
     int idx = 0;         /// number of elements stored
@@ -37,7 +37,6 @@ struct Vector {
     __GPU__ Vector& operator+=(Vector<T>& a) { merge(a); return *this; }
     __GPU__ Vector& operator=(Vector<T>& a)  { idx=0; merge(a); return *this; }
 
-    __GPU__ int     align(){ int i = (-idx & 3); idx += i; return i; }  /// 4-unit aligned (for char memory)
     __GPU__ int     size() { return idx; }
     __GPU__ Vector& push(T t) {                    /// aka assignment operator
         if ((idx+1) > max) resize(idx + VECTOR_INC);
