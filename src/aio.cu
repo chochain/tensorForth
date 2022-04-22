@@ -21,7 +21,7 @@ __HOST__ int
 AIO::readline() {
 	_istr->clear();
 	char *tib = _istr->rdbuf();
-	std::cin.getline(tib, CUEF_IBUF_SIZE, '\n');
+	std::cin.getline(tib, CUEF_IBUF_SZ, '\n');
 	if (_trace) std::cout << "<<" << tib << std::endl;
 	return strlen(tib);
 }
