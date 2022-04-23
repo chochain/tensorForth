@@ -45,7 +45,7 @@ ForthVM::add_str(const char *s) {           /// add a string to pmem
 }
 __GPU__ void
 ForthVM::colon(const char *name) {
-	pmem.align();                           // 32-bit aligned (for CUDA)
+	pmem.align();                           // nfa 32-bit aligned
     char *nfa = STR(HERE);                  // current pmem pointer
     int sz = STRLENB(name)+1;               // aligned string length
     pmem.push((U8*)name,  ALIGN2(sz));      // setup raw name field
@@ -101,9 +101,9 @@ ForthVM::to_s(IU c) {
 __GPU__ void
 ForthVM::see(IU *cp, IU *ip, int dp) {
     fout << ENDL; for (int i=dp; i>0; i--) fout << "  ";            // indentation
-    if (dp) fout << "[" << setw(2) << *ip << ": ";                  // ip offset
+    if (dp) fout << "[" << setw(2) << pmem.ri(ip) << ": ";          // ip offset
     else    fout << "[ ";
-    IU c = *cp;
+    IU c = pmem.ri(cp);
     to_s(c);                                                        // name field
     if (dict[c].def) {                                              // a colon word
         for (IU ip1=0, n=dict[c].len; ip1<n; ip1+=sizeof(IU)) {     // walk through children
@@ -113,7 +113,7 @@ ForthVM::see(IU *cp, IU *ip, int dp) {
     }
     switch (c) {
     case DOVAR: case DOLIT:
-        fout << "= " << *(DU*)(cp+1); *ip += sizeof(DU); break;
+        fout << "= " << pmem.rd((DU*)(cp+1)); *ip += sizeof(DU); break;
     case DOSTR: case DOTSTR: {
     	char *s = (char*)(cp+1);
     	int  sz = STRLENB(s)+1;
@@ -121,7 +121,7 @@ ForthVM::see(IU *cp, IU *ip, int dp) {
         fout << "= \"" << s << "\"";
     } break;
     case BRAN: case ZBRAN: case DONEXT:
-        fout << "j" << *(cp+1); *ip += sizeof(IU); break;
+        fout << "j" << pmem.ri(cp+1); *ip += sizeof(IU); break;
     }
     fout << "] ";
 }
@@ -195,7 +195,7 @@ ForthVM::init() {
     /// @{
     CODE("nop",     {}),
     CODE("dovar",   PUSH(IPOFF); IP += sizeof(DU)),
-    CODE("dolit",   PUSH(*(DU*)IP); IP += sizeof(DU)),
+    CODE("dolit",   PUSH(pmem.rd((DU*)IP)); IP += sizeof(DU)),
     CODE("dostr",
         char *s  = (char*)IP;                     // get string pointer
         int  sz  = STRLENB(s)+1;
@@ -210,11 +210,11 @@ ForthVM::init() {
          if ((rs[-1] -= 1) >= 0) IP = JMPIP;       // rs[-1]-=1 saved 200ms/1M cycles
          else { IP += sizeof(IU); rs.pop(); }),
     CODE("does",                                   // CREATE...DOES... meta-program
-         U8 *ip  = PFA(WP);
-         U8 *ipx = ip + PFLEN(WP);                 // range check
-         while (ip < ipx && *(IU*)ip != DOES) ip+=sizeof(IU);  // find DOES
-         while ((ip += sizeof(IU)) < ipx) add_iu(*(IU*)ip);    // copy&paste code
-         IP = ipx),                                            // done
+         IU *ip  = (IU*)PFA(WP);
+         IU *ipx = (IU*)((U8*)ip + PFLEN(WP));             // range check
+         while (ip < ipx && pmem.ri(ip) != DOES) ip++;     // find DOES
+         while (++ip < ipx) add_iu(pmem.ri(ip));           // copy&paste code
+         IP = (U8*)ipx),                                   // done
     CODE(">r",   rs.push(POP())),
     CODE("r>",   PUSH(rs.pop())),
     CODE("r@",   PUSH(rs[-1])),
@@ -360,23 +360,23 @@ ForthVM::init() {
         add_iu(DOVAR)),                                          // dovar (+ parameter field)
     CODE("to",              // 3 to x                            // alter the value of a constant
         IU w = find(next_word());                                // to save the extra @ of a variable
-        *(DU*)(PFA(w) + sizeof(IU)) = POP()),
+        pmem.wd((DU*)(PFA(w) + sizeof(IU)), POP())),
     CODE("is",              // ' y is x                          // alias a word
         IU w = find(next_word());                                // can serve as a function pointer
         dict[POP()].pfa = dict[w].pfa),                          // but might leave a dangled block
     CODE("[to]",            // : xx 3 [to] y ;                   // alter constant in compile mode
-        IU w = *(IU*)IP; IP += sizeof(IU);                       // fetch constant pfa from 'here'
-        *(DU*)(PFA(w) + sizeof(IU)) = POP()),
+        IU w = pmem.ri((IU*)IP); IP += sizeof(IU);                       // fetch constant pfa from 'here'
+        pmem.wd((DU*)(PFA(w) + sizeof(IU)), POP())),
     ///
     /// be careful with memory access, especially BYTE because
     /// it could make access misaligned which slows the access speed by 2x
     ///
-    CODE("@",     IU w = POP(); PUSH(CELL(w))),                  // w -- n
-    CODE("!",     IU w = POP(); CELL(w) = POP();),               // n w --
+    CODE("@",     IU w = POP(); PUSH(pmem.rd(w))),                              // w -- n
+    CODE("!",     IU w = POP(); pmem.wd(w, POP())),                             // n w --
     CODE(",",     DU n = POP(); add_du(n)),
-    CODE("allot", DU v = 0; for (IU n = POP(), i = 0; i < n; i++) add_du(v)), // n --
-    CODE("+!",    IU w = POP(); CELL(w) += POP()),               // n w --
-    CODE("?",     IU w = POP(); fout << CELL(w) << " "),         // w --
+    CODE("allot", DU v = 0; for (IU n = POP(), i = 0; i < n; i++) add_du(v)),   // n --
+    CODE("+!",    IU w = POP(); pmem.wd(w, pmem.rd(w)+POP())),                  // n w --
+    CODE("?",     IU w = POP(); fout << pmem.rd(w) << " "),                     // w --
     /// @}
     /// @defgroup Debug ops
     /// @{
