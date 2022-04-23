@@ -34,8 +34,8 @@ __GPU__ uint16_t     bin_to_u16(const void *bin);
 __GPU__ void         u16_to_bin(uint16_t s, const void *bin);
 __GPU__ void         u32_to_bin(uint32_t l, const void *bin);
 /// memory util
-#define              d_memcpy(t,s,n) memcpy(t,s,n)                       /* supported by CUDA 10 */
-#define              d_memset(t,c,n) memset(t,c,n)                       /* supported by CUDA 10 */
+__GPU__ void         d_memcpy(void *t, const void *s, size_t n);
+__GPU__ void         d_memset(void *t, int c, size_t n);
 __GPU__ int          d_memcmp(const void *t, const void *s, size_t n);
 /// string util
 __GPU__ int          d_strlen(const char *s, bool raw);
@@ -52,8 +52,8 @@ __GPU__ double       d_strtof(const char *s, char **p);
 __GPU__ int          d_hash(const char *s);
     
 /// memory macros
-#define MEMCPY(t,s,n)   d_memcpy((char*)(t), (const char*)(s), (size_t)(n))       /** TODO: cudaMemcpyAsyn */
-#define MEMSET(t,v,n)   d_memset((char*)(t), (int)(v), (size_t)(n))
+#define MEMCPY(t,s,n)   d_memcpy((void*)(t), (void*)(s), (size_t)(n))       /** TODO: cudaMemcpyAsyn */
+#define MEMSET(t,v,n)   d_memset((void*)(t), (int)(v), (size_t)(n))
 #define MEMCMP(t,s,n)   d_memcmp((const char*)(t), (const char*)(s), (size_t)(n))
 /// string macros
 #define STRLEN(s)       d_strlen((const char*)(s), false)

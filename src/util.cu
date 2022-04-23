@@ -205,15 +205,17 @@ u32_to_bin(uint32_t l, char *bin) {
     *bin   = l & 0xff;
 }
 
-/*
- * CUDA built-in already
- *
-__GPU__ __INLINE__ void*
-d_memcpy(void *t, const void *s, size_t n) { memcpy(t, s, n); }
+__GPU__ void
+d_memcpy(void *t, const void *s, size_t n) {
+	char *p1=(char*)t, *p0=(char*)s;
+	for (; n; n--) *p1++ = *p0++;
+}
 
-__GPU__ __INLINE__ void*
-d_memset(void *t, int c, size_t n) { memset(t, c, n); }
-*/
+__GPU__ void
+d_memset(void *t, int c, size_t n) {
+	char *p1=(char*)t;
+	for (; n; n--) *p1++ = (char)c;
+}
 
 __GPU__ int
 d_memcmp(const void *t, const void *s, size_t n) {
