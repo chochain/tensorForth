@@ -89,7 +89,6 @@ struct Code {               /// dictionary word/code object
 #define PFA(w)    ((U8*)&pmem[dict[w].pfa]) /** parameter field pointer of a word        */
 #define PFLEN(w)  (dict[w].len)             /** parameter field length of a word         */
 #define LWIP      (dict[-1].len)            /** parameter field tail of latest word      */
-#define CELL(a)   (*(DU*)&pmem[a])          /** fetch a cell from parameter memory       */
 #define STR(a)    ((char*)&pmem[a])         /** fetch string pointer to parameter memory */
 #define JMPIP     (IP0 + *(IU*)IP)          /** branching target address                 */
 #define SETJMP(a) (*(IU*)(PFA(-1) + INT(a)))/** address offset for branching opcodes     */
@@ -104,7 +103,13 @@ struct Code {               /// dictionary word/code object
 typedef enum { VM_READY=0, VM_RUN, VM_WAIT, VM_STOP } vm_status;
 
 struct Heap : public Vector<U8, CUEF_HEAP_SZ> {
-    __GPU__ int align(){ int i = (-idx & 3); idx += i; return i; }  /// 4-unit aligned (for char memory)
+    __GPU__ int  align(){ int i = (-idx & 3); idx += i; return i; }  /// 4-unit aligned (for char memory)
+    __GPU__ void wi(IU *p, IU i) { *p++ = i&0xff; *p = (i>>8)&0xff; }
+    __GPU__ IU   ri(IU *p)       { return ((IU)(*(p+1))<<8) | *p; }
+    __GPU__ void wd(DU *p, DU d) { MEMCPY(p, &d, sizeof(DU)); }
+    __GPU__ DU   rd(DU *p)       { DU d; MEMCPY(&d, p, sizeof(DU)); return d; }
+    __GPU__ void wd(IU w, DU d)  { wd((DU*)&v[w], d); }
+    __GPU__ DU   rd(IU w)        { return rd((DU*)&v[w]); }
 };
 
 class ForthVM {
