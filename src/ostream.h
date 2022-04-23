@@ -31,9 +31,9 @@ typedef enum {
 /*! printf internal version data container.
 */
 typedef struct {
-    GT  gt   : 4;
-    U32 id   : 12;
-    U32 size : 16;
+    U16 gt   : 4;
+    U16 id   : 12;
+    U16 sz;
     U8  data[];      // different from *data
 } obuf_node;
 #define NODE_SZ  sizeof(U32)
@@ -74,35 +74,41 @@ class Ostream : public Managed {
     	}
     }
     __GPU__ __INLINE__ void _dump() {
-        for (int i=0; i<=_idx; i++) {
-        	char c = _buf[i];
-        	printf("%02x %c ", c, c < 0x20 ? '.' : c);
+        for (int i=0; i<ALIGN16(_idx); i+=16) {
+        	printf("\n%04x: ", i);
+        	char w[17] = {0};
+            for (int j=0; j<16; j++) {
+                U8 c = _buf[i+j] & 0x7f;
+                printf("%02x ", c);
+                if (j%4==3) printf(" ");
+                w[j] = (c==0x7f || c<0x20) ? '.' : c;
+            }
+			printf("%s", w);
         }
-        printf("%c", '\n');
     }
 #else  // CC_DEBUG
-    __GPU__ __INLINE__ void _debug(GT, U8*) {}
-    __GPU__ __INLINE__ void _dump() {}
+#define _debug(a,b)
+#define _dump()
 #endif // CC_DEBUG
 
     __GPU__  void _write(GT gt, U8 *v, int sz) {
-        if (threadIdx.x!=0) return;                                 // only thread 0 within a block can write
+        if (threadIdx.x!=0) return;               // only thread 0 within a block can write
 
         //_LOCK;
-        obuf_node *n = (obuf_node*)&_buf[_idx];                     // allocate next node
+        obuf_node *n = (obuf_node*)&_buf[_idx];   // allocate next node
 
-        n->gt   = gt;                // data type
-        n->id   = blockIdx.x;        // VM.id
-        n->size = ALIGN4(sz);        // 32-bit alignment
+        n->gt   = gt;                             // data type
+        n->id   = blockIdx.x;                     // VM.id
+        n->sz   = ALIGN4(sz);                     // 32-bit alignment
 
-        int inc = NODE_SZ + n->size; // calc node allocation size
+        int inc = NODE_SZ + n->sz;                // calc node allocation size
 
         _debug(gt, v);
 
-        if ((_idx + inc) > _max) inc = 0;     // overflow, skip
-        else MEMCPY(n->data, v, sz);          // deep copy, TODO: shallow copy via managed memory
+        if ((_idx + inc) > _max) inc = 0;         // overflow, skip
+        else MEMCPY(n->data, v, sz);              // deep copy, TODO: shallow copy via managed memory
 
-        _buf[(_idx += inc)] = (char)GT_EMPTY; // advance index and mark end of stream
+        _buf[(_idx += inc)] = (char)GT_EMPTY;     // advance index and mark end of stream
         //_UNLOCK;
         _dump();
     }
