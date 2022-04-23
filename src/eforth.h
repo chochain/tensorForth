@@ -103,9 +103,9 @@ struct Code {               /// dictionary word/code object
 typedef enum { VM_READY=0, VM_RUN, VM_WAIT, VM_STOP } vm_status;
 
 struct Heap : public Vector<U8, CUEF_HEAP_SZ> {
-    __GPU__ int  align(){ int i = (-idx & 3); idx += i; return i; }  /// 4-unit aligned (for char memory)
-    __GPU__ void wi(IU *p, IU i) { *p++ = i&0xff; *p = (i>>8)&0xff; }
-    __GPU__ IU   ri(IU *p)       { return ((IU)(*(p+1))<<8) | *p; }
+    __GPU__ int  align(){ int i = (-idx & 3); idx += i; return i; }  /// 8-byte aligned (for char memory)
+    __GPU__ void wi(IU *p, IU i) { U8 *c = (U8*)p; *c++ = i&0xff; *c = (i>>8)&0xff; }
+    __GPU__ IU   ri(IU *p)       { U8 *c = (U8*)p; return ((IU)(*(c+1))<<8) | *c; }
     __GPU__ void wd(DU *p, DU d) { MEMCPY(p, &d, sizeof(DU)); }
     __GPU__ DU   rd(DU *p)       { DU d; MEMCPY(&d, p, sizeof(DU)); return d; }
     __GPU__ void wd(IU w, DU d)  { wd((DU*)&v[w], d); }
