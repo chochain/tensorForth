@@ -34,8 +34,10 @@ __GPU__ uint16_t     bin_to_u16(const void *bin);
 __GPU__ void         u16_to_bin(uint16_t s, const void *bin);
 __GPU__ void         u32_to_bin(uint32_t l, const void *bin);
 /// memory util
-__GPU__ void         d_memcpy(void *t, const void *s, size_t n);
-__GPU__ void         d_memset(void *t, int c, size_t n);
+//__GPU__ void         d_memcpy(void *t, const void *s, size_t n);
+//__GPU__ void         d_memset(void *t, int c, size_t n);
+#define d_memcpy(t,s,n) memcpy(t,s,n)
+#define d_memset(t,s,n) memset(t,s,n)
 __GPU__ int          d_memcmp(const void *t, const void *s, size_t n);
 /// string util
 __GPU__ int          d_strlen(const char *s, bool raw);
