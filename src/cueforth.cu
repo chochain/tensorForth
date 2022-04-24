@@ -82,8 +82,7 @@ CueForth::is_running() {
 
 __HOST__ int
 CueForth::run() {
-	int i = 10;
-	while (is_running() && i--) {
+	while (is_running()) {
 		if (aio->readline()) {        // feed from host console to managed input buffer
 			cueforth_exec<<<1,1>>>(); // TODO: multiple VM destination, shared memory
 			GPU_CHK();
