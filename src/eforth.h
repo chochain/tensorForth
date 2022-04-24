@@ -86,6 +86,7 @@ struct Code {               /// dictionary word/code object
 /// Forth Virtual Machine operational macros
 ///
 #define INT(f)    (static_cast<int>(f))     /** cast float to int                        */
+#define I2DU(i)   (static_cast<DU>(i))      /** cast int back to float                   */
 #define PFA(w)    ((U8*)&pmem[dict[w].pfa]) /** parameter field pointer of a word        */
 #define PFLEN(w)  (dict[w].len)             /** parameter field length of a word         */
 #define LWIP      (dict[-1].len)            /** parameter field tail of latest word      */
