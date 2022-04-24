@@ -244,18 +244,17 @@ ForthVM::init() {
     CODE("*",    top *= ss.pop()),
     CODE("-",    top =  ss.pop() - top),
     CODE("/",    top =  ss.pop() / top),
-    CODE("mod",  top =  INT(ss.pop()) % INT(top)),
+    CODE("mod",  top =  fmod(ss.pop(), top)),          /// fmod = x - int(q)*y
     CODE("*/",   top =  ss.pop() * ss.pop() / top),
     CODE("/mod",
         DU n = ss.pop(); DU t = top;
-        ss.push(INT(n) % INT(t)); top = (n / t)),
+        ss.push(fmod(n, t)); top = round(n / t)),
     CODE("*/mod",
-        DU n = ss.pop() * ss.pop();
-        DU t = top;
-        ss.push(INT(n) % INT(t)); top = (n / t)),
-    CODE("and",  top = INT(ss.pop()) & INT(top)),
-    CODE("or",   top = INT(ss.pop()) | INT(top)),
-    CODE("xor",  top = INT(ss.pop()) ^ INT(top)),
+        DU n = ss.pop() * ss.pop();  DU t = top;
+        ss.push(fmod(n, t)); top = round(n / t)),
+    CODE("and",  top = I2DU(INT(ss.pop()) & INT(top))),
+    CODE("or",   top = I2DU(INT(ss.pop()) | INT(top))),
+    CODE("xor",  top = I2DU(INT(ss.pop()) ^ INT(top))),
     CODE("abs",  top = abs(top)),
     CODE("negate", top = -top),
     CODE("max",  DU n=ss.pop(); top = (top>n)?top:n),
