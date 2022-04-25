@@ -14,128 +14,52 @@
 #define delay(ms)       { clock_t t = clock()+ms; while (clock()<t); }
 #define yield()
 ///
-/// CUDA functor (device only) implementation
-/// Note: nvstd::function is too heavy (at 48-byte)
-/// TODO: Thrust
-///
-struct fop {
-    __GPU__  virtual void operator()(IU) = 0;
-};
-template<typename F>
-struct functor : fop {
-    union {
-        F   op;             /// reference to lambda
-        U64 *fp;
-    };
-#if CC_DEBUG
-    __GPU__ functor(const F &f) : op(f) {
-    	printf("functor(f=%p)\n", fp);
-    }
-    __GPU__ void operator()(IU c) {
-    	printf(">> op=%p\n", fp);
-    	op(c);
-    }
-#else
-    __GPU__ functor(const F &f) : op(f) {}
-    __GPU__ void operator()(IU c) { op(c); }
-#endif // CC_DEBUG
-};
-///
-/// Code class for dictionary word
-///
-struct Code {               /// dictionary word/code object
-    const char *name = 0;   /// name field
-    union {
-        fop *xt = 0;        /// lambda pointer (CUDA 49-bit)
-        U64 *fp;
-        struct {
-            U16 def:  1;    /// colon defined word
-            U16 immd: 1;    /// immediate flag
-            U16 xxx:  14;   /// reserved
-            U16 len;        /// len of pfa
-            IU  pfa;        /// offset to pmem space
-        };
-    };
-    __GPU__ Code() {}      /// default constructor, called by new Vector
-    __GPU__ ~Code() {}
-
-    template<typename F>    /// template function for lambda
-#if CC_DEBUG
-    __GPU__ Code(const char *n, const F &f, bool im=false) : name(n), xt(new functor<F>(f)) {
-        printf("Code(...) %p: %s\n", fp, name);
-        immd = im ? 1 : 0;
-    }
-    __GPU__ Code(const Code &c) : name(c.name), xt(c.xt) {  // called by Vector::push(T*)
-        printf("Code(Code) %p: %s\n", fp, name);
-    }
-    __GPU__ void operator=(const Code &c) {
-        printf("Code(%p:%s) << %p: %s\n", fp, name, c.fp, c.name);
-        name = c.name; xt = c.xt;
-    }
-#else
-    __GPU__ Code(const char *n, const F &f, bool im=false) : name(n), xt(new functor<F>(f)) {
-        immd = im ? 1 : 0;
-    }
-    __GPU__ Code(const Code &c) : name(c.name), xt(c.xt) {}
-    __GPU__ void operator=(const Code &c) {
-    	name = c.name; xt = c.xt;
-    }
-#endif // CC_DEBUG
-};
-///
 /// Forth Virtual Machine operational macros
 ///
-#define INT(f)    (static_cast<int>(f))     /** cast float to int                        */
-#define I2DU(i)   (static_cast<DU>(i))      /** cast int back to float                   */
-#define PFA(w)    ((U8*)&pmem[dict[w].pfa]) /** parameter field pointer of a word        */
-#define PFLEN(w)  (dict[w].len)             /** parameter field length of a word         */
-#define LWIP      (dict[-1].len)            /** parameter field tail of latest word      */
-#define STR(a)    ((char*)&pmem[a])         /** fetch string pointer to parameter memory */
-#define JMPIP     (IP0 + *(IU*)IP)          /** branching target address                 */
-#define SETJMP(a) (*(IU*)(PFA(-1) + INT(a)))/** address offset for branching opcodes     */
-#define HERE      (pmem.idx)                /** current parameter memory index           */
-#define IPOFF     ((IU)(IP - PMEM0))        /** IP offset relative parameter memory root */
+//#define STR(a)    ((char*)&_pmem[a])        /** fetch string pointer to parameter memory */
+
+#define INT(f)    (static_cast<int>(f))       /** cast float to int                        */
+#define I2DU(i)   (static_cast<DU>(i))        /** cast int back to float                   */
+#define LWIP      (dict[-1]->len)             /** parameter field tail of latest word      */
+#define JMPIP     (IP0 + *(IU*)IP)            /** branching target address                 */
+#define IPOFF     ((IU)(IP - PMEM0))          /** IP offset relative parameter memory root */
+#define FIND(s)   (dict.find(s, compile, ucase))
 #define CALL(c)\
-    if (dict[c].def) nest(c);\
-    else (*(fop*)(((uintptr_t)dict[c].xt)&~0x3))(c)
+    if (dict[c]->def) nest(c);\
+    else (*(fop*)(((uintptr_t)dict[c]->xt)&~0x3))(c)
 ///
 /// Forth virtual machine class
 ///
 typedef enum { VM_READY=0, VM_RUN, VM_WAIT, VM_STOP } vm_status;
 
-struct Heap : public Vector<U8, CUEF_HEAP_SZ> {
-    __GPU__ int  align(){ int i = (-idx & 3); idx += i; return i; }  /// 8-byte aligned (for char memory)
-    __GPU__ void wi(IU *p, IU i) { U8 *c = (U8*)p; *c++ = i&0xff; *c = (i>>8)&0xff; }
-    __GPU__ IU   ri(IU *p)       { U8 *c = (U8*)p; return ((IU)(*(c+1))<<8) | *c; }
-    __GPU__ void wd(DU *p, DU d) { MEMCPY(p, &d, sizeof(DU)); }
-    __GPU__ DU   rd(DU *p)       { DU d; MEMCPY(&d, p, sizeof(DU)); return d; }
-    __GPU__ void wd(IU w, DU d)  { wd((DU*)&v[w], d); }
-    __GPU__ DU   rd(IU w)        { return rd((DU*)&v[w]); }
-};
-
+class Dict;
 class ForthVM {
 public:
     Istream       &fin;                     /// VM stream input
     Ostream       &fout;                    /// VM stream output
+    Dict          &dict;                    /// dictionary object
     vm_status     status = VM_READY;        /// VM status
 
     Vector<DU,   CUEF_RS_SZ>   rs;          /// return stack
     Vector<DU,   CUEF_SS_SZ>   ss;          /// parameter stack
-    Vector<Code, CUEF_DICT_SZ> dict;        /// dictionary, TODO: shared between VMs
-    Heap                       pmem;        /// primitives, TODO: shared between VMs
 
     bool  compile = false;                  /// compiling flag
     bool  ucase   = true;                   /// case insensitive
     int   base    = 10;                     /// numeric radix
     DU    top     = DU0;                    /// cached top of stack
     IU    WP      = 0;                      /// word and parameter pointers
-    U8    *PMEM0  = &pmem[0];               /// cached base-memory pointer
-    U8    *IP0    = PMEM0;                  /// current instruction pointer
-    U8    *IP     = PMEM0;
+    U8    *PMEM0, *IP0, *IP;                /// cached base-memory pointer
 
     char  idiom[80];                        /// terminal input buffer
 
-    __GPU__ ForthVM(Istream *istr, Ostream *ostr) : fin(*istr), fout(*ostr) {}
+    __GPU__ ForthVM(
+        Istream *istr,
+        Ostream *ostr,
+        Dict    *dict0)
+    : fin(*istr), fout(*ostr), dict(*dict0) {
+    	printf("dict=%p\n", dict0);
+    	//PMEM0 = IP0 = IP = dict0;
+    }
 
     __GPU__ void init();
     __GPU__ void outer();
@@ -146,28 +70,15 @@ private:
 
     __GPU__ int  find(const char *s);      /// search dictionary reversely
     ///
-    /// Forth compiler functions
-    ///
-    __GPU__ void align();                  /// align memory pointer (CUDA 32-bit)
-    __GPU__ void add_iu(IU i);             /// add an instruction into pmem
-    __GPU__ void add_du(DU v);             /// add a cell into pmem
-    __GPU__ void add_str(const char *s);   /// add a string to pmem
-    __GPU__ void colon(const char *name);
-    ///
     /// Forth inner interpreter
     ///
     __GPU__ char *next_word();
     __GPU__ char *scan(char c);
     __GPU__ void nest(IU c);
-    __GPU__ void call(Code *c);             /// execute a word
     ///
     /// debug functions
     ///
     __GPU__ void dot_r(int n, DU v);
-    __GPU__ void to_s(IU c);
-    __GPU__ void see(IU *cp, IU *ip, int dp=0);
-    __GPU__ void words();
     __GPU__ void ss_dump();
-    __GPU__ void mem_dump(IU p0, int sz);
 };
 #endif // CUEF_SRC_EFORTH_H
