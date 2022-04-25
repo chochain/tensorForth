@@ -80,6 +80,18 @@ typedef U16         IU;                     // size of a instruction unit
 typedef F32         DU;                     // size of a data unit
 #define DU0         0.0f                    /* default data value */
 
+///==============================================================================
+///
+/// colon word compiler
+/// Note:
+///   * we separate dict and pmem space to make word uniform in size
+///   * if they are combined then can behaves similar to classic Forth
+///   * with an addition link field added.
+///
+enum {
+    NOP = 0, DOVAR, DOLIT, DOSTR, DOTSTR, BRAN, ZBRAN, DONEXT, DOES, TOR
+} forth_opcode;
+
 // pointer arithmetic, this will not work in multiple segment implementation
 #define U8PADD(p, n)    ((U8*)(p) + (n))    // add
 #define U8PSUB(p, n)    ((U8*)(p) - (n))    // sub
