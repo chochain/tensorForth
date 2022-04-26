@@ -29,11 +29,24 @@ Dict::find(const char *s, bool compile, bool ucase) {
     return -1;
 }
 ///
-/// debugging methods
+/// Debugging methods
+///
+/// display dictionary word (wastefully one byte at a time)
 ///
 __HOST__ void
-Dict::to_s(std::ostream &fout, IU c) {
-    fout << _dict[c].name << " " << c << (_dict[c].immd ? "* " : " ");
+Dict::to_s(std::ostream &fout, IU w) {
+	/*
+	 * TODO: not sure why copying 32 byt does not work?
+	 * U8 name[36];
+	 * cudaMemcpy(&name[0], _dict[w].name, 32, cudaMemcpyDeviceToHost);
+	 */
+	U8 c, i=0;
+	cudaMemcpy(&c, _dict[w].name, 1, cudaMemcpyDeviceToHost);
+	while (c) {
+		fout << c;
+		cudaMemcpy(&c, _dict[w].name+(++i), 1, cudaMemcpyDeviceToHost);
+	}
+    fout << " " << w << (_dict[w].immd ? "* " : " ");
 }
 ///
 /// recursively disassemble colon word
@@ -45,9 +58,9 @@ Dict::see(std::ostream &fout, IU *cp, IU *ip, int dp) {
     fout << std::endl; for (int i=dp; i>0; i--) fout << "  ";       // indentation
     if (dp) fout << "[" << std::setw(2) << ri(ip) << ": ";          // ip offset
     else    fout << "[ ";
-    fout << w->name;
+    to_s(fout, c);
     if (w->def) {                                                   // a colon word
-        for (IU ip1=0, n=w->len; ip1<n; ip1+=sizeof(IU)) {          // walk through children
+        for (IU ip1=0, n=w->plen; ip1<n; ip1+=sizeof(IU)) {         // walk through children
             IU *cp1 = (IU*)(pfa(c) + ip1);                          // next children node
             see(fout, cp1, &ip1, dp+1);                             // dive recursively
         }
@@ -91,6 +104,7 @@ Dict::dump(std::ostream &fout, IU p0, int sz) {
     	int x = 0;
     	buf[x++] = '\n'; IU2H(i); buf[x++] = ':'; buf[x++] = ' ';  // "%04x: "
         for (int j=0; j<16; j++) {
+        	//U8 c = *(((U8*)&_dict[0])+i+j) & 0x7f;               // to dump _dict
             U8 c = _pmem[i+j] & 0x7f;
             C2H(c);                                                // "%02x "
             buf[x++] = ' ';
