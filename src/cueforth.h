@@ -5,9 +5,11 @@
 #ifndef CUEF_SRC_CUEFORTH_H_
 #define CUEF_SRC_CUEFORTH_H_
 #include "aio.h"
+#include "dict.h"
 
 class CueForth {
     AIO  *aio;
+    Dict *dict;
 
 public:
     CueForth(bool trace=false);
