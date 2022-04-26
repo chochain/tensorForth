@@ -4,6 +4,13 @@
 */
 #include "dict.h"
 #include "eforth.h"
+
+__GPU__
+ForthVM::ForthVM(Istream *istr,	Ostream *ostr, Dict *dict0)
+	: fin(*istr), fout(*ostr), dict(*dict0) {
+	PMEM0 = IP0 = IP = dict.mem0();
+	printf("dict=%p, mem0=%p\n", dict0, PMEM0);
+}
 ///
 /// Forth inner interpreter (colon word handler)
 ///
@@ -21,7 +28,7 @@ ForthVM::nest(IU c) {
     IP0 = IP = dict.pfa(WP=c);              // CC: this takes 30ms/1K, need work
 //  try                                     // kernal does not support exception
     {                                       // CC: is dict[c] kept in cache?
-        U8 *ipx = IP + dict[c]->len;        // CC: this saves 350ms/1M
+        U8 *ipx = IP + dict[c].plen;        // CC: this saves 350ms/1M
         while (IP < ipx) {                  /// * recursively call all children
             IU c1 = *IP; IP += sizeof(IU);  // CC: cost of (ipx, c1) on stack?
             CALL(c1);                       ///> execute child word
@@ -89,7 +96,7 @@ ForthVM::init() {
          else { IP += sizeof(IU); rs.pop(); }),
     CODE("does",                                   // CREATE...DOES... meta-program
          IU *ip  = (IU*)dict.pfa(WP);
-         IU *ipx = (IU*)((U8*)ip + dict[WP]->len);         // range check
+         IU *ipx = (IU*)((U8*)ip + dict[WP].plen);         // range check
          while (ip < ipx && dict.ri(ip) != DOES) ip++;     // find DOES
          while (++ip < ipx) dict.add_iu(dict.ri(ip));      // copy&paste code
          IP = (U8*)ipx),                                   // done
@@ -156,10 +163,10 @@ ForthVM::init() {
     /// @}
     /// @defgroup IO ops
     /// @{
-    CODE("base@",   PUSH(base)),
-    CODE("base!",   base = POP()),
-    CODE("hex",     base = 16),
-    CODE("decimal", base = 10),
+    CODE("base@",   PUSH(radix)),
+    CODE("base!",   radix = POP()),
+    CODE("hex",     radix = 16),
+    CODE("decimal", radix = 10),
     CODE("cr",      fout << ENDL),
     CODE(".",       fout << POP() << " "),
     CODE(".r",      DU n = POP(); dot_r(n, POP())),
@@ -230,7 +237,7 @@ ForthVM::init() {
     /// @defgroup metacompiler
     /// @brief - dict is directly used, instead of shield by macros
     /// @{
-    CODE("exit",  IP = dict.pfa(WP) + dict[WP]->len),            // quit current word execution
+    CODE("exit",  IP = dict.pfa(WP) + dict[WP].plen),            // quit current word execution
     CODE("exec",  CALL(POP())),                                  // execute word
     CODE("create",
         dict.colon(next_word());                                 // create a new word on dictionary
@@ -240,7 +247,7 @@ ForthVM::init() {
         dict.wd((DU*)(dict.pfa(w) + sizeof(IU)), POP())),
     CODE("is",              // ' y is x                          // alias a word
         IU w = FIND(next_word());                                // can serve as a function pointer
-        dict.wi((IU*)dict.pfa(POP()), dict[w]->pidx)),           // but might leave a dangled block
+        dict.wi((IU*)dict.pfa(POP()), dict[w].pidx)),            // but might leave a dangled block
     CODE("[to]",            // : xx 3 [to] y ;                   // alter constant in compile mode
         IU w = dict.ri((IU*)IP); IP += sizeof(IU);                       // fetch constant pfa from 'here'
         dict.wd((DU*)(dict.pfa(w) + sizeof(IU)), POP())),
@@ -294,7 +301,8 @@ ForthVM::init() {
     /// @}
     };
 	for (int i=0; i<sizeof(prim)/sizeof(Code); i++) {
-	    dict.add_code((Code*)prim);
+	    dict.add_code((Code*)&prim[i]);
+	    printf("%3d> %s %p\n", i, dict[i].name, dict[i].name);
 	}
     status = VM_RUN;
     
@@ -309,8 +317,8 @@ ForthVM::outer() {
         printf("%d>> %s => ", blockIdx.x, idiom);
         int w = FIND(idiom);                 /// * search through dictionary
         if (w>=0) {                          /// * word found?
-            printf("[%d]:%s %p\n", w, dict[w]->name, dict[w]->xt);
-            if (compile && !dict[w]->immd) { /// * in compile mode?
+            printf("[%d]:%s %p\n", w, dict[w].name, dict[w].xt);
+            if (compile && !dict[w].immd) {  /// * in compile mode?
                 dict.add_iu(w);              /// * add found word to new colon word
             }
             else CALL(w);                    /// * execute forth word
@@ -318,7 +326,7 @@ ForthVM::outer() {
         }
         // try as a number
         char *p;
-        int n = INT(STRTOL(idiom, &p, base));
+        int n = INT(STRTOL(idiom, &p, radix));
         printf("%d\n", n);
         if (*p != '\0') {                    /// * not number
             fout << idiom << "? " << ENDL;   ///> display error prompt

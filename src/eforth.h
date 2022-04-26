@@ -20,13 +20,13 @@
 
 #define INT(f)    (static_cast<int>(f))       /** cast float to int                        */
 #define I2DU(i)   (static_cast<DU>(i))        /** cast int back to float                   */
-#define LWIP      (dict[-1]->len)             /** parameter field tail of latest word      */
+#define LWIP      (dict[-1].plen)             /** parameter field tail of latest word      */
 #define JMPIP     (IP0 + *(IU*)IP)            /** branching target address                 */
 #define IPOFF     ((IU)(IP - PMEM0))          /** IP offset relative parameter memory root */
 #define FIND(s)   (dict.find(s, compile, ucase))
 #define CALL(c)\
-    if (dict[c]->def) nest(c);\
-    else (*(fop*)(((uintptr_t)dict[c]->xt)&~0x3))(c)
+    if (dict[c].def) nest(c);\
+    else (*(fop*)(((uintptr_t)dict[c].xt)&~0x3))(c)
 ///
 /// Forth virtual machine class
 ///
@@ -45,22 +45,14 @@ public:
 
     bool  compile = false;                  /// compiling flag
     bool  ucase   = true;                   /// case insensitive
-    int   base    = 10;                     /// numeric radix
+    int   radix   = 10;                     /// numeric radix
     DU    top     = DU0;                    /// cached top of stack
     IU    WP      = 0;                      /// word and parameter pointers
     U8    *PMEM0, *IP0, *IP;                /// cached base-memory pointer
 
     char  idiom[80];                        /// terminal input buffer
 
-    __GPU__ ForthVM(
-        Istream *istr,
-        Ostream *ostr,
-        Dict    *dict0)
-    : fin(*istr), fout(*ostr), dict(*dict0) {
-    	printf("dict=%p\n", dict0);
-    	//PMEM0 = IP0 = IP = dict0;
-    }
-
+    __GPU__ ForthVM(Istream *istr, Ostream *ostr, Dict *dict0);
     __GPU__ void init();
     __GPU__ void outer();
 
