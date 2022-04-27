@@ -31,7 +31,8 @@ class Istream : public Managed {
     __GPU__ int _tok(char delim) {
         char *p = &_buf[_idx];
         while (delim==' ' && (*p==' ' || *p=='\t')) (p++, _idx++); // skip leading blanks and tabs
-        int nidx=_idx; while (*p && *p!=delim) (p++, nidx++);      // advance pointers
+        int nidx=_idx;
+        while (*p && *p!=delim) (p++, nidx++);                     // advance pointers
         _gn = (delim!=' ' && *p!=delim) ? nidx=0 : nidx - _idx;    // not found or end of input string
         return nidx;
     }

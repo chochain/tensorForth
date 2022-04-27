@@ -17,12 +17,12 @@ __GPU__	ForthVM *vm_pool[MIN_VM_COUNT];
 /// TODO: use shared memory
 ///
 __KERN__ void
-cueforth_init(Istream *istr, Ostream *ostr) {
-	int i = blockIdx.x;
+cueforth_init(Istream *istr, Ostream *ostr, Dict *dict) {
+	int b = blockIdx.x;
     if (threadIdx.x!=0) return;
 
-	vm_pool[i] = new ForthVM(istr, ostr); // instantiate VM
-	vm_pool[i]->init();                   // initialize dictionary
+	vm_pool[b] = new ForthVM(istr, ostr, dict);  // instantiate VM
+	if (b==0) vm_pool[0]->init();                // initialize dictionary
 }
 ///
 /// check VM status
@@ -54,10 +54,15 @@ cueforth_exec() {
 }
 
 CueForth::CueForth(bool trace) {
-    aio = new AIO(trace);
-
-    cueforth_init<<<MIN_VM_COUNT, 1>>>(aio->istream(), aio->ostream());
+    aio  = new AIO(trace);
+    dict = new Dict();
     GPU_CHK();
+
+    cueforth_init<<<MIN_VM_COUNT, 1>>>(aio->istream(), aio->ostream(), dict);
+    GPU_CHK();
+
+    //dict->dump(cout, 0, 120*0x10);        // dump memory from host
+    //dict->words(cout);                    // dump dictionary from host
 }
 CueForth::~CueForth() {
 	delete aio;
@@ -88,6 +93,7 @@ CueForth::run() {
 			GPU_CHK();
 			aio->flush();             // flush output buffer
 		}
+		dict->dump(cout, 0, 0x30);
 		yield();
 	}
     return 0;
