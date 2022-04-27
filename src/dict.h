@@ -90,14 +90,16 @@ public:
     Dict();
     ~Dict();
     ///
-    /// dictionary search
+    /// dictionary access and search methods
     ///
-    __GPU__ int  find(const char *s, bool compile, bool ucase);
+    __GPU__ Code &operator[](int i) { return (i<0) ? _dict[_didx+i] : _dict[i]; }
     __GPU__ U8*  mem0() { return &_pmem[0]; }
+    __GPU__ int  find(const char *s, bool compile, bool ucase);      // implemented in .cu
     ///
     /// compiler methods
     ///
-    __GPU__ Code &operator[](int i) { return (i<0) ? _dict[_didx+i] : _dict[i]; }
+    __GPU__ void colon(const char *name);                            // implemented in .cu
+    __GPU__ int  align()            { int i = (-_didx & 7); _didx += i; return i; }
     __GPU__ int  here()             { return _midx; }
     __GPU__ void add_code(Code *c)  { _dict[_didx++] = *c; }
     __GPU__ void clear(int i)       { _didx = i; _midx = 0; }
@@ -105,19 +107,7 @@ public:
     __GPU__ void add_iu(IU i)       { add((U8*)&i, sizeof(IU)); }
     __GPU__ void add_du(DU d)       { add((U8*)&d, sizeof(DU)); }
     __GPU__ void add_str(const char *s)   { int sz = STRLENB(s)+1; sz = ALIGN2(sz); add((U8*)s, sz); }
-    __GPU__ int  align()            { int i = (-_didx & 3); _didx += i; return i; }
-    __GPU__ void colon(const char *name) {
-        int  sz = STRLENB(name);                // aligned string length
-        Code *c = &_dict[_didx++];              // get next dictionary slot
-    	align();                                // nfa 32-bit aligned
-        c->name = (const char*)&_pmem[_midx];   // assign name field index
-        c->def  = 1;                            // specify a colon word
-        c->nlen = sz;
-        c->plen = 0;                            // advance counter (by number of U16)
-        add((U8*)name,  ALIGN2(sz+1));          // setup raw name field
-        c->pidx = _midx;                        // capture code field index
-    }
-	__GPU__ void setjmp(IU a) { wi((IU*)(pfa(-1) + a), (IU)_dict[-1].plen); }
+	__GPU__ void setjmp(IU a)       { wi((IU*)(pfa(-1) + a), (IU)_dict[-1].plen); }
     ///
     /// low level memory access
     ///
@@ -129,7 +119,7 @@ public:
     __GPU__ void wd(IU w, DU d)     { wd((DU*)&_pmem[w], d); }
     __GPU__ void wi(IU *p, IU i)    { U8 *c = (U8*)p; *c++ = i&0xff; *c = (i>>8)&0xff; }
     ///
-    /// debug methods
+    /// debug methods (implemented in .cu)
     ///
     __HOST__ void to_s(std::ostream &fout, IU c);
     __HOST__ void see(std::ostream &fout, IU *cp, IU *ip, int dp);

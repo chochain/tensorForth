@@ -29,6 +29,21 @@ Dict::find(const char *s, bool compile, bool ucase) {
     return -1;
 }
 ///
+/// compiler
+///
+__GPU__ void
+Dict::colon(const char *name) {
+    int  sz = STRLENB(name);                // aligned string length
+    Code *c = &_dict[_didx++];              // get next dictionary slot
+	align();                                // nfa 32-bit aligned (adjust _midx)
+    c->name = (const char*)&_pmem[_midx];   // assign name field index
+    c->def  = 1;                            // specify a colon word
+    c->nlen = sz;                           // word name length (for colon word only)
+    c->plen = 0;                            // advance counter (by number of U16)
+    add((U8*)name,  ALIGN2(sz+1));          // setup raw name field
+    c->pidx = _midx;                        // capture code field index
+}
+///
 /// Debugging methods
 ///
 /// display dictionary word (wastefully one byte at a time)
