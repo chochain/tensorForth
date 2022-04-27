@@ -4,6 +4,15 @@
 */
 #include "dict.h"
 #include "eforth.h"
+///
+/// Forth Virtual Machine operational macros
+///
+#define INT(f)    (static_cast<int>(f))       /** cast float to int                        */
+#define I2DU(i)   (static_cast<DU>(i))        /** cast int back to float                   */
+#define LWIP      (dict[-1].plen)             /** parameter field tail of latest word      */
+#define JMPIP     (IP0 + *(IU*)IP)            /** branching target address                 */
+#define IPOFF     ((IU)(IP - PMEM0))          /** IP offset relative parameter memory root */
+#define FIND(s)   (dict.find(s, compile, ucase))
 
 __GPU__
 ForthVM::ForthVM(Istream *istr,	Ostream *ostr, Dict *dict0)
@@ -31,13 +40,25 @@ ForthVM::nest(IU c) {
         U8 *ipx = IP + dict[c].plen;        // CC: this saves 350ms/1M
         while (IP < ipx) {                  /// * recursively call all children
             IU c1 = *IP; IP += sizeof(IU);  // CC: cost of (ipx, c1) on stack?
-            CALL(c1);                       ///> execute child word
+            call(c1);                       ///> execute child word
         }                                   ///> can do IP++ if pmem unit is 16-bit
     }
 //    catch(...) {}                         ///> protect if any exeception
     yield();                                ///> give other tasks some time
     IP0 = dict.pfa(WP=rs.pop());            /// * restore call frame
     IP  = PMEM0 + INT(rs.pop());
+}
+///
+/// Dict compiler proxy functions to reduce verbosity
+///
+__GPU__ __INLINE__ void ForthVM::add_iu(IU i) { dict.add_iu(i); }
+__GPU__ __INLINE__ void ForthVM::add_du(DU d) { dict.add_du(d); }
+__GPU__ __INLINE__ void ForthVM::add_str(IU op, const char *s) {
+	dict.add_iu(op); dict.add_str(s);
+}
+__GPU__ __INLINE__ void ForthVM::call(IU w) {
+    if (dict[w].def) nest(w);
+    else             (*(fop*)(((uintptr_t)dict[w].xt)&~0x3))(w);
 }
 ///==============================================================================
 ///
@@ -98,7 +119,7 @@ ForthVM::init() {
          IU *ip  = (IU*)dict.pfa(WP);
          IU *ipx = (IU*)((U8*)ip + dict[WP].plen);         // range check
          while (ip < ipx && dict.ri(ip) != DOES) ip++;     // find DOES
-         while (++ip < ipx) dict.add_iu(dict.ri(ip));      // copy&paste code
+         while (++ip < ipx) add_iu(dict.ri(ip));           // copy&paste code
          IP = (U8*)ipx),                                   // done
     CODE(">r",   rs.push(POP())),
     CODE("r>",   PUSH(rs.pop())),
@@ -186,70 +207,68 @@ ForthVM::init() {
     CODE("\\",      scan('\n')),
     CODE("$\"",
         const char *s = scan('"')+1;        // string skip first blank
-        dict.add_iu(DOSTR);                 // dostr, (+parameter field)
-        dict.add_str(s)),                   // byte0, byte1, byte2, ..., byteN
+        add_str(DOSTR, s)),                 // dostr, (+parameter field)
     IMMD(".\"",
         const char *s = scan('"')+1;        // string skip first blank
-        dict.add_iu(DOTSTR);                // dostr, (+parameter field)
-        dict.add_str(s)),                   // byte0, byte1, byte2, ..., byteN
+        add_str(DOTSTR, s)),                // dotstr, (+parameter field)
     /// @}
     /// @defgroup Branching ops
     /// @brief - if...then, if...else...then
     /// @{
-    IMMD("if",      dict.add_iu(ZBRAN); PUSH(LWIP); dict.add_iu(0)),  // if   ( -- here )
+    IMMD("if",      add_iu(ZBRAN); PUSH(LWIP); add_iu(0)),  // if   ( -- here )
     IMMD("else",                                                      // else ( here -- there )
-        dict.add_iu(BRAN);
-        IU h=LWIP;  dict.add_iu(0); dict.setjmp(INT(POP())); PUSH(h)),
+        add_iu(BRAN);
+        IU h=LWIP;  add_iu(0); dict.setjmp(INT(POP())); PUSH(h)),
     IMMD("then",    dict.setjmp(INT(POP()))),                         // backfill jump address
     /// @}
     /// @defgroup Loops
     /// @brief  - begin...again, begin...f until, begin...f while...repeat
     /// @{
     IMMD("begin",   PUSH(LWIP)),
-    IMMD("again",   dict.add_iu(BRAN);  dict.add_iu(POP())),          // again    ( there -- )
-    IMMD("until",   dict.add_iu(ZBRAN); dict.add_iu(POP())),          // until    ( there -- )
-    IMMD("while",   dict.add_iu(ZBRAN); PUSH(LWIP); dict.add_iu(0)),  // while    ( there -- there here )
-    IMMD("repeat",  dict.add_iu(BRAN);                                // repeat    ( there1 there2 -- )
-        IU t=POP(); dict.add_iu(POP()); dict.setjmp(t)),              // set forward and loop back address
+    IMMD("again",   add_iu(BRAN);  add_iu(POP())),          // again    ( there -- )
+    IMMD("until",   add_iu(ZBRAN); add_iu(POP())),          // until    ( there -- )
+    IMMD("while",   add_iu(ZBRAN); PUSH(LWIP); add_iu(0)),  // while    ( there -- there here )
+    IMMD("repeat",  add_iu(BRAN);                           // repeat    ( there1 there2 -- )
+        IU t=POP(); add_iu(POP()); dict.setjmp(t)),         // set forward and loop back address
     /// @}
     /// @defgrouop For loops
     /// @brief  - for...next, for...aft...then...next
     /// @{
-    IMMD("for" ,    dict.add_iu(TOR); PUSH(LWIP)),                    // for ( -- here )
-    IMMD("next",    dict.add_iu(DONEXT); dict.add_iu(POP())),         // next ( here -- )
-    IMMD("aft",                                                       // aft ( here -- here there )
-        POP(); dict.add_iu(BRAN);
-        IU h=LWIP; dict.add_iu(0); PUSH(LWIP); PUSH(h)),
+    IMMD("for" ,    add_iu(TOR); PUSH(LWIP)),               // for ( -- here )
+    IMMD("next",    add_iu(DONEXT); add_iu(POP())),         // next ( here -- )
+    IMMD("aft",                                             // aft ( here -- here there )
+        POP(); add_iu(BRAN);
+        IU h=LWIP; add_iu(0); PUSH(LWIP); PUSH(h)),
     /// @}
     /// @defgrouop Compiler ops
     /// @{
     CODE(":", dict.colon(next_word()); compile=true),
     IMMD(";", compile = false),
-    CODE("variable",                                             // create a variable
-        dict.colon(next_word());                                 // create a new word on dictionary
-        dict.add_iu(DOVAR);                                      // dovar (+parameter field)
-        int n = 0; dict.add_du(n)),                              // data storage (32-bit integer now)
-    CODE("constant",                                             // create a constant
-        dict.colon(next_word());                                 // create a new word on dictionary
-        dict.add_iu(DOLIT);                                      // dovar (+parameter field)
-        dict.add_du(POP())),                                     // data storage (32-bit integer now)
+    CODE("variable",                                        // create a variable
+        dict.colon(next_word());                            // create a new word on dictionary
+        add_iu(DOVAR);                                      // dovar (+parameter field)
+        add_du(0)),                                         // data storage (32-bit integer now)
+    CODE("constant",                                        // create a constant
+        dict.colon(next_word());                            // create a new word on dictionary
+        add_iu(DOLIT);                                      // dovar (+parameter field)
+        add_du(POP())),                                     // data storage (32-bit integer now)
     /// @}
     /// @defgroup metacompiler
     /// @brief - dict is directly used, instead of shield by macros
     /// @{
-    CODE("exit",  IP = dict.pfa(WP) + dict[WP].plen),            // quit current word execution
-    CODE("exec",  CALL(POP())),                                  // execute word
+    CODE("exit",  IP = dict.pfa(WP) + dict[WP].plen),       // quit current word execution
+    CODE("exec",  call(POP())),                             // execute word
     CODE("create",
-        dict.colon(next_word());                                 // create a new word on dictionary
-        dict.add_iu(DOVAR)),                                     // dovar (+ parameter field)
-    CODE("to",              // 3 to x                            // alter the value of a constant
-        IU w = FIND(next_word());                                // to save the extra @ of a variable
+        dict.colon(next_word());                            // create a new word on dictionary
+        add_iu(DOVAR)),                                     // dovar (+ parameter field)
+    CODE("to",              // 3 to x                       // alter the value of a constant
+        IU w = FIND(next_word());                           // to save the extra @ of a variable
         dict.wd((DU*)(dict.pfa(w) + sizeof(IU)), POP())),
-    CODE("is",              // ' y is x                          // alias a word
-        IU w = FIND(next_word());                                // can serve as a function pointer
-        dict.wi((IU*)dict.pfa(POP()), dict[w].pidx)),            // but might leave a dangled block
-    CODE("[to]",            // : xx 3 [to] y ;                   // alter constant in compile mode
-        IU w = dict.ri((IU*)IP); IP += sizeof(IU);                       // fetch constant pfa from 'here'
+    CODE("is",              // ' y is x                     // alias a word
+        IU w = FIND(next_word());                           // can serve as a function pointer
+        dict.wi((IU*)dict.pfa(POP()), dict[w].pidx)),       // but might leave a dangled block
+    CODE("[to]",            // : xx 3 [to] y ;              // alter constant in compile mode
+        IU w = dict.ri((IU*)IP); IP += sizeof(IU);          // fetch constant pfa from 'here'
         dict.wd((DU*)(dict.pfa(w) + sizeof(IU)), POP())),
     ///
     /// be careful with memory access, especially BYTE because
@@ -257,8 +276,8 @@ ForthVM::init() {
     ///
     CODE("@",     IU w = POP(); PUSH(dict.rd(w))),                                 // w -- n
     CODE("!",     IU w = POP(); dict.wd(w, POP())),                                // n w --
-    CODE(",",     DU n = POP(); dict.add_du(n)),
-    CODE("allot", DU v = 0; for (IU n = POP(), i = 0; i < n; i++) dict.add_du(v)), // n --
+    CODE(",",     DU n = POP(); add_du(n)),
+    CODE("allot", DU v = 0; for (IU n = POP(), i = 0; i < n; i++) add_du(v)),      // n --
     CODE("+!",    IU w = POP(); dict.wd(w, dict.rd(w)+POP())),                     // n w --
     CODE("?",     IU w = POP(); fout << dict.rd(w) << " "),                        // w --
     /// @}
@@ -302,7 +321,7 @@ ForthVM::init() {
     };
 	for (int i=0; i<sizeof(prim)/sizeof(Code); i++) {
 	    dict.add_code((Code*)&prim[i]);
-	    printf("%3d> %s %p\n", i, dict[i].name, dict[i].name);
+	    printf("%3d> %p %s\n", i, dict[i].name, dict[i].name);   // dump dictionary from device
 	}
     status = VM_RUN;
     
@@ -317,11 +336,11 @@ ForthVM::outer() {
         printf("%d>> %s => ", blockIdx.x, idiom);
         int w = FIND(idiom);                 /// * search through dictionary
         if (w>=0) {                          /// * word found?
-            printf("[%d]:%s %p\n", w, dict[w].name, dict[w].xt);
+            printf("%p %s %d\n", dict[w].xt, dict[w].name, w);
             if (compile && !dict[w].immd) {  /// * in compile mode?
-                dict.add_iu(w);              /// * add found word to new colon word
+                add_iu(w);                   /// * add found word to new colon word
             }
-            else CALL(w);                    /// * execute forth word
+            else call(w);                    /// * execute forth word
             continue;
         }
         // try as a number
@@ -335,11 +354,12 @@ ForthVM::outer() {
         }
         // is a number
         if (compile) {                       /// * add literal when in compile mode
-            dict.add_iu(DOLIT);              ///> dovar (+parameter field)
-            dict.add_du(n);                  ///> data storage (32-bit integer now)
+            add_iu(DOLIT);                   ///> dovar (+parameter field)
+            add_du(n);                       ///> data storage (32-bit integer now)
         }
         else PUSH(n);                        ///> or, add value onto data stack
     }
     if (!compile) ss_dump();
+    __syncthreads();
 }
 //=======================================================================================

@@ -14,20 +14,6 @@
 #define delay(ms)       { clock_t t = clock()+ms; while (clock()<t); }
 #define yield()
 ///
-/// Forth Virtual Machine operational macros
-///
-//#define STR(a)    ((char*)&_pmem[a])        /** fetch string pointer to parameter memory */
-
-#define INT(f)    (static_cast<int>(f))       /** cast float to int                        */
-#define I2DU(i)   (static_cast<DU>(i))        /** cast int back to float                   */
-#define LWIP      (dict[-1].plen)             /** parameter field tail of latest word      */
-#define JMPIP     (IP0 + *(IU*)IP)            /** branching target address                 */
-#define IPOFF     ((IU)(IP - PMEM0))          /** IP offset relative parameter memory root */
-#define FIND(s)   (dict.find(s, compile, ucase))
-#define CALL(c)\
-    if (dict[c].def) nest(c);\
-    else (*(fop*)(((uintptr_t)dict[c].xt)&~0x3))(c)
-///
 /// Forth virtual machine class
 ///
 typedef enum { VM_READY=0, VM_RUN, VM_WAIT, VM_STOP } vm_status;
@@ -67,6 +53,13 @@ private:
     __GPU__ char *next_word();
     __GPU__ char *scan(char c);
     __GPU__ void nest(IU c);
+    ///
+    /// compiler proxy funtions to reduce verbosity
+    ///
+    __GPU__ void add_iu(IU i);
+    __GPU__ void add_du(DU d);
+    __GPU__ void add_str(IU op, const char *s);
+    __GPU__ void call(IU w);
     ///
     /// debug functions
     ///
