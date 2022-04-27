@@ -41,7 +41,7 @@ AIO::print_node(obuf_node *node) {
     if (_trace) std::cout << "</" << node->id << '>' << std::endl;
 }
 
-#define NEXTNODE(n) ((obuf_node*)((char*)&node->data[0] + node->size))
+#define NEXTNODE(n) ((obuf_node*)((char*)&node->data[0] + node->sz))
 __HOST__ void
 AIO::flush() {
     obuf_node *node = (obuf_node*)_ostr->rdbuf();
