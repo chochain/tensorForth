@@ -22,9 +22,12 @@
 typedef enum {
     GT_EMPTY = 0,
     GT_INT,
-    GT_HEX,
     GT_FLOAT,
     GT_STR,
+    GT_FMT,
+    GT_WORDS,
+    GT_SEE,
+    GT_DUMP
 } GT;
 
 //================================================================
@@ -36,40 +39,58 @@ typedef struct {
     U16 sz;
     U8  data[];      // different from *data
 } obuf_node;
+
+typedef struct {
+    U16 base : 5;
+    U16 width: 5;
+    U16 prec : 5;
+    U16 fill : 1;
+} obuf_fmt;
+
 #define NODE_SZ  sizeof(U32)
 
 ///
 /// iomanip classes
 ///
-class _setbase { public: int  base;  __GPU__ _setbase(int b) : base(b)  {}};
-class _setw    { public: int  width; __GPU__ _setw(int w)    : width(w) {}};
-class _setfill { public: char fill;  __GPU__ _setfill(char f): fill(f)  {}};
-class _setprec { public: int  prec;  __GPU__ _setprec(int p) : prec(p)  {}};
+struct _setbase { int  base;  __GPU__ _setbase(int b) : base(b)  {}};
+struct _setw    { int  width; __GPU__ _setw(int w)    : width(w) {}};
+struct _setfill { char fill;  __GPU__ _setfill(char f): fill(f)  {}};
+struct _setprec { int  prec;  __GPU__ _setprec(int p) : prec(p)  {}};
 __GPU__ __INLINE__ _setbase setbase(int b)  { return _setbase(b); }
 __GPU__ __INLINE__ _setw    setw(int w)     { return _setw(w);    }
 __GPU__ __INLINE__ _setfill setfill(char f) { return _setfill(f); }
 __GPU__ __INLINE__ _setprec setprec(int p)  { return _setprec(p); }
 ///
+/// parameterized manipulators
+///
+struct _words   {             __GPU__ _words()          : words() {}};
+struct _see     { IU w;       __GPU__ _see(IU w)        : see(w)  {}};
+struct _dump    { IU a; DU n; __GPU__ _dump(IU a, DU n) : dump(a, n) {}};
+///
 /// Ostream class
 ///
 #include <stdio.h>
 class Ostream : public Managed {
-    char *_buf;
-    int  _max  = 0;
-    int  _idx  = 0;
-    int  _base = 10;
-    int  _width= 6;
-    char _fill = ' ';
-    int  _prec = 6;
+    char    *_buf;
+    int      _max = 0;
+    int      _idx = 0;
+    obuf_fmt _fmt;
 
 #if CC_DEBUG
     __GPU__ __INLINE__ void _debug(GT gt, U8 *v) {
     	printf("%d>> obuf[%d] << ", blockIdx.x, _idx);
     	switch(gt) {
-    	case GT_INT:   printf("%d\n", *(GI*)v); break;
-    	case GT_HEX:   printf("%x\n", *(GI*)v); break;
-    	case GT_FLOAT: printf("%G\n", *(GF*)v); break;
-    	case GT_STR:   printf("%s\n", v);       break;
+    	case GT_INT:   printf("%d\n", *(GI*)v);      break;
+    	case GT_FLOAT: printf("%G\n", *(GF*)v);      break;
+    	case GT_STR:   printf("%s\n", v);            break;
+        case GT_FMT:   printf("%8x\n", *(U16*)v);    break;
+        case GT_WORDS: printf("words()\n");          break;
+        case GT_SEE:   printf("see(%d)\n", *(IU*)v); break;
+        case GT_DUMP: {
+            DU a = *(DU*)v;
+            DU n = *(DU*)(v+sizeof(DU));
+            printf("dump(%d, %d)\n", a, n);
+        } break;
     	default:       printf("unknown type %d\n", gt);
     	}
     }
@@ -112,6 +133,12 @@ class Ostream : public Managed {
         //_UNLOCK;
         _dump();
     }
+    __GPU__ Ostream& _wfmt() { _write(GT_FMT, (U8*)&_fmt, sizeof(obuf_fmt)); return *this; }
+    __GPU__ Ostream& _wopc(GT opc, IU a=0, DU n=0) {
+        U64 x = ((U64)n<<32) | a;
+        _write(opc, (U8*)&x, sizeof(U64));
+        return *this;
+    }               
 
 public:
     Ostream(int sz=CUEF_OBUF_SZ) { cudaMallocManaged(&_buf, _max=sz); GPU_CHK(); }
@@ -130,10 +157,13 @@ public:
     ///
     /// iomanip control
     ///
-    __GPU__ Ostream& operator<<(_setbase b) { _base  = b.base;  return *this; }
-    __GPU__ Ostream& operator<<(_setw    w) { _width = w.width; return *this; }
-    __GPU__ Ostream& operator<<(_setfill f) { _fill  = f.fill;  return *this; }
-    __GPU__ Ostream& operator<<(_setprec p) { _prec  = p.prec;  return *this; }
+    __GPU__ Ostream& operator<<(_setbase b) { _fmt.base  = b.base;  return _wfmt(); }
+    __GPU__ Ostream& operator<<(_setw    w) { _fmt.width = w.width; return _wfmt(); }
+    __GPU__ Ostream& operator<<(_setprec p) { _fmt.prec  = p.prec;  return _wfmt(); }
+    __GPU__ Ostream& operator<<(_setfill f) { _fmt.fill  = f.fill;  return _wfmt(); }
+    __GPU__ Ostream& operator<<(_words   w) { return _wopc(GT_WORDS);               }
+    __GPU__ Ostream& operator<<(_see     s) { return _wopc(GT_SEE, s.w);            }
+    __GPU__ Ostream& operator<<(_dump    d) { return _wopc(GT_DUMP, d.a, d.n);      }
     ///
     /// object input
     ///
@@ -143,7 +173,7 @@ public:
         return *this;
     }
     __GPU__ Ostream& operator<<(GI i) {
-        _write(_base==10 ? GT_INT : GT_HEX, (U8*)&i, sizeof(GI));
+        _write(GT_INT, (U8*)&i, sizeof(GI));
         return *this;
     }
     __GPU__ Ostream& operator<<(GF f) {
