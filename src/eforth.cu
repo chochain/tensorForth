@@ -190,13 +190,16 @@ ForthVM::init() {
     CODE("decimal", radix = 10),
     CODE("cr",      fout << ENDL),
     CODE(".",       fout << POP() << " "),
-    CODE(".r",      DU n = POP(); dot_r(n, POP())),
-    CODE("u.r",     DU n = POP(); dot_r(n, abs(POP()))),
-    CODE(".f",      DU n = POP(); fout << setprec(n) << POP()),
+    CODE(".r",      int n = INT(POP()); dot_r(n, POP())),
+    CODE("u.r",     int n = INT(POP()); dot_r(n, abs(POP()))),
+    CODE(".f",      int n = INT(POP()); fout << setprec(n) << POP()),
     CODE("key",     PUSH(next_word()[0])),
     CODE("emit",    char b = (char)POP(); fout << b),
     CODE("space",   fout << " "),
-    CODE("spaces",  for (DU n = POP(), i = 0; i < n; i++) fout << " "),
+    CODE("spaces",
+         int n = INT(POP());
+         MEMSET(idiom, ' ', n); idiom[n] = '\0';
+         fout << idiom),
     /// @}
     /// @defgroup Literal ops
     /// @{
@@ -285,29 +288,16 @@ ForthVM::init() {
     /// @{
     CODE("here",  PUSH(dict.here())),
     CODE("ucase", ucase = POP()),
-//    CODE("words", dict.words()),
+    CODE("words", fout << words()),
     CODE("'",     IU w = FIND(next_word()); PUSH(w)),
     CODE(".s",    ss_dump()),
-//    CODE("see",   IU w = FIND(next_word()); IU ip=0; dict.see(&w, &ip)),
-//    CODE("dump",  DU n = POP(); IU a = POP(); dict.dump(a, INT(n))),
+    CODE("see",   IU w = FIND(next_word()); fout << see(w)),
+    CODE("dump",  DU n = POP(); IU a = POP(); fout << dump(a, INT(n))),
     CODE("forget",
         int w = FIND(next_word());
         if (w<0) return;
         IU b = FIND("boot")+1;
         dict.clear(w > b ? w : b)),
-#if ARDUINO
-    /// @}
-    /// @defgroup Arduino specific ops
-    /// @{
-    CODE("pin",   DU p = POP(); pinMode(p, POP())),
-    CODE("in",    PUSH(digitalRead(POP()))),
-    CODE("out",   DU p = POP(); digitalWrite(p, POP())),
-    CODE("adc",   PUSH(analogRead(POP()))),
-    CODE("duty",  DU p = POP(); analogWrite(p, POP(), 255)),
-    CODE("attach",DU p  = POP(); ledcAttachPin(p, POP())),
-    CODE("setup", DU ch = POP(); DU freq=POP(); ledcSetup(ch, freq, POP())),
-    CODE("tone",  DU ch = POP(); ledcWriteTone(ch, POP())),
-#endif // ARDUINO
     /// @}
     /// @defgroup System ops
     /// @{

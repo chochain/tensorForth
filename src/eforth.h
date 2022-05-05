@@ -36,7 +36,7 @@ public:
     IU    WP      = 0;                      /// word and parameter pointers
     U8    *PMEM0, *IP0, *IP;                /// cached base-memory pointer
 
-    char  idiom[80];                        /// terminal input buffer
+    char  idiom[CUEF_STRBUF_SZ];            /// terminal input buffer
 
     __GPU__ ForthVM(Istream *istr, Ostream *ostr, Dict *dict0);
     __GPU__ void init();
