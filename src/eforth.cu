@@ -288,11 +288,11 @@ ForthVM::init() {
     /// @{
     CODE("here",  PUSH(dict.here())),
     CODE("ucase", ucase = POP()),
-    CODE("words", fout << words()),
     CODE("'",     IU w = FIND(next_word()); PUSH(w)),
     CODE(".s",    ss_dump()),
-    CODE("see",   IU w = FIND(next_word()); fout << see(w)),
-    CODE("dump",  DU n = POP(); IU a = POP(); fout << dump(a, INT(n))),
+    CODE("words", fout << opx(OP_WORDS)),
+    CODE("see",   int w = INT(FIND(next_word())); fout << opx(OP_SEE, w)),
+    CODE("dump",  int n = INT(POP()); int a = INT(POP()); fout << opx(OP_DUMP, a, n)),
     CODE("forget",
         int w = FIND(next_word());
         if (w<0) return;
