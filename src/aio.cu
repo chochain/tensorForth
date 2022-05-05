@@ -32,10 +32,19 @@ AIO::print_node(obuf_node *node) {
 
     char *v = (char*)node->data;
     switch (node->gt) {
-    case GT_INT:   std::cout << std::setw(2) << (int)(*(GI*)v);           break;
-    case GT_HEX:   std::cout << std::setbase(16) << (int)(*(GI*)v);       break;
-    case GT_FLOAT: std::cout << std::setprecision(6) << (float)(*(GF*)v); break;
-    case GT_STR:   std::cout << v;                                        break;
+    case GT_INT:   std::cout << (int)(*(GI*)v);   break;
+    case GT_FLOAT: std::cout << (float)(*(GF*)v); break;
+    case GT_STR:   std::cout << v;                break;
+    case GT_FMT:   {
+        obuf_fmt *fmt = (obuf_fmt*)v;
+        std::cout << std::setbase(fmt->base)
+                  << std::setw(fmt->width)
+                  << std::setprecision(fmt->prec)
+                  << std::setfill(fmt->fill);
+    } break;
+    case GT_WORDS: dict->words(); break;
+    case GT_SEE:   dict->see();   break;
+    case GT_DUMP:  dict->dump();  break;
     default: std::cout << "print type not supported: " << (int)node->gt;  break;
     }
     if (_trace) std::cout << "</" << node->id << '>' << std::endl;
