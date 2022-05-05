@@ -19,11 +19,11 @@
 ///
 __HOST__ int
 AIO::readline() {
-	_istr->clear();
-	char *tib = _istr->rdbuf();
-	std::cin.getline(tib, CUEF_IBUF_SZ, '\n');
-	if (_trace) std::cout << "<<" << tib << std::endl;
-	return strlen(tib);
+    _istr->clear();
+    char *tib = _istr->rdbuf();
+    std::cin.getline(tib, CUEF_IBUF_SZ, '\n');
+    if (_trace) std::cout << "<<" << tib << std::endl;
+    return strlen(tib);
 }
 
 __HOST__ void
@@ -40,11 +40,19 @@ AIO::print_node(obuf_node *node) {
         std::cout << std::setbase(fmt->base)
                   << std::setw(fmt->width)
                   << std::setprecision(fmt->prec)
-                  << std::setfill(fmt->fill);
+                  << std::setfill((char)fmt->fill);
     } break;
-    case GT_WORDS: dict->words(); break;
-    case GT_SEE:   dict->see();   break;
-    case GT_DUMP:  dict->dump();  break;
+    case GT_OPX: {
+        OP  op = (OP)*v;
+        U16 a  = (U16)*(v+1) | ((U16)(*(v+2))<<8);
+        U16 n  = (U16)*(v+3) | ((U16)(*(v+4))<<8);
+        printf("H:%d(%d, %d)\n", op, a, n);
+        switch (op) {
+        case OP_WORDS: _dict->words(std::cout);      break;
+        case OP_SEE:   _dict->see(std::cout, a);     break;
+        case OP_DUMP:  _dict->dump(std::cout, a, n); break;
+        }
+    } break;
     default: std::cout << "print type not supported: " << (int)node->gt;  break;
     }
     if (_trace) std::cout << "</" << node->id << '>' << std::endl;
@@ -60,5 +68,3 @@ AIO::flush() {
     }
     _ostr->clear();
 }
-
-
