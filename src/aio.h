@@ -13,20 +13,22 @@
 #define CUEF_SRC_AIO_H_
 #include "istream.h"
 #include "ostream.h"
+#include "dict.h"
 
 class AIO : public Managed {
 public:
-	Istream *_istr;		/// managed input stream
-	Ostream *_ostr;		/// managed output stream
-	bool    _trace;     /// debug tracing control
+    Istream *_istr;         /// managed input stream
+    Ostream *_ostr;         /// managed output stream
+    Dict    *_dict;
+    bool    _trace;     /// debug tracing control
 
-	AIO(bool trace) : _istr(new Istream()), _ostr(new Ostream()), _trace(trace) {}
+    AIO(Dict *dict, bool trace) : _istr(new Istream()), _ostr(new Ostream()), _dict(dict), _trace(trace) {}
 
-	__HOST__ Istream *istream() { return _istr; }
-	__HOST__ Ostream *ostream() { return _ostr; }
+    __HOST__ Istream *istream() { return _istr; }
+    __HOST__ Ostream *ostream() { return _ostr; }
 
-	__HOST__ int  readline();
+    __HOST__ int  readline();
     __HOST__ void print_node(obuf_node *node);
-	__HOST__ void flush();
+    __HOST__ void flush();
 };
 #endif // CUEF_SRC_AIO_H_

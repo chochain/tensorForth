@@ -54,8 +54,8 @@ cueforth_exec() {
 }
 
 CueForth::CueForth(bool trace) {
-    aio  = new AIO(trace);
     dict = new Dict();
+    aio  = new AIO(dict, trace);            // TODO: aio not dict dependent
     GPU_CHK();
 
     cueforth_init<<<MIN_VM_COUNT, 1>>>(aio->istream(), aio->ostream(), dict);
