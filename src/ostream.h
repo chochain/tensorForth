@@ -25,10 +25,14 @@ typedef enum {
     GT_FLOAT,
     GT_STR,
     GT_FMT,
-    GT_WORDS,
-    GT_SEE,
-    GT_DUMP
+    GT_OPX
 } GT;
+
+typedef enum {
+    OP_WORDS = 0,
+    OP_SEE,
+    OP_DUMP
+} OP;
 
 //================================================================
 /*! printf internal version data container.
@@ -41,16 +45,15 @@ typedef struct {
 } obuf_node;
 
 typedef struct {
-    U16 base : 5;
-    U16 width: 5;
-    U16 prec : 5;
-    U16 fill : 1;
+    U8 base;
+    U8 width;
+    U8 prec;
+    U8 fill;
 } obuf_fmt;
 
 #define NODE_SZ  sizeof(U32)
-
 ///
-/// iomanip classes
+/// implement kernel iomanip classes
 ///
 struct _setbase { int  base;  __GPU__ _setbase(int b) : base(b)  {}};
 struct _setw    { int  width; __GPU__ _setw(int w)    : width(w) {}};
@@ -61,11 +64,10 @@ __GPU__ __INLINE__ _setw    setw(int w)     { return _setw(w);    }
 __GPU__ __INLINE__ _setfill setfill(char f) { return _setfill(f); }
 __GPU__ __INLINE__ _setprec setprec(int p)  { return _setprec(p); }
 ///
-/// parameterized manipulators
+/// Forth parameterized manipulators
 ///
-struct _words   {             __GPU__ _words()          : words() {}};
-struct _see     { IU w;       __GPU__ _see(IU w)        : see(w)  {}};
-struct _dump    { IU a; DU n; __GPU__ _dump(IU a, DU n) : dump(a, n) {}};
+struct _opx     { int op, a, n; __GPU__ _opx(int op, int a, int n) : op(op), a(a), n(n) {}};
+__GPU__ __INLINE__ _opx opx(OP op, int a=0, int n=0) { return _opx(op, a, n); }
 ///
 /// Ostream class
 ///
@@ -78,33 +80,36 @@ class Ostream : public Managed {
 
 #if CC_DEBUG
     __GPU__ __INLINE__ void _debug(GT gt, U8 *v) {
-    	printf("%d>> obuf[%d] << ", blockIdx.x, _idx);
-    	switch(gt) {
-    	case GT_INT:   printf("%d\n", *(GI*)v);      break;
-    	case GT_FLOAT: printf("%G\n", *(GF*)v);      break;
-    	case GT_STR:   printf("%s\n", v);            break;
+        printf("%d>> obuf[%d] << ", blockIdx.x, _idx);
+        switch(gt) {
+        case GT_INT:   printf("%d\n", *(GI*)v);      break;
+        case GT_FLOAT: printf("%G\n", *(GF*)v);      break;
+        case GT_STR:   printf("%s\n", v);            break;
         case GT_FMT:   printf("%8x\n", *(U16*)v);    break;
-        case GT_WORDS: printf("words()\n");          break;
-        case GT_SEE:   printf("see(%d)\n", *(IU*)v); break;
-        case GT_DUMP: {
-            DU a = *(DU*)v;
-            DU n = *(DU*)(v+sizeof(DU));
-            printf("dump(%d, %d)\n", a, n);
+        case GT_OPX: {
+            OPX op = *v;
+            U16 a  = (U16)*(v+1) | ((U16)*(v+2)<<8);
+            U16 n  = (U16)*(v+3) | ((U16)*(v+4)<<8);
+            switch (op) {
+            case OPX_WORDS: printf("words()\n");            break;
+            case OPX_SEE:   printf("see(%d)\n", a);         break;
+            case OPX_DUMP:  printf("dump(%d, %d)\n", a, n); break;
+            }
         } break;
-    	default:       printf("unknown type %d\n", gt);
-    	}
+        default:       printf("unknown type %d\n", gt);
+        }
     }
     __GPU__ __INLINE__ void _dump() {
         for (int i=0; i<ALIGN16(_idx); i+=16) {
-        	printf("\n%04x: ", i);
-        	char w[17] = {0};
+            printf("\n%04x: ", i);
+            char w[17] = {0};
             for (int j=0; j<16; j++) {
                 U8 c = _buf[i+j] & 0x7f;
                 printf("%02x ", c);
                 if (j%4==3) printf(" ");
                 w[j] = (c==0x7f || c<0x20) ? '.' : c;
             }
-			printf("%s", w);
+            printf("%s", w);
         }
     }
 #else  // CC_DEBUG
@@ -134,11 +139,6 @@ class Ostream : public Managed {
         _dump();
     }
     __GPU__ Ostream& _wfmt() { _write(GT_FMT, (U8*)&_fmt, sizeof(obuf_fmt)); return *this; }
-    __GPU__ Ostream& _wopc(GT opc, IU a=0, DU n=0) {
-        U64 x = ((U64)n<<32) | a;
-        _write(opc, (U8*)&x, sizeof(U64));
-        return *this;
-    }               
 
 public:
     Ostream(int sz=CUEF_OBUF_SZ) { cudaMallocManaged(&_buf, _max=sz); GPU_CHK(); }
@@ -147,23 +147,20 @@ public:
     /// clear output buffer
     ///
     __HOST__ Ostream& clear() {
-    	// LOCK
-    	_buf[_idx=0] = (char)GT_EMPTY;
-    	// UNLOCK
-    	return *this;
+        // LOCK
+        _buf[_idx=0] = (char)GT_EMPTY;
+        // UNLOCK
+        return *this;
     }
     __HOST__ char *rdbuf() { return _buf; }
     __HOST__ U32 tellp()   { return (U32)_idx; }
     ///
     /// iomanip control
     ///
-    __GPU__ Ostream& operator<<(_setbase b) { _fmt.base  = b.base;  return _wfmt(); }
-    __GPU__ Ostream& operator<<(_setw    w) { _fmt.width = w.width; return _wfmt(); }
-    __GPU__ Ostream& operator<<(_setprec p) { _fmt.prec  = p.prec;  return _wfmt(); }
-    __GPU__ Ostream& operator<<(_setfill f) { _fmt.fill  = f.fill;  return _wfmt(); }
-    __GPU__ Ostream& operator<<(_words   w) { return _wopc(GT_WORDS);               }
-    __GPU__ Ostream& operator<<(_see     s) { return _wopc(GT_SEE, s.w);            }
-    __GPU__ Ostream& operator<<(_dump    d) { return _wopc(GT_DUMP, d.a, d.n);      }
+    __GPU__ Ostream& operator<<(_setbase b) { _fmt.base  = (U8)b.base;  return _wfmt(); }
+    __GPU__ Ostream& operator<<(_setw    w) { _fmt.width = (U8)w.width; return _wfmt(); }
+    __GPU__ Ostream& operator<<(_setprec p) { _fmt.prec  = (U8)p.prec;  return _wfmt(); }
+    __GPU__ Ostream& operator<<(_setfill f) { _fmt.fill  = (U8)f.fill;  return _wfmt(); }
     ///
     /// object input
     ///
@@ -183,6 +180,16 @@ public:
     __GPU__ Ostream& operator<<(const char *s) {
         int len = STRLENB(s)+1;
         _write(GT_STR, (U8*)s, len);
+        return *this;
+    }
+    __GPU__ Ostream& operator<<(_opx o) {
+        U8 x[8] = {    // serialized struct
+            (U8)o.op,
+            (U8)(o.a & 0xff), (U8)((o.a >> 8) & 0xff),
+            (U8)(o.n & 0xff), (U8)((o.n >> 8) & 0xff),
+            0, 0, 0    // reserved
+        };
+        _write(GT_OPX, x, sizeof(x));
         return *this;
     }
 };
