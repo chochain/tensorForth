@@ -10,6 +10,7 @@
 class CueForth {
     AIO  *aio;
     Dict *dict;
+    int  *busy;                 // for Device to Host VM status reporting
 
 public:
     CueForth(bool trace=false);
