@@ -15,10 +15,10 @@
 #define FIND(s)   (dict.find(s, compile, ucase))
 
 __GPU__
-ForthVM::ForthVM(Istream *istr,	Ostream *ostr, Dict *dict0)
-	: fin(*istr), fout(*ostr), dict(*dict0) {
-	PMEM0 = IP0 = IP = dict.mem0();
-	printf("dict=%p, mem0=%p\n", dict0, PMEM0);
+ForthVM::ForthVM(Istream *istr,    Ostream *ostr, Dict *dict0)
+    : fin(*istr), fout(*ostr), dict(*dict0) {
+    PMEM0 = IP0 = IP = dict.mem0();
+    printf("dict=%p, mem0=%p\n", dict0, PMEM0);
 }
 ///
 /// Forth inner interpreter (colon word handler)
@@ -49,12 +49,14 @@ ForthVM::nest(IU c) {
     IP  = PMEM0 + INT(rs.pop());
 }
 ///
-/// Dict compiler proxy functions to reduce verbosity
+/// Dict compiler proxy macros to reduce verbosity
 ///
-__GPU__ __INLINE__ void ForthVM::add_iu(IU i) { dict.add_iu(i); }
-__GPU__ __INLINE__ void ForthVM::add_du(DU d) { dict.add_du(d); }
+__GPU__ __INLINE__ void ForthVM::add_iu(IU i) { dict.add((U8*)&i, sizeof(IU)); }
+__GPU__ __INLINE__ void ForthVM::add_du(DU d) { dict.add((U8*)&d, sizeof(DU)); }
 __GPU__ __INLINE__ void ForthVM::add_str(IU op, const char *s) {
-	dict.add_iu(op); dict.add_str(s);
+    int sz = STRLENB(s)+1; sz = ALIGN2(sz);
+    dict.add((U8*)&op, sizeof(IU));
+    dict.add((U8*)s, sz);
 }
 __GPU__ __INLINE__ void ForthVM::call(IU w) {
     if (dict[w].def) nest(w);
@@ -94,7 +96,7 @@ ForthVM::ss_dump() {
 ///
 __GPU__ void
 ForthVM::init() {
-	const Code prim[] = {       /// singleton, build once only
+    const Code prim[] = {       /// singleton, build once only
     ///
     /// @defgroup Execution flow ops
     /// @brief - DO NOT change the sequence here (see forth_opcode enum)
@@ -185,9 +187,9 @@ ForthVM::init() {
     /// @defgroup IO ops
     /// @{
     CODE("base@",   PUSH(radix)),
-    CODE("base!",   radix = POP()),
-    CODE("hex",     radix = 16),
-    CODE("decimal", radix = 10),
+    CODE("base!",   fout << setbase(radix = POP())),
+    CODE("hex",     fout << setbase(radix = 16)),
+    CODE("decimal", fout << setbase(radix = 10)),
     CODE("cr",      fout << ENDL),
     CODE(".",       fout << POP() << " "),
     CODE(".r",      int n = INT(POP()); dot_r(n, POP())),
@@ -218,11 +220,12 @@ ForthVM::init() {
     /// @defgroup Branching ops
     /// @brief - if...then, if...else...then
     /// @{
-    IMMD("if",      add_iu(ZBRAN); PUSH(LWIP); add_iu(0)),  // if   ( -- here )
-    IMMD("else",                                                      // else ( here -- there )
+    IMMD("if", add_iu(ZBRAN); PUSH(LWIP); add_iu(0)),       // if   ( -- here )
+    IMMD("else",                                            // else ( here -- there )
         add_iu(BRAN);
-        IU h=LWIP;  add_iu(0); dict.setjmp(INT(POP())); PUSH(h)),
-    IMMD("then",    dict.setjmp(INT(POP()))),                         // backfill jump address
+        IU h = LWIP;                                        // get current ip address
+        add_iu(0); dict.setjmp(INT(POP())); PUSH(h)),       // set forward jump
+    IMMD("then", dict.setjmp(INT(POP()))),                  // backfill jump address
     /// @}
     /// @defgroup Loops
     /// @brief  - begin...again, begin...f until, begin...f while...repeat
@@ -309,12 +312,12 @@ ForthVM::init() {
     CODE("boot",  dict.clear(FIND("boot") + 1))
     /// @}
     };
-	for (int i=0; i<sizeof(prim)/sizeof(Code); i++) {
-	    dict.add_code((Code*)&prim[i]);
-	    printf("%3d> %p %s\n", i, dict[i].name, dict[i].name);   // dump dictionary from device
-	}
+    for (int i=0; i<sizeof(prim)/sizeof(Code); i++) {
+        dict.add_code((Code*)&prim[i]);
+        printf("%3d> %p %s\n", i, dict[i].name, dict[i].name);   // dump dictionary from device
+    }
     status = VM_RUN;
-    
+
     printf("init() this=%p sizeof(Code)=%d\n", this, sizeof(Code));
 };
 ///
@@ -328,15 +331,15 @@ ForthVM::outer() {
         if (w>=0) {                          /// * word found?
             printf("%p %s %d\n", dict[w].xt, dict[w].name, w);
             if (compile && !dict[w].immd) {  /// * in compile mode?
-                add_iu(w);                   /// * add found word to new colon word
+                add_iu((IU)w);               /// * add found word to new colon word
             }
-            else call(w);                    /// * execute forth word
+            else call((IU)w);                /// * execute forth word
             continue;
         }
         // try as a number
         char *p;
-        int n = INT(STRTOL(idiom, &p, radix));
-        printf("%d\n", n);
+        DU n = STRTOL(idiom, &p, radix);
+        printf("%f\n", n);
         if (*p != '\0') {                    /// * not number
             fout << idiom << "? " << ENDL;   ///> display error prompt
             compile = false;                 ///> reset to interpreter mode
@@ -345,7 +348,7 @@ ForthVM::outer() {
         // is a number
         if (compile) {                       /// * add literal when in compile mode
             add_iu(DOLIT);                   ///> dovar (+parameter field)
-            add_du(n);                       ///> data storage (32-bit integer now)
+            add_du(n);                       ///> store literal
         }
         else PUSH(n);                        ///> or, add value onto data stack
     }
