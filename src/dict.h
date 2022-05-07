@@ -24,11 +24,11 @@ struct functor : fop {
     };
 #if CC_DEBUG
     __GPU__ functor(const F &f) : op(f) {
-    	printf("functor(f=%p)\n", fp);
+        printf("functor(f=%p)\n", fp);
     }
     __GPU__ void operator()(IU c) {
-    	printf(">> op=%p\n", fp);
-    	op(c);
+        printf(">> op=%p\n", fp);
+        op(c);
     }
 #else
     __GPU__ functor(const F &f) : op(f) {}
@@ -51,7 +51,7 @@ struct Code : public Managed {
             IU  pidx;       /// offset to pmem space
         };
     };
-    __GPU__ Code() {}      /// default constructor, called by new Vector
+    __GPU__ Code() {}       /// default constructor, called by new Vector
     __GPU__ ~Code() {}
 
     template<typename F>    /// template function for lambda
@@ -73,7 +73,7 @@ struct Code : public Managed {
     }
     __GPU__ Code(const Code &c) : name(c.name), xt(c.xt) {}
     __GPU__ void operator=(const Code &c) {
-    	name = c.name; xt = c.xt;
+        name = c.name; xt = c.xt;
     }
 #endif // CC_DEBUG
 };
@@ -85,7 +85,7 @@ class Dict : public Managed {
     U8   *_pmem;
     int  _didx = 0;
     int  _midx = 0;
-    
+
 public:
     Dict();
     ~Dict();
@@ -103,11 +103,11 @@ public:
     __GPU__ int  here()             { return _midx; }
     __GPU__ void add_code(Code *c)  { _dict[_didx++] = *c; }
     __GPU__ void clear(int i)       { _didx = i; _midx = 0; }
-    __GPU__ void add(U8* v, int sz) { for (; sz; sz--) _pmem[_midx++] = *v++; }
-    __GPU__ void add_iu(IU i)       { add((U8*)&i, sizeof(IU)); }
-    __GPU__ void add_du(DU d)       { add((U8*)&d, sizeof(DU)); }
-    __GPU__ void add_str(const char *s)   { int sz = STRLENB(s)+1; sz = ALIGN2(sz); add((U8*)s, sz); }
-	__GPU__ void setjmp(IU a)       { wi((IU*)(pfa(-1) + a), (IU)_dict[-1].plen); }
+    __GPU__ void add(U8* v, int sz) {
+        _dict[_didx-1].plen += sz;                                   // increase parameter field length
+        for (; sz; sz--) { _pmem[_midx++] = *v++; }                  // copy data to heap, TODO: dynamic parallel
+    }
+    __GPU__ void setjmp(IU a)       { wi((IU*)(pfa(_didx -1) + a), (IU)_dict[_didx-1].plen); }
     ///
     /// low level memory access
     ///
@@ -121,10 +121,10 @@ public:
     ///
     /// debug methods (implemented in .cu)
     ///
-    __HOST__ void to_s(std::ostream &fout, IU c);
-    __HOST__ void see(std::ostream &fout, IU *cp, IU *ip, int dp);
+    __HOST__ void to_s(std::ostream &fout, IU w);
     __HOST__ void words(std::ostream &fout);
     __HOST__ void dump(std::ostream &fout, IU p0, int sz);
+    __HOST__ void see(std::ostream &fout, U8 *wp, int *i, int level);
+    __HOST__ void see(std::ostream &fout, IU w);
 };
 #endif // CUEF_SRC_DICT_H
-
