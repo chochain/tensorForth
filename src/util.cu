@@ -207,14 +207,14 @@ u32_to_bin(uint32_t l, char *bin) {
 /*
 __GPU__ void
 d_memcpy(void *t, const void *s, size_t n) {
-	char *p1=(char*)t, *p0=(char*)s;
-	for (; n; n--) *p1++ = *p0++;
+    char *p1=(char*)t, *p0=(char*)s;
+    for (; n; n--) *p1++ = *p0++;
 }
 
 __GPU__ void
 d_memset(void *t, int c, size_t n) {
-	char *p1=(char*)t;
-	for (; n; n--) *p1++ = (char)c;
+    char *p1=(char*)t;
+    for (; n; n--) *p1++ = (char)c;
 }
 */
 __GPU__ int
@@ -245,9 +245,7 @@ d_strcpy(char *t, const char *s) {
 __GPU__ int
 d_strcmp(const char *t, const char *s) {
     char *p1=(char*)t, *p0=(char*)s;
-    for (; *p1 && *p0; p1++, p0++) {
-        if (*p1 != *p0) return *p1 - *p0;
-    }
+    for (; *p1 && *p0 && *p1==*p0; p1++, p0++);
     return *p1 - *p0;
 }
 
@@ -255,11 +253,11 @@ __GPU__ int
 d_strcasecmp(const char *t, const char *s) {
     char *p1=(char*)t, *p0=(char*)s;
     for (; *p1 && *p0; p1++, p0++) {
-    	char c = *p1 & 0x7f;
-    	if (c < 0x41 || c > 0x5a) {
-    		if (*p1 != *p0) return *p1 - *p0;
-    	}
-    	else if ((*p1 & 0x5f) != (*p0 & 0x5f)) return *p1 - *p0;
+        char c = *p1 & 0x7f;
+        if (c < 0x41 || c > 0x5a) {
+            if (*p1 != *p0) break;
+        }
+        else if ((*p1 & 0x5f) != (*p0 & 0x5f)) break;
     }
     return *p1 - *p0;
 }
@@ -350,7 +348,7 @@ d_strtof(const char *s, char** p) {
     while ((*s<'0' || *s>'9') && *s!='+' && *s!='-') s++;
 
     if (*s=='+' || *s=='-') sign = *s++=='-' ? -1 : 1;
-    
+
     *p = NULL;
     while (*s!='\0' && *s!='\n' && *s!=' ' && *s!='\t') {
         if (state==0 && *s>='0' && *s<='9') {       // integer
