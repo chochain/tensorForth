@@ -74,7 +74,7 @@ Dict::see(std::ostream &fout, U8 *wp, int *i, int level) {
     if (level) fout << "[" << std::setw(4) << *i << ": ";
     else       fout << "[ " << (void*)wp << ": ";
     to_s(fout, w);                                                  // display word name
-    if (c->def) {                                                   // is a colon word?
+    if (c->def && level==0) {                                       // is a colon word?
         int i1 = 0;                                                 // display children recursively
         U8  *p = pfa(w);
         while (i1 < c->plen) {
