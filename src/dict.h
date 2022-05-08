@@ -99,7 +99,7 @@ public:
     /// compiler methods
     ///
     __GPU__ void colon(const char *name);                            // implemented in .cu
-    __GPU__ int  align()            { int i = (-_didx & 7); _didx += i; return i; }
+    __GPU__ int  align()            { int i = (-_midx & 0x3); _midx += i; return i; }
     __GPU__ int  here()             { return _midx; }
     __GPU__ void add_code(Code *c)  { _dict[_didx++] = *c; }
     __GPU__ void clear(int i)       { _didx = i; _midx = 0; }
