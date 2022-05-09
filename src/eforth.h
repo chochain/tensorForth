@@ -26,14 +26,14 @@ public:
     Vector<DU,   CUEF_RS_SZ>   rs;          /// return stack
     Vector<DU,   CUEF_SS_SZ>   ss;          /// parameter stack
 
-    __GPU__ ForthVM(Istream *istr, Ostream *ostr, Dict *dict0);
+    __GPU__ ForthVM(Istream *istr, Ostream *ostr, MMU *mmu);
     __GPU__ void init();
     __GPU__ void outer();
 
 private:
     Istream       &fin;                     /// VM stream input
     Ostream       &fout;                    /// VM stream output
-    Dict          &dict;                    /// dictionary object
+    MMU           &mmu;                     /// memory managing unit
 
     bool  ucase   = true;                   /// case insensitive
     bool  compile = false;                  /// compiling flag

@@ -2,23 +2,23 @@
   @brief
   cueForth Forth Vritual Machine implementation
 */
-#include "dict.h"
+#include "mmu.h"
 #include "eforth.h"
 ///
 /// Forth Virtual Machine operational macros
 ///
 #define INT(f)    (static_cast<int>(f))       /** cast float to int                        */
 #define I2DU(i)   (static_cast<DU>(i))        /** cast int back to float                   */
-#define LWIP      (dict[-1].plen)             /** parameter field tail of latest word      */
+#define LWIP      (mmu[-1].plen)              /** parameter field tail of latest word      */
 #define JMPIP     (IP0 + *(IU*)IP)            /** branching target address                 */
 #define IPOFF     ((IU)(IP - PMEM0))          /** IP offset relative parameter memory root */
-#define FIND(s)   (dict.find(s, compile, ucase))
+#define FIND(s)   (mmu.find(s, compile, ucase))
 
 __GPU__
-ForthVM::ForthVM(Istream *istr,    Ostream *ostr, Dict *dict0)
-    : fin(*istr), fout(*ostr), dict(*dict0) {
-    PMEM0 = IP0 = IP = dict.mem0();
-    printf("dict=%p, mem0=%p\n", dict0, PMEM0);
+ForthVM::ForthVM(Istream *istr, Ostream *ostr, MMU *mmu0)
+    : fin(*istr), fout(*ostr), mmu(*mmu0) {
+    PMEM0 = IP0 = IP = mmu.mem0();
+    printf("dict=%p, mem0=%p\n", &mmu[0], PMEM0);
 }
 ///
 /// Forth inner interpreter (colon word handler)
@@ -34,10 +34,10 @@ ForthVM::scan(char c) {
 __GPU__ void
 ForthVM::nest(IU c) {
     rs.push(IP - PMEM0); rs.push(WP);       /// * setup call frame
-    IP0 = IP = dict.pfa(WP=c);              // CC: this takes 30ms/1K, need work
+    IP0 = IP = mmu.pfa(WP=c);               // CC: this takes 30ms/1K, need work
 //  try                                     // kernal does not support exception
     {                                       // CC: is dict[c] kept in cache?
-        U8 *ipx = IP + dict[c].plen;        // CC: this saves 350ms/1M
+        U8 *ipx = IP + mmu[c].plen;         // CC: this saves 350ms/1M
         while (IP < ipx) {                  /// * recursively call all children
             IU c1 = *IP; IP += sizeof(IU);  // CC: cost of (ipx, c1) on stack?
             call(c1);                       ///> execute child word
@@ -45,22 +45,22 @@ ForthVM::nest(IU c) {
     }
 //    catch(...) {}                         ///> protect if any exeception
     yield();                                ///> give other tasks some time
-    IP0 = dict.pfa(WP=rs.pop());            /// * restore call frame
+    IP0 = mmu.pfa(WP=rs.pop());             /// * restore call frame
     IP  = PMEM0 + INT(rs.pop());
 }
 ///
 /// Dict compiler proxy macros to reduce verbosity
 ///
-__GPU__ __INLINE__ void ForthVM::add_iu(IU i) { dict.add((U8*)&i, sizeof(IU)); }
-__GPU__ __INLINE__ void ForthVM::add_du(DU d) { dict.add((U8*)&d, sizeof(DU)); }
+__GPU__ __INLINE__ void ForthVM::add_iu(IU i) { mmu.add((U8*)&i, sizeof(IU)); }
+__GPU__ __INLINE__ void ForthVM::add_du(DU d) { mmu.add((U8*)&d, sizeof(DU)); }
 __GPU__ __INLINE__ void ForthVM::add_str(IU op, const char *s) {
     int sz = STRLENB(s)+1; sz = ALIGN2(sz);
-    dict.add((U8*)&op, sizeof(IU));
-    dict.add((U8*)s, sz);
+    mmu.add((U8*)&op, sizeof(IU));
+    mmu.add((U8*)s, sz);
 }
 __GPU__ __INLINE__ void ForthVM::call(IU w) {
-    if (dict[w].def) nest(w);
-    else             (*(fop*)(((uintptr_t)dict[w].xt)&~0x3))(w);
+    if (mmu[w].def) nest(w);
+    else (*(fop*)(((uintptr_t)mmu[w].xt)&~0x3))(w);
 }
 ///==============================================================================
 ///
@@ -103,7 +103,7 @@ ForthVM::init() {
     /// @{
     CODE("nop",     {}),
     CODE("dovar",   PUSH(IPOFF); IP += sizeof(DU)),
-    CODE("dolit",   PUSH(dict.rd((DU*)IP)); IP += sizeof(DU)),
+    CODE("dolit",   PUSH(mmu.rd((DU*)IP)); IP += sizeof(DU)),
     CODE("dostr",
         char *s  = (char*)IP;                     // get string pointer
         int  sz  = STRLENB(s)+1;
@@ -118,10 +118,10 @@ ForthVM::init() {
          if ((rs[-1] -= 1) >= 0) IP = JMPIP;       // rs[-1]-=1 saved 200ms/1M cycles
          else { IP += sizeof(IU); rs.pop(); }),
     CODE("does",                                   // CREATE...DOES... meta-program
-         IU *ip  = (IU*)dict.pfa(WP);
-         IU *ipx = (IU*)((U8*)ip + dict[WP].plen);         // range check
-         while (ip < ipx && dict.ri(ip) != DOES) ip++;     // find DOES
-         while (++ip < ipx) add_iu(dict.ri(ip));           // copy&paste code
+         IU *ip  = (IU*)mmu.pfa(WP);
+         IU *ipx = (IU*)((U8*)ip + mmu[WP].plen);          // range check
+         while (ip < ipx && mmu.ri(ip) != DOES) ip++;      // find DOES
+         while (++ip < ipx) add_iu(mmu.ri(ip));            // copy&paste code
          IP = (U8*)ipx),                                   // done
     CODE(">r",   rs.push(POP())),
     CODE("r>",   PUSH(rs.pop())),
@@ -224,8 +224,8 @@ ForthVM::init() {
     IMMD("else",                                            // else ( here -- there )
         add_iu(BRAN);
         IU h = LWIP;                                        // get current ip address
-        add_iu(0); dict.setjmp(INT(POP())); PUSH(h)),       // set forward jump
-    IMMD("then", dict.setjmp(INT(POP()))),                  // backfill jump address
+        add_iu(0); mmu.setjmp(INT(POP())); PUSH(h)),        // set forward jump
+    IMMD("then", mmu.setjmp(INT(POP()))),                   // backfill jump address
     /// @}
     /// @defgroup Loops
     /// @brief  - begin...again, begin...f until, begin...f while...repeat
@@ -235,7 +235,7 @@ ForthVM::init() {
     IMMD("until",   add_iu(ZBRAN); add_iu(POP())),          // until    ( there -- )
     IMMD("while",   add_iu(ZBRAN); PUSH(LWIP); add_iu(0)),  // while    ( there -- there here )
     IMMD("repeat",  add_iu(BRAN);                           // repeat    ( there1 there2 -- )
-        IU t=POP(); add_iu(POP()); dict.setjmp(t)),         // set forward and loop back address
+        IU t=POP(); add_iu(POP()); mmu.setjmp(t)),          // set forward and loop back address
     /// @}
     /// @defgrouop For loops
     /// @brief  - for...next, for...aft...then...next
@@ -248,48 +248,48 @@ ForthVM::init() {
     /// @}
     /// @defgrouop Compiler ops
     /// @{
-    CODE(":", dict.colon(next_word()); compile=true),
+    CODE(":", mmu.colon(next_word()); compile=true),
     IMMD(";", compile = false),
     CODE("variable",                                        // create a variable
-        dict.colon(next_word());                            // create a new word on dictionary
+        mmu.colon(next_word());                             // create a new word on dictionary
         add_iu(DOVAR);                                      // dovar (+parameter field)
         add_du(0)),                                         // data storage (32-bit integer now)
     CODE("constant",                                        // create a constant
-        dict.colon(next_word());                            // create a new word on dictionary
+        mmu.colon(next_word());                             // create a new word on dictionary
         add_iu(DOLIT);                                      // dovar (+parameter field)
         add_du(POP())),                                     // data storage (32-bit integer now)
     /// @}
     /// @defgroup metacompiler
     /// @brief - dict is directly used, instead of shield by macros
     /// @{
-    CODE("exit",  IP = dict.pfa(WP) + dict[WP].plen),       // quit current word execution
+    CODE("exit",  IP = mmu.pfa(WP) + mmu[WP].plen),         // quit current word execution
     CODE("exec",  call(POP())),                             // execute word
     CODE("create",
-        dict.colon(next_word());                            // create a new word on dictionary
+        mmu.colon(next_word());                             // create a new word on dictionary
         add_iu(DOVAR)),                                     // dovar (+ parameter field)
     CODE("to",              // 3 to x                       // alter the value of a constant
         IU w = FIND(next_word());                           // to save the extra @ of a variable
-        dict.wd((DU*)(dict.pfa(w) + sizeof(IU)), POP())),
+        mmu.wd((DU*)(mmu.pfa(w) + sizeof(IU)), POP())),
     CODE("is",              // ' y is x                     // alias a word
         IU w = FIND(next_word());                           // can serve as a function pointer
-        dict.wi((IU*)dict.pfa(POP()), dict[w].pidx)),       // but might leave a dangled block
+        mmu.wi((IU*)mmu.pfa(POP()), mmu[w].pidx)),          // but might leave a dangled block
     CODE("[to]",            // : xx 3 [to] y ;              // alter constant in compile mode
-        IU w = dict.ri((IU*)IP); IP += sizeof(IU);          // fetch constant pfa from 'here'
-        dict.wd((DU*)(dict.pfa(w) + sizeof(IU)), POP())),
+        IU w = mmu.ri((IU*)IP); IP += sizeof(IU);           // fetch constant pfa from 'here'
+        mmu.wd((DU*)(mmu.pfa(w) + sizeof(IU)), POP())),
     ///
     /// be careful with memory access, especially BYTE because
     /// it could make access misaligned which slows the access speed by 2x
     ///
-    CODE("@",     IU w = POP(); PUSH(dict.rd(w))),                                 // w -- n
-    CODE("!",     IU w = POP(); dict.wd(w, POP())),                                // n w --
+    CODE("@",     IU w = POP(); PUSH(mmu.rd(w))),                                  // w -- n
+    CODE("!",     IU w = POP(); mmu.wd(w, POP())),                                 // n w --
     CODE(",",     DU n = POP(); add_du(n)),
     CODE("allot", DU v = 0; for (IU n = POP(), i = 0; i < n; i++) add_du(v)),      // n --
-    CODE("+!",    IU w = POP(); dict.wd(w, dict.rd(w)+POP())),                     // n w --
-    CODE("?",     IU w = POP(); fout << dict.rd(w) << " "),                        // w --
+    CODE("+!",    IU w = POP(); mmu.wd(w, mmu.rd(w)+POP())),                       // n w --
+    CODE("?",     IU w = POP(); fout << mmu.rd(w) << " "),                         // w --
     /// @}
     /// @defgroup Debug ops
     /// @{
-    CODE("here",  PUSH(dict.here())),
+    CODE("here",  PUSH(mmu.here())),
     CODE("ucase", ucase = POP()),
     CODE("'",     IU w = FIND(next_word()); PUSH(w)),
     CODE(".s",    ss_dump(POP())),
@@ -300,7 +300,7 @@ ForthVM::init() {
         int w = FIND(next_word());
         if (w<0) return;
         IU b = FIND("boot")+1;
-        dict.clear(w > b ? w : b)),
+        mmu.clear(w > b ? w : b)),
     /// @}
     /// @defgroup System ops
     /// @{
@@ -309,12 +309,12 @@ ForthVM::init() {
     CODE("clock", PUSH(millis())),
     CODE("delay", delay(POP())),             // TODO: change to VM_WAIT
     CODE("bye",   status = VM_STOP),
-    CODE("boot",  dict.clear(FIND("boot") + 1))
+    CODE("boot",  mmu.clear(FIND("boot") + 1))
     /// @}
     };
     for (int i=0; i<sizeof(prim)/sizeof(Code); i++) {
-        dict.add_code((Code*)&prim[i]);
-        printf("%3d> %p %s\n", i, dict[i].name, dict[i].name);   // dump dictionary from device
+        mmu.add_code((Code*)&prim[i]);
+        printf("%3d> %p %s\n", i, mmu[i].name, mmu[i].name);   // dump dictionary from device
     }
     status = VM_RUN;
 
@@ -329,8 +329,8 @@ ForthVM::outer() {
         printf("%d>> %s => ", blockIdx.x, idiom);
         int w = FIND(idiom);                 /// * search through dictionary
         if (w>=0) {                          /// * word found?
-            printf("%p %s %d\n", dict[w].xt, dict[w].name, w);
-            if (compile && !dict[w].immd) {  /// * in compile mode?
+            printf("%p %s %d\n", mmu[w].xt, mmu[w].name, w);
+            if (compile && !mmu[w].immd) {   /// * in compile mode?
                 add_iu((IU)w);               /// * add found word to new colon word
             }
             else call((IU)w);                /// * execute forth word
