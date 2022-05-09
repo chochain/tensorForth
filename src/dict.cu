@@ -6,12 +6,14 @@
 #include "dict.h"
 
 Dict::Dict() {
-    cudaMallocManaged(&_dict, sizeof(Code)*CUEF_DICT_SZ);
-    cudaMallocManaged(&_pmem, sizeof(U8)*CUEF_HEAP_SZ);
+    cudaMallocManaged(&_dict, sizeof(Code) * CUEF_DICT_SZ);
+    cudaMallocManaged(&_pmem, sizeof(U8) * CUEF_HEAP_SZ);
+    cudaMallocManaged(&_vss,  sizeof(DU) * CUEF_SS_SZ * MIN_VM_COUNT);
     GPU_CHK();
 }
 Dict::~Dict() {
     GPU_SYNC();
+    cudaFree(_vss);
     cudaFree(_pmem);
     cudaFree(_dict);
 }
@@ -64,6 +66,17 @@ Dict::to_s(std::ostream &fout, IU w) {
     fout << " " << w << (_dict[w].immd ? "* " : " ");
 }
 ///
+/// display dictionary word list
+///
+__HOST__ void
+Dict::words(std::ostream &fout) {
+    fout << std::setbase(10);
+    for (int i=0; i<_didx; i++) {
+        if ((i%10)==0) { fout << std::endl; }
+        to_s(fout, i);
+    }
+}
+///
 /// recursively disassemble colon word
 ///
 __HOST__ void
@@ -103,15 +116,14 @@ Dict::see(std::ostream &fout, IU w) {
     see(fout, (U8*)&w, &i, 0);
 }
 ///
-/// display dictionary word list
+/// dump data stack content
 ///
 __HOST__ void
-Dict::words(std::ostream &fout) {
-    fout << std::setbase(10);
-    for (int i=0; i<_didx; i++) {
-        if ((i%10)==0) { fout << std::endl; }
-        to_s(fout, i);
-    }
+Dict::ss_dump(std::ostream &fout, int vid, int n) {
+    DU *ss = &_vss[vid * CUEF_SS_SZ];
+    fout << " <";
+    for (int i=0; i<n; i++) { fout << ss[i] << " "; }
+    fout << ss[CUEF_SS_SZ-1] << "> ok" << std::endl;
 }
 ///
 /// Forth pmem memory dump

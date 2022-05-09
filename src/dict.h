@@ -83,6 +83,7 @@ struct Code : public Managed {
 class Dict : public Managed {
     Code *_dict;
     U8   *_pmem;
+    DU   *_vss;
     int  _didx = 0;
     int  _midx = 0;
 
@@ -93,7 +94,8 @@ public:
     /// dictionary access and search methods
     ///
     __GPU__ Code &operator[](int i) { return (i<0) ? _dict[_didx+i] : _dict[i]; }
-    __GPU__ U8*  mem0() { return &_pmem[0]; }
+    __GPU__ DU*  vss(int vid) { return &_vss[vid * CUEF_SS_SZ]; }    // data stack (per VM id)
+    __GPU__ U8*  mem0()       { return &_pmem[0]; }                  // base of heap space
     __GPU__ int  find(const char *s, bool compile, bool ucase);      // implemented in .cu
     ///
     /// compiler methods
@@ -126,5 +128,6 @@ public:
     __HOST__ void dump(std::ostream &fout, IU p0, int sz);
     __HOST__ void see(std::ostream &fout, U8 *wp, int *i, int level);
     __HOST__ void see(std::ostream &fout, IU w);
+    __HOST__ void ss_dump(std::ostream &fout, int vid, int n);
 };
 #endif // CUEF_SRC_DICT_H
