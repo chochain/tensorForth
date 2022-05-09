@@ -48,10 +48,10 @@ AIO::print_node(obuf_node *node) {
         U16 n  = (U16)*(v+3) | ((U16)(*(v+4))<<8);
         printf("H:%d(%d, %d)\n", op, a, n);
         switch (op) {
-        case OP_WORDS: _dict->words(std::cout);      break;
-        case OP_SEE:   _dict->see(std::cout, a);     break;
-        case OP_DUMP:  _dict->dump(std::cout, a, n); break;
-        case OP_SS:    _dict->ss_dump(std::cout, node->id, a); break;
+        case OP_WORDS: _mmu->words(std::cout);      break;
+        case OP_SEE:   _mmu->see(std::cout, a);     break;
+        case OP_DUMP:  _mmu->dump(std::cout, a, n); break;
+        case OP_SS:    _mmu->ss_dump(std::cout, node->id, a); break;
         }
     } break;
     default: std::cout << "print type not supported: " << (int)node->gt;  break;
