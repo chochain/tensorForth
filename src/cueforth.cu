@@ -18,11 +18,13 @@ __GPU__    ForthVM *vm_pool[MIN_VM_COUNT];
 ///
 __KERN__ void
 cueforth_init(Istream *istr, Ostream *ostr, Dict *dict) {
-    int b = blockIdx.x;
     if (threadIdx.x!=0) return;
 
-    vm_pool[b] = new ForthVM(istr, ostr, dict);  // instantiate VM
-    if (b==0) vm_pool[0]->init();                // initialize dictionary
+    int b = blockIdx.x;
+    ForthVM *vm = vm_pool[b] = new ForthVM(istr, ostr, dict);  // instantiate VM
+    vm->ss.v = dict->vss(b);             // set managed memory block as data stack
+
+    if (b==0) vm->init();                // initialize dictionary
 }
 ///
 /// check VM status
@@ -45,25 +47,36 @@ cueforth_busy(int *busy) {
 #include <stdio.h>
 __KERN__ void
 cueforth_exec() {
-    const char *s[] = {"READY", "RUN", "WAITING", "STOPPED"};
+    const char *st[] = {"READY", "RUN", "WAITING", "STOPPED"};
+    extern __shared__ DU shared_ss[];
     if (threadIdx.x!=0) return;
 
-    ForthVM *vm = vm_pool[blockIdx.x];
+    int      b   = blockIdx.x;
+    ForthVM *vm  = vm_pool[b];
+    DU      *ss  = &shared_ss[b * CUEF_SS_SZ];  // adjust stack pointer based on VM id
+    DU      *ss0 = vm->ss.v;                    // VM data stack in managed memory
+    MEMCPY(ss, ss0, sizeof(DU) * CUEF_SS_SZ);   // copy stack into shared memory block
+    vm->ss.v = ss;                              // redirect data stack to shared memory
+
     if (vm->status == VM_RUN) vm->outer();
-    else                       printf("VM[%d] %s\n", blockIdx.x, s[vm->status]);
+    else printf("VM[%d] %s\n", blockIdx.x, st[vm->status]);
+
+    __syncthreads();
+    MEMCPY(ss0, ss, sizeof(DU) * CUEF_SS_SZ);    // copy updated stack to managed memory
+    vm->ss.v = ss0;                              // reset stack back to VM
 }
 
 CueForth::CueForth(bool trace) {
     dict = new Dict();
-    aio  = new AIO(dict, trace);            // TODO: aio not dict dependent
+    aio  = new AIO(dict, trace);                // TODO: aio not dict dependent
     cudaMalloc((void**)&busy, sizeof(int));
     GPU_CHK();
 
     cueforth_init<<<MIN_VM_COUNT, 1>>>(aio->istream(), aio->ostream(), dict);
     GPU_CHK();
 
-    //dict->dump(cout, 0, 120*0x10);        // dump memory from host
-    //dict->words(cout);                    // dump dictionary from host
+    //dict->dump(cout, 0, 120*0x10);            // dump memory from host
+    //dict->words(cout);                        // dump dictionary from host
 }
 CueForth::~CueForth() {
     delete aio;
@@ -84,11 +97,12 @@ CueForth::is_running() {
     return h_busy;
 }
 
+#define VSS_SZ (sizeof(DU)*CUEF_SS_SZ*MIN_VM_COUNT)
 __HOST__ int
 CueForth::run() {
     while (is_running()) {
         if (aio->readline()) {        // feed from host console to managed input buffer
-            cueforth_exec<<<1,1>>>(); // TODO: multiple VM destination, shared memory
+            cueforth_exec<<<1, 1, VSS_SZ>>>();
             GPU_CHK();
             aio->flush();             // flush output buffer
         }
