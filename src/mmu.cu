@@ -1,17 +1,19 @@
 /*! @file
   @brief
-  cueForth - dictionary manager
+  cueForth - Memory Manager
 */
 #include <iomanip>          // setw, setbase
-#include "dict.h"
+#include "mmu.h"
 
-Dict::Dict() {
+__HOST__
+MMU::MMU() {
     cudaMallocManaged(&_dict, sizeof(Code) * CUEF_DICT_SZ);
     cudaMallocManaged(&_pmem, sizeof(U8) * CUEF_HEAP_SZ);
     cudaMallocManaged(&_vss,  sizeof(DU) * CUEF_SS_SZ * MIN_VM_COUNT);
     GPU_CHK();
 }
-Dict::~Dict() {
+__HOST__
+MMU::~MMU() {
     GPU_SYNC();
     cudaFree(_vss);
     cudaFree(_pmem);
@@ -21,7 +23,7 @@ Dict::~Dict() {
 /// dictionary search functions - can be adapted for ROM+RAM
 ///
 __GPU__ int
-Dict::find(const char *s, bool compile, bool ucase) {
+MMU::find(const char *s, bool compile, bool ucase) {
     printf("find(%s) => ", s);
     for (int i = _didx - (compile ? 2 : 1); i >= 0; --i) {
         const char *t = _dict[i].name;
@@ -31,10 +33,10 @@ Dict::find(const char *s, bool compile, bool ucase) {
     return -1;
 }
 ///
-/// compiler
+/// colon - dictionary word compiler
 ///
 __GPU__ void
-Dict::colon(const char *name) {
+MMU::colon(const char *name) {
     int  sz = STRLENB(name);                // aligned string length
     Code *c = &_dict[_didx++];              // get next dictionary slot
     align();                                // nfa 32-bit aligned (adjust _midx)
@@ -51,7 +53,7 @@ Dict::colon(const char *name) {
 /// display dictionary word (wastefully one byte at a time)
 ///
 __HOST__ void
-Dict::to_s(std::ostream &fout, IU w) {
+MMU::to_s(std::ostream &fout, IU w) {
     /*
      * TODO: not sure why copying 32 byt does not work?
      * char name[36];
@@ -69,7 +71,7 @@ Dict::to_s(std::ostream &fout, IU w) {
 /// display dictionary word list
 ///
 __HOST__ void
-Dict::words(std::ostream &fout) {
+MMU::words(std::ostream &fout) {
     fout << std::setbase(10);
     for (int i=0; i<_didx; i++) {
         if ((i%10)==0) { fout << std::endl; }
@@ -80,7 +82,7 @@ Dict::words(std::ostream &fout) {
 /// recursively disassemble colon word
 ///
 __HOST__ void
-Dict::see(std::ostream &fout, U8 *wp, int *i, int level) {
+MMU::see(std::ostream &fout, U8 *wp, int *i, int level) {
     IU    w = ri((IU*)wp);
     Code *c = &_dict[w];
     fout << std::endl; for (int n=level; n>0; n--) fout << "  ";    // indentation by level
@@ -111,7 +113,7 @@ Dict::see(std::ostream &fout, U8 *wp, int *i, int level) {
     fout << "] ";
 }
 __HOST__ void
-Dict::see(std::ostream &fout, IU w) {
+MMU::see(std::ostream &fout, IU w) {
     int i = 0;
     see(fout, (U8*)&w, &i, 0);
 }
@@ -119,7 +121,7 @@ Dict::see(std::ostream &fout, IU w) {
 /// dump data stack content
 ///
 __HOST__ void
-Dict::ss_dump(std::ostream &fout, int vid, int n) {
+MMU::ss_dump(std::ostream &fout, int vid, int n) {
     DU *ss = &_vss[vid * CUEF_SS_SZ];
     fout << " <";
     for (int i=0; i<n; i++) { fout << ss[i] << " "; }
@@ -132,7 +134,7 @@ Dict::ss_dump(std::ostream &fout, int vid, int n) {
 #define C2H(c) { buf[x++] = i2h[(c)>>4]; buf[x++] = i2h[(c)&0xf]; }
 #define IU2H(i){ C2H((i)>>8); C2H((i)&0xff); }
 __HOST__ void
-Dict::dump(std::ostream &fout, IU p0, int sz) {
+MMU::dump(std::ostream &fout, IU p0, int sz) {
     const char *i2h = "0123456789abcdef";
     char buf[80];
     for (IU i=ALIGN16(p0); i<=ALIGN16(p0+sz); i+=16) {

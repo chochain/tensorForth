@@ -1,9 +1,9 @@
 /*! @file
   @brief
-  cueForth - eForth dictionary classes
+  cueForth - memory manager unit
 */
-#ifndef CUEF_SRC_DICT_H
-#define CUEF_SRC_DICT_H
+#ifndef CUEF_SRC_MMU_H
+#define CUEF_SRC_MMU_H
 #include <ostream>
 #include "cuef_config.h"
 #include "cuef_types.h"
@@ -78,9 +78,9 @@ struct Code : public Managed {
 #endif // CC_DEBUG
 };
 ///
-/// Forth dictionary manager
+/// Forth memory manager
 ///
-class Dict : public Managed {
+class MMU : public Managed {
     Code *_dict;
     U8   *_pmem;
     DU   *_vss;
@@ -88,8 +88,8 @@ class Dict : public Managed {
     int  _midx = 0;
 
 public:
-    Dict();
-    ~Dict();
+    __HOST__ MMU();
+    __HOST__ ~MMU();
     ///
     /// dictionary access and search methods
     ///
@@ -121,7 +121,7 @@ public:
     __GPU__ void wd(IU w, DU d)     { wd((DU*)&_pmem[w], d); }
     __GPU__ void wi(IU *p, IU i)    { U8 *c = (U8*)p; *c++ = i&0xff; *c = (i>>8)&0xff; }
     ///
-    /// debug methods (implemented in .cu)
+    /// debugging methods (implemented in .cu)
     ///
     __HOST__ void to_s(std::ostream &fout, IU w);
     __HOST__ void words(std::ostream &fout);
@@ -130,4 +130,4 @@ public:
     __HOST__ void see(std::ostream &fout, IU w);
     __HOST__ void ss_dump(std::ostream &fout, int vid, int n);
 };
-#endif // CUEF_SRC_DICT_H
+#endif // CUEF_SRC_MMU_H
