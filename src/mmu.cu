@@ -11,6 +11,7 @@ MMU::MMU() {
     cudaMallocManaged(&_pmem, sizeof(U8) * CUEF_HEAP_SZ);
     cudaMallocManaged(&_vss,  sizeof(DU) * CUEF_SS_SZ * MIN_VM_COUNT);
     GPU_CHK();
+    printf("H: dict=%p, mem=%p, vss=%p\n", _dict, _pmem, _vss);
 }
 __HOST__
 MMU::~MMU() {

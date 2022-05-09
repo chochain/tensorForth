@@ -38,8 +38,6 @@ struct functor : fop {
 ///
 /// Code class for dictionary word
 ///
-#define H2D cudaMemcpyHostToDevice
-#define D2H cudaMemcpyDeviceToHost
 struct Code : public Managed {
     const char *name = 0;   /// name field
     union {
@@ -82,12 +80,14 @@ struct Code : public Managed {
 ///
 /// Forth memory manager
 ///
+#define H2D cudaMemcpyHostToDevice
+#define D2H cudaMemcpyDeviceToHost
 class MMU : public Managed {
+    int  _didx = 0;
+    int  _midx = 0;
     Code *_dict;
     U8   *_pmem;
     DU   *_vss;
-    int  _didx = 0;
-    int  _midx = 0;
 
 public:
     __HOST__ MMU();
@@ -95,7 +95,8 @@ public:
     ///
     /// dictionary access and search methods
     ///
-    __GPU__ Code &operator[](int i) { return (i<0) ? _dict[_didx+i] : _dict[i]; }
+    __GPU__ Code &operator<<(Code *c) { _dict[_didx++] = *c; }       // initiator
+    __GPU__ Code &operator[](int i)   { return (i<0) ? _dict[_didx+i] : _dict[i]; }
     __GPU__ DU*  vss(int vid) { return &_vss[vid * CUEF_SS_SZ]; }    // data stack (per VM id)
     __GPU__ U8*  mem0()       { return &_pmem[0]; }                  // base of heap space
     __GPU__ int  find(const char *s, bool compile, bool ucase);      // implemented in .cu
@@ -105,7 +106,6 @@ public:
     __GPU__ void colon(const char *name);                            // implemented in .cu
     __GPU__ int  align()            { int i = (-_midx & 0x3); _midx += i; return i; }
     __GPU__ int  here()             { return _midx; }
-    __GPU__ void add_code(Code *c)  { _dict[_didx++] = *c; }
     __GPU__ void clear(int i)       { _didx = i; _midx = 0; }
     __GPU__ void add(U8* v, int sz) {
         _dict[_didx-1].plen += sz;                                   // increase parameter field length
