@@ -57,13 +57,13 @@ MMU::to_s(std::ostream &fout, IU w) {
     /*
      * TODO: not sure why copying 32 byt does not work?
      * char name[36];
-     * cudaMemcpy(name, _dict[w].name, 32, cudaMemcpyDeviceToHost);
+     * cudaMemcpy(name, _dict[w].name, 32, D2H);
      */
     U8 c, i=0;
-    cudaMemcpy(&c, _dict[w].name, 1, cudaMemcpyDeviceToHost);
+    cudaMemcpy(&c, _dict[w].name, 1, D2H);
     while (c) {
         fout << c;
-        cudaMemcpy(&c, _dict[w].name+(++i), 1, cudaMemcpyDeviceToHost);
+        cudaMemcpy(&c, _dict[w].name+(++i), 1, D2H);
     }
     fout << " " << w << (_dict[w].immd ? "* " : " ");
 }

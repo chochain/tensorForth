@@ -38,6 +38,8 @@ struct functor : fop {
 ///
 /// Code class for dictionary word
 ///
+#define H2D cudaMemcpyHostToDevice
+#define D2H cudaMemcpyDeviceToHost
 struct Code : public Managed {
     const char *name = 0;   /// name field
     union {

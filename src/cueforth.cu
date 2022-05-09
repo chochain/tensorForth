@@ -92,7 +92,7 @@ CueForth::is_running() {
     GPU_SYNC();
     //UNLOCK();               // TODO:
 
-    cudaMemcpy(&h_busy, busy, sizeof(int), cudaMemcpyDeviceToHost);
+    cudaMemcpy(&h_busy, busy, sizeof(int), D2H);
 
     return h_busy;
 }
