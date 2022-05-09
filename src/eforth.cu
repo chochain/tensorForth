@@ -66,17 +66,17 @@ __GPU__ __INLINE__ void ForthVM::call(IU w) {
 ///
 /// debug functions
 ///
-__GPU__ void
+__GPU__ __INLINE__ void
 ForthVM::dot_r(int n, DU v) {
-    fout << v;
+    fout << setw(n) << v;
 }
 ///
 /// Stack dump
 ///
-__GPU__ void
-ForthVM::ss_dump() {
-    fout << " <"; for (int i=0; i<ss.idx; i++) { fout << ss[i] << " "; }
-    fout << top << "> ok" << ENDL;
+__GPU__ __INLINE__ void
+ForthVM::ss_dump(int n) {
+	ss[CUEF_SS_SZ-1] = top;
+	fout << opx(OP_SS, n);
 }
 ///================================================================================
 ///
@@ -292,7 +292,7 @@ ForthVM::init() {
     CODE("here",  PUSH(dict.here())),
     CODE("ucase", ucase = POP()),
     CODE("'",     IU w = FIND(next_word()); PUSH(w)),
-    CODE(".s",    ss_dump()),
+    CODE(".s",    ss_dump(POP())),
     CODE("words", fout << opx(OP_WORDS)),
     CODE("see",   int w = INT(FIND(next_word())); fout << opx(OP_SEE, w)),
     CODE("dump",  int n = INT(POP()); int a = INT(POP()); fout << opx(OP_DUMP, a, n)),
@@ -352,7 +352,6 @@ ForthVM::outer() {
         }
         else PUSH(n);                        ///> or, add value onto data stack
     }
-    if (!compile) ss_dump();
-    __syncthreads();
+    if (!compile) ss_dump(ss.idx);
 }
 //=======================================================================================
