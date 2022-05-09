@@ -17,14 +17,14 @@ __GPU__    ForthVM *vm_pool[MIN_VM_COUNT];
 /// TODO: use shared memory
 ///
 __KERN__ void
-cueforth_init(Istream *istr, Ostream *ostr, Dict *dict) {
+cueforth_init(Istream *istr, Ostream *ostr, MMU *mmu) {
     if (threadIdx.x!=0) return;
 
     int b = blockIdx.x;
-    ForthVM *vm = vm_pool[b] = new ForthVM(istr, ostr, dict);  // instantiate VM
-    vm->ss.v = dict->vss(b);             // set managed memory block as data stack
+    ForthVM *vm = vm_pool[b] = new ForthVM(istr, ostr, mmu);  // instantiate VM
+    vm->ss.v = mmu->vss(b);              // point data stack to managed memory block
 
-    if (b==0) vm->init();                // initialize dictionary
+    if (b==0) vm->init();                // initialize common dictionary (once only)
 }
 ///
 /// check VM status
@@ -67,12 +67,12 @@ cueforth_exec() {
 }
 
 CueForth::CueForth(bool trace) {
-    dict = new Dict();
-    aio  = new AIO(dict, trace);                // TODO: aio not dict dependent
+    mmu = new MMU();
+    aio = new AIO(mmu, trace);
     cudaMalloc((void**)&busy, sizeof(int));
     GPU_CHK();
 
-    cueforth_init<<<MIN_VM_COUNT, 1>>>(aio->istream(), aio->ostream(), dict);
+    cueforth_init<<<MIN_VM_COUNT, 1>>>(aio->istream(), aio->ostream(), mmu);
     GPU_CHK();
 
     //dict->dump(cout, 0, 120*0x10);            // dump memory from host
@@ -106,7 +106,7 @@ CueForth::run() {
             GPU_CHK();
             aio->flush();             // flush output buffer
         }
-        dict->dump(cout, 0, 0x30);
+        mmu->dump(cout, 0, 0x40);
         yield();
     }
     return 0;

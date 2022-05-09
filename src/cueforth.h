@@ -5,11 +5,10 @@
 #ifndef CUEF_SRC_CUEFORTH_H_
 #define CUEF_SRC_CUEFORTH_H_
 #include "aio.h"
-#include "dict.h"
 
 class CueForth {
     AIO  *aio;
-    Dict *dict;
+    MMU  *mmu;
     int  *busy;                 // for Device to Host VM status reporting
 
 public:
