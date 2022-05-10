@@ -173,13 +173,13 @@ ForthVM::init() {
     /// @}
     /// @defgroup Logic ops
     /// @{
-    CODE("0= ",  top = BOOL(top == 0)),
+    CODE("0= ",  top = BOOL(abs(top) < DU_EPS)),
     CODE("0<",   top = BOOL(top <  0)),
     CODE("0>",   top = BOOL(top >  0)),
-    CODE("=",    top = BOOL(ss.pop() == top)),
+    CODE("=",    top = BOOL(abs(ss.pop() - top) < DU_EPS)),
     CODE(">",    top = BOOL(ss.pop() >  top)),
     CODE("<",    top = BOOL(ss.pop() <  top)),
-    CODE("<>",   top = BOOL(ss.pop() != top)),
+    CODE("<>",   top = BOOL(abs(ss.pop() - top) > DU_EPS)),
     CODE(">=",   top = BOOL(ss.pop() >= top)),
     CODE("<=",   top = BOOL(ss.pop() <= top)),
     /// @}
