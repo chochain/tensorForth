@@ -36,17 +36,18 @@ AIO::print_node(obuf_node *node) {
     case GT_FLOAT: std::cout << (float)(*(GF*)v); break;
     case GT_STR:   std::cout << v;                break;
     case GT_FMT:   {
-        obuf_fmt *fmt = (obuf_fmt*)v;
-        std::cout << std::setbase(fmt->base)
-                  << std::setw(fmt->width)
-                  << std::setprecision(fmt->prec)
-                  << std::setfill((char)fmt->fill);
+    	obuf_fmt *f = (obuf_fmt*)v;
+        //printf("FMT: b=%d, w=%d, p=%d, f='%c'\n", f->base, f->width, f->prec, f->fill);
+        std::cout << std::setbase(f->base)
+                  << std::setw(f->width)
+          		  << std::setprecision(f->prec ? f->prec : -1)
+                  << std::setfill((char)f->fill);
     } break;
     case GT_OPX: {
         OP  op = (OP)*v;
-        U16 a  = (U16)*(v+1) | ((U16)(*(v+2))<<8);
-        U16 n  = (U16)*(v+3) | ((U16)(*(v+4))<<8);
-        printf("H:%d(%d, %d)\n", op, a, n);
+        U16 a  = *(U16*)(v+2);
+        U16 n  = *(U16*)(v+4);
+        //printf("OP=%d(%d, %d)\n", op, a, n);
         switch (op) {
         case OP_WORDS: _mmu->words(std::cout);      break;
         case OP_SEE:   _mmu->see(std::cout, a);     break;
