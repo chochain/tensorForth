@@ -56,14 +56,14 @@ typedef struct {
 ///
 /// implement kernel iomanip classes
 ///
-struct _setbase { int  base;  __GPU__ _setbase(int b) : base(b)  {}};
-struct _setw    { int  width; __GPU__ _setw(int w)    : width(w) {}};
-struct _setfill { char fill;  __GPU__ _setfill(char f): fill(f)  {}};
-struct _setprec { int  prec;  __GPU__ _setprec(int p) : prec(p)  {}};
-__GPU__ __INLINE__ _setbase setbase(int b)  { return _setbase(b); }
-__GPU__ __INLINE__ _setw    setw(int w)     { return _setw(w);    }
-__GPU__ __INLINE__ _setfill setfill(char f) { return _setfill(f); }
-__GPU__ __INLINE__ _setprec setprec(int p)  { return _setprec(p); }
+struct _setbase { U8  base;  __GPU__ _setbase(int b) : base(b)  {}};
+struct _setw    { U8  width; __GPU__ _setw(U8 w)    : width(w) {}};
+struct _setfill { U8 fill;   __GPU__ _setfill(U8 f) : fill(f)  {}};
+struct _setprec { U8  prec;  __GPU__ _setprec(U8 p) : prec(p)  {}};
+__GPU__ __INLINE__ _setbase setbase(int b)  { return _setbase((U8)b); }
+__GPU__ __INLINE__ _setw    setw(int w)     { return _setw((U8)w);    }
+__GPU__ __INLINE__ _setfill setfill(char f) { return _setfill((U8)f); }
+__GPU__ __INLINE__ _setprec setprec(int p)  { return _setprec((U8)p); }
 ///
 /// Forth parameterized manipulators
 ///
@@ -77,7 +77,7 @@ class Ostream : public Managed {
     char    *_buf;
     int      _max = 0;
     int      _idx = 0;
-    obuf_fmt _fmt;
+    obuf_fmt _fmt = { 10, 0, 0, ' '};
 
 #if CC_DEBUG
     __GPU__ __INLINE__ void _debug(GT gt, U8 *v) {
@@ -158,16 +158,16 @@ public:
     ///
     /// iomanip control
     ///
-    __GPU__ Ostream& operator<<(_setbase b) { _fmt.base  = (U8)b.base;  return _wfmt(); }
-    __GPU__ Ostream& operator<<(_setw    w) { _fmt.width = (U8)w.width; return _wfmt(); }
-    __GPU__ Ostream& operator<<(_setprec p) { _fmt.prec  = (U8)p.prec;  return _wfmt(); }
-    __GPU__ Ostream& operator<<(_setfill f) { _fmt.fill  = (U8)f.fill;  return _wfmt(); }
+    __GPU__ Ostream& operator<<(_setbase b) { _fmt.base  = b.base;  return _wfmt(); }
+    __GPU__ Ostream& operator<<(_setw    w) { _fmt.width = w.width; return _wfmt(); }
+    __GPU__ Ostream& operator<<(_setprec p) { _fmt.prec  = p.prec;  return _wfmt(); }
+    __GPU__ Ostream& operator<<(_setfill f) { _fmt.fill  = f.fill;  return _wfmt(); }
     ///
     /// object input
     ///
-    __GPU__ Ostream& operator<<(U8 c) {
-        U8 buf[2] = { c, '\0' };
-        _write(GT_STR, buf, 2);
+    __GPU__ Ostream& operator<<(char c) {
+        char buf[2] = { c, '\0' };
+        _write(GT_STR, (U8*)buf, 2);
         return *this;
     }
     __GPU__ Ostream& operator<<(GI i) {
@@ -184,13 +184,8 @@ public:
         return *this;
     }
     __GPU__ Ostream& operator<<(_opx o) {
-        U8 x[8] = {    // serialized struct
-            (U8)o.op,
-            (U8)(o.a & 0xff), (U8)((o.a >> 8) & 0xff),
-            (U8)(o.n & 0xff), (U8)((o.n >> 8) & 0xff),
-            0, 0, 0    // reserved
-        };
-        _write(GT_OPX, x, sizeof(x));
+        U16 x[4] = { (U16)o.op, (U16)o.a, (U16)o.n, 0 };
+        _write(GT_OPX, (U8*)x, sizeof(x));
         return *this;
     }
 };
