@@ -152,4 +152,5 @@ MMU::dump(std::ostream &fout, IU p0, int sz) {
         buf[75] = '\0';
         fout << buf;
     }
+    fout << std::endl;
 }
