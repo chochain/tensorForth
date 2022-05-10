@@ -97,8 +97,8 @@ public:
     ///
     __GPU__ Code &operator<<(Code *c) { _dict[_didx++] = *c; }       // initiator
     __GPU__ Code &operator[](int i)   { return (i<0) ? _dict[_didx+i] : _dict[i]; }
-    __GPU__ DU*  vss(int vid) { return &_vss[vid * CUEF_SS_SZ]; }    // data stack (per VM id)
-    __GPU__ U8*  mem0()       { return &_pmem[0]; }                  // base of heap space
+    __GPU__ DU*  vss(int vid)       { return &_vss[vid * CUEF_SS_SZ]; }    // data stack (per VM id)
+    __GPU__ U8*  mem0()             { return &_pmem[0]; }                  // base of heap space
     __GPU__ int  find(const char *s, bool compile, bool ucase);      // implemented in .cu
     ///
     /// compiler methods
@@ -115,13 +115,13 @@ public:
     ///
     /// low level memory access
     ///
-    __HOST__ __GPU__ U8   *pfa(IU w){ return &_pmem[_dict[w].pidx];  }
-    __HOST__ __GPU__ IU   ri(IU *p) { U8 *c = (U8*)p; return ((IU)(*(c+1))<<8) | *c; }
-    __HOST__ __GPU__ DU   rd(DU *p) { DU d; MEMCPY(&d, p, sizeof(DU)); return d; }
-    __GPU__ DU   rd(IU w)           { return rd((DU*)&_pmem[w]); }
-    __GPU__ void wd(DU *p, DU d)    { MEMCPY(p, &d, sizeof(DU)); }
-    __GPU__ void wd(IU w, DU d)     { wd((DU*)&_pmem[w], d); }
-    __GPU__ void wi(IU *p, IU i)    { U8 *c = (U8*)p; *c++ = i&0xff; *c = (i>>8)&0xff; }
+    __HOST__ __GPU__ U8   *pfa(IU w)      { return &_pmem[_dict[w].pidx];  }
+    __HOST__ __GPU__ IU   ri(IU *p)       { U8 *c = (U8*)p; return ((IU)(*(c+1))<<8) | *c; }
+    __HOST__ __GPU__ DU   rd(DU *p)       { DU d; MEMCPY(&d, p, sizeof(DU)); return d; }
+    __GPU__          DU   rd(IU w)        { return rd((DU*)&_pmem[w]); }
+    __GPU__          void wd(DU *p, DU d) { MEMCPY(p, &d, sizeof(DU)); }
+    __GPU__          void wd(IU w, DU d)  { wd((DU*)&_pmem[w], d); }
+    __GPU__          void wi(IU *p, IU i) { U8 *c = (U8*)p; *c++ = i&0xff; *c = (i>>8)&0xff; }
     ///
     /// debugging methods (implemented in .cu)
     ///
