@@ -13,34 +13,41 @@ using namespace std;
 
 __GPU__    ForthVM *vm_pool[MIN_VM_COUNT];
 ///
-/// instantiate VMs
-/// TODO: use shared memory
+/// instantiate VMs (threadIdx.x is vm_id)
 ///
 __KERN__ void
 cueforth_init(Istream *istr, Ostream *ostr, MMU *mmu) {
-    if (threadIdx.x!=0) return;
+    int i = threadIdx.x;
+    if (i >= MIN_VM_COUNT) return;
 
-    int b = blockIdx.x;
-    ForthVM *vm = vm_pool[b] = new ForthVM(istr, ostr, mmu);  // instantiate VM
-    vm->ss.v = mmu->vss(b);              // point data stack to managed memory block
+    ForthVM *vm = vm_pool[i] = new ForthVM(istr, ostr, mmu);  // instantiate VM
+    vm->ss.v = mmu->vss(i);              // point data stack to managed memory block
 
-    if (b==0) vm->init();                // initialize common dictionary (once only)
+    if (i==0) vm->init();                // initialize common dictionary (once only)
 }
 ///
-/// check VM status
-/// TODO: Dynamic Parallel
+/// check VM status (using parallel reduction - overkill?)
 ///
 __KERN__ void
 cueforth_busy(int *busy) {
-    if (blockIdx.x != 0 || threadIdx.x != 0) return;
+    extern __shared__ bool b[];          // share memory for fast calc
 
-    *busy = 0;
-    for (int i=0; i<MIN_VM_COUNT; i++) {
-        if (vm_pool[i]->status == VM_RUN) {
-            *busy = 1;
-            break;
-        }
+    int i = threadIdx.x;
+    b[i] = (i < MIN_VM_COUNT) ? vm_pool[i]->status==VM_RUN : 0;
+    __syncthreads();
+
+    for (int n=blockDim.x>>1; n>16; n>>=1) {
+        if (i < n) b[i] |= b[i + n];
+        __syncthreads();
     }
+    if (i < 16) {                        // reduce spinning threads
+        b[i] |= b[i + 16];
+        b[i] |= b[i + 8];
+        b[i] |= b[i + 4];
+        b[i] |= b[i + 2];
+        b[i] |= b[i + 1];
+    }
+    if (i==0) *busy = b[0];
 }
 ///
 ///
@@ -72,7 +79,8 @@ CueForth::CueForth(bool trace) {
     cudaMalloc((void**)&busy, sizeof(int));
     GPU_CHK();
 
-    cueforth_init<<<MIN_VM_COUNT, 1>>>(aio->istream(), aio->ostream(), mmu);
+    int t = ((MIN_VM_COUNT + 32) >> 5) << 5;     // thread count = 32 modulo
+    cueforth_init<<<1, t>>>(aio->istream(), aio->ostream(), mmu); // init using default stream
     GPU_CHK();
 
     //dict->dump(cout, 0, 120*0x10);            // dump memory from host
@@ -88,7 +96,8 @@ __HOST__ int
 CueForth::is_running() {
     int h_busy;
     //LOCK();                 // TODO: lock on vm_pool
-    cueforth_busy<<<1, 1>>>(busy);
+    int t = ((32 + MIN_VM_COUNT) >> 5) << 5;
+    cueforth_busy<<<1, t, t * sizeof(bool)>>>(busy);
     GPU_SYNC();
     //UNLOCK();               // TODO:
 
