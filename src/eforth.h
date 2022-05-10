@@ -9,8 +9,8 @@
 #include "vector.h"         // cueForth vector
 #include "aio.h"            // cueForth async IO (Istream, Ostream)
 
-#define ENDL            "\n"
-#define millis()        clock()
+#define ENDL            '\n'
+#define millis()        (clock()/1530000.0f)
 #define delay(ms)       { clock_t t = clock()+ms; while (clock()<t); }
 #define yield()
 ///
