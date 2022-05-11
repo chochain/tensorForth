@@ -21,9 +21,9 @@ cueforth_init(Istream *istr, Ostream *ostr, MMU *mmu) {
     if (i >= MIN_VM_COUNT) return;
 
     ForthVM *vm = vm_pool[i] = new ForthVM(istr, ostr, mmu);  // instantiate VM
-    vm->ss.v = mmu->vss(i);              // point data stack to managed memory block
+    vm->ss.init(mmu->vss(i), CUEF_SS_SZ);  // point data stack to managed memory block
 
-    if (i==0) vm->init();                // initialize common dictionary (once only)
+    if (i==0) vm->init();                   // initialize common dictionary (once only)
 }
 ///
 /// check VM status (using parallel reduction - overkill?)
@@ -61,7 +61,7 @@ cueforth_exec() {
     int      b   = blockIdx.x;
     ForthVM *vm  = vm_pool[b];
     DU      *ss  = &shared_ss[b * CUEF_SS_SZ];  // adjust stack pointer based on VM id
-    DU      *ss0 = vm->ss.v;                    // VM data stack in managed memory
+    DU      *ss0 = vm->ss.v;                    // capture VM data stack
     MEMCPY(ss, ss0, sizeof(DU) * CUEF_SS_SZ);   // copy stack into shared memory block
     vm->ss.v = ss;                              // redirect data stack to shared memory
 
@@ -70,7 +70,7 @@ cueforth_exec() {
 
     __syncthreads();
     MEMCPY(ss0, ss, sizeof(DU) * CUEF_SS_SZ);   // copy updated stack to managed memory
-    vm->ss.v = ss0;                             // reset stack back to VM
+    vm->ss.v = ss0;                             // restore stack back to VM
 }
 
 CueForth::CueForth(bool trace) {
