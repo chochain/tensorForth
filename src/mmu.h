@@ -95,33 +95,41 @@ public:
     ///
     /// dictionary access and search methods
     ///
-    __GPU__ Code &operator<<(Code *c) { _dict[_didx++] = *c; }       // initiator
-    __GPU__ Code &operator[](int i)   { return (i<0) ? _dict[_didx+i] : _dict[i]; }
-    __GPU__ DU*  vss(int vid)       { return &_vss[vid * CUEF_SS_SZ]; }    // data stack (per VM id)
-    __GPU__ U8*  mem0()             { return &_pmem[0]; }                  // base of heap space
+    __GPU__ __INLINE__ Code &operator<<(Code *c) { _dict[_didx++] = *c; }       // initiator
+    __GPU__ __INLINE__ Code &operator[](int i)   { return (i<0) ? _dict[_didx+i] : _dict[i]; }
+
+    __GPU__ __INLINE__ Code *dict()      { return &_dict[0]; }                  // dictionary pointer
+    __GPU__ __INLINE__ Code *last()      { return &_dict[_didx - 1]; }          // last dictionary word
+    __GPU__ __INLINE__ DU*  vss(int vid) { return &_vss[vid * CUEF_SS_SZ]; }    // data stack (per VM id)
+    __GPU__ __INLINE__ U8*  mem0()       { return &_pmem[0]; }                  // base of heap space
+    __GPU__ __INLINE__ int  here()       { return _midx; }
+
     __GPU__ int  find(const char *s, bool compile, bool ucase);      // implemented in .cu
     ///
     /// compiler methods
     ///
     __GPU__ void colon(const char *name);                            // implemented in .cu
-    __GPU__ int  align()            { int i = (-_midx & 0x3); _midx += i; return i; }
-    __GPU__ int  here()             { return _midx; }
-    __GPU__ void clear(int i)       { _didx = i; _midx = 0; }
-    __GPU__ void add(U8* v, int sz) {
+    __GPU__ __INLINE__ int  align()      { int i = (-_midx & 0x3); _midx += i; return i; }
+    __GPU__ __INLINE__ void clear(int i) { _didx = i; _midx = 0; }
+    __GPU__ __INLINE__ void add(U8* v, int sz) {
         _dict[_didx-1].plen += sz;                                   // increase parameter field length
         for (; sz; sz--) { _pmem[_midx++] = *v++; }                  // copy data to heap, TODO: dynamic parallel
     }
-    __GPU__ void setjmp(IU a)       { wi((IU*)(pfa(_didx -1) + a), (IU)_dict[_didx-1].plen); }
+    __GPU__ __INLINE__ void setjmp(IU a) { wi((IU*)(pfa(_didx -1) + a), (IU)_dict[_didx-1].plen); }
     ///
     /// low level memory access
     ///
-    __HOST__ __GPU__ U8   *pfa(IU w)      { return &_pmem[_dict[w].pidx];  }
-    __HOST__ __GPU__ IU   ri(IU *p)       { U8 *c = (U8*)p; return ((IU)(*(c+1))<<8) | *c; }
-    __HOST__ __GPU__ DU   rd(DU *p)       { DU d; MEMCPY(&d, p, sizeof(DU)); return d; }
-    __GPU__          DU   rd(IU w)        { return rd((DU*)&_pmem[w]); }
-    __GPU__          void wd(DU *p, DU d) { MEMCPY(p, &d, sizeof(DU)); }
-    __GPU__          void wd(IU w, DU d)  { wd((DU*)&_pmem[w], d); }
-    __GPU__          void wi(IU *p, IU i) { U8 *c = (U8*)p; *c++ = i&0xff; *c = (i>>8)&0xff; }
+    __HOST__ __GPU__ __INLINE__ U8 *pfa(IU w) { return &_pmem[_dict[w].pidx];  }
+    __HOST__ __GPU__ __INLINE__ IU ri(U8 *c)  { return ((IU)(*(c+1)<<8)) | *c; }
+    __HOST__ __GPU__ __INLINE__ IU ri(IU *p)  { return ri((U8*)p); }
+    __HOST__ __GPU__ __INLINE__ DU rd(U8 *c)  { DU d; MEMCPY(&d, c, sizeof(DU)); return d; }
+    __HOST__ __GPU__ __INLINE__ DU rd(DU *p)  { return rd((U8*)p); }
+    __HOST__ __GPU__ __INLINE__ DU rd(IU w)   { return rd(&_pmem[w]); }
+    __GPU__ __INLINE__ void wd(U8 *c, DU d) { MEMCPY(c, &d, sizeof(DU)); }
+    __GPU__ __INLINE__ void wd(DU *p, DU d) { wd((U8*)p, d); }
+    __GPU__ __INLINE__ void wd(IU w, DU d)  { wd(&_pmem[w], d); }
+    __GPU__ __INLINE__ void wi(U8 *c, IU i) { *c++ = i&0xff; *c = (i>>8)&0xff; }
+    __GPU__ __INLINE__ void wi(IU *p, IU i) { wi((U8*)p, i); }
     ///
     /// debugging methods (implemented in .cu)
     ///
