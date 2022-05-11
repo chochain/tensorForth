@@ -1,9 +1,16 @@
 variable julian variable leap
+
 : year dup 1949 - 1461 4 */mod int 365 - julian ! 3 = if 1 else 0 then leap ! 2000 = if 0 leap ! then ;
+
 : first dup 1 = if drop 0 else dup 2 = if drop 31 else dup 3 = if drop 59 leap @ + else 4 - 30624 1000 */ int 90 + leap @ + then then then ;
+
 : days dup first swap 1 + first over - 1 - 1 swap for 2dup + 1 - julian @ + 7 mod if else cr then dup  8 u.r 1 + next 2drop ;
+
 : stars 60 for 42 emit next ;
+
 : blanks first julian @ + 7 mod 8 * spaces ;
+
 : header cr stars cr ."      sun     mon     tue     wed     thu     fri     sat" cr stars cr ;
+
 : month header dup blanks days cr stars cr ;
 
