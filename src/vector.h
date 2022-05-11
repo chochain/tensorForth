@@ -18,7 +18,7 @@ struct Vector {
     int idx = 0;         /// number of elements stored
     int max = N;         /// allocated size
 
-    __GPU__ Vector()             { v = new T[N]; }
+    __GPU__ Vector()             { v = N ? new T[N] : NULL; }
     __GPU__ Vector(T a[], int n) { merge((T*)a, n); }
     __GPU__ Vector(Vector<T>& a) { merge(a); }
     __GPU__ ~Vector()            { delete[] v; }
@@ -32,6 +32,7 @@ struct Vector {
         return *this;
     }
     __GPU__ __INLINE__ Vector& operator<<(T t)    { push(t); }
+    __GPU__ __INLINE__ Vector& init(T *a, int n) { v = a; max = n; }
     __GPU__ __INLINE__ Vector& merge(T *a, int n) {
         for (int i=0; i<n; i++) push(a[i]);
         return *this;
