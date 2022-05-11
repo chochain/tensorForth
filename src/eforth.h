@@ -22,7 +22,7 @@ class Dict;
 class ForthVM {
 public:
     vm_status     status = VM_READY;        /// VM status
-    DU    top     = DU0;                    /// cached top of stack
+    DU    top    = DU0;                     /// cached top of stack
     Vector<DU,   CUEF_RS_SZ>   rs;          /// return stack
     Vector<DU,   CUEF_SS_SZ>   ss;          /// parameter stack
 
@@ -34,6 +34,7 @@ private:
     Istream       &fin;                     /// VM stream input
     Ostream       &fout;                    /// VM stream output
     MMU           &mmu;                     /// memory managing unit
+    Code          *dict;                    /// dictionary array
 
     bool  ucase   = true;                   /// case insensitive
     bool  compile = false;                  /// compiling flag
