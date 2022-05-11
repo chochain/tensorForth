@@ -45,7 +45,7 @@ struct Vector {
 
     __GPU__ __INLINE__ Vector& push(T *t) { push(*t); }  /// aka copy constructor
     __GPU__ __INLINE__ Vector& push(T *t, int n) {
-    ....for (int i=0; i<n; i++) push((t+i));
+        for (int i=0; i<n; i++) push((t+i));
     }
     __GPU__ __INLINE__ int size()  { return idx; }
     __GPU__ __INLINE__ T&  pop()   { return idx>0 ? v[--idx] : v[0]; }
