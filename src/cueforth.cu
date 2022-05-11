@@ -69,8 +69,8 @@ cueforth_exec() {
     else printf("VM[%d] %s\n", blockIdx.x, st[vm->status]);
 
     __syncthreads();
-    MEMCPY(ss0, ss, sizeof(DU) * CUEF_SS_SZ);    // copy updated stack to managed memory
-    vm->ss.v = ss0;                              // reset stack back to VM
+    MEMCPY(ss0, ss, sizeof(DU) * CUEF_SS_SZ);   // copy updated stack to managed memory
+    vm->ss.v = ss0;                             // reset stack back to VM
 }
 
 CueForth::CueForth(bool trace) {
@@ -79,7 +79,7 @@ CueForth::CueForth(bool trace) {
     cudaMalloc((void**)&busy, sizeof(int));
     GPU_CHK();
 
-    int t = ((MIN_VM_COUNT + 32) >> 5) << 5;     // thread count = 32 modulo
+    int t = WARP(MIN_VM_COUNT);                 // thread count = 32 modulo
     cueforth_init<<<1, t>>>(aio->istream(), aio->ostream(), mmu); // init using default stream
     GPU_CHK();
 
@@ -96,7 +96,7 @@ __HOST__ int
 CueForth::is_running() {
     int h_busy;
     //LOCK();                 // TODO: lock on vm_pool
-    int t = ((32 + MIN_VM_COUNT) >> 5) << 5;
+    int t = WARP(MIN_VM_COUNT);
     cueforth_busy<<<1, t, t * sizeof(bool)>>>(busy);
     GPU_SYNC();
     //UNLOCK();               // TODO:

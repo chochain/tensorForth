@@ -6,6 +6,7 @@
 #define CUEF_SRC_CUEFORTH_H_
 #include "aio.h"
 
+#define WARP(t)  ((((t) + 32)>>5) << 5)      /** calculate warp thread count */
 class CueForth {
     AIO  *aio;
     MMU  *mmu;
