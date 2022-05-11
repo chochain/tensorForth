@@ -26,30 +26,31 @@ struct Vector {
     // operator overloading
     //
     __GPU__ T&      operator[](int i) { return i < 0 ? v[idx + i] : v[i]; }
-    __GPU__ Vector& merge(T *a, int n) {
-        for (int i=0; i<n; i++) push(a[i]);
-        return *this;
-    }
-    __GPU__ Vector& merge(Vector<T>& a) {
-        for (int i=0; i<a.idx; i++) push(a[i]);
-        return *this;
-    }
-    __GPU__ Vector& operator+=(Vector<T>& a) { merge(a); return *this; }
-    __GPU__ Vector& operator=(Vector<T>& a)  { idx=0; merge(a); return *this; }
-
-    __GPU__ int     size() { return idx; }
-    __GPU__ Vector& push(T t) {                    /// aka assignment operator
+    __GPU__ Vector& push(T t)   {
         if ((idx+1) > max) resize(idx + VECTOR_INC);
         v[idx++] = t;                              /// deep copy
         return *this;
     }
-    __GPU__ Vector& push(T *t) { push(*t); }       /// aka copy constructor
-    __GPU__ Vector& push(T *t, int n) {
-    	for (int i=0; i<n; i++) push((t+i));
+    __GPU__ __INLINE__ Vector& operator<<(T t)    { push(t); }
+    __GPU__ __INLINE__ Vector& merge(T *a, int n) {
+        for (int i=0; i<n; i++) push(a[i]);
+        return *this;
     }
-    __GPU__ T&  pop()   { return idx>0 ? v[--idx] : v[0]; }
-    __GPU__ T&  dec_i() { return v[idx - 1] -= 1; } /// decrement stack top
-    __GPU__ Vector& clear(int i=0)  { if (i<idx) idx = i; return *this; }
+    __GPU__ __INLINE__ Vector& merge(Vector<T>& a) {
+        for (int i=0; i<a.idx; i++) push(a[i]);
+        return *this;
+    }
+    __GPU__ __INLINE__ Vector& operator+=(Vector<T>& a) { merge(a); return *this; }
+    __GPU__ __INLINE__ Vector& operator=(Vector<T>& a)  { idx=0; merge(a); return *this; }
+
+    __GPU__ __INLINE__ Vector& push(T *t) { push(*t); }  /// aka copy constructor
+    __GPU__ __INLINE__ Vector& push(T *t, int n) {
+    ....for (int i=0; i<n; i++) push((t+i));
+    }
+    __GPU__ __INLINE__ int size()  { return idx; }
+    __GPU__ __INLINE__ T&  pop()   { return idx>0 ? v[--idx] : v[0]; }
+    __GPU__ __INLINE__ T&  dec_i() { return v[idx - 1] -= 1; } /// decrement stack top
+    __GPU__ __INLINE__ Vector& clear(int i=0)  { if (i<idx) idx = i; return *this; }
     __GPU__ Vector& resize(int nsz) {
         int x = 0;
         if      (nsz >  max) x = ALIGN4(nsz);      // need bigger?
@@ -68,4 +69,3 @@ struct Vector {
     }
 };
 #endif // CUEF_SRC_VECTOR_H
-
