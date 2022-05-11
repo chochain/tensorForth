@@ -24,7 +24,7 @@ public:
     vm_status     status = VM_READY;        /// VM status
     DU    top    = DU0;                     /// cached top of stack
     Vector<DU,   CUEF_RS_SZ>   rs;          /// return stack
-    Vector<DU,   CUEF_SS_SZ>   ss;          /// parameter stack
+    Vector<DU,   0>            ss;          /// parameter stack (setup by cueforth)
 
     __GPU__ ForthVM(Istream *istr, Ostream *ostr, MMU *mmu);
     __GPU__ void init();
