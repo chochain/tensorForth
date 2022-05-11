@@ -47,12 +47,12 @@
  *    1 : use C++ set
  */
 #define CUEF_32BIT_ALIGN_REQUIRED   1
-#define CUEF_HEAP_SZ                (48*1024)
-#define CUEF_RS_SZ                  64
-#define CUEF_SS_SZ                  64
-#define CUEF_DICT_SZ                1024
-#define CUEF_IBUF_SZ                1024
-#define CUEF_OBUF_SZ                8096
-#define CUEF_STRBUF_SZ              (256-1)
+#define CUEF_HEAP_SZ                (48*1024) /** heap memory block size       */
+#define CUEF_RS_SZ                  64        /** depth of return stack        */
+#define CUEF_SS_SZ                  64        /** depth of data stack          */
+#define CUEF_DICT_SZ                1024      /** number of dictionary entries */
+#define CUEF_IBUF_SZ                1024      /** host input buffer size       */
+#define CUEF_OBUF_SZ                2048      /** device output buffer size    */
+#define CUEF_STRBUF_SZ              128       /** temp string buffer size      */
 
 #endif // CUEF_SRC_CUEF_CONFIG_H_
