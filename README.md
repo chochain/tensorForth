@@ -6,8 +6,10 @@
 * integrate CUTLASS
 
 ### Initialization
-<img src="./img/cueforth_init_0.png>
-<img src="./img/cueforth_init_1.png>
+|stage|snap|
+|---|---|
+|begin|<img src="./img/cueforth_init_0.png">|
+|end|<img src="./img/cueforth_init_1.png">|
 
 ### Outer Interpreter
 <img src="./img/cueforth_words_0.png">
