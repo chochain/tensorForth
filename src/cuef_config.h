@@ -52,7 +52,7 @@
 #define CUEF_SS_SZ                  64        /** depth of data stack          */
 #define CUEF_DICT_SZ                1024      /** number of dictionary entries */
 #define CUEF_IBUF_SZ                1024      /** host input buffer size       */
-#define CUEF_OBUF_SZ                2048      /** device output buffer size    */
+#define CUEF_OBUF_SZ                8192      /** device output buffer size    */
 #define CUEF_STRBUF_SZ              128       /** temp string buffer size      */
 
 #endif // CUEF_SRC_CUEF_CONFIG_H_
