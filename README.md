@@ -2,7 +2,7 @@
 * Forth VMs that support dynamic parallelism
 
 ### TODO
-* add tensor object
+* add tensor object (study torch tensor)
 * integrate CUTLASS
 
 ### Initialization

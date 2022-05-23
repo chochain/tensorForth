@@ -115,7 +115,7 @@ CueForth::run() {
             GPU_CHK();
             aio->flush();             // flush output buffer
         }
-        mmu->dump(cout, 0, 0x40);
+        mmu->mem_dump(cout, 0, 0x40);
         yield();
     }
     return 0;
