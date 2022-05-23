@@ -101,7 +101,7 @@ public:
 
     __GPU__ __INLINE__ Code *dict()      { return &_dict[0]; }                      // dictionary pointer
     __GPU__ __INLINE__ Code *last()      { return &_dict[_didx - 1]; }              // last dictionary word
-    __GPU__ __INLINE__ DU*  vss(int vid) { return &_vss[vid * CUEF_SS_SZ]; }        // data stack (per VM id)
+    __GPU__ __INLINE__ DU*  vss(int vid) { return &_vss[vid * CU4_SS_SZ]; }         // data stack (per VM id)
     __GPU__ __INLINE__ IU   here()       { return _midx; }
     __GPU__ __INLINE__ U8*  mem(IU pi)   { return &_pmem[pi]; }                     // base of heap space
     __GPU__ __INLINE__ IU   xtoff(UFP ix){ return (IU)(ix - _xt0); }                // offset to code space

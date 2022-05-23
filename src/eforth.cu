@@ -94,7 +94,7 @@ __GPU__ __INLINE__ void ForthVM::call(IU w) {
 ///
 __GPU__ __INLINE__ void ForthVM::dot_r(int n, DU v) { fout << setw(n) << v; }
 __GPU__ __INLINE__ void ForthVM::ss_dump(int n) {
-    ss[CUEF_SS_SZ-1] = top;        // put top at the tail of ss (for host display)
+    ss[CU4_SS_SZ-1] = top;        // put top at the tail of ss (for host display)
     fout << opx(OP_SS, n);
 }
 ///

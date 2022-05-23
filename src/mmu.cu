@@ -9,9 +9,9 @@
 ///
 __HOST__
 MMU::MMU() {
-    cudaMallocManaged(&_dict, sizeof(Code) * CUEF_DICT_SZ);
-    cudaMallocManaged(&_pmem, sizeof(U8) * CUEF_HEAP_SZ);
-    cudaMallocManaged(&_vss,  sizeof(DU) * CUEF_SS_SZ * MIN_VM_COUNT);
+    cudaMallocManaged(&_dict, sizeof(Code) * CU4_DICT_SZ);
+    cudaMallocManaged(&_pmem, sizeof(U8) * CU4_HEAP_SZ);
+    cudaMallocManaged(&_vss,  sizeof(DU) * CU4_SS_SZ * MIN_VM_COUNT);
     GPU_CHK();
     printf("H: dict=%p, mem=%p, vss=%p\n", _dict, _pmem, _vss);
 }
@@ -133,10 +133,10 @@ MMU::see(std::ostream &fout, IU w) {
 ///
 __HOST__ void
 MMU::ss_dump(std::ostream &fout, IU vid, U16 n) {
-    DU *ss = &_vss[vid * CUEF_SS_SZ];
+    DU *ss = &_vss[vid * CU4_SS_SZ];
     fout << " <";
     for (U16 i=0; i<n; i++) { fout << ss[i] << " "; }
-    fout << ss[CUEF_SS_SZ-1] << "> ok" << std::endl;
+    fout << ss[CU4_SS_SZ-1] << "> ok" << std::endl;
 }
 ///
 /// Forth pmem memory dump

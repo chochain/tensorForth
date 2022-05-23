@@ -11,6 +11,9 @@ using namespace std;
 #include "eforth.h"          // eForth core
 #include "cueforth.h"        // wrapper
 
+#define MAJOR_VERSION        "1"
+#define MINOR_VERSION        "0"
+
 __GPU__    ForthVM *vm_pool[MIN_VM_COUNT];
 ///
 /// instantiate VMs (threadIdx.x is vm_id)
@@ -21,7 +24,7 @@ cueforth_init(Istream *istr, Ostream *ostr, MMU *mmu) {
     if (i >= MIN_VM_COUNT) return;
 
     ForthVM *vm = vm_pool[i] = new ForthVM(istr, ostr, mmu);  // instantiate VM
-    vm->ss.init(mmu->vss(i), CUEF_SS_SZ);  // point data stack to managed memory block
+    vm->ss.init(mmu->vss(i), CU4_SS_SZ);   // point data stack to managed memory block
 
     if (i==0) vm->init();                   // initialize common dictionary (once only)
 }
@@ -60,16 +63,16 @@ cueforth_exec() {
 
     int      b   = blockIdx.x;
     ForthVM *vm  = vm_pool[b];
-    DU      *ss  = &shared_ss[b * CUEF_SS_SZ];  // adjust stack pointer based on VM id
+    DU      *ss  = &shared_ss[b * CU4_SS_SZ];   // adjust stack pointer based on VM id
     DU      *ss0 = vm->ss.v;                    // capture VM data stack
-    MEMCPY(ss, ss0, sizeof(DU) * CUEF_SS_SZ);   // copy stack into shared memory block
+    MEMCPY(ss, ss0, sizeof(DU) * CU4_SS_SZ);    // copy stack into shared memory block
     vm->ss.v = ss;                              // redirect data stack to shared memory
 
     if (vm->status == VM_RUN) vm->outer();
     else printf("VM[%d] %s\n", blockIdx.x, st[vm->status]);
 
     __syncthreads();
-    MEMCPY(ss0, ss, sizeof(DU) * CUEF_SS_SZ);   // copy updated stack to managed memory
+    MEMCPY(ss0, ss, sizeof(DU) * CU4_SS_SZ);    // copy updated stack to managed memory
     vm->ss.v = ss0;                             // restore stack back to VM
 }
 
@@ -106,7 +109,7 @@ CueForth::is_running() {
     return h_busy;
 }
 
-#define VSS_SZ (sizeof(DU)*CUEF_SS_SZ*MIN_VM_COUNT)
+#define VSS_SZ (sizeof(DU)*CU4_SS_SZ*MIN_VM_COUNT)
 __HOST__ int
 CueForth::run() {
     while (is_running()) {
@@ -141,14 +144,15 @@ void sigtrap() {
 }
 
 int main(int argc, char**argv) {
+	string app = string(CU4_APP_NAME) + " " + MAJOR_VERSION + "." + MINOR_VERSION;
     sigtrap();
 
-    cout << CUEF_VERSION << " init" << endl;
-    CueForth *f = new CueForth(CUEF_DEBUG);
+    cout << app << " init" << endl;
+    CueForth *f = new CueForth(CU4_DEBUG);
 
-    cout << CUEF_VERSION << " start" << endl;
+    cout << app << " start" << endl;
     f->run();
 
-    cout << CUEF_VERSION << " done." << endl;
+    cout << app << " done." << endl;
     f->teardown();
 }

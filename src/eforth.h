@@ -23,7 +23,7 @@ class ForthVM {
 public:
     vm_status     status = VM_READY;        /// VM status
     DU    top    = DU0;                     /// cached top of stack
-    Vector<DU,   CUEF_RS_SZ>   rs;          /// return stack
+    Vector<DU,   CU4_RS_SZ>   rs;           /// return stack
     Vector<DU,   0>            ss;          /// parameter stack (setup by cueforth)
 
     __GPU__ ForthVM(Istream *istr, Ostream *ostr, MMU *mmu);
@@ -43,7 +43,7 @@ private:
     IU    IP      = 0;                      /// instruction pointer
     IU    NXT;                              /// cached DONEXT xt address, used in nest()
 
-    char  idiom[CUEF_STRBUF_SZ];            /// terminal input buffer
+    char  idiom[CU4_STRBUF_SZ];             /// terminal input buffer
 
     __GPU__ __INLINE__ DU POP()        { DU n=top; top=ss.pop(); return n; }
     __GPU__ __INLINE__ void PUSH(DU v) { ss.push(top); top = v; }

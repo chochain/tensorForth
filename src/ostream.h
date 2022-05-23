@@ -142,8 +142,8 @@ class Ostream : public Managed {
     __GPU__ Ostream& _wfmt() { _write(GT_FMT, (U8*)&_fmt, sizeof(obuf_fmt)); return *this; }
 
 public:
-    Ostream(int sz=CUEF_OBUF_SZ) { cudaMallocManaged(&_buf, _max=sz); GPU_CHK(); }
-    ~Ostream()                   { GPU_SYNC(); cudaFree(_buf); }
+    Ostream(int sz=CU4_OBUF_SZ) { cudaMallocManaged(&_buf, _max=sz); GPU_CHK(); }
+    ~Ostream()                  { GPU_SYNC(); cudaFree(_buf); }
     ///
     /// clear output buffer
     ///
