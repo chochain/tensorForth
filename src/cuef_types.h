@@ -77,8 +77,8 @@ typedef U16         GS;                     // symbol index
 typedef S32         GP;                     // offset, i.e. object pointer
 
 typedef U16         IU;                     // size of a instruction unit
-typedef F32         DU;                     // size of a data unit
-#define DU0         0.0f                    /* default data value     */
+typedef S32         DU;                     // size of a data unit
+#define DU0         0                       /* default data value     */
 #define DU_EPS      1.0e-6                  /* floating point epsilon */
 //
 // cueForth complex data object
