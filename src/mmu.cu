@@ -4,7 +4,9 @@
 */
 #include <iomanip>          // setw, setbase
 #include "mmu.h"
-
+///
+/// Forth Virtual Machine operational macros to reduce verbosity
+///
 __HOST__
 MMU::MMU() {
     cudaMallocManaged(&_dict, sizeof(Code) * CUEF_DICT_SZ);
@@ -39,14 +41,12 @@ MMU::find(const char *s, bool compile, bool ucase) {
 __GPU__ void
 MMU::colon(const char *name) {
     int  sz = STRLENB(name);                // aligned string length
-    Code *c = &_dict[_didx++];              // get next dictionary slot
+    Code &c = _dict[_didx++];               // get next dictionary slot
     align();                                // nfa 32-bit aligned (adjust _midx)
-    c->name = (const char*)&_pmem[_midx];   // assign name field index
-    c->def  = 1;                            // specify a colon word
-    c->nlen = sz;                           // word name length (for colon word only)
+    c.name = (const char*)&_pmem[_midx];    // assign name field index
+    c.def  = 1;                             // specify a colon word
     add((U8*)name,  ALIGN2(sz+1));          // setup raw name field
-    c->plen = 0;                            // reset parameter counter (by number of U16)
-    c->pidx = _midx;                        // capture code field index
+    c.pfa  = _midx;                         // capture code field index
 }
 ///
 /// Debugging methods
@@ -82,50 +82,60 @@ MMU::words(std::ostream &fout) {
 ///
 /// recursively disassemble colon word
 ///
-__HOST__ void
-MMU::see(std::ostream &fout, U8 *wp, int *i, int level) {
-    IU    w = ri((IU*)wp);
-    Code *c = &_dict[w];
-    fout << std::endl; for (int n=level; n>0; n--) fout << "  ";    // indentation by level
-    if (level) fout << "[" << std::setw(4) << *i << ": ";
-    else       fout << "[ " << (void*)wp << ": ";
-    to_s(fout, w);                                                  // display word name
-    if (c->def && level==0) {                                       // is a colon word?
-        int i1 = 0;                                                 // display children recursively
-        U8  *p = pfa(w);
-        while (i1 < c->plen) {
-            see(fout, p + i1, &i1, level+1);                        // recursive call
+__HOST__ int
+MMU::pfa2word(IU ix) {
+    IU   def = ix & 1;
+    IU   pfa = ix & ~0x1;             /// TODO: handle colon immediate words when > 64K
+    UFP  xt  = _xt0 + ix;             /// function pointer
+    for (int i = _didx - 1; i >= 0; --i) {
+        if (def) {
+            if (_dict[i].pfa == pfa) return i;      /// compare pfa in PMEM
         }
+        else if ((UFP)_dict[i].xt == xt) return i;  /// compare xt (no immediate?)
     }
-    wp += sizeof(IU);                                               // advance word pointer
-    *i += sizeof(IU);                                               // advance IP
-    switch (w) {
-    case DOVAR: case DOLIT:
-        fout << "= " << rd((DU*)wp); *i += sizeof(DU); break;       // fetch literal
-    case DOSTR: case DOTSTR: {
-        char *s = (char*)wp;
-        int  sz = strlen(s)+1;
-        *i += ALIGN2(sz);                                           // fetch string
-        fout << "= \"" << s << "\"";
-    } break;
-    case BRAN: case ZBRAN: case DONEXT:
-        fout << "j" << ri((IU*)wp); *i += sizeof(IU); break;        // fetch jump target
-    }
-    fout << "] ";
+    return 0;                         /// not found, return EXIT
+}
+
+__HOST__ void
+MMU::see(std::ostream &fout, U8 *p, U16 dp) {
+	while (*(IU*)p) {                                               /// * loop until EXIT
+        fout << std::endl; for (int n=dp; n>0; n--) fout << "  ";   /// * indentation by level
+        fout << "[" << std::setw(4) << (IU)(p - _pmem) << ": ";
+        IU c = pfa2word(*(IU*)p);                                   /// * convert pfa to word index
+	    to_s(fout, c);                                              /// * display word name
+        if (_dict[c].def && dp < 2) {                               /// * check if is a colon word
+        	see(fout, &_pmem[_dict[c].pfa], dp+1);                  /// * go one level deeper
+        }
+        p += sizeof(IU);                                            /// * advance instruction pointer
+        switch (c) {
+        case DOVAR: case DOLIT:
+            fout << "= " << *(DU*)p; p += sizeof(DU); break;        // fetch literal
+        case DOSTR: case DOTSTR: {
+            char *s = (char*)p;
+            int  sz = strlen(s)+1;
+            p += ALIGN2(sz);                                        // fetch string
+            fout << "= \"" << s << "\"";
+        } break;
+        case BRAN: case ZBRAN: case DONEXT:
+            fout << "j" << *(IU*)p; p += sizeof(IU); break;         // fetch jump target
+        }
+        fout << "] ";
+	}
 }
 __HOST__ void
 MMU::see(std::ostream &fout, IU w) {
-    int i = 0;
-    see(fout, (U8*)&w, &i, 0);
+    fout << "[ "; to_s(fout, w);
+    if (_dict[w].def) see(fout, &_pmem[_dict[w].pfa], 1);
+    fout << "] " << std::endl;
 }
 ///
 /// dump data stack content
 ///
 __HOST__ void
-MMU::ss_dump(std::ostream &fout, int vid, int n) {
+MMU::ss_dump(std::ostream &fout, IU vid, U16 n) {
     DU *ss = &_vss[vid * CUEF_SS_SZ];
     fout << " <";
-    for (int i=0; i<n; i++) { fout << ss[i] << " "; }
+    for (U16 i=0; i<n; i++) { fout << ss[i] << " "; }
     fout << ss[CUEF_SS_SZ-1] << "> ok" << std::endl;
 }
 ///
@@ -135,13 +145,13 @@ MMU::ss_dump(std::ostream &fout, int vid, int n) {
 #define C2H(c) { buf[x++] = i2h[(c)>>4]; buf[x++] = i2h[(c)&0xf]; }
 #define IU2H(i){ C2H((i)>>8); C2H((i)&0xff); }
 __HOST__ void
-MMU::dump(std::ostream &fout, IU p0, int sz) {
+MMU::mem_dump(std::ostream &fout, IU p0, U16 sz) {
     const char *i2h = "0123456789abcdef";
     char buf[80];
     for (IU i=ALIGN16(p0); i<=ALIGN16(p0+sz); i+=16) {
         int x = 0;
         buf[x++] = '\n'; IU2H(i); buf[x++] = ':'; buf[x++] = ' ';  // "%04x: "
-        for (int j=0; j<16; j++) {
+        for (IU j=0; j<16; j++) {
             //U8 c = *(((U8*)&_dict[0])+i+j) & 0x7f;               // to dump _dict
             U8 c = _pmem[i+j] & 0x7f;
             C2H(c);                                                // "%02x "
