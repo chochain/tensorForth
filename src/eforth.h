@@ -40,26 +40,28 @@ private:
     bool  compile = false;                  /// compiling flag
     int   radix   = 10;                     /// numeric radix
     IU    WP      = 0;                      /// word and parameter pointers
-    U8    *PMEM0, *IP0, *IP;                /// cached base-memory pointer
+    IU    IP      = 0;                      /// instruction pointer
+    IU    NXT;                              /// cached DONEXT xt address, used in nest()
 
     char  idiom[CUEF_STRBUF_SZ];            /// terminal input buffer
 
-    __GPU__ DU   POP()        { DU n=top; top=ss.pop(); return n; }
-    __GPU__ DU   PUSH(DU v)   { ss.push(top); top = v; }
+    __GPU__ __INLINE__ DU POP()        { DU n=top; top=ss.pop(); return n; }
+    __GPU__ __INLINE__ void PUSH(DU v) { ss.push(top); top = v; }
 
-    __GPU__ int  find(const char *s);      /// search dictionary reversely
+    __GPU__ int  find(const char *s);       /// search dictionary reversely
     ///
     /// Forth inner interpreter
     ///
-    __GPU__ char *next_word();
+    __GPU__ char *next_idiom();
     __GPU__ char *scan(char c);
-    __GPU__ void nest(IU c);
+    __GPU__ void nest();
     ///
     /// compiler proxy funtions to reduce verbosity
     ///
-    __GPU__ void add_iu(IU i);
-    __GPU__ void add_du(DU d);
+    __GPU__ void add_iu(IU i);              /// append an instruction unit to parameter memory
+    __GPU__ void add_du(DU d);              /// append a data unit
     __GPU__ void add_str(IU op, const char *s);
+    __GPU__ void add_w(IU w);               /// append a word index
     __GPU__ void call(IU w);
     ///
     /// debug functions
