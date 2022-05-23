@@ -65,7 +65,7 @@ typedef int32_t     S32;                    // signed integers
 typedef int16_t     S16;
 typedef int8_t      S8;
 
-typedef uintptr_t   U32A;                   // pointer address
+typedef uintptr_t   UFP;                    // pointer address
 typedef double      F64;                    // double precision float
 typedef float       F32;                    // single precision float
 
@@ -80,7 +80,21 @@ typedef U16         IU;                     // size of a instruction unit
 typedef F32         DU;                     // size of a data unit
 #define DU0         0.0f                    /* default data value     */
 #define DU_EPS      1.0e-6                  /* floating point epsilon */
-
+//
+// cueForth complex data object
+//
+typedef struct {
+	union {
+		F32 f = 0.0f;
+		struct {
+			U32 t : 1;
+			U32 v : 1;
+			U32 x : 10;
+			U32 y : 10;
+			U32 z : 10;
+		};
+	};
+} XU;
 ///==============================================================================
 ///
 /// colon word compiler
@@ -90,12 +104,8 @@ typedef F32         DU;                     // size of a data unit
 ///   * with an addition link field added.
 ///
 enum {
-    NOP = 0, DOVAR, DOLIT, DOSTR, DOTSTR, BRAN, ZBRAN, DONEXT, DOES, TOR
+    EXIT = 0, DONEXT, DOVAR, DOLIT, DOSTR, DOTSTR, BRAN, ZBRAN, DOES, TOR
 } forth_opcode;
-
-// pointer arithmetic, this will not work in multiple segment implementation
-#define U8PADD(p, n)    ((U8*)(p) + (n))    // add
-#define U8PSUB(p, n)    ((U8*)(p) - (n))    // sub
 
 class Managed {
 public:
