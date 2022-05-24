@@ -2,7 +2,7 @@
 * Forth VMs that support dynamic parallelism
 
 ### Why?
-Compiled programs runs fast on Linux. On the other hand, command-line interface and shell scripting tie them together. Productivity grows with this model especially for researchers.
+Compiled programs run fast on Linux. On the other hand, command-line interface and shell scripting tie them together. Productivity grows with this model especially for researchers.
 
 For AI development today, we use Python mostly. To enable processing on CUDA device, say with Numba or the likes, mostly there is 'compile on the fly' behind the scene then load and run. In a sense, the Python code behaves like a Makefile. To analyze, the formatted files usually become the focal point.
 
