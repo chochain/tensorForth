@@ -69,17 +69,20 @@ typedef int16_t     S16;                    // 16-bit signed integer
 typedef double      F64;                    // double precision float
 typedef float       F32;                    // single precision float
 //===============================================================================
-// tensorForth simple types (non struct)
+// tensorForth common data types
 //
-typedef S32         GI;                     // signed integer
-typedef F32         GF;                     // float
-typedef U16         GS;                     // symbol index
-typedef S32         GP;                     // offset, i.e. object pointer
-
-typedef U16         IU;                     // size of a instruction unit
-typedef S32         DU;                     // size of a data unit
+typedef U16         IU;                     /// instruction unit
+typedef F32         DU;                     /// data unit
+typedef F64         DU2;                    /// double preciesion data unit
 #define DU0         0                       /* default data value     */
 #define DU_EPS      1.0e-6                  /* floating point epsilon */
+//
+// tensorForth generalized data object types
+//
+typedef S32         GI;                     /// signed integer
+typedef F32         GF;                     /// float
+typedef U16         GS;                     /// symbol index
+typedef S32         GP;                     /// offset, i.e. object pointer
 //
 // tensorForth complex data object
 //
@@ -92,10 +95,6 @@ typedef struct {
 		};
 	};
 } XU;
-
-//
-// tensorForth complex data object
-//
 ///==============================================================================
 ///
 /// colon word compiler
