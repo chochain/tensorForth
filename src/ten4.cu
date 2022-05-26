@@ -118,8 +118,11 @@ TensorForth::run() {
             GPU_CHK();
             aio->flush();             // flush output buffer
         }
-        mmu->mem_dump(cout, 0, 0x40);
         yield();
+#if CC_DEBUG
+        int m0 = (int)mmu->here() - 0x100;
+        mmu->mem_dump(cout, m0 < 0 ? 0 : m0, 0x100);
+#endif // CC_DEBUG
     }
     return 0;
 }
