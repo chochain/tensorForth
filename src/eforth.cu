@@ -7,9 +7,10 @@
 ///
 /// Forth Virtual Machine operational macros to reduce verbosity
 ///
-#define INT(f)    (static_cast<int>(f+0.5f))    /** cast float to int                        */
+#define INT(f)    (static_cast<int>(f))         /** cast float to int                        */
 #define I2D(i)    (static_cast<DU>(i))          /** cast int back to float                   */
 #define ABS(d)    (fabs(d))                     /** absolute value                           */
+#define ZERO(d)   (ABS(d) < DU_EPS)             /** zero check                               */
 #define BOOL(f)   ((f) ? -1 : 0)                /** default boolean representation           */
 
 #define PFA(w)    (dict[(IU)(w)].pfa)           /** PFA of given word id                     */
@@ -31,7 +32,9 @@
 __GPU__
 ForthVM::ForthVM(Istream *istr, Ostream *ostr, MMU *mmu0)
     : fin(*istr), fout(*ostr), mmu(*mmu0), dict(mmu0->dict()) {
+#if CC_DEBUG
         printf("D: dict=%p, mem=%p, vss=%p\n", dict, mmu.mem(0), mmu.vss(blockIdx.x));
+#endif // CC_DEBUG
 }
 ///
 /// Forth inner interpreter (colon word handler)
@@ -95,6 +98,7 @@ __GPU__ __INLINE__ void ForthVM::call(IU w) {
 ///
 /// debug functions
 ///
+__GPU__ __INLINE__ void ForthVM::dot(DU v)          { fout << v << ' '; }
 __GPU__ __INLINE__ void ForthVM::dot_r(int n, DU v) { fout << setw(n) << v; }
 __GPU__ __INLINE__ void ForthVM::ss_dump(int n) {
     ss[T4_SS_SZ-1] = top;        // put top at the tail of ss (for host display)
@@ -130,7 +134,7 @@ ForthVM::init() {
         int  sz  = STRLENB(s)+1;
         fout << s;  IP += ALIGN2(sz)),                    // send to output console
     CODE("branch" , IP = LDi(IP)),                        // unconditional branch
-    CODE("0branch", IP = POP() ? IP + sizeof(IU) : LDi(IP)), // conditional branch
+    CODE("0branch", IP = ZERO(POP()) ? LDi(IP) : IP + sizeof(IU)), // conditional branch
     CODE("does",                                          // CREATE...DOES... meta-program
          IU ip = PFA(WP);
          while (LDi(ip) != DOES) ip++;                    // find DOES
@@ -158,43 +162,56 @@ ForthVM::init() {
         DU n = ss.pop(); DU m = ss.pop(); DU l = ss.pop();
         ss.push(n); PUSH(l); PUSH(m)),
     /// @}
-    /// @defgroup FPU/ALU ops
+    /// @defgroup FPU ops
     /// @{
     CODE("+",    top += ss.pop()),
     CODE("*",    top *= ss.pop()),
     CODE("-",    top =  ss.pop() - top),
     CODE("/",    top =  ss.pop() / top),
-    CODE("mod",  top =  ss.pop() % top),          /// fmod = x - int(q)*y
-    CODE("*/",   top =  ss.pop() * ss.pop() / top),
+    CODE("mod",  top =  fmod(ss.pop(), top)),          /// fmod = x - int(q)*y
     CODE("/mod",
         DU n = ss.pop(); DU t = top;
-        ss.push(n % t); top = n / t),
+        ss.push(fmod(n, t)); top = n / t),
+	/// @}
+	/// @defgroup FPU double precision ops
+	/// @{
+	CODE("*/",   top =  (DU2)ss.pop() * ss.pop() / top),
     CODE("*/mod",
-        DU n = ss.pop() * ss.pop();  DU t = top;
+        DU2 n = (DU2)ss.pop() * ss.pop();  DU t = top;
         ss.push(fmod(n, t)); top = round(n / t)),
+	/// @}
+	/// @defgroup binary logic ops (convert to integer first)
+	/// @{
     CODE("and",  top = I2D(INT(ss.pop()) & INT(top))),
     CODE("or",   top = I2D(INT(ss.pop()) | INT(top))),
     CODE("xor",  top = I2D(INT(ss.pop()) ^ INT(top))),
     CODE("abs",  top = ABS(top)),
-    CODE("negate", top = -top),
+	CODE("negate", top = -top),
     CODE("max",  DU n=ss.pop(); top = (top>n)?top:n),
     CODE("min",  DU n=ss.pop(); top = (top<n)?top:n),
     CODE("2*",   top *= 2),
     CODE("2/",   top /= 2),
     CODE("1+",   top += 1),
     CODE("1-",   top -= 1),
+	/// @}
+	/// @defgroup data conversion ops
+	/// @{
+	CODE("int",  top = INT(top)),                /// integer part, 1.5 => 1, -1.5 => -1
+	CODE("round",top = round(top)),              /// rounding 1.5 => 2, -1.5 => -1
+	CODE("ceil", top = ceil(top)),
+	CODE("floor",top = floor(top)),
     /// @}
     /// @defgroup Logic ops
     /// @{
-    CODE("0= ",  top = BOOL(ABS(top) <= DU_EPS)),
-    CODE("0<",   top = BOOL(top <  0)),
-    CODE("0>",   top = BOOL(top >  0)),
-    CODE("=",    top = BOOL(ABS(ss.pop() - top) <= DU_EPS)),
-    CODE(">",    top = BOOL(ss.pop() >  top)),
-    CODE("<",    top = BOOL(ss.pop() <  top)),
-    CODE("<>",   top = BOOL(ABS(ss.pop() - top) > DU_EPS)),
-    CODE(">=",   top = BOOL(ss.pop() >= top)),
-    CODE("<=",   top = BOOL(ss.pop() <= top)),
+    CODE("0= ",  top = BOOL(ZERO(top))),
+    CODE("0<",   top = BOOL(top <  DU_EPS)),
+    CODE("0>",   top = BOOL(top >  -DU_EPS)),
+    CODE("=",    top = BOOL(ZERO(ss.pop() - top))),
+    CODE(">",    top = BOOL((ss.pop() -  top) > DU_EPS)),
+    CODE("<",    top = BOOL((ss.pop() -  top) < -DU_EPS)),
+    CODE("<>",   top = BOOL(!ZERO(ss.pop() - top))),
+    CODE(">=",   top = BOOL((ss.pop() - top) >= DU_EPS)),      // pretty much the same as > for float
+    CODE("<=",   top = BOOL((ss.pop() - top) <= -DU_EPS)),
     /// @}
     /// @defgroup IO ops
     /// @{
@@ -203,7 +220,7 @@ ForthVM::init() {
     CODE("hex",     fout << setbase(radix = 16)),
     CODE("decimal", fout << setbase(radix = 10)),
     CODE("cr",      fout << ENDL),
-    CODE(".",       fout << POP() << ' '),
+    CODE(".",       dot(POP())),
     CODE(".r",      int n = POPi; dot_r(n, POP())),
     CODE("u.r",     int n = POPi; dot_r(n, ABS(POP()))),
     CODE(".f",      int n = POPi; fout << setprec(n) << POP()),
@@ -297,8 +314,8 @@ ForthVM::init() {
     CODE("@",     IU w = POPi; PUSH(LDd(w))),                                     // w -- n
     CODE("!",     IU w = POPi; STd(w, POP())),                                    // n w --
     CODE(",",     DU n = POP(); add_du(n)),
-    CODE("allot", DU v = 0; for (IU n = POPi, i = 0; i < n; i++) add_du(v)),       // n --
-    CODE("+!",    IU w = POPi; STd(w, LDd(w)+POP())),                            // n w --
+    CODE("allot", DU v = 0; for (IU n = POPi, i = 0; i < n; i++) add_du(v)),      // n --
+    CODE("+!",    IU w = POPi; STd(w, LDd(w)+POP())),                             // n w --
     CODE("?",     IU w = POPi; fout << LDd(w) << " "),                            // w --
     /// @}
     /// @defgroup Debug ops
@@ -306,10 +323,11 @@ ForthVM::init() {
     CODE("here",  PUSH(HERE)),
     CODE("ucase", ucase = POP()),
     CODE("'",     int w = FIND(next_idiom()); PUSH(w)),
+	CODE("pfa",   int w = FIND(next_idiom()); PUSH(PFA(w))),
     CODE(".s",    ss_dump(POP())),
     CODE("words", fout << opx(OP_WORDS)),
-    CODE("see",   int w = FIND(next_idiom()); fout << opx(OP_SEE, (IU)w)),
-    CODE("dump",  IU n = POP(); IU a = POP(); fout << opx(OP_DUMP, a, n)),
+    CODE("see",   int w = FIND(next_idiom()); fout << opx(OP_SEE, w)),
+    CODE("dump",  DU n = POP(); DU a = POP(); fout << opx(OP_DUMP, a, n)),
     CODE("forget",
         int w = FIND(next_idiom());
         if (w<0) return;
@@ -330,14 +348,15 @@ ForthVM::init() {
     for (int i=0; i<n; i++) {
         mmu << (Code*)&prim[i];
     }
+    NXT = XOFF(dict[DONEXT].xt);         /// cache offset to subroutine address
+#if CC_DEBUG
 	for (int i=0; i<n; i++) {
 	    printf("%3d> xt=%4x:%p name=%4x:%p %s\n", i,
 				XOFF(dict[i].xt), dict[i].fp,
 				(dict[i].name - dict[0].name), dict[i].name,
-				dict[i].name);            // dump dictionary from device
+				dict[i].name);           /// dump dictionary from device
 	}
-    NXT = XOFF(dict[DONEXT].xt);         /// cache offset to subroutine address
-
+#endif // CC_DEBUG
     printf("init() VM=%p sizeof(Code)=%d\n", this, (int)sizeof(Code));
     status = VM_RUN;
 };
@@ -359,9 +378,11 @@ ForthVM::outer() {
         printf("%d>> %s => ", blockIdx.x, idiom);
         int w = FIND(idiom);                 /// * search through dictionary
         if (w>=0) {                          /// * word found?
+#if CC_DEBUG
             printf("%4x:%p %s %d\n",
             	dict[w].def ? dict[w].pfa : XOFF(dict[w].xt),
             	dict[w].xt, dict[w].name, w);
+#endif // CC_DEBUG
             if (compile && !dict[w].immd) {  /// * in compile mode?
                 add_w((IU)w);                /// * add found word to new colon word
             }
@@ -379,7 +400,9 @@ ForthVM::outer() {
             break;                           ///> skip the entire input buffer
         }
         // is a number
+#if CC_DEBUG
         printf("%f = %08x\n", n, *(U32*)&n);
+#endif // CC_DEBUG
         if (compile) {                       /// * add literal when in compile mode
             add_w(DOLIT);                    ///> dovar (+parameter field)
             add_du(n);                       ///> store literal
