@@ -1,4 +1,4 @@
-## tensorForth - eForth does tensor, implemented in CUDA.
+## tensorForth - eForth does tensor calculus, implemented in CUDA.
 * Forth VMs that support tensor calculus and dynamic parallelism
 
 ### Why?
