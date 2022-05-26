@@ -96,28 +96,28 @@ public:
     ///
     /// dictionary access and search methods
     ///
-    __GPU__ __INLINE__ Code &operator<<(Code *c) { _dict[_didx++] = *c; if ((UFP)c->xt < _xt0) _xt0 = (UFP)c->xt; }  // initiator
-    __GPU__ __INLINE__ Code &operator[](int i)   { return (i<0) ? _dict[_didx+i] : _dict[i]; }
+    __GPU__ __INLINE__ Code &operator<<(Code *c) { _dict[_didx++] = *c; if ((UFP)c->xt < _xt0) _xt0 = (UFP)c->xt; }  /// assignment
+    __GPU__ __INLINE__ Code &operator[](int i)   { return (i<0) ? _dict[_didx+i] : _dict[i]; }                       /// fetch
 
-    __GPU__ __INLINE__ Code *dict()      { return &_dict[0]; }                      // dictionary pointer
-    __GPU__ __INLINE__ Code *last()      { return &_dict[_didx - 1]; }              // last dictionary word
-    __GPU__ __INLINE__ DU*  vss(int vid) { return &_vss[vid * CU4_SS_SZ]; }         // data stack (per VM id)
+    __GPU__ __INLINE__ Code *dict()      { return &_dict[0]; }                      /// dictionary pointer
+    __GPU__ __INLINE__ Code *last()      { return &_dict[_didx - 1]; }              /// last dictionary word
+    __GPU__ __INLINE__ DU*  vss(int vid) { return &_vss[vid * CU4_SS_SZ]; }         /// data stack (per VM id)
     __GPU__ __INLINE__ IU   here()       { return _midx; }
-    __GPU__ __INLINE__ U8*  mem(IU pi)   { return &_pmem[pi]; }                     // base of heap space
-    __GPU__ __INLINE__ IU   xtoff(UFP ix){ return (IU)(ix - _xt0); }                // offset to code space
-    __GPU__ __INLINE__ UFP  xt(IU ix)    { return _xt0 + (ix & ~0x3); }             // convert index to function pointer
+    __GPU__ __INLINE__ U8*  mem(IU pi)   { return &_pmem[pi]; }                     /// base of heap space
+    __GPU__ __INLINE__ IU   xtoff(UFP ix){ return (IU)(ix - _xt0); }                /// offset to code space
+    __GPU__ __INLINE__ UFP  xt(IU ix)    { return _xt0 + (ix & ~0x3); }             /// convert index to function pointer
 
-    __GPU__ int  find(const char *s, bool compile, bool ucase);      // implemented in .cu
+    __GPU__ int  find(const char *s, bool compile, bool ucase);      ///> implemented in .cu
     ///
     /// compiler methods
     ///
-    __GPU__ void colon(const char *name);                            // implemented in .cu
+    __GPU__ void colon(const char *name);                            ///> implemented in .cu
     __GPU__ __INLINE__ int  align()     { int i = (-_midx & 0x3); _midx += i; return i; }
     __GPU__ __INLINE__ void clear(IU i) { _didx = i; _midx = 0; }
     __GPU__ __INLINE__ void add(U8* v, int sz) {
-        MEMCPY(&_pmem[_midx], v, sz); _midx += sz;                   // copy data to heap, TODO: dynamic parallel
+        MEMCPY(&_pmem[_midx], v, sz); _midx += sz;                   ///> copy data to heap, TODO: dynamic parallel
     }
-    __GPU__ __INLINE__ void setjmp(IU a) { wi(_dict[_didx - 1].pfa + a, _midx); }
+    __GPU__ __INLINE__ void setjmp(IU a) { wi(a, _midx); }           ///> set branch target address
     ///
     /// low level memory access
     ///
@@ -135,9 +135,9 @@ public:
     __HOST__ int  pfa2word(IU pi);
     __HOST__ void to_s(std::ostream &fout, IU w);
     __HOST__ void words(std::ostream &fout);
-    __HOST__ void see(std::ostream &fout, U8 *p, U16 dp=1);
-    __HOST__ void see(std::ostream &fout, IU w);
-    __HOST__ void ss_dump(std::ostream &fout, IU vid, U16 n);
-    __HOST__ void mem_dump(std::ostream &fout, IU p0, U16 sz);
+    __HOST__ void see(std::ostream &fout, U8 *p, int dp=1);
+    __HOST__ void see(std::ostream &fout, U16 w);
+    __HOST__ void ss_dump(std::ostream &fout, U16 vid, U16 n);
+    __HOST__ void mem_dump(std::ostream &fout, U16 p0, U16 sz);
 };
 #endif // CUEF_SRC_MMU_H
