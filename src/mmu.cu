@@ -10,7 +10,7 @@
 __HOST__
 MMU::MMU() {
     cudaMallocManaged(&_dict, sizeof(Code) * CU4_DICT_SZ);
-    cudaMallocManaged(&_pmem, sizeof(U8) * CU4_HEAP_SZ);
+    cudaMallocManaged(&_pmem, sizeof(U8) * CU4_PMEM_SZ);
     cudaMallocManaged(&_vss,  sizeof(DU) * CU4_SS_SZ * MIN_VM_COUNT);
     GPU_CHK();
     printf("H: dict=%p, mem=%p, vss=%p\n", _dict, _pmem, _vss);
@@ -97,7 +97,7 @@ MMU::pfa2word(IU ix) {
 }
 
 __HOST__ void
-MMU::see(std::ostream &fout, U8 *p, U16 dp) {
+MMU::see(std::ostream &fout, U8 *p, int dp) {
 	while (*(IU*)p) {                                               /// * loop until EXIT
         fout << std::endl; for (int n=dp; n>0; n--) fout << "  ";   /// * indentation by level
         fout << "[" << std::setw(4) << (IU)(p - _pmem) << ": ";
@@ -123,7 +123,7 @@ MMU::see(std::ostream &fout, U8 *p, U16 dp) {
 	}
 }
 __HOST__ void
-MMU::see(std::ostream &fout, IU w) {
+MMU::see(std::ostream &fout, U16 w) {
     fout << "[ "; to_s(fout, w);
     if (_dict[w].def) see(fout, &_pmem[_dict[w].pfa], 1);
     fout << "] " << std::endl;
@@ -132,7 +132,7 @@ MMU::see(std::ostream &fout, IU w) {
 /// dump data stack content
 ///
 __HOST__ void
-MMU::ss_dump(std::ostream &fout, IU vid, U16 n) {
+MMU::ss_dump(std::ostream &fout, U16 vid, U16 n) {
     DU *ss = &_vss[vid * CU4_SS_SZ];
     fout << " <";
     for (U16 i=0; i<n; i++) { fout << ss[i] << " "; }
@@ -145,13 +145,13 @@ MMU::ss_dump(std::ostream &fout, IU vid, U16 n) {
 #define C2H(c) { buf[x++] = i2h[(c)>>4]; buf[x++] = i2h[(c)&0xf]; }
 #define IU2H(i){ C2H((i)>>8); C2H((i)&0xff); }
 __HOST__ void
-MMU::mem_dump(std::ostream &fout, IU p0, U16 sz) {
+MMU::mem_dump(std::ostream &fout, U16 p0, U16 sz) {
     const char *i2h = "0123456789abcdef";
     char buf[80];
-    for (IU i=ALIGN16(p0); i<=ALIGN16(p0+sz); i+=16) {
+    for (U16 i=ALIGN16(p0); i<=ALIGN16(p0+sz); i+=16) {
         int x = 0;
         buf[x++] = '\n'; IU2H(i); buf[x++] = ':'; buf[x++] = ' ';  // "%04x: "
-        for (IU j=0; j<16; j++) {
+        for (U16 j=0; j<16; j++) {
             //U8 c = *(((U8*)&_dict[0])+i+j) & 0x7f;               // to dump _dict
             U8 c = _pmem[i+j] & 0x7f;
             C2H(c);                                                // "%02x "
