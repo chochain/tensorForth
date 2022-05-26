@@ -54,20 +54,20 @@
 #define ASSERT(X)           assert(x)
 
 #endif // defined(__CUDACC__)
+///
+/// short-hand for common data types
+///
+typedef uint64_t    U64;                    /// 64-bit unsigned integer
+typedef uint32_t    U32;                    /// 32-bit unsigned integer
+typedef uint16_t    U16;                    /// 16-bit unsigned integer
+typedef uint8_t     U8;                     /// 8-bit  unsigned integer
 
-// short notation
-typedef uint64_t    U64;                    // unsigned integers
-typedef uint32_t    U32;
-typedef uint16_t    U16;
-typedef uint8_t     U8;
+typedef int32_t     S32;                    // 32-bit signed integer
+typedef int16_t     S16;                    // 16-bit signed integer
 
-typedef int32_t     S32;                    // signed integers
-typedef int16_t     S16;
-typedef int8_t      S8;
-
-typedef uintptr_t   UFP;                    // pointer address
 typedef double      F64;                    // double precision float
 typedef float       F32;                    // single precision float
+<<<<<<< HEAD
 
 //===============================================================================
 // cueForth simple types (non struct)
@@ -87,14 +87,15 @@ typedef struct {
 	union {
 		F32 f = 0.0f;
 		struct {
-			U32 t : 1;
-			U32 v : 1;
-			U32 x : 10;
-			U32 y : 10;
-			U32 z : 10;
+			U32 r: 1;       // tensor rank >= 1
+            U32 p: 31;      // 2^31 slots
 		};
 	};
 } XU;
+
+//
+// cueForth complex data object
+//
 ///==============================================================================
 ///
 /// colon word compiler

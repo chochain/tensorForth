@@ -59,9 +59,9 @@ private:
     /// compiler proxy funtions to reduce verbosity
     ///
     __GPU__ void add_iu(IU i);              /// append an instruction unit to parameter memory
-    __GPU__ void add_du(DU d);              /// append a data unit
-    __GPU__ void add_str(IU op, const char *s);
-    __GPU__ void add_w(IU w);               /// append a word index
+    __GPU__ void add_du(DU d);              /// append a data unit to pmem
+    __GPU__ void add_str(const char *s);    /// append a string to pmem
+    __GPU__ void add_w(IU w);               /// append a word pfa to pmem
     __GPU__ void call(IU w);
     ///
     /// debug functions

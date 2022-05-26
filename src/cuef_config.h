@@ -47,7 +47,7 @@
  *    1 : use C++ set
  */
 #define CU4_32BIT_ALIGN_REQUIRED   1
-#define CU4_HEAP_SZ                (48*1024) /** heap memory block size       */
+#define CU4_PMEM_SZ                (48*1024) /** parameter memory block size  */
 #define CU4_RS_SZ                  64        /** depth of return stack        */
 #define CU4_SS_SZ                  64        /** depth of data stack          */
 #define CU4_DICT_SZ                1024      /** number of dictionary entries */

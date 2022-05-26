@@ -56,7 +56,7 @@ typedef struct {
 ///
 /// implement kernel iomanip classes
 ///
-struct _setbase { U8  base;  __GPU__ _setbase(int b) : base(b)  {}};
+struct _setbase { U8  base;  __GPU__ _setbase(U8 b) : base(b)  {}};
 struct _setw    { U8  width; __GPU__ _setw(U8 w)    : width(w) {}};
 struct _setfill { U8 fill;   __GPU__ _setfill(U8 f) : fill(f)  {}};
 struct _setprec { U8  prec;  __GPU__ _setprec(U8 p) : prec(p)  {}};
@@ -67,7 +67,10 @@ __GPU__ __INLINE__ _setprec setprec(int p)  { return _setprec((U8)p); }
 ///
 /// Forth parameterized manipulators
 ///
-struct _opx     { int op, a, n; __GPU__ _opx(int op, int a, int n) : op(op), a(a), n(n) {}};
+struct _opx     {
+	U16 op, a, n;
+	__GPU__ _opx(OP op, int a, int n) : op((U16)op), a((U16)a), n((U16)n) {}
+};
 __GPU__ __INLINE__ _opx opx(OP op, int a=0, int n=0) { return _opx(op, a, n); }
 ///
 /// Ostream class
@@ -184,7 +187,7 @@ public:
         return *this;
     }
     __GPU__ Ostream& operator<<(_opx o) {
-        U16 x[4] = { (U16)o.op, (U16)o.a, (U16)o.n, 0 };
+        U16 x[4] = { o.op, o.a, o.n, 0 };
         _write(GT_OPX, (U8*)x, sizeof(x));
         return *this;
     }
