@@ -64,8 +64,9 @@ private:
     __GPU__ void add_w(IU w);               /// append a word pfa to pmem
     __GPU__ void call(IU w);
     ///
-    /// debug functions
+    /// output functions
     ///
+    __GPU__ void dot(DU v);
     __GPU__ void dot_r(int n, DU v);
     __GPU__ void ss_dump(int n);
 };
