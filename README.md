@@ -1,6 +1,11 @@
 ## tensorForth - eForth does tensor calculus, implemented in CUDA.
 * Forth VMs that support tensor calculus and dynamic parallelism
 
+### Status
+float  - Alpha
+tensor - planning
+gemm   - todo
+
 ### Why?
 Compiled programs run fast on Linux. On the other hand, command-line interface and shell scripting tie them together. Productivity grows with this model especially for researchers.
 
@@ -9,10 +14,10 @@ For AI development today, we use Python mostly. To enable processing on CUDA dev
 Having a 'shell' that can interactively and incrementally run 'compiled programs' from within GPU directly without dropping back to host system might be useful. Even though some might argue that the branch divergence could kill, but performance of the script itself is not the point. So, here we are!
 
 ### TODO
-* add tensor object (study torch tensor)
-* integrate CUTLASS
+* add tensor object (study torch tensor, 128-bit NHWC tensor)
+* integrate CUTLASS (utilities.init, gemm_api)
 * formatted file IO (CSV, Numpy)
-* ML cases and benchmark (CNN, RNN)
+* ML cases and benchmark (kaggle.MNIST, ...)
 * add inter-VM communication (CUDA stream)
 * add dynamic graph (GNN)
 * integrate plots (tensorboard, R)
