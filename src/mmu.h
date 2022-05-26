@@ -85,7 +85,7 @@ struct Code : public Managed {
 class MMU : public Managed {
     IU   _didx = 0;
     IU   _midx = 0;
-    UFP  _xt0  = ~0;
+    UFP  _xt0  = ~0;         /// max out at 0xf...fff first, to get min during init
     Code *_dict;
     U8   *_pmem;
     DU   *_vss;
@@ -96,13 +96,15 @@ public:
     ///
     /// dictionary access and search methods
     ///
-    __GPU__ __INLINE__ Code &operator<<(Code *c) { _dict[_didx++] = *c; if ((UFP)c->xt < _xt0) _xt0 = (UFP)c->xt; }  /// assignment
+    __GPU__ __INLINE__ Code &operator<<(Code *c) {                                  /// dictionary word assignment
+    	_dict[_didx++] = *c;
+    	if ((UFP)c->xt < (_xt0 - sizeof(DU))) _xt0 = (UFP)c->xt - sizeof(DU);       /// capture lowest function pointer address
+    }
     __GPU__ __INLINE__ Code &operator[](int i)   { return (i<0) ? _dict[_didx+i] : _dict[i]; }                       /// fetch
 
     __GPU__ __INLINE__ Code *dict()      { return &_dict[0]; }                      /// dictionary pointer
     __GPU__ __INLINE__ Code *last()      { return &_dict[_didx - 1]; }              /// last dictionary word
     __GPU__ __INLINE__ DU*  vss(int vid) { return &_vss[vid * T4_SS_SZ]; }          /// data stack (per VM id)
-    __GPU__ __INLINE__ IU   here()       { return _midx; }
     __GPU__ __INLINE__ U8*  mem(IU pi)   { return &_pmem[pi]; }                     /// base of heap space
     __GPU__ __INLINE__ IU   xtoff(UFP ix){ return (IU)(ix - _xt0); }                /// offset to code space
     __GPU__ __INLINE__ UFP  xt(IU ix)    { return _xt0 + (ix & ~0x3); }             /// convert index to function pointer
@@ -121,6 +123,7 @@ public:
     ///
     /// low level memory access
     ///
+    __HOST__ __GPU__ __INLINE__ IU here()     { return _midx; }
     __HOST__ __GPU__ __INLINE__ IU ri(U8 *c)  { return ((IU)(*(c+1)<<8)) | *c; }
     __HOST__ __GPU__ __INLINE__ IU ri(IU pi)  { return ri(&_pmem[pi]); }
     __HOST__ __GPU__ __INLINE__ DU rd(U8 *c)  { DU d; MEMCPY(&d, c, sizeof(DU)); return d; }
@@ -135,9 +138,9 @@ public:
     __HOST__ int  pfa2word(IU pi);
     __HOST__ void to_s(std::ostream &fout, IU w);
     __HOST__ void words(std::ostream &fout);
-    __HOST__ void see(std::ostream &fout, U8 *p, int dp=1);
+    __HOST__ void see(std::ostream &fout, U8 *p, int dp=1);     /// cannot pass pfa
     __HOST__ void see(std::ostream &fout, U16 w);
-    __HOST__ void ss_dump(std::ostream &fout, U16 vid, U16 n);
+    __HOST__ void ss_dump(std::ostream &fout, U16 vid, U16 n, int radix);
     __HOST__ void mem_dump(std::ostream &fout, U16 p0, U16 sz);
 };
 #endif // TEN4_SRC_MMU_H
