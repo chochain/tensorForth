@@ -38,7 +38,7 @@ AIO::print_node(obuf_node *node) {
     case GT_FMT:   {
     	obuf_fmt *f = (obuf_fmt*)v;
         //printf("FMT: b=%d, w=%d, p=%d, f='%c'\n", f->base, f->width, f->prec, f->fill);
-        std::cout << std::setbase(f->base)
+        std::cout << std::setbase(_radix = f->base)
                   << std::setw(f->width)
           		  << std::setprecision(f->prec ? f->prec : -1)
                   << std::setfill((char)f->fill);
@@ -49,10 +49,10 @@ AIO::print_node(obuf_node *node) {
         U16 n  = *(U16*)(v+4);
         //printf("OP=%d(%d, %d)\n", op, a, n);
         switch (op) {
-        case OP_WORDS: _mmu->words(std::cout);                    break;
-        case OP_SEE:   _mmu->see(std::cout, (IU)a);               break;
-        case OP_DUMP:  _mmu->mem_dump(std::cout, (IU)a, n);       break;
-        case OP_SS:    _mmu->ss_dump(std::cout, (IU)node->id, a); break;
+        case OP_WORDS: _mmu->words(std::cout);              break;
+        case OP_SEE:   _mmu->see(std::cout, (IU)a);         break;
+        case OP_DUMP:  _mmu->mem_dump(std::cout, (IU)a, n); break;
+        case OP_SS:    _mmu->ss_dump(std::cout, (IU)node->id, a, _radix); break;
         }
     } break;
     default: std::cout << "print type not supported: " << (int)node->gt;  break;

@@ -20,6 +20,7 @@ public:
     Istream *_istr;         /// managed input stream
     Ostream *_ostr;         /// managed output stream
     MMU     *_mmu;          /// memory managing unit
+    int     _radix = 10;    /// output stream radix
     bool    _trace;         /// debug tracing control
 
     AIO(MMU *mmu, bool trace) : _istr(new Istream()), _ostr(new Ostream()), _mmu(mmu), _trace(trace) {}
