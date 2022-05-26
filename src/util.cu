@@ -1,6 +1,6 @@
 /*! @file
   @brief
-  cueForth Utilities functions
+  tensorForth Utilities functions
     Memory cpy/set/cmp
     String hasher
 
@@ -11,13 +11,13 @@
 
   </pre>
 */
-#include "cuef_types.h"
+#include "ten4_types.h"
 #include "util.h"
 
-#if CUEF_ENABLE_CDP
+#if TEN4_ENABLE_CDP
 #include <cooperative_groups.h>
 namespace cg = cooperative_groups;
-#endif // CUEF_ENABLE_CDP
+#endif // TEN4_ENABLE_CDP
 
 typedef int           WORD;
 #define WSIZE         (sizeof(WORD))
@@ -72,7 +72,7 @@ _loop_hash(const char *str, int bsz) {
     return h;
 }
 
-#if CUEF_ENABLE_CDP
+#if TEN4_ENABLE_CDP
 //================================================================
 /*! Calculate hash value
 
@@ -111,7 +111,7 @@ _dyna_hash2d(int *hash, const char *str, int bsz) {
     }
     *hash = h[0];
 }
-#endif // CUEF_ENABLE_CDP
+#endif // TEN4_ENABLE_CDP
 __GPU__ int _warp_h[32];            // each thread takes a slot
 __GPU__ int
 _hash(const char *str, int bsz) {
@@ -150,7 +150,7 @@ _hash(const char *str, int bsz) {
 */
 __GPU__ uint32_t
 bin_to_u32(const void *s) {
-#if CUEF_32BIT_ALIGN_REQUIRED
+#if TEN4_32BIT_ALIGN_REQUIRED
     char *p = (char*)s;
     return (uint32_t)(p[0]<<24) | (p[1]<<16) |  (p[2]<<8) | p[3];
 #else
@@ -168,7 +168,7 @@ bin_to_u32(const void *s) {
 */
 __GPU__ uint16_t
 bin_to_u16(const void *s) {
-#if CUEF_32BIT_ALIGN_REQUIRED
+#if TEN4_32BIT_ALIGN_REQUIRED
     char *p = (char*)s;
     return (uint16_t)(p[0]<<8) | p[1];
 #else

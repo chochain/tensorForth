@@ -1,12 +1,12 @@
 /*! @file
   @brief
-  cueForth - memory manager unit
+  tensorForth - memory manager unit
 */
-#ifndef CUEF_SRC_MMU_H
-#define CUEF_SRC_MMU_H
+#ifndef TEN4_SRC_MMU_H
+#define TEN4_SRC_MMU_H
 #include <ostream>
-#include "cuef_config.h"
-#include "cuef_types.h"
+#include "ten4_config.h"
+#include "ten4_types.h"
 #include "util.h"
 ///
 /// CUDA functor (device only) implementation
@@ -101,7 +101,7 @@ public:
 
     __GPU__ __INLINE__ Code *dict()      { return &_dict[0]; }                      /// dictionary pointer
     __GPU__ __INLINE__ Code *last()      { return &_dict[_didx - 1]; }              /// last dictionary word
-    __GPU__ __INLINE__ DU*  vss(int vid) { return &_vss[vid * CU4_SS_SZ]; }         /// data stack (per VM id)
+    __GPU__ __INLINE__ DU*  vss(int vid) { return &_vss[vid * T4_SS_SZ]; }          /// data stack (per VM id)
     __GPU__ __INLINE__ IU   here()       { return _midx; }
     __GPU__ __INLINE__ U8*  mem(IU pi)   { return &_pmem[pi]; }                     /// base of heap space
     __GPU__ __INLINE__ IU   xtoff(UFP ix){ return (IU)(ix - _xt0); }                /// offset to code space
@@ -112,8 +112,8 @@ public:
     /// compiler methods
     ///
     __GPU__ void colon(const char *name);                            ///> implemented in .cu
-    __GPU__ __INLINE__ int  align()     { int i = (-_midx & 0x3); _midx += i; return i; }
-    __GPU__ __INLINE__ void clear(IU i) { _didx = i; _midx = 0; }
+    __GPU__ __INLINE__ int  align()      { int i = (-_midx & 0x3); _midx += i; return i; }
+    __GPU__ __INLINE__ void clear(IU i)  { _didx = i; _midx = 0; }
     __GPU__ __INLINE__ void add(U8* v, int sz) {
         MEMCPY(&_pmem[_midx], v, sz); _midx += sz;                   ///> copy data to heap, TODO: dynamic parallel
     }
@@ -140,4 +140,4 @@ public:
     __HOST__ void ss_dump(std::ostream &fout, U16 vid, U16 n);
     __HOST__ void mem_dump(std::ostream &fout, U16 p0, U16 sz);
 };
-#endif // CUEF_SRC_MMU_H
+#endif // TEN4_SRC_MMU_H

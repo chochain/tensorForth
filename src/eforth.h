@@ -1,13 +1,13 @@
 /*! @file
   @brief
-  cueForth - eForth core classes
+  tensorForth - eForth core classes
 */
-#ifndef CUEF_SRC_EFORTH_H
-#define CUEF_SRC_EFORTH_H
-#include "cuef_types.h"
+#ifndef TEN4_SRC_EFORTH_H
+#define TEN4_SRC_EFORTH_H
+#include "ten4_types.h"
 #include "util.h"
-#include "vector.h"         // cueForth vector
-#include "aio.h"            // cueForth async IO (Istream, Ostream)
+#include "vector.h"         // Forth vector
+#include "aio.h"            // Forth async IO (Istream, Ostream)
 
 #define ENDL            '\n'
 #define millis()        (clock()/1530000.0f)
@@ -23,8 +23,8 @@ class ForthVM {
 public:
     vm_status     status = VM_READY;        /// VM status
     DU    top    = DU0;                     /// cached top of stack
-    Vector<DU,   CU4_RS_SZ>   rs;           /// return stack
-    Vector<DU,   0>            ss;          /// parameter stack (setup by cueforth)
+    Vector<DU,   T4_RS_SZ> rs;              /// return stack
+    Vector<DU,   0>        ss;              /// parameter stack (setup in ten4.cu)
 
     __GPU__ ForthVM(Istream *istr, Ostream *ostr, MMU *mmu);
     __GPU__ void init();
@@ -43,7 +43,7 @@ private:
     IU    IP      = 0;                      /// instruction pointer
     IU    NXT;                              /// cached DONEXT xt address, used in nest()
 
-    char  idiom[CU4_STRBUF_SZ];             /// terminal input buffer
+    char  idiom[T4_STRBUF_SZ];              /// terminal input buffer
 
     __GPU__ __INLINE__ DU POP()        { DU n=top; top=ss.pop(); return n; }
     __GPU__ __INLINE__ void PUSH(DU v) { ss.push(top); top = v; }
@@ -69,4 +69,4 @@ private:
     __GPU__ void dot_r(int n, DU v);
     __GPU__ void ss_dump(int n);
 };
-#endif // CUEF_SRC_EFORTH_H
+#endif // TEN4_SRC_EFORTH_H

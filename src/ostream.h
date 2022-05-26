@@ -1,6 +1,6 @@
 /*! @file
   @brief
-  cueForth Ostream module.
+  tensorForth Ostream module.
 
   <pre>
   Copyright (C) 2021 GreenII
@@ -9,10 +9,10 @@
 
   </pre>
 */
-#ifndef CUEF_SRC_OSTREAM_H_
-#define CUEF_SRC_OSTREAM_H_
-#include "cuef_config.h"
-#include "cuef_types.h"
+#ifndef TEN4_SRC_OSTREAM_H_
+#define TEN4_SRC_OSTREAM_H_
+#include "ten4_config.h"
+#include "ten4_types.h"
 #include "util.h"
 
 //================================================================
@@ -145,8 +145,8 @@ class Ostream : public Managed {
     __GPU__ Ostream& _wfmt() { _write(GT_FMT, (U8*)&_fmt, sizeof(obuf_fmt)); return *this; }
 
 public:
-    Ostream(int sz=CU4_OBUF_SZ) { cudaMallocManaged(&_buf, _max=sz); GPU_CHK(); }
-    ~Ostream()                  { GPU_SYNC(); cudaFree(_buf); }
+    Ostream(int sz=T4_OBUF_SZ) { cudaMallocManaged(&_buf, _max=sz); GPU_CHK(); }
+    ~Ostream()                 { GPU_SYNC(); cudaFree(_buf); }
     ///
     /// clear output buffer
     ///
@@ -192,4 +192,4 @@ public:
         return *this;
     }
 };
-#endif // CUEF_SRC_OSTREAM_H_
+#endif // TEN4_SRC_OSTREAM_H_

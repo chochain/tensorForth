@@ -1,11 +1,11 @@
 /*! @file
   @brief
-  cueForth Vector class (device only ) implementation
+  tensorForth Vector class (device only ) implementation
 
   TODO: Thrust::d_vector
 */
-#ifndef CUEF_SRC_VECTOR_H
-#define CUEF_SRC_VECTOR_H
+#ifndef TEN4_SRC_VECTOR_H
+#define TEN4_SRC_VECTOR_H
 #include "util.h"       /// also defined __GPU__
 
 #define VECTOR_INC      4
@@ -69,4 +69,4 @@ struct Vector {
         return *this;
     }
 };
-#endif // CUEF_SRC_VECTOR_H
+#endif // TEN4_SRC_VECTOR_H

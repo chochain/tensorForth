@@ -1,6 +1,6 @@
 /*! @file
   @brief
-  cueForth string buffer class
+  tensorForth string buffer class
 
   <pre>
   Copyright (C) 2022- GreenII
@@ -9,12 +9,12 @@
 
   </pre>
 */
-#ifndef CUEF_SRC_STRBUF_H
-#define CUEF_SRC_STRBUF_H
+#ifndef TEN4_SRC_STRBUF_H
+#define TEN4_SRC_STRBUF_H
 #include "vector.h"
 #include <stdio.h>
 
-#define CUEF_FLOAT_PRECISION  1000000     /* 6-digit */
+#define TEN4_FLOAT_PRECISION  1000000     /* 6-digit */
 #define STRBUF_SIZE           8
 ///
 /// string buffer class
@@ -61,7 +61,7 @@ struct StrBuf : public Vector<char>
     __GPU__ StrBuf& operator<<(float f) {
         if (f < 0) { f = -f; push('-'); }
         int i = static_cast<int>(f);
-        int d = static_cast<int>(round(CUEF_FLOAT_PRECISION*(f - i)));
+        int d = static_cast<int>(round(TEN4_FLOAT_PRECISION*(f - i)));
         return *this << i << '.' << d;
     }
     ///
@@ -70,4 +70,4 @@ struct StrBuf : public Vector<char>
     __GPU__ int   to_i(char **p, int base=10) { return (int)STRTOL((char*)v, p, base); }
     __GPU__ float to_f(char **p)              { return (float)STRTOF((char*)v, p);     }
 };
-#endif // CUEF_SRC_STRBUF_H
+#endif // TEN4_SRC_STRBUF_H

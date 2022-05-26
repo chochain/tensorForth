@@ -1,6 +1,6 @@
 /*! @file
   @brief
-  cueForth Utility functions
+  tensorForth Utility functions
 
   <pre>
   Copyright (C) 2021- GreenII
@@ -8,8 +8,8 @@
   This file is distributed under BSD 3-Clause License.
   </pre>
 */
-#ifndef CUEF_SRC_UTIL_H_
-#define CUEF_SRC_UTIL_H_
+#ifndef TEN4_SRC_UTIL_H_
+#define TEN4_SRC_UTIL_H_
 #include <stdint.h>
 #include <stddef.h>
 
@@ -98,4 +98,4 @@ __GPU__ int          d_hash(const char *s);
 #ifdef __cplusplus
 }
 #endif
-#endif // CUEF_SRC_UTIL_H_
+#endif // TEN4_SRC_UTIL_H_

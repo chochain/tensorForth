@@ -1,6 +1,6 @@
 /*! @file
   @brief
-  cueForth istream module.
+  tensorForth istream module.
 
   <pre>
   Copyright (C) 2021 GreenII
@@ -9,10 +9,10 @@
 
   </pre>
 */
-#ifndef CUEF_SRC_ISTREAM_H_
-#define CUEF_SRC_ISTREAM_H_
-#include "cuef_config.h"
-#include "cuef_types.h"
+#ifndef TEN4_SRC_ISTREAM_H_
+#define TEN4_SRC_ISTREAM_H_
+#include "ten4_config.h"
+#include "ten4_types.h"
 #include "util.h"
 ///
 /// istream class
@@ -37,8 +37,8 @@ class Istream : public Managed {
         return nidx;
     }
 public:
-    Istream(int sz=CU4_IBUF_SZ) { cudaMallocManaged(&_buf, sz); GPU_CHK(); }
-    ~Istream()                  { GPU_SYNC(); cudaFree(_buf); }
+    Istream(int sz=T4_IBUF_SZ) { cudaMallocManaged(&_buf, sz); GPU_CHK(); }
+    ~Istream()                 { GPU_SYNC(); cudaFree(_buf); }
     ///
     /// intialize by a given string
     ///
@@ -78,4 +78,4 @@ public:
     }
     __GPU__ int operator>>(char *s)   { get_idiom(s); return _gn; }
 };
-#endif // CUEF_SRC_ISTREAM_H_
+#endif // TEN4_SRC_ISTREAM_H_
