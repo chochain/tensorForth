@@ -54,47 +54,46 @@
 #define ASSERT(X)           assert(x)
 
 #endif // defined(__CUDACC__)
+///
+/// short-hand for common data types
+///
+typedef uint64_t    U64;                    /// 64-bit unsigned integer
+typedef uint32_t    U32;                    /// 32-bit unsigned integer
+typedef uint16_t    U16;                    /// 16-bit unsigned integer
+typedef uint8_t     U8;                     /// 8-bit  unsigned integer
 
-// short notation
-typedef uint64_t    U64;                    // unsigned integers
-typedef uint32_t    U32;
-typedef uint16_t    U16;
-typedef uint8_t     U8;
+typedef int32_t     S32;                    // 32-bit signed integer
+typedef int16_t     S16;                    // 16-bit signed integer
 
-typedef int32_t     S32;                    // signed integers
-typedef int16_t     S16;
-typedef int8_t      S8;
-
-typedef uintptr_t   UFP;                    // pointer address
 typedef double      F64;                    // double precision float
 typedef float       F32;                    // single precision float
+typedef uintptr_t   UFP;                    // pointer address
+///===============================================================================
+/// cueForth simple types (non struct)
+///
+typedef S32         GI;                     /// general signed integer
+typedef F32         GF;                     /// general float
+typedef U16         GS;                     /// general symbol index
+typedef S32         GP;                     /// general object pointer
 
-//===============================================================================
-// cueForth simple types (non struct)
-typedef S32         GI;                     // signed integer
-typedef F32         GF;                     // float
-typedef U16         GS;                     // symbol index
-typedef S32         GP;                     // offset, i.e. object pointer
-
-typedef U16         IU;                     // size of a instruction unit
-typedef F32         DU;                     // size of a data unit
-#define DU0         0.0f                    /* default data value     */
-#define DU_EPS      1.0e-6                  /* floating point epsilon */
-//
-// cueForth complex data object
-//
-typedef struct {
-	union {
+typedef U16         IU;                     /// instruction unit
+typedef F32         DU;                     /// data unit
+#define DU0         0.0f                    /** default data value     */
+#define DU_EPS      1.0e-6                  /** floating point epsilon */
+#define T0(n)       ((n) & ~0x1)            /** mask tensor bit        */
+typedef struct {                            // data unit
+	union {                 // complex structure
 		F32 f = 0.0f;
 		struct {
-			U32 t : 1;
-			U32 v : 1;
-			U32 x : 10;
-			U32 y : 10;
-			U32 z : 10;
+			U32 r: 1;       // tensor rank >= 1
+            U32 p: 31;      // 2^31 slots
 		};
 	};
 } XU;
+
+//
+// cueForth complex data object
+//
 ///==============================================================================
 ///
 /// colon word compiler
