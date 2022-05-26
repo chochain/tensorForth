@@ -91,13 +91,14 @@ class Ostream : public Managed {
         case GT_STR:   printf("%s\n", v);            break;
         case GT_FMT:   printf("%8x\n", *(U16*)v);    break;
         case GT_OPX: {
-            OPX op = *v;
-            U16 a  = (U16)*(v+1) | ((U16)*(v+2)<<8);
-            U16 n  = (U16)*(v+3) | ((U16)*(v+4)<<8);
+            OP  op = *(OP*)v;
+            U16 a  = (U16)*(v+2) | ((U16)*(v+3)<<8);
+            U16 n  = (U16)*(v+4) | ((U16)*(v+5)<<8);
             switch (op) {
-            case OPX_WORDS: printf("words()\n");            break;
-            case OPX_SEE:   printf("see(%d)\n", a);         break;
-            case OPX_DUMP:  printf("dump(%d, %d)\n", a, n); break;
+            case OP_WORDS: printf("words()\n");            break;
+            case OP_SEE:   printf("see(%d)\n", a);         break;
+            case OP_DUMP:  printf("dump(%d, %d)\n", a, n); break;
+            case OP_SS:    printf("ss_dump(%d)\n", a);     break;
             }
         } break;
         default:       printf("unknown type %d\n", gt);
@@ -120,7 +121,6 @@ class Ostream : public Managed {
 #define _debug(a,b)
 #define _dump()
 #endif // CC_DEBUG
-
     __GPU__  void _write(GT gt, U8 *v, int sz) {
         if (threadIdx.x!=0) return;               // only thread 0 within a block can write
 
