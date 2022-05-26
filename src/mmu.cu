@@ -13,7 +13,9 @@ MMU::MMU() {
     cudaMallocManaged(&_pmem, sizeof(U8) * T4_PMEM_SZ);
     cudaMallocManaged(&_vss,  sizeof(DU) * T4_SS_SZ * MIN_VM_COUNT);
     GPU_CHK();
+#if CC_DEBUG
     printf("H: dict=%p, mem=%p, vss=%p\n", _dict, _pmem, _vss);
+#endif // CC_DEBUG
 }
 __HOST__
 MMU::~MMU() {
@@ -97,27 +99,27 @@ MMU::pfa2word(IU ix) {
 }
 
 __HOST__ void
-MMU::see(std::ostream &fout, U8 *p, int dp) {
-	while (*(IU*)p) {                                               /// * loop until EXIT
+MMU::see(std::ostream &fout, U8 *ip, int dp) {
+	while (*(IU*)ip) {                                              /// * loop until EXIT
         fout << std::endl; for (int n=dp; n>0; n--) fout << "  ";   /// * indentation by level
-        fout << "[" << std::setw(4) << (IU)(p - _pmem) << ": ";
-        IU c = pfa2word(*(IU*)p);                                   /// * convert pfa to word index
+        fout << "[" << std::setw(4) << (IU)(ip - _pmem) << ": ";
+        IU c = pfa2word(*(IU*)ip);                                  /// * convert pfa to word index
 	    to_s(fout, c);                                              /// * display word name
         if (_dict[c].def && dp < 2) {                               /// * check if is a colon word
         	see(fout, &_pmem[_dict[c].pfa], dp+1);                  /// * go one level deeper
         }
-        p += sizeof(IU);                                            /// * advance instruction pointer
+        ip += sizeof(IU);                                           /// * advance instruction pointer
         switch (c) {
         case DOVAR: case DOLIT:
-            fout << "= " << *(DU*)p; p += sizeof(DU); break;        // fetch literal
+            fout << "= " << *(DU*)ip; ip += sizeof(DU); break;      /// fetch literal
         case DOSTR: case DOTSTR: {
-            char *s = (char*)p;
+            char *s = (char*)ip;
             int  sz = strlen(s)+1;
-            p += ALIGN2(sz);                                        // fetch string
+            ip += ALIGN2(sz);                                       /// fetch string
             fout << "= \"" << s << "\"";
         } break;
         case BRAN: case ZBRAN: case DONEXT:
-            fout << "j" << *(IU*)p; p += sizeof(IU); break;         // fetch jump target
+            fout << "j" << *(IU*)ip; ip += sizeof(IU); break;       /// fetch jump target
         }
         fout << "] ";
 	}
@@ -125,18 +127,26 @@ MMU::see(std::ostream &fout, U8 *p, int dp) {
 __HOST__ void
 MMU::see(std::ostream &fout, U16 w) {
     fout << "[ "; to_s(fout, w);
-    if (_dict[w].def) see(fout, &_pmem[_dict[w].pfa], 1);
+    if (_dict[w].def) see(fout, &_pmem[_dict[w].pfa]);
     fout << "] " << std::endl;
 }
 ///
 /// dump data stack content
 ///
 __HOST__ void
-MMU::ss_dump(std::ostream &fout, U16 vid, U16 n) {
+MMU::ss_dump(std::ostream &fout, U16 vid, U16 n, int radix) {
+	bool x = radix != 10;
     DU *ss = &_vss[vid * T4_SS_SZ];
     fout << " <";
-    for (U16 i=0; i<n; i++) { fout << ss[i] << " "; }
-    fout << ss[T4_SS_SZ-1] << "> ok" << std::endl;
+    if (x) fout << std::setbase(radix);
+    for (U16 i=0; i<n; i++) {
+    	if (x) fout << static_cast<int>(ss[i]);
+    	else   fout << ss[i];
+    	fout << " ";
+    }
+    if (x) fout << static_cast<int>(ss[T4_SS_SZ-1]);
+    else   fout << ss[T4_SS_SZ-1];
+    fout << "> ok" << std::endl;
 }
 ///
 /// Forth pmem memory dump
@@ -153,8 +163,9 @@ MMU::mem_dump(std::ostream &fout, U16 p0, U16 sz) {
         buf[x++] = '\n'; IU2H(i); buf[x++] = ':'; buf[x++] = ' ';  // "%04x: "
         for (U16 j=0; j<16; j++) {
             //U8 c = *(((U8*)&_dict[0])+i+j) & 0x7f;               // to dump _dict
-            U8 c = _pmem[i+j] & 0x7f;
+            U8 c = _pmem[i+j];
             C2H(c);                                                // "%02x "
+            c &= 0x7f;                                             // mask off high bit
             buf[x++] = ' ';
             if (j%4==3) buf[x++] = ' ';
             buf[59+j]= (c==0x7f||c<0x20) ? '.' : c;                // %c
