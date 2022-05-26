@@ -1,6 +1,6 @@
 /*! @file
   @brief
-  cueForth Asyn IO module
+  tensorForth Asyn IO module
 
   <pre>
   Copyright (C) 2021 GreenII
@@ -9,8 +9,8 @@
 
   </pre>
 */
-#ifndef CUEF_SRC_AIO_H_
-#define CUEF_SRC_AIO_H_
+#ifndef TEN4_SRC_AIO_H_
+#define TEN4_SRC_AIO_H_
 #include "istream.h"
 #include "ostream.h"
 #include "mmu.h"
@@ -31,4 +31,4 @@ public:
     __HOST__ void print_node(obuf_node *node);
     __HOST__ void flush();
 };
-#endif // CUEF_SRC_AIO_H_
+#endif // TEN4_SRC_AIO_H_

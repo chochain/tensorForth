@@ -1,6 +1,6 @@
 /*! @file
   @brief
-  cueForth Async IO module implementation
+  tensorForth Async IO module implementation
 
   <pre>
   Copyright (C) 2021- GreenII
@@ -21,7 +21,7 @@ __HOST__ int
 AIO::readline() {
     _istr->clear();
     char *tib = _istr->rdbuf();
-    std::cin.getline(tib, CU4_IBUF_SZ, '\n');
+    std::cin.getline(tib, T4_IBUF_SZ, '\n');
     if (_trace) std::cout << "<<" << tib << std::endl;
     return strlen(tib);
 }
