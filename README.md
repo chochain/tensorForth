@@ -1,5 +1,5 @@
-## cueForth - CUDA eForth
-* Forth VMs that support dynamic parallelism
+## tensorForth - eForth in CUDA - it does tensors
+* Forth VMs that support tensor calculus and dynamic parallelism
 
 ### Why?
 Compiled programs run fast on Linux. On the other hand, command-line interface and shell scripting tie them together. Productivity grows with this model especially for researchers.
