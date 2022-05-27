@@ -1,7 +1,7 @@
 /** @file
  * @brief tensorForth - eForth core classes
  *
- *
+ * <pre>Copyright (C) 2022- GreenII, this file is distributed under BSD 3-Clause License.</pre>
  */
 #ifndef TEN4_SRC_EFORTH_H
 #define TEN4_SRC_EFORTH_H

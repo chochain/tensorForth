@@ -13,10 +13,21 @@ For AI development today, we use Python mostly. To enable processing on CUDA dev
 
 Having a 'shell' that can interactively and incrementally run 'compiled programs' from within GPU directly without dropping back to host system might be useful. Even though some might argue that the branch divergence could kill, but performance of the script itself is not the point. So, here we are!
 
+### To build
+* clone repo to your local directory
+* install Eclipse with NVidia CUDA SDK 11.6+
+* create project by importing from your repo root
+* exclude directories - ~/tests, ~/img
+* set File=>Properties=>C/C++ Build=>Setting=>NVCC compiler
+  + Dialect=C++14
+  + CUDA=5.2 or above
+  + Optimization=O3
+
 ### TODO
 * add tensor object (study torch tensor, 128-bit NHWC tensor)
 * integrate CUB, CUTLASS (utilities.init, gemm_api)
 * formatted file IO (CSV, Numpy)
+* preprocessor (DALI)
 * ML cases and benchmark (kaggle.MNIST, ...)
 * add inter-VM communication (CUDA stream)
 * add dynamic graph (GNN)
@@ -26,17 +37,17 @@ Having a 'shell' that can interactively and incrementally run 'compiled programs
 #### Initialization
 |stage|snap|
 |---|---|
-|begin|<img src="./img/cueforth_init_0.png">|
-|end|<img src="./img/cueforth_init_1.png">|
+|begin|<img src="./docs/img/cueforth_init_0.png">|
+|end|<img src="./docs/img/cueforth_init_1.png">|
 
 #### Outer Interpreter
-<img src="./img/cueforth_words_0.png">
+<img src="./docs/img/cueforth_words_0.png">
 
 #### Test - Dr. Ting's eForth lessons
 |case#|ok|snap|
 |---|---|---|
-|repeat|pass|<img src="./img/cueforth_ast_0.png">|
-|weather|pass|<img src="./img/cueforth_weather_0.png">|
-|multiply|pass|<img src="./img/cueforth_mult_0.png">|
-|calendar|pass|<img src="./img/cueforth_calndr_1.png">|
+|repeat|pass|<img src="./docs/img/cueforth_ast_0.png">|
+|weather|pass|<img src="./docs/img/cueforth_weather_0.png">|
+|multiply|pass|<img src="./docs/img/cueforth_mult_0.png">|
+|calendar|pass|<img src="./docs/img/cueforth_calndr_1.png">|
 
