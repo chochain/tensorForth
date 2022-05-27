@@ -72,7 +72,6 @@ __GPU__ __INLINE__ _opx opx(OP op, int a=0, int n=0) { return _opx(op, a, n); }
 ///
 /// Ostream class
 ///
-#include <stdio.h>
 class Ostream : public Managed {
     char    *_buf;
     int      _max = 0;
