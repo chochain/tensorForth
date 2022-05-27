@@ -1,16 +1,11 @@
-/*! @file
-  @brief
-  tensorForth Utilities functions
-    Memory cpy/set/cmp
-    String hasher
-
-  <pre>
-  Copyright (C) 2022- GreenII
-
-  This file is distributed under BSD 3-Clause License.
-
-  </pre>
-*/
+/**
+ * @file
+ * @brief tensorForth Utilities functions
+ *  + Memory cpy/set/cmp
+ *  + String hasher
+ *
+ * <pre>Copyright (C) 2022- GreenII, this file is distributed under BSD 3-Clause License.</pre>
+ */
 #include "ten4_types.h"
 #include "util.h"
 
