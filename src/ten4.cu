@@ -1,6 +1,9 @@
 /*! @file
-  @brief
-  tensorForth value definitions non-optimized
+ * @brief
+ * tensorForth value definitions non-optimized
+ *
+ * Benchmark:
+ *    19.0 sec/1M cycles - REALLY SLOW! Probably due to heavy branch divergence.
 */
 #include <iostream>          // cin, cout
 #include <signal.h>
