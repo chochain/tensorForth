@@ -1,10 +1,14 @@
-/*! @file
- * @brief
- * tensorForth value definitions non-optimized
+/*!
+ * @file - ten4.cu
+ * @brief - tensorForth value definitions non-optimized
  *
- * Benchmark:
- *    19.0 sec/1M cycles - REALLY SLOW! Probably due to heavy branch divergence.
-*/
+ * <pre>Copyright (C) 2022- GreenII, this file is distributed under BSD 3-Clause License.</pre>
+ *
+ * Benchmark: 1K*1K cycles on 3.2GHz AMD, Nvidia GTX1660
+ *    + 19.0 sec - REALLY SLOW! Probably due to heavy branch divergence.
+ *    + 21.1 sec - without NXT cache in nest() => branch is slow
+ *    + 19.1 sec - without push/pop WP         => static ram access is fast
+ */
 #include <iostream>          // cin, cout
 #include <signal.h>
 using namespace std;
@@ -17,7 +21,7 @@ using namespace std;
 #define MAJOR_VERSION        "1"
 #define MINOR_VERSION        "0"
 
-__GPU__    ForthVM *vm_pool[MIN_VM_COUNT];
+__GPU__ ForthVM *vm_pool[MIN_VM_COUNT];
 ///
 /// instantiate VMs (threadIdx.x is vm_id)
 ///
@@ -27,9 +31,9 @@ ten4_init(Istream *istr, Ostream *ostr, MMU *mmu) {
     if (i >= MIN_VM_COUNT) return;
 
     ForthVM *vm = vm_pool[i] = new ForthVM(istr, ostr, mmu);  // instantiate VM
-    vm->ss.init(mmu->vss(i), T4_SS_SZ);    // point data stack to managed memory block
+    vm->ss.init(mmu->vss(i), T4_SS_SZ);  // point data stack to managed memory block
 
-    if (i==0) vm->init();                   // initialize common dictionary (once only)
+    if (i==0) vm->init();                // initialize common dictionary (once only)
 }
 ///
 /// check VM status (using parallel reduction - overkill?)
@@ -56,6 +60,7 @@ ten4_busy(int *busy) {
     if (i==0) *busy = b[0];
 }
 ///
+/// tensorForth kernel - VM dispatcher
 ///
 #include <stdio.h>
 __KERN__ void
@@ -88,9 +93,6 @@ TensorForth::TensorForth(bool trace) {
     int t = WARP(MIN_VM_COUNT);                 // thread count = 32 modulo
     ten4_init<<<1, t>>>(aio->istream(), aio->ostream(), mmu); // init using default stream
     GPU_CHK();
-
-    //dict->dump(cout, 0, 120*0x10);            // dump memory from host
-    //dict->words(cout);                        // dump dictionary from host
 }
 TensorForth::~TensorForth() {
     delete aio;
@@ -122,10 +124,10 @@ TensorForth::run() {
             aio->flush();             // flush output buffer
         }
         yield();
-#if CC_DEBUG
-        int m0 = (int)mmu->here() - 0x100;
-        mmu->mem_dump(cout, m0 < 0 ? 0 : m0, 0x100);
-#endif // CC_DEBUG
+#if MMU_DEBUG
+        int m0 = (int)mmu->here() - 0x80;
+        mmu->mem_dump(cout, m0 < 0 ? 0 : m0, 0x80);
+#endif // MMU_DEBUG
     }
     return 0;
 }
@@ -154,7 +156,7 @@ int main(int argc, char**argv) {
     sigtrap();
 
     cout << app << " init" << endl;
-    TensorForth *f = new TensorForth(T4_DEBUG);
+    TensorForth *f = new TensorForth();
 
     cout << app << " start" << endl;
     f->run();
