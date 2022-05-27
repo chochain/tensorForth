@@ -2,9 +2,9 @@
 * Forth VMs that support tensor calculus and dynamic parallelism
 
 ### Status
-float  - Alpha
-tensor - planning
-gemm   - todo
+* float  - Alpha
+* tensor - planning
+* gemm   - todo
 
 ### Why?
 Compiled programs run fast on Linux. On the other hand, command-line interface and shell scripting tie them together. Productivity grows with this model especially for researchers.
@@ -15,7 +15,7 @@ Having a 'shell' that can interactively and incrementally run 'compiled programs
 
 ### TODO
 * add tensor object (study torch tensor, 128-bit NHWC tensor)
-* integrate CUTLASS (utilities.init, gemm_api)
+* integrate CUB, CUTLASS (utilities.init, gemm_api)
 * formatted file IO (CSV, Numpy)
 * ML cases and benchmark (kaggle.MNIST, ...)
 * add inter-VM communication (CUDA stream)
