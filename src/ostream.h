@@ -1,14 +1,14 @@
-/*! @file
-  @brief
-  tensorForth Ostream module.
-
-  <pre>
-  Copyright (C) 2021 GreenII
-
-  This file is distributed under BSD 3-Clause License.
-
-  </pre>
-*/
+/**
+ * @file
+ * @brief managed output stream module.
+ *
+ * <pre>
+ * Copyright (C) 2021 GreenII
+ *
+ * This file is distributed under BSD 3-Clause License.
+ *
+ * </pre>
+ */
 #ifndef TEN4_SRC_OSTREAM_H_
 #define TEN4_SRC_OSTREAM_H_
 #include "ten4_config.h"
@@ -16,9 +16,9 @@
 #include "util.h"
 
 //================================================================
-/*!@brief
-  define the value type.
-*/
+///
+/// general data types
+///
 typedef enum {
     GT_EMPTY = 0,
     GT_INT,
@@ -27,7 +27,9 @@ typedef enum {
     GT_FMT,
     GT_OPX
 } GT;
-
+///
+/// global opocode type
+///
 typedef enum {
     OP_WORDS = 0,
     OP_SEE,
@@ -68,8 +70,8 @@ __GPU__ __INLINE__ _setprec setprec(int p)  { return _setprec((U8)p); }
 /// Forth parameterized manipulators
 ///
 struct _opx     {
-	U16 op, a, n;
-	__GPU__ _opx(OP op, int a, int n) : op((U16)op), a((U16)a), n((U16)n) {}
+    U16 op, a, n;
+    __GPU__ _opx(OP op, int a, int n) : op((U16)op), a((U16)a), n((U16)n) {}
 };
 __GPU__ __INLINE__ _opx opx(OP op, int a=0, int n=0) { return _opx(op, a, n); }
 ///
@@ -82,18 +84,21 @@ class Ostream : public Managed {
     int      _idx = 0;
     obuf_fmt _fmt = { 10, 0, 0, ' '};
 
-#if CC_DEBUG
-    __GPU__ __INLINE__ void _debug(GT gt, U8 *v) {
+    __GPU__ __INLINE__ void _debug(GT gt, U8 *v, int sz) {
+#if MMU_DEBUG
         printf("%d>> obuf[%d] << ", blockIdx.x, _idx);
+        if (!sz) return;
+        U8 d[T4_STRBUF_SZ];
+        MEMCPY(d, v, sz);
         switch(gt) {
-        case GT_INT:   printf("%d\n", *(GI*)v);      break;
-        case GT_FLOAT: printf("%G\n", *(GF*)v);      break;
-        case GT_STR:   printf("%s\n", v);            break;
-        case GT_FMT:   printf("%8x\n", *(U16*)v);    break;
+        case GT_INT:   printf("%d\n", *(GI*)d);      break;
+        case GT_FLOAT: printf("%G\n", *(GF*)d);      break;
+        case GT_STR:   printf("%c\n", d);            break;
+        case GT_FMT:   printf("%8x\n", *(U16*)d);    break;
         case GT_OPX: {
-            OP  op = *(OP*)v;
-            U16 a  = (U16)*(v+2) | ((U16)*(v+3)<<8);
-            U16 n  = (U16)*(v+4) | ((U16)*(v+5)<<8);
+            OP  op = (OP)*d;
+            U16 a  = (U16)*(d+2) | ((U16)*(d+3)<<8);
+            U16 n  = (U16)*(d+4) | ((U16)*(d+5)<<8);
             switch (op) {
             case OP_WORDS: printf("words()\n");            break;
             case OP_SEE:   printf("see(%d)\n", a);         break;
@@ -101,26 +106,10 @@ class Ostream : public Managed {
             case OP_SS:    printf("ss_dump(%d)\n", a);     break;
             }
         } break;
-        default:       printf("unknown type %d\n", gt);
+        default: printf("unknown type %d\n", gt);
         }
+#endif // MMU_DEBUG
     }
-    __GPU__ __INLINE__ void _dump() {
-        for (int i=0; i<ALIGN16(_idx); i+=16) {
-            printf("\n%04x: ", i);
-            char w[17] = {0};
-            for (int j=0; j<16; j++) {
-                U8 c = _buf[i+j] & 0x7f;
-                printf("%02x ", c);
-                if (j%4==3) printf(" ");
-                w[j] = (c==0x7f || c<0x20) ? '.' : c;
-            }
-            printf("%s", w);
-        }
-    }
-#else  // CC_DEBUG
-#define _debug(a,b)
-#define _dump()
-#endif // CC_DEBUG
     __GPU__  void _write(GT gt, U8 *v, int sz) {
         if (threadIdx.x!=0) return;               // only thread 0 within a block can write
 
@@ -133,14 +122,13 @@ class Ostream : public Managed {
 
         int inc = NODE_SZ + n->sz;                // calc node allocation size
 
-        _debug(gt, v);
+        _debug(gt, v, sz);
 
         if ((_idx + inc) > _max) inc = 0;         // overflow, skip
         else MEMCPY(n->data, v, sz);              // deep copy, TODO: shallow copy via managed memory
 
         _buf[(_idx += inc)] = (char)GT_EMPTY;     // advance index and mark end of stream
         //_UNLOCK;
-        _dump();
     }
     __GPU__ Ostream& _wfmt() { _write(GT_FMT, (U8*)&_fmt, sizeof(obuf_fmt)); return *this; }
 
