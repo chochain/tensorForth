@@ -2,12 +2,7 @@
  * @file
  * @brief tensorForth macros and internal type definitions
  *
- * <pre>
- * Copyright (C) 2022- GreenII
- *
- * This file is distributed under BSD 3-Clause License.
- *
- *  </pre>
+ * <pre>Copyright (C) 2022- GreenII, this file is distributed under BSD 3-Clause License.</pre>
  */
 #ifndef TEN4_SRC_TEN4_TYPES_H_
 #define TEN4_SRC_TEN4_TYPES_H_
