@@ -1,7 +1,9 @@
-/*! @file
-  @brief
-  tensorForth - memory manager unit
-*/
+/** 
+ * @file
+ * @brief tensorForth memory manager unit
+ *
+ * <pre>Copyright (C) 2022- GreenII, this file is distributed under BSD 3-Clause License.</pre>
+ */
 #ifndef TEN4_SRC_MMU_H
 #define TEN4_SRC_MMU_H
 #include <ostream>
@@ -11,29 +13,31 @@
 ///
 /// CUDA functor (device only) implementation
 /// Note: nvstd::function is too heavy (at 48-byte)
-/// TODO: Thrust
 ///
-struct fop {  __GPU__  virtual void operator()(IU) = 0; };
-template<typename F>
+///@name functor implementation
+///@{
+struct fop {  __GPU__  virtual void operator()() = 0; };  ///< functor virtual class
+template<typename F>        ///< template functor class
 struct functor : fop {
     union {
         F   op;             /// reference to lambda
         U64 *fp;
     };
-#if CC_DEBUG
+#if MMU_DEBUG
     __GPU__ functor(const F &f) : op(f) {
         printf("functor(f=%p)\n", fp);
     }
-    __GPU__ void operator()(IU c) {
+    __GPU__ void operator()() {
         printf(">> op=%p\n", fp);
-        op(c);
+        op();
     }
-#else
+#else  // MMU_DEBUG
     __GPU__ functor(const F &f) : op(f) {}
-    __GPU__ __INLINE__ void operator()(IU c) { op(c); }
-#endif // CC_DEBUG
+    __GPU__ __INLINE__ void operator()() { op(); }
+#endif // MMU_DEBUG
 };
 typedef fop* FPTR;          /// lambda function pointer
+/// @}
 ///
 /// Code class for dictionary word
 ///
@@ -49,11 +53,8 @@ struct Code : public Managed {
             IU  pfa;        /// offset to pmem space
         };
     };
-    __GPU__ Code()  {}      /// default constructor, called by new Vector
-    __GPU__ ~Code() {}
-
     template<typename F>    /// template function for lambda
-#if CC_DEBUG
+#if MMU_DEBUG
     __GPU__ Code(const char *n, const F &f, bool im=false) : name(n), xt(new functor<F>(f)) {
         printf("Code(...) %p: %s\n", fp, name);
         immd = im ? 1 : 0;
@@ -61,22 +62,15 @@ struct Code : public Managed {
     __GPU__ Code(const Code &c) : name(c.name), xt(c.xt) {  // called by Vector::push(T*)
         printf("Code(Code) %p: %s\n", fp, name);
     }
-    __GPU__ void operator=(const Code &c) {
-        printf("Code(%p:%s) << %p: %s\n", fp, name, c.fp, c.name);
-        name = c.name; xt = c.xt;
-    }
-#else
+#else  // MMU_DEBUG
     __GPU__ Code(const char *n, const F &f, bool im=false) : name(n), xt(new functor<F>(f)) {
         immd = im ? 1 : 0;
     }
     __GPU__ Code(const Code &c) : name(c.name), xt(c.xt) {}
-    __GPU__ void operator=(const Code &c) {
-        name = c.name; xt = c.xt;
-    }
-#endif // CC_DEBUG
+#endif // MMU_DEBUG
 };
-#define CODE(s, g)    { s, [this] __GPU__ (IU c){ g; }}
-#define IMMD(s, g)    { s, [this] __GPU__ (IU c){ g; }, true }
+#define CODE(s, g)    { s, [this] __GPU__ (){ g; }}
+#define IMMD(s, g)    { s, [this] __GPU__ (){ g; }, true }
 ///
 /// Forth memory manager
 ///
@@ -97,8 +91,9 @@ public:
     /// dictionary access and search methods
     ///
     __GPU__ __INLINE__ Code &operator<<(Code *c) {                                  /// dictionary word assignment
-    	_dict[_didx++] = *c;
-    	if ((UFP)c->xt < (_xt0 - sizeof(DU))) _xt0 = (UFP)c->xt - sizeof(DU);       /// capture lowest function pointer address
+        _dict[_didx++] = *c;
+        if ((UFP)c->xt < (_xt0 - sizeof(DU))) _xt0 = (UFP)c->xt - sizeof(DU);       /// capture lowest function pointer address
+        return *c;
     }
     __GPU__ __INLINE__ Code &operator[](int i)   { return (i<0) ? _dict[_didx+i] : _dict[i]; }                       /// fetch
 

@@ -13,9 +13,9 @@ MMU::MMU() {
     cudaMallocManaged(&_pmem, sizeof(U8) * T4_PMEM_SZ);
     cudaMallocManaged(&_vss,  sizeof(DU) * T4_SS_SZ * MIN_VM_COUNT);
     GPU_CHK();
-#if CC_DEBUG
+#if MMU_DEBUG
     printf("H: dict=%p, mem=%p, vss=%p\n", _dict, _pmem, _vss);
-#endif // CC_DEBUG
+#endif // MMU_DEBUG
 }
 __HOST__
 MMU::~MMU() {
@@ -29,9 +29,9 @@ MMU::~MMU() {
 ///
 __GPU__ int
 MMU::find(const char *s, bool compile, bool ucase) {
-#if CC_DEBUG
+#if MMU_DEBUG
     printf("find(%s) => ", s);
-#endif // CC_DEBUG
+#endif // MMU_DEBUG
     for (int i = _didx - (compile ? 2 : 1); i >= 0; --i) {
         const char *t = _dict[i].name;
         if (ucase && STRCASECMP(t, s)==0) return i;
@@ -44,6 +44,9 @@ MMU::find(const char *s, bool compile, bool ucase) {
 ///
 __GPU__ void
 MMU::colon(const char *name) {
+#if MMU_DEBUG
+    printf("colon(%s) => ", name);
+#endif // MMU_DEBUG
     int  sz = STRLENB(name);                // aligned string length
     Code &c = _dict[_didx++];               // get next dictionary slot
     align();                                // nfa 32-bit aligned (adjust _midx)
@@ -102,13 +105,13 @@ MMU::pfa2word(IU ix) {
 
 __HOST__ void
 MMU::see(std::ostream &fout, U8 *ip, int dp) {
-	while (*(IU*)ip) {                                              /// * loop until EXIT
+    while (*(IU*)ip) {                                              /// * loop until EXIT
         fout << std::endl; for (int n=dp; n>0; n--) fout << "  ";   /// * indentation by level
         fout << "[" << std::setw(4) << (IU)(ip - _pmem) << ": ";
         IU c = pfa2word(*(IU*)ip);                                  /// * convert pfa to word index
-	    to_s(fout, c);                                              /// * display word name
+        to_s(fout, c);                                              /// * display word name
         if (_dict[c].def && dp < 2) {                               /// * check if is a colon word
-        	see(fout, &_pmem[_dict[c].pfa], dp+1);                  /// * go one level deeper
+            see(fout, &_pmem[_dict[c].pfa], dp+1);                  /// * go one level deeper
         }
         ip += sizeof(IU);                                           /// * advance instruction pointer
         switch (c) {
@@ -124,7 +127,7 @@ MMU::see(std::ostream &fout, U8 *ip, int dp) {
             fout << "j" << *(IU*)ip; ip += sizeof(IU); break;       /// fetch jump target
         }
         fout << "] ";
-	}
+    }
 }
 __HOST__ void
 MMU::see(std::ostream &fout, U16 w) {
@@ -137,14 +140,14 @@ MMU::see(std::ostream &fout, U16 w) {
 ///
 __HOST__ void
 MMU::ss_dump(std::ostream &fout, U16 vid, U16 n, int radix) {
-	bool x = radix != 10;
+    bool x = radix != 10;
     DU *ss = &_vss[vid * T4_SS_SZ];
     fout << " <";
     if (x) fout << std::setbase(radix);
     for (U16 i=0; i<n; i++) {
-    	if (x) fout << static_cast<int>(ss[i]);
-    	else   fout << ss[i];
-    	fout << " ";
+        if (x) fout << static_cast<int>(ss[i]);
+        else   fout << ss[i];
+        fout << " ";
     }
     if (x) fout << static_cast<int>(ss[T4_SS_SZ-1]);
     else   fout << ss[T4_SS_SZ-1];
