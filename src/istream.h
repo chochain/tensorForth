@@ -1,14 +1,14 @@
-/*! @file
-  @brief
-  tensorForth istream module.
-
-  <pre>
-  Copyright (C) 2021 GreenII
-
-  This file is distributed under BSD 3-Clause License.
-
-  </pre>
-*/
+/**
+ * @file
+ * @brief kernel input stream module.
+ *
+ * <pre>
+ * Copyright (C) 2021 GreenII
+ *
+ * This file is distributed under BSD 3-Clause License.
+ *
+ * </pre>
+ */
 #ifndef TEN4_SRC_ISTREAM_H_
 #define TEN4_SRC_ISTREAM_H_
 #include "ten4_config.h"
@@ -22,12 +22,11 @@ class Istream : public Managed {
     int  _idx  = 0;             /// current buffer index
     int  _gn   = 0;             /// number of byte processed
 
-#if CC_DEBUG
-    __GPU__ __INLINE__ void _debug() { printf("%d>> ibuf[%d] >> %d bytes\n", blockIdx.x, _idx, _gn); }
-#else  // CC_DEBUG
-    __GPU__ __INLINE__ void _debug() {}
-#endif // CC_DEBUG
-
+    __GPU__ __INLINE__ void _debug() {
+#if MMU_DEBUG
+        printf("%d>> ibuf[%d] >> %d bytes\n", blockIdx.x, _idx, _gn);
+#endif // MMU_DEBUG
+    }
     __GPU__ int _tok(char delim) {
         char *p = &_buf[_idx];
         while (delim==' ' && (*p==' ' || *p=='\t')) (p++, _idx++); // skip leading blanks and tabs
@@ -44,10 +43,10 @@ public:
     ///
     __HOST__ char     *rdbuf() { return _buf; }
     __HOST__ Istream& clear()  {
-    	//LOCK;
-    	_idx = _gn = 0;
-    	//UNLOCK;
-    	return *this;
+        //LOCK;
+        _idx = _gn = 0;
+        //UNLOCK;
+        return *this;
     }
     __HOST__ Istream& str(const char *s, int sz=0) {
         memcpy(_buf, s, sz ? sz : strlen(s));
@@ -74,7 +73,7 @@ public:
         return *this;
     }
     __GPU__ Istream& getline(char *s, int sz, char delim='\n') {
-    	return get_idiom(s, delim);
+        return get_idiom(s, delim);
     }
     __GPU__ int operator>>(char *s)   { get_idiom(s); return _gn; }
 };
