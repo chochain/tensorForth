@@ -2,12 +2,7 @@
  * @file
  * @brief managed output stream module.
  *
- * <pre>
- * Copyright (C) 2021 GreenII
- *
- * This file is distributed under BSD 3-Clause License.
- *
- * </pre>
+ * <pre>Copyright (C) 2022- GreenII, this file is distributed under BSD 3-Clause License.</pre>
  */
 #ifndef TEN4_SRC_OSTREAM_H_
 #define TEN4_SRC_OSTREAM_H_
