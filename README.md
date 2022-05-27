@@ -1,5 +1,5 @@
 ## tensorForth - eForth does tensor calculus, implemented in CUDA.
-* Forth VMs that support tensor calculus and dynamic parallelism
+* Forth VM that supports tensor calculus and dynamic parallelism
 
 ### Status
 * float  - Alpha
@@ -9,7 +9,7 @@
 ### Why?
 Compiled programs run fast on Linux. On the other hand, command-line interface and shell scripting tie them together. Productivity grows with this model especially for researchers.
 
-For AI development today, we use Python mostly. To enable processing on CUDA device, say with Numba or the likes, mostly there will be 'just-in-time' compilations behind the scene then load and run. In a sense, the Python code behaves like a Makefile also compilers on the target box is required. To analyze, at the tail end, visualization then can be have commonly after a long run. We then update the Python and restart again. To study progress, scanning the intermediate formatted files sometimes become necessary which probably reminisce the line-printer days for seasoned developers.
+For AI development today, we use Python mostly. To enable processing on CUDA device, say with Numba or the likes, mostly there will be 'just-in-time' compilations behind the scene then load and run. In a sense, the Python code behaves like a Makefile which requires compilers to be on the host box. At the tailend, to analyze, visualization can then be have. This is usually a long journey. After many coffee breaks, we update the Python and restart again. In order to catch progress, scanning the intermediate formatted files sometimes become necessary which probably reminisce the line-printer days for seasoned developers.
 
 Having a 'shell' that can interactively and incrementally run 'compiled programs' from within GPU directly without dropping back to host system might be useful. Even though some might argue that the branch divergence could kill, but performance of the script itself is not the point. So, here we are!
 
@@ -22,16 +22,17 @@ Having a 'shell' that can interactively and incrementally run 'compiled programs
 * add dynamic graph (GNN)
 * integrate plots (tensorboard, R)
 
-### Initialization
+### Progress
+#### Initialization
 |stage|snap|
 |---|---|
 |begin|<img src="./img/cueforth_init_0.png">|
 |end|<img src="./img/cueforth_init_1.png">|
 
-### Outer Interpreter
+#### Outer Interpreter
 <img src="./img/cueforth_words_0.png">
 
-### Test - Dr. Ting's eForth lessons
+#### Test - Dr. Ting's eForth lessons
 |case#|ok|snap|
 |---|---|---|
 |repeat|pass|<img src="./img/cueforth_ast_0.png">|
