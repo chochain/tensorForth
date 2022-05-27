@@ -29,7 +29,9 @@ MMU::~MMU() {
 ///
 __GPU__ int
 MMU::find(const char *s, bool compile, bool ucase) {
+#if CC_DEBUG
     printf("find(%s) => ", s);
+#endif // CC_DEBUG
     for (int i = _didx - (compile ? 2 : 1); i >= 0; --i) {
         const char *t = _dict[i].name;
         if (ucase && STRCASECMP(t, s)==0) return i;

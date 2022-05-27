@@ -87,7 +87,9 @@ __GPU__ __INLINE__ void ForthVM::add_w(IU w) {
     Code &c = dict[w];
     IU   ip = c.def ? (c.pfa | 1) : (w==EXIT ? 0 : XOFF(c.xt));
     add_iu(ip);
+#if CC_DEBUG
     printf("add_w(%d) => %4x:%p %s\n", w, ip, c.xt, c.name);
+#endif // CC_DEBUG
 }
 __GPU__ __INLINE__ void ForthVM::call(IU w) {
     Code &c = dict[w];
@@ -375,7 +377,9 @@ ForthVM::init() {
 __GPU__ void
 ForthVM::outer() {
     while (fin >> idiom) {                   /// loop throught tib
+#if CC_DEBUG
         printf("%d>> %s => ", blockIdx.x, idiom);
+#endif // CC_DEBUG
         int w = FIND(idiom);                 /// * search through dictionary
         if (w>=0) {                          /// * word found?
 #if CC_DEBUG
