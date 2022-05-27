@@ -1,40 +1,45 @@
-/*! @file
-  @brief
-  tensorForth Forth Vritual Machine implementation
-*/
+/**
+ * @file
+ * @brief - eForth Vritual Machine implementation
+ *
+ * <pre>Copyright (C) 2022- GreenII, this file is distributed under BSD 3-Clause License.</pre>
+ */
 #include "mmu.h"
 #include "eforth.h"
 ///
 /// Forth Virtual Machine operational macros to reduce verbosity
 ///
+///@name Data conversion
+///@{
 #define INT(f)    (static_cast<int>(f))         /** cast float to int                        */
 #define I2D(i)    (static_cast<DU>(i))          /** cast int back to float                   */
 #define ABS(d)    (fabs(d))                     /** absolute value                           */
 #define ZERO(d)   (ABS(d) < DU_EPS)             /** zero check                               */
 #define BOOL(f)   ((f) ? -1 : 0)                /** default boolean representation           */
-
+///@}
+///@name Dictioanry access
+///@{
 #define PFA(w)    (dict[(IU)(w)].pfa)           /** PFA of given word id                     */
 #define HERE      (mmu.here())                  /** current context                          */
 #define XOFF(xp)  (mmu.xtoff((UFP)(xp)))        /** XT offset (index) in code space          */
 #define XT(ix)    (mmu.xt(ix))                  /** convert XT offset to function pointer    */
 #define SETJMP(a) (mmu.setjmp(a))               /** address offset for branching opcodes     */
-
-#define POPi      (INT(POP()))                  /** convert popped DU as an IU               */
 #define FIND(s)   (mmu.find(s, compile, ucase)) /** find input idiom in dictionary           */
-///
-/// heap memory load/store macros
-///
+///@}
+///@name Heap memory load/store macros
+///@{
+#define POPi      (INT(POP()))                  /** convert popped DU as an IU               */
 #define LDi(ip)   (mmu.ri((IU)(ip)))            /** read an instruction unit from pmem       */
 #define LDd(ip)   (mmu.rd((IU)(ip)))            /** read a data unit from pmem               */
 #define STd(ip,d) (mmu.wd((IU)(ip), (DU)(d)))   /** write a data unit to pmem                */
 #define LDs(ip)   (mmu.mem((IU)(ip)))           /** pointer to IP address fetched from pmem  */
-
+///@}
 __GPU__
 ForthVM::ForthVM(Istream *istr, Ostream *ostr, MMU *mmu0)
     : fin(*istr), fout(*ostr), mmu(*mmu0), dict(mmu0->dict()) {
-#if CC_DEBUG
+#if T4_VERBOSE
         printf("D: dict=%p, mem=%p, vss=%p\n", dict, mmu.mem(0), mmu.vss(blockIdx.x));
-#endif // CC_DEBUG
+#endif // T4_VERBOSE
 }
 ///
 /// Forth inner interpreter (colon word handler)
@@ -64,8 +69,8 @@ ForthVM::nest() {
                 if ((rs[-1] -= 1) >= 0) IP = LDi(IP);
                 else { IP += sizeof(IU); rs.pop(); }
             }
-            else (*(FPTR)XT(ix))(ix);                /// * execute primitive word
-            ix = LDi(IP);                           /// * fetch next opcode
+            else (*(FPTR)XT(ix))();                  /// * execute primitive word
+            ix = LDi(IP);                            /// * fetch next opcode
         }
         if (dp-- > 0) {                              /// pop off a level
             IP = rs.pop();                           /// * restore call frame (EXIT)
@@ -87,14 +92,14 @@ __GPU__ __INLINE__ void ForthVM::add_w(IU w) {
     Code &c = dict[w];
     IU   ip = c.def ? (c.pfa | 1) : (w==EXIT ? 0 : XOFF(c.xt));
     add_iu(ip);
-#if CC_DEBUG
+#if T4_VERBOSE
     printf("add_w(%d) => %4x:%p %s\n", w, ip, c.xt, c.name);
-#endif // CC_DEBUG
+#endif // T4_VERBOSE
 }
 __GPU__ __INLINE__ void ForthVM::call(IU w) {
     Code &c = dict[w];
     if (c.def) { WP = w; IP = c.pfa; nest(); }
-    else (*(FPTR)(((UFP)c.xt) & ~0x3))(w);
+    else (*(FPTR)(((UFP)c.xt) & ~0x3))();
 }
 ///==============================================================================
 ///
@@ -155,7 +160,7 @@ ForthVM::init() {
     CODE("rot",  DU n = ss.pop(); DU m = ss.pop(); ss.push(n); PUSH(m)),
     CODE("pick", DU i = top; top = ss[-i]),
     /// @}
-    /// @defgroup Stack ops - double
+    /// @defgroup Stack double
     /// @{
     CODE("2dup", PUSH(ss[-1]); PUSH(ss[-1])),
     CODE("2drop",ss.pop(); top = ss.pop()),
@@ -182,7 +187,7 @@ ForthVM::init() {
         DU2 n = (DU2)ss.pop() * ss.pop();  DU t = top;
         ss.push(fmod(n, t)); top = round(n / t)),
 	/// @}
-	/// @defgroup binary logic ops (convert to integer first)
+	/// @defgroup Binary logic ops (convert to integer first)
 	/// @{
     CODE("and",  top = I2D(INT(ss.pop()) & INT(top))),
     CODE("or",   top = I2D(INT(ss.pop()) | INT(top))),
@@ -196,7 +201,7 @@ ForthVM::init() {
     CODE("1+",   top += 1),
     CODE("1-",   top -= 1),
 	/// @}
-	/// @defgroup data conversion ops
+	/// @defgroup Data conversion ops
 	/// @{
 	CODE("int",  top = INT(top)),                /// integer part, 1.5 => 1, -1.5 => -1
 	CODE("round",top = round(top)),              /// rounding 1.5 => 2, -1.5 => -1
@@ -259,7 +264,7 @@ ForthVM::init() {
         IU h = HERE; add_iu(0); SETJMP(POP()); PUSH(h)),    // set forward jump
     IMMD("then", SETJMP(POP())),                            // backfill jump address
     /// @}
-    /// @defgroup Loops
+    /// @defgroup Loop ops
     /// @brief  - begin...again, begin...f until, begin...f while...repeat
     /// @{
     IMMD("begin",   PUSH(HERE)),
@@ -269,7 +274,7 @@ ForthVM::init() {
     IMMD("repeat",  add_w(BRAN);                            // repeat    ( there1 there2 -- )
         IU t=POPi; add_iu(POPi); SETJMP(t)),                // set forward and loop back address
     /// @}
-    /// @defgrouop For loops
+    /// @defgrouop For-loop ops
     /// @brief  - for...next, for...aft...then...next
     /// @{
     IMMD("for" ,    add_w(TOR); PUSH(HERE)),                // for ( -- here )
@@ -293,7 +298,7 @@ ForthVM::init() {
         add_du(POP());                                      // data storage (32-bit integer now)
         add_w(EXIT)),
     /// @}
-    /// @defgroup metacompiler
+    /// @defgroup Metacompiler ops
     /// @brief - dict is directly used, instead of shield by macros
     /// @{
     CODE("exec",  call(POP())),                              // execute word
@@ -351,14 +356,16 @@ ForthVM::init() {
         mmu << (Code*)&prim[i];
     }
     NXT = XOFF(dict[DONEXT].xt);         /// cache offset to subroutine address
-#if CC_DEBUG
+
+#if MMU_DEBUG
 	for (int i=0; i<n; i++) {
 	    printf("%3d> xt=%4x:%p name=%4x:%p %s\n", i,
 				XOFF(dict[i].xt), dict[i].fp,
 				(dict[i].name - dict[0].name), dict[i].name,
 				dict[i].name);           /// dump dictionary from device
 	}
-#endif // CC_DEBUG
+#endif // MMU_DEBUG
+
     printf("init() VM=%p sizeof(Code)=%d\n", this, (int)sizeof(Code));
     status = VM_RUN;
 };
@@ -377,20 +384,25 @@ ForthVM::init() {
 __GPU__ void
 ForthVM::outer() {
     while (fin >> idiom) {                   /// loop throught tib
-#if CC_DEBUG
-        printf("%d>> %s => ", blockIdx.x, idiom);
-#endif // CC_DEBUG
+#if T4_VERBOSE
+        printf("%d>> %-10s => ", blockIdx.x, idiom);
+#endif // T4_VERBOSE
         int w = FIND(idiom);                 /// * search through dictionary
         if (w>=0) {                          /// * word found?
-#if CC_DEBUG
-            printf("%4x:%p %s %d\n",
+#if T4_VERBOSE
+            printf("%4x:%p %s %d ",
             	dict[w].def ? dict[w].pfa : XOFF(dict[w].xt),
             	dict[w].xt, dict[w].name, w);
-#endif // CC_DEBUG
+#endif // T4_VERBOSE
             if (compile && !dict[w].immd) {  /// * in compile mode?
                 add_w((IU)w);                /// * add found word to new colon word
             }
-            else call((IU)w);                /// * execute forth word
+            else {
+#if T4_VERBOSE
+            	printf("=> call(%s)\n", dict[w].name);
+#endif // T4_VERBOSE
+	            call((IU)w);                 /// * execute forth word
+            }
             continue;
         }
         // try as a number
@@ -404,14 +416,19 @@ ForthVM::outer() {
             break;                           ///> skip the entire input buffer
         }
         // is a number
-#if CC_DEBUG
-        printf("%f = %08x\n", n, *(U32*)&n);
-#endif // CC_DEBUG
+#if T4_VERBOSE
+        printf("%f => ", n);
+#endif // T4_VERBOSE
         if (compile) {                       /// * add literal when in compile mode
             add_w(DOLIT);                    ///> dovar (+parameter field)
             add_du(n);                       ///> store literal
         }
-        else PUSH(n);                        ///> or, add value onto data stack
+        else {
+#if T4_VERBOSE
+            printf("ss.push(%08x)\n", *(U32*)&n);
+#endif // T4_VERBOSE
+        	PUSH(n);                         ///> or, add value onto data stack
+        }
     }
     if (!compile) ss_dump(ss.idx);
 }

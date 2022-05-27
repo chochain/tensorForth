@@ -1,13 +1,12 @@
-/*! @file
-  @brief
-  tensorForth - eForth core classes
-*/
+/** @file
+ * @brief tensorForth - eForth core classes
+ *
+ *
+ */
 #ifndef TEN4_SRC_EFORTH_H
 #define TEN4_SRC_EFORTH_H
-#include "ten4_types.h"
-#include "util.h"
-#include "vector.h"         // Forth vector
-#include "aio.h"            // Forth async IO (Istream, Ostream)
+#include "vector.h"         // Forth vector (includes util.h)
+#include "aio.h"            // Forth async IO (includes Istream, Ostream)
 
 #define ENDL            '\n'
 #define millis()        (clock()/1530000.0f)

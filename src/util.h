@@ -74,7 +74,7 @@ __GPU__ int          d_hash(const char *s);
 #define STRCHR(t,c)     d_strchr((char*)(t), (const char)(c))
 #define STRCAT(t,s)     d_strcat((char*)(t), (const char*)(s))
 #define STRCUT(s,n)     d_strcut((const char*)(s), (int)(n))
-///@}    
+///@}
 ///@name Unified numeric conversion ops
 ///@{
 #define ITOA(i,s,b)     d_itoa((int)(i), (char*)(s), (int)(b))
@@ -101,7 +101,7 @@ __GPU__ int          d_hash(const char *s);
 #define STRCHR(t,c)     strchr(t,c)
 #define STRCAT(t,s)     strcat(t,s)
 #define STRCUT(s,n)     substr(s,n)
-///@}    
+///@}
 ///@name Unified numeric conversion ops
 ///@{
 #define ITOA(i,s,b)     (sprintf(s,"%d",i))

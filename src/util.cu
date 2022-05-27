@@ -35,8 +35,8 @@ hbin_to_u32(const void *bin) {
 /*!@brief
   Get 16bit value from memory big endian.
 
-  @param  s Pointer of memory.
-  @return   16bit unsigned value.
+  @param    bin Pointer of memory.
+  @return   16-bit unsigned value.
 */
 uint16_t
 hbin_to_u16(const void *bin) {
@@ -304,6 +304,7 @@ d_itoa(int v, char *s, int base) {
   convert ASCII string to integer Guru version
 
   @param  s source string.
+  @param  p return pointer
   @param  base  n base.
   @return   result.
 */
