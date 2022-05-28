@@ -85,13 +85,19 @@ ten4_exec() {
 }
 
 TensorForth::TensorForth(bool trace) {
-    mmu = new MMU();
-    aio = new AIO(mmu, trace);
-    cudaMalloc((void**)&busy, sizeof(int));
+#if T4_VERBOSE
+    cout << "initializing dict[" << T4_DICT_SZ << "]"
+    	 << ", pmem[" << T4_PMEM_SZ << "]"
+		 << ", sizeof(Code)=" << sizeof(Code) << endl;
+#endif // T4_VERBOSE
+
+    mmu = new MMU();                            // instantiate memory manager
+    aio = new AIO(mmu, trace);                  // instantiate async IO manager
+    cudaMalloc((void**)&busy, sizeof(int));     // allocate managed busy flag
     GPU_CHK();
 
     int t = WARP(VM_MIN_COUNT);                 // thread count = 32 modulo
-    ten4_init<<<1, t>>>(aio->istream(), aio->ostream(), mmu); // init using default stream
+    ten4_init<<<1, t>>>(aio->istream(), aio->ostream(), mmu); // create VMs
     GPU_CHK();
 }
 TensorForth::~TensorForth() {
@@ -154,11 +160,9 @@ void sigtrap() {
 int main(int argc, char**argv) {
 	string app = string(T4_APP_NAME) + " " + MAJOR_VERSION + "." + MINOR_VERSION;
     sigtrap();
-
-    cout << app << " init" << endl;
     TensorForth *f = new TensorForth();
 
-    cout << app << " start" << endl;
+    cout << app << endl;
     f->run();
 
     cout << app << " done." << endl;
