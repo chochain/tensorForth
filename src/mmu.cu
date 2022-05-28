@@ -73,7 +73,11 @@ MMU::to_s(std::ostream &fout, IU w) {
         fout << c;
         cudaMemcpy(&c, _dict[w].name+(++i), 1, D2H);
     }
+#if T4_VERBOSE
     fout << " " << w << (_dict[w].immd ? "* " : " ");
+#else   // T4_VERBOSE
+    fout << " ";
+#endif  // T4_VERBOSE
 }
 ///
 /// display dictionary word list
@@ -133,7 +137,7 @@ __HOST__ void
 MMU::see(std::ostream &fout, U16 w) {
     fout << "[ "; to_s(fout, w);
     if (_dict[w].def) see(fout, &_pmem[_dict[w].pfa]);
-    fout << "] " << std::endl;
+    fout << "]" << std::endl;
 }
 ///
 /// dump data stack content
