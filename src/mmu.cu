@@ -93,20 +93,6 @@ MMU::words(std::ostream &fout) {
 ///
 /// recursively disassemble colon word
 ///
-__HOST__ int
-MMU::pfa2word(IU ix) {
-    IU   def = ix & 1;
-    IU   pfa = ix & ~0x1;             /// TODO: handle colon immediate words when > 64K
-    UFP  xt  = _xt0 + ix;             /// function pointer
-    for (int i = _didx - 1; i >= 0; --i) {
-        if (def) {
-            if (_dict[i].pfa == pfa) return i;      /// compare pfa in PMEM
-        }
-        else if ((UFP)_dict[i].xt == xt) return i;  /// compare xt (no immediate?)
-    }
-    return 0;                         /// not found, return EXIT
-}
-
 __HOST__ void
 MMU::see(std::ostream &fout, U8 *ip, int dp) {
     while (*(IU*)ip) {                                              /// * loop until EXIT
