@@ -298,7 +298,7 @@ ForthVM::init() {
         add_du(POP());                                      // data storage (32-bit integer now)
         add_w(EXIT)),
     /// @}
-    /// @defgroup word defining words (DSL) ops
+    /// @defgroup word defining words (DSL)
     /// @brief - dict is directly used, instead of shield by macros
     /// @{
     CODE("exec",  call(POPi)),                              // execute word
@@ -315,8 +315,8 @@ ForthVM::init() {
         IU w = LDi(IP); IP += sizeof(IU);                   // fetch constant pfa from 'here'
         STd(PFA(w) + sizeof(IU), POP())),
     ///
-    /// be careful with memory access, especially BYTE because
-    /// it could make access misaligned which slows the access speed by 2x
+    /// be careful with memory access, because
+    /// it could make access misaligned which cause exception
     ///
     CODE("@",     IU w = POPi; PUSH(LDd(w))),                                     // w -- n
     CODE("!",     IU w = POPi; STd(w, POP())),                                    // n w --
@@ -364,9 +364,8 @@ ForthVM::init() {
 				(dict[i].name - dict[0].name), dict[i].name,
 				dict[i].name);           /// dump dictionary from device
 	}
+    printf("VM=%p sizeof(Code)=%d\n", this, (int)sizeof(Code));
 #endif // MMU_DEBUG
-
-    printf("init() VM=%p sizeof(Code)=%d\n", this, (int)sizeof(Code));
     status = VM_RUN;
 };
 ///
