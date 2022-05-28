@@ -20,8 +20,8 @@ struct fop {  __GPU__  virtual void operator()() = 0; };  ///< functor virtual c
 template<typename F>        ///< template functor class
 struct functor : fop {
     union {
-        F   op;             /// reference to lambda
-        U64 *fp;
+        F   op;             ///< reference to lambda
+        U64 *fp;            ///< function pointer for debugging print
     };
 #if MMU_DEBUG
     __GPU__ functor(const F &f) : op(f) {
@@ -36,30 +36,30 @@ struct functor : fop {
     __GPU__ __INLINE__ void operator()() { op(); }
 #endif // MMU_DEBUG
 };
-typedef fop* FPTR;          /// lambda function pointer
+typedef fop* FPTR;          ///< lambda function pointer
 /// @}
 ///
 /// Code class for dictionary word
 ///
 struct Code : public Managed {
-    const char *name = 0;   /// name field
+    const char *name = 0;   ///< name field
     union {
-        FPTR xt = 0;        /// lambda pointer (CUDA 49-bit)
+        FPTR xt = 0;        ///< lambda pointer (CUDA 49-bit)
         U64 *fp;
         struct {
-            U16 def:  1;    /// colon defined word
-            U16 immd: 1;    /// immediate flag
-            U16 xxx: 14;    /// reserved
-            IU  pfa;        /// offset to pmem space
+            U16 def:  1;    ///< colon defined word
+            U16 immd: 1;    ///< immediate flag
+            U16 xxx: 14;    ///< reserved
+            IU  pfa;        ///< offset to pmem space
         };
     };
-    template<typename F>    /// template function for lambda
+    template<typename F>    ///< template function for lambda
 #if MMU_DEBUG
     __GPU__ Code(const char *n, const F &f, bool im=false) : name(n), xt(new functor<F>(f)) {
         printf("Code(...) %p: %s\n", fp, name);
         immd = im ? 1 : 0;
     }
-    __GPU__ Code(const Code &c) : name(c.name), xt(c.xt) {  // called by Vector::push(T*)
+    __GPU__ Code(const Code &c) : name(c.name), xt(c.xt) {  ///> called by Vector::push(T*)
         printf("Code(Code) %p: %s\n", fp, name);
     }
 #else  // MMU_DEBUG
@@ -79,7 +79,6 @@ struct Code : public Managed {
 class MMU : public Managed {
     IU   _didx = 0;
     IU   _midx = 0;
-    UFP  _xt0  = ~0;         /// max out at 0xf...fff first, to get min during init
     Code *_dict;
     U8   *_pmem;
     DU   *_vss;
@@ -90,19 +89,13 @@ public:
     ///
     /// dictionary access and search methods
     ///
-    __GPU__ __INLINE__ Code &operator<<(Code *c) {                                  /// dictionary word assignment
-        _dict[_didx++] = *c;
-        if ((UFP)c->xt < (_xt0 - sizeof(DU))) _xt0 = (UFP)c->xt - sizeof(DU);       /// capture lowest function pointer address
-        return *c;
-    }
-    __GPU__ __INLINE__ Code &operator[](int i)   { return (i<0) ? _dict[_didx+i] : _dict[i]; }                       /// fetch
+    __GPU__ __INLINE__ Code &operator<<(Code *c) { return _dict[_didx++] = *c; }    ///< dictionary word assignment
+    __GPU__ __INLINE__ Code &operator[](int i)   { return (i<0) ? _dict[_didx+i] : _dict[i]; } ///< dictionary accessor by index
 
-    __GPU__ __INLINE__ Code *dict()      { return &_dict[0]; }                      /// dictionary pointer
-    __GPU__ __INLINE__ Code *last()      { return &_dict[_didx - 1]; }              /// last dictionary word
-    __GPU__ __INLINE__ DU*  vss(int vid) { return &_vss[vid * T4_SS_SZ]; }          /// data stack (per VM id)
-    __GPU__ __INLINE__ U8*  mem(IU pi)   { return &_pmem[pi]; }                     /// base of heap space
-    __GPU__ __INLINE__ IU   xtoff(UFP ix){ return (IU)(ix - _xt0); }                /// offset to code space
-    __GPU__ __INLINE__ UFP  xt(IU ix)    { return _xt0 + (ix & ~0x3); }             /// convert index to function pointer
+    __GPU__ __INLINE__ Code *dict()      { return &_dict[0]; }                      ///< dictionary pointer
+    __GPU__ __INLINE__ Code *last()      { return &_dict[_didx - 1]; }              ///< last dictionary word
+    __GPU__ __INLINE__ DU*  vss(int vid) { return &_vss[vid * T4_SS_SZ]; }          ///< data stack (per VM id)
+    __GPU__ __INLINE__ U8*  mem(IU pi)   { return &_pmem[pi]; }                     ///< base of heap space
 
     __GPU__ int  find(const char *s, bool compile, bool ucase);      ///> implemented in .cu
     ///
@@ -130,7 +123,6 @@ public:
     ///
     /// debugging methods (implemented in .cu)
     ///
-    __HOST__ int  pfa2word(IU pi);
     __HOST__ void to_s(std::ostream &fout, IU w);
     __HOST__ void words(std::ostream &fout);
     __HOST__ void see(std::ostream &fout, U8 *p, int dp=1);     /// cannot pass pfa
