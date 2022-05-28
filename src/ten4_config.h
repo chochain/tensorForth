@@ -16,7 +16,7 @@
 ///@name Debugging macros
 ///@{
 #define T4_APP_NAME        "tensorForth"
-#define T4_VERBOSE          1        /**< system verbose print */
+#define T4_VERBOSE          0        /**< system verbose print */
 #define MMU_DEBUG           0        /**< for mmu debug        */
 #define CC_DEBUG            1        /**< for my local testing */
 ///@}
