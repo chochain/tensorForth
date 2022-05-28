@@ -11,28 +11,27 @@
 ///
 ///@name Data conversion
 ///@{
-#define INT(f)    (static_cast<int>(f))         /** cast float to int                        */
-#define I2D(i)    (static_cast<DU>(i))          /** cast int back to float                   */
-#define ABS(d)    (fabs(d))                     /** absolute value                           */
-#define ZERO(d)   (ABS(d) < DU_EPS)             /** zero check                               */
-#define BOOL(f)   ((f) ? -1 : 0)                /** default boolean representation           */
+#define INT(f)    (static_cast<int>(f))         /**< cast float to int                       */
+#define I2D(i)    (static_cast<DU>(i))          /**< cast int back to float                  */
+#define ABS(d)    (fabs(d))                     /**< absolute value                          */
+#define ZERO(d)   (ABS(d) < DU_EPS)             /**< zero check                              */
+#define BOOL(f)   ((f) ? -1 : 0)                /**< default boolean representation          */
 ///@}
 ///@name Dictioanry access
 ///@{
-#define PFA(w)    (dict[(IU)(w)].pfa)           /** PFA of given word id                     */
-#define HERE      (mmu.here())                  /** current context                          */
-#define XOFF(xp)  (mmu.xtoff((UFP)(xp)))        /** XT offset (index) in code space          */
-#define XT(ix)    (mmu.xt(ix))                  /** convert XT offset to function pointer    */
-#define SETJMP(a) (mmu.setjmp(a))               /** address offset for branching opcodes     */
-#define FIND(s)   (mmu.find(s, compile, ucase)) /** find input idiom in dictionary           */
+#define PFA(w)    (dict[(IU)(w)].pfa)           /**< PFA of given word id                    */
+#define HERE      (mmu.here())                  /**< current context                         */
+#define SETJMP(a) (mmu.setjmp(a))               /**< address offset for branching opcodes    */
+#define FIND(s)   (mmu.find(s, compile, ucase)) /**< find input idiom in dictionary          */
+#define EXEC(w)   ((*(dict[(IU)(w)].xt))())     /**< execute primitive word                  */
 ///@}
 ///@name Heap memory load/store macros
 ///@{
-#define POPi      (INT(POP()))                  /** convert popped DU as an IU               */
-#define LDi(ip)   (mmu.ri((IU)(ip)))            /** read an instruction unit from pmem       */
-#define LDd(ip)   (mmu.rd((IU)(ip)))            /** read a data unit from pmem               */
-#define STd(ip,d) (mmu.wd((IU)(ip), (DU)(d)))   /** write a data unit to pmem                */
-#define LDs(ip)   (mmu.mem((IU)(ip)))           /** pointer to IP address fetched from pmem  */
+#define POPi      (INT(POP()))                  /**< convert popped DU as an IU              */
+#define LDi(ip)   (mmu.ri((IU)(ip)))            /**< read an instruction unit from pmem      */
+#define LDd(ip)   (mmu.rd((IU)(ip)))            /**< read a data unit from pmem              */
+#define STd(ip,d) (mmu.wd((IU)(ip), (DU)(d)))   /**< write a data unit to pmem               */
+#define LDs(ip)   (mmu.mem((IU)(ip)))           /**< pointer to IP address fetched from pmem */
 ///@}
 __GPU__
 ForthVM::ForthVM(Istream *istr, Ostream *ostr, MMU *mmu0)
@@ -45,61 +44,58 @@ ForthVM::ForthVM(Istream *istr, Ostream *ostr, MMU *mmu0)
 /// Forth inner interpreter (colon word handler)
 ///
 __GPU__ char*
-ForthVM::next_idiom()  {                            /// get next idiom from input stream
+ForthVM::next_idiom()  {                             ///< get next idiom from input stream
     fin >> idiom; return idiom;
 }
 __GPU__ char*
-ForthVM::scan(char delim) {                         /// scan input stream for delimiter
+ForthVM::scan(char delim) {                          ///< scan input stream for delimiter
     fin.get_idiom(idiom, delim); return idiom;
 }
 __GPU__ void
 ForthVM::nest() {
-    int dp = 0;                                      /// iterator depth control
+    int dp = 0;                                      ///< iterator depth control
     while (dp >= 0) {
-        IU ix = LDi(IP);                             /// fetch opcode
-        while (ix) {                                 /// fetch till EXIT
-            IP += sizeof(IU);
-            if (ix & 1) {
-                rs.push(WP);                         /// * setup callframe (ENTER)
+        IU w = LDi(IP);                              ///< fetch opcode, and cache dataline hopefully
+        while (w != EXIT) {                          ///< loop till EXIT
+            IP += sizeof(IU);                        ///< ready IP for next opcode
+            if (dict[w].def) {                       ///< is it a colon word?
+                rs.push(WP);                         ///< * setup callframe (ENTER)
                 rs.push(IP);
-                IP = ix & ~0x1;                      /// word pfa (def masked)
-                dp++;                                /// go one level deeper
+                IP = PFA(w);                         ///< jump to pfa of given colon word
+                dp++;                                ///< go one level deeper
             }
-            else if (ix == NXT) {                    /// DONEXT handler (save 600ms / 100M cycles on Intel)
-                if ((rs[-1] -= 1) >= 0) IP = LDi(IP);
-                else { IP += sizeof(IU); rs.pop(); }
+            else if (w == DONEXT) {                  ///< DONEXT handler (save 600ms / 100M cycles on Intel)
+                if ((rs[-1] -= 1) >= 0) IP = LDi(IP);///< decrement loop counter, and fetch target addr
+                else { IP += sizeof(IU); rs.pop(); } ///< done loop, pop off loop counter
             }
-            else (*(FPTR)XT(ix))();                  /// * execute primitive word
-            ix = LDi(IP);                            /// * fetch next opcode
+            else EXEC(w);                            ///< execute primitive word
+            w = LDi(IP);                             ///< fetch next opcode
         }
-        if (dp-- > 0) {                              /// pop off a level
-            IP = rs.pop();                           /// * restore call frame (EXIT)
+        if (dp-- > 0) {                              ///< pop off a level
+            IP = rs.pop();                           ///< * restore call frame (EXIT)
             WP = rs.pop();
         }
-        yield();                                     ///> give other tasks some time
+        yield();                                     ///< give other tasks some time
     }
 }
 ///
 /// Dictionary compiler proxy macros to reduce verbosity
 ///
+__GPU__ __INLINE__ void ForthVM::add_w(IU w)  {
+	add_iu(w);
+#if T4_VERBOSE
+	printf("add_w(%d) => %s\n", w, dict[w].name);
+#endif // T4_VERBOSE
+}
 __GPU__ __INLINE__ void ForthVM::add_iu(IU i) { mmu.add((U8*)&i, sizeof(IU)); }
 __GPU__ __INLINE__ void ForthVM::add_du(DU d) { mmu.add((U8*)&d, sizeof(DU)); }
 __GPU__ __INLINE__ void ForthVM::add_str(const char *s) {
     int sz = STRLENB(s)+1; sz = ALIGN2(sz);          ///> calculate string length, then adjust alignment (combine?)
     mmu.add((U8*)s, sz);
 }
-__GPU__ __INLINE__ void ForthVM::add_w(IU w) {
-    Code &c = dict[w];
-    IU   ip = c.def ? (c.pfa | 1) : (w==EXIT ? 0 : XOFF(c.xt));
-    add_iu(ip);
-#if T4_VERBOSE
-    printf("add_w(%d) => %4x:%p %s\n", w, ip, c.xt, c.name);
-#endif // T4_VERBOSE
-}
 __GPU__ __INLINE__ void ForthVM::call(IU w) {
-    Code &c = dict[w];
-    if (c.def) { WP = w; IP = c.pfa; nest(); }
-    else (*(FPTR)(((UFP)c.xt) & ~0x3))();
+    if (dict[w].def) { WP = w; IP = dict[w].pfa; nest(); }
+    else (*(FPTR)((UFP)dict[w].xt & ~0x3))();        ///> execute function pointer (strip off immdiate bit)
 }
 ///==============================================================================
 ///
@@ -126,7 +122,7 @@ ForthVM::init() {
     /// @defgroup Execution flow ops
     /// @brief - DO NOT change the sequence here (see forth_opcode enum)
     /// @{
-    CODE("exit",    WP = rs.pop(); IP = rs.pop()),         // quit current word execution
+    CODE("exit",    WP = rs.pop(); IP = rs.pop()),        // quit current word execution
     CODE("donext",
          if ((rs[-1] -= 1) >= 0) IP = LDi(IP);
          else { IP += sizeof(IU); rs.pop(); }),
@@ -261,15 +257,15 @@ ForthVM::init() {
     IMMD("if", add_w(ZBRAN); PUSH(HERE); add_iu(0)),        // if   ( -- here )
     IMMD("else",                                            // else ( here -- there )
         add_w(BRAN);
-        IU h = HERE; add_iu(0); SETJMP(POP()); PUSH(h)),    // set forward jump
-    IMMD("then", SETJMP(POP())),                            // backfill jump address
+        IU h = HERE; add_iu(0); SETJMP(POPi); PUSH(h)),     // set forward jump
+    IMMD("then", SETJMP(POPi)),                             // backfill jump address
     /// @}
     /// @defgroup Loop ops
     /// @brief  - begin...again, begin...f until, begin...f while...repeat
     /// @{
     IMMD("begin",   PUSH(HERE)),
-    IMMD("again",   add_w(BRAN);  add_iu(POP())),           // again    ( there -- )
-    IMMD("until",   add_w(ZBRAN); add_iu(POP())),           // until    ( there -- )
+    IMMD("again",   add_w(BRAN);  add_iu(POPi)),            // again    ( there -- )
+    IMMD("until",   add_w(ZBRAN); add_iu(POPi)),            // until    ( there -- )
     IMMD("while",   add_w(ZBRAN); PUSH(HERE); add_iu(0)),   // while    ( there -- there here )
     IMMD("repeat",  add_w(BRAN);                            // repeat    ( there1 there2 -- )
         IU t=POPi; add_iu(POPi); SETJMP(t)),                // set forward and loop back address
@@ -355,7 +351,6 @@ ForthVM::init() {
     for (int i=0; i<n; i++) {
         mmu << (Code*)&prim[i];
     }
-    NXT = XOFF(dict[DONEXT].xt);         /// cache offset to subroutine address
 
 #if MMU_DEBUG
 	for (int i=0; i<n; i++) {
@@ -390,7 +385,7 @@ ForthVM::outer() {
         if (w>=0) {                          /// * word found?
 #if T4_VERBOSE
             printf("%4x:%p %s %d ",
-            	dict[w].def ? dict[w].pfa : XOFF(dict[w].xt),
+            	dict[w].def ? dict[w].pfa : 0,
             	dict[w].xt, dict[w].name, w);
 #endif // T4_VERBOSE
             if (compile && !dict[w].immd) {  /// * in compile mode?
@@ -416,7 +411,7 @@ ForthVM::outer() {
         }
         // is a number
 #if T4_VERBOSE
-        printf("%f => ", n);
+        printf("%f\n", n);
 #endif // T4_VERBOSE
         if (compile) {                       /// * add literal when in compile mode
             add_w(DOLIT);                    ///> dovar (+parameter field)
