@@ -8,6 +8,7 @@
  *    + 19.0 sec - REALLY SLOW! Probably due to heavy branch divergence.
  *    + 21.1 sec - without NXT cache in nest() => branch is slow
  *    + 19.1 sec - without push/pop WP         => static ram access is fast
+ *    + 20.3 sec - token indirect threading    => not that much worse but portable
  */
 #include <iostream>          // cin, cout
 #include <signal.h>

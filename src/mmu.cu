@@ -112,7 +112,7 @@ MMU::see(std::ostream &fout, U8 *ip, int dp) {
     while (*(IU*)ip) {                                              /// * loop until EXIT
         fout << std::endl; for (int n=dp; n>0; n--) fout << "  ";   /// * indentation by level
         fout << "[" << std::setw(4) << (IU)(ip - _pmem) << ": ";
-        IU c = pfa2word(*(IU*)ip);                                  /// * convert pfa to word index
+        IU c = *(IU*)ip;                                            /// * fetch word index
         to_s(fout, c);                                              /// * display word name
         if (_dict[c].def && dp < 2) {                               /// * check if is a colon word
             see(fout, &_pmem[_dict[c].pfa], dp+1);                  /// * go one level deeper
