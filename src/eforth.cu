@@ -105,7 +105,7 @@ __GPU__ __INLINE__ void ForthVM::call(IU w) {
 ///
 /// debug functions
 ///
-__GPU__ __INLINE__ void ForthVM::dot(DU v)          { fout << v << ' '; }
+__GPU__ __INLINE__ void ForthVM::dot(DU v)          { fout << ' ' << v; }
 __GPU__ __INLINE__ void ForthVM::dot_r(int n, DU v) { fout << setw(n) << v; }
 __GPU__ __INLINE__ void ForthVM::ss_dump(int n) {
     ss[T4_SS_SZ-1] = top;        // put top at the tail of ss (for host display)
@@ -158,7 +158,7 @@ ForthVM::init() {
     CODE("over", PUSH(ss[-1])),
     CODE("swap", DU n = ss.pop(); PUSH(n)),
     CODE("rot",  DU n = ss.pop(); DU m = ss.pop(); ss.push(n); PUSH(m)),
-    CODE("pick", DU i = top; top = ss[-i]),
+    CODE("pick", int i = INT(top); top = ss[-i]),
     /// @}
     /// @defgroup Stack double
     /// @{
@@ -222,8 +222,8 @@ ForthVM::init() {
     /// @}
     /// @defgroup IO ops
     /// @{
-    CODE("base@",   PUSH(radix)),
-    CODE("base!",   fout << setbase(radix = POP())),
+    CODE("base@",   PUSH(I2D(radix))),
+    CODE("base!",   fout << setbase(radix = INT(POP()))),
     CODE("hex",     fout << setbase(radix = 16)),
     CODE("decimal", fout << setbase(radix = 10)),
     CODE("cr",      fout << ENDL),
@@ -278,7 +278,7 @@ ForthVM::init() {
     /// @brief  - for...next, for...aft...then...next
     /// @{
     IMMD("for" ,    add_w(TOR); PUSH(HERE)),                // for ( -- here )
-    IMMD("next",    add_w(DONEXT); add_iu(POP())),          // next ( here -- )
+    IMMD("next",    add_w(DONEXT); add_iu(POPi)),           // next ( here -- )
     IMMD("aft",                                             // aft ( here -- here there )
         POP(); add_w(BRAN);
         IU h=HERE; add_iu(0); PUSH(HERE); PUSH(h)),
@@ -298,10 +298,10 @@ ForthVM::init() {
         add_du(POP());                                      // data storage (32-bit integer now)
         add_w(EXIT)),
     /// @}
-    /// @defgroup Metacompiler ops
+    /// @defgroup word defining words (DSL) ops
     /// @brief - dict is directly used, instead of shield by macros
     /// @{
-    CODE("exec",  call(POP())),                              // execute word
+    CODE("exec",  call(POPi)),                              // execute word
     CODE("create",
         mmu.colon(next_idiom());                            // create a new word on dictionary
         add_w(DOVAR)),                                      // dovar (+ parameter field)
@@ -312,7 +312,7 @@ ForthVM::init() {
         int w = FIND(next_idiom());                         // can serve as a function pointer
         mmu.wi(PFA(POP()), PFA(w))),                        // but might leave a dangled block
     CODE("[to]",            // : xx 3 [to] y ;              // alter constant in compile mode
-        IU w = LDi(IP); IP += sizeof(IU);                // fetch constant pfa from 'here'
+        IU w = LDi(IP); IP += sizeof(IU);                   // fetch constant pfa from 'here'
         STd(PFA(w) + sizeof(IU), POP())),
     ///
     /// be careful with memory access, especially BYTE because
@@ -328,10 +328,10 @@ ForthVM::init() {
     /// @defgroup Debug ops
     /// @{
     CODE("here",  PUSH(HERE)),
-    CODE("ucase", ucase = POP()),
+    CODE("ucase", ucase = !ZERO(POP())),
     CODE("'",     int w = FIND(next_idiom()); PUSH(w)),
 	CODE("pfa",   int w = FIND(next_idiom()); PUSH(PFA(w))),
-    CODE(".s",    ss_dump(POP())),
+    CODE(".s",    ss_dump(POPi)),
     CODE("words", fout << opx(OP_WORDS)),
     CODE("see",   int w = FIND(next_idiom()); fout << opx(OP_SEE, w)),
     CODE("dump",  DU n = POP(); DU a = POP(); fout << opx(OP_DUMP, a, n)),
@@ -346,7 +346,7 @@ ForthVM::init() {
     CODE("peek",  IU a = POP(); PUSH(PEEK(a))),
     CODE("poke",  IU a = POP(); POKE(a, POP())),
     CODE("clock", PUSH(millis())),
-    CODE("delay", delay(POP())),                                // TODO: change to VM_WAIT
+    CODE("delay", delay(POPi)),                                // TODO: change to VM_WAIT
     CODE("bye",   status = VM_STOP),
     CODE("boot",  mmu.clear(FIND("boot") + 1))
     /// @}
