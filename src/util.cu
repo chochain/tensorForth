@@ -248,11 +248,11 @@ __GPU__ int
 d_strcasecmp(const char *t, const char *s) {
     char *p1=(char*)t, *p0=(char*)s;
     for (; *p1 && *p0; p1++, p0++) {
-        char c = *p1 & 0x7f;
+        char c = *p1 & 0x5f;
         if (c < 0x41 || c > 0x5a) {
             if (*p1 != *p0) break;
         }
-        else if ((*p1 & 0x5f) != (*p0 & 0x5f)) break;
+        else if (c != (*p0 & 0x5f)) break;  // [a-zA-Z]
     }
     return *p1 - *p0;
 }
