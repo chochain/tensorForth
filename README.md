@@ -24,6 +24,7 @@ Having a 'shell' that can interactively and incrementally run 'compiled programs
   + Optimization=O3
 
 ### TODO
+* convert subroutine-threading back to token-threading (portability dictates)
 * add tensor object (study torch tensor, 128-bit NHWC tensor)
 * integrate CUB, CUTLASS (utilities.init, gemm_api)
 * formatted file IO (CSV, Numpy)
