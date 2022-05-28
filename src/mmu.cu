@@ -11,7 +11,7 @@ __HOST__
 MMU::MMU() {
     cudaMallocManaged(&_dict, sizeof(Code) * T4_DICT_SZ);
     cudaMallocManaged(&_pmem, sizeof(U8) * T4_PMEM_SZ);
-    cudaMallocManaged(&_vss,  sizeof(DU) * T4_SS_SZ * MIN_VM_COUNT);
+    cudaMallocManaged(&_vss,  sizeof(DU) * T4_SS_SZ * VM_MIN_COUNT);
     GPU_CHK();
 #if MMU_DEBUG
     printf("H: dict=%p, mem=%p, vss=%p\n", _dict, _pmem, _vss);

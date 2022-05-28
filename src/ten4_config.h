@@ -16,21 +16,21 @@
 ///@name Debugging macros
 ///@{
 #define T4_APP_NAME        "tensorForth"
-#define T4_VERBOSE          1     /**< system verbose print */
-#define MMU_DEBUG           0     /**< for mmu debug        */
-#define CC_DEBUG            1     /**< for my local testing */
+#define T4_VERBOSE          1        /**< system verbose print */
+#define MMU_DEBUG           0        /**< for mmu debug        */
+#define CC_DEBUG            1        /**< for my local testing */
 ///@}
-///@name CUDA cooporative threading
+///@name CUDA cooperative dynamic parallelism support
 ///@{
 #define T4_ENABLE_CDP       0
 #define T4_USE_STRBUF       0
 ///@}
 ///@name Virtual machine instance controls
 ///@{
-#define MIN_VM_COUNT        1
-#define MAX_VM_COUNT        16
-#define VM_RESTEN4_STACK    8       /**< exception stack depth */
-#define VM_REGFILE_SZ       128     /**< register file size    */
+#define VM_MIN_COUNT        1
+#define VM_MAX_COUNT        16
+#define VM_RESTEN4_STACK    8        /**< exception stack depth */
+#define VM_REGFILE_SZ       128      /**< register file size    */
 ///@}
 /*
  * 32it alignment is required

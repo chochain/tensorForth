@@ -21,14 +21,14 @@ using namespace std;
 #define MAJOR_VERSION        "1"
 #define MINOR_VERSION        "0"
 
-__GPU__ ForthVM *vm_pool[MIN_VM_COUNT];
+__GPU__ ForthVM *vm_pool[VM_MIN_COUNT];
 ///
 /// instantiate VMs (threadIdx.x is vm_id)
 ///
 __KERN__ void
 ten4_init(Istream *istr, Ostream *ostr, MMU *mmu) {
     int i = threadIdx.x;
-    if (i >= MIN_VM_COUNT) return;
+    if (i >= VM_MIN_COUNT) return;
 
     ForthVM *vm = vm_pool[i] = new ForthVM(istr, ostr, mmu);  // instantiate VM
     vm->ss.init(mmu->vss(i), T4_SS_SZ);  // point data stack to managed memory block
@@ -43,7 +43,7 @@ ten4_busy(int *busy) {
     extern __shared__ bool b[];          // share memory for fast calc
 
     int i = threadIdx.x;
-    b[i] = (i < MIN_VM_COUNT) ? vm_pool[i]->status==VM_RUN : 0;
+    b[i] = (i < VM_MIN_COUNT) ? vm_pool[i]->status==VM_RUN : 0;
     __syncthreads();
 
     for (int n=blockDim.x>>1; n>16; n>>=1) {
@@ -90,7 +90,7 @@ TensorForth::TensorForth(bool trace) {
     cudaMalloc((void**)&busy, sizeof(int));
     GPU_CHK();
 
-    int t = WARP(MIN_VM_COUNT);                 // thread count = 32 modulo
+    int t = WARP(VM_MIN_COUNT);                 // thread count = 32 modulo
     ten4_init<<<1, t>>>(aio->istream(), aio->ostream(), mmu); // init using default stream
     GPU_CHK();
 }
@@ -104,7 +104,7 @@ __HOST__ int
 TensorForth::is_running() {
     int h_busy;
     //LOCK();                 // TODO: lock on vm_pool
-    int t = WARP(MIN_VM_COUNT);
+    int t = WARP(VM_MIN_COUNT);
     ten4_busy<<<1, t, t * sizeof(bool)>>>(busy);
     GPU_SYNC();
     //UNLOCK();               // TODO:
@@ -114,7 +114,7 @@ TensorForth::is_running() {
     return h_busy;
 }
 
-#define VSS_SZ (sizeof(DU)*T4_SS_SZ*MIN_VM_COUNT)
+#define VSS_SZ (sizeof(DU)*T4_SS_SZ*VM_MIN_COUNT)
 __HOST__ int
 TensorForth::run() {
     while (is_running()) {
