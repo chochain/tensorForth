@@ -30,3 +30,12 @@ variable julian variable leap
 
 : month header dup blanks days cr stars cr ;
 
+2022 year 6 month
+
+: xx 999 for 34 drop next ;
+: yy clock swap for xx next clock - negate ;
+
+99 yy
+
+bye
+
