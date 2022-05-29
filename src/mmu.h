@@ -23,18 +23,13 @@ struct functor : fop {
         F   op;             ///< reference to lambda
         U64 *fp;            ///< function pointer for debugging print
     };
-#if MMU_DEBUG
     __GPU__ functor(const F &f) : op(f) {
-        printf("functor(f=%p)\n", fp);
+        MMU_DEBUG("functor(f=%p)\n", fp);
     }
-    __GPU__ void operator()() {
-        printf(">> op=%p\n", fp);
+    __GPU__ __INLINE__ void operator()() {
+        MMU_DEBUG(">> op=%p\n", fp);
         op();
     }
-#else  // MMU_DEBUG
-    __GPU__ functor(const F &f) : op(f) {}
-    __GPU__ __INLINE__ void operator()() { op(); }
-#endif // MMU_DEBUG
 };
 typedef fop* FPTR;          ///< lambda function pointer
 /// @}
@@ -54,20 +49,13 @@ struct Code : public Managed {
         };
     };
     template<typename F>    ///< template function for lambda
-#if MMU_DEBUG
     __GPU__ Code(const char *n, const F &f, bool im=false) : name(n), xt(new functor<F>(f)) {
-        printf("Code(...) %p: %s\n", fp, name);
+        MMU_DEBUG("Code(...) %p: %s\n", fp, name);
         immd = im ? 1 : 0;
     }
     __GPU__ Code(const Code &c) : name(c.name), xt(c.xt) {  ///> called by Vector::push(T*)
-        printf("Code(Code) %p: %s\n", fp, name);
+        MMU_DEBUG("Code(Code) %p: %s\n", fp, name);
     }
-#else  // MMU_DEBUG
-    __GPU__ Code(const char *n, const F &f, bool im=false) : name(n), xt(new functor<F>(f)) {
-        immd = im ? 1 : 0;
-    }
-    __GPU__ Code(const Code &c) : name(c.name), xt(c.xt) {}
-#endif // MMU_DEBUG
 };
 #define CODE(s, g)    { s, [this] __GPU__ (){ g; }}
 #define IMMD(s, g)    { s, [this] __GPU__ (){ g; }, true }

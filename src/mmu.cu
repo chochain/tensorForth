@@ -13,9 +13,7 @@ MMU::MMU() {
     cudaMallocManaged(&_pmem, sizeof(U8) * T4_PMEM_SZ);
     cudaMallocManaged(&_vss,  sizeof(DU) * T4_SS_SZ * VM_MIN_COUNT);
     GPU_CHK();
-#if MMU_DEBUG
-    printf("H: dict=%p, mem=%p, vss=%p\n", _dict, _pmem, _vss);
-#endif // MMU_DEBUG
+    MMU_DEBUG("H: dict=%p, mem=%p, vss=%p\n", _dict, _pmem, _vss);
 }
 __HOST__
 MMU::~MMU() {
@@ -29,9 +27,7 @@ MMU::~MMU() {
 ///
 __GPU__ int
 MMU::find(const char *s, bool compile, bool ucase) {
-#if MMU_DEBUG
-    printf("find(%s) => ", s);
-#endif // MMU_DEBUG
+    MMU_DEBUG("find(%s) => ", s);
     for (int i = _didx - (compile ? 2 : 1); i >= 0; --i) {
         const char *t = _dict[i].name;
         if (ucase && STRCASECMP(t, s)==0) return i;
@@ -44,9 +40,7 @@ MMU::find(const char *s, bool compile, bool ucase) {
 ///
 __GPU__ void
 MMU::colon(const char *name) {
-#if MMU_DEBUG
-    printf("colon(%s) => ", name);
-#endif // MMU_DEBUG
+    MMU_DEBUG("colon(%s) => ", name);
     int  sz = STRLENB(name);                // aligned string length
     Code &c = _dict[_didx++];               // get next dictionary slot
     align();                                // nfa 32-bit aligned (adjust _midx)

@@ -26,7 +26,7 @@
 #define MUTEX_FREE(p)       atomicExch((int *)&p, 0)
 
 #define ALIGN(sz)           ALIGN4(sz)
-#define PRINTF              printf
+#define PRINTF(fmt,...)     printf(fmt,__VA_ARGS__)
 #define NA(msg)             ({ PRINTF("method not supported: %s\n", msg); })
 #define ASSERT(X) \
     if (!(X)) PRINTF("ASSERT tid %d: line %d in %s\n", threadIdx.x, __LINE__, __FILE__);
@@ -45,10 +45,23 @@
 #define __KERN__
 #define __INLINE__          inline
 #define ALIGN(sz)           ALIGN4(sz)
-#define PRINTF              printf
+#define PRINTF(fmt,...)     printf(fmt,__VA_ARGS__)
 #define NA(msg)             ({ PRINTF("method not supported: %s\n", msg); })
 #define ASSERT(X)           assert(x)
 #endif // defined(__CUDACC__)
+///@}
+///@name Debug tracing options
+///@{
+#if T4_VERBOSE
+#define T4_DEBUG(fmt,...)   PRINTF(fmt,__VA_ARGS__)
+#else  // VERBOSE
+#define T4_DEBUG(fmt,...)
+#endif // T4_VERBOSE
+#if MMU_TRACE
+#define MMU_DEBUG(fmt,...)  PRINTF(fmt,__VA_ARGS__)
+#else  // MMU_TRACE
+#define MMU_DEBUG(fmt,...)
+#endif // MMU_TRACE
 ///@}
 ///@name Portable types
 ///@{
