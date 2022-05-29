@@ -14,9 +14,20 @@ For AI development today, we use Python mostly. To enable processing on CUDA dev
 Having a 'shell' that can interactively and incrementally run 'compiled programs' from within GPU directly without dropping back to host system might be useful. Even though some might argue that the branch divergence could kill, but performance of the script itself is not the point. So, here we are!
 
 ### To build
+* install CUDA 11.6 on your machine
 * clone repo to your local directory
-* install Eclipse with NVidia CUDA SDK 11.6+
-* create project by importing from your repo root
+
+#### with Makefile, and test
+* cd to your ten4 repo directory
+* update root Makefile to your desired CUDA_ARCH, CUDA_CODE
+* type 'make all'
+* if all goes well, some warnings aside, cd to tests
+* type 'ten4 < lesson_1.txt'
+
+#### with Eclipse
+* install Eclipse
+* install CUDA SDK 11.6 for Eclipse (from Nvidia site)
+* create project by importing from your local repo root
 * exclude directories - ~/tests, ~/img
 * set File=>Properties=>C/C++ Build=>Setting=>NVCC compiler
   + Dialect=C++14
