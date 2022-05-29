@@ -1,7 +1,8 @@
-/*! @file
-  @brief
-  tensorForth - Memory Manager
-*/
+/**
+ * @file
+ * @brief tensorForth - Memory Manager
+ * <pre>Copyright (C) 2022- GreenII, this file is distributed under BSD 3-Clause License.</pre>
+ */
 #include <iomanip>          // setw, setbase
 #include "mmu.h"
 ///

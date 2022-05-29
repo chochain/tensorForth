@@ -1,4 +1,5 @@
-/** @file
+/** 
+ * @file
  * @brief tensorForth - eForth core classes
  *
  * <pre>Copyright (C) 2022- GreenII, this file is distributed under BSD 3-Clause License.</pre>

@@ -1,14 +1,9 @@
-/*! @file
-  @brief
-  tensorForth Async IO module implementation
-
-  <pre>
-  Copyright (C) 2021- GreenII
-
-  This file is distributed under BSD 3-Clause License.
-
-  </pre>
-*/
+/**
+ * @file
+ * @brief tensorForth Async IO module implementation
+ *
+ * <pre>Copyright (C) 2021- GreenII, this file is distributed under BSD 3-Clause License.</pre>
+ */
 #include <cstdio>        // printf
 #include <iostream>      // cin, cout
 #include <iomanip>       // setbase, setprecision
