@@ -18,7 +18,7 @@ class Istream : public Managed {
     int  _gn   = 0;             /// number of byte processed
 
     __GPU__ __INLINE__ void _debug() {
-        MMU_DEBUG("%d>> ibuf[%d] >> %d bytes\n", blockIdx.x, _idx, _gn);
+        MMU_TRACE("%d>> ibuf[%d] >> %d bytes\n", blockIdx.x, _idx, _gn);
     }
     __GPU__ int _tok(char delim) {
         char *p = &_buf[_idx];
