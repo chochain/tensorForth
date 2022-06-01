@@ -7,7 +7,7 @@
 #ifndef TEN4_SRC_OSTREAM_H_
 #define TEN4_SRC_OSTREAM_H_
 #include "ten4_config.h"
-#include "ten4_types.h"
+#include "tensor.h"
 #include "util.h"
 
 //================================================================
@@ -19,6 +19,7 @@ typedef enum {
     GT_INT,
     GT_FLOAT,
     GT_STR,
+    GT_TENSOR,
     GT_FMT,
     GT_OPX
 } GT;
@@ -79,7 +80,7 @@ class Ostream : public Managed {
     obuf_fmt _fmt = { 10, 0, 0, ' '};
 
     __GPU__ __INLINE__ void _debug(GT gt, U8 *v, int sz) {
-#if MMU_DEBUG
+#if MMU_TRACE
         printf("%d>> obuf[%d] << ", blockIdx.x, _idx);
         if (!sz) return;
         U8 d[T4_STRBUF_SZ];
@@ -88,6 +89,7 @@ class Ostream : public Managed {
         case GT_INT:   printf("%d\n", *(GI*)d);      break;
         case GT_FLOAT: printf("%G\n", *(GF*)d);      break;
         case GT_STR:   printf("%c\n", d);            break;
+        case GT_TENSOR:printf("%G\n", (*(GT*)d).f);  break;
         case GT_FMT:   printf("%8x\n", *(U16*)d);    break;
         case GT_OPX: {
             OP  op = (OP)*d;
@@ -102,7 +104,7 @@ class Ostream : public Managed {
         } break;
         default: printf("unknown type %d\n", gt);
         }
-#endif // MMU_DEBUG
+#endif // MMU_TRACE
     }
     __GPU__  void _write(GT gt, U8 *v, int sz) {
         if (threadIdx.x!=0) return;               // only thread 0 within a block can write
@@ -162,6 +164,9 @@ public:
     __GPU__ Ostream& operator<<(GF f) {
         _write(GT_FLOAT, (U8*)&f, sizeof(GF));
         return *this;
+    }
+    __GPU__ Ostream& operator<<(DU t) {
+        _write(GT_TENSOR, (U8*)&t, sizeof(DU));
     }
     __GPU__ Ostream& operator<<(const char *s) {
         int len = STRLENB(s)+1;
