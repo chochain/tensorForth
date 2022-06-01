@@ -19,6 +19,7 @@ OBJS += \
 INCS += \
     ./src/ten4_config.h \
     ./src/ten4_types.h \
+    ./src/tensor.h \
     ./src/util.h \
     ./src/aio.h \
     ./src/istream.h \
@@ -34,7 +35,7 @@ CU_INCS :=
 ./src/%.o: ./src/%.cu ${INCS} ${CU_INCS}
 	@echo 'Building file: $<'
 	@echo 'Invoking: NVCC Compiler'
-	${CUDA_HOME}/bin/nvcc -ccbin g++ -c -std=c++14 -O3 -D__CUDACC__ -o "$@" "$<" \
+	${CUDA_HOME}/bin/nvcc -ccbin g++ -t=0 -c -std=c++14 -O3 -D__CUDACC__ -o "$@" "$<" \
         --device-c --extended-lambda --expt-relaxed-constexpr \
         --device-debug --debug \
          -gencode arch=${CUDA_ARCH},code=${CUDA_CODE} \

@@ -7,18 +7,13 @@
 #ifndef TEN4_SRC_TEN4_TYPES_H_
 #define TEN4_SRC_TEN4_TYPES_H_
 ///
-///@name Alignment macros
-///@{
-#define ALIGN4(sz)          ((sz) + (-(sz) & 0x3))
-#define ALIGN8(sz)          ((sz) + (-(sz) & 0x7))
-#define ALIGN16(sz)         ((sz) + (-(sz) & 0xf))
-///@}
 ///@name CUDA support macros
 ///@{
 #if defined(__CUDACC__)
 #include <cuda.h>
 #define __GPU__             __device__
 #define __HOST__            __host__
+#define __BOTH__            __host__ __device__
 #define __KERN__            __global__
 #define __INLINE__          __forceinline__
 
@@ -53,15 +48,15 @@
 ///@name Debug tracing options
 ///@{
 #if T4_VERBOSE
-#define T4_DEBUG(fmt,...)   PRINTF(fmt,__VA_ARGS__)
+#define T4_TRACE(fmt,...)   PRINTF(fmt,__VA_ARGS__)
 #else  // VERBOSE
-#define T4_DEBUG(fmt,...)
+#define T4_TRACE(fmt,...)
 #endif // T4_VERBOSE
-#if MMU_TRACE
-#define MMU_DEBUG(fmt,...)  PRINTF(fmt,__VA_ARGS__)
-#else  // MMU_TRACE
-#define MMU_DEBUG(fmt,...)
-#endif // MMU_TRACE
+#if MMU_DEBUG
+#define MMU_TRACE(fmt,...)  PRINTF(fmt,__VA_ARGS__)
+#else  // MMU_DEBUG
+#define MMU_TRACE(fmt,...)
+#endif // MMU_DEBUG
 ///@}
 ///@name Portable types
 ///@{
@@ -83,7 +78,7 @@ typedef float       F32;                    ///< single precision float
 ///@name Forth instruction and data types
 ///@{
 typedef U16         IU;                     ///< instruction unit
-typedef F32         DU;                     ///< data unit
+//typedef F32         DU;                     ///< data unit
 typedef F64         DU2;                    ///< double preciesion data unit
 #define DU0         0                       /**< default data value     */
 #define DU_EPS      1.0e-6                  /**< floating point epsilon */
@@ -94,18 +89,6 @@ typedef S32         GI;                     ///< signed integer
 typedef F32         GF;                     ///< float
 typedef U16         GS;                     ///< symbol index
 typedef S32         GP;                     ///< offset, i.e. object pointer
-///@}
-///@name tensorForth complex data object
-///@{
-typedef struct {
-    union {
-        F32 f = 0.0f;
-        struct {
-            U32 r: 1;       // tensor rank >= 1
-            U32 p: 31;      // 2^31 slots
-        };
-    };
-} XU;
 ///@}
 ///
 /// colon word compiler
