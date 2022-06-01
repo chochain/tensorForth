@@ -8,26 +8,32 @@
 #define TEN4_SRC_MMU_H
 #include <ostream>
 #include "ten4_config.h"
-#include "ten4_types.h"
+#include "tensor.h"
 #include "util.h"
 ///
 /// CUDA functor (device only) implementation
-/// Note: nvstd::function is too heavy (at 48-byte)
+/// Note: nvstd::function is too heavy (at sizeof(Code)=56-byte)
 ///
-///@name functor implementation
+///@name light-weight functor implementation
+///@brief sizeof(Code)=16
 ///@{
 struct fop {  __GPU__  virtual void operator()() = 0; };  ///< functor virtual class
-template<typename F>        ///< template functor class
+template<typename F>                         ///< template functor class
 struct functor : fop {
     union {
-        F   op;             ///< reference to lambda
-        U64 *fp;            ///< function pointer for debugging print
+        F   op;                              ///< reference to lambda
+        U64 *fp;                             ///< pointer for debugging
     };
-    __GPU__ functor(const F &f) : op(f) {
-        MMU_DEBUG("functor(f=%p)\n", fp);
+    __GPU__ functor(const F &f) : op(f) {    ///< constructor
+        MMU_TRACE("functor(%p) => ", this);
     }
-    __GPU__ __INLINE__ void operator()() {
-        MMU_DEBUG(">> op=%p\n", fp);
+    __GPU__ functor &operator=(const F &f) {
+        MMU_TRACE("op=%p", this);
+        op = f;
+        return *this;
+    }
+    __GPU__ void operator()() {              ///< lambda invoke
+        MMU_TRACE("op=%p => ", this);
         op();
     }
 };
@@ -39,8 +45,8 @@ typedef fop* FPTR;          ///< lambda function pointer
 struct Code : public Managed {
     const char *name = 0;   ///< name field
     union {
-        FPTR xt = 0;        ///< lambda pointer (CUDA 49-bit)
-        U64 *fp;
+        FPTR xt;            ///< lambda pointer (CUDA 49-bit)
+        U64  *fp;           ///< pointer for debugging
         struct {
             U16 def:  1;    ///< colon defined word
             U16 immd: 1;    ///< immediate flag
@@ -49,12 +55,21 @@ struct Code : public Managed {
         };
     };
     template<typename F>    ///< template function for lambda
-    __GPU__ Code(const char *n, const F &f, bool im=false) : name(n), xt(new functor<F>(f)) {
-        MMU_DEBUG("Code(...) %p: %s\n", fp, name);
+    __GPU__ Code(const char *n, const F f, bool im=false) : name(n), xt(new functor<F>(f)) {
+//    __GPU__ Code(const char *n, FPTR f, bool im=false) : name(n), xt(&f) {
+        MMU_TRACE("Code(...) %p %s\n", xt, name);
         immd = im ? 1 : 0;
     }
     __GPU__ Code(const Code &c) : name(c.name), xt(c.xt) {  ///> called by Vector::push(T*)
-        MMU_DEBUG("Code(Code) %p: %s\n", fp, name);
+        MMU_TRACE("Code(&c) %p %s\n", fp, name);
+    }
+    __GPU__ ~Code() {
+        MMU_TRACE("~Code(%s)\n", name);
+    }
+    __GPU__ Code &operator=(const Code &c) {
+        name = c.name;
+        xt   = c.xt;
+        MMU_TRACE("Code() = &c %p %s\n", xt, name);
     }
 };
 #define CODE(s, g)    { s, [this] __GPU__ (){ g; }}
@@ -82,8 +97,8 @@ public:
 
     __GPU__ __INLINE__ Code *dict()      { return &_dict[0]; }                      ///< dictionary pointer
     __GPU__ __INLINE__ Code *last()      { return &_dict[_didx - 1]; }              ///< last dictionary word
-    __GPU__ __INLINE__ DU*  vss(int vid) { return &_vss[vid * T4_SS_SZ]; }          ///< data stack (per VM id)
-    __GPU__ __INLINE__ U8*  mem(IU pi)   { return &_pmem[pi]; }                     ///< base of heap space
+    __GPU__ __INLINE__ DU   *vss(int vid){ return &_vss[vid * T4_SS_SZ]; }          ///< data stack (per VM id)
+    __GPU__ __INLINE__ U8   *mem(IU pi)  { return &_pmem[pi]; }                     ///< base of heap space
 
     __GPU__ int  find(const char *s, bool compile, bool ucase);      ///> implemented in .cu
     ///
@@ -99,15 +114,15 @@ public:
     ///
     /// low level memory access
     ///
-    __HOST__ __GPU__ __INLINE__ IU here()     { return _midx; }
-    __HOST__ __GPU__ __INLINE__ IU ri(U8 *c)  { return ((IU)(*(c+1)<<8)) | *c; }
-    __HOST__ __GPU__ __INLINE__ IU ri(IU pi)  { return ri(&_pmem[pi]); }
-    __HOST__ __GPU__ __INLINE__ DU rd(U8 *c)  { DU d; MEMCPY(&d, c, sizeof(DU)); return d; }
-    __HOST__ __GPU__ __INLINE__ DU rd(IU pi)  { return rd(&_pmem[pi]); }
-    __GPU__ __INLINE__ void wd(U8 *c, DU d)   { MEMCPY(c, &d, sizeof(DU)); }
-    __GPU__ __INLINE__ void wd(IU w, DU d)    { wd(&_pmem[w], d); }
-    __GPU__ __INLINE__ void wi(U8 *c, IU i)   { *c++ = i&0xff; *c = (i>>8)&0xff; }
-    __GPU__ __INLINE__ void wi(IU pi, IU i)   { wi(&_pmem[pi], i); }
+    __BOTH__ __INLINE__ IU here()     { return _midx; }
+    __BOTH__ __INLINE__ IU ri(U8 *c)  { return ((IU)(*(c+1)<<8)) | *c; }
+    __BOTH__ __INLINE__ IU ri(IU pi)  { return ri(&_pmem[pi]); }
+    __BOTH__ __INLINE__ DU rd(U8 *c)  { DU d; MEMCPY(&d, c, sizeof(DU)); return d; }
+    __BOTH__ __INLINE__ DU rd(IU pi)  { return rd(&_pmem[pi]); }
+    __GPU__  __INLINE__ void wd(U8 *c, DU d)   { MEMCPY(c, &d, sizeof(DU)); }
+    __GPU__  __INLINE__ void wd(IU w, DU d)    { wd(&_pmem[w], d); }
+    __GPU__  __INLINE__ void wi(U8 *c, IU i)   { *c++ = i&0xff; *c = (i>>8)&0xff; }
+    __GPU__  __INLINE__ void wi(IU pi, IU i)   { wi(&_pmem[pi], i); }
     ///
     /// debugging methods (implemented in .cu)
     ///

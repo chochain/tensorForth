@@ -1,14 +1,9 @@
-/*! @file
-  @brief
-  tensorForth string buffer class
-
-  <pre>
-  Copyright (C) 2022- GreenII
-
-  This file is distributed under BSD 3-Clause License.
-
-  </pre>
-*/
+/**
+ * @file
+ * @brief  tensorForth string buffer class
+ *
+ * <pre>Copyright (C) 2022- GreenII, this file is distributed under BSD 3-Clause License.</pre>
+ */
 #ifndef TEN4_SRC_STRBUF_H
 #define TEN4_SRC_STRBUF_H
 #include "vector.h"

@@ -1,9 +1,9 @@
-/*! @file
-  @brief
-  tensorForth Vector class (device only ) implementation
-
-  TODO: Thrust::d_vector
-*/
+/**
+ * @file
+ * @brief tensorForth Vector class (device only ) implementation
+ *
+ * <pre>Copyright (C) 2021 GreenII, this file is distributed under BSD 3-Clause License.</pre>
+ */
 #ifndef TEN4_SRC_VECTOR_H
 #define TEN4_SRC_VECTOR_H
 #include "util.h"       /// also defined __GPU__

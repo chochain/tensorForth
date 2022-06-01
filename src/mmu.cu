@@ -1,7 +1,8 @@
-/*! @file
-  @brief
-  tensorForth - Memory Manager
-*/
+/**
+ * @file
+ * @brief tensorForth - Memory Manager
+ * <pre>Copyright (C) 2022- GreenII, this file is distributed under BSD 3-Clause License.</pre>
+ */
 #include <iomanip>          // setw, setbase
 #include "mmu.h"
 ///
@@ -13,7 +14,7 @@ MMU::MMU() {
     cudaMallocManaged(&_pmem, sizeof(U8) * T4_PMEM_SZ);
     cudaMallocManaged(&_vss,  sizeof(DU) * T4_SS_SZ * VM_MIN_COUNT);
     GPU_CHK();
-    MMU_DEBUG("H: dict=%p, mem=%p, vss=%p\n", _dict, _pmem, _vss);
+    MMU_TRACE("H: dict=%p, mem=%p, vss=%p\n", _dict, _pmem, _vss);
 }
 __HOST__
 MMU::~MMU() {
@@ -27,7 +28,7 @@ MMU::~MMU() {
 ///
 __GPU__ int
 MMU::find(const char *s, bool compile, bool ucase) {
-    MMU_DEBUG("find(%s) => ", s);
+    MMU_TRACE("find(%s) => ", s);
     for (int i = _didx - (compile ? 2 : 1); i >= 0; --i) {
         const char *t = _dict[i].name;
         if (ucase && STRCASECMP(t, s)==0) return i;
@@ -40,7 +41,7 @@ MMU::find(const char *s, bool compile, bool ucase) {
 ///
 __GPU__ void
 MMU::colon(const char *name) {
-    MMU_DEBUG("colon(%s) => ", name);
+    MMU_TRACE("colon(%s) => ", name);
     int  sz = STRLENB(name);                // aligned string length
     Code &c = _dict[_didx++];               // get next dictionary slot
     align();                                // nfa 32-bit aligned (adjust _midx)
@@ -91,7 +92,7 @@ __HOST__ void
 MMU::see(std::ostream &fout, U8 *ip, int dp) {
     while (*(IU*)ip) {                                              /// * loop until EXIT
         fout << std::endl; for (int n=dp; n>0; n--) fout << "  ";   /// * indentation by level
-        fout << "[" << std::setw(4) << (IU)(ip - _pmem) << ": ";
+           fout << "[" << std::setw(4) << (IU)(ip - _pmem) << ": ";
         IU c = *(IU*)ip;                                            /// * fetch word index
         to_s(fout, c);                                              /// * display word name
         if (_dict[c].def && dp < 2) {                               /// * check if is a colon word
@@ -100,7 +101,7 @@ MMU::see(std::ostream &fout, U8 *ip, int dp) {
         ip += sizeof(IU);                                           /// * advance instruction pointer
         switch (c) {
         case DOVAR: case DOLIT:
-            fout << "= " << *(DU*)ip; ip += sizeof(DU); break;      /// fetch literal
+            fout << "= " << (*(DU*)ip); ip += sizeof(DU); break;      /// fetch literal
         case DOSTR: case DOTSTR: {
             char *s = (char*)ip;
             int  sz = strlen(s)+1;

@@ -1,14 +1,10 @@
-/*! @file
-  @brief
-  tensorForth Asyn IO module
-
-  <pre>
-  Copyright (C) 2021 GreenII
-
-  This file is distributed under BSD 3-Clause License.
-
-  </pre>
-*/
+/**
+ * @file
+ * @brief tensorForth Asyn IO module
+ *
+ * <pre>Copyright (C) 2021 GreenII, this file is distributed under BSD 3-Clause License.</pre>
+ *
+ */
 #ifndef TEN4_SRC_AIO_H_
 #define TEN4_SRC_AIO_H_
 #include "istream.h"
