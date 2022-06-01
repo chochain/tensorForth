@@ -27,9 +27,9 @@ AIO::print_node(obuf_node *node) {
 
     char *v = (char*)node->data;
     switch (node->gt) {
-    case GT_INT:   std::cout << (int)(*(GI*)v);   break;
-    case GT_FLOAT: std::cout << (float)(*(GF*)v); break;
-    case GT_STR:   std::cout << v;                break;
+    case GT_INT:   std::cout << (*(S32*)v); break;
+    case GT_FLOAT: std::cout << (*(F32*)v); break;
+    case GT_STR:   std::cout << v;          break;
     case GT_FMT:   {
     	obuf_fmt *f = (obuf_fmt*)v;
         //printf("FMT: b=%d, w=%d, p=%d, f='%c'\n", f->base, f->width, f->prec, f->fill);
