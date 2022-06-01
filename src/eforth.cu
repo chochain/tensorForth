@@ -80,8 +80,8 @@ ForthVM::nest() {
 /// Dictionary compiler proxy macros to reduce verbosity
 ///
 __GPU__ __INLINE__ void ForthVM::add_w(IU w)  {
-	add_iu(w);
-	T4_DEBUG("add_w(%d) => %s\n", w, dict[w].name);
+    add_iu(w);
+    T4_DEBUG("add_w(%d) => %s\n", w, dict[w].name);
 }
 __GPU__ __INLINE__ void ForthVM::add_iu(IU i) { mmu.add((U8*)&i, sizeof(IU)); }
 __GPU__ __INLINE__ void ForthVM::add_du(DU d) { mmu.add((U8*)&d, sizeof(DU)); }
@@ -171,34 +171,34 @@ ForthVM::init() {
     CODE("/mod",
         DU n = ss.pop(); DU t = top;
         ss.push(fmod(n, t)); top = n / t),
-	/// @}
-	/// @defgroup FPU double precision ops
-	/// @{
-	CODE("*/",   top =  (DU2)ss.pop() * ss.pop() / top),
+    /// @}
+    /// @defgroup FPU double precision ops
+    /// @{
+    CODE("*/",   top =  (DU2)ss.pop() * ss.pop() / top),
     CODE("*/mod",
         DU2 n = (DU2)ss.pop() * ss.pop();  DU t = top;
         ss.push(fmod(n, t)); top = round(n / t)),
-	/// @}
-	/// @defgroup Binary logic ops (convert to integer first)
-	/// @{
+    /// @}
+    /// @defgroup Binary logic ops (convert to integer first)
+    /// @{
     CODE("and",  top = I2D(INT(ss.pop()) & INT(top))),
     CODE("or",   top = I2D(INT(ss.pop()) | INT(top))),
     CODE("xor",  top = I2D(INT(ss.pop()) ^ INT(top))),
     CODE("abs",  top = ABS(top)),
-	CODE("negate", top = -top),
+    CODE("negate", top = -top),
     CODE("max",  DU n=ss.pop(); top = (top>n)?top:n),
     CODE("min",  DU n=ss.pop(); top = (top<n)?top:n),
     CODE("2*",   top *= 2),
     CODE("2/",   top /= 2),
     CODE("1+",   top += 1),
     CODE("1-",   top -= 1),
-	/// @}
-	/// @defgroup Data conversion ops
-	/// @{
-	CODE("int",  top = INT(top)),                /// integer part, 1.5 => 1, -1.5 => -1
-	CODE("round",top = round(top)),              /// rounding 1.5 => 2, -1.5 => -1
-	CODE("ceil", top = ceil(top)),
-	CODE("floor",top = floor(top)),
+    /// @}
+    /// @defgroup Data conversion ops
+    /// @{
+    CODE("int",  top = INT(top)),                /// integer part, 1.5 => 1, -1.5 => -1
+    CODE("round",top = round(top)),              /// rounding 1.5 => 2, -1.5 => -1
+    CODE("ceil", top = ceil(top)),
+    CODE("floor",top = floor(top)),
     /// @}
     /// @defgroup Logic ops
     /// @{
@@ -322,7 +322,7 @@ ForthVM::init() {
     CODE("here",  PUSH(HERE)),
     CODE("ucase", ucase = !ZERO(POP())),
     CODE("'",     int w = FIND(next_idiom()); PUSH(w)),
-	CODE("pfa",   int w = FIND(next_idiom()); PUSH(PFA(w))),
+    CODE("pfa",   int w = FIND(next_idiom()); PUSH(PFA(w))),
     CODE(".s",    ss_dump(POPi)),
     CODE("words", fout << opx(OP_WORDS)),
     CODE("see",   int w = FIND(next_idiom()); fout << opx(OP_SEE, w)),
@@ -348,13 +348,14 @@ ForthVM::init() {
         mmu << (Code*)&prim[i];
     }
 
-	for (int i=0; i<n; i++) {
-	    MMU_DEBUG("%3d> xt=%p name=%4x:%p %s\n", i,
-				dict[i].fp,
-				(dict[i].name - dict[0].name), dict[i].name,
-				dict[i].name);           /// dump dictionary from device
-	}
-    MMU_DEBUG("VM=%p sizeof(Code)=%d\n", this, (int)sizeof(Code));
+    for (int i=0; i<n; i++) {
+        MMU_TRACE("%3d> xt=%4x:%p name=%4x:%p %s\n", i,
+            (int)(dict[i].xt   - dict[0].xt), dict[i].xt,
+            (int)(dict[i].name - dict[0].name), dict[i].name,
+            dict[i].name);           /// dump dictionary from device
+    }
+    MMU_TRACE("VM=%p dict=%p sizeof(Code)=%d sizeof(Tensor)=%d\n",
+        this, &dict[0], (int)sizeof(Code), (int)sizeof(Tensor));
 
     status = VM_RUN;
 };
@@ -377,14 +378,14 @@ ForthVM::outer() {
         int w = FIND(idiom);                 /// * search through dictionary
         if (w>=0) {                          /// * word found?
             T4_DEBUG("%4x:%p %s %d ",
-            	dict[w].def ? dict[w].pfa : 0,
-            	dict[w].xt, dict[w].name, w);
+                dict[w].def ? dict[w].pfa : 0,
+                dict[w].xt, dict[w].name, w);
             if (compile && !dict[w].immd) {  /// * in compile mode?
                 add_w((IU)w);                /// * add found word to new colon word
             }
             else {
-            	T4_DEBUG("=> call(%s)\n", dict[w].name);
-	            call((IU)w);                 /// * execute forth word
+                T4_DEBUG("=> call(%s)\n", dict[w].name);
+                call((IU)w);                 /// * execute forth word
             }
             continue;
         }
@@ -406,7 +407,7 @@ ForthVM::outer() {
         }
         else {
             T4_DEBUG("ss.push(%08x)\n", *(U32*)&n);
-        	PUSH(n);                         ///> or, add value onto data stack
+            PUSH(n);                         ///> or, add value onto data stack
         }
     }
     if (!compile) ss_dump(ss.idx);
