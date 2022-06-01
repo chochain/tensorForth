@@ -83,13 +83,6 @@ typedef F64         DU2;                    ///< double preciesion data unit
 #define DU0         0                       /**< default data value     */
 #define DU_EPS      1.0e-6                  /**< floating point epsilon */
 ///@}
-///@name tensorForth generalized data object types
-///@{
-typedef S32         GI;                     ///< signed integer
-typedef F32         GF;                     ///< float
-typedef U16         GS;                     ///< symbol index
-typedef S32         GP;                     ///< offset, i.e. object pointer
-///@}
 ///
 /// colon word compiler
 /// Note:
