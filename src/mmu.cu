@@ -101,7 +101,7 @@ MMU::see(std::ostream &fout, U8 *ip, int dp) {
         ip += sizeof(IU);                                           /// * advance instruction pointer
         switch (c) {
         case DOVAR: case DOLIT:
-            fout << "= " << (*(DU*)ip).f; ip += sizeof(DU); break;      /// fetch literal
+            fout << "= " << (*(DU*)ip); ip += sizeof(DU); break;      /// fetch literal
         case DOSTR: case DOTSTR: {
             char *s = (char*)ip;
             int  sz = strlen(s)+1;
@@ -130,12 +130,12 @@ MMU::ss_dump(std::ostream &fout, U16 vid, U16 n, int radix) {
     fout << " <";
     if (x) fout << std::setbase(radix);
     for (U16 i=0; i<n; i++) {
-        if (x) fout << static_cast<int>(ss[i].f);
-        else   fout << ss[i].f;
+        if (x) fout << static_cast<int>(ss[i]);
+        else   fout << ss[i];
         fout << " ";
     }
-    if (x) fout << static_cast<int>(ss[T4_SS_SZ-1].f);
-    else   fout << ss[T4_SS_SZ-1].f;
+    if (x) fout << static_cast<int>(ss[T4_SS_SZ-1]);
+    else   fout << ss[T4_SS_SZ-1];
     fout << "> ok" << std::endl;
 }
 ///
