@@ -32,7 +32,7 @@ struct Vector {
         return *this;
     }
     __GPU__ __INLINE__ Vector& operator<<(T t)    { push(t); }
-    __GPU__ __INLINE__ Vector& init(T *a, int n)  { v = a; max = n; }
+    __GPU__ __INLINE__ Vector& init(T *a, int n)  { v = a; max = n; return *this; }
     __GPU__ __INLINE__ Vector& merge(T *a, int n) {
         for (int i=0; i<n; i++) push(a[i]);
         return *this;
