@@ -19,6 +19,7 @@
 #include <cuda.h>
 #define __GPU__             __device__
 #define __HOST__            __host__
+#define __BOTH__            __host__ __device__
 #define __KERN__            __global__
 #define __INLINE__          __forceinline__
 
@@ -57,11 +58,11 @@
 #else  // VERBOSE
 #define T4_DEBUG(fmt,...)
 #endif // T4_VERBOSE
-#if MMU_TRACE
-#define MMU_DEBUG(fmt,...)  PRINTF(fmt,__VA_ARGS__)
-#else  // MMU_TRACE
-#define MMU_DEBUG(fmt,...)
-#endif // MMU_TRACE
+#if MMU_DEBUG
+#define MMU_TRACE(fmt,...)  PRINTF(fmt,__VA_ARGS__)
+#else  // MMU_DEBUG
+#define MMU_TRACE(fmt,...)
+#endif // MMU_DEBUG
 ///@}
 ///@name Portable types
 ///@{
