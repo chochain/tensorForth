@@ -59,16 +59,15 @@ struct Code : public Managed {
         MMU_TRACE("Code(...) %p %s\n", xt, name);
         immd = im ? 1 : 0;
     }
-    __GPU__ Code(const Code &c) : name(c.name), xt(c.xt) {  ///> called by Vector::push(T*)
-        MMU_TRACE("Code(&c) %p %s\n", fp, name);
+    /*
+    __GPU__ Code(const Code &c) : name(c.name), xt(c.xt) {
+        MMU_TRACE("Code(&c) %p %s\n", xt, name);
     }
-    __GPU__ ~Code() {
-        MMU_TRACE("~Code(%s)\n", name);
-    }
-    __GPU__ Code &operator=(const Code &c) {
+    */
+    __GPU__ Code &operator=(const Code &c) {                ///> called by Vector::push(T*)
         name = c.name;
         xt   = c.xt;
-        MMU_TRACE("Code() = &c %p %s\n", xt, name);
+        MMU_TRACE("Code()= %p %s\n", xt, name);
     }
 };
 #define CODE(s, g)    { s, [this] __GPU__ (){ g; }}
