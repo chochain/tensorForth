@@ -165,7 +165,7 @@ public:
         _write(GT_FLOAT, (U8*)&f, sizeof(GF));
         return *this;
     }
-    __GPU__ Ostream& operator<<(DU t) {
+    __GPU__ Ostream& operator<<(GT t) {
         _write(GT_TENSOR, (U8*)&t, sizeof(DU));
     }
     __GPU__ Ostream& operator<<(const char *s) {
