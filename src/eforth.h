@@ -7,14 +7,15 @@
 #ifndef TEN4_SRC_EFORTH_H
 #define TEN4_SRC_EFORTH_H
 #include "vector.h"         // Forth vector (includes util.h)
+#include "tensor.h"
 #include "aio.h"            // Forth async IO (includes Istream, Ostream)
 ///
 ///@name Cross platform support
 ///@{
 #define ENDL            '\n'
+#define yield()                              /** TODO: multi-VM */
 #define millis()        (clock()/1530000.0f)
-#define delay(ms)       { clock_t t = clock()+ms; while (clock()<t); }
-#define yield()
+#define delay(ms)       { clock_t t = clock()+ms; while (clock()<t) yield(); }
 ///@}
 ///
 /// Forth virtual machine class
@@ -25,8 +26,8 @@ typedef enum { VM_READY=0, VM_RUN, VM_WAIT, VM_STOP } vm_status;
 ///
 class ForthVM {
 public:
-    vm_status     status = VM_READY;        ///< VM status
-    DU    top    = DU0;                     ///< cached top of stack
+    vm_status status = VM_READY;            ///< VM status
+    DU        top    = DU0;                 ///< cached top of stack
     Vector<DU,   T4_RS_SZ> rs;              ///< return stack
     Vector<DU,   0>        ss;              ///< parameter stack (setup in ten4.cu)
 
