@@ -45,7 +45,7 @@ typedef fop* FPTR;          ///< lambda function pointer
 struct Code : public Managed {
     const char *name = 0;   ///< name field
     union {
-        FPTR xt;            ///< lambda pointer (CUDA 49-bit)
+        FPTR xt = 0;        ///< lambda pointer (CUDA 49-bit)
         U64  *fp;           ///< pointer for debugging
         struct {
             U16 def:  1;    ///< colon defined word
