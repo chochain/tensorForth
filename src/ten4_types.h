@@ -78,7 +78,7 @@ typedef float       F32;                    ///< single precision float
 ///@name Forth instruction and data types
 ///@{
 typedef U16         IU;                     ///< instruction unit
-//typedef F32         DU;                     ///< data unit
+typedef F32         DU;                     ///< data unit
 typedef F64         DU2;                    ///< double preciesion data unit
 #define DU0         0                       /**< default data value     */
 #define DU_EPS      1.0e-6                  /**< floating point epsilon */
