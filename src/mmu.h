@@ -37,9 +37,7 @@ struct functor : fop {
         op();
     }
 };
-//typedef fop* FPTR;          ///< lambda function pointer
-#include <nvfunctional>
-typedef nvstd::function<void(void)> FPTR;
+typedef fop* FPTR;          ///< lambda function pointer
 /// @}
 ///
 /// Code class for dictionary word
@@ -47,7 +45,7 @@ typedef nvstd::function<void(void)> FPTR;
 struct Code : public Managed {
     const char *name = 0;   ///< name field
     union {
-        FPTR *xt;           ///< lambda pointer (CUDA 49-bit)
+        FPTR xt;            ///< lambda pointer (CUDA 49-bit)
         U64  *fp;           ///< pointer for debugging
         struct {
             U16 def:  1;    ///< colon defined word
@@ -56,9 +54,9 @@ struct Code : public Managed {
             IU  pfa;        ///< offset to pmem space
         };
     };
-//    template<typename F>    ///< template function for lambda
-//    __GPU__ Code(const char *n, const F f, bool im=false) : name(n), xt(new functor<F>(f)) {
-    __GPU__ Code(const char *n, FPTR f, bool im=false) : name(n), xt(&f) {
+    template<typename F>    ///< template function for lambda
+    __GPU__ Code(const char *n, const F f, bool im=false) : name(n), xt(new functor<F>(f)) {
+//    __GPU__ Code(const char *n, FPTR f, bool im=false) : name(n), xt(&f) {
         MMU_TRACE("Code(...) %p %s\n", xt, name);
         immd = im ? 1 : 0;
     }
