@@ -157,16 +157,16 @@ public:
         _write(GT_STR, (U8*)buf, 2);
         return *this;
     }
-    __GPU__ Ostream& operator<<(GI i) {
-        _write(GT_INT, (U8*)&i, sizeof(GI));
+    __GPU__ Ostream& operator<<(S32 i) {
+        _write(GT_INT, (U8*)&i, sizeof(S32));
         return *this;
     }
-    __GPU__ Ostream& operator<<(GF f) {
-        _write(GT_FLOAT, (U8*)&f, sizeof(GF));
+    __GPU__ Ostream& operator<<(F32 f) {
+        _write(GT_FLOAT, (U8*)&f, sizeof(F32));
         return *this;
     }
-    __GPU__ Ostream& operator<<(GT t) {
-        _write(GT_TENSOR, (U8*)&t, sizeof(DU));
+    __GPU__ Ostream& operator<<(Tensor t) {
+        _write(GT_TENSOR, (U8*)&t, sizeof(Tensor));
     }
     __GPU__ Ostream& operator<<(const char *s) {
         int len = STRLENB(s)+1;

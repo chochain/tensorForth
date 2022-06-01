@@ -31,11 +31,11 @@ AIO::print_node(obuf_node *node) {
     case GT_FLOAT: std::cout << (*(F32*)v); break;
     case GT_STR:   std::cout << v;          break;
     case GT_FMT:   {
-    	obuf_fmt *f = (obuf_fmt*)v;
+        obuf_fmt *f = (obuf_fmt*)v;
         //printf("FMT: b=%d, w=%d, p=%d, f='%c'\n", f->base, f->width, f->prec, f->fill);
         std::cout << std::setbase(_radix = f->base)
                   << std::setw(f->width)
-          		  << std::setprecision(f->prec ? f->prec : -1)
+                  << std::setprecision(f->prec ? f->prec : -1)
                   << std::setfill((char)f->fill);
     } break;
     case GT_OPX: {
