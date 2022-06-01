@@ -55,8 +55,7 @@ struct Code : public Managed {
         };
     };
     template<typename F>    ///< template function for lambda
-    __GPU__ Code(const char *n, const F f, bool im=false) : name(n), xt(new functor<F>(f)) {
-//    __GPU__ Code(const char *n, FPTR f, bool im=false) : name(n), xt(&f) {
+    __GPU__ Code(const char *n, const F &f, bool im=false) : name(n), xt(new functor<F>(f)) {
         MMU_TRACE("Code(...) %p %s\n", xt, name);
         immd = im ? 1 : 0;
     }
