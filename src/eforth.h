@@ -1,4 +1,4 @@
-/** 
+/**
  * @file
  * @brief tensorForth - eForth core classes
  *
@@ -28,6 +28,7 @@ class ForthVM {
 public:
     vm_status status = VM_READY;            ///< VM status
     DU        top    = DU0;                 ///< cached top of stack
+    U32       *ptop  = (U32*)&top;          ///< 32-bit mask for top
     Vector<DU,   T4_RS_SZ> rs;              ///< return stack
     Vector<DU,   0>        ss;              ///< parameter stack (setup in ten4.cu)
 

@@ -11,13 +11,13 @@
 ///
 ///@name Data conversion
 ///@{
-#define INT(f)    (static_cast<int>(f))         /**< cast float to int                       */
+#define INT(f)    (static_cast<int>(f + 0.5))   /**< cast float to int                       */
 #define I2D(i)    (static_cast<DU>(i))          /**< cast int back to float                  */
 #define ABS(d)    (fabs(d))                     /**< absolute value                          */
 #define ZERO(d)   (ABS(d) < DU_EPS)             /**< zero check                              */
-#define FMOD(t,n) (fmod(t, n))
-///@}
+#define MOD(t,n)  (fmod(t, n))                  /**< fmod two floating points                */
 #define BOOL(f)   ((f) ? -1 : 0)                /**< default boolean representation          */
+#define TOPx      (*ptop &= ~1)                 /**< tensor flag mask for top                */
 ///@}
 ///@name Dictioanry access
 ///@{
@@ -165,21 +165,21 @@ ForthVM::init() {
     ///@}
     ///@defgroup FPU ops
     ///@{
-    CODE("+",    top += ss.pop()),
-    CODE("*",    top *= ss.pop()),
+    CODE("+",    top += ss.pop()),                    /// TODO: vector.add
+    CODE("*",    top *= ss.pop()),                    /// TODO: matmul
     CODE("-",    top =  ss.pop() - top),
-    CODE("/",    top =  ss.pop() / top),
-    CODE("mod",  top =  FMOD(ss.pop(), top)),          /// fmod = x - int(q)*y
+    CODE("/",    top =  ss.pop() / top; TOPx),
+    CODE("mod",  top =  MOD(ss.pop(), top)),          /// fmod = x - int(q)*y
     CODE("/mod",
         DU n = ss.pop(); DU t = top;
-        ss.push(FMOD(n, t)); top = n / t),
+        ss.push(MOD(n, t)); top = n / t),
     ///@}
     ///@defgroup FPU double precision ops
     ///@{
     CODE("*/",   top =  (DU2)ss.pop() * ss.pop() / top),
     CODE("*/mod",
-        DU2 n = (DU2)ss.pop() * ss.pop();  DU t = top;
-        ss.push(FMOD(n, t)); top = round(n / t)),
+        DU2 n = (DU2)ss.pop() * ss.pop();
+        ss.push(MOD(n, top)); top = round(n / top)),
     ///@}
     ///@defgroup Binary logic ops (convert to integer first)
     ///@{
@@ -224,7 +224,7 @@ ForthVM::init() {
     CODE(".",       dot(POP())),
     CODE(".r",      int n = POPi; dot_r(n, POP())),
     CODE("u.r",     int n = POPi; dot_r(n, ABS(POP()))),
-    CODE(".f",      int n = POPi; fout << setprec(n) << POPi),
+    CODE(".f",      int n = POPi; fout << setprec(n) << POP()),
     CODE("key",     PUSH(next_idiom()[0])),
     CODE("emit",    fout << (char)POPi),
     CODE("space",   fout << ' '),
