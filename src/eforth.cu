@@ -17,7 +17,11 @@
 #define ZERO(d)   (ABS(d) < DU_EPS)             /**< zero check                              */
 #define MOD(t,n)  (fmod(t, n))                  /**< fmod two floating points                */
 #define BOOL(f)   ((f) ? -1 : 0)                /**< default boolean representation          */
+///@}
+///@name Tensor ops
+///@{
 #define TOPx      (*ptop &= ~1)                 /**< tensor flag mask for top                */
+#define RANK      ((*ptop & 6) >> 1)            /**< tensor rank of top                      */
 ///@}
 ///@name Dictioanry access
 ///@{
@@ -341,9 +345,23 @@ ForthVM::init() {
     CODE("poke",  IU a = POPi; POKE(a, POPi)),
     CODE("clock", PUSH(millis())),
     CODE("delay", delay(POPi)),                                // TODO: change to VM_WAIT
+    ///@}
+    ///@defgroup Tensor ops
+    ///@brief - adhere to PyTorch naming
+    ///@{
+    CODE("T[",      {}),                 ///< TODO: 1-D tensor
+    CODE("T2[",     {}),                 ///< TODO: 2-D tensor
+    CODE("T3[",     {}),                 ///< TODO: 3-D tensor
+    CODE("zeros",   {}),                 ///< TODO: zeros
+    CODE("ones",    {}),                 ///< TODO: ones
+    CODE("rand",    {}),                 ///< TODO: rand
+    CODE("randn",   {}),                 ///< TODO: randn
+    CODE("matmul",  {}),                 ///< TODO: matmul
+    CODE("view2",   {}),                 ///< TODO: 
+    CODE("view3",   {}),                 ///< TODO: 
+    ///@}
     CODE("bye",   status = VM_STOP),
     CODE("boot",  mmu.clear(FIND("boot") + 1))
-    ///@}
     };
     int n  = sizeof(prim)/sizeof(Code); ///< number of primitive entries
     UFP x0 = ~0;                        ///< base of xt   allocations
