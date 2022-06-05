@@ -50,7 +50,6 @@ struct Vector {
     }
     __GPU__ __INLINE__ int size()  { return idx; }
     __GPU__ __INLINE__ T&  pop()   { return idx>0 ? v[--idx] : v[0]; }
-    __GPU__ __INLINE__ T&  dec_i() { return v[idx - 1] -= 1; } /// decrement stack top
     __GPU__ __INLINE__ Vector& clear(int i=0)  { if (i<idx) idx = i; return *this; }
     __GPU__ Vector& resize(int nsz) {
         int x = 0;
