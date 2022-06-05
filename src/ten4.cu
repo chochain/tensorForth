@@ -116,10 +116,14 @@ TensorForth::TensorForth(int device, bool trace) {
 
 #if T4_VERBOSE
     cout << "GPU " << device
-         << " initialized at " << khz/1000
-         << "MHz, dict[" << T4_DICT_SZ << "]"
-         << ", pmem[" << T4_PMEM_SZ << "]"
-         << ", sizeof(Code)=" << sizeof(Code) << endl;
+         << " initialized at " << khz/1000 << "MHz"
+         << ", dict["          << T4_DICT_SZ << "]"
+         << ", pmem="          << T4_PMEM_SZ/1024 << "K"
+         << ", tensor="        << T4_TENSOR_SZ/1024/1024 << "M"
+#if CC_DEBUG
+         << ", sizeof(Code)=" << sizeof(Code)
+#endif // CC_DEBUG
+         << endl;
 #endif // T4_VERBOSE
 }
 TensorForth::~TensorForth() {
