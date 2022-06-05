@@ -42,7 +42,7 @@
 __GPU__
 ForthVM::ForthVM(int khz, Istream *istr, Ostream *ostr, MMU *mmu0)
     : khz(khz), fin(*istr), fout(*ostr), mmu(*mmu0), dict(mmu0->dict()) {
-        T4_TRACE("D: dict=%p, mem=%p, vss=%p\n", dict, mmu.mem(0), mmu.vss(blockIdx.x));
+        T4_TRACE("FVM dict=%p, mem=%p, vss=%p\n", dict, mmu.mem(0), mmu.vss(blockIdx.x));
 }
 ///
 /// Forth inner interpreter (colon word handler)
