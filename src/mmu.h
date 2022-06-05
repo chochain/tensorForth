@@ -90,17 +90,16 @@ public:
     __HOST__ MMU();
     __HOST__ ~MMU();
     ///
-    /// dictionary access and search methods
+    /// references to memory blocks
     ///
-    __GPU__ __INLINE__ Code &operator<<(Code *c) { return _dict[_didx++] = *c; }    ///< dictionary word assignment
-    __GPU__ __INLINE__ Code &operator[](int i)   { return (i<0) ? _dict[_didx+i] : _dict[i]; } ///< dictionary accessor by index
-
     __GPU__ __INLINE__ Code *dict()      { return &_dict[0]; }                      ///< dictionary pointer
     __GPU__ __INLINE__ Code *last()      { return &_dict[_didx - 1]; }              ///< last dictionary word
     __GPU__ __INLINE__ DU   *vss(int vid){ return &_vss[vid * T4_SS_SZ]; }          ///< data stack (per VM id)
     __GPU__ __INLINE__ U8   *pmem(IU i)  { return &_pmem[i]; }                      ///< base of parameter memory
     __GPU__ __INLINE__ U8   *ten(U32 i)  { return &_ten[i]; }                       ///< base of tensor storage
-
+    ///
+    /// dictionary search method
+    ///
     __GPU__ int  find(const char *s, bool compile, bool ucase);      ///> implemented in .cu
     ///
     /// compiler methods
@@ -108,6 +107,7 @@ public:
     __GPU__ void colon(const char *name);                            ///> implemented in .cu
     __GPU__ __INLINE__ int  align()      { int i = (-_midx & 0x3); _midx += i; return i; }
     __GPU__ __INLINE__ void clear(IU i)  { _didx = i; _midx = 0; }
+    __GPU__ __INLINE__ void add(Code *c) { _dict[_didx++] = *c; }    ///< dictionary word assignment
     __GPU__ __INLINE__ void add(U8* v, int sz) {
         MEMCPY(&_pmem[_midx], v, sz); _midx += sz;                   ///> copy data to heap, TODO: dynamic parallel
     }
