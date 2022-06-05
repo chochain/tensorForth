@@ -13,7 +13,7 @@ class TensorForth {
     int  *busy;                 // for Device to Host VM status reporting
 
 public:
-    TensorForth(bool trace=false);
+    TensorForth(int device=0, bool trace=false);
     ~TensorForth();
 
     __HOST__ int   is_running();

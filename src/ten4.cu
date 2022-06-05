@@ -27,11 +27,11 @@ __GPU__ ForthVM *vm_pool[VM_MIN_COUNT];
 /// instantiate VMs (threadIdx.x is vm_id)
 ///
 __KERN__ void
-ten4_init(Istream *istr, Ostream *ostr, MMU *mmu) {
+ten4_init(int khz, Istream *istr, Ostream *ostr, MMU *mmu) {
     int i = threadIdx.x;
     if (i >= VM_MIN_COUNT) return;
 
-    ForthVM *vm = vm_pool[i] = new ForthVM(istr, ostr, mmu);  // instantiate VM
+    ForthVM *vm = vm_pool[i] = new ForthVM(khz, istr, ostr, mmu);  // instantiate VM
     vm->ss.init(mmu->vss(i), T4_SS_SZ);  // point data stack to managed memory block
 
     if (i==0) vm->init();                // initialize common dictionary (once only)
@@ -85,11 +85,17 @@ ten4_exec() {
     vm->ss.v = ss0;                             // restore stack back to VM
 }
 
-TensorForth::TensorForth(bool trace) {
+TensorForth::TensorForth(int device, bool trace) {
+    int khz = 0;
+    cudaDeviceGetAttribute(&khz, cudaDevAttrClockRate, device);
+    GPU_CHK();
+
 #if T4_VERBOSE
-    cout << "initializing dict[" << T4_DICT_SZ << "]"
-    	 << ", pmem[" << T4_PMEM_SZ << "]"
-		 << ", sizeof(Code)=" << sizeof(Code) << endl;
+    cout << "initializing device " << device
+         << " at " << khz/1000
+         << "MHz, dict[" << T4_DICT_SZ << "]"
+         << ", pmem[" << T4_PMEM_SZ << "]"
+         << ", sizeof(Code)=" << sizeof(Code) << endl;
 #endif // T4_VERBOSE
 
     mmu = new MMU();                            // instantiate memory manager
@@ -98,7 +104,7 @@ TensorForth::TensorForth(bool trace) {
     GPU_CHK();
 
     int t = WARP(VM_MIN_COUNT);                 // thread count = 32 modulo
-    ten4_init<<<1, t>>>(aio->istream(), aio->ostream(), mmu); // create VMs
+    ten4_init<<<1, t>>>(khz, aio->istream(), aio->ostream(), mmu); // create VMs
     GPU_CHK();
 }
 TensorForth::~TensorForth() {
@@ -159,8 +165,9 @@ void sigtrap() {
 }
 
 int main(int argc, char**argv) {
-	string app = string(T4_APP_NAME) + " " + MAJOR_VERSION + "." + MINOR_VERSION;
+    string app = string(T4_APP_NAME) + " " + MAJOR_VERSION + "." + MINOR_VERSION;
     sigtrap();
+
     TensorForth *f = new TensorForth();
 
     cout << app << endl;
