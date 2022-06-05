@@ -37,12 +37,12 @@
 #define LDi(ip)   (mmu.ri((IU)(ip)))            /**< read an instruction unit from pmem      */
 #define LDd(ip)   (mmu.rd((IU)(ip)))            /**< read a data unit from pmem              */
 #define STd(ip,d) (mmu.wd((IU)(ip), (DU)(d)))   /**< write a data unit to pmem               */
-#define LDs(ip)   (mmu.mem((IU)(ip)))           /**< pointer to IP address fetched from pmem */
+#define LDs(ip)   (mmu.pmem((IU)(ip)))          /**< pointer to IP address fetched from pmem */
 ///@}
 __GPU__
 ForthVM::ForthVM(int khz, Istream *istr, Ostream *ostr, MMU *mmu0)
     : khz(khz), fin(*istr), fout(*ostr), mmu(*mmu0), dict(mmu0->dict()) {
-        T4_TRACE("FVM dict=%p, mem=%p, vss=%p\n", dict, mmu.mem(0), mmu.vss(blockIdx.x));
+        T4_TRACE("FVM dict=%p, mem=%p, vss=%p\n", dict, mmu.pmem(0), mmu.vss(blockIdx.x));
 }
 ///
 /// Forth inner interpreter (colon word handler)
