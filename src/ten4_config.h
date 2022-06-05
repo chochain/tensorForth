@@ -58,5 +58,6 @@
 #define T4_IBUF_SZ                1024      /**< host input buffer size       */
 #define T4_OBUF_SZ                8192      /**< device output buffer size    */
 #define T4_STRBUF_SZ              128       /**< temp string buffer size      */
+#define T4_TENSOR_SZ              (1*1024*1024*1024) /**< tensor storage size */
 ///@}
 #endif // TEN4_SRC_TEN4_CONFIG_H_
