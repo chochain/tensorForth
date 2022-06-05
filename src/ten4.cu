@@ -86,26 +86,41 @@ ten4_exec() {
 }
 
 TensorForth::TensorForth(int device, bool trace) {
+    ///
+    /// set active device
+    ///
+    cudaError_t err = cudaSetDevice(device);
+    if (err != cudaSuccess) {
+        fprintf(stderr, "\nERR: failed to activate GPU %d\n", device);
+        exit(1);
+    }
+    ///
+    /// query GPU shader clock rate
+    ///
     int khz = 0;
     cudaDeviceGetAttribute(&khz, cudaDevAttrClockRate, device);
     GPU_CHK();
+    ///
+    /// allocate cuda memory blocks
+    ///
+    mmu = new MMU();                            ///> instantiate memory manager
+    aio = new AIO(mmu, trace);                  ///> instantiate async IO manager
+    cudaMalloc((void**)&busy, sizeof(int));     ///> allocate managed busy flag
+    GPU_CHK();
+    ///
+    /// instantiate virtual machines
+    ///
+    int t = WARP(VM_MIN_COUNT);                 ///> thread count = 32 modulo
+    ten4_init<<<1, t>>>(khz, aio->istream(), aio->ostream(), mmu); // create VMs
+    GPU_CHK();
 
 #if T4_VERBOSE
-    cout << "initializing device " << device
-         << " at " << khz/1000
+    cout << "GPU " << device
+         << " initialized at " << khz/1000
          << "MHz, dict[" << T4_DICT_SZ << "]"
          << ", pmem[" << T4_PMEM_SZ << "]"
          << ", sizeof(Code)=" << sizeof(Code) << endl;
 #endif // T4_VERBOSE
-
-    mmu = new MMU();                            // instantiate memory manager
-    aio = new AIO(mmu, trace);                  // instantiate async IO manager
-    cudaMalloc((void**)&busy, sizeof(int));     // allocate managed busy flag
-    GPU_CHK();
-
-    int t = WARP(VM_MIN_COUNT);                 // thread count = 32 modulo
-    ten4_init<<<1, t>>>(khz, aio->istream(), aio->ostream(), mmu); // create VMs
-    GPU_CHK();
 }
 TensorForth::~TensorForth() {
     delete aio;
@@ -167,7 +182,6 @@ void sigtrap() {
 int main(int argc, char**argv) {
     string app = string(T4_APP_NAME) + " " + MAJOR_VERSION + "." + MINOR_VERSION;
     sigtrap();
-
     TensorForth *f = new TensorForth();
 
     cout << app << endl;
