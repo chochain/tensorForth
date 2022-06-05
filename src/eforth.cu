@@ -69,7 +69,7 @@ ForthVM::nest() {
                 dp++;                                ///< go one level deeper
             }
             else if (w == DONEXT) {                  ///< DONEXT handler (save 600ms / 100M cycles on Intel)
-                if ((rs[-1] -= 1) >= 0) IP = LDi(IP);///< decrement loop counter, and fetch target addr
+                if ((rs[-1] -= 1) >= -DU_EPS) IP = LDi(IP); ///< decrement loop counter, and fetch target addr
                 else { IP += sizeof(IU); rs.pop(); } ///< done loop, pop off loop counter
             }
             else EXEC(w);                            ///< execute primitive word
@@ -126,7 +126,7 @@ ForthVM::init() {
     ///@{
     CODE("exit",    WP = INT(rs.pop()); IP = INT(rs.pop())),        // quit current word execution
     CODE("donext",
-         if ((rs[-1] -= 1) >= 0) IP = LDi(IP);
+         if ((rs[-1] -= 1) >= -DU_EPS) IP = LDi(IP);
          else { IP += sizeof(IU); rs.pop(); }),
     CODE("dovar",   PUSH(IP); IP += sizeof(DU)),
     CODE("dolit",   PUSH(LDd(IP)); IP += sizeof(DU)),
@@ -209,14 +209,14 @@ ForthVM::init() {
     ///@defgroup Logic ops
     ///@{
     CODE("0= ",  top = BOOL(ZERO(top))),
-    CODE("0<",   top = BOOL(top <  DU_EPS)),
-    CODE("0>",   top = BOOL(top >  -DU_EPS)),
+    CODE("0<",   top = BOOL(top <  -DU_EPS)),
+    CODE("0>",   top = BOOL(top >   DU_EPS)),
     CODE("=",    top = BOOL(ZERO(ss.pop() - top))),
-    CODE(">",    top = BOOL((ss.pop() -  top) > DU_EPS)),
-    CODE("<",    top = BOOL((ss.pop() -  top) < -DU_EPS)),
+    CODE(">",    top = BOOL((ss.pop() -  top) > -DU_EPS)),
+    CODE("<",    top = BOOL((ss.pop() -  top) <  DU_EPS)),
     CODE("<>",   top = BOOL(!ZERO(ss.pop() - top))),
-    CODE(">=",   top = BOOL((ss.pop() - top) >= DU_EPS)),      // pretty much the same as > for float
-    CODE("<=",   top = BOOL((ss.pop() - top) <= -DU_EPS)),
+    CODE(">=",   top = BOOL((ss.pop() - top) >= -DU_EPS)),      // not much difference as > for float
+    CODE("<=",   top = BOOL((ss.pop() - top) <=  DU_EPS)),
     ///@}
     ///@defgroup IO ops
     ///@{
