@@ -78,11 +78,13 @@ struct Code : public Managed {
 #define H2D cudaMemcpyHostToDevice
 #define D2H cudaMemcpyDeviceToHost
 class MMU : public Managed {
-    IU   _didx = 0;
-    IU   _midx = 0;
-    Code *_dict;
-    U8   *_pmem;
-    DU   *_vss;
+    IU   _didx = 0;       ///< dictionary index
+    IU   _midx = 0;       ///< parameter memory index
+    U32  _tidx = 0;       ///< tensor storage index, TODO: > 4G
+    Code *_dict;          ///< dictionary block
+    U8   *_pmem;          ///< parameter memory block
+    DU   *_vss;           ///< VM data stack block
+    U8   *_ten;           ///< tensor storage block, TODO: TLSF
 
 public:
     __HOST__ MMU();
@@ -96,7 +98,8 @@ public:
     __GPU__ __INLINE__ Code *dict()      { return &_dict[0]; }                      ///< dictionary pointer
     __GPU__ __INLINE__ Code *last()      { return &_dict[_didx - 1]; }              ///< last dictionary word
     __GPU__ __INLINE__ DU   *vss(int vid){ return &_vss[vid * T4_SS_SZ]; }          ///< data stack (per VM id)
-    __GPU__ __INLINE__ U8   *mem(IU pi)  { return &_pmem[pi]; }                     ///< base of heap space
+    __GPU__ __INLINE__ U8   *pmem(IU i)  { return &_pmem[i]; }                      ///< base of parameter memory
+    __GPU__ __INLINE__ U8   *ten(U32 i)  { return &_ten[i]; }                       ///< base of tensor storage
 
     __GPU__ int  find(const char *s, bool compile, bool ucase);      ///> implemented in .cu
     ///

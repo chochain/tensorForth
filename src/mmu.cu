@@ -13,12 +13,14 @@ MMU::MMU() {
     cudaMallocManaged(&_dict, sizeof(Code) * T4_DICT_SZ);
     cudaMallocManaged(&_pmem, sizeof(U8) * T4_PMEM_SZ);
     cudaMallocManaged(&_vss,  sizeof(DU) * T4_SS_SZ * VM_MIN_COUNT);
+    cudaMallocManaged(&_ten,  sizeof(U8) * T4_TENSOR_SZ);
     GPU_CHK();
-    MMU_TRACE("H: dict=%p, mem=%p, vss=%p\n", _dict, _pmem, _vss);
+    MMU_TRACE("MMU dict=%p, mem=%p, vss=%p, ten=%p\n", _dict, _pmem, _vss, _ten);
 }
 __HOST__
 MMU::~MMU() {
     GPU_SYNC();
+    cudaFree(_ten);
     cudaFree(_vss);
     cudaFree(_pmem);
     cudaFree(_dict);
