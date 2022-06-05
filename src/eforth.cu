@@ -40,8 +40,8 @@
 #define LDs(ip)   (mmu.mem((IU)(ip)))           /**< pointer to IP address fetched from pmem */
 ///@}
 __GPU__
-ForthVM::ForthVM(Istream *istr, Ostream *ostr, MMU *mmu0)
-    : fin(*istr), fout(*ostr), mmu(*mmu0), dict(mmu0->dict()) {
+ForthVM::ForthVM(int khz, Istream *istr, Ostream *ostr, MMU *mmu0)
+    : khz(khz), fin(*istr), fout(*ostr), mmu(*mmu0), dict(mmu0->dict()) {
         T4_TRACE("D: dict=%p, mem=%p, vss=%p\n", dict, mmu.mem(0), mmu.vss(blockIdx.x));
 }
 ///
@@ -343,7 +343,7 @@ ForthVM::init() {
     ///@{
     CODE("peek",  IU a = POPi; PUSH(PEEK(a))),
     CODE("poke",  IU a = POPi; POKE(a, POPi)),
-    CODE("clock", PUSH(millis())),
+    CODE("clock", PUSH(clock()/khz)),
     CODE("delay", delay(POPi)),                                // TODO: change to VM_WAIT
     ///@}
     ///@defgroup Tensor ops
