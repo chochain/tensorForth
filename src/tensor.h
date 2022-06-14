@@ -7,6 +7,7 @@
 #ifndef TEN4_SRC_TENSOR_H_
 #define TEN4_SRC_TENSOR_H_
 #include "ten4_types.h"
+#include "vector.h"
 /**
   TODO: Matrix product of two Tensors.
   The behavior depends on the dimensionality of the Tensors as follows:
@@ -31,7 +32,19 @@
 ///@}
 ///@name tensorForth complex data object
 ///@{
-typedef struct Tensor {
+struct TensorStore : public Managed {
+    U64 offset;                ///< offset to managed memory pool
+    U64 size;                  ///< number of contiguous bytes
+};
+/*
+ * PyTorch.Tensor: size, dtype, type_id, stride, tensorstore
+ */
+struct Tensor : public Managed {
+    U64              size;     ///< number of contiguous bytes
+    U32              dsize;    ///< size of data element, F32 for now, TODO: others
+    Vector<U16,4>    stride;   ///< one step forward (row major)
+    Vector<U16,4>    shape;    ///< shape of the tensor, max 4-T for now. TODO: more
+    TensorStore      *data;    ///< pointer to Managed memory
     union {
         DU f;               ///< float storage
         struct {
@@ -76,5 +89,9 @@ typedef struct Tensor {
     __BOTH__ __INLINE__ bool   operator>=(F32 f0)    { return (f - f0) >=  DU_EPS; }
     __BOTH__ __INLINE__ bool   operator==(F32 f0)    { return fabs(f - f0)  <  DU_EPS; }
     __BOTH__ __INLINE__ bool   operator!=(F32 f0)    { return fabs(f - f0)  >= DU_EPS; }
-} TU;
+    ///
+    /// GEMM ops
+    ///
+    __GPU__ Tensor &gemm(Tensor &A, Tensor &B, Tensor &C);
+};
 #endif // TEN4_SRC_TENSOR_H_
