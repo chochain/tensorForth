@@ -100,18 +100,18 @@ public:
     ///
     /// dictionary search method
     ///
-    __GPU__ int  find(const char *s, bool compile, bool ucase);      ///> implemented in .cu
+    __GPU__ int  find(const char *s, bool compile, bool ucase);      ///< dictionary search
     ///
     /// compiler methods
     ///
-    __GPU__ void colon(const char *name);                            ///> implemented in .cu
+    __GPU__ void colon(const char *name);                            ///< define colon word
     __GPU__ __INLINE__ int  align()      { int i = (-_midx & 0x3); _midx += i; return i; }
-    __GPU__ __INLINE__ void clear(IU i)  { _didx = i; _midx = 0; }
-    __GPU__ __INLINE__ void add(Code *c) { _dict[_didx++] = *c; }    ///< dictionary word assignment
-    __GPU__ __INLINE__ void add(U8* v, int sz) {
-        MEMCPY(&_pmem[_midx], v, sz); _midx += sz;                   ///> copy data to heap, TODO: dynamic parallel
+    __GPU__ __INLINE__ void clear(IU i)  { _didx = i; _midx = 0; }   ///< clear dictionary
+    __GPU__ __INLINE__ void add(Code *c) { _dict[_didx++] = *c; }    ///< dictionary word assignment (deep copy)
+    __GPU__ __INLINE__ void add(U8* v, int sz) {                     ///< copy data to heap, TODO: dynamic parallel
+        MEMCPY(&_pmem[_midx], v, sz); _midx += sz;                   
     }
-    __GPU__ __INLINE__ void setjmp(IU a) { wi(a, _midx); }           ///> set branch target address
+    __GPU__ __INLINE__ void setjmp(IU a) { wi(a, _midx); }           ///< set branch target address
     ///
     /// low level memory access
     ///
