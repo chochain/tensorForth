@@ -7,6 +7,7 @@ SRCS += \
     ./src/aio.cu \
     ./src/mmu.cu \
     ./src/eforth.cu \
+    ./src/tensor.cu \
     ./src/ten4.cu
 
 OBJS += \
@@ -14,6 +15,7 @@ OBJS += \
     ./src/aio.o \
     ./src/mmu.o \
     ./src/eforth.o \
+    ./src/tensor.o \
     ./src/ten4.o
 
 INCS += \
