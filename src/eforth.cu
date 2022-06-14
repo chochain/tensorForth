@@ -367,7 +367,7 @@ ForthVM::init() {
     UFP x0 = ~0;                        ///< base of xt   allocations
     UFP n0 = ~0;                        ///< base of name allocations
     for (int i=0; i<n; i++) {
-        mmu << (Code*)&prim[i];         ///> TODO: prevent deep copy
+        mmu.add((Code*)&prim[i]);       ///> TODO: prevent deep copy
         if ((UFP)dict[i].xt   < x0) x0 = (UFP)dict[i].xt;
         if ((UFP)dict[i].name < n0) n0 = (UFP)dict[i].name;
     }
