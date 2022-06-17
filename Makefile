@@ -22,6 +22,9 @@ SUBDIRS := src
 # Add inputs and outputs from these tool invocations to the build variables
 -include src/Makefile
 
+# Cutlass library in ${CUTLASS_HOME}/build/tools/library
+CL_LIB := cutlass
+
 # Extra pre-compiled object and libraries
 USER_OBJS :=
 USER_LIBS :=
@@ -43,7 +46,10 @@ main-build: ${APP_NAME}
 ${APP_NAME}: $(OBJS) $(USER_OBJS) $(OPTIONAL_TOOL_DEPS)
 	@echo 'Building target: $@'
 	@echo 'Invoking: NVCC linker'
-	${CUDA_HOME}/bin/nvcc -ccbin g++ --cudart=static -L${CUDA_LIB} -o "${APP_TARGET}" \
+	${CUDA_HOME}/bin/nvcc -ccbin g++ --cudart=static -o "${APP_TARGET}" \
+         -L${CUDA_LIB} \
+         -L${CUTLASS_HOME}/build/tools/library \
+         -l${CL_LIB} \
          -gencode arch=${CUDA_ARCH},code=${CUDA_CODE} \
          $(OBJS) $(USER_OBJS) $(USER_LIBS)
 	@echo 'Finished building target: $@'
