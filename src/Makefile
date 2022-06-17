@@ -31,13 +31,20 @@ INCS += \
     ./src/ten4.h
 
 # Additional CUDA includes if any
-CU_INCS := 
+CU_INCS :=
+
+# Cutlass includes
+CL_INC  := ${CUTLASS_HOME}/include
+CL_TOOL := ${CUTLASS_HOME}/tools
 
 # Each subdirectory must supply rules for building sources it contributes
-./src/%.o: ./src/%.cu ${INCS} ${CU_INCS}
+./src/%.o: ./src/%.cu ${INCS}
 	@echo 'Building file: $<'
 	@echo 'Invoking: NVCC Compiler'
-	${CUDA_HOME}/bin/nvcc -ccbin g++ -t=0 -c -std=c++14 -O3 -D__CUDACC__ -o "$@" "$<" \
+	${CUDA_HOME}/bin/nvcc -ccbin g++ \
+        -I${CL_INC} -I${CL_TOOL}/library/include \
+        -I${CL_TOOL}/util/include \
+        -t=0 -c -std=c++14 -O3 -D__CUDACC__ -o "$@" "$<" \
         --device-c --extended-lambda --expt-relaxed-constexpr \
         --device-debug --debug \
          -gencode arch=${CUDA_ARCH},code=${CUDA_CODE} \
