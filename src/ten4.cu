@@ -205,21 +205,15 @@ int main0(int argc, char**argv) {
 #include "cutlass/gemm/device/gemm.h"
 #include "opt.h"
 
-typedef float FP;
+typedef F32 FP;
 
 /// Define a CUTLASS GEMM template and launch a GEMM kernel.
 cudaError_t CutlassSgemmNN(
-    int M,
-    int N,
-    int K,
-    FP  alpha,
-    FP  const *A,
-    int lda,
-    FP  const *B,
-    int ldb,
-    FP  beta,
-    FP  *C,
-    int ldc) {
+    int M, int N, int K,
+    FP  const *A, int lda,
+    FP  const *B, int ldb,
+    FP  *C, int ldc,
+    FP  alpha, FP beta) {
 
     // Define type definition for single-precision CUTLASS GEMM with column-major
     // input matrices and 128x128x8 threadblock tile size (chosen by default).
@@ -374,18 +368,12 @@ cudaError_t AllocateMatrix(FP **matrix, int rows, int columns, int seed = 0) {
 
 /// Naive reference GEMM computation.
 __global__ void ReferenceGemm_kernel(
-    int M,
-    int N,
-    int K,
-    FP  alpha,
-    FP  const *A,
-    int lda,
-    FP  const *B,
-    int ldb,
-    FP  beta,
-    FP  *C,
-    int ldc) {
-
+    int M, int N, int K,
+    FP  const *A, int lda,
+    FP  const *B, int ldb,
+    FP  *C, int ldc,
+    FP  alpha, FP beta)
+{
     int i = threadIdx.x + blockIdx.x * blockDim.x;
     int j = threadIdx.y + blockIdx.y * blockDim.y;
 
@@ -400,18 +388,12 @@ __global__ void ReferenceGemm_kernel(
 
 /// Reference GEMM computation.
 cudaError_t ReferenceGemm(
-    int M,
-    int N,
-    int K,
-    FP  alpha,
-    FP  const *A,
-    int lda,
-    FP  const *B,
-    int ldb,
-    FP  beta,
-    FP  *C,
-    int ldc) {
-
+    int M, int N, int K,
+    FP  const *A, int lda,
+    FP  const *B, int ldb,
+    FP  *C, int ldc,
+    FP  alpha, FP beta)
+{
     dim3 block(16, 16);
     dim3 grid(
         (M + block.x - 1) / block.x,
@@ -434,7 +416,7 @@ cudaError_t ReferenceGemm(
         // Record an event at the start of a series of GEMMs
         cudaEventRecord(events[0]);
         
-        ReferenceGemm_kernel<<< grid, block >>>(M, N, K, alpha, A, lda, B, ldb, beta, C, ldc);
+        ReferenceGemm_kernel<<< grid, block >>>(M, N, K, A, lda, B, ldb, C, ldc, alpha, beta);
         error = cudaGetLastError();
         // Wait for work on the device to complete.
         cudaEventRecord(events[1]);
@@ -513,7 +495,7 @@ cudaError_t TestCutlassGemm(int M, int N, int K, FP alpha, FP beta) {
     //=============================================================================
     // Launch CUTLASS GEMM.
     //
-    result = CutlassSgemmNN(M, N, K, alpha, A, lda, B, ldb, beta, C_cutlass, ldc);
+    result = CutlassSgemmNN(M, N, K, A, lda, B, ldb, C_cutlass, ldc, alpha, beta);
     if (result != cudaSuccess) {
         std::cerr << "CUTLASS GEMM kernel failed: "
                   << cudaGetErrorString(result) << std::endl;
@@ -530,7 +512,7 @@ cudaError_t TestCutlassGemm(int M, int N, int K, FP alpha, FP beta) {
     //
     // Launch reference GEMM
     //
-    result = ReferenceGemm(M, N, K, alpha, A, lda, B, ldb, beta, C_reference, ldc);
+    result = ReferenceGemm(M, N, K, A, lda, B, ldb, C_reference, ldc, alpha, beta);
     if (result != cudaSuccess) {
         std::cerr << "Reference GEMM kernel failed: "
                   << cudaGetErrorString(result) << std::endl;
@@ -550,12 +532,10 @@ cudaError_t TestCutlassGemm(int M, int N, int K, FP alpha, FP beta) {
     if (result != cudaSuccess) {
         std::cerr << "Failed to copy CUTLASS GEMM results: "
                   << cudaGetErrorString(result) << std::endl;
-
         cudaFree(C_reference);
         cudaFree(C_cutlass);
         cudaFree(B);
         cudaFree(A);
-
         return result;
     }
 
@@ -563,12 +543,10 @@ cudaError_t TestCutlassGemm(int M, int N, int K, FP alpha, FP beta) {
     if (result != cudaSuccess) {
         std::cerr << "Failed to copy Reference GEMM results: "
                   << cudaGetErrorString(result) << std::endl;
-
         cudaFree(C_reference);
         cudaFree(C_cutlass);
         cudaFree(B);
         cudaFree(A);
-
         return result;
     }
 
