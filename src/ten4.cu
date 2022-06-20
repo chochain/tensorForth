@@ -237,27 +237,24 @@ void benchmark(gemm_op op, Tensor &A, Tensor &B, Tensor &C, FP alpha, FP beta)
 
 /// Define a CUTLASS GEMM template and launch a GEMM kernel.
 cudaError_t CutlassSgemmNN(Tensor &A, Tensor &B, Tensor &C, FP alpha, FP beta) {
-    int M = A.leading_dim();
-    int K = B.leading_dim();
-    int N = B.shape[2];
+    int M = C.H();   /* C nrow */
+    int N = C.W();   /* C ncol */
+    int K = A.W();   /* A ncol */
 
-    using Layout      = cutlass::layout::ColumnMajor;
-    using CutlassGemm = cutlass::gemm::device::Gemm<
-        FP, Layout,     // Data-type of A matrix
-        FP, Layout,     // Data-type of B matrix
-        FP, Layout>;    // Data-type of C matrix
-
-    CutlassGemm::Arguments args(
-        {M, N, K},      // Gemm Problem dimensions
-        {(FP const *)A.data, M},  // Tensor-ref for source matrix A
-        {(FP const *)B.data, K},  // Tensor-ref for source matrix B
-        {(FP *)C.data, M},        // Tensor-ref for source matrix C
-        {(FP *)C.data, M},        // Tensor-ref for destination matrix D (may be different memory than source C matrix)
-        {alpha, beta}   // Scalars used in the Epilogue
+    printf("Cutlass M=%d, N=%d, K=%d\n", M, N, K);
+    using LO   = cutlass::layout::ColumnMajor;
+    using Gemm = cutlass::gemm::device::Gemm<FP, LO, FP, LO, FP, LO>;
+    Gemm::Arguments args(
+        {M, N, K},               // Gemm Problem dimensions
+        {(FP const*)A.data, M},  // Tensor-ref for source matrix A
+        {(FP const*)B.data, K},  // Tensor-ref for source matrix B
+        {(FP*)C.data, M},        // Tensor-ref for source matrix C
+        {(FP*)C.data, M},        // Tensor-ref for destination matrix D (may be different memory than source C matrix)
+        {alpha, beta}            // Scalars used in the Epilogue
     );
     // Define a CUTLASS GEMM type
-    CutlassGemm gemm_operator;
-    cutlass::Status status = gemm_operator(args);
+    Gemm cutlass_gemm;
+    cutlass::Status status = cutlass_gemm(args);
     //
     // Return a cudaError_t if the CUTLASS GEMM operator returned an error code.
     //
@@ -275,7 +272,7 @@ cudaError_t CutlassSgemmNN(Tensor &A, Tensor &B, Tensor &C, FP alpha, FP beta) {
 //
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 /// Naive reference GEMM computation.
-__global__ void ReferenceGemm_kernel(
+__KERN__ void ReferenceGemm_kernel(
     int M, int N, int K,
     FP *A, FP *B, FP *C,   /* MxK, KxN, MxN */
     FP  alpha, FP beta)
@@ -283,28 +280,24 @@ __global__ void ReferenceGemm_kernel(
     int i = threadIdx.x + blockIdx.x * blockDim.x;
     int j = threadIdx.y + blockIdx.y * blockDim.y;
 
-    if (i < M && j < N) {
+    if (i < N && j < M) {
         FP acc = 0;
         for (int k = 0; k < K; ++k) {
-            acc += A[i + k * M] * B[k + j * K];      /* column major */
+            acc += A[k + j * K] * B[i + k * N];      /* row major */
         }
-        C[i + j * M] = alpha * acc + beta * C[i + j * M];
+        C[i + j * N] = alpha * acc + beta * C[i + j * N];
     }
 }
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 /// Reference GEMM computation.
 cudaError_t ReferenceGemm(Tensor &A, Tensor &B, Tensor &C, FP alpha, FP beta) {
-    int M = A.leading_dim();
-    int K = B.leading_dim();
-    int N = C.shape[2];
+    int M = C.H();   /* C nrow */
+    int N = C.W();   /* C ncol */
+    int K = A.W();   /* A ncol */
     dim3 block(16, 16);   /* 256 threads */
-    dim3 grid(
-        (M + block.x - 1) / block.x,
-        (N + block.y - 1) / block.y
-        );
+    dim3 grid((N + block.x - 1) / block.x, (M + block.y - 1) / block.y);
     
     ReferenceGemm_kernel<<<grid, block>>>(M, N, K, (FP*)A.data, (FP*)B.data, (FP*)C.data, alpha, beta);
-//    ReferenceGemm_kernel<<<grid, block>>>(A, B, C, alpha, beta);
 
     return cudaGetLastError();
 }
@@ -338,7 +331,7 @@ cudaError_t TestCutlassGemm(int M, int N, int K, FP alpha, FP beta) {
     // Test for bit equivalence of results.
     //
     if (host_c != host_r) {
-        std::cerr << "CUTLASS results incorrect." << std::endl;
+        std::cerr << "results different." << std::endl;
         return cudaErrorUnknown;
     }
     return cudaSuccess;
