@@ -10,8 +10,8 @@ __KERN__ void k_matrix_randomize(U8 *mat, int nrow, int ncol, int seed=0)
     int i = threadIdx.x + blockIdx.x * blockDim.x;
     int j = threadIdx.y + blockIdx.y * blockDim.y;
 
-    if (i < nrow && j < ncol) {
-        int off = i + j * nrow;      /* column major */
+    if (i < ncol && j < nrow) {
+        int off = i + j * ncol;      /* row major */
 
         // Generate arbitrary elements.
         int const k = 16807;
@@ -69,12 +69,12 @@ Tensor::fill(U8 v) {
 }
 __HOST__ Tensor&
 Tensor::random(int seed) {
-    U16 h = shape[1];
-    U16 w = shape[2];
+    int h = H();
+    int w = W();
     dim3 block(16, 16);
     dim3 grid(
-        (h + block.x - 1) / block.x,     /* column major */
-        (w + block.y - 1) / block.y
+        (w + block.x - 1) / block.x,     /* row major */
+        (h + block.y - 1) / block.y
         );
 
     k_matrix_randomize<<<grid, block>>>(data, h, w, seed);
