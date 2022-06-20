@@ -29,27 +29,22 @@
 */
 //===============================================================================
 /// tensorForth tensor class
-///@}
-///@name tensorForth complex data object
-///@{
-struct TensorStore : public Managed {
-    U64 offset;                ///< offset to managed memory pool
-    U64 size;                  ///< number of contiguous bytes
-};
-/*
- * PyTorch.Tensor: size, dtype, type_id, stride, tensorstore
- */
+/// @brief - Tensor at rank=4, row-major, F32 only storage
+/// Note:
+///    PyTorch.Tensor: size, dtype, type_id, stride, tensorstore
+///
 struct Tensor : public Managed {
-    U64              size;     ///< number of contiguous bytes
-    U32              dsize;    ///< size of data element, F32 for now, TODO: others
-    Vector<U16,4>    stride;   ///< one step forward (row major)
-    Vector<U16,4>    shape;    ///< shape of the tensor, max 4-T for now. TODO: more
-    TensorStore      *data;    ///< pointer to Managed memory
+    U64              size;      ///< number of contiguous bytes
+    U32              dsize;     ///< size of data element, F32 for now, TODO: others
+    U32              rank;      ///< rank of tensor 2:matrix, 4:NHWC tensor
+    U16              stride[4]; ///< strides to calculate memory offset
+    U16              shape[4];  ///< Tensor4 (NHWC), matrix N=0, C=0
     union {
-        DU f;               ///< float storage
+        U8           data[4];   ///< pointer to memory block
+        DU           f;         ///< float storage
         struct {
-            U32 t  : 1;     ///< tensor rank >= 1
-            U32 idx: 31;    ///< tensor pool index (2^31 slots)
+            U32 t  : 1;         ///< tensor rank >= 1
+            U32 idx: 31;        ///< tensor pool index (2^31 slots)
         };
     };
     __BOTH__ Tensor()     : f(DU0) { t = 0; }
@@ -93,5 +88,6 @@ struct Tensor : public Managed {
     /// GEMM ops
     ///
     __GPU__ Tensor &gemm(Tensor &A, Tensor &B, Tensor &C);
+    __GPU__ Tensor &grad(Tensor &A, Tensor &B, Tensor &C);
 };
 #endif // TEN4_SRC_TENSOR_H_
