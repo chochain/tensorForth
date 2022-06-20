@@ -51,7 +51,7 @@ struct Tensor : public Managed {
     __BOTH__ Tensor(DU f0): f(f0)  { t = 0; }
     __HOST__ Tensor(U16 n, U16 h, U16 w, U16 c);
     __HOST__ Tensor(U16 h, U16 w);
-    __HOST__ ~Tensor() { if (data) cudaFree((void*)data); }
+    __HOST__ ~Tensor();
 
     __BOTH__ U16 leading_dim() { return shape[1]; }
     ///
@@ -59,6 +59,7 @@ struct Tensor : public Managed {
     ///
     __HOST__ Tensor &fill(U8 v=0);
     __HOST__ Tensor &random(int seed=0);
+    __HOST__ void   copy_to(void* dst) { cudaMemcpy(dst, data, size, cudaMemcpyDeviceToHost); }
     __BOTH__ __INLINE__ Tensor &operator=(DU f0) { f = f0; t = 0; return *this; }
     ///
     /// tensor arithmetics
