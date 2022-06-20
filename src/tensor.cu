@@ -48,6 +48,18 @@ Tensor::Tensor(U16 h, U16 w) :
     printf("matrix(%d,%d) allocated\n", shape[1], shape[2]);
 }
 
+__HOST__
+Tensor::~Tensor()
+{
+    if (!data) return;
+    cudaFree((void*)data);
+    switch (rank) {
+    case 2: printf("matrix(%d,%d) freed\n", shape[1], shape[2]); break;
+    case 4: printf("tensor(%d,%d,%d,%d) freed\n", shape[0], shape[1], shape[2], shape[3]); break;
+    default: printf("~Tensor error: rank=%d\n", rank);
+    }
+}
+
 __HOST__ Tensor&
 Tensor::fill(U8 v) {
     // Clear the allocation.
