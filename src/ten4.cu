@@ -206,6 +206,50 @@ int main0(int argc, char**argv) {
 #include "opt.h"
 
 typedef F32 FP;
+typedef cudaError_t (*gemm_op)(
+    int M, int N, int K,
+    FP  const *A, int lda,
+    FP  const *B, int ldb,
+    FP  *C, int ldc,
+    FP  alpha, FP beta);
+
+cudaError_t benchmark(gemm_op op,
+    int M, int N, int K,
+    FP  const *A, int lda,
+    FP  const *B, int ldb,
+    FP  *C, int ldc,
+    FP  alpha, FP beta)
+{
+    cudaError_t result, error;
+    cudaEvent_t events[2];
+    float       runtime_ms;
+    for (auto & event : events) {
+        result = cudaEventCreate(&event);
+        if (result != cudaSuccess) {
+            std::cerr << "cudaEventCreate() failed: " << cudaGetErrorString(result) << std::endl;
+            return result;
+        }
+    }
+    // Record an event at the start of a series of GEMMs
+    cudaEventRecord(events[0]);
+
+    op(M, N, K, A, lda, B, ldb, C, ldc, alpha, beta);
+    error = cudaGetLastError();
+    // Wait for work on the device to complete.
+    cudaEventRecord(events[1]);
+    cudaEventSynchronize(events[1]);
+    // Measure eresultd runtime
+    cudaEventElapsedTime(&runtime_ms, events[0], events[1]);
+    // Compute average runtime and GFLOPs.
+    std::cout << "Reference Runtime: " << runtime_ms << " ms" << std::endl;
+
+    // Cleanup
+    for (auto event : events) {
+        (void)cudaEventDestroy(event);
+    }
+    return error;
+}
+
 
 /// Define a CUTLASS GEMM template and launch a GEMM kernel.
 cudaError_t CutlassSgemmNN(
@@ -225,15 +269,10 @@ cudaError_t CutlassSgemmNN(
     // To view the full gemm device API interface, see `cutlass/gemm/device/gemm.h`
 
     using Layout      = cutlass::layout::ColumnMajor;
-    using CutlassGemm = cutlass::gemm::device::Gemm<FP,      // Data-type of A matrix
-                                                    Layout,  // Layout of A matrix
-                                                    FP,      // Data-type of B matrix
-                                                    Layout,  // Layout of B matrix
-                                                    FP,      // Data-type of C matrix
-                                                    Layout>; // Layout of C matrix
-    // Define a CUTLASS GEMM type
-    CutlassGemm gemm_operator;
-
+    using CutlassGemm = cutlass::gemm::device::Gemm<
+        FP, Layout,     // Data-type of A matrix
+        FP, Layout,     // Data-type of B matrix
+        FP, Layout>;    // Data-type of C matrix
     // Construct the CUTLASS GEMM arguments object.
     //
     // One of CUTLASS's design patterns is to define gemm argument objects that are constructible
@@ -243,43 +282,17 @@ cudaError_t CutlassSgemmNN(
     // The benefits of this pattern are (1.) a structured, composable strategy for passing host-constructible
     // arguments to kernels and (2.) minimized initialization overhead on kernel entry.
     //
-    CutlassGemm::Arguments args({M , N, K},  // Gemm Problem dimensions
-                                {A, lda},    // Tensor-ref for source matrix A
-                                {B, ldb},    // Tensor-ref for source matrix B
-                                {C, ldc},    // Tensor-ref for source matrix C
-                                {C, ldc},    // Tensor-ref for destination matrix D (may be different memory than source C matrix)
-                                {alpha, beta}); // Scalars used in the Epilogue
-    cutlass::Status status;
-    {
-        cudaError_t result;
-        cudaEvent_t events[2];
-        float       runtime_ms;
-        for (auto & event : events) {
-            result = cudaEventCreate(&event);
-            if (result != cudaSuccess) {
-                std::cerr << "cudaEventCreate() failed: " << cudaGetErrorString(result) << std::endl;
-                return result;
-            }
-        }
-        // Record an event at the start of a series of GEMMs
-        cudaEventRecord(events[0]);
-        //
-        // Launch the CUTLASS GEMM kernel.
-        //
-        status = gemm_operator(args);
-        
-        // Wait for work on the device to complete.
-        cudaEventRecord(events[1]);
-        cudaEventSynchronize(events[1]);
-        // Measure eresultd runtime
-        cudaEventElapsedTime(&runtime_ms, events[0], events[1]);
-        // Compute average runtime and GFLOPs.
-        std::cout << "Kernel Runtime: " << runtime_ms << " ms" << std::endl;
-        // Cleanup
-        for (auto event : events) {
-            (void)cudaEventDestroy(event);
-        }
-    }
+    CutlassGemm::Arguments args(
+        {M, N, K},      // Gemm Problem dimensions
+        {A, lda},       // Tensor-ref for source matrix A
+        {B, ldb},       // Tensor-ref for source matrix B
+        {C, ldc},       // Tensor-ref for source matrix C
+        {C, ldc},       // Tensor-ref for destination matrix D (may be different memory than source C matrix)
+        {alpha, beta}   // Scalars used in the Epilogue
+    );
+    // Define a CUTLASS GEMM type
+    CutlassGemm gemm_operator;
+    cutlass::Status status = gemm_operator(args);
     //
     // Return a cudaError_t if the CUTLASS GEMM operator returned an error code.
     //
@@ -307,7 +320,7 @@ __global__ void RandomMatrix_kernel(
     int j = threadIdx.y + blockIdx.y * blockDim.y;
 
     if (i < rows && j < columns) {
-        int offset = i + j * rows;
+        int offset = i + j * rows;      /* column major */
 
         // Generate arbitrary elements.
         int const k = 16807;
@@ -315,6 +328,26 @@ __global__ void RandomMatrix_kernel(
         FP value = FP(((offset + seed) * k % m) - m / 2);
 
         matrix[offset] = value;
+    }
+}
+
+/// Naive reference GEMM computation.
+__global__ void ReferenceGemm_kernel(
+    int M, int N, int K,
+    FP  const *A, int lda,      /* MxK */
+    FP  const *B, int ldb,      /* KxN */
+    FP  *C, int ldc,            /* MxN */
+    FP  alpha, FP beta)
+{
+    int i = threadIdx.x + blockIdx.x * blockDim.x;
+    int j = threadIdx.y + blockIdx.y * blockDim.y;
+
+    if (i < M && j < N) {
+        FP acc = 0;
+        for (int k = 0; k < K; ++k) {
+            acc += A[i + k * lda] * B[k + j * ldb];      /* column major */
+        }
+        C[i + j * ldc] = alpha * acc + beta * C[i + j * ldc];
     }
 }
 
@@ -326,7 +359,7 @@ cudaError_t InitializeMatrix(FP *matrix, int rows, int columns, int seed = 0) {
         (columns + block.y - 1) / block.y
         );
 
-    RandomMatrix_kernel<<< grid, block >>>(matrix, rows, columns, seed);
+    RandomMatrix_kernel<<<grid, block>>>(matrix, rows, columns, seed);
 
     return cudaGetLastError();
 }
@@ -365,27 +398,6 @@ cudaError_t AllocateMatrix(FP **matrix, int rows, int columns, int seed = 0) {
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
-
-/// Naive reference GEMM computation.
-__global__ void ReferenceGemm_kernel(
-    int M, int N, int K,
-    FP  const *A, int lda,
-    FP  const *B, int ldb,
-    FP  *C, int ldc,
-    FP  alpha, FP beta)
-{
-    int i = threadIdx.x + blockIdx.x * blockDim.x;
-    int j = threadIdx.y + blockIdx.y * blockDim.y;
-
-    if (i < M && j < N) {
-        FP acc = 0;
-        for (int k = 0; k < K; ++k) {
-            acc += A[i + k * lda] * B[k + j * ldb];
-        }
-        C[i + j * ldc] = alpha * acc + beta * C[i + j * ldc];
-    }
-}
-
 /// Reference GEMM computation.
 cudaError_t ReferenceGemm(
     int M, int N, int K,
@@ -394,44 +406,17 @@ cudaError_t ReferenceGemm(
     FP  *C, int ldc,
     FP  alpha, FP beta)
 {
-    dim3 block(16, 16);
+    dim3 block(16, 16);   /* 256 threads */
     dim3 grid(
         (M + block.x - 1) / block.x,
         (N + block.y - 1) / block.y
         );
 
     printf("RefGemm: grid.x=%d, grid.y=%d, block.x=%d, block.y=%d\n",  grid.x, grid.y, block.x, block.y);
-    cudaError_t error;
-    {
-        cudaError_t result;
-        cudaEvent_t events[2];
-        float       runtime_ms;
-        for (auto & event : events) {
-            result = cudaEventCreate(&event);
-            if (result != cudaSuccess) {
-                std::cerr << "cudaEventCreate() failed: " << cudaGetErrorString(result) << std::endl;
-                return result;
-            }
-        }
-        // Record an event at the start of a series of GEMMs
-        cudaEventRecord(events[0]);
-        
-        ReferenceGemm_kernel<<< grid, block >>>(M, N, K, A, lda, B, ldb, C, ldc, alpha, beta);
-        error = cudaGetLastError();
-        // Wait for work on the device to complete.
-        cudaEventRecord(events[1]);
-        cudaEventSynchronize(events[1]);
-        // Measure eresultd runtime
-        cudaEventElapsedTime(&runtime_ms, events[0], events[1]);
-        // Compute average runtime and GFLOPs.
-        std::cout << "Reference Runtime: " << runtime_ms << " ms" << std::endl;
-        
-        // Cleanup
-        for (auto event : events) {
-            (void)cudaEventDestroy(event);
-        }
-    }
-    return error;
+
+    ReferenceGemm_kernel<<<grid, block>>>(M, N, K, A, lda, B, ldb, C, ldc, alpha, beta);
+
+    return cudaGetLastError();
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
@@ -495,7 +480,10 @@ cudaError_t TestCutlassGemm(int M, int N, int K, FP alpha, FP beta) {
     //=============================================================================
     // Launch CUTLASS GEMM.
     //
-    result = CutlassSgemmNN(M, N, K, A, lda, B, ldb, C_cutlass, ldc, alpha, beta);
+    result = benchmark(
+        CutlassSgemmNN,
+        M, N, K, A, lda, B, ldb, C_cutlass, ldc, alpha, beta
+    );
     if (result != cudaSuccess) {
         std::cerr << "CUTLASS GEMM kernel failed: "
                   << cudaGetErrorString(result) << std::endl;
@@ -512,7 +500,10 @@ cudaError_t TestCutlassGemm(int M, int N, int K, FP alpha, FP beta) {
     //
     // Launch reference GEMM
     //
-    result = ReferenceGemm(M, N, K, A, lda, B, ldb, C_reference, ldc, alpha, beta);
+    result = benchmark(
+        ReferenceGemm,
+        M, N, K, A, lda, B, ldb, C_reference, ldc, alpha, beta
+    );
     if (result != cudaSuccess) {
         std::cerr << "Reference GEMM kernel failed: "
                   << cudaGetErrorString(result) << std::endl;
