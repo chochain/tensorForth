@@ -250,6 +250,21 @@ cudaError_t benchmark(gemm_op op,
     return error;
 }
 
+cudaError_t benchmark(
+    gemm_op op,
+    Tensor &A, Tensor &B, Tensor &C,
+    FP alpha, FP beta)
+{
+    int M = A.leading_dim();
+    int K = B.leading_dim();
+    int N = C.leading_dim();
+    return benchmark(op,
+        M, N, K,
+        (FP const*)A.data, M,
+        (FP const*)B.data, K,
+        (FP *)C.data, N,
+        alpha, beta);
+}
 
 /// Define a CUTLASS GEMM template and launch a GEMM kernel.
 cudaError_t CutlassSgemmNN(
@@ -309,7 +324,26 @@ cudaError_t CutlassSgemmNN(
 // and simple CUDA kernels to initialize matrices and compute the general matrix product.
 //
 ///////////////////////////////////////////////////////////////////////////////////////////////////
-/// Kernel to initialize a matrix with small integers.
+/// Naive reference GEMM computation.
+__global__ void ReferenceGemm_kernel(
+    int M, int N, int K,
+    FP  const *A, int lda,      /* MxK */
+    FP  const *B, int ldb,      /* KxN */
+    FP  *C, int ldc,            /* MxN */
+    FP  alpha, FP beta)
+{
+    int i = threadIdx.x + blockIdx.x * blockDim.x;
+    int j = threadIdx.y + blockIdx.y * blockDim.y;
+
+    if (i < M && j < N) {
+        FP acc = 0;
+        for (int k = 0; k < K; ++k) {
+            acc += A[i + k * lda] * B[k + j * ldb];      /* column major */
+        }
+        C[i + j * ldc] = alpha * acc + beta * C[i + j * ldc];
+    }
+}
+
 __global__ void RandomMatrix_kernel(
     FP  *matrix,
     int rows,
@@ -331,26 +365,7 @@ __global__ void RandomMatrix_kernel(
     }
 }
 
-/// Naive reference GEMM computation.
-__global__ void ReferenceGemm_kernel(
-    int M, int N, int K,
-    FP  const *A, int lda,      /* MxK */
-    FP  const *B, int ldb,      /* KxN */
-    FP  *C, int ldc,            /* MxN */
-    FP  alpha, FP beta)
-{
-    int i = threadIdx.x + blockIdx.x * blockDim.x;
-    int j = threadIdx.y + blockIdx.y * blockDim.y;
-
-    if (i < M && j < N) {
-        FP acc = 0;
-        for (int k = 0; k < K; ++k) {
-            acc += A[i + k * lda] * B[k + j * ldb];      /* column major */
-        }
-        C[i + j * ldc] = alpha * acc + beta * C[i + j * ldc];
-    }
-}
-
+/// Kernel to initialize a matrix with small integers.
 /// Simple function to initialize a matrix to arbitrary small integers.
 cudaError_t InitializeMatrix(FP *matrix, int rows, int columns, int seed = 0) {
     dim3 block(16, 16);
@@ -437,6 +452,10 @@ cudaError_t TestCutlassGemm(int M, int N, int K, FP alpha, FP beta) {
     size_t sizeof_C = sizeof(FP) * ldc * N;
 
     // Define pointers to matrices in GPU device memory.
+    Tensor tensor_A(M, K);  tensor_A.fill(0).random(0);
+    Tensor tensor_B(K, N);  tensor_B.fill(0).random(17);
+    Tensor tensor_C(M, N);  tensor_C.fill(0).random(101);
+    Tensor tensor_C1(M, N); tensor_C1.fill(0).random(101);
     FP *A;
     FP *B;
     FP *C_cutlass;
@@ -480,10 +499,10 @@ cudaError_t TestCutlassGemm(int M, int N, int K, FP alpha, FP beta) {
     //=============================================================================
     // Launch CUTLASS GEMM.
     //
-    result = benchmark(
-        CutlassSgemmNN,
-        M, N, K, A, lda, B, ldb, C_cutlass, ldc, alpha, beta
-    );
+//    result = benchmark(
+//        CutlassSgemmNN,
+//        M, N, K, A, lda, B, ldb, C_cutlass, ldc, alpha, beta);
+    result = benchmark(CutlassSgemmNN, tensor_A, tensor_B, tensor_C, alpha, beta);
     if (result != cudaSuccess) {
         std::cerr << "CUTLASS GEMM kernel failed: "
                   << cudaGetErrorString(result) << std::endl;
@@ -500,10 +519,11 @@ cudaError_t TestCutlassGemm(int M, int N, int K, FP alpha, FP beta) {
     //
     // Launch reference GEMM
     //
-    result = benchmark(
-        ReferenceGemm,
-        M, N, K, A, lda, B, ldb, C_reference, ldc, alpha, beta
-    );
+//    result = benchmark(
+//        ReferenceGemm,
+//        M, N, K, A, lda, B, ldb, C_reference, ldc, alpha, beta
+//    );
+    result = benchmark(ReferenceGemm, tensor_A, tensor_B, tensor_C1, alpha, beta);
     if (result != cudaSuccess) {
         std::cerr << "Reference GEMM kernel failed: "
                   << cudaGetErrorString(result) << std::endl;
@@ -519,7 +539,8 @@ cudaError_t TestCutlassGemm(int M, int N, int K, FP alpha, FP beta) {
     std::vector<FP> host_cutlass(ldc * N, 0);
     std::vector<FP> host_reference(ldc * N, 0);
 
-    result = cudaMemcpy(host_cutlass.data(), C_cutlass, sizeof_C, cudaMemcpyDeviceToHost);
+//    result = cudaMemcpy(host_cutlass.data(), C_cutlass, sizeof_C, cudaMemcpyDeviceToHost);
+    result = cudaMemcpy(host_cutlass.data(), tensor_C.data, tensor_C.size, cudaMemcpyDeviceToHost);
     if (result != cudaSuccess) {
         std::cerr << "Failed to copy CUTLASS GEMM results: "
                   << cudaGetErrorString(result) << std::endl;
@@ -530,7 +551,8 @@ cudaError_t TestCutlassGemm(int M, int N, int K, FP alpha, FP beta) {
         return result;
     }
 
-    result = cudaMemcpy(host_reference.data(), C_reference, sizeof_C, cudaMemcpyDeviceToHost);
+//    result = cudaMemcpy(host_reference.data(), C_reference, sizeof_C, cudaMemcpyDeviceToHost);
+    result = cudaMemcpy(host_reference.data(), tensor_C1.data, tensor_C1.size, cudaMemcpyDeviceToHost);
     if (result != cudaSuccess) {
         std::cerr << "Failed to copy Reference GEMM results: "
                   << cudaGetErrorString(result) << std::endl;
