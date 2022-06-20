@@ -28,6 +28,7 @@ INCS += \
     ./src/ostream.h \
     ./src/mmu.h \
     ./src/eforth.h \
+    ./src/opt.h \
     ./src/ten4.h
 
 # Additional CUDA includes if any
