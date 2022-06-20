@@ -205,18 +205,20 @@ int main0(int argc, char**argv) {
 #include "cutlass/gemm/device/gemm.h"
 #include "opt.h"
 
+typedef float FP;
+
 /// Define a CUTLASS GEMM template and launch a GEMM kernel.
 cudaError_t CutlassSgemmNN(
     int M,
     int N,
     int K,
-    float alpha,
-    float const *A,
+    FP  alpha,
+    FP  const *A,
     int lda,
-    float const *B,
+    FP  const *B,
     int ldb,
-    float beta,
-    float *C,
+    FP  beta,
+    FP  *C,
     int ldc) {
 
     // Define type definition for single-precision CUTLASS GEMM with column-major
@@ -228,13 +230,13 @@ cudaError_t CutlassSgemmNN(
     //
     // To view the full gemm device API interface, see `cutlass/gemm/device/gemm.h`
 
-    using ColumnMajor = cutlass::layout::ColumnMajor;
-    using CutlassGemm = cutlass::gemm::device::Gemm<float,        // Data-type of A matrix
-                                                    ColumnMajor,  // Layout of A matrix
-                                                    float,        // Data-type of B matrix
-                                                    ColumnMajor,  // Layout of B matrix
-                                                    float,        // Data-type of C matrix
-                                                    ColumnMajor>; // Layout of C matrix
+    using Layout      = cutlass::layout::ColumnMajor;
+    using CutlassGemm = cutlass::gemm::device::Gemm<FP,      // Data-type of A matrix
+                                                    Layout,  // Layout of A matrix
+                                                    FP,      // Data-type of B matrix
+                                                    Layout,  // Layout of B matrix
+                                                    FP,      // Data-type of C matrix
+                                                    Layout>; // Layout of C matrix
     // Define a CUTLASS GEMM type
     CutlassGemm gemm_operator;
 
@@ -301,8 +303,8 @@ cudaError_t CutlassSgemmNN(
 //
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 /// Kernel to initialize a matrix with small integers.
-__global__ void InitializeMatrix_kernel(
-    float *matrix,
+__global__ void RandomMatrix_kernel(
+    FP  *matrix,
     int rows,
     int columns,
     int seed = 0) {
@@ -316,31 +318,31 @@ __global__ void InitializeMatrix_kernel(
         // Generate arbitrary elements.
         int const k = 16807;
         int const m = 16;
-        float value = float(((offset + seed) * k % m) - m / 2);
+        FP value = FP(((offset + seed) * k % m) - m / 2);
 
         matrix[offset] = value;
     }
 }
 
 /// Simple function to initialize a matrix to arbitrary small integers.
-cudaError_t InitializeMatrix(float *matrix, int rows, int columns, int seed = 0) {
+cudaError_t InitializeMatrix(FP *matrix, int rows, int columns, int seed = 0) {
     dim3 block(16, 16);
     dim3 grid(
         (rows + block.x - 1) / block.x,
         (columns + block.y - 1) / block.y
         );
 
-    InitializeMatrix_kernel<<< grid, block >>>(matrix, rows, columns, seed);
+    RandomMatrix_kernel<<< grid, block >>>(matrix, rows, columns, seed);
 
     return cudaGetLastError();
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 /// Allocates device memory for a matrix then fills with arbitrary small integers.
-cudaError_t AllocateMatrix(float **matrix, int rows, int columns, int seed = 0) {
+cudaError_t AllocateMatrix(FP **matrix, int rows, int columns, int seed = 0) {
     cudaError_t result;
 
-    size_t sizeof_matrix = sizeof(float) * rows * columns;
+    size_t sizeof_matrix = sizeof(FP) * rows * columns;
 
     // Allocate device memory.
     result = cudaMallocManaged(reinterpret_cast<void **>(matrix), sizeof_matrix);
@@ -375,26 +377,24 @@ __global__ void ReferenceGemm_kernel(
     int M,
     int N,
     int K,
-    float alpha,
-    float const *A,
+    FP  alpha,
+    FP  const *A,
     int lda,
-    float const *B,
+    FP  const *B,
     int ldb,
-    float beta,
-    float *C,
+    FP  beta,
+    FP  *C,
     int ldc) {
 
     int i = threadIdx.x + blockIdx.x * blockDim.x;
     int j = threadIdx.y + blockIdx.y * blockDim.y;
 
     if (i < M && j < N) {
-        float accumulator = 0;
-
+        FP acc = 0;
         for (int k = 0; k < K; ++k) {
-            accumulator += A[i + k * lda] * B[k + j * ldb];
+            acc += A[i + k * lda] * B[k + j * ldb];
         }
-
-        C[i + j * ldc] = alpha * accumulator + beta * C[i + j * ldc];
+        C[i + j * ldc] = alpha * acc + beta * C[i + j * ldc];
     }
 }
 
@@ -403,13 +403,13 @@ cudaError_t ReferenceGemm(
     int M,
     int N,
     int K,
-    float alpha,
-    float const *A,
+    FP  alpha,
+    FP  const *A,
     int lda,
-    float const *B,
+    FP  const *B,
     int ldb,
-    float beta,
-    float *C,
+    FP  beta,
+    FP  *C,
     int ldc) {
 
     dim3 block(16, 16);
@@ -455,7 +455,7 @@ cudaError_t ReferenceGemm(
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 /// Allocate several matrices in GPU device memory and call a single-precision
 /// CUTLASS GEMM kernel.
-cudaError_t TestCutlassGemm(int M, int N, int K, float alpha, float beta) {
+cudaError_t TestCutlassGemm(int M, int N, int K, FP alpha, FP beta) {
     cudaError_t result;
     //
     // Define several matrices to be used as operands to GEMM kernels.
@@ -467,13 +467,13 @@ cudaError_t TestCutlassGemm(int M, int N, int K, float alpha, float beta) {
     int ldc = M;
 
     // Compute size in bytes of the C matrix.
-    size_t sizeof_C = sizeof(float) * ldc * N;
+    size_t sizeof_C = sizeof(FP) * ldc * N;
 
     // Define pointers to matrices in GPU device memory.
-    float *A;
-    float *B;
-    float *C_cutlass;
-    float *C_reference;
+    FP *A;
+    FP *B;
+    FP *C_cutlass;
+    FP *C_reference;
     //
     // Allocate matrices in GPU device memory with arbitrary seeds.
     //
@@ -543,8 +543,8 @@ cudaError_t TestCutlassGemm(int M, int N, int K, float alpha, float beta) {
         return result;
     }
     // Copy to host and verify equivalence.
-    std::vector<float> host_cutlass(ldc * N, 0);
-    std::vector<float> host_reference(ldc * N, 0);
+    std::vector<FP> host_cutlass(ldc * N, 0);
+    std::vector<FP> host_reference(ldc * N, 0);
 
     result = cudaMemcpy(host_cutlass.data(), C_cutlass, sizeof_C, cudaMemcpyDeviceToHost);
     if (result != cudaSuccess) {
