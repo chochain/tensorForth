@@ -39,8 +39,8 @@ struct Tensor : public Managed {
     U32              rank;      ///< rank of tensor 2:matrix, 4:NHWC tensor
     U16              stride[4]; ///< strides to calculate memory offset
     U16              shape[4];  ///< Tensor4 (NHWC), matrix N=0, C=0
+    U8               *data = 0; ///< managed memory block pointer
     union {
-        U8           data[4];   ///< pointer to memory block
         DU           f;         ///< float storage
         struct {
             U32 t  : 1;         ///< tensor rank >= 1
@@ -49,6 +49,16 @@ struct Tensor : public Managed {
     };
     __BOTH__ Tensor()     : f(DU0) { t = 0; }
     __BOTH__ Tensor(DU f0): f(f0)  { t = 0; }
+    __HOST__ Tensor(U16 n, U16 h, U16 w, U16 c);
+    __HOST__ Tensor(U16 h, U16 w);
+    __HOST__ ~Tensor() { if (data) cudaFree((void*)data); }
+
+    __BOTH__ U16 leading_dim() { return shape[1]; }
+    ///
+    /// tensor assignment
+    ///
+    __HOST__ Tensor &fill(U8 v=0);
+    __HOST__ Tensor &random(int seed=0);
     __BOTH__ __INLINE__ Tensor &operator=(DU f0) { f = f0; t = 0; return *this; }
     ///
     /// tensor arithmetics
