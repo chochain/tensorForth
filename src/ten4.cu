@@ -226,8 +226,7 @@ void benchmark(gemm_op op, Tensor &A, Tensor &B, Tensor &C, FP alpha, FP beta)
     cudaEventSynchronize(events[1]);
     // Measure eresultd runtime
     cudaEventElapsedTime(&runtime_ms, events[0], events[1]);
-    // Compute average runtime and GFLOPs.
-    std::cout << "Reference Runtime: " << runtime_ms << " ms" << std::endl;
+    printf(" => %f ms\n", runtime_ms);
 
     // Cleanup
     for (auto event : events) {
@@ -237,11 +236,8 @@ void benchmark(gemm_op op, Tensor &A, Tensor &B, Tensor &C, FP alpha, FP beta)
 
 /// Define a CUTLASS GEMM template and launch a GEMM kernel.
 cudaError_t CutlassSgemmNN(Tensor &A, Tensor &B, Tensor &C, FP alpha, FP beta) {
-    int M = C.H();   /* C nrow */
-    int N = C.W();   /* C ncol */
-    int K = A.W();   /* A ncol */
-
-    printf("Cutlass M=%d, N=%d, K=%d\n", M, N, K);
+    int M = C.H(), N = C.W(), K = A.W();
+    printf("Cutlass.GEMM M=%d, N=%d, K=%d ", M, N, K);
     using LO   = cutlass::layout::ColumnMajor;
     using Gemm = cutlass::gemm::device::Gemm<FP, LO, FP, LO, FP, LO>;
     Gemm::Arguments args(
@@ -291,9 +287,8 @@ __KERN__ void ReferenceGemm_kernel(
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 /// Reference GEMM computation.
 cudaError_t ReferenceGemm(Tensor &A, Tensor &B, Tensor &C, FP alpha, FP beta) {
-    int M = C.H();   /* C nrow */
-    int N = C.W();   /* C ncol */
-    int K = A.W();   /* A ncol */
+    int M = C.H(), N = C.W(), K = A.W();
+    printf("Ref.GEMM M=%d, N=%d, K=%d", M, N, K);
     dim3 block(16, 16);   /* 256 threads */
     dim3 grid((N + block.x - 1) / block.x, (M + block.y - 1) / block.y);
     
