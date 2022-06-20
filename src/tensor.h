@@ -53,7 +53,8 @@ struct Tensor : public Managed {
     __HOST__ Tensor(U16 h, U16 w);
     __HOST__ ~Tensor();
 
-    __BOTH__ U16 leading_dim() { return shape[1]; }
+    __BOTH__ U16 H() { return shape[1]; }
+    __BOTH__ U16 W() { return shape[2]; }
     ///
     /// tensor assignment
     ///
