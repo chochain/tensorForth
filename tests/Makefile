@@ -21,7 +21,7 @@ CL_TOOL := ${CUTLASS_HOME}/tools
 test: $(TOBJS) ./src/tensor.o
 	@echo 'Building test case: $@'
 	@echo 'Invoking: NVCC linker'
-	${CUDA_HOME}/bin/nvcc -ccbin g++ --cudart=static -o "$<.exe" \
+	${CUDA_HOME}/bin/nvcc -ccbin g++ --cudart=static -o "$(<:.o=)" \
 		-L${CUDA_LIB} \
 		-L${CUTLASS_HOME}/build/tools/library \
 		-l${CL_LIB} \
