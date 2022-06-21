@@ -27,8 +27,8 @@ Tensor::Tensor(U16 n, U16 h, U16 w, U16 c) :
     size(n * h * w * c * sizeof(DU)),
     dsize(sizeof(DU)),
     rank(4),
-    stride({1,1,1,1}),
-    shape({h, w, n, c})
+    stride{1, 1, 1, 1},
+    shape{h, w, n, c}
 {
     cudaMallocManaged((void**)&data, size);
     GPU_CHK();
@@ -40,8 +40,8 @@ Tensor::Tensor(U16 h, U16 w) :
     size(h * w * sizeof(DU)),
     dsize(sizeof(DU)),
     rank(2),
-    stride({1,1,0,0}),
-    shape({h, w, 0, 0})
+    stride{1, 1, 0, 0},
+    shape{h, w, 0, 0}
 {
     cudaMallocManaged((void**)&data, size);
     GPU_CHK();
