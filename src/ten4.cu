@@ -205,7 +205,7 @@ int main0(int argc, char**argv) {
 #include "cutlass/gemm/device/gemm.h"
 #include "opt.h"
 
-typedef F32 FP;
+typedef DU FP;
 typedef cudaError_t (*gemm_op)(Tensor &A, Tensor &B, Tensor &C, FP alpha, FP beta);
 
 void benchmark(gemm_op op, Tensor &A, Tensor &B, Tensor &C, FP alpha, FP beta)
@@ -254,11 +254,7 @@ cudaError_t CutlassSgemmNN(Tensor &A, Tensor &B, Tensor &C, FP alpha, FP beta) {
     //
     // Return a cudaError_t if the CUTLASS GEMM operator returned an error code.
     //
-    if (status != cutlass::Status::kSuccess) {
-        return cudaErrorUnknown;
-    }
-    // Return success, if no errors were encountered.
-    return cudaSuccess;
+    return (status==cutlass::Status::kSuccess) ? cudaSuccess : cudaErrorUnknown;
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
