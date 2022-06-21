@@ -38,7 +38,7 @@ struct Tensor : public Managed {
     U32              dsize;     ///< size of data element, F32 for now, TODO: others
     U32              rank;      ///< rank of tensor 2:matrix, 4:NHWC tensor
     U16              stride[4]; ///< strides to calculate memory offset
-    U16              shape[4];  ///< Tensor4 (NHWC), matrix N=0, C=0
+    U16              shape[4];  ///< Tensor4 (HWNC), matrix N=0, C=0
     U8               *data = 0; ///< managed memory block pointer
     union {
         DU           f;         ///< float storage
@@ -53,8 +53,10 @@ struct Tensor : public Managed {
     __HOST__ Tensor(U16 h, U16 w);
     __HOST__ ~Tensor();
 
-    __BOTH__ U16 H() { return shape[1]; }
-    __BOTH__ U16 W() { return shape[2]; }
+    __BOTH__ U16 N() { return shape[2]; }
+    __BOTH__ U16 H() { return shape[0]; }
+    __BOTH__ U16 W() { return shape[1]; }
+    __BOTH__ U16 C() { return shape[3]; }
     ///
     /// tensor assignment
     ///
