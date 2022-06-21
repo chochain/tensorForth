@@ -4,10 +4,10 @@
 # Add inputs and outputs from these tool invocations to the build variables
 TSRCS += \
 	./util.cpp \
-	./tensor_1.cu
+	./t_tensor.cu
 
 TOBJS += \
-	./tensor_1.o
+	./t_tensor.o
 
 # Additional CUDA includes if any
 CU_INCS :=
@@ -30,7 +30,7 @@ CL_TOOL := ${CUTLASS_HOME}/tools
 		--device-debug --debug \
 		-gencode arch=${CUDA_ARCH},code=${CUDA_CODE} \
 		--keep-dir ${APP_HOME}/tests
-	${CUDA_HOME}/bin/nvcc -ccbin g++ --cudart=static -o "$@".exe \
+	${CUDA_HOME}/bin/nvcc -ccbin g++ --cudart=static -o "$*" \
 		-L${CUDA_LIB} \
 		-L${CUTLASS_HOME}/build/tools/library \
 		-l${CL_LIB} \
@@ -39,8 +39,8 @@ CL_TOOL := ${CUTLASS_HOME}/tools
 	@echo 'Finished building: $<'
 	@echo ' '
 
-clean: clean-test
+clean: clean-tst
 
-clean-test:
+clean-tst:
 	-$(RM) $(TOBJS)
 
