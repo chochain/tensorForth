@@ -7,7 +7,7 @@ RM := rm
 
 APP_NAME  := ten4
 #APP_EXT   := .exe
-APP_HOME  := ${HOME}/devel/forth/${APP_NAME}
+APP_HOME  := ${HOME}/devel/forth/$(APP_NAME)
 CUDA_LIB  := ${CUDA_HOME}/targets/x86_64-linux/lib
 CUDA_ARCH := compute_75
 CUDA_CODE := sm_75
@@ -21,6 +21,7 @@ SUBDIRS := src
 
 # Add inputs and outputs from these tool invocations to the build variables
 -include src/Makefile
+-include tests/Makefile
 
 # Cutlass library in ${CUTLASS_HOME}/build/tools/library
 CL_LIB := cutlass
@@ -34,22 +35,22 @@ OPTIONAL_TOOL_DEPS := \
     $(wildcard ${HOME}/makefile.init) \
     $(wildcard ${HOME}/makefile.targets)
 
-APP_TARGET:= ./tests/${APP_NAME}${APP_EXT}
+APP_TARGET:= ./tests/$(APP_NAME)$(APP_EXT)
 
 # All Target
 all: main-build
 
 # Main-build Target
-main-build: ${APP_NAME}
+main-build: $(APP_NAME)
 
 # Tool invocations
-${APP_NAME}: $(OBJS) $(USER_OBJS) $(OPTIONAL_TOOL_DEPS)
+$(APP_NAME): $(OBJS) $(USER_OBJS) $(OPTIONAL_TOOL_DEPS)
 	@echo 'Building target: $@'
 	@echo 'Invoking: NVCC linker'
-	${CUDA_HOME}/bin/nvcc -ccbin g++ --cudart=static -o "${APP_TARGET}" \
-         -L${CUDA_LIB} \
+	${CUDA_HOME}/bin/nvcc -ccbin g++ --cudart=static -o "$(APP_TARGET)" \
+         -L$(CUDA_LIB) \
          -L${CUTLASS_HOME}/build/tools/library \
-         -l${CL_LIB} \
+         -l$(CL_LIB) \
          -gencode arch=${CUDA_ARCH},code=${CUDA_CODE} \
          $(OBJS) $(USER_OBJS) $(USER_LIBS)
 	@echo 'Finished building target: $@'
@@ -57,7 +58,7 @@ ${APP_NAME}: $(OBJS) $(USER_OBJS) $(OPTIONAL_TOOL_DEPS)
 
 # Other Targets
 clean:
-	-$(RM) ${APP_TARGET}
+	-$(RM) $(APP_TARGET)
 	-@echo ' '
 
 .PHONY: all clean dependents main-build
