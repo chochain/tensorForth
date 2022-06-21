@@ -13,8 +13,8 @@ CUDA_ARCH := compute_75
 CUDA_CODE := sm_75
 
 # All of the sources participating in the build are defined here
-SRCS := 
-OBJS := 
+SRCS :=
+OBJS :=
 
 # Every subdirectory with source files must be described here
 SUBDIRS := src
@@ -31,14 +31,19 @@ USER_OBJS :=
 USER_LIBS :=
 
 OPTIONAL_TOOL_DEPS := \
-    $(wildcard ${HOME}/makefile.defs) \
-    $(wildcard ${HOME}/makefile.init) \
-    $(wildcard ${HOME}/makefile.targets)
+	$(wildcard ${HOME}/makefile.defs) \
+	$(wildcard ${HOME}/makefile.init) \
+	$(wildcard ${HOME}/makefile.targets)
 
 APP_TARGET:= ./tests/$(APP_NAME)$(APP_EXT)
 
+.PHONY: all test main-build clean
+
 # All Target
 all: main-build
+
+test:
+	$(MAKE) -C tests
 
 # Main-build Target
 main-build: $(APP_NAME)
@@ -48,11 +53,11 @@ $(APP_NAME): $(OBJS) $(USER_OBJS) $(OPTIONAL_TOOL_DEPS)
 	@echo 'Building target: $@'
 	@echo 'Invoking: NVCC linker'
 	${CUDA_HOME}/bin/nvcc -ccbin g++ --cudart=static -o "$(APP_TARGET)" \
-         -L$(CUDA_LIB) \
-         -L${CUTLASS_HOME}/build/tools/library \
-         -l$(CL_LIB) \
-         -gencode arch=${CUDA_ARCH},code=${CUDA_CODE} \
-         $(OBJS) $(USER_OBJS) $(USER_LIBS)
+		-L$(CUDA_LIB) \
+		-L${CUTLASS_HOME}/build/tools/library \
+		-l$(CL_LIB) \
+		-gencode arch=${CUDA_ARCH},code=${CUDA_CODE} \
+		$(OBJS) $(USER_OBJS) $(USER_LIBS)
 	@echo 'Finished building target: $@'
 	@echo ' '
 
@@ -60,7 +65,5 @@ $(APP_NAME): $(OBJS) $(USER_OBJS) $(OPTIONAL_TOOL_DEPS)
 clean:
 	-$(RM) $(APP_TARGET)
 	-@echo ' '
-
-.PHONY: all clean dependents main-build
 
 -include ../makefile.targets
