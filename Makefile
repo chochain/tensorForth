@@ -37,13 +37,12 @@ OPTIONAL_TOOL_DEPS := \
 
 APP_TARGET:= ./tests/$(APP_NAME)$(APP_EXT)
 
-.PHONY: all test main-build clean
+.PHONY: all tests main-build clean
 
 # All Target
 all: main-build
 
-test:
-	$(MAKE) -C tests
+tests: test
 
 # Main-build Target
 main-build: $(APP_NAME)
@@ -57,7 +56,7 @@ $(APP_NAME): $(OBJS) $(USER_OBJS) $(OPTIONAL_TOOL_DEPS)
 		-L${CUTLASS_HOME}/build/tools/library \
 		-l$(CL_LIB) \
 		-gencode arch=${CUDA_ARCH},code=${CUDA_CODE} \
-		$(OBJS) $(USER_OBJS) $(USER_LIBS)
+		$^
 	@echo 'Finished building target: $@'
 	@echo ' '
 
