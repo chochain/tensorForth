@@ -1,13 +1,12 @@
 #
-# tensorForth src/Makefile
+# tensorForth tests/Makefile
 #
 # Add inputs and outputs from these tool invocations to the build variables
 TSRCS += \
-	./util.cpp \
-	./t_tensor.cu
+	tests/t_tensor.cu
 
 TOBJS += \
-	./t_tensor.o
+	./tests/t_tensor.o
 
 # Additional CUDA includes if any
 CU_INCS :=
@@ -16,10 +15,22 @@ CU_INCS :=
 CL_INC  := ${CUTLASS_HOME}/include
 CL_TOOL := ${CUTLASS_HOME}/tools
 
-.PHONY: clean clean-test
+.PHONY: test clean clean-test
 
 # Each subdirectory must supply rules for building sources it contributes
-./tests/%.o: ./tests/%.cu ./tests/%.cpp
+test: $(TOBJS) ./src/tensor.o
+	@echo 'Building test case: $@'
+	@echo 'Invoking: NVCC linker'
+	${CUDA_HOME}/bin/nvcc -ccbin g++ --cudart=static -o "$<.exe" \
+		-L${CUDA_LIB} \
+		-L${CUTLASS_HOME}/build/tools/library \
+		-l${CL_LIB} \
+		-gencode arch=${CUDA_ARCH},code=${CUDA_CODE} \
+		$^
+	@echo 'Finished building: $@'
+	@echo ' '
+
+tests/%.o: tests/%.cu $(INCS)
 	@echo 'Building test file: $<'
 	@echo 'Invoking: NVCC Compiler'
 	${CUDA_HOME}/bin/nvcc -ccbin g++ \
@@ -30,17 +41,10 @@ CL_TOOL := ${CUTLASS_HOME}/tools
 		--device-debug --debug \
 		-gencode arch=${CUDA_ARCH},code=${CUDA_CODE} \
 		--keep-dir ${APP_HOME}/tests
-	${CUDA_HOME}/bin/nvcc -ccbin g++ --cudart=static -o "$*" \
-		-L${CUDA_LIB} \
-		-L${CUTLASS_HOME}/build/tools/library \
-		-l${CL_LIB} \
-		-gencode arch=${CUDA_ARCH},code=${CUDA_CODE} \
-		$(OBJS) $(USER_OBJS) $(USER_LIBS)
-	@echo 'Finished building: $<'
+	@echo 'Finished building target: $@'
 	@echo ' '
 
 clean: clean-tst
 
 clean-tst:
 	-$(RM) $(TOBJS)
-
