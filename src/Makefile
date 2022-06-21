@@ -38,6 +38,8 @@ CU_INCS :=
 CL_INC  := ${CUTLASS_HOME}/include
 CL_TOOL := ${CUTLASS_HOME}/tools
 
+.PHONY: clean clean-src
+
 # Each subdirectory must supply rules for building sources it contributes
 ./src/%.o: ./src/%.cu $(INCS)
 	@echo 'Building source file: $<'
@@ -59,5 +61,4 @@ clean: clean-src
 clean-src:
 	-$(RM) $(OBJS)
 
-.PHONY: clean-src
 
