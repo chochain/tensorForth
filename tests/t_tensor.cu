@@ -7,13 +7,15 @@
 #include <iostream>          // cin, cout
 #include <signal.h>
 
-//=================================================================================================
+//===========================================================================================
 //
 // CUTLASS includes needed for single-precision GEMM kernel
 //
 // Defines cutlass::gemm::device::Gemm, the generic Gemm computation template class.
 #include "cutlass/gemm/device/gemm.h"
-#include "opt.h"
+#include "../src/ten4_types.h"
+#include "../src/tensor.h"
+#include "../src/opt.h"
 
 typedef DU FP;
 typedef cudaError_t (*gemm_op)(Tensor &A, Tensor &B, Tensor &C, FP alpha, FP beta);
@@ -30,7 +32,7 @@ void benchmark(gemm_op op, Tensor &A, Tensor &B, Tensor &C, FP alpha, FP beta)
 
     op(A, B, C, alpha, beta);
     GPU_CHK();
-    
+
     // Wait for work on the device to complete.
     cudaEventRecord(events[1]);
     cudaEventSynchronize(events[1]);
@@ -97,7 +99,7 @@ cudaError_t ReferenceGemm(Tensor &A, Tensor &B, Tensor &C, FP alpha, FP beta) {
     printf("Ref.GEMM M=%d, N=%d, K=%d", M, N, K);
     dim3 block(16, 16);   /* 256 threads */
     dim3 grid((N + block.x - 1) / block.x, (M + block.y - 1) / block.y);
-    
+
     ReferenceGemm_kernel<<<grid, block>>>(M, N, K, (FP*)A.data, (FP*)B.data, (FP*)C.data, alpha, beta);
 
     return cudaGetLastError();
