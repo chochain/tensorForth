@@ -62,14 +62,14 @@ typedef struct free_block {          //< 16-bytes (i.e. mininum allocation per b
 class TLSF : public Managed {
     U8          *_heap;                  // CUDA kernel tensor storage memory pool
     U32         _heap_size;
-    U32         _mutex;
+    U32         _mutex = 0;
 
     U32         _l1_map;				// use upper (FLI - MSB) bits
     U8          _l2_map[L1_BITS];		// 8-bit, (16-bit requires too many FL_SLOTS)
     free_block	*_free_list[FL_SLOTS];  // array of free lists
 
 public:
-    __BOTH__ TLSF(void *mem, U32 heap_size);
+    TLSF(U8 *mem, U32 sz);
 
     __BOTH__ void        reset();
     __GPU__  void*       malloc(U32 sz);
@@ -88,7 +88,7 @@ private:
     __GPU__  void        _pack(free_block *b0, free_block *b1);
     __GPU__  void        _unmap(free_block *blk);
 
-    __GPU__  void        _mark_free(free_block *blk);
+    __GPU__ void         _mark_free(free_block *blk);
     __GPU__  free_block* _mark_used(U32 index);
     __GPU__  void        _merge_with_next(free_block *b0);
     __GPU__  free_block* _merge_with_prev(free_block *b1);

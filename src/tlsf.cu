@@ -12,8 +12,12 @@
 // Layer 1st(f), 2nd(s) model, smallest block 16-bytes, 16-byte alignment
 // TODO: multiple-pool, thread-safe
 // semaphore
-#define _LOCK              { MUTEX_LOCK(_mutex_mem); }
-#define _UNLOCK            { MUTEX_FREE(_mutex_mem); }
+#define _LOCK           { MUTEX_LOCK(_mutex); }
+#define _UNLOCK         { MUTEX_FREE(_mutex); }
+#define U8PADD(p, n)	((U8*)(p) + (n))					/** pointer add */
+#define U8PSUB(p, n)	((U8*)(p) - (n))					/** pointer sub */
+#define U8POFF(p1, p0)	((S32)((U8*)(p1) - (U8*)(p0)))	    /** calc offset */
+typedef uintptr_t       U32A;
 
 //================================================================
 /*! constructor
@@ -21,26 +25,27 @@
   @param  ptr    pointer to free memory block.
   @param  size    size. (max 4G)
 */
-__BOTH__
-TLSF::TLSF(void *mptr, U32 sz) : _heap(mem), _heap_size(sz), _mutex(0) {
-    ASSERT(sz > 0);
+TLSF::TLSF(U8 *mptr, U32 sz) : _heap(mptr), _heap_size(sz) {
     reset();
 }
 
 __BOTH__ void
 TLSF::reset() {
-    U32 bsz = heap_size - sizeof(free_block);
+    U32 bsz = _heap_size - sizeof(free_block) - sizeof(used_block);
 
     // initialize entire memory pool as the first block
     free_block *head  = (free_block*)_heap;
-    head->bsz = bsz;                        // 1st (big) block
-    head->psz = 0;
-    SET_USED(head);
+    head->bsz  = bsz;                                   // 1st (big) block
+    head->psz  = 0;
+    head->next = head->prev = 0;
+    SET_FREE(head);
 
-    _mark_free(head);                        // will set free, tail, next, prev
+    U32 index = FL_SLOTS - 1;                           // last slot (max memory)
+    SET_MAP(index);                                     // set ticks for available maps
+    _free_list[index] = head;
 
-    free_block *tail = (free_block*)BLK_AFTER(head);    // last block
-    tail->bsz = tail->next = tail->prev = 0;
+    used_block *tail = (used_block*)BLK_AFTER(head);    // last block
+    tail->bsz = 0;
     tail->psz = bsz;
     SET_USED(tail);
 }
@@ -52,11 +57,11 @@ TLSF::reset() {
   @return void* pointer to a guru memory block.
 */
 __GPU__ void*
-malloc(U32 sz) {
+TLSF::malloc(U32 sz) {
     U32 bsz = sz + sizeof(used_block);          // logical => physical size
 
     _LOCK;
-    U32 index         = _find_free_index(bsz);
+    U32 index       = _find_free_index(bsz);
     free_block *blk = _mark_used(index);        // take the indexed block off free list
 
     _split(blk, bsz);                           // allocate the block, free up the rest
@@ -82,7 +87,7 @@ malloc(U32 sz) {
   @return void* pointer to allocated memory.
 */
 __GPU__ void*
-realloc(void *p0, U32 sz) {
+TLSF::realloc(void *p0, U32 sz) {
     ASSERT(p0);
 
     U32 bsz = sz + sizeof(used_block);                   // include the header
@@ -95,7 +100,7 @@ realloc(void *p0, U32 sz) {
     }
     if (bsz == blk->bsz) return p0;                      // fits right in
     if ((blk->bsz > bsz) &&
-            ((blk->bsz - bsz) > TLSF_STRBUF_SIZE)) {     // split a really big block
+            ((blk->bsz - bsz) > T4_STRBUF_SZ))   {       // split a really big block
         _LOCK;
         _split((free_block*)blk, bsz);
         _UNLOCK;
@@ -107,8 +112,9 @@ realloc(void *p0, U32 sz) {
     // it is better to allocate a block and release the original one
     //
     void *ret = malloc(bsz);
-    MEMCPY(ret, p0, sz);                                 // deep copy, !!using CUDA provided memcpy
+    MEMCPY(ret, (const void*)p0, (size_t)sz);            // deep copy, !!using CUDA provided memcpy
     free(p0);                                            // reclaim block
+    
     return ret;
 }
 
@@ -116,7 +122,7 @@ realloc(void *p0, U32 sz) {
 /*! release memory
 */
 __GPU__ void
-free(void *ptr) {
+TLSF::free(void *ptr) {
     if (!ptr) return;
 
     _LOCK;
@@ -126,8 +132,6 @@ free(void *ptr) {
     // the block is free now, try to merge a free block before if exists
     blk = _merge_with_prev(blk);
     _UNLOCK;
-
-    _dump_freelist("free", bsz);
 }
 
 //================================================================
@@ -135,36 +139,34 @@ free(void *ptr) {
 //
 //================================================================
 __BOTH__ void
-TLSF::stat() {
-    struct {
-        int total, free, used, nblk, nfrag, pct
-    } s = { 0, 0, 0, 0, 0, 0 };
+TLSF::show_stat() {
+    int tot=0, free=0, used=0, nblk=0, nused=0, nfree=0, nfrag=0;
 
     used_block *p = (used_block*)_heap;
     U32 flag = IS_FREE(p);                // starting block type
     while (p) {                           // walk the memory pool
         U32 bsz = p->bsz;                 // current block size
         if (flag != IS_FREE(p)) {         // supposed to be merged
-            s->nfrag++;
+            nfrag++;
             flag = IS_FREE(p);
         }
-        s->total += bsz;
-        s->nblk  += 1;
+        tot += bsz;
+        nblk  += 1;
         if (IS_FREE(p)) {
-            s->nfree += 1;
-            s->free  += bsz;
+            nfree += 1;
+            free  += bsz;
         }
         else {
-            s->nused += 1;
-            s->used  += bsz;
+            nused += 1;
+            used  += bsz;
         }
         p = (used_block *)BLK_AFTER(p);
     }
-    s->total += sizeof(free_block);
-    s->pct   = (int)(100*(s->used+1)/s->total);
+    tot += sizeof(free_block);
+    float pct = 100.0*(used+1)/tot;
 
-    printf("%14smem=%d(%x): free=%d(%x), used=%d(%x), nblk=%d, nfrag=%d, %d%% allocated\n",
-            "", s->total, s->total, s->free, s->free, s->used, s->used, s->nblk, s->nfrag, s->pct);
+    printf("mem=%d(%x): free[%d]=%d(%x), used[%d]=%d(%x), nblk=%d, nfrag=%d, %f%% allocated\n",
+           tot, tot, nfree, free, free, nused, used, used, nblk, nfrag, pct);
 }
 
 __BOTH__ void
@@ -206,14 +208,14 @@ TLSF::dump_freelist(const char *hdr, int sz)
 // find last set bit, i.e. most significant bit (0-31)
 __GPU__ U32
 TLSF::_idx(U32 sz) {
-    auto __fls = [](U32 x) __INLINE__ {
+    auto __fls = [](U32 x) {
                      U32 n;
                      asm("bfind.u32 %0, %1;\n\t" : "=r"(n) : "r"(x));
                      return n;
                  };
     U32 l1 = __fls(sz);
 //    U32 l2 = (sz ^ (1 << l1)) >> (l1 - L2_BITS);   // 2 shifts, 1 minus, 1 xor 
-    U32 l2 = (sz >> (l1 - L2_BITS)) & L2_MASKS;    // 1 shift, 1 minus, 1 and
+    U32 l2 = (sz >> (l1 - L2_BITS)) & L2_MASK;    // 1 shift, 1 minus, 1 and
 
     PRINTF("mmu#__idx(%04x):       INDEX(%x,%x) => %x\n", sz, l1, l2, INDEX(l1, l2));
 
@@ -316,7 +318,7 @@ __GPU__ void
 TLSF::_unmap(free_block *blk) {
     ASSERT(IS_FREE(blk));                        // ensure block is free
 
-    U32 index = __idx(blk->bsz);
+    U32 index = _idx(blk->bsz);
     free_block *n = _free_list[index] = NEXT_FREE(blk);
     free_block *p = blk->prev ? PREV_FREE(blk) : NULL;
     if (n) {                                     // up link
@@ -370,7 +372,7 @@ TLSF::_mark_free(free_block *blk) {
 }
 
 __GPU__ free_block*
-TLSF::mark_used(U32 index) {
+TLSF::_mark_used(U32 index) {
     free_block *blk  = _free_list[index];
     ASSERT(blk);
     ASSERT(IS_FREE(blk));
