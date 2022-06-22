@@ -11,10 +11,13 @@
 __HOST__
 MMU::MMU() {
     cudaMallocManaged(&_dict, sizeof(Code) * T4_DICT_SZ);
-    cudaMallocManaged(&_pmem, sizeof(U8) * T4_PMEM_SZ);
+    cudaMallocManaged(&_pmem, T4_PMEM_SZ);
     cudaMallocManaged(&_vss,  sizeof(DU) * T4_SS_SZ * VM_MIN_COUNT);
-    cudaMallocManaged(&_ten,  sizeof(U8) * T4_TENSOR_SZ);
+    cudaMallocManaged(&_ten,  T4_TENSOR_SZ);
     GPU_CHK();
+
+    tstore.init(_ten, T4_TENSOR_SZ);
+    
     MMU_TRACE("MMU dict=%p, mem=%p, vss=%p, ten=%p\n", _dict, _pmem, _vss, _ten);
 }
 __HOST__
