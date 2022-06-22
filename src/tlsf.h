@@ -32,22 +32,22 @@ typedef struct free_block {          //< 16-bytes (i.e. mininum allocation per b
 #define BLK_DATA(b)     (U8PADD(b, sizeof(used_block)))                                          /**> pointer to raw data space        */
 #define BLK_HEAD(p)     (U8PSUB(p, sizeof(used_block)))                                          /**> block header from raw pointer    */
 
-#define MN_BITS         4                                      /**> 00000000 00000000 00000000 0000XXXX   256-bytes smallest blocksize */
-#define L2_BITS         3                                      /**> 00000000 00000000 00000000 0XXX0000   8 entires                    */
-#define L1_BITS         31                                     /**> 00000000 00000000 0000XXXX X0000000   31 levels (for 4G range)     */
+#define MN_BITS         4                            /**> 00000000 00000000 00000000 0000XXXX   256-bytes smallest blocksize */
+#define L2_BITS         3                            /**> 00000000 00000000 00000000 0XXX0000   8 entires                    */
+#define L1_BITS         31                           /**> 00000000 00000000 0000XXXX X0000000   31 levels (for 4G range)     */
 #define BASE_BITS       (L2_BITS+MN_BITS)
 
 #define TIC(n)          (1 << (n))
-#define L2_MASK         ((1<<L2_BITS)-1)                       /**> level 2 bit mask */
+#define L2_MASK         ((1<<L2_BITS)-1)             /**> level 2 bit mask */
 #define MIN_BLOCK       (1 << MN_BITS)
 
-#define L1(i)           ((i) >> L2_BITS)                       /**> extrace L1 from given index, for debugging */
-#define L2(i)           ((i) & L2_MASK)                        /**> extract L2 from given index, for debugging */
-#define FL_SLOTS        (L1_BITS * (1 << L2_BITS))             /**> slots for free_list pointers               */
+#define L1(i)           ((i) >> L2_BITS)             /**> extrace L1 from given index, for bugging */
+#define L2(i)           ((i) & L2_MASK)              /**> extract L2 from given index, for debugging */
+#define FL_SLOTS        (L1_BITS * (1 << L2_BITS))   /**> slots for free_list pointers               */
 
 #define L1_MAP(i)       (_l1_map)
 #define L2_MAP(i)       (_l2_map[L1(i)])
-#define INDEX(l1, l2)   ((l1<<L2_BITS) | l2)
+#define INDEX(l1, l2)   (((l1)<<L2_BITS) | (l2))
 
 #define SET_L1(i)       (L1_MAP(i) |= TIC(L1(i)))
 #define SET_L2(i)       (L2_MAP(i) |= TIC(L2(i)))
@@ -55,9 +55,6 @@ typedef struct free_block {          //< 16-bytes (i.e. mininum allocation per b
 #define CLR_L1(i)       (L1_MAP(i) &= ~TIC(L1(i)))
 #define CLR_L2(i)       (L2_MAP(i) &= ~TIC(L2(i)))
 #define CLEAR_MAP(i)    { CLR_L2(i); if ((L2_MAP(i))==0) CLR_L1(i); }
-
-#define MIN_BLOCK_SIZE  (sizeof(free_block))                 /**> 16-byte (need space for prev/next pointers) */
-#define CHECK_MEMSZ(sz) ASSERT((((sz)&7)==0) && ((sz)>=MIN_BLOCK_SIZE))
 
 class TLSF : public Managed {
     U8          *_heap;                  // CUDA kernel tensor storage memory pool
