@@ -25,13 +25,12 @@ typedef uintptr_t       U32A;
   @param  ptr    pointer to free memory block.
   @param  size    size. (max 4G)
 */
-TLSF::TLSF(U8 *mptr, U32 sz) : _heap(mptr), _heap_size(sz) {
-    reset();
-}
-
 __BOTH__ void
-TLSF::reset() {
-    U32 bsz = _heap_size - sizeof(free_block) - sizeof(used_block);
+TLSF::init(U8 *mptr, U32 sz) {
+    _heap    = mptr;
+    _heap_sz = sz;
+    
+    U32 bsz  = _heap_sz - sizeof(free_block) - sizeof(used_block);
 
     // initialize entire memory pool as the first block
     free_block *head  = (free_block*)_heap;
@@ -419,5 +418,5 @@ TLSF::_mmu_ok()    {                         // mmu sanity check
         p0  = p1;
         p1  = (used_block*)BLK_AFTER(p0);
     }
-    return (tot==_heap_size) && (!p1);        // last check
+    return (tot==_heap_sz) && (!p1);         // last check
 }
