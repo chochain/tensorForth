@@ -8,8 +8,9 @@
 #define TEN4_SRC_MMU_H
 #include <ostream>
 #include "ten4_config.h"
-#include "tensor.h"
 #include "util.h"
+#include "tensor.h"
+#include "tlsf.h"
 ///
 /// CUDA functor (device only) implementation
 /// Note: nvstd::function is too heavy (at sizeof(Code)=56-byte)
@@ -84,7 +85,8 @@ class MMU : public Managed {
     Code *_dict;          ///< dictionary block
     U8   *_pmem;          ///< parameter memory block
     DU   *_vss;           ///< VM data stack block
-    U8   *_ten;           ///< tensor storage block, TODO: TLSF
+    U8   *_ten;           ///< tensor storage block
+    TLSF tstore;          ///< tensor storage manager
 
 public:
     __HOST__ MMU();
@@ -96,7 +98,6 @@ public:
     __GPU__ __INLINE__ Code *last()      { return &_dict[_didx - 1]; }              ///< last dictionary word
     __GPU__ __INLINE__ DU   *vss(int vid){ return &_vss[vid * T4_SS_SZ]; }          ///< data stack (per VM id)
     __GPU__ __INLINE__ U8   *pmem(IU i)  { return &_pmem[i]; }                      ///< base of parameter memory
-    __GPU__ __INLINE__ U8   *ten(U32 i)  { return &_ten[i]; }                       ///< base of tensor storage
     ///
     /// dictionary search method
     ///
