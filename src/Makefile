@@ -12,6 +12,7 @@ OBJS += \
 	./src/mmu.o \
 	./src/eforth.o \
 	./src/tensor.o \
+	./src/tlsf.o \
 	./src/ten4.o
 
 # Additional CUDA includes if any
