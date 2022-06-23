@@ -112,8 +112,10 @@ cudaError_t TestCutlassGemm(int M, int N, int K, FP alpha, FP beta) {
     // Define pointers to matrices in GPU device memory.
     Tensor tensor_A(M, K); tensor_A.fill(0).random(0);
     Tensor tensor_B(K, N); tensor_B.fill(0).random(17);
-    Tensor tensor_C(M, N); tensor_C.fill(0).random(101);
-    Tensor tensor_R(M, N); tensor_R.fill(0).random(101);
+    // testing reshape
+    U64 sz = sizeof(DU) * M * N;
+    Tensor tensor_C(sz); tensor_C.reshape(M, N).fill(0).random(101);
+    Tensor tensor_R(sz); tensor_R.reshape(M, N).fill(0).random(101);
     //=============================================================================
     // Launch CUTLASS GEMM.
     //
