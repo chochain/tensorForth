@@ -47,19 +47,23 @@ struct Tensor : public Managed {
             U32 idx: 31;        ///< tensor pool index (2^31 slots)
         };
     };
-    __BOTH__ Tensor()     : f(DU0) { t = 0; }
     __BOTH__ Tensor(DU f0): f(f0)  { t = 0; }
+    __HOST__ Tensor();
     __HOST__ Tensor(U16 n, U16 h, U16 w, U16 c);
     __HOST__ Tensor(U16 h, U16 w);
+    __HOST__ Tensor(U64 sz);
     __HOST__ ~Tensor();
-
+    
     __BOTH__ U16 N() { return shape[2]; }
     __BOTH__ U16 H() { return shape[0]; }
     __BOTH__ U16 W() { return shape[1]; }
     __BOTH__ U16 C() { return shape[3]; }
     ///
-    /// tensor assignment
+    /// tensor reshape and assignment
     ///
+    __HOST__ Tensor &reset(U8 *mptr, U64 sz);
+    __HOST__ Tensor &reshape(U16 h, U16 w);
+    __HOST__ Tensor &reshape(U16 n, U16 h, U16 w, U16 c);
     __HOST__ Tensor &fill(U8 v=0);
     __HOST__ Tensor &random(int seed=0);
     __HOST__ void   copy_to(void* dst) { cudaMemcpy(dst, data, size, cudaMemcpyDeviceToHost); }
