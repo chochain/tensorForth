@@ -68,13 +68,6 @@ TLSF::malloc(U32 sz) {
 
     ASSERT(blk->bsz >= bsz);                    // make sure it provides big enough a block
 
-#if MMU_DEBUG
-    _dump_freelist("alloc", sz);
-    U32 *p = (U32*)BLK_DATA(blk);               // point to raw space allocated
-    sz >>= 2;
-    for (int i=0; i < (sz>16 ? 16 : sz); i++) *p++ = 0xaaaaaaaa;
-#endif // MMU_DEBUG
-
     return BLK_DATA(blk);                       // pointer to raw space
 }
 
