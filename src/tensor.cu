@@ -24,16 +24,16 @@ __KERN__ void k_matrix_randomize(U8 *mat, int nrow, int ncol, int seed=0)
 
 __HOST__
 Tensor::Tensor() :
-    size(0),
     dsize(sizeof(DU)),
+    size(0),
     rank(0),
     stride{0, 0, 0, 0},
     shape{0, 0, 0, 0} {}
 
 __HOST__
 Tensor::Tensor(U64 sz) :
-    size(sz),
     dsize(sizeof(DU)),
+    size(sz),
     rank(1),
     stride{0, 0, 0, 0},
     shape{0, 0, 0, 0} {
@@ -44,8 +44,8 @@ Tensor::Tensor(U64 sz) :
 
 __HOST__
 Tensor::Tensor(U16 h, U16 w) :
-    size(sizeof(DU) * h * w),
     dsize(sizeof(DU)),
+    size(dsize * h * w),
     rank(2),
     stride{1, 1, 0, 0},
     shape{h, w, 0, 0} {
@@ -56,8 +56,8 @@ Tensor::Tensor(U16 h, U16 w) :
 
 __HOST__
 Tensor::Tensor(U16 n, U16 h, U16 w, U16 c) :
-    size(sizeof(DU) * n * h * w * c),
     dsize(sizeof(DU)),
+    size(dsize * n * h * w * c),
     rank(4),
     stride{1, 1, 1, 1},
     shape{h, w, n, c} {
@@ -81,7 +81,6 @@ Tensor::~Tensor()
 __HOST__ Tensor&
 Tensor::reset(U8 *mptr, U64 sz) {
     size   = sz;
-    dsize  = sizeof(DU);
     rank   = 1;
     // stride, shape not used
     data   = mptr;
@@ -91,7 +90,7 @@ Tensor::reset(U8 *mptr, U64 sz) {
 
 __HOST__ Tensor&
 Tensor::reshape(U16 h, U16 w) {
-    U64 sz = sizeof(DU) * h * w;
+    U64 sz = dsize * h * w;
     if (sz == size) {
         rank   = 2;
         U16 t[4] = {1, 1, 0, 0}; memcpy(stride, t, sizeof(t));
@@ -106,7 +105,7 @@ Tensor::reshape(U16 h, U16 w) {
 
 __HOST__ Tensor&
 Tensor::reshape(U16 n, U16 h, U16 w, U16 c) {
-    U64 sz = sizeof(DU) * n * h * w * c;
+    U64 sz = dsize * n * h * w * c;
     if (sz == size) {
         rank   = 4;
         U16 t[4] = {1, 1, 1, 1}; memcpy(stride, t, sizeof(t));
