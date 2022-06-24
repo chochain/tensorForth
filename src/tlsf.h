@@ -57,16 +57,15 @@ typedef struct free_block {          //< 16-bytes (i.e. mininum allocation per b
 #define CLEAR_MAP(i)    { CLR_L2(i); if ((L2_MAP(i))==0) CLR_L1(i); }
 
 class TLSF : public Managed {
-    U8          *_heap;                  // CUDA kernel tensor storage memory pool
+    U8         *_heap;                  // CUDA kernel tensor storage memory pool
     U32         _heap_sz;
-    U32         _mutex = 0;
-
-    U32         _l1_map;				// use upper (FLI - MSB) bits
+    U32         _mutex  = 0;
+    U32         _l1_map = 0;			// use upper (FLI - MSB) bits
     U8          _l2_map[L1_BITS];		// 8-bit, (16-bit requires too many FL_SLOTS)
     free_block	*_free_list[FL_SLOTS];  // array of free lists
 
 public:
-    __BOTH__ void        init(U8 *mem, U32 sz);
+    __BOTH__ void        init(U8 *mem, U64 sz);
     __GPU__  void*       malloc(U32 sz);
     __GPU__  void*       realloc(void *p0, U32 sz);
     __GPU__  void        free(void *ptr);
