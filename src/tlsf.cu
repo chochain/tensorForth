@@ -26,20 +26,30 @@ typedef uintptr_t       U32A;
   @param  size    size. (max 4G)
 */
 __BOTH__ void
-TLSF::init(U8 *mptr, U32 sz) {
+TLSF::init(U8 *mptr, U64 sz) {
     _heap    = mptr;
     _heap_sz = sz;
-    
-    U32 bsz  = _heap_sz - sizeof(free_block) - sizeof(used_block);
-
+    U32 bsz  = _heap_sz - sizeof(used_block);           // minus end block
+    //
+    // clean TLSF maps
+    //
+    for (int i=0; i<L1_BITS; i++)  _l2_map[i]    = 0;
+    for (int i=0; i<FL_SLOTS; i++) _free_list[i] = 0;
+    //
     // initialize entire memory pool as the first block
+    //
     free_block *head  = (free_block*)_heap;
     head->bsz  = bsz;                                   // 1st (big) block
     head->psz  = 0;
     head->next = head->prev = 0;
     SET_FREE(head);
-
-    U32 index = FL_SLOTS - 1;                           // last slot (max memory)
+    //
+    // get max available index
+    //
+    int i = 31; for (U32 z = bsz, m = 1<<31; i && z && !(z & m); z<<=1) i--;
+    int j = (bsz >> (i - L2_BITS)) & L2_MASK;
+    U32 index = INDEX(i, j);                            // last slot of map
+    printf("%x => index(%x,%x)\n", bsz, i, j);
     SET_MAP(index);                                     // set ticks for available maps
     _free_list[index] = head;
 
