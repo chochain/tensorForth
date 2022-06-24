@@ -110,12 +110,23 @@ cudaError_t ReferenceGemm(Tensor &A, Tensor &B, Tensor &C, FP alpha, FP beta) {
 /// CUTLASS GEMM kernel.
 cudaError_t TestCutlassGemm(int M, int N, int K, FP alpha, FP beta) {
     // Define pointers to matrices in GPU device memory.
+    //
+    // matrix allocation, fill, random
+    //
     Tensor tensor_A(M, K); tensor_A.fill(0).random(0);
     Tensor tensor_B(K, N); tensor_B.fill(0).random(17);
-    // testing reshape
+    //
+    // reshape test
+    //
     U64 sz = sizeof(DU) * M * N;
     Tensor tensor_C(sz); tensor_C.reshape(M, N).fill(0).random(101);
-    Tensor tensor_R(sz); tensor_R.reshape(M, N).fill(0).random(101);
+    //
+    // reset test
+    //
+    U8  *ref;
+    cudaMallocManaged((void**)&ref, (size_t)sz);
+    GPU_CHK();
+    Tensor tensor_R; tensor_R.reset(ref, sz).reshape(M, N).fill(0).random(101);
     //=============================================================================
     // Launch CUTLASS GEMM.
     //
@@ -139,6 +150,7 @@ cudaError_t TestCutlassGemm(int M, int N, int K, FP alpha, FP beta) {
         std::cerr << "results different." << std::endl;
         return cudaErrorUnknown;
     }
+    cudaFree(ref);
     return cudaSuccess;
 }
 
