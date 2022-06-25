@@ -34,7 +34,7 @@
 ///    PyTorch.Tensor: size, dtype, type_id, stride, tensorstore
 ///
 struct Tensor : public Managed {
-    U64              size;      ///< number of contiguous bytes
+    U32              size;      ///< number of data elements, TODO: more than 4G elements
     U32              dsize;     ///< size of data element, F32 for now, TODO: others
     U32              rank;      ///< rank of tensor 2:matrix, 4:NHWC tensor
     U16              stride[4]; ///< strides to calculate memory offset
@@ -50,7 +50,7 @@ struct Tensor : public Managed {
     __HOST__ Tensor();
     __HOST__ Tensor(U16 n, U16 h, U16 w, U16 c);
     __HOST__ Tensor(U16 h, U16 w);
-    __HOST__ Tensor(U64 sz);
+    __HOST__ Tensor(U32 sz);
     __HOST__ ~Tensor();
     __HOST__ Tensor(DU f0): f(f0)  { t = 0; }
     
@@ -61,7 +61,7 @@ struct Tensor : public Managed {
     ///
     /// tensor life-cycle ops
     ///
-    __BOTH__ Tensor &reset(void *mptr, U64 sz);
+    __BOTH__ Tensor &reset(void *mptr, U32 sz);
     __BOTH__ Tensor &reshape(U16 h, U16 w);
     __BOTH__ Tensor &reshape(U16 n, U16 h, U16 w, U16 c);
     __BOTH__ Tensor &fill(DU v);
