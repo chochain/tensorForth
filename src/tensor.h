@@ -59,14 +59,17 @@ struct Tensor : public Managed {
     __BOTH__ U16 W() { return shape[1]; }
     __BOTH__ U16 C() { return shape[3]; }
     ///
-    /// tensor reshape and assignment
+    /// tensor life-cycle ops
     ///
     __BOTH__ Tensor &reset(void *mptr, U64 sz);
     __BOTH__ Tensor &reshape(U16 h, U16 w);
     __BOTH__ Tensor &reshape(U16 n, U16 h, U16 w, U16 c);
-    __HOST__ Tensor &fill(U8 v=0);
-    __HOST__ Tensor &random(int seed=0);
-    __HOST__ void   copy_to(void* dst) { cudaMemcpy(dst, data, size, cudaMemcpyDeviceToHost); }
+    __BOTH__ Tensor &fill(DU v);
+    __BOTH__ Tensor &random(int seed=0);
+    __HOST__ void   copy_to_host(void* dst) { cudaMemcpy(dst, data, size, cudaMemcpyDeviceToHost); }
+    ///
+    /// assignment
+    ///
     __BOTH__ __INLINE__ Tensor &operator=(DU f0) { f = f0; t = 0; return *this; }
     ///
     /// tensor arithmetics
