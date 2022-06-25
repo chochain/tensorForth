@@ -23,17 +23,19 @@ CU_BUILD:= ${CUDA_HOME}/bin/nvcc -ccbin g++ --cudart=static \
 		-lcutlass \
 		-gencode arch=${CUDA_ARCH},code=${CUDA_CODE}
 
-
 .PHONY: test clean clean-test
 
-test: t_tensor t_tlsf
+test: t_tensor t_tlsf t_mmu_tensor
 
 # Each subdirectory must supply rules for building sources it contributes
 t_tensor: ./tests/t_tensor.o ./src/tensor.o
 	$(CU_BUILD) -o "$(<:.o=)" $^
 
 t_tlsf: ./tests/t_tlsf.o ./src/tlsf.o
-	$(CU_BUILD) -o "$(<:.o=)" $^
+	$(CU_BUILD)	-o "$(<:.o=)" $^
+
+t_mmu_tensor: ./tests/t_mmu_tensor.o ./src/tensor.o ./src/mmu.o ./src/tlsf.o
+	$(CU_BUILD)	-o "$(<:.o=)" $^
 
 tests/%.o: tests/%.cu $(INCS)
 	@echo 'Building test file: $<'
