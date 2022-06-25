@@ -11,7 +11,11 @@ using namespace std;
 
 #include "../src/ten4_types.h"
 #include "../src/mmu.h"
-
+//
+// GEMM kernel (used CUDA dynamic parallelism)
+//     C = alpha * A x B + beta * C
+//     where A = MxK, B = KxN, C = MxN
+//
 __KERN__ void k_GEMM(
     int M, int N, int K,
     DU *A, DU *B, DU *C,   /* MxK, KxN, MxN */
@@ -29,7 +33,7 @@ __KERN__ void k_GEMM(
     }
 }
 //
-// dynamic parallel
+// GEMM test driver kernel code
 //
 __KERN__ void
 test_mmu_gemm(
@@ -42,18 +46,18 @@ test_mmu_gemm(
     Tensor &C = mmu->tensor(M, N); C.fill(0).random(101);
 
     int m = C.H(), n = C.W(), k = A.W();
-    printf("\nRef.GEMM M=%d, N=%d, K=%d", m, n, k);
+    printf("\nGEMM M=%d, N=%d, K=%d", m, n, k);
     
     dim3 block(16, 16);         /* 256 threads */
     dim3 grid((n + block.x - 1) / block.x, (m + block.y - 1) / block.y);
 
-    clock_t start = clock();
+    clock_t t0 = clock();
     k_GEMM<<<grid, block>>>(
         m, n, k,
         (DU*)A.data, (DU*)B.data, (DU*)C.data,
         alpha, beta);
-    cudaDeviceSynchronize();
-    printf(" (k_GEMM in %0.2f ms @ %d khz)", ((float)(clock() - start))/khz, khz);
+    cudaDeviceSynchronize();     // deprecated in 11.6! What is the alternative?
+    printf(" (k_GEMM in %0.2f ms @ %d khz)", ((float)(clock() - t0))/khz, khz);
 }
 
 cudaError_t benchmark(MMU *mmu, int khz, U16 M, U16 N, U16 K, DU alpha, DU beta) {
@@ -64,7 +68,7 @@ cudaError_t benchmark(MMU *mmu, int khz, U16 M, U16 N, U16 K, DU alpha, DU beta)
         GPU_CHK();
     }
     cudaEventRecord(events[0]);
-    
+
     test_mmu_gemm<<<1,1>>>(mmu, khz, M, N, K, alpha, beta);
     cudaError_t error = cudaGetLastError();
 
@@ -126,5 +130,3 @@ int main(int argc, const char *arg[]) {
     // Exit.
     return result == cudaSuccess ? 0 : -1;
 }
-
-    
