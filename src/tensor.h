@@ -39,20 +39,20 @@ struct Tensor : public Managed {
     U32              rank;      ///< rank of tensor 2:matrix, 4:NHWC tensor
     U16              stride[4]; ///< strides to calculate memory offset
     U16              shape[4];  ///< Tensor4 (HWNC), matrix N=0, C=0
-    void             *data = 0; ///< managed memory block pointer
     union {
+        U8           *data = 0; ///< managed memory block pointer
         DU           f;         ///< float storage
         struct {
             U32 t  : 1;         ///< tensor rank >= 1
             U32 idx: 31;        ///< tensor pool index (2^31 slots)
         };
     };
-    __BOTH__ Tensor(DU f0): f(f0)  { t = 0; }
     __HOST__ Tensor();
     __HOST__ Tensor(U16 n, U16 h, U16 w, U16 c);
     __HOST__ Tensor(U16 h, U16 w);
     __HOST__ Tensor(U64 sz);
     __HOST__ ~Tensor();
+    __HOST__ Tensor(DU f0): f(f0)  { t = 0; }
     
     __BOTH__ U16 N() { return shape[2]; }
     __BOTH__ U16 H() { return shape[0]; }

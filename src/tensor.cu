@@ -80,10 +80,12 @@ Tensor::~Tensor()
 
 __BOTH__ Tensor&
 Tensor::reset(void *mptr, U64 sz) {
+    dsize  = sizeof(DU);
     size   = sz;
     rank   = 1;
-    // stride, shape not used
-    data   = mptr;
+    memset(stride, 0, sizeof(U16) * 4);
+    memset(shape,  0, sizeof(U16) * 4);
+    data   = (U8*)mptr;
     printf("tensor reset(%p, %ld)\n", mptr, sz);
     return *this;
 }
