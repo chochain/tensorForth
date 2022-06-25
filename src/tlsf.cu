@@ -1,4 +1,4 @@
-/*! @file
+/*! @File
   @brief tensorForth tensor memory storage management.
 
   <pre>Copyright (C) 2022 GreenII. This file is distributed under BSD 3-Clause License.</p>
@@ -67,7 +67,7 @@ TLSF::init(U8 *mptr, U64 sz) {
 */
 __GPU__ void*
 TLSF::malloc(U32 sz) {
-    PRINTF("tlsf#malloc(%x)\n", sz);
+    PRINTF("tlsf#malloc(0x%x)\n", sz);
     U32 bsz = sz + sizeof(used_block);          // logical => physical size
 
     _LOCK;
@@ -80,7 +80,7 @@ TLSF::malloc(U32 sz) {
     ASSERT(blk->bsz >= bsz);                    // make sure it provides big enough a block
 
     void *data = BLK_DATA(blk);
-    PRINTF("tlsf#malloc(%x) => %p\n", sz, data);
+    PRINTF("tlsf#malloc(0x%x) => %p\n", sz, data);
     return data;                                // pointer to raw space
 }
 
@@ -132,7 +132,7 @@ TLSF::free(void *ptr) {
 
     _LOCK;
     free_block *blk = (free_block *)BLK_HEAD(ptr);       // get block header
-    PRINTF("tlsf#free(%p) => %p:%x\n", ptr, blk, blk->bsz);
+    PRINTF("tlsf#free(%p) => %p:0x%x\n", ptr, blk, blk->bsz);
     _try_merge_next(blk);
     _mark_free(blk);
     
