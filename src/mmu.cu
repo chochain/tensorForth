@@ -84,23 +84,29 @@ MMU::to_s(std::ostream &fout, IU w) {
 ///
 __GPU__ Tensor&
 MMU::tensor(U16 h, U16 w) {
-    Tensor *t    = (Tensor*)tstore.malloc(sizeof(Tensor));
-    U32    tsz   = sizeof(DU) * h * w;
-    void   *mptr = tstore.malloc(tsz);
-    PRINTF("mmu#tensor(%d,%d) => tsz=%d\n", h, w, tsz);
-    t->reset(mptr, (U64)tsz);
+    Tensor *t = (Tensor*)tstore.malloc(sizeof(Tensor));
+    U32    sz = h * w;
+    PRINTF("mmu#tensor(%d,%d) => size=%d\n", h, w, sz);
+    
+    void   *mptr = tstore.malloc((U64)sizeof(DU) * sz);
+    t->reset(mptr, sz);
     t->reshape(h, w);
+    __syncthreads();
+    
     return *t;
 };
 
 __GPU__ Tensor&
 MMU::tensor(U16 n, U16 h, U16 w, U16 c) {
-    Tensor *t    = (Tensor*)tstore.malloc(sizeof(Tensor));
-    U32    tsz   = sizeof(DU) * n * h * w * c;
-    void   *mptr = (void*)tstore.malloc(tsz);
-    PRINTF("mmu#tensor(%d,%d,%d,%d) => tsz=%d\n", n, h, w, c, tsz);
-    t->reset(mptr, (U64)tsz);
+    Tensor *t = (Tensor*)tstore.malloc(sizeof(Tensor));
+    U32    sz = n * h * w * c;
+    PRINTF("mmu#tensor(%d,%d,%d,%d) => size=%d\n", n, h, w, c, sz);
+    
+    void   *mptr = (void*)tstore.malloc((U64)sizeof(DU) * sz);
+    t->reset(mptr, sz);
     t->reshape(n, h, w, c);
+    __syncthreads();
+    
     return *t;
 }
 ///
