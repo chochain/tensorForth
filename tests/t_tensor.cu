@@ -113,13 +113,13 @@ cudaError_t TestCutlassGemm(int M, int N, int K, FP alpha, FP beta) {
     //
     // matrix allocation, fill, random
     //
-    Tensor tensor_A(M, K); tensor_A.fill(0).random(0);
-    Tensor tensor_B(K, N); tensor_B.fill(0).random(17);
+    Tensor tensor_A(M, K); tensor_A.fill(0.0).random(0);
+    Tensor tensor_B(K, N); tensor_B.fill(0.0).random(17);
     //
     // reshape test
     //
     U64 sz = sizeof(DU) * M * N;
-    Tensor tensor_C(sz); tensor_C.reshape(M, N).fill(0).random(101);
+    Tensor tensor_C(sz); tensor_C.reshape(M, N).fill(0.0).random(101);
     //
     // reset test
     //
@@ -141,8 +141,8 @@ cudaError_t TestCutlassGemm(int M, int N, int K, FP alpha, FP beta) {
     std::vector<FP> host_c(tensor_C.size, 0);
     std::vector<FP> host_r(tensor_R.size, 0);
 
-    tensor_C.copy_to(host_c.data());
-    tensor_R.copy_to(host_r.data());
+    tensor_C.copy_to_host(host_c.data());
+    tensor_R.copy_to_host(host_r.data());
     //
     // Test for bit equivalence of results.
     //
