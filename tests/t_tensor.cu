@@ -118,13 +118,13 @@ cudaError_t TestCutlassGemm(int M, int N, int K, FP alpha, FP beta) {
     //
     // reshape test
     //
-    U64 sz = sizeof(DU) * M * N;
+    U32 sz = M * N;
     Tensor tensor_C(sz); tensor_C.reshape(M, N).fill(0.0).random(101);
     //
     // reset test
     //
     U8  *ref;
-    cudaMallocManaged((void**)&ref, (size_t)sz);
+    cudaMallocManaged((void**)&ref, (size_t)sz * sizeof(DU));
     GPU_CHK();
     Tensor tensor_R; tensor_R.reset(ref, sz).reshape(M, N).fill(0).random(101);
     //=============================================================================
@@ -156,8 +156,7 @@ cudaError_t TestCutlassGemm(int M, int N, int K, FP alpha, FP beta) {
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 //
-// usage:
-//   t_tensor <M> <N> <K> <alpha> <beta>
+// usage:  t_tensor <M> <N> <K> <alpha> <beta>
 //
 int main(int argc, const char *arg[]) {
     //
