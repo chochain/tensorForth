@@ -32,42 +32,40 @@ typedef struct free_block {          //< 16-bytes (i.e. mininum allocation per b
 #define BLK_DATA(b)     (U8PADD(b, sizeof(used_block)))                                          /**> pointer to raw data space        */
 #define BLK_HEAD(p)     (U8PSUB(p, sizeof(used_block)))                                          /**> block header from raw pointer    */
 
-#define MN_BITS         4                            /**> 16 bytes minimal allocation */
-#define L2_BITS         3                            /**> 8 entries                   */
-#define L1_BITS         31                           /**> 31 levels, max 4G range     */
+#define MN_BITS         4                            /**> 16 bytes minimal allocation  */
+#define L2_BITS         3                            /**> 8 entries                    */
+#define L1_BITS         31                           /**> 31 levels, max 4G range      */
+#define L2_MASK         ((1<<L2_BITS)-1)             /**> level 2 bit mask             */
+#define FL_SLOTS        (L1_BITS * (1 << L2_BITS))   /**> slots for free_list pointers */
 
 #define TIC(n)          (1 << (n))
-#define L2_MASK         ((1<<L2_BITS)-1)             /**> level 2 bit mask */
-#define MIN_BLOCK       (1 << MN_BITS)
+#define L1(i)           ((i) >> L2_BITS)             /**> extrace L1 from given index  */
+#define L2(i)           ((i) & L2_MASK)              /**> extract L2 from given index  */
+#define INDEX(l1, l2)   (((l1)<<L2_BITS) | (l2))     /**> free_list index              */
 
-#define L1(i)           ((i) >> L2_BITS)             /**> extrace L1 from given index, for bugging */
-#define L2(i)           ((i) & L2_MASK)              /**> extract L2 from given index, for debugging */
-#define FL_SLOTS        (L1_BITS * (1 << L2_BITS))   /**> slots for free_list pointers               */
+#define L1_MAP(i)       (_l1_map)                    /**> 1st level hit map            */
+#define L2_MAP(i)       (_l2_map[L1(i)])             /**> 2nd level hit map            */
 
-#define L1_MAP(i)       (_l1_map)
-#define L2_MAP(i)       (_l2_map[L1(i)])
-#define INDEX(l1, l2)   (((l1)<<L2_BITS) | (l2))
-
-#define SET_L1(i)       (L1_MAP(i) |= TIC(L1(i)))
-#define SET_L2(i)       (L2_MAP(i) |= TIC(L2(i)))
-#define SET_MAP(i)      { SET_L1(i); SET_L2(i); }
-#define CLR_L1(i)       (L1_MAP(i) &= ~TIC(L1(i)))
-#define CLR_L2(i)       (L2_MAP(i) &= ~TIC(L2(i)))
+#define SET_L1(i)       (L1_MAP(i) |= TIC(L1(i)))    /**> set 1st level hit map entry  */
+#define SET_L2(i)       (L2_MAP(i) |= TIC(L2(i)))    /**> set 2nd level hit map entry  */
+#define SET_MAP(i)      { SET_L1(i); SET_L2(i); }    /**> set both level hit maps      */
+#define CLR_L1(i)       (L1_MAP(i) &= ~TIC(L1(i)))   /**> clear 1st level map entry    */
+#define CLR_L2(i)       (L2_MAP(i) &= ~TIC(L2(i)))   /**> clear 2nd level map entry    */
 #define CLEAR_MAP(i)    { CLR_L2(i); if ((L2_MAP(i))==0) CLR_L1(i); }
 
 class TLSF : public Managed {
-    U8         *_heap;                  // CUDA kernel tensor storage memory pool
-    U32        _heap_sz;
-    U32        _mutex  = 0;
-    U32        _l1_map = 0;             // use upper (FLI - MSB) bits
-    U8         _l2_map[L1_BITS];        // 8-bit, (16-bit requires too many FL_SLOTS)
-    free_block *_free_list[FL_SLOTS];   // array of free lists
+    U8         *_heap;                  ///> CUDA kernel tensor storage memory pool
+    U32        _heap_sz;                ///> size of tensor storage memory pool
+    U32        _mutex  = 0;             ///> memory block mutex control
+    U32        _l1_map = 0;             ///> 1st level (FLI) hit map
+    U8         _l2_map[L1_BITS];        ///> 2nd level (SLI) hit map (8-bit)
+    free_block *_free_list[FL_SLOTS];   ///> array of free lists (head of linked list)
 
 public:
-    __BOTH__ void        init(U8 *mem, U64 sz);
-    __GPU__  void*       malloc(U32 sz);
-    __GPU__  void*       realloc(void *p0, U32 sz);
-    __GPU__  void        free(void *ptr);
+    __BOTH__ void        init(U8 *mem, U64 sz);      ///> initialize storage pool
+    __GPU__  void*       malloc(U32 sz);             ///> malloc from TLSF memory
+    __GPU__  void*       realloc(void *p0, U32 sz);  ///> resize allocated memory
+    __GPU__  void        free(void *ptr);            ///> free memory block back to TLSF
     //
     // sanity check, JTAG
     //
@@ -75,16 +73,16 @@ public:
     __BOTH__ void        dump_freelist();
 
 private:
-    __GPU__  U32         _idx(U32 sz);
-    __GPU__  S32         _find_free_index(U32 sz);
-    __GPU__  void        _split(free_block *blk, U32 bsz);
-    __GPU__  void        _pack(free_block *b0, free_block *b1);
-    __GPU__  void        _unmap(free_block *blk);
+    __GPU__  U32         _idx(U32 sz);                           ///> calc freemap index
+    __GPU__  S32         _find_free_index(U32 sz);               ///> find available index
+    __GPU__  void        _split(free_block *blk, U32 bsz);       ///> split a large block
+    __GPU__  void        _pack(free_block *b0, free_block *b1);  ///> pack adjacent blocks
+    __GPU__  void        _unmap(free_block *blk);                ///> clear freemaps
 
-    __GPU__  void        _mark_free(free_block *blk);
-    __GPU__  free_block* _mark_used(U32 index);
-    __GPU__  void        _try_merge_next(free_block *b0);
-    __GPU__  free_block* _try_merge_prev(free_block *b1);
+    __GPU__  void        _mark_free(free_block *blk);            ///> mark a block free
+    __GPU__  free_block* _mark_used(U32 index);                  ///> set maps free by index 
+    __GPU__  void        _try_merge_next(free_block *b0);        ///> merge next free block
+    __GPU__  free_block* _try_merge_prev(free_block *b1);        ///> merge previous free block
 
     /// mmu sanity check
     __BOTH__ int         _mmu_ok();
