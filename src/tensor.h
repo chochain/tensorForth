@@ -61,9 +61,9 @@ struct Tensor : public Managed {
     ///
     /// tensor reshape and assignment
     ///
-    __HOST__ Tensor &reset(void *mptr, U64 sz);
-    __HOST__ Tensor &reshape(U16 h, U16 w);
-    __HOST__ Tensor &reshape(U16 n, U16 h, U16 w, U16 c);
+    __BOTH__ Tensor &reset(void *mptr, U64 sz);
+    __BOTH__ Tensor &reshape(U16 h, U16 w);
+    __BOTH__ Tensor &reshape(U16 n, U16 h, U16 w, U16 c);
     __HOST__ Tensor &fill(U8 v=0);
     __HOST__ Tensor &random(int seed=0);
     __HOST__ void   copy_to(void* dst) { cudaMemcpy(dst, data, size, cudaMemcpyDeviceToHost); }
