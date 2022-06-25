@@ -155,11 +155,9 @@ cudaError_t TestCutlassGemm(int M, int N, int K, FP alpha, FP beta) {
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
-/// Entry point to basic_gemm example.
 //
 // usage:
-//
-//   00_basic_gemm <M> <N> <K> <alpha> <beta>
+//   t_tensor <M> <N> <K> <alpha> <beta>
 //
 int main(int argc, const char *arg[]) {
     //

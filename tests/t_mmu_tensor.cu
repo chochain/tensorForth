@@ -6,9 +6,9 @@
  */
 #include <iostream>          // cin, cout
 #include <signal.h>
+#include <sstream>
 using namespace std;
 
-#include "../src/ten4_config.h"
 #include "../src/ten4_types.h"
 #include "../src/mmu.h"
 
@@ -56,7 +56,7 @@ test_mmu_gemm(
     printf(" (k_GEMM in %0.2f ms @ %d khz)", ((float)(clock() - start))/khz, khz);
 }
 
-void benchmark(MMU *mmu, int khz) {
+cudaError_t benchmark(MMU *mmu, int khz, U16 M, U16 N, U16 K, DU alpha, DU beta) {
     cudaEvent_t events[2];
     float       runtime_ms;
     for (auto & event : events) {
@@ -65,8 +65,8 @@ void benchmark(MMU *mmu, int khz) {
     }
     cudaEventRecord(events[0]);
     
-    test_mmu_gemm<<<1,1>>>(mmu, khz, 1024, 512, 2048, 1.5, 1.5);
-    GPU_CHK();
+    test_mmu_gemm<<<1,1>>>(mmu, khz, M, N, K, alpha, beta);
+    cudaError_t error = cudaGetLastError();
 
     // Wait for work on the device to complete.
     cudaEventRecord(events[1]);
@@ -79,18 +79,52 @@ void benchmark(MMU *mmu, int khz) {
     for (auto event : events) {
         (void)cudaEventDestroy(event);
     }
+    return error;
 }
+///
+/// usage:  t_mmu_tensor <M> <N> <K> <alpha> <beta>
+///
+int main(int argc, const char *arg[]) {
+    //
+    // Parse the command line to obtain GEMM dimensions and scalar values.
+    //
+    // GEMM problem dimensions.
+    int problem[3] = { 1024, 512, 2048 };
 
-int main(int argc, char**argv) {
+    for (int i = 1; i < argc && i < 4; ++i) {
+        std::stringstream ss(arg[i]);
+        ss >> problem[i - 1];
+    }
+    // Scalars used for linear scaling the result of the matrix product.
+    float scalars[2] = { 1, 0 };
+    for (int i = 4; i < argc && i < 6; ++i) {
+        std::stringstream ss(arg[i]);
+        ss >> scalars[i - 4];
+    }
+    //
+    // Run the MMU-driven GEMM test.
+    //
     int device = 0;
     int khz    = 0;
     cudaDeviceGetAttribute(&khz, cudaDevAttrClockRate, device);
     GPU_CHK();
-
+    
     MMU *mmu   = new MMU();
-    benchmark(mmu, khz);
+    cudaError_t result = benchmark(
+        mmu,
+        khz, 
+        problem[0],     // GEMM M dimension
+        problem[1],     // GEMM N dimension
+        problem[2],     // GEMM K dimension
+        scalars[0],     // alpha
+        scalars[1]      // beta
+        );
 
-    return 0;
+    if (result == cudaSuccess) {
+        std::cout << "Passed." << std::endl;
+    }
+    // Exit.
+    return result == cudaSuccess ? 0 : -1;
 }
 
     
