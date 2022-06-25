@@ -67,6 +67,7 @@ TLSF::init(U8 *mptr, U64 sz) {
 */
 __GPU__ void*
 TLSF::malloc(U32 sz) {
+    PRINTF("tlsf#malloc(%x)\n", sz);
     U32 bsz = sz + sizeof(used_block);          // logical => physical size
 
     _LOCK;
@@ -78,7 +79,9 @@ TLSF::malloc(U32 sz) {
 
     ASSERT(blk->bsz >= bsz);                    // make sure it provides big enough a block
 
-    return BLK_DATA(blk);                       // pointer to raw space
+    void *data = BLK_DATA(blk);
+    PRINTF("tlsf#malloc(%x) => %p\n", sz, data);
+    return data;                                // pointer to raw space
 }
 
 //================================================================
