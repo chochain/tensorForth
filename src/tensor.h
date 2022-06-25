@@ -39,7 +39,7 @@ struct Tensor : public Managed {
     U32              rank;      ///< rank of tensor 2:matrix, 4:NHWC tensor
     U16              stride[4]; ///< strides to calculate memory offset
     U16              shape[4];  ///< Tensor4 (HWNC), matrix N=0, C=0
-    U8               *data = 0; ///< managed memory block pointer
+    void             *data = 0; ///< managed memory block pointer
     union {
         DU           f;         ///< float storage
         struct {
@@ -61,7 +61,7 @@ struct Tensor : public Managed {
     ///
     /// tensor reshape and assignment
     ///
-    __HOST__ Tensor &reset(U8 *mptr, U64 sz);
+    __HOST__ Tensor &reset(void *mptr, U64 sz);
     __HOST__ Tensor &reshape(U16 h, U16 w);
     __HOST__ Tensor &reshape(U16 n, U16 h, U16 w, U16 c);
     __HOST__ Tensor &fill(U8 v=0);

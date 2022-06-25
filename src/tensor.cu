@@ -5,7 +5,7 @@
  * <pre>Copyright (C) 2022- GreenII, this file is distributed under BSD 3-Clause License.</pre>
  */
 #include "tensor.h"
-__KERN__ void k_matrix_randomize(U8 *mat, int nrow, int ncol, int seed=0)
+__KERN__ void k_matrix_randomize(DU *mat, int nrow, int ncol, int seed=0)
 {
     int i = threadIdx.x + blockIdx.x * blockDim.x;
     int j = threadIdx.y + blockIdx.y * blockDim.y;
@@ -79,7 +79,7 @@ Tensor::~Tensor()
 }
 
 __HOST__ Tensor&
-Tensor::reset(U8 *mptr, U64 sz) {
+Tensor::reset(void *mptr, U64 sz) {
     size   = sz;
     rank   = 1;
     // stride, shape not used
@@ -135,7 +135,7 @@ Tensor::random(int seed) {
         (h + block.y - 1) / block.y
         );
 
-    k_matrix_randomize<<<grid, block>>>(data, h, w, seed);
+    k_matrix_randomize<<<grid, block>>>((DU*)data, h, w, seed);
     GPU_CHK();
     return *this;
 }
