@@ -32,10 +32,9 @@ typedef struct free_block {          //< 16-bytes (i.e. mininum allocation per b
 #define BLK_DATA(b)     (U8PADD(b, sizeof(used_block)))                                          /**> pointer to raw data space        */
 #define BLK_HEAD(p)     (U8PSUB(p, sizeof(used_block)))                                          /**> block header from raw pointer    */
 
-#define MN_BITS         4                            /**> 00000000 00000000 00000000 0000XXXX   256-bytes smallest blocksize */
-#define L2_BITS         3                            /**> 00000000 00000000 00000000 0XXX0000   8 entires                    */
-#define L1_BITS         31                           /**> 00000000 00000000 0000XXXX X0000000   31 levels (for 4G range)     */
-#define BASE_BITS       (L2_BITS+MN_BITS)
+#define MN_BITS         4                            /**> 16 bytes minimal allocation */
+#define L2_BITS         3                            /**> 8 entries                   */
+#define L1_BITS         31                           /**> 31 levels, max 4G range     */
 
 #define TIC(n)          (1 << (n))
 #define L2_MASK         ((1<<L2_BITS)-1)             /**> level 2 bit mask */
@@ -58,11 +57,11 @@ typedef struct free_block {          //< 16-bytes (i.e. mininum allocation per b
 
 class TLSF : public Managed {
     U8         *_heap;                  // CUDA kernel tensor storage memory pool
-    U32         _heap_sz;
-    U32         _mutex  = 0;
-    U32         _l1_map = 0;			// use upper (FLI - MSB) bits
-    U8          _l2_map[L1_BITS];		// 8-bit, (16-bit requires too many FL_SLOTS)
-    free_block	*_free_list[FL_SLOTS];  // array of free lists
+    U32        _heap_sz;
+    U32        _mutex  = 0;
+    U32        _l1_map = 0;             // use upper (FLI - MSB) bits
+    U8         _l2_map[L1_BITS];        // 8-bit, (16-bit requires too many FL_SLOTS)
+    free_block *_free_list[FL_SLOTS];   // array of free lists
 
 public:
     __BOTH__ void        init(U8 *mem, U64 sz);
@@ -73,7 +72,7 @@ public:
     // sanity check, JTAG
     //
     __BOTH__ void        show_stat();
-    __BOTH__ void        dump_freelist(const char *hdr, int sz);
+    __BOTH__ void        dump_freelist();
 
 private:
     __GPU__  U32         _idx(U32 sz);
@@ -82,10 +81,10 @@ private:
     __GPU__  void        _pack(free_block *b0, free_block *b1);
     __GPU__  void        _unmap(free_block *blk);
 
-    __GPU__ void         _mark_free(free_block *blk);
+    __GPU__  void        _mark_free(free_block *blk);
     __GPU__  free_block* _mark_used(U32 index);
-    __GPU__  void        _merge_with_next(free_block *b0);
-    __GPU__  free_block* _merge_with_prev(free_block *b1);
+    __GPU__  void        _try_merge_next(free_block *b0);
+    __GPU__  free_block* _try_merge_prev(free_block *b1);
 
     /// mmu sanity check
     __BOTH__ int         _mmu_ok();
