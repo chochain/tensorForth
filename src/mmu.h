@@ -126,6 +126,11 @@ public:
     __GPU__  __INLINE__ void wi(U8 *c, IU i)   { *c++ = i&0xff; *c = (i>>8)&0xff; }
     __GPU__  __INLINE__ void wi(IU pi, IU i)   { wi(&_pmem[pi], i); }
     ///
+    /// tensor life-cycle methods
+    ///
+    __GPU__  Tensor &tensor(U16 h, U16 w);
+    __GPU__  Tensor &tensor(U16 n, U16 h, U16 w, U16 c);
+    ///
     /// debugging methods (implemented in .cu)
     ///
     __HOST__ void to_s(std::ostream &fout, IU w);
