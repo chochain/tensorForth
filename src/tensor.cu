@@ -120,14 +120,15 @@ Tensor::reshape(U16 n, U16 h, U16 w, U16 c) {
     return *this;
 }
 
-__HOST__ Tensor&
-Tensor::fill(U8 v) {
-    // Clear the allocation.
-    cudaMemset((void*)data, v, size);
-    GPU_CHK();
+__BOTH__ Tensor&
+Tensor::fill(DU v) {
+    U32 sz = size / dsize;
+    DU  *d = (DU*)data;
+    for (int i=0; i<sz; i++) *d++ = v;
     return *this;
 }
-__HOST__ Tensor&
+
+__BOTH__ Tensor&
 Tensor::random(int seed) {
     int h = H();
     int w = W();
@@ -136,13 +137,6 @@ Tensor::random(int seed) {
         (w + block.x - 1) / block.x,     /* row major */
         (h + block.y - 1) / block.y
         );
-
     k_matrix_randomize<<<grid, block>>>((DU*)data, h, w, seed);
-    GPU_CHK();
     return *this;
-}
-
-__GPU__ Tensor&
-Tensor::gemm(Tensor &A, Tensor &B, Tensor &C) {
-    // D = alpha * A * B + beta * C;
 }
