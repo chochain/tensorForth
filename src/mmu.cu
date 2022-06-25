@@ -80,6 +80,30 @@ MMU::to_s(std::ostream &fout, IU w) {
 #endif  // T4_VERBOSE
 }
 ///
+/// tensor life-cycle methods
+///
+__GPU__ Tensor&
+MMU::tensor(U16 h, U16 w) {
+    Tensor *t    = (Tensor*)tstore.malloc(sizeof(Tensor));
+    U32    tsz   = sizeof(DU) * h * w;
+    void   *mptr = tstore.malloc(tsz);
+    PRINTF("mmu#tensor(%d,%d) => tsz=%d\n", h, w, tsz);
+    t->reset(mptr, (U64)tsz);
+    t->reshape(h, w);
+    return *t;
+};
+
+__GPU__ Tensor&
+MMU::tensor(U16 n, U16 h, U16 w, U16 c) {
+    Tensor *t    = (Tensor*)tstore.malloc(sizeof(Tensor));
+    U32    tsz   = sizeof(DU) * n * h * w * c;
+    void   *mptr = (void*)tstore.malloc(tsz);
+    PRINTF("mmu#tensor(%d,%d,%d,%d) => tsz=%d\n", n, h, w, c, tsz);
+    t->reset(mptr, (U64)tsz);
+    t->reshape(n, h, w, c);
+    return *t;
+}
+///
 /// display dictionary word list
 ///
 __HOST__ void
