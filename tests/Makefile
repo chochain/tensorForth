@@ -3,10 +3,13 @@
 #
 # Add inputs and outputs from these tool invocations to the build variables
 TSRCS += \
-	tests/t_tensor.cu
+	tests/t_tensor.cu \
+	tests/t_tlsf.cu
+
 
 TOBJS += \
-	./tests/t_tensor.o
+	./tests/t_tensor.o \
+	./tests/t_tlsf.o
 
 # Additional CUDA includes if any
 CU_INCS :=
@@ -14,21 +17,23 @@ CU_INCS :=
 # Cutlass includes
 CL_INC  := ${CUTLASS_HOME}/include
 CL_TOOL := ${CUTLASS_HOME}/tools
+CU_BUILD:= ${CUDA_HOME}/bin/nvcc -ccbin g++ --cudart=static \
+		-L$(CUDA_LIB) \
+		-L${CUTLASS_HOME}/build/tools/library \
+		-lcutlass \
+		-gencode arch=${CUDA_ARCH},code=${CUDA_CODE}
+
 
 .PHONY: test clean clean-test
 
+test: t_tensor t_tlsf
+
 # Each subdirectory must supply rules for building sources it contributes
-test: $(TOBJS) ./src/tensor.o
-	@echo 'Building test case: $@'
-	@echo 'Invoking: NVCC linker'
-	${CUDA_HOME}/bin/nvcc -ccbin g++ --cudart=static -o "$(<:.o=)" \
-		-L${CUDA_LIB} \
-		-L${CUTLASS_HOME}/build/tools/library \
-		-l${CL_LIB} \
-		-gencode arch=${CUDA_ARCH},code=${CUDA_CODE} \
-		$^
-	@echo 'Finished building: $@'
-	@echo ' '
+t_tensor: ./tests/t_tensor.o ./src/tensor.o
+	$(CU_BUILD) -o "$(<:.o=)" $^
+
+t_tlsf: ./tests/t_tlsf.o ./src/tlsf.o
+	$(CU_BUILD) -o "$(<:.o=)" $^
 
 tests/%.o: tests/%.cu $(INCS)
 	@echo 'Building test file: $<'
