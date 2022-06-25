@@ -78,7 +78,7 @@ Tensor::~Tensor()
     }
 }
 
-__HOST__ Tensor&
+__BOTH__ Tensor&
 Tensor::reset(void *mptr, U64 sz) {
     size   = sz;
     rank   = 1;
@@ -88,7 +88,7 @@ Tensor::reset(void *mptr, U64 sz) {
     return *this;
 }
 
-__HOST__ Tensor&
+__BOTH__ Tensor&
 Tensor::reshape(U16 h, U16 w) {
     U64 sz = dsize * h * w;
     if (sz == size) {
@@ -98,12 +98,12 @@ Tensor::reshape(U16 h, U16 w) {
         printf("tensor reshaped(%d,%d)\n", shape[0], shape[1]);
     }
     else {
-        printf("reshape sz != size (%ld != %ld)", sz, size);
+        printf("reshape sz != size (%ld != %ld)\n", sz, size);
     }
     return *this;
 }
 
-__HOST__ Tensor&
+__BOTH__ Tensor&
 Tensor::reshape(U16 n, U16 h, U16 w, U16 c) {
     U64 sz = dsize * n * h * w * c;
     if (sz == size) {
@@ -113,7 +113,7 @@ Tensor::reshape(U16 n, U16 h, U16 w, U16 c) {
         printf("tensor reshaped(%d,%d,%d,%d)\n", shape[2], shape[0], shape[1], shape[3]);
     }
     else {
-        printf("reshape sz != size (%ld != %ld)", sz, size);
+        printf("reshape sz != size (%ld != %ld)\n", sz, size);
     }
     return *this;
 }
