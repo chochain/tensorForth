@@ -31,25 +31,25 @@ Tensor::Tensor() :
     shape{0, 0, 0, 0} {}
 
 __HOST__
-Tensor::Tensor(U64 sz) :
+Tensor::Tensor(U32 sz) :
     dsize(sizeof(DU)),
     size(sz),
     rank(1),
     stride{0, 0, 0, 0},
     shape{0, 0, 0, 0} {
-    cudaMallocManaged((void**)&data, size);
+    cudaMallocManaged((void**)&data, (size_t)size * dsize);
     GPU_CHK();
-    printf("tensor[%ld] allocated\n", size);
+    printf("tensor[%d] allocated\n", size);
 }
 
 __HOST__
 Tensor::Tensor(U16 h, U16 w) :
     dsize(sizeof(DU)),
-    size(dsize * h * w),
+    size(h * w),
     rank(2),
     stride{1, 1, 0, 0},
     shape{h, w, 0, 0} {
-    cudaMallocManaged((void**)&data, (size_t)size);
+    cudaMallocManaged((void**)&data, (size_t)size * dsize);
     GPU_CHK();
     printf("matrix(%d,%d) allocated\n", shape[0], shape[1]);
 }
@@ -57,11 +57,11 @@ Tensor::Tensor(U16 h, U16 w) :
 __HOST__
 Tensor::Tensor(U16 n, U16 h, U16 w, U16 c) :
     dsize(sizeof(DU)),
-    size(dsize * n * h * w * c),
+    size(n * h * w * c),
     rank(4),
     stride{1, 1, 1, 1},
     shape{h, w, n, c} {
-    cudaMallocManaged((void**)&data, (size_t)size);
+    cudaMallocManaged((void**)&data, (size_t)size * dsize);
     GPU_CHK();
     printf("tensor(%d,%d,%d,%d) allocated\n", shape[2], shape[0], shape[1], shape[3]);
 }
@@ -79,20 +79,20 @@ Tensor::~Tensor()
 }
 
 __BOTH__ Tensor&
-Tensor::reset(void *mptr, U64 sz) {
+Tensor::reset(void *mptr, U32 sz) {
     dsize  = sizeof(DU);
     size   = sz;
     rank   = 1;
-    memset(stride, 0, sizeof(U16) * 4);
-    memset(shape,  0, sizeof(U16) * 4);
+    memset(stride, 0, sizeof(stride));
+    memset(shape,  0, sizeof(shape));
     data   = (U8*)mptr;
-    printf("tensor reset(%p, %ld)\n", mptr, sz);
+    printf("tensor reset(%p, %d)\n", mptr, sz);
     return *this;
 }
 
 __BOTH__ Tensor&
 Tensor::reshape(U16 h, U16 w) {
-    U64 sz = dsize * h * w;
+    U32 sz = h * w;
     if (sz == size) {
         rank   = 2;
         U16 t[4] = {1, 1, 0, 0}; memcpy(stride, t, sizeof(t));
@@ -100,14 +100,14 @@ Tensor::reshape(U16 h, U16 w) {
         printf("tensor reshaped(%d,%d)\n", shape[0], shape[1]);
     }
     else {
-        printf("reshape sz != size (%ld != %ld)\n", sz, size);
+        printf("reshape sz != size (%d != %d)\n", sz, size);
     }
     return *this;
 }
 
 __BOTH__ Tensor&
 Tensor::reshape(U16 n, U16 h, U16 w, U16 c) {
-    U64 sz = dsize * n * h * w * c;
+    U32 sz = n * h * w * c;
     if (sz == size) {
         rank   = 4;
         U16 t[4] = {1, 1, 1, 1}; memcpy(stride, t, sizeof(t));
@@ -115,16 +115,15 @@ Tensor::reshape(U16 n, U16 h, U16 w, U16 c) {
         printf("tensor reshaped(%d,%d,%d,%d)\n", shape[2], shape[0], shape[1], shape[3]);
     }
     else {
-        printf("reshape sz != size (%ld != %ld)\n", sz, size);
+        printf("reshape sz != size (%d != %d)\n", sz, size);
     }
     return *this;
 }
 
 __BOTH__ Tensor&
 Tensor::fill(DU v) {
-    U32 sz = size / dsize;
     DU  *d = (DU*)data;
-    for (int i=0; i<sz; i++) *d++ = v;
+    for (int i=0; i<size; i++) *d++ = v;
     return *this;
 }
 
