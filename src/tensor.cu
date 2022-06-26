@@ -5,6 +5,9 @@
  * <pre>Copyright (C) 2022- GreenII, this file is distributed under BSD 3-Clause License.</pre>
  */
 #include "tensor.h"
+///
+/// kernel matrix randomizer
+///
 __KERN__ void k_matrix_randomize(DU *mat, int nrow, int ncol, int seed=0)
 {
     int i = threadIdx.x + blockIdx.x * blockDim.x;
@@ -20,6 +23,49 @@ __KERN__ void k_matrix_randomize(DU *mat, int nrow, int ncol, int seed=0)
 
         mat[off] = v;
     }
+}
+///
+/// GEMM kernel (used CUDA dynamic parallelism)
+///     C = alpha * A x B + beta * C
+///     where A = MxK, B = KxN, C = MxN
+///
+__KERN__ void k_GEMM(
+    int M, int N, int K,
+    DU *A, DU *B, DU *C,   /* MxK, KxN, MxN */
+    DU alpha, DU beta)
+{
+    int i = threadIdx.x + blockIdx.x * blockDim.x;
+    int j = threadIdx.y + blockIdx.y * blockDim.y;
+
+    if (i < N && j < M) {
+        DU acc = 0;
+        for (int k = 0; k < K; ++k) {
+            acc += A[k + j * K] * B[i + k * N];      /* row major */
+        }
+        C[i + j * N] = alpha * acc + beta * C[i + j * N];
+    }
+}
+//
+// GEMM test driver kernel code
+//
+__GPU__ Tensor&
+Tensor::gemm(
+    Tensor &A, Tensor &B, Tensor &C, DU alpha, DU beta) {
+    int m = A.H(), k = A.W(), n = B.W();
+    if (k != B.H() || m != C.H() || n != C.W()) {
+        PRINTF("ERR: %s\n", "GEMM MxNxK dimension mismatched");
+        return;
+    }
+    PRINTF("\nGEMM M=%d, N=%d, K=%d", m, n, k);
+    
+    dim3 block(16, 16);         /* 256 threads */
+    dim3 grid((n + block.x - 1) / block.x, (m + block.y - 1) / block.y);
+    k_GEMM<<<grid, block>>>(
+        m, n, k,
+        (DU*)A.data, (DU*)B.data, (DU*)C.data,
+        alpha, beta);
+    cudaDeviceSynchronize();     // TODO: deprecated 11.6, use cooperative_groups.sync()
+    return C;
 }
 
 __HOST__
@@ -85,8 +131,21 @@ Tensor::reset(void *mptr, U32 sz) {
     rank   = 1;
     memset(stride, 0, sizeof(stride));
     memset(shape,  0, sizeof(shape));
+    attr   = 0;
     data   = (U8*)mptr;
     printf("tensor reset(%p, %d)\n", mptr, sz);
+    return *this;
+}
+
+__BOTH__ Tensor&
+Tensor::reshape(U32 sz) {
+    if (sz == size) {
+        reset(data, size);
+        printf("tensor reshaped(%d)\n", size);
+    }
+    else {
+        printf("reshape sz != size (%d != %d)\n", sz, size);
+    }
     return *this;
 }
 
@@ -128,7 +187,7 @@ Tensor::fill(DU v) {
 }
 
 __BOTH__ Tensor&
-Tensor::random(int seed) {
+Tensor::random(U32 seed) {
     int h = H();
     int w = W();
     dim3 block(16, 16);
@@ -139,3 +198,4 @@ Tensor::random(int seed) {
     k_matrix_randomize<<<grid, block>>>((DU*)data, h, w, seed);
     return *this;
 }
+
