@@ -22,6 +22,50 @@ AIO::readline() {
 }
 
 __HOST__ void
+AIO::print_vec(DU *d, int mi, int ri) {
+    std::cout << "[";
+    for (int i=0;     i<ri; i++) std::cout << d[i] << ", ";
+    for (int i=mi-ri; i<mi; i++) std::cout << d[i] << ", ";
+    std::cout << "]";
+}
+
+__HOST__ void
+AIO::print_mat(DU *d, int mi, int mj, int ri, int rj) {
+    DU  *d0 = d, *d1 = d;
+    for (int j=0;     j<rj; j++) { std::cout << "\n\t";  print_vec(d0++, mi, ri); }
+    for (int j=mj-rj; j<mj; j++) { std::cout << ",\n\t"; print_vec(d1++, mi, ri); }
+}
+
+__HOST__ void
+AIO::print_tensor(DU v) {
+    Tensor &t = _mmu->du2ten(v);
+    DU     *d = (DU*)t.data;
+    printf("printing Tensor(%d,%d)=%p\n", t.shape[1], t.shape[2], &t);
+    
+    auto range = [this](int n) { return n > _edge ? _edge : n; };
+    switch (t.rank) {
+    case 1: {
+        std::cout << "vector";
+        int ri = range(t.size);
+        print_vec(d, t.size, ri);
+        std::cout << "\n";
+    } break;
+    case 2: {
+        std::cout << "matrix[";
+        int mj = t.shape[1], mi = t.shape[2], rj = range(mj),  ri = range(mi);
+        print_mat(d, mi, mj, ri, rj);
+        std::cout << "]\n";
+    } break;
+    case 4: {
+        std::cout << "tensor["
+                  << t.shape[2] << "," << t.shape[0] << "," << t.shape[1] << "," << t.shape[3]
+                  << "]\n";
+    } break;
+    default: std::cout << "tensor rank=" << t.rank << " not supported\n";
+    }
+}
+
+__HOST__ void
 AIO::print_node(obuf_node *node) {
     if (_trace) std::cout << '<' << node->id << '>';
 
@@ -38,14 +82,7 @@ AIO::print_node(obuf_node *node) {
                   << std::setprecision(f->prec ? f->prec : -1)
                   << std::setfill((char)f->fill);
     } break;
-    case GT_TENSOR: {
-        Tensor &t = _mmu->du2ten(*(DU*)v);
-        switch (t.rank) {
-        case 1: std::cout << "vector[" << t.shape[1] << "]"; break;
-        case 2: std::cout << "matrix[" << t.shape[0] << "," << t.shape[1] << "]"; break;
-        case 4: std::cout << "tensor[" << t.shape[2] << "," << t.shape[0] << "," << t.shape[1] << "," << t.shape[3] << "]"; break;
-        }
-    } break;
+    case GT_TENSOR: print_tensor(*(DU*)v); break;
     case GT_OPX: {
         OP  op = (OP)*v;
         U16 a  = *(U16*)(v+2);
