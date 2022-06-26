@@ -82,6 +82,7 @@ typedef F32         DU;                     ///< data unit
 typedef F64         DU2;                    ///< double preciesion data unit
 #define DU0         0                       /**< default data value     */
 #define DU_EPS      1.0e-6                  /**< floating point epsilon */
+#define IS_TENSOR(d) ((*(U32*)&d) & 1)
 ///@}
 ///
 /// colon word compiler
