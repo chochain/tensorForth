@@ -132,12 +132,20 @@ public:
     __GPU__  Tensor &tensor(U16 n, U16 h, U16 w, U16 c);
     __GPU__  Tensor &view(Tensor &A);
     __GPU__  void   free(Tensor &t);
-    __BOTH__ Tensor &du2ten(DU d)   {
+    ///
+    /// short hands for eforth ucode
+    ///
+    __BOTH__ Tensor &du2ten(DU d) {
         U32    *off = (U32*)&d;
-        Tensor *t   = (Tensor*)(_ten + (*off & ~7));
+        Tensor *t   = (Tensor*)(_ten + (*off & ~T4_TENSOR));
         return *t;
     }
-    __BOTH__ DU    ten2du(Tensor &t) { U32 o = ((U32)((U8*)&t - _ten)) | 1; return *(DU*)&o; }
+    __BOTH__ DU     ten2du(Tensor &t) {
+        U32 o = ((U32)((U8*)&t - _ten)) | T4_TENSOR;
+        return *(DU*)&o;
+    }
+    __GPU__  void   free(DU d)      { if (IS_TENSOR(d)) free(du2ten(d)); }
+    __GPU__  DU     view(DU d)      { return IS_TENSOR(d) ? ten2du(view(du2ten(d))) : d; }
     ///
     /// debugging methods (implemented in .cu)
     ///
