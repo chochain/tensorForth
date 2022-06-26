@@ -130,6 +130,13 @@ public:
     ///
     __GPU__  Tensor &tensor(U16 h, U16 w);
     __GPU__  Tensor &tensor(U16 n, U16 h, U16 w, U16 c);
+    __GPU__  void   free(Tensor &t);
+    __BOTH__ Tensor &du2ten(DU d)   {
+        U32    *off = (U32*)&d;
+        Tensor *t   = (Tensor*)(_ten + (*off & ~7));
+        return *t;
+    }
+    __BOTH__ DU    ten2du(Tensor &t) { U32 o = ((U32)((U8*)&t - _ten)) | 1; return *(DU*)&o; }
     ///
     /// debugging methods (implemented in .cu)
     ///
