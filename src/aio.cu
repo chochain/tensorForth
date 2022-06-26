@@ -38,6 +38,14 @@ AIO::print_node(obuf_node *node) {
                   << std::setprecision(f->prec ? f->prec : -1)
                   << std::setfill((char)f->fill);
     } break;
+    case GT_TENSOR: {
+        Tensor &t = _mmu->du2ten(*(DU*)v);
+        switch (t.rank) {
+        case 1: std::cout << "vector[" << t.shape[1] << "]"; break;
+        case 2: std::cout << "matrix[" << t.shape[0] << "," << t.shape[1] << "]"; break;
+        case 4: std::cout << "tensor[" << t.shape[2] << "," << t.shape[0] << "," << t.shape[1] << "," << t.shape[3] << "]"; break;
+        }
+    } break;
     case GT_OPX: {
         OP  op = (OP)*v;
         U16 a  = *(U16*)(v+2);
