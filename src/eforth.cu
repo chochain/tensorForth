@@ -152,7 +152,9 @@ ForthVM::init() {
     ///@brief - opcode sequence can be changed below this line
     ///@{
     CODE("dup",  PUSH(top)),
-    CODE("drop", top = ss.pop()),
+    CODE("drop",
+         if (IS_TENSOR(top)) mmu.free(mmu.du2ten(top));
+         top = ss.pop()),
     CODE("over", PUSH(ss[-1])),
     CODE("swap", DU n = ss.pop(); PUSH(n)),
     CODE("rot",  DU n = ss.pop(); DU m = ss.pop(); ss.push(n); PUSH(m)),
@@ -349,6 +351,11 @@ ForthVM::init() {
     ///@defgroup Tensor ops
     ///@brief - adhere to PyTorch naming
     ///@{
+    CODE("matrix",
+         IU w = POPi; IU h = POPi;
+         Tensor &t = mmu.tensor(h, w);
+         DU     d  = mmu.ten2du(t);
+         PUSH(d)),
     CODE("T[",      {}),                 ///< TODO: 1-D tensor
     CODE("T2[",     {}),                 ///< TODO: 2-D tensor
     CODE("T3[",     {}),                 ///< TODO: 3-D tensor
