@@ -34,31 +34,20 @@ Having a 'shell' that can interactively and incrementally run 'compiled programs
   + CUDA=5.2 or above
   + Optimization=O3
 
-### TODO
+### Completed 2.0
 * add tensor object (study torch tensor, 128-bit NHWC tensor)
-* integrate CUB, CUTLASS (utilities.init, gemm_api)
+* add TLSF tensor storage manager
+* integrate CUB, CUTLASS (utilities.init, gemm_api) - slow, later
+
+### TODO
 * formatted file IO (CSV, Numpy)
 * preprocessor (DALI)
 * ML cases and benchmark (kaggle.MNIST, ...)
 * add inter-VM communication (CUDA stream)
 * add dynamic graph (GNN)
 * integrate plots (tensorboard, R)
+* integrate ONNX 
 
 ### Progress
-#### Initialization
-|stage|snap|
-|---|---|
-|begin|<img src="./docs/img/cueforth_init_0.png">|
-|end|<img src="./docs/img/cueforth_init_1.png">|
-
-#### Outer Interpreter
-<img src="./docs/img/cueforth_words_0.png">
-
-#### Test - Dr. Ting's eForth lessons
-|case#|ok|snap|
-|---|---|---|
-|repeat|pass|<img src="./docs/img/cueforth_ast_0.png">|
-|weather|pass|<img src="./docs/img/cueforth_weather_0.png">|
-|multiply|pass|<img src="./docs/img/cueforth_mult_0.png">|
-|calendar|pass|<img src="./docs/img/cueforth_calndr_1.png">|
+#### [Release 1.0](./docs/v1_progress.md)
 
