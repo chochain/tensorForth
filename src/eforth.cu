@@ -1,5 +1,5 @@
 /**
- * @file
+ * @File
  * @brief - eForth Vritual Machine implementation
  *
  * <pre>Copyright (C) 2022- GreenII, this file is distributed under BSD 3-Clause License.</pre>
@@ -21,7 +21,6 @@
 ///@name Tensor ops
 ///@{
 #define TOPx      (*ptop &= ~1)                 /**< tensor flag mask for top                */
-#define RANK      ((*ptop & 6) >> 1)            /**< tensor rank of top                      */
 ///@}
 ///@name Dictioanry access
 ///@{
@@ -351,21 +350,44 @@ ForthVM::init() {
     ///@defgroup Tensor ops
     ///@brief - adhere to PyTorch naming
     ///@{
+    CODE("vector",  {}),                 ///< TODO: vector (i.e. tensor 1)
     CODE("matrix",
          IU w = POPi; IU h = POPi;
          Tensor &t = mmu.tensor(h, w);
          DU     d  = mmu.ten2du(t);
          PUSH(d)),
-    CODE("T[",      {}),                 ///< TODO: 1-D tensor
-    CODE("T2[",     {}),                 ///< TODO: 2-D tensor
-    CODE("T3[",     {}),                 ///< TODO: 3-D tensor
-    CODE("zeros",   {}),                 ///< TODO: zeros
-    CODE("ones",    {}),                 ///< TODO: ones
-    CODE("rand",    {}),                 ///< TODO: rand
-    CODE("randn",   {}),                 ///< TODO: randn
-    CODE("matmul",  {}),                 ///< TODO: matmul
-    CODE("view2",   {}),                 ///< TODO: 
-    CODE("view3",   {}),                 ///< TODO: 
+    CODE("tensor",  {}),                 ///< TODO: NHWC tensor
+    CODE("T[",      {}),
+    CODE("T2[",     {}),                 ///< TODO: matrix creation
+    CODE("reshape",                      ///< reshape as a vector(sz)
+         IU sz = POPi;
+         Tensor &t = mmu.du2ten(top);
+         t.reshape(sz)),
+    CODE("reshape2",                     ///< reshape as matrix(h,w)
+         IU w = POPi; IU h = POPi;
+         Tensor &t = mmu.du2ten(top);
+         t.reshape(h, w)),
+    CODE("reshape4",                     ///< reshape as Tensor(NHWC)
+         IU c = POPi; IU w = POPi; IU h = POPi; IU n = POPi;
+         Tensor &t = mmu.du2ten(top);
+         t.reshape(n, h, w, c)),
+    CODE("zeros",   if (IS_TENSOR(top)) mmu.du2ten(top).fill(0)),
+    CODE("ones",    if (IS_TENSOR(top)) mmu.du2ten(top).fill(1)),
+    CODE("rand",
+         U32 seed = POPi;
+         if (IS_TENSOR(top)) mmu.du2ten(top).random(seed)),
+    CODE("matmul",
+         Tensor &B = mmu.du2ten(POP());
+         Tensor &A = mmu.du2ten(POP());
+         PRINTF("\tA(%d,%d)=%p, B(%d,%d)=%p\n", A.H(), A.W(), &A, B.H(), B.W(), &B);
+         if (A.W() == B.H()) {
+             Tensor &C = mmu.tensor(A.H(), B.W());
+             Tensor::matmul(A, B, C);
+             PUSH(mmu.ten2du(C));
+         }),
+    CODE("view",                        ///< create a view of tensor on TOS
+         Tensor &A = mmu.view(mmu.du2ten(top));
+         PUSH(mmu.ten2du(A))),
     ///@}
     CODE("bye",   status = VM_STOP),
     CODE("boot",  mmu.clear(FIND("boot") + 1))
