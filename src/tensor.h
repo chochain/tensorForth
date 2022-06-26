@@ -8,7 +8,6 @@
 #define TEN4_SRC_TENSOR_H_
 #include <ostream>
 #include "ten4_types.h"
-#include "vector.h"
 /**
   TODO: Matrix product of two Tensors.
   The behavior depends on the dimensionality of the Tensors as follows:
@@ -34,12 +33,14 @@
 /// Note:
 ///    PyTorch.Tensor: size, dtype, type_id, stride, tensorstore
 ///
+#define TENSOR_VIEW 1
 struct Tensor : public Managed {
     U32              size;      ///< number of data elements, TODO: more than 4G elements
     U32              dsize;     ///< size of data element, F32 for now, TODO: others
     U32              rank;      ///< rank of tensor 2:matrix, 4:NHWC tensor
     U16              stride[4]; ///< strides to calculate memory offset
     U16              shape[4];  ///< Tensor4 (HWNC), matrix N=0, C=0
+    U32              attr = 0;  ///< tensor attributes (a view)
     union {
         U8           *data = 0; ///< managed memory block pointer
         DU           f;         ///< float storage
@@ -48,6 +49,15 @@ struct Tensor : public Managed {
             U32 idx: 31;        ///< tensor pool index (2^31 slots)
         };
     };
+    ///
+    /// static ops
+    ///
+    static __GPU__ Tensor &gemm(Tensor &A, Tensor &B, Tensor &C, DU alpha, DU beta);
+    static __GPU__ Tensor &grad(Tensor &A, Tensor &B, Tensor &C);
+    static __GPU__ Tensor &matmul(Tensor &A, Tensor &B, Tensor &C) { return gemm(A, B, C, 1.0, 0.0); }
+    ///
+    /// class contructors
+    ///
     __HOST__ Tensor();
     __HOST__ Tensor(U16 n, U16 h, U16 w, U16 c);
     __HOST__ Tensor(U16 h, U16 w);
@@ -55,20 +65,22 @@ struct Tensor : public Managed {
     __HOST__ ~Tensor();
     __HOST__ Tensor(DU f0): f(f0)  { t = 0; }
     ///
-    /// dimensions
+    /// attributes
     ///
-    __BOTH__ U16 N() { return shape[2]; }
-    __BOTH__ U16 H() { return shape[0]; }
-    __BOTH__ U16 W() { return shape[1]; }
-    __BOTH__ U16 C() { return shape[3]; }
+    __BOTH__ U16 N()        { return shape[2]; }
+    __BOTH__ U16 H()        { return shape[0]; }
+    __BOTH__ U16 W()        { return shape[1]; }
+    __BOTH__ U16 C()        { return shape[3]; }
+    __BOTH__ bool is_view() { return attr & TENSOR_VIEW; }
     ///
     /// tensor life-cycle ops
     ///
     __BOTH__ Tensor &reset(void *mptr, U32 sz);
+    __BOTH__ Tensor &reshape(U32 sz);
     __BOTH__ Tensor &reshape(U16 h, U16 w);
     __BOTH__ Tensor &reshape(U16 n, U16 h, U16 w, U16 c);
     __BOTH__ Tensor &fill(DU v);
-    __BOTH__ Tensor &random(int seed=0);
+    __BOTH__ Tensor &random(U32 seed=0);
     __HOST__ void   copy_to_host(void* dst) { cudaMemcpy(dst, data, size, cudaMemcpyDeviceToHost); }
     ///
     /// IO
@@ -112,10 +124,5 @@ struct Tensor : public Managed {
     __BOTH__ __INLINE__ bool   operator>=(F32 f0)    { return (f - f0) >=  DU_EPS; }
     __BOTH__ __INLINE__ bool   operator==(F32 f0)    { return fabs(f - f0)  <  DU_EPS; }
     __BOTH__ __INLINE__ bool   operator!=(F32 f0)    { return fabs(f - f0)  >= DU_EPS; }
-    ///
-    /// GEMM ops
-    ///
-    __GPU__ Tensor &gemm(Tensor &A, Tensor &B, Tensor &C);
-    __GPU__ Tensor &grad(Tensor &A, Tensor &B, Tensor &C);
 };
 #endif // TEN4_SRC_TENSOR_H_
