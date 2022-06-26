@@ -25,8 +25,8 @@
   @param  size    size. (max 4G)
 */
 __BOTH__ void
-TLSF::init(U8 *mptr, U64 sz) {
-    printf("tlsf#init(%p, %lx)\n", mptr, sz);
+TLSF::init(U8 *mptr, U32 sz) {
+    printf("tlsf#init(%p, 0x%x)\n", mptr, sz);
     _heap    = mptr;
     _heap_sz = sz;
     U32 bsz  = _heap_sz - sizeof(used_block);           // minus end block
