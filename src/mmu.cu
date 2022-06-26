@@ -91,11 +91,12 @@ MMU::tensor(U16 h, U16 w) {
     void   *mptr = tstore.malloc((U64)sizeof(DU) * sz);
     t->reset(mptr, sz);
     t->reshape(h, w);
-    __syncthreads();
     
     return *t;
 };
-
+///
+/// allocate tensor 4 from storage
+///
 __GPU__ Tensor&
 MMU::tensor(U16 n, U16 h, U16 w, U16 c) {
     Tensor *t = (Tensor*)tstore.malloc(sizeof(Tensor));
@@ -105,9 +106,18 @@ MMU::tensor(U16 n, U16 h, U16 w, U16 c) {
     void   *mptr = (void*)tstore.malloc((U64)sizeof(DU) * sz);
     t->reset(mptr, sz);
     t->reshape(n, h, w, c);
-    __syncthreads();
     
     return *t;
+}
+///
+/// release tensor memory blocks
+///
+__GPU__ void
+MMU::free(Tensor &t) {
+    tstore.free((void*)t.data);
+    tstore.free((void*)&t);
+    tstore.show_stat();
+    tstore.dump_freelist();
 }
 ///
 /// display dictionary word list
@@ -161,16 +171,26 @@ MMU::see(std::ostream &fout, U16 w) {
 __HOST__ void
 MMU::ss_dump(std::ostream &fout, U16 vid, U16 n, int radix) {
     bool x = radix != 10;
+    auto show = [this, &fout, x](DU s) {
+        if (IS_TENSOR(s)) {
+            Tensor &t = this->du2ten(s);
+            switch(t.rank) {
+            case 1: fout << "T1[" << t.shape[1] << "]"; break;
+            case 2: fout << "T2[" << t.shape[0] << "," << t.shape[1] << "]"; break;
+            case 4: fout << "T4[" << t.shape[2] << "," << t.shape[0] << "," << t.shape[1] << "," << t.shape[3] << "]"; break;
+            }
+        }
+        else if (x) fout << static_cast<int>(s);
+        else fout << s;
+    };
     DU *ss = &_vss[vid * T4_SS_SZ];
     fout << " <";
     if (x) fout << std::setbase(radix);
     for (U16 i=0; i<n; i++) {
-        if (x) fout << static_cast<int>(ss[i]);
-        else   fout << ss[i];
+        show(ss[i]);
         fout << " ";
     }
-    if (x) fout << static_cast<int>(ss[T4_SS_SZ-1]);
-    else   fout << ss[T4_SS_SZ-1];
+    show(ss[T4_SS_SZ-1]);
     fout << "> ok" << std::endl;
 }
 ///
