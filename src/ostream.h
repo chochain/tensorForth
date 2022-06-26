@@ -7,7 +7,6 @@
 #ifndef TEN4_SRC_OSTREAM_H_
 #define TEN4_SRC_OSTREAM_H_
 #include "ten4_config.h"
-#include "tensor.h"
 #include "util.h"
 
 //================================================================
@@ -161,12 +160,11 @@ public:
         _write(GT_INT, (U8*)&i, sizeof(S32));
         return *this;
     }
-    __GPU__ Ostream& operator<<(F32 f) {
-        _write(GT_FLOAT, (U8*)&f, sizeof(F32));
+    __GPU__ Ostream& operator<<(DU d) {
+        GT t = IS_TENSOR(d) ? GT_TENSOR : GT_FLOAT;
+        printf("ostream: GT=%d, %f=0x%x\n", t, d, *(U32*)&d);
+        _write(t, (U8*)&d, sizeof(DU));
         return *this;
-    }
-    __GPU__ Ostream& operator<<(Tensor t) {
-        _write(GT_TENSOR, (U8*)&t, sizeof(Tensor));
     }
     __GPU__ Ostream& operator<<(const char *s) {
         int len = STRLENB(s)+1;
