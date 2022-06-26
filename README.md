@@ -34,11 +34,6 @@ Having a 'shell' that can interactively and incrementally run 'compiled programs
   + CUDA=5.2 or above
   + Optimization=O3
 
-### Completed 2.0
-* add tensor object (study torch tensor, 128-bit NHWC tensor)
-* add TLSF tensor storage manager
-* integrate CUB, CUTLASS (utilities.init, gemm_api) - slow, later
-
 ### TODO
 * formatted file IO (CSV, Numpy)
 * preprocessor (DALI)
@@ -48,6 +43,10 @@ Having a 'shell' that can interactively and incrementally run 'compiled programs
 * integrate plots (tensorboard, R)
 * integrate ONNX 
 
-### Progress
+### History
 #### [Release 1.0](./docs/v1_progress.md)
+#### Release 2.0
+* added tensor object (study torch tensor, 128-bit NHWC tensor)
+* added TLSF tensor storage manager
+* integrate CUB, CUTLASS (utilities.init, gemm_api) - checked but slow, later
 
