@@ -110,11 +110,25 @@ MMU::tensor(U16 n, U16 h, U16 w, U16 c) {
     return *t;
 }
 ///
+/// create a view of a Tensor
+///
+__GPU__ Tensor&
+MMU::view(Tensor &A) {
+    Tensor *t = (Tensor*)tstore.malloc(sizeof(Tensor));
+    ///
+    /// replicate A tensor
+    ///
+    memcpy(t, &A, sizeof(Tensor));
+    t->attr |= TENSOR_VIEW;
+    
+    return *t;
+}
+///
 /// release tensor memory blocks
 ///
 __GPU__ void
 MMU::free(Tensor &t) {
-    tstore.free((void*)t.data);
+    if (!t.is_view()) tstore.free((void*)t.data);
     tstore.free((void*)&t);
     tstore.show_stat();
     tstore.dump_freelist();
@@ -174,10 +188,11 @@ MMU::ss_dump(std::ostream &fout, U16 vid, U16 n, int radix) {
     auto show = [this, &fout, x](DU s) {
         if (IS_TENSOR(s)) {
             Tensor &t = this->du2ten(s);
+            fout << (char)(t.is_view() ? 'V' : 'T');
             switch(t.rank) {
-            case 1: fout << "T1[" << t.shape[1] << "]"; break;
-            case 2: fout << "T2[" << t.shape[0] << "," << t.shape[1] << "]"; break;
-            case 4: fout << "T4[" << t.shape[2] << "," << t.shape[0] << "," << t.shape[1] << "," << t.shape[3] << "]"; break;
+            case 1: fout << "1[" << t.shape[1] << "]"; break;
+            case 2: fout << "2[" << t.shape[0] << "," << t.shape[1] << "]"; break;
+            case 4: fout << "4[" << t.shape[2] << "," << t.shape[0] << "," << t.shape[1] << "," << t.shape[3] << "]"; break;
             }
         }
         else if (x) fout << static_cast<int>(s);
