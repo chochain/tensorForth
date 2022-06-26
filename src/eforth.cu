@@ -102,7 +102,7 @@ __GPU__ __INLINE__ void ForthVM::call(IU w) {
 ///
 /// debug functions
 ///
-__GPU__ __INLINE__ void ForthVM::dot(DU v)          { fout << ' ' << v; }
+__GPU__ __INLINE__ void ForthVM::dot(DU v)          { fout << ' ' << v;     }
 __GPU__ __INLINE__ void ForthVM::dot_r(int n, DU v) { fout << setw(n) << v; }
 __GPU__ __INLINE__ void ForthVM::ss_dump(int n) {
     ss[T4_SS_SZ-1] = top;        // put top at the tail of ss (for host display)
@@ -145,25 +145,25 @@ ForthVM::init() {
          while (LDi(ip)) add_iu(LDi(ip))),                // copy&paste code
     CODE(">r",   rs.push(POP())),
     CODE("r>",   PUSH(rs.pop())),
-    CODE("r@",   PUSH(rs[-1])),
+    CODE("r@",   PUSH(mmu.view(rs[-1]))),
     ///@}
     ///@defgroup Stack ops
     ///@brief - opcode sequence can be changed below this line
     ///@{
-    CODE("dup",  PUSH(top)),
-    CODE("drop",
-         if (IS_TENSOR(top)) mmu.free(mmu.du2ten(top));
-         top = ss.pop()),
-    CODE("over", PUSH(ss[-1])),
+    CODE("dup",  PUSH(mmu.view(top))),                    // CC: new view created
+    CODE("drop", mmu.free(top); top = ss.pop()),          // free tensor or view
+    CODE("over", PUSH(mmu.view(ss[-1]))),                 // CC: new view created
     CODE("swap", DU n = ss.pop(); PUSH(n)),
     CODE("rot",  DU n = ss.pop(); DU m = ss.pop(); ss.push(n); PUSH(m)),
-    CODE("pick", int i = INT(top); top = ss[-i]),
+    CODE("pick", int i = INT(top); top = mmu.view(ss[-i])),
     ///@}
     ///@defgroup Stack double
     ///@{
-    CODE("2dup", PUSH(ss[-1]); PUSH(ss[-1])),
-    CODE("2drop",ss.pop(); top = ss.pop()),
-    CODE("2over",PUSH(ss[-3]); PUSH(ss[-3])),
+    CODE("2dup", PUSH(mmu.view(ss[-1])); PUSH(mmu.view(ss[-1]))),
+    CODE("2drop",
+         DU s = ss.pop(); mmu.free(s); mmu.free(top);
+         top = ss.pop()),
+    CODE("2over",PUSH(mmu.view(ss[-3])); PUSH(mmu.view(ss[-3]))),
     CODE("2swap",
         DU n = ss.pop(); DU m = ss.pop(); DU l = ss.pop();
         ss.push(n); PUSH(l); PUSH(m)),
@@ -357,8 +357,9 @@ ForthVM::init() {
          DU     d  = mmu.ten2du(t);
          PUSH(d)),
     CODE("tensor",  {}),                 ///< TODO: NHWC tensor
-    CODE("T[",      {}),
+    CODE("T[",      {}),                 ///< TODO: vector creation
     CODE("T2[",     {}),                 ///< TODO: matrix creation
+    CODE("copy",    {}),                 ///< TODO: hard copy of a tensor
     CODE("reshape",                      ///< reshape as a vector(sz)
          IU sz = POPi;
          Tensor &t = mmu.du2ten(top);
@@ -385,9 +386,6 @@ ForthVM::init() {
              Tensor::matmul(A, B, C);
              PUSH(mmu.ten2du(C));
          }),
-    CODE("view",                        ///< create a view of tensor on TOS
-         Tensor &A = mmu.view(mmu.du2ten(top));
-         PUSH(mmu.ten2du(A))),
     ///@}
     CODE("bye",   status = VM_STOP),
     CODE("boot",  mmu.clear(FIND("boot") + 1))
