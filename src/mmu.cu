@@ -113,14 +113,15 @@ MMU::tensor(U16 n, U16 h, U16 w, U16 c) {
 /// create a view of a Tensor
 ///
 __GPU__ Tensor&
-MMU::view(Tensor &A) {
+MMU::view(Tensor &t0) {
     Tensor *t = (Tensor*)tstore.malloc(sizeof(Tensor));
     ///
     /// replicate A tensor
     ///
-    memcpy(t, &A, sizeof(Tensor));
+    MEMCPY(t, &t0, sizeof(Tensor));
     t->attr |= TENSOR_VIEW;
     
+    PRINTF("view created t=%p from A=%p\n", t, &t0);
     return *t;
 }
 ///
@@ -132,6 +133,27 @@ MMU::free(Tensor &t) {
     tstore.free((void*)&t);
     tstore.show_stat();
     tstore.dump_freelist();
+}
+///
+/// hard copy a tensor
+///
+__GPU__ Tensor&
+MMU::copy(Tensor &t0) {
+    Tensor *t  = (Tensor*)tstore.malloc(sizeof(Tensor));
+    MEMCPY(t, &t0, sizeof(Tensor));
+    ///
+    /// hard copy data block
+    ///
+    U64 bsz   = sizeof(DU) * t0.size;
+    U8  *mptr = (U8*)tstore.malloc(bsz);
+    MEMCPY(mptr, t0.data, bsz);
+    ///
+    /// reset attributes
+    ///
+    t->attr &= ~TENSOR_VIEW;  // not a view
+    t->data  = mptr;
+    
+    return *t;
 }
 ///
 /// display dictionary word list

@@ -130,8 +130,9 @@ public:
     ///
     __GPU__  Tensor &tensor(U16 h, U16 w);
     __GPU__  Tensor &tensor(U16 n, U16 h, U16 w, U16 c);
-    __GPU__  Tensor &view(Tensor &A);
+    __GPU__  Tensor &view(Tensor &t0);
     __GPU__  void   free(Tensor &t);
+    __GPU__  Tensor &copy(Tensor &t0);
     ///
     /// short hands for eforth ucode
     ///
