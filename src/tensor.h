@@ -33,7 +33,7 @@
 /// Note:
 ///    PyTorch.Tensor: size, dtype, type_id, stride, tensorstore
 ///
-#define TENSOR_VIEW 1
+#define TENSOR_VIEW  1
 struct Tensor : public Managed {
     U32              size;      ///< number of data elements, TODO: more than 4G elements
     U32              dsize;     ///< size of data element, F32 for now, TODO: others
