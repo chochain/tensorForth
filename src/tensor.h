@@ -6,6 +6,7 @@
  */
 #ifndef TEN4_SRC_TENSOR_H_
 #define TEN4_SRC_TENSOR_H_
+#include <ostream>
 #include "ten4_types.h"
 #include "vector.h"
 /**
@@ -53,7 +54,9 @@ struct Tensor : public Managed {
     __HOST__ Tensor(U32 sz);
     __HOST__ ~Tensor();
     __HOST__ Tensor(DU f0): f(f0)  { t = 0; }
-    
+    ///
+    /// dimensions
+    ///
     __BOTH__ U16 N() { return shape[2]; }
     __BOTH__ U16 H() { return shape[0]; }
     __BOTH__ U16 W() { return shape[1]; }
@@ -67,6 +70,10 @@ struct Tensor : public Managed {
     __BOTH__ Tensor &fill(DU v);
     __BOTH__ Tensor &random(int seed=0);
     __HOST__ void   copy_to_host(void* dst) { cudaMemcpy(dst, data, size, cudaMemcpyDeviceToHost); }
+    ///
+    /// IO
+    ///
+    __BOTH__ void to_s(std::ostream &fout);
     ///
     /// assignment
     ///
