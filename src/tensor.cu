@@ -58,8 +58,10 @@ Tensor::gemm(
     }
     PRINTF("\nGEMM M=%d, N=%d, K=%d", m, n, k);
     
-    dim3 block(16, 16);         /* 256 threads */
-    dim3 grid((n + block.x - 1) / block.x, (m + block.y - 1) / block.y);
+    dim3 block(16, 16), grid(
+        (n + block.x - 1) / block.x,
+        (m + block.y - 1) / block.y
+    );
     k_GEMM<<<grid, block>>>(
         m, n, k,
         (DU*)A.data, (DU*)B.data, (DU*)C.data,
@@ -190,11 +192,10 @@ __BOTH__ Tensor&
 Tensor::random(U32 seed) {
     int h = H();
     int w = W();
-    dim3 block(16, 16);
-    dim3 grid(
+    dim3 block(16, 16), grid(
         (w + block.x - 1) / block.x,     /* row major */
         (h + block.y - 1) / block.y
-        );
+    );
     k_matrix_randomize<<<grid, block>>>((DU*)data, h, w, seed);
     return *this;
 }
