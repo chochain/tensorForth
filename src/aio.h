@@ -19,6 +19,7 @@ public:
     int     _radix = 10;    ///< output stream radix
     bool    _trace;         ///< debug tracing control
     int     _edge  = 3;     ///< number of tensor edge items
+    int     _precision = 4; ///< shown floating point precision
 
     AIO(MMU *mmu, bool trace) : _istr(new Istream()), _ostr(new Ostream()), _mmu(mmu), _trace(trace) {}
 
