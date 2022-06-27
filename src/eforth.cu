@@ -359,7 +359,7 @@ ForthVM::init() {
     CODE("tensor",  {}),                 ///< TODO: NHWC tensor
     CODE("T[",      {}),                 ///< TODO: vector creation
     CODE("T2[",     {}),                 ///< TODO: matrix creation
-    CODE("copy",    {}),                 ///< TODO: hard copy of a tensor
+    CODE("copy",    PUSH(mmu.copy(top))),
     CODE("reshape",                      ///< reshape as a vector(sz)
          IU sz = POPi;
          Tensor &t = mmu.du2ten(top);
