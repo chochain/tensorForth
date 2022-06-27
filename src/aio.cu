@@ -55,8 +55,10 @@ AIO::print_tensor(DU v) {
     auto   range = [this](int n) { return n < _edge ? n : _edge; };
     Tensor &t = _mmu->du2ten(v);
     DU     *d = (DU*)t.data;
-    
-    std::cout << std::right << std::setprecision(_precision);
+
+    std::ios::fmtflags fmt0 = std::cout.flags();
+    std::cout.flags(std::ios::showpos | std::ios::right | std::ios::fixed);
+    std::cout << std::setprecision(_precision);
     switch (t.rank) {
     case 1: {
         std::cout << "vector";
@@ -65,18 +67,19 @@ AIO::print_tensor(DU v) {
     } break;
     case 2: {
         std::cout << "matrix[\n\t";
-        int mj = t.shape[0], mi = t.shape[1], rj = range(mj),  ri = range(mi);
+        int mj = t.H(), mi = t.W(), rj = range(mj),  ri = range(mi);
         print_mat(d, mi, mj, ri, rj);
         std::cout << "]";
     } break;
     case 4: {
         std::cout << "tensor["
-                  << t.shape[2] << "," << t.shape[0] << "," << t.shape[1] << "," << t.shape[3]
+                  << t.N() << "," << t.H() << "," << t.W() << "," << t.C()
                   << "]";
     } break;
     default: std::cout << "tensor rank=" << t.rank << " not supported";
     }
-    std::cout << std::setprecision(-1) << "\n";
+    std::cout << "\n";
+    std::cout.flags(fmt0);
 }
 
 __HOST__ void
