@@ -136,17 +136,18 @@ public:
     ///
     /// short hands for eforth ucode
     ///
-    __BOTH__ Tensor &du2ten(DU d) {
+    __BOTH__ __INLINE__ Tensor &du2ten(DU d) {
         U32    *off = (U32*)&d;
         Tensor *t   = (Tensor*)(_ten + (*off & ~T4_TENSOR));
         return *t;
     }
-    __BOTH__ DU     ten2du(Tensor &t) {
+    __BOTH__ __INLINE__ DU     ten2du(Tensor &t) {
         U32 o = ((U32)((U8*)&t - _ten)) | T4_TENSOR;
         return *(DU*)&o;
     }
-    __GPU__  void   free(DU d)      { if (IS_TENSOR(d)) free(du2ten(d)); }
-    __GPU__  DU     view(DU d)      { return IS_TENSOR(d) ? ten2du(view(du2ten(d))) : d; }
+    __GPU__  __INLINE__ void free(DU d) { if (IS_TENSOR(d)) free(du2ten(d)); }
+    __GPU__  __INLINE__ DU   view(DU d) { return IS_TENSOR(d) ? ten2du(view(du2ten(d))) : d; }
+    __GPU__  __INLINE__ DU   copy(DU d) { return IS_TENSOR(d) ? ten2du(copy(du2ten(d))) : d; }
     ///
     /// debugging methods (implemented in .cu)
     ///
