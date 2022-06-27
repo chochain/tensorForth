@@ -118,7 +118,7 @@ MMU::view(Tensor &t0) {
     ///
     /// replicate A tensor
     ///
-    MEMCPY(t, &t0, sizeof(Tensor));
+    memcpy(t, &t0, sizeof(Tensor));
     t->attr |= TENSOR_VIEW;
     
     PRINTF("view created t=%p from A=%p\n", t, &t0);
@@ -140,13 +140,13 @@ MMU::free(Tensor &t) {
 __GPU__ Tensor&
 MMU::copy(Tensor &t0) {
     Tensor *t  = (Tensor*)tstore.malloc(sizeof(Tensor));
-    MEMCPY(t, &t0, sizeof(Tensor));
+    memcpy(t, &t0, sizeof(Tensor));
     ///
     /// hard copy data block
     ///
     U64 bsz   = sizeof(DU) * t0.size;
     U8  *mptr = (U8*)tstore.malloc(bsz);
-    MEMCPY(mptr, t0.data, bsz);
+    memcpy(mptr, t0.data, bsz);
     ///
     /// reset attributes
     ///
