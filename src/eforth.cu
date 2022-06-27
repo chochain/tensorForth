@@ -375,15 +375,20 @@ ForthVM::init() {
     CODE("zeros",   if (IS_TENSOR(top)) mmu.du2ten(top).fill(0)),
     CODE("ones",    if (IS_TENSOR(top)) mmu.du2ten(top).fill(1)),
     CODE("rand",
-         U32 seed = POPi;
-         if (IS_TENSOR(top)) mmu.du2ten(top).random(seed)),
+         U32 seed = IS_TENSOR(top) ? 0 : POPi;
+         if (IS_TENSOR(top)) mmu.du2ten(top).random(seed);
+         else                top = (clock() & ~T4_TENSOR)),
     CODE("matmul",
-         Tensor &B = mmu.du2ten(POP());
-         Tensor &A = mmu.du2ten(POP());
-         PRINTF("\tA(%d,%d)=%p, B(%d,%d)=%p\n", A.H(), A.W(), &A, B.H(), B.W(), &B);
+         DU b = POP();  DU a = POP();
+         Tensor &A = mmu.du2ten(a);
+         Tensor &B = mmu.du2ten(b);
+         PRINTF("\tA[%d,%d]=%p x B[%d,%d]=%p", A.H(), A.W(), &A, B.H(), B.W(), &B);
          if (A.W() == B.H()) {
              Tensor &C = mmu.tensor(A.H(), B.W());
+             PRINTF(" => C[%d,%d]=%p\n", C.H(), C.W(), &C);
              Tensor::matmul(A, B, C);
+             mmu.free(b);
+             mmu.free(a);
              PUSH(mmu.ten2du(C));
          }),
     ///@}
