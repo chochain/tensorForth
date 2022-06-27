@@ -1,5 +1,5 @@
 /**
- * @file
+ * @File
  * @brief tensorForth Async IO module implementation
  *
  * <pre>Copyright (C) 2021- GreenII, this file is distributed under BSD 3-Clause License.</pre>
@@ -24,45 +24,59 @@ AIO::readline() {
 __HOST__ void
 AIO::print_vec(DU *d, int mi, int ri) {
     std::cout << "[";
-    for (int i=0;     i<ri; i++) std::cout << d[i] << ", ";
-    for (int i=mi-ri; i<mi; i++) std::cout << d[i] << ", ";
+    for (int i=0, i1=1; i<ri; i++, i1++) {
+        std::cout << d[i] << (i1==ri ? "" : ", ");
+    }
+    int x = mi - ri;
+    if (x > ri) std::cout << ", ...";
+    for (int i=(x > ri ? x : ri); i<mi; i++) {
+        std::cout << ", " << d[i];
+    }
     std::cout << "]";
 }
 
 __HOST__ void
 AIO::print_mat(DU *d, int mi, int mj, int ri, int rj) {
     DU  *d0 = d, *d1 = d;
-    for (int j=0;     j<rj; j++) { std::cout << "\n\t";  print_vec(d0++, mi, ri); }
-    for (int j=mj-rj; j<mj; j++) { std::cout << ",\n\t"; print_vec(d1++, mi, ri); }
+    for (int j=0, j1=1; j<rj; j++, j1++) {
+        print_vec(d0++, mi, ri);
+        std::cout << (j1==mj ? "\n\t" : ",\n\t");
+    }
+    int y = mj - rj;
+    if (y > rj) std::cout << "...,\n\t";
+    for (int j=(y > rj) ? y : rj, j1=j+1; j<mj; j++, j1++) {
+        print_vec(d1++, mi, ri);
+        std::cout << (j1==mj ? "" : ",\n\t");
+    }
 }
 
 __HOST__ void
 AIO::print_tensor(DU v) {
+    auto   range = [this](int n) { return n < _edge ? n : _edge; };
     Tensor &t = _mmu->du2ten(v);
     DU     *d = (DU*)t.data;
-    printf("printing Tensor(%d,%d)=%p\n", t.shape[1], t.shape[2], &t);
     
-    auto range = [this](int n) { return n > _edge ? _edge : n; };
+    std::cout << std::right << std::setprecision(_precision);
     switch (t.rank) {
     case 1: {
         std::cout << "vector";
         int ri = range(t.size);
         print_vec(d, t.size, ri);
-        std::cout << "\n";
     } break;
     case 2: {
-        std::cout << "matrix[";
-        int mj = t.shape[1], mi = t.shape[2], rj = range(mj),  ri = range(mi);
+        std::cout << "matrix[\n\t";
+        int mj = t.shape[0], mi = t.shape[1], rj = range(mj),  ri = range(mi);
         print_mat(d, mi, mj, ri, rj);
-        std::cout << "]\n";
+        std::cout << "]";
     } break;
     case 4: {
         std::cout << "tensor["
                   << t.shape[2] << "," << t.shape[0] << "," << t.shape[1] << "," << t.shape[3]
-                  << "]\n";
+                  << "]";
     } break;
-    default: std::cout << "tensor rank=" << t.rank << " not supported\n";
+    default: std::cout << "tensor rank=" << t.rank << " not supported";
     }
+    std::cout << std::setprecision(-1) << "\n";
 }
 
 __HOST__ void
