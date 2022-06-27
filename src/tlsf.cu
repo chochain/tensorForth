@@ -68,7 +68,7 @@ TLSF::init(U8 *mptr, U32 sz) {
 __GPU__ void*
 TLSF::malloc(U32 sz) {
     PRINTF("tlsf#malloc(0x%x)\n", sz);
-    U32 bsz = sz + sizeof(used_block);          // logical => physical size
+    U32 bsz = ALIGN8(sz) + sizeof(used_block);  // logical => physical size
 
     _LOCK;
     U32 index       = _find_free_index(bsz);
@@ -94,8 +94,7 @@ TLSF::malloc(U32 sz) {
 __GPU__ void*
 TLSF::realloc(void *p0, U32 sz) {
     ASSERT(p0);
-
-    U32 bsz = sz + sizeof(used_block);                   // include the header
+    U32 bsz = ALIGN8(sz) + sizeof(used_block);           // include the header
 
     used_block *blk = (used_block *)BLK_HEAD(p0);
     ASSERT(IS_USED(blk));                                // make sure it is used
@@ -270,7 +269,7 @@ __GPU__ void
 TLSF::_split(free_block *blk, U32 bsz) {
     ASSERT(IS_USED(blk));
 
-    U32 minsz = bsz + (1 << MN_BITS) + sizeof(free_block);
+    U32 minsz = ALIGN8(bsz) + (1 << MN_BITS) + 2*sizeof(free_block);
     if (blk->bsz < minsz) return;                                     // too small to split
 
     // split block, free
