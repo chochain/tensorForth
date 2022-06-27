@@ -88,7 +88,7 @@ class Ostream : public Managed {
         case GT_INT:   printf("%d\n", *(GI*)d);      break;
         case GT_FLOAT: printf("%G\n", *(GF*)d);      break;
         case GT_STR:   printf("%c\n", d);            break;
-        case GT_TENSOR:printf("%G\n", (*(GT*)d).f);  break;
+        case GT_TENSOR:printf("Tensor %8x\n", *(U32*)d);  break;
         case GT_FMT:   printf("%8x\n", *(U16*)d);    break;
         case GT_OPX: {
             OP  op = (OP)*d;
@@ -162,7 +162,6 @@ public:
     }
     __GPU__ Ostream& operator<<(DU d) {
         GT t = IS_TENSOR(d) ? GT_TENSOR : GT_FLOAT;
-        printf("ostream: GT=%d, %f=0x%x\n", t, d, *(U32*)&d);
         _write(t, (U8*)&d, sizeof(DU));
         return *this;
     }
