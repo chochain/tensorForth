@@ -1,4 +1,4 @@
-/**
+/** -*- c++ -*-
  * @file
  * @brief tensorForth - Memory Manager
  * <pre>Copyright (C) 2022- GreenII, this file is distributed under BSD 3-Clause License.</pre>
@@ -18,7 +18,7 @@ MMU::MMU() {
 
     tstore.init(_ten, T4_TENSOR_SZ);
     
-    MMU_TRACE("MMU dict=%p, mem=%p, vss=%p, ten=%p\n", _dict, _pmem, _vss, _ten);
+    DEBUG("MMU dict=%p, mem=%p, vss=%p, ten=%p\n", _dict, _pmem, _vss, _ten);
 }
 __HOST__
 MMU::~MMU() {
@@ -33,7 +33,7 @@ MMU::~MMU() {
 ///
 __GPU__ int
 MMU::find(const char *s, bool compile, bool ucase) {
-    MMU_TRACE("find(%s) => ", s);
+    DEBUG("find(%s) => ", s);
     for (int i = _didx - (compile ? 2 : 1); i >= 0; --i) {
         const char *t = _dict[i].name;
         if (ucase && STRCASECMP(t, s)==0) return i;
@@ -46,7 +46,7 @@ MMU::find(const char *s, bool compile, bool ucase) {
 ///
 __GPU__ void
 MMU::colon(const char *name) {
-    MMU_TRACE("colon(%s) => ", name);
+    DEBUG("colon(%s) => ", name);
     int  sz = STRLENB(name);                // aligned string length
     Code &c = _dict[_didx++];               // get next dictionary slot
     align();                                // nfa 32-bit aligned (adjust _midx)
@@ -93,7 +93,7 @@ MMU::tensor(U32 sz) {
 __GPU__ Tensor&
 MMU::tensor(U16 h, U16 w) {
     U32 sz = h * w;
-    PRINTF("mmu#tensor(%d,%d) => size=%d\n", h, w, sz);
+    DEBUG("mmu#tensor(%d,%d) => size=%d\n", h, w, sz);
     Tensor &t = this->tensor(sz);
     t.reshape(h, w);
     return t;
@@ -104,7 +104,7 @@ MMU::tensor(U16 h, U16 w) {
 __GPU__ Tensor&
 MMU::tensor(U16 n, U16 h, U16 w, U16 c) {
     U32 sz = n * h * w * c;
-    PRINTF("mmu#tensor(%d,%d,%d,%d) => size=%d\n", n, h, w, c, sz);
+    DEBUG("mmu#tensor(%d,%d,%d,%d) => size=%d\n", n, h, w, c, sz);
     Tensor &t = this->tensor(sz);
     t.reshape(n, h, w, c);
     return t;
@@ -121,7 +121,7 @@ MMU::view(Tensor &t0) {
     memcpy(t, &t0, sizeof(Tensor));
     t->attr |= TENSOR_VIEW;
     
-    PRINTF("view created t=%p from A=%p\n", t, &t0);
+    DEBUG("view created t=%p from A=%p\n", t, &t0);
     return *t;
 }
 ///

@@ -26,15 +26,15 @@ struct functor : fop {
         U64 *fp;                             ///< pointer for debugging
     };
     __GPU__ functor(const F &f) : op(f) {    ///< constructor
-        MMU_TRACE("functor(%p) => ", this);
+        DEBUG("functor(%p) => ", this);
     }
     __GPU__ functor &operator=(const F &f) {
-        MMU_TRACE("op=%p", this);
+        DEBUG("op=%p", this);
         op = f;
         return *this;
     }
     __GPU__ void operator()() {              ///< lambda invoke
-        MMU_TRACE("op=%p => ", this);
+        DEBUG("op=%p => ", this);
         op();
     }
 };
@@ -57,18 +57,18 @@ struct Code : public Managed {
     };
     template<typename F>    ///< template function for lambda
     __GPU__ Code(const char *n, const F &f, bool im=false) : name(n), xt(new functor<F>(f)) {
-        MMU_TRACE("Code(...) %p %s\n", xt, name);
+        DEBUG("Code(...) %p %s\n", xt, name);
         immd = im ? 1 : 0;
     }
     /*
     __GPU__ Code(const Code &c) : name(c.name), xt(c.xt) {
-        MMU_TRACE("Code(&c) %p %s\n", xt, name);
+        DEBUG("Code(&c) %p %s\n", xt, name);
     }
     */
     __GPU__ Code &operator=(const Code &c) {                ///> called by Vector::push(T*)
         name = c.name;
         xt   = c.xt;
-        MMU_TRACE("Code()= %p %s\n", xt, name);
+        DEBUG("Code()= %p %s\n", xt, name);
     }
 };
 #define CODE(s, g)    { s, [this] __GPU__ (){ g; }}
