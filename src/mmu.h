@@ -128,13 +128,14 @@ public:
     ///
     /// tensor life-cycle methods
     ///
-    __GPU__  Tensor &tensor(U16 h, U16 w);
-    __GPU__  Tensor &tensor(U16 n, U16 h, U16 w, U16 c);
-    __GPU__  Tensor &view(Tensor &t0);
-    __GPU__  void   free(Tensor &t);
-    __GPU__  Tensor &copy(Tensor &t0);
+    __GPU__  Tensor &tensor(U32 sz);                        ///< create an array
+    __GPU__  Tensor &tensor(U16 h, U16 w);                  ///< create a matrix
+    __GPU__  Tensor &tensor(U16 n, U16 h, U16 w, U16 c);    ///< create a NHWC tensor
+    __GPU__  Tensor &view(Tensor &t0);                      ///< create a view to a tensor
+    __GPU__  void   free(Tensor &t);                        ///< free the tensor
+    __GPU__  Tensor &copy(Tensor &t0);                      ///< hard copy a tensor
     ///
-    /// short hands for eforth ucode
+    /// short hands for eforth tensor ucodes
     ///
     __BOTH__ __INLINE__ Tensor &du2ten(DU d) {
         U32    *off = (U32*)&d;
@@ -145,6 +146,9 @@ public:
         U32 o = ((U32)((U8*)&t - _ten)) | T4_TENSOR;
         return *(DU*)&o;
     }
+    __GPU__  __INLINE__ DU   ten2du(U32 sz)                     { return ten2du(tensor(sz)); }
+    __GPU__  __INLINE__ DU   ten2du(U16 h, U16 w)               { return ten2du(tensor(h, w)); }
+    __GPU__  __INLINE__ DU   ten2du(U16 n, U16 h, U16 w, U16 c) { return ten2du(tensor(n, h, w, c)); }
     __GPU__  __INLINE__ void free(DU d) { if (IS_TENSOR(d)) free(du2ten(d)); }
     __GPU__  __INLINE__ DU   view(DU d) { return IS_TENSOR(d) ? ten2du(view(du2ten(d))) : d; }
     __GPU__  __INLINE__ DU   copy(DU d) { return IS_TENSOR(d) ? ten2du(copy(du2ten(d))) : d; }
