@@ -35,16 +35,20 @@ Having a 'shell' that can interactively and incrementally run 'compiled programs
   + Optimization=O3
 
 ### TODO
+* blas examples
+* use cuRAND
 * formatted file IO (CSV, Numpy)
 * preprocessor (DALI)
+* NN (torch.nn)
 * ML cases and benchmark (kaggle.MNIST, ...)
 * add inter-VM communication (CUDA stream)
 * add dynamic graph (GNN)
 * integrate plots (tensorboard, R)
 * integrate ONNX 
+* integrate CUB, CUTLASS (utilities.init, gemm_api) - checked but slow, use straight CDP
 
 ### History
-#### [Release 1.0](./docs/v1_progress.md)
+#### [Release 1.0](./docs/v1_progress.md) features
 * Dr. Ting's eForth words with F32 as data unit, U16 instruction unit
 * Support parallel Forth VMs
 * Lambda-based Forth microcode
@@ -53,10 +57,12 @@ Having a 'shell' that can interactively and incrementally run 'compiled programs
 * String handling utilities in CUDA
 * Light-weight vector class, no dependency on STL
 * Output Stream, async from GPU to host
-#### Release 2.0
-* added tensor object (study torch tensor, 128-bit NHWC tensor)
-* added TLSF tensor storage manager
-* integrate CUB, CUTLASS (utilities.init, gemm_api) - checked but slow, use straight CDP
-* updated words to handle matrix (rank=2)
-* added PyTorch-style matrix print (i.e adjustable edge elements)
+#### Release 2.0 features
+* array, matrix objects (modeled to PyTorch)
+* TLSF tensor storage manager
+* matrix addition, multiplication
+* GEMM (i.e. a * A x B + b * C, use CUDA Dynamic Parallelism)
+* matrix print (i.e PyTorch-style, adjustable edge elements)
+* matrix console input (i.e. matrix[..., array[...)
+* optional debug print level control (MMU_DEBUG)
 
