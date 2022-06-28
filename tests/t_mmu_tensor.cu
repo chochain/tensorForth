@@ -1,5 +1,5 @@
 /** -*- c++ -*-
- * @file - ten4.cu
+ * @file
  * @brief - tensorForth mmu#tensor tests
  *
  * <pre>Copyright (C) 2022- GreenII, this file is distributed under BSD 3-Clause License.</pre>
@@ -16,7 +16,7 @@ using namespace std;
 //     C = alpha * A x B + beta * C
 //     where A = MxK, B = KxN, C = MxN
 //
-__KERN__ void k_GEMM(
+__KERN__ void k_GEMM_test(
     int M, int N, int K,
     DU *A, DU *B, DU *C,   /* MxK, KxN, MxN */
     DU alpha, DU beta)
@@ -52,7 +52,7 @@ test_mmu_gemm(
     dim3 grid((n + block.x - 1) / block.x, (m + block.y - 1) / block.y);
 
     clock_t t0 = clock();
-    k_GEMM<<<grid, block>>>(
+    k_GEMM_test<<<grid, block>>>(
         m, n, k,
         (DU*)A.data, (DU*)B.data, (DU*)C.data,
         alpha, beta);
