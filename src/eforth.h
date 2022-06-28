@@ -74,6 +74,13 @@ private:
     __GPU__ void add_tensor(DU d);          ///< append a literal into tensor storage
     __GPU__ void call(IU w);                ///< execute word by index
     ///
+    /// tensor methods
+    ///
+    __GPU__ DU   tadd(DU n=1);              ///< matrix-matrix addition
+    __GPU__ DU   tinv();                    ///< matrix inverse
+    __GPU__ DU   tmul();                    ///< matrix-matrix multiplication (no broadcast)
+    __GPU__ void gemm();                    ///< GEMM C' = alpha * A x B + beta * C
+    ///
     /// output methods
     ///
     __GPU__ void dot(DU v);
