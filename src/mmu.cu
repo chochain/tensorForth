@@ -83,31 +83,31 @@ MMU::to_s(std::ostream &fout, IU w) {
 /// tensor life-cycle methods
 ///
 __GPU__ Tensor&
-MMU::tensor(U16 h, U16 w) {
-    Tensor *t = (Tensor*)tstore.malloc(sizeof(Tensor));
-    U32    sz = h * w;
-    PRINTF("mmu#tensor(%d,%d) => size=%d\n", h, w, sz);
-    
+MMU::tensor(U32 sz) {
+    Tensor *t    = (Tensor*)tstore.malloc(sizeof(Tensor));
     void   *mptr = tstore.malloc((U64)sizeof(DU) * sz);
     t->reset(mptr, sz);
-    t->reshape(h, w);
-    
     return *t;
-};
+}
+
+__GPU__ Tensor&
+MMU::tensor(U16 h, U16 w) {
+    U32 sz = h * w;
+    PRINTF("mmu#tensor(%d,%d) => size=%d\n", h, w, sz);
+    Tensor &t = this->tensor(sz);
+    t.reshape(h, w);
+    return t;
+}
 ///
 /// allocate tensor 4 from storage
 ///
 __GPU__ Tensor&
 MMU::tensor(U16 n, U16 h, U16 w, U16 c) {
-    Tensor *t = (Tensor*)tstore.malloc(sizeof(Tensor));
-    U32    sz = n * h * w * c;
+    U32 sz = n * h * w * c;
     PRINTF("mmu#tensor(%d,%d,%d,%d) => size=%d\n", n, h, w, c, sz);
-    
-    void   *mptr = (void*)tstore.malloc((U64)sizeof(DU) * sz);
-    t->reset(mptr, sz);
-    t->reshape(n, h, w, c);
-    
-    return *t;
+    Tensor &t = this->tensor(sz);
+    t.reshape(n, h, w, c);
+    return t;
 }
 ///
 /// create a view of a Tensor
@@ -212,9 +212,9 @@ MMU::ss_dump(std::ostream &fout, U16 vid, U16 n, int radix) {
             Tensor &t = this->du2ten(s);
             fout << (char)(t.is_view() ? 'V' : 'T');
             switch(t.rank) {
-            case 1: fout << "1[" << t.shape[1] << "]"; break;
-            case 2: fout << "2[" << t.shape[0] << "," << t.shape[1] << "]"; break;
-            case 4: fout << "4[" << t.shape[2] << "," << t.shape[0] << "," << t.shape[1] << "," << t.shape[3] << "]"; break;
+            case 1: fout << "1[" << t.size << "]"; break;
+            case 2: fout << "2[" << t.H() << "," << t.W() << "]"; break;
+            case 4: fout << "4[" << t.N() << "," << t.H() << "," << t.W() << "," << t.C() << "]"; break;
             }
         }
         else if (x) fout << static_cast<int>(s);
