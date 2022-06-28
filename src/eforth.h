@@ -25,10 +25,8 @@ typedef enum { VM_READY=0, VM_RUN, VM_WAIT, VM_STOP } vm_status;
 ///
 class ForthVM {
 public:
-    int       khz;                          ///< VM clock rate
     vm_status status = VM_READY;            ///< VM status
     DU        top    = DU0;                 ///< cached top of stack
-    U32       *ptop  = (U32*)&top;          ///< 32-bit mask for top
     Vector<DU,   T4_RS_SZ> rs;              ///< return stack
     Vector<DU,   0>        ss;              ///< parameter stack (setup in ten4.cu)
 
@@ -42,6 +40,9 @@ private:
     MMU           &mmu;                     ///< memory managing unit
     Code          *dict;                    ///< dictionary array
 
+    int   khz;                              ///< VM clock rate
+    U32   *ptop   = (U32*)&top;             ///< 32-bit mask for top
+    
     bool  ucase   = true;                   ///< case insensitive
     bool  compile = false;                  ///< compiling flag
     int   radix   = 10;                     ///< numeric radix
@@ -49,6 +50,8 @@ private:
     IU    IP      = 0;                      ///< instruction pointer
 
     char  idiom[T4_STRBUF_SZ];              ///< terminal input buffer
+    int   ten_lvl = 0;                      ///< tensor input level
+    int   ten_off = 0;                      ///< tensor offset (array index)
 
     __GPU__ __INLINE__ DU POP()        { DU n=top; top=ss.pop(); return n; }
     __GPU__ __INLINE__ void PUSH(DU v) { ss.push(top); top = v; }
@@ -67,9 +70,10 @@ private:
     __GPU__ void add_iu(IU i);              ///< append an instruction unit to parameter memory
     __GPU__ void add_du(DU d);              ///< append a data unit to pmem
     __GPU__ void add_str(const char *s);    ///< append a string to pmem
+    __GPU__ void add_tensor(DU d);          ///< append a literal into tensor storage
     __GPU__ void call(IU w);                ///< execute word by index
     ///
-    /// output functions
+    /// output methods
     ///
     __GPU__ void dot(DU v);
     __GPU__ void dot_r(int n, DU v);
