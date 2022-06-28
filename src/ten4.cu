@@ -1,4 +1,4 @@
-/*!
+/** -*- c++ -*-
  * @file - ten4.cu
  * @brief - tensorForth value definitions non-optimized
  *
@@ -152,7 +152,7 @@ TensorForth::run() {
     while (is_running()) {
         if (aio->readline()) {        // feed from host console to managed input buffer
             ten4_exec<<<1, 1, VSS_SZ>>>();
-            GPU_CHK();
+            GPU_CHK();                // cudaDeviceSynchronize() and check error
             aio->flush();             // flush output buffer
         }
         yield();
@@ -184,14 +184,15 @@ void sigtrap() {
 }
 
 int main(int argc, char**argv) {
-    string app = string(T4_APP_NAME) + " " + MAJOR_VERSION + "." + MINOR_VERSION;
+    const string APP = string(T4_APP_NAME) + " " + MAJOR_VERSION + "." + MINOR_VERSION;
+    
     sigtrap();
     TensorForth *f = new TensorForth();
 
-    cout << app << endl;
+    cout << APP << endl;
     f->run();
 
-    cout << app << " done." << endl;
+    cout << APP << " done." << endl;
     f->teardown();
 
     return 0;

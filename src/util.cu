@@ -1,4 +1,4 @@
-/**
+/** -*- c++ -*-
  * @file
  * @brief tensorForth Utilities functions
  *  + Memory cpy/set/cmp

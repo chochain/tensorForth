@@ -1,4 +1,4 @@
-/**
+/** -*- c++ -*-
  * @File
  * @brief tensorForth Async IO module implementation
  *
