@@ -15,11 +15,10 @@ __KERN__ void k_matrix_randomize(DU *mat, int nrow, int ncol, int seed=0)
 
     if (i < ncol && j < nrow) {
         int off = i + j * ncol;      /* row major */
-
         // Generate arbitrary elements.
         int const k = 16807;
-        int const m = 16;
-        DU v = DU(((off + seed) * k % m) - m / 2);
+        int const m = 128;          /* precision */
+        DU v = DU(k * (off + seed) % m) / m - 0.5;
 
         mat[off] = v;
     }
@@ -56,7 +55,7 @@ Tensor::gemm(
         PRINTF("ERR: %s\n", "GEMM MxNxK dimension mismatched");
         return;
     }
-    PRINTF("\nGEMM M=%d, N=%d, K=%d", m, n, k);
+    PRINTF("GEMM M=%d, N=%d, K=%d a=%f, b=%f\n", m, n, k, alpha, beta);
     
     dim3 block(16, 16), grid(
         (n + block.x - 1) / block.x,
@@ -190,8 +189,8 @@ Tensor::fill(DU v) {
 
 __BOTH__ Tensor&
 Tensor::random(U32 seed) {
-    int h = H();
-    int w = W();
+    int h = rank==1 ? 1    : H();
+    int w = rank==1 ? size : W();
     dim3 block(16, 16), grid(
         (w + block.x - 1) / block.x,     /* row major */
         (h + block.y - 1) / block.y
