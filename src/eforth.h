@@ -53,8 +53,9 @@ private:
     int   ten_lvl = 0;                      ///< tensor input level
     int   ten_off = 0;                      ///< tensor offset (array index)
 
-    __GPU__ __INLINE__ DU POP()        { DU n=top; top=ss.pop(); return n; }
-    __GPU__ __INLINE__ void PUSH(DU v) { ss.push(top); top = v; }
+    __GPU__ __INLINE__ DU POP()             { DU n=top; top=ss.pop(); return n; }
+    __GPU__ __INLINE__ void PUSH(DU v)      { ss.push(top); top = v; }
+    __GPU__ __INLINE__ void PUSH(Tensor &t) { ss.push(top); top = mmu.ten2du(t); }
 
     __GPU__ int  find(const char *s);       ///< search dictionary reversely
     ///
