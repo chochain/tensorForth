@@ -1,5 +1,5 @@
-/**
- * @file
+/** -*- c++ -*-
+ * @File
  * @brief tensorForth tensor class implementation
  *
  * <pre>Copyright (C) 2022- GreenII, this file is distributed under BSD 3-Clause License.</pre>
@@ -10,14 +10,14 @@
 ///
 __KERN__ void k_matrix_randomize(DU *mat, int nrow, int ncol, int seed=0)
 {
+    int const k = 16807;
+    int const m = 128;
     int i = threadIdx.x + blockIdx.x * blockDim.x;
     int j = threadIdx.y + blockIdx.y * blockDim.y;
 
     if (i < ncol && j < nrow) {
         int off = i + j * ncol;      /* row major */
         // Generate arbitrary elements.
-        int const k = 16807;
-        int const m = 128;          /* precision */
         DU v = DU(k * (off + seed) % m) / m - 0.5;
 
         mat[off] = v;
@@ -52,10 +52,10 @@ Tensor::gemm(
     Tensor &A, Tensor &B, Tensor &C, DU alpha, DU beta) {
     int m = A.H(), k = A.W(), n = B.W();
     if (k != B.H() || m != C.H() || n != C.W()) {
-        PRINTF("ERR: %s\n", "GEMM MxNxK dimension mismatched");
+        ERROR("dim?");
         return;
     }
-    PRINTF("GEMM M=%d, N=%d, K=%d a=%f, b=%f\n", m, n, k, alpha, beta);
+    DEBUG("GEMM M=%d, N=%d, K=%d a=%f, b=%f\n", m, n, k, alpha, beta);
     
     dim3 block(16, 16), grid(
         (n + block.x - 1) / block.x,
