@@ -37,15 +37,17 @@ AIO::print_vec(DU *d, int mi, int ri) {
 
 __HOST__ void
 AIO::print_mat(DU *d, int mi, int mj, int ri, int rj) {
-    DU  *d0 = d, *d1 = d;
-    for (int j=0, j1=1; j<rj; j++, j1++) {
-        print_vec(d0++, mi, ri);
-        std::cout << (j1==mj ? "\n\t" : ",\n\t");
+    DU *d0 = d;
+    for (int j=0, j1=1; j<rj; j++, j1++, d0+=mi) {
+        print_vec(d0, mi, ri);
+        std::cout << (j1==mj ? "" : ",\n\t");
     }
     int y = mj - rj;
     if (y > rj) std::cout << "...,\n\t";
-    for (int j=(y > rj) ? y : rj, j1=j+1; j<mj; j++, j1++) {
-        print_vec(d1++, mi, ri);
+    else y = rj;
+    DU *d1 = d + y * mi;
+    for (int j=y, j1=j+1; j<mj; j++, j1++, d1+=mi) {
+        print_vec(d1, mi, ri);
         std::cout << (j1==mj ? "" : ",\n\t");
     }
 }
@@ -61,7 +63,7 @@ AIO::print_tensor(DU v) {
     std::cout << std::setprecision(_precision);
     switch (t.rank) {
     case 1: {
-        std::cout << "vector";
+        std::cout << "array";
         int ri = range(t.size);
         print_vec(d, t.size, ri);
     } break;
