@@ -20,11 +20,9 @@
 #define MUTEX_LOCK(p)       while (atomicCAS((int *)&p, 0, 1)!=0)
 #define MUTEX_FREE(p)       atomicExch((int *)&p, 0)
 
-#define ALIGN(sz)           ALIGN4(sz)
-#define PRINTF(fmt,...)     printf(fmt,__VA_ARGS__)
-#define NA(msg)             ({ PRINTF("method not supported: %s\n", msg); })
+#define NA(msg)             ({ INFO("method not supported: %s\n", msg); })
 #define ASSERT(X) \
-    if (!(X)) PRINTF("ASSERT tid %d: line %d in %s\n", threadIdx.x, __LINE__, __FILE__);
+    if (!(X)) ERROR("ASSERT tid %d: line %d in %s\n", threadIdx.x, __LINE__, __FILE__);
 #define GPU_SYNC()          { cudaDeviceSynchronize(); }
 #define GPU_CHK()           { \
     cudaDeviceSynchronize(); \
@@ -48,15 +46,16 @@
 ///@name Debug tracing options
 ///@{
 #if T4_VERBOSE
-#define T4_TRACE(fmt,...)   PRINTF(fmt,__VA_ARGS__)
-#else  // VERBOSE
-#define T4_TRACE(fmt,...)
+#define INFO(...)           printf(__VA_ARGS__)
+#else  // T4_VERBOSE
+#define INFO(...)
 #endif // T4_VERBOSE
 #if MMU_DEBUG
-#define MMU_TRACE(fmt,...)  PRINTF(fmt,__VA_ARGS__)
+#define DEBUG(...)          printf(__VA_ARGS__)
 #else  // MMU_DEBUG
-#define MMU_TRACE(fmt,...)
+#define DEBUG(...)
 #endif // MMU_DEBUG
+#define ERROR(...)          printf(__VA_ARGS__)
 ///@}
 ///@name Portable types
 ///@{
