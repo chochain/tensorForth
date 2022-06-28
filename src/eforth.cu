@@ -357,23 +357,23 @@ ForthVM::init() {
     ///@{
     CODE("array",                        ///< allocate an array
         IU sz = POPi;
-        PUSH(mmu.ten2du(sz))),
+        PUSH(mmu.tensor(sz))),
     CODE("matrix",                       ///< allocate a matrix
         IU w = POPi; IU h = POPi;
-        PUSH(mmu.ten2du(h, w))),
+        PUSH(mmu.tensor(h, w))),
     CODE("tensor",                       ///< allocate a NHWC tensor
         IU c = POPi; IU w = POPi; IU h = POPi; IU n = POPi;
-        PUSH(mmu.ten2du(n, h, w, c))),
+        PUSH(mmu.tensor(n, h, w, c))),
     CODE("array[",                       ///< create an array with literals
         IU sz = POPi;
-        PUSH(mmu.ten2du(sz));
+        PUSH(mmu.tensor(sz));
         ten_lvl = 1),
     CODE("matrix[",                      ///< create a matrix with literals
         IU w = POPi; IU h = POPi;
-        PUSH(mmu.ten2du(h, w));
+        PUSH(mmu.tensor(h, w));
         ten_lvl = 1),
     CODE("copy",    PUSH(mmu.copy(top))),
-    CODE("reshape",                      ///< reshape as a vector(sz)
+    CODE("reshape1",                     ///< reshape as a vector(sz)
         IU sz = POPi;
         mmu.du2ten(top).reshape(sz)),
     CODE("reshape2",                     ///< reshape as matrix(h,w)
@@ -385,9 +385,11 @@ ForthVM::init() {
     CODE("zeros",   if (IS_TENSOR(top)) mmu.du2ten(top).fill(0)),
     CODE("ones",    if (IS_TENSOR(top)) mmu.du2ten(top).fill(1)),
     CODE("rand",                         ///< randomize a tensor or a random number
-        U32 seed = IS_TENSOR(top) ? 0 : POPi;
-        if (IS_TENSOR(top)) mmu.du2ten(top).random(seed);
-        else                top = (clock() & ~T4_TENSOR)),
+        if (IS_TENSOR(top)) mmu.du2ten(top).random(0);
+        else {
+            PUSH((DU)(clock() % 1024) / 1024.0 - 0.5);
+            DU_ONLY(top);
+        }),
     CODE("matmul",                       ///< (A B -- A B C)
         Tensor &B = mmu.du2ten(top);
         Tensor &A = mmu.du2ten(ss[-1]);
@@ -396,7 +398,7 @@ ForthVM::init() {
             Tensor &C = mmu.tensor(A.H(), B.W());
             PRINTF(" => C[%d,%d]=%p\n", C.H(), C.W(), &C);
             Tensor::matmul(A, B, C);
-            PUSH(mmu.ten2du(C));
+            PUSH(C);
         }),
     CODE("gemm",                        ///< (a b A B C -- a b A B C')
         Tensor &C = mmu.du2ten(top);
