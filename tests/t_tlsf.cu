@@ -1,4 +1,4 @@
-/*!
+/** -*- c++ -*-
  * @file
  * @brief - tensorForth TLSF unit tests
  *

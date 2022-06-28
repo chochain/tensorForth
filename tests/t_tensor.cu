@@ -1,4 +1,4 @@
-/*!
+/** -*- c++ -*-
  * @file
  * @brief - GEMM tester
  *

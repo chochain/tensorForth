@@ -1,4 +1,4 @@
-/*!
+/** -*- c++ -*-
  * @file - ten4.cu
  * @brief - tensorForth mmu#tensor tests
  *
