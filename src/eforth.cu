@@ -20,7 +20,7 @@
 ///@}
 ///@name Tensor ops
 ///@{
-#define TOPx      (*ptop &= ~1)                 /**< tensor flag mask for top                */
+#define DU_ONLY(v) (*(U32*)&(v) &= ~1)          /**< tensor flag mask for top                */
 ///@}
 ///@name Dictioanry access
 ///@{
@@ -94,13 +94,18 @@ __GPU__ __INLINE__ void ForthVM::add_str(const char *s) {
     int sz = STRLENB(s)+1; sz = ALIGN2(sz);          ///> calculate string length, then adjust alignment (combine?)
     mmu.add((U8*)s, sz);
 }
+__GPU__ __INLINE__ void ForthVM::add_tensor(DU n) {
+    DU *d = (DU*)mmu.du2ten(top).data;
+    PRINTF("T[%d] = %f\n", ten_off, n);
+    d[ten_off++] = n;
+}
 __GPU__ __INLINE__ void ForthVM::call(IU w) {
     if (dict[w].def) { WP = w; IP = dict[w].pfa; nest(); }
     else (*(FPTR)((UFP)dict[w].xt & ~0x3))();        ///> execute function pointer (strip off immdiate bit)
 }
 ///==============================================================================
 ///
-/// debug functions
+/// debug methods
 ///
 __GPU__ __INLINE__ void ForthVM::dot(DU v)          { fout << ' ' << v;     }
 __GPU__ __INLINE__ void ForthVM::dot_r(int n, DU v) { fout << setw(n) << v; }
@@ -173,7 +178,7 @@ ForthVM::init() {
     CODE("+",    top += ss.pop()),                    /// TODO: vector.add
     CODE("*",    top *= ss.pop()),                    /// TODO: matmul
     CODE("-",    top =  ss.pop() - top),
-    CODE("/",    top =  ss.pop() / top; TOPx),
+    CODE("/",    top =  ss.pop() / top; DU_ONLY(top)),
     CODE("mod",  top =  MOD(ss.pop(), top)),          /// fmod = x - int(q)*y
     CODE("/mod",
         DU n = ss.pop(); DU t = top;
@@ -222,7 +227,7 @@ ForthVM::init() {
     ///@defgroup IO ops
     ///@{
     CODE("base@",   PUSH(I2D(radix))),
-    CODE("base!",   fout << setbase(radix = INT(POP()))),
+    CODE("base!",   fout << setbase(radix = POPi)),
     CODE("hex",     fout << setbase(radix = 16)),
     CODE("decimal", fout << setbase(radix = 10)),
     CODE("cr",      fout << ENDL),
@@ -240,8 +245,8 @@ ForthVM::init() {
     ///@}
     ///@defgroup Literal ops
     ///@{
-    CODE("[",       compile = false),
-    CODE("]",       compile = true),
+    CODE("[", (IS_TENSOR(top) && ten_lvl > 0) ? ++ten_lvl : compile = false),
+    CODE("]", (IS_TENSOR(top) && ten_lvl > 0) ? --ten_lvl : compile = true),
     IMMD("(",       scan(')')),
     IMMD(".(",      fout << scan(')')),
     CODE("\\",      scan('\n')),
@@ -312,7 +317,7 @@ ForthVM::init() {
         mmu.wi(PFA(POPi), PFA(w))),                         // but might leave a dangled block
     CODE("[to]",            // : xx 3 [to] y ;              // alter constant in compile mode
         IU w = LDi(IP); IP += sizeof(IU);                   // fetch constant pfa from 'here'
-        STd(PFA(w) + sizeof(IU), POP())),
+        STd(PFA(w) + sizeof(IU), POPi)),
     ///
     /// be careful with memory access, because
     /// it could make access misaligned which cause exception
@@ -321,7 +326,7 @@ ForthVM::init() {
     CODE("!",     IU w = POPi; STd(w, POP())),                                    // n w --
     CODE(",",     DU n = POP(); add_du(n)),
     CODE("allot", DU v = 0; for (IU n = POPi, i = 0; i < n; i++) add_du(v)),      // n --
-    CODE("+!",    IU w = POPi; STd(w, LDd(w)+POP())),                             // n w --
+    CODE("+!",    IU w = POPi; STd(w, LDd(w) + POP())),                           // n w --
     CODE("?",     IU w = POPi; fout << LDd(w) << " "),                            // w --
     ///@}
     ///@defgroup Debug ops
@@ -348,49 +353,58 @@ ForthVM::init() {
     CODE("delay", delay(POPi)),                                // TODO: change to VM_WAIT
     ///@}
     ///@defgroup Tensor ops
-    ///@brief - adhere to PyTorch naming
+    ///@brief - stick to PyTorch naming when possible
     ///@{
-    CODE("vector",  {}),                 ///< TODO: vector (i.e. tensor 1)
-    CODE("matrix",
-         IU w = POPi; IU h = POPi;
-         Tensor &t = mmu.tensor(h, w);
-         DU     d  = mmu.ten2du(t);
-         PUSH(d)),
-    CODE("tensor",  {}),                 ///< TODO: NHWC tensor
-    CODE("T[",      {}),                 ///< TODO: vector creation
-    CODE("T2[",     {}),                 ///< TODO: matrix creation
+    CODE("array",                        ///< allocate an array
+        IU sz = POPi;
+        PUSH(mmu.ten2du(sz))),
+    CODE("matrix",                       ///< allocate a matrix
+        IU w = POPi; IU h = POPi;
+        PUSH(mmu.ten2du(h, w))),
+    CODE("tensor",                       ///< allocate a NHWC tensor
+        IU c = POPi; IU w = POPi; IU h = POPi; IU n = POPi;
+        PUSH(mmu.ten2du(n, h, w, c))),
+    CODE("array[",                       ///< create an array with literals
+        IU sz = POPi;
+        PUSH(mmu.ten2du(sz));
+        ten_lvl = 1),
+    CODE("matrix[",                      ///< create a matrix with literals
+        IU w = POPi; IU h = POPi;
+        PUSH(mmu.ten2du(h, w));
+        ten_lvl = 1),
     CODE("copy",    PUSH(mmu.copy(top))),
     CODE("reshape",                      ///< reshape as a vector(sz)
-         IU sz = POPi;
-         Tensor &t = mmu.du2ten(top);
-         t.reshape(sz)),
+        IU sz = POPi;
+        mmu.du2ten(top).reshape(sz)),
     CODE("reshape2",                     ///< reshape as matrix(h,w)
-         IU w = POPi; IU h = POPi;
-         Tensor &t = mmu.du2ten(top);
-         t.reshape(h, w)),
+        IU w = POPi; IU h = POPi;
+        mmu.du2ten(top).reshape(h, w)),
     CODE("reshape4",                     ///< reshape as Tensor(NHWC)
-         IU c = POPi; IU w = POPi; IU h = POPi; IU n = POPi;
-         Tensor &t = mmu.du2ten(top);
-         t.reshape(n, h, w, c)),
+        IU c = POPi; IU w = POPi; IU h = POPi; IU n = POPi;
+        mmu.du2ten(top).reshape(n, h, w, c)),
     CODE("zeros",   if (IS_TENSOR(top)) mmu.du2ten(top).fill(0)),
     CODE("ones",    if (IS_TENSOR(top)) mmu.du2ten(top).fill(1)),
-    CODE("rand",
-         U32 seed = IS_TENSOR(top) ? 0 : POPi;
-         if (IS_TENSOR(top)) mmu.du2ten(top).random(seed);
-         else                top = (clock() & ~T4_TENSOR)),
-    CODE("matmul",
-         DU b = POP();  DU a = POP();
-         Tensor &A = mmu.du2ten(a);
-         Tensor &B = mmu.du2ten(b);
-         PRINTF("\tA[%d,%d]=%p x B[%d,%d]=%p", A.H(), A.W(), &A, B.H(), B.W(), &B);
-         if (A.W() == B.H()) {
-             Tensor &C = mmu.tensor(A.H(), B.W());
-             PRINTF(" => C[%d,%d]=%p\n", C.H(), C.W(), &C);
-             Tensor::matmul(A, B, C);
-             mmu.free(b);
-             mmu.free(a);
-             PUSH(mmu.ten2du(C));
-         }),
+    CODE("rand",                         ///< randomize a tensor or a random number
+        U32 seed = IS_TENSOR(top) ? 0 : POPi;
+        if (IS_TENSOR(top)) mmu.du2ten(top).random(seed);
+        else                top = (clock() & ~T4_TENSOR)),
+    CODE("matmul",                       ///< (A B -- A B C)
+        Tensor &B = mmu.du2ten(top);
+        Tensor &A = mmu.du2ten(ss[-1]);
+        PRINTF("\tA[%d,%d]=%p x B[%d,%d]=%p", A.H(), A.W(), &A, B.H(), B.W(), &B);
+        if (A.W() == B.H()) {
+            Tensor &C = mmu.tensor(A.H(), B.W());
+            PRINTF(" => C[%d,%d]=%p\n", C.H(), C.W(), &C);
+            Tensor::matmul(A, B, C);
+            PUSH(mmu.ten2du(C));
+        }),
+    CODE("gemm",                        ///< (a b A B C -- a b A B C')
+        Tensor &C = mmu.du2ten(top);
+        Tensor &B = mmu.du2ten(ss[-1]);
+        Tensor &A = mmu.du2ten(ss[-2]);
+        DU     b  = ss[-3];
+        DU     a  = ss[-4];
+        Tensor::gemm(A, B, C, a, b)),
     ///@}
     CODE("bye",   status = VM_STOP),
     CODE("boot",  mmu.clear(FIND("boot") + 1))
@@ -460,9 +474,12 @@ ForthVM::outer() {
             add_w(DOLIT);                    ///> dovar (+parameter field)
             add_du(n);                       ///> store literal
         }
-        else {
+        else if (ten_lvl > 0) {              /// * append literal into tensor storage
+            add_tensor(n);
+        }
+        else {                               ///> or, add value onto data stack
             T4_TRACE("ss.push(%08x)\n", *(U32*)&n);
-            PUSH(n);                         ///> or, add value onto data stack
+            PUSH(n);
         }
     }
     if (!compile) ss_dump(ss.idx);
