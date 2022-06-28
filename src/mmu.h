@@ -146,9 +146,6 @@ public:
         U32 o = ((U32)((U8*)&t - _ten)) | T4_TENSOR;
         return *(DU*)&o;
     }
-    __GPU__  __INLINE__ DU   ten2du(U32 sz)                     { return ten2du(tensor(sz)); }
-    __GPU__  __INLINE__ DU   ten2du(U16 h, U16 w)               { return ten2du(tensor(h, w)); }
-    __GPU__  __INLINE__ DU   ten2du(U16 n, U16 h, U16 w, U16 c) { return ten2du(tensor(n, h, w, c)); }
     __GPU__  __INLINE__ void free(DU d) { if (IS_TENSOR(d)) free(du2ten(d)); }
     __GPU__  __INLINE__ DU   view(DU d) { return IS_TENSOR(d) ? ten2du(view(du2ten(d))) : d; }
     __GPU__  __INLINE__ DU   copy(DU d) { return IS_TENSOR(d) ? ten2du(copy(du2ten(d))) : d; }
