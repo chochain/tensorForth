@@ -173,7 +173,7 @@ TLSF::show_stat() {
     }
     float pct = 100.0*used/tot;
 
-    printf("total=%d(%x): free[%d]=%d(%x), used[%d]=%d(%x), nblk=%d, nfrag=%d, %.1f%% allocated\n",
+    printf("total=%d(%x): free[%d]=%d(%x), used[%d]=%d(%x), nblk=%d, nfrag=%d, %.2f%% allocated\n",
            tot, tot, nfree, free, free, nused, used, used, nblk, nfrag, pct);
 }
 
