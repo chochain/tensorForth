@@ -57,6 +57,7 @@ AIO::print_tensor(DU v) {
     auto   range = [this](int n) { return n < _edge ? n : _edge; };
     Tensor &t = _mmu->du2ten(v);
     DU     *d = (DU*)t.data;
+    DEBUG("print_tensor::T[%x]=%p data=%p\n", *(U32*)&v, &t, d);
 
     std::ios::fmtflags fmt0 = std::cout.flags();
     std::cout.flags(std::ios::showpos | std::ios::right | std::ios::fixed);
@@ -90,9 +91,9 @@ AIO::print_node(obuf_node *node) {
 
     char *v = (char*)node->data;
     switch (node->gt) {
-    case GT_INT:   std::cout << (*(S32*)v); break;
-    case GT_FLOAT: std::cout << (*(F32*)v); break;
-    case GT_STR:   std::cout << v;          break;
+    case GT_INT:   std::cout << (*(S32*)v);        break;
+    case GT_FLOAT: std::cout << " " << (*(F32*)v); break;
+    case GT_STR:   std::cout << v;                 break;
     case GT_FMT:   {
         obuf_fmt *f = (obuf_fmt*)v;
         //printf("FMT: b=%d, w=%d, p=%d, f='%c'\n", f->base, f->width, f->prec, f->fill);
