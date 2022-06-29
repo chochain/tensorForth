@@ -33,7 +33,7 @@ MMU::~MMU() {
 ///
 __GPU__ int
 MMU::find(const char *s, bool compile, bool ucase) {
-    DEBUG("find(%s) => ", s);
+    WARN("find(%s) => ", s);
     for (int i = _didx - (compile ? 2 : 1); i >= 0; --i) {
         const char *t = _dict[i].name;
         if (ucase && STRCASECMP(t, s)==0) return i;
@@ -46,7 +46,7 @@ MMU::find(const char *s, bool compile, bool ucase) {
 ///
 __GPU__ void
 MMU::colon(const char *name) {
-    DEBUG("colon(%s) => ", name);
+    WARN("colon(%s) => ", name);
     int  sz = STRLENB(name);                // aligned string length
     Code &c = _dict[_didx++];               // get next dictionary slot
     align();                                // nfa 32-bit aligned (adjust _midx)
@@ -82,15 +82,31 @@ MMU::to_s(std::ostream &fout, IU w) {
 ///
 /// tensor life-cycle methods
 ///
-__GPU__ Tensor&
+__GPU__ void
+MMU::mark_free(DU v) {            ///< mark a tensor free for release
+    Tensor &t = du2ten(v);
+    DEBUG("mark T[%x]=%p as free\n", *(U32*)&v, &t);
+//    tfree << v;
+}
+__GPU__ void                      ///< release marked free tensor
+MMU::sweep() {
+//    MUTEX_LOCK(tfree);
+    for (int i=0; i<tfree.size(); i++) {
+        DU v = tfree[i];
+        DEBUG("release %x from tfree\n", *(U32*)&v);
+//        free(tfree[i]);
+    }
+    tfree.clear();
+//    MUTEX_FREE(tfree);
+}
+__GPU__ Tensor&                    ///< create a one-dimensional tensor
 MMU::tensor(U32 sz) {
     Tensor *t    = (Tensor*)tstore.malloc(sizeof(Tensor));
     void   *mptr = tstore.malloc((U64)sizeof(DU) * sz);
     t->reset(mptr, sz);
     return *t;
 }
-
-__GPU__ Tensor&
+__GPU__ Tensor&                    ///< create a 2-dimensional tensor
 MMU::tensor(U16 h, U16 w) {
     U32 sz = h * w;
     DEBUG("mmu#tensor(%d,%d) => size=%d\n", h, w, sz);
@@ -98,10 +114,7 @@ MMU::tensor(U16 h, U16 w) {
     t.reshape(h, w);
     return t;
 }
-///
-/// allocate tensor 4 from storage
-///
-__GPU__ Tensor&
+__GPU__ Tensor&                    ///< create a NHWC tensor
 MMU::tensor(U16 n, U16 h, U16 w, U16 c) {
     U32 sz = n * h * w * c;
     DEBUG("mmu#tensor(%d,%d,%d,%d) => size=%d\n", n, h, w, c, sz);
@@ -109,10 +122,7 @@ MMU::tensor(U16 n, U16 h, U16 w, U16 c) {
     t.reshape(n, h, w, c);
     return t;
 }
-///
-/// create a view of a Tensor
-///
-__GPU__ Tensor&
+__GPU__ Tensor&                   ///< create a view of a Tensor
 MMU::view(Tensor &t0) {
     Tensor *t = (Tensor*)tstore.malloc(sizeof(Tensor));
     ///
@@ -121,23 +131,17 @@ MMU::view(Tensor &t0) {
     memcpy(t, &t0, sizeof(Tensor));
     t->attr |= TENSOR_VIEW;
     
-    DEBUG("view created t=%p from A=%p\n", t, &t0);
+    DEBUG("view created t=%p from t0=%p\n", t, &t0);
     return *t;
 }
-///
-/// release tensor memory blocks
-///
-__GPU__ void
+__GPU__ void                     ///< release tensor memory blocks
 MMU::free(Tensor &t) {
     if (!t.is_view()) tstore.free((void*)t.data);
     tstore.free((void*)&t);
     tstore.show_stat();
     tstore.dump_freelist();
 }
-///
-/// hard copy a tensor
-///
-__GPU__ Tensor&
+__GPU__ Tensor&                  ///< deep copy a tensor
 MMU::copy(Tensor &t0) {
     Tensor *t  = (Tensor*)tstore.malloc(sizeof(Tensor));
     memcpy(t, &t0, sizeof(Tensor));
