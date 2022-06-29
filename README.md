@@ -42,7 +42,7 @@ Having a 'shell' that can interactively and incrementally run 'compiled programs
 * NN (torch.nn)
 * ML cases and benchmark (kaggle.MNIST, ...)
 * add inter-VM communication (CUDA stream)
-* add dynamic graph (GNN)
+* add GNN - dynamic graph with VMs
 * integrate plots (tensorboard, R)
 * integrate ONNX 
 * integrate CUB, CUTLASS (utilities.init, gemm_api) - checked but slow, use straight CDP
@@ -64,5 +64,6 @@ Having a 'shell' that can interactively and incrementally run 'compiled programs
 * GEMM (i.e. a * A x B + b * C, use CUDA Dynamic Parallelism)
 * matrix print (i.e PyTorch-style, adjustable edge elements)
 * matrix console input (i.e. matrix[..., array[...)
-* optional debug print level control (MMU_DEBUG)
+* command line option: debug print level control (MMU_DEBUG)
+* command line option: list (all) device properties
 
