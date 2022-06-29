@@ -4,6 +4,7 @@
 #ifndef TEN4_SRC_OPT_H_
 #define TEN4_SRC_OPT_H_
 
+#include "cutlass/gemm/device/gemm.h"
 #include "cutlass/util/command_line.h"
 /////////////////////////////////////////////////////////////////////////////////////////////////
 /// Result structure
@@ -36,6 +37,7 @@ struct Options {
     cutlass::complex<float>  alpha;
     cutlass::complex<float>  beta;
     int  batch_count = 1;
+    int  device_id   = 0;
     bool reference_check;
     int  iterations;
   
@@ -92,7 +94,8 @@ struct Options {
         cutlass::CommandLine cmd(argc, argv);
 
         if (cmd.check_cmd_line_flag("help")) help = true;
-        
+
+        cmd.get_cmd_line_argument("d",       device_id);
         cmd.get_cmd_line_argument("m",       problem_size.m());
         cmd.get_cmd_line_argument("n",       problem_size.n());
         cmd.get_cmd_line_argument("k",       problem_size.k());
@@ -135,7 +138,7 @@ struct Options {
         int n;
         cudaGetDeviceCount(&n);
         for (int device_id = 0; device_id < n; ++device_id) {
-            printf("\nCUDA Device #%d\n", device_id);
+            printf("CUDA Device #%d\n", device_id);
             cudaDeviceProp props;
             cudaError_t    error = cudaGetDeviceProperties(&props, device_id);
             if (error != cudaSuccess) {

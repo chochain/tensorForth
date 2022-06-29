@@ -194,12 +194,22 @@ void sigtrap() {
     sigaction(SIGSEGV, &sa, NULL);
 }
 
-int main(int argc, char**argv) {
-    const string APP = string(T4_APP_NAME) + " " + MAJOR_VERSION + "." + MINOR_VERSION;
+#include "opt.h"
+int main(int argc, const char**argv) {
     sigtrap();
+    
+    const string APP = string(T4_APP_NAME) + " " + MAJOR_VERSION + "." + MINOR_VERSION;
+    Options opt;
+    opt.parse(argc, argv);
+    
+    if (opt.help) {
+        opt.check_devices(std::cout);
+        return 0;
+    }
+
     cout << APP << endl;
     
-    TensorForth *f = new TensorForth();
+    TensorForth *f = new TensorForth(opt.device_id);
     f->run();
 
     cout << APP << " done." << endl;
