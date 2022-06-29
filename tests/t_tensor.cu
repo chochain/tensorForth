@@ -20,8 +20,7 @@
 typedef DU FP;
 typedef cudaError_t (*gemm_op)(Tensor &A, Tensor &B, Tensor &C, FP alpha, FP beta);
 
-void benchmark(gemm_op op, Tensor &A, Tensor &B, Tensor &C, FP alpha, FP beta)
-{
+void benchmark(gemm_op op, Tensor &A, Tensor &B, Tensor &C, FP alpha, FP beta) {
     cudaEvent_t events[2];
     float       runtime_ms;
     for (auto & event : events) {
@@ -95,7 +94,7 @@ __KERN__ void ReferenceGemm_kernel(
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 /// Reference GEMM computation.
 cudaError_t ReferenceGemm(Tensor &A, Tensor &B, Tensor &C, FP alpha, FP beta) {
-    int M = C.H(), N = C.W(), K = A.W();
+    int M = A.H(), N = B.W(), K = A.W();
     printf("Ref.GEMM M=%d, N=%d, K=%d", M, N, K);
     dim3 block(16, 16);   /* 256 threads */
     dim3 grid((N + block.x - 1) / block.x, (M + block.y - 1) / block.y);
@@ -158,10 +157,29 @@ cudaError_t TestCutlassGemm(int M, int N, int K, FP alpha, FP beta) {
 //
 // usage:  t_tensor <M> <N> <K> <alpha> <beta>
 //
-int main(int argc, const char *arg[]) {
+#define CUTLASS_OPTS 1
+
+int main(int argc, const char **argv) {
     //
     // Parse the command line to obtain GEMM dimensions and scalar values.
     //
+#if CUTLASS_OPTS
+    Options opt;
+    opt.parse(argc, argv);
+    
+    if (opt.help) {
+        opt.check_devices(std::cout);
+        opt.print_usage(std::cout);
+        return 0;
+    }
+    cudaError_t result = TestCutlassGemm(
+        opt.problem_size.m(),     // GEMM M dimension
+        opt.problem_size.n(),     // GEMM N dimension
+        opt.problem_size.k(),     // GEMM K dimension
+        opt.alpha.real(),         // alpha
+        opt.beta.real()           // beta
+        );
+#else // CUTLASS_OPTS
     // GEMM problem dimensions.
     int problem[3] = { 1024, 512, 2048 };
 
@@ -185,7 +203,7 @@ int main(int argc, const char *arg[]) {
         scalars[0],     // alpha
         scalars[1]      // beta
         );
-
+#endif // CUTLASS_OPTS
     if (result == cudaSuccess) {
         std::cout << "Passed." << std::endl;
     }
