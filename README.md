@@ -34,8 +34,47 @@ Having a 'shell' that can interactively and incrementally run 'compiled programs
   + CUDA=5.2 or above
   + Optimization=O3
 
+## tensorForth command line options
+* - -h - list all GPU id and their properties<br/>
+* - -d - select GPU device id
+
+## Forth Tensor operations (see [doc](./docs/v2_progress.md) for detail)
+### Tensor creation ops
+* array
+* matrix
+* tensor
+* array[
+* matrix[
+* copy
+### Views creation ops
+* dup
+* over
+* 2dup
+* 2over
+### Tensor/View print
+* .
+### Shape ops
+* flatten
+* reshape2
+* reshape4
+### Fill ops
+* T![
+* zeros
+* ones
+* full
+* eye
+* random
+### Matrix ops
+* +
+* -
+* *
+* /
+* inv
+* trans
+* mm
+* gemm
+
 ### TODO
-* blas examples
 * use cuRAND
 * formatted file IO (CSV, Numpy)
 * preprocessor (DALI)
@@ -49,11 +88,8 @@ Having a 'shell' that can interactively and incrementally run 'compiled programs
 * integrate ONNX 
 * integrate CUB, CUTLASS (utilities.init, gemm_api) - checked but slow, use straight CDP
 
-### Matrix operations
-
-
-### History
-#### [Release 1.0](./docs/v1_progress.md) features
+## History
+### [Release 1.0](./docs/v1_progress.md) features
 * Dr. Ting's eForth words with F32 as data unit, U16 instruction unit
 * Support parallel Forth VMs
 * Lambda-based Forth microcode
@@ -62,7 +98,8 @@ Having a 'shell' that can interactively and incrementally run 'compiled programs
 * String handling utilities in CUDA
 * Light-weight vector class, no dependency on STL
 * Output Stream, async from GPU to host
-#### Release 2.0 features
+
+### [Release 2.0](./docs/v2_progress.md) features
 * array, matrix objects (modeled to PyTorch)
 * TLSF tensor storage manager
 * matrix arithmetics (i.e. +, -, *, copy, mm, transpose)
