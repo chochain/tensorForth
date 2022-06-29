@@ -39,13 +39,18 @@ Having a 'shell' that can interactively and incrementally run 'compiled programs
 * use cuRAND
 * formatted file IO (CSV, Numpy)
 * preprocessor (DALI)
-* NN (torch.nn)
+* tensor gradiant and backprop
+* NN (torch.nn i.e. container, layers, and activations)
 * ML cases and benchmark (kaggle.MNIST, ...)
+* sampling and distribution
 * add inter-VM communication (CUDA stream)
 * add GNN - dynamic graph with VMs
 * integrate plots (tensorboard, R)
 * integrate ONNX 
 * integrate CUB, CUTLASS (utilities.init, gemm_api) - checked but slow, use straight CDP
+
+### Matrix operations
+
 
 ### History
 #### [Release 1.0](./docs/v1_progress.md) features
@@ -60,10 +65,12 @@ Having a 'shell' that can interactively and incrementally run 'compiled programs
 #### Release 2.0 features
 * array, matrix objects (modeled to PyTorch)
 * TLSF tensor storage manager
-* matrix addition, multiplication
+* matrix arithmetics (i.e. +, -, *, copy, mm, transpose)
+* matrix init (i.e. zeros, ones, full, eye, random)
 * GEMM (i.e. a * A x B + b * C, use CUDA Dynamic Parallelism)
+* tensor view instead of deep copy (i.e. dup, over, pick, r@, )
 * matrix print (i.e PyTorch-style, adjustable edge elements)
-* matrix console input (i.e. matrix[..., array[...)
+* matrix console input (i.e. matrix[..., array[..., and T![)
 * command line option: debug print level control (MMU_DEBUG)
 * command line option: list (all) device properties
 

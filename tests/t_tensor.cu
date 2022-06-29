@@ -12,7 +12,6 @@
 // CUTLASS includes needed for single-precision GEMM kernel
 //
 // Defines cutlass::gemm::device::Gemm, the generic Gemm computation template class.
-#include "cutlass/gemm/device/gemm.h"
 #include "../src/ten4_types.h"
 #include "../src/tensor.h"
 #include "../src/opt.h"
