@@ -121,9 +121,10 @@ __GPU__ DU ForthVM::tadd(bool sub) {
 __GPU__ DU ForthVM::tmul() {                         ///< tensor multiplication
     Tensor &B = mmu.du2ten(top);
     Tensor &A = mmu.du2ten(ss[-1]);
-    DEBUG("\tA[%d,%d]=%p x B[%d,%d]=%p", A.H(), A.W(), &A, B.H(), B.W(), &B);
-    if (A.W() == B.H()) {
-        Tensor &C = mmu.tensor(A.H(), B.W());
+    U16 m = A.H(), n = B.W(), k = A.W();
+    DEBUG("\tA[%d,%d]=%p x B[%d,%d]=%p", m, k, &A, B.H(), n, &B);
+    if (k == B.H()) {
+        Tensor &C = mmu.tensor(m, n);
         DEBUG(" => C[%d,%d]=%p\n", C.H(), C.W(), &C);
         Tensor::mm(A, B, C);
         PUSH(C);
@@ -132,6 +133,15 @@ __GPU__ DU ForthVM::tmul() {                         ///< tensor multiplication
     return top;
 }
 __GPU__ DU ForthVM::tinv() {                         ///< TODO: tensor inversion
+    return top;
+}
+__GPU__ DU ForthVM::ttrans() {
+    Tensor &A = mmu.du2ten(top);
+    U16 h = A.H(), w = A.W();
+    Tensor &B = mmu.tensor(w, h);
+    DEBUG("\tA[%d,%d]=%p => B[%d,%d]=%p", h, w, &A, B.H(), B.W(), &B);
+    Tensor::transpose(B, A);
+    PUSH(B);
     return top;
 }
 __GPU__ void ForthVM::gemm() {                       ///< blas GEMM
@@ -436,19 +446,20 @@ ForthVM::init() {
     CODE("reshape4",                     ///< reshape as Tensor(NHWC)
         IU c = POPi; IU w = POPi; IU h = POPi; IU n = POPi;
         mmu.du2ten(top).reshape(n, h, w, c)),
-    CODE("zeros",   if (IS_TENSOR(top)) mmu.du2ten(top).fill(0)),
-    CODE("ones",    if (IS_TENSOR(top)) mmu.du2ten(top).fill(1)),
-    CODE("full",    if (IS_TENSOR(ss[-1])) { DU d = POP(); mmu.du2ten(top).fill(d); }),
-    CODE("eye",     {}),                 ///< TODO
+    CODE("zeros", if (IS_TENSOR(top)) mmu.du2ten(top).fill(0)),
+    CODE("ones",  if (IS_TENSOR(top)) mmu.du2ten(top).fill(1)),
+    CODE("full",  if (IS_TENSOR(ss[-1])) { DU d = POP(); mmu.du2ten(top).fill(d); }),
+    CODE("eye",   {}),                   ///< TODO
     CODE("random",                       ///< randomize a tensor or a random number
         if (IS_TENSOR(top)) mmu.du2ten(top).random(0);
         else {
             PUSH((DU)(clock() % 1024) / 1024.0 - 0.5);
             DU_ONLY(top);
         }),
-    CODE("inv",    tinv()),             ///< (A -- A')      matrix inversion
-    CODE("mm",     tmul()),             ///< (A B -- A B C) matrix multiplication
-    CODE("gemm",   gemm()),             ///< (a b A B C -- a b A B C') GEMM (C updated)
+    CODE("inv",   tinv()),              ///< (A -- A A')    matrix inversion
+    CODE("trans", ttrans()),            ///< (A -- A At)    matrix transpose
+    CODE("mm",    tmul()),              ///< (A B -- A B C) matrix multiplication
+    CODE("gemm",  gemm()),              ///< (a b A B C -- a b A B C') GEMM (C updated)
     ///@}
     CODE("bye",   status = VM_STOP),
     CODE("boot",  mmu.clear(FIND("boot") + 1))
