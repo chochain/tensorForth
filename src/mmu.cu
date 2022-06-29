@@ -143,8 +143,6 @@ __GPU__ void                     ///< release tensor memory blocks
 MMU::free(Tensor &t) {
     if (!t.is_view()) tstore.free((void*)t.data);
     tstore.free((void*)&t);
-    tstore.show_stat();
-    tstore.dump_freelist();
 }
 __GPU__ Tensor&                  ///< deep copy a tensor
 MMU::copy(Tensor &t0) {
