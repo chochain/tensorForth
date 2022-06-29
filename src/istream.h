@@ -17,9 +17,6 @@ class Istream : public Managed {
     int  _idx  = 0;             /// current buffer index
     int  _gn   = 0;             /// number of byte processed
 
-    __GPU__ __INLINE__ void _debug() {
-        DEBUG("%d>> ibuf[%d] >> %d bytes\n", blockIdx.x, _idx, _gn);
-    }
     __GPU__ int _tok(char delim) {
         char *p = &_buf[_idx];
         while (delim==' ' && (*p==' ' || *p=='\t')) (p++, _idx++); // skip leading blanks and tabs
@@ -57,7 +54,7 @@ public:
     __GPU__ Istream& get_idiom(char *s, char delim=' ') {
         int nidx = _tok(delim);             // index to next token
 
-        _debug();
+        WARN("%d>> ibuf[%d] >> %d bytes\n", blockIdx.x, _idx, _gn);
 
         if (nidx==0) return *this;          // no token processed
         MEMCPY(s, &_buf[_idx], _gn);        // CUDA memcpy
