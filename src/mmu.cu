@@ -14,6 +14,7 @@ MMU::MMU() {
     cudaMallocManaged(&_pmem, T4_PMEM_SZ);
     cudaMallocManaged(&_vss,  sizeof(DU) * T4_SS_SZ * VM_MIN_COUNT);
     cudaMallocManaged(&_ten,  T4_TENSOR_SZ);
+    cudaMallocManaged(&_mark, sizeof(DU) * T4_TFREE_SZ);
     GPU_CHK();
 
     tstore.init(_ten, T4_TENSOR_SZ);
@@ -23,6 +24,7 @@ MMU::MMU() {
 __HOST__
 MMU::~MMU() {
     GPU_SYNC();
+    cudaFree(_mark);
     cudaFree(_ten);
     cudaFree(_vss);
     cudaFree(_pmem);
@@ -85,19 +87,22 @@ MMU::to_s(std::ostream &fout, IU w) {
 __GPU__ void
 MMU::mark_free(DU v) {            ///< mark a tensor free for release
     Tensor &t = du2ten(v);
-    DEBUG("mark T[%x]=%p as free\n", *(U32*)&v, &t);
-//    tfree << v;
+    DEBUG("mark T[%x]=%p as free[%d]\n", *(U32*)&v, &t, _fidx);
+//    lock();
+    if (_fidx < T4_TFREE_SZ) _mark[_fidx++] = v;
+    else ERROR("ERR: tfree array full, increase T4_TFREE_SZ!");
+//    unlock();                   ///< TODO: CC: DEAD LOCK, now!
 }
 __GPU__ void                      ///< release marked free tensor
 MMU::sweep() {
-//    MUTEX_LOCK(tfree);
-    for (int i=0; i<tfree.size(); i++) {
-        DU v = tfree[i];
-        DEBUG("release %x from tfree\n", *(U32*)&v);
-//        free(tfree[i]);
+//    lock();
+    for (int i=0; _fidx && i < _fidx; i++) {
+        DU v = _mark[i];
+        DEBUG("release T[%x] from marked list[%d]\n", *(U32*)&v, _fidx);
+        free(v);
     }
-    tfree.clear();
-//    MUTEX_FREE(tfree);
+    _fidx = 0;
+//  unlock();                     ///< TODO: CC: DEAD LOCK, now!    
 }
 __GPU__ Tensor&                    ///< create a one-dimensional tensor
 MMU::tensor(U32 sz) {

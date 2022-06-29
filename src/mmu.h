@@ -78,19 +78,25 @@ struct Code : public Managed {
 /// Forth memory manager
 ///
 class MMU : public Managed {
+    IU             _mutex;          ///< lock (first so address aligned)
     IU             _didx = 0;       ///< dictionary index
     IU             _midx = 0;       ///< parameter memory index
-    U32            _tidx = 0;       ///< tensor storage index, TODO: > 4G
+    IU             _fidx = 0;       ///< index to freed tensor array
     Code           *_dict;          ///< dictionary block
     U8             *_pmem;          ///< parameter memory block
     DU             *_vss;           ///< VM data stack block
     U8             *_ten;           ///< tensor storage block
+    DU             *_mark;          ///< array for tensors that marked free
     TLSF           tstore;          ///< tensor storage manager
-    Vector<DU, 16> tfree;           ///< freed tensors (by dot)
 
 public:
     __HOST__ MMU();
     __HOST__ ~MMU();
+    ///
+    /// memory lock for multi-processing
+    ///
+    __GPU__ __INLINE__ void lock()       { MUTEX_LOCK(_mutex); }
+    __GPU__ __INLINE__ void unlock()     { MUTEX_FREE(_mutex); } ///< TODO: dead lock now
     ///
     /// references to memory blocks
     ///
