@@ -37,11 +37,11 @@
 #define __HOST__
 #define __KERN__
 #define __INLINE__          inline
-#define ALIGN(sz)           ALIGN4(sz)
-#define PRINTF(fmt,...)     printf(fmt,__VA_ARGS__)
-#define NA(msg)             ({ PRINTF("method not supported: %s\n", msg); })
 #define ASSERT(X)           assert(x)
 #endif // defined(__CUDACC__)
+
+#define H2D                 cudaMemcpyHostToDevice
+#define D2H                 cudaMemcpyDeviceToHost
 ///@}
 ///@name Debug tracing options
 ///@{
@@ -50,11 +50,17 @@
 #else  // T4_VERBOSE
 #define INFO(...)
 #endif // T4_VERBOSE
-#if MMU_DEBUG
+#if T4_DEBUG
 #define DEBUG(...)          printf(__VA_ARGS__)
-#else  // MMU_DEBUG
+#else  // T4_DEBUG
 #define DEBUG(...)
+#endif // T4_DEBUG
+#if MMU_DEBUG
+#define WARN(...)           printf(__VA_ARGS__)
+#else  // MMU_DEBUG
+#define WARN(...)
 #endif // MMU_DEBUG
+#define NA(msg)             ({ INFO("method not supported: %s\n", msg); })
 #define ERROR(...)          printf(__VA_ARGS__)
 ///@}
 ///@name Portable types
