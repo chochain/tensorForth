@@ -413,7 +413,7 @@ ForthVM::init() {
     CODE("clock", PUSH(clock()/khz)),
     CODE("delay", delay(POPi)),                                // TODO: change to VM_WAIT
     ///@}
-    ///@defgroup Tensor ops
+    ///@defgroup Tensor creation ops
     ///@brief - stick to PyTorch naming when possible
     ///@{
     CODE("array",                        ///< allocate an array
@@ -433,10 +433,11 @@ ForthVM::init() {
         IU w = POPi; IU h = POPi;
         PUSH(mmu.tensor(h, w));
         ten_off = 0; ten_lvl = 1),
-    CODE("T![",                          ///< (n -- ) or ( -- )
-         ten_off = IS_TENSOR(top) ? 0 : POPi;
-         ten_lvl = IS_TENSOR(top) ? 1 : 0),
     CODE("copy",    PUSH(mmu.copy(top))),
+    ///@}
+    ///@defgroup Tensor shape ops
+    ///@brief - stick to PyTorch naming when possible
+    ///@{
     CODE("flatten",                      ///< reshape as an 1-D array
         Tensor &t = mmu.du2ten(top);
         t.reshape(t.size)),
@@ -446,6 +447,13 @@ ForthVM::init() {
     CODE("reshape4",                     ///< reshape as Tensor(NHWC)
         IU c = POPi; IU w = POPi; IU h = POPi; IU n = POPi;
         mmu.du2ten(top).reshape(n, h, w, c)),
+    ///@}
+    ///@defgroup Tensor fill ops
+    ///@brief - stick to PyTorch naming when possible
+    ///@{
+    CODE("T![",                          ///< (n -- ) or ( -- )
+         ten_off = IS_TENSOR(top) ? 0 : POPi;
+         ten_lvl = IS_TENSOR(top) ? 1 : 0),
     CODE("zeros", if (IS_TENSOR(top)) mmu.du2ten(top).fill(0)),
     CODE("ones",  if (IS_TENSOR(top)) mmu.du2ten(top).fill(1)),
     CODE("full",  if (IS_TENSOR(ss[-1])) { DU d = POP(); mmu.du2ten(top).fill(d); }),
@@ -456,6 +464,10 @@ ForthVM::init() {
             PUSH((DU)(clock() % 1024) / 1024.0 - 0.5);
             DU_ONLY(top);
         }),
+    ///@}
+    ///@defgroup Tensor matrix ops
+    ///@brief - stick to PyTorch naming when possible
+    ///@{
     CODE("inv",   tinv()),              ///< (A -- A A')    matrix inversion
     CODE("trans", ttrans()),            ///< (A -- A At)    matrix transpose
     CODE("mm",    tmul()),              ///< (A B -- A B C) matrix multiplication
