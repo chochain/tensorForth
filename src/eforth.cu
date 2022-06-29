@@ -41,7 +41,8 @@
 __GPU__
 ForthVM::ForthVM(int khz, Istream *istr, Ostream *ostr, MMU *mmu0)
     : khz(khz), fin(*istr), fout(*ostr), mmu(*mmu0), dict(mmu0->dict()) {
-        INFO("FVM dict=%p, mem=%p, vss=%p\n", dict, mmu.pmem(0), mmu.vss(blockIdx.x));
+    INFO("VM[%d] dict=%p, mem=%p, vss=%p\n",
+         blockIdx.x, dict, mmu.pmem(0), mmu.vss(blockIdx.x));
 }
 ///
 /// Forth inner interpreter (colon word handler)
@@ -86,7 +87,7 @@ ForthVM::nest() {
 ///
 __GPU__ __INLINE__ void ForthVM::add_w(IU w)  {
     add_iu(w);
-    DEBUG("add_w(%d) => %s\n", w, dict[w].name);
+    WARN("add_w(%d) => %s\n", w, dict[w].name);
 }
 __GPU__ __INLINE__ void ForthVM::add_iu(IU i) { mmu.add((U8*)&i, sizeof(IU)); }
 __GPU__ __INLINE__ void ForthVM::add_du(DU d) { mmu.add((U8*)&d, sizeof(DU)); }
@@ -105,10 +106,16 @@ __GPU__ __INLINE__ void ForthVM::call(IU w) {
 ///
 /// tensor methods
 ///
-__GPU__ DU ForthVM::tadd(DU n) {                     ///< TODO: tensor addition
-    return top;
-}
-__GPU__ DU ForthVM::tinv() {                         ///< TODO: tensor inversion
+__GPU__ DU ForthVM::tadd(bool sub) {
+    Tensor &B = mmu.du2ten(top);
+    Tensor &A = mmu.du2ten(ss[-1]);
+    U16 h = A.H(), w = A.W();
+    if (h == B.H() && w == B.W()) {
+        Tensor &C = mmu.tensor(h, w);
+        Tensor::add(A, B, C, sub);
+        PUSH(C);
+    }
+    else ERROR("dim?");
     return top;
 }
 __GPU__ DU ForthVM::tmul() {                         ///< tensor multiplication
@@ -124,13 +131,17 @@ __GPU__ DU ForthVM::tmul() {                         ///< tensor multiplication
     else ERROR("dim?");
     return top;
 }
+__GPU__ DU ForthVM::tinv() {                         ///< TODO: tensor inversion
+    return top;
+}
 __GPU__ void ForthVM::gemm() {                       ///< blas GEMM
     Tensor &C = mmu.du2ten(top);
     Tensor &B = mmu.du2ten(ss[-1]);
     Tensor &A = mmu.du2ten(ss[-2]);
     DU     b  = ss[-3];
     DU     a  = ss[-4];
-    if (A.W() == B.H() && A.H() == C.H() && B.W() == C.W()) {
+    U16 m = A.H(), k = A.W(), n = B.W();
+    if (k == B.H() && m == C.H() && n == C.W()) {
         Tensor::gemm(A, B, C, a, b);
     }
     else ERROR("dim?");
@@ -139,7 +150,10 @@ __GPU__ void ForthVM::gemm() {                       ///< blas GEMM
 ///
 /// debug methods
 ///
-__GPU__ __INLINE__ void ForthVM::dot(DU v)          { fout << ' ' << v;     }
+__GPU__ __INLINE__ void ForthVM::dot(DU v) {
+    if (IS_TENSOR(v)) mmu.mark_free(v);
+    fout << v;
+}
 __GPU__ __INLINE__ void ForthVM::dot_r(int n, DU v) { fout << setw(n) << v; }
 __GPU__ __INLINE__ void ForthVM::ss_dump(int n) {
     ss[T4_SS_SZ-1] = top;        // put top at the tail of ss (for host display)
@@ -207,9 +221,9 @@ ForthVM::init() {
     ///@}
     ///@defgroup FPU ops
     ///@{
-    CODE("+",    IS_TENSOR(top) ? tadd()   : top += ss.pop()),
-    CODE("*",    IS_TENSOR(top) ? tmul()   : top *= ss.pop()),
-    CODE("-",    IS_TENSOR(top) ? tadd(-1) : top =  ss.pop() - top),
+    CODE("+",    IS_TENSOR(top) ? tadd()     : top += ss.pop()),
+    CODE("*",    IS_TENSOR(top) ? tmul()     : top *= ss.pop()),
+    CODE("-",    IS_TENSOR(top) ? tadd(true) : top =  ss.pop() - top),
     CODE("/",
          if (IS_TENSOR(top)) { tinv(); tmul(); }         /// matrix division (A x B^-1)
          else {
@@ -404,11 +418,14 @@ ForthVM::init() {
     CODE("array[",                       ///< create an array with literals
         IU sz = POPi;
         PUSH(mmu.tensor(sz));
-        ten_lvl = 1),
+        ten_off = 0; ten_lvl = 1),
     CODE("matrix[",                      ///< create a matrix with literals
         IU w = POPi; IU h = POPi;
         PUSH(mmu.tensor(h, w));
-        ten_lvl = 1),
+        ten_off = 0; ten_lvl = 1),
+    CODE("T![",                          ///< (n -- ) or ( -- )
+         ten_off = IS_TENSOR(top) ? 0 : POPi;
+         ten_lvl = IS_TENSOR(top) ? 1 : 0),
     CODE("copy",    PUSH(mmu.copy(top))),
     CODE("flatten",                      ///< reshape as an 1-D array
         Tensor &t = mmu.du2ten(top);
@@ -443,12 +460,12 @@ ForthVM::init() {
         if ((UFP)dict[i].name < n0) n0 = (UFP)dict[i].name;
     }
     for (int i=0; i<n; i++) {           ///< dump dictionary from device
-        DEBUG("%3d> xt=%4x:%p name=%4x:%p %s\n", i,
+        WARN("%3d> xt=%4x:%p name=%4x:%p %s\n", i,
             (U16)((UFP)dict[i].xt   - x0), dict[i].xt,
             (U16)((UFP)dict[i].name - n0), dict[i].name,
             dict[i].name);
     }
-    INFO("VM=%p dict[%d] sizeof(Code)=%d sizeof(Tensor)=%d\n",
+    DEBUG("VM=%p dict[%d] sizeof(Code)=%d sizeof(Tensor)=%d\n",
         this, n, (int)sizeof(Code), (int)sizeof(Tensor));
 
     status = VM_RUN;
@@ -467,18 +484,19 @@ ForthVM::init() {
 ///
 __GPU__ void
 ForthVM::outer() {
+//    mmu.sweep();                             /// * release marked free tensors
     while (fin >> idiom) {                   /// loop throught tib
-        INFO("%d>> %-10s => ", blockIdx.x, idiom);
+        DEBUG("%d>> %-10s => ", blockIdx.x, idiom);
         int w = FIND(idiom);                 /// * search through dictionary
         if (w>=0) {                          /// * word found?
-            INFO("%4x:%p %s %d ",
+            DEBUG("%4x:%p %s %d ",
                 dict[w].def ? dict[w].pfa : 0,
                 dict[w].xt, dict[w].name, w);
             if (compile && !dict[w].immd) {  /// * in compile mode?
                 add_w((IU)w);                /// * add found word to new colon word
             }
             else {
-                INFO("=> call(%s)\n", dict[w].name);
+                DEBUG("=> call(%s)\n", dict[w].name);
                 call((IU)w);                 /// * execute forth word
             }
             continue;
@@ -495,16 +513,16 @@ ForthVM::outer() {
         }
         // is a number
         if (compile) {                       /// * add literal when in compile mode
-            INFO("%f\n", n);
+            DEBUG("%f\n", n);
             add_w(DOLIT);                    ///> dovar (+parameter field)
             add_du(n);                       ///> store literal
         }
         else if (ten_lvl > 0) {              /// * append literal into tensor storage
-            INFO("T[%d]=%f\n", ten_off, n);
+            DEBUG("T[%d]=%f\n", ten_off, n);
             add_tensor(n);
         }
         else {                               ///> or, add value onto data stack
-            INFO("ss.push(%08x)\n", *(U32*)&n);
+            DEBUG("ss.push(%08x)\n", *(U32*)&n);
             PUSH(n);
         }
     }
