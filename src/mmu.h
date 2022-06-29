@@ -11,6 +11,7 @@
 #include "util.h"
 #include "tensor.h"
 #include "tlsf.h"
+#include "vector.h"
 ///
 /// CUDA functor (device only) implementation
 /// Note: nvstd::function is too heavy (at sizeof(Code)=56-byte)
@@ -26,15 +27,15 @@ struct functor : fop {
         U64 *fp;                             ///< pointer for debugging
     };
     __GPU__ functor(const F &f) : op(f) {    ///< constructor
-        DEBUG("functor(%p) => ", this);
+        WARN("functor(%p) => ", this);
     }
     __GPU__ functor &operator=(const F &f) {
-        DEBUG("op=%p", this);
+        WARN("op=%p", this);
         op = f;
         return *this;
     }
     __GPU__ void operator()() {              ///< lambda invoke
-        DEBUG("op=%p => ", this);
+        WARN("op=%p => ", this);
         op();
     }
 };
@@ -57,18 +58,18 @@ struct Code : public Managed {
     };
     template<typename F>    ///< template function for lambda
     __GPU__ Code(const char *n, const F &f, bool im=false) : name(n), xt(new functor<F>(f)) {
-        DEBUG("Code(...) %p %s\n", xt, name);
+        WARN("Code(...) %p %s\n", xt, name);
         immd = im ? 1 : 0;
     }
     /*
     __GPU__ Code(const Code &c) : name(c.name), xt(c.xt) {
-        DEBUG("Code(&c) %p %s\n", xt, name);
+        WARN("Code(&c) %p %s\n", xt, name);
     }
     */
     __GPU__ Code &operator=(const Code &c) {                ///> called by Vector::push(T*)
         name = c.name;
         xt   = c.xt;
-        DEBUG("Code()= %p %s\n", xt, name);
+        WARN("Code()= %p %s\n", xt, name);
     }
 };
 #define CODE(s, g)    { s, [this] __GPU__ (){ g; }}
@@ -76,17 +77,16 @@ struct Code : public Managed {
 ///
 /// Forth memory manager
 ///
-#define H2D cudaMemcpyHostToDevice
-#define D2H cudaMemcpyDeviceToHost
 class MMU : public Managed {
-    IU   _didx = 0;       ///< dictionary index
-    IU   _midx = 0;       ///< parameter memory index
-    U32  _tidx = 0;       ///< tensor storage index, TODO: > 4G
-    Code *_dict;          ///< dictionary block
-    U8   *_pmem;          ///< parameter memory block
-    DU   *_vss;           ///< VM data stack block
-    U8   *_ten;           ///< tensor storage block
-    TLSF tstore;          ///< tensor storage manager
+    IU             _didx = 0;       ///< dictionary index
+    IU             _midx = 0;       ///< parameter memory index
+    U32            _tidx = 0;       ///< tensor storage index, TODO: > 4G
+    Code           *_dict;          ///< dictionary block
+    U8             *_pmem;          ///< parameter memory block
+    DU             *_vss;           ///< VM data stack block
+    U8             *_ten;           ///< tensor storage block
+    TLSF           tstore;          ///< tensor storage manager
+    Vector<DU, 16> tfree;           ///< freed tensors (by dot)
 
 public:
     __HOST__ MMU();
@@ -128,6 +128,8 @@ public:
     ///
     /// tensor life-cycle methods
     ///
+    __GPU__  void   mark_free(DU v);                        ///< mark a tensor free
+    __GPU__  void   sweep();                                ///< free marked tensor
     __GPU__  Tensor &tensor(U32 sz);                        ///< create an array
     __GPU__  Tensor &tensor(U16 h, U16 w);                  ///< create a matrix
     __GPU__  Tensor &tensor(U16 n, U16 h, U16 w, U16 c);    ///< create a NHWC tensor
@@ -135,7 +137,7 @@ public:
     __GPU__  void   free(Tensor &t);                        ///< free the tensor
     __GPU__  Tensor &copy(Tensor &t0);                      ///< hard copy a tensor
     ///
-    /// short hands for eforth tensor ucodes
+    /// short hands for eforth tensor ucodes (for DU <-> Tensor conversion)
     ///
     __BOTH__ __INLINE__ Tensor &du2ten(DU d) {
         U32    *off = (U32*)&d;
