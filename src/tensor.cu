@@ -58,10 +58,28 @@ __KERN__ void k_matadd(
         else     C[off] = A[off] + B[off];
     }
 }
+
+__KERN__ void k_copy(DU *dst, DU *src, int nrow, int ncol) {
+    int i = threadIdx.x + blockIdx.x * blockDim.x;
+    int j = threadIdx.y + blockIdx.y * blockDim.y;
+
+    if (i < ncol && j < nrow) {
+        int off = i + j * ncol;
+        dst[off] = src[off];
+    }
+}
+__KERN__ void k_transpose(DU *dst, DU *src, int nrow, int ncol) {
+    int i = threadIdx.x + blockIdx.x * blockDim.x;
+    int j = threadIdx.y + blockIdx.y * blockDim.y;
+
+    if (i < ncol && j < nrow) {
+        dst[j + i * nrow] = src[i + j * ncol];
+    }
+}
 ///
 /// tensor GEMM C' = alpha * A x B + beta * C
 ///
-__GPU__ Tensor&
+__BOTH__ Tensor&
 Tensor::gemm(Tensor &A, Tensor &B, Tensor &C, DU alpha, DU beta) {
     U16 m = A.H(), n = B.W(), k = A.W();
     DEBUG("GEMM M=%d, N=%d, K=%d a=%f, b=%f\n", m, n, k, alpha, beta);
@@ -79,9 +97,9 @@ Tensor::gemm(Tensor &A, Tensor &B, Tensor &C, DU alpha, DU beta) {
 ///
 /// tensor addition C = A + B or C = A - B
 ///
-__GPU__ Tensor&
+__BOTH__ Tensor&
 Tensor::add(Tensor &A, Tensor &B, Tensor &C, bool sub) {
-    int m = A.H(), n = A.W();
+    U16 m = A.H(), n = A.W();
     DEBUG("Tensor::%s M=%d, N=%d\n", sub ? "sub" : "add", m, n);
     dim3 block(16, 16), grid(
         (n + block.x - 1) / block.x,
@@ -92,6 +110,32 @@ Tensor::add(Tensor &A, Tensor &B, Tensor &C, bool sub) {
     return C;
 }
     
+__BOTH__ Tensor&
+Tensor::copy(Tensor &D, Tensor &S) {
+    U16 m = S.H(), n = S.W();
+    DEBUG("Tensor::copy M=%d, N=%d\n", m, n);
+    dim3 block(16, 16), grid(
+        (n + block.x - 1) / block.x,
+        (m + block.y - 1) / block.y
+    );
+    k_copy<<<grid, block>>>((DU*)D.data, (DU*)S.data, m, n);
+    cudaDeviceSynchronize();
+    return D;
+}
+
+__BOTH__ Tensor&
+Tensor::transpose(Tensor &D, Tensor &S) {
+    U16 m = S.H(), n = S.W();
+    DEBUG("Tensor::transpose M=%d, N=%d\n", m, n);
+    dim3 block(16, 16), grid(
+        (n + block.x - 1) / block.x,
+        (m + block.y - 1) / block.y
+    );
+    k_transpose<<<grid, block>>>((DU*)D.data, (DU*)S.data, m, n);
+    cudaDeviceSynchronize();
+    return D;
+}
+
 __HOST__
 Tensor::Tensor() :
     dsize(sizeof(DU)),

@@ -52,10 +52,12 @@ struct Tensor : public Managed {
     ///
     /// static ops
     ///
-    static __GPU__ Tensor &gemm(Tensor &A, Tensor &B, Tensor &C, DU alpha, DU beta);
-    static __GPU__ Tensor &grad(Tensor &A, Tensor &B, Tensor &C);
-    static __GPU__ Tensor &mm(Tensor &A, Tensor &B, Tensor &C) { return gemm(A, B, C, 1.0, 0.0); }
-    static __GPU__ Tensor &add(Tensor &A, Tensor &B, Tensor &C, bool sub=0);
+    static __BOTH__ Tensor &gemm(Tensor &A, Tensor &B, Tensor &C, DU alpha, DU beta);
+    static __BOTH__ Tensor &grad(Tensor &A, Tensor &B, Tensor &C);
+    static __BOTH__ Tensor &mm(Tensor &A, Tensor &B, Tensor &C) { return gemm(A, B, C, 1.0, 0.0); }
+    static __BOTH__ Tensor &add(Tensor &A, Tensor &B, Tensor &C, bool sub=0);
+    static __BOTH__ Tensor &copy(Tensor &D, Tensor &S);
+    static __BOTH__ Tensor &transpose(Tensor &D, Tensor &S);
     ///
     /// class contructors
     ///
