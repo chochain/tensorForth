@@ -34,6 +34,9 @@ ten4_init(int khz, Istream *istr, Ostream *ostr, MMU *mmu) {
     ForthVM *vm = vm_pool[i] = new ForthVM(khz, istr, ostr, mmu);  // instantiate VM
     vm->ss.init(mmu->vss(i), T4_SS_SZ);  // point data stack to managed memory block
 
+    mmu->mark_free(1);
+    mmu->sweep();
+    
     if (i==0) vm->init();                // initialize common dictionary (once only)
 }
 ///
@@ -120,12 +123,10 @@ TensorForth::TensorForth(int device, bool trace) {
          << ", dict["          << T4_DICT_SZ << "]"
          << ", pmem="          << T4_PMEM_SZ/1024 << "K"
          << ", tensor="        << T4_TENSOR_SZ/1024/1024 << "M"
-#if CC_DEBUG
-         << ", sizeof(Code)=" << sizeof(Code)
-#endif // CC_DEBUG
          << endl;
 #endif // T4_VERBOSE
 }
+
 TensorForth::~TensorForth() {
     delete aio;
     cudaFree(busy);
@@ -185,11 +186,10 @@ void sigtrap() {
 
 int main(int argc, char**argv) {
     const string APP = string(T4_APP_NAME) + " " + MAJOR_VERSION + "." + MINOR_VERSION;
-    
     sigtrap();
-    TensorForth *f = new TensorForth();
-
     cout << APP << endl;
+    
+    TensorForth *f = new TensorForth();
     f->run();
 
     cout << APP << " done." << endl;
@@ -197,5 +197,6 @@ int main(int argc, char**argv) {
 
     return 0;
 }
+
 
     
