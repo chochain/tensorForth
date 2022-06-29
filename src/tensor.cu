@@ -28,7 +28,7 @@ __KERN__ void k_matrix_randomize(DU *mat, int nrow, int ncol, int seed=0)
 ///     C = alpha * A x B + beta * C
 ///     where A = MxK, B = KxN, C = MxN
 ///
-__KERN__ void k_GEMM(
+__KERN__ void k_gemm(
     int M, int N, int K,
     DU *A, DU *B, DU *C,   /* MxK, KxN, MxN */
     DU alpha, DU beta)
@@ -44,31 +44,54 @@ __KERN__ void k_GEMM(
         C[i + j * N] = alpha * acc + beta * C[i + j * N];
     }
 }
-//
-// GEMM test driver kernel code
-//
-__GPU__ Tensor&
-Tensor::gemm(
-    Tensor &A, Tensor &B, Tensor &C, DU alpha, DU beta) {
-    int m = A.H(), k = A.W(), n = B.W();
-    if (k != B.H() || m != C.H() || n != C.W()) {
-        ERROR("dim?");
-        return;
+__KERN__ void k_matadd(
+    int M, int N,
+    DU *A, DU *B, DU *C,
+    bool sub)
+{
+    int i = threadIdx.x + blockIdx.x * blockDim.x;
+    int j = threadIdx.y + blockIdx.y * blockDim.y;
+
+    if (i < N && j < M) {
+        int off = i + j * N;
+        if (sub) C[off] = A[off] - B[off];
+        else     C[off] = A[off] + B[off];
     }
+}
+///
+/// tensor GEMM C' = alpha * A x B + beta * C
+///
+__GPU__ Tensor&
+Tensor::gemm(Tensor &A, Tensor &B, Tensor &C, DU alpha, DU beta) {
+    U16 m = A.H(), n = B.W(), k = A.W();
     DEBUG("GEMM M=%d, N=%d, K=%d a=%f, b=%f\n", m, n, k, alpha, beta);
-    
     dim3 block(16, 16), grid(
         (n + block.x - 1) / block.x,
         (m + block.y - 1) / block.y
     );
-    k_GEMM<<<grid, block>>>(
+    k_gemm<<<grid, block>>>(
         m, n, k,
         (DU*)A.data, (DU*)B.data, (DU*)C.data,
         alpha, beta);
     cudaDeviceSynchronize();     // TODO: deprecated 11.6, use cooperative_groups.sync()
     return C;
 }
-
+///
+/// tensor addition C = A + B or C = A - B
+///
+__GPU__ Tensor&
+Tensor::add(Tensor &A, Tensor &B, Tensor &C, bool sub) {
+    int m = A.H(), n = A.W();
+    DEBUG("Tensor::%s M=%d, N=%d\n", sub ? "sub" : "add", m, n);
+    dim3 block(16, 16), grid(
+        (n + block.x - 1) / block.x,
+        (m + block.y - 1) / block.y
+    );
+    k_matadd<<<grid, block>>>(m, n, (DU*)A.data, (DU*)B.data, (DU*)C.data, sub);
+    cudaDeviceSynchronize();     // TODO: deprecated 11.6, use cooperative_groups.sync()
+    return C;
+}
+    
 __HOST__
 Tensor::Tensor() :
     dsize(sizeof(DU)),

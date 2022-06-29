@@ -55,6 +55,7 @@ struct Tensor : public Managed {
     static __GPU__ Tensor &gemm(Tensor &A, Tensor &B, Tensor &C, DU alpha, DU beta);
     static __GPU__ Tensor &grad(Tensor &A, Tensor &B, Tensor &C);
     static __GPU__ Tensor &mm(Tensor &A, Tensor &B, Tensor &C) { return gemm(A, B, C, 1.0, 0.0); }
+    static __GPU__ Tensor &add(Tensor &A, Tensor &B, Tensor &C, bool sub=0);
     ///
     /// class contructors
     ///
