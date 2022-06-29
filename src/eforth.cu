@@ -438,6 +438,8 @@ ForthVM::init() {
         mmu.du2ten(top).reshape(n, h, w, c)),
     CODE("zeros",   if (IS_TENSOR(top)) mmu.du2ten(top).fill(0)),
     CODE("ones",    if (IS_TENSOR(top)) mmu.du2ten(top).fill(1)),
+    CODE("full",    if (IS_TENSOR(ss[-1])) { DU d = POP(); mmu.du2ten(top).fill(d); }),
+    CODE("eye",     {}),                 ///< TODO
     CODE("random",                       ///< randomize a tensor or a random number
         if (IS_TENSOR(top)) mmu.du2ten(top).random(0);
         else {
