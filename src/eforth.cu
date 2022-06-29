@@ -484,7 +484,6 @@ ForthVM::init() {
 ///
 __GPU__ void
 ForthVM::outer() {
-//    mmu.sweep();                             /// * release marked free tensors
     while (fin >> idiom) {                   /// loop throught tib
         DEBUG("%d>> %-10s => ", blockIdx.x, idiom);
         int w = FIND(idiom);                 /// * search through dictionary

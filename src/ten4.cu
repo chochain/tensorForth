@@ -34,9 +34,6 @@ ten4_init(int khz, Istream *istr, Ostream *ostr, MMU *mmu) {
     ForthVM *vm = vm_pool[i] = new ForthVM(khz, istr, ostr, mmu);  // instantiate VM
     vm->ss.init(mmu->vss(i), T4_SS_SZ);  // point data stack to managed memory block
 
-    mmu->mark_free(1);
-    mmu->sweep();
-    
     if (i==0) vm->init();                // initialize common dictionary (once only)
 }
 ///
@@ -86,6 +83,18 @@ ten4_exec() {
     __syncthreads();
     MEMCPY(ss0, ss, sizeof(DU) * T4_SS_SZ);     // copy updated stack to managed memory
     vm->ss.v = ss0;                             // restore stack back to VM
+}
+///
+/// clean up marked free tensors
+///
+__KERN__ void
+ten4_sweep(MMU *mmu) {
+//    mmu->lock();
+    if (blockIdx.x ==0 && threadIdx.x == 0) {
+        mmu->sweep();
+    }
+    __syncthreads();
+//    mmu->unlock(); !!! DEAD LOCK now
 }
 
 TensorForth::TensorForth(int device, bool trace) {
@@ -147,7 +156,7 @@ TensorForth::is_running() {
     return h_busy;
 }
 
-#define VSS_SZ (sizeof(DU)*T4_SS_SZ*VM_MIN_COUNT)
+#define VSS_SZ (sizeof(DU) * T4_SS_SZ * VM_MIN_COUNT)
 __HOST__ int
 TensorForth::run() {
     while (is_running()) {
@@ -155,6 +164,7 @@ TensorForth::run() {
             ten4_exec<<<1, 1, VSS_SZ>>>();
             GPU_CHK();                // cudaDeviceSynchronize() and check error
             aio->flush();             // flush output buffer
+            ten4_sweep<<<1, 1>>>(mmu);
         }
         yield();
 #if MMU_DEBUG
