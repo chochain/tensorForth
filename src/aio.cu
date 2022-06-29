@@ -87,8 +87,6 @@ AIO::print_tensor(DU v) {
 
 __HOST__ void
 AIO::print_node(obuf_node *node) {
-    if (_trace) std::cout << '<' << node->id << '>';
-
     char *v = (char*)node->data;
     switch (node->gt) {
     case GT_INT:   std::cout << (*(S32*)v);        break;
@@ -117,7 +115,6 @@ AIO::print_node(obuf_node *node) {
     } break;
     default: std::cout << "print type not supported: " << (int)node->gt;  break;
     }
-    if (_trace) std::cout << "</" << node->id << '>' << std::endl;
 }
 
 #define NEXTNODE(n) ((obuf_node*)((char*)&node->data[0] + node->sz))
@@ -125,7 +122,9 @@ __HOST__ void
 AIO::flush() {
     obuf_node *node = (obuf_node*)_ostr->rdbuf();
     while (node->gt != GT_EMPTY) {          // 0
+        if (_trace) std::cout << '<' << node->id << '>';
         print_node(node);
+        if (_trace) std::cout << "</" << node->id << '>' << std::endl;
         node = NEXTNODE(node);
     }
     _ostr->clear();
