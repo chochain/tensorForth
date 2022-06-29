@@ -3,6 +3,7 @@
 */
 #ifndef TEN4_SRC_OPT_H_
 #define TEN4_SRC_OPT_H_
+
 #include "cutlass/util/command_line.h"
 /////////////////////////////////////////////////////////////////////////////////////////////////
 /// Result structure
@@ -48,34 +49,50 @@ struct Options {
         beta(0) { }
 
     bool valid() { return true; }
-    int  version_check() {
+    //
+    // print device properties
+    //
+    void dump_device_prop(cudaDeviceProp &p) {
+        const char *yes_no[] = { "No", "Yes" };
+        printf("\tName:                          %s\n",  p.name);
+        printf("\tCUDA version:                  %u.%u\n",  p.major, p.minor);
+        printf("\tTotal global memory:           %uM\n", (U32)(p.totalGlobalMem>>20));
+        printf("\tTotal shared memory per block: %uK\n", (U32)(p.sharedMemPerBlock>>10));
+        printf("\tNumber of multiprocessors:     %u\n",  p.multiProcessorCount);
+        printf("\tTotal registers per block:     %uK\n",  (p.regsPerBlock>>10));
+        printf("\tWarp size:                     %u\n",  p.warpSize);
+        printf("\tMax memory pitch:              %uM\n", (U32)(((U64)p.memPitch+1)>>20));
+        printf("\tMax threads per block:         %u\n",  p.maxThreadsPerBlock);
+        printf("\tMax dim of block:              [");
+        for (int i = 0; i < 3; ++i) printf("%d%s", p.maxThreadsDim[i], i<2 ? ", " : "]\n");
+        printf("\tMax dim of grid:               [");
+        printf("%uM, ", (U32)(((U64)p.maxGridSize[0]+1)>>20));
+        printf("%uK, ", (U32)((p.maxGridSize[1]+1)>>10));
+        printf("%uK]\n",(U32)((p.maxGridSize[2]+1)>>10));
+        printf("\tClock rate:                    %uKHz\n", p.clockRate/1000);
+        printf("\tTotal constant memory:         %uK\n", (U32)(p.totalConstMem>>10));
+        printf("\tTexture alignment:             %lu\n", p.textureAlignment);
+        printf("\tConcurrent copy and execution: %s\n",  yes_no[p.deviceOverlap]);
+        printf("\tKernel execution timeout:      %s\n",  yes_no[p.kernelExecTimeoutEnabled]);
+    }
+    int version_check(cudaDeviceProp &props) {
+        const char *err[] = {
+            "Volta Tensor Core operations must be run on a machine with compute capability at least 70.",
+            "Volta Tensor Core operations must be compiled with CUDA 10.1 Toolkit or later.",
+            "Turing Tensor Core operations must be compiled with CUDA 10.2 Toolkit or later."
+        };
         //
         // Volta Tensor Core operations are first available in CUDA 10.1 Toolkit.
         //
         // Turing Tensor Core operations are first available in CUDA 10.2 Toolkit.
         //
-        cudaDeviceProp props;
-        cudaError_t error = cudaGetDeviceProperties(&props, 0);
-        if (error != cudaSuccess) {
-            std::cerr << "cudaGetDeviceProperties() returned an error: " << cudaGetErrorString(error) << std::endl;
-            return -1;
-        }
-        if (props.major < 7) {
-            std::cerr << "Volta Tensor Core operations must be run on a machine with compute capability at least 70."
-                      << std::endl;
-
-            // Returning zero so this test passes on older architectures even though its actions are no-op.
-            return 0;
-        }
+        if (props.major < 7) { std::cerr << err[0] << std::endl; return 0; }
         else if (props.major == 7 && props.minor <= 2) {
             //
             // If running on the Volta architecture, at least CUDA 10.1 Toolkit is required to run this example.
             //
             if (!(__CUDACC_VER_MAJOR__ > 10 || (__CUDACC_VER_MAJOR__ == 10 && __CUDACC_VER_MINOR__ >= 1))) {
-                std::cerr << "Volta Tensor Core operations must be compiled with CUDA 10.1 Toolkit or later." << std::endl;
-
-                // Returning zero so this test passes on older Toolkits even though its actions are no-op.
-                return 0;
+                std::cerr << err[1] << std::endl; return 0;
             }
         }
         else if (props.major == 7 && props.minor >= 5) {
@@ -83,10 +100,7 @@ struct Options {
             // If running on the Turing architecture, at least CUDA 10.2 Toolkit is required to run this example.
             //
             if (!(__CUDACC_VER_MAJOR__ > 10 || (__CUDACC_VER_MAJOR__ == 10 && __CUDACC_VER_MINOR__ >= 2))) {
-                std::cerr << "Turing Tensor Core operations must be compiled with CUDA 10.2 Toolkit or later." << std::endl;
-    
-                // Returning zero so this test passes on older Toolkits even though its actions are no-op.
-                return 0;
+                std::cerr << err[2] << std::endl; return 0;
             }
         }
         else {
@@ -96,7 +110,22 @@ struct Options {
         }
         return 1;
     }
-
+    int list_devices() {
+        int n;
+        cudaGetDeviceCount(&n);
+        for (int device_id = 0; device_id < n; ++device_id) {
+            printf("\nCUDA Device #%d\n", i);
+            cudaDeviceProp props;
+            cudaError_t    error = cudaGetDeviceProperties(&props, device_id);
+            if (error != cudaSuccess) {
+                std::cerr << "cudaGetDeviceProperties() returned an error: " << cudaGetErrorString(error) << std::endl;
+                continue;
+            }
+            check_versions(props);
+            dump_device_prop(props);
+        }
+        return n;
+    }
     // Parses the command line
     void parse(int argc, char const **args) {
         cutlass::CommandLine cmd(argc, args);
