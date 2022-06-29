@@ -35,16 +35,16 @@ struct Options {
     cutlass::gemm::GemmCoord problem_size;
     cutlass::complex<float>  alpha;
     cutlass::complex<float>  beta;
-    int  batch_count;
+    int  batch_count = 1;
     bool reference_check;
     int  iterations;
   
     Options():
         help(false),
-        problem_size({1024, 1024, 1024}),
+        problem_size({1024, 512, 2048}),
         batch_count(1),
         reference_check(true),
-        iterations(20),
+        iterations(1),
         alpha(1),
         beta(0) { }
 
@@ -52,30 +52,7 @@ struct Options {
     //
     // print device properties
     //
-    void dump_device_prop(cudaDeviceProp &p) {
-        const char *yes_no[] = { "No", "Yes" };
-        printf("\tName:                          %s\n",  p.name);
-        printf("\tCUDA version:                  %u.%u\n",  p.major, p.minor);
-        printf("\tTotal global memory:           %uM\n", (U32)(p.totalGlobalMem>>20));
-        printf("\tTotal shared memory per block: %uK\n", (U32)(p.sharedMemPerBlock>>10));
-        printf("\tNumber of multiprocessors:     %u\n",  p.multiProcessorCount);
-        printf("\tTotal registers per block:     %uK\n",  (p.regsPerBlock>>10));
-        printf("\tWarp size:                     %u\n",  p.warpSize);
-        printf("\tMax memory pitch:              %uM\n", (U32)(((U64)p.memPitch+1)>>20));
-        printf("\tMax threads per block:         %u\n",  p.maxThreadsPerBlock);
-        printf("\tMax dim of block:              [");
-        for (int i = 0; i < 3; ++i) printf("%d%s", p.maxThreadsDim[i], i<2 ? ", " : "]\n");
-        printf("\tMax dim of grid:               [");
-        printf("%uM, ", (U32)(((U64)p.maxGridSize[0]+1)>>20));
-        printf("%uK, ", (U32)((p.maxGridSize[1]+1)>>10));
-        printf("%uK]\n",(U32)((p.maxGridSize[2]+1)>>10));
-        printf("\tClock rate:                    %uKHz\n", p.clockRate/1000);
-        printf("\tTotal constant memory:         %uK\n", (U32)(p.totalConstMem>>10));
-        printf("\tTexture alignment:             %lu\n", p.textureAlignment);
-        printf("\tConcurrent copy and execution: %s\n",  yes_no[p.deviceOverlap]);
-        printf("\tKernel execution timeout:      %s\n",  yes_no[p.kernelExecTimeoutEnabled]);
-    }
-    int version_check(cudaDeviceProp &props) {
+    int check_versions(cudaDeviceProp &props) {
         const char *err[] = {
             "Volta Tensor Core operations must be run on a machine with compute capability at least 70.",
             "Volta Tensor Core operations must be compiled with CUDA 10.1 Toolkit or later.",
@@ -110,27 +87,11 @@ struct Options {
         }
         return 1;
     }
-    int list_devices() {
-        int n;
-        cudaGetDeviceCount(&n);
-        for (int device_id = 0; device_id < n; ++device_id) {
-            printf("\nCUDA Device #%d\n", i);
-            cudaDeviceProp props;
-            cudaError_t    error = cudaGetDeviceProperties(&props, device_id);
-            if (error != cudaSuccess) {
-                std::cerr << "cudaGetDeviceProperties() returned an error: " << cudaGetErrorString(error) << std::endl;
-                continue;
-            }
-            check_versions(props);
-            dump_device_prop(props);
-        }
-        return n;
-    }
     // Parses the command line
-    void parse(int argc, char const **args) {
-        cutlass::CommandLine cmd(argc, args);
+    void parse(int argc, char const **argv) {
+        cutlass::CommandLine cmd(argc, argv);
 
-        if (cmd.check_cmd_line_flag("help")) { help = true; }
+        if (cmd.check_cmd_line_flag("help")) help = true;
         
         cmd.get_cmd_line_argument("m",       problem_size.m());
         cmd.get_cmd_line_argument("n",       problem_size.n());
@@ -145,23 +106,65 @@ struct Options {
         cmd.get_cmd_line_argument("iterations", iterations);
     }
 
+    std::ostream &show_device_prop(std::ostream &out, cudaDeviceProp &p) {
+        const char *yes_no[] = { "No", "Yes" };
+        out << "\tName:                          " << p.name << "\n"
+            << "\tCUDA version:                  " << p.major << "." << p.minor << "\n"
+            << "\tTotal global memory:           " << (U32)(p.totalGlobalMem>>20) << "M\n"
+            << "\tTotal shared memory per block: " << (U32)(p.sharedMemPerBlock>>10) << "K\n"
+            << "\tNumber of multiprocessors:     " << p.multiProcessorCount << "\n"
+            << "\tTotal registers per block:     " <<  (p.regsPerBlock>>10) << "K\n"
+            << "\tWarp size:                     " << p.warpSize << std::endl
+            << "\tMax memory pitch:              " << (U32)(((U64)p.memPitch+1)>>20) << "M\n"
+            << "\tMax threads per block:         " << p.maxThreadsPerBlock << "\n"
+            << "\tMax dim of block:              [";
+        for (int i = 0; i < 3; ++i)
+            out << p.maxThreadsDim[i] << (i<2 ? ", " : "]\n");
+        out << "\tMax dim of grid:               ["
+            << (U32)(((U64)p.maxGridSize[0]+1)>>20) << "M, "
+            << (U32)((p.maxGridSize[1]+1)>>10) << "K, "
+            << (U32)((p.maxGridSize[2]+1)>>10) << "K]\n";
+        out << "\tClock rate:                    " << p.clockRate/1000 << "KHz\n"
+            << "\tTotal constant memory:         " << (U32)(p.totalConstMem>>10) << "K\n"
+            << "\tTexture alignment:             " << p.textureAlignment << "\n"
+            << "\tConcurrent copy and execution: " << yes_no[p.deviceOverlap] << "\n"
+            << "\tKernel execution timeout:      " << yes_no[p.kernelExecTimeoutEnabled] << std::endl;
+       return out;
+    }
+    int check_devices(std::ostream &out) {
+        int n;
+        cudaGetDeviceCount(&n);
+        for (int device_id = 0; device_id < n; ++device_id) {
+            printf("\nCUDA Device #%d\n", device_id);
+            cudaDeviceProp props;
+            cudaError_t    error = cudaGetDeviceProperties(&props, device_id);
+            if (error != cudaSuccess) {
+                std::cerr << "cudaGetDeviceProperties() returned an error: " << cudaGetErrorString(error) << std::endl;
+                continue;
+            }
+            check_versions(props);
+            show_device_prop(out, props);
+        }
+        return n;
+    }
     /// Prints the usage statement.
     std::ostream &print_usage(std::ostream &out) const {
-        out << "tensorForth\n\n"
-            << "  uses the CUTLASS Library to execute Planar Complex GEMM computations.\n\n"
-            << "Options:\n\n"
-            << "  --help                      If specified, displays this usage statement.\n\n"
+        out << "\ntensorForth - "
+            << "uses the CUTLASS Library to execute Planar Complex GEMM computations.\n"
+            << "Options:\n"
+            << "  --help                      If specified, displays this usage statement.\n"
+            << "  --d=<int>                   GPU device id\n"
             << "  --m=<int>                   GEMM M dimension\n"
             << "  --n=<int>                   GEMM N dimension\n"
             << "  --k=<int>                   GEMM K dimension\n"
             << "  --batch=<int>               Number of GEMM operations executed in one batch\n"
             << "  --alpha=<f32>               Epilogue scalar alpha (real part)\n"
             << "  --alpha_i=<f32>             Epilogue scalar alpha (imaginary part)\n"
-            << "  --beta=<f32>                Epilogue scalar beta (real part)\n\n"
-            << "  --beta_i=<f32>              Epilogue scalar beta (imaginary part)\n\n"
-            << "  --iterations=<int>          Number of profiling iterations to perform.\n\n"
-            << "\n\nExamples:\n\n"
-            << "$ ./tests/ten4 --batch=7 --m=1024 --n=512 --k=1024 --alpha=2 --alpha_i=-2 --beta=0.707 --beta_i=-.707\n\n";
+            << "  --beta=<f32>                Epilogue scalar beta (real part)\n"
+            << "  --beta_i=<f32>              Epilogue scalar beta (imaginary part)\n"
+            << "  --iterations=<int>          Number of profiling iterations to perform.\n"
+            << "Examples:\n"
+            << "$ ./tests/ten4 --batch=7 --m=1024 --n=512 --k=1024 --alpha=2 --alpha_i=-2 --beta=0.707 --beta_i=-.707\n";
         return out;
     }
     /// Compute performance in GFLOP/s
