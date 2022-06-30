@@ -19,7 +19,7 @@ using namespace std;
 #include "eforth.h"          // eForth core
 #include "ten4.h"            // wrapper
 
-#define MAJOR_VERSION        "1"
+#define MAJOR_VERSION        "2"
 #define MINOR_VERSION        "0"
 
 __GPU__ ForthVM *vm_pool[VM_MIN_COUNT];
@@ -78,7 +78,9 @@ ten4_exec() {
     vm->ss.v = ss;                              // redirect data stack to shared memory
 
     if (vm->status == VM_RUN) vm->outer();
-    else printf("VM[%d] %s\n", blockIdx.x, st[vm->status]);
+    else {
+        DEBUG("VM[%d] %s\n", blockIdx.x, st[vm->status]);
+    }
 
     __syncthreads();
     MEMCPY(ss0, ss, sizeof(DU) * T4_SS_SZ);     // copy updated stack to managed memory
@@ -103,7 +105,7 @@ TensorForth::TensorForth(int device, bool trace) {
     ///
     cudaError_t err = cudaSetDevice(device);
     if (err != cudaSuccess) {
-        fprintf(stderr, "\nERR: failed to activate GPU %d\n", device);
+        cerr << "\nERR: failed to activate GPU " << device << "\n";
         exit(1);
     }
     ///
@@ -112,6 +114,16 @@ TensorForth::TensorForth(int device, bool trace) {
     int khz = 0;
     cudaDeviceGetAttribute(&khz, cudaDevAttrClockRate, device);
     GPU_CHK();
+    
+#if T4_VERBOSE
+    cout << "\\  GPU " << device
+         << " initialized at " << khz/1000 << "MHz"
+         << ", dict["          << T4_DICT_SZ << "]"
+         << ", vss["           << T4_SS_SZ << "*" << VM_MIN_COUNT << "]"
+         << ", pmem="          << T4_PMEM_SZ/1024 << "K"
+         << ", tensor="        << T4_TENSOR_SZ/1024/1024 << "M"
+         << endl;
+#endif // T4_VERBOSE
     ///
     /// allocate cuda memory blocks
     ///
@@ -125,15 +137,6 @@ TensorForth::TensorForth(int device, bool trace) {
     int t = WARP(VM_MIN_COUNT);                 ///> thread count = 32 modulo
     ten4_init<<<1, t>>>(khz, aio->istream(), aio->ostream(), mmu); // create VMs
     GPU_CHK();
-
-#if T4_VERBOSE
-    cout << "GPU " << device
-         << " initialized at " << khz/1000 << "MHz"
-         << ", dict["          << T4_DICT_SZ << "]"
-         << ", pmem="          << T4_PMEM_SZ/1024 << "K"
-         << ", tensor="        << T4_TENSOR_SZ/1024/1024 << "M"
-         << endl;
-#endif // T4_VERBOSE
 }
 
 TensorForth::~TensorForth() {
