@@ -2,9 +2,10 @@
 * Forth VM that supports tensor calculus and dynamic parallelism
 
 ### Status
-* float  - Alpha
-* tensor - planning
-* gemm   - todo
+* **float**   - [release 1.0](https://github.com/chochain/tensorForth/releases/tag/v1.0.2) beta
+* **matrix**  - [release 2.0](https://github.com/chochain/tensorForth/releases/tag/v2.0.0) alpha
+* **tensor**  - planning
+* **NN**      - later
 
 ### Why?
 Compiled programs run fast on Linux. On the other hand, command-line interface and shell scripting tie them together. Productivity grows with this model especially for researchers.
@@ -12,6 +13,79 @@ Compiled programs run fast on Linux. On the other hand, command-line interface a
 For AI development today, we use Python mostly. To enable processing on CUDA device, say with Numba or the likes, mostly there will be 'just-in-time' compilations behind the scene then load and run. In a sense, the Python code behaves like a Makefile which requires compilers to be on the host box. At the tailend, to analyze, visualization can then be have. This is usually a long journey. After many coffee breaks, we update the Python and restart again. In order to catch progress, scanning the intermediate formatted files sometimes become necessary which probably reminisce the line-printer days for seasoned developers.
 
 Having a 'shell' that can interactively and incrementally run 'compiled programs' from within GPU directly without dropping back to host system might be useful. Even though some might argue that the branch divergence could kill, but performance of the script itself is not the point. So, here we are!
+
+### Small Example
+<pre>
+> ten4                               # enter tensorForth
+tensorForth 2.0
+\  GPU 0 initialized at 1800MHz, dict[1024], pmem=48K, tensor=1024M
+\  VM[0] dict=0x7f56fe000a00, mem=0x7f56fe004a00, vss=0x7f56fe010a00
+
+2 3 matrix[ 1 2 3 4 5 6 ]            \ create matrix
+mmu#tensor(2,3) => size=6            \ optional debug traces
+ <0 T2[2,3]> ok                      \ 2-D tensor shown on top of stack (TOS)
+dup                                  \ duplicate i.e. create a view
+mmu#view 0x7efc18000078 => size=6
+ <0 T2[2,3] V2[2,3]> ok              \ view shown on TOS
+.                                    \ print the view
+matrix[2,3] = [
+	[+1.0000, +2.0000, +3.0000],
+	[+4.0000, +5.0000, +6.0000]]
+ <0 T2[2,3]> ok
+mmu#free(T2) size=6                  \ view released after print
+ <0 T2[2,3]> ok
+3 2 matrix ones                      \ create a [3,2] matrix and fill with ones
+mmu#tensor(3,2) => size=6
+ <0 T2[2,3] T2[3,2]> ok
+*                                    \ multiply matrices [2,3] x [3,x]
+mmu#tensor(2,2) => size=4            \ a [2,x] resultant matrix created
+ <0 T2[2,3] T2[3,2] T2[2,2]> ok      \ shown on TOS
+.                                    \ print the matrix
+matrix[2,2] = [
+	[+6.0000, +6.0000],
+	[+15.0000, +15.0000]]
+ <0 T2[2,3] T2[3,2]> ok
+mmu#free(T2) size=4                  \ matrix release after print
+2drop                                \ free both matrics
+mmu#free(T2) size=6
+mmu#free(T2) size=6
+ <0> ok
+bye                                  \ exit tensorForth
+ <0 T2[2,3] T2[3,2]> ok
+tensorForth 2.0 done.
+</pre>
+
+### Larger Example - benchmark [1024,2048] x [2048,512] 1000 loops
+<pre>
+1024 2048 matrix random              \ create a [1024,2048] matrix with random values
+ <0 T2[1024,2048]> ok                
+2048 512 matrix ones                 \ create another [2048,512] matrix filled with 1s
+ <0 T2[1024,2048] T2[2048,512]> ok
+*                                    \ multiply them and resultant matrix on TOS
+ <0 T2[1024,2048] T2[2048,512] T2[1024,512]> ok
+.                                    \ print (and drop) the resutant [1024,512] matrix
+matrix[1024,512] = [                 \ in PyTorch style (edgeitem=3)
+	[-4.0000, -4.0000, -4.0000, ..., -4.0000, -4.0000, -4.0000],
+	[-4.0000, -4.0000, -4.0000, ..., -4.0000, -4.0000, -4.0000],
+	[-4.0000, -4.0000, -4.0000, ..., -4.0000, -4.0000, -4.0000],
+	...,
+	[-4.0000, -4.0000, -4.0000, ..., -4.0000, -4.0000, -4.0000],
+	[-4.0000, -4.0000, -4.0000, ..., -4.0000, -4.0000, -4.0000],
+	[-4.0000, -4.0000, -4.0000, ..., -4.0000, -4.0000, -4.0000]]
+ <0 T2[1024,2048] T2[2048,512]> ok
+: mx clock >r for * drop next clock r> - ;         \ define a word 'mx' for benchmark loop
+ <0 T2[1024,2048] T2[2048,512]> ok
+5 mx                                               \ run benchmark for 6 loops
+ <0 T2[1024,2048] T2[2048,512] 236> ok             \ 236 ms for 6 cycles
+drop                                               \ drop the value
+ <0 T2[1024,2048] T2[2048,512]> ok
+999 mx                                             \ now try 1000 loops
+ <0 T2[1024,2048] T2[2048,512] 3.938+04> ok        \ that is 39.38 sec (i.e. ~40ms / loop)
+</pre>
+
+Note:
+* Apparently, the parallel randomizer needs some work. That's on my next TODO.
+* 39.4 ms per 1Kx1K matmul on GTX 1660. Benchmark for the same sizes using CUTLASS is 9.53 sec (from ~/tests/t_tensor results) i.e. ~240x. Either tensorForth is super fast, or the device timer code is incorrect somewhere. More validations!
 
 ### To build
 * install CUDA 11.6 on your machine
@@ -35,44 +109,56 @@ Having a 'shell' that can interactively and incrementally run 'compiled programs
   + Optimization=O3
 
 ## tensorForth command line options
-* - -h - list all GPU id and their properties<br/>
-* - -d - select GPU device id
+* \--h - list all GPU id and their properties<br/>
+* \--d - select GPU device id
 
-## Forth Tensor operations (see [doc](./docs/v2_progress.md) for detail)
-### Tensor creation ops
-* array
-* matrix
-* tensor
-* array[
-* matrix[
-* copy
-### Views creation ops
-* dup
-* over
-* 2dup
-* 2over
-### Tensor/View print
-* .
-### Shape ops
-* flatten
-* reshape2
-* reshape4
-### Fill ops
-* T![
-* zeros
-* ones
-* full
-* eye
-* random
-### Matrix ops
-* +
-* -
-* *
-* /
-* inv
-* trans
-* mm
-* gemm
+## Forth Tensor operations (see [doc](./docs/v2_progress.md) for detail and examples)
+### Tensor creation words
+<pre>
+   array     (n -- T1)       - create a 1-D array and place on top of stack (TOS)
+   matrix    (h w -- T2)     - create 2-D matrix and place on TOS
+   tensor    (n h w c -- T4) - create a 4-D NHWC tensor on TOS
+   array[    (n -- T1)       - create 1-D array from console stream
+   matrix[   (h w -- T2)     - create a 2-D matrix from console stream
+   copy      (Ta -- Ta Ta')  - duplicate (deep copy) a tensor on TOS
+</pre>
+### View creation words
+<pre>
+   dup       (Ta -- Ta Va)   - create a view of a tensor on TOS
+   over      (Ta Tb -- Ta Tb Va)
+   2dup      (Ta Tb -- Ta Tb Va Vb)
+   2over     (Ta Tb Tc Td -- Ta Tb Tc Td Va Vb)
+</pre>
+### Tensor/View print word
+<pre>
+   . (dot)   (Ta -- )        - print array
+</pre>
+### Shape adjusting words (change shape of origial tensor)
+<pre>
+   flatten   (Ta -- T1a')    - reshap a tensor to 1-D array
+   reshape2  (Ta -- T2a')    - reshape a 2-D matrix
+   reshape4  (Ta -- T4a')    - reshape to a 4-D NHWC tensor
+</pre>
+### Fill tensor with init values (data updated to original tensor)
+<pre>
+   T![       (Ta -- Ta')     - fill tensor with console input
+   zeros     (Ta -- Ta')     - fill tensor with zeros
+   ones      (Ta -- Ta')     - fill tensor with ones
+   full      (Ta -- Ta')     - fill tensor with number on TOS
+   eye       (Ta -- Ta')     - fill diag with 1 and other with 0
+   random    (Ta -- Ta')     - fill tensor with random numbers
+</pre>
+### Matrix arithmetic words (non-destructive)
+<pre>
+   +         (Ta Tb -- Ta Tb Tc) - tensor element-wise addition
+   -         (Ta Tb -- Ta Tb Tc) - tensor element-wise subtraction
+   *         (Ta Tb -- Ta Tb Tc) - matrix multiplication
+   /         (Ta Tb -- Ta Tb Tc) - A * inv(B) matrix
+   inverse   (Ta -- Ta')         - TODO: matrix inversion
+   transpose (Ta -- Ta')         - matrix transpose
+   matmul    (Ta Tb -- Ta Tb Tc) - matrix multiplication
+   gemm      (a b Ta Tb Tc -- a b Ta Tb Tc') - GEMM Tc' = a * Ta x Tb + b * Tc
+</pre>
 
 ### TODO
 * use cuRAND
@@ -100,14 +186,14 @@ Having a 'shell' that can interactively and incrementally run 'compiled programs
 * Output Stream, async from GPU to host
 
 ### [Release 2.0](./docs/v2_progress.md) features
-* array, matrix objects (modeled to PyTorch)
-* TLSF tensor storage manager
+* array, matrix, tensor objects (modeled to PyTorch)
+* TLSF tensor storage manager (now 4G max)
 * matrix arithmetics (i.e. +, -, *, copy, mm, transpose)
-* matrix init (i.e. zeros, ones, full, eye, random)
-* GEMM (i.e. a * A x B + b * C, use CUDA Dynamic Parallelism)
-* tensor view instead of deep copy (i.e. dup, over, pick, r@, )
-* matrix print (i.e PyTorch-style, adjustable edge elements)
+* matrix fill (i.e. zeros, ones, full, eye, random)
 * matrix console input (i.e. matrix[..., array[..., and T![)
+* matrix print (i.e PyTorch-style, adjustable edge elements)
+* tensor view (i.e. dup, over, pick, r@)
+* GEMM (i.e. a * A x B + b * C, use CUDA Dynamic Parallelism)
 * command line option: debug print level control (MMU_DEBUG)
 * command line option: list (all) device properties
 
