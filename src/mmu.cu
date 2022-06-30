@@ -12,21 +12,21 @@ __HOST__
 MMU::MMU() {
     cudaMallocManaged(&_dict, sizeof(Code) * T4_DICT_SZ);
     cudaMallocManaged(&_pmem, T4_PMEM_SZ);
-    cudaMallocManaged(&_vss,  sizeof(DU) * T4_SS_SZ * VM_MIN_COUNT);
     cudaMallocManaged(&_ten,  T4_TENSOR_SZ);
     cudaMallocManaged(&_mark, sizeof(DU) * T4_TFREE_SZ);
+    cudaMallocManaged(&_vss,  sizeof(DU) * T4_SS_SZ * VM_MIN_COUNT);
     GPU_CHK();
 
     tstore.init(_ten, T4_TENSOR_SZ);
     
-    DEBUG("MMU dict=%p, mem=%p, vss=%p, ten=%p\n", _dict, _pmem, _vss, _ten);
+    DEBUG("\\  MMU dict=%p, mem=%p, vss=%p, ten=%p\n", _dict, _pmem, _vss, _ten);
 }
 __HOST__
 MMU::~MMU() {
     GPU_SYNC();
+    cudaFree(_vss);
     cudaFree(_mark);
     cudaFree(_ten);
-    cudaFree(_vss);
     cudaFree(_pmem);
     cudaFree(_dict);
 }
@@ -87,7 +87,7 @@ MMU::to_s(std::ostream &fout, IU w) {
 __GPU__ void
 MMU::mark_free(DU v) {            ///< mark a tensor free for release
     Tensor &t = du2ten(v);
-    DEBUG("mark T[%x]=%p as free[%d]\n", *(U32*)&v, &t, _fidx);
+    WARN("mark T[%x]=%p as free[%d]\n", *(U32*)&v, &t, _fidx);
 //    lock();
     if (_fidx < T4_TFREE_SZ) _mark[_fidx++] = v;
     else ERROR("ERR: tfree array full, increase T4_TFREE_SZ!");
@@ -98,7 +98,7 @@ MMU::sweep() {
 //    lock();
     for (int i=0; _fidx && i < _fidx; i++) {
         DU v = _mark[i];
-        DEBUG("release T[%x] from marked list[%d]\n", *(U32*)&v, _fidx);
+        WARN("release T[%x] from marked list[%d]\n", *(U32*)&v, _fidx);
         free(v);
     }
     _fidx = 0;
@@ -136,11 +136,12 @@ MMU::view(Tensor &t0) {
     memcpy(t, &t0, sizeof(Tensor));
     t->attr |= TENSOR_VIEW;
     
-    DEBUG("view created t=%p from t0=%p\n", t, &t0);
+    DEBUG("mmu#view:%p => size=%d\n", t, t->size);
     return *t;
 }
 __GPU__ void                     ///< release tensor memory blocks
 MMU::free(Tensor &t) {
+    DEBUG("mmu#free(T%d) size=%d\n", t.rank, t.size);
     if (!t.is_view()) tstore.free((void*)t.data);
     tstore.free((void*)&t);
 }
