@@ -16,7 +16,7 @@
 Example:> ./ten4 \--h<br/>
 <pre>
 CUDA Device #0
-    Name:                          NVIDIA GeForce GTX 1660
+	Name:                          NVIDIA GeForce GTX 1660
 	CUDA version:                  7.5
 	Total global memory:           5939M
 	Total shared memory per block: 48K
@@ -71,16 +71,16 @@ tensorForth 2.0
 |word|param/example|Tensor/View print|
 |---|---|---|
 |. (dot)|(T1 -- )|print array|
-||> `5 array[ 1 2 3 4 5]`<br/>>**`.`**|`T1[5]`<br/>`array[+1.0000, +2.0000, +3.0000, +4.0000, +5.0000]`|
+||> `5 array[ 1 2 3 4 5]`<br/>>**`.`**|`T1[5]`<br/>`array[5] = [+1.0000, +2.0000, +3.0000, +4.0000, +5.0000]`|
 |. (dot)|(T2 -- )|print matrix|
-||> `2 3 matrix[ 1 2 3 4 5 6 ]`<br/>>**`.`**|`T2[2,3]`<br/>`matrix[`<br/>`[+1.0000, +2.0000, +3.0000],`<br/>`  [+4.0000, +5.0000, +6.0000]]`|
+||> `2 3 matrix[ 1 2 3 4 5 6 ]`<br/>>**`.`**|`T2[2,3]`<br/>`matrix[2,3] = [`<br/>`[+1.0000, +2.0000, +3.0000],`<br/>`  [+4.0000, +5.0000, +6.0000]]`|
 |. (dot)|(V2 -- )|print view|
-||> `2 3 matrix[ 1 2 3 4 5 6 ]`<br/>> `dup`<br/>>**`.`**|`T2[2,3]`<br/>`T2[2,3] V2[2,3]`<br/>`matrix[`<br/>`[+1.0000, +2.0000, +3.0000],`<br/>`  [+4.0000, +5.0000, +6.0000]]`|
+||> `2 3 matrix[ 1 2 3 4 5 6 ]`<br/>> `dup`<br/>>**`.`**|`T2[2,3]`<br/>`T2[2,3] V2[2,3]`<br/>`matrix[2,3] = [`<br/>`[+1.0000, +2.0000, +3.0000],`<br/>`  [+4.0000, +5.0000, +6.0000]]`|
 ### Shape adjusting ops
 |word|param/example|Shape adjusting ops|
 |---|---|---|
 |flatten|(Ta -- Ta')|reshap a tensor to 1-D array|
-||> `2 3 matrix[ 1 2 3 4 5 6 ]`<br/>>**`flatten`**<br/>> `.`|`T2[2,3]`</br>`T1[6]`<br/>`array[+1.0000, +2.0000, +3.0000, +4.0000, +5.0000, +6.0000]`|
+||> `2 3 matrix[ 1 2 3 4 5 6 ]`<br/>>**`flatten`**<br/>> `.`|`T2[2,3]`</br>`T1[6]`<br/>`array[6] = [+1.0000, +2.0000, +3.0000, +4.0000, +5.0000, +6.0000]`|
 |reshape2|(h w Ta -- Ta')|reshape a 2-D matrix|
 ||> `2 3 matrix[ 1 2 3 4 5 6 ]`<br/>> `3 2`**`reshape2`**|`T2[2,3]`<br/>`T2[3,2]`|
 |reshape4|(n h w c Ta -- Ta')|reshape to a 4-D NHWC tensor|
@@ -91,10 +91,14 @@ tensorForth 2.0
 |T![|(Ta -- Ta')|fill tensor with console input|
 ||> `2 3 matrix`<br/>>**`T![`**`1 2 3 4 5 6 ]`|`T2[2,3]`<br/>`T2[2,3]`|
 |zeros|(Ta -- Ta')|fill tensor with zeros|
+||> `2 3 matrix`**`zeros`**<br/>>**`.`**|`T2[2,3]`<br/>`matrix[2,3] = [`<br/>`[+0.0000, +0.0000, +0.0000],`<br/>`[+0.0000, +0.0000, +0.0000]]`|
 |ones|(Ta -- Ta')|fill tensor with ones|
+||> `2 2 matrix`**`ones`**<br/>>**`.`**|`T2[2,2]`<br/>`matrix[2,2] = [`<br/>`[+1.0000, +1.0000],`<br/>`[+1.0000, +1.0000]]`|
 |full|(Ta n -- Ta')|fill tensor with number on TOS|
-|eye|(Ta -- Ta')|fill diag with 1 and other with 0|
+||> `2 2 matrix 3`**`full`**<br/>>**`.`**|`T2[2,2]`<br/>`matrix[2,2] = [`<br/>`[+3.0000, +3.0000],`<br/>`[+3.0000, +3.0000]]`|
+|eye|(Ta -- Ta')|TODO: fill diag with 1 and other with 0|
 |random|(Ta -- Ta')|fill tensor with random numbers|
+||> `2 2 matrix`**`random`**<br/>>**`.`**|`T2[2,2]`<br/>`matrix[2,2] = [`<br/>`[-0.5000, +0.1953],`<br/>`[+0.1094, +0.4141]]`|
 ### Matrix ops
 |word|param/example|Matrix arithmetic ops|
 |---|---|---|
