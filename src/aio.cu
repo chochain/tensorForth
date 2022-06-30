@@ -57,7 +57,7 @@ AIO::print_tensor(DU v) {
     auto   range = [this](int n) { return n < _edge ? n : _edge; };
     Tensor &t = _mmu->du2ten(v);
     DU     *d = (DU*)t.data;
-    DEBUG("print_tensor::T[%x]=%p data=%p\n", *(U32*)&v, &t, d);
+    WARN("aio#print_tensor::T[%x]=%p data=%p\n", *(U32*)&v, &t, d);
 
     std::ios::fmtflags fmt0 = std::cout.flags();
     std::cout.flags(std::ios::showpos | std::ios::right | std::ios::fixed);

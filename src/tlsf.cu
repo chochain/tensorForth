@@ -27,7 +27,7 @@
 */
 __BOTH__ void
 TLSF::init(U8 *mptr, U32 sz) {
-    DEBUG("tlsf#init(%p, 0x%x)\n", mptr, sz);
+    WARN("tlsf#init(%p, 0x%x)\n", mptr, sz);
     _heap    = mptr;
     _heap_sz = sz;
     U32 bsz  = _heap_sz - sizeof(used_block);           // minus end block
@@ -81,7 +81,7 @@ TLSF::malloc(U32 sz) {
     ASSERT(blk->bsz >= bsz);                    // make sure it provides big enough a block
 
     void *data = BLK_DATA(blk);
-    DEBUG("tlsf#malloc(0x%x) => %p\n", sz, data);
+    WARN("tlsf#malloc(0x%x) => %p\n", sz, data);
     return data;                                // pointer to raw space
 }
 
@@ -132,7 +132,7 @@ TLSF::free(void *ptr) {
 
     _LOCK;
     free_block *blk = (free_block *)BLK_HEAD(ptr);       // get block header
-    DEBUG("tlsf#free(%p) => %p:0x%x\n", ptr, blk, blk->bsz);
+    WARN("tlsf#free(%p) => %p:0x%x\n", ptr, blk, blk->bsz);
     _try_merge_next(blk);
     _mark_free(blk);
     
