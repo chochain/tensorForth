@@ -410,8 +410,8 @@ ForthVM::init() {
     ///@{
     CODE("peek",  IU a = POPi; PUSH(PEEK(a))),
     CODE("poke",  IU a = POPi; POKE(a, POPi)),
-    CODE("clock", PUSH((DU)clock()/khz)),
-    CODE("delay", delay(POPi)),                                // TODO: change to VM_WAIT
+    CODE("clock", DU t = (DU)(clock64() / khz); PUSH(t)),
+    CODE("delay", delay(POPi)),          // TODO: change to VM_WAIT
     ///@}
     ///@defgroup Tensor creation ops
     ///@brief - stick to PyTorch naming when possible
