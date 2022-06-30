@@ -64,12 +64,12 @@ AIO::print_tensor(DU v) {
     std::cout << std::setprecision(_precision);
     switch (t.rank) {
     case 1: {
-        std::cout << "array";
+        std::cout << "array[" << t.size << "] = ";
         int ri = range(t.size);
         print_vec(d, t.size, ri);
     } break;
     case 2: {
-        std::cout << "matrix[\n\t";
+        std::cout << "matrix[" << t.H() << "," << t.W() << "] = [\n\t";
         int mj = t.H(), mi = t.W(), rj = range(mj),  ri = range(mi);
         print_mat(d, mi, mj, ri, rj);
         std::cout << "]";
