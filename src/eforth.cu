@@ -161,8 +161,8 @@ __GPU__ void ForthVM::gemm() {                       ///< blas GEMM
 /// debug methods
 ///
 __GPU__ __INLINE__ void ForthVM::dot(DU v) {
-    if (IS_TENSOR(v)) mmu.mark_free(v);
-    fout << v;
+    if (IS_TENSOR(v)) { fout << v; mmu.mark_free(v); }
+    else fout << " " << v;       // eForth has a space prefix
 }
 __GPU__ __INLINE__ void ForthVM::dot_r(int n, DU v) { fout << setw(n) << v; }
 __GPU__ __INLINE__ void ForthVM::ss_dump(int n) {
