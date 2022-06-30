@@ -1,13 +1,13 @@
 # tensorForth - Release 2.0 / 2022-07
 ## Features
-* array, matrix objects (modeled to PyTorch)
+* array, matrix, tensor objects (modeled to PyTorch)
 * TLSF tensor storage manager
-* matrix arithmetics (i.e. +, -, *, copy, mm, transpose)
-* matrix init (i.e. zeros, ones, full, eye, random)
-* GEMM (i.e. a * A x B + b * C, use CUDA Dynamic Parallelism)
-* tensor view instead of deep copy (i.e. dup, over, pick, r@, )
-* matrix print (i.e PyTorch-style, adjustable edge elements)
+* matrix arithmetics (i.e. +, -, *, copy, matmul, transpose)
+* matrix fill (i.e. zeros, ones, full, eye, random)
 * matrix console input (i.e. matrix[..., array[..., and T![)
+* matrix print (i.e PyTorch-style, adjustable edge elements)
+* tensor view instead of deep copy (i.e. dup, over, pick, r@, )
+* GEMM (i.e. a * A x B + b * C, use CUDA Dynamic Parallelism)
 * command line option: debug print level control (MMU_DEBUG)
 * command line option: list (all) device properties
 
@@ -73,9 +73,9 @@ tensorForth 2.0
 |. (dot)|(T1 -- )|print array|
 ||> `5 array[ 1 2 3 4 5]`<br/>>**`.`**|`T1[5]`<br/>`array[5] = [+1.0000, +2.0000, +3.0000, +4.0000, +5.0000]`|
 |. (dot)|(T2 -- )|print matrix|
-||> `2 3 matrix[ 1 2 3 4 5 6 ]`<br/>>**`.`**|`T2[2,3]`<br/>`matrix[2,3] = [`<br/>`[+1.0000, +2.0000, +3.0000],`<br/>`  [+4.0000, +5.0000, +6.0000]]`|
+||> `2 3 matrix[ 1 2 3 4 5 6 ]`<br/>>**`.`**|`T2[2,3]`<br/>`matrix[2,3] = [[+1.0000, +2.0000, +3.0000], [+4.0000, +5.0000, +6.0000]]`|
 |. (dot)|(V2 -- )|print view|
-||> `2 3 matrix[ 1 2 3 4 5 6 ]`<br/>> `dup`<br/>>**`.`**|`T2[2,3]`<br/>`T2[2,3] V2[2,3]`<br/>`matrix[2,3] = [`<br/>`[+1.0000, +2.0000, +3.0000],`<br/>`  [+4.0000, +5.0000, +6.0000]]`|
+||> `2 3 matrix[ 1 2 3 4 5 6 ]`<br/>> `dup`<br/>>**`.`**|`T2[2,3]`<br/>`T2[2,3] V2[2,3]`<br/>`matrix[2,3] = [[+1.0000, +2.0000, +3.0000], [+4.0000, +5.0000, +6.0000]]`|
 ### Shape adjusting ops
 |word|param/example|Shape adjusting ops|
 |---|---|---|
@@ -91,23 +91,24 @@ tensorForth 2.0
 |T![|(Ta -- Ta')|fill tensor with console input|
 ||> `2 3 matrix`<br/>>**`T![`**`1 2 3 4 5 6 ]`|`T2[2,3]`<br/>`T2[2,3]`|
 |zeros|(Ta -- Ta')|fill tensor with zeros|
-||> `2 3 matrix`**`zeros`**<br/>>**`.`**|`T2[2,3]`<br/>`matrix[2,3] = [`<br/>`[+0.0000, +0.0000, +0.0000],`<br/>`[+0.0000, +0.0000, +0.0000]]`|
+||> `2 3 matrix`**`zeros`**<br/>>**`.`**|`T2[2,3]`<br/>`matrix[2,3] = [[+0.0000, +0.0000, +0.0000], [+0.0000, +0.0000, +0.0000]]`|
 |ones|(Ta -- Ta')|fill tensor with ones|
-||> `2 2 matrix`**`ones`**<br/>>**`.`**|`T2[2,2]`<br/>`matrix[2,2] = [`<br/>`[+1.0000, +1.0000],`<br/>`[+1.0000, +1.0000]]`|
+||> `2 2 matrix`**`ones`**<br/>>**`.`**|`T2[2,2]`<br/>`matrix[2,2] = [[+1.0000, +1.0000], [+1.0000, +1.0000]]`|
 |full|(Ta n -- Ta')|fill tensor with number on TOS|
-||> `2 2 matrix 3`**`full`**<br/>>**`.`**|`T2[2,2]`<br/>`matrix[2,2] = [`<br/>`[+3.0000, +3.0000],`<br/>`[+3.0000, +3.0000]]`|
+||> `2 2 matrix 3`**`full`**<br/>>**`.`**|`T2[2,2]`<br/>`matrix[2,2] = [[+3.0000, +3.0000], [+3.0000, +3.0000]]`|
 |eye|(Ta -- Ta')|TODO: fill diag with 1 and other with 0|
 |random|(Ta -- Ta')|fill tensor with random numbers|
-||> `2 2 matrix`**`random`**<br/>>**`.`**|`T2[2,2]`<br/>`matrix[2,2] = [`<br/>`[-0.5000, +0.1953],`<br/>`[+0.1094, +0.4141]]`|
+||> `2 2 matrix`**`random`**<br/>>**`.`**|`T2[2,2]`<br/>`matrix[2,2] = [[-0.5000, +0.1953], [+0.1094, +0.4141]]`|
 ### Matrix ops
 |word|param/example|Matrix arithmetic ops|
 |---|---|---|
 |+|(Ta Tb -- Ta Tb Tc)|tensor element-wise addition|
+||> `2 2 matrix random`<br/>>`dup .`<br/>> `2 2 matrix ones`<br/>>**`+`**`.`|`T2[2,2]`<br/>`matrix[2,2] = [[-0.5000, +0.1953], [+0.1094, +0.4141]]`<br/>`T2[2,2] T2[2,2]`<br/>`matrix[2,2] = [[+0.5000, +1.1953], [+1.1094, +1.4141]]`|
 |-|(Ta Tb -- Ta Tb Tc)|tensor element-wise subtraction|
 |*|(Ta Tb -- Ta Tb Tc)|matrix multiplication|
-|/|(Ta Tb -- Ta Tb Tc)|A * inv(B) matrix|
-|inverse|(Ta -- Ta)|TODO|
-|transpose|(Ta -- Ta Tat)|matrix transpose|
+|/|(Ta Tb -- Ta Tb Tc)|TODO: C = A x inverse(B)|
+|inverse|(Ta -- Ta')|TODO: matrix inversion|
+|transpose|(Ta -- Ta')|matrix transpose|
 |matmul|(Ta Tb -- Ta Tb Tc)|matrix multiplication|
-|gemm|(a b Ta Tb Tc -- a b Ta Tb Tc Tc')|GEMM Tc' = a * Ta x Tb + b * Tc|
+|gemm|(a b Ta Tb Tc -- a b Ta Tb Tc')|GEMM Tc' = a * Ta x Tb + b * Tc|
 

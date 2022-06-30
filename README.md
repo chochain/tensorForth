@@ -188,7 +188,7 @@ Note:
 ### [Release 2.0](./docs/v2_progress.md) features
 * array, matrix, tensor objects (modeled to PyTorch)
 * TLSF tensor storage manager (now 4G max)
-* matrix arithmetics (i.e. +, -, *, copy, mm, transpose)
+* matrix arithmetics (i.e. +, -, *, copy, matmul, transpose)
 * matrix fill (i.e. zeros, ones, full, eye, random)
 * matrix console input (i.e. matrix[..., array[..., and T![)
 * matrix print (i.e PyTorch-style, adjustable edge elements)
