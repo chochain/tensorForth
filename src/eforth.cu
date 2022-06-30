@@ -41,7 +41,7 @@
 __GPU__
 ForthVM::ForthVM(int khz, Istream *istr, Ostream *ostr, MMU *mmu0)
     : khz(khz), fin(*istr), fout(*ostr), mmu(*mmu0), dict(mmu0->dict()) {
-    INFO("VM[%d] dict=%p, mem=%p, vss=%p\n",
+    INFO("\\  VM[%d] init with (dict=%p, mem=%p, vss=%p)\n",
          blockIdx.x, dict, mmu.pmem(0), mmu.vss(blockIdx.x));
 }
 ///
@@ -122,10 +122,10 @@ __GPU__ DU ForthVM::tmul() {                         ///< tensor multiplication
     Tensor &B = mmu.du2ten(top);
     Tensor &A = mmu.du2ten(ss[-1]);
     U16 m = A.H(), n = B.W(), k = A.W();
-    DEBUG("\tA[%d,%d]=%p x B[%d,%d]=%p", m, k, &A, B.H(), n, &B);
+    WARN("A[%d,%d]=%p x B[%d,%d]=%p ", m, k, &A, B.H(), n, &B);
     if (k == B.H()) {
         Tensor &C = mmu.tensor(m, n);
-        DEBUG(" => C[%d,%d]=%p\n", C.H(), C.W(), &C);
+        WARN("=> C[%d,%d]=%p\n", C.H(), C.W(), &C);
         Tensor::mm(A, B, C);
         PUSH(C);
     }
@@ -139,7 +139,7 @@ __GPU__ DU ForthVM::ttrans() {
     Tensor &A = mmu.du2ten(top);
     U16 h = A.H(), w = A.W();
     Tensor &B = mmu.tensor(w, h);
-    DEBUG("\tA[%d,%d]=%p => B[%d,%d]=%p", h, w, &A, B.H(), B.W(), &B);
+    WARN("A[%d,%d]=%p => B[%d,%d]=%p", h, w, &A, B.H(), B.W(), &B);
     Tensor::transpose(B, A);
     PUSH(B);
     return top;
@@ -410,7 +410,7 @@ ForthVM::init() {
     ///@{
     CODE("peek",  IU a = POPi; PUSH(PEEK(a))),
     CODE("poke",  IU a = POPi; POKE(a, POPi)),
-    CODE("clock", PUSH(clock()/khz)),
+    CODE("clock", PUSH((DU)clock()/khz)),
     CODE("delay", delay(POPi)),                                // TODO: change to VM_WAIT
     ///@}
     ///@defgroup Tensor creation ops
@@ -468,10 +468,10 @@ ForthVM::init() {
     ///@defgroup Tensor matrix ops
     ///@brief - stick to PyTorch naming when possible
     ///@{
-    CODE("inv",   tinv()),              ///< (A -- A A')    matrix inversion
-    CODE("trans", ttrans()),            ///< (A -- A At)    matrix transpose
-    CODE("mm",    tmul()),              ///< (A B -- A B C) matrix multiplication
-    CODE("gemm",  gemm()),              ///< (a b A B C -- a b A B C') GEMM (C updated)
+    CODE("inverse",   tinv()),           ///< (A -- A A')    matrix inversion
+    CODE("transpose", ttrans()),         ///< (A -- A At)    matrix transpose
+    CODE("matmul",    tmul()),           ///< (A B -- A B C) matrix multiplication
+    CODE("gemm",      gemm()),           ///< (a b A B C -- a b A B C') GEMM (C updated)
     ///@}
     CODE("bye",   status = VM_STOP),
     CODE("boot",  mmu.clear(FIND("boot") + 1))
@@ -490,7 +490,7 @@ ForthVM::init() {
             (U16)((UFP)dict[i].name - n0), dict[i].name,
             dict[i].name);
     }
-    DEBUG("VM=%p dict[%d] sizeof(Code)=%d sizeof(Tensor)=%d\n",
+    DEBUG("\\  VM:%p dict[%d] sizeof(Code)=%d sizeof(Tensor)=%d\n",
         this, n, (int)sizeof(Code), (int)sizeof(Tensor));
 
     status = VM_RUN;
@@ -510,17 +510,17 @@ ForthVM::init() {
 __GPU__ void
 ForthVM::outer() {
     while (fin >> idiom) {                   /// loop throught tib
-        DEBUG("%d>> %-10s => ", blockIdx.x, idiom);
+        WARN("%d>> %-10s => ", blockIdx.x, idiom);
         int w = FIND(idiom);                 /// * search through dictionary
         if (w>=0) {                          /// * word found?
-            DEBUG("%4x:%p %s %d ",
+            WARN("%4x:%p %s %d ",
                 dict[w].def ? dict[w].pfa : 0,
                 dict[w].xt, dict[w].name, w);
             if (compile && !dict[w].immd) {  /// * in compile mode?
                 add_w((IU)w);                /// * add found word to new colon word
             }
             else {
-                DEBUG("=> call(%s)\n", dict[w].name);
+                WARN("=> call(%s)\n", dict[w].name);
                 call((IU)w);                 /// * execute forth word
             }
             continue;
@@ -537,16 +537,16 @@ ForthVM::outer() {
         }
         // is a number
         if (compile) {                       /// * add literal when in compile mode
-            DEBUG("%f\n", n);
+            WARN("%f\n", n);
             add_w(DOLIT);                    ///> dovar (+parameter field)
             add_du(n);                       ///> store literal
         }
         else if (ten_lvl > 0) {              /// * append literal into tensor storage
-            DEBUG("T[%d]=%f\n", ten_off, n);
+            WARN("T[%d]=%f\n", ten_off, n);
             add_tensor(n);
         }
         else {                               ///> or, add value onto data stack
-            DEBUG("ss.push(%08x)\n", *(U32*)&n);
+            WARN("ss.push(%08x)\n", *(U32*)&n);
             PUSH(n);
         }
     }
