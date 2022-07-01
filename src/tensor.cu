@@ -6,24 +6,6 @@
  */
 #include "tensor.h"
 ///
-/// kernel matrix randomizer
-///
-__KERN__ void k_matrix_randomize(DU *mat, int nrow, int ncol, int seed=0)
-{
-    int const k = 16807;
-    int const m = 128;
-    int i = threadIdx.x + blockIdx.x * blockDim.x;
-    int j = threadIdx.y + blockIdx.y * blockDim.y;
-
-    if (i < ncol && j < nrow) {
-        int off = i + j * ncol;      /* row major */
-        // Generate arbitrary elements.
-        DU v = DU(k * (off + seed) % m) / m - 0.5;
-
-        mat[off] = v;
-    }
-}
-///
 /// GEMM kernel (used CUDA dynamic parallelism)
 ///     C = alpha * A x B + beta * C
 ///     where A = MxK, B = KxN, C = MxN
@@ -251,18 +233,6 @@ __BOTH__ Tensor&
 Tensor::fill(DU v) {
     DU  *d = (DU*)data;
     for (int i=0; i<size; i++) *d++ = v;
-    return *this;
-}
-
-__BOTH__ Tensor&
-Tensor::random(U32 seed) {
-    int h = rank==1 ? 1    : H();
-    int w = rank==1 ? size : W();
-    dim3 block(16, 16), grid(
-        (w + block.x - 1) / block.x,     /* row major */
-        (h + block.y - 1) / block.y
-    );
-    k_matrix_randomize<<<grid, block>>>((DU*)data, h, w, seed);
     return *this;
 }
 
