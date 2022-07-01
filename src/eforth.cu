@@ -106,9 +106,12 @@ __GPU__ __INLINE__ void ForthVM::call(IU w) {
 ///
 /// tensor methods
 ///
-__GPU__ DU ForthVM::tadd(bool sub) {
-    Tensor &B = mmu.du2ten(top);
+__GPU__ DU
+ForthVM::tadd(bool sub) {
+    if (!IS_TENSOR(ss[-1])) return sub ? ss.pop() - top : ss.pop() + top;
+    
     Tensor &A = mmu.du2ten(ss[-1]);
+    Tensor &B = mmu.du2ten(top);
     U16 h = A.H(), w = A.W();
     if (h == B.H() && w == B.W()) {
         Tensor &C = mmu.tensor(h, w);
@@ -118,24 +121,79 @@ __GPU__ DU ForthVM::tadd(bool sub) {
     else ERROR("dim?");
     return top;
 }
-__GPU__ DU ForthVM::tmul() {                         ///< tensor multiplication
-    Tensor &B = mmu.du2ten(top);
+/**
+  TODO: Matrix product of two Tensors.
+  The behavior depends on the dimensionality of the Tensors as follows:
+  - DONE: If both arguments are 2-dimensional, the matrix-matrix product is returned.
+  - DONE: If both Tensors are 1-dimensional, the dot product (scalar) is returned.
+  - TODO: If the first argument is 2-dimensional and the second argument is 1-dimensional,
+    the matrix-vector product is returned.
+  - TODO: If the first argument is 1-dimensional and the second argument is 2-dimensional,
+    a 1 is prepended to its dimension for the purpose of the matrix multiply.
+    After the matrix multiply, the prepended dimension is removed.
+  - TODO: If both arguments are at least 1-dimensional and at least one argument is
+    N-dimensional (where N > 2), then a batched matrix multiply is returned.  If the first
+    argument is 1-dimensional, a 1 is prepended to its dimension for the purpose of the
+    batched matrix multiply and removed after.  If the second argument is 1-dimensional, a
+    1 is appended to its dimension for the purpose of the batched matrix multiple and removed after.
+    The non-matrix (i.e. batch) dimensions are broadcasted (and thus
+    must be broadcastable).  For example, if tensor1 is a (j x 1 x n x m) Tensor
+    and tensor2 is a (k x m x p) Tensor, the returned tensor will be an (j x k x n x p) Tensor.
+*/
+__GPU__ DU
+ForthVM::tmul() {                                     ///< tensor multiplication
+    if (!IS_TENSOR(ss[-1])) return top * ss.pop();    /// * scaler * scaler
     Tensor &A = mmu.du2ten(ss[-1]);
-    U16 m = A.H(), n = B.W(), k = A.W();
-    WARN("A[%d,%d]=%p x B[%d,%d]=%p ", m, k, &A, B.H(), n, &B);
-    if (k == B.H()) {
+    U16 m  = A.rank==1 ? 1 : A.H();
+    U16 ka = A.rank==1 ? A.size : A.W();
+    if (!IS_TENSOR(top)) {                            /// * tensor * scaler
+        Tensor &C = mmu.copy(A);                      /// * hard copy A tensor
+        WARN("A[%d,%d]=%p * %f => A'=%p\n", m, ka, &A, top, &C);
+        return mmu.ten2du(C.scale(top));              /// * resultant tensor on TOS
+    }
+    
+    Tensor &B = mmu.du2ten(top);
+    U16 kb = B.rank==1 ? B.size : B.H();
+    U16 n  = B.rank==1 ? 1      : B.W();
+    WARN("A[%d,%d]=%p x B[%d,%d]=%p ", m, ka, &A, kb, n, &B);
+    if (m==1 && n==1) {                               /// * array x array
+        PUSH(A.dot(B));                               /// * dot product on TOS
+        WARN(" => %f\n", top);
+    }
+    else if (ka == kb) {                              /// * tensor x tensor
         Tensor &C = mmu.tensor(m, n);
         WARN("=> C[%d,%d]=%p\n", C.H(), C.W(), &C);
         Tensor::mm(A, B, C);
-        PUSH(C);
+        PUSH(mmu.ten2du(C));                          /// * resultant tensor on TOS
     }
     else ERROR("dim?");
+    
     return top;
 }
-__GPU__ DU ForthVM::tinv() {                         ///< TODO: tensor inversion
+__GPU__ DU
+ForthVM::tdiv() {                                     ///< tensor division
+    if (!IS_TENSOR(ss[-1])) {
+        top /= ss.pop();                              /// * scaler / scaler
+        DU_ONLY(top);
+        return top;
+    }
+    Tensor &A = mmu.du2ten(ss[-1]);
+    U16 m  = A.rank==1 ? 1 : A.H();
+    U16 ka = A.rank==1 ? A.size : A.W();
+    if (!IS_TENSOR(top)) {                            /// * tensor / scaler
+        Tensor &C = mmu.copy(A);                      /// * hard copy A tensor
+        WARN("A[%d,%d]=%p / %f => A'=%p\n", m, ka, &A, top, &C);
+        return mmu.ten2du(C.scale(1.0/top));          /// * resultant tensor on TOS
+    }
+    return top;
+    /// TODO: tensor * inverse(tensor)
+}
+__GPU__ DU
+ForthVM::tinv() {                         ///< TODO: tensor inversion
     return top;
 }
-__GPU__ DU ForthVM::ttrans() {
+__GPU__ DU
+ForthVM::ttrans() {
     Tensor &A = mmu.du2ten(top);
     U16 h = A.H(), w = A.W();
     Tensor &B = mmu.tensor(w, h);
@@ -144,7 +202,8 @@ __GPU__ DU ForthVM::ttrans() {
     PUSH(B);
     return top;
 }
-__GPU__ void ForthVM::gemm() {                       ///< blas GEMM
+__GPU__ void
+ForthVM::gemm() {                       ///< blas GEMM
     Tensor &C = mmu.du2ten(top);
     Tensor &B = mmu.du2ten(ss[-1]);
     Tensor &A = mmu.du2ten(ss[-2]);
@@ -231,15 +290,10 @@ ForthVM::init() {
     ///@}
     ///@defgroup FPU ops
     ///@{
-    CODE("+",    IS_TENSOR(top) ? tadd()     : top += ss.pop()),
-    CODE("*",    IS_TENSOR(top) ? tmul()     : top *= ss.pop()),
-    CODE("-",    IS_TENSOR(top) ? tadd(true) : top =  ss.pop() - top),
-    CODE("/",
-         if (IS_TENSOR(top)) { tinv(); tmul(); }         /// matrix division (A x B^-1)
-         else {
-             top = ss.pop() / top;
-             DU_ONLY(top);
-         }),
+    CODE("+",    top = tadd()),
+    CODE("*",    top = tmul()),
+    CODE("-",    top = tadd(true)),
+    CODE("/",    top = tdiv()),
     CODE("mod",  top =  MOD(ss.pop(), top)),             /// fmod = x - int(q)*y
     CODE("/mod",
         DU n = ss.pop(); DU t = top;
