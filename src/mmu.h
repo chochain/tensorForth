@@ -7,7 +7,6 @@
 #ifndef TEN4_SRC_MMU_H
 #define TEN4_SRC_MMU_H
 #include <ostream>
-#include <curand.h>
 #include <curand_kernel.h>
 #include "ten4_config.h"
 #include "util.h"
@@ -160,7 +159,7 @@ public:
     __GPU__  __INLINE__ void free(DU d) { if (IS_TENSOR(d)) free(du2ten(d)); }
     __GPU__  __INLINE__ DU   view(DU d) { return IS_TENSOR(d) ? ten2du(view(du2ten(d))) : d; }
     __GPU__  __INLINE__ DU   copy(DU d) { return IS_TENSOR(d) ? ten2du(copy(du2ten(d))) : d; }
-    __GPU__  DU rand(DU d, int type=0);                   ///< randomize a tensor
+    __GPU__             DU   rand(DU d, int rtype=0);           ///< randomize a tensor
     ///
     /// debugging methods (implemented in .cu)
     ///

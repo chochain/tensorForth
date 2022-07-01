@@ -6,6 +6,25 @@
 #include <iomanip>          // setw, setbase
 #include "mmu.h"
 ///
+/// random number generator setup
+///
+/// assume 256 states for fixed block(16,16)
+///
+__KERN__ void k_rand_init(curandState *st) {
+    int tid = threadIdx.x;
+    curand_init(clock64() + tid, tid, 0, &st[tid]);
+}
+__KERN__ void k_rand(DU *mat, int nrow, int ncol, curandState *st, int rtype) {
+    int i = threadIdx.x + blockIdx.x * blockDim.x;
+    int j = threadIdx.y + blockIdx.y * blockDim.y;
+    curandState *s = &st[threadIdx.x + threadIdx.y * 16];
+    
+    if (i < ncol && j < nrow) {
+        int off = (i + j * ncol);
+        mat[off] = rtype ? curand_normal(s) : curand_uniform(s);  // no divergence
+    }
+}
+///
 /// Forth Virtual Machine operational macros to reduce verbosity
 ///
 __HOST__
@@ -15,15 +34,19 @@ MMU::MMU() {
     cudaMallocManaged(&_ten,  T4_TENSOR_SZ);
     cudaMallocManaged(&_mark, sizeof(DU) * T4_TFREE_SZ);
     cudaMallocManaged(&_vss,  sizeof(DU) * T4_SS_SZ * VM_MIN_COUNT);
+    cudaMallocManaged(&_seed, sizeof(curandState) * 256);
     GPU_CHK();
 
     tstore.init(_ten, T4_TENSOR_SZ);
+    k_rand_init<<<1, 256>>>(_seed);
+    GPU_CHK();
     
     DEBUG("\\  MMU dict=%p, mem=%p, vss=%p, ten=%p\n", _dict, _pmem, _vss, _ten);
 }
 __HOST__
 MMU::~MMU() {
     GPU_SYNC();
+    cudaFree(_seed);
     cudaFree(_vss);
     cudaFree(_mark);
     cudaFree(_ten);
@@ -162,6 +185,22 @@ MMU::copy(Tensor &t0) {
     t->data  = mptr;
     
     return *t;
+}
+
+__GPU__ DU
+MMU::rand(DU d, int rtype) {
+    if (!IS_TENSOR(d)) return d * curand_uniform(&_seed[0]);
+    
+    Tensor &t = du2ten(d);
+    int h = t.rank==1 ? 1      : t.H();
+    int w = t.rank==1 ? t.size : t.W();
+    DEBUG("mmu#rand(T%d) size=%d\n", t.rank, t.size);
+    dim3 block(16, 16), grid(
+        (w + block.x - 1) / block.x,     /* row major */
+        (h + block.y - 1) / block.y
+        );
+    k_rand<<<grid, block>>>((DU*)t.data, h, w, _seed, rtype);
+    return d;
 }
 ///
 /// display dictionary word list
