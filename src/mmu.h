@@ -148,6 +148,7 @@ public:
     __GPU__  Tensor &view(Tensor &t0);                      ///< create a view to a tensor
     __GPU__  void   free(Tensor &t);                        ///< free the tensor
     __GPU__  Tensor &copy(Tensor &t0);                      ///< hard copy a tensor
+    __GPU__  Tensor &scale(Tensor &t, DU v);                ///< scale a tensor
     ///
     /// short hands for eforth tensor ucodes (for DU <-> Tensor conversion)
     ///
