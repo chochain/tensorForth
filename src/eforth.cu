@@ -457,13 +457,9 @@ ForthVM::init() {
     CODE("zeros", if (IS_TENSOR(top)) mmu.du2ten(top).fill(0)),
     CODE("ones",  if (IS_TENSOR(top)) mmu.du2ten(top).fill(1)),
     CODE("full",  if (IS_TENSOR(ss[-1])) { DU d = POP(); mmu.du2ten(top).fill(d); }),
-    CODE("eye",   {}),                   ///< TODO
-    CODE("random",                       ///< randomize a tensor or a random number
-        if (IS_TENSOR(top)) mmu.du2ten(top).random(0);
-        else {
-            PUSH((DU)(clock() % 1024) / 1024.0 - 0.5);
-            DU_ONLY(top);
-        }),
+    CODE("eye",   {}),                      ///< TODO
+    CODE("rand",  top = mmu.rand(top, UNIFORM)),  ///< uniform randomize a tensor or number
+    CODE("randn", top = mmu.rand(top, NORMAL)),   ///< normal dist. randomize a tensor
     ///@}
     ///@defgroup Tensor matrix ops
     ///@brief - stick to PyTorch naming when possible
