@@ -85,7 +85,7 @@ drop                                               \ drop the value
 
 Note:
 * Apparently, the parallel randomizer needs some work. That's on my next TODO.
-* 39.4 ms per 1Kx1K matmul on GTX 1660. Benchmark for the same sizes using CUTLASS is 9.53 sec (from ~/tests/t_tensor results) i.e. ~240x. Either tensorForth is super fast, or the device timer code is incorrect somewhere. More validations!
+* 39.4 ms per 1Kx1K matmul on GTX 1660 with naive implementation. PyTorch average 0.850 ms which is 50x faster. Luckily, CUDA matmul tuning methods are well known. TODO!
 
 ### To build
 * install CUDA 11.6 on your machine
@@ -96,7 +96,8 @@ Note:
 * update root Makefile to your desired CUDA_ARCH, CUDA_CODE
 * type 'make all'
 * if all goes well, some warnings aside, cd to tests
-* type 'ten4 < lesson_1.txt'
+* type 'ten4 < lesson_1.txt' for Forth syntax check,
+* and  'ten4 < lesson_2.txt' for matrix stuffs
 
 #### with Eclipse
 * install Eclipse
