@@ -98,9 +98,9 @@ tensorForth 2.0
 |full|(Ta n -- Ta')|fill tensor with number on TOS|
 ||> `2 2 matrix 3`**`full`**<br/>>**`.`**|`T2[2,2]`<br/>`matrix[2,2] = [[+3.0000, +3.0000], [+3.0000, +3.0000]]`|
 |eye|(Ta -- Ta')|TODO: fill diag with 1 and other with 0|
-|rand|(Ta -- Ta')|fill tensor with random numbers|
+|rand|(Ta -- Ta')|fill tensor with uniform [0.00, 1.00) random numbers|
 ||> `2 2 matrix`**`rand`**<br/>>**`.`**|`T2[2,2]`<br/>`matrix[2,2] = [[+0.5000, +0.1953], [+0.1094, +0.4141]]`|
-|randn|(Ta -- Ta')|fill tensor with random numbers|
+|randn|(Ta -- Ta')|fill tensor with standard distribution random numbers|
 ||> `2 2 matrix`**`randn`**<br/>>**`.`**|`T2[2,2]`<br/>`matrix[2,2] = [[-0.2170, -0.0695], [-0.0107, +2.6791]]`|
 ### Matrix ops
 |word|param/example|Matrix arithmetic ops (non-destructive)|

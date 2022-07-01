@@ -153,9 +153,9 @@ Note:
 </pre>
 ### Matrix arithmetic words (by default non-destructive)
 <pre>
-   +         (Ta Tb -- Ta Tb Tc) - tensor matrix-wise addition
+   +         (Ta Tb -- Ta Tb Tc) - tensor element-wise addition
    +         (Ta n  -- Ta Ta')   - tensor matrix-scaler addition (broadcast)
-   -         (Ta Tb -- Ta Tb Tc) - tensor matrix-wise subtraction
+   -         (Ta Tb -- Ta Tb Tc) - tensor element-wise subtraction
    -         (Ta n  -- Ta Ta')   - tensor matrix-scaler subtraction (broadcast)
    *         (Ta Tb -- Ta Tb Tc) - matrix-matrix multiplication
    *         (Ta Ab -- Ta Ab Ta')- TODO: matrix-array multiplication (broadcase)
