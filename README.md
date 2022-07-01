@@ -63,18 +63,19 @@ tensorForth 2.0 done.
  <0 T2[1024,2048] T2[2048,512]> ok
 *                                    \ multiply them and resultant matrix on TOS
  <0 T2[1024,2048] T2[2048,512] T2[1024,512]> ok
-.                                    \ print (and drop) the resutant [1024,512] matrix
+2048 / .                             \ scale down and print the resutant [1024,512] matrix
 matrix[1024,512] = [                 \ in PyTorch style (edgeitem=3)
-	[+1125.0670, +1125.0670, +1125.0670, ..., +1125.0670, +1125.0670, +1125.0670],
-	[+1003.6121, +1003.6121, +1003.6121, ..., +1003.6121, +1003.6121, +1003.6121],
-	[+993.8842, +993.8842, +993.8842, ..., +993.8842, +993.8842, +993.8842],
+	[+0.4873, +0.4873, +0.4873, ..., +0.4873, +0.4873, +0.4873],
+	[+0.4274, +0.4274, +0.4274, ..., +0.4274, +0.4274, +0.4274],
+	[+0.5043, +0.5043, +0.5043, ..., +0.5043, +0.5043, +0.5043],
 	...,
-	[+991.2891, +991.2891, +991.2891, ..., +991.2891, +991.2891, +991.2891],
-	[+1017.9818, +1017.9818, +1017.9818, ..., +1017.9818, +1017.9818, +1017.9818],
-	[+1046.9027, +1046.9027, +1046.9027, ..., +1046.9027, +1046.9027, +1046.9027]]
- <0 T2[1024,2048] T2[2048,512]> ok
+	[+0.5041, +0.5041, +0.5041, ..., +0.5041, +0.5041, +0.5041],
+	[+0.5007, +0.5007, +0.5007, ..., +0.5007, +0.5007, +0.5007],
+	[+0.5269, +0.5269, +0.5269, ..., +0.5269, +0.5269, +0.5269]]
+ <0 T2[1024,2048] T2[2048,512] T2[1024,512> ok     \ original T2[1024,512] is still left on TOS
+drop                                               \ because tensor ops are by default non-destructive
+ <0 T2[1024,2048] T2[2048,512]> ok                 \ so we drop it from TOS
 : mx clock >r for * drop next clock r> - ;         \ define a word 'mx' for benchmark loop
- <0 T2[1024,2048] T2[2048,512]> ok
 5 mx                                               \ run benchmark for 6 loops
  <0 T2[1024,2048] T2[2048,512] 236> ok             \ 236 ms for 6 cycles
 drop                                               \ drop the value
@@ -84,6 +85,7 @@ drop                                               \ drop the value
 </pre>
 
 Note:
+* cuRAND uniform distribution averaged 0.5 is doing OK.
 * 39.4 ms per 1Kx1K matmul on GTX 1660 with naive implementation. PyTorch average 0.850 ms which is 50x faster. Luckily, CUDA matmul tuning methods are well known. TODO!
 
 ### To build

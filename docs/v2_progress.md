@@ -103,15 +103,19 @@ tensorForth 2.0
 |randn|(Ta -- Ta')|fill tensor with random numbers|
 ||> `2 2 matrix`**`randn`**<br/>>**`.`**|`T2[2,2]`<br/>`matrix[2,2] = [[-0.2170, -0.0695], [-0.0107, +2.6791]]`|
 ### Matrix ops
-|word|param/example|Matrix arithmetic ops|
+|word|param/example|Matrix arithmetic ops (non-destructive)|
 |---|---|---|
 |+|(Ta Tb -- Ta Tb Tc)|tensor element-wise addition|
 ||> `2 2 matrix random`<br/>>`dup .`<br/>> `2 2 matrix ones`<br/>>**`+`**`.`|`T2[2,2]`<br/>`matrix[2,2] = [[-0.5000, +0.1953], [+0.1094, +0.4141]]`<br/>`T2[2,2] T2[2,2]`<br/>`matrix[2,2] = [[+0.5000, +1.1953], [+1.1094, +1.4141]]`|
 |-|(Ta Tb -- Ta Tb Tc)|tensor element-wise subtraction|
-|*|(Ta Tb -- Ta Tb Tc)|matrix multiplication|
+|*|(Ta Tb -- Ta Tb Tc)|matrix-matrix multiplication|
+|*|(Ta Ab -- Ta Ab Tc)|TODO: matrix-array multiplication|
+|*|(Aa Ab -- Aa Ab c)|array-array dot product|
+|*|(Ta v  -- Ta Ta')|matrix-scaler multiplication|
 |/|(Ta Tb -- Ta Tb Tc)|TODO: C = A x inverse(B)|
-|inverse|(Ta -- Ta')|TODO: matrix inversion|
-|transpose|(Ta -- Ta')|matrix transpose|
+|/|(Ta v  -- Ta Ta')|matrix-scaler division|
+|inverse|(Ta -- Ta Ta')|TODO: matrix inversion|
+|transpose|(Ta -- Ta Ta')|matrix transpose|
 |matmul|(Ta Tb -- Ta Tb Tc)|matrix multiplication|
 |gemm|(a b Ta Tb Tc -- a b Ta Tb Tc')|GEMM Tc' = a * Ta x Tb + b * Tc|
 
