@@ -151,14 +151,20 @@ Note:
    rand      (Ta -- Ta')     - fill tensor with uniform random numbers
    randn     (Ta -- Ta')     - fill tensor with normal distribution random numbers
 </pre>
-### Matrix arithmetic words (non-destructive)
+### Matrix arithmetic words (by default non-destructive)
 <pre>
-   +         (Ta Tb -- Ta Tb Tc) - tensor element-wise addition
-   -         (Ta Tb -- Ta Tb Tc) - tensor element-wise subtraction
-   *         (Ta Tb -- Ta Tb Tc) - matrix multiplication
-   /         (Ta Tb -- Ta Tb Tc) - A * inv(B) matrix
-   inverse   (Ta -- Ta')         - TODO: matrix inversion
-   transpose (Ta -- Ta')         - matrix transpose
+   +         (Ta Tb -- Ta Tb Tc) - tensor matrix-wise addition
+   +         (Ta n  -- Ta Ta')   - tensor matrix-scaler addition (broadcast)
+   -         (Ta Tb -- Ta Tb Tc) - tensor matrix-wise subtraction
+   -         (Ta n  -- Ta Ta')   - tensor matrix-scaler subtraction (broadcast)
+   *         (Ta Tb -- Ta Tb Tc) - matrix-matrix multiplication
+   *         (Ta Ab -- Ta Ab Ta')- TODO: matrix-array multiplication (broadcase)
+   *         (Aa Ab -- Aa Ab n)  - array-array dot product
+   *         (Ta n  -- Ta Ta')   - matrix-scaler multiplication (broadcast)
+   /         (Ta Tb -- Ta Tb Tc) - TODO: A * inv(B) matrix
+   /         (Ta n  -- Ta Ta')   - matrix-scaler scale down multiplication (broadcast)
+   inverse   (Ta    -- Ta Ta')   - TODO: matrix inversion
+   transpose (Ta    -- Ta Ta')   - matrix transpose
    matmul    (Ta Tb -- Ta Tb Tc) - matrix multiplication
    gemm      (a b Ta Tb Tc -- a b Ta Tb Tc') - GEMM Tc' = a * Ta x Tb + b * Tc
 </pre>
