@@ -75,6 +75,10 @@ struct Code : public Managed {
 };
 #define CODE(s, g)    { s, [this] __GPU__ (){ g; }}
 #define IMMD(s, g)    { s, [this] __GPU__ (){ g; }, true }
+typedef enum {
+    UNIFORM = 0,
+    NORMAL  = 1
+} t4_rand_type;
 ///
 /// Forth memory manager
 ///
@@ -159,7 +163,7 @@ public:
     __GPU__  __INLINE__ void free(DU d) { if (IS_TENSOR(d)) free(du2ten(d)); }
     __GPU__  __INLINE__ DU   view(DU d) { return IS_TENSOR(d) ? ten2du(view(du2ten(d))) : d; }
     __GPU__  __INLINE__ DU   copy(DU d) { return IS_TENSOR(d) ? ten2du(copy(du2ten(d))) : d; }
-    __GPU__             DU   rand(DU d, int rtype=0);           ///< randomize a tensor
+    __GPU__             DU   rand(DU d, t4_rand_type n);        ///< randomize a tensor
     ///
     /// debugging methods (implemented in .cu)
     ///
