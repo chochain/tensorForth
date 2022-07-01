@@ -8,32 +8,13 @@
 #define TEN4_SRC_TENSOR_H_
 #include <ostream>
 #include "ten4_types.h"
-/**
-  TODO: Matrix product of two Tensors.
-  The behavior depends on the dimensionality of the Tensors as follows:
-  - If both Tensors are 1-dimensional, the dot product (scalar) is returned.
-  - If both arguments are 2-dimensional, the matrix-matrix product is returned.
-  - If the first argument is 1-dimensional and the second argument is 2-dimensional,
-    a 1 is prepended to its dimension for the purpose of the matrix multiply.
-    After the matrix multiply, the prepended dimension is removed.
-  - If the first argument is 2-dimensional and the second argument is 1-dimensional,
-    the matrix-vector product is returned.
-  - If both arguments are at least 1-dimensional and at least one argument is
-    N-dimensional (where N > 2), then a batched matrix multiply is returned.  If the first
-    argument is 1-dimensional, a 1 is prepended to its dimension for the purpose of the
-    batched matrix multiply and removed after.  If the second argument is 1-dimensional, a
-    1 is appended to its dimension for the purpose of the batched matrix multiple and removed after.
-    The non-matrix (i.e. batch) dimensions are broadcasted (and thus
-    must be broadcastable).  For example, if tensor1 is a (j x 1 x n x m) Tensor
-    and tensor2 is a (k x m x p) Tensor, the returned tensor will be an (j x k x n x p) Tensor.
-*/
 //===============================================================================
 /// tensorForth tensor class
 /// @brief - Tensor at rank=4, row-major, F32 only storage
 /// Note:
 ///    PyTorch.Tensor: size, dtype, type_id, stride, tensorstore
 ///
-#define TENSOR_VIEW  1
+#define T4_TENSOR_VIEW  1
 struct Tensor : public Managed {
     U32              size;      ///< number of data elements, TODO: more than 4G elements
     U32              dsize;     ///< size of data element, F32 for now, TODO: others
@@ -74,16 +55,21 @@ struct Tensor : public Managed {
     __BOTH__ U16 H()        { return shape[0]; }
     __BOTH__ U16 W()        { return shape[1]; }
     __BOTH__ U16 C()        { return shape[3]; }
-    __BOTH__ bool is_view() { return attr & TENSOR_VIEW; }
+    __BOTH__ bool is_view() { return attr & T4_TENSOR_VIEW; }
+    ///
+    /// tensor arithmetics
+    ///
+    __BOTH__ DU  dot(Tensor &B);
     ///
     /// tensor life-cycle ops
     ///
+    __BOTH__ Tensor &set_as_view(bool set=true);
     __BOTH__ Tensor &reset(void *mptr, U32 sz);
     __BOTH__ Tensor &reshape(U32 sz);
     __BOTH__ Tensor &reshape(U16 h, U16 w);
     __BOTH__ Tensor &reshape(U16 n, U16 h, U16 w, U16 c);
     __BOTH__ Tensor &fill(DU v);
-    __BOTH__ Tensor &random(U32 seed=0);
+    __BOTH__ Tensor &scale(DU v);
     __HOST__ void   copy_to_host(void* dst) { cudaMemcpy(dst, data, size, cudaMemcpyDeviceToHost); }
     ///
     /// IO
