@@ -77,7 +77,8 @@ private:
     /// tensor methods
     ///
     __GPU__ DU   tadd(bool sub=false);      ///< matrix-matrix addition (or subtraction)
-    __GPU__ DU   tmul();                    ///< matrix-matrix multiplication (no broadcast)
+    __GPU__ DU   tmul();                    ///< matrix multiplication (no broadcast)
+    __GPU__ DU   tdiv();                    ///< matrix division (no broadcast)
     __GPU__ DU   tinv();                    ///< TODO: matrix inverse (Gaussian Elim.?)
     __GPU__ DU   ttrans();                  ///< matrix transpose
     __GPU__ void gemm();                    ///< GEMM C' = alpha * A x B + beta * C
