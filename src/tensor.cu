@@ -10,6 +10,12 @@
 ///     C = alpha * A x B + beta * C
 ///     where A = MxK, B = KxN, C = MxN
 ///
+
+#define CDP(g) \
+    int i = threadIdx.x + blockIdx.x * blockDim.x;  \
+    int j = threadIdx.y + blockIdx.y * blockDim.y;  \
+    if (i < N && j < M) { g; }
+
 __KERN__ void k_gemm(
     int M, int N, int K,
     DU *A, DU *B, DU *C,   /* MxK, KxN, MxN */
@@ -56,6 +62,14 @@ __KERN__ void k_transpose(DU *dst, DU *src, int nrow, int ncol) {
 
     if (i < ncol && j < nrow) {
         dst[j + i * nrow] = src[i + j * ncol];
+    }
+}
+__KERN__ void k_scale(DU *A, DU v, int nrow, int ncol) {
+    int i = threadIdx.x + blockIdx.x * blockDim.x;
+    int j = threadIdx.y + blockIdx.y * blockDim.y;
+
+    if (i < ncol && j < nrow) {
+        A[i + j * ncol] *= v;
     }
 }
 ///
@@ -175,6 +189,13 @@ Tensor::~Tensor()
 }
 
 __BOTH__ Tensor&
+Tensor::set_as_view(bool set) {
+    if (set) attr |= T4_TENSOR_VIEW;
+    else     attr &= ~T4_TENSOR_VIEW;
+    return *this;
+}
+
+__BOTH__ Tensor&
 Tensor::reset(void *mptr, U32 sz) {
     dsize  = sizeof(DU);
     size   = sz;
@@ -235,4 +256,28 @@ Tensor::fill(DU v) {
     for (int i=0; i<size; i++) *d++ = v;
     return *this;
 }
+
+__BOTH__ Tensor&
+Tensor::scale(DU v) {
+    int h = rank==1 ? 1    : H();
+    int w = rank==1 ? size : W();
+    DEBUG("Tensor#scale by %f\n", v);
+    dim3 block(16, 16), grid(
+        (w + block.x - 1) / block.x,     /* row major */
+        (h + block.y - 1) / block.y
+        );
+    k_scale<<<grid, block>>>((DU*)data, v, h, w);
+    return *this;
+}
+
+__BOTH__ DU
+Tensor::dot(Tensor &B) {
+    if (rank != 1 || B.rank != 1 || size != B.size) return 0;
+    DU  acc = DU0;
+    for (int k=0; k < size; k++) {
+        acc += ((DU*)data)[k] * ((DU*)B.data)[k];
+    }
+    return acc;
+}
+
 

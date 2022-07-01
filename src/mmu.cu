@@ -157,7 +157,7 @@ MMU::view(Tensor &t0) {
     /// replicate A tensor
     ///
     memcpy(t, &t0, sizeof(Tensor));
-    t->attr |= TENSOR_VIEW;
+    t->set_as_view(true);
     
     DEBUG("mmu#view:%p => size=%d\n", t, t->size);
     return *t;
@@ -181,7 +181,7 @@ MMU::copy(Tensor &t0) {
     ///
     /// reset attributes
     ///
-    t->attr &= ~TENSOR_VIEW;  // not a view
+    t->set_as_view(false);       // not a view
     t->data  = mptr;
     
     return *t;
