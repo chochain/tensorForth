@@ -57,7 +57,7 @@ tensorForth 2.0 done.
 
 ### Larger Example - benchmark [1024,2048] x [2048,512] 1000 loops
 <pre>
-1024 2048 matrix random              \ create a [1024,2048] matrix with random values
+1024 2048 matrix rand                \ create a [1024,2048] matrix with uniform random values
  <0 T2[1024,2048]> ok                
 2048 512 matrix ones                 \ create another [2048,512] matrix filled with 1s
  <0 T2[1024,2048] T2[2048,512]> ok
@@ -65,13 +65,13 @@ tensorForth 2.0 done.
  <0 T2[1024,2048] T2[2048,512] T2[1024,512]> ok
 .                                    \ print (and drop) the resutant [1024,512] matrix
 matrix[1024,512] = [                 \ in PyTorch style (edgeitem=3)
-	[-4.0000, -4.0000, -4.0000, ..., -4.0000, -4.0000, -4.0000],
-	[-4.0000, -4.0000, -4.0000, ..., -4.0000, -4.0000, -4.0000],
-	[-4.0000, -4.0000, -4.0000, ..., -4.0000, -4.0000, -4.0000],
+	[+1125.0670, +1125.0670, +1125.0670, ..., +1125.0670, +1125.0670, +1125.0670],
+	[+1003.6121, +1003.6121, +1003.6121, ..., +1003.6121, +1003.6121, +1003.6121],
+	[+993.8842, +993.8842, +993.8842, ..., +993.8842, +993.8842, +993.8842],
 	...,
-	[-4.0000, -4.0000, -4.0000, ..., -4.0000, -4.0000, -4.0000],
-	[-4.0000, -4.0000, -4.0000, ..., -4.0000, -4.0000, -4.0000],
-	[-4.0000, -4.0000, -4.0000, ..., -4.0000, -4.0000, -4.0000]]
+	[+991.2891, +991.2891, +991.2891, ..., +991.2891, +991.2891, +991.2891],
+	[+1017.9818, +1017.9818, +1017.9818, ..., +1017.9818, +1017.9818, +1017.9818],
+	[+1046.9027, +1046.9027, +1046.9027, ..., +1046.9027, +1046.9027, +1046.9027]]
  <0 T2[1024,2048] T2[2048,512]> ok
 : mx clock >r for * drop next clock r> - ;         \ define a word 'mx' for benchmark loop
  <0 T2[1024,2048] T2[2048,512]> ok
@@ -84,7 +84,6 @@ drop                                               \ drop the value
 </pre>
 
 Note:
-* Apparently, the parallel randomizer needs some work. That's on my next TODO.
 * 39.4 ms per 1Kx1K matmul on GTX 1660 with naive implementation. PyTorch average 0.850 ms which is 50x faster. Luckily, CUDA matmul tuning methods are well known. TODO!
 
 ### To build
@@ -147,7 +146,8 @@ Note:
    ones      (Ta -- Ta')     - fill tensor with ones
    full      (Ta -- Ta')     - fill tensor with number on TOS
    eye       (Ta -- Ta')     - fill diag with 1 and other with 0
-   random    (Ta -- Ta')     - fill tensor with random numbers
+   rand      (Ta -- Ta')     - fill tensor with uniform random numbers
+   randn     (Ta -- Ta')     - fill tensor with normal distribution random numbers
 </pre>
 ### Matrix arithmetic words (non-destructive)
 <pre>
@@ -162,7 +162,6 @@ Note:
 </pre>
 
 ### TODO
-* use cuRAND
 * formatted file IO (CSV, Numpy)
 * preprocessor (DALI)
 * tensor gradiant and backprop
@@ -197,4 +196,5 @@ Note:
 * GEMM (i.e. a * A x B + b * C, use CUDA Dynamic Parallelism)
 * command line option: debug print level control (MMU_DEBUG)
 * command line option: list (all) device properties
+* use cuRAND kernel randomizer for uniform and standard normal distribution
 
