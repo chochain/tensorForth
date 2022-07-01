@@ -14,14 +14,14 @@ __KERN__ void k_rand_init(curandState *st) {
     int tid = threadIdx.x;
     curand_init(clock64() + tid, tid, 0, &st[tid]);
 }
-__KERN__ void k_rand(DU *mat, int nrow, int ncol, curandState *st, int rtype) {
+__KERN__ void k_rand(DU *mat, int nrow, int ncol, curandState *st, t4_rand_type n) {
     int i = threadIdx.x + blockIdx.x * blockDim.x;
     int j = threadIdx.y + blockIdx.y * blockDim.y;
     curandState *s = &st[threadIdx.x + threadIdx.y * 16];
     
     if (i < ncol && j < nrow) {
         int off = (i + j * ncol);
-        mat[off] = rtype ? curand_normal(s) : curand_uniform(s);  // no divergence
+        mat[off] = n ? curand_normal(s) : curand_uniform(s);  // no divergence
     }
 }
 ///
@@ -188,7 +188,7 @@ MMU::copy(Tensor &t0) {
 }
 
 __GPU__ DU
-MMU::rand(DU d, int rtype) {
+MMU::rand(DU d, t4_rand_type n) {
     if (!IS_TENSOR(d)) return d * curand_uniform(&_seed[0]);
     
     Tensor &t = du2ten(d);
@@ -199,7 +199,7 @@ MMU::rand(DU d, int rtype) {
         (w + block.x - 1) / block.x,     /* row major */
         (h + block.y - 1) / block.y
         );
-    k_rand<<<grid, block>>>((DU*)t.data, h, w, _seed, rtype);
+    k_rand<<<grid, block>>>((DU*)t.data, h, w, _seed, n);
     return d;
 }
 ///
