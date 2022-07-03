@@ -4,12 +4,14 @@ dup .
 * .
 2drop
 
-1024 2048 matrix random
+1024 2048 matrix rand
 2048 512 matrix ones
-* .
+*
+2048 / . .
 
 : mx clock >r for * drop next clock r> - ;
-9 mx
+see mx
+99 mx
 
 drop 2drop
 
