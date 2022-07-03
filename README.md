@@ -4,8 +4,8 @@
 ### Status
 * **float**   - [release 1.0](https://github.com/chochain/tensorForth/releases/tag/v1.0.2) beta
 * **matrix**  - [release 2.0](https://github.com/chochain/tensorForth/releases/tag/v2.0.0) alpha
-* **tensor**  - planning
-* **NN**      - later
+* **CNN**     - planning
+* **RNN**     - later
 
 ### Why?
 Compiled programs run fast on Linux. On the other hand, command-line interface and shell scripting tie them together. Productivity grows with this model especially for researchers.
@@ -173,10 +173,14 @@ Note:
 * .npy loader/saver
 * dataset iterator?
 * tensor gradiant and backprop
-* NN (torch.nn)
+* NN (study torch.nn, CUB (for kernel))
   + word as a net container (serves both sequential and functional)
-  + 2d layer   - conv, maxpool, linear, dropout
-  + activation - relu, softmax
+  + CNN (2d)
+    - conv: ~pushing_the_limits_for_2d_conv..., shuffle reduction
+    - activation (relu, softmax): 
+    - pooling (max): max of 2x2
+    - linear (y=Wx+b): mm
+    - dropout
   + loss       - nll (negative likelihood), mse (mean square error), ce (cross-entropy)
   + optimizer  - sgd (stochastic gradiant decent), adam
 * ML cases and benchmark (MNIST, CIFAR, Kaggle...)
