@@ -12,7 +12,7 @@ Compiled programs run fast on Linux. On the other hand, command-line interface a
 
 For AI development today, we use Python mostly. To enable processing on CUDA device, say with Numba or the likes, mostly there will be 'just-in-time' compilations behind the scene then load and run. In a sense, the Python code behaves like a Makefile which requires compilers to be on the host box. At the tailend, to analyze, visualization can then be have. This is usually a long journey. After many coffee breaks, we update the Python and restart again. In order to catch progress, scanning the intermediate formatted files sometimes become necessary which probably reminisce the line-printer days for seasoned developers.
 
-Having a 'shell' that can interactively and incrementally run 'compiled programs' from within GPU directly without dropping back to host system might be useful. Even though some might argue that the branch divergence could kill, but performance of the script itself is not the point. So, here we are!
+Having a 'shell' that can interactively and incrementally run 'compiled programs' from within GPU directly without dropping back to host system might be useful. Even though some might argue that the branch divergence in kernel could kill the GPU, but performance of the script itself is not the point. So, here we are!
 
 ### Small Example
 <pre>
@@ -170,17 +170,27 @@ Note:
 </pre>
 
 ### TODO
-* formatted file IO (CSV, Numpy)
-* preprocessor (DALI)
+* .npy loader/saver
+* dataset iterator?
 * tensor gradiant and backprop
-* NN (torch.nn i.e. container, layers, and activations)
-* ML cases and benchmark (kaggle.MNIST, ...)
+* NN (torch.nn)
+  + word as a net container (serves both sequential and functional)
+  + 2d layer   - conv, maxpool, linear, dropout
+  + activation - relu, softmax
+  + loss       - nll (negative likelihood), mse (mean square error), ce (cross-entropy)
+  + optimizer  - sgd (stochastic gradiant decent), adam
+* ML cases and benchmark (MNIST, CIFAR, Kaggle...)
 * sampling and distribution
+* refactor - add namespace
 * add inter-VM communication (CUDA stream)
 * add GNN - dynamic graph with VMs
+
+### LATER
+* formatted file IO (.petastorm, .csv) - available on github but later
 * integrate plots (tensorboard, R)
-* integrate ONNX 
-* integrate CUB, CUTLASS (utilities.init, gemm_api) - checked but slow, use straight CDP
+* integrate ONNX
+* integrate CUB, CUTLASS (utilities.init, gemm_api) - slow, later
+* preprocessor (DALI) + GPUDirect - heavy, later
 
 ## History
 ### [Release 1.0](./docs/v1_progress.md) features
