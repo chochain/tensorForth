@@ -156,8 +156,8 @@ public:
         _write(GT_STR, (U8*)buf, 2);
         return *this;
     }
-    __GPU__ Ostream& operator<<(S32 i) {
-        _write(GT_INT, (U8*)&i, sizeof(S32));
+    __GPU__ Ostream& operator<<(I32 i) {
+        _write(GT_INT, (U8*)&i, sizeof(I32));
         return *this;
     }
     __GPU__ Ostream& operator<<(DU d) {

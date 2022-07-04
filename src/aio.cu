@@ -89,7 +89,7 @@ __HOST__ void
 AIO::print_node(obuf_node *node) {
     char *v = (char*)node->data;
     switch (node->gt) {
-    case GT_INT:   std::cout << (*(S32*)v); break;
+    case GT_INT:   std::cout << (*(I32*)v); break;
     case GT_FLOAT: std::cout << (*(F32*)v); break;
     case GT_STR:   std::cout << v;          break;
     case GT_FMT:   {
