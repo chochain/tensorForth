@@ -184,9 +184,10 @@ Note:
   + loss       - nll (negative likelihood), mse (mean square error), ce (cross-entropy)
   + optimizer  - sgd (stochastic gradiant decent), adam
 * ML cases and benchmark (MNIST, CIFAR, Kaggle...)
+* models load/save - (VGG-19, ResNet (i.e. skip-connect), compare to Keras)
 * sampling and distribution
 * refactor - add namespace
-* add inter-VM communication (CUDA stream)
+* add inter-VM communication (CUDA stream, review CUB again)
 * add GNN - dynamic graph with VMs
 
 ### LATER
