@@ -169,29 +169,71 @@ Note:
    gemm      (a b Ta Tb Tc -- a b Ta Tb Tc') - GEMM Tc' = a * Ta x Tb + b * Tc
 </pre>
 
+Release 2.2
+### CNN
+  * define word as the functional (implicit sequential)
+  * words are destructive by default (i.e. input tensor updated)
+  
+#### Load - .npy
+  load root ( -- Ta Tb) - test_dataset train_dataset
+    - Ta[10000,28,28,1]
+    - Tb[50000,28,28,1]
+    
+#### Conv2D
+  conv2 (Ta   -- Ta') - default 3x3 filter
+  conv2 (Ta n -- Ta') - nxn filter
+  conv2 (Ta A -- Ta') - array[3, 1, 0, 0, 0.5] for (3x3, stride=1, padding=0, dilation=0, bais=0.5)
+
+#### Activation (non-linear)
+  relu    (Ta -- Ta')
+  sigmoid (Ta -- Ta')
+  softmax (Ta -- Ta')
+    
+#### Pooling
+  avg (Aa   -- n)
+  avg (Ta   -- Ta') - 2x2
+  max (Aa   -- n)   - on 1D array
+  max (Ta   -- Ta') - 2x2
+  max (Ta n -- Ta') - nxn
+  max (Aa   -- n)   - on 1D array
+  min (Ta   -- Ta') - 2x2
+  min (Ta n -- Ta') - nxn
+  
+#### Linear (fully connected)
+  linear => word: (y=Wx+b)
+
+#### Dropout
+  dropout => word:
+
+#### Loss
+  sum      (Ta    -- n)  - matrix sum (with prefix sum or reduce)
+  loss.nll (Ta Tb -- Tc) - negative likelihood
+  loss.mse (Ta Tb -- Tc) - mean sqare error
+  loss.ce  (Ta Tb -- Tc) - cross-entropy  
+  cost     (Ta    -- n)  - cost function (avg all losts)
+
+#### Optimizer
+  sgd      - stochastic gradiant decent
+  adam     - 
+
+#### Back Propergation
+  backward - back propergation
+    
 ### TODO
-* .npy loader/saver
-* dataset iterator?
-* tensor gradiant and backprop
-* NN (study torch.nn, CUB (for kernel))
-  + word as a net container (serves both sequential and functional)
-  + CNN (2d)
-    - conv: ~pushing_the_limits_for_2d_conv..., shuffle reduction
-    - activation (relu, softmax): 
-    - pooling (max): max of 2x2
-    - linear (y=Wx+b): mm
-    - dropout
-  + loss       - nll (negative likelihood), mse (mean square error), ce (cross-entropy)
-  + optimizer  - sgd (stochastic gradiant decent), adam
-* ML cases and benchmark (MNIST, CIFAR, Kaggle...)
+* add CNN
+  + study torch.nn, CUB (for kernel)
+  + conv: ~pushing_the_limits_for_2d_conv..., shuffle reduction
+  + benchmark (MNIST, CIFAR, Kaggle...)
 * models load/save - (VGG-19, ResNet (i.e. skip-connect), compare to Keras)
 * sampling and distribution
 * refactor - add namespace
+* add RNN
 * add inter-VM communication (CUDA stream, review CUB again)
+* add batch loader (from VM->VM)
+* .petastorm, .csv loader (available on github)
 * add GNN - dynamic graph with VMs
 
 ### LATER
-* formatted file IO (.petastorm, .csv) - available on github but later
 * integrate plots (tensorboard, R)
 * integrate ONNX
 * integrate CUB, CUTLASS (utilities.init, gemm_api) - slow, later
