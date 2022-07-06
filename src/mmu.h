@@ -111,9 +111,11 @@ public:
     __GPU__ __INLINE__ DU   *vss(int vid){ return &_vss[vid * T4_SS_SZ]; }          ///< data stack (per VM id)
     __GPU__ __INLINE__ U8   *pmem(IU i)  { return &_pmem[i]; }                      ///< base of parameter memory
     ///
-    /// dictionary search method
+    /// dictionary management ops
     ///
-    __GPU__ int  find(const char *s, bool compile, bool ucase);      ///< dictionary search
+    __GPU__ int  find(const char *s, bool compile=0, bool ucase=0);  ///< dictionary search
+    __GPU__ void merge(const Code *clist, int sz);
+    __GPU__ void status();
     ///
     /// compiler methods
     ///
@@ -161,8 +163,8 @@ public:
         U32 o = ((U32)((U8*)&t - _ten)) | T4_TENSOR;
         return *(DU*)&o;
     }
-    __GPU__  __INLINE__ void free(DU d) { if (IS_TENSOR(d)) free(du2ten(d)); }
-    __GPU__  __INLINE__ DU   view(DU d) { return IS_TENSOR(d) ? ten2du(view(du2ten(d))) : d; }
+    __GPU__  __INLINE__ void drop(DU d) { if (IS_TENSOR(d)) free(du2ten(d)); }
+    __GPU__  __INLINE__ DU   dup(DU d)  { return IS_TENSOR(d) ? ten2du(view(du2ten(d))) : d; }
     __GPU__  __INLINE__ DU   copy(DU d) { return IS_TENSOR(d) ? ten2du(copy(du2ten(d))) : d; }
     __GPU__             DU   rand(DU d, t4_rand_type n);        ///< randomize a tensor
     ///
