@@ -54,7 +54,8 @@ MMU::~MMU() {
     cudaFree(_dict);
 }
 ///
-/// dictionary search functions - can be adapted for ROM+RAM
+/// dictionary management methods
+/// TODO: use const Code[] directly, as ROM, to prevent deep copy
 ///
 __GPU__ int
 MMU::find(const char *s, bool compile, bool ucase) {
@@ -65,6 +66,39 @@ MMU::find(const char *s, bool compile, bool ucase) {
         if (!ucase && STRCMP(t, s)==0) return i;
     }
     return -1;
+}
+__GPU__ void
+MMU::merge(const Code *clist, int sz) {
+    for (int i=0; i<sz; i++) {
+        Code *c = (Code*)&clist[i];
+        int w = find(c->name);              /// * check whether word exists
+        if (w >= 0) {
+            _dict[w] = *c;                  /// * replace existing word pointer
+            DEBUG("word %s redefined\n", c->name);
+        }
+        else {
+            add(c);                         /// * append new word to dictionary
+            WARN("new word %s created\n", c->name);
+        }
+    }
+}
+__GPU__ void
+MMU::status() {
+    UFP x0 = ~0;                            ///< base of xt   allocations
+    UFP n0 = ~0;                            ///< base of name allocations
+    for (int i=0; i<_didx; i++) {
+        Code *c = &_dict[i];
+        if ((UFP)c->xt   < x0) x0 = (UFP)c->xt;
+        if ((UFP)c->name < n0) n0 = (UFP)c->name;
+    }
+    for (int i=0; i<_didx; i++) {           ///< dump dictionary from device
+        Code *c = &_dict[i];
+        DEBUG("%3d> xt=%4x:%p name=%4x:%p %s\n", i,
+            (U16)((UFP)c->xt   - x0), c->xt,
+            (U16)((UFP)c->name - n0), c->name,
+            c->name);
+    }
+    DEBUG("\\  MMU.status dict[%d], pmem[%d], tfree[%d]\n", _didx, _midx, _fidx);
 }
 ///
 /// colon - dictionary word compiler
@@ -122,7 +156,7 @@ MMU::sweep() {
     for (int i=0; _fidx && i < _fidx; i++) {
         DU v = _mark[i];
         WARN("release T[%x] from marked list[%d]\n", *(U32*)&v, _fidx);
-        free(v);
+        drop(v);
     }
     _fidx = 0;
 //  unlock();                     ///< TODO: CC: DEAD LOCK, now!    
