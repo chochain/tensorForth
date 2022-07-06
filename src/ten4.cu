@@ -16,13 +16,13 @@ using namespace std;
 
 #include "ten4_config.h"
 #include "aio.h"             // CUDA async IO
-#include "eforth.h"          // eForth core
+#include "tenvm.h"           // VM + ForthVM + TensorVM
 #include "ten4.h"            // wrapper
 
 #define MAJOR_VERSION        "2"
 #define MINOR_VERSION        "0"
 
-__GPU__ ForthVM *vm_pool[VM_MIN_COUNT];
+__GPU__ TensorVM *vm_pool[VM_MIN_COUNT];
 ///
 /// instantiate VMs (threadIdx.x is vm_id)
 ///
@@ -31,10 +31,11 @@ ten4_init(int khz, Istream *istr, Ostream *ostr, MMU *mmu) {
     int i = threadIdx.x;
     if (i >= VM_MIN_COUNT) return;
 
-    ForthVM *vm = vm_pool[i] = new ForthVM(khz, istr, ostr, mmu);  // instantiate VM
+    TensorVM *vm = vm_pool[i] = new TensorVM(khz, istr, ostr, mmu);  // instantiate VM
     vm->ss.init(mmu->vss(i), T4_SS_SZ);  // point data stack to managed memory block
 
-    if (i==0) vm->init();                // initialize common dictionary (once only)
+    // if (i==0) vm->init();             // TODO: CC - polymophism does not work in kernel?
+    if (i==0) vm->init_t();              // initialize common dictionary (once only)
 }
 ///
 /// check VM status (using parallel reduction - overkill?)
@@ -70,10 +71,10 @@ ten4_exec() {
     extern __shared__ DU shared_ss[];
     if (threadIdx.x!=0) return;
 
-    int      b   = blockIdx.x;
-    ForthVM *vm  = vm_pool[b];
-    DU      *ss  = &shared_ss[b * T4_SS_SZ];    // adjust stack pointer based on VM id
-    DU      *ss0 = vm->ss.v;                    // capture VM data stack
+    int b   = blockIdx.x;
+    VM  *vm  = vm_pool[b];
+    DU  *ss  = &shared_ss[b * T4_SS_SZ];        // adjust stack pointer based on VM id
+    DU  *ss0 = vm->ss.v;                        // capture VM data stack
     MEMCPY(ss, ss0, sizeof(DU) * T4_SS_SZ);     // copy stack into shared memory block
     vm->ss.v = ss;                              // redirect data stack to shared memory
 
