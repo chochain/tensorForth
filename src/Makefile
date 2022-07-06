@@ -10,8 +10,10 @@ OBJS += \
 	./src/util.o \
 	./src/aio.o \
 	./src/mmu.o \
+	./src/vm.o \
 	./src/eforth.o \
 	./src/tensor.o \
+	./src/tenvm.o \
 	./src/tlsf.o \
 	./src/ten4.o
 
