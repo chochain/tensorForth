@@ -28,6 +28,16 @@ TensorVM::tadd(bool sub) {
     else ERROR("dim?");
     return top;
 }
+__GPU__ DU
+TensorVM::texp() {
+    if (!IS_TENSOR(top)) return EXP(top);    /// * scaler
+    Tensor &A = mmu.du2ten(top);
+    Tensor &B = mmu.copy(A);
+    DU *d = (DU*)B.data;
+    for (int i=0; i<B.size; i++, d++) *d = EXP(*d);
+    PUSH(B);
+    return top;
+}
 /**
   TODO: Matrix product of two Tensors.
   The behavior depends on the dimensionality of the Tensors as follows:
@@ -128,6 +138,8 @@ TensorVM::gemm() {                       ///< blas GEMM
 __GPU__ void
 TensorVM::init_t() {
     const Code prim[] = {       /// singleton, build once only
+    CODE("exp", top = texp()),
+    CODE("sum", if (IS_TENSOR(top)) top = mmu.du2ten(top).sum()),
     ///@}
     ///@defgroup Tensor creation ops
     ///@brief - stick to PyTorch naming when possible

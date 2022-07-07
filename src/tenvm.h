@@ -31,6 +31,7 @@ protected:
     ///
     /// tensor ops
     ///
+    __GPU__ DU   texp();                    ///< element-wise all tensor elements
     __GPU__ DU   tadd(bool sub=false);      ///< matrix-matrix addition (or subtraction)
     __GPU__ DU   tmul();                    ///< matrix multiplication (no broadcast)
     __GPU__ DU   tdiv();                    ///< matrix division (no broadcast)
