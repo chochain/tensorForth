@@ -93,6 +93,7 @@ typedef F64         DU2;                    ///< double preciesion data unit
 ///
 #define T4_TENSOR    1                          /**< tensor attibute flag    */
 #define IS_TENSOR(d) ((*(U32*)&d) & T4_TENSOR)  /**< check if DU is a tensor */
+#define EXP(v)       (expf(v))                  /**< exponential(float)      */
 ///@}
 ///
 /// colon word compiler
