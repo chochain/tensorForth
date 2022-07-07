@@ -2,10 +2,12 @@
 * Forth VM that supports tensor calculus and dynamic parallelism
 
 ### Status
-* **float**   - [release 1.0](https://github.com/chochain/tensorForth/releases/tag/v1.0.2) beta
-* **matrix**  - [release 2.0](https://github.com/chochain/tensorForth/releases/tag/v2.0.0) alpha
-* **CNN**     - planning
-* **RNN**     - later
+|version|feature|stage|description|comparable|
+|---|---|---|---|---|
+|[release 1.0](https://github.com/chochain/tensorForth/releases/tag/v1.0.2)|**float**|beta|extended eForth with F32 float|Python|
+|[release 2.0](https://github.com/chochain/tensorForth/releases/tag/v2.0.0)|**matrix**|alpha|added array and matrix objects|NumPy|
+|next|**CNN**|planning|add tensor ops with autograd|PyTorch|
+|-|**RNN**|later|-|-|
 
 ### Why?
 Compiled programs run fast on Linux. On the other hand, command-line interface and shell scripting tie them together. Productivity grows with this model especially for researchers.
@@ -167,9 +169,13 @@ Note:
    transpose (Ta    -- Ta Ta')   - matrix transpose
    matmul    (Ta Tb -- Ta Tb Tc) - matrix multiplication
    gemm      (a b Ta Tb Tc -- a b Ta Tb Tc') - GEMM Tc' = a * Ta x Tb + b * Tc
+   exp       (n     -- n')       - exponential e^(n)
+   exp       (Ta    -- Ta Ta')   - element-wise exponential
+   sum       (Ta    -- Ta n)     - sum all elements of a tensor
 </pre>
 
 ### TODO
+* backprop and autograd
 * add KV pair (associative array) for label, and fully connected lookup
 * add CNN
   + study torch.nn, CUB (for kernel)
