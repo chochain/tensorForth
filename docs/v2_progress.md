@@ -51,7 +51,7 @@ tensorForth 2.0
 |matrix|(h w -- T2)|create 2-D matrix and place on TOS|
 ||> `2 3`**`matrix`**|`T2[2,3]`|
 |tensor|(n h w c -- T4)|create a 4-D NHWC tensor on TOS|
-||> `1 18 18 8`**`tensor`**|`T4[1,18,18,8]`|
+||> `64 224 224 3`**`tensor`**|`T4[64,224,224,3]`|
 |array[|(n -- T1)|create 1-D array from console stream|
 ||> `5`**`array[`**`1 2 3 4 5 ]`|`T1[5]`|
 |matrix[|(h w -- T2)|create a 2-D matrix as TOS|
@@ -83,7 +83,7 @@ tensorForth 2.0
 |flatten|(Ta -- Ta')|reshap a tensor to 1-D array|
 ||> `2 3 matrix[ 1 2 3 4 5 6 ]`<br/>>**`flatten`**<br/>> `.`|`T2[2,3]`</br>`T1[6]`<br/>`array[6] = [+1.0000, +2.0000, +3.0000, +4.0000, +5.0000, +6.0000]`|
 |reshape2|(h w Ta -- Ta')|reshape a 2-D matrix|
-||> `2 3 matrix[ 1 2 3 4 5 6 ]`<br/>> `3 2`**`reshape2`**|`T2[2,3]`<br/>`T2[3,2]`|
+||> `2 3 matrix[ 1 2 3 4 5 6 ]`<br/>> `dup .`<br/>> `3 2`**`reshape2`**</br>> `dup .`|`T2[2,3]`<br/>`matrix[2,3] = [[+1.0000, +2.0000, +3.0000], [+4.0000, +5.0000, +6.0000]]`<br/>`T2[3,2]`<br/>`matrix[3,2] = [[+1.0000, +2.0000], [+3.0000, +4.0000], [+5.0000, +6.0000]]`|
 |reshape4|(n h w c Ta -- Ta')|reshape to a 4-D NHWC tensor|
 ||> `2 3 matrix[ 1 2 3 4 5 6 ]`<br/>> `1 3 2 1`**`reshape4`**|`T2[2,3]`<br/>`T4[1,3,2,1]`|
 ### Fill ops
