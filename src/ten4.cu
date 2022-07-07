@@ -22,20 +22,21 @@ using namespace std;
 #define MAJOR_VERSION        "2"
 #define MINOR_VERSION        "0"
 
-__GPU__ TensorVM *vm_pool[VM_MIN_COUNT];
+__GPU__ TensorVM *vm_pool[VM_MIN_COUNT]; /// TODO: CC - VM polymorphic does not work?
 ///
 /// instantiate VMs (threadIdx.x is vm_id)
 ///
 __KERN__ void
 ten4_init(int khz, Istream *istr, Ostream *ostr, MMU *mmu) {
     int i = threadIdx.x;
-    if (i >= VM_MIN_COUNT) return;
+    TensorVM *vm;
+    if (i < VM_MIN_COUNT) {
+        vm = vm_pool[i] = new TensorVM(khz, istr, ostr, mmu);  // instantiate VM
+        vm->ss.init(mmu->vss(i), T4_SS_SZ);  // point data stack to managed memory block
+    }
+    __syncthreads();
 
-    TensorVM *vm = vm_pool[i] = new TensorVM(khz, istr, ostr, mmu);  // instantiate VM
-    vm->ss.init(mmu->vss(i), T4_SS_SZ);  // point data stack to managed memory block
-
-    // if (i==0) vm->init();             // TODO: CC - polymophism does not work in kernel?
-    if (i==0) vm->init_t();              // initialize common dictionary (once only)
+    if (i==0) vm->init();               /// * initialize common dictionary (once only)
 }
 ///
 /// check VM status (using parallel reduction - overkill?)
