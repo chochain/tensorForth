@@ -170,6 +170,7 @@ Note:
 </pre>
 
 ### TODO
+* add KV pair (associative array) for label, and fully connected lookup
 * add CNN
   + study torch.nn, CUB (for kernel)
   + conv: ~pushing_the_limits_for_2d_conv..., shuffle reduction
@@ -184,7 +185,7 @@ Note:
 * add GNN - dynamic graph with VMs
 
 ### LATER
-* integrate plots (tensorboard, R)
+* integrate plots (matplotlib, tensorboard)
 * integrate ONNX
 * integrate CUB, CUTLASS (utilities.init, gemm_api) - slow, later
 * preprocessor (DALI) + GPUDirect - heavy, later
