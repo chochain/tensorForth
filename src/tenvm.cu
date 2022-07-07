@@ -139,7 +139,11 @@ __GPU__ void
 TensorVM::init_t() {
     const Code prim[] = {       /// singleton, build once only
     CODE("exp", top = texp()),
-    CODE("sum", if (IS_TENSOR(top)) top = mmu.du2ten(top).sum()),
+    CODE("sum",
+        if (IS_TENSOR(top)) {
+            DU d =  mmu.du2ten(top).sum();
+            PUSH(d);
+        }),
     ///@}
     ///@defgroup Tensor creation ops
     ///@brief - stick to PyTorch naming when possible
