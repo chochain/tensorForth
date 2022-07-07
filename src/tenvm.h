@@ -12,7 +12,7 @@ class TensorVM : public ForthVM {
 public:
     __GPU__ TensorVM(int khz, Istream *istr, Ostream *ostr, MMU *mmu)
         : ForthVM(khz, istr, ostr, mmu) {
-        INFO("\\  ::TensorVM(...) sizeof(Tensor)=%ld\n", sizeof(Tensor));
+        DEBUG("\\  ::TensorVM(...) sizeof(Tensor)=%ld\n", sizeof(Tensor));
     }
     __GPU__ void init_t();                  ///< TODO: CC - polymorphism does not work here?
     __GPU__ void init() final { init_t(); } ///< so fake it
