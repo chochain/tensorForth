@@ -271,6 +271,14 @@ Tensor::scale(DU v) {
 }
 
 __BOTH__ DU
+Tensor::sum() {
+    DU v  = DU0;
+    DU *d = (DU*)data;
+    for (int i=0; i<size; i++) v += *d++;  /// * TODO: CDP prefix sum
+    return v;
+}
+
+__BOTH__ DU
 Tensor::dot(Tensor &B) {
     if (rank != 1 || B.rank != 1 || size != B.size) return 0;
     DU  acc = DU0;

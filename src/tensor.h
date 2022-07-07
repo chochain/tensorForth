@@ -59,6 +59,7 @@ struct Tensor : public Managed {
     ///
     /// tensor arithmetics
     ///
+    __BOTH__ DU  sum();
     __BOTH__ DU  dot(Tensor &B);
     ///
     /// tensor life-cycle ops
