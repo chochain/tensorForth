@@ -16,7 +16,7 @@ __GPU__ void TensorVM::add_tensor(DU n) {
 __GPU__ DU
 TensorVM::tadd(bool sub) {
     if (!IS_TENSOR(ss[-1])) return sub ? ss.pop() - top : ss.pop() + top;
-    
+
     Tensor &A = mmu.du2ten(ss[-1]);
     Tensor &B = mmu.du2ten(top);
     U16 h = A.H(), w = A.W();
@@ -68,7 +68,7 @@ TensorVM::tmul() {                                    ///< tensor multiplication
         WARN("A[%d,%d]=%p * %f => A'=%p\n", m, ka, &A, top, &C);
         return mmu.ten2du(C.scale(top));              /// * resultant tensor on TOS
     }
-    
+
     Tensor &B = mmu.du2ten(top);
     U16 kb = B.rank==1 ? B.size : B.H();
     U16 n  = B.rank==1 ? 1      : B.W();
@@ -84,7 +84,7 @@ TensorVM::tmul() {                                    ///< tensor multiplication
         PUSH(mmu.ten2du(C));                          /// * resultant tensor on TOS
     }
     else ERROR("dim?");
-    
+
     return top;
 }
 __GPU__ DU
@@ -217,11 +217,11 @@ TensorVM::init_t() {
     CODE("boot", mmu.clear(FIND("gemm") + 1))
     };
     ForthVM::init_f();
-    
+
     mmu.merge(prim, sizeof(prim)/sizeof(Code));    /// * append tensor words
     mmu.merge(old,  sizeof(old)/sizeof(Code));     /// * update existed words
     mmu.status();
-    
+
     status = VM_RUN;
 };
 ///

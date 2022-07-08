@@ -16,11 +16,50 @@
 : test  (set1 -- ) for_batch forward loss.nll avg predict next ;
 </pre>
 
+### Study NN forward and backward propegation
+* for 1D nn   https://machinelearningmastery.com/implement-backpropagation-algorithm-scratch-python/
+* for 2D conv https://datascience-enthusiast.com/DL/Convolution_model_Step_by_Stepv2.html
+<pre>
+def linear(A, W, b):
+    Z = np.dot(W,A) + b
+    cache = (A, W, b)
+    return Z, cache
+    
+def d_linear(dZ, cache):
+    A_prev, W, b = cache
+    m  = A_prev.shape[1]
+    dW = 1./m * np.dot(dZ, A_prev.T)
+    db = 1./m * np.sum(dZ, axis=1, keepdims=True)
+    dA_prev = np.dot(W.T, dZ)
+    return dA_prev, dW, db
+    
+def sig(x):                                     # Sigmoid  
+    return 1/(1 + np.exp(-x))
+    
+def d_sig(x):                                   # Sigmoid derivative  
+    return sig(x) * (1 - sig(x))
+    
+def softmax(x):                                 # Softmax
+    return np.exp(x) / np.sum(np.exp(x))
+
+def d_softmax(x):                               # Softmax derivative
+    I = np.eye(x.shape[0])
+    return softmax(x) * (I - softmax(x).T)
+    
+def cross_e(y_true, y_pred):                    # CE
+    return -np.sum(y_true * np.log(y_pred + 10**-100))
+
+def d_cross_e(y_true, y_pred):                  # CE derivative
+    return -y_true/(y_pred + 10**-100)
+</pre>
+
 ### CNN volcabularies
 #### Tensor ops
-  * sum (Ta -- n) - array, matrix sum (with prefix sum or reduce)
-  * stack         - joining arrays (on given axis)
-  * split         - split an array into multi subarrays
+  * exp (n  -- n')   - exponential e^x i.e. power of Euler's
+  * exp (Ta -- Ta')  - element-wise exp (for sigmoid)
+  * sum (Ta -- n)    - array, matrix sum (with prefix sum or reduce)
+  * stack            - joining arrays (on given axis)
+  * split            - split an array into multi subarrays
   * reshape with negative value (i.e. inferred size = size / other dims)
 
 #### Load/Save - .npy
