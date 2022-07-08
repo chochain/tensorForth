@@ -6,16 +6,17 @@
  */
 #include "tensor.h"
 ///
-/// GEMM kernel (used CUDA dynamic parallelism)
-///     C = alpha * A x B + beta * C
-///     where A = MxK, B = KxN, C = MxN
+/// kernel methods (static) CDP-ready
 ///
-
 #define CDP(g) \
     int i = threadIdx.x + blockIdx.x * blockDim.x;  \
     int j = threadIdx.y + blockIdx.y * blockDim.y;  \
     if (i < N && j < M) { g; }
-
+///
+/// GEMM kernel (used CUDA dynamic parallelism)
+///     C = alpha * A x B + beta * C
+///     where A = MxK, B = KxN, C = MxN
+///
 __KERN__ void k_gemm(
     int M, int N, int K,
     DU *A, DU *B, DU *C,   /* MxK, KxN, MxN */
@@ -72,6 +73,8 @@ __KERN__ void k_scale(DU *A, DU v, int nrow, int ncol) {
         A[i + j * ncol] *= v;
     }
 }
+///=======================================================================
+/// static methods
 ///
 /// tensor GEMM C' = alpha * A x B + beta * C
 ///
@@ -131,7 +134,9 @@ Tensor::transpose(Tensor &D, Tensor &S) {
     cudaDeviceSynchronize();
     return D;
 }
-
+///=======================================================================
+/// Tensor class constructors
+///
 __HOST__
 Tensor::Tensor() :
     dsize(sizeof(DU)),
@@ -187,7 +192,9 @@ Tensor::~Tensor()
     default: DEBUG("~Tensor error: rank=%d\n", rank);
     }
 }
-
+///=======================================================================
+/// Tensor class methods
+///
 __BOTH__ Tensor&
 Tensor::set_as_view(bool set) {
     if (set) attr |= T4_TENSOR_VIEW;

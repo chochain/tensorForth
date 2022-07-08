@@ -17,8 +17,8 @@
 #define T4_TENSOR_VIEW  1
 struct Tensor : public Managed {
     U32              size;      ///< number of data elements, TODO: more than 4G elements
-    U32              dsize;     ///< size of data element, F32 for now, TODO: others
-    U32              rank;      ///< rank of tensor 2:matrix, 4:NHWC tensor
+    U16              dsize;     ///< size of data element, F32 for now, TODO: others
+    U16              rank;      ///< rank of tensor 2:matrix, 4:NHWC tensor
     U16              stride[4]; ///< strides to calculate memory offset
     U16              shape[4];  ///< Tensor4 (HWNC), matrix N=0, C=0
     U32              attr = 0;  ///< tensor attributes (a view)
