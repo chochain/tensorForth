@@ -6,7 +6,7 @@
 |---|---|---|---|---|
 |[release 1.0](https://github.com/chochain/tensorForth/releases/tag/v1.0.2)|**float**|beta|extended eForth with F32 float|Python|
 |[release 2.0](https://github.com/chochain/tensorForth/releases/tag/v2.0.0)|**matrix**|alpha|added array and matrix objects|NumPy|
-|next|**CNN**|planning|add tensor ops with autograd|PyTorch|
+|next|**CNN**|planning|add tensor NN ops with autograd|PyTorch|
 |-|**RNN**|later|-|-|
 
 ### Why?
@@ -23,16 +23,16 @@ tensorForth 2.0
 \  GPU 0 initialized at 1800MHz, dict[1024], pmem=48K, tensor=1024M
 \  VM[0] dict=0x7f56fe000a00, mem=0x7f56fe004a00, vss=0x7f56fe010a00
 
-2 3 matrix[ 1 2 3 4 5 6 ]            \ create matrix
+2 3 matrix{ 1 2 3 4 5 6 }            \ create matrix
 mmu#tensor(2,3) => size=6            \ optional debug traces
  <0 T2[2,3]> ok                      \ 2-D tensor shown on top of stack (TOS)
 dup                                  \ duplicate i.e. create a view
 mmu#view 0x7efc18000078 => size=6
  <0 T2[2,3] V2[2,3]> ok              \ view shown on TOS
 .                                    \ print the view
-matrix[2,3] = [
-	[+1.0000, +2.0000, +3.0000],
-	[+4.0000, +5.0000, +6.0000]]
+matrix[2,3] = {
+	{ +1.0000 +2.0000 +3.0000 }
+	{ +4.0000 +5.0000 +6.0000 } }
  <0 T2[2,3]> ok
 mmu#free(T2) size=6                  \ view released after print
  <0 T2[2,3]> ok
@@ -43,9 +43,9 @@ mmu#tensor(3,2) => size=6
 mmu#tensor(2,2) => size=4            \ a [2,x] resultant matrix created
  <0 T2[2,3] T2[3,2] T2[2,2]> ok      \ shown on TOS
 .                                    \ print the matrix
-matrix[2,2] = [
-	[+6.0000, +6.0000],
-	[+15.0000, +15.0000]]
+matrix[2,2] = {
+	{ +6.0000 +6.0000 }
+	{ +15.0000 +15.0000 } }
  <0 T2[2,3] T2[3,2]> ok
 mmu#free(T2) size=4                  \ matrix release after print
 2drop                                \ free both matrics
@@ -66,20 +66,20 @@ tensorForth 2.0 done.
 *                                    \ multiply them and resultant matrix on TOS
  <0 T2[1024,2048] T2[2048,512] T2[1024,512]> ok
 2048 / .                             \ scale down and print the resutant [1024,512] matrix
-matrix[1024,512] = [                 \ in PyTorch style (edgeitem=3)
-	[+0.4873, +0.4873, +0.4873, ..., +0.4873, +0.4873, +0.4873],
-	[+0.4274, +0.4274, +0.4274, ..., +0.4274, +0.4274, +0.4274],
-	[+0.5043, +0.5043, +0.5043, ..., +0.5043, +0.5043, +0.5043],
-	...,
-	[+0.5041, +0.5041, +0.5041, ..., +0.5041, +0.5041, +0.5041],
-	[+0.5007, +0.5007, +0.5007, ..., +0.5007, +0.5007, +0.5007],
-	[+0.5269, +0.5269, +0.5269, ..., +0.5269, +0.5269, +0.5269]]
+matrix[1024,512] = {                 \ in PyTorch style (edgeitem=3)
+	{ +0.4873 +0.4873 +0.4873 ... +0.4873 +0.4873 +0.4873 }
+	{ +0.4274 +0.4274 +0.4274 ... +0.4274 +0.4274 +0.4274 }
+	{ +0.5043 +0.5043 +0.5043 ... +0.5043 +0.5043 +0.5043 }
+	...
+	{ +0.5041 +0.5041 +0.5041 ... +0.5041 +0.5041 +0.5041 }
+	{ +0.5007 +0.5007 +0.5007 ... +0.5007 +0.5007 +0.5007 }
+	{ +0.5269 +0.5269 +0.5269 ... +0.5269 +0.5269 +0.5269 } }
  <0 T2[1024,2048] T2[2048,512] T2[1024,512> ok     \ original T2[1024,512] is still left on TOS
 drop                                               \ because tensor ops are by default non-destructive
  <0 T2[1024,2048] T2[2048,512]> ok                 \ so we drop it from TOS
 : mx clock >r for * drop next clock r> - ;         \ define a word 'mx' for benchmark loop
-5 mx                                               \ run benchmark for 6 loops
- <0 T2[1024,2048] T2[2048,512] 236> ok             \ 236 ms for 6 cycles
+9 mx                                               \ run benchmark for 10 loops
+ <0 T2[1024,2048] T2[2048,512] 396> ok             \ 396 ms for 10 cycles
 drop                                               \ drop the value
  <0 T2[1024,2048] T2[2048,512]> ok
 999 mx                                             \ now try 1000 loops
@@ -122,10 +122,11 @@ Note:
    array     (n -- T1)       - create a 1-D array and place on top of stack (TOS)
    matrix    (h w -- T2)     - create 2-D matrix and place on TOS
    tensor    (n h w c -- T4) - create a 4-D NHWC tensor on TOS
-   array[    (n -- T1)       - create 1-D array from console stream
-   matrix[   (h w -- T2)     - create a 2-D matrix from console stream
+   array{    (n -- T1)       - create 1-D array from console stream
+   matrix{   (h w -- T2)     - create a 2-D matrix from console stream
    copy      (Ta -- Ta Ta')  - duplicate (deep copy) a tensor on TOS
 </pre>
+
 ### View creation words
 <pre>
    dup       (Ta -- Ta Va)   - create a view of a tensor on TOS
@@ -133,9 +134,11 @@ Note:
    2dup      (Ta Tb -- Ta Tb Va Vb)
    2over     (Ta Tb Tc Td -- Ta Tb Tc Td Va Vb)
 </pre>
+
 ### Tensor/View print word
 <pre>
    . (dot)   (Ta -- )        - print array
+   . (dot)   (Va -- )        - print view
 </pre>
 ### Shape adjusting words (change shape of origial tensor)
 <pre>
@@ -143,9 +146,10 @@ Note:
    reshape2  (Ta -- T2a')    - reshape a 2-D matrix
    reshape4  (Ta -- T4a')    - reshape to a 4-D NHWC tensor
 </pre>
+
 ### Fill tensor with init values (data updated to original tensor)
 <pre>
-   T![       (Ta -- Ta')     - fill tensor with console input
+   ={        (Ta -- Ta')     - fill tensor with console input
    zeros     (Ta -- Ta')     - fill tensor with zeros
    ones      (Ta -- Ta')     - fill tensor with ones
    full      (Ta -- Ta')     - fill tensor with number on TOS
@@ -153,7 +157,13 @@ Note:
    rand      (Ta -- Ta')     - fill tensor with uniform random numbers
    randn     (Ta -- Ta')     - fill tensor with normal distribution random numbers
 </pre>
-### Matrix arithmetic words (by default non-destructive)
+
+### Tensor slice and dice
+<pre>
+   slice     (Ta x0 x1 y0 y1 -- Ta Ta') - TODO: numpy.slice[x0:x1,y0:y1,]
+</pre>
+
+### Tensor arithmetic words (by default non-destructive)
 <pre>
    +         (Ta Tb -- Ta Tb Tc) - tensor element-wise addition
    +         (Ta n  -- Ta Ta')   - tensor matrix-scaler addition (broadcast)
@@ -165,13 +175,12 @@ Note:
    *         (Ta n  -- Ta Ta')   - matrix-scaler multiplication (broadcast)
    /         (Ta Tb -- Ta Tb Tc) - TODO: A * inv(B) matrix
    /         (Ta n  -- Ta Ta')   - matrix-scaler scale down multiplication (broadcast)
+   sum       (Ta    -- Ta n)     - sum all elements of a tensor
+   exp       (Ta    -- Ta Ta')   - element-wise exponential
    inverse   (Ta    -- Ta Ta')   - TODO: matrix inversion
    transpose (Ta    -- Ta Ta')   - matrix transpose
    matmul    (Ta Tb -- Ta Tb Tc) - matrix multiplication
    gemm      (a b Ta Tb Tc -- a b Ta Tb Tc') - GEMM Tc' = a * Ta x Tb + b * Tc
-   exp       (n     -- n')       - exponential e^(n)
-   exp       (Ta    -- Ta Ta')   - element-wise exponential
-   sum       (Ta    -- Ta n)     - sum all elements of a tensor
 </pre>
 
 ### TODO

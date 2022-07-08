@@ -58,6 +58,7 @@ tensorForth 2.0
 ||> `2 3`**`matrix{`**`1 2 3 4 5 6 }`<br/>> `3 2`**`matrix{`**`{ 1 2 } { 3 4 } { 5 6 } }`|`T2[2,3]`</br>`T2[2,3] T2[3,2]`|
 |copy|(Ta -- Ta Ta')|duplicate (deep copy) a tensor on TOS|
 ||> `2 3 matrix`<br/>> **`copy`**|`T2[2,3]`<br/>`T2[2,3] T2[2,3]`|
+
 ### Views creation ops
 |word|param/example|view creation ops|
 |---|---|---|
@@ -68,6 +69,7 @@ tensorForth 2.0
 |2dup|(Ta Tb -- Ta Tb Ta' Tb')||
 ||> `2 3 matrix{ 1 2 3 4 5 6 }`<br/>> `3 2 matrix`<br/>> **`2dup`**|`T2[2,3]`<br/>`T2[2,3] T2[3,2]`<br/>`T2[2,3] T2[3,2] V2[2,3] V2[3,2]`|
 |2over|(Ta Tb Tc Td -- Ta Tb Tc Td Ta' Tb')|`...`|
+
 ### Tensor/View print
 |word|param/example|Tensor/View print|
 |---|---|---|
@@ -77,6 +79,7 @@ tensorForth 2.0
 ||> `2 3 matrix{ 1 2 3 4 5 6 }`<br/>> **`.`**|`T2[2,3]`<br/>`matrix[2,3] = { { +1.0000 +2.0000 +3.0000 } { +4.0000 +5.0000 +6.0000 } }`|
 |. (dot)|(V2 -- )|print view|
 ||> `2 3 matrix{ 1 2 3 4 5 6 }`<br/>> `dup`<br/>> **`.`**|`T2[2,3]`<br/>`T2[2,3] V2[2,3]`<br/>`matrix[2,3] = { { +1.0000 +2.0000 +3.0000 } { +4.0000 +5.0000 +6.0000 } }`|
+
 ### Shape adjusting ops
 |word|param/example|Shape adjusting ops|
 |---|---|---|
@@ -86,6 +89,7 @@ tensorForth 2.0
 ||> `2 3 matrix{ 1 2 3 4 5 6 }`<br/>> `dup .`<br/>> `3 2`**`reshape2`**</br>> `dup .`|`T2[2,3]`<br/>`matrix[2,3] = { { +1.0000 +2.0000 +3.0000 } { +4.0000 +5.0000 +6.0000 } }`<br/>`T2[3,2]`<br/>`matrix[3,2] = { { +1.0000 +2.0000 } { +3.0000 +4.0000 } { +5.0000 +6.0000 } }`|
 |reshape4|(n h w c Ta -- Ta')|reshape to a 4-D NHWC tensor|
 ||> `2 3 matrix{ 1 2 3 4 5 6 }`<br/>> `1 3 2 1`**`reshape4`**|`T2[2,3]`<br/>`T4[1,3,2,1]`|
+
 ### Fill ops
 |word|param/example|Fill tensor with init valuess|
 |---|---|---|
@@ -104,12 +108,13 @@ tensorForth 2.0
 ||> `2 3 matrix`<br/>> **`={`**`1 2 3 4 5 6 }`<br/>> `.`|`T2[2,3]`<br/>`T2[2,3]`<br/>`matrix[2,3] = { { +1.0000 +2.0000 +3.0000 } { +4.0000 +5.0000 +6.0000 } }`|
 |={|(Ta n -- Ta')|fill tensor from console starting at indexed item|
 ||> `2 3 matrix zeros`<br/>> **`2 ={`**`1 2 }`<br/>> `.`|`T2[2,3]`<br/>`T2[2,3]`<br/>`matrix[2,3] = { { +0.0000 +0.0000 +1.0000 } { +2.0000 +0.0000 +0.0000 } }`|
+
 ### Tensor slice and dice
 |word|param/example|tensor slicing ops (non-destructive)|
 |---|---|---|
-|sum|(Ta -- Ta n)|sum all elements of a tensor|
 |slice|(Ta x0 x1 y0 y1 -- Ta Ta')|numpy.slice[x0:x1, y0:y1, ]|
 ||> `4 4 matrix rand`<br/>> `dup .`<br/>> **`1 3 1 3 slice`**<br/>> `.`|`T2[4,4]`<br/>`matrix[4,4] = {`<br/> `{ +0.0940 +0.5663 +0.3323 +0.0840 }`<br/> `{ +0.6334 +0.3548 +0.1104 +0.7236 }`<br/> `{ +0.2781 +0.0530 +0.7532 +0.4145 }`<br/> `{ +0.4473 +0.0823 +0.1551 +0.3159 } }`<br> `matrix[2,2] = {`<br/> `{ +0.3548 +0.1104 }`</br> `{ +0.0530 +0.7532 } }`|
+
 ### Tensor Arithmetic ops
 |word|param/example|Matrix arithmetic ops (non-destructive)|
 |---|---|---|
@@ -122,6 +127,8 @@ tensorForth 2.0
 |*|(Ta v  -- Ta Ta')|matrix-scaler multiplication|
 |/|(Ta Tb -- Ta Tb Tc)|TODO: C = A x inverse(B)|
 |/|(Ta v  -- Ta Ta')|matrix-scaler division|
+|sum|(Ta -- Ta n)|sum all elements of a tensor|
+|exp|(Ta -- Ta Ta')|exponential (i.e. e^x) all elements of a tensor|
 |inverse|(Ta -- Ta Ta')|TODO: matrix inversion|
 |transpose|(Ta -- Ta Ta')|matrix transpose|
 |matmul|(Ta Tb -- Ta Tb Tc)|matrix multiplication|
