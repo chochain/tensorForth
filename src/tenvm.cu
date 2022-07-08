@@ -14,6 +14,16 @@ __GPU__ void TensorVM::add_tensor(DU n) {
 /// tensor methods
 ///
 __GPU__ DU
+TensorVM::texp() {
+    if (!IS_TENSOR(top)) return EXP(top);    /// * scaler
+    Tensor &A = mmu.du2ten(top);
+    Tensor &B = mmu.copy(A);
+    DU *d = (DU*)B.data;
+    for (int i=0; i<B.size; i++, d++) *d = EXP(*d);
+    PUSH(B);
+    return top;
+}
+__GPU__ DU
 TensorVM::tadd(bool sub) {
     if (!IS_TENSOR(ss[-1])) return sub ? ss.pop() - top : ss.pop() + top;
 
@@ -26,16 +36,6 @@ TensorVM::tadd(bool sub) {
         PUSH(C);
     }
     else ERROR("dim?");
-    return top;
-}
-__GPU__ DU
-TensorVM::texp() {
-    if (!IS_TENSOR(top)) return EXP(top);    /// * scaler
-    Tensor &A = mmu.du2ten(top);
-    Tensor &B = mmu.copy(A);
-    DU *d = (DU*)B.data;
-    for (int i=0; i<B.size; i++, d++) *d = EXP(*d);
-    PUSH(B);
     return top;
 }
 /**
@@ -138,13 +138,6 @@ TensorVM::gemm() {                       ///< blas GEMM
 __GPU__ void
 TensorVM::init_t() {
     const Code prim[] = {       /// singleton, build once only
-    CODE("exp", top = texp()),
-    CODE("sum",
-        if (IS_TENSOR(top)) {
-            DU d =  mmu.du2ten(top).sum();
-            PUSH(d);
-        }),
-    ///@}
     ///@defgroup Tensor creation ops
     ///@brief - stick to PyTorch naming when possible
     ///@{
@@ -157,11 +150,11 @@ TensorVM::init_t() {
     CODE("tensor",                       ///< allocate a NHWC tensor
         IU c = POPi; IU w = POPi; IU h = POPi; IU n = POPi;
         PUSH(mmu.tensor(n, h, w, c))),
-    CODE("array[",                       ///< create an array with literals
+    CODE("array{",                       ///< create an array with literals
         IU sz = POPi;
         PUSH(mmu.tensor(sz));
         ten_off = 0; ten_lvl = 1),
-    CODE("matrix[",                      ///< create a matrix with literals
+    CODE("matrix{",                      ///< create a matrix with literals
         IU w = POPi; IU h = POPi;
         PUSH(mmu.tensor(h, w));
         ten_off = 0; ten_lvl = 1),
@@ -183,7 +176,7 @@ TensorVM::init_t() {
     ///@defgroup Tensor fill ops
     ///@brief - stick to PyTorch naming when possible
     ///@{
-    CODE("T![",                          ///< (n -- ) or ( -- )
+    CODE("={",                          ///< (n -- ) or ( -- )
          ten_off = IS_TENSOR(top) ? 0 : POPi;
          ten_lvl = IS_TENSOR(top) ? 1 : 0),
     CODE("zeros", if (IS_TENSOR(top)) mmu.du2ten(top).fill(0)),
@@ -192,6 +185,23 @@ TensorVM::init_t() {
     CODE("eye",   {}),                      ///< TODO
     CODE("rand",  top = mmu.rand(top, UNIFORM)),  ///< uniform randomize a tensor or number
     CODE("randn", top = mmu.rand(top, NORMAL)),   ///< normal dist. randomize a tensor
+    ///@defgrup Tensor slice and dice
+    ///@{
+    CODE("sum",
+        if (IS_TENSOR(top)) {
+            DU d =  mmu.du2ten(top).sum();
+            PUSH(d);
+        }),
+    CODE("{",   if (IS_TENSOR(top) && ten_lvl > 0) ++ten_lvl),
+    CODE("}",   if (IS_TENSOR(top) && ten_lvl > 0) --ten_lvl),
+    CODE("slice",
+         IU y1 = POPi; IU y0 = POPi; IU x1 = POPi; IU x0 = POPi;
+         if (IS_TENSOR(top)) {
+             Tensor &t0 = mmu.du2ten(top);
+             Tensor &t1 = mmu.slice(t0, x0, x1, y0, y1);
+             PUSH(t1);
+         }),
+    ///@}
     ///@}
     ///@defgroup Tensor matrix ops
     ///@brief - stick to PyTorch naming when possible
@@ -205,14 +215,11 @@ TensorVM::init_t() {
     const Code old[] = {
     ///@defgroup redefined tensor ops
     ///@{
-    CODE("+", top = tadd()),
-    CODE("*", top = tmul()),
-    CODE("-", top = tadd(true)),
-    CODE("/", top = tdiv()),
-    ///@defgroup Literal ops
-    ///@{
-    CODE("[", (IS_TENSOR(top) && ten_lvl > 0) ? ++ten_lvl : compile = false),
-    CODE("]", (IS_TENSOR(top) && ten_lvl > 0) ? --ten_lvl : compile = true),
+    CODE("+",   top = tadd()),
+    CODE("*",   top = tmul()),
+    CODE("-",   top = tadd(true)),
+    CODE("/",   top = tdiv()),
+    CODE("exp", top = texp()),
     ///@}
     CODE("boot", mmu.clear(FIND("gemm") + 1))
     };

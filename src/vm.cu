@@ -19,7 +19,7 @@ VM::VM(int khz, Istream *istr, Ostream *ostr, MMU *mmu0)
 ///
 __GPU__ void
 VM::dot(DU v) {
-    if (IS_TENSOR(v)) { fout << v; mmu.mark_free(v); }
+    if (IS_OBJ(v)) { fout << v; mmu.mark_free(v); }
     else fout << " " << v;       // eForth has a space prefix
 }
 __GPU__ void
