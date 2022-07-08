@@ -8,7 +8,15 @@
 #define TEN4_SRC_EFORTH_H
 #include "vm.h"             // VM base class
 ///
-///@name Cross platform support
+///@name Cross platform floating-point support
+///@{
+#define MOD(t,n)     (fmod(t, n))                  /**< fmod two floating points       */
+#define ZERO(d)      (ABS(d) < DU_EPS)             /**< zero check                     */
+#define BOOL(f)      (ZERO(f) ? -1 : 0)            /**< default boolean representation */
+#define ABS(d)       (fabs(d))                     /**< absolute value                 */
+#define EXP(v)       (expf(v))                     /**< exponential(float)             */
+///@}
+///@name Data conversion
 ///@{
 #define INT(f)       (static_cast<int>(f + 0.5))   /**< cast float to int              */
 #define I2D(i)       (static_cast<DU>(i))          /**< cast int back to float         */

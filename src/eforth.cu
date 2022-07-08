@@ -9,13 +9,6 @@
 ///
 /// Forth Virtual Machine operational macros to reduce verbosity
 ///
-///@name Data conversion
-///@{
-#define ABS(d)    (fabs(d))                     /**< absolute value                          */
-#define ZERO(d)   (ABS(d) < DU_EPS)             /**< zero check                              */
-#define MOD(t,n)  (fmod(t, n))                  /**< fmod two floating points                */
-#define BOOL(f)   ((f) ? -1 : 0)                /**< default boolean representation          */
-///@}
 ///@name Dictioanry access
 ///@{
 #define PFA(w)    (dict[(IU)(w)].pfa)           /**< PFA of given word id                    */
@@ -173,6 +166,10 @@ ForthVM::init_f() {
     CODE("2/",   top /= 2),
     CODE("1+",   top += 1),
     CODE("1-",   top -= 1),
+    ///@}
+    ///@defgroup Binary logic ops (convert to integer first)
+    ///@{
+    CODE("exp",  top = EXP(top)),
     ///@}
     ///@defgroup Data conversion ops
     ///@{
