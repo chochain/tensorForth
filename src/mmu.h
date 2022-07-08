@@ -95,6 +95,8 @@ class MMU : public Managed {
     curandState    *_seed;          ///< for random number generator
     TLSF           tstore;          ///< tensor storage manager
 
+    friend class TensorMMU;
+
 public:
     __HOST__ MMU();
     __HOST__ ~MMU();
@@ -130,11 +132,11 @@ public:
     ///
     /// low level memory access
     ///
-    __BOTH__ __INLINE__ IU here()     { return _midx; }
-    __BOTH__ __INLINE__ IU ri(U8 *c)  { return ((IU)(*(c+1)<<8)) | *c; }
-    __BOTH__ __INLINE__ IU ri(IU pi)  { return ri(&_pmem[pi]); }
-    __BOTH__ __INLINE__ DU rd(U8 *c)  { DU d; MEMCPY(&d, c, sizeof(DU)); return d; }
-    __BOTH__ __INLINE__ DU rd(IU pi)  { return rd(&_pmem[pi]); }
+    __BOTH__ __INLINE__ IU   here()     { return _midx; }
+    __BOTH__ __INLINE__ IU   ri(U8 *c)  { return ((IU)(*(c+1)<<8)) | *c; }
+    __BOTH__ __INLINE__ IU   ri(IU pi)  { return ri(&_pmem[pi]); }
+    __BOTH__ __INLINE__ DU   rd(U8 *c)  { DU d; MEMCPY(&d, c, sizeof(DU)); return d; }
+    __BOTH__ __INLINE__ DU   rd(IU pi)  { return rd(&_pmem[pi]); }
     __GPU__  __INLINE__ void wd(U8 *c, DU d)   { MEMCPY(c, &d, sizeof(DU)); }
     __GPU__  __INLINE__ void wd(IU w, DU d)    { wd(&_pmem[w], d); }
     __GPU__  __INLINE__ void wi(U8 *c, IU i)   { *c++ = i&0xff; *c = (i>>8)&0xff; }
@@ -147,25 +149,27 @@ public:
     __GPU__  Tensor &tensor(U32 sz);                        ///< create an array
     __GPU__  Tensor &tensor(U16 h, U16 w);                  ///< create a matrix
     __GPU__  Tensor &tensor(U16 n, U16 h, U16 w, U16 c);    ///< create a NHWC tensor
-    __GPU__  Tensor &view(Tensor &t0);                      ///< create a view to a tensor
     __GPU__  void   free(Tensor &t);                        ///< free the tensor
+    __GPU__  Tensor &view(Tensor &t0);                      ///< create a view to a tensor
     __GPU__  Tensor &copy(Tensor &t0);                      ///< hard copy a tensor
+    __GPU__  Tensor &slice(Tensor &t0, IU x0, IU x1, IU y0, IU y1);   ///< a slice of a tensor
     __GPU__  Tensor &scale(Tensor &t, DU v);                ///< scale a tensor
     ///
     /// short hands for eforth tensor ucodes (for DU <-> Tensor conversion)
+    /// TODO: more object types
     ///
     __BOTH__ __INLINE__ Tensor &du2ten(DU d) {
         U32    *off = (U32*)&d;
-        Tensor *t   = (Tensor*)(_ten + (*off & ~T4_TENSOR));
+        Tensor *t   = (Tensor*)(_ten + (*off & ~T4_OBJ));
         return *t;
     }
     __BOTH__ __INLINE__ DU     ten2du(Tensor &t) {
-        U32 o = ((U32)((U8*)&t - _ten)) | T4_TENSOR;
+        U32 o = ((U32)((U8*)&t - _ten)) | T4_OBJ;
         return *(DU*)&o;
     }
-    __GPU__  __INLINE__ void drop(DU d) { if (IS_TENSOR(d)) free(du2ten(d)); }
-    __GPU__  __INLINE__ DU   dup(DU d)  { return IS_TENSOR(d) ? ten2du(view(du2ten(d))) : d; }
-    __GPU__  __INLINE__ DU   copy(DU d) { return IS_TENSOR(d) ? ten2du(copy(du2ten(d))) : d; }
+    __GPU__  __INLINE__ void drop(DU d) { if (IS_OBJ(d)) free(du2ten(d)); }
+    __GPU__  __INLINE__ DU   dup(DU d)  { return IS_OBJ(d) ? ten2du(view(du2ten(d))) : d; }
+    __GPU__  __INLINE__ DU   copy(DU d) { return IS_OBJ(d) ? ten2du(copy(du2ten(d))) : d; }
     __GPU__             DU   rand(DU d, t4_rand_type n);        ///< randomize a tensor
     ///
     /// debugging methods (implemented in .cu)
