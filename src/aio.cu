@@ -23,16 +23,16 @@ AIO::readline() {
 
 __HOST__ void
 AIO::print_vec(DU *d, int mi, int ri) {
-    std::cout << "[";
-    for (int i=0, i1=1; i<ri; i++, i1++) {
-        std::cout << d[i] << (i1==ri ? "" : ", ");
+    std::cout << "{";
+    for (int i=0; i<ri; i++) {
+        std::cout << " " << d[i];
     }
     int x = mi - ri;
-    if (x > ri) std::cout << ", ...";
+    if (x > ri) std::cout << " ...";
     for (int i=(x > ri ? x : ri); i<mi; i++) {
-        std::cout << ", " << d[i];
+        std::cout << " " << d[i];
     }
-    std::cout << "]";
+    std::cout << " }";
 }
 
 __HOST__ void
@@ -40,15 +40,15 @@ AIO::print_mat(DU *d, int mi, int mj, int ri, int rj) {
     DU *d0 = d;
     for (int j=0, j1=1; j<rj; j++, j1++, d0+=mi) {
         print_vec(d0, mi, ri);
-        std::cout << (j1==mj ? "" : ",\n\t");
+        std::cout << (j1==mj ? "" : "\n\t");
     }
     int y = mj - rj;
-    if (y > rj) std::cout << "...,\n\t";
+    if (y > rj) std::cout << "...\n\t";
     else y = rj;
     DU *d1 = d + y * mi;
     for (int j=y, j1=j+1; j<mj; j++, j1++, d1+=mi) {
         print_vec(d1, mi, ri);
-        std::cout << (j1==mj ? "" : ",\n\t");
+        std::cout << (j1==mj ? "" : "\n\t");
     }
 }
 
@@ -69,10 +69,10 @@ AIO::print_tensor(DU v) {
         print_vec(d, t.size, ri);
     } break;
     case 2: {
-        std::cout << "matrix[" << t.H() << "," << t.W() << "] = [\n\t";
+        std::cout << "matrix[" << t.H() << "," << t.W() << "] = {\n\t";
         int mj = t.H(), mi = t.W(), rj = range(mj),  ri = range(mi);
         print_mat(d, mi, mj, ri, rj);
-        std::cout << "]";
+        std::cout << " }";
     } break;
     case 4: {
         std::cout << "tensor["
