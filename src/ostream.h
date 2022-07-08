@@ -161,7 +161,7 @@ public:
         return *this;
     }
     __GPU__ Ostream& operator<<(DU d) {
-        GT t = IS_TENSOR(d) ? GT_TENSOR : GT_FLOAT;
+        GT t = IS_OBJ(d) ? GT_TENSOR : GT_FLOAT;
         _write(t, (U8*)&d, sizeof(DU));
         return *this;
     }

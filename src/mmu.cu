@@ -138,7 +138,7 @@ MMU::to_s(std::ostream &fout, IU w) {
     fout << " ";
 #endif  // T4_VERBOSE
 }
-///
+///====================================================================
 /// tensor life-cycle methods
 ///
 __GPU__ void
@@ -202,7 +202,11 @@ MMU::free(Tensor &t) {
     if (!t.is_view()) tstore.free((void*)t.data);
     tstore.free((void*)&t);
 }
-__GPU__ Tensor&                  ///< deep copy a tensor
+///
+/// deep copy a tensor
+/// TODO: CDP
+///
+__GPU__ Tensor&
 MMU::copy(Tensor &t0) {
     Tensor *t  = (Tensor*)tstore.malloc(sizeof(Tensor));
     memcpy(t, &t0, sizeof(Tensor));
@@ -220,10 +224,36 @@ MMU::copy(Tensor &t0) {
     
     return *t;
 }
-
+///
+/// tensor slice & dice
+/// TODO: CDP
+///
+__GPU__ Tensor&
+MMU::slice(Tensor &t0, U16 x0, U16 x1, U16 y0, U16 y1) {
+    if (t0.rank < 2) { ERROR("dim?"); return t0; }
+    if (x1 == (U16)-1) x1 = t0.W();
+    if (y1 == (U16)-1) y1 = t0.H();
+    Tensor &t1 = t0.rank==2
+        ? tensor(y1-y0, x1-x0)
+        : tensor(t0.N(), y1-y0, x1-x0, t0.C());
+    ///
+    /// hard copy data blocks
+    ///
+    U16 N   = t1.N() ? t1.N() : 1;
+    U16 C   = t1.C() ? t1.C() : 1;
+    U64 bsz = sizeof(DU) * C * t1.W();              // size of one row
+    for (int n = 0; n < N; n++) {                   // repeat N HWC
+        for (int j = y0, j0=0; j < y1; j++, j0++) {
+            DU *d0 = &((DU*)t0.data)[C * (j * t0.W() + x0)];
+            DU *d1 = &((DU*)t1.data)[C * j0 * t1.W()];
+            memcpy(d1, d0, bsz);
+        }
+    }
+    return t1;
+}
 __GPU__ DU
 MMU::rand(DU d, t4_rand_type n) {
-    if (!IS_TENSOR(d)) return d * curand_uniform(&_seed[0]);
+    if (!IS_OBJ(d)) return d * curand_uniform(&_seed[0]);
     
     Tensor &t = du2ten(d);
     int h = t.rank==1 ? 1      : t.H();
