@@ -119,18 +119,18 @@ Note:
 ## Forth Tensor operations (see [doc](./docs/v2_progress.md) for detail and examples)
 ### Tensor creation words
 <pre>
-   array     (n -- T1)       - create a 1-D array and place on top of stack (TOS)
-   matrix    (h w -- T2)     - create 2-D matrix and place on TOS
-   tensor    (n h w c -- T4) - create a 4-D NHWC tensor on TOS
-   array{    (n -- T1)       - create 1-D array from console stream
-   matrix{   (h w -- T2)     - create a 2-D matrix from console stream
-   copy      (Ta -- Ta Ta')  - duplicate (deep copy) a tensor on TOS
+   array     (n       -- T1)     - create a 1-D array and place on top of stack (TOS)
+   matrix    (h w     -- T2)     - create 2-D matrix and place on TOS
+   tensor    (n h w c -- T4)     - create a 4-D NHWC tensor on TOS
+   array{    (n       -- T1)     - create 1-D array from console stream
+   matrix{   (h w     -- T2)     - create a 2-D matrix from console stream
+   copy      (Ta      -- Ta Ta') - duplicate (deep copy) a tensor on TOS
 </pre>
 
 ### View creation words
 <pre>
-   dup       (Ta -- Ta Va)   - create a view of a tensor on TOS
-   over      (Ta Tb -- Ta Tb Va)
+   dup       (Ta    -- Ta Va)    - create a view of a tensor on TOS
+   over      (Ta Tb -- Ta Tb Va) - create a view from 2nd item on stack
    2dup      (Ta Tb -- Ta Tb Va Vb)
    2over     (Ta Tb Tc Td -- Ta Tb Tc Td Va Vb)
 </pre>
