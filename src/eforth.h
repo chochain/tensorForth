@@ -29,10 +29,14 @@
 ///
 class ForthVM : public VM {
 public:
-    __GPU__ ForthVM(int khz, Istream *istr, Ostream *ostr, MMU *mmu);
-
-    __GPU__ void init_f();                  ///< TODO: CC - polymorphism does not work in kernel?
-    __GPU__ void virtual init() override { init_f(); }
+    __GPU__ ForthVM(int khz, Istream *istr, Ostream *ostr, MMU *mmu)
+        : VM(khz, istr, ostr, mmu), dict(mmu->dict()) {
+        if (mmu->trace() > 0) {
+            printf("\\  ::ForthVM[%d](dict=%p) sizeof(Code)=%ld\n", blockIdx.x, dict, sizeof(Code));
+        }
+    }
+    __GPU__ void virtual init() override { init_f(); } ///< TODO: CC - polymorphism does not work in kernel?
+    __GPU__ void init_f();                             ///< so fake it for now
     
 protected:
     Code  *dict;                            ///< dictionary array

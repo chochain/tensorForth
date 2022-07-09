@@ -10,12 +10,14 @@
 
 class TensorVM : public ForthVM {
 public:
-    __GPU__ TensorVM(int khz, Istream *istr, Ostream *ostr, MMU *mmu)
-        : ForthVM(khz, istr, ostr, mmu) {
-        DEBUG("\\  ::TensorVM(...) sizeof(Tensor)=%ld\n", sizeof(Tensor));
+    __GPU__ TensorVM(int khz, Istream *istr, Ostream *ostr, MMU *mmu) :
+        ForthVM(khz, istr, ostr, mmu) {
+        if (mmu->trace() > 0) {
+            printf("\\  ::TensorVM(...) sizeof(Tensor)=%ld\n", sizeof(Tensor));
+        }
     }
-    __GPU__ void init_t();                  ///< TODO: CC - polymorphism does not work here?
-    __GPU__ void init() final { init_t(); } ///< so fake it
+    __GPU__ void init() final { init_t(); } ///< TODO: CC - polymorphism does not work here?
+    __GPU__ void init_t();                  ///< so fake it
 
 protected:
     int   ten_lvl = 0;                      ///< tensor input level
