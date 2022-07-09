@@ -73,6 +73,9 @@ struct Code : public Managed {
         WARN("Code()= %p %s\n", xt, name);
     }
 };
+///
+/// macros for microcode construction
+///
 #define CODE(s, g)    { s, [this] __GPU__ (){ g; }}
 #define IMMD(s, g)    { s, [this] __GPU__ (){ g; }, true }
 typedef enum {
@@ -80,25 +83,29 @@ typedef enum {
     NORMAL  = 1
 } t4_rand_type;
 ///
+/// tracing level control
+///
+#define TRACE1(...)   { if (_trace > 0) INFO(__VA_ARGS__);  else DEBUG(__VA_ARGS__); }
+#define TRACE2(...)   { if (_trace > 1) DEBUG(__VA_ARGS__); else WARN(__VA_ARGS__);  }
+///
 /// Forth memory manager
 ///
 class MMU : public Managed {
-    IU             _mutex;          ///< lock (first so address aligned)
-    IU             _didx = 0;       ///< dictionary index
-    IU             _midx = 0;       ///< parameter memory index
-    IU             _fidx = 0;       ///< index to freed tensor array
+    IU             _mutex = 0;      ///< lock (first so address aligned)
+    IU             _didx  = 0;      ///< dictionary index
+    IU             _midx  = 0;      ///< parameter memory index
+    IU             _fidx  = 0;      ///< index to freed tensor array
     Code           *_dict;          ///< dictionary block
     U8             *_pmem;          ///< parameter memory block
-    DU             *_vss;           ///< VM data stack block
+    DU             *_vmss;          ///< VM data stack block
     U8             *_ten;           ///< tensor storage block
     DU             *_mark;          ///< array for tensors that marked free
     curandState    *_seed;          ///< for random number generator
-    TLSF           tstore;          ///< tensor storage manager
-
-    friend class TensorMMU;
+    TLSF           _tstore;         ///< tensor storage manager
+    int            _trace = 0;      ///< debug tracing verbosity level
 
 public:
-    __HOST__ MMU();
+    __HOST__ MMU(int verbose=0);
     __HOST__ ~MMU();
     ///
     /// memory lock for multi-processing
@@ -110,7 +117,7 @@ public:
     ///
     __GPU__ __INLINE__ Code *dict()      { return &_dict[0]; }                      ///< dictionary pointer
     __GPU__ __INLINE__ Code *last()      { return &_dict[_didx - 1]; }              ///< last dictionary word
-    __GPU__ __INLINE__ DU   *vss(int vid){ return &_vss[vid * T4_SS_SZ]; }          ///< data stack (per VM id)
+    __GPU__ __INLINE__ DU   *vmss(int i) { return &_vmss[i * T4_SS_SZ]; }           ///< data stack (per VM id)
     __GPU__ __INLINE__ U8   *pmem(IU i)  { return &_pmem[i]; }                      ///< base of parameter memory
     ///
     /// dictionary management ops
@@ -178,6 +185,8 @@ public:
     ///
     /// debugging methods (implemented in .cu)
     ///
+    __BOTH__ __INLINE__ int  trace()        { return _trace; }
+    __BOTH__ __INLINE__ void trace(int lvl) { _trace = lvl;  }
     __HOST__ int  to_s(std::ostream &fout, IU w);
     __HOST__ void words(std::ostream &fout);
     __HOST__ void see(std::ostream &fout, U8 *p, int dp=1);     /// cannot pass pfa
