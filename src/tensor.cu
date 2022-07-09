@@ -142,16 +142,16 @@ Tensor::Tensor() :
     dsize(sizeof(DU)),
     size(0),
     rank(0),
-    stride{0, 0, 0, 0},
-    shape{0, 0, 0, 0} {}
+    stride{1, 1, 1, 1},
+    shape{1, 1, 1, 1} {}
 
 __HOST__
 Tensor::Tensor(U32 sz) :
     dsize(sizeof(DU)),
     size(sz),
     rank(1),
-    stride{0, 0, 0, 0},
-    shape{0, 0, 0, 0} {
+    stride{1, 1, 1, 1},
+    shape{(U16)sz, 1, 1, 1} {
     cudaMallocManaged((void**)&data, (size_t)size * dsize);
     GPU_CHK();
     DEBUG("tensor[%d] allocated\n", size);
@@ -162,8 +162,8 @@ Tensor::Tensor(U16 h, U16 w) :
     dsize(sizeof(DU)),
     size(h * w),
     rank(2),
-    stride{1, 1, 0, 0},
-    shape{h, w, 0, 0} {
+    stride{1, 1, 1, 1},
+    shape{h, w, 1, 1} {
     cudaMallocManaged((void**)&data, (size_t)size * dsize);
     GPU_CHK();
     DEBUG("matrix(%d,%d) allocated\n", shape[0], shape[1]);
@@ -178,7 +178,7 @@ Tensor::Tensor(U16 n, U16 h, U16 w, U16 c) :
     shape{h, w, n, c} {
     cudaMallocManaged((void**)&data, (size_t)size * dsize);
     GPU_CHK();
-    DEBUG("tensor(%d,%d,%d,%d) allocated\n", shape[2], shape[0], shape[1], shape[3]);
+    DEBUG("tensor(%d,%d,%d,%d) allocated\n", shape[3], shape[0], shape[1], shape[2]);
 }
 
 __HOST__
@@ -188,7 +188,7 @@ Tensor::~Tensor()
     cudaFree((void*)data);
     switch (rank) {
     case 2: DEBUG("matrix(%d,%d) freed\n", shape[0], shape[1]); break;
-    case 4: DEBUG("tensor(%d,%d,%d,%d) freed\n", shape[2], shape[0], shape[1], shape[3]); break;
+    case 4: DEBUG("tensor(%d,%d,%d,%d) freed\n", shape[3], shape[0], shape[1], shape[2]); break;
     default: DEBUG("~Tensor error: rank=%d\n", rank);
     }
 }
@@ -207,8 +207,8 @@ Tensor::reset(void *mptr, U32 sz) {
     dsize  = sizeof(DU);
     size   = sz;
     rank   = 1;
-    memset(stride, 0, sizeof(stride));
-    memset(shape,  0, sizeof(shape));
+    U16 t[4] = {1, 1, 1, 1};      memcpy(stride, t, sizeof(t));
+    U16 s[4] = {(U16)sz,1, 1, 1}; memcpy(shape,  s, sizeof(s));
     attr   = 0;
     data   = (U8*)mptr;
     DEBUG("tensor reset(%p, %d)\n", mptr, sz);
@@ -232,8 +232,8 @@ Tensor::reshape(U16 h, U16 w) {
     U32 sz = h * w;
     if (sz == size) {
         rank   = 2;
-        U16 t[4] = {1, 1, 0, 0}; memcpy(stride, t, sizeof(t));
-        U16 s[4] = {h, w, 0, 0}; memcpy(shape,  s, sizeof(s));
+        U16 t[4] = {1, 1, 1, 1}; memcpy(stride, t, sizeof(t));
+        U16 s[4] = {h, w, 1, 1}; memcpy(shape,  s, sizeof(s));
         DEBUG("tensor reshaped(%d,%d)\n", shape[0], shape[1]);
     }
     else {
@@ -248,8 +248,8 @@ Tensor::reshape(U16 n, U16 h, U16 w, U16 c) {
     if (sz == size) {
         rank   = 4;
         U16 t[4] = {1, 1, 1, 1}; memcpy(stride, t, sizeof(t));
-        U16 s[4] = {h, w, n, c}; memcpy(shape,  s, sizeof(s));
-        DEBUG("tensor reshaped(%d,%d,%d,%d)\n", shape[2], shape[0], shape[1], shape[3]);
+        U16 s[4] = {h, w, c, n}; memcpy(shape,  s, sizeof(s));
+        DEBUG("tensor reshaped(%d,%d,%d,%d)\n", shape[3], shape[0], shape[1], shape[2]);
     }
     else {
         ERROR("reshape sz != size (%d != %d)\n", sz, size);
@@ -266,8 +266,7 @@ Tensor::fill(DU v) {
 
 __BOTH__ Tensor&
 Tensor::scale(DU v) {
-    int h = rank==1 ? 1    : H();
-    int w = rank==1 ? size : W();
+    int h = H(), w = W();
     DEBUG("Tensor#scale by %f\n", v);
     dim3 block(16, 16), grid(
         (w + block.x - 1) / block.x,     /* row major */
@@ -287,11 +286,13 @@ Tensor::sum() {
 
 __BOTH__ DU
 Tensor::dot(Tensor &B) {
-    if (rank != 1 || B.rank != 1 || size != B.size) return 0;
     DU  acc = DU0;
-    for (int k=0; k < size; k++) {
-        acc += ((DU*)data)[k] * ((DU*)B.data)[k];
+    if (rank == 1 && B.rank == 1 && size == B.size) {
+        for (int k=0; k < size; k++) {
+            acc += ((DU*)data)[k] * ((DU*)B.data)[k];
+        }
     }
+    else ERROR("A.dot(B) dim? %d != %d)\n", size, B.size);
     return acc;
 }
 
