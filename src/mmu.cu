@@ -28,26 +28,27 @@ __KERN__ void k_rand(DU *mat, int nrow, int ncol, curandState *st, t4_rand_type 
 /// Forth Virtual Machine operational macros to reduce verbosity
 ///
 __HOST__
-MMU::MMU() {
+MMU::MMU(int verbose) : _trace(verbose) {
     cudaMallocManaged(&_dict, sizeof(Code) * T4_DICT_SZ);
     cudaMallocManaged(&_pmem, T4_PMEM_SZ);
     cudaMallocManaged(&_ten,  T4_TENSOR_SZ);
     cudaMallocManaged(&_mark, sizeof(DU) * T4_TFREE_SZ);
-    cudaMallocManaged(&_vss,  sizeof(DU) * T4_SS_SZ * VM_MIN_COUNT);
+    cudaMallocManaged(&_vmss, sizeof(DU) * T4_SS_SZ * VM_MIN_COUNT);
     cudaMallocManaged(&_seed, sizeof(curandState) * 256);
     GPU_CHK();
 
-    tstore.init(_ten, T4_TENSOR_SZ);
+    _tstore.init(_ten, T4_TENSOR_SZ);
     k_rand_init<<<1, 256>>>(_seed);
     GPU_CHK();
 
-    DEBUG("\\  MMU dict=%p, mem=%p, vss=%p, ten=%p\n", _dict, _pmem, _vss, _ten);
+    TRACE1("\\  MMU dict=%p, mem=%p, vmss=%p, ten=%p\n", _dict, _pmem, _vmss, _ten);
 }
 __HOST__
 MMU::~MMU() {
     GPU_SYNC();
+    TRACE2("\\  MMU releasing CUDA managed memory...\n");
     cudaFree(_seed);
-    cudaFree(_vss);
+    cudaFree(_vmss);
     cudaFree(_mark);
     cudaFree(_ten);
     cudaFree(_pmem);
@@ -59,7 +60,7 @@ MMU::~MMU() {
 ///
 __GPU__ int
 MMU::find(const char *s, bool compile, bool ucase) {
-    WARN("find(%s) => ", s);
+    TRACE2("find(%s) => ", s);
     for (int i = _didx - (compile ? 2 : 1); i >= 0; --i) {
         const char *t = _dict[i].name;
         if (ucase && STRCASECMP(t, s)==0) return i;
@@ -74,11 +75,11 @@ MMU::merge(const Code *clist, int sz) {
         int w = find(c->name);              /// * check whether word exists
         if (w >= 0) {
             _dict[w] = *c;                  /// * replace existing word pointer
-            DEBUG("word %s redefined\n", c->name);
+            TRACE1("word %s redefined\n", c->name);
         }
         else {
             add(c);                         /// * append new word to dictionary
-            WARN("new word %s created\n", c->name);
+            TRACE2("new word %s created\n", c->name);
         }
     }
 }
@@ -93,19 +94,19 @@ MMU::status() {
     }
     c = _dict;
     for (int i=0; i<_didx; i++, c++) {      ///< dump dictionary from device
-        WARN("%3d> xt=%4x:%p name=%4x:%p %s\n", i,
+        TRACE2("%3d> xt=%4x:%p name=%4x:%p %s\n", i,
             (U16)((UFP)c->xt   - x0), c->xt,
             (U16)((UFP)c->name - n0), c->name,
             c->name);
     }
-    DEBUG("\\  MMU.status dict[%d], pmem[%d], tfree[%d]\n", _didx, _midx, _fidx);
+    TRACE1("\\  MMU.alloc dict[%d], pmem[%d], tfree[%d]\n", _didx, _midx, _fidx);
 }
 ///
 /// colon - dictionary word compiler
 ///
 __GPU__ void
 MMU::colon(const char *name) {
-    WARN("colon(%s) => ", name);
+    TRACE2("colon(%s) => ", name);
     int  sz = STRLENB(name);                // aligned string length
     Code &c = _dict[_didx++];               // get next dictionary slot
     align();                                // nfa 32-bit aligned (adjust _midx)
@@ -132,11 +133,9 @@ MMU::to_s(std::ostream &fout, IU w) {
         fout << c;
         cudaMemcpy(&c, _dict[w].name+(++i), 1, D2H);
     }
-#if T4_DEBUG
-    fout << " " << w << (_dict[w].immd ? "* " : " ");
-#else   // T4_DEBUG
-    fout << " ";
-#endif  // T4_DEBUG
+    if (_trace) fout << " " << w << (_dict[w].immd ? "* " : " ");
+    else        fout << " ";
+    
     return (int)i;
 }
 ///====================================================================
@@ -145,7 +144,7 @@ MMU::to_s(std::ostream &fout, IU w) {
 __GPU__ void
 MMU::mark_free(DU v) {            ///< mark a tensor free for release
     Tensor &t = du2ten(v);
-    WARN("mark T[%x]=%p as free[%d]\n", *(U32*)&v, &t, _fidx);
+    TRACE2("mark T[%x]=%p as free[%d]\n", *(U32*)&v, &t, _fidx);
 //    lock();
     if (_fidx < T4_TFREE_SZ) _mark[_fidx++] = v;
     else ERROR("ERR: tfree array full, increase T4_TFREE_SZ!");
@@ -156,7 +155,7 @@ MMU::sweep() {
 //    lock();
     for (int i=0; _fidx && i < _fidx; i++) {
         DU v = _mark[i];
-        WARN("release T[%x] from marked list[%d]\n", *(U32*)&v, _fidx);
+        TRACE2("release T[%x] from marked list[%d]\n", *(U32*)&v, _fidx);
         drop(v);
     }
     _fidx = 0;
@@ -164,15 +163,15 @@ MMU::sweep() {
 }
 __GPU__ Tensor&                    ///< create a one-dimensional tensor
 MMU::tensor(U32 sz) {
-    Tensor *t    = (Tensor*)tstore.malloc(sizeof(Tensor));
-    void   *mptr = tstore.malloc((U64)sizeof(DU) * sz);
+    Tensor *t    = (Tensor*)_tstore.malloc(sizeof(Tensor));
+    void   *mptr = _tstore.malloc((U64)sizeof(DU) * sz);
     t->reset(mptr, sz);
     return *t;
 }
 __GPU__ Tensor&                    ///< create a 2-dimensional tensor
 MMU::tensor(U16 h, U16 w) {
     U32 sz = h * w;
-    DEBUG("mmu#tensor(%d,%d) => size=%d\n", h, w, sz);
+    TRACE1("mmu#tensor(%d,%d) => size=%d\n", h, w, sz);
     Tensor &t = this->tensor(sz);
     t.reshape(h, w);
     return t;
@@ -180,33 +179,33 @@ MMU::tensor(U16 h, U16 w) {
 __GPU__ Tensor&                    ///< create a NHWC tensor
 MMU::tensor(U16 n, U16 h, U16 w, U16 c) {
     U32 sz = n * h * w * c;
-    DEBUG("mmu#tensor(%d,%d,%d,%d) => size=%d\n", n, h, w, c, sz);
+    TRACE1("mmu#tensor(%d,%d,%d,%d) => size=%d\n", n, h, w, c, sz);
     Tensor &t = this->tensor(sz);
     t.reshape(n, h, w, c);
     return t;
 }
 __GPU__ Tensor&                   ///< create a view of a Tensor
 MMU::view(Tensor &t0) {
-    Tensor *t = (Tensor*)tstore.malloc(sizeof(Tensor));
+    Tensor *t = (Tensor*)_tstore.malloc(sizeof(Tensor));
     ///
     /// replicate A tensor
     ///
     memcpy(t, &t0, sizeof(Tensor));
     t->set_as_view(true);
 
-    DEBUG("mmu#view:%p => size=%d\n", t, t->size);
+    TRACE1("mmu#view:%p => size=%d\n", t, t->size);
     return *t;
 }
 __GPU__ void                     ///< release tensor memory blocks
 MMU::free(Tensor &t) {
-    DEBUG("mmu#free(T%d) size=%d\n", t.rank, t.size);
-    if (!t.is_view()) tstore.free((void*)t.data);
-    tstore.free((void*)&t);
+    TRACE1("mmu#free(T%d) size=%d\n", t.rank, t.size);
+    if (!t.is_view()) _tstore.free((void*)t.data);
+    _tstore.free((void*)&t);
 
-#if MMU_DEBUG
-    tstore.show_stat();
-    tstore.dump_freelist();
-#endif // MMU_DEBUG
+    if (_trace > 1) {
+        _tstore.show_stat();
+        _tstore.dump_freelist();
+    }
 }
 ///
 /// deep copy a tensor
@@ -214,13 +213,13 @@ MMU::free(Tensor &t) {
 ///
 __GPU__ Tensor&
 MMU::copy(Tensor &t0) {
-    Tensor *t  = (Tensor*)tstore.malloc(sizeof(Tensor));
+    Tensor *t  = (Tensor*)_tstore.malloc(sizeof(Tensor));
     memcpy(t, &t0, sizeof(Tensor));
     ///
     /// hard copy data block
     ///
     U64 bsz   = sizeof(DU) * t0.size;
-    U8  *mptr = (U8*)tstore.malloc(bsz);
+    U8  *mptr = (U8*)_tstore.malloc(bsz);
     memcpy(mptr, t0.data, bsz);
     ///
     /// reset attributes
@@ -262,7 +261,7 @@ MMU::rand(DU d, t4_rand_type n) {
 
     Tensor &t = du2ten(d);
     int h = t.rank==1 ? t.size : t.H(), w = t.W();
-    DEBUG("mmu#rand(T%d) size=%d\n", t.rank, t.size);
+    TRACE1("mmu#rand(T%d) size=%d\n", t.rank, t.size);
     dim3 block(16, 16), grid(
         (w + block.x - 1) / block.x,     /* row major */
         (h + block.y - 1) / block.y
@@ -335,7 +334,7 @@ MMU::ss_dump(std::ostream &fout, U16 vid, U16 n, int radix) {
         else if (x) fout << static_cast<int>(s);
         else fout << s;
     };
-    DU *ss = &_vss[vid * T4_SS_SZ];
+    DU *ss = &_vmss[vid * T4_SS_SZ];
     fout << " <";
     if (x) fout << std::setbase(radix);
     for (U16 i=0; i<n; i++) {
