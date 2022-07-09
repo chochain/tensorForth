@@ -32,7 +32,7 @@ ten4_init(int khz, Istream *istr, Ostream *ostr, MMU *mmu) {
     TensorVM *vm;
     if (i < VM_MIN_COUNT) {
         vm = vm_pool[i] = new TensorVM(khz, istr, ostr, mmu);  // instantiate VM
-        vm->ss.init(mmu->vss(i), T4_SS_SZ);  // point data stack to managed memory block
+        vm->ss.init(mmu->vmss(i), T4_SS_SZ);  // point data stack to managed memory block
     }
     __syncthreads();
 
@@ -67,12 +67,12 @@ ten4_busy(int *busy) {
 ///
 #include <stdio.h>
 __KERN__ void
-ten4_exec() {
+ten4_exec(int trace) {
     const char *st[] = {"READY", "RUN", "WAITING", "STOPPED"};
     extern __shared__ DU shared_ss[];
     if (threadIdx.x!=0) return;
 
-    int b   = blockIdx.x;
+    int b    = blockIdx.x;
     VM  *vm  = vm_pool[b];
     DU  *ss  = &shared_ss[b * T4_SS_SZ];        // adjust stack pointer based on VM id
     DU  *ss0 = vm->ss.v;                        // capture VM data stack
@@ -80,9 +80,7 @@ ten4_exec() {
     vm->ss.v = ss;                              // redirect data stack to shared memory
 
     if (vm->status == VM_RUN) vm->outer();
-    else {
-        DEBUG("VM[%d] %s\n", blockIdx.x, st[vm->status]);
-    }
+    else if (trace > 1) INFO("VM[%d] %s\n", blockIdx.x, st[vm->status]);
 
     __syncthreads();
     MEMCPY(ss0, ss, sizeof(DU) * T4_SS_SZ);     // copy updated stack to managed memory
@@ -101,7 +99,7 @@ ten4_sweep(MMU *mmu) {
 //    mmu->unlock(); !!! DEAD LOCK now
 }
 
-TensorForth::TensorForth(int device, bool trace) {
+TensorForth::TensorForth(int device, int verbose) {
     ///
     /// set active device
     ///
@@ -116,21 +114,19 @@ TensorForth::TensorForth(int device, bool trace) {
     int khz = 0;
     cudaDeviceGetAttribute(&khz, cudaDevAttrClockRate, device);
     GPU_CHK();
-    
-#if T4_VERBOSE
+
     cout << "\\  GPU " << device
          << " initialized at " << khz/1000 << "MHz"
          << ", dict["          << T4_DICT_SZ << "]"
-         << ", vss["           << T4_SS_SZ << "*" << VM_MIN_COUNT << "]"
+         << ", vmss["          << T4_SS_SZ << "*" << VM_MIN_COUNT << "]"
          << ", pmem="          << T4_PMEM_SZ/1024 << "K"
          << ", tensor="        << T4_TENSOR_SZ/1024/1024 << "M"
          << endl;
-#endif // T4_VERBOSE
     ///
     /// allocate cuda memory blocks
     ///
-    mmu = new MMU();                            ///> instantiate memory manager
-    aio = new AIO(mmu, trace);                  ///> instantiate async IO manager
+    mmu = new MMU(verbose);                     ///> instantiate memory manager
+    aio = new AIO(mmu, verbose);                ///> instantiate async IO manager
     cudaMalloc((void**)&busy, sizeof(int));     ///> allocate managed busy flag
     GPU_CHK();
     ///
@@ -161,21 +157,22 @@ TensorForth::is_running() {
     return h_busy;
 }
 
-#define VSS_SZ (sizeof(DU) * T4_SS_SZ * VM_MIN_COUNT)
+#define VMSS_SZ (sizeof(DU) * T4_SS_SZ * VM_MIN_COUNT)
 __HOST__ int
 TensorForth::run() {
+    int trace = mmu->trace();
     while (is_running()) {
         if (aio->readline()) {        // feed from host console to managed input buffer
-            ten4_exec<<<1, 1, VSS_SZ>>>();
+            ten4_exec<<<VM_MIN_COUNT, 1, VMSS_SZ>>>(trace);
             GPU_CHK();                // cudaDeviceSynchronize() and check error
             aio->flush();             // flush output buffer
             ten4_sweep<<<1, 1>>>(mmu);
         }
         yield();
-#if MMU_DEBUG
-        int m0 = (int)mmu->here() - 0x80;
-        mmu->mem_dump(cout, m0 < 0 ? 0 : m0, 0x80);
-#endif // MMU_DEBUG
+        if (trace > 1) {
+            int m0 = (int)mmu->here() - 0x80;
+            mmu->mem_dump(cout, m0 < 0 ? 0 : m0, 0x80);
+        }
     }
     return 0;
 }
@@ -214,7 +211,7 @@ int main(int argc, const char**argv) {
 
     cout << APP << endl;
     
-    TensorForth *f = new TensorForth(opt.device_id);
+    TensorForth *f = new TensorForth(opt.device_id, opt.verbose);
     f->run();
 
     cout << APP << " done." << endl;

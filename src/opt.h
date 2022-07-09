@@ -38,6 +38,7 @@ struct Options {
     cutlass::complex<float>  beta;
     int  batch_count = 1;
     int  device_id   = 0;
+    int  verbose     = 0;
     bool reference_check;
     int  iterations;
   
@@ -95,6 +96,7 @@ struct Options {
 
         if (cmd.check_cmd_line_flag("help")) help = true;
 
+        cmd.get_cmd_line_argument("v",       verbose);
         cmd.get_cmd_line_argument("d",       device_id);
         cmd.get_cmd_line_argument("m",       problem_size.m());
         cmd.get_cmd_line_argument("n",       problem_size.n());
