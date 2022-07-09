@@ -17,7 +17,7 @@ AIO::readline() {
     _istr->clear();
     char *tib = _istr->rdbuf();
     std::cin.getline(tib, T4_IBUF_SZ, '\n');
-    if (_trace) std::cout << "<<" << tib << std::endl;
+    if (_trace > 0) std::cout << "<<" << tib << std::endl;
     return strlen(tib);
 }
 
@@ -61,7 +61,7 @@ AIO::print_tensor(DU v) {
 
     std::ios::fmtflags fmt0 = std::cout.flags();
     std::cout.flags(std::ios::showpos | std::ios::right | std::ios::fixed);
-    std::cout << std::setprecision(_precision);
+    std::cout << std::setprecision(_prec);
     switch (t.rank) {
     case 1: {
         std::cout << "array[" << t.size << "] = ";
@@ -122,9 +122,9 @@ __HOST__ void
 AIO::flush() {
     obuf_node *node = (obuf_node*)_ostr->rdbuf();
     while (node->gt != GT_EMPTY) {          // 0
-        if (_trace) std::cout << '<' << node->id << '>';
+        if (_trace > 1) std::cout << '<' << node->id << '>';
         print_node(node);
-        if (_trace) std::cout << "</" << node->id << '>' << std::endl;
+        if (_trace > 1) std::cout << "</" << node->id << '>' << std::endl;
         node = NEXTNODE(node);
     }
     _ostr->clear();

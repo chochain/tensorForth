@@ -17,11 +17,12 @@ public:
     Ostream *_ostr;         ///< managed output stream
     MMU     *_mmu;          ///< memory managing unit
     int     _radix = 10;    ///< output stream radix
-    bool    _trace;         ///< debug tracing control
     int     _edge  = 3;     ///< number of tensor edge items
-    int     _precision = 4; ///< shown floating point precision
+    int     _prec  = 4;     ///< shown floating point precision
+    int     _trace = 0;     ///< debug tracing control
 
-    AIO(MMU *mmu, bool trace) : _istr(new Istream()), _ostr(new Ostream()), _mmu(mmu), _trace(trace) {}
+    AIO(MMU *mmu, int verbose=0) :
+        _istr(new Istream()), _ostr(new Ostream()), _mmu(mmu), _trace(verbose) {}
 
     __HOST__ Istream *istream() { return _istr; }
     __HOST__ Ostream *ostream() { return _ostr; }
