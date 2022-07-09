@@ -41,6 +41,7 @@ tensorForth 2.0
 \  GPU 0 initialized at 1800MHz, dict[1024], pmem=48K, tensor=1024M
 \  VM[0] dict=0x7fe3d2000a00, mem=0x7fe3d2004a00, vss=0x7fe3d2010a00
 </pre>
+* \--v - set verbosity level 0: off (default), 1: mmu tracing on, 2: detailed trace
 
 ## Forth Tensor operations
 ### Tensor creation ops

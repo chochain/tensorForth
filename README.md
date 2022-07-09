@@ -18,13 +18,13 @@ Having a 'shell' that can interactively and incrementally run 'compiled programs
 
 ### Small Example
 <pre>
-> ten4                               # enter tensorForth
+> ten4 --v=1                         # enter tensorForth, with mmu debug tracing on
 tensorForth 2.0
 \  GPU 0 initialized at 1800MHz, dict[1024], pmem=48K, tensor=1024M
 \  VM[0] dict=0x7f56fe000a00, mem=0x7f56fe004a00, vss=0x7f56fe010a00
 
 2 3 matrix{ 1 2 3 4 5 6 }            \ create matrix
-mmu#tensor(2,3) => size=6            \ optional debug traces
+mmu#tensor(2,3) => size=6            \ the optional debug traces
  <0 T2[2,3]> ok                      \ 2-D tensor shown on top of stack (TOS)
 dup                                  \ duplicate i.e. create a view
 mmu#view 0x7efc18000078 => size=6
@@ -115,6 +115,7 @@ Note:
 ## tensorForth command line options
 * \--h - list all GPU id and their properties<br/>
 * \--d - select GPU device id
+* \--v - set verbosity level 0: off (default), 1: mmu tracing on, 2: detailed trace
 
 ## Forth Tensor operations (see [doc](./docs/v2_progress.md) for detail and examples)
 ### Tensor creation words
@@ -225,7 +226,7 @@ Note:
 * matrix print (i.e PyTorch-style, adjustable edge elements)
 * tensor view (i.e. dup, over, pick, r@)
 * GEMM (i.e. a * A x B + b * C, use CUDA Dynamic Parallelism)
-* command line option: debug print level control (MMU_DEBUG)
+* command line option: debug print level control (T4_DEBUG)
 * command line option: list (all) device properties
 * use cuRAND kernel randomizer for uniform and standard normal distribution
 
