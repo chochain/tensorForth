@@ -113,9 +113,9 @@ Note:
   + Optimization=O3
 
 ## tensorForth command line options
-* \--h - list all GPU id and their properties<br/>
-* \--d - select GPU device id
-* \--v - set verbosity level 0: off (default), 1: mmu tracing on, 2: detailed trace
+* \--help          - list all GPU id and their properties<br/>
+* \--d=device_id   - select GPU device id
+* \--v=verbo_level - set verbosity level 0: off (default), 1: mmu tracing on, 2: detailed trace
 
 ## Forth Tensor operations (see [doc](./docs/v2_progress.md) for detail and examples)
 ### Tensor creation words
@@ -150,13 +150,14 @@ Note:
 
 ### Fill tensor with init values (data updated to original tensor)
 <pre>
-   ={        (Ta -- Ta')     - fill tensor with console input
-   zeros     (Ta -- Ta')     - fill tensor with zeros
-   ones      (Ta -- Ta')     - fill tensor with ones
-   full      (Ta -- Ta')     - fill tensor with number on TOS
-   eye       (Ta -- Ta')     - fill diag with 1 and other with 0
-   rand      (Ta -- Ta')     - fill tensor with uniform random numbers
-   randn     (Ta -- Ta')     - fill tensor with normal distribution random numbers
+   zeros     (Ta   -- Ta')   - fill tensor with zeros
+   ones      (Ta   -- Ta')   - fill tensor with ones
+   full      (Ta   -- Ta')   - fill tensor with number on TOS
+   eye       (Ta   -- Ta')   - fill diag with 1 and other with 0
+   rand      (Ta   -- Ta')   - fill tensor with uniform random numbers
+   randn     (Ta   -- Ta')   - fill tensor with normal distribution random numbers
+   ={        (Ta   -- Ta')   - fill tensor with console input from the first element
+   ={        (Ta n -- Ta')   - fill tensor with console input starting at n'th element
 </pre>
 
 ### Tensor slice and dice

@@ -13,7 +13,7 @@
 * use cuRAND kernel randomizer for uniform and standard normal distribution
 
 ## tensorForth Command line options
-* \--h - list all GPU id and their properties<br/>
+* \--help - list all GPU id and their properties<br/>
 Example:> ./ten4 \--h<br/>
 <pre>
 CUDA Device #0
@@ -34,14 +34,14 @@ CUDA Device #0
 	Concurrent copy and execution: Yes
 	Kernel execution timeout:      Yes
 </pre>
-* \--d - enter device id
+* \--d=device_id - enter GPU device id
 Example:> ./ten4 \--d=0
 <pre>
 tensorForth 2.0
 \  GPU 0 initialized at 1800MHz, dict[1024], pmem=48K, tensor=1024M
 \  VM[0] dict=0x7fe3d2000a00, mem=0x7fe3d2004a00, vss=0x7fe3d2010a00
 </pre>
-* \--v - set verbosity level 0: off (default), 1: mmu tracing on, 2: detailed trace
+* \--v=verbose_level - set verbosity level 0: off (default), 1: mmu tracing on, 2: detailed trace
 
 ## Forth Tensor operations
 ### Tensor creation ops
@@ -105,9 +105,9 @@ tensorForth 2.0
 ||> `2 2 matrix`**`rand`**<br/>> `.`|`T2[2,2]`<br/>`matrix[2,2] = { { +0.5000 +0.1953 } { +0.1094 +0.4141 } }`|
 |randn|(Ta -- Ta')|fill tensor with standard distribution random numbers|
 ||> `2 2 matrix`**`randn`**<br/>> `.`|`T2[2,2]`<br/>`matrix[2,2] = { { -0.2170 -0.0695 } { -0.0107 +2.6791 } }`|
-|={|(Ta -- Ta')|fill tensor with console input values|
+|={|(Ta -- Ta')|fill tensor with console input values from the first element|
 ||> `2 3 matrix`<br/>> **`={`**`1 2 3 4 5 6 }`<br/>> `.`|`T2[2,3]`<br/>`T2[2,3]`<br/>`matrix[2,3] = { { +1.0000 +2.0000 +3.0000 } { +4.0000 +5.0000 +6.0000 } }`|
-|={|(Ta n -- Ta')|fill tensor from console starting at indexed item|
+|={|(Ta n -- Ta')|fill tensor from console starting at the indexed element|
 ||> `2 3 matrix zeros`<br/>> **`2 ={`**`1 2 }`<br/>> `.`|`T2[2,3]`<br/>`T2[2,3]`<br/>`matrix[2,3] = { { +0.0000 +0.0000 +1.0000 } { +2.0000 +0.0000 +0.0000 } }`|
 
 ### Tensor slice and dice
