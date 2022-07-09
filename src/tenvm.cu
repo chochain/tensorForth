@@ -60,28 +60,26 @@ TensorVM::tadd(bool sub) {
 __GPU__ DU
 TensorVM::tmul() {                                    ///< tensor multiplication
     if (!IS_TENSOR(ss[-1])) return top * ss.pop();    /// * scaler * scaler
+    
     Tensor &A = mmu.du2ten(ss[-1]);
-    U16 m  = A.rank==1 ? 1 : A.H();
-    U16 ka = A.rank==1 ? A.size : A.W();
-    if (!IS_TENSOR(top)) {                            /// * tensor * scaler
+    if (!IS_OBJ(top)) {                               /// * tensor * scaler
         Tensor &C = mmu.copy(A);                      /// * hard copy A tensor
-        WARN("A[%d,%d]=%p * %f => A'=%p\n", m, ka, &A, top, &C);
+        WARN("T%d=%p * %f => A'=%p\n", A.rank, &A, top, &C);
         return mmu.ten2du(C.scale(top));              /// * resultant tensor on TOS
     }
-
+    
     Tensor &B = mmu.du2ten(top);
-    U16 kb = B.rank==1 ? B.size : B.H();
-    U16 n  = B.rank==1 ? 1      : B.W();
+    U16 m  = A.H(), ka = A.W(), kb = B.H(), n  = B.W();
     WARN("A[%d,%d]=%p x B[%d,%d]=%p ", m, ka, &A, kb, n, &B);
-    if (m==1 && n==1) {                               /// * array x array
+    if (A.rank==1 && B.rank==1 && A.size==B.size) {   /// * array x array
         PUSH(A.dot(B));                               /// * dot product on TOS
         WARN(" => %f\n", top);
     }
     else if (ka == kb) {                              /// * tensor x tensor
         Tensor &C = mmu.tensor(m, n);
-        WARN("=> C[%d,%d]=%p\n", C.H(), C.W(), &C);
         Tensor::mm(A, B, C);
         PUSH(mmu.ten2du(C));                          /// * resultant tensor on TOS
+        WARN("=> C[%d,%d]=%p\n", C.H(), C.W(), &C);
     }
     else ERROR("dim?");
 
@@ -95,11 +93,9 @@ TensorVM::tdiv() {                                     ///< tensor division
         return top;
     }
     Tensor &A = mmu.du2ten(ss[-1]);
-    U16 m  = A.rank==1 ? 1 : A.H();
-    U16 ka = A.rank==1 ? A.size : A.W();
     if (!IS_TENSOR(top)) {                            /// * tensor / scaler
         Tensor &C = mmu.copy(A);                      /// * hard copy A tensor
-        WARN("A[%d,%d]=%p / %f => A'=%p\n", m, ka, &A, top, &C);
+        WARN("A[%d,%d]=%p / %f => A'=%p\n", A.H(), A.W(), &A, top, &C);
         return mmu.ten2du(C.scale(1.0/top));          /// * resultant tensor on TOS
     }
     return top;
@@ -225,8 +221,8 @@ TensorVM::init_t() {
     };
     ForthVM::init_f();
 
-    mmu.merge(prim, sizeof(prim)/sizeof(Code));    /// * append tensor words
-    mmu.merge(old,  sizeof(old)/sizeof(Code));     /// * update existed words
+    mmu.append(prim, sizeof(prim)/sizeof(Code));    /// * append tensor words
+    mmu.merge(old,  sizeof(old)/sizeof(Code));      /// * update existed words
     mmu.status();
 
     status = VM_RUN;
