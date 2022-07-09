@@ -18,7 +18,7 @@ __KERN__ void k_rand(DU *mat, int nrow, int ncol, curandState *st, t4_rand_type 
     int i = threadIdx.x + blockIdx.x * blockDim.x;
     int j = threadIdx.y + blockIdx.y * blockDim.y;
     curandState *s = &st[threadIdx.x + threadIdx.y * 16];
-    
+
     if (i < ncol && j < nrow) {
         int off = (i + j * ncol);
         mat[off] = n ? curand_normal(s) : curand_uniform(s);  // no divergence
@@ -40,7 +40,7 @@ MMU::MMU() {
     tstore.init(_ten, T4_TENSOR_SZ);
     k_rand_init<<<1, 256>>>(_seed);
     GPU_CHK();
-    
+
     DEBUG("\\  MMU dict=%p, mem=%p, vss=%p, ten=%p\n", _dict, _pmem, _vss, _ten);
 }
 __HOST__
@@ -69,8 +69,8 @@ MMU::find(const char *s, bool compile, bool ucase) {
 }
 __GPU__ void
 MMU::merge(const Code *clist, int sz) {
-    for (int i=0; i<sz; i++) {
-        Code *c = (Code*)&clist[i];
+    Code *c = (Code*)clist;
+    for (int i=0; i<sz; i++, c++) {
         int w = find(c->name);              /// * check whether word exists
         if (w >= 0) {
             _dict[w] = *c;                  /// * replace existing word pointer
@@ -86,14 +86,14 @@ __GPU__ void
 MMU::status() {
     UFP x0 = ~0;                            ///< base of xt   allocations
     UFP n0 = ~0;                            ///< base of name allocations
-    for (int i=0; i<_didx; i++) {
-        Code *c = &_dict[i];
+    Code *c = _dict;
+    for (int i=0; i<_didx; i++, c++) {      /// * scan thru for max range
         if ((UFP)c->xt   < x0) x0 = (UFP)c->xt;
         if ((UFP)c->name < n0) n0 = (UFP)c->name;
     }
-    for (int i=0; i<_didx; i++) {           ///< dump dictionary from device
-        Code *c = &_dict[i];
-        DEBUG("%3d> xt=%4x:%p name=%4x:%p %s\n", i,
+    c = _dict;
+    for (int i=0; i<_didx; i++, c++) {      ///< dump dictionary from device
+        WARN("%3d> xt=%4x:%p name=%4x:%p %s\n", i,
             (U16)((UFP)c->xt   - x0), c->xt,
             (U16)((UFP)c->name - n0), c->name,
             c->name);
@@ -119,7 +119,7 @@ MMU::colon(const char *name) {
 ///
 /// display dictionary word (wastefully one byte at a time)
 ///
-__HOST__ void
+__HOST__ int
 MMU::to_s(std::ostream &fout, IU w) {
     /*
      * TODO: not sure why copying 32 byt does not work?
@@ -132,11 +132,12 @@ MMU::to_s(std::ostream &fout, IU w) {
         fout << c;
         cudaMemcpy(&c, _dict[w].name+(++i), 1, D2H);
     }
-#if T4_VERBOSE
+#if T4_DEBUG
     fout << " " << w << (_dict[w].immd ? "* " : " ");
-#else   // T4_VERBOSE
+#else   // T4_DEBUG
     fout << " ";
-#endif  // T4_VERBOSE
+#endif  // T4_DEBUG
+    return (int)i;
 }
 ///====================================================================
 /// tensor life-cycle methods
@@ -159,7 +160,7 @@ MMU::sweep() {
         drop(v);
     }
     _fidx = 0;
-//  unlock();                     ///< TODO: CC: DEAD LOCK, now!    
+//  unlock();                     ///< TODO: CC: DEAD LOCK, now!
 }
 __GPU__ Tensor&                    ///< create a one-dimensional tensor
 MMU::tensor(U32 sz) {
@@ -192,7 +193,7 @@ MMU::view(Tensor &t0) {
     ///
     memcpy(t, &t0, sizeof(Tensor));
     t->set_as_view(true);
-    
+
     DEBUG("mmu#view:%p => size=%d\n", t, t->size);
     return *t;
 }
@@ -201,6 +202,11 @@ MMU::free(Tensor &t) {
     DEBUG("mmu#free(T%d) size=%d\n", t.rank, t.size);
     if (!t.is_view()) tstore.free((void*)t.data);
     tstore.free((void*)&t);
+
+#if MMU_DEBUG
+    tstore.show_stat();
+    tstore.dump_freelist();
+#endif // MMU_DEBUG
 }
 ///
 /// deep copy a tensor
@@ -221,7 +227,7 @@ MMU::copy(Tensor &t0) {
     ///
     t->set_as_view(false);       // not a view
     t->data  = mptr;
-    
+
     return *t;
 }
 ///
@@ -239,8 +245,7 @@ MMU::slice(Tensor &t0, U16 x0, U16 x1, U16 y0, U16 y1) {
     ///
     /// hard copy data blocks
     ///
-    U16 N   = t1.N() ? t1.N() : 1;
-    U16 C   = t1.C() ? t1.C() : 1;
+    U16 N   = t1.N(), C = t1.C();
     U64 bsz = sizeof(DU) * C * t1.W();              // size of one row
     for (int n = 0; n < N; n++) {                   // repeat N HWC
         for (int j = y0, j0=0; j < y1; j++, j0++) {
@@ -254,10 +259,9 @@ MMU::slice(Tensor &t0, U16 x0, U16 x1, U16 y0, U16 y1) {
 __GPU__ DU
 MMU::rand(DU d, t4_rand_type n) {
     if (!IS_OBJ(d)) return d * curand_uniform(&_seed[0]);
-    
+
     Tensor &t = du2ten(d);
-    int h = t.rank==1 ? 1      : t.H();
-    int w = t.rank==1 ? t.size : t.W();
+    int h = t.rank==1 ? t.size : t.H(), w = t.W();
     DEBUG("mmu#rand(T%d) size=%d\n", t.rank, t.size);
     dim3 block(16, 16), grid(
         (w + block.x - 1) / block.x,     /* row major */
@@ -272,9 +276,9 @@ MMU::rand(DU d, t4_rand_type n) {
 __HOST__ void
 MMU::words(std::ostream &fout) {
     fout << std::setbase(10);
-    for (int i=0; i<_didx; i++) {
-        if ((i%10)==0) { fout << std::endl; }
-        to_s(fout, i);
+    for (int i=0, sz=0; i<_didx; i++) {
+        sz += to_s(fout, i);
+        if (sz > 54) { fout << std::endl; sz = 0; }                /// TODO: width configuable
     }
 }
 ///
