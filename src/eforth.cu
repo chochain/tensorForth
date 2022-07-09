@@ -321,7 +321,7 @@ ForthVM::init_f() {
     CODE("bye",   status = VM_STOP),
     CODE("boot",  mmu.clear(FIND("boot") + 1))
     };
-    mmu.merge(prim, sizeof(prim)/sizeof(Code)); ///< append dictionary
+    mmu.append(prim, sizeof(prim)/sizeof(Code)); ///< append dictionary
     mmu.status();
 
     status = VM_RUN;
