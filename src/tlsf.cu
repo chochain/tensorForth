@@ -139,11 +139,6 @@ TLSF::free(void *ptr) {
     // the block is free now, try to merge a free block before if exists
     _try_merge_prev(blk);
     _UNLOCK;
-    
-#if MMU_DEBUG
-    tstore.show_stat();
-    tstore.dump_freelist();
-#endif // MMU_DEBUG
 }
 
 //================================================================
