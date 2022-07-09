@@ -115,6 +115,10 @@ public:
     ///
     /// dictionary management ops
     ///
+    __GPU__ void append(const Code *clist, int sz) {
+        Code *c = (Code*)clist;
+        for (int i=0; i < sz; i++) add(c++);
+    }
     __GPU__ int  find(const char *s, bool compile=0, bool ucase=0);  ///< dictionary search
     __GPU__ void merge(const Code *clist, int sz);
     __GPU__ void status();
@@ -174,7 +178,7 @@ public:
     ///
     /// debugging methods (implemented in .cu)
     ///
-    __HOST__ void to_s(std::ostream &fout, IU w);
+    __HOST__ int  to_s(std::ostream &fout, IU w);
     __HOST__ void words(std::ostream &fout);
     __HOST__ void see(std::ostream &fout, U8 *p, int dp=1);     /// cannot pass pfa
     __HOST__ void see(std::ostream &fout, U16 w);
