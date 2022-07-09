@@ -23,11 +23,6 @@
 #define STd(ip,d) (mmu.wd((IU)(ip), (DU)(d)))   /**< write a data unit to pmem               */
 #define LDs(ip)   (mmu.pmem((IU)(ip)))          /**< pointer to IP address fetched from pmem */
 ///@}
-__GPU__
-ForthVM::ForthVM(int khz, Istream *istr, Ostream *ostr, MMU *mmu0)
-    : VM(khz, istr, ostr, mmu0), dict(mmu0->dict()) {
-    INFO("\\  ::ForthVM[%d](dict=%p) sizeof(Code)=%ld\n", blockIdx.x, dict, sizeof(Code));
-}
 ///
 /// Forth inner interpreter (colon word handler)
 ///
@@ -301,6 +296,7 @@ ForthVM::init_f() {
     CODE("ucase", ucase = !ZERO(POPi)),
     CODE("'",     int w = FIND(next_idiom()); PUSH(w)),
     CODE("pfa",   int w = FIND(next_idiom()); PUSH(PFA(w))),
+    CODE("trace", mmu.trace(POPi)),                                               // turn tracing on/off
     CODE(".s",    ss_dump(POPi)),
     CODE("words", fout << opx(OP_WORDS)),
     CODE("see",   int w = FIND(next_idiom()); fout << opx(OP_SEE, w)),

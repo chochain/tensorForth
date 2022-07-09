@@ -10,8 +10,10 @@
 __GPU__
 VM::VM(int khz, Istream *istr, Ostream *ostr, MMU *mmu0)
     : khz(khz), fin(*istr), fout(*ostr), mmu(*mmu0) {
-    INFO("\\  VM[%d](mem=%p, vss=%p)\n",
-         blockIdx.x, mmu.pmem(0), mmu.vss(blockIdx.x));
+    if (mmu0->trace() > 0) {
+        printf("\\  VM[%d](mem=%p, vmss=%p)\n",
+               blockIdx.x, mmu.pmem(0), mmu.vmss(blockIdx.x));
+    }
 }
 ///==============================================================================
 ///
