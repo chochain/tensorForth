@@ -34,6 +34,7 @@ src/%.o: src/%.cu src/%.h
 		-I$(CL_INC) \
 		-I$(CL_TOOL)/library/include \
 		-I$(CL_TOOL)/util/include \
+		-D__CDPRT_SUPPRESS_SYNC_DEPRECATION_WARNING \
 		-t=0 -c -std=c++14 -O3 -D__CUDACC__ -o "$@" "$<" \
 		--device-c --extended-lambda --expt-relaxed-constexpr \
 		--device-debug --debug \
