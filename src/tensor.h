@@ -69,7 +69,7 @@ struct Tensor : public Managed {
     __BOTH__ Tensor &reshape(U32 sz);
     __BOTH__ Tensor &reshape(U16 h, U16 w);
     __BOTH__ Tensor &reshape(U16 n, U16 h, U16 w, U16 c);
-    __BOTH__ Tensor &full(DU v);
+    __BOTH__ Tensor &fill(DU v);
     __BOTH__ Tensor &identity();
     __BOTH__ Tensor &scale(DU v);
     __HOST__ void   copy_to_host(void* dst) { cudaMemcpy(dst, data, size, cudaMemcpyDeviceToHost); }

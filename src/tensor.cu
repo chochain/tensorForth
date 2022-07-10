@@ -52,7 +52,7 @@ __KERN__ void k_copy(DU *dst, DU *src, int sz) {
     int x = threadIdx.x + blockIdx.x * blockDim.x;
     if (x < sz) dst[x] = src[x];
 }
-__KERN__ void k_full(DU *A, DU v, int sz) {
+__KERN__ void k_fill(DU *A, DU v, int sz) {
     int x = threadIdx.x + blockIdx.x * blockDim.x;
     if (x < sz) A[x] = v;
 }
@@ -295,10 +295,10 @@ Tensor::identity() {
 }
 
 __BOTH__ Tensor&
-Tensor::full(DU v) {
-    DEBUG("Tensor#full with %f\n", v);
+Tensor::fill(DU v) {
+    DEBUG("Tensor#fill with %f\n", v);
     dim3 block(256), grid((size + block.x -1)/block.x);
-    k_full<<<grid, block>>>((DU*)data, v, size);
+    k_fill<<<grid, block>>>((DU*)data, v, size);
     cudaDeviceSynchronize();
     return *this;
 }
@@ -314,9 +314,9 @@ Tensor::scale(DU v) {
 
 __BOTH__ DU
 Tensor::sum() {
-    DU v  = DU0;
-    DU *d = (DU*)data;
-    for (int i=0; i<size; i++) v += *d++;  /// * TODO: CDP prefix sum
+    DU v = DU0;
+    for (int i=0; i < size; i++) v += ((DU*)data)[i];   ///> TODO: CDP prefix sum
+    cudaDeviceSynchronize();
     return v;
 }
 
@@ -324,7 +324,7 @@ __BOTH__ DU
 Tensor::dot(Tensor &B) {
     DU  acc = DU0;
     if (rank == 1 && B.rank == 1 && size == B.size) {
-        for (int k=0; k < size; k++) {
+        for (int k=0; k < size; k++) {                   ///> TODO: kernel
             acc += ((DU*)data)[k] * ((DU*)B.data)[k];
         }
     }
