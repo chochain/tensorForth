@@ -17,6 +17,7 @@ public:
     Ostream *_ostr;         ///< managed output stream
     MMU     *_mmu;          ///< memory managing unit
     int     _radix = 10;    ///< output stream radix
+    int     _thres = 100;   ///< print number of element threshold
     int     _edge  = 3;     ///< number of tensor edge items
     int     _prec  = 4;     ///< shown floating point precision
     int     _trace = 0;     ///< debug tracing control

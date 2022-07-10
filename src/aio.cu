@@ -37,24 +37,26 @@ AIO::print_vec(DU *d, int mi, int ri) {
 
 __HOST__ void
 AIO::print_mat(DU *d, int mi, int mj, int ri, int rj) {
-    DU *d0 = d;
+    bool full = (mi * mj) <= _thres;
+    int  xi   = full ? mi : ri;
+    DU   *d0  = d;
     for (int j=0, j1=1; j<rj; j++, j1++, d0+=mi) {
-        print_vec(d0, mi, ri);
+        print_vec(d0, mi, xi);
         std::cout << (j1==mj ? "" : "\n\t");
     }
-    int y = mj - rj;
+    int y = full ? rj : mj - rj;
     if (y > rj) std::cout << "...\n\t";
     else y = rj;
     DU *d1 = d + y * mi;
     for (int j=y, j1=j+1; j<mj; j++, j1++, d1+=mi) {
-        print_vec(d1, mi, ri);
+        print_vec(d1, mi, xi);
         std::cout << (j1==mj ? "" : "\n\t");
     }
 }
 
 __HOST__ void
 AIO::print_tensor(DU v) {
-    auto   range = [this](int n) { return n < _edge ? n : _edge; };
+    auto   range = [this](int n) { return (n < _edge) ? n : _edge; };
     Tensor &t = _mmu->du2ten(v);
     DU     *d = (DU*)t.data;
     WARN("aio#print_tensor::T[%x]=%p data=%p\n", *(U32*)&v, &t, d);
@@ -65,7 +67,7 @@ AIO::print_tensor(DU v) {
     switch (t.rank) {
     case 1: {
         std::cout << "array[" << t.size << "] = ";
-        int ri = range(t.size);
+        int ri = (t.size < _thres) ? t.size : range(t.size);
         print_vec(d, t.size, ri);
     } break;
     case 2: {
