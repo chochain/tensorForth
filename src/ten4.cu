@@ -197,7 +197,7 @@ void sigtrap() {
 }
 
 #include "opt.h"
-int main(int argc, const char**argv) {
+int main(int argc, char**argv) {
     sigtrap();
     
     const string APP = string(T4_APP_NAME) + " " + MAJOR_VERSION + "." + MINOR_VERSION;
@@ -205,6 +205,7 @@ int main(int argc, const char**argv) {
     opt.parse(argc, argv);
     
     if (opt.help) {
+        opt.print_usage(std::cout);
         opt.check_devices(std::cout);
         return 0;
     }
