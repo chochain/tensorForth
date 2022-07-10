@@ -139,13 +139,6 @@ struct Options {
             << "  -h        list all GPUs and this usage statement.\n"
             << "  -d <int>  GPU device id\n"
             << "  -v <int>  Verbosity level, 0: default, 1: mmu debug, 2: more details\n\n"
-            << "  -y <int>  GEMM M dimension\n"
-            << "  -x <int>  GEMM N dimension\n"
-            << "  -k <int>  GEMM K dimension\n"
-            << "  -i <int>  Number of profiling iterations to perform.\n"
-            << "  -n <int>  Number of GEMM operations executed in one batch\n"
-            << "  -a <f32>  Epilogue scalar alpha (real part)\n"
-            << "  -b <f32>  Epilogue scalar alpha (imaginary part)\n\n"
             << "Examples:\n"
             << "$ ./tests/ten4 -h  ;# display help\n"
             << "$ ./tests/ten4 -d 0\n"
@@ -154,3 +147,13 @@ struct Options {
     }
 };
 #endif // TEN4_SRC_OPT_H_
+#if 0
+$ ./tests/ten4 -n 7 -y 1024 -x 512 -k 2048 -a 2.0 -b 0.707
+            << "  -y <int>  GEMM M dimension\n"
+            << "  -x <int>  GEMM N dimension\n"
+            << "  -k <int>  GEMM K dimension\n"
+            << "  -i <int>  Number of profiling iterations to perform.\n"
+            << "  -n <int>  Number of GEMM operations executed in one batch\n"
+            << "  -a <f32>  Epilogue scalar alpha (real part)\n"
+            << "  -b <f32>  Epilogue scalar alpha (imaginary part)\n\n"
+#endif
