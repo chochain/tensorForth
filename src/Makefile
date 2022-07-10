@@ -31,9 +31,6 @@ src/%.o: src/%.cu src/%.h
 	@echo 'Building source file: $<'
 	@echo 'Invoking: NVCC Compiler'
 	${CUDA_HOME}/bin/nvcc -ccbin g++ \
-		-I$(CL_INC) \
-		-I$(CL_TOOL)/library/include \
-		-I$(CL_TOOL)/util/include \
 		-D__CDPRT_SUPPRESS_SYNC_DEPRECATION_WARNING \
 		-t=0 -c -std=c++14 -O3 -D__CUDACC__ -o "$@" "$<" \
 		--device-c --extended-lambda --expt-relaxed-constexpr \
