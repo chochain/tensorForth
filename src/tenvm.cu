@@ -175,9 +175,9 @@ TensorVM::init_t() {
     CODE("={",                          ///< (n -- ) or ( -- )
          ten_off = IS_TENSOR(top) ? 0 : POPi;
          ten_lvl = IS_TENSOR(top) ? 1 : 0),
-    CODE("zeros", if (IS_TENSOR(top)) mmu.du2ten(top).full(0)),
-    CODE("ones",  if (IS_TENSOR(top)) mmu.du2ten(top).full(1)),
-    CODE("full",  if (IS_TENSOR(ss[-1])) { DU d = POP(); mmu.du2ten(top).full(d); }),
+    CODE("zeros", if (IS_TENSOR(top)) mmu.du2ten(top).fill(0)),
+    CODE("ones",  if (IS_TENSOR(top)) mmu.du2ten(top).fill(1)),
+    CODE("full",  if (IS_TENSOR(ss[-1])) { DU d = POP(); mmu.du2ten(top).fill(d); }),
     CODE("eye",   if (IS_TENSOR(top)) mmu.du2ten(top).identity()),
     CODE("rand",  top = mmu.rand(top, UNIFORM)),  ///< uniform randomize a tensor or number
     CODE("randn", top = mmu.rand(top, NORMAL)),   ///< normal dist. randomize a tensor
