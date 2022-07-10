@@ -8,20 +8,18 @@
 ///
 /// random number generator setup
 ///
-/// assume 256 states for fixed block(16,16)
-///
-__KERN__ void k_rand_init(curandState *st) {
-    int tid = threadIdx.x;
-    curand_init(clock64() + tid, tid, 0, &st[tid]);
-}
-__KERN__ void k_rand(DU *mat, int nrow, int ncol, curandState *st, t4_rand_type n) {
-    int i = threadIdx.x + blockIdx.x * blockDim.x;
-    int j = threadIdx.y + blockIdx.y * blockDim.y;
-    curandState *s = &st[threadIdx.x + threadIdx.y * 16];
+#define T4_RAND_SEED_SZ  256
 
-    if (i < ncol && j < nrow) {
-        int off = (i + j * ncol);
-        mat[off] = n ? curand_normal(s) : curand_uniform(s);  // no divergence
+__KERN__ void k_rand_init(curandState *st, U64 seed=0) {
+    int tid = threadIdx.x;
+    curand_init((seed != 0) ? seed : clock64() + tid, tid, 0, &st[tid]);
+}
+__KERN__ void k_rand(DU *mat, int sz, curandState *st, t4_rand_type ntype) {
+    int x = threadIdx.x + blockIdx.x * blockDim.x;
+    curandState *s = &st[threadIdx.x];
+
+    if (x < sz) {
+        mat[x] = ntype ? curand_normal(s) : curand_uniform(s);  // no divergence
     }
 }
 ///
@@ -34,11 +32,11 @@ MMU::MMU(int verbose) : _trace(verbose) {
     cudaMallocManaged(&_ten,  T4_TENSOR_SZ);
     cudaMallocManaged(&_mark, sizeof(DU) * T4_TFREE_SZ);
     cudaMallocManaged(&_vmss, sizeof(DU) * T4_SS_SZ * VM_MIN_COUNT);
-    cudaMallocManaged(&_seed, sizeof(curandState) * 256);
+    cudaMallocManaged(&_seed, sizeof(curandState) * T4_RAND_SEED_SZ);
     GPU_CHK();
 
     _tstore.init(_ten, T4_TENSOR_SZ);
-    k_rand_init<<<1, 256>>>(_seed);
+    k_rand_init<<<1, T4_RAND_SEED_SZ>>>(_seed);
     GPU_CHK();
 
     TRACE1("\\  MMU dict=%p, mem=%p, vmss=%p, ten=%p\n", _dict, _pmem, _vmss, _ten);
@@ -214,20 +212,29 @@ MMU::free(Tensor &t) {
 __GPU__ Tensor&
 MMU::copy(Tensor &t0) {
     Tensor *t  = (Tensor*)_tstore.malloc(sizeof(Tensor));
-    memcpy(t, &t0, sizeof(Tensor));
+    memcpy(t, &t0, sizeof(Tensor));   /// * copy attributes
+    t->set_as_view(false);            /// * physical copy, not a view
     ///
     /// hard copy data block
     ///
-    U64 bsz   = sizeof(DU) * t0.size;
-    U8  *mptr = (U8*)_tstore.malloc(bsz);
-    memcpy(mptr, t0.data, bsz);
-    ///
-    /// reset attributes
-    ///
-    t->set_as_view(false);       // not a view
-    t->data  = mptr;
-
+    U64 bsz = sizeof(DU) * t0.size;
+    t->data = (U8*)_tstore.malloc(bsz);
+    Tensor::copy(*t, t0);
+    
     return *t;
+}
+__GPU__ Tensor&
+MMU::random(Tensor &t, t4_rand_type ntype, int seed) {
+    if (seed != 0) {
+        k_rand_init<<<1, T4_RAND_SEED_SZ>>>(_seed, seed);
+        cudaDeviceSynchronize();
+    }
+    TRACE1("mmu#random(T%d) size=%d\n", t.rank, t.size);
+    dim3 block(T4_RAND_SEED_SZ), grid((t.size + block.x - 1) / block.x);
+    k_rand<<<grid, block>>>((DU*)t.data, t.size, _seed, ntype);
+    cudaDeviceSynchronize();
+    
+    return t;
 }
 ///
 /// tensor slice & dice
@@ -258,15 +265,7 @@ MMU::slice(Tensor &t0, U16 x0, U16 x1, U16 y0, U16 y1) {
 __GPU__ DU
 MMU::rand(DU d, t4_rand_type n) {
     if (!IS_OBJ(d)) return d * curand_uniform(&_seed[0]);
-
-    Tensor &t = du2ten(d);
-    int h = t.rank==1 ? t.size : t.H(), w = t.W();
-    TRACE1("mmu#rand(T%d) size=%d\n", t.rank, t.size);
-    dim3 block(16, 16), grid(
-        (w + block.x - 1) / block.x,     /* row major */
-        (h + block.y - 1) / block.y
-        );
-    k_rand<<<grid, block>>>((DU*)t.data, h, w, _seed, n);
+    random(du2ten(d), n);
     return d;
 }
 ///
