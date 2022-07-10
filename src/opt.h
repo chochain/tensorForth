@@ -4,54 +4,55 @@
 #ifndef TEN4_SRC_OPT_H_
 #define TEN4_SRC_OPT_H_
 
-#include "cutlass/gemm/device/gemm.h"
-#include "cutlass/util/command_line.h"
-/////////////////////////////////////////////////////////////////////////////////////////////////
-/// Result structure
-struct Result {
-    double          runtime_ms;
-    double          gflops;
-    cutlass::Status status;
-    cudaError_t     error;
-    bool            passed;
-    //
-    // Methods
-    //
-    Result(
-        double          runtime_ms = 0,
-        double          gflops     = 0,
-        cutlass::Status status     = cutlass::Status::kSuccess,
-        cudaError_t     error      = cudaSuccess
-        ):
-        runtime_ms(runtime_ms),
-        gflops(gflops),
-        status(status),
-        error(error),
-        passed(true) { }
-};
+#include <getopt.h>            ///< GNU option parser
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // Command line options parsing
 struct Options {
-    bool help;
-    cutlass::gemm::GemmCoord problem_size;
-    cutlass::complex<float>  alpha;
-    cutlass::complex<float>  beta;
-    int  batch_count = 1;
-    int  device_id   = 0;
-    int  verbose     = 0;
-    bool reference_check;
-    int  iterations;
-  
-    Options():
-        help(false),
-        problem_size({1024, 512, 2048}),
-        batch_count(1),
-        reference_check(true),
-        iterations(1),
-        alpha(1),
-        beta(0) { }
-
-    bool valid() { return true; }
+    int   verbose         = 0;
+    int   device_id       = 0;
+    bool  help            = false;
+    float problem_size[3] = {1024, 512, 2048};
+    float alpha           = 1.0;
+    float beta            = 0.0;
+    int   nbatch          = 1;
+    int   iteration       = 1;
+    ///
+    /// command line option parser
+    ///
+    void parse(int argc, char **argv) {
+        /*
+        static struct option olist[] = {
+            {"help",      no_argument,       0,                'h' },
+            {"verbose",   required_argument, &verbose,         'v' },
+            {"device",    required_argument, &device_id,       'd' },
+            {"y",         required_argument, &problem_size[0], 'y' },
+            {"x",         required_argument, &problem_size[1], 'x' },
+            {"k",         required_argument, &problem_size[2], 'k' },
+            {"nbatch",    required_argument, &nbatch,          'n' },
+            {"iteration", required_argument, &iterations,      'i' },
+            {"alpha",     required_argument, &alpha,           'a' },
+            {"beta",      required_argument, &beta,            'b' }
+        };
+        */
+        char opt;
+        while ((opt = getopt(argc, argv, "hv:d:y:x:k:n:i:a:b:")) != -1) {
+            switch (opt) {
+            case 'h': help      = true;         break;
+            case 'v': verbose   = atoi(optarg); break;
+            case 'd': device_id = atoi(optarg); break;
+            case 'y': problem_size[0] = atoi(optarg); break;
+            case 'x': problem_size[1] = atoi(optarg); break;
+            case 'k': problem_size[2] = atoi(optarg); break;
+            case 'n': nbatch    = atoi(optarg); break;
+            case 'i': iteration = atoi(optarg); break;
+            case 'a': alpha     = atof(optarg); break;
+            case 'b': beta      = atof(optarg); break;
+            default:
+                print_usage(std::cerr);
+                exit(EXIT_FAILURE);
+            }
+        }
+    }
     //
     // print device properties
     //
@@ -90,27 +91,6 @@ struct Options {
         }
         return 1;
     }
-    // Parses the command line
-    void parse(int argc, char const **argv) {
-        cutlass::CommandLine cmd(argc, argv);
-
-        if (cmd.check_cmd_line_flag("help")) help = true;
-
-        cmd.get_cmd_line_argument("v",       verbose);
-        cmd.get_cmd_line_argument("d",       device_id);
-        cmd.get_cmd_line_argument("m",       problem_size.m());
-        cmd.get_cmd_line_argument("n",       problem_size.n());
-        cmd.get_cmd_line_argument("k",       problem_size.k());
-        cmd.get_cmd_line_argument("batch",   batch_count);
-
-        cmd.get_cmd_line_argument("alpha",   alpha.real());
-        cmd.get_cmd_line_argument("alpha_i", alpha.imag());
-        cmd.get_cmd_line_argument("beta",    beta.real());
-        cmd.get_cmd_line_argument("beta_i",  beta.imag());
-    
-        cmd.get_cmd_line_argument("iterations", iterations);
-    }
-
     std::ostream &show_device_prop(std::ostream &out, cudaDeviceProp &p) {
         const char *yes_no[] = { "No", "Yes" };
         out << "\tName:                          " << p.name << "\n"
@@ -140,7 +120,7 @@ struct Options {
         int n;
         cudaGetDeviceCount(&n);
         for (int device_id = 0; device_id < n; ++device_id) {
-            printf("CUDA Device #%d\n", device_id);
+            printf("\nCUDA Device #%d\n", device_id);
             cudaDeviceProp props;
             cudaError_t    error = cudaGetDeviceProperties(&props, device_id);
             if (error != cudaSuccess) {
@@ -154,31 +134,23 @@ struct Options {
     }
     /// Prints the usage statement.
     std::ostream &print_usage(std::ostream &out) const {
-        out << "\ntensorForth - "
-            << "uses the CUTLASS Library to execute Planar Complex GEMM computations.\n"
+        out << "\ntensorForth - Forth does tensors, in GPU\n"
             << "Options:\n"
-            << "  --help                      If specified, displays this usage statement.\n"
-            << "  --d=<int>                   GPU device id\n"
-            << "  --m=<int>                   GEMM M dimension\n"
-            << "  --n=<int>                   GEMM N dimension\n"
-            << "  --k=<int>                   GEMM K dimension\n"
-            << "  --batch=<int>               Number of GEMM operations executed in one batch\n"
-            << "  --alpha=<f32>               Epilogue scalar alpha (real part)\n"
-            << "  --alpha_i=<f32>             Epilogue scalar alpha (imaginary part)\n"
-            << "  --beta=<f32>                Epilogue scalar beta (real part)\n"
-            << "  --beta_i=<f32>              Epilogue scalar beta (imaginary part)\n"
-            << "  --iterations=<int>          Number of profiling iterations to perform.\n"
+            << "  -h        list all GPUs and this usage statement.\n"
+            << "  -d <int>  GPU device id\n"
+            << "  -v <int>  Verbosity level, 0: default, 1: mmu debug, 2: more details\n\n"
+            << "  -y <int>  GEMM M dimension\n"
+            << "  -x <int>  GEMM N dimension\n"
+            << "  -k <int>  GEMM K dimension\n"
+            << "  -i <int>  Number of profiling iterations to perform.\n"
+            << "  -n <int>  Number of GEMM operations executed in one batch\n"
+            << "  -a <f32>  Epilogue scalar alpha (real part)\n"
+            << "  -b <f32>  Epilogue scalar alpha (imaginary part)\n\n"
             << "Examples:\n"
-            << "$ ./tests/ten4 --batch=7 --m=1024 --n=512 --k=1024 --alpha=2 --alpha_i=-2 --beta=0.707 --beta_i=-.707\n";
+            << "$ ./tests/ten4 -h  ;# display help\n"
+            << "$ ./tests/ten4 -d 0\n"
+            << "$ ./tests/ten4 -n 7 -y 1024 -x 512 -k 2048 -a 2.0 -b 0.707\n";
         return out;
-    }
-    /// Compute performance in GFLOP/s
-    double gflops(double runtime_s) const {
-        // Number of real-valued multiply-adds 
-        int64_t fmas = problem_size.product() * batch_count * 4;
-    
-        // Two flops per multiply-add
-        return 2.0 * double(fmas) / double(1.0e9) / runtime_s;
     }
 };
 #endif // TEN4_SRC_OPT_H_
