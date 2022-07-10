@@ -89,6 +89,7 @@ AIO::print_tensor(DU v) {
 
 __HOST__ void
 AIO::print_node(obuf_node *node) {
+    cudaDeviceSynchronize();        /// * make sure data is completely written
     char *v = (char*)node->data;
     switch (node->gt) {
     case GT_INT:   std::cout << (*(I32*)v); break;
