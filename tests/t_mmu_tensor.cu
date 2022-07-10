@@ -41,9 +41,9 @@ test_mmu_gemm(
     U16 M, U16 N, U16 K, DU alpha, DU beta) {
     if (threadIdx.x != 0 || blockIdx.x != 0) return;
 
-    Tensor &A = mmu->tensor(M, K); A.fill(0).random(0);
-    Tensor &B = mmu->tensor(K, N); B.fill(0).random(17);
-    Tensor &C = mmu->tensor(M, N); C.fill(0).random(101);
+    Tensor &A = mmu->tensor(M, K); mmu->random(A, NORMAL, 0);
+    Tensor &B = mmu->tensor(K, N); mmu->random(B, NORMAL, 17);
+    Tensor &C = mmu->tensor(M, N); mmu->random(C, NORMAL, 101);
 
     int m = C.H(), n = C.W(), k = A.W();
     printf("\nGEMM M=%d, N=%d, K=%d", m, n, k);
