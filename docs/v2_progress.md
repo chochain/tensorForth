@@ -101,7 +101,7 @@ tensorForth 2.0
 |full|(Ta n -- Ta')|fill tensor with number on TOS|
 ||> `2 2 matrix 3`**`full`**<br/>> `.`|`T2[2,2]`<br/>`matrix[2,2] = { { +3.0000 +3.0000 } { +3.0000 +3.0000 } }`|
 |eye|(Ta -- Ta')|fill diag with 1 and other with 0|
-||> `3 3 matrix`**`eye`**<br/>> `.`|`T2[3,3]`<br/>`matrix[3,3] = { { +1.5000 +0.0000 +0.0000 } { +0.0000 +1.0000 +0.0000 } { +0.0000 +0.0000 +1.0000 }`|
+||> `3 3 matrix`**`eye`**<br/>> `.`|`T2[3,3]`<br/>`matrix[3,3] = {`<br/>`{ +1.0000 +0.0000 +0.0000 }`<br/>`{ +0.0000 +1.0000 +0.0000 }`<br/>`{ +0.0000 +0.0000 +1.0000 } }`|
 |rand|(Ta -- Ta')|fill tensor with uniform [0.00, 1.00) random numbers|
 ||> `2 2 matrix`**`rand`**<br/>> `.`|`T2[2,2]`<br/>`matrix[2,2] = { { +0.5000 +0.1953 } { +0.1094 +0.4141 } }`|
 |randn|(Ta -- Ta')|fill tensor with standard distribution random numbers|
