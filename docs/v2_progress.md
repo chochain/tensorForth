@@ -13,9 +13,19 @@
 * use cuRAND kernel randomizer for uniform and standard normal distribution
 
 ## tensorForth Command line options
-* \--help - list all GPU id and their properties<br/>
-Example:> ./ten4 \--help<br/>
+* \-h - print usage and list all GPU id and their properties<br/>
+* > Example:> ./ten4 \-h<br/>
 <pre>
+tensorForth - Forth does tensors, in GPU
+Options:
+  -h        list all GPUs and this usage statement.
+  -d <int>  GPU device id
+  -v <int>  Verbosity level, 0: default, 1: mmu debug, 2: more details
+
+Examples:
+$ ./tests/ten4 -h
+$ ./tests/ten4 -d 0
+
 CUDA Device #0
 	Name:                          NVIDIA GeForce GTX 1660
 	CUDA version:                  7.5
@@ -34,14 +44,14 @@ CUDA Device #0
 	Concurrent copy and execution: Yes
 	Kernel execution timeout:      Yes
 </pre>
-* \--d=device_id - enter GPU device id
-Example:> ./ten4 \--d=0
+* \-d device_id - enter GPU device id
+* > Example:> ./ten4 \-d 0
 <pre>
 tensorForth 2.0
 \  GPU 0 initialized at 1800MHz, dict[1024], pmem=48K, tensor=1024M
 \  VM[0] dict=0x7fe3d2000a00, mem=0x7fe3d2004a00, vss=0x7fe3d2010a00
 </pre>
-* \--v=verbose_level - set verbosity level 0: off (default), 1: mmu tracing on, 2: detailed trace
+* \-v verbose_level - set verbosity level 0: off (default), 1: mmu tracing on, 2: detailed trace
 
 ## Forth Tensor operations
 ### Tensor creation ops

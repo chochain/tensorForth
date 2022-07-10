@@ -5,7 +5,7 @@
 |version|feature|stage|description|comparable|
 |---|---|---|---|---|
 |[release 1.0](https://github.com/chochain/tensorForth/releases/tag/v1.0.2)|**float**|beta|extended eForth with F32 float|Python|
-|[release 2.0](https://github.com/chochain/tensorForth/releases/tag/v2.0.0)|**matrix**|alpha|added array and matrix objects|NumPy|
+|[release 2.0](https://github.com/chochain/tensorForth/releases/tag/v2.0.2)|**matrix**|alpha|added array and matrix objects|NumPy|
 |next|**CNN**|planning|add tensor NN ops with autograd|PyTorch|
 |-|**RNN**|later|-|-|
 
@@ -18,7 +18,7 @@ Having a 'shell' that can interactively and incrementally run 'compiled programs
 
 ### Small Example
 <pre>
-> ten4 --v=1                         # enter tensorForth, with mmu debug tracing on
+> ten4 -v 1                          # enter tensorForth, with mmu debug tracing on
 tensorForth 2.0
 \  GPU 0 initialized at 1800MHz, dict[1024], pmem=48K, tensor=1024M
 \  VM[0] dict=0x7f56fe000a00, mem=0x7f56fe004a00, vss=0x7f56fe010a00
@@ -113,9 +113,9 @@ Note:
   + Optimization=O3
 
 ## tensorForth command line options
-* \--help          - list all GPU id and their properties<br/>
-* \--d=device_id   - select GPU device id
-* \--v=verbo_level - set verbosity level 0: off (default), 1: mmu tracing on, 2: detailed trace
+* \-h             - list all GPU id and their properties<br/>
+* \-d device_id   - select GPU device id
+* \-v verbo_level - set verbosity level 0: off (default), 1: mmu tracing on, 2: detailed trace
 
 ## Forth Tensor operations (see [doc](./docs/v2_progress.md) for detail and examples)
 ### Tensor creation words
