@@ -51,16 +51,16 @@ struct Tensor : public Managed {
     ///
     /// attributes
     ///
-    __BOTH__ U16 N()        { return shape[3]; }
-    __BOTH__ U16 H()        { return shape[0]; }
-    __BOTH__ U16 W()        { return shape[1]; }
-    __BOTH__ U16 C()        { return shape[2]; }
-    __BOTH__ bool is_view() { return attr & T4_TENSOR_VIEW; }
+    __BOTH__ __INLINE__ U16  N()       { return shape[3]; }
+    __BOTH__ __INLINE__ U16  H()       { return shape[0]; }
+    __BOTH__ __INLINE__ U16  W()       { return shape[1]; }
+    __BOTH__ __INLINE__ U16  C()       { return shape[2]; }
+    __BOTH__ __INLINE__ bool is_view() { return attr & T4_TENSOR_VIEW; }
     ///
     /// tensor arithmetics
     ///
-    __BOTH__ DU  sum();
-    __BOTH__ DU  dot(Tensor &B);
+    __BOTH__ DU     sum();
+    __BOTH__ DU     dot(Tensor &B);
     ///
     /// tensor life-cycle ops
     ///
@@ -69,7 +69,8 @@ struct Tensor : public Managed {
     __BOTH__ Tensor &reshape(U32 sz);
     __BOTH__ Tensor &reshape(U16 h, U16 w);
     __BOTH__ Tensor &reshape(U16 n, U16 h, U16 w, U16 c);
-    __BOTH__ Tensor &fill(DU v);
+    __BOTH__ Tensor &full(DU v);
+    __BOTH__ Tensor &identity();
     __BOTH__ Tensor &scale(DU v);
     __HOST__ void   copy_to_host(void* dst) { cudaMemcpy(dst, data, size, cudaMemcpyDeviceToHost); }
     ///
