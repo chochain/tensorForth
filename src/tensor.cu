@@ -6,72 +6,101 @@
  */
 #include "tensor.h"
 ///
-/// kernel methods (static) CDP-ready
-///
-#define CDP(g) \
-    int i = threadIdx.x + blockIdx.x * blockDim.x;  \
-    int j = threadIdx.y + blockIdx.y * blockDim.y;  \
-    if (i < N && j < M) { g; }
-///
 /// GEMM kernel (used CUDA dynamic parallelism)
 ///     C = alpha * A x B + beta * C
 ///     where A = MxK, B = KxN, C = MxN
 ///
-__KERN__ void k_gemm(
-    int M, int N, int K,
-    DU *A, DU *B, DU *C,   /* MxK, KxN, MxN */
+__KERN__ void k_gemm(                                        ///< 2D only
+    DU *A, DU *B, DU *C,   /* HxK, KxW, HxW */
+    int H, int W, int K,
     DU alpha, DU beta)
 {
-    int i = threadIdx.x + blockIdx.x * blockDim.x;
-    int j = threadIdx.y + blockIdx.y * blockDim.y;
+    int x = threadIdx.x + blockIdx.x * blockDim.x;
+    int y = threadIdx.y + blockIdx.y * blockDim.y;
 
-    if (i < N && j < M) {
+    if (x < W && y < H) {
         DU acc = 0;
         for (int k = 0; k < K; ++k) {
-            acc += A[k + j * K] * B[i + k * N];      /* row major */
+            acc += A[k + y * K] * B[x + k * W];
         }
-        C[i + j * N] = alpha * acc + beta * C[i + j * N];
+        C[x + y * W] = alpha * acc + beta * C[x + y * W];
     }
 }
-__KERN__ void k_matadd(
-    int M, int N,
+__KERN__ void k_matadd(                                     ///< TODO: C
     DU *A, DU *B, DU *C,
+    int H, int W,
     bool sub)
 {
-    int i = threadIdx.x + blockIdx.x * blockDim.x;
-    int j = threadIdx.y + blockIdx.y * blockDim.y;
+    int x = threadIdx.x + blockIdx.x * blockDim.x;
+    int y = threadIdx.y + blockIdx.y * blockDim.y;
 
-    if (i < N && j < M) {
-        int off = i + j * N;
-        if (sub) C[off] = A[off] - B[off];
-        else     C[off] = A[off] + B[off];
+    if (x < W && y < H) {
+        int i = x + y * W;
+        if (sub) C[i] = A[i] - B[i];
+        else     C[i] = A[i] + B[i];
     }
 }
+__KERN__ void k_transpose(DU *dst, DU *src, int H, int W) { ///< TODO: C
+    int x = threadIdx.x + blockIdx.x * blockDim.x;
+    int y = threadIdx.y + blockIdx.y * blockDim.y;
 
-__KERN__ void k_copy(DU *dst, DU *src, int nrow, int ncol) {
-    int i = threadIdx.x + blockIdx.x * blockDim.x;
-    int j = threadIdx.y + blockIdx.y * blockDim.y;
-
-    if (i < ncol && j < nrow) {
-        int off = i + j * ncol;
-        dst[off] = src[off];
+    if (x < W && y < H) {
+        dst[y + x * H] = src[x + y * W];
     }
 }
-__KERN__ void k_transpose(DU *dst, DU *src, int nrow, int ncol) {
-    int i = threadIdx.x + blockIdx.x * blockDim.x;
-    int j = threadIdx.y + blockIdx.y * blockDim.y;
-
-    if (i < ncol && j < nrow) {
-        dst[j + i * nrow] = src[i + j * ncol];
+__KERN__ void k_copy(DU *dst, DU *src, int sz) {
+    int x = threadIdx.x + blockIdx.x * blockDim.x;
+    if (x < sz) dst[x] = src[x];
+}
+__KERN__ void k_full(DU *A, DU v, int sz) {
+    int x = threadIdx.x + blockIdx.x * blockDim.x;
+    if (x < sz) A[x] = v;
+}
+__KERN__ void k_scale(DU *A, DU v, int sz) {
+    int x = threadIdx.x + blockIdx.x * blockDim.x;
+    if (x < sz) A[x] *= v;
+}
+__KERN__ void k_identity(DU *A, int W, int H, int C) {
+    int x = threadIdx.x + blockIdx.x * blockDim.x;
+    int y = threadIdx.y + blockIdx.y * blockDim.y;
+    if (x < W && y < H) {
+        for (int c=0; c < C; c++) A[x + y*W + c] = (x==y) ? 1.0 : DU0;
     }
 }
-__KERN__ void k_scale(DU *A, DU v, int nrow, int ncol) {
-    int i = threadIdx.x + blockIdx.x * blockDim.x;
-    int j = threadIdx.y + blockIdx.y * blockDim.y;
+__KERN__ void k_norm_nodiag(double *A, double *I, int D, int n){   ///< TODO: C
+	int x = blockIdx.x * blockDim.x + threadIdx.x;
+	int y = blockIdx.y * blockDim.y + threadIdx.y;
 
-    if (i < ncol && j < nrow) {
-        A[i + j * ncol] *= v;
+	if (x < D && y < D && x==n && x!=y) {
+        I[x*D + y] /= A[x*D + n];
+        A[y*D + y] /= A[x*D + n];
     }
+}
+__KERN__ void k_norm_diag(double *A, double *I, int D, int n) {    ///< TODO: C
+	int x = blockIdx.x * blockDim.x + threadIdx.x;
+	int y = blockIdx.y * blockDim.y + threadIdx.y;
+
+	if (x < D && y < D & x==n && x==y) {
+        I[x*D + y] /= A[x*D + n];
+        A[x*D + y] /= A[x*D + n];
+    }
+}
+__KERN__ void k_gaussjordan(double *A, double *I, int D, int n) {  ///< TODO: C
+	int x = blockIdx.x * blockDim.x + threadIdx.x;
+	int y = blockIdx.y * blockDim.y + threadIdx.y;
+
+	if (x < D && y < D && x!=n) {
+        I[x*D + y] -= I[n*D + y] * A[x*D + n];
+        if (y != n){
+            A[x*D + y] -= A[n*D + y] * A[x*D + n];
+		}
+	}
+}
+__KERN__ void k_inv_zero(double *A, int D, int n) {               ///< TODO: C
+	int x = blockIdx.x * blockDim.x + threadIdx.x;
+	int y = blockIdx.y * blockDim.y + threadIdx.y;
+
+	if (x < D && y < D && x!=n && y==n) A[x*D + y] = DU0;
 }
 ///=======================================================================
 /// static methods
@@ -87,8 +116,8 @@ Tensor::gemm(Tensor &A, Tensor &B, Tensor &C, DU alpha, DU beta) {
         (m + block.y - 1) / block.y
     );
     k_gemm<<<grid, block>>>(
-        m, n, k,
         (DU*)A.data, (DU*)B.data, (DU*)C.data,
+        m, n, k,
         alpha, beta);
     cudaDeviceSynchronize();     // TODO: deprecated 11.6, use cooperative_groups.sync()
     return C;
@@ -98,39 +127,35 @@ Tensor::gemm(Tensor &A, Tensor &B, Tensor &C, DU alpha, DU beta) {
 ///
 __BOTH__ Tensor&
 Tensor::add(Tensor &A, Tensor &B, Tensor &C, bool sub) {
-    U16 m = A.H(), n = A.W();
-    DEBUG("Tensor::%s M=%d, N=%d\n", sub ? "sub" : "add", m, n);
+    U16 h = A.H(), w = A.W();
+    DEBUG("Tensor::%s M=%d, N=%d\n", sub ? "sub" : "add", h, w);
     dim3 block(16, 16), grid(
-        (n + block.x - 1) / block.x,
-        (m + block.y - 1) / block.y
+        (h + block.x - 1) / block.x,
+        (w + block.y - 1) / block.y
     );
-    k_matadd<<<grid, block>>>(m, n, (DU*)A.data, (DU*)B.data, (DU*)C.data, sub);
+    k_matadd<<<grid, block>>>((DU*)A.data, (DU*)B.data, (DU*)C.data, h, w, sub);
     cudaDeviceSynchronize();     // TODO: deprecated 11.6, use cooperative_groups.sync()
     return C;
 }
     
 __BOTH__ Tensor&
 Tensor::copy(Tensor &D, Tensor &S) {
-    U16 m = S.H(), n = S.W();
-    DEBUG("Tensor::copy M=%d, N=%d\n", m, n);
-    dim3 block(16, 16), grid(
-        (n + block.x - 1) / block.x,
-        (m + block.y - 1) / block.y
-    );
-    k_copy<<<grid, block>>>((DU*)D.data, (DU*)S.data, m, n);
+    DEBUG("Tensor::copy size=%d\n", size);
+    dim3 block(256), grid((S.size + block.x -1) / block.x);
+    k_copy<<<grid, block>>>((DU*)D.data, (DU*)S.data, S.size);
     cudaDeviceSynchronize();
     return D;
 }
 
 __BOTH__ Tensor&
 Tensor::transpose(Tensor &D, Tensor &S) {
-    U16 m = S.H(), n = S.W();
-    DEBUG("Tensor::transpose M=%d, N=%d\n", m, n);
+    U16 h = S.H(), w = S.W();
+    DEBUG("Tensor::transpose M=%d, N=%d\n", h, w);
     dim3 block(16, 16), grid(
-        (n + block.x - 1) / block.x,
-        (m + block.y - 1) / block.y
+        (w + block.x - 1) / block.x,
+        (h + block.y - 1) / block.y
     );
-    k_transpose<<<grid, block>>>((DU*)D.data, (DU*)S.data, m, n);
+    k_transpose<<<grid, block>>>((DU*)D.data, (DU*)S.data, h, w);
     cudaDeviceSynchronize();
     return D;
 }
@@ -258,21 +283,32 @@ Tensor::reshape(U16 n, U16 h, U16 w, U16 c) {
 }
 
 __BOTH__ Tensor&
-Tensor::fill(DU v) {
-    DU  *d = (DU*)data;
-    for (int i=0; i<size; i++) *d++ = v;
+Tensor::identity() {
+    if (rank < 2) return *this;
+    DU *d = (DU*)data;
+    for (int j=0; j < H(); j++) {
+        for (int i=0; i < W(); i++) {
+            for (int c=0; c < C(); c++) *d++ = (i==j) ? 1.0 : DU0;
+        }
+    }
+    return *this;
+}
+
+__BOTH__ Tensor&
+Tensor::full(DU v) {
+    DEBUG("Tensor#full with %f\n", v);
+    dim3 block(256), grid((size + block.x -1)/block.x);
+    k_full<<<grid, block>>>((DU*)data, v, size);
+    cudaDeviceSynchronize();
     return *this;
 }
 
 __BOTH__ Tensor&
 Tensor::scale(DU v) {
-    int h = H(), w = W();
     DEBUG("Tensor#scale by %f\n", v);
-    dim3 block(16, 16), grid(
-        (w + block.x - 1) / block.x,     /* row major */
-        (h + block.y - 1) / block.y
-        );
-    k_scale<<<grid, block>>>((DU*)data, v, h, w);
+    dim3 block(256), grid((size + block.x -1)/block.x);
+    k_scale<<<grid, block>>>((DU*)data, v, size);
+    cudaDeviceSynchronize();
     return *this;
 }
 
