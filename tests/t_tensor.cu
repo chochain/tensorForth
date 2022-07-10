@@ -12,12 +12,19 @@
 // CUTLASS includes needed for single-precision GEMM kernel
 //
 // Defines cutlass::gemm::device::Gemm, the generic Gemm computation template class.
+#include "cutlass/gemm/device/gemm.h"
 #include "../src/ten4_types.h"
 #include "../src/tensor.h"
 #include "../src/opt.h"
+#include <vector>
 
 typedef DU FP;
 typedef cudaError_t (*gemm_op)(Tensor &A, Tensor &B, Tensor &C, FP alpha, FP beta);
+
+void random(Tensor &A, U64 seed=0) {
+    if (seed != 0) srand(seed);
+    for (int i=0; i < A.size; i++) ((DU*)A.data)[i] = rand() % 10;
+}
 
 void benchmark(gemm_op op, Tensor &A, Tensor &B, Tensor &C, FP alpha, FP beta) {
     cudaEvent_t events[2];
@@ -47,7 +54,7 @@ void benchmark(gemm_op op, Tensor &A, Tensor &B, Tensor &C, FP alpha, FP beta) {
 /// Define a CUTLASS GEMM template and launch a GEMM kernel.
 cudaError_t CutlassSgemmNN(Tensor &A, Tensor &B, Tensor &C, FP alpha, FP beta) {
     int M = C.H(), N = C.W(), K = A.W();
-    printf("Cutlass.GEMM M=%d, N=%d, K=%d ", M, N, K);
+    printf("  Cutlass.GEMM M=%d, N=%d, K=%d", M, N, K);
     using LO   = cutlass::layout::ColumnMajor;
     using Gemm = cutlass::gemm::device::Gemm<FP, LO, FP, LO, FP, LO>;
     Gemm::Arguments args(
@@ -79,27 +86,29 @@ __KERN__ void ReferenceGemm_kernel(
     FP *A, FP *B, FP *C,   /* MxK, KxN, MxN */
     FP  alpha, FP beta)
 {
-    int i = threadIdx.x + blockIdx.x * blockDim.x;
-    int j = threadIdx.y + blockIdx.y * blockDim.y;
+    int x = threadIdx.x + blockIdx.x * blockDim.x;
+    int y = threadIdx.y + blockIdx.y * blockDim.y;
 
-    if (i < N && j < M) {
-        FP acc = 0;
-        for (int k = 0; k < K; ++k) {
-            acc += A[k + j * K] * B[i + k * N];      /* row major */
+    if (x < N && y < M) {
+        FP  acc = 0.0;
+        //int i  = x + y * N;                        // row major
+        int i  = y + x * M;                          // column major
+        for (int k = 0; k < K; k++) {
+           //acc += A[k + y * K] * B[x + k * N];     // row major
+            acc += A[y + k * M] * B[k + x * K];      // column major
         }
-        C[i + j * N] = alpha * acc + beta * C[i + j * N];
+        C[i] = alpha * acc + beta * C[i];
     }
 }
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 /// Reference GEMM computation.
 cudaError_t ReferenceGemm(Tensor &A, Tensor &B, Tensor &C, FP alpha, FP beta) {
     int M = A.H(), N = B.W(), K = A.W();
-    printf("Ref.GEMM M=%d, N=%d, K=%d", M, N, K);
+    printf("Reference.GEMM M=%d, N=%d, K=%d", M, N, K);
     dim3 block(16, 16);   /* 256 threads */
     dim3 grid((N + block.x - 1) / block.x, (M + block.y - 1) / block.y);
 
     ReferenceGemm_kernel<<<grid, block>>>(M, N, K, (FP*)A.data, (FP*)B.data, (FP*)C.data, alpha, beta);
-
     return cudaGetLastError();
 }
 
@@ -111,44 +120,45 @@ cudaError_t TestCutlassGemm(int M, int N, int K, FP alpha, FP beta) {
     //
     // matrix allocation, fill, random
     //
-    Tensor tensor_A(M, K); tensor_A.fill(0.0).random(0);
-    Tensor tensor_B(K, N); tensor_B.fill(0.0).random(17);
+    Tensor A(M, K); random(A.fill(0.0), 0);
+    Tensor B(K, N); random(B.fill(0.0), 17);
     //
     // reshape test
     //
     U32 sz = M * N;
-    Tensor tensor_C(sz); tensor_C.reshape(M, N).fill(0.0).random(101);
+    Tensor C(sz); random(C.reshape(M, N).fill(0.0), 101);
     //
     // reset test
     //
     U8  *ref;
     cudaMallocManaged((void**)&ref, (size_t)sz * sizeof(DU));
     GPU_CHK();
-    Tensor tensor_R; tensor_R.reset(ref, sz).reshape(M, N).fill(0).random(101);
+    Tensor R; random(R.reset(ref, sz).reshape(M, N).fill(0), 101);
+    
     //=============================================================================
     // Launch CUTLASS GEMM.
     //
-    benchmark(CutlassSgemmNN, tensor_A, tensor_B, tensor_C, alpha, beta);
+    benchmark(CutlassSgemmNN, A, B, C, alpha, beta);
     //
     // Lanch reference GEMM
     //
-    benchmark(ReferenceGemm, tensor_A, tensor_B, tensor_R, alpha, beta);
+    benchmark(ReferenceGemm, A, B, R, alpha, beta);
     //
     // Verify: copy to host and verify equivalence.
     //
-    std::vector<FP> host_c(tensor_C.size, 0);
-    std::vector<FP> host_r(tensor_R.size, 0);
-
-    tensor_C.copy_to_host(host_c.data());
-    tensor_R.copy_to_host(host_r.data());
+    std::vector<FP> h_c(C.size, 0);
+    std::vector<FP> h_r(R.size, 0);
+    
+    C.copy_to_host(h_c.data());
+    R.copy_to_host(h_r.data());
     //
     // Test for bit equivalence of results.
     //
-    if (host_c != host_r) {
+    if (h_c != h_r) {
         std::cerr << "results different." << std::endl;
         return cudaErrorUnknown;
     }
-    cudaFree(ref);
+    //cudaFree(ref);
     return cudaSuccess;
 }
 
@@ -158,7 +168,7 @@ cudaError_t TestCutlassGemm(int M, int N, int K, FP alpha, FP beta) {
 //
 #define CUTLASS_OPTS 1
 
-int main(int argc, const char **argv) {
+int main(int argc, char **argv) {
     //
     // Parse the command line to obtain GEMM dimensions and scalar values.
     //
@@ -172,11 +182,11 @@ int main(int argc, const char **argv) {
         return 0;
     }
     cudaError_t result = TestCutlassGemm(
-        opt.problem_size.m(),     // GEMM M dimension
-        opt.problem_size.n(),     // GEMM N dimension
-        opt.problem_size.k(),     // GEMM K dimension
-        opt.alpha.real(),         // alpha
-        opt.beta.real()           // beta
+        opt.problem_size[0],     // GEMM M dimension
+        opt.problem_size[1],     // GEMM N dimension
+        opt.problem_size[2],     // GEMM K dimension
+        opt.alpha,               // alpha
+        opt.beta                 // beta
         );
 #else // CUTLASS_OPTS
     // GEMM problem dimensions.
