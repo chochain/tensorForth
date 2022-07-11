@@ -92,8 +92,13 @@ typedef F64         DU2;                    ///< double preciesion data unit
 /// macros for Tensor definitions
 ///
 #define T4_OBJ       1                      /**< tensor attibute flag    */
+#if T4_ENABLE_OBJ
 #define IS_OBJ(d)    ((*(U32*)&d) & T4_OBJ) /**< check if DU is a tensor */
-#define IS_TENSOR(d) IS_OBJ(d)              /**< TODO: more object types */
+#else  // T4_ENABLE_OBJ
+#define IS_OBJ(d)    (false)                /**< check if DU is a tensor */
+#endif // T4_ENABLE_OBJ
+#define IS_TEN(d) IS_OBJ(d)                 /**< TODO: more object types */
+
 ///@}
 ///
 /// colon word compiler

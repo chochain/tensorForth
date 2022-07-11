@@ -17,12 +17,13 @@
 ///@{
 #define T4_APP_NAME        "tensorForth"
 #define T4_VERBOSE          1        /**< system verbose print */
-#define T4_DEBUG            0        /**< for debug trace      */
+#define T4_DEBUG            1        /**< for debug trace      */
 #define MMU_DEBUG           0        /**< for mmu debug trace  */
 #define CC_DEBUG            1        /**< for my local testing */
 ///@}
 ///@name CUDA cooperative dynamic parallelism support
 ///@{
+#define T4_ENABLE_OBJ       0
 #define T4_ENABLE_CDP       0
 #define T4_USE_STRBUF       0
 ///@}
@@ -30,7 +31,7 @@
 ///@{
 #define VM_MIN_COUNT        1
 #define VM_MAX_COUNT        16
-#define VM_RESTEN4_STACK    8        /**< exception stack depth */
+#define VM_EXP_STACK        8        /**< exception stack depth */
 #define VM_REGFILE_SZ       128      /**< register file size    */
 ///@}
 /*
