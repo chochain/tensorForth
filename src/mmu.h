@@ -85,7 +85,7 @@ typedef enum {
 ///
 /// tracing level control
 ///
-#define TRACE1(...)   { if (_trace > 0) INFO(__VA_ARGS__);  else DEBUG(__VA_ARGS__); }
+#define TRACE1(...)   { if (_trace > 0) DEBUG(__VA_ARGS__); }
 #define TRACE2(...)   { if (_trace > 1) DEBUG(__VA_ARGS__); else WARN(__VA_ARGS__);  }
 ///
 /// Forth memory manager
@@ -155,6 +155,12 @@ public:
     ///
     /// tensor life-cycle methods
     ///
+#if   !T4_ENABLE_OBJ
+    __GPU__  __INLINE__ void mark_free(DU v) {}             ///< holder for no object
+    __GPU__  __INLINE__ void sweep()         {}             ///< holder for no object
+    __GPU__  __INLINE__ void drop(DU d)      {}             ///< place holder
+    __GPU__  __INLINE__ DU   dup(DU d)       { return d; }  ///< place holder
+#else // T4_ENABLE_OBJ
     __GPU__  void   mark_free(DU v);                        ///< mark a tensor free
     __GPU__  void   sweep();                                ///< free marked tensor
     __GPU__  Tensor &tensor(U32 sz);                        ///< create an array
@@ -179,10 +185,11 @@ public:
         U32 o = ((U32)((U8*)&t - _ten)) | T4_OBJ;
         return *(DU*)&o;
     }
+    __GPU__             DU   rand(DU d, t4_rand_type n);    ///< randomize a tensor
     __GPU__  __INLINE__ void drop(DU d) { if (IS_OBJ(d)) free(du2ten(d)); }
     __GPU__  __INLINE__ DU   dup(DU d)  { return IS_OBJ(d) ? ten2du(view(du2ten(d))) : d; }
     __GPU__  __INLINE__ DU   copy(DU d) { return IS_OBJ(d) ? ten2du(copy(du2ten(d))) : d; }
-    __GPU__             DU   rand(DU d, t4_rand_type n);        ///< randomize a tensor
+#endif // T4_ENABLE_OBJ
     ///
     /// debugging methods (implemented in .cu)
     ///

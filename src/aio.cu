@@ -54,6 +54,9 @@ AIO::print_mat(DU *d, int mi, int mj, int ri, int rj) {
     }
 }
 
+#if   !T4_ENABLE_OBJ
+__HOST__ void AIO::print_obj(DU v) {}
+#else // T4_ENABLE_OBJ
 __HOST__ void
 AIO::print_obj(DU v) {
     auto   range = [this](int n) { return (n < _edge) ? n : _edge; };
@@ -87,6 +90,7 @@ AIO::print_obj(DU v) {
     std::cout << "\n";
     std::cout.flags(fmt0);
 }
+#endif // T4_ENABLE_OBJ
 
 __HOST__ void
 AIO::print_node(obuf_node *node) {

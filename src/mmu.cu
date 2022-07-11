@@ -136,6 +136,7 @@ MMU::to_s(std::ostream &fout, IU w) {
     
     return (int)i;
 }
+#if T4_ENABLE_OBJ
 ///====================================================================
 /// tensor life-cycle methods
 ///
@@ -268,6 +269,7 @@ MMU::rand(DU d, t4_rand_type n) {
     random(du2ten(d), n);
     return d;
 }
+#endif // T4_ENABLE_OBJ
 ///
 /// display dictionary word list
 ///
@@ -322,6 +324,7 @@ MMU::ss_dump(std::ostream &fout, U16 vid, U16 n, int radix) {
     bool x = radix != 10;
     auto show = [this, &fout, x](DU s) {
         if (IS_OBJ(s)) {
+#if T4_ENABLE_OBJ
             Tensor &t = this->du2ten(s);
             fout << (char)(t.is_view() ? 'V' : 'T');
             switch(t.rank) {
@@ -329,6 +332,7 @@ MMU::ss_dump(std::ostream &fout, U16 vid, U16 n, int radix) {
             case 2: fout << "2[" << t.H() << "," << t.W() << "]"; break;
             case 4: fout << "4[" << t.N() << "," << t.H() << "," << t.W() << "," << t.C() << "]"; break;
             }
+#endif // T4_ENABLE_OBJ
         }
         else if (x) fout << static_cast<int>(s);
         else fout << s;
