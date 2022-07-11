@@ -36,7 +36,7 @@ ten4_init(int khz, Istream *istr, Ostream *ostr, MMU *mmu) {
     }
     __syncthreads();
 
-    if (i==0) vm->init();               /// * initialize common dictionary (once only)
+    if (i==0) vm->init_t();             /// * initialize common dictionary (once only)
 }
 ///
 /// check VM status (using parallel reduction - overkill?)

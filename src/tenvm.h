@@ -13,13 +13,19 @@
 
 class TensorVM : public ForthVM {
 public:
+#if   !T4_ENABLE_OBJ
+    __GPU__ TensorVM(int khz, Istream *istr, Ostream *ostr, MMU *mmu0) :
+        ForthVM(khz, istr, ostr, mmu0) {}
+    __GPU__ void init_t() { ForthVM::init_f(); }
+    
+#else // T4_ENABLE_OBJ
     __GPU__ TensorVM(int khz, Istream *istr, Ostream *ostr, MMU *mmu0) :
         ForthVM(khz, istr, ostr, mmu0) {
         VLOG1("\\  ::TensorVM(...) sizeof(Tensor)=%ld\n", sizeof(Tensor));
     }
     __GPU__ void init() final { init_t(); } ///< TODO: CC - polymorphism does not work here?
     __GPU__ void init_t();                  ///< so fake it
-
+    
 protected:
     int   ten_lvl = 0;                      ///< tensor input level
     int   ten_off = 0;                      ///< tensor offset (array index)
@@ -35,12 +41,13 @@ protected:
     ///
     /// tensor ops
     ///
-    __GPU__ DU   texp();                    ///< element-wise all tensor elements
-    __GPU__ DU   tadd(bool sub=false);      ///< matrix-matrix addition (or subtraction)
-    __GPU__ DU   tmul();                    ///< matrix multiplication (no broadcast)
-    __GPU__ DU   tdiv();                    ///< matrix division (no broadcast)
-    __GPU__ DU   tinv();                    ///< TODO: matrix inverse (Gaussian Elim.?)
-    __GPU__ DU   ttrans();                  ///< matrix transpose
-    __GPU__ DU   gemm();                    ///< GEMM C' = alpha * A x B + beta * C
+    __GPU__ void texp();                    ///< element-wise all tensor elements
+    __GPU__ void tadd(bool sub=false);      ///< matrix-matrix addition (or subtraction)
+    __GPU__ void tmul();                    ///< matrix multiplication (no broadcast)
+    __GPU__ void tdiv();                    ///< matrix division (no broadcast)
+    __GPU__ void tinv();                    ///< TODO: matrix inverse (Gaussian Elim.?)
+    __GPU__ void ttrans();                  ///< matrix transpose
+    __GPU__ void gemm();                    ///< GEMM C' = alpha * A x B + beta * C
+#endif // T4_ENABLE_OBJ
 };
 #endif // TEN4_SRC_TENVM_H
