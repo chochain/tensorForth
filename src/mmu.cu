@@ -321,7 +321,7 @@ __HOST__ void
 MMU::ss_dump(std::ostream &fout, U16 vid, U16 n, int radix) {
     bool x = radix != 10;
     auto show = [this, &fout, x](DU s) {
-        if (IS_TENSOR(s)) {
+        if (IS_OBJ(s)) {
             Tensor &t = this->du2ten(s);
             fout << (char)(t.is_view() ? 'V' : 'T');
             switch(t.rank) {

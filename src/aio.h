@@ -31,7 +31,7 @@ public:
     __HOST__ int  readline();
     __HOST__ void print_vec(DU *d, int mi, int ri);
     __HOST__ void print_mat(DU *d, int mi, int mj, int ri, int rj);
-    __HOST__ void print_tensor(DU v);
+    __HOST__ void print_obj(DU v);
     __HOST__ void print_node(obuf_node *node);
     __HOST__ void flush();
 };

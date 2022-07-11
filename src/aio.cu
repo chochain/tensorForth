@@ -55,9 +55,10 @@ AIO::print_mat(DU *d, int mi, int mj, int ri, int rj) {
 }
 
 __HOST__ void
-AIO::print_tensor(DU v) {
+AIO::print_obj(DU v) {
     auto   range = [this](int n) { return (n < _edge) ? n : _edge; };
-    Tensor &t = _mmu->du2ten(v);
+    
+    Tensor &t = _mmu->du2ten(v);            ///< TODO: other object types
     DU     *d = (DU*)t.data;
     WARN("aio#print_tensor::T[%x]=%p data=%p\n", *(U32*)&v, &t, d);
 
@@ -103,7 +104,7 @@ AIO::print_node(obuf_node *node) {
                   << std::setprecision(f->prec ? f->prec : -1)
                   << std::setfill((char)f->fill);
     } break;
-    case GT_TENSOR: print_tensor(*(DU*)v); break;
+    case GT_OBJ: print_obj(*(DU*)v); break;
     case GT_OPX: {
         OP  op = (OP)*v;
         U16 a  = *(U16*)(v+2);
