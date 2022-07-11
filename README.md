@@ -16,6 +16,13 @@ For AI development today, we use Python mostly. To enable processing on CUDA dev
 
 Having a 'shell' that can interactively and incrementally run 'compiled programs' from within GPU directly without dropping back to host system might be useful. Even though some might argue that the branch divergence in kernel could kill the GPU, but performance of the script itself is not the point. So, here we are!
 
+### How?
+GPU, behaves like a co-processor. It has no OS, no string support, and runs its own memory. Most of the available libraries are built to call from CPU instead of from within GPU. So, to be interactive, a memory manager, IO, and syncing with CPU are things to be added pretty much like creating a Forth from scratch in the old days.
+
+Since GPUs have good compiler support nowaday and I've changed the latest [eForth](https://github.com/chochain/eforth) to lambda-based in C++, pretty much all words can be straight copy except some attention to those are affected by CELL being float32 such as addressing, logic ops. i.e. BRANCH, 0=, MOD, XOR would not work as expected.
+
+Having an interactive Forth in GPU does not mean a lot by itself. However, by adding matrix ops and tensor with backprop, sort of taking the path of Numpy to PyTorch, combining the cleanness of Forth with the massively parallel nature of GPUs can be useful one day, hopefully!
+
 ### Small Example
 <pre>
 > ten4 -v 1                          # enter tensorForth, with mmu debug tracing on
@@ -162,7 +169,7 @@ Note:
 
 ### Tensor slice and dice
 <pre>
-   slice     (Ta x0 x1 y0 y1 -- Ta Ta') - TODO: numpy.slice[x0:x1,y0:y1,]
+   slice     (Ta x0 x1 y0 y1 -- Ta Ta') - numpy.slice[x0:x1,y0:y1,]
 </pre>
 
 ### Tensor arithmetic words (by default non-destructive)
