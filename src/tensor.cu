@@ -110,7 +110,7 @@ __KERN__ void k_inv_zero(double *A, int D, int n) {               ///< TODO: C
 __BOTH__ Tensor&
 Tensor::gemm(Tensor &A, Tensor &B, Tensor &C, DU alpha, DU beta) {
     U16 m = A.H(), n = B.W(), k = A.W();
-    DEBUG("GEMM M=%d, N=%d, K=%d a=%f, b=%f\n", m, n, k, alpha, beta);
+    WARN("GEMM M=%d, N=%d, K=%d a=%f, b=%f\n", m, n, k, alpha, beta);
     dim3 block(16, 16), grid(
         (n + block.x - 1) / block.x,
         (m + block.y - 1) / block.y
@@ -128,7 +128,7 @@ Tensor::gemm(Tensor &A, Tensor &B, Tensor &C, DU alpha, DU beta) {
 __BOTH__ Tensor&
 Tensor::add(Tensor &A, Tensor &B, Tensor &C, bool sub) {
     U16 h = A.H(), w = A.W();
-    DEBUG("Tensor::%s M=%d, N=%d\n", sub ? "sub" : "add", h, w);
+    WARN("Tensor::%s M=%d, N=%d\n", sub ? "sub" : "add", h, w);
     dim3 block(16, 16), grid(
         (h + block.x - 1) / block.x,
         (w + block.y - 1) / block.y
@@ -140,7 +140,7 @@ Tensor::add(Tensor &A, Tensor &B, Tensor &C, bool sub) {
     
 __BOTH__ Tensor&
 Tensor::copy(Tensor &D, Tensor &S) {
-    DEBUG("Tensor::copy size=%d\n", size);
+    WARN("Tensor::copy size=%d\n", size);
     dim3 block(256), grid((S.size + block.x -1) / block.x);
     k_copy<<<grid, block>>>((DU*)D.data, (DU*)S.data, S.size);
     cudaDeviceSynchronize();
@@ -150,7 +150,7 @@ Tensor::copy(Tensor &D, Tensor &S) {
 __BOTH__ Tensor&
 Tensor::transpose(Tensor &D, Tensor &S) {
     U16 h = S.H(), w = S.W();
-    DEBUG("Tensor::transpose M=%d, N=%d\n", h, w);
+    WARN("Tensor::transpose M=%d, N=%d\n", h, w);
     dim3 block(16, 16), grid(
         (w + block.x - 1) / block.x,
         (h + block.y - 1) / block.y
@@ -179,7 +179,7 @@ Tensor::Tensor(U32 sz) :
     shape{(U16)sz, 1, 1, 1} {
     cudaMallocManaged((void**)&data, (size_t)size * dsize);
     GPU_CHK();
-    DEBUG("tensor[%d] allocated\n", size);
+    WARN("tensor[%d] allocated\n", size);
 }
 
 __HOST__
@@ -191,7 +191,7 @@ Tensor::Tensor(U16 h, U16 w) :
     shape{h, w, 1, 1} {
     cudaMallocManaged((void**)&data, (size_t)size * dsize);
     GPU_CHK();
-    DEBUG("matrix(%d,%d) allocated\n", shape[0], shape[1]);
+    WARN("matrix(%d,%d) allocated\n", shape[0], shape[1]);
 }
 
 __HOST__
@@ -203,7 +203,7 @@ Tensor::Tensor(U16 n, U16 h, U16 w, U16 c) :
     shape{h, w, n, c} {
     cudaMallocManaged((void**)&data, (size_t)size * dsize);
     GPU_CHK();
-    DEBUG("tensor(%d,%d,%d,%d) allocated\n", shape[3], shape[0], shape[1], shape[2]);
+    WARN("tensor(%d,%d,%d,%d) allocated\n", shape[3], shape[0], shape[1], shape[2]);
 }
 
 __HOST__
@@ -212,9 +212,9 @@ Tensor::~Tensor()
     if (!data) return;
     cudaFree((void*)data);
     switch (rank) {
-    case 2: DEBUG("matrix(%d,%d) freed\n", shape[0], shape[1]); break;
-    case 4: DEBUG("tensor(%d,%d,%d,%d) freed\n", shape[3], shape[0], shape[1], shape[2]); break;
-    default: DEBUG("~Tensor error: rank=%d\n", rank);
+    case 2: WARN("matrix(%d,%d) freed\n", shape[0], shape[1]); break;
+    case 4: WARN("tensor(%d,%d,%d,%d) freed\n", shape[3], shape[0], shape[1], shape[2]); break;
+    default: WARN("~Tensor error: rank=%d\n", rank);
     }
 }
 ///=======================================================================
@@ -236,7 +236,7 @@ Tensor::reset(void *mptr, U32 sz) {
     U16 s[4] = {(U16)sz,1, 1, 1}; memcpy(shape,  s, sizeof(s));
     attr   = 0;
     data   = (U8*)mptr;
-    DEBUG("tensor reset(%p, %d)\n", mptr, sz);
+    WARN("tensor reset(%p, %d)\n", mptr, sz);
     return *this;
 }
 
@@ -244,7 +244,7 @@ __BOTH__ Tensor&
 Tensor::reshape(U32 sz) {
     if (sz == size) {
         reset(data, size);
-        DEBUG("tensor reshaped(%d)\n", size);
+        WARN("tensor reshaped(%d)\n", size);
     }
     else {
         ERROR("reshape sz != size (%d != %d)\n", sz, size);
@@ -259,7 +259,7 @@ Tensor::reshape(U16 h, U16 w) {
         rank   = 2;
         U16 t[4] = {1, 1, 1, 1}; memcpy(stride, t, sizeof(t));
         U16 s[4] = {h, w, 1, 1}; memcpy(shape,  s, sizeof(s));
-        DEBUG("tensor reshaped(%d,%d)\n", shape[0], shape[1]);
+        WARN("tensor reshaped(%d,%d)\n", shape[0], shape[1]);
     }
     else {
         ERROR("reshape sz != size (%d != %d)\n", sz, size);
@@ -274,7 +274,7 @@ Tensor::reshape(U16 n, U16 h, U16 w, U16 c) {
         rank   = 4;
         U16 t[4] = {1, 1, 1, 1}; memcpy(stride, t, sizeof(t));
         U16 s[4] = {h, w, c, n}; memcpy(shape,  s, sizeof(s));
-        DEBUG("tensor reshaped(%d,%d,%d,%d)\n", shape[3], shape[0], shape[1], shape[2]);
+        WARN("tensor reshaped(%d,%d,%d,%d)\n", shape[3], shape[0], shape[1], shape[2]);
     }
     else {
         ERROR("reshape sz != size (%d != %d)\n", sz, size);
@@ -296,7 +296,7 @@ Tensor::identity() {
 
 __BOTH__ Tensor&
 Tensor::fill(DU v) {
-    DEBUG("Tensor#fill with %f\n", v);
+    WARN("Tensor#fill with %f\n", v);
     dim3 block(256), grid((size + block.x -1)/block.x);
     k_fill<<<grid, block>>>((DU*)data, v, size);
     cudaDeviceSynchronize();
@@ -305,7 +305,7 @@ Tensor::fill(DU v) {
 
 __BOTH__ Tensor&
 Tensor::scale(DU v) {
-    DEBUG("Tensor#scale by %f\n", v);
+    WARN("Tensor#scale by %f\n", v);
     dim3 block(256), grid((size + block.x -1)/block.x);
     k_scale<<<grid, block>>>((DU*)data, v, size);
     cudaDeviceSynchronize();
