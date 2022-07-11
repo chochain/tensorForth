@@ -58,7 +58,7 @@ ForthVM::nest() {
 ///
 __GPU__ void ForthVM::add_w(IU w)  {
     add_iu(w);
-    WARN("add_w(%d) => %s\n", w, dict[w].name);
+    VLOG2("add_w(%d) => %s\n", w, dict[w].name);
 }
 __GPU__ void ForthVM::add_iu(IU i) { mmu.add((U8*)&i, sizeof(IU)); }
 __GPU__ void ForthVM::add_du(DU d) { mmu.add((U8*)&d, sizeof(DU)); }
@@ -70,11 +70,6 @@ __GPU__ __INLINE__ void ForthVM::call(IU w) {
     if (dict[w].def) { WP = w; IP = dict[w].pfa; nest(); }
     else (*(FPTR)((UFP)dict[w].xt & ~0x3))();        ///> execute function pointer (strip off immdiate bit)
 }
-///
-/// global memory access macros
-///
-#define PEEK(a)        (U8)(*(U8*)((UFP)(a)))
-#define POKE(a, c)     (*(U8*)((UFP)(a))=(U8)(c))
 ///
 /// dictionary initializer
 ///
@@ -135,8 +130,8 @@ ForthVM::init_f() {
     CODE("+",    top += ss.pop()),
     CODE("*",    top *= ss.pop()),
     CODE("-",    top = ss.pop() - top),
-    CODE("/",    top = ss.pop() / top; DU_ONLY(top)),
-    CODE("mod",  top =  MOD(ss.pop(), top)),             /// fmod = x - int(q)*y
+    CODE("/",    top = DIV(ss.pop(), top)),
+    CODE("mod",  top = MOD(ss.pop(), top)),             /// fmod = x - int(q)*y
     CODE("/mod",
         DU n = ss.pop(); DU t = top;
         ss.push(MOD(n, t)); top = n / t),
@@ -162,10 +157,6 @@ ForthVM::init_f() {
     CODE("1+",   top += 1),
     CODE("1-",   top -= 1),
     ///@}
-    ///@defgroup Binary logic ops (convert to integer first)
-    ///@{
-    CODE("exp",  top = EXP(top)),
-    ///@}
     ///@defgroup Data conversion ops
     ///@{
     CODE("int",  top = INT(top)),                /// integer part, 1.5 => 1, -1.5 => -1
@@ -176,14 +167,14 @@ ForthVM::init_f() {
     ///@defgroup Logic ops
     ///@{
     CODE("0= ",  top = BOOL(ZERO(top))),
-    CODE("0<",   top = BOOL(top <  -DU_EPS)),
-    CODE("0>",   top = BOOL(top >   DU_EPS)),
+    CODE("0<",   top = BOOL(top < -DU_EPS)),
+    CODE("0>",   top = BOOL(top > DU_EPS)),
     CODE("=",    top = BOOL(ZERO(ss.pop() - top))),
-    CODE(">",    top = BOOL((ss.pop() -  top) > -DU_EPS)),
-    CODE("<",    top = BOOL((ss.pop() -  top) <  DU_EPS)),
+    CODE("<",    top = BOOL((ss.pop() - top) < -DU_EPS)),
+    CODE(">",    top = BOOL((ss.pop() - top) > DU_EPS)),
     CODE("<>",   top = BOOL(!ZERO(ss.pop() - top))),
-    CODE(">=",   top = BOOL((ss.pop() - top) >= -DU_EPS)),      // not much difference as > for float
-    CODE("<=",   top = BOOL((ss.pop() - top) <=  DU_EPS)),
+    CODE("<=",   top = BOOL(INT(ss.pop()) <= INT(top))),    /// int, for count or loop control
+    CODE(">=",   top = BOOL(INT(ss.pop()) >= INT(top))),
     ///@}
     ///@defgroup IO ops
     ///@{
@@ -309,12 +300,10 @@ ForthVM::init_f() {
     ///@}
     ///@defgroup System ops
     ///@{
-    CODE("peek",  IU a = POPi; PUSH(PEEK(a))),
-    CODE("poke",  IU a = POPi; POKE(a, POPi)),
     CODE("clock", DU t = (DU)(clock64() / khz); PUSH(t)),
-    CODE("delay", delay(POPi)),          // TODO: change to VM_WAIT
-    ///@}
+    CODE("delay", delay(POPi)),                  ///< TODO: change to VM_WAIT
     CODE("bye",   status = VM_STOP),
+    ///@}
     CODE("boot",  mmu.clear(FIND("boot") + 1))
     };
     mmu.append(prim, sizeof(prim)/sizeof(Code)); ///< append dictionary
@@ -338,17 +327,16 @@ ForthVM::init_f() {
 ///
 __GPU__ int
 ForthVM::parse(char *str) {
-    int w = FIND(str);                       /// * search through dictionary
-    if (w < 0) return 0;                     /// * word found!
-    WARN("%4x:%p %s %d ",
-         dict[w].def ? dict[w].pfa : 0,
-         dict[w].xt, dict[w].name, w);
-    if (compile && !dict[w].immd) {  /// * in compile mode?
-        add_w((IU)w);                /// * add found word to new colon word
+    int w = FIND(str);                    /// * search through dictionary
+    if (w < 0) return 0;                  /// * word found!
+    VLOG2("%4x:%p %s %d ",
+         dict[w].def ? dict[w].pfa : 0, dict[w].xt, dict[w].name, w);
+    if (compile && !dict[w].immd) {       /// * in compile mode?
+        add_w((IU)w);                     /// * add found word to new colon word
     }
     else {
-        WARN("=> call(%s)\n", dict[w].name);
-        call((IU)w);                 /// * execute forth word
+        VLOG2("=> call(%s)\n", dict[w].name);
+        call((IU)w);                      /// * execute forth word
     }
     return 1;
 }    
@@ -361,15 +349,15 @@ ForthVM::number(char *str) {
     DU n = (STRCHR(idiom, '.'))
         ? STRTOF(idiom, &p)
         : STRTOL(idiom, &p, radix);
-    if (*p != '\0') return 0;
+    if (*p != '\0') return 0;            /// * not a number, bail
     // is a number
     if (compile) {                       /// * add literal when in compile mode
-        WARN("%f\n", n);
+        VLOG2("%f\n", n);
         add_w(DOLIT);                    ///> dovar (+parameter field)
         add_du(n);                       ///> store literal
     }
     else {                               ///> or, add value onto data stack
-        WARN("ss.push(%08x)\n", *(U32*)&n);
+        VLOG2("ss.push(%f)\n", n);
         PUSH(n);
     }
     return 1;
