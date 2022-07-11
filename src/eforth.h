@@ -10,17 +10,16 @@
 ///
 ///@name Cross platform floating-point support
 ///@{
-#define MOD(t,n)     (fmod(t, n))                  /**< fmod two floating points       */
 #define ZERO(d)      (ABS(d) < DU_EPS)             /**< zero check                     */
-#define BOOL(f)      (ZERO(f) ? -1 : 0)            /**< default boolean representation */
-#define ABS(d)       (fabs(d))                     /**< absolute value                 */
-#define EXP(v)       (expf(v))                     /**< exponential(float)             */
+#define BOOL(d)      (ZERO(d) ? 0 : -1)            /**< default boolean representation */
+#define ABS(d)       (fabsf(d))                    /**< absolute value                 */
+#define MOD(t,n)     (fmodf(t, n))                 /**< fmod two floating points       */
+#define DIV(x,y)     (fdividef(x,y))               /**< fast math devide               */
 ///@}
 ///@name Data conversion
 ///@{
 #define INT(f)       (static_cast<int>(f + 0.5))   /**< cast float to int              */
 #define I2D(i)       (static_cast<DU>(i))          /**< cast int back to float         */
-#define DU_ONLY(v)   (*(U32*)&(v) &= ~1)           /**< tensor flag mask for top       */
 #define POPi         (INT(POP()))                  /**< convert popped DU as an IU     */
 #define FIND(s)      (mmu.find(s, compile, ucase)) /**< find input idiom in dictionary */
 ///@}
@@ -29,11 +28,10 @@
 ///
 class ForthVM : public VM {
 public:
-    __GPU__ ForthVM(int khz, Istream *istr, Ostream *ostr, MMU *mmu)
-        : VM(khz, istr, ostr, mmu), dict(mmu->dict()) {
-        if (mmu->trace() > 0) {
-            printf("\\  ::ForthVM[%d](dict=%p) sizeof(Code)=%ld\n", blockIdx.x, dict, sizeof(Code));
-        }
+    __GPU__ ForthVM(int khz, Istream *istr, Ostream *ostr, MMU *mmu0)
+        : VM(khz, istr, ostr, mmu0), dict(mmu0->dict()) {
+        VLOG1("\\  ::ForthVM[%d](dict=%p) sizeof(Code)=%ld\n",
+              blockIdx.x, dict, sizeof(Code));
     }
     __GPU__ void virtual init() override { init_f(); } ///< TODO: CC - polymorphism does not work in kernel?
     __GPU__ void init_f();                             ///< so fake it for now
@@ -49,9 +47,9 @@ protected:
     ///
     /// stack short hands
     ///
-    __GPU__ __INLINE__ DU POP()             { DU n=top; top=ss.pop(); return n; }
-    __GPU__ __INLINE__ void PUSH(DU v)      { ss.push(top); top = v; }
-    __GPU__ __INLINE__ void PUSH(Tensor &t) { ss.push(top); top = mmu.ten2du(t); }
+    __GPU__ __INLINE__ DU POP()           { DU n=top; top=ss.pop(); return n; }
+    __GPU__ __INLINE__ DU PUSH(DU v)      { ss.push(top); return top = v; }
+    __GPU__ __INLINE__ DU PUSH(Tensor &t) { ss.push(top); return top = mmu.ten2du(t); }
     ///
     /// Forth inner interpreter
     ///

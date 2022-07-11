@@ -8,13 +8,14 @@
 #define TEN4_SRC_TENVM_H
 #include "eforth.h"                         /// extending ForthVM
 
+#define NO_OBJ(v) (*(U32*)&(v) &= ~1)       /**< tensor flag mask for top       */
+#define EXP(d)    (expf(d))                 /**< exponential(float)             */
+
 class TensorVM : public ForthVM {
 public:
-    __GPU__ TensorVM(int khz, Istream *istr, Ostream *ostr, MMU *mmu) :
-        ForthVM(khz, istr, ostr, mmu) {
-        if (mmu->trace() > 0) {
-            printf("\\  ::TensorVM(...) sizeof(Tensor)=%ld\n", sizeof(Tensor));
-        }
+    __GPU__ TensorVM(int khz, Istream *istr, Ostream *ostr, MMU *mmu0) :
+        ForthVM(khz, istr, ostr, mmu0) {
+        VLOG1("\\  ::TensorVM(...) sizeof(Tensor)=%ld\n", sizeof(Tensor));
     }
     __GPU__ void init() final { init_t(); } ///< TODO: CC - polymorphism does not work here?
     __GPU__ void init_t();                  ///< so fake it
@@ -25,6 +26,7 @@ protected:
     ///
     /// override literal handler
     ///
+    __GPU__ void tprint(DU v);              ///< tensor dot (print)
     __GPU__ int  number(char *str) final;   ///< TODO: CC - this worked, why?
     ///
     /// mmu proxy functions
@@ -39,6 +41,6 @@ protected:
     __GPU__ DU   tdiv();                    ///< matrix division (no broadcast)
     __GPU__ DU   tinv();                    ///< TODO: matrix inverse (Gaussian Elim.?)
     __GPU__ DU   ttrans();                  ///< matrix transpose
-    __GPU__ void gemm();                    ///< GEMM C' = alpha * A x B + beta * C
+    __GPU__ DU   gemm();                    ///< GEMM C' = alpha * A x B + beta * C
 };
 #endif // TEN4_SRC_TENVM_H
