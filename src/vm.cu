@@ -10,28 +10,8 @@
 __GPU__
 VM::VM(int khz, Istream *istr, Ostream *ostr, MMU *mmu0)
     : khz(khz), fin(*istr), fout(*ostr), mmu(*mmu0) {
-    if (mmu0->trace() > 0) {
-        printf("\\  VM[%d](mem=%p, vmss=%p)\n",
-               blockIdx.x, mmu.pmem(0), mmu.vmss(blockIdx.x));
-    }
-}
-///==============================================================================
-///
-/// debug methods
-///
-__GPU__ void
-VM::dot(DU v) {
-    if (IS_OBJ(v)) { fout << v; mmu.mark_free(v); }
-    else fout << " " << v;       // eForth has a space prefix
-}
-__GPU__ void
-VM::dot_r(int n, DU v) {
-    fout << setw(n) << v;
-}
-__GPU__ void
-VM::ss_dump(int n) {
-    ss[T4_SS_SZ-1] = top;        // put top at the tail of ss (for host display)
-    fout << opx(OP_SS, n);
+    VLOG1("\\  VM[%d](mem=%p, vmss=%p)\n",
+          blockIdx.x, mmu.pmem(0), mmu.vmss(blockIdx.x));
 }
 ///
 /// ForthVM Outer interpreter
@@ -47,11 +27,12 @@ VM::ss_dump(int n) {
 ///
 __GPU__ void
 VM::outer() {
-    while (fin >> idiom) {                   /// loop throught tib
-        WARN("%d>> %-10s => ", blockIdx.x, idiom);
+    VLOG1("%c< %s\n", compile ? ':' : '<', fin.rdbuf()); /// * display input buffer
+    while (fin >> idiom) {                   /// * loop throught tib
+        VLOG2("%d>> %-10s => ", blockIdx.x, idiom);
         if (!parse(idiom) && !number(idiom)) {
-            fout << idiom << "? " << ENDL;   ///> display error prompt
-            compile = false;                 ///> reset to interpreter mode
+            fout << idiom << "? " << ENDL;   /// * display error prompt
+            compile = false;                 /// * reset to interpreter mode
         }
     }
     if (!compile) ss_dump(ss.idx);
