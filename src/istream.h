@@ -31,8 +31,8 @@ public:
     ///
     /// intialize by a given string
     ///
-    __HOST__ char     *rdbuf() { return _buf; }
-    __HOST__ Istream& clear()  {
+    __BOTH__ char     *rdbuf() { return _buf; }
+    __BOTH__ Istream& clear()  {
         //LOCK;
         _idx = _gn = 0;
         //UNLOCK;
@@ -55,11 +55,14 @@ public:
         int nidx = _tok(delim);             // index to next token
 
         WARN("%d>> ibuf[%d] >> %d bytes\n", blockIdx.x, _idx, _gn);
-
-        if (nidx==0) return *this;          // no token processed
-        MEMCPY(s, &_buf[_idx], _gn);        // CUDA memcpy
-        s[_gn] = '\0';                      // terminated with '\0'
-        _idx = nidx + (delim != ' ');       // advance index
+        if (nidx > 0) {                     // token found
+            MEMCPY(s, &_buf[_idx], _gn);    // CUDA memcpy
+            _idx = nidx + (delim != ' ');   // advance index
+            s[_gn] = '\0';                  // terminated with '\0'
+        }
+        else if (delim=='\n') {             // comment line
+            _buf[_idx] = '\0';              // blank out the reset of input buffer
+        }
         return *this;
     }
     __GPU__ Istream& getline(char *s, int sz, char delim='\n') {
