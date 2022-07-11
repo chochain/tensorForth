@@ -18,7 +18,7 @@ typedef enum {
     GT_INT,
     GT_FLOAT,
     GT_STR,
-    GT_TENSOR,
+    GT_OBJ,
     GT_FMT,
     GT_OPX
 } GT;
@@ -88,7 +88,7 @@ class Ostream : public Managed {
         case GT_INT:   printf("%d\n", *(GI*)d);      break;
         case GT_FLOAT: printf("%G\n", *(GF*)d);      break;
         case GT_STR:   printf("%c\n", d);            break;
-        case GT_TENSOR:printf("Tensor %8x\n", *(U32*)d);  break;
+        case GT_OBJ:   printf("Obj:%8x\n", *(U32*)d);break;
         case GT_FMT:   printf("%8x\n", *(U16*)d);    break;
         case GT_OPX: {
             OP  op = (OP)*d;
@@ -161,7 +161,7 @@ public:
         return *this;
     }
     __GPU__ Ostream& operator<<(DU d) {
-        GT t = IS_OBJ(d) ? GT_TENSOR : GT_FLOAT;
+        GT t = IS_OBJ(d) ? GT_OBJ : GT_FLOAT;
         _write(t, (U8*)&d, sizeof(DU));
         return *this;
     }
