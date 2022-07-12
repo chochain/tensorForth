@@ -200,7 +200,7 @@ ForthVM::init_f() {
     CODE("]",       compile = true),
     IMMD("(",       scan(')')),
     IMMD(".(",      fout << scan(')')),
-    CODE("\\",      scan('\n')),
+    IMMD("\\",      scan('\n')),
     CODE("$\"",
         const char *s = scan('"')+1;        // string skip first blank
         add_w(DOSTR);
