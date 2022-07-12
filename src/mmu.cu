@@ -44,7 +44,7 @@ MMU::MMU(int verbose) : _trace(verbose) {
 __HOST__
 MMU::~MMU() {
     GPU_SYNC();
-    TRACE2("\\  MMU releasing CUDA managed memory...\n");
+    TRACE1("\\  MMU releasing CUDA managed memory...\n");
     cudaFree(_seed);
     cudaFree(_vmss);
     cudaFree(_mark);
@@ -143,7 +143,7 @@ MMU::to_s(std::ostream &fout, IU w) {
 __GPU__ void
 MMU::mark_free(DU v) {            ///< mark a tensor free for release
     Tensor &t = du2ten(v);
-    TRACE2("mark T[%x]=%p as free[%d]\n", *(U32*)&v, &t, _fidx);
+    TRACE1("mark T[%x]=%p as free[%d]\n", *(U32*)&v, &t, _fidx);
 //    lock();
     if (_fidx < T4_TFREE_SZ) _mark[_fidx++] = v;
     else ERROR("ERR: tfree array full, increase T4_TFREE_SZ!");
@@ -154,7 +154,7 @@ MMU::sweep() {
 //    lock();
     for (int i=0; _fidx && i < _fidx; i++) {
         DU v = _mark[i];
-        TRACE2("release T[%x] from marked list[%d]\n", *(U32*)&v, _fidx);
+        TRACE1("release T[%x] from marked list[%d]\n", *(U32*)&v, _fidx);
         drop(v);
     }
     _fidx = 0;
@@ -212,17 +212,18 @@ MMU::free(Tensor &t) {
 ///
 __GPU__ Tensor&
 MMU::copy(Tensor &t0) {
-    Tensor *t  = (Tensor*)_tstore.malloc(sizeof(Tensor));
-    memcpy(t, &t0, sizeof(Tensor));   /// * copy attributes
-    t->set_as_view(false);            /// * physical copy, not a view
+    Tensor *t1  = (Tensor*)_tstore.malloc(sizeof(Tensor));
+    memcpy(t1, &t0, sizeof(Tensor));   /// * copy attributes
+    t1->set_as_view(false);            /// * physical copy, not a view
     ///
     /// hard copy data block
     ///
     U64 bsz = sizeof(DU) * t0.size;
-    t->data = (U8*)_tstore.malloc(bsz);
-    Tensor::copy(*t, t0);
+    t1->data = (U8*)_tstore.malloc(bsz);
+    Tensor::copy(*t1, t0);
     
-    return *t;
+    TRACE1("mmu#copy(T%d) size=%d to T%d:%p\n", t0.rank, t0.size, t1->rank, t1);
+    return *t1;
 }
 __GPU__ Tensor&
 MMU::random(Tensor &t, t4_rand_type ntype, int seed) {
@@ -261,6 +262,7 @@ MMU::slice(Tensor &t0, U16 x0, U16 x1, U16 y0, U16 y1) {
             memcpy(d1, d0, bsz);
         }
     }
+    TRACE1("mmu#slice(T%d)[%d:%d,%d:%d,] size=%d\n", t0.rank, t0.size, x0, x1, y0, y1);
     return t1;
 }
 __GPU__ DU
