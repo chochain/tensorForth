@@ -6,7 +6,6 @@
  *
  * <pre>Copyright (C) 2022- GreenII, this file is distributed under BSD 3-Clause License.</pre>
  */
-#include "ten4_types.h"
 #include "util.h"
 
 #if TEN4_ENABLE_CDP

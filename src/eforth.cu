@@ -4,7 +4,6 @@
  *
  * <pre>Copyright (C) 2022- GreenII, this file is distributed under BSD 3-Clause License.</pre>
  */
-#include "mmu.h"
 #include "eforth.h"
 ///
 /// Forth Virtual Machine operational macros to reduce verbosity

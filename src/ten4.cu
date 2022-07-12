@@ -14,8 +14,6 @@
 #include <signal.h>
 using namespace std;
 
-#include "ten4_config.h"
-#include "aio.h"             // CUDA async IO
 #include "tenvm.h"           // VM + ForthVM + TensorVM
 #include "ten4.h"            // wrapper
 
@@ -65,7 +63,6 @@ ten4_busy(int *busy) {
 ///
 /// tensorForth kernel - VM dispatcher
 ///
-#include <stdio.h>
 __KERN__ void
 ten4_exec(int trace) {
     const char *st[] = {"READY", "RUN", "WAITING", "STOPPED"};
@@ -169,10 +166,11 @@ TensorForth::run() {
             ten4_sweep<<<1, 1>>>(mmu);
         }
         yield();
-        if (trace > 1) {
-            int m0 = (int)mmu->here() - 0x80;
-            mmu->mem_dump(cout, m0 < 0 ? 0 : m0, 0x80);
-        }
+        
+#if MMU_DEBUG
+        int m0 = (int)mmu->here() - 0x80;
+        mmu->mem_dump(cout, m0 < 0 ? 0 : m0, 0x80);
+#endif // MMU_DEBUG
     }
     return 0;
 }
