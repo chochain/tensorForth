@@ -17,7 +17,6 @@ AIO::readline() {
     _istr->clear();
     char *tib = _istr->rdbuf();
     std::cin.getline(tib, T4_IBUF_SZ, '\n');
-    if (_trace > 0) std::cout << "<<" << tib << std::endl;
     return strlen(tib);
 }
 
