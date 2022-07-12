@@ -82,8 +82,8 @@ typedef enum {
 ///
 /// tracing level control
 ///
-#define TRACE1(...)   { if (_trace > 0) DEBUG(__VA_ARGS__); }
-#define TRACE2(...)   { if (_trace > 1) DEBUG(__VA_ARGS__); else WARN(__VA_ARGS__);  }
+#define TRACE1(...)   { if (_trace > 0) INFO(__VA_ARGS__); }
+#define TRACE2(...)   { if (_trace > 1) INFO(__VA_ARGS__); }
 ///
 /// Forth memory manager
 ///

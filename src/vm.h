@@ -14,8 +14,8 @@
 #define delay(ticks) { clock_t t = clock()+ticks; while (clock()<t) yield(); }
 #define yield()                        /**< TODO: multi-VM  */
 ///@}
-#define VLOG1(...) { if (mmu.trace() > 0) INFO(__VA_ARGS__);  else DEBUG(__VA_ARGS__); }
-#define VLOG2(...) { if (mmu.trace() > 1) DEBUG(__VA_ARGS__); else WARN(__VA_ARGS__);  }
+#define VLOG1(...) { if (mmu.trace() > 0) INFO(__VA_ARGS__); }
+#define VLOG2(...) { if (mmu.trace() > 1) INFO(__VA_ARGS__); }
 ///
 /// virtual machine base class
 ///
