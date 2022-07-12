@@ -17,13 +17,12 @@
 ///@{
 #define T4_APP_NAME        "tensorForth"
 #define T4_VERBOSE          1        /**< system verbose print */
-#define T4_DEBUG            1        /**< for debug trace      */
-#define MMU_DEBUG           0        /**< for mmu debug trace  */
+#define T4_MMU_DEBUG        0        /**< for mmu debug trace  */
 #define CC_DEBUG            1        /**< for my local testing */
 ///@}
 ///@name CUDA cooperative dynamic parallelism support
 ///@{
-#define T4_ENABLE_OBJ       0
+#define T4_ENABLE_OBJ       1
 #define T4_ENABLE_CDP       0
 #define T4_USE_STRBUF       0
 ///@}

@@ -8,6 +8,22 @@
 #define TEN4_SRC_TEN4_TYPES_H_
 #include "ten4_config.h"
 ///
+///@name Debug tracing options
+///@{
+#define INFO(...)           printf(__VA_ARGS__)
+#if T4_VERBOSE
+#define DEBUG(...)          printf(__VA_ARGS__)
+#else  // T4_VERBOSE
+#define DEBUG(...)
+#endif // T4_VERBOSE
+#if T4_MMU_DEBUG
+#define WARN(...)           printf(__VA_ARGS__)
+#else  // T4_MMU_DEBUG
+#define WARN(...)
+#endif // T4_MMU_DEBUG
+#define ERROR(...)          printf(__VA_ARGS__)
+#define NA(msg)             ({ ERROR("method not supported: %s\n", msg); })
+///@}
 ///@name CUDA support macros
 ///@{
 #if defined(__CUDACC__)
@@ -21,7 +37,6 @@
 #define MUTEX_LOCK(p)       while (atomicCAS((int *)&p, 0, 1)!=0)
 #define MUTEX_FREE(p)       atomicExch((int *)&p, 0)
 
-#define NA(msg)             ({ INFO("method not supported: %s\n", msg); })
 #define ASSERT(X) \
     if (!(X)) ERROR("ASSERT tid %d: line %d in %s\n", threadIdx.x, __LINE__, __FILE__);
 #define GPU_SYNC()          { cudaDeviceSynchronize(); }
@@ -43,26 +58,6 @@
 
 #define H2D                 cudaMemcpyHostToDevice
 #define D2H                 cudaMemcpyDeviceToHost
-///@}
-///@name Debug tracing options
-///@{
-#if T4_VERBOSE
-#define INFO(...)           printf(__VA_ARGS__)
-#else  // T4_VERBOSE
-#define INFO(...)
-#endif // T4_VERBOSE
-#if T4_DEBUG
-#define DEBUG(...)          printf(__VA_ARGS__)
-#else  // T4_DEBUG
-#define DEBUG(...)
-#endif // T4_DEBUG
-#if MMU_DEBUG
-#define WARN(...)           printf(__VA_ARGS__)
-#else  // MMU_DEBUG
-#define WARN(...)
-#endif // MMU_DEBUG
-#define NA(msg)             ({ INFO("method not supported: %s\n", msg); })
-#define ERROR(...)          printf(__VA_ARGS__)
 ///@}
 ///@name Portable types (Rust alike)
 ///@{
