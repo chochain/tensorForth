@@ -6,6 +6,7 @@
  */
 #ifndef TEN4_SRC_TEN4_TYPES_H_
 #define TEN4_SRC_TEN4_TYPES_H_
+#include "ten4_config.h"
 ///
 ///@name CUDA support macros
 ///@{
@@ -91,13 +92,11 @@ typedef F64         DU2;                    ///< double preciesion data unit
 ///
 /// macros for Tensor definitions
 ///
-#define T4_OBJ       1                      /**< tensor attibute flag    */
-#if T4_ENABLE_OBJ
-#define IS_OBJ(d)    ((*(U32*)&d) & T4_OBJ) /**< check if DU is a tensor */
-#else  // T4_ENABLE_OBJ
-#define IS_OBJ(d)    (false)                /**< check if DU is a tensor */
-#endif // T4_ENABLE_OBJ
-#define IS_TEN(d) IS_OBJ(d)                 /**< TODO: more object types */
+#define T4_OBJ_FLAG 1                      /**< tensor attibute flag    */
+#if     T4_ENABLE_OBJ
+#define IS_OBJ(d)   ((*(U32*)&d) & T4_OBJ_FLAG) /**< check if DU is a tensor */
+#endif
+#define IS_TEN(d)   IS_OBJ(d)              /**< TODO: more object types */
 
 ///@}
 ///
