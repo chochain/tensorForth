@@ -1,19 +1,26 @@
-2 3 matrix{ 1 2 3 4 5 6 }
-dup .
-3 2 matrix ones
-* .
-2drop
+.( ### small matrix creation with given values ) cr
+2 3 matrix{ 1 2 3 4 5 6 }    \ create a 2x3 matrix
+dup .                        \ create a view and print it
 
-512 1024 matrix rand
-1024 256 matrix ones
-*
-1024 / . .
+3 2 matrix ones              \ create a 3x2 matrix filled with 1s
+* .                          \ multiply matrices and print
 
-: mx clock >r for * drop next clock r> - ;
-see mx
-99 mx
+2drop                        \ drop the original two matrices
 
-drop 2drop
+.( ### large matrix multiplication ) cr
+512 1024 matrix rand         \ create a 512x1024 matrix with random values
+1024 256 matrix ones         \ create a 1024x256 matrix filled with 1s
+*                            \ multiply the matrices
+1024 / . .                   \ scale down element-wise and print
+
+.( ### benchmark ) cr
+: mx clock >r                \ create a word for benchmark loops
+  for * drop next            \ loop of matrix multiplication (and drop the result)
+  clock r> - ;               \ clock it
+see mx                       \ show the word
+99 mx                        \ run 100 the multiplication loop 100 times
+
+drop 2drop                   \ drop the original two matrices
 
 bye
 
