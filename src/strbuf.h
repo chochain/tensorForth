@@ -7,7 +7,6 @@
 #ifndef TEN4_SRC_STRBUF_H
 #define TEN4_SRC_STRBUF_H
 #include "vector.h"
-#include <stdio.h>
 
 #define TEN4_FLOAT_PRECISION  1000000     /* 6-digit */
 #define STRBUF_SIZE           8

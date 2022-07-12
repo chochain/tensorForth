@@ -6,7 +6,6 @@
  */
 #ifndef TEN4_SRC_ISTREAM_H_
 #define TEN4_SRC_ISTREAM_H_
-#include "ten4_config.h"
 #include "tensor.h"
 #include "util.h"
 ///

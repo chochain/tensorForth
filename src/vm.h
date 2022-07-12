@@ -6,8 +6,6 @@
  */
 #ifndef TEN4_SRC_VM_H
 #define TEN4_SRC_VM_H
-#include "ten4_types.h"
-#include "vector.h"         // vector (includes util.h)
 #include "aio.h"            // async IO (includes Istream, Ostream)
 ///
 ///@name Cross platform support

@@ -6,7 +6,7 @@
  */
 #ifndef TEN4_SRC_OSTREAM_H_
 #define TEN4_SRC_OSTREAM_H_
-#include "ten4_config.h"
+#include "ten4_types.h"
 #include "util.h"
 
 //================================================================
