@@ -140,7 +140,7 @@ Tensor::add(Tensor &A, Tensor &B, Tensor &C, bool sub) {
     
 __BOTH__ Tensor&
 Tensor::copy(Tensor &D, Tensor &S) {
-    WARN("Tensor::copy size=%d\n", size);
+    WARN("Tensor::copy size=%d\n", S.size);
     dim3 block(256), grid((S.size + block.x -1) / block.x);
     k_copy<<<grid, block>>>((DU*)D.data, (DU*)S.data, S.size);
     cudaDeviceSynchronize();
@@ -229,6 +229,7 @@ Tensor::set_as_view(bool set) {
 
 __BOTH__ Tensor&
 Tensor::reset(void *mptr, U32 sz) {
+    WARN("Tensor::reset(%p, %d)\n", mptr, sz);
     dsize  = sizeof(DU);
     size   = sz;
     rank   = 1;
@@ -236,7 +237,6 @@ Tensor::reset(void *mptr, U32 sz) {
     U16 s[4] = {(U16)sz,1, 1, 1}; memcpy(shape,  s, sizeof(s));
     attr   = 0;
     data   = (U8*)mptr;
-    WARN("tensor reset(%p, %d)\n", mptr, sz);
     return *this;
 }
 
@@ -244,10 +244,10 @@ __BOTH__ Tensor&
 Tensor::reshape(U32 sz) {
     if (sz == size) {
         reset(data, size);
-        WARN("tensor reshaped(%d)\n", size);
+        WARN("Tensor::reshaped(%d)\n", size);
     }
     else {
-        ERROR("reshape sz != size (%d != %d)\n", sz, size);
+        ERROR("Tensor::reshape sz != size (%d != %d)\n", sz, size);
     }
     return *this;
 }
@@ -259,10 +259,10 @@ Tensor::reshape(U16 h, U16 w) {
         rank   = 2;
         U16 t[4] = {1, 1, 1, 1}; memcpy(stride, t, sizeof(t));
         U16 s[4] = {h, w, 1, 1}; memcpy(shape,  s, sizeof(s));
-        WARN("tensor reshaped(%d,%d)\n", shape[0], shape[1]);
+        WARN("Tensor::reshaped(%d,%d)\n", shape[0], shape[1]);
     }
     else {
-        ERROR("reshape sz != size (%d != %d)\n", sz, size);
+        ERROR("Tensor::reshape sz != size (%d != %d)\n", sz, size);
     }
     return *this;
 }
@@ -274,10 +274,10 @@ Tensor::reshape(U16 n, U16 h, U16 w, U16 c) {
         rank   = 4;
         U16 t[4] = {1, 1, 1, 1}; memcpy(stride, t, sizeof(t));
         U16 s[4] = {h, w, c, n}; memcpy(shape,  s, sizeof(s));
-        WARN("tensor reshaped(%d,%d,%d,%d)\n", shape[3], shape[0], shape[1], shape[2]);
+        WARN("Tensor::reshaped(%d,%d,%d,%d)\n", shape[3], shape[0], shape[1], shape[2]);
     }
     else {
-        ERROR("reshape sz != size (%d != %d)\n", sz, size);
+        ERROR("Tensor::reshape sz != size (%d != %d)\n", sz, size);
     }
     return *this;
 }

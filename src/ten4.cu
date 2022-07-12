@@ -167,10 +167,10 @@ TensorForth::run() {
         }
         yield();
         
-#if MMU_DEBUG
+#if T4_MMU_DEBUG
         int m0 = (int)mmu->here() - 0x80;
         mmu->mem_dump(cout, m0 < 0 ? 0 : m0, 0x80);
-#endif // MMU_DEBUG
+#endif // T4_MMU_DEBUG
     }
     return 0;
 }
