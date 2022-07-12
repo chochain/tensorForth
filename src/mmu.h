@@ -6,13 +6,10 @@
  */
 #ifndef TEN4_SRC_MMU_H
 #define TEN4_SRC_MMU_H
-#include <ostream>
 #include <curand_kernel.h>
-#include "ten4_config.h"
-#include "util.h"
+#include "vector.h"
 #include "tensor.h"
 #include "tlsf.h"
-#include "vector.h"
 ///
 /// CUDA functor (device only) implementation
 /// Note: nvstd::function is too heavy (at sizeof(Code)=56-byte)
@@ -156,7 +153,6 @@ public:
     /// tensor life-cycle methods
     ///
 #if   !T4_ENABLE_OBJ
-    __GPU__  __INLINE__ void mark_free(DU v) {}             ///< holder for no object
     __GPU__  __INLINE__ void sweep()         {}             ///< holder for no object
     __GPU__  __INLINE__ void drop(DU d)      {}             ///< place holder
     __GPU__  __INLINE__ DU   dup(DU d)       { return d; }  ///< place holder
@@ -178,11 +174,11 @@ public:
     ///
     __BOTH__ __INLINE__ Tensor &du2ten(DU d) {
         U32    *off = (U32*)&d;
-        Tensor *t   = (Tensor*)(_ten + (*off & ~T4_OBJ));
+        Tensor *t   = (Tensor*)(_ten + (*off & ~T4_OBJ_FLAG));
         return *t;
     }
     __BOTH__ __INLINE__ DU     ten2du(Tensor &t) {
-        U32 o = ((U32)((U8*)&t - _ten)) | T4_OBJ;
+        U32 o = ((U32)((U8*)&t - _ten)) | T4_OBJ_FLAG;
         return *(DU*)&o;
     }
     __GPU__             DU   rand(DU d, t4_rand_type n);    ///< randomize a tensor
