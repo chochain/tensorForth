@@ -8,8 +8,8 @@
 #define TEN4_SRC_TENVM_H
 #include "eforth.h"                         /// extending ForthVM
 
-#define NO_OBJ(v) (*(U32*)&(v) &= ~1)       /**< tensor flag mask for top       */
-#define EXP(d)    (expf(d))                 /**< exponential(float)             */
+#define NO_OBJ(v) (*(U8*)&(v) &= ~T4_OBJ_FLAG)  /**< tensor flag mask for top       */
+#define EXP(d)    (expf(d))                     /**< exponential(float)             */
 
 class TensorVM : public ForthVM {
 public:
@@ -32,12 +32,12 @@ protected:
     ///
     /// override literal handler
     ///
-    __GPU__ void tprint(DU v);              ///< tensor dot (print)
+    __GPU__ void tprint(DU d);              ///< tensor dot (print)
     __GPU__ int  number(char *str) final;   ///< TODO: CC - this worked, why?
     ///
     /// mmu proxy functions
     ///
-    __GPU__ void add_tensor(DU n);          ///< add tensor to parameter field
+    __GPU__ void add_to_tensor(DU n);      ///< add tensor to parameter field
     ///
     /// tensor ops
     ///
