@@ -56,6 +56,13 @@ struct Options {
     //
     // print device properties
     //
+    int gpu_check(cudaError_t e) {
+        if (e != cudaSuccess) {
+            std::cerr << "cudaGetDeviceCount() returned an error: " << cudaGetErrorString(e) << std::endl;
+            return 1;
+        }
+        return 0;
+    }
     int check_versions(cudaDeviceProp &props) {
         const char *err[] = {
             "Volta Tensor Core operations must be run on a machine with compute capability at least 70.",
@@ -91,9 +98,10 @@ struct Options {
         }
         return 1;
     }
-    std::ostream &show_device_prop(std::ostream &out, cudaDeviceProp &p) {
+    std::ostream &show_device_prop(std::ostream &out, int id, cudaDeviceProp &p) {
         const char *yes_no[] = { "No", "Yes" };
-        out << "\tName:                          " << p.name << "\n"
+        out << "\nCUDA Device #" << id << "\n"
+            << "\tName:                          " << p.name << "\n"
             << "\tCUDA version:                  " << p.major << "." << p.minor << "\n"
             << "\tTotal global memory:           " << (U32)(p.totalGlobalMem>>20) << "M\n"
             << "\tTotal shared memory per block: " << (U32)(p.sharedMemPerBlock>>10) << "K\n"
@@ -118,17 +126,14 @@ struct Options {
     }
     int check_devices(std::ostream &out) {
         int n;
-        cudaGetDeviceCount(&n);
-        for (int device_id = 0; device_id < n; ++device_id) {
-            printf("\nCUDA Device #%d\n", device_id);
+        if (gpu_check(cudaGetDeviceCount(&n))) return -1;
+
+        for (int id = 0; id < n; id++) {
             cudaDeviceProp props;
-            cudaError_t    error = cudaGetDeviceProperties(&props, device_id);
-            if (error != cudaSuccess) {
-                std::cerr << "cudaGetDeviceProperties() returned an error: " << cudaGetErrorString(error) << std::endl;
-                continue;
-            }
+            if (gpu_check(cudaGetDeviceProperties(&props, id))) continue;
+
             check_versions(props);
-            show_device_prop(out, props);
+            show_device_prop(out, id, props);
         }
         return n;
     }
