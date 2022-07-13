@@ -22,5 +22,15 @@ see mx                       \ show the word
 
 drop 2drop                   \ drop the original two matrices
 
+.( ### matrix inversion ) cr
+4 4 matrix randn             \ create a 4x4 matrix with normal distributed value
+dup .                        \ check values
+inverse                      \ deduce the inverse matrix
+dup .                        \ see the inverse
+*                            \ M*M^-1
+.                            \ validate => identity matrix (-0.0000 OK, hopefully within EPS)
+
+drop 2drop                   \ drop the last tow matrices
+
 bye
 
