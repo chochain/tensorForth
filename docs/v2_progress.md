@@ -141,7 +141,7 @@ tensorForth 2.0
 |/|(Ta v  -- Ta Ta')|matrix-scaler division|
 |sum|(Ta -- Ta n)|sum all elements of a tensor|
 |exp|(Ta -- Ta Ta')|exponential (i.e. e^x) all elements of a tensor|
-|inverse|(Ta -- Ta Ta')|TODO: matrix inversion|
+|inverse|(Ta -- Ta Ta')|matrix inversion (Gauss-Jordan)|
 |transpose|(Ta -- Ta Ta')|matrix transpose|
 |matmul|(Ta Tb -- Ta Tb Tc)|matrix multiplication|
 |gemm|(a b Ta Tb Tc -- a b Ta Tb Tc')|GEMM Tc' = a * Ta x Tb + b * Tc|

@@ -186,7 +186,7 @@ Note:
    /         (Ta n  -- Ta Ta')   - matrix-scaler scale down multiplication (broadcast)
    sum       (Ta    -- Ta n)     - sum all elements of a tensor
    exp       (Ta    -- Ta Ta')   - element-wise exponential
-   inverse   (Ta    -- Ta Ta')   - TODO: matrix inversion
+   inverse   (Ta    -- Ta Ta')   - matrix inversion (Gauss-Jordan)
    transpose (Ta    -- Ta Ta')   - matrix transpose
    matmul    (Ta Tb -- Ta Tb Tc) - matrix multiplication
    gemm      (a b Ta Tb Tc -- a b Ta Tb Tc') - GEMM Tc' = a * Ta x Tb + b * Tc
