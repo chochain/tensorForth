@@ -115,7 +115,13 @@ TensorVM::tdiv() {                                     ///< tensor division
 }
 __GPU__ void
 TensorVM::tinv() {
-    ///< TODO: tensor inversion
+    if (!IS_TEN(top)) return;
+    Tensor &A = mmu.du2ten(top);
+    Tensor &I = mmu.tensor(A.H(), A.W()).identity();
+    Tensor &C = mmu.copy(A);
+    Tensor::inverse(C, I);
+    mmu.free(C);
+    PUSH(I);
 }
 __GPU__ void
 TensorVM::ttrans() {
@@ -123,7 +129,7 @@ TensorVM::ttrans() {
     U16 h = A.H(), w = A.W();
     Tensor &B = mmu.tensor(w, h);
     VLOG2("A[%d,%d]=%p => B[%d,%d]=%p", h, w, &A, B.H(), B.W(), &B);
-    Tensor::transpose(B, A);
+    Tensor::transpose(A, B);
     PUSH(B);
 }
 __GPU__ void
@@ -216,7 +222,7 @@ TensorVM::init_t() {
     ///@brief - stick to PyTorch naming when possible
     ///@{
     CODE("exp",       texp()),     ///< (A -- A A')    matrix exponential
-    CODE("inverse",   tinv()),     ///< (A -- A A')    matrix inversion
+    CODE("inverse",   tinv()),     ///< (A -- A Ai')   matrix inversion
     CODE("transpose", ttrans()),   ///< (A -- A At)    matrix transpose
     CODE("matmul",    tmul()),     ///< (A B -- A B C) matrix multiplication
     CODE("gemm",      gemm()),     ///< (a b A B C -- a b A B C') GEMM (C updated)
