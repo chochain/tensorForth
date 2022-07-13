@@ -220,7 +220,7 @@ MMU::copy(Tensor &t0) {
     ///
     U64 bsz = sizeof(DU) * t0.size;
     t1->data = (U8*)_tstore.malloc(bsz);
-    Tensor::copy(*t1, t0);
+    Tensor::copy(t0, *t1);
     
     TRACE1("mmu#copy(T%d) size=%d to T%d:%p\n", t0.rank, t0.size, t1->rank, t1);
     return *t1;
