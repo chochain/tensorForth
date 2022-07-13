@@ -5,6 +5,8 @@
  * <pre>Copyright (C) 2022- GreenII, this file is distributed under BSD 3-Clause License.</pre>
  */
 #include "tensor.h"
+
+#define ABS(d) (fabsf(d))  /**< absolute value */
 ///
 /// GEMM kernel (used CUDA dynamic parallelism)
 ///     C = alpha * A x B + beta * C
@@ -40,7 +42,7 @@ __KERN__ void k_matadd(                                     ///< TODO: C
         else     C[i] = A[i] + B[i];
     }
 }
-__KERN__ void k_transpose(DU *dst, DU *src, int H, int W) { ///< TODO: C
+__KERN__ void k_transpose(DU *src, DU *dst, int H, int W) { ///< Note: (src, dst), TODO: CDP
     int x = threadIdx.x + blockIdx.x * blockDim.x;
     int y = threadIdx.y + blockIdx.y * blockDim.y;
 
@@ -48,7 +50,7 @@ __KERN__ void k_transpose(DU *dst, DU *src, int H, int W) { ///< TODO: C
         dst[y + x * H] = src[x + y * W];
     }
 }
-__KERN__ void k_copy(DU *dst, DU *src, int sz) {
+__KERN__ void k_copy(DU *src, DU *dst, int sz) {           ///< Note: (src, dst)
     int x = threadIdx.x + blockIdx.x * blockDim.x;
     if (x < sz) dst[x] = src[x];
 }
@@ -68,39 +70,39 @@ __KERN__ void k_identity(DU *A, int W, int H, int C) {
     }
 }
 __KERN__ void k_norm_nodiag(double *A, double *I, int D, int n){   ///< TODO: C
-	int x = blockIdx.x * blockDim.x + threadIdx.x;
-	int y = blockIdx.y * blockDim.y + threadIdx.y;
+    int x = blockIdx.x * blockDim.x + threadIdx.x;
+    int y = blockIdx.y * blockDim.y + threadIdx.y;
 
-	if (x < D && y < D && x==n && x!=y) {
-        I[x*D + y] /= A[x*D + n];
-        A[y*D + y] /= A[x*D + n];
+    if (x < D && y < D && x==n && x!=y) {
+        I[y*D + x] /= A[y*D + n];
+        A[y*D + x] /= A[y*D + n];
     }
 }
 __KERN__ void k_norm_diag(double *A, double *I, int D, int n) {    ///< TODO: C
-	int x = blockIdx.x * blockDim.x + threadIdx.x;
-	int y = blockIdx.y * blockDim.y + threadIdx.y;
+    int x = blockIdx.x * blockDim.x + threadIdx.x;
+    int y = blockIdx.y * blockDim.y + threadIdx.y;
 
-	if (x < D && y < D & x==n && x==y) {
-        I[x*D + y] /= A[x*D + n];
-        A[x*D + y] /= A[x*D + n];
+    if (x < D && y < D & x==n && x==y) {
+        I[y*D + x] /= A[y*D + n];
+        A[y*D + x] /= A[y*D + n];
     }
 }
 __KERN__ void k_gaussjordan(double *A, double *I, int D, int n) {  ///< TODO: C
-	int x = blockIdx.x * blockDim.x + threadIdx.x;
-	int y = blockIdx.y * blockDim.y + threadIdx.y;
+    int x = blockIdx.x * blockDim.x + threadIdx.x;
+    int y = blockIdx.y * blockDim.y + threadIdx.y;
 
-	if (x < D && y < D && x!=n) {
-        I[x*D + y] -= I[n*D + y] * A[x*D + n];
+    if (x < D && y < D && x!=n) {
+        I[y*D + x] -= I[n*D + x] * A[y*D + n];
         if (y != n){
-            A[x*D + y] -= A[n*D + y] * A[x*D + n];
-		}
-	}
+            A[y*D + x] -= A[n*D + x] * A[y*D + n];
+        }
+    }
 }
 __KERN__ void k_inv_zero(double *A, int D, int n) {               ///< TODO: C
-	int x = blockIdx.x * blockDim.x + threadIdx.x;
-	int y = blockIdx.y * blockDim.y + threadIdx.y;
+    int x = blockIdx.x * blockDim.x + threadIdx.x;
+    int y = blockIdx.y * blockDim.y + threadIdx.y;
 
-	if (x < D && y < D && x!=n && y==n) A[x*D + y] = DU0;
+    if (x < D && y < D && x!=n && y==n) A[x*D + y] = DU0;
 }
 ///=======================================================================
 /// static methods
@@ -137,27 +139,82 @@ Tensor::add(Tensor &A, Tensor &B, Tensor &C, bool sub) {
     cudaDeviceSynchronize();     // TODO: deprecated 11.6, use cooperative_groups.sync()
     return C;
 }
-    
 __BOTH__ Tensor&
-Tensor::copy(Tensor &D, Tensor &S) {
-    WARN("Tensor::copy size=%d\n", S.size);
-    dim3 block(256), grid((S.size + block.x -1) / block.x);
-    k_copy<<<grid, block>>>((DU*)D.data, (DU*)S.data, S.size);
+Tensor::copy(Tensor &A, Tensor &C) {
+    WARN("Tensor::copy size=%d\n", A.size);
+    dim3 block(256), grid((A.size + block.x -1) / block.x);
+    k_copy<<<grid, block>>>((DU*)A.data, (DU*)C.data, A.size);
     cudaDeviceSynchronize();
-    return D;
+    return C;
 }
-
 __BOTH__ Tensor&
-Tensor::transpose(Tensor &D, Tensor &S) {
-    U16 h = S.H(), w = S.W();
+Tensor::transpose(Tensor &A, Tensor &T) {
+    U16 h = A.H(), w = A.W();
     WARN("Tensor::transpose M=%d, N=%d\n", h, w);
     dim3 block(16, 16), grid(
         (w + block.x - 1) / block.x,
         (h + block.y - 1) / block.y
     );
-    k_transpose<<<grid, block>>>((DU*)D.data, (DU*)S.data, h, w);
+    k_transpose<<<grid, block>>>((DU*)A.data, (DU*)T.data, h, w);
     cudaDeviceSynchronize();
-    return D;
+    return T;
+}
+///
+/// matrix inversion
+/// Note: Gauss-Jordan elimination is expensive O(N^3)
+/// TODO: LU and CDP
+///
+__BOTH__ Tensor&
+Tensor::inverse(Tensor &A, Tensor &I) {
+    U16 h = A.H(), w = A.W();
+    if (h != w) { ERROR("square matrix?"); return I; }
+
+    WARN("Tensor::inverse[%d,%d]\n", h, w);
+    DU *aa = (DU*)A.data;
+    DU *ii = (DU*)I.data;
+    auto swap_rows = [aa, ii, w](U16 u, U16 z) {
+        for (U16 k = 0; k < w; k++) {      // swap entire row
+            DU ta = aa[k + z * w], ti = ii[k + z * w];
+            aa[k + z * w] = aa[k + u * w];
+            ii[k + z * w] = ii[k + u * w];
+            aa[k + u * w] = ta;
+            ii[k + u * w] = ti;
+        }
+    };
+    auto find_max = [aa, ii, w](U16 z) {
+        int u = z;
+        for (U16 y = z + 1; y < w; y++) {
+            if (aa[z + y * w] > aa[z + u * w]) u = y;
+        }
+        if (ABS(aa[z + u * w]) < DU_EPS) {
+            ERROR("Tensor::inverse sigular!\n");
+            return -1;
+        }
+        return u;
+    };
+    auto diag = [aa, ii, w](U16 z) {
+        DU r0 = aa[z + z * w];
+        for (U16 k = 0; k < w; k++) {
+            U16 i = k + z * w;
+            ii[i] /= r0;
+            aa[i] /= r0;
+        }};
+    auto elim = [aa, ii, w](U16 z) {
+        for (U16 y = 0; y < w; y++) {
+            DU r1 = aa[z + y * w];
+            for (U16 k = 0; y!=z && k < w; k++) {
+                ii[k + y * w] -= r1 * ii[k + z * w];
+                aa[k + y * w] -= r1 * aa[k + z * w];
+            }
+        }};
+    for (U16 z = 0; z < w; z++) {
+        int u = find_max(z);
+        if (u < 0) break;
+        else if (u != z) swap_rows(u, z);
+        diag(z);
+        elim(z);
+    }
+    return I;
 }
 ///=======================================================================
 /// Tensor class constructors
@@ -331,5 +388,3 @@ Tensor::dot(Tensor &B) {
     else ERROR("A.dot(B) dim? %d != %d)\n", size, B.size);
     return acc;
 }
-
-

@@ -31,14 +31,18 @@ struct Tensor : public Managed {
         };
     };
     ///
-    /// static ops
+    /// static ops 
+    /// Note:
+    ///   1. resultant tensor as last parameter
+    ///   2. return the resultant tensor
     ///
     static __BOTH__ Tensor &gemm(Tensor &A, Tensor &B, Tensor &C, DU alpha, DU beta);
     static __BOTH__ Tensor &grad(Tensor &A, Tensor &B, Tensor &C);
     static __BOTH__ Tensor &mm(Tensor &A, Tensor &B, Tensor &C) { return gemm(A, B, C, 1.0, 0.0); }
     static __BOTH__ Tensor &add(Tensor &A, Tensor &B, Tensor &C, bool sub=0);
-    static __BOTH__ Tensor &copy(Tensor &D, Tensor &S);
-    static __BOTH__ Tensor &transpose(Tensor &D, Tensor &S);
+    static __BOTH__ Tensor &copy(Tensor &A, Tensor &C);
+    static __BOTH__ Tensor &transpose(Tensor &A, Tensor &T);
+    static __BOTH__ Tensor &inverse(Tensor &A, Tensor &I);
     ///
     /// class contructors
     ///
@@ -70,7 +74,7 @@ struct Tensor : public Managed {
     __BOTH__ Tensor &reshape(U16 h, U16 w);
     __BOTH__ Tensor &reshape(U16 n, U16 h, U16 w, U16 c);
     __BOTH__ Tensor &fill(DU v);
-    __BOTH__ Tensor &identity();
+    __BOTH__ Tensor &identity();              ///< fill as an identity matrix
     __BOTH__ Tensor &scale(DU v);
     __HOST__ void   copy_to_host(void* dst) { cudaMemcpy(dst, data, size, cudaMemcpyDeviceToHost); }
     ///
