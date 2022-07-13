@@ -25,7 +25,7 @@ CU_BUILD:= ${CUDA_HOME}/bin/nvcc -ccbin g++ --cudart=static \
 
 .PHONY: test clean clean-test
 
-test: t_tensor t_tlsf t_mmu_tensor
+test: t_tensor t_tlsf t_mmu_tensor t_inverse
 
 # Each subdirectory must supply rules for building sources it contributes
 t_tensor: ./tests/t_tensor.o ./src/tensor.o
@@ -35,6 +35,9 @@ t_tlsf: ./tests/t_tlsf.o ./src/tlsf.o
 	$(CU_BUILD)	-o "$(<:.o=)" $^
 
 t_mmu_tensor: ./tests/t_mmu_tensor.o ./src/tensor.o ./src/mmu.o ./src/tlsf.o
+	$(CU_BUILD)	-o "$(<:.o=)" $^
+
+t_inverse: ./tests/t_inverse.o
 	$(CU_BUILD)	-o "$(<:.o=)" $^
 
 tests/%.o: tests/%.cu $(INCS)
