@@ -69,7 +69,7 @@ AIO::print_obj(DU v) {
     std::cout << std::setprecision(_prec);
     switch (t.rank) {
     case 1: {
-        std::cout << "array[" << t.size << "] = ";
+        std::cout << "vector[" << t.size << "] = ";
         int ri = (t.size < _thres) ? t.size : range(t.size);
         print_vec(d, t.size, ri);
     } break;

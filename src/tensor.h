@@ -20,7 +20,7 @@ struct Tensor : public Managed {
     U16              dsize;     ///< size of data element, F32 for now, TODO: others
     U16              rank;      ///< rank of tensor 2:matrix, 4:NHWC tensor
     U16              stride[4]; ///< strides to calculate memory offset
-    U16              shape[4];  ///< shape=HWCN, matrix C=N=1, array W=C=N=1
+    U16              shape[4];  ///< shape=HWCN, matrix C=N=1, vector W=C=N=1
     U32              attr = 0;  ///< tensor attributes (a view)
     union {
         U8           *data = 0; ///< managed memory block pointer

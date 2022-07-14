@@ -146,7 +146,7 @@ MMU::mark_free(DU v) {            ///< mark a tensor free for release
     TRACE1("mark T[%x]=%p as free[%d]\n", *(U32*)&v, &t, _fidx);
 //    lock();
     if (_fidx < T4_TFREE_SZ) _mark[_fidx++] = v;
-    else ERROR("ERR: tfree array full, increase T4_TFREE_SZ!");
+    else ERROR("ERR: tfree store full, increase T4_TFREE_SZ!");
 //    unlock();                   ///< TODO: CC: DEAD LOCK, now!
 }
 __GPU__ void                      ///< release marked free tensor

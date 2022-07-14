@@ -59,7 +59,7 @@ class TLSF : public Managed {
     U32        _mutex  = 0;             ///> memory block mutex control
     U32        _l1_map = 0;             ///> 1st level (FLI) hit map
     U8         _l2_map[L1_BITS];        ///> 2nd level (SLI) hit map (8-bit)
-    free_block *_free_list[FL_SLOTS];   ///> array of free lists (head of linked list)
+    free_block *_free_list[FL_SLOTS];   ///> vector of free lists (head of linked list)
 
 public:
     __BOTH__ void        init(U8 *mem, U32 sz);      ///> initialize storage pool

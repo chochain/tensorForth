@@ -91,12 +91,12 @@ class MMU : public Managed {
     IU             _mutex = 0;      ///< lock (first so address aligned)
     IU             _didx  = 0;      ///< dictionary index
     IU             _midx  = 0;      ///< parameter memory index
-    IU             _fidx  = 0;      ///< index to freed tensor array
+    IU             _fidx  = 0;      ///< index to freed tensor list
     Code           *_dict;          ///< dictionary block
     U8             *_pmem;          ///< parameter memory block
     DU             *_vmss;          ///< VM data stack block
     U8             *_ten;           ///< tensor storage block
-    DU             *_mark;          ///< array for tensors that marked free
+    DU             *_mark;          ///< list for tensors that marked free
     curandState    *_seed;          ///< for random number generator
     TLSF           _tstore;         ///< tensor storage manager
     int            _trace = 0;      ///< debug tracing verbosity level
@@ -159,7 +159,7 @@ public:
 #else // T4_ENABLE_OBJ
     __GPU__  void   mark_free(DU v);                        ///< mark a tensor free
     __GPU__  void   sweep();                                ///< free marked tensor
-    __GPU__  Tensor &tensor(U32 sz);                        ///< create an array
+    __GPU__  Tensor &tensor(U32 sz);                        ///< create an vector
     __GPU__  Tensor &tensor(U16 h, U16 w);                  ///< create a matrix
     __GPU__  Tensor &tensor(U16 n, U16 h, U16 w, U16 c);    ///< create a NHWC tensor
     __GPU__  void   free(Tensor &t);                        ///< free the tensor
