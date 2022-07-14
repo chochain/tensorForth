@@ -1,10 +1,10 @@
 # tensorForth - Release 2.0 / 2022-07
 ## Features
-* array, matrix, tensor objects (modeled to PyTorch)
+* vector, matrix, tensor objects (modeled to PyTorch)
 * TLSF tensor storage manager
 * matrix arithmetics (i.e. +, -, *, copy, matmul, transpose)
 * matrix fill (i.e. zeros, ones, full, eye, random)
-* matrix console input (i.e. matrix[..., array[..., and T![)
+* matrix console input (i.e. matrix{..., vector{..., and T!{)
 * matrix print (i.e PyTorch-style, adjustable edge elements)
 * tensor view instead of deep copy (i.e. dup, over, pick, r@, )
 * GEMM (i.e. a * A x B + b * C, use CUDA Dynamic Parallelism)
@@ -57,14 +57,14 @@ tensorForth 2.0
 ### Tensor creation ops
 |word|param/example|tensor creation ops|
 |---|---|---|
-|array|(n -- T1)|create a 1-D array and place on top of stack (TOS)|
-||> `5 `**`array`**|`T1[5]`|
+|vector|(n -- T1)|create a 1-D array and place on top of stack (TOS)|
+||> `5 `**`vector`**|`T1[5]`|
 |matrix|(h w -- T2)|create 2-D matrix and place on TOS|
 ||> `2 3`**`matrix`**|`T2[2,3]`|
 |tensor|(n h w c -- T4)|create a 4-D NHWC tensor on TOS|
 ||> `64 224 224 3`**`tensor`**|`T4[64,224,224,3]`|
-|array[|(n -- T1)|create 1-D array from console stream|
-||> `5`**`array{`**`1 2 3 4 5 }`|`T1[5]`|
+|vector{|(n -- T1)|create 1-D array from console stream|
+||> `5`**`vector{`**`1 2 3 4 5 }`|`T1[5]`|
 |matrix[|(h w -- T2)|create a 2-D matrix as TOS|
 ||> `2 3`**`matrix{`**`1 2 3 4 5 6 }`<br/>> `3 2`**`matrix{`**`{ 1 2 } { 3 4 } { 5 6 } }`|`T2[2,3]`</br>`T2[2,3] T2[3,2]`|
 |copy|(Ta -- Ta Ta')|duplicate (deep copy) a tensor on TOS|
@@ -84,8 +84,8 @@ tensorForth 2.0
 ### Tensor/View print
 |word|param/example|Tensor/View print|
 |---|---|---|
-|. (dot)|(T1 -- )|print array|
-||> `5 array{ 1 2 3 4 5 }`<br/>> **`.`**|`T1[5]`<br/>`array[5] = { +1.0000 +2.0000 +3.0000 +4.0000 +5.0000 }`|
+|. (dot)|(T1 -- )|print vector|
+||> `5 vector{ 1 2 3 4 5 }`<br/>> **`.`**|`T1[5]`<br/>`vector[5] = { +1.0000 +2.0000 +3.0000 +4.0000 +5.0000 }`|
 |. (dot)|(T2 -- )|print matrix|
 ||> `2 3 matrix{ 1 2 3 4 5 6 }`<br/>> **`.`**|`T2[2,3]`<br/>`matrix[2,3] = { { +1.0000 +2.0000 +3.0000 } { +4.0000 +5.0000 +6.0000 } }`|
 |. (dot)|(V2 -- )|print view|
@@ -95,7 +95,7 @@ tensorForth 2.0
 |word|param/example|Shape adjusting ops|
 |---|---|---|
 |flatten|(Ta -- Ta')|reshap a tensor to 1-D array|
-||> `2 3 matrix{ 1 2 3 4 5 6 }`<br/>> **`flatten`**<br/>> `.`|`T2[2,3]`</br>`T1[6]`<br/>`array[6] = { +1.0000 +2.0000 +3.0000 +4.0000 +5.0000 +6.0000 }`|
+||> `2 3 matrix{ 1 2 3 4 5 6 }`<br/>> **`flatten`**<br/>> `.`|`T2[2,3]`</br>`T1[6]`<br/>`vector[6] = { +1.0000 +2.0000 +3.0000 +4.0000 +5.0000 +6.0000 }`|
 |reshape2|(h w Ta -- Ta')|reshape a 2-D matrix|
 ||> `2 3 matrix{ 1 2 3 4 5 6 }`<br/>> `dup .`<br/>> `3 2`**`reshape2`**</br>> `dup .`|`T2[2,3]`<br/>`matrix[2,3] = { { +1.0000 +2.0000 +3.0000 } { +4.0000 +5.0000 +6.0000 } }`<br/>`T2[3,2]`<br/>`matrix[3,2] = { { +1.0000 +2.0000 } { +3.0000 +4.0000 } { +5.0000 +6.0000 } }`|
 |reshape4|(n h w c Ta -- Ta')|reshape to a 4-D NHWC tensor|
@@ -134,11 +134,12 @@ tensorForth 2.0
 ||> `2 2 matrix random`<br/>> `dup .`<br/>> `2 2 matrix ones`<br/>> **`+`**<br/>> `.`|`T2[2,2]`<br/>`matrix[2,2] = { { -0.5000 +0.1953 } { +0.1094 +0.4141 } }`<br/>`T2[2,2] T2[2,2]`<br/>`T2[2,2] T2[2,2] T[2,2]`<br/>`matrix[2,2] = { { +0.5000 +1.1953 } { +1.1094 +1.4141 } }`|
 |-|(Ta Tb -- Ta Tb Tc)|tensor element-wise subtraction|
 |*|(Ta Tb -- Ta Tb Tc)|matrix-matrix multiplication|
-|*|(Ta Ab -- Ta Ab Tc)|TODO: matrix-array multiplication|
-|*|(Aa Ab -- Aa Ab c)|array-array dot product|
-|*|(Ta v  -- Ta Ta')|matrix-scaler multiplication|
+|*|(Ta Ab -- Ta Ab Tc)|TODO: matrix-vector multiplication|
+|*|(Aa Ab -- Aa Ab c)|vector-vector dot product|
+|*|(Ta n  -- Ta n Ta')|matrix-scalar multiplication|
+|*|(n  Ta -- n  Ta Ta')|scalar-matrix-scalar multiplication|
 |/|(Ta Tb -- Ta Tb Tc)|TODO: C = A x inverse(B)|
-|/|(Ta v  -- Ta Ta')|matrix-scaler division|
+|/|(Ta v  -- Ta Ta')|matrix-scalar division|
 |sum|(Ta -- Ta n)|sum all elements of a tensor|
 |exp|(Ta -- Ta Ta')|exponential (i.e. e^x) all elements of a tensor|
 |inverse|(Ta -- Ta Ta')|matrix inversion (Gauss-Jordan)|

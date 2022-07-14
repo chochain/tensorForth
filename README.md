@@ -5,7 +5,7 @@
 |version|feature|stage|description|comparable|
 |---|---|---|---|---|
 |[release 1.0](https://github.com/chochain/tensorForth/releases/tag/v1.0.2)|**float**|beta|extended eForth with F32 float|Python|
-|[release 2.0](https://github.com/chochain/tensorForth/releases/tag/v2.0.2)|**matrix**|alpha|added array and matrix objects|NumPy|
+|[release 2.0](https://github.com/chochain/tensorForth/releases/tag/v2.0.4)|**matrix**|alpha|added vector and matrix objects|NumPy|
 |next|**CNN**|planning|add tensor NN ops with autograd|PyTorch|
 |-|**RNN**|later|-|-|
 
@@ -127,10 +127,10 @@ Note:
 ## Forth Tensor operations (see [doc](./docs/v2_progress.md) for detail and examples)
 ### Tensor creation words
 <pre>
-   array     (n       -- T1)     - create a 1-D array and place on top of stack (TOS)
+   vector    (n       -- T1)     - create a 1-D array and place on top of stack (TOS)
    matrix    (h w     -- T2)     - create 2-D matrix and place on TOS
    tensor    (n h w c -- T4)     - create a 4-D NHWC tensor on TOS
-   array{    (n       -- T1)     - create 1-D array from console stream
+   vector{   (n       -- T1)     - create 1-D array from console stream
    matrix{   (h w     -- T2)     - create a 2-D matrix from console stream
    copy      (Ta      -- Ta Ta') - duplicate (deep copy) a tensor on TOS
 </pre>
@@ -145,8 +145,8 @@ Note:
 
 ### Tensor/View print word
 <pre>
-   . (dot)   (Ta -- )        - print array
-   . (dot)   (Va -- )        - print view
+   . (dot)   (Ta -- )        - print a vector, matrix, or tensor
+   . (dot)   (Va -- )        - print a view (of vector, matrix, or tensor)
 </pre>
 ### Shape adjusting words (change shape of origial tensor)
 <pre>
@@ -175,15 +175,16 @@ Note:
 ### Tensor arithmetic words (by default non-destructive)
 <pre>
    +         (Ta Tb -- Ta Tb Tc) - tensor element-wise addition
-   +         (Ta n  -- Ta Ta')   - tensor matrix-scaler addition (broadcast)
+   +         (Ta n  -- Ta Ta')   - tensor matrix-scalar addition (broadcast)
    -         (Ta Tb -- Ta Tb Tc) - tensor element-wise subtraction
-   -         (Ta n  -- Ta Ta')   - tensor matrix-scaler subtraction (broadcast)
+   -         (Ta n  -- Ta Ta')   - tensor matrix-scalar subtraction (broadcast)
    *         (Ta Tb -- Ta Tb Tc) - matrix-matrix multiplication
-   *         (Ta Ab -- Ta Ab Ta')- TODO: matrix-array multiplication (broadcase)
-   *         (Aa Ab -- Aa Ab n)  - array-array dot product
-   *         (Ta n  -- Ta Ta')   - matrix-scaler multiplication (broadcast)
+   *         (Ta Ab -- Ta Ab Ta')- TODO: matrix-vector multiplication (broadcase)
+   *         (Aa Ab -- Aa Ab n)  - vector-vector dot product
+   *         (Ta n  -- Ta n  Ta')- matrix-scalar multiplication
+   *         (n  Ta -- n  Ta Ta')- scalar-matrix multiplication
    /         (Ta Tb -- Ta Tb Tc) - TODO: A * inv(B) matrix
-   /         (Ta n  -- Ta Ta')   - matrix-scaler scale down multiplication (broadcast)
+   /         (Ta n  -- Ta n  Ta')- matrix-scalar scale down multiplication (broadcast)
    sum       (Ta    -- Ta n)     - sum all elements of a tensor
    exp       (Ta    -- Ta Ta')   - element-wise exponential
    inverse   (Ta    -- Ta Ta')   - matrix inversion (Gauss-Jordan)
@@ -226,7 +227,7 @@ Note:
 * Output Stream, async from GPU to host
 
 ### [Release 2.0](./docs/v2_progress.md) features
-* array, matrix, tensor objects (modeled to PyTorch)
+* vector, matrix, tensor objects (modeled to PyTorch)
 * TLSF tensor storage manager (now 4G max)
 * matrix arithmetics (i.e. +, -, *, copy, matmul, transpose)
 * matrix fill (i.e. zeros, ones, full, eye, random)
