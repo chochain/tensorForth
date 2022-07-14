@@ -70,22 +70,22 @@ TensorVM::tadd(bool sub) {
 */
 __GPU__ void
 TensorVM::tmul() {                                    ///< tensor multiplication
-    if (!IS_TEN(ss[-1])) {
-        top *= ss.pop();                              /// * scaler * scaler
-        return;
-    }
-    Tensor &A = mmu.du2ten(ss[-1]);
-    if (!IS_OBJ(top)) {                               /// * tensor * scaler
-        Tensor &C = mmu.copy(A);                      /// * hard copy A tensor
-        VLOG2("T%d=%p * %f => A'=%p\n", A.rank, &A, top, &C);
-        top = mmu.ten2du(C.scale(top));               /// * resultant tensor on TOS
-        return;
-    }
+    bool s0 = !IS_OBJ(top), s1 = !IS_OBJ(ss[-1]);     /// * scalar check
+    if (s0 && s1) { top *= ss.pop(); return; }        /// * scalar * scalar
     
-    Tensor &B = mmu.du2ten(top);
+    Tensor &A = mmu.du2ten(s1 ? top : ss[-1]);
+    if (s0 || s1) {                                   /// * tensor * scalar
+        Tensor &C = mmu.copy(A);                      /// * hard copy A tensor
+        DU     k  = s0 ? top : ss[-1];
+        VLOG2("T%d=%p * %f => A'=%p\n", A.rank, &A, k, &C);
+        mmu.ten2du(C.scale(k));                       /// * resultant tensor on TOS
+        PUSH(C);
+        return;
+    }
+    Tensor &B = mmu.du2ten(top);                      /// tensor * tensor
     U16 m  = A.H(), ka = A.W(), kb = B.H(), n  = B.W();
     VLOG2("A[%d,%d]=%p x B[%d,%d]=%p ", m, ka, &A, kb, n, &B);
-    if (A.rank==1 && B.rank==1 && A.size==B.size) {   /// * array x array
+    if (A.rank==1 && B.rank==1 && A.size==B.size) {   /// * vector x vector
         PUSH(A.dot(B));                               /// * dot product on TOS
         VLOG2(" => %f\n", top);
     }
@@ -100,12 +100,12 @@ TensorVM::tmul() {                                    ///< tensor multiplication
 __GPU__ void
 TensorVM::tdiv() {                                     ///< tensor division
     if (!IS_TEN(ss[-1])) {
-        top = ss.pop() / top;                          /// * scaler / scaler
+        top = ss.pop() / top;                          /// * scalar / scalar
         NO_OBJ(top);
         return;
     }
     Tensor &A = mmu.du2ten(ss[-1]);
-    if (!IS_TEN(top)) {                               /// * tensor / scaler
+    if (!IS_TEN(top)) {                               /// * tensor / scalar
         Tensor &C = mmu.copy(A);                      /// * hard copy A tensor
         VLOG2("A[%d,%d]=%p / %f => A'=%p\n", A.H(), A.W(), &A, top, &C);
         top = mmu.ten2du(C.scale(1.0/top));           /// * resultant tensor on TOS
@@ -156,7 +156,7 @@ TensorVM::init_t() {
     ///@defgroup Tensor creation ops
     ///@brief - stick to PyTorch naming when possible
     ///@{
-    CODE("array",                        ///< allocate an array
+    CODE("vector",                        ///< allocate a vector
         IU sz = POPi;
         PUSH(mmu.tensor(sz))),
     CODE("matrix",                       ///< allocate a matrix
@@ -165,7 +165,7 @@ TensorVM::init_t() {
     CODE("tensor",                       ///< allocate a NHWC tensor
         IU c = POPi; IU w = POPi; IU h = POPi; IU n = POPi;
         PUSH(mmu.tensor(n, h, w, c))),
-    CODE("array{",                       ///< create an array with literals
+    CODE("vector{",                      ///< create a vector with literals
         IU sz = POPi;
         PUSH(mmu.tensor(sz));
         ten_off = 0; ten_lvl = 1),
@@ -178,7 +178,7 @@ TensorVM::init_t() {
     ///@defgroup Tensor shape ops
     ///@brief - stick to PyTorch naming when possible
     ///@{
-    CODE("flatten",                      ///< reshape as an 1-D array
+    CODE("flatten",                      ///< reshape as a vector (1-D array)
         Tensor &t = mmu.du2ten(top);
         t.reshape(t.size)),
     CODE("reshape2",                     ///< reshape as matrix(h,w)

@@ -28,7 +28,7 @@ public:
     
 protected:
     int   ten_lvl = 0;                      ///< tensor input level
-    int   ten_off = 0;                      ///< tensor offset (array index)
+    int   ten_off = 0;                      ///< tensor offset (storage index)
     ///
     /// override literal handler
     ///
