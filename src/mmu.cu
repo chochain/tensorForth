@@ -11,15 +11,15 @@
 #define T4_RAND_SEED_SZ  256
 
 __KERN__ void k_rand_init(curandState *st, U64 seed=0) {
-    int tid = threadIdx.x;
-    curand_init((seed != 0) ? seed : clock64() + tid, tid, 0, &st[tid]);
+    int k = threadIdx.x;
+    curand_init((seed != 0) ? seed : clock64() + k, k, 0, &st[k]);
 }
 __KERN__ void k_rand(DU *mat, int sz, curandState *st, t4_rand_type ntype) {
-    int x = threadIdx.x + blockIdx.x * blockDim.x;
+    int k = threadIdx.x + blockIdx.x * blockDim.x;
     curandState *s = &st[threadIdx.x];
 
-    if (x < sz) {
-        mat[x] = ntype ? curand_normal(s) : curand_uniform(s);  // no divergence
+    if (k < sz) {
+        mat[k] = ntype ? curand_normal(s) : curand_uniform(s);  // no divergence
     }
 }
 ///

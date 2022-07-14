@@ -26,15 +26,15 @@ __GPU__ TensorVM *vm_pool[VM_MIN_COUNT]; /// TODO: CC - VM polymorphic does not 
 ///
 __KERN__ void
 ten4_init(int khz, Istream *istr, Ostream *ostr, MMU *mmu) {
-    int i = threadIdx.x;
+    int k = threadIdx.x;
     TensorVM *vm;
-    if (i < VM_MIN_COUNT) {
-        vm = vm_pool[i] = new TensorVM(khz, istr, ostr, mmu);  // instantiate VM
-        vm->ss.init(mmu->vmss(i), T4_SS_SZ);  // point data stack to managed memory block
+    if (k < VM_MIN_COUNT) {
+        vm = vm_pool[k] = new TensorVM(khz, istr, ostr, mmu);  // instantiate VM
+        vm->ss.init(mmu->vmss(k), T4_SS_SZ);  // point data stack to managed memory block
     }
     __syncthreads();
 
-    if (i==0) vm->init_t();             /// * initialize common dictionary (once only)
+    if (k==0) vm->init_t();             /// * initialize common dictionary (once only)
 }
 ///
 /// check VM status (using parallel reduction - overkill?)
@@ -43,22 +43,21 @@ __KERN__ void
 ten4_busy(int *busy) {
     extern __shared__ bool b[];          // share memory for fast calc
 
-    int i = threadIdx.x;
-    b[i] = (i < VM_MIN_COUNT) ? vm_pool[i]->status==VM_RUN : 0;
+    int k = threadIdx.x;
+    b[k] = (k < VM_MIN_COUNT) ? vm_pool[k]->status==VM_RUN : 0;
     __syncthreads();
 
     for (int n=blockDim.x>>1; n>16; n>>=1) {
-        if (i < n) b[i] |= b[i + n];
+        if (k < n) b[k] |= b[k + n];
         __syncthreads();
     }
-    if (i < 16) {                        // reduce spinning threads
-        b[i] |= b[i + 16];
-        b[i] |= b[i + 8];
-        b[i] |= b[i + 4];
-        b[i] |= b[i + 2];
-        b[i] |= b[i + 1];
+    if (k < 16) {                        // reduce spinning threads
+        #pragma unroll
+        for (int i = 16; i > 0; i >>= 1) {
+            b[k] |= b[k + i];
+        }
     }
-    if (i==0) *busy = b[0];
+    if (k==0) *busy = b[0];
 }
 ///
 /// tensorForth kernel - VM dispatcher

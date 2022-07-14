@@ -31,7 +31,7 @@ struct Tensor : public Managed {
         };
     };
     ///
-    /// static ops 
+    /// static ops
     /// Note:
     ///   1. resultant tensor as last parameter
     ///   2. return the resultant tensor

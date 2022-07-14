@@ -17,15 +17,15 @@ __KERN__ void k_gemm(                                        ///< 2D only
     int H, int W, int K,
     DU alpha, DU beta)
 {
-    int x = threadIdx.x + blockIdx.x * blockDim.x;
-    int y = threadIdx.y + blockIdx.y * blockDim.y;
+    int i = threadIdx.y + blockIdx.y * blockDim.y;
+    int j = threadIdx.x + blockIdx.x * blockDim.x;
 
-    if (x < W && y < H) {
+    if (i < H && j < W) {
         DU acc = 0;
         for (int k = 0; k < K; ++k) {
-            acc += A[k + y * K] * B[x + k * W];
+            acc += A[k + i * K] * B[j + k * W];
         }
-        C[x + y * W] = alpha * acc + beta * C[x + y * W];
+        C[j + i * W] = alpha * acc + beta * C[j + i * W];
     }
 }
 __KERN__ void k_matadd(                                     ///< TODO: C
@@ -33,76 +33,77 @@ __KERN__ void k_matadd(                                     ///< TODO: C
     int H, int W,
     bool sub)
 {
-    int x = threadIdx.x + blockIdx.x * blockDim.x;
-    int y = threadIdx.y + blockIdx.y * blockDim.y;
+    int i = threadIdx.y + blockIdx.y * blockDim.y;
+    int j = threadIdx.x + blockIdx.x * blockDim.x;
 
-    if (x < W && y < H) {
-        int i = x + y * W;
-        if (sub) C[i] = A[i] - B[i];
-        else     C[i] = A[i] + B[i];
+    if (i < H && j < W) {
+        int k = j + i * W;
+        if (sub) C[k] = A[k] - B[k];
+        else     C[k] = A[k] + B[k];
     }
 }
 __KERN__ void k_transpose(DU *src, DU *dst, int H, int W) { ///< Note: (src, dst), TODO: CDP
-    int x = threadIdx.x + blockIdx.x * blockDim.x;
-    int y = threadIdx.y + blockIdx.y * blockDim.y;
+    int i = threadIdx.y + blockIdx.y * blockDim.y;
+    int j = threadIdx.x + blockIdx.x * blockDim.x;
 
-    if (x < W && y < H) {
-        dst[y + x * H] = src[x + y * W];
+    if (i < H && j < W) {
+        dst[i + j * H] = src[j + i * W];
     }
 }
 __KERN__ void k_copy(DU *src, DU *dst, int sz) {           ///< Note: (src, dst)
-    int x = threadIdx.x + blockIdx.x * blockDim.x;
-    if (x < sz) dst[x] = src[x];
+    int k = threadIdx.x + blockIdx.x * blockDim.x;
+    if (k < sz) dst[k] = src[k];
 }
 __KERN__ void k_fill(DU *A, DU v, int sz) {
-    int x = threadIdx.x + blockIdx.x * blockDim.x;
-    if (x < sz) A[x] = v;
+    int k = threadIdx.x + blockIdx.x * blockDim.x;
+    if (k < sz) A[k] = v;
 }
 __KERN__ void k_scale(DU *A, DU v, int sz) {
-    int x = threadIdx.x + blockIdx.x * blockDim.x;
-    if (x < sz) A[x] *= v;
+    int k = threadIdx.x + blockIdx.x * blockDim.x;
+    if (k < sz) A[k] *= v;
 }
 __KERN__ void k_identity(DU *A, int W, int H, int C) {
-    int x = threadIdx.x + blockIdx.x * blockDim.x;
-    int y = threadIdx.y + blockIdx.y * blockDim.y;
-    if (x < W && y < H) {
-        for (int c=0; c < C; c++) A[x + y*W + c] = (x==y) ? 1.0 : DU0;
+    const DU i01[2][4] = {{ DU0, DU0, DU0, DU0 }, { 1.0, 1.0, 1.0, 1.0 }};
+    int i = threadIdx.y + blockIdx.y * blockDim.y;
+    int j = threadIdx.x + blockIdx.x * blockDim.x;
+    if (i < H && j < W) {
+        memcpy(&A[j + i * W], i01[i==j], sizeof(DU) * C); /// * assume x==y return 0|1
     }
 }
 __KERN__ void k_norm_nodiag(double *A, double *I, int D, int n){   ///< TODO: C
-    int x = blockIdx.x * blockDim.x + threadIdx.x;
-    int y = blockIdx.y * blockDim.y + threadIdx.y;
+    int i = blockIdx.y * blockDim.y + threadIdx.y;
+    int j = blockIdx.x * blockDim.x + threadIdx.x;
 
-    if (x < D && y < D && x==n && x!=y) {
-        I[y*D + x] /= A[y*D + n];
-        A[y*D + x] /= A[y*D + n];
+    if (i < D && j < D && j==n && i!=j) {
+        I[i*D + j] /= A[i*D + n];
+        A[i*D + j] /= A[i*D + n];
     }
 }
 __KERN__ void k_norm_diag(double *A, double *I, int D, int n) {    ///< TODO: C
-    int x = blockIdx.x * blockDim.x + threadIdx.x;
-    int y = blockIdx.y * blockDim.y + threadIdx.y;
+    int i = blockIdx.y * blockDim.y + threadIdx.y;
+    int j = blockIdx.x * blockDim.x + threadIdx.x;
 
-    if (x < D && y < D & x==n && x==y) {
-        I[y*D + x] /= A[y*D + n];
-        A[y*D + x] /= A[y*D + n];
+    if (i < D && j < D & j==n && i==j) {
+        I[i*D + j] /= A[i*D + n];
+        A[i*D + j] /= A[i*D + n];
     }
 }
 __KERN__ void k_gaussjordan(double *A, double *I, int D, int n) {  ///< TODO: C
-    int x = blockIdx.x * blockDim.x + threadIdx.x;
-    int y = blockIdx.y * blockDim.y + threadIdx.y;
+    int i = blockIdx.y * blockDim.y + threadIdx.y;
+    int j = blockIdx.x * blockDim.x + threadIdx.x;
 
-    if (x < D && y < D && x!=n) {
-        I[y*D + x] -= I[n*D + x] * A[y*D + n];
-        if (y != n){
-            A[y*D + x] -= A[n*D + x] * A[y*D + n];
+    if (i < D && j < D && j!=n) {
+        I[i*D + j] -= I[n*D + j] * A[i*D + n];
+        if (i != n){
+            A[i*D + j] -= A[n*D + j] * A[i*D + n];
         }
     }
 }
 __KERN__ void k_inv_zero(double *A, int D, int n) {               ///< TODO: C
-    int x = blockIdx.x * blockDim.x + threadIdx.x;
-    int y = blockIdx.y * blockDim.y + threadIdx.y;
+    int i = blockIdx.y * blockDim.y + threadIdx.y;
+    int j = blockIdx.x * blockDim.x + threadIdx.x;
 
-    if (x < D && y < D && x!=n && y==n) A[x*D + y] = DU0;
+    if (i < D && j < D && j!=n && i==n) A[j*D + i] = DU0;
 }
 ///=======================================================================
 /// static methods
@@ -342,12 +343,13 @@ Tensor::reshape(U16 n, U16 h, U16 w, U16 c) {
 __BOTH__ Tensor&
 Tensor::identity() {
     if (rank < 2) return *this;
-    DU *d = (DU*)data;
-    for (int j=0; j < H(); j++) {
-        for (int i=0; i < W(); i++) {
-            for (int c=0; c < C(); c++) *d++ = (i==j) ? 1.0 : DU0;
-        }
-    }
+    int h = H(), w = W();
+    dim3 block(16, 16), grid(
+        (w + block.x - 1) / block.x,
+        (h + block.y - 1) / block.y
+    );
+    k_identity<<<grid, block>>>((DU*)data, h, w, C());
+    cudaDeviceSynchronize();
     return *this;
 }
 
