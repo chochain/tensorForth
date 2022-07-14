@@ -35,19 +35,23 @@ TensorVM::texp() {
 }
 __GPU__ void
 TensorVM::tadd(bool sub) {
-    if (!IS_TEN(ss[-1])) {
+    bool s0 = !IS_TEN(top), s1 = !IS_TEN(ss[-1]);
+    
+    if (s0 && s1) {
         top = sub ? ss.pop() - top : ss.pop() + top;
         return;
     }
-    Tensor &A = mmu.du2ten(ss[-1]);
+    if (s0 || s1) { ERROR("dim?"); return; }  ///> TODO: broadcast
+    
+    Tensor &A = mmu.du2ten(ss[-1]);           ///> tensor +- tensor
     Tensor &B = mmu.du2ten(top);
     U16 h = A.H(), w = A.W();
     if (h == B.H() && w == B.W()) {
         Tensor &C = mmu.tensor(h, w);
         Tensor::add(A, B, C, sub);
         PUSH(C);
+        return;
     }
-    else ERROR("dim?");
 }
 /**
   TODO: Matrix product of two Tensors.
@@ -70,7 +74,7 @@ TensorVM::tadd(bool sub) {
 */
 __GPU__ void
 TensorVM::tmul() {                                    ///< tensor multiplication
-    bool s0 = !IS_OBJ(top), s1 = !IS_OBJ(ss[-1]);     /// * scalar check
+    bool s0 = !IS_TEN(top), s1 = !IS_TEN(ss[-1]);     /// * scalar check
     if (s0 && s1) { top *= ss.pop(); return; }        /// * scalar * scalar
     
     Tensor &A = mmu.du2ten(s1 ? top : ss[-1]);
@@ -83,7 +87,7 @@ TensorVM::tmul() {                                    ///< tensor multiplication
         return;
     }
     Tensor &B = mmu.du2ten(top);                      /// tensor * tensor
-    U16 m  = A.H(), ka = A.W(), kb = B.H(), n  = B.W();
+    U16 m = A.H(), ka = A.W(), kb = B.H(), n = B.W();
     VLOG2("A[%d,%d]=%p x B[%d,%d]=%p ", m, ka, &A, kb, n, &B);
     if (A.rank==1 && B.rank==1 && A.size==B.size) {   /// * vector x vector
         PUSH(A.dot(B));                               /// * dot product on TOS
@@ -115,7 +119,7 @@ TensorVM::tdiv() {                                     ///< tensor division
 }
 __GPU__ void
 TensorVM::tinv() {
-    if (!IS_TEN(top)) return;
+    if (!IS_TEN(top)) { ERROR("tensor?"); return; }
     Tensor &A = mmu.du2ten(top);
     Tensor &I = mmu.tensor(A.H(), A.W()).identity();
     Tensor &C = mmu.copy(A);
@@ -125,6 +129,7 @@ TensorVM::tinv() {
 }
 __GPU__ void
 TensorVM::ttrans() {
+    if (!IS_TEN(top)) { ERROR("tensor?"); return; }
     Tensor &A = mmu.du2ten(top);
     U16 h = A.H(), w = A.W();
     Tensor &B = mmu.tensor(w, h);
