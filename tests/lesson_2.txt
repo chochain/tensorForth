@@ -14,13 +14,15 @@ dup .                        \ create a view and print it
 1024 / . .                   \ scale down element-wise and print
 
 .( ### benchmark ) cr
-: mx clock >r                \ create a word for benchmark loops
+: mx dup >r clock >r         \ create a word for benchmark loops
   for * drop next            \ loop of matrix multiplication (and drop the result)
-  clock r> - ;               \ clock it
+  clock r> -                 \ clock it
+  r> / ." =>"                \ retrieve loop count and calc average
+  . ."  msec/cycle" cr ;     \ print result
 see mx                       \ show the word
 99 mx                        \ run 100 the multiplication loop 100 times
 
-drop 2drop                   \ drop the original two matrices
+2drop                        \ drop the original two matrices
 
 .( ### matrix inversion ) cr
 4 4 matrix randn             \ create a 4x4 matrix with normal distributed value
