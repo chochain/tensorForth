@@ -76,6 +76,7 @@ struct Tensor : public Managed {
     __BOTH__ Tensor &fill(DU v);
     __BOTH__ Tensor &identity();              ///< fill as an identity matrix
     __BOTH__ Tensor &scale(DU v);
+    __BOTH__ Tensor &triu();
     __HOST__ void   copy_to_host(void* dst) { cudaMemcpy(dst, data, size, cudaMemcpyDeviceToHost); }
     ///
     /// IO

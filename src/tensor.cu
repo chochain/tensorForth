@@ -21,7 +21,7 @@ __KERN__ void k_gemm(                                        ///< 2D only
     int j = threadIdx.x + blockIdx.x * blockDim.x;
 
     if (i < H && j < W) {
-        DU acc = 0;
+        DU2 acc = 0;
         for (int k = 0; k < K; ++k) {
             acc += A[k + i * K] * B[j + k * W];
         }
@@ -174,7 +174,7 @@ Tensor::inverse(Tensor &A, Tensor &I) {
     DU *aa = (DU*)A.data;
     DU *ii = (DU*)I.data;
     auto swap_rows = [aa, ii, w](U16 u, U16 z) {
-        for (U16 k = 0; k < w; k++) {      // swap entire row
+        for (U16 k = 0; k < w; k++) {         ///> TODO: swap entire row
             DU ta = aa[k + z * w], ti = ii[k + z * w];
             aa[k + z * w] = aa[k + u * w];
             ii[k + z * w] = ii[k + u * w];
@@ -184,8 +184,8 @@ Tensor::inverse(Tensor &A, Tensor &I) {
     };
     auto find_max = [aa, ii, w](U16 z) {
         int u = z;
-        for (U16 y = z + 1; y < w; y++) {
-            if (aa[z + y * w] > aa[z + u * w]) u = y;
+        for (U16 i = z + 1; i < w; i++) {    ///> TODO: CDP reduce
+            if (ABS(aa[z + i * w]) > ABS(aa[z + u * w])) u = i;
         }
         if (ABS(aa[z + u * w]) < DU_EPS) {
             ERROR("Tensor::inverse sigular!\n");
@@ -201,22 +201,44 @@ Tensor::inverse(Tensor &A, Tensor &I) {
             aa[i] /= r0;
         }};
     auto elim = [aa, ii, w](U16 z) {
-        for (U16 y = 0; y < w; y++) {
-            DU r1 = aa[z + y * w];
-            for (U16 k = 0; y!=z && k < w; k++) {
-                ii[k + y * w] -= r1 * ii[k + z * w];
-                aa[k + y * w] -= r1 * aa[k + z * w];
+        for (U16 i = 0; i < w; i++) {
+            DU r1 = aa[z + i * w];
+            for (U16 k = 0; i!=z && k < w; k++) {
+                ii[k + i * w] -= r1 * ii[k + z * w];
+                aa[k + i * w] -= r1 * aa[k + z * w];
             }
         }};
     for (U16 z = 0; z < w; z++) {
         int u = find_max(z);
         if (u < 0) break;
-        else if (u != z) swap_rows(u, z);
+        else if (u != z) {
+            swap_rows(u, z);
+        }
         diag(z);
         elim(z);
     }
     return I;
 }
+__BOTH__ Tensor&
+Tensor::triu() {
+    U16 h  = H(), w = W();
+    WARN("Tensor::upper[%d,%d]\n", h, w);
+    
+    DU *d = (DU*)data;
+    auto upper = [d, w](int z) {
+        DU  r0 = d[z + z * w];
+        for (U16 i = z + 1; i < w; i++) {
+            float r1 = d[z + i * w] / r0;
+            for (U16 k = 0; k < w; k++) {
+                d[k + i * w] -= r1 * d[k * z * w];
+            }
+        }};
+    for (U16 z = 0; z < h; z++) {
+        upper(z);
+    }
+    return *this;
+}
+
 ///=======================================================================
 /// Tensor class constructors
 ///
