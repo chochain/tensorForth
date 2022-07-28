@@ -112,45 +112,45 @@ float h_det(DU A[3][3], int sz) {
     printf("LU det= %f\n", d);
     return d;
 }
-void h_forward(DU A[3][3], DU I[3][3], int z, int sz) {
+void h_forward(DU A[3][3], int z, int sz) {
     // lower triangle forward substitution
     for (int y = z + 1; y < sz; y++) {              //
         float r1 = A[y][z];
-        A[y][z] = 0.0; I[y][z] = -r1;               // current z column
-        for (int k = 0; k < z; k++) {
-            I[y][k] -= I[z][k] * r1;
+        for (int k = 0; k < z; k++) {               // columns before
+            A[y][k] -= A[z][k] * r1;
         }
+        A[y][z] = -r1;                              // current z column
     }
 }
-void h_backward(DU A[3][3], DU I[3][3], int z, int sz) {
+void h_backward(DU A[3][3], int z, int sz) {
     // upper triangle backward substitution
     float r0 = 1.0/A[z][z];
-    A[z][z] = 1.0; I[z][z] = r0;                    // diag
+    A[z][z] = r0;                                   // diag
     for (int k = z + 1; k < sz; k++) {              // current z row
-        I[z][k] *= r0;
+        A[z][k] *= r0;
     }
     for (int y = 0; y < z; y++) {                   // factorize rows above
         float r1 = A[y][z];
-        A[y][z] = 0.0; I[y][z] = -r1 * r0;          // current z column
-        for (int k = z + 1; k < sz; k++) {
-            I[y][k] -= I[z][k] * r1;
+        A[y][z] = -r1 * r0;                         // current z column
+        for (int k = z + 1; k < sz; k++) {          // columns after
+            A[y][k] -= A[z][k] * r1;
         }
     }
 }
-int lu_inv(DU A[3][3], DU I[3][3], DU P[3], int sz) {
+int lu_inv(DU A[3][3], DU P[3], int sz) {
     if (fabs(h_det(A, sz)) < DU_EPS) return -1;  // singular
 
     /// I += L^-1
     for (int z = 0; z < sz - 1; z++) {           // forward lower triangle
         printf("forward ==== %d\n", z);
-        h_forward(A, I, z, sz);                       
-        dump(A, I, P, sz);
+        h_forward(A, z, sz);                       
+        dump(A, A, P, sz);
     }
     /// I += U^-1
     for (int z = sz-1; z >= 0; z--) {            // backward upper triangle
         printf("backward ==== %d\n", z);
-        h_backward(A, I, z, sz);
-        dump(A, I, P, sz);
+        h_backward(A, z, sz);
+        dump(A, A, P, sz);
     }
     /// A^-1 = (U^-1)(L^-1)(PI), i.e. use P to swap_rows
     return 0;
@@ -164,7 +164,7 @@ int main(int argc, char **argv) {
 
 //    gj(A, I, 3);
     lu(A, P, 3);
-    lu_inv(A, I, P, 3);
+    lu_inv(A, P, 3);
 
     return 0;
 }
