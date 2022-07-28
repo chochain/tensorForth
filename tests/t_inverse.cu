@@ -12,11 +12,9 @@ void dump(DU A[3][3], DU I[3][3], DU P[3], int sz) {
 int  find_max(DU A[3][3], int z, int sz) {
     int u = z;
     /* finding maximum xth column element in last (sz-x) rows */
-    /*
     for (int y = z + 1; y < sz; y++) {
         if (fabs(A[y][z]) > fabs(A[u][z])) u = y;
     }
-    */
     if (fabs(A[u][z]) < DU_EPS) {
         printf("sigular !!!\n");
         return -1;
@@ -26,10 +24,10 @@ int  find_max(DU A[3][3], int z, int sz) {
     return u;
 }
 void swap_row(DU A[3][3], int z, int u, int n0, int n1) {
-    for (int k=n0; k<n1; k++) {      // swap entire row
-        float ta = A[z][k];
+    for (int k = n0; k < n1; k++) {   // swap entire row
+        float t = A[z][k];
         A[z][k] = A[u][k];
-        A[u][k] = ta;
+        A[u][k] = t;
     }
 }
 int h_gj(DU A[3][3], DU I[3][3], int z, int sz) {       // TODO: block-wise
@@ -81,11 +79,10 @@ void h_elim(DU A[3][3], int z, int sz) { // outer product gauss elimination
         for (int k = z; k < sz; k++) {
             A[y][k] -= r1 * A[z][k];
         }
-        A[y][z] = r1;                    // L store in U to save space
+        A[y][z] = r1;                    // L stored in U to save space
     }
 }
-int lu(DU A[3][3], DU P[3], int sz) {    // LU with permutation
-    DU I[3][3] = {{1,0,0},{0,1,0},{0,0,1}}; // dummy
+int lu(DU A[3][3], DU I[3][3], DU P[3], int sz) {    // LU with permutation
     printf("PLU = A\n");
 	for (int z = 0; z < sz; z++) {
         printf("==== %d\n", z);
@@ -94,6 +91,7 @@ int lu(DU A[3][3], DU P[3], int sz) {    // LU with permutation
         if (u < 0) return -1;            // singular matrix
 		if (u != z) { 	                 // swapping row which has maximum xth column element
             swap_row(A, z, u, z, sz);
+            swap_row(I, z, u, 0, sz);    // no functional, show order of I
             DU t = P[z]; P[z] = P[u]; P[u] = t;
         }
         dump(A, I, P, sz);
@@ -137,34 +135,34 @@ void h_backward(DU A[3][3], int z, int sz) {
         }
     }
 }
-int lu_inv(DU A[3][3], DU P[3], int sz) {
-    if (fabs(h_det(A, sz)) < DU_EPS) return -1;  // singular
+int lu_inv(DU A[3][3], DU I[3][3], DU P[3], int sz) {
+    if (fabs(h_det(A, sz)) < DU_EPS) return -1;     // singular
 
-    /// I += L^-1
-    for (int z = 0; z < sz - 1; z++) {           // forward lower triangle
+    /// A ~= L^-1
+    for (int z = 0; z < sz - 1; z++) {              // L forward substitude
         printf("forward ==== %d\n", z);
         h_forward(A, z, sz);                       
-        dump(A, A, P, sz);
+        dump(A, I, P, sz);
     }
-    /// I += U^-1
-    for (int z = sz-1; z >= 0; z--) {            // backward upper triangle
+    /// A ~= U^-1
+    for (int z = sz-1; z >= 0; z--) {               // U backward substitude
         printf("backward ==== %d\n", z);
         h_backward(A, z, sz);
-        dump(A, A, P, sz);
+        dump(A, I, P, sz);
     }
     /// A^-1 = (U^-1)(L^-1)(PI), i.e. use P to swap_rows
     return 0;
 }
 int main(int argc, char **argv) {
 //    DU A[3][3] = {{1,1,2},{2,1,1},{1,2,1}};
-//    DU A[3][3] = {{2,2,5},{1,1,1},{4,6,8}};
-    DU A[3][3] = {{1, 2, 4},{3, 8, 14},{2, 6, 13}};
+    DU A[3][3] = {{2,2,5},{1,1,1},{4,6,8}};
+//    DU A[3][3] = {{1, 2, 4},{3, 8, 14},{2, 6, 13}};
     DU I[3][3] = {{1,0,0},{0,1,0},{0,0,1}};
     DU P[3]    = { 0, 1, 2 };               // compressed sparse matrix
 
 //    gj(A, I, 3);
-    lu(A, P, 3);
-    lu_inv(A, P, 3);
+    lu(A, I, P, 3);
+    lu_inv(A, I, P, 3);
 
     return 0;
 }
