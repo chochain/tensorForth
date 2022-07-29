@@ -49,6 +49,7 @@ protected:
     __GPU__ void tlu();                     ///< matrix LU decomposition
     __GPU__ void tdet();                    ///< matrix determinant (via LU)
     __GPU__ void ttrans();                  ///< matrix transpose
+    __GPU__ void solve();                   ///< solve linear equation Ax = b
     __GPU__ void gemm();                    ///< GEMM C' = alpha * A x B + beta * C
 #endif // T4_ENABLE_OBJ
 };

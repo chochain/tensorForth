@@ -93,10 +93,16 @@ TensorVM::tmul() {                                    ///< tensor multiplication
         PUSH(A.dot(B));                               /// * dot product on TOS
         VLOG2(" => %f\n", top);
     }
+    else if (B.rank==1) {                             /// * tensor x vector
+        Tensor &C = mmu.tensor(ka);
+        Tensor::mm(A, B, C);
+        PUSH(C);                                      /// * resultant tensor on TOS
+        VLOG2("=> C[%d]=%p\n", C.H(), &C);
+    }
     else if (ka == kb) {                              /// * tensor x tensor
         Tensor &C = mmu.tensor(m, n);
         Tensor::mm(A, B, C);
-        PUSH(mmu.ten2du(C));                          /// * resultant tensor on TOS
+        PUSH(C);                                      /// * resultant tensor on TOS
         VLOG2("=> C[%d,%d]=%p\n", C.H(), C.W(), &C);
     }
     else ERROR("dim?");
@@ -149,8 +155,10 @@ TensorVM::tdet() {
     if (!IS_TEN(top)) { ERROR("tensor?"); return; }
     Tensor &A  = mmu.du2ten(top);
     Tensor &LU = mmu.copy(A);             /// * hardcopy original matrix
-    Tensor::lu(LU);                       /// * decompose A to LU
-    PUSH(LU.det());
+    Tensor &P  = mmu.tensor(A.H());       /// * dummy
+    Tensor::plu(LU, P);                   /// * decompose A to LU
+    mmu.free(P);
+    PUSH(LU.det());                       /// * return determinant on TOS
 }
 __GPU__ void
 TensorVM::ttrans() {
@@ -161,6 +169,22 @@ TensorVM::ttrans() {
     VLOG2("A[%d,%d]=%p => B[%d,%d]=%p", h, w, &A, B.H(), B.W(), &B);
     Tensor::transpose(A, B);
     PUSH(B);
+}
+__GPU__ void
+TensorVM::solve() {
+    if (!IS_TEN(ss[-1]) || !IS_TEN(top)) { ERROR("tensor?"); return; }
+    Tensor &B = mmu.du2ten(ss[-1]);      /// B vector
+    Tensor &A = mmu.du2ten(top);         /// A linear equations
+    U16 m = A.H(), k = A.W(), n = B.W();
+    if (m==k && B.rank==1 && k==B.H()) {
+        tinv();                          /// * inverse (i.e. A^-1)
+        Tensor &Ai = mmu.du2ten(POP());  /// * pop off A^-1
+        Tensor &X  = mmu.tensor(k);      /// resultant vector
+        Tensor::mm(Ai, B, X);            /// X = A^-1 x B
+        PUSH(X);                         /// * put resultant on TOS
+        mmu.free(Ai);                    /// * release inverse matrix
+    }
+    else ERROR("B A or dim?");
 }
 __GPU__ void
 TensorVM::gemm() {                       ///< blas GEMM
@@ -271,6 +295,7 @@ TensorVM::init_t() {
          PUSH(t1)),
     CODE("transpose", ttrans()),   ///< (A -- A At)    matrix transpose
     CODE("matmul",    tmul()),     ///< (A B -- A B C) matrix multiplication
+    CODE("solve",     solve()),    ///< (B A -- B A X) solve linear equations AX = B
     CODE("gemm",      gemm()),     ///< (a b A B C -- a b A B C') GEMM (C updated)
     ///@}
     };
