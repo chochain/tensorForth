@@ -2,7 +2,8 @@
 ## Features
 * vector, matrix, tensor objects (modeled to PyTorch)
 * TLSF tensor storage manager
-* matrix arithmetics (i.e. +, -, *, copy, matmul, transpose)
+* matrix arithmetics (i.e. +, -, *, copy, sum, exp)
+* linear algebra (i.e. matmul, inverse, transpose, det, lu, luinv, upper, lower)
 * matrix fill (i.e. zeros, ones, full, eye, random)
 * matrix console input (i.e. matrix{..., vector{..., and T!{)
 * matrix print (i.e PyTorch-style, adjustable edge elements)
@@ -91,7 +92,7 @@ tensorForth 2.0
 |. (dot)|(V2 -- )|print view|
 ||> `2 3 matrix{ 1 2 3 4 5 6 }`<br/>> `dup`<br/>> **`.`**|`T2[2,3]`<br/>`T2[2,3] V2[2,3]`<br/>`matrix[2,3] = { { +1.0000 +2.0000 +3.0000 } { +4.0000 +5.0000 +6.0000 } }`|
 
-### Shape adjusting ops
+### Shape adjustment ops
 |word|param/example|Shape adjusting ops|
 |---|---|---|
 |flatten|(Ta -- Ta')|reshap a tensor to 1-D array|
@@ -101,7 +102,7 @@ tensorForth 2.0
 |reshape4|(n h w c Ta -- Ta')|reshape to a 4-D NHWC tensor|
 ||> `2 3 matrix{ 1 2 3 4 5 6 }`<br/>> `1 3 2 1`**`reshape4`**|`T2[2,3]`<br/>`T4[1,3,2,1]`|
 
-### Fill ops
+### Tensor Fill ops
 |word|param/example|Fill tensor with init valuess|
 |---|---|---|
 |zeros|(Ta -- Ta')|fill tensor with zeros|
@@ -128,7 +129,7 @@ tensorForth 2.0
 ||> `4 4 matrix rand`<br/>> `dup .`<br/>> **`1 3 1 3 slice`**<br/>> `.`|`T2[4,4]`<br/>`matrix[4,4] = {`<br/> `{ +0.0940 +0.5663 +0.3323 +0.0840 }`<br/> `{ +0.6334 +0.3548 +0.1104 +0.7236 }`<br/> `{ +0.2781 +0.0530 +0.7532 +0.4145 }`<br/> `{ +0.4473 +0.0823 +0.1551 +0.3159 } }`<br> `matrix[2,2] = {`<br/> `{ +0.3548 +0.1104 }`</br> `{ +0.0530 +0.7532 } }`|
 
 ### Tensor Arithmetic ops
-|word|param/example|Matrix arithmetic ops (non-destructive)|
+|word|param/example|Tensor arithmetic ops (non-destructive)|
 |---|---|---|
 |+|(Ta Tb -- Ta Tb Tc)|tensor element-wise addition|
 ||> `2 2 matrix random`<br/>> `dup .`<br/>> `2 2 matrix ones`<br/>> **`+`**<br/>> `.`|`T2[2,2]`<br/>`matrix[2,2] = { { -0.5000 +0.1953 } { +0.1094 +0.4141 } }`<br/>`T2[2,2] T2[2,2]`<br/>`T2[2,2] T2[2,2] T[2,2]`<br/>`matrix[2,2] = { { +0.5000 +1.1953 } { +1.1094 +1.4141 } }`|
@@ -142,8 +143,18 @@ tensorForth 2.0
 |/|(Ta v  -- Ta Ta')|matrix-scalar division|
 |sum|(Ta -- Ta n)|sum all elements of a tensor|
 |exp|(Ta -- Ta Ta')|exponential (i.e. e^x) all elements of a tensor|
-|inverse|(Ta -- Ta Ta')|matrix inversion (Gauss-Jordan)|
-|transpose|(Ta -- Ta Ta')|matrix transpose|
-|matmul|(Ta Tb -- Ta Tb Tc)|matrix multiplication|
-|gemm|(a b Ta Tb Tc -- a b Ta Tb Tc')|GEMM Tc' = a * Ta x Tb + b * Tc|
+
+### Linear Algebra ops
+|word|param/example|Matrix arithmetic ops (non-destructive)|
+|---|---|---|
+|matmul|(Ma Mb -- Ma Mb Mc)|matrix multiplication|
+|inverse|(Ma -- Ma Ma')|matrix inversion (Gauss-Jordan with Pivot)|
+|transpose|(Ma -- Ma Ma')|matrix transpose|
+|det|(Ma -- Ma d)|matrix determinant|
+|lu|(Ma -- Ma Ma')|LU decomposition (stored in-place), no Pivot|
+|luinv|(Ma -- Ma Ma')|inversion of LU matrix|
+|upper|(Ma -- Ma Ma')|upper triangle|
+|lower|(Ma -- Ma Ma')|lower triangle with diag filled with 1s|
+|gemm|(a b Ma Mb Mc -- a b Ma Mb Mc')|GEMM Mc' = a * Ma x Mb + b * Mc|
+
 

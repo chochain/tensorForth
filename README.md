@@ -125,7 +125,7 @@ Note:
 * \-v verbo_level - set verbosity level 0: off (default), 1: mmu tracing on, 2: detailed trace
 
 ## Forth Tensor operations (see [doc](./docs/v2_progress.md) for detail and examples)
-### Tensor creation words
+### Tensor creation
 <pre>
    vector    (n       -- T1)     - create a 1-D array and place on top of stack (TOS)
    matrix    (h w     -- T2)     - create 2-D matrix and place on TOS
@@ -135,7 +135,7 @@ Note:
    copy      (Ta      -- Ta Ta') - duplicate (deep copy) a tensor on TOS
 </pre>
 
-### View creation words
+### View creation
 <pre>
    dup       (Ta    -- Ta Va)    - create a view of a tensor on TOS
    over      (Ta Tb -- Ta Tb Va) - create a view from 2nd item on stack
@@ -143,12 +143,12 @@ Note:
    2over     (Ta Tb Tc Td -- Ta Tb Tc Td Va Vb)
 </pre>
 
-### Tensor/View print word
+### Tensor/View print
 <pre>
    . (dot)   (Ta -- )        - print a vector, matrix, or tensor
    . (dot)   (Va -- )        - print a view (of vector, matrix, or tensor)
 </pre>
-### Shape adjusting words (change shape of origial tensor)
+### Shape adjustment (change shape of origial tensor)
 <pre>
    flatten   (Ta -- T1a')    - reshap a tensor to 1-D array
    reshape2  (Ta -- T2a')    - reshape a 2-D matrix
@@ -172,7 +172,7 @@ Note:
    slice     (Ta x0 x1 y0 y1 -- Ta Ta') - numpy.slice[x0:x1,y0:y1,]
 </pre>
 
-### Tensor arithmetic words (by default non-destructive)
+### Tensor arithmetic (by default non-destructive)
 <pre>
    +         (Ta Tb -- Ta Tb Tc) - tensor element-wise addition
    +         (Ta n  -- Ta Ta')   - tensor matrix-scalar addition (broadcast)
@@ -187,10 +187,19 @@ Note:
    /         (Ta n  -- Ta n  Ta')- matrix-scalar scale down multiplication (broadcast)
    sum       (Ta    -- Ta n)     - sum all elements of a tensor
    exp       (Ta    -- Ta Ta')   - element-wise exponential
-   inverse   (Ta    -- Ta Ta')   - matrix inversion (Gauss-Jordan)
-   transpose (Ta    -- Ta Ta')   - matrix transpose
-   matmul    (Ta Tb -- Ta Tb Tc) - matrix multiplication
-   gemm      (a b Ta Tb Tc -- a b Ta Tb Tc') - GEMM Tc' = a * Ta x Tb + b * Tc
+</pre>
+
+### Linear Algebra (by default non-destructive)
+<pre>
+   matmul    (Ma Mb -- Ma Mb Mc) - matrix multiplication
+   inverse   (Ma    -- Ma Ma')   - matrix inversion (Gauss-Jordan with Pivot)
+   transpose (Ma    -- Ma Ma')   - matrix transpose
+   det       (Ma    -- Ma d)     - matrix determinant
+   lu        (Ma    -- Ma Ma')   - LU decomposition (no Pivot)
+   luinv     (Ma    -- Ma Ma')   - inverse of LU matrix
+   upper     (Ma    -- Ma Ma')   - upper triangle
+   lower     (Ma    -- Ma Ma')   - lower triangle with diag filled with 1s
+   gemm      (a b Ma Mb Mc -- a b Ma Mb Mc') - GEMM Mc' = a * Ma x Mb + b * Mc
 </pre>
 
 ### TODO
