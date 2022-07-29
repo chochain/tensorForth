@@ -1,0 +1,47 @@
+.( ## linear algebra tests ## ) cr
+
+.( ### inverse a singular matrix ) cr
+3 3 matrix{ 2 2 5 1 1 1 4 6 8 }   \ create a sigular 3x3 matrix
+dup .                             \ show it
+
+cr .( ### calculate determinant ) cr
+det                               \ get determinant
+.                                 \ show it
+
+cr .( ### GaussJordan inverse it ) cr
+inverse .                         \ inverse (Gauss-Jordan with Pivot) and print
+drop
+
+cr .( ### inverse a non-singular matrix ) cr
+3 3 matrix{ 1 2 4 3 8 14 2 6 13 } \ create a 3x3 matrix
+dup .                             \ print it
+
+cr .( ### show LU decomposition with L\U stacked in-place ) cr
+lu                                \ create an LU matrix
+dup .                             \ see upper and lower are stored in-place
+
+cr .( ### inverse the LU matrix ) cr
+luinv                             \ inverse the LU matrix (in-place)
+dup .
+
+cr .( ### get the L^-1 ) cr
+lower dup .                       \ extract lower triangle (i.e. L^-1)
+>r                                \ keep it on R-stack
+
+cr .( ### get the U^-1 ) cr
+upper dup .                       \ extrace upper triangle (i.e. U^-1)
+r>                                \ retrieve L^-1 it from R-stack
+
+cr .( ### A^-1 = U^-1 x L^-1 ) cr
+*                                 \ A^-1 = U^-1 x L^-1
+.                                 \ show the result
+drop drop drop                    \ clean up left-over
+
+cr .( ### show A^-1 with GJ , for comparison ) cr
+inverse .                         \ inverse and print
+
+cr .( ### calculate determinant ) cr
+det                               \ get determinant
+
+bye
+
