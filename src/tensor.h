@@ -42,7 +42,10 @@ struct Tensor : public Managed {
     static __BOTH__ Tensor &add(Tensor &A, Tensor &B, Tensor &C, bool sub=0);
     static __BOTH__ Tensor &copy(Tensor &A, Tensor &C);
     static __BOTH__ Tensor &transpose(Tensor &A, Tensor &T);
-    static __BOTH__ Tensor &inverse(Tensor &A, Tensor &I);
+    static __BOTH__ Tensor &inverse(Tensor &A, Tensor &I);  /// GaussJordan (with Pivot)
+    static __BOTH__ Tensor &inverse(Tensor &LU);            /// from LU (no Pivot)
+    static __BOTH__ Tensor &lu(Tensor &A);                  /// LU (no Pivot)
+    static __BOTH__ Tensor &plu(Tensor &A, Tensor &P);      /// LU with permutation vector
     ///
     /// class contructors
     ///
@@ -66,6 +69,12 @@ struct Tensor : public Managed {
     __BOTH__ DU     sum();
     __BOTH__ DU     dot(Tensor &B);
     ///
+    /// linear algebra methods
+    ///
+    __BOTH__ DU     det();                    ///< matrix determinant
+    __BOTH__ Tensor &triu();                  ///< upper triangle
+    __BOTH__ Tensor &tril();                  ///< lower triangle
+    ///
     /// tensor life-cycle ops
     ///
     __BOTH__ Tensor &set_as_view(bool set=true);
@@ -76,7 +85,6 @@ struct Tensor : public Managed {
     __BOTH__ Tensor &fill(DU v);
     __BOTH__ Tensor &identity();              ///< fill as an identity matrix
     __BOTH__ Tensor &scale(DU v);
-    __BOTH__ Tensor &triu();
     __HOST__ void   copy_to_host(void* dst) { cudaMemcpy(dst, data, size, cudaMemcpyDeviceToHost); }
     ///
     /// IO
