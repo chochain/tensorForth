@@ -196,7 +196,7 @@ Note:
    transpose (Ma    -- Ma Ma')   - matrix transpose
    det       (Ma    -- Ma d)     - matrix determinant
    lu        (Ma    -- Ma Ma')   - LU decomposition (no Pivot)
-   luinv     (Ma    -- Ma Ma')   - inverse of LU matrix
+   luinv     (Ma    -- Ma Ma')   - LU inversion matrix
    upper     (Ma    -- Ma Ma')   - upper triangle
    lower     (Ma    -- Ma Ma')   - lower triangle with diag filled with 1s
    gemm      (a b Ma Mb Mc -- a b Ma Mb Mc') - GEMM Mc' = a * Ma x Mb + b * Mc
