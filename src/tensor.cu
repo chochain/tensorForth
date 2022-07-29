@@ -271,13 +271,11 @@ Tensor::plu(Tensor &A, Tensor &P) {
     };
     auto find_max = [aa, n](U16 z) {
         int u = z;
-        /*
         for (U16 i = z + 1; i < n; i++) {    ///> TODO: CDP reduce
             if (ABS(aa[z + i * n]) > ABS(aa[z + u * n])) u = i;
         }
-        */
         if (ABS(aa[z + u * n]) < DU_EPS) {
-            ERROR("Tensor::lu sigular!\n");
+            WARN("Tensor::lu sigular!\n");
             return -1;
         }
         return u;
