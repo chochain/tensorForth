@@ -142,15 +142,6 @@ TensorVM::tlu() {
     PUSH(LU);
 }
 ///
-/// inverse of a LU matrix (no Pivot)
-///
-__GPU__ void
-TensorVM::tluinv() {
-    tlu();
-    Tensor &LU = mmu.du2ten(top);
-    Tensor::inverse(LU);
-}
-///
 /// matrix determinant
 ///
 __GPU__ void
@@ -262,9 +253,12 @@ TensorVM::init_t() {
     ///@{
     CODE("exp",       texp()),     ///< (A -- A A')    matrix exponential
     CODE("inverse",   tinv()),     ///< (A -- A Ai')   matrix inversion (GaussJordan)
-    CODE("lu",        tlu()),      ///< (A -- A A')    LU decomposition
-    CODE("luinv",     tluinv()),   ///< (A -- A A')    matrix inverse via LU
     CODE("det",       tdet()),     ///< (A -- A d)     matrix determinant
+    CODE("lu",        tlu()),      ///< (A -- A A')    LU decomposition
+    CODE("luinv",                  ///< (A -- A A')    inverse an LU matrix
+         if (!IS_TEN(top)) return;
+         Tensor &t0 = mmu.du2ten(top);
+         Tensor::inverse(t0)),
     CODE("upper", if (!IS_TEN(top)) return;
          Tensor &t0 = mmu.du2ten(top);
          Tensor &t1 = mmu.copy(t0);

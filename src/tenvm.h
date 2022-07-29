@@ -47,7 +47,6 @@ protected:
     __GPU__ void tdiv();                    ///< matrix division (no broadcast)
     __GPU__ void tinv();                    ///< matrix inversion (Gauss-Jordan)
     __GPU__ void tlu();                     ///< matrix LU decomposition
-    __GPU__ void tluinv();                  ///< inversion of a LU matrix
     __GPU__ void tdet();                    ///< matrix determinant (via LU)
     __GPU__ void ttrans();                  ///< matrix transpose
     __GPU__ void gemm();                    ///< GEMM C' = alpha * A x B + beta * C
