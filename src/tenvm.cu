@@ -117,6 +117,9 @@ TensorVM::tdiv() {                                     ///< tensor division
     }
     /// TODO: tensor * inverse(tensor)
 }
+///
+/// matrix inversion GauseJordan (with Pivot)
+///
 __GPU__ void
 TensorVM::tinv() {
     if (!IS_TEN(top)) { ERROR("tensor?"); return; }
@@ -126,6 +129,37 @@ TensorVM::tinv() {
     Tensor::inverse(C, I);
     mmu.free(C);
     PUSH(I);
+}
+///
+/// LU conversion (no Pivot)
+///
+__GPU__ void
+TensorVM::tlu() {
+    if (!IS_TEN(top)) { ERROR("tensor?"); return; }
+    Tensor &A  = mmu.du2ten(top);
+    Tensor &LU = mmu.copy(A);             /// * hardcopy original matrix
+    Tensor::lu(LU);                       /// * decompose A to LU
+    PUSH(LU);
+}
+///
+/// inverse of a LU matrix (no Pivot)
+///
+__GPU__ void
+TensorVM::tluinv() {
+    tlu();
+    Tensor &LU = mmu.du2ten(top);
+    Tensor::inverse(LU);
+}
+///
+/// matrix determinant
+///
+__GPU__ void
+TensorVM::tdet() {
+    if (!IS_TEN(top)) { ERROR("tensor?"); return; }
+    Tensor &A  = mmu.du2ten(top);
+    Tensor &LU = mmu.copy(A);             /// * hardcopy original matrix
+    Tensor::lu(LU);                       /// * decompose A to LU
+    PUSH(LU.det());
 }
 __GPU__ void
 TensorVM::ttrans() {
@@ -227,7 +261,20 @@ TensorVM::init_t() {
     ///@brief - stick to PyTorch naming when possible
     ///@{
     CODE("exp",       texp()),     ///< (A -- A A')    matrix exponential
-    CODE("inverse",   tinv()),     ///< (A -- A Ai')   matrix inversion
+    CODE("inverse",   tinv()),     ///< (A -- A Ai')   matrix inversion (GaussJordan)
+    CODE("lu",        tlu()),      ///< (A -- A A')    LU decomposition
+    CODE("luinv",     tluinv()),   ///< (A -- A A')    matrix inverse via LU
+    CODE("det",       tdet()),     ///< (A -- A d)     matrix determinant
+    CODE("upper", if (!IS_TEN(top)) return;
+         Tensor &t0 = mmu.du2ten(top);
+         Tensor &t1 = mmu.copy(t0);
+         t1.triu();
+         PUSH(t1)),
+    CODE("lower", if (!IS_TEN(top)) return;
+         Tensor &t0 = mmu.du2ten(top);
+         Tensor &t1 = mmu.copy(t0);
+         t1.tril();
+         PUSH(t1)),
     CODE("transpose", ttrans()),   ///< (A -- A At)    matrix transpose
     CODE("matmul",    tmul()),     ///< (A B -- A B C) matrix multiplication
     CODE("gemm",      gemm()),     ///< (a b A B C -- a b A B C') GEMM (C updated)
