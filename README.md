@@ -194,11 +194,12 @@ Note:
    matmul    (Ma Mb -- Ma Mb Mc) - matrix multiplication
    inverse   (Ma    -- Ma Ma')   - matrix inversion (Gauss-Jordan with Pivot)
    transpose (Ma    -- Ma Ma')   - matrix transpose
-   det       (Ma    -- Ma d)     - matrix determinant
+   det       (Ma    -- Ma d)     - matrix determinant (with PLU)
    lu        (Ma    -- Ma Ma')   - LU decomposition (no Pivot)
-   luinv     (Ma    -- Ma Ma')   - LU inversion matrix
+   luinv     (Ma    -- Ma Ma')   - inversion of an LU matrix
    upper     (Ma    -- Ma Ma')   - upper triangle
    lower     (Ma    -- Ma Ma')   - lower triangle with diag filled with 1s
+   solve     (Ab Ma -- Ab Ma Ax) - solve linear equation AX = B
    gemm      (a b Ma Mb Mc -- a b Ma Mb Mc') - GEMM Mc' = a * Ma x Mb + b * Mc
 </pre>
 
