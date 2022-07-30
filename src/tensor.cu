@@ -91,7 +91,7 @@ Tensor::gemm(Tensor &A, Tensor &B, Tensor &C, DU alpha, DU beta) {
     return C;
 }
 ///
-/// tensor addition C = A + B or C = A - B
+/// tensor-tensor addition C = A + B or C = A - B
 ///
 __BOTH__ Tensor&
 Tensor::add(Tensor &A, Tensor &B, Tensor &C, bool sub) {
@@ -103,6 +103,20 @@ Tensor::add(Tensor &A, Tensor &B, Tensor &C, bool sub) {
     );
     k_matadd<<<grid, block>>>((DU*)A.data, (DU*)B.data, (DU*)C.data, m, n, sub);
     cudaDeviceSynchronize();     // TODO: deprecated 11.6, use cooperative_groups.sync()
+    return C;
+}
+///
+/// tensor-scalar addition C = A +- n element-wise
+///
+__BOTH__ Tensor&
+Tensor::add(Tensor &A, DU v, Tensor &C, bool sub) {
+    U16 m = A.H(), n = A.W();
+    WARN("Tensor::%s M=%d, N=%d\n", sub ? "sub" : "add", m, n);
+    DU *da = (DU*)A.data, *dc = (DU*)C.data;
+    for (int k = 0; k < A.size; k++) {
+        if (sub) *dc++ = *da++ - v;
+        else     *dc++ = *da++ + v;
+    }
     return C;
 }
 __BOTH__ Tensor&
