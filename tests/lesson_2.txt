@@ -7,13 +7,13 @@ dup .                        \ create a view and print it
 
 2drop                        \ drop the original two matrices
 
-.( ### large matrix multiplication ) cr
+cr .( ### large matrix multiplication ) cr
 512 1024 matrix rand         \ create a 512x1024 matrix with random values
 1024 256 matrix ones         \ create a 1024x256 matrix filled with 1s
 *                            \ multiply the matrices
 1024 / . .                   \ scale down element-wise and print
 
-.( ### benchmark ) cr
+cr .( ### benchmark - 100 loops ) cr
 : mx dup >r clock >r         \ create a word for benchmark loops
   for * drop next            \ loop of matrix multiplication (and drop the result)
   clock r> -                 \ clock it
@@ -24,15 +24,34 @@ see mx                       \ show the word
 
 2drop                        \ drop the original two matrices
 
-.( ### matrix inversion ) cr
+cr .( ### matrix inversion ) cr
 4 4 matrix randn             \ create a 4x4 matrix with normal distributed value
 dup .                        \ check values
 inverse                      \ deduce the inverse matrix
 dup .                        \ see the inverse
-*                            \ M*M^-1
+cr .( ### verify M*M^-1 = I ) cr
+*                            \ multiply the matrices
 .                            \ validate => identity matrix (-0.0000 OK, hopefully within EPS)
 
-drop 2drop                   \ drop the last tow matrices
+drop drop drop               \ drop the last tow matrices
+
+cr .( ## linear algebra - destructive ## ) cr
+1 trace
+
+.( ### matrix addition )
+2 3 matrix{ 1 2 3 4 5 6 }    \ create a 2x3 matrix
+2 3 matrix ones              \ create a 2x3 matrix filled with 1s
+2dup                         \ create 2 views (for next op)
++= .                         \ add matrices (destructive) and print
+
+.( ### matrix subtraction )
+-= .                         \ subtract matrices (destructive) and print
+drop
+
+cr .( ### matrix multiplication )
+2 3 matrix{ 1 2 3 0 4 5 }    \ create a 2x3 matrix
+3 2 matrix ones              \ create a 3x2 matrix filled with 1s
+*= .                         \ multiply (destructive) and print
 
 bye
 
