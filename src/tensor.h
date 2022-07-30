@@ -75,6 +75,8 @@ struct Tensor : public Managed {
     __BOTH__ DU     det();                    ///< matrix determinant
     __BOTH__ Tensor &triu();                  ///< upper triangle
     __BOTH__ Tensor &tril();                  ///< lower triangle
+    __BOTH__ Tensor &scale(DU v);             ///< element-wise linear scale
+    __BOTH__ Tensor &abs();                   ///< element-wise absolute
     ///
     /// tensor life-cycle ops
     ///
@@ -85,7 +87,6 @@ struct Tensor : public Managed {
     __BOTH__ Tensor &reshape(U16 n, U16 h, U16 w, U16 c);
     __BOTH__ Tensor &fill(DU v);
     __BOTH__ Tensor &identity();              ///< fill as an identity matrix
-    __BOTH__ Tensor &scale(DU v);
     __HOST__ void   copy_to_host(void* dst) { cudaMemcpy(dst, data, size, cudaMemcpyDeviceToHost); }
     ///
     /// IO

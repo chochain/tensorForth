@@ -62,6 +62,10 @@ __KERN__ void k_scale(DU *A, DU v, int sz) {
     int k = threadIdx.x + blockIdx.x * blockDim.x;
     if (k < sz) A[k] *= v;
 }
+__KERN__ void k_abs(DU *A, int sz) {
+    int k = threadIdx.x + blockIdx.x * blockDim.x;
+    if (k < sz) A[k] = fabs(A[k]);
+}
 __KERN__ void k_identity(DU *A, int M, int N, int C) {
     const DU i01[2][4] = {{ DU0, DU0, DU0, DU0 }, { 1.0, 1.0, 1.0, 1.0 }};
     int i = threadIdx.y + blockIdx.y * blockDim.y;
@@ -446,6 +450,22 @@ Tensor::tril() {
     cudaDeviceSynchronize();
     return *this;
 }
+__BOTH__ Tensor&
+Tensor::scale(DU v) {
+    WARN("Tensor#scale by %f\n", v);
+    dim3 block(256), grid((size + block.x -1)/block.x);
+    k_scale<<<grid, block>>>((DU*)data, v, size);
+    cudaDeviceSynchronize();
+    return *this;
+}
+__BOTH__ Tensor&
+Tensor::abs() {
+    WARN("Tensor#abs\n");
+    dim3 block(256), grid((size + block.x -1)/block.x);
+    k_abs<<<grid, block>>>((DU*)data, size);
+    cudaDeviceSynchronize();
+    return *this;
+}
 ///=======================================================================
 /// Tensor life-cycle ops
 ///
@@ -533,12 +553,4 @@ Tensor::fill(DU v) {
     return *this;
 }
 
-__BOTH__ Tensor&
-Tensor::scale(DU v) {
-    WARN("Tensor#scale by %f\n", v);
-    dim3 block(256), grid((size + block.x -1)/block.x);
-    k_scale<<<grid, block>>>((DU*)data, v, size);
-    cudaDeviceSynchronize();
-    return *this;
-}
 
