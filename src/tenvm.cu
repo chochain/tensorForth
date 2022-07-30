@@ -109,19 +109,32 @@ TensorVM::tmul() {                                    ///< tensor multiplication
 }
 __GPU__ void
 TensorVM::tdiv() {                                     ///< tensor division
-    if (!IS_TEN(ss[-1])) {
+    bool s0 = !IS_TEN(top), s1 = !IS_TEN(ss[-1]);
+    if (s0 && s1) {
         top = ss.pop() / top;                          /// * scalar / scalar
         NO_OBJ(top);
         return;
     }
-    Tensor &A = mmu.du2ten(ss[-1]);
-    if (!IS_TEN(top)) {                               /// * tensor / scalar
-        Tensor &C = mmu.copy(A);                      /// * hard copy A tensor
+    else if (s0) {                                     /// * tensor / scaler
+        Tensor &A = mmu.du2ten(ss[-1]);
+        Tensor &C = mmu.copy(A);                       /// * hard copy A tensor
         VLOG2("A[%d,%d]=%p / %f => A'=%p\n", A.H(), A.W(), &A, top, &C);
-        top = mmu.ten2du(C.scale(1.0/top));           /// * resultant tensor on TOS
+        top = mmu.ten2du(C.scale(1.0/top));            /// * resultant tensor on TOS
         return;
     }
-    /// TODO: tensor * inverse(tensor)
+    /// tensor / tensor i.e. C = A * inv(B)
+    Tensor &A  = mmu.du2ten(ss[-1]);
+    Tensor &B  = mmu.du2ten(top);
+    U16 m = A.H(), ka = A.W(), kb = B.H(), n = B.W();
+    if (kb != n || ka != kb) { ERROR("dim?"); return; } /// * B square?
+        
+    tinv();                                           /// * top = inverse(B)
+    Tensor &Bi = mmu.du2ten(POP());
+    Tensor &C  = mmu.tensor(m, n);
+    VLOG2("A[%d,%d]=%p / B[%d,%d]=%p => C=%p\n", m, ka, &A, kb, n, &B, &C);
+    Tensor::mm(A, Bi, C);
+    mmu.free(Bi);                                     /// * drop Bi
+    PUSH(C);
 }
 ///
 /// matrix inversion GauseJordan (with Pivot)
