@@ -174,38 +174,56 @@ Note:
 
 ### Tensor arithmetic (by default non-destructive)
 <pre>
-   +         (Ta Tb -- Ta Tb Tc) - tensor element-wise addition
-   +         (Ta n  -- Ta Ta')   - tensor matrix-scalar addition (broadcast)
-   -         (Ta Tb -- Ta Tb Tc) - tensor element-wise subtraction
-   -         (Ta n  -- Ta Ta')   - tensor matrix-scalar subtraction (broadcast)
-   *         (Ta Tb -- Ta Tb Tc) - matrix-matrix multiplication
-   *         (Ta Ab -- Ta Ab Ta')- TODO: matrix-vector multiplication (broadcase)
-   *         (Aa Ab -- Aa Ab n)  - vector-vector dot product
-   *         (Ta n  -- Ta n  Ta')- matrix-scalar multiplication
-   *         (n  Ta -- n  Ta Ta')- scalar-matrix multiplication
-   /         (Ta Tb -- Ta Tb Tc) - TODO: A * inv(B) matrix
-   /         (Ta n  -- Ta n  Ta')- matrix-scalar scale down multiplication (broadcast)
-   sum       (Ta    -- Ta n)     - sum all elements of a tensor
-   exp       (Ta    -- Ta Ta')   - element-wise exponential
+   +         (Ta Tb -- Ta Tb Tc)  - tensor element-wise addition Tc = Ta + Tb
+   +         (Ta n  -- Ta n  Ta') - tensor-scalar addition (broadcast) Ta' = Ta + n
+   +         (n  Ta -- n  Ta Ta') - scalar-tensor addition (broadcast) Ta' = Ta + n
+   -         (Ta Tb -- Ta Tb Tc)  - tensor element-wise subtraction Tc = Ta - Tb
+   -         (Ta n  -- Ta n  Ta') - tensor-scalar subtraction (broadcast) Ta' = Ta - n
+   -         (n  Ta -- n  Ta Ta') - tensor-scalar subtraction (broadcast) Ta' = n - Ta
+   *         (Ta Tb -- Ta Tb Tc)  - matrix-matrix multiplication
+   *         (Ta Ab -- Ta Ab Ta') - matrix-vector multiplication
+   *         (Ta n  -- Ta n  Ta') - tensor-scalar multiplication Ta' = n * Ta
+   *         (n  Ta -- n  Ta Ta') - scalar-tensor multiplication Ta' = n * Ta
+   *         (Aa Ab -- Aa Ab n)   - vector-vector inner product n = Aa . Ab
+   /         (Ta n  -- Ta n  Ta') - tensor-scalar scale down Ta' = 1/n * Ta
+   /         (Ta Tb -- Ta Tb Tc)  - A * inv(B) matrix Tc = Ta * inverse(Tb)
+   sum       (Ta    -- Ta n)      - sum all elements of a tensor
+   exp       (Ta    -- Ta Ta')    - element-wise exponential
 </pre>
 
-### Linear Algebra (by default non-destructive)
+### Tensor arithmetic (by default destructive, as in Forth)
+<pre>
+   +=        (Ta Tb -- Tc)    - tensor element-wise addition Tc = Ta + Tb
+   +=        (Ta n  -- Ta')   - tensor-scalar addition (broadcast) Ta' = Ta + n
+   +=        (n  Ta -- Ta')   - scalar-tensor addition (broadcast) Ta' = Ta + n
+   -=        (Ta Tb -- Tc)    - tensor element-wise subtraction Tc = Ta - Tb
+   -=        (Ta n  -- Ta')   - tensor-scalar subtraction (broadcast) Ta' = Ta - n
+   -=        (Ta n  -- Ta')   - tensor-scalar subtraction (broadcast) Ta' = n - Ta
+   *=        (Ta Tb -- Tc)    - matrix-matrix multiplication Tc = Ta * Tb
+   *=        (Ta Ab -- Ac')   - matrix-vector multiplication Ac' = Ta * Ab
+   *=        (Ta n  -- Ta')   - tensor-scalar multiplication Ta' = n * Ta
+   *=        (n  Ta -- Ta')   - scalar-tensor multiplication Ta' = n * Ta
+   *=        (Aa Ab -- n)     - vector-vector inner product n = Aa . Ab
+   /=        (Ta n  -- Ta')   - tensor-scalar scale down multiplication Ta' = 1/n * Ta
+   /=        (Ta Tb -- Tc)    - A * inv(B) matrix Tc = Ta * inverse(Tb)
+</pre>
+
+### Linear Algebra (by default non-destructive, except luinv)
 <pre>
    matmul    (Ma Mb -- Ma Mb Mc) - matrix multiplication
    inverse   (Ma    -- Ma Ma')   - matrix inversion (Gauss-Jordan with Pivot)
    transpose (Ma    -- Ma Ma')   - matrix transpose
    det       (Ma    -- Ma d)     - matrix determinant (with PLU)
    lu        (Ma    -- Ma Ma')   - LU decomposition (no Pivot)
-   luinv     (Ma    -- Ma Ma')   - inversion of an LU matrix
+   luinv     (Ma    -- Ma')      - inverse of an LU matrix (stored in-place)
    upper     (Ma    -- Ma Ma')   - upper triangle
    lower     (Ma    -- Ma Ma')   - lower triangle with diag filled with 1s
    solve     (Ab Ma -- Ab Ma Ax) - solve linear equation AX = B
-   gemm      (a b Ma Mb Mc -- a b Ma Mb Mc') - GEMM Mc' = a * Ma x Mb + b * Mc
+   gemm      (a b Ma Mb Mc -- a b Ma Mb Mc') - GEMM Mc' = a * Ma * Mb + b * Mc
 </pre>
 
 ### TODO
 * backprop and autograd
-* add KV pair (associative array) for label, and fully connected lookup
 * add CNN
   + study torch.nn, CUB (for kernel)
   + conv: ~pushing_the_limits_for_2d_conv..., shuffle reduction
