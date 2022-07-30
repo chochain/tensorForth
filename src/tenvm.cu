@@ -350,6 +350,12 @@ TensorVM::init_t() {
     CODE("*",   tmul(KEEP)),
     CODE("-",   tadd(KEEP, true)),
     CODE("/",   tdiv(KEEP)),
+    CODE("abs",
+         if (!IS_OBJ(top)) top = ABS(top);
+         else mmu.du2ten(top).abs()),
+    CODE("negate",
+         if (!IS_OBJ(top)) top *= -1.0;
+         else mmu.du2ten(top).scale(-1.0)),
     ///@}
     CODE("boot", mmu.clear(FIND("gemm") + 1))
     };
