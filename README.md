@@ -5,7 +5,7 @@
 |version|feature|stage|description|conceptual comparable|
 |---|---|---|---|---|
 |[release 1.0](https://github.com/chochain/tensorForth/releases/tag/v1.0.2)|**float**|beta|extended eForth with F32 float|Python|
-|[release 2.0](https://github.com/chochain/tensorForth/releases/tag/v2.0.4)|**matrix**|alpha|added vector and matrix objects|NumPy|
+|[release 2.0](https://github.com/chochain/tensorForth/releases/tag/v2.0.2)|**matrix**|alpha|added vector and matrix objects|NumPy|
 |[release 2.2](https://github.com/chochain/tensorForth/releases/tag/v2.2.0)|**lapack**|alpha|added linear algebra methods|SciPy|
 |next|**CNN**|planning|add tensor NN ops with autograd|PyTorch|
 |-|**RNN**|later|-|-|
@@ -18,9 +18,9 @@ For AI development today, we use Python mostly. To enable processing on CUDA dev
 Having a 'shell' that can interactively and incrementally run 'compiled programs' from within GPU directly without dropping back to host system might be useful. Even though some might argue that the branch divergence in kernel could kill the GPU, but performance of the script itself is not really the point. So, here we are!
 
 ### How?
-GPU, behaves like a co-processor. It has no OS, no string support, and runs its own memory. Most of the available libraries are built to call from CPU instead of from within GPU. So, to be interactive, a memory manager, IO, and syncing with CPU are things to be added pretty much like creating a Forth from scratch in the old days.
+GPU, behaves like a co-processor. It has no OS, no string support, and runs its own memory. Most of the available libraries are built for host instead kernel mode i.e. to call from CPU instead of from within GPU. So, to be interactive, a memory manager, IO, and syncing with CPU are things to be had. It's pretty much like creating a Forth from scratch for a new processor as in the old days.
 
-Since GPUs have good compiler support nowaday and I've changed the latest [eForth](https://github.com/chochain/eforth) to lambda-based in C++, pretty much all words can be straight copy except some attention to those are affected by CELL being float32 such as addressing, logic ops. i.e. BRANCH, 0=, MOD, XOR would not work as expected.
+Since GPUs have good compiler support nowaday and I've change the latest [eForth](https://github.com/chochain/eforth) to lambda-based in C++, pretty much all words can be straight copy except some attention to those are affected by CELL being float32 such as addressing, logic ops. i.e. BRANCH, 0=, MOD, XOR would not work as expected.
 
 Having an interactive Forth in GPU does not mean a lot by itself. However, by adding matrix ops, linear algebra support, and tensor with backprop, sort of taking the path of Numpy to PyTorch, combining the cleanness of Forth with the massively parallel nature of GPUs can be useful one day, hopefully!
 
