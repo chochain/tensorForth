@@ -151,10 +151,6 @@ ForthVM::init_f() {
     CODE("negate", top *= -1),
     CODE("max",  DU n=ss.pop(); top = (top>n)?top:n),
     CODE("min",  DU n=ss.pop(); top = (top<n)?top:n),
-    CODE("2*",   top *= 2),
-    CODE("2/",   top /= 2),
-    CODE("1+",   top += 1),
-    CODE("1-",   top -= 1),
     ///@}
     ///@defgroup Data conversion ops
     ///@{
