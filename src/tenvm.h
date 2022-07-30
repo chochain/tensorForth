@@ -10,6 +10,10 @@
 
 #define NO_OBJ(v) (*(U8*)&(v) &= ~T4_OBJ_FLAG)  /**< tensor flag mask for top       */
 #define EXP(d)    (expf(d))                     /**< exponential(float)             */
+typedef enum {
+    KEEP = false,
+    DROP = true
+} tensor_op;
 
 class TensorVM : public ForthVM {
 public:
@@ -37,14 +41,14 @@ protected:
     ///
     /// mmu proxy functions
     ///
-    __GPU__ void add_to_tensor(DU n);      ///< add tensor to parameter field
+    __GPU__ void add_to_tensor(DU n);       ///< add tensor to parameter field
     ///
     /// tensor ops
     ///
     __GPU__ void texp();                    ///< element-wise all tensor elements
-    __GPU__ void tadd(bool sub=false);      ///< matrix-matrix addition (or subtraction)
-    __GPU__ void tmul();                    ///< matrix multiplication (no broadcast)
-    __GPU__ void tdiv();                    ///< matrix division (no broadcast)
+    __GPU__ void tadd(tensor_op op, bool sub=false);      ///< matrix-matrix addition (or subtraction)
+    __GPU__ void tmul(tensor_op op);        ///< matrix multiplication (no broadcast)
+    __GPU__ void tdiv(tensor_op op);        ///< matrix division (no broadcast)
     __GPU__ void tinv();                    ///< matrix inversion (Gauss-Jordan)
     __GPU__ void tlu();                     ///< matrix LU decomposition
     __GPU__ void tdet();                    ///< matrix determinant (via LU)
