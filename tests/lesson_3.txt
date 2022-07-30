@@ -16,11 +16,11 @@ cr .( ### inverse a matrix with LU ) cr
 3 3 matrix{ 1 2 4 3 8 14 2 6 13 } \ create a 3x3 matrix
 dup .                             \ print it
 
-cr .( ### show LU decomposition with L\U stacked in-place ) cr
-lu                                \ create an LU matrix
-dup .                             \ see upper and lower are stored in-place
+cr .( ### show LU decomposition with L\U stacked ) cr
+lu                                \ create an LU matrix (in-place)
+dup .                             \ see L and U stacked
 
-cr .( ### inverse the LU matrix ) cr
+cr .( ### inverse the LU matrix to L^-1\U^-1 stacked ) cr
 luinv                             \ inverse the LU matrix (in-place)
 dup .
 
@@ -30,7 +30,7 @@ lower dup .                       \ extract lower triangle (i.e. L^-1)
 
 cr .( ### get the U^-1 ) cr
 upper dup .                       \ extrace upper triangle (i.e. U^-1)
-r>                                \ retrieve L^-1 it from R-stack
+r>                                \ retrieve L^-1 from R-stack
 
 cr .( ### A^-1 = U^-1 x L^-1 ) cr
 *                                 \ A^-1 = U^-1 x L^-1
