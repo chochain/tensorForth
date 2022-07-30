@@ -2,26 +2,27 @@
 * Forth VM that supports tensor calculus and dynamic parallelism
 
 ### Status
-|version|feature|stage|description|comparable|
+|version|feature|stage|description|conceptual comparable|
 |---|---|---|---|---|
 |[release 1.0](https://github.com/chochain/tensorForth/releases/tag/v1.0.2)|**float**|beta|extended eForth with F32 float|Python|
 |[release 2.0](https://github.com/chochain/tensorForth/releases/tag/v2.0.4)|**matrix**|alpha|added vector and matrix objects|NumPy|
+|[release 2.2](https://github.com/chochain/tensorForth/releases/tag/v2.2.0)|**lapack**|alpha|added linear algebra methods|SciPy|
 |next|**CNN**|planning|add tensor NN ops with autograd|PyTorch|
 |-|**RNN**|later|-|-|
 
 ### Why?
 Compiled programs run fast on Linux. On the other hand, command-line interface and shell scripting tie them together. Productivity grows with this model especially for researchers.
 
-For AI development today, we use Python mostly. To enable processing on CUDA device, say with Numba or the likes, mostly there will be 'just-in-time' compilations behind the scene then load and run. In a sense, the Python code behaves like a Makefile which requires compilers to be on the host box. At the tailend, to analyze, visualization can then be have. This is usually a long journey. After many coffee breaks, we update the Python and restart again. In order to catch progress, scanning the intermediate formatted files sometimes become necessary which probably reminisce the line-printer days for seasoned developers.
+For AI development today, we use Python mostly. To enable processing on CUDA device, say with Numba or the likes, mostly there will be 'just-in-time' compilations behind the scene then load and run. In a sense, your Python code behaves like a Makefile which requires compilers to be on the host box. At the tailend, to analyze, visualization can then be have. This is usually a long journey. After many coffee breaks, we tweek the Python code and restart again. In order to catch progress, scanning the intermediate formatted files sometimes become necessary which probably reminisce the line-printer days for seasoned developers.
 
-Having a 'shell' that can interactively and incrementally run 'compiled programs' from within GPU directly without dropping back to host system might be useful. Even though some might argue that the branch divergence in kernel could kill the GPU, but performance of the script itself is not the point. So, here we are!
+Having a 'shell' that can interactively and incrementally run 'compiled programs' from within GPU directly without dropping back to host system might be useful. Even though some might argue that the branch divergence in kernel could kill the GPU, but performance of the script itself is not really the point. So, here we are!
 
 ### How?
 GPU, behaves like a co-processor. It has no OS, no string support, and runs its own memory. Most of the available libraries are built to call from CPU instead of from within GPU. So, to be interactive, a memory manager, IO, and syncing with CPU are things to be added pretty much like creating a Forth from scratch in the old days.
 
 Since GPUs have good compiler support nowaday and I've changed the latest [eForth](https://github.com/chochain/eforth) to lambda-based in C++, pretty much all words can be straight copy except some attention to those are affected by CELL being float32 such as addressing, logic ops. i.e. BRANCH, 0=, MOD, XOR would not work as expected.
 
-Having an interactive Forth in GPU does not mean a lot by itself. However, by adding matrix ops and tensor with backprop, sort of taking the path of Numpy to PyTorch, combining the cleanness of Forth with the massively parallel nature of GPUs can be useful one day, hopefully!
+Having an interactive Forth in GPU does not mean a lot by itself. However, by adding matrix ops, linear algebra support, and tensor with backprop, sort of taking the path of Numpy to PyTorch, combining the cleanness of Forth with the massively parallel nature of GPUs can be useful one day, hopefully!
 
 ### Small Example
 <pre>
@@ -107,7 +108,8 @@ Note:
 * type 'make all'
 * if all goes well, some warnings aside, cd to tests
 * type 'ten4 < lesson_1.txt' for Forth syntax check,
-* and  'ten4 < lesson_2.txt' for matrix stuffs
+*      'ten4 < lesson_2.txt' for matrix ops,
+*      'ten4 < lesson_3.txt' for linear algebra stuffs
 
 #### with Eclipse
 * install Eclipse
@@ -193,6 +195,8 @@ Note:
 
 ### Tensor arithmetic (by default destructive, as in Forth)
 <pre>
+   abs       (Ta    -- Ta')   - tensor element-wise absolute Ta = abs(Ta)
+   negate    (Ta    -- Ta')   - tensor element-wise negate   Ta = -(Ta)
    +=        (Ta Tb -- Tc)    - tensor element-wise addition Tc = Ta + Tb
    +=        (Ta n  -- Ta')   - tensor-scalar addition (broadcast) Ta' = Ta + n
    +=        (n  Ta -- Ta')   - scalar-tensor addition (broadcast) Ta' = Ta + n

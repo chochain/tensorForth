@@ -1,14 +1,14 @@
-# tensorForth - Release 2.0 / 2022-07
+# tensorForth - Release 2.2 / 2022-08
 ## Features
 * vector, matrix, tensor objects (modeled to PyTorch)
 * TLSF tensor storage manager
-* matrix arithmetics (i.e. +, -, *, copy, sum, exp)
-* linear algebra (i.e. matmul, inverse, transpose, det, lu, luinv, upper, lower)
+* matrix arithmetics (i.e. +, -, *, sum, exp, abs, negate)
+* linear algebra (i.e. copy, matmul, inverse, transpose, det, lu, luinv, upper, lower, solve)
 * matrix fill (i.e. zeros, ones, full, eye, random)
 * matrix console input (i.e. matrix{..., vector{..., and T!{)
 * matrix print (i.e PyTorch-style, adjustable edge elements)
-* tensor view instead of deep copy (i.e. dup, over, pick, r@, )
-* GEMM (i.e. a * A x B + b * C, use CUDA Dynamic Parallelism)
+* tensor view instead of deep copy (i.e. dup, over, pick, r@)
+* GEMM (i.e. a * A * B + b * C, use CUDA Dynamic Parallelism)
 * command line option: debug print level control (MMU_DEBUG)
 * command line option: list (all) device properties
 * use cuRAND kernel randomizer for uniform and standard normal distribution
@@ -152,6 +152,8 @@ tensorForth 2.0
 ### Tensor Arithmetic ops (self-assign, i.e. destructive as in Forth)
 |word|param/example|Tensor arithmetic ops (destructive)|
 |---|---|---|
+|abs|(Ta -- Ta')|tensor element-wise absolute Ta' = abs(Ta)|
+|negate|(Ta -- Ta')|tensor element-wise negate Ta' = -(Ta)|
 |+=|(Ta Tb -- Tc)|tensor element-wise addition Tc = Ta + Tb|
 ||> `2 2 matrix random`<br/>> `dup .`<br/>> `2 2 matrix ones`<br/>> **`+=`**<br/>> `.`|`T2[2,2]`<br/>`matrix[2,2] = { { -0.5000 +0.1953 } { +0.1094 +0.4141 } }`<br/>`T2[2,2] T2[2,2]`<br/>`T2[2,2]`<br/>`matrix[2,2] = { { +0.5000 +1.1953 } { +1.1094 +1.4141 } }`|
 |+=|(Ta n  -- Ta')|tensor-scalar addition (broadcast) Ta' = Ta + n|
