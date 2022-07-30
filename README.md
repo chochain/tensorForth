@@ -20,7 +20,7 @@ Having a 'shell' that can interactively and incrementally run 'compiled programs
 ### How?
 GPU, behaves like a co-processor. It has no OS, no string support, and runs its own memory. Most of the available libraries are built for host instead kernel mode i.e. to call from CPU instead of from within GPU. So, to be interactive, a memory manager, IO, and syncing with CPU are things to be had. It's pretty much like creating a Forth from scratch for a new processor as in the old days.
 
-Since GPUs have good compiler support nowaday and I've change the latest [eForth](https://github.com/chochain/eforth) to lambda-based in C++, pretty much all words can be straight copy except some attention to those are affected by CELL being float32 such as addressing, logic ops. i.e. BRANCH, 0=, MOD, XOR would not work as expected.
+Since GPUs have good compiler support nowaday and I've ported the latest [eForth](https://github.com/chochain/eforth) to lambda-based in C++, pretty much all words can be straight copy except some attention to those are affected by CELL being float32 such as addressing, logic ops. i.e. BRANCH, 0=, MOD, XOR would not work as expected.
 
 Having an interactive Forth in GPU does not mean a lot by itself. However, by adding matrix ops, linear algebra support, and tensor with backprop, sort of taking the path of Numpy to PyTorch, combining the cleanness of Forth with the massively parallel nature of GPUs can be useful one day, hopefully!
 
