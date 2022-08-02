@@ -2,7 +2,7 @@
 ## Features
 * vector, matrix, tensor objects (modeled to PyTorch)
 * TLSF tensor storage manager
-* matrix arithmetics (i.e. +, -, @, *, sum, exp, abs, negate)
+* matrix arithmetics (i.e. +, -, @, *, sum, abs, negate, exp, tanh, relu)
 * linear algebra (i.e. copy, matmul, inverse, transpose, det, lu, luinv, upper, lower, solve)
 * matrix fill (i.e. zeros, ones, full, eye, random)
 * matrix console input (i.e. matrix{..., vector{..., and T!{)
@@ -188,13 +188,15 @@ tensorForth 2.0 done.
 |/|(Ta Tb -- Ta Tb Tc)|matrix-matrix element-wise division Tc = Ta / Tb|
 |/|(Ta n  -- Ta Ta')|tensor-scalar division Ta = 1/n * Ta, i.e. scale down|
 |sum|(Ta -- Ta n)|sum all elements of a tensor|
-|exp|(Ta -- Ta Ta')|exponential (i.e. e^x) all elements of a tensor|
 
 ### Tensor Arithmetic ops (self-assign, i.e. destructive as in Forth)
 |word|param/example|Tensor arithmetic ops (destructive)|
 |---|---|---|
 |abs|(Ta -- Ta')|tensor element-wise absolute Ta' = abs(Ta)|
 |negate|(Ta -- Ta')|tensor element-wise negate Ta' = -(Ta)|
+|exp|(Ta -- Ta')|tensor element-wise exponential Ta' = exp(Ta)|
+|tanh|(Ta -- Ta')|tensor element-wise tanh Ta' = tanh(Ta)|
+|relu|(Ta -- Ta')|tensor element-wise ReLU Ta' = max(0, Ta)|
 |+=|(Ta Tb -- Tc)|tensor element-wise addition Tc = Ta + Tb|
 ||> `2 2 matrix random`<br/>> `dup .`<br/>> `2 2 matrix ones`<br/>> **`+=`**<br/>> `.`|`T2[2,2]`<br/>`matrix[2,2] = { { -0.5000 +0.1953 } { +0.1094 +0.4141 } }`<br/>`T2[2,2] T2[2,2]`<br/>`T2[2,2]`<br/>`matrix[2,2] = { { +0.5000 +1.1953 } { +1.1094 +1.4141 } }`|
 |+=|(Ta n  -- Ta')|tensor-scalar addition (broadcast) Ta' = Ta + n|

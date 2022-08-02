@@ -9,7 +9,7 @@
 |[release 2.2](https://github.com/chochain/tensorForth/releases/tag/v2.2.2)|**lapack**|alpha|added linear algebra methods|SciPy|
 |next|**CNN**|planning|add tensor NN ops with autograd|PyTorch|
 |-|**RNN**|later|-|-|
-|-|**Adaptive**|longshot|-|-|
+|-|**Adaptive**|long|-|-|
 
 ### Why?
 Compiled programs run fast on Linux. On the other hand, command-line interface and shell scripting tie them together. Productivity grows with this model especially for researchers.
@@ -181,13 +181,15 @@ Note:
    /         (Ta Tb -- Ta Tb Tc)  - tensor-tensor element-wise divide Tc = Ta / Tb
    /         (Ta n  -- Ta n  Ta') - tensor-scalar scale down Ta' = 1/n * Ta
    sum       (Ta    -- Ta n)      - sum all elements of a tensor
-   exp       (Ta    -- Ta Ta')    - element-wise exponential
 </pre>
 
 ### Tensor arithmetic (by default destructive, as in Forth)
 <pre>
-   abs       (Ta    -- Ta')   - tensor element-wise absolute Ta = abs(Ta)
-   negate    (Ta    -- Ta')   - tensor element-wise negate   Ta = -(Ta)
+   abs       (Ta    -- Ta')   - tensor element-wise absolute Ta' = abs(Ta)
+   negate    (Ta    -- Ta')   - tensor element-wise negate   Ta' = -(Ta)
+   exp       (Ta    -- Ta')   - tensor element-wise exponential Ta' = exp(Ta)
+   tanh      (Ta    -- Ta')   - tensor element-wise tanh Ta' = tanh(Ta)
+   relu      (Ta    -- Ta')   - tensor element-wise ReLU Ta' = max(0, Ta)
    +=        (Ta Tb -- Tc)    - tensor element-wise addition Tc = Ta + Tb
    +=        (Ta n  -- Ta')   - tensor-scalar addition (broadcast) Ta' = Ta + n
    +=        (n  Ta -- Ta')   - scalar-tensor addition (broadcast) Ta' = Ta + n
