@@ -70,8 +70,20 @@ __KERN__ void k_abs(DU *A, int sz) {
     int k = threadIdx.x + blockIdx.x * blockDim.x;
     if (k < sz) A[k] = fabs(A[k]);
 }
+__KERN__ void k_exp(DU *A, int sz) {
+    int k = threadIdx.x + blockIdx.x * blockDim.x;
+    if (k < sz) A[k] = EXP(A[k]);
+}
+__KERN__ void k_tanh(DU *A, int sz) {
+    int k = threadIdx.x + blockIdx.x * blockDim.x;
+    if (k < sz) A[k] = tanh(A[k]);
+}
+__KERN__ void k_relu(DU *A, int sz) {
+    int k = threadIdx.x + blockIdx.x * blockDim.x;
+    if (k < sz) A[k] = A[k] > DU0 ? A[k] : DU0;
+}
 __KERN__ void k_identity(DU *A, int M, int N, int C) {
-    const DU i01[2][4] = {{ DU0, DU0, DU0, DU0 }, { 1.0, 1.0, 1.0, 1.0 }};
+    const DU i01[2][4] = {{ DU0, DU0, DU0, DU0 }, { DU1, DU1, DU1, DU1 }};
     int i = threadIdx.y + blockIdx.y * blockDim.y;
     int j = threadIdx.x + blockIdx.x * blockDim.x;
     if (i < M && j < N) {
@@ -227,7 +239,7 @@ Tensor::inverse(Tensor &LU) {
             aa[z + y * n] = -r1;                        // current z column
         }};
     auto backward = [aa, n](U16 z) {
-        DU r0 = 1.0 / aa[z + z * n];
+        DU r0 = DU1 / aa[z + z * n];
         aa[z + z * n] = r0;                             // diag
         for (U16 k = z + 1; k < n; k++) {               // current z row
             aa[k + z * n] *= r0;
@@ -420,7 +432,7 @@ Tensor::det() {
     WARN("Tensor::det[%d,%d]\n", m, n);
     
     DU *d = (DU*)data;
-    DU v  = 1.0;
+    DU v  = DU1;
     for (U16 z = 0; z < m; z++) v *= d[z + z * n];
     
     return v;
@@ -452,7 +464,7 @@ Tensor::tril() {
     
     DU *d = (DU*)data;
     for (U16 z = 0; z < m; z++) {
-        d[z + z * n] = DU0 + 1.0;
+        d[z + z * n] = DU1;
         for (U16 k = z + 1; k < n; k++) {
             d[k + z * n] = DU0;
         }
@@ -469,10 +481,17 @@ Tensor::scale(DU v) {
     return *this;
 }
 __BOTH__ Tensor&
-Tensor::abs() {
-    WARN("Tensor#abs\n");
+Tensor::math(mat_op op) {
+    const char *opn[] = { "", "", "", "", "abs", "exp", "tanh", "relu" };
+    WARN("Tensor#%s\n", opn[op]);
     dim3 block(256), grid((size + block.x -1)/block.x);
-    k_abs<<<grid, block>>>((DU*)data, size);
+    switch(op) {
+    case ABS:  k_abs<<<grid, block>>>((DU*)data, size);  break;
+    case EXP:  k_exp<<<grid, block>>>((DU*)data, size);  break;
+    case TANH: k_tanh<<<grid, block>>>((DU*)data, size); break;
+    case RELU: k_relu<<<grid, block>>>((DU*)data, size); break;
+    default: ERROR("math op=%d?\n", op); break;
+    }
     cudaDeviceSynchronize();
     return *this;
 }

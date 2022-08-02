@@ -18,7 +18,11 @@ typedef enum {
     ADD = 0,
     SUB,
     MUL,
-    DIV
+    DIV,
+    ABS,
+    EXP,
+    TANH,
+    RELU
 } mat_op;
 
 #define T4_TENSOR_VIEW  1
@@ -76,6 +80,7 @@ struct Tensor : public Managed {
     ///
     __BOTH__ DU     sum();
     __BOTH__ DU     dot(Tensor &B);
+    __BOTH__ Tensor &math(mat_op op);         ///< element-wise absolute
     ///
     /// linear algebra methods
     ///
@@ -83,7 +88,6 @@ struct Tensor : public Managed {
     __BOTH__ Tensor &triu();                  ///< upper triangle
     __BOTH__ Tensor &tril();                  ///< lower triangle
     __BOTH__ Tensor &scale(DU v);             ///< element-wise linear scale
-    __BOTH__ Tensor &abs();                   ///< element-wise absolute
     ///
     /// tensor life-cycle ops
     ///
