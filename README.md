@@ -6,9 +6,10 @@
 |---|---|---|---|---|
 |[release 1.0](https://github.com/chochain/tensorForth/releases/tag/v1.0.2)|**float**|beta|extended eForth with F32 float|Python|
 |[release 2.0](https://github.com/chochain/tensorForth/releases/tag/v2.0.2)|**matrix**|alpha|added vector and matrix objects|NumPy|
-|[release 2.2](https://github.com/chochain/tensorForth/releases/tag/v2.2.0)|**lapack**|alpha|added linear algebra methods|SciPy|
+|[release 2.2](https://github.com/chochain/tensorForth/releases/tag/v2.2.2)|**lapack**|alpha|added linear algebra methods|SciPy|
 |next|**CNN**|planning|add tensor NN ops with autograd|PyTorch|
 |-|**RNN**|later|-|-|
+|-|**Adaptive**|longshot|-|-|
 
 ### Why?
 Compiled programs run fast on Linux. On the other hand, command-line interface and shell scripting tie them together. Productivity grows with this model especially for researchers.
@@ -47,7 +48,7 @@ mmu#free(T2) size=6                  \ view released after print
 3 2 matrix ones                      \ create a [3,2] matrix and fill with ones
 mmu#tensor(3,2) => size=6
  <0 T2[2,3] T2[3,2]> ok
-*                                    \ multiply matrices [2,3] x [3,x]
+@                                    \ multiply matrices [2,3] x [3,x]
 mmu#tensor(2,2) => size=4            \ a [2,x] resultant matrix created
  <0 T2[2,3] T2[3,2] T2[2,2]> ok      \ shown on TOS
 .                                    \ print the matrix
@@ -71,7 +72,7 @@ tensorForth 2.0 done.
  <0 T2[1024,2048]> ok                
 2048 512 matrix ones                 \ create another [2048,512] matrix filled with 1s
  <0 T2[1024,2048] T2[2048,512]> ok
-*                                    \ multiply them and resultant matrix on TOS
+@                                    \ multiply them and resultant matrix on TOS
  <0 T2[1024,2048] T2[2048,512] T2[1024,512]> ok
 2048 / .                             \ scale down and print the resutant [1024,512] matrix
 matrix[1024,512] = {                 \ in PyTorch style (edgeitem=3)
@@ -85,7 +86,7 @@ matrix[1024,512] = {                 \ in PyTorch style (edgeitem=3)
  <0 T2[1024,2048] T2[2048,512] T2[1024,512> ok     \ original T2[1024,512] is still left on TOS
 drop                                               \ because tensor ops are by default non-destructive
  <0 T2[1024,2048] T2[2048,512]> ok                 \ so we drop it from TOS
-: mx clock >r for * drop next clock r> - ;         \ define a word 'mx' for benchmark loop
+: mx clock >r for @ drop next clock r> - ;         \ define a word 'mx' for benchmark loop
 9 mx                                               \ run benchmark for 10 loops
  <0 T2[1024,2048] T2[2048,512] 396> ok             \ 396 ms for 10 cycles
 drop                                               \ drop the value
@@ -171,7 +172,7 @@ Note:
 
 ### Tensor slice and dice
 <pre>
-   slice     (Ta x0 x1 y0 y1 -- Ta Ta') - numpy.slice[x0:x1,y0:y1,]
+   slice     (Ta i0 i1 j0 j1 -- Ta Ta') - numpy.slice[i0:i1,j0:j1,]
 </pre>
 
 ### Tensor arithmetic (by default non-destructive)
@@ -182,13 +183,14 @@ Note:
    -         (Ta Tb -- Ta Tb Tc)  - tensor element-wise subtraction Tc = Ta - Tb
    -         (Ta n  -- Ta n  Ta') - tensor-scalar subtraction (broadcast) Ta' = Ta - n
    -         (n  Ta -- n  Ta Ta') - tensor-scalar subtraction (broadcast) Ta' = n - Ta
-   *         (Ta Tb -- Ta Tb Tc)  - matrix-matrix multiplication
-   *         (Ta Ab -- Ta Ab Ta') - matrix-vector multiplication
-   *         (Ta n  -- Ta n  Ta') - tensor-scalar multiplication Ta' = n * Ta
-   *         (n  Ta -- n  Ta Ta') - scalar-tensor multiplication Ta' = n * Ta
+   @         (Ta Tb -- Ta Tb Tc)  - matrix-matrix multiplication Tc = Ta @ Tb, i.e. matmul
+   *         (Ta Tb -- Ta Tb Tc)  - tensor-tensor element-wise multiplication Tc = Ta * Tb
+   *         (Ta Ab -- Ta Ab Ta') - matrix-vector multiplication Ta' = Ta * colum_vector(Ab)
+   *         (Ta n  -- Ta n  Ta') - tensor-scalar multiplication Ta' = n * Ta, i.e. scale up
+   *         (n  Ta -- n  Ta Ta') - scalar-tensor multiplication Ta' = n * Ta, i.e. scale up
    *         (Aa Ab -- Aa Ab n)   - vector-vector inner product n = Aa . Ab
+   /         (Ta Tb -- Ta Tb Tc)  - tensor-tensor element-wise divide Tc = Ta / Tb
    /         (Ta n  -- Ta n  Ta') - tensor-scalar scale down Ta' = 1/n * Ta
-   /         (Ta Tb -- Ta Tb Tc)  - A * inv(B) matrix Tc = Ta * inverse(Tb)
    sum       (Ta    -- Ta n)      - sum all elements of a tensor
    exp       (Ta    -- Ta Ta')    - element-wise exponential
 </pre>
@@ -203,18 +205,20 @@ Note:
    -=        (Ta Tb -- Tc)    - tensor element-wise subtraction Tc = Ta - Tb
    -=        (Ta n  -- Ta')   - tensor-scalar subtraction (broadcast) Ta' = Ta - n
    -=        (Ta n  -- Ta')   - tensor-scalar subtraction (broadcast) Ta' = n - Ta
-   *=        (Ta Tb -- Tc)    - matrix-matrix multiplication Tc = Ta * Tb
+   @=        (Ta Tb -- Tc)    - matrix-matrix multiplication Tc = Ta @ Tb, i.e. matmul
+   *=        (Ta Tb -- Tc)    - matrix-matrix element-wise multiplication Tc = Ta * Tb
    *=        (Ta Ab -- Ac')   - matrix-vector multiplication Ac' = Ta * Ab
    *=        (Ta n  -- Ta')   - tensor-scalar multiplication Ta' = n * Ta
    *=        (n  Ta -- Ta')   - scalar-tensor multiplication Ta' = n * Ta
    *=        (Aa Ab -- n)     - vector-vector inner product n = Aa . Ab
+   /=        (Ta Tb -- Tc)    - matrix-matrix element-wise Tc = Ta / Tb 
    /=        (Ta n  -- Ta')   - tensor-scalar scale down multiplication Ta' = 1/n * Ta
-   /=        (Ta Tb -- Tc)    - A * inv(B) matrix Tc = Ta * inverse(Tb)
 </pre>
 
 ### Linear Algebra (by default non-destructive, except luinv)
 <pre>
-   matmul    (Ma Mb -- Ma Mb Mc) - matrix multiplication
+   matmul    (Ma Mb -- Ma Mb Mc) - matrix-matrix multiplication Mc = Ma @ Mb
+   matdiv    (Ma Mb -- Ma Mb Mc) - matrix-matrix division Mc = Ma @ inverse(Mb)
    inverse   (Ma    -- Ma Ma')   - matrix inversion (Gauss-Jordan with Pivot)
    transpose (Ma    -- Ma Ma')   - matrix transpose
    det       (Ma    -- Ma d)     - matrix determinant (with PLU)

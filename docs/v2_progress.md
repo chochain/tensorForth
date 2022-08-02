@@ -2,7 +2,7 @@
 ## Features
 * vector, matrix, tensor objects (modeled to PyTorch)
 * TLSF tensor storage manager
-* matrix arithmetics (i.e. +, -, *, sum, exp, abs, negate)
+* matrix arithmetics (i.e. +, -, @, *, sum, exp, abs, negate)
 * linear algebra (i.e. copy, matmul, inverse, transpose, det, lu, luinv, upper, lower, solve)
 * matrix fill (i.e. zeros, ones, full, eye, random)
 * matrix console input (i.e. matrix{..., vector{..., and T!{)
@@ -138,14 +138,14 @@ tensorForth 2.0
 |-|(Ta Tb -- Ta Tb Tc)|tensor element-wise subtraction Tc = Ta - Tb|
 |-|(Ta n  -- Ta n  Ta')|tensor-scalar subtraction (boardcast) Ta' = Ta - n|
 |-|(n  Ta -- n  Ta Ta')|scalar-tensor subtraction (boardcast) Ta' = n - Ta|
-|*|(Ta Tb -- Ta Tb Tc)|matrix-matrix multiplication Tc = Ta * Tb|
-|*|(Ta Ab -- Ta Ab Ac)|matrix-vector multiplication Ac = Ta * Ab|
-|*|(Ta n  -- Ta n Ta')|tensor-scalar multiplication Ta' = n * Ta|
-|*|(n  Ta -- n  Ta Ta')|scalar-tensor multiplication Ta' = n * Ta|
-|*|(Aa Ab -- Aa Ab c)|vector-vector inner (dot) product c = Aa * Ab|
-|/|(Ta n  -- Ta Ta')|tensor-scalar division Ta = 1/n * Ta|
-|/|(Ta Tb -- Ta Tb Tc)|matrix-matrix division Tc = Ta * inverse(Tb)|
-||> `3 3 matrix={ 2 2 5 1 1 1 4 6 8 } copy`<br/>> **`/`** `.`|`T2[3,3] T[3,3]`<br/>`matrix[3,3] = { { 1.0000 +0.0000 +0.0000 } { -0.0000 +1.0000 +0.0000 } { +0.0000 +0.0000 +1.0000 } }`|
+|@|(Ta Tb -- Ta Tb Tc)|matrix-matrix multiplication Tc = Ta @ Tb|
+|*|(Ta Tb -- Ta Tb Tc)|matrix-matrix element-wise multiplication Tc = Ta * Tb|
+|*|(Ta Ab -- Ta Ab Ac)|matrix-vector multiplication Ac = Ta * column_vector(Ab)|
+|*|(Ta n  -- Ta n Ta')|tensor-scalar multiplication Ta' = n * Ta, i.e. scale up|
+|*|(n  Ta -- n  Ta Ta')|scalar-tensor multiplication Ta' = n * Ta, i.e. scale up|
+|*|(Aa Ab -- Aa Ab c)|vector-vector inner product c = Aa * Ab, i.e. dot|
+|/|(Ta Tb -- Ta Tb Tc)|matrix-matrix element-wise division Tc = Ta / Tb|
+|/|(Ta n  -- Ta Ta')|tensor-scalar division Ta = 1/n * Ta, i.e. scale down|
 |sum|(Ta -- Ta n)|sum all elements of a tensor|
 |exp|(Ta -- Ta Ta')|exponential (i.e. e^x) all elements of a tensor|
 
@@ -161,18 +161,21 @@ tensorForth 2.0
 |-=|(Ta Tb -- Tc)|tensor element-wise subtraction Tc = Ta - Tb|
 |-=|(Ta n  -- Ta')|tensor-scalar subtraction (boardcast) Ta' = Ta - n|
 |-=|(n  Ta -- Ta')|scalar-tensor subtraction (boardcast) Ta' = n - Ta|
-|*=|(Ta Tb -- Tc)|matrix-matrix multiplication Tc = Ta * Tb|
+|@=|(Ta Tb -- Tc)|matrix-matrix multiplication Tc = Ta @ Tb|
+|*=|(Ta Tb -- Tc)|matrix-matrix element-wise multiplication Tc = Ta * Tb|
 |*=|(Ta Ab -- Ac)|matrix-vector multiplication Ac = Ta * Ab|
 |*=|(Ta n  -- Ta')|tensor-scalar multiplication Ta' = n * Ta|
 |*=|(n  Ta -- Ta')|scalar-tensor multiplication Ta' = n * Ta|
 |*=|(Aa Ab -- c)|vector-vector inner (dot) product c = Aa * Ab|
+|/=|(Ta Tb -- Tc)|matrix-matrix element-wise division Tc = Ta / Tb|
 |/=|(Ta n  -- Ta')|tensor-scalar division Ta = 1/n * Ta|
-|/=|(Ta Tb -- Tc)|matrix-matrix division Tc = Ta * inverse(Tb)|
 
 ### Linear Algebra ops
 |word|param/example|Matrix arithmetic ops (non-destructive)|
 |---|---|---|
-|matmul|(Ma Mb -- Ma Mb Mc)|matrix multiplication|
+|matmul|(Ma Mb -- Ma Mb Mc)|matrix multiplication Mc = Ma @ Mb|
+|matdiv|(Ma Mb -- Ma Mb Mc)|matrix division Mc = Ma @ inverse(Mb)|
+||> `3 3 matrix={ 2 2 5 1 1 1 4 6 8 } copy`<br/>> **`matdiv`** `.`|`T2[3,3] T[3,3]`<br/>`matrix[3,3] = { { 1.0000 +0.0000 +0.0000 } { -0.0000 +1.0000 +0.0000 } { +0.0000 +0.0000 +1.0000 } }`|
 |inverse|(Ma -- Ma Ma')|matrix inversion (Gauss-Jordan with Pivot)|
 ||> `3 3 matrix={ 2 2 5 1 1 1 4 6 8 }`<br/>> **`inverse`**<br/>> `.`|`T2[3,3]`<br/>`T2[3,3] T[3,3]`<br/>`matrix[3,3] = { { 0.3333 +2.3333 -0.5000 } { -0.6667 -0.6667 +0.5000 } { +0.3333 -0.6667 +0.0000 } }`|
 |transpose|(Ma -- Ma Ma')|matrix transpose|
