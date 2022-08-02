@@ -82,16 +82,28 @@ typedef float       F32;                    ///< single precision float
 typedef U16         IU;                     ///< instruction unit
 typedef F32         DU;                     ///< data unit
 typedef F64         DU2;                    ///< double preciesion data unit
-#define DU0         0                       /**< default data value     */
+#define DU0         0.0                     /**< default data value 0   */
+#define DU1         1.0                     /**< default data value 1   */
 #define DU_EPS      1.0e-6                  /**< floating point epsilon */
+///
+/// cross platform floating-point math support
+/// 
+#define ZERO(d)     (ABS(d) < DU_EPS)       /**< zero check             */
+#define BOOL(d)     (ZERO(d) ? DU0 : -DU1)  /**< default boolean        */
+#define ABS(d)      (fabsf(d))              /**< absolute value         */
+#define EXP(d)      (expf(d))               /**< exponential(float)     */
+#define TANH(d)     (tanhf(d))              /**< tanh(float)            */
+#define MOD(t,n)    (fmodf(t, n))           /**< fmod two floats        */
+#define DIV(x,y)    (fdividef(x,y))         /**< fast math devide       */
 ///
 /// macros for Tensor definitions
 ///
-#define T4_OBJ_FLAG 1                      /**< tensor attibute flag    */
+#define T4_OBJ_FLAG 1                             /**< tensor attibute flag     */
+#define SCALAR(v)   (*(U8*)&(v) &= ~T4_OBJ_FLAG)  /**< tensor flag mask for top */
 #if     T4_ENABLE_OBJ
-#define IS_OBJ(d)   ((*(U32*)&d) & T4_OBJ_FLAG) /**< check if DU is a tensor */
+#define IS_OBJ(d)   ((*(U32*)&d) & T4_OBJ_FLAG)   /**< check if DU is a tensor  */
+#define IS_TEN(d)   IS_OBJ(d)                     /**< TODO: more object types  */
 #endif
-#define IS_TEN(d)   IS_OBJ(d)              /**< TODO: more object types */
 
 ///@}
 ///

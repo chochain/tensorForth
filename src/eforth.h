@@ -8,14 +8,6 @@
 #define TEN4_SRC_EFORTH_H
 #include "vm.h"             // VM base class
 ///
-///@name Cross platform floating-point support
-///@{
-#define ZERO(d)      (ABS(d) < DU_EPS)             /**< zero check                     */
-#define BOOL(d)      (ZERO(d) ? 0 : -1)            /**< default boolean representation */
-#define ABS(d)       (fabsf(d))                    /**< absolute value                 */
-#define MOD(t,n)     (fmodf(t, n))                 /**< fmod two floating points       */
-#define DIV(x,y)     (fdividef(x,y))               /**< fast math devide               */
-///@}
 ///@name Data conversion
 ///@{
 #define INT(f)       (static_cast<int>(f + 0.5))   /**< cast float to int              */
