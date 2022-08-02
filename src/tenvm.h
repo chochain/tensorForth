@@ -45,7 +45,8 @@ protected:
     ///
     /// tensor ops
     ///
-    __GPU__ void texp();                    ///< element-wise all tensor elements
+    __GPU__ void ssop(mat_op op);           ///< scalar-scalar (Forth) ops
+    __GPU__ void tsop(mat_op op, t_drop x, bool swap); ///< tensor-scalar broadcast op
     __GPU__ void tmat(mat_op op, t_drop x); ///< matrix-matrix element ops (Hadamard)
     __GPU__ void tmul(t_drop x);            ///< matrix-matrix multiplication @
     __GPU__ void tdiv(t_drop x);            ///< matrix-matrix division (no broadcast)
