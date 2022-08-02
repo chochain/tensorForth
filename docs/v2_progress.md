@@ -54,6 +54,47 @@ tensorForth 2.0
 </pre>
 * \-v verbose_level - set verbosity level 0: off (default), 1: mmu tracing on, 2: detailed trace
 
+## Example with tracing on
+<pre>
+> ten4 -v 1                          # enter tensorForth, with mmu debug tracing on
+tensorForth 2.0
+\  GPU 0 initialized at 1800MHz, dict[1024], pmem=48K, tensor=1024M
+\  VM[0] dict=0x7f56fe000a00, mem=0x7f56fe004a00, vss=0x7f56fe010a00
+
+2 3 matrix{ 1 2 3 4 5 6 }            \ create matrix
+mmu#tensor(2,3) => size=6            \ the optional debug traces
+ <0 T2[2,3]> ok                      \ 2-D tensor shown on top of stack (TOS)
+dup                                  \ duplicate i.e. create a view
+mmu#view 0x7efc18000078 => size=6
+ <0 T2[2,3] V2[2,3]> ok              \ view shown on TOS
+.                                    \ print the view
+matrix[2,3] = {
+	{ +1.0000 +2.0000 +3.0000 }
+	{ +4.0000 +5.0000 +6.0000 } }
+ <0 T2[2,3]> ok
+mmu#free(T2) size=6                  \ view released after print
+ <0 T2[2,3]> ok
+3 2 matrix ones                      \ create a [3,2] matrix and fill with ones
+mmu#tensor(3,2) => size=6
+ <0 T2[2,3] T2[3,2]> ok
+@                                    \ multiply matrices [2,3] x [3,x]
+mmu#tensor(2,2) => size=4            \ a [2,x] resultant matrix created
+ <0 T2[2,3] T2[3,2] T2[2,2]> ok      \ shown on TOS
+.                                    \ print the matrix
+matrix[2,2] = {
+	{ +6.0000 +6.0000 }
+	{ +15.0000 +15.0000 } }
+ <0 T2[2,3] T2[3,2]> ok
+mmu#free(T2) size=4                  \ matrix release after print
+2drop                                \ free both matrics
+mmu#free(T2) size=6
+mmu#free(T2) size=6
+ <0> ok
+bye                                  \ exit tensorForth
+ <0 T2[2,3] T2[3,2]> ok
+tensorForth 2.0 done.
+</pre>
+
 ## Forth Tensor operations
 ### Tensor creation ops
 |word|param/example|tensor creation ops|
