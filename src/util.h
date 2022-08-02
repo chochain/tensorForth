@@ -26,6 +26,7 @@ uint16_t hbin_to_u16(const void *bin);
 ///
 ///@name Endianess conversion
 ///@{
+#define __KERN__     __global__
 #define __GPU__      __device__
 __GPU__ uint32_t     bin_to_u32(const void *bin);
 __GPU__ uint16_t     bin_to_u16(const void *bin);
@@ -58,6 +59,19 @@ __GPU__ long         d_strtol(const char *s, char **p, int base=10);
 __GPU__ double       d_strtof(const char *s, char **p);
 __GPU__ int          d_hash(const char *s);
 ///@}
+///@name Tensor ops (kernel mode)
+///@{
+__KERN__ void        k_fill(float *t, float v, int sz);
+__KERN__ void        k_abs(float *t, int sz);
+__KERN__ void        k_exp(float *t, int sz);
+__KERN__ void        k_tanh(float *t, int sz);
+__KERN__ void        k_relu(float *t, int sz);
+__KERN__ void        k_copy(float *src, float *dst, int sz);  ///< Note: (src, dst)
+__KERN__ void        k_transpose(float *src, float *dst, int m, int n); ///< Note: (src, dst), TODO: CDP
+__KERN__ void        k_scale(float *t, float v, int sz);
+__KERN__ void        k_identity(float *t, int m, int n, int c);
+///@}
+///==========================================================================
 ///@name Unified memory ops
 ///@{
 #define MEMCPY(t,s,n)   d_memcpy((void*)(t), (void*)(s), (size_t)(n))       /** TODO: cudaMemcpyAsyn */

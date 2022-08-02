@@ -46,50 +46,6 @@ __KERN__ void k_mat_op(                                    ///< TODO: C
         }
     }
 }
-__KERN__ void k_transpose(DU *src, DU *dst, int M, int N) { ///< Note: (src, dst), TODO: CDP
-    int i = threadIdx.y + blockIdx.y * blockDim.y;
-    int j = threadIdx.x + blockIdx.x * blockDim.x;
-
-    if (i < M && j < N) {
-        dst[i + j * M] = src[j + i * N];
-    }
-}
-__KERN__ void k_copy(DU *src, DU *dst, int sz) {           ///< Note: (src, dst)
-    int k = threadIdx.x + blockIdx.x * blockDim.x;
-    if (k < sz) dst[k] = src[k];
-}
-__KERN__ void k_fill(DU *A, DU v, int sz) {
-    int k = threadIdx.x + blockIdx.x * blockDim.x;
-    if (k < sz) A[k] = v;
-}
-__KERN__ void k_scale(DU *A, DU v, int sz) {
-    int k = threadIdx.x + blockIdx.x * blockDim.x;
-    if (k < sz) A[k] *= v;
-}
-__KERN__ void k_abs(DU *A, int sz) {
-    int k = threadIdx.x + blockIdx.x * blockDim.x;
-    if (k < sz) A[k] = fabs(A[k]);
-}
-__KERN__ void k_exp(DU *A, int sz) {
-    int k = threadIdx.x + blockIdx.x * blockDim.x;
-    if (k < sz) A[k] = EXP(A[k]);
-}
-__KERN__ void k_tanh(DU *A, int sz) {
-    int k = threadIdx.x + blockIdx.x * blockDim.x;
-    if (k < sz) A[k] = tanh(A[k]);
-}
-__KERN__ void k_relu(DU *A, int sz) {
-    int k = threadIdx.x + blockIdx.x * blockDim.x;
-    if (k < sz) A[k] = A[k] > DU0 ? A[k] : DU0;
-}
-__KERN__ void k_identity(DU *A, int M, int N, int C) {
-    const DU i01[2][4] = {{ DU0, DU0, DU0, DU0 }, { DU1, DU1, DU1, DU1 }};
-    int i = threadIdx.y + blockIdx.y * blockDim.y;
-    int j = threadIdx.x + blockIdx.x * blockDim.x;
-    if (i < M && j < N) {
-        memcpy(&A[j + i * N], i01[i==j], sizeof(DU) * C); /// * assume x==y return 0|1
-    }
-}
 ///=======================================================================
 /// static methods
 ///
@@ -486,10 +442,10 @@ Tensor::math(mat_op op) {
     WARN("Tensor#%s\n", opn[op]);
     dim3 block(256), grid((size + block.x -1)/block.x);
     switch(op) {
-    case ABS:  k_abs<<<grid, block>>>((DU*)data, size);  break;
-    case EXP:  k_exp<<<grid, block>>>((DU*)data, size);  break;
-    case TANH: k_tanh<<<grid, block>>>((DU*)data, size); break;
-    case RELU: k_relu<<<grid, block>>>((DU*)data, size); break;
+    case ABS:  k_abs<<<grid, block>>>((DU*)data, size);     break;
+    case EXP:  k_exp<<<grid, block>>>((DU*)data, size);     break;
+    case TANH: k_tanh<<<grid, block>>>((DU*)data, size);    break;
+    case RELU: k_relu<<<grid, block>>>((DU*)data, size);    break;
     default: ERROR("math op=%d?\n", op); break;
     }
     cudaDeviceSynchronize();
@@ -559,16 +515,15 @@ Tensor::reshape(U16 n, U16 h, U16 w, U16 c) {
     }
     return *this;
 }
-
 __BOTH__ Tensor&
 Tensor::identity() {
     if (rank < 2) return *this;
-    int h = H(), w = W();
+    int m = H(), n = W();
     dim3 block(16, 16), grid(
-        (w + block.x - 1) / block.x,
-        (h + block.y - 1) / block.y
+        (n + block.x - 1) / block.x,
+        (m + block.y - 1) / block.y
     );
-    k_identity<<<grid, block>>>((DU*)data, h, w, C());
+    k_identity<<<grid, block>>>((DU*)data, m, n, sizeof(DU)*C());
     cudaDeviceSynchronize();
     return *this;
 }

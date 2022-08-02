@@ -73,7 +73,7 @@ _loop_hash(const char *str, int bsz) {
   @param  str   Target string.
   @return int   Symbol value.
 */
-__KERN__ void
+__GPU__ void
 _dyna_hash(int *hash, const char *str, int sz) {
     int x = threadIdx.x;                                    // row-major
     int m = __ballot_sync(0xffffffff, x<sz);                // ballot_mask
@@ -85,7 +85,7 @@ _dyna_hash(int *hash, const char *str, int sz) {
     if (x==0) *hash += h;
 }
 
-__KERN__ void
+__GPU__ void
 _dyna_hash2d(int *hash, const char *str, int bsz) {
     auto blk = cg::this_thread_block();                     // C++11
 
@@ -372,4 +372,61 @@ d_strtof(const char *s, char** p) {
 __GPU__ int
 d_hash(const char *s) {
     return _hash(s, STRLENB(s));
+}
+/*!@brief
+  Tensor basic ops
+*/
+__KERN__ void
+k_fill(float *t, float v, int sz) {
+    int k = threadIdx.x + blockIdx.x * blockDim.x;
+    if (k < sz) t[k] = v;
+}
+__KERN__ void
+k_abs(float *t, int sz) {
+    int k = threadIdx.x + blockIdx.x * blockDim.x;
+    if (k < sz) t[k] = fabsf(t[k]);
+}
+__KERN__ void
+k_exp(float *t, int sz) {
+    int k = threadIdx.x + blockIdx.x * blockDim.x;
+    if (k < sz) t[k] = expf(t[k]);
+}
+__KERN__ void
+k_tanh(float *t, int sz) {
+    int k = threadIdx.x + blockIdx.x * blockDim.x;
+    if (k < sz) t[k] = tanhf(t[k]);
+}
+__KERN__ void
+k_relu(float *t, int sz) {
+    int k = threadIdx.x + blockIdx.x * blockDim.x;
+    if (k < sz) t[k] = t[k] > 0.0 ? t[k] : 0.0;
+}
+__KERN__ void
+k_copy(float *src, float *dst, int sz) {           ///< Note: (src, dst)
+    int k = threadIdx.x + blockIdx.x * blockDim.x;
+    if (k < sz) dst[k] = src[k];
+}
+__KERN__ void
+k_transpose(float *src, float *dst, int m, int n) { ///< Note: (src, dst), TODO: CDP
+    int i = threadIdx.y + blockIdx.y * blockDim.y;
+    int j = threadIdx.x + blockIdx.x * blockDim.x;
+
+    if (i < m && j < n) {
+        dst[i + j * m] = src[j + i * n];
+    }
+}
+__KERN__ void
+k_scale(float *t, float v, int sz) {
+    int k = threadIdx.x + blockIdx.x * blockDim.x;
+    if (k < sz) t[k] *= v;
+}
+__KERN__ void
+k_identity(float *t, int m, int n, int sz) {
+    const float i01[2][4] = {
+        { 0.0f, 0.0f, 0.0f, 0.0f }, { 1.0f, 1.0f, 1.0f, 1.0f }};
+    int i = threadIdx.y + blockIdx.y * blockDim.y;
+    int j = threadIdx.x + blockIdx.x * blockDim.x;
+    if (i < m && j < n) {
+        memcpy(&t[j + i * n], i01[i==j], sz); /// * assume x==y return 0|1
+    }
 }
