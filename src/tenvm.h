@@ -8,7 +8,7 @@
 #define TEN4_SRC_TENVM_H
 #include "eforth.h"                         /// extending ForthVM
 
-#define NO_OBJ(v) (*(U8*)&(v) &= ~T4_OBJ_FLAG)  /**< tensor flag mask for top       */
+#define SCALAR(v) (*(U8*)&(v) &= ~T4_OBJ_FLAG)  /**< tensor flag mask for top       */
 #define EXP(d)    (expf(d))                     /**< exponential(float)             */
 typedef enum {
     KEEP = false,

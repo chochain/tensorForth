@@ -22,7 +22,7 @@ __GPU__ void TensorVM::add_to_tensor(DU n) {
 __GPU__ void
 TensorVM::texp() {
     if (!IS_TEN(top)) {                      /// * scalar
-        top = EXP(top); NO_OBJ(top);         /// * mask off object-bit if any
+        top = EXP(top); SCALAR(top);         /// * mask off object-bit if any
         return;
     }
     Tensor &A = mmu.du2ten(top);
@@ -43,7 +43,7 @@ TensorVM::tmat(mat_op op, t_drop x) {
         case ADD: top += ss.pop();          break;
         case SUB: top = ss.pop() - top;     break;
         case MUL: top *= ss.pop();          break;
-        case DIV: top = DIV(ss.pop(), top); NO_OBJ(top); break;
+        case DIV: top = DIV(ss.pop(), top); SCALAR(top); break;
         }
         return;
     }
@@ -374,7 +374,7 @@ TensorVM::number(char *str) {
         ? STRTOF(idiom, &p)
         : STRTOL(idiom, &p, radix);
     if (*p != '\0') return 0;
-    NO_OBJ(n);                           /// * mask out object bit
+    SCALAR(n);                           /// * mask out object bit
     if (compile) {                       /// * add literal when in compile mode
         VLOG2("%f\n", n);
         add_w(DOLIT);                    ///> dovar (+parameter field)
