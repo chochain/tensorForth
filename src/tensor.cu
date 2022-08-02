@@ -28,18 +28,22 @@ __KERN__ void k_gemm(                                        ///< 2D only
         C[j + i * N] = alpha * acc + beta * C[j + i * N];
     }
 }
-__KERN__ void k_matadd(                                     ///< TODO: C
+__KERN__ void k_mat_op(                                    ///< TODO: C
+    mat_op op,
     DU *A, DU *B, DU *C,
-    int M, int N,
-    bool sub)
+    int M, int N)
 {
     int i = threadIdx.y + blockIdx.y * blockDim.y;
     int j = threadIdx.x + blockIdx.x * blockDim.x;
 
     if (i < M && j < N) {
         int k = j + i * N;
-        if (sub) C[k] = A[k] - B[k];
-        else     C[k] = A[k] + B[k];
+        switch (op) {
+        case ADD: C[k] = A[k] + B[k]; break;
+        case SUB: C[k] = A[k] - B[k]; break;
+        case MUL: C[k] = A[k] * B[k]; break;               /// * convolution
+        case DIV: C[k] = A[k] / B[k]; break;
+        }
     }
 }
 __KERN__ void k_transpose(DU *src, DU *dst, int M, int N) { ///< Note: (src, dst), TODO: CDP
@@ -95,31 +99,37 @@ Tensor::gemm(Tensor &A, Tensor &B, Tensor &C, DU alpha, DU beta) {
     return C;
 }
 ///
-/// tensor-tensor addition C = A + B or C = A - B
+/// tensor-tensor element-wise C = A op B where op=ADD|SUB|MUL|DIV (Hadamard)
 ///
 __BOTH__ Tensor&
-Tensor::add(Tensor &A, Tensor &B, Tensor &C, bool sub) {
+Tensor::mat(mat_op op, Tensor &A, Tensor &B, Tensor &C) {
+    const char *opn[] = { "add", "sub", "mul", "div" };
     U16 m = A.H(), n = A.W();
-    WARN("Tensor::%s M=%d, N=%d\n", sub ? "sub" : "add", m, n);
+    WARN("Tensor::mat%s M=%d, N=%d\n", opn[op], m, n);
     dim3 block(16, 16), grid(
         (n + block.x - 1) / block.x,
         (m + block.y - 1) / block.y
     );
-    k_matadd<<<grid, block>>>((DU*)A.data, (DU*)B.data, (DU*)C.data, m, n, sub);
+    k_mat_op<<<grid, block>>>(op, (DU*)A.data, (DU*)B.data, (DU*)C.data, m, n);
     cudaDeviceSynchronize();     // TODO: deprecated 11.6, use cooperative_groups.sync()
     return C;
 }
 ///
-/// tensor-scalar addition C = A +- n element-wise
+/// tensor-scalar addition C = A +- n element-wise (Hadamard)
 ///
 __BOTH__ Tensor&
-Tensor::add(Tensor &A, DU v, Tensor &C, bool sub) {
+Tensor::mat(mat_op op, Tensor &A, DU v, Tensor &C) {
+    const char *opn[] = { "add", "sub", "mul", "div" };
     U16 m = A.H(), n = A.W();
-    WARN("Tensor::%s M=%d, N=%d\n", sub ? "sub" : "add", m, n);
+    WARN("Tensor::mat%s M=%d, N=%d\n", opn[op], m, n);
     DU *da = (DU*)A.data, *dc = (DU*)C.data;
     for (int k = 0; k < A.size; k++) {
-        if (sub) *dc++ = *da++ - v;
-        else     *dc++ = *da++ + v;
+        switch (op) {
+        case ADD: *dc++ = *da++ + v; break;
+        case SUB: *dc++ = *da++ - v; break;
+        case MUL: *dc++ = *da++ * v; break;
+        case DIV: *dc++ = *da++ / v; break;
+        }
     }
     return C;
 }

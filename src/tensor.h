@@ -14,6 +14,13 @@
 /// Note:
 ///    PyTorch.Tensor: size, dtype, type_id, stride, tensorstore
 ///
+typedef enum {
+    ADD = 0,
+    SUB,
+    MUL,
+    DIV
+} mat_op;
+
 #define T4_TENSOR_VIEW  1
 struct Tensor : public Managed {
     U32              size;      ///< number of data elements, TODO: more than 4G elements
@@ -39,8 +46,8 @@ struct Tensor : public Managed {
     static __BOTH__ Tensor &gemm(Tensor &A, Tensor &B, Tensor &C, DU alpha, DU beta);
     static __BOTH__ Tensor &grad(Tensor &A, Tensor &B, Tensor &C);
     static __BOTH__ Tensor &mm(Tensor &A, Tensor &B, Tensor &C) { return gemm(A, B, C, 1.0, 0.0); }
-    static __BOTH__ Tensor &add(Tensor &A, Tensor &B, Tensor &C, bool sub=0);
-    static __BOTH__ Tensor &add(Tensor &A, DU v, Tensor &C, bool sub=0);
+    static __BOTH__ Tensor &mat(mat_op op, Tensor &A, Tensor &B, Tensor &C);  ///> matrix-matrix element-wise ops (Hadamard)
+    static __BOTH__ Tensor &mat(mat_op op, Tensor &A, DU v, Tensor &C);       ///> matrix-scalar element-wise ops
     static __BOTH__ Tensor &copy(Tensor &A, Tensor &C);
     static __BOTH__ Tensor &transpose(Tensor &A, Tensor &T);
     static __BOTH__ Tensor &inverse(Tensor &A, Tensor &I);  /// GaussJordan (with Pivot)
