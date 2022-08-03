@@ -29,7 +29,7 @@ __KERN__ void k_gemm(                                        ///< 2D only
     }
 }
 __KERN__ void k_mat_op(                                    ///< TODO: C
-    mat_op op,
+    t4_mat_op op,
     DU *A, DU *B, DU *C,
     int M, int N)
 {
@@ -70,7 +70,7 @@ Tensor::gemm(Tensor &A, Tensor &B, Tensor &C, DU alpha, DU beta) {
 /// tensor-tensor element-wise C = A op B where op=ADD|SUB|MUL|DIV (Hadamard)
 ///
 __BOTH__ Tensor&
-Tensor::mat(mat_op op, Tensor &A, Tensor &B, Tensor &C) {
+Tensor::mat(t4_mat_op op, Tensor &A, Tensor &B, Tensor &C) {
     const char *opn[] = { "add", "sub", "mul", "div" };
     U16 m = A.H(), n = A.W();
     WARN("Tensor::mat%s M=%d, N=%d\n", opn[op], m, n);
@@ -86,7 +86,7 @@ Tensor::mat(mat_op op, Tensor &A, Tensor &B, Tensor &C) {
 /// tensor-scalar addition C = A +- n element-wise (Hadamard)
 ///
 __BOTH__ Tensor&
-Tensor::mat(mat_op op, Tensor &A, DU v, Tensor &C) {
+Tensor::mat(t4_mat_op op, Tensor &A, DU v, Tensor &C) {
     const char *opn[] = { "add", "sub", "mul", "div" };
     U16 m = A.H(), n = A.W();
     WARN("Tensor::mat%s M=%d, N=%d\n", opn[op], m, n);
@@ -437,7 +437,7 @@ Tensor::scale(DU v) {
     return *this;
 }
 __BOTH__ Tensor&
-Tensor::math(mat_op op) {
+Tensor::math(t4_mat_op op) {
     const char *opn[] = { "", "", "", "", "abs", "exp", "tanh", "relu" };
     WARN("Tensor#%s\n", opn[op]);
     dim3 block(256), grid((size + block.x -1)/block.x);
