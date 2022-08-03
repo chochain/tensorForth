@@ -26,22 +26,32 @@ typedef enum {
     RELU
 } t4_mat_op;
 
-#define T4_TENSOR_VIEW  1
+typedef enum {
+    TENSOR = 0,         ///< tensor object
+    VIEW,               ///< a view object
+    LAYER,              ///< neural network layer
+    ACTI                ///< activation
+} t4_obj;
+
+struct Tensor;
+typedef void (*GRAD)(Tensor&, Tensor&);
+
 struct Tensor : public Managed {
-    U32              size;      ///< number of data elements, TODO: more than 4G elements
-    U16              dsize;     ///< size of data element, F32 for now, TODO: others
-    U16              rank;      ///< rank of tensor 2:matrix, 4:NHWC tensor
-    U16              stride[4]; ///< strides to calculate memory offset
-    U16              shape[4];  ///< shape=HWCN, matrix C=N=1, vector W=C=N=1
-    U32              attr = 0;  ///< tensor attributes (a view)
+    U32      size;      ///< number of data elements, TODO: more than 4G elements
     union {
-        U8           *data = 0; ///< managed memory block pointer
-        DU           f;         ///< float storage
+        U32  attr = 0;
         struct {
-            U32 t  : 1;         ///< tensor rank >= 1
-            U32 idx: 31;        ///< tensor pool index (2^31 slots)
+            U8     dsize;  ///< size of data element, F32 for now
+            U8     rank;   ///< rank of tensor 2:matrix, 4:NHWC tensor
+            U8     xxx;    ///< reserved
+            t4_obj ttype;  ///< 0: tensor, 1: view, 2: layer, 3: activation
         };
     };
+    U16      stride[4]; ///< strides to calculate memory offset
+    U16      shape[4];  ///< shape=HWCN, matrix C=N=1, vector W=C=N=1
+    U8       *data = 0; ///< managed memory block pointer
+    GRAD     grad  = 0; ///< autodiff function
+    U8       *diff = 0; ///< diff tensor
     ///
     /// static ops
     /// Note:
@@ -49,7 +59,6 @@ struct Tensor : public Managed {
     ///   2. return the resultant tensor
     ///
     static __BOTH__ Tensor &gemm(Tensor &A, Tensor &B, Tensor &C, DU alpha, DU beta);
-    static __BOTH__ Tensor &grad(Tensor &A, Tensor &B, Tensor &C);
     static __BOTH__ Tensor &mm(Tensor &A, Tensor &B, Tensor &C) { return gemm(A, B, C, 1.0, 0.0); }
     static __BOTH__ Tensor &mat(t4_mat_op op, Tensor &A, Tensor &B, Tensor &C);  ///> matrix-matrix element-wise ops (Hadamard)
     static __BOTH__ Tensor &mat(t4_mat_op op, Tensor &A, DU v, Tensor &C);       ///> matrix-scalar element-wise ops
@@ -67,7 +76,6 @@ struct Tensor : public Managed {
     __HOST__ Tensor(U16 h, U16 w);
     __HOST__ Tensor(U32 sz);
     __HOST__ ~Tensor();
-    __HOST__ Tensor(DU f0): f(f0)  { t = 0; }
     ///
     /// attributes
     ///
@@ -75,7 +83,7 @@ struct Tensor : public Managed {
     __BOTH__ __INLINE__ U16  H()       { return shape[0]; }
     __BOTH__ __INLINE__ U16  W()       { return shape[1]; }
     __BOTH__ __INLINE__ U16  C()       { return shape[2]; }
-    __BOTH__ __INLINE__ bool is_view() { return attr & T4_TENSOR_VIEW; }
+    __BOTH__ __INLINE__ bool is_view() { return ttype == VIEW; }
     ///
     /// tensor arithmetics
     ///
@@ -105,42 +113,23 @@ struct Tensor : public Managed {
     ///
     __BOTH__ void to_s(std::ostream &fout);
     ///
-    /// assignment
+    /// TODO: tensor arithmetics
     ///
-    __BOTH__ __INLINE__ Tensor &operator=(DU f0) { f = f0; t = 0; return *this; }
+    __BOTH__ __INLINE__ Tensor &operator+=(Tensor &t){ return *this; }
+    __BOTH__ __INLINE__ Tensor &operator-=(Tensor &t){ return *this; }
+    __BOTH__ __INLINE__ Tensor &operator+(Tensor &t) { return *this; }
+    __BOTH__ __INLINE__ Tensor &operator-(Tensor &t) { return *this; }
+    __BOTH__ __INLINE__ Tensor &operator*(Tensor &t) { return *this; }
+    __BOTH__ __INLINE__ Tensor &operator/(Tensor &t) { return *this; }
+    __BOTH__ __INLINE__ Tensor &operator%(Tensor &t) { return *this; }
     ///
-    /// tensor arithmetics
+    /// TODO: tensor logical ops
     ///
-    __BOTH__ __INLINE__ Tensor &operator+=(Tensor &t){ f += t.f; return *this; }
-    __BOTH__ __INLINE__ Tensor &operator-=(Tensor &t){ f -= t.f; return *this; }
-    __BOTH__ __INLINE__ F32    operator+(Tensor &t)  { return f + t.f; }
-    __BOTH__ __INLINE__ F32    operator-(Tensor &t)  { return f - t.f; }
-    __BOTH__ __INLINE__ F32    operator*(Tensor &t)  { return f * t.f; }
-    __BOTH__ __INLINE__ F32    operator/(Tensor &t)  { return f / t.f; }
-    __BOTH__ __INLINE__ F32    operator%(Tensor &t)  { return fmod(f, t.f); }
-    ///
-    /// tensor logical ops
-    ///
-    __BOTH__ __INLINE__ bool   operator<(Tensor &t)  { return (f - t.f) <  -DU_EPS; }
-    __BOTH__ __INLINE__ bool   operator>(Tensor &t)  { return (f - t.f) >   DU_EPS; }
-    __BOTH__ __INLINE__ bool   operator<=(Tensor &t) { return (f - t.f) <= -DU_EPS; }
-    __BOTH__ __INLINE__ bool   operator>=(Tensor &t) { return (f - t.f) >=  DU_EPS; }
-    __BOTH__ __INLINE__ bool   operator==(Tensor &t) { return fabs(f - t.f) <  DU_EPS; }
-    __BOTH__ __INLINE__ bool   operator!=(Tensor &t) { return fabs(f - t.f) >= DU_EPS; }
-    ///
-    /// float arithmetics
-    ///
-    __BOTH__ __INLINE__ Tensor &operator+=(F32 f0)   { f += f0; t = 0; return *this; }
-    __BOTH__ __INLINE__ Tensor &operator-=(F32 f0)   { f -= f0; t = 0; return *this; }
-    __BOTH__ __INLINE__ Tensor &operator*=(F32 f0)   { f *= f0; t = 0; return *this; }
-    __BOTH__ __INLINE__ Tensor &operator/=(F32 f0)   { f /= f0; t = 0; return *this; }
-    ///
-    /// float logical ops
-    ///
-    __BOTH__ __INLINE__ bool   operator<(F32 f0)     { return (f - f0) <  -DU_EPS; }
-    __BOTH__ __INLINE__ bool   operator>(F32 f0)     { return (f - f0) >   DU_EPS; }
-    __BOTH__ __INLINE__ bool   operator>=(F32 f0)    { return (f - f0) >=  DU_EPS; }
-    __BOTH__ __INLINE__ bool   operator==(F32 f0)    { return fabs(f - f0)  <  DU_EPS; }
-    __BOTH__ __INLINE__ bool   operator!=(F32 f0)    { return fabs(f - f0)  >= DU_EPS; }
+    __BOTH__ __INLINE__ bool   operator<(Tensor &t)  { return 0; }
+    __BOTH__ __INLINE__ bool   operator>(Tensor &t)  { return 0; }
+    __BOTH__ __INLINE__ bool   operator<=(Tensor &t) { return 0; }
+    __BOTH__ __INLINE__ bool   operator>=(Tensor &t) { return 0; }
+    __BOTH__ __INLINE__ bool   operator==(Tensor &t) { return 0; }
+    __BOTH__ __INLINE__ bool   operator!=(Tensor &t) { return 0; }
 };
 #endif // TEN4_SRC_TENSOR_H_

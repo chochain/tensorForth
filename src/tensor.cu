@@ -38,7 +38,7 @@ __KERN__ void k_mat_op(                                    ///< TODO: C
 
     if (i < M && j < N) {
         int k = j + i * N;
-        switch (op) {
+        switch (op) {                                      /// no divergence
         case ADD: C[k] = A[k] + B[k]; break;
         case SUB: C[k] = A[k] - B[k]; break;
         case MUL: C[k] = A[k] * B[k]; break;               /// * convolution
@@ -438,7 +438,7 @@ Tensor::scale(DU v) {
 }
 __BOTH__ Tensor&
 Tensor::math(t4_mat_op op) {
-    const char *opn[] = { "", "", "", "", "abs", "exp", "tanh", "relu" };
+    const char *opn[] = { "+", "-", "*", "/", "abs", "exp", "tanh", "relu" };
     WARN("Tensor#%s\n", opn[op]);
     dim3 block(256), grid((size + block.x -1)/block.x);
     switch(op) {
@@ -456,20 +456,18 @@ Tensor::math(t4_mat_op op) {
 ///
 __BOTH__ Tensor&
 Tensor::set_as_view(bool set) {
-    if (set) attr |= T4_TENSOR_VIEW;
-    else     attr &= ~T4_TENSOR_VIEW;
+    ttype = set ? VIEW : TENSOR;
     return *this;
 }
-
 __BOTH__ Tensor&
 Tensor::reset(void *mptr, U32 sz) {
     WARN("Tensor::reset(%p, %d)\n", mptr, sz);
     dsize  = sizeof(DU);
     size   = sz;
     rank   = 1;
+    ttype  = TENSOR;
     U16 t[4] = {1, 1, 1, 1};      memcpy(stride, t, sizeof(t));
     U16 s[4] = {(U16)sz,1, 1, 1}; memcpy(shape,  s, sizeof(s));
-    attr   = 0;
     data   = (U8*)mptr;
     return *this;
 }
