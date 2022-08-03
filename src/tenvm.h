@@ -13,7 +13,7 @@
 typedef enum {
     KEEP = false,
     DROP = true
-} t_drop;
+} t4_drop_opt;
 
 class TensorVM : public ForthVM {
 public:
@@ -45,11 +45,11 @@ protected:
     ///
     /// tensor ops
     ///
-    __GPU__ void ssop(mat_op op);           ///< scalar-scalar (Forth) ops
-    __GPU__ void tsop(mat_op op, t_drop x, bool swap); ///< tensor-scalar broadcast op
-    __GPU__ void tmat(mat_op op, t_drop x); ///< matrix-matrix element ops (Hadamard)
-    __GPU__ void tmul(t_drop x);            ///< matrix-matrix multiplication @
-    __GPU__ void tdiv(t_drop x);            ///< matrix-matrix division (no broadcast)
+    __GPU__ void ssop(t4_mat_op op);        ///< scalar-scalar (Forth) ops
+    __GPU__ void tsop(t4_mat_op op, t4_drop_opt x, bool swap); ///< tensor-scalar broadcast op
+    __GPU__ void tmat(t4_mat_op op, t4_drop_opt x); ///< matrix-matrix element ops (Hadamard)
+    __GPU__ void tmul(t4_drop_opt x);       ///< matrix-matrix multiplication @
+    __GPU__ void tdiv(t4_drop_opt x);       ///< matrix-matrix division (no broadcast)
     __GPU__ void tinv();                    ///< matrix inversion (Gauss-Jordan)
     __GPU__ void tlu();                     ///< matrix LU decomposition
     __GPU__ void tdet();                    ///< matrix determinant (via LU)

@@ -20,7 +20,7 @@ __GPU__ void TensorVM::add_to_tensor(DU n) {
 /// tensor methods
 ///
 __GPU__ void
-TensorVM::ssop(mat_op op) {
+TensorVM::ssop(t4_mat_op op) {
     switch (op) {
     case ADD: top += ss.pop();      break;
     case SUB: top = ss.pop() - top; break;
@@ -49,7 +49,7 @@ TensorVM::ssop(mat_op op) {
     and tensor2 is a (k x m x p) Tensor, the returned tensor will be an (j x k x n x p) Tensor.
 */
 __GPU__ void
-TensorVM::tsop(mat_op op, t_drop x, bool swap) {
+TensorVM::tsop(t4_mat_op op, t4_drop_opt x, bool swap) {
     auto drop = [this](Tensor &A) { POP(); mmu.free(A); };
     
     Tensor &A = mmu.du2ten(swap ? top : ss[-1]);
@@ -68,7 +68,7 @@ TensorVM::tsop(mat_op op, t_drop x, bool swap) {
     VLOG2("=> C[%d,%d]=%p\n", C.H(), C.W(), &C);
 }
 __GPU__ void
-TensorVM::tmat(mat_op op, t_drop x) {
+TensorVM::tmat(t4_mat_op op, t4_drop_opt x) {
     bool s0 = !IS_TEN(top), s1 = !IS_TEN(ss[-1]);  /// * scalar flags
     if (s0 && s1) return ssop(op);          ///> op(scalar, scalar)
     if (s0 || s1) return tsop(op, x, s1);   ///> op(tensor, scalar)
@@ -109,7 +109,7 @@ TensorVM::tmat(mat_op op, t_drop x) {
     else ERROR("dim?");
 }
 __GPU__ void
-TensorVM::tmul(t_drop x) {                            ///< tensor multiplication
+TensorVM::tmul(t4_drop_opt x) {                       ///< tensor multiplication
     auto drop = [this](Tensor &X) { POP(); mmu.free(X); };
     
     bool s0 = !IS_TEN(top), s1 = !IS_TEN(ss[-1]);     /// * scalar check
@@ -129,7 +129,7 @@ TensorVM::tmul(t_drop x) {                            ///< tensor multiplication
     else ERROR("dim?");
 }
 __GPU__ void
-TensorVM::tdiv(t_drop x) {                            ///< tensor division
+TensorVM::tdiv(t4_drop_opt x) {                       ///< tensor division
     auto drop = [this](Tensor &X) { POP(); mmu.free(X); };
         
     bool s0 = !IS_TEN(top), s1 = !IS_TEN(ss[-1]);
