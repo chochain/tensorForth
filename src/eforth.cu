@@ -62,12 +62,12 @@ __GPU__ void ForthVM::add_w(IU w)  {
 __GPU__ void ForthVM::add_iu(IU i) { mmu.add((U8*)&i, sizeof(IU)); }
 __GPU__ void ForthVM::add_du(DU d) { mmu.add((U8*)&d, sizeof(DU)); }
 __GPU__ void ForthVM::add_str(const char *s) {
-    int sz = STRLENB(s)+1; sz = ALIGN2(sz);          ///> calculate string length, then adjust alignment (combine?)
+    int sz = STRLENB(s)+1; sz = ALIGN2(sz);             ///> calculate string length, then adjust alignment (combine?)
     mmu.add((U8*)s, sz);
 }
 __GPU__ __INLINE__ void ForthVM::call(IU w) {
     if (dict[w].def) { WP = w; IP = dict[w].pfa; nest(); }
-    else (*(FPTR)((UFP)dict[w].xt & ~0x3))();        ///> execute function pointer (strip off immdiate bit)
+    else (*(FPTR)((UFP)dict[w].xt & ~CODE_ATTR_FLAG))(); ///> execute function pointer (strip off immdiate bit)
 }
 ///
 /// dictionary initializer
