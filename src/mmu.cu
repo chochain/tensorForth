@@ -14,12 +14,12 @@ __KERN__ void k_rand_init(curandState *st, U64 seed=0) {
     int k = threadIdx.x;
     curand_init((seed != 0) ? seed : clock64() + k, k, 0, &st[k]);
 }
-__KERN__ void k_rand(DU *mat, int sz, curandState *st, t4_rand_type ntype) {
+__KERN__ void k_rand(DU *mat, int sz, curandState *st, t4_rand_opt ntype) {
     int k = threadIdx.x + blockIdx.x * blockDim.x;
     curandState *s = &st[threadIdx.x];
 
     if (k < sz) {
-        mat[k] = ntype ? curand_normal(s) : curand_uniform(s);  // no divergence
+        mat[k] = ntype==NORMAL ? curand_normal(s) : curand_uniform(s); // no divergence
     }
 }
 ///
@@ -125,14 +125,19 @@ MMU::to_s(std::ostream &fout, IU w) {
      * char name[36];
      * cudaMemcpy(name, _dict[w].name, 32, D2H);
      */
+    Code &code = _dict[w];
+    if (_trace) {
+        fout << (code.immd ? "*" : " ")
+             << "[" << std::setw(3) << w << "]"
+             << code.xt << ": ";
+    }
     U8 c, i=0;
-    cudaMemcpy(&c, _dict[w].name, 1, D2H);
+    cudaMemcpy(&c, code.name, 1, D2H);
     while (c) {
         fout << c;
-        cudaMemcpy(&c, _dict[w].name+(++i), 1, D2H);
+        cudaMemcpy(&c, code.name+(++i), 1, D2H);
     }
-    if (_trace) fout << " " << w << (_dict[w].immd ? "* " : " ");
-    else        fout << " ";
+    fout << (_trace ? "\n" : " ");
     
     return (int)i;
 }
@@ -226,7 +231,7 @@ MMU::copy(Tensor &t0) {
     return *t1;
 }
 __GPU__ Tensor&
-MMU::random(Tensor &t, t4_rand_type ntype, int seed) {
+MMU::random(Tensor &t, t4_rand_opt ntype, int seed) {
     if (seed != 0) {
         k_rand_init<<<1, T4_RAND_SEED_SZ>>>(_seed, seed);
         cudaDeviceSynchronize();
@@ -266,9 +271,9 @@ MMU::slice(Tensor &t0, U16 x0, U16 x1, U16 y0, U16 y1) {
     return t1;
 }
 __GPU__ DU
-MMU::rand(DU d, t4_rand_type n) {
+MMU::rand(DU d, t4_rand_opt ntype) {
     if (!IS_OBJ(d)) return d * curand_uniform(&_seed[0]);
-    random(du2ten(d), n);
+    random(du2ten(d), ntype);
     return d;
 }
 #endif // T4_ENABLE_OBJ
@@ -280,8 +285,9 @@ MMU::words(std::ostream &fout) {
     fout << std::setbase(10);
     for (int i=0, sz=0; i<_didx; i++) {
         sz += to_s(fout, i);
-        if (sz > 54) { fout << std::endl; sz = 0; }                /// TODO: width configuable
+        if (!_trace && sz > 54) { fout << std::endl; sz = 0; }     /// TODO: width configuable
     }
+    fout << std::endl;
 }
 ///
 /// recursively disassemble colon word

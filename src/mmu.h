@@ -20,10 +20,7 @@
 struct fop {  __GPU__  virtual void operator()() = 0; };  ///< functor virtual class
 template<typename F>                         ///< template functor class
 struct functor : fop {
-    union {
-        F   op;                              ///< reference to lambda
-        U64 *fp;                             ///< pointer for debugging
-    };
+    F op;                                    ///< reference to lambda
     __GPU__ functor(const F &f) : op(f) {    ///< constructor
         WARN("functor(%p) => ", this);
     }
@@ -42,16 +39,19 @@ typedef fop* FPTR;          ///< lambda function pointer
 ///
 /// Code class for dictionary word
 ///
+#define CODE_ATTR_FLAG      0x7
 struct Code : public Managed {
     const char *name = 0;   ///< name field
     union {
         FPTR xt = 0;        ///< lambda pointer (CUDA 49-bit)
-        U64  *fp;           ///< pointer for debugging
+        U64  *fp;           ///< function pointer (for debugging)
         struct {
             U16 def:  1;    ///< colon defined word
             U16 immd: 1;    ///< immediate flag
-            U16 xxx: 14;    ///< reserved
+            U16 diff: 1;    ///< autograd flag
+            U16 xxx:  13;   ///< reserved
             IU  pfa;        ///< offset to pmem space
+            U32 tidx;       ///< tensor storage offset
         };
     };
     template<typename F>    ///< template function for lambda
@@ -64,7 +64,7 @@ struct Code : public Managed {
         WARN("Code(&c) %p %s\n", xt, name);
     }
     */
-    __GPU__ Code &operator=(const Code &c) {                ///> called by Vector::push(T*)
+    __GPU__ Code &operator=(const Code &c) {  ///> called by Vector::push(T*)
         name = c.name;
         xt   = c.xt;
         WARN("Code()= %p %s\n", xt, name);
@@ -77,8 +77,8 @@ struct Code : public Managed {
 #define IMMD(s, g)    { s, [this] __GPU__ (){ g; }, true }
 typedef enum {
     UNIFORM = 0,
-    NORMAL  = 1
-} t4_rand_type;
+    NORMAL
+} t4_rand_opt;
 ///
 /// tracing level control
 ///
@@ -166,7 +166,7 @@ public:
     __GPU__  Tensor &view(Tensor &t0);                      ///< create a view to a tensor
     __GPU__  Tensor &copy(Tensor &t0);                      ///< hard copy a tensor
     __GPU__  Tensor &slice(Tensor &t0, IU x0, IU x1, IU y0, IU y1);     ///< a slice of a tensor
-    __GPU__  Tensor &random(Tensor &t, t4_rand_type ntype, int seed=0); ///< randomize tensor cells (with given type)
+    __GPU__  Tensor &random(Tensor &t, t4_rand_opt ntype, int seed=0);  ///< randomize tensor cells (with given type)
     __GPU__  Tensor &scale(Tensor &t, DU v);                ///< scale a tensor
     ///
     /// short hands for eforth tensor ucodes (for DU <-> Tensor conversion)
@@ -181,7 +181,7 @@ public:
         U32 o = ((U32)((U8*)&t - _ten)) | T4_OBJ_FLAG;
         return *(DU*)&o;
     }
-    __GPU__             DU   rand(DU d, t4_rand_type n);    ///< randomize a tensor
+    __GPU__             DU   rand(DU d, t4_rand_opt n);     ///< randomize a tensor
     __GPU__  __INLINE__ void drop(DU d) { if (IS_OBJ(d)) free(du2ten(d)); }
     __GPU__  __INLINE__ DU   dup(DU d)  { return IS_OBJ(d) ? ten2du(view(du2ten(d))) : d; }
     __GPU__  __INLINE__ DU   copy(DU d) { return IS_OBJ(d) ? ten2du(copy(du2ten(d))) : d; }
