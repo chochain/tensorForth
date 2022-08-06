@@ -303,8 +303,6 @@ ForthVM::init() {
     };
     mmu.append(prim, sizeof(prim)/sizeof(Code)); ///< append dictionary
     mmu.status();
-
-    status = VM_RUN;
 };
 ///
 /// ForthVM Outer interpreter

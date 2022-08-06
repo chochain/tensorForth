@@ -379,8 +379,6 @@ TensorVM::init() {
     mmu.append(prim, sizeof(prim)/sizeof(Code)); /// * append tensor words
     mmu.merge(over,  sizeof(over)/sizeof(Code)); /// * overload existed words
     mmu.status();
-
-    status = VM_RUN;
 };
 ///
 /// override with tensor handler

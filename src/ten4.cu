@@ -31,10 +31,11 @@ ten4_init(int khz, Istream *istr, Ostream *ostr, MMU *mmu) {
     if (k < VM_MIN_COUNT) {
         vm = vm_pool[k] = new NetVM(khz, istr, ostr, mmu);  // instantiate VM
         vm->ss.init(mmu->vmss(k), T4_SS_SZ);  // point data stack to managed memory block
+        if (k==0) vm->init();  /// * initialize common dictionary (once only)
+    
+        vm->status = VM_RUN;
     }
     __syncthreads();
-
-    if (k==0) vm->init();  /// * initialize common dictionary (once only)
 }
 ///
 /// check VM status (using parallel reduction - overkill?)

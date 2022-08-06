@@ -26,9 +26,9 @@ public:
     DU        top    = DU0;            ///< cached top of stack
     Vector<DU, 0> ss;                  ///< parameter stack (setup in ten4.cu)
 
-    __GPU__ VM(int khz, Istream *istr, Ostream *ostr, MMU *mmu);
+   __GPU__ VM(int khz, Istream *istr, Ostream *ostr, MMU *mmu);
 
-    __GPU__ void virtual init() { status = VM_RUN; }
+    __GPU__ void virtual init() {}
     __GPU__ void virtual outer();
 
 protected:
