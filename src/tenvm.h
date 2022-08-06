@@ -27,8 +27,7 @@ public:
         ForthVM(khz, istr, ostr, mmu0) {
         VLOG1("\\  ::TensorVM(...) sizeof(Tensor)=%ld\n", sizeof(Tensor));
     }
-    __GPU__ void virtual init() override { init_t(); }  ///< TODO: CC - polymorphism does not work here?
-    __GPU__ void init_t();                              ///< so fake it
+    __GPU__ void virtual init();            ///< override ForthVM
     
 protected:
     int    ten_lvl = 0;                     ///< tensor input level

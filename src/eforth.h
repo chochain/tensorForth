@@ -25,8 +25,7 @@ public:
         VLOG1("\\  ::ForthVM[%d](dict=%p) sizeof(Code)=%ld\n",
               blockIdx.x, dict, sizeof(Code));
     }
-    __GPU__ void virtual init() override { init_f(); } ///< TODO: CC - polymorphism does not work in kernel?
-    __GPU__ void init_f();                             ///< so fake it for now
+    __GPU__ void virtual init();            ///< override VM
     
 protected:
     Code  *dict;                            ///< dictionary array

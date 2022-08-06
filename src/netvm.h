@@ -37,9 +37,8 @@ public:
         TensorVM(khz, istr, ostr, mmu0) {
         VLOG1("\\  ::NetVM(...)\n");
     }
-    __GPU__ void init() final { init_n(); } ///< TODO: CC - polymorphism does not work here?
-    __GPU__ void init_n();                  ///< so fake it
-    __GPU__ int pre(char *idiom) override {
+    __GPU__ void init() final;              ///< override TensorVM, TODO: does not work without 'final'!
+    __GPU__ int  pre(char *idiom) {         ///< override vm.h
         ttop = IS_TEN(top) ? &mmu.du2ten(top) : NULL;
         return 0;
     }
