@@ -28,11 +28,13 @@ __GPU__ void
 VM::outer() {
     VLOG1("%c< %s\n", compile ? ':' : '<', fin.rdbuf()); /// * display input buffer
     while (fin >> idiom) {                   /// * loop throught tib
+        if (pre(idiom)) continue;            /// * pre process
         VLOG2("%d>> %-10s => ", blockIdx.x, idiom);
         if (!parse(idiom) && !number(idiom)) {
             fout << idiom << "? " << ENDL;   /// * display error prompt
             compile = false;                 /// * reset to interpreter mode
         }
+        if (post()) break;                   /// * post process
     }
     if (!compile) ss_dump(ss.idx);
 }

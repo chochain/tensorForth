@@ -44,8 +44,10 @@ protected:
     ///
     /// inner interpreter handlers
     ///
+    __GPU__ int  virtual pre(char *str)    { return 0; }
     __GPU__ int  virtual parse(char *str)  { return 0; }
     __GPU__ int  virtual number(char *str) { return 0; }
+    __GPU__ int  virtual post(void)        { return 0; }
     ///
     /// input stream handler
     ///
