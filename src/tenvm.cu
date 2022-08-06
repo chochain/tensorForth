@@ -57,7 +57,7 @@ TensorVM::tsop(t4_mat_op op, t4_drop_opt x, bool swap) {
     Tensor &C = mmu.tensor(A.H(), A.W());
     if (swap && (op==DIV || op==SUB)) {     /// * op(scaler, tensor)
         Tensor &B = mmu.tensor(A.size);     /// * working tensor
-        B.fill(n);                          /// * broadcast
+        B.map(FILL, n);                     /// * broadcast
         Tensor::mat(op, B, A, C);           /// * Hadamard ops
         mmu.free(B);                        /// * free working tensor
     }
@@ -69,7 +69,7 @@ TensorVM::tsop(t4_mat_op op, t4_drop_opt x, bool swap) {
 }
 __GPU__ void
 TensorVM::tmat(t4_mat_op op, t4_drop_opt x) {
-    bool s0 = !IS_TEN(top), s1 = !IS_TEN(ss[-1]);  /// * scalar flags
+    bool s0 = !IS_TEN(top), s1 = !IS_TEN(ss[-1]); /// * scalar flags
     if (s0 && s1) return ssop(op);          ///> op(scalar, scalar)
     if (s0 || s1) return tsop(op, x, s1);   ///> op(tensor, scalar)
     ///
@@ -278,9 +278,10 @@ TensorVM::init_t() {
     CODE("={",                          ///< (n -- ) or ( -- )
          ten_off = IS_TEN(top) ? 0 : POPi;
          ten_lvl = IS_TEN(top) ? 1 : 0),
-    CODE("zeros", if (IS_TEN(top)) mmu.du2ten(top).fill(0)),
-    CODE("ones",  if (IS_TEN(top)) mmu.du2ten(top).fill(1)),
-    CODE("full",  if (IS_TEN(ss[-1])) { DU d = POP(); mmu.du2ten(top).fill(d); }),
+    CODE("zeros", if (IS_TEN(top)) mmu.du2ten(top).map(FILL, DU0)),
+    CODE("ones",  if (IS_TEN(top)) mmu.du2ten(top).map(FILL, DU1)),
+    CODE("full",  if (!IS_TEN(ss[-1])) return;
+         DU d = POP(); mmu.du2ten(top).map(FILL, d)),
     CODE("eye",   if (IS_TEN(top)) mmu.du2ten(top).identity()),
     CODE("rand",  top = mmu.rand(top, UNIFORM)),  ///< uniform randomize a tensor or number
     CODE("randn", top = mmu.rand(top, NORMAL)),   ///< normal dist. randomize a tensor
@@ -309,15 +310,15 @@ TensorVM::init_t() {
              top = EXP(top);
              SCALAR(top);          /// * mask off object-bit if any
          }
-         else mmu.du2ten(top).math(EXP)),
+         else mmu.du2ten(top).map(EXP)),
     CODE("tanh",                   ///< (A -- A') 
          if (!IS_OBJ(top)) {       /// * scalar
              top = tanh(top);
              SCALAR(top);          /// * mask off object-bit if any
          }
-         else mmu.du2ten(top).math(TANH)),
+         else mmu.du2ten(top).map(TANH)),
     CODE("relu", 
-         if (IS_TEN(top)) mmu.du2ten(top).math(RELU);
+         if (IS_TEN(top)) mmu.du2ten(top).map(RELU);
          else top = top > DU0 ? top : DU0),
     CODE("+=",        tmat(ADD, DROP)),
     CODE("-=",        tmat(SUB, DROP)),
@@ -366,10 +367,10 @@ TensorVM::init_t() {
          }),
     CODE("abs",
          if (!IS_OBJ(top)) top = ABS(top);
-         else mmu.du2ten(top).math(ABS)),
+         else mmu.du2ten(top).map(ABS)),
     CODE("negate",
          if (!IS_OBJ(top)) top *= -DU1;
-         else mmu.du2ten(top).scale(-DU1)),
+         else mmu.du2ten(top).map(SCALE, -DU1)),
     ///@}
     CODE("boot", mmu.clear(FIND("gemm") + 1))
     };
