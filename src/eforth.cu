@@ -73,7 +73,7 @@ __GPU__ __INLINE__ void ForthVM::call(IU w) {
 /// dictionary initializer
 ///
 __GPU__ void
-ForthVM::init_f() {
+ForthVM::init() {
     const Code prim[] = {       /// singleton, build once only
     ///
     ///@defgroup Execution flow ops

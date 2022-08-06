@@ -235,7 +235,7 @@ TensorVM::gemm() {                       ///< blas GEMM
 /// Tensor specific dictionary constructor
 ///
 __GPU__ void
-TensorVM::init_t() {
+TensorVM::init() {
     const Code prim[] = {       /// singleton, build once only
     ///@defgroup Tensor creation ops
     ///@brief - stick to PyTorch naming when possible
@@ -374,7 +374,7 @@ TensorVM::init_t() {
     ///@}
     CODE("boot", mmu.clear(FIND("gemm") + 1))
     };
-    ForthVM::init_f();
+    ForthVM::init();
 
     mmu.append(prim, sizeof(prim)/sizeof(Code)); /// * append tensor words
     mmu.merge(over,  sizeof(over)/sizeof(Code)); /// * overload existed words

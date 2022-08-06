@@ -20,7 +20,7 @@ using namespace std;
 #define MAJOR_VERSION        "3"
 #define MINOR_VERSION        "0"
 
-__GPU__ NetVM *vm_pool[VM_MIN_COUNT]; /// TODO: CC - VM polymorphic does not work?
+__GPU__ NetVM *vm_pool[VM_MIN_COUNT]; /// TODO: CC - polymorphic does not work?
 ///
 /// instantiate VMs (threadIdx.x is vm_id)
 ///
@@ -41,7 +41,7 @@ ten4_init(int khz, Istream *istr, Ostream *ostr, MMU *mmu) {
 ///
 __KERN__ void
 ten4_busy(int *busy) {
-    extern __shared__ bool b[];          // share memory for fast calc
+    extern __shared__ bool b[];              // share memory for fast calc
 
     int k = threadIdx.x;
     b[k] = (k < VM_MIN_COUNT) ? vm_pool[k]->status==VM_RUN : 0;

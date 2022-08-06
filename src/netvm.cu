@@ -137,7 +137,7 @@ NetVM::adam() {
 /// Neural Network specific dictionary constructor
 ///
 __GPU__ void
-NetVM::init_n() {
+NetVM::init() {
     const Code prim[] = {       /// singleton, build once only
     ///@defgroup Tensor creation ops
     ///@brief - stick to PyTorch naming when possible
@@ -185,7 +185,7 @@ NetVM::init_n() {
     const Code over[] = {          /// extended (overload) words
     CODE("boot", mmu.clear(FIND("autograd") + 1))
     };
-    TensorVM::init_t();
+    TensorVM::init();
 
     mmu.append(prim, sizeof(prim)/sizeof(Code)); /// * append tensor words
     mmu.merge(over,  sizeof(over)/sizeof(Code)); /// * overload existed words
