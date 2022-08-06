@@ -7,6 +7,7 @@
 #include "mmu.h"
 ///
 /// random number generator setup
+/// Note: kept here because curandStates stays in CUDA memory
 ///
 #define T4_RAND_SEED_SZ  256
 
