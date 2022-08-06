@@ -429,24 +429,18 @@ Tensor::tril() {
     return *this;
 }
 __BOTH__ Tensor&
-Tensor::scale(DU v) {
-    WARN("Tensor#scale by %f\n", v);
-    dim3 block(256), grid((size + block.x -1)/block.x);
-    k_scale<<<grid, block>>>((DU*)data, v, size);
-    cudaDeviceSynchronize();
-    return *this;
-}
-__BOTH__ Tensor&
-Tensor::math(t4_mat_op op) {
-    const char *opn[] = { "+", "-", "*", "/", "abs", "exp", "tanh", "relu" };
-    WARN("Tensor#%s\n", opn[op]);
+Tensor::map(t4_mat_op op, DU v) {
+    const char *opn[] = { "+", "-", "*", "/", "abs", "exp", "tanh", "relu", "fill", "scale" };
+    WARN("Tensor#%s v=%f\n", opn[op], v);
     dim3 block(256), grid((size + block.x -1)/block.x);
     switch(op) {
-    case ABS:  k_abs<<<grid, block>>>((DU*)data, size);     break;
-    case EXP:  k_exp<<<grid, block>>>((DU*)data, size);     break;
-    case TANH: k_tanh<<<grid, block>>>((DU*)data, size);    break;
-    case RELU: k_relu<<<grid, block>>>((DU*)data, size);    break;
-    default: ERROR("math op=%d?\n", op); break;
+    case ABS:   k_abs<<<  grid, block>>>((DU*)data, size);    break;
+    case EXP:   k_exp<<<  grid, block>>>((DU*)data, size);    break;
+    case TANH:  k_tanh<<< grid, block>>>((DU*)data, size);    break;
+    case RELU:  k_relu<<< grid, block>>>((DU*)data, size);    break;
+    case FILL:  k_fill<<< grid, block>>>((DU*)data, v, size); break;
+    case SCALE: k_scale<<<grid, block>>>((DU*)data, v, size); break;
+    default: ERROR("Tensor#map op=%d?\n", op); break;
     }
     cudaDeviceSynchronize();
     return *this;
@@ -525,14 +519,4 @@ Tensor::identity() {
     cudaDeviceSynchronize();
     return *this;
 }
-
-__BOTH__ Tensor&
-Tensor::fill(DU v) {
-    WARN("Tensor#fill with %f\n", v);
-    dim3 block(256), grid((size + block.x -1)/block.x);
-    k_fill<<<grid, block>>>((DU*)data, v, size);
-    cudaDeviceSynchronize();
-    return *this;
-}
-
 
