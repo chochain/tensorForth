@@ -23,23 +23,25 @@ typedef enum {
     ABS,
     EXP,
     TANH,
-    RELU
+    RELU,
+    FILL,
+    SCALE
 } t4_mat_op;
 
 typedef enum {
-    TENSOR = 0,         ///< tensor object
-    VIEW,               ///< a view object
-    LAYER,              ///< neural network layer
-    ACTI                ///< activation
+    TENSOR = 0,            ///< tensor object
+    VIEW,                  ///< a view object
+    LAYER,                 ///< neural network layer
+    ACTI                   ///< activation
 } t4_obj;
 
-struct Tensor;
-typedef void (*GRAD)(Tensor&, Tensor&);
+struct  Tensor;            ///< forward declaration
+typedef void (*GradFn)(Tensor&, Tensor&);
 
 struct Tensor : public Managed {
-    U32      size;      ///< number of data elements, TODO: more than 4G elements
+    U32      size;         ///< number of data elements, TODO: more than 4G elements
     union {
-        U32  attr = 0;
+        U32  attr = 0;     ///< attrbutes collective
         struct {
             U8     dsize;  ///< size of data element, F32 for now
             U8     rank;   ///< rank of tensor 2:matrix, 4:NHWC tensor
@@ -47,11 +49,11 @@ struct Tensor : public Managed {
             t4_obj ttype;  ///< 0: tensor, 1: view, 2: layer, 3: activation
         };
     };
-    U16      stride[4]; ///< strides to calculate memory offset
-    U16      shape[4];  ///< shape=HWCN, matrix C=N=1, vector W=C=N=1
-    U8       *data = 0; ///< managed memory block pointer
-    GRAD     grad  = 0; ///< autodiff function
-    U8       *diff = 0; ///< diff tensor
+    U16      stride[4];    ///< strides to calculate memory offset
+    U16      shape[4];     ///< shape=HWCN, matrix C=N=1, vector W=C=N=1
+    U8       *data = 0;    ///< managed memory block pointer
+    Tensor   *grad[4];     ///< gradiant and jacobian tensors
+    GradFn   grad_fn = 0;  ///< grandiant funtion pointer
     ///
     /// static ops
     /// Note:
@@ -89,14 +91,13 @@ struct Tensor : public Managed {
     ///
     __BOTH__ DU     sum();
     __BOTH__ DU     dot(Tensor &B);
-    __BOTH__ Tensor &math(t4_mat_op op);      ///< element-wise absolute
+    __BOTH__ Tensor &map(t4_mat_op op, DU v=DU0); ///< element-wise absolute
     ///
     /// linear algebra methods
     ///
     __BOTH__ DU     det();                    ///< matrix determinant
     __BOTH__ Tensor &triu();                  ///< upper triangle
     __BOTH__ Tensor &tril();                  ///< lower triangle
-    __BOTH__ Tensor &scale(DU v);             ///< element-wise linear scale
     ///
     /// tensor life-cycle ops
     ///
@@ -105,7 +106,6 @@ struct Tensor : public Managed {
     __BOTH__ Tensor &reshape(U32 sz);
     __BOTH__ Tensor &reshape(U16 h, U16 w);
     __BOTH__ Tensor &reshape(U16 n, U16 h, U16 w, U16 c);
-    __BOTH__ Tensor &fill(DU v);
     __BOTH__ Tensor &identity();              ///< fill as an identity matrix
     __HOST__ void   copy_to_host(void* dst) { cudaMemcpy(dst, data, size, cudaMemcpyDeviceToHost); }
     ///
