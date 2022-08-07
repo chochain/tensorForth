@@ -7,6 +7,23 @@
 #include "netvm.h"
 
 #if T4_ENABLE_OBJ
+__GPU__ DU
+NetVM::NPOP() {
+    DU n = ntop;
+    ntop = ((DU*)net.data)[--nidx];
+    nten = &mmu.du2ten(ntop);
+    return n;
+}
+__GPU__ DU
+NetVM::NPUSH(DU v) {
+    nten = &mmu.du2ten(v);
+    return ((DU*)net.data)[nidx++] = (ntop = v);
+}
+__GPU__ DU
+NetVM::NPUSH(Tensor &t) {
+    nten = &t;
+    return ((DU*)net.data)[nidx++] = (ntop = mmu.ten2du(t));
+}
 ///===================================================================
 /// static loss functions
 ///
@@ -41,18 +58,20 @@ dlinear(Tensor &A, Tensor &B) {
 /// Convolution ops
 ///
 __GPU__ void
-NetVM::conv2d(DU bias, U16 c) {
+NetVM::conv2d() {
     const U16 opt[] = { 3, 3, 1, 1, 1 };
-    conv2d(bias, c, (U16*)opt);
+    conv2d((U16*)opt);
 }
 __GPU__ void
-NetVM::conv2d(DU bias, U16 c, U16 *opt) {
-    if (!ttop) return;
-    Tensor &t = *ttop;                         ///> TOS tensor
+NetVM::conv2d(U16 *opt) {
+    U16 c     = POPi;
+    DU  bias  = POP();
+    Tensor &t = *nten;                         ///> DAG tensor pointer
     if (!t.grad_fn) initgrad(t, bias, c, opt); ///> create tensors if not yet
     ///
     /// apply convolution filter
     ///
+    NPUSH(t);
 }
 ///
 /// Activation ops
@@ -117,9 +136,12 @@ NetVM::initgrad(Tensor &A, DU bias, U16 c, U16 *opt) {
 }
 __GPU__ void
 NetVM::autograd(bool on) {
+    f_autograd = on;
 }
 __GPU__ void
-NetVM::batch_for() {
+NetVM::for_batch() {
+    Tensor &A = mmu.tensor(1, 28, 28, 1);
+    NPUSH(A);
 }
 __GPU__ void
 NetVM::backprop() {
@@ -130,7 +152,17 @@ NetVM::sgd() {
 __GPU__ void
 NetVM::adam() {
 }
-
+__GPU__ void
+NetVM::network() {
+    DU t = mmu.ten2du(net);
+    printf("net.size = %d\n", net.size);
+    DU *d = (DU*)net.data;
+    for (int i = 0; i < nidx; i++) {
+        DU     v   = *d++;
+        Tensor &ti = mmu.du2ten(v);
+        printf("%08x[%03d] => size=%d\n", *(U32*)&v, i, ti.size);
+    }
+}
 ///===================================================================
 /// class methods
 ///
@@ -139,32 +171,33 @@ NetVM::adam() {
 __GPU__ void
 NetVM::init() {
     const Code prim[] = {       /// singleton, build once only
-    ///@defgroup Tensor creation ops
-    ///@brief - stick to PyTorch naming when possible
+    ///@defgroup Convolution ops
     ///@{
-    CODE("conv2d",    {}),      ///< allocate a vector
-    CODE("conv2d",    {}),      ///< allocate a matrix
-    CODE("pad2d",     {}),      ///< allocate a NHWC tensor
-    CODE("padr2d",    {}),      ///< create a vector with literals
+    CODE("conv2d",              ///> (Ta b c [A] -- Ta')
+         if (IS_OBJ(top)) conv2d();
+         else {
+             Tensor &v = mmu.du2ten(top); POP();
+             U16 opt[5];
+             DU  *d = (DU*)v.data;
+             for (int k=0; k<5; k++) opt[k] = (U16)*d++;
+             conv2d(opt);
+         }),
     ///@}
-    ///@defgroup Tensor shape ops
-    ///@brief - stick to PyTorch naming when possible
+    ///@defgroup Activation ops
     ///@{
-    CODE("relu",      {}),      ///< create a matrix with literals
+    CODE("relu",      {}),
     CODE("tanh",      {}),
     CODE("sigmoid",   {}),
     CODE("softmax",   {}),
     ///@}
-    ///@defgroup Tensor shape ops
-    ///@brief - stick to PyTorch naming when possible
+    ///@defgroup Pooling ops
     ///@{
     CODE("meanpool",  {}),
     CODE("avgpool",   {}),
     CODE("maxpool",   {}),
     CODE("minpool",   {}),
     ///@}
-    ///@defgroup Tensor fill ops
-    ///@brief - stick to PyTorch naming when possible
+    ///@defgroup Loss functions
     ///@{
     CODE("linear",    {}),
     CODE("loss_nll",  {}),
@@ -173,13 +206,19 @@ NetVM::init() {
     CODE("predict",   {}),
     ///@}
     ///@defgroup Tensor fill ops
-    ///@brief - stick to PyTorch naming when possible
     ///@{
     CODE("batch_for", {}),
     CODE("batch_next",{}),
     CODE("sgd",       {}),
     CODE("adam",      {}),
-    CODE("autograd",  {})
+    CODE("autograd",  {}),
+    ///@}
+    ///@defgroup Debugging ops
+    ///@{
+//    CODE("network",  fout << opx(OP_NET, nidx, mmu.ten2du(net))),
+    CODE("network",   network()),
+    CODE(">n",        NPUSH(top); POP()),
+    CODE("n>",        DU t = NPOP(); PUSH(t)),
     ///@}
     };
     const Code over[] = {          /// extended (overload) words
