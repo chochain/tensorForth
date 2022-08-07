@@ -13,7 +13,7 @@ public:
 #if   !T4_ENABLE_OBJ
     __GPU__ NetVM(int khz, Istream *istr, Ostream *ostr, MMU *mmu0) :
         TensorVM(khz, istr, ostr, mmu0) {}
-    __GPU__ void init_n() { TensorVM::init_t(); }
+    __GPU__ void init() { TensorVM::init(); }
     
 #else // T4_ENABLE_OBJ
     /// @name static Loss functions
@@ -34,23 +34,32 @@ public:
     /// @name Class Object Constructor
     /// @{
     __GPU__ NetVM(int khz, Istream *istr, Ostream *ostr, MMU *mmu0) :
-        TensorVM(khz, istr, ostr, mmu0) {
-        VLOG1("\\  ::NetVM(...)\n");
+        TensorVM(khz, istr, ostr, mmu0), net(mmu0->tensor(T4_NET_SZ)) {
+        nidx = 0;
+        ntop = mmu.ten2du(net);
+        nten = &net;
+        NPUSH(ntop);              ///< net tensor at [0] as stopper
+        VLOG1("\\  ::NetVM(...) net=0x%08x(%.8f)\n", *(U32*)&ntop, ntop);
     }
-    __GPU__ void init() final;              ///< override TensorVM, TODO: does not work without 'final'!
-    __GPU__ int  pre(char *idiom) {         ///< override vm.h
-        ttop = IS_TEN(top) ? &mmu.du2ten(top) : NULL;
-        return 0;
-    }
+    __GPU__ void init() final;    ///< override TensorVM, TODO: does not work without 'final'!
     
 protected:
-    Tensor  *ttop = 0;                      ///< cached tensor on TOS
-    
-    ///
+    Tensor  &net;                 ///< Neural Network DAG, TODO: tree structure
+    U16     nidx;                 ///< network tensor index
+    DU      ntop;                 ///< cached DAG tensor 
+    Tensor  *nten;                ///< cached tensor pointer
+    bool    f_autograd = false;   ///< autograd control flag
+    /// @}
+    /// @name Backprop DAG management short hands
+    /// @{
+    __GPU__ DU NPOP();
+    __GPU__ DU NPUSH(DU v);
+    __GPU__ DU NPUSH(Tensor &t);
+    /// @}
     /// @name Convolution ops
     /// @{
-    __GPU__ void conv2d(DU bias, U16 c);           ///< 2d convolution with c channel output, 3x3 filter, padding=same, stride=1, dilation=1
-    __GPU__ void conv2d(DU bias, U16 c, U16 *opt); ///< 2d convolution with c channel output, config vector V i.e. [5 5 2 0 1] for 3x3 filter, stride=1, padding=0, dilation=1
+    __GPU__ void conv2d();        ///< 2d convolution with bias=top, c channel output=ss[-1], 3x3 filter, padding=same, stride=1, dilation=1
+    __GPU__ void conv2d(U16 *opt);///< 2d convolution with bias=top, c channel output=ss[-1], opt vector i.e. [5 5 3 2 1] for 5x5 filter, padding=3, stride=2, dilation=1
     /// @}
     /// @name Activation ops
     /// @{
@@ -78,11 +87,12 @@ protected:
     /// @{
     __GPU__ void initgrad(Tensor &A, DU bias, U16 c, U16 *opt);
     __GPU__ void autograd(bool on=false);
-    __GPU__ void batch_for();
+    __GPU__ void for_batch();
     __GPU__ void backprop();
     __GPU__ void sgd();
     __GPU__ void adam();
     /// @}
+    __GPU__ void network();
 #endif // T4_ENABLE_OBJ
 };
 #endif // TEN4_SRC_NETVM_H
