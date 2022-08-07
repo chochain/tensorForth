@@ -190,11 +190,13 @@ public:
     ///
     __BOTH__ __INLINE__ int  trace()        { return _trace; }
     __BOTH__ __INLINE__ void trace(int lvl) { _trace = lvl;  }
-    __HOST__ int  to_s(std::ostream &fout, IU w);
+    __HOST__ int  to_s(std::ostream &fout, IU w);               /// dump word 
+    __HOST__ int  to_s(std::ostream &fout, DU s);               /// dump obj on stack
     __HOST__ void words(std::ostream &fout);
     __HOST__ void see(std::ostream &fout, U8 *p, int dp=1);     /// cannot pass pfa
     __HOST__ void see(std::ostream &fout, U16 w);
     __HOST__ void ss_dump(std::ostream &fout, U16 vid, U16 n, int radix);
     __HOST__ void mem_dump(std::ostream &fout, U16 p0, U16 sz);
+    __HOST__ void network(std::ostream &fout, U16 sz, DU net);
 };
 #endif // TEN4_SRC_MMU_H
