@@ -20,7 +20,7 @@ public:
 #if   !T4_ENABLE_OBJ
     __GPU__ TensorVM(int khz, Istream *istr, Ostream *ostr, MMU *mmu0) :
         ForthVM(khz, istr, ostr, mmu0) {}
-    __GPU__ void init_t() { ForthVM::init_f(); }
+    __GPU__ void init() { ForthVM::init(); }
     
 #else // T4_ENABLE_OBJ
     __GPU__ TensorVM(int khz, Istream *istr, Ostream *ostr, MMU *mmu0) :
