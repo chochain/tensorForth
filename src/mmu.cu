@@ -114,34 +114,6 @@ MMU::colon(const char *name) {
     add((U8*)name,  ALIGN2(sz+1));          // setup raw name field
     c.pfa  = _midx;                         // capture code field index
 }
-///
-/// Debugging methods
-///
-/// display dictionary word (wastefully one byte at a time)
-///
-__HOST__ int
-MMU::to_s(std::ostream &fout, IU w) {
-    /*
-     * TODO: not sure why copying 32 byt does not work?
-     * char name[36];
-     * cudaMemcpy(name, _dict[w].name, 32, D2H);
-     */
-    Code &code = _dict[w];
-    if (_trace) {
-        fout << (code.immd ? "*" : " ")
-             << "[" << std::setw(3) << w << "]"
-             << code.xt << ": ";
-    }
-    U8 c, i=0;
-    cudaMemcpy(&c, code.name, 1, D2H);
-    while (c) {
-        fout << c;
-        cudaMemcpy(&c, code.name+(++i), 1, D2H);
-    }
-    fout << (_trace ? "\n" : " ");
-    
-    return (int)i;
-}
 #if T4_ENABLE_OBJ
 ///====================================================================
 /// tensor life-cycle methods
@@ -279,13 +251,54 @@ MMU::rand(DU d, t4_rand_opt ntype) {
 }
 #endif // T4_ENABLE_OBJ
 ///
+/// Debugging methods
+///
+/// display dictionary word (wastefully one byte at a time)
+///
+__HOST__ int
+MMU::to_s(std::ostream &fout, IU w) {
+    /*
+     * TODO: not sure why copying 32 byt does not work?
+     * char name[36];
+     * cudaMemcpy(name, _dict[w].name, 32, D2H);
+     */
+    Code &code = _dict[w];
+    if (_trace) {
+        fout << (code.immd ? "*" : " ")
+             << "[" << std::setw(3) << w << "]"
+             << code.xt << ": ";
+    }
+    U8 c, i=0;
+    cudaMemcpy(&c, code.name, 1, D2H);
+    while (c) {
+        fout << c;
+        cudaMemcpy(&c, code.name+(++i), 1, D2H);
+    }
+    fout << (_trace ? "\n" : " ");
+    
+    return (int)i;
+}
+__HOST__ int
+MMU::to_s(std::ostream &fout, DU s) {
+#if T4_ENABLE_OBJ
+    Tensor &t = this->du2ten(s);
+    fout << (char)(t.is_view() ? 'V' : 'T');
+    switch(t.rank) {
+    case 1: fout << "1[" << t.size << "]"; break;
+    case 2: fout << "2[" << t.H() << "," << t.W() << "]"; break;
+    case 4: fout << "4[" << t.N() << "," << t.H() << "," << t.W() << "," << t.C() << "]"; break;
+    }
+#endif // T4_ENABLE_OBJ
+    return 0;
+}
+///
 /// display dictionary word list
 ///
 __HOST__ void
 MMU::words(std::ostream &fout) {
     fout << std::setbase(10);
     for (int i=0, sz=0; i<_didx; i++) {
-        sz += to_s(fout, i);
+        sz += to_s(fout, (IU)i);
         if (!_trace && sz > 54) { fout << std::endl; sz = 0; }     /// TODO: width configuable
     }
     fout << std::endl;
@@ -332,19 +345,9 @@ __HOST__ void
 MMU::ss_dump(std::ostream &fout, U16 vid, U16 n, int radix) {
     bool x = radix != 10;
     auto show = [this, &fout, x](DU s) {
-        if (IS_OBJ(s)) {
-#if T4_ENABLE_OBJ
-            Tensor &t = this->du2ten(s);
-            fout << (char)(t.is_view() ? 'V' : 'T');
-            switch(t.rank) {
-            case 1: fout << "1[" << t.size << "]"; break;
-            case 2: fout << "2[" << t.H() << "," << t.W() << "]"; break;
-            case 4: fout << "4[" << t.N() << "," << t.H() << "," << t.W() << "," << t.C() << "]"; break;
-            }
-#endif // T4_ENABLE_OBJ
-        }
-        else if (x) fout << static_cast<int>(s);
-        else fout << s;
+        if (IS_OBJ(s)) to_s(fout, s);
+        else if (x)    fout << static_cast<int>(s);
+        else           fout << s;
     };
     DU *ss = &_vmss[vid * T4_SS_SZ];
     fout << " <";
@@ -382,4 +385,20 @@ MMU::mem_dump(std::ostream &fout, U16 p0, U16 sz) {
         fout << buf;
     }
     fout << std::endl;
+}
+__HOST__ void
+MMU::network(std::ostream &fout, U16 sz, DU t) {
+#if T4_ENABLE_OBJ
+    if (!IS_TEN(t)) { fout << "ERROR: t=" << t; return; }
+    auto show = [this, &fout](int i, DU v) {
+        Tensor &ti = this->du2ten(v);
+        fout << std::setbase(16) << v << std::setbase(10)
+             << "[" << std::setw(3) << i << "]";
+        to_s(fout, v);
+        fout << " => parms=" << ti.size << "\n";
+    };
+    Tensor &net = this->du2ten(t);
+    DU *d = (DU*)net.data;
+    for (int i=0; i < sz; i++) show(i, *d++);
+#endif // T4_ENABLE_OBJ
 }
