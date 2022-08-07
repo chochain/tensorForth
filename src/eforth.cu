@@ -286,7 +286,7 @@ ForthVM::init() {
     CODE(".s",    ss_dump(POPi)),
     CODE("words", fout << opx(OP_WORDS)),
     CODE("see",   int w = FIND(next_idiom()); fout << opx(OP_SEE, w)),
-    CODE("dump",  int n = POPi; int a = POPi; fout << opx(OP_DUMP, a, n)),
+    CODE("dump",  DU n = POP(); int a = POPi; fout << opx(OP_DUMP, a, n)),
     CODE("forget",
         int w = FIND(next_idiom());
         if (w<0) return;
