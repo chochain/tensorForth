@@ -109,15 +109,14 @@ AIO::print_node(obuf_node *node) {
     } break;
     case GT_OBJ: print_obj(*(DU*)v); break;
     case GT_OPX: {
-        OP  op = (OP)*v;
-        U16 a  = *(U16*)(v+2);
-        U16 n  = *(U16*)(v+4);
-        //printf("OP=%d(%d, %d)\n", op, a, n);
-        switch (op) {
-        case OP_WORDS: _mmu->words(std::cout);              break;
-        case OP_SEE:   _mmu->see(std::cout, (IU)a);         break;
-        case OP_DUMP:  _mmu->mem_dump(std::cout, (IU)a, n); break;
-        case OP_SS:    _mmu->ss_dump(std::cout, (IU)node->id, a, _radix); break;
+        _opx *o = (_opx*)v;
+        // printf("OP=%d a=%d, n=0x%08x=%f\n", o->op, o->a, *(U32*)&o->n, o->n);
+        switch (o->op) {
+        case OP_WORDS: _mmu->words(std::cout);                        break;
+        case OP_SEE:   _mmu->see(std::cout, (IU)o->a);                break;
+        case OP_DUMP:  _mmu->mem_dump(std::cout, (IU)o->a, (IU)o->n); break;
+        case OP_SS:    _mmu->ss_dump(std::cout, (IU)node->id, o->a, _radix); break;
+        case OP_NET:   _mmu->network(std::cout, o->a, o->n);          break;
         }
     } break;
     default: std::cout << "print type not supported: " << (int)node->gt;  break;
