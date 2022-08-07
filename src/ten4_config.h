@@ -55,6 +55,7 @@
 #define T4_PMEM_SZ                (48*1024) /**< parameter memory block size  */
 #define T4_RS_SZ                  64        /**< depth of return stack        */
 #define T4_SS_SZ                  64        /**< depth of data stack          */
+#define T4_NET_SZ                 128       /**< size of network DAG          */
 #define T4_DICT_SZ                1024      /**< number of dictionary entries */
 #define T4_IBUF_SZ                1024      /**< host input buffer size       */
 #define T4_OBUF_SZ                8192      /**< device output buffer size    */
