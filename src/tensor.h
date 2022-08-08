@@ -51,7 +51,7 @@ struct Tensor : public Managed {
     };
     U16      stride[4];    ///< strides to calculate memory offset
     U16      shape[4];     ///< shape=HWCN, matrix C=N=1, vector W=C=N=1
-    U8       *data = 0;    ///< managed memory block pointer
+    DU       *data = 0;    ///< managed memory block pointer
     Tensor   *grad[4];     ///< gradiant and jacobian tensors
     GradFn   grad_fn = 0;  ///< grandiant funtion pointer
     ///

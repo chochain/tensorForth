@@ -60,7 +60,7 @@ Tensor::gemm(Tensor &A, Tensor &B, Tensor &C, DU alpha, DU beta) {
         (m + block.y - 1) / block.y
     );
     k_gemm<<<grid, block>>>(
-        (DU*)A.data, (DU*)B.data, (DU*)C.data,
+        A.data, B.data, C.data,
         m, n, k,
         alpha, beta);
     cudaDeviceSynchronize();     // TODO: deprecated 11.6, use cooperative_groups.sync()
@@ -78,7 +78,7 @@ Tensor::mat(t4_mat_op op, Tensor &A, Tensor &B, Tensor &C) {
         (n + block.x - 1) / block.x,
         (m + block.y - 1) / block.y
     );
-    k_mat_op<<<grid, block>>>(op, (DU*)A.data, (DU*)B.data, (DU*)C.data, m, n);
+    k_mat_op<<<grid, block>>>(op, A.data, B.data, C.data, m, n);
     cudaDeviceSynchronize();     // TODO: deprecated 11.6, use cooperative_groups.sync()
     return C;
 }
@@ -90,7 +90,7 @@ Tensor::mat(t4_mat_op op, Tensor &A, DU v, Tensor &C) {
     const char *opn[] = { "add", "sub", "mul", "div" };
     U16 m = A.H(), n = A.W();
     WARN("Tensor::mat%s M=%d, N=%d\n", opn[op], m, n);
-    DU *da = (DU*)A.data, *dc = (DU*)C.data;
+    DU *dc = C.data, *da = A.data;
     for (int k = 0; k < A.size; k++) {
         switch (op) {
         case ADD: *dc++ = *da++ + v; break;
@@ -105,7 +105,7 @@ __BOTH__ Tensor&
 Tensor::copy(Tensor &A, Tensor &C) {
     WARN("Tensor::copy size=%d\n", A.size);
     dim3 block(256), grid((A.size + block.x -1) / block.x);
-    k_copy<<<grid, block>>>((DU*)A.data, (DU*)C.data, A.size);
+    k_copy<<<grid, block>>>(A.data, C.data, A.size);
     cudaDeviceSynchronize();
     return C;
 }
@@ -117,7 +117,7 @@ Tensor::transpose(Tensor &A, Tensor &T) {
         (n + block.x - 1) / block.x,
         (m + block.y - 1) / block.y
     );
-    k_transpose<<<grid, block>>>((DU*)A.data, (DU*)T.data, m, n);
+    k_transpose<<<grid, block>>>(A.data, T.data, m, n);
     cudaDeviceSynchronize();
     return T;
 }
@@ -131,40 +131,38 @@ Tensor::inverse(Tensor &A, Tensor &I) {
     U16 m = A.H(), n = A.W();
     WARN("Tensor::inverse[%d,%d]\n", m, n);
     if (m != n) { ERROR("square matrix?"); return I; }
-
-    DU *aa = (DU*)A.data;
-    DU *ii = (DU*)I.data;
-    auto swap_rows = [aa, ii, n](U16 u, U16 z) {
+    DU *da = A.data, *di = I.data;
+    auto swap_rows = [da, di, n](U16 u, U16 z) {
         for (U16 k = 0; k < n; k++) {         ///> TODO: swap entire row
-            DU ta = aa[k + z * n], ti = ii[k + z * n];
-            aa[k + z * n] = aa[k + u * n]; aa[k + u * n] = ta;
-            ii[k + z * n] = ii[k + u * n]; ii[k + u * n] = ti;
+            DU ta = da[k + z * n], ti = di[k + z * n];
+            da[k + z * n] = da[k + u * n]; da[k + u * n] = ta;
+            di[k + z * n] = di[k + u * n]; di[k + u * n] = ti;
         }
     };
-    auto find_max = [aa, n](U16 z) {
+    auto find_max = [da, n](U16 z) {
         int u = z;
         for (U16 i = z + 1; i < n; i++) {    ///> TODO: CDP reduce
-            if (ABS(aa[z + i * n]) > ABS(aa[z + u * n])) u = i;
+            if (ABS(da[z + i * n]) > ABS(da[z + u * n])) u = i;
         }
-        if (ABS(aa[z + u * n]) < DU_EPS) {
+        if (ABS(da[z + u * n]) < DU_EPS) {
             ERROR("Tensor::inverse sigular!\n");
             return -1;
         }
         return u;
     };
-    auto diag = [aa, ii, n](U16 z) {
-        DU r0 = aa[z + z * n];
+    auto diag = [da, di, n](U16 z) {
+        DU r0 = da[z + z * n];
         for (U16 k = 0; k < n; k++) {
             U16 i = k + z * n;
-            ii[i] /= r0;
-            aa[i] /= r0;
+            di[i] /= r0;
+            da[i] /= r0;
         }};
-    auto elim = [aa, ii, n](U16 z) {
+    auto elim = [da, di, n](U16 z) {
         for (U16 i = 0; i < n; i++) {
-            DU r1 = aa[z + i * n];
+            DU r1 = da[z + i * n];
             for (U16 k = 0; i!=z && k < n; k++) {
-                ii[k + i * n] -= r1 * ii[k + z * n];
-                aa[k + i * n] -= r1 * aa[k + z * n];
+                di[k + i * n] -= r1 * di[k + z * n];
+                da[k + i * n] -= r1 * da[k + z * n];
             }
         }};
     for (U16 z = 0; z < n; z++) {
@@ -185,26 +183,26 @@ Tensor::inverse(Tensor &A, Tensor &I) {
 __BOTH__ Tensor&
 Tensor::inverse(Tensor &LU) {
     U16 m = LU.H(), n = LU.W();
-    DU *aa = (DU*)LU.data;
-    auto forward = [aa, n](U16 z) {
+    DU *dd = LU.data;
+    auto forward = [dd, n](U16 z) {
         for (U16 y = z + 1; y < n; y++) {
-            DU r1 = aa[z + y * n];
+            DU r1 = dd[z + y * n];
             for (U16 k = 0; k < z; k++) {               // columns before
-                aa[k + y * n] -= aa[k + z * n] * r1;
+                dd[k + y * n] -= dd[k + z * n] * r1;
             }
-            aa[z + y * n] = -r1;                        // current z column
+            dd[z + y * n] = -r1;                        // current z column
         }};
-    auto backward = [aa, n](U16 z) {
-        DU r0 = DU1 / aa[z + z * n];
-        aa[z + z * n] = r0;                             // diag
+    auto backward = [dd, n](U16 z) {
+        DU r0 = DU1 / dd[z + z * n];
+        dd[z + z * n] = r0;                             // diag
         for (U16 k = z + 1; k < n; k++) {               // current z row
-            aa[k + z * n] *= r0;
+            dd[k + z * n] *= r0;
         }
         for (U16 y = 0; y < z; y++) {                   // factorize rows above
-            DU r1 = aa[z + y * n];
-            aa[z + y *  n] = -r1 * r0;                  // current z column
+            DU r1 = dd[z + y * n];
+            dd[z + y *  n] = -r1 * r0;                  // current z column
             for (U16 k = z + 1; k < n; k++) {           // columns after
-                aa[k + y * n] -= aa[k + z * n] * r1;
+                dd[k + y * n] -= dd[k + z * n] * r1;
             }
         }};
     
@@ -226,19 +224,19 @@ Tensor::lu(Tensor &A) {
     WARN("Tensor::lu[%d,%d]\n", m, n);
     if (m != n) { ERROR("square matrix?"); return A; }
 
-    DU *aa = (DU*)A.data;
-    auto elim = [aa, n](U16 z) {
-        DU ra = aa[z + z * n];
-        if (fabs(ra) < DU_EPS) return;       /// * if 0 skip the row
+    DU *da = A.data;
+    auto elim = [da, n](U16 z) {
+        DU ra = da[z + z * n];
+        if (fabs(ra) < DU_EPS) return;      /// * if 0 skip the row
         for (U16 y = z + 1; y < n; y++) {
-            DU r1 = aa[z + y * n] / ra;      /// * substitution
+            DU r1 = da[z + y * n] / ra;     /// * substitution
             for (U16 k = z; k < n; k++) {
-                aa[k + y * n] -= r1 * aa[k + z * n];
+                da[k + y * n] -= r1 * da[k + z * n];
             }
-            aa[z + y * n] = r1;              /// L stored in A to save space
+            da[z + y * n] = r1;             /// L stored in A to save space
         }
     };
-	for (U16 z = 0; z < n; z++) {
+    for (U16 z = 0; z < n; z++) {
         elim(z);               /// * eliminate variables in upper triangle
 	}
     return A;
@@ -255,46 +253,45 @@ Tensor::plu(Tensor &A, Tensor &P) {
     WARN("Tensor::lu[%d,%d]\n", m, n);
     if (m != n) { ERROR("square matrix?"); return A; }
 
-    DU *aa = (DU*)A.data;
-    DU *vp = (DU*)P.data;
-    auto swap_rows = [aa, vp, n](U16 u, U16 z) {
-        DU t = vp[z]; vp[z] = vp[u]; vp[u] = t;
+    DU *da = A.data, *dp = P.data;
+    auto swap_rows = [da, dp, n](U16 u, U16 z) {
+        DU t = dp[z]; dp[z] = dp[u]; dp[u] = t;
         for (U16 k = z; k < n; k++) {         ///> TODO: swap entire row
-            t = aa[k + z * n];
-            aa[k + z * n] = aa[k + u * n];
-            aa[k + u * n] = t;
+            t = da[k + z * n];
+            da[k + z * n] = da[k + u * n];
+            da[k + u * n] = t;
         }
     };
-    auto find_max = [aa, n](U16 z) {
+    auto find_max = [da, n](U16 z) {
         int u = z;
         for (U16 i = z + 1; i < n; i++) {    ///> TODO: CDP reduce
-            if (ABS(aa[z + i * n]) > ABS(aa[z + u * n])) u = i;
+            if (ABS(da[z + i * n]) > ABS(da[z + u * n])) u = i;
         }
-        if (ABS(aa[z + u * n]) < DU_EPS) {
+        if (ABS(da[z + u * n]) < DU_EPS) {
             WARN("Tensor::lu sigular!\n");
             return -1;
         }
         return u;
     };
-    auto elim = [aa, n](U16 z) {
-        DU ra = aa[z + z * n];
+    auto elim = [da, n](U16 z) {
+        DU ra = da[z + z * n];
         if (fabs(ra) < DU_EPS) return;       /// * if 0 skip the row
         for (U16 y = z + 1; y < n; y++) {
-            DU r1 = aa[z + y * n] / ra;      /// * substitution
+            DU r1 = da[z + y * n] / ra;      /// * substitution
             for (U16 k = z; k < n; k++) {
-                aa[k + y * n] -= r1 * aa[k + z * n];
+                da[k + y * n] -= r1 * da[k + z * n];
             }
-            aa[z + y * n] = r1;              /// L stored in A to save space
+            da[z + y * n] = r1;              /// L stored in A to save space
         }
     };
-	for (U16 z = 0; z < n; z++) {
+    for (U16 z = 0; z < n; z++) {
         int u = find_max(z);   /// * pivot to reduce rounding error
         if (u < 0) return A;
-		if (u != z) { 	       /// * swapping row which has maximum xth column element
+        if (u != z) {          /// * swapping row which has maximum xth column element
             swap_rows(u, z);
         }
         elim(z);               /// * eliminate variables in upper triangle
-	}
+    }
     return A;
 }
 ///=======================================================================
@@ -361,7 +358,7 @@ Tensor::~Tensor()
 __BOTH__ DU
 Tensor::sum() {
     DU v = DU0;
-    for (int i=0; i < size; i++) v += ((DU*)data)[i];   ///> TODO: CDP prefix sum
+    for (int i=0; i < size; i++) v += data[i];   ///> TODO: CDP prefix sum
     cudaDeviceSynchronize();
     return v;
 }
@@ -371,7 +368,7 @@ Tensor::dot(Tensor &B) {
     DU  acc = DU0;
     if (rank == 1 && B.rank == 1 && size == B.size) {
         for (int k=0; k < size; k++) {                   ///> TODO: kernel
-            acc += ((DU*)data)[k] * ((DU*)B.data)[k];
+            acc += data[k] * B.data[k];
         }
     }
     else ERROR("A.dot(B) dim? %d != %d)\n", size, B.size);
@@ -386,11 +383,10 @@ __BOTH__ DU
 Tensor::det() {
     U16 m = H(), n = W();
     WARN("Tensor::det[%d,%d]\n", m, n);
-    
-    DU *d = (DU*)data;
+
     DU v  = DU1;
-    for (U16 z = 0; z < m; z++) v *= d[z + z * n];
-    
+    for (U16 z = 0; z < m; z++) v *= data[z + z * n];
+
     return v;
 }
 ///
@@ -400,11 +396,10 @@ __BOTH__ Tensor&
 Tensor::triu() {
     U16 m  = H(), n = W();
     WARN("Tensor::upper[%d,%d]\n", m, n);
-    
-    DU *d = (DU*)data;
+
     for (U16 z = 1; z < m; z++) {
         for (U16 k = 0; k < z; k++) {
-            d[k + z * n] = DU0;
+            data[k + z * n] = DU0;
         }
     }
     cudaDeviceSynchronize();
@@ -417,12 +412,11 @@ __BOTH__ Tensor&
 Tensor::tril() {
     U16 m = H(), n = W();
     WARN("Tensor::lower[%d,%d]\n", m, n);
-    
-    DU *d = (DU*)data;
+
     for (U16 z = 0; z < m; z++) {
-        d[z + z * n] = DU1;
+        data[z + z * n] = DU1;
         for (U16 k = z + 1; k < n; k++) {
-            d[k + z * n] = DU0;
+            data[k + z * n] = DU0;
         }
     }
     cudaDeviceSynchronize();
@@ -434,12 +428,12 @@ Tensor::map(t4_mat_op op, DU v) {
     WARN("Tensor#%s v=%f\n", opn[op], v);
     dim3 block(256), grid((size + block.x -1)/block.x);
     switch(op) {
-    case ABS:   k_abs<<<  grid, block>>>((DU*)data, size);    break;
-    case EXP:   k_exp<<<  grid, block>>>((DU*)data, size);    break;
-    case TANH:  k_tanh<<< grid, block>>>((DU*)data, size);    break;
-    case RELU:  k_relu<<< grid, block>>>((DU*)data, size);    break;
-    case FILL:  k_fill<<< grid, block>>>((DU*)data, v, size); break;
-    case SCALE: k_scale<<<grid, block>>>((DU*)data, v, size); break;
+    case ABS:   k_abs<<<  grid, block>>>(data, size);    break;
+    case EXP:   k_exp<<<  grid, block>>>(data, size);    break;
+    case TANH:  k_tanh<<< grid, block>>>(data, size);    break;
+    case RELU:  k_relu<<< grid, block>>>(data, size);    break;
+    case FILL:  k_fill<<< grid, block>>>(data, v, size); break;
+    case SCALE: k_scale<<<grid, block>>>(data, v, size); break;
     default: ERROR("Tensor#map op=%d?\n", op); break;
     }
     cudaDeviceSynchronize();
@@ -462,7 +456,7 @@ Tensor::reset(void *mptr, U32 sz) {
     ttype  = TENSOR;
     U16 t[4] = {1, 1, 1, 1};      memcpy(stride, t, sizeof(t));
     U16 s[4] = {(U16)sz,1, 1, 1}; memcpy(shape,  s, sizeof(s));
-    data   = (U8*)mptr;
+    data   = (DU*)mptr;
     return *this;
 }
 
@@ -515,8 +509,7 @@ Tensor::identity() {
         (n + block.x - 1) / block.x,
         (m + block.y - 1) / block.y
     );
-    k_identity<<<grid, block>>>((DU*)data, m, n, sizeof(DU)*C());
+    k_identity<<<grid, block>>>(data, m, n, sizeof(DU)*C());
     cudaDeviceSynchronize();
     return *this;
 }
-
