@@ -14,7 +14,7 @@ OBJS += \
 	./src/eforth.o \
 	./src/tensor.o \
 	./src/tenvm.o \
-    ./src/netvm.o \
+	./src/netvm.o \
 	./src/tlsf.o \
 	./src/ten4.o
 

@@ -87,7 +87,7 @@ typedef F64         DU2;                    ///< double preciesion data unit
 #define DU_EPS      1.0e-6                  /**< floating point epsilon */
 ///
 /// cross platform floating-point math support
-/// 
+///
 #define ZERO(d)     (ABS(d) < DU_EPS)       /**< zero check             */
 #define BOOL(d)     (ZERO(d) ? DU0 : -DU1)  /**< default boolean        */
 #define ABS(d)      (fabsf(d))              /**< absolute value         */

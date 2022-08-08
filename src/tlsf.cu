@@ -14,9 +14,9 @@
 // semaphore
 #define _LOCK           { MUTEX_LOCK(_mutex); }
 #define _UNLOCK         { MUTEX_FREE(_mutex); }
-#define U8PADD(p, n)	((U8*)(p) + (n))					/** pointer add */
-#define U8PSUB(p, n)	((U8*)(p) - (n))					/** pointer sub */
-#define U8POFF(p1, p0)	((I32)((U8*)(p1) - (U8*)(p0)))	    /** calc offset */
+#define U8PADD(p, n)	((U8*)(p) + (n))                    /** pointer add */
+#define U8PSUB(p, n)	((U8*)(p) - (n))                    /** pointer sub */
+#define U8POFF(p1, p0)	((I32)((U8*)(p1) - (U8*)(p0)))      /** calc offset */
 
 //================================================================
 /*! constructor
@@ -118,7 +118,7 @@ TLSF::realloc(void *p0, U32 sz) {
     void *ret = this->malloc(bsz);
     MEMCPY(ret, (const void*)p0, (size_t)sz);            // deep copy, !!using CUDA provided memcpy
     this->free(p0);                                      // reclaim block
-    
+
     return ret;
 }
 
@@ -134,7 +134,7 @@ TLSF::free(void *ptr) {
     WARN("tlsf#free(%p) => %p:0x%x\n", ptr, blk, blk->bsz);
     _try_merge_next(blk);
     _mark_free(blk);
-    
+
     // the block is free now, try to merge a free block before if exists
     _try_merge_prev(blk);
     _UNLOCK;
@@ -310,7 +310,7 @@ TLSF::_pack(free_block *b0, free_block *b1) {
     used_block *b2 = (used_block *)BLK_AFTER(b1);
     b2->psz += b1->psz & ~FREE_FLAG;    // watch for the block->flag
     b0->bsz += b1->bsz;                 // include the block header
-    
+
     WARN(" %x\n", b0->bsz);
 }
 
@@ -405,7 +405,7 @@ TLSF::_try_merge_prev(free_block *b1) {
     WARN("tlsf#merge_prev %p:%x:%x + %p", b1, b1->bsz, b1->psz, b0);
     if (b0) WARN("%x.%s\n", b0->bsz, IS_FREE(b0) ? "free" : "used");
     else    WARN("%x.empty\n", 0);
-    
+
     if (b0==NULL || IS_USED(b0)) return b1;
     _unmap(b0);                              // take it out of free_list before merge
     _pack(b0, b1);                           // take b1 out and merge with b0
