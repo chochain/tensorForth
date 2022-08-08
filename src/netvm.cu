@@ -7,23 +7,6 @@
 #include "netvm.h"
 
 #if T4_ENABLE_OBJ
-__GPU__ DU
-NetVM::NPOP() {
-    DU n = ntop;
-    ntop = ((DU*)net.data)[--nidx];
-    nten = &mmu.du2ten(ntop);
-    return n;
-}
-__GPU__ DU
-NetVM::NPUSH(DU v) {
-    nten = &mmu.du2ten(v);
-    return ((DU*)net.data)[nidx++] = (ntop = v);
-}
-__GPU__ DU
-NetVM::NPUSH(Tensor &t) {
-    nten = &t;
-    return ((DU*)net.data)[nidx++] = (ntop = mmu.ten2du(t));
-}
 ///===================================================================
 /// static loss functions
 ///
@@ -39,39 +22,52 @@ NetVM::loss_ce(Tensor &A, Tensor &B, Tensor &C) {
 __GPU__ void
 NetVM::predict(Tensor &A, Tensor &B, Tensor &C) {
 }
-__GPU__ void
-NetVM::dconv2d(Tensor &A, Tensor &B) {
-}
-__GPU__ void
-NetVM::drelu(Tensor &A, Tensor &B) {
-}
-__GPU__ void
-dmaxpool(Tensor &A, Tensor &B) {
-}
-__GPU__ void
-dreshape(Tensor &A, Tensor &B) {
-}
-__GPU__ void
-dlinear(Tensor &A, Tensor &B) {
-}
 ///
 /// Convolution ops
 ///
 __GPU__ void
-NetVM::conv2d() {
-    const U16 opt[] = { 3, 3, 1, 1, 1 };
-    conv2d((U16*)opt);
-}
-__GPU__ void
 NetVM::conv2d(U16 *opt) {
-    U16 c     = POPi;
-    DU  bias  = POP();
-    Tensor &t = *nten;                         ///> DAG tensor pointer
-    if (!t.grad_fn) initgrad(t, bias, c, opt); ///> create tensors if not yet
+    if (IS_OBJ(top) || IS_OBJ(ss[-1])) return; ///> bias, c params requred
+    
+    U16 c      = POPi;       ///> number of output channels
+    DU  bias   = POP();      ///> convolution bias
+    ///
+    /// create autograd tensors if not yet
+    ///
+    if (f_auto) model.init_conv2d(bias, c, opt);
     ///
     /// apply convolution filter
     ///
-    NPUSH(t);
+}
+__GPU__ void
+NetVM::conv2d() {
+    U16 opt[] = { 3, 3, 1, 1, 1 };   ///> default 3x3 filter, padding=1, stride=1, dilation=1
+    if (IS_TEN(top)) {
+        Tensor &v = mmu.du2ten(top);
+        if (v.rank == 1) {
+            POP();
+            DU  *d = (DU*)v.data;
+            for (int i=0; i<5; i++) opt[i] = (U16)d[i];
+        }
+        else ERROR("vec?");
+    }
+    conv2d(opt);                     ///> perform 2D convolution
+}
+///
+/// Pooling ops
+///
+__GPU__ void
+NetVM::meanpool(U16 n) {
+}
+__GPU__ void
+NetVM::avgpool(U16 n) {
+}
+__GPU__ void
+NetVM::maxpool(U16 n) {
+    
+}
+__GPU__ void
+NetVM::minpool(U16 n) {
 }
 ///
 /// Activation ops
@@ -92,21 +88,6 @@ NetVM::softmax() {
 /// Pooling ops
 ///
 __GPU__ void
-NetVM::meanpool(U16 n) {
-}
-__GPU__ void
-NetVM::avgpool(U16 n) {
-}
-__GPU__ void
-NetVM::maxpool(U16 n) {
-}
-__GPU__ void
-NetVM::minpool(U16 n) {
-}
-///
-/// Pooling ops
-///
-__GPU__ void
 NetVM::linear(U16 n) {
 }
 ///
@@ -119,29 +100,13 @@ NetVM::dropout(U16 p) {
 /// Back Propegation ops
 ///
 __GPU__ void
-NetVM::initgrad(Tensor &A, DU bias, U16 c, U16 *opt) {
-    /// create autograd tensors
-    ///
-    A.grad_fn = &dconv2d;                        ///> derivative function
-
-    U16 m = opt[0], n = opt[1];                  ///> filter sizing
-    U16 p = opt[2] ? opt[2] : floor((m-1)/2);    ///> padding
-    U16 s = opt[3], d = opt[4];                  ///> stride, dilation
-    
-    Tensor *w  = A.grad[0] = &mmu.tensor(1, m, n, c);                   ///> w
-    mmu.random(*w, NORMAL);
-    Tensor *b  = A.grad[1] = &mmu.tensor(1, 1, 1, c).map(FILL, bias); ///> b
-    Tensor *dw = A.grad[2] = &mmu.tensor(1, m, n, c).map(FILL, DU0);  ///> dw
-    Tensor *db = A.grad[3] = &mmu.tensor(1, 1, 1, c).map(FILL, DU0);  ///> db
-}
-__GPU__ void
 NetVM::autograd(bool on) {
-    f_autograd = on;
+    f_auto = on;
 }
 __GPU__ void
 NetVM::for_batch() {
     Tensor &A = mmu.tensor(1, 28, 28, 1);
-    NPUSH(A);
+    model.push(A);
 }
 __GPU__ void
 NetVM::backprop() {
@@ -151,17 +116,6 @@ NetVM::sgd() {
 }
 __GPU__ void
 NetVM::adam() {
-}
-__GPU__ void
-NetVM::network() {
-    DU t = mmu.ten2du(net);
-    printf("net.size = %d\n", net.size);
-    DU *d = (DU*)net.data;
-    for (int i = 0; i < nidx; i++) {
-        DU     v   = *d++;
-        Tensor &ti = mmu.du2ten(v);
-        printf("%08x[%03d] => size=%d\n", *(U32*)&v, i, ti.size);
-    }
 }
 ///===================================================================
 /// class methods
@@ -173,15 +127,7 @@ NetVM::init() {
     const Code prim[] = {       /// singleton, build once only
     ///@defgroup Convolution ops
     ///@{
-    CODE("conv2d",              ///> (Ta b c [A] -- Ta')
-         if (IS_OBJ(top)) conv2d();
-         else {
-             Tensor &v = mmu.du2ten(top); POP();
-             U16 opt[5];
-             DU  *d = (DU*)v.data;
-             for (int k=0; k<5; k++) opt[k] = (U16)*d++;
-             conv2d(opt);
-         }),
+    CODE("conv2d", conv2d()),             ///> (Ta b c [A] -- Ta')
     ///@}
     ///@defgroup Activation ops
     ///@{
@@ -211,14 +157,13 @@ NetVM::init() {
     CODE("batch_next",{}),
     CODE("sgd",       {}),
     CODE("adam",      {}),
-    CODE("autograd",  {}),
     ///@}
     ///@defgroup Debugging ops
     ///@{
-//    CODE("network",  fout << opx(OP_NET, nidx, mmu.ten2du(net))),
-    CODE("network",   network()),
-    CODE(">n",        NPUSH(top); POP()),
-    CODE("n>",        DU t = NPOP(); PUSH(t)),
+    CODE("network",   fout << opx(OP_NET, model.idx, model.data[0])),
+    CODE(">n",        model.push(top); POP()),
+    CODE("n>",        DU t = model.pop(); PUSH(t)),
+    CODE("autograd",  {}),
     ///@}
     };
     const Code over[] = {          /// extended (overload) words
