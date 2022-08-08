@@ -1,6 +1,6 @@
 /**
  * @file
- * @brief tensorForth - Neural Network Model
+ * @brief tensorForth - Neural Network Model (i.e. Container in PyTorch)
  *
  * <pre>Copyright (C) 2022- GreenII, this file is distributed under BSD 3-Clause License.</pre>
  */
@@ -19,21 +19,25 @@ public:
     ///
     /// @name Derivertive ops
     /// @{
-    static __BOTH__ void dconv2d(Tensor &A, Tensor &B)  {}
-    static __BOTH__ void drelu(Tensor &A, Tensor &B)    {}
-    static __BOTH__ void dmaxpool(Tensor &A, Tensor &B) {}
-    static __BOTH__ void dreshape(Tensor &A, Tensor &B) {}
-    static __BOTH__ void dlinear(Tensor &A, Tensor &B)  {}
     static __BOTH__ const char *fname(GradFn f) {
-        if (f == dconv2d) return "conv2d ";
-        else              return "input  ";
+        if (f == &dconv2d) return "conv2d  ";
+        else               return "input   ";
     }
+    static __GPU__ void dconv2d(Tensor &A, Tensor &B)  {}
+    static __GPU__ void drelu(Tensor &A, Tensor &B)    {}
+    static __GPU__ void dmaxpool(Tensor &A, Tensor &B) {}
+    static __GPU__ void dreshape(Tensor &A, Tensor &B) {}
+    static __GPU__ void dlinear(Tensor &A, Tensor &B)  {}
     /// @}
+
+    __GPU__ Tensor &operator[](int i) {
+        return _mmu->du2ten(data[i]);
+    }
     __GPU__ DU reset(MMU *mmu, Tensor &store) {
         _mmu   = mmu;
         _store = &store;
-        data  = (DU*)store.data;
-        push(store);
+        data   = store.data;     // cached entries
+        this->push(store);       // keep store as root
     }
     __GPU__ DU pop() {
         DU n = data[--idx];
@@ -47,25 +51,6 @@ public:
     __GPU__ DU push(Tensor &t) {
         nten = &t;
         return data[idx++] = _mmu->ten2du(t);
-    }
-    __GPU__ void init_conv2d(DU bias, IU c, U16 *opt) {
-        Tensor &in = *nten;
-        if (in.grad_fn) return;
-        
-        in.grad_fn = &dconv2d;                       ///> derivative function
-        
-        U16 m = opt[0], n = opt[1];                  ///> filter sizing
-        U16 p = opt[2] ? opt[2] : floor((m-1)/2);    ///> padding
-        U16 s = opt[3], d = opt[4];                  ///> stride, dilation
-        
-        Tensor *w  = in.grad[0] = &_mmu->tensor(1, m, n, c);                 ///> w
-        Tensor *b  = in.grad[1] = &_mmu->tensor(1, 1, 1, c).map(FILL, bias); ///> b
-        Tensor *dw = in.grad[2] = &_mmu->tensor(1, m, n, c).map(FILL, DU0);  ///> dw
-        Tensor *db = in.grad[3] = &_mmu->tensor(1, 1, 1, c).map(FILL, DU0);  ///> db
-    
-        _mmu->random(*w, NORMAL);                      /// * randomize w
-        Tensor &out = _mmu->tensor(1, m, n, c);
-        push(out);
     }
 };
 #endif // TEN4_SRC_MODEL_H
