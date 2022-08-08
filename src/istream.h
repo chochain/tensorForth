@@ -59,7 +59,7 @@ public:
             WARN("%d>> ibuf[%d] >> '%s' (%d bytes)\n", blockIdx.x, _idx, s, _gn);
         }
         else if (delim=='\n') {             // comment line
-            WARN("%d>> ibuf[%d] \ at idx=%d\n", blockIdx.x, _idx, _gn);
+            WARN("%d>> ibuf[%d] \\ at idx=%d\n", blockIdx.x, _idx, _gn);
             _buf[_idx] = '\0';              // blank out the reset of input buffer
         }
         return *this;
