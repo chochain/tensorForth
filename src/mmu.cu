@@ -5,6 +5,7 @@
  */
 #include <iomanip>          // setw, setbase
 #include "mmu.h"
+#include "model.h"
 ///
 /// random number generator setup
 /// Note: kept here because curandStates stays in CUDA memory
@@ -132,17 +133,17 @@ MMU::sweep() {
 //    lock();
     for (int i=0; _fidx && i < _fidx; i++) {
         DU v = _mark[i];
-        TRACE1("release T[%x] from marked list[%d]\n", *(U32*)&v, _fidx);
+        TRACE1("release T[%x] from free[%d]\n", *(U32*)&v, i);
         drop(v);
     }
     _fidx = 0;
-//  unlock();                     ///< TODO: CC: DEAD LOCK, now!
+//  unlock();                      ///< TODO: CC: DEAD LOCK, now!
 }
 __GPU__ Tensor&                    ///< create a one-dimensional tensor
 MMU::tensor(U32 sz) {
-    Tensor *t    = (Tensor*)_tstore.malloc(sizeof(Tensor));
-    void   *mptr = _tstore.malloc((U64)sizeof(DU) * sz);
-    t->reset(mptr, sz);
+    Tensor *t = (Tensor*)_tstore.malloc(sizeof(Tensor));
+    void   *d = _tstore.malloc((U64)sizeof(DU) * sz);
+    t->reset(d, sz);
     return *t;
 }
 __GPU__ Tensor&                    ///< create a 2-dimensional tensor
@@ -161,6 +162,14 @@ MMU::tensor(U16 n, U16 h, U16 w, U16 c) {
     t.reshape(n, h, w, c);
     return t;
 }
+__GPU__ Model&                     ///< create a NHWC tensor
+MMU::model(U16 sz) {
+    Model  *m = (Model*)_tstore.malloc(sizeof(Model));
+    Tensor &t = this->tensor(sz);
+    m->reset(this, t);
+    
+    return *m;
+}
 __GPU__ Tensor&                   ///< create a view of a Tensor
 MMU::view(Tensor &t0) {
     Tensor *t = (Tensor*)_tstore.malloc(sizeof(Tensor));
@@ -177,12 +186,21 @@ __GPU__ void                     ///< release tensor memory blocks
 MMU::free(Tensor &t) {
     TRACE1("mmu#free(T%d) size=%d\n", t.rank, t.size);
     if (!t.is_view()) _tstore.free((void*)t.data);
-    _tstore.free((void*)&t);
-
-    if (_trace > 1) {
-        _tstore.show_stat();
-        _tstore.dump_freelist();
+    if (t.grad_fn) {             /// * autograd tensors exist
+        for (int i=0; i < 4; i++) free(*t.grad[i]);  /// recursive
     }
+    _tstore.free((void*)&t);
+    stat();
+}
+__GPU__ void                     ///< release tensor memory blocks
+MMU::free(Model &m) {
+    TRACE1("mmu#free(Model)\n");
+    for (int i = 0; i < m.idx; i++) {
+        Tensor &ti = du2ten(m.data[i]);
+        free(ti);
+    }
+    _tstore.free((void*)&m);
+    stat();
 }
 ///
 /// deep copy a tensor
@@ -387,18 +405,25 @@ MMU::mem_dump(std::ostream &fout, U16 p0, U16 sz) {
     fout << std::endl;
 }
 __HOST__ void
-MMU::network(std::ostream &fout, U16 sz, DU t) {
+MMU::network(std::ostream &fout, U16 sz, DU mt) {
 #if T4_ENABLE_OBJ
-    if (!IS_TEN(t)) { fout << "ERROR: t=" << t; return; }
-    auto show = [this, &fout](int i, DU v) {
-        Tensor &ti = this->du2ten(v);
-        fout << std::setbase(16) << v << std::setbase(10)
-             << "[" << std::setw(3) << i << "]";
+    if (!IS_TEN(mt)) { fout << "ERROR: mdl=" << mt; return; }
+    auto tinfo = [this, &fout](GradFn f, DU v, U32 n) { ///> layer info
+        fout << Model::fname(f);
         to_s(fout, v);
-        fout << " => parms=" << ti.size << "\n";
+        fout << ", size=" << n << "\n";
     };
-    Tensor &net = this->du2ten(t);
-    DU *d = (DU*)net.data;
-    for (int i=0; i < sz; i++) show(i, *d++);
+    auto finfo = [this, &fout](DU v) {                 ///> filter info
+        fout << "    "; to_s(fout, v); fout << "\n";
+    };
+    Tensor &model = this->du2ten(mt);
+    DU *d = (DU*)model.data;
+    for (int i = 0; i < sz; i++) {
+        Tensor &t = this->du2ten(d[i]);
+        tinfo(t.grad_fn, d[i], t.size);
+        for (int j = 0; _trace > 0 && t.grad_fn && j < 4; j++) {
+            finfo(ten2du(*t.grad[j]));
+        }
+    }
 #endif // T4_ENABLE_OBJ
 }
