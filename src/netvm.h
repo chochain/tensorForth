@@ -15,8 +15,9 @@ public:
     __GPU__ NetVM(int khz, Istream *istr, Ostream *ostr, MMU *mmu0) :
         TensorVM(khz, istr, ostr, mmu0) {}
     __GPU__ void init() { TensorVM::init(); }
-    
+
 #else // T4_ENABLE_OBJ
+    ///
     /// @name static Loss functions
     /// @{
     static __GPU__ void loss_nll(Tensor &A, Tensor &B, Tensor &C);  ///< negative likelihood
@@ -31,13 +32,14 @@ public:
         VLOG1("\\  ::NetVM(...) model=%p\n", model.data);
     }
     __GPU__ void init() final;    ///< override TensorVM, TODO: does not work without 'final'!
-    
+
 protected:
     bool    f_auto = false;       ///< autograd control flag
     Model   &model;
     /// @}
     /// @name Convolution ops
     /// @{
+    __GPU__ void init_conv2d(DU bias, IU c, U16 *opt);
     __GPU__ void conv2d(U16 *opt);///< 2d convolution with bias=top, c channel output=ss[-1], opt vector i.e. [5 5 3 2 1] for 5x5 filter, padding=3, stride=2, dilation=1
     __GPU__ void conv2d();        ///< 2d convolution with bias=top, c channel output=ss[-1], 3x3 filter, padding=same, stride=1, dilation=1
     /// @}

@@ -26,15 +26,35 @@ NetVM::predict(Tensor &A, Tensor &B, Tensor &C) {
 /// Convolution ops
 ///
 __GPU__ void
+NetVM::init_conv2d(DU bias, IU c, U16 *opt) {
+    Tensor &in = *model.nten;
+    if (in.grad_fn) return;
+
+    in.grad_fn = &model.dconv2d;                 ///> derivative function
+
+    U16 m = opt[0], n = opt[1];                  ///> filter sizing
+    U16 p = opt[2] ? opt[2] : floor((m-1)/2);    ///> padding
+    U16 s = opt[3], d = opt[4];                  ///> stride, dilation
+
+    Tensor *w  = in.grad[0] = &mmu.tensor(1, m, n, c);                 ///> w
+    Tensor *b  = in.grad[1] = &mmu.tensor(1, 1, 1, c).map(FILL, bias); ///> b
+    Tensor *dw = in.grad[2] = &mmu.tensor(1, m, n, c).map(FILL, DU0);  ///> dw
+    Tensor *db = in.grad[3] = &mmu.tensor(1, 1, 1, c).map(FILL, DU0);  ///> db
+
+    mmu.random(*w, NORMAL);                     /// * randomize w
+    Tensor &out = mmu.tensor(1, m, n, c);
+    model.push(out);
+}
+__GPU__ void
 NetVM::conv2d(U16 *opt) {
     if (IS_OBJ(top) || IS_OBJ(ss[-1])) return; ///> bias, c params requred
-    
+
     U16 c      = POPi;       ///> number of output channels
     DU  bias   = POP();      ///> convolution bias
     ///
     /// create autograd tensors if not yet
     ///
-    if (f_auto) model.init_conv2d(bias, c, opt);
+    if (f_auto) init_conv2d(bias, c, opt);
     ///
     /// apply convolution filter
     ///
@@ -46,8 +66,7 @@ NetVM::conv2d() {
         Tensor &v = mmu.du2ten(top);
         if (v.rank == 1) {
             POP();
-            DU  *d = (DU*)v.data;
-            for (int i=0; i<5; i++) opt[i] = (U16)d[i];
+            for (int i=0; i<5; i++) opt[i] = (U16)v.data[i];
         }
         else ERROR("vec?");
     }
@@ -64,7 +83,7 @@ NetVM::avgpool(U16 n) {
 }
 __GPU__ void
 NetVM::maxpool(U16 n) {
-    
+
 }
 __GPU__ void
 NetVM::minpool(U16 n) {
