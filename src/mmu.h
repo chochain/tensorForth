@@ -87,6 +87,7 @@ typedef enum {
 ///
 /// Forth memory manager
 ///
+struct Model;
 class MMU : public Managed {
     IU             _mutex = 0;      ///< lock (first so address aligned)
     IU             _didx  = 0;      ///< dictionary index
@@ -162,7 +163,9 @@ public:
     __GPU__  Tensor &tensor(U32 sz);                        ///< create an vector
     __GPU__  Tensor &tensor(U16 h, U16 w);                  ///< create a matrix
     __GPU__  Tensor &tensor(U16 n, U16 h, U16 w, U16 c);    ///< create a NHWC tensor
+    __GPU__  Model  &model(U16 sz=T4_NET_SZ);               ///< create a NN model
     __GPU__  void   free(Tensor &t);                        ///< free the tensor
+    __GPU__  void   free(Model &m);
     __GPU__  Tensor &view(Tensor &t0);                      ///< create a view to a tensor
     __GPU__  Tensor &copy(Tensor &t0);                      ///< hard copy a tensor
     __GPU__  Tensor &slice(Tensor &t0, IU x0, IU x1, IU y0, IU y1);     ///< a slice of a tensor
@@ -190,6 +193,11 @@ public:
     ///
     __BOTH__ __INLINE__ int  trace()        { return _trace; }
     __BOTH__ __INLINE__ void trace(int lvl) { _trace = lvl;  }
+    __BOTH__ __INLINE__ void stat() {
+        if (_trace < 1) return;
+        _tstore.show_stat();
+        _tstore.dump_freelist();
+    }                                 
     __HOST__ int  to_s(std::ostream &fout, IU w);               /// dump word 
     __HOST__ int  to_s(std::ostream &fout, DU s);               /// dump obj on stack
     __HOST__ void words(std::ostream &fout);
@@ -197,6 +205,6 @@ public:
     __HOST__ void see(std::ostream &fout, U16 w);
     __HOST__ void ss_dump(std::ostream &fout, U16 vid, U16 n, int radix);
     __HOST__ void mem_dump(std::ostream &fout, U16 p0, U16 sz);
-    __HOST__ void network(std::ostream &fout, U16 sz, DU net);
+    __HOST__ void network(std::ostream &fout, U16 sz, DU mt);
 };
 #endif // TEN4_SRC_MMU_H
