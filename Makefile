@@ -11,6 +11,7 @@ APP_HOME  := ${HOME}/devel/forth/$(APP_NAME)
 CUDA_LIB  := ${CUDA_HOME}/targets/x86_64-linux/lib
 CUDA_ARCH := compute_75
 CUDA_CODE := sm_75
+CUDA_FLAGS:= -Xnvlink --suppress-stack-size-warning
 
 # All of the sources participating in the build are defined here
 SRCS :=
@@ -52,6 +53,7 @@ $(APP_NAME): $(OBJS) $(USER_OBJS) $(OPTIONAL_TOOL_DEPS)
 	@echo 'Building target: $@'
 	@echo 'Invoking: NVCC linker'
 	${CUDA_HOME}/bin/nvcc -ccbin g++ --cudart=static -o "$(APP_TARGET)" \
+		$(CUDA_FLAGS) \
 		-L$(CUDA_LIB) \
 		-L${CUTLASS_HOME}/build/tools/library \
 		-l$(CL_LIB) \
