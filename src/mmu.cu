@@ -163,11 +163,11 @@ MMU::tensor(U16 n, U16 h, U16 w, U16 c) {
     return t;
 }
 __GPU__ Model&                     ///< create a NHWC tensor
-MMU::model(U16 sz) {
+MMU::model(U32 sz) {
     Model  *m = (Model*)_tstore.malloc(sizeof(Model));
-    Tensor &t = this->tensor(sz);
+    Tensor &t = this->tensor(sz);  /// * allocate tensor storage
     m->reset(this, t);
-    
+
     return *m;
 }
 __GPU__ Tensor&                   ///< create a view of a Tensor
@@ -195,10 +195,7 @@ MMU::free(Tensor &t) {
 __GPU__ void                     ///< release tensor memory blocks
 MMU::free(Model &m) {
     TRACE1("mmu#free(Model)\n");
-    for (int i = 0; i < m.idx; i++) {
-        Tensor &ti = du2ten(m.data[i]);
-        free(ti);
-    }
+    for (int i = 0; i < m.idx; i++) free(m[i]);
     _tstore.free((void*)&m);
     stat();
 }
@@ -215,9 +212,9 @@ MMU::copy(Tensor &t0) {
     /// hard copy data block
     ///
     U64 bsz = sizeof(DU) * t0.size;
-    t1->data = (U8*)_tstore.malloc(bsz);
+    t1->data = (DU*)_tstore.malloc(bsz);
     Tensor::copy(t0, *t1);
-    
+
     TRACE1("mmu#copy(T%d) size=%d to T%d:%p\n", t0.rank, t0.size, t1->rank, t1);
     return *t1;
 }
@@ -229,9 +226,9 @@ MMU::random(Tensor &t, t4_rand_opt ntype, int seed) {
     }
     TRACE1("mmu#random(T%d) size=%d\n", t.rank, t.size);
     dim3 block(T4_RAND_SEED_SZ), grid((t.size + block.x - 1) / block.x);
-    k_rand<<<grid, block>>>((DU*)t.data, t.size, _seed, ntype);
+    k_rand<<<grid, block>>>(t.data, t.size, _seed, ntype);
     cudaDeviceSynchronize();
-    
+
     return t;
 }
 ///
@@ -253,8 +250,8 @@ MMU::slice(Tensor &t0, U16 x0, U16 x1, U16 y0, U16 y1) {
     U64 bsz = sizeof(DU) * C * t1.W();              // size of one row
     for (int n = 0; n < N; n++) {                   // repeat N HWC
         for (int j = y0, j0=0; j < y1; j++, j0++) {
-            DU *d0 = &((DU*)t0.data)[C * (j * t0.W() + x0)];
-            DU *d1 = &((DU*)t1.data)[C * j0 * t1.W()];
+            DU *d0 = &t0.data[C * (j * t0.W() + x0)];
+            DU *d1 = &t1.data[C * j0 * t1.W()];
             memcpy(d1, d0, bsz);
         }
     }
@@ -293,22 +290,29 @@ MMU::to_s(std::ostream &fout, IU w) {
         cudaMemcpy(&c, code.name+(++i), 1, D2H);
     }
     fout << (_trace ? "\n" : " ");
-    
+
     return (int)i;
 }
-__HOST__ int
-MMU::to_s(std::ostream &fout, DU s) {
 #if T4_ENABLE_OBJ
-    Tensor &t = this->du2ten(s);
+__HOST__ int
+MMU::to_s(std::ostream &fout, Tensor &t) {
     fout << (char)(t.is_view() ? 'V' : 'T');
     switch(t.rank) {
     case 1: fout << "1[" << t.size << "]"; break;
     case 2: fout << "2[" << t.H() << "," << t.W() << "]"; break;
     case 4: fout << "4[" << t.N() << "," << t.H() << "," << t.W() << "," << t.C() << "]"; break;
     }
-#endif // T4_ENABLE_OBJ
     return 0;
 }
+__HOST__ int
+MMU::to_s(std::ostream &fout, DU s) {
+    Tensor &t = this->du2ten(s);
+    return to_s(fout, t);
+}
+#else  // T4_ENABLE_OBJ
+__HOST__ int MMU::to_s(std::ostream &fout, Tensor &s) {}
+__HOST__ int MMU::to_s(std::ostream &fout, DU s) {}
+#endif // T4_ENABLE_OBJ
 ///
 /// display dictionary word list
 ///
@@ -407,22 +411,23 @@ MMU::mem_dump(std::ostream &fout, U16 p0, U16 sz) {
 __HOST__ void
 MMU::network(std::ostream &fout, U16 sz, DU mt) {
 #if T4_ENABLE_OBJ
-    if (!IS_TEN(mt)) { fout << "ERROR: mdl=" << mt; return; }
-    auto tinfo = [this, &fout](GradFn f, DU v, U32 n) { ///> layer info
+    if (!IS_TEN(mt)) { fout << "ERROR: model?"; return; }
+    auto tinfo = [this, &fout](GradFn f, Tensor &t, U32 n) { ///> layer info
         fout << Model::fname(f);
-        to_s(fout, v);
+        to_s(fout, t);
         fout << ", size=" << n << "\n";
     };
-    auto finfo = [this, &fout](DU v) {                 ///> filter info
-        fout << "    "; to_s(fout, v); fout << "\n";
+    auto finfo = [this, &fout](Tensor &t) {                 ///> filter info
+        fout << "    "; to_s(fout, t); fout << "\n";
     };
-    Tensor &model = this->du2ten(mt);
-    DU *d = (DU*)model.data;
+    printf("store=0x%08x=%f\n", *(U32*)&mt, mt);
+    Tensor &store = this->du2ten(mt);
     for (int i = 0; i < sz; i++) {
-        Tensor &t = this->du2ten(d[i]);
-        tinfo(t.grad_fn, d[i], t.size);
+        DU v = store.data[i];
+        Tensor &t = this->du2ten(v);
+        tinfo(t.grad_fn, t, t.size);
         for (int j = 0; _trace > 0 && t.grad_fn && j < 4; j++) {
-            finfo(ten2du(*t.grad[j]));
+            finfo(*t.grad[j]);
         }
     }
 #endif // T4_ENABLE_OBJ

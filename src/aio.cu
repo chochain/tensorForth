@@ -59,9 +59,9 @@ __HOST__ void AIO::print_obj(DU v) {}
 __HOST__ void
 AIO::print_obj(DU v) {
     auto   range = [this](int n) { return (n < _edge) ? n : _edge; };
-    
+
     Tensor &t = _mmu->du2ten(v);            ///< TODO: other object types
-    DU     *d = (DU*)t.data;
+    DU     *d = t.data;                     /// * short hand
     WARN("aio#print_tensor::T[%x]=%p data=%p\n", *(U32*)&v, &t, d);
 
     std::ios::fmtflags fmt0 = std::cout.flags();

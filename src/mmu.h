@@ -135,7 +135,7 @@ public:
     __GPU__ __INLINE__ void clear(IU i)  { _didx = i; _midx = 0; }   ///< clear dictionary
     __GPU__ __INLINE__ void add(Code *c) { _dict[_didx++] = *c; }    ///< dictionary word assignment (deep copy)
     __GPU__ __INLINE__ void add(U8* v, int sz) {                     ///< copy data to heap, TODO: dynamic parallel
-        MEMCPY(&_pmem[_midx], v, sz); _midx += sz;                   
+        MEMCPY(&_pmem[_midx], v, sz); _midx += sz;
     }
     __GPU__ __INLINE__ void setjmp(IU a) { wi(a, _midx); }           ///< set branch target address
     ///
@@ -163,7 +163,7 @@ public:
     __GPU__  Tensor &tensor(U32 sz);                        ///< create an vector
     __GPU__  Tensor &tensor(U16 h, U16 w);                  ///< create a matrix
     __GPU__  Tensor &tensor(U16 n, U16 h, U16 w, U16 c);    ///< create a NHWC tensor
-    __GPU__  Model  &model(U16 sz=T4_NET_SZ);               ///< create a NN model
+    __GPU__  Model  &model(U32 sz=T4_NET_SZ);               ///< create a NN model
     __GPU__  void   free(Tensor &t);                        ///< free the tensor
     __GPU__  void   free(Model &m);
     __GPU__  Tensor &view(Tensor &t0);                      ///< create a view to a tensor
@@ -197,14 +197,15 @@ public:
         if (_trace < 1) return;
         _tstore.show_stat();
         _tstore.dump_freelist();
-    }                                 
-    __HOST__ int  to_s(std::ostream &fout, IU w);               /// dump word 
-    __HOST__ int  to_s(std::ostream &fout, DU s);               /// dump obj on stack
-    __HOST__ void words(std::ostream &fout);
-    __HOST__ void see(std::ostream &fout, U8 *p, int dp=1);     /// cannot pass pfa
-    __HOST__ void see(std::ostream &fout, U16 w);
+    }
+    __HOST__ int  to_s(std::ostream &fout, Tensor &t);          ///< dump object on stack
+    __HOST__ int  to_s(std::ostream &fout, DU s);               ///< dump object from descriptor
+    __HOST__ int  to_s(std::ostream &fout, IU w);               ///< dump word 
+    __HOST__ void words(std::ostream &fout);                    ///< display dictionary
+    __HOST__ void see(std::ostream &fout, U8 *p, int dp=1);     ///< disassemble a word
+    __HOST__ void see(std::ostream &fout, U16 w);               
     __HOST__ void ss_dump(std::ostream &fout, U16 vid, U16 n, int radix);
-    __HOST__ void mem_dump(std::ostream &fout, U16 p0, U16 sz);
-    __HOST__ void network(std::ostream &fout, U16 sz, DU mt);
+    __HOST__ void mem_dump(std::ostream &fout, U16 p0, U16 sz); ///< dump a section of param memory
+    __HOST__ void network(std::ostream &fout, U16 sz, DU mt);   ///< display neural network model
 };
 #endif // TEN4_SRC_MMU_H
