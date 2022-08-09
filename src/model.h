@@ -51,16 +51,11 @@ public:
         nten = &t;
         return data[idx++] = _mmu->ten2du(t);
     }
-    /// @name Convolution initializer
+    /// @name Convolution and Linear initializer
     /// @{
     __GPU__ void iconv2d(DU bias, U16 c, U16 *opt);
-    /// @}
-    /// @name Pooling ops
-    /// @{
-    __GPU__ void imaxpool(U16 n);  ///< maximum pooling with nxn filter
-    __GPU__ void imeanpool(U16 n); ///< mean pooling with nxn filter
-    __GPU__ void iavgpool(U16 n);  ///< average pooling with nxn filter
-    __GPU__ void iminpool(U16 n);  ///< minimum pooling with nxn filter
+    __GPU__ void ilinear(U16 n);   ///< linearize with n output
+    __GPU__ void iflatten();
     /// @}
     /// @name Activation ops
     /// @{
@@ -69,12 +64,11 @@ public:
     __GPU__ void isigmoid();       ///< 1/(1+exp(-z))
     __GPU__ void isoftmax();       ///< probability vector exp(x)/sum(exp(x))
     /// @}
-    /// @name Linear ops
+    /// @name Pooling and Dropout ops
     /// @{
-    __GPU__ void ilinear(U16 n);   ///< linearize with n output
-    /// @}
-    /// @name Dropout ops
-    /// @{
+    __GPU__ void imaxpool(U16 n);  ///< maximum pooling with nxn filter
+    __GPU__ void iavgpool(U16 n);  ///< average pooling with nxn filter
+    __GPU__ void iminpool(U16 n);  ///< minimum pooling with nxn filter
     __GPU__ void idropout(U16 p);  ///< zero out p% of channel data (add noise between data points)
     /// @}
 };
