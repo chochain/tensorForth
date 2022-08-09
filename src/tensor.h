@@ -48,9 +48,6 @@ typedef enum {
     DDROPOUT
 } t4_layer;
 
-struct  Tensor;            ///< forward declaration
-typedef void (*GradFn)(Tensor&, Tensor&);
-
 struct Tensor : public Managed {
     U32      size;     ///< number of data elements, TODO: more than 4G elements
     union {
@@ -59,13 +56,13 @@ struct Tensor : public Managed {
             U8     dsize;  ///< size of data element, F32 for now
             U8     rank;   ///< rank of tensor 2:matrix, 4:NHWC tensor
             U8     parm;   ///< parameter storage
-            t4_obj ttype;  ///< 0: tensor, 1: view, 2: layer, 3: activation
+            t4_obj ttype;  ///< 0: tensor, 1: view
         };
     };
     U16      stride[4];    ///< strides to calculate memory offset
     U16      shape[4];     ///< shape=HWCN, matrix C=N=1, vector W=C=N=1
     DU       *data;        ///< managed memory block pointer
-    t4_layer grad_fn;      ///< grandiant funtion pointer
+    t4_layer grad_fn;      ///< grandiant funtion type
     Tensor   *grad[4];     ///< gradiant and jacobian tensors
     ///
     /// static ops
