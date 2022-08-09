@@ -1,0 +1,32 @@
+.( ## MNIST convolution tests ## ) cr
+1 28 28 1 tensor                  \ create tensor as input
+>n
+
+.( ### inverse a matrix with GaussJordan ) cr
+1 autograd                        \ turn on autograd
+
+.( #### define seq1 ) cr
+0.5 10 conv2d                     \ 2d convolution with bias=0.5, 10 output channel
+2 maxpool                         \ 2x2 downsampling
+relu                              \ ReLU activation
+
+.( #### define seq2 ) cr
+0.5 20 conv2d                     \ second 2d convolution
+0.5 dropout                       \ drop out 50% of channels
+2 maxpool                         \ 2x2 downsampling
+relu                              \ ReLU activation
+
+.( #### define lin1 ) cr
+flatten                           \ flatten for dense layer
+relu                              \ ReLU activation             
+0.0 50 linear                     \ linearize to 20 output with no bias
+
+.( #### define lin2 ) cr
+0.5 dropout                       \ another 50% drop out
+0.0 10 linear                     \ linerize to 10 output with no bias
+softmax                           \ translate to probability
+
+network                           \ display network model
+
+bye
+
