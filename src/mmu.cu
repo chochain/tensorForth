@@ -411,30 +411,32 @@ MMU::mem_dump(std::ostream &fout, U16 p0, U16 sz) {
 __HOST__ void
 MMU::network(std::ostream &fout, U16 sz, DU mt) {
 #if T4_ENABLE_OBJ
+    const char *fname[] = {             /// * check with t4_layer
+        "output ", "conv2d ", "linear ", "flatten", "relu   ",
+        "tanh   ", "sigmoid", "softmax", "maxpool", "avgpool",
+        "minpool", "dropout"
+    };
     if (!IS_TEN(mt)) { fout << "ERROR: model?"; return; }
-    auto tinfo = [this, &fout](Tensor &t) { ///> layer info
-        const char *fname[] = {             /// * check with t4_layer
-            "input  ", "conv2d ", "linear ", "flatten", "relu   ",
-            "tanh   ", "sigmoid", "softmax", "maxpool", "avgpool",
-            "minpool", "dropout"
-        };
-        fout << fname[t.grad_fn] << ":";
+    auto tinfo = [this, &fout, fname](Tensor &t, int fn) { ///> layer info
+        fout << "  " << fname[fn] << ":";
         to_s(fout, t);
-        fout << ", size=" << t.size;
-        if (t.grad_fn==NONE) fout << "\n";
+        int sz = t.grad[0] && t.grad[1]
+            ? t.grad[0]->size * t.grad[1]->size
+            : 0;
+        fout << ", #param=" << sz;
     };
     auto finfo = [this, &fout](Tensor **g) {
-        for (int j = 0; g[j] && j < 4; j++) {
-            fout << " "; to_s(fout, *g[j]);
+        for (int i=0; g[i] && i < 2; i++) {
+            fout << " "; to_s(fout, *g[i]);
         }
-        fout << "\n";
     };
-    printf("store=0x%08x=%f\n", *(U32*)&mt, mt);
+    printf("network: model=0x%08x\n", *(U32*)&mt);
     Tensor &store = this->du2ten(mt);
-    for (int i = 0; i < sz; i++) {
+    for (int i = 1; i < sz; i++) {
         Tensor &t = this->du2ten(store.data[i]);
-        tinfo(t);
-        if (_trace > 0 && t.grad_fn != NONE) finfo(t.grad);
+        tinfo(t, (i==sz-1) ? 0 : t.grad_fn);
+        if (_trace && t.grad_fn != NONE) finfo(t.grad);
+        fout << "\n";
     }
 #endif // T4_ENABLE_OBJ
 }
