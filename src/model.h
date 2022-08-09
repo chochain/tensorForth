@@ -22,7 +22,7 @@ public:
     static __GPU__ void dconv2d(Tensor &A, Tensor &B)  {}
     static __GPU__ void drelu(Tensor &A, Tensor &B)    {}
     static __GPU__ void dmaxpool(Tensor &A, Tensor &B) {}
-    static __GPU__ void dreshape(Tensor &A, Tensor &B) {}
+    static __GPU__ void dflatten(Tensor &A, Tensor &B) {}
     static __GPU__ void dlinear(Tensor &A, Tensor &B)  {}
     /// @}
     __GPU__ __INLINE__ bool   not_set() { return nten->grad_fn == NONE; } // not set
@@ -31,6 +31,9 @@ public:
     }
     __GPU__ __INLINE__ Tensor &tensor(U16 n, U16 h, U16 w, U16 c) {
         return _mmu->tensor(n, h, w, c);
+    }
+    __GPU__ __INLINE__ Tensor &vector(U16 n) {
+        return _mmu->tensor(n);
     }
     __GPU__ DU reset(MMU *mmu, Tensor &store) {
         _mmu   = mmu;
@@ -54,7 +57,7 @@ public:
     /// @name Convolution and Linear initializer
     /// @{
     __GPU__ void iconv2d(DU bias, U16 c, U16 *opt);
-    __GPU__ void ilinear(U16 n);   ///< linearize with n output
+    __GPU__ void ilinear(DU bias, U16 n);   ///< linearize (Dense) with n output
     __GPU__ void iflatten();
     /// @}
     /// @name Activation ops
