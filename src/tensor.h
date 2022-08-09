@@ -30,16 +30,23 @@ typedef enum {
 
 typedef enum {
     TENSOR = 0,            ///< tensor object
-    VIEW,                  ///< a view object
-    LAYER,                 ///< neural network layer
-    ACTI                   ///< activation
+    VIEW                   ///< a view object
 } t4_obj;
+
+typedef enum {
+    NONE = 0,
+    DCONV2D,
+    DRELU,
+    DMAXPOOL,
+    DRESHAPE,
+    DLINEAR
+} t4_layer;
 
 struct  Tensor;            ///< forward declaration
 typedef void (*GradFn)(Tensor&, Tensor&);
 
 struct Tensor : public Managed {
-    U32      size;         ///< number of data elements, TODO: more than 4G elements
+    U32      size;     ///< number of data elements, TODO: more than 4G elements
     union {
         U32  attr = 0;     ///< attrbutes collective
         struct {
@@ -51,9 +58,9 @@ struct Tensor : public Managed {
     };
     U16      stride[4];    ///< strides to calculate memory offset
     U16      shape[4];     ///< shape=HWCN, matrix C=N=1, vector W=C=N=1
-    DU       *data = 0;    ///< managed memory block pointer
+    DU       *data;        ///< managed memory block pointer
+    t4_layer grad_fn;      ///< grandiant funtion pointer
     Tensor   *grad[4];     ///< gradiant and jacobian tensors
-    GradFn   grad_fn = 0;  ///< grandiant funtion pointer
     ///
     /// static ops
     /// Note:
