@@ -19,6 +19,7 @@ public:
     ///
     /// @name Derivertive ops
     /// @{
+    static __HOST__ const char* nname(int n);  /// network layer name
     static __GPU__ void dconv2d(Tensor &A, Tensor &B)  {}
     static __GPU__ void drelu(Tensor &A, Tensor &B)    {}
     static __GPU__ void dmaxpool(Tensor &A, Tensor &B) {}
