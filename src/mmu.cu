@@ -310,8 +310,8 @@ MMU::to_s(std::ostream &fout, DU s) {
     return to_s(fout, t);
 }
 #else  // T4_ENABLE_OBJ
-__HOST__ int MMU::to_s(std::ostream &fout, Tensor &s) {}
-__HOST__ int MMU::to_s(std::ostream &fout, DU s) {}
+__HOST__ int MMU::to_s(std::ostream &fout, Tensor &s) { NA(); }
+__HOST__ int MMU::to_s(std::ostream &fout, DU s) { NA(); }
 #endif // T4_ENABLE_OBJ
 ///
 /// display dictionary word list
@@ -412,23 +412,27 @@ __HOST__ void
 MMU::network(std::ostream &fout, U16 sz, DU mt) {
 #if T4_ENABLE_OBJ
     if (!IS_TEN(mt)) { fout << "ERROR: model?"; return; }
-    auto tinfo = [this, &fout](GradFn f, Tensor &t, U32 n) { ///> layer info
-        fout << Model::fname(f);
+    auto tinfo = [this, &fout](Tensor &t) { ///> layer info
+        const char *fname[] = {
+            "input  ", "conv2d ", "relu   ", "maxpool", "reshape", "linear "
+        };
+        fout << fname[t.grad_fn] << ":";
         to_s(fout, t);
-        fout << ", size=" << n << "\n";
+        fout << ", size=" << t.size;
+        if (t.grad_fn==NONE) fout << "\n";
     };
-    auto finfo = [this, &fout](Tensor &t) {                 ///> filter info
-        fout << "    "; to_s(fout, t); fout << "\n";
+    auto finfo = [this, &fout](Tensor **g) {
+        for (int j = 0; g[j] && j < 4; j++) {
+            fout << " "; to_s(fout, *g[j]);
+        }
+        fout << "\n";
     };
     printf("store=0x%08x=%f\n", *(U32*)&mt, mt);
     Tensor &store = this->du2ten(mt);
     for (int i = 0; i < sz; i++) {
-        DU v = store.data[i];
-        Tensor &t = this->du2ten(v);
-        tinfo(t.grad_fn, t, t.size);
-        for (int j = 0; _trace > 0 && t.grad_fn && j < 4; j++) {
-            finfo(*t.grad[j]);
-        }
+        Tensor &t = this->du2ten(store.data[i]);
+        tinfo(t);
+        if (_trace > 0 && t.grad_fn != NONE) finfo(t.grad);
     }
 #endif // T4_ENABLE_OBJ
 }
