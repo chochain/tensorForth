@@ -11,7 +11,7 @@
 class Model : public Managed {
     MMU     *_mmu;                ///< tensor storage base
     Tensor  *_store;              ///< model storage - Sequential, TODO: DAG
-
+    
 public:
     U16     idx = 0;              ///< model storage, Sequential stack, top
     DU      *data;                ///< cached data store
@@ -25,8 +25,12 @@ public:
     static __GPU__ void dreshape(Tensor &A, Tensor &B) {}
     static __GPU__ void dlinear(Tensor &A, Tensor &B)  {}
     /// @}
-    __GPU__ Tensor &operator[](int i) {
+    __GPU__ __INLINE__ bool   not_set() { return nten->grad_fn == NONE; } // not set
+    __GPU__ __INLINE__ Tensor &operator[](int i) {
         return _mmu->du2ten(data[i]);
+    }
+    __GPU__ __INLINE__ Tensor &tensor(U16 n, U16 h, U16 w, U16 c) {
+        return _mmu->tensor(n, h, w, c);
     }
     __GPU__ DU reset(MMU *mmu, Tensor &store) {
         _mmu   = mmu;
@@ -47,5 +51,31 @@ public:
         nten = &t;
         return data[idx++] = _mmu->ten2du(t);
     }
+    /// @name Convolution initializer
+    /// @{
+    __GPU__ void iconv2d(DU bias, U16 c, U16 *opt);
+    /// @}
+    /// @name Pooling ops
+    /// @{
+    __GPU__ void imaxpool(U16 n);  ///< maximum pooling with nxn filter
+    __GPU__ void imeanpool(U16 n); ///< mean pooling with nxn filter
+    __GPU__ void iavgpool(U16 n);  ///< average pooling with nxn filter
+    __GPU__ void iminpool(U16 n);  ///< minimum pooling with nxn filter
+    /// @}
+    /// @name Activation ops
+    /// @{
+    __GPU__ void irelu();          ///< Rectified Linear Unit
+    __GPU__ void itanh();          ///< Tanh Unit
+    __GPU__ void isigmoid();       ///< 1/(1+exp(-z))
+    __GPU__ void isoftmax();       ///< probability vector exp(x)/sum(exp(x))
+    /// @}
+    /// @name Linear ops
+    /// @{
+    __GPU__ void ilinear(U16 n);   ///< linearize with n output
+    /// @}
+    /// @name Dropout ops
+    /// @{
+    __GPU__ void idropout(U16 p);  ///< zero out p% of channel data (add noise between data points)
+    /// @}
 };
 #endif // TEN4_SRC_MODEL_H
