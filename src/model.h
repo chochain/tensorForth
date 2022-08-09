@@ -19,17 +19,12 @@ public:
     ///
     /// @name Derivertive ops
     /// @{
-    static __BOTH__ const char *fname(GradFn f) {
-        if (f == &dconv2d) return "conv2d  ";
-        else               return "input   ";
-    }
     static __GPU__ void dconv2d(Tensor &A, Tensor &B)  {}
     static __GPU__ void drelu(Tensor &A, Tensor &B)    {}
     static __GPU__ void dmaxpool(Tensor &A, Tensor &B) {}
     static __GPU__ void dreshape(Tensor &A, Tensor &B) {}
     static __GPU__ void dlinear(Tensor &A, Tensor &B)  {}
     /// @}
-
     __GPU__ Tensor &operator[](int i) {
         return _mmu->du2ten(data[i]);
     }
