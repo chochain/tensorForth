@@ -36,10 +36,16 @@ typedef enum {
 typedef enum {
     NONE = 0,
     DCONV2D,
+    DLINEAR,
+    DFLATTEN,
     DRELU,
+    DTANH,
+    DSIGMOID,
+    DSOFTMAX,
     DMAXPOOL,
-    DRESHAPE,
-    DLINEAR
+    DAVGPOOL,
+    DMINPOOL,
+    DDROPOUT
 } t4_layer;
 
 struct  Tensor;            ///< forward declaration
