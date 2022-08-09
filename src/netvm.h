@@ -36,19 +36,14 @@ public:
 protected:
     bool    f_auto = false;       ///< autograd control flag
     Model   &model;
-    /// @}
-    /// @name Convolution ops
+
+    __GPU__ __INLINE__ bool wet() { return f_auto && model.not_set(); }
+    ///
+    /// @name Convolution and Linear ops
     /// @{
-    __GPU__ void init_conv2d(DU bias, IU c, U16 *opt);
-    __GPU__ void conv2d(U16 *opt);///< 2d convolution with bias=top, c channel output=ss[-1], opt vector i.e. [5 5 3 2 1] for 5x5 filter, padding=3, stride=2, dilation=1
-    __GPU__ void conv2d();        ///< 2d convolution with bias=top, c channel output=ss[-1], 3x3 filter, padding=same, stride=1, dilation=1
-    /// @}
-    /// @name Pooling ops
-    /// @{
-    __GPU__ void meanpool(U16 n); ///< mean pooling with nxn filter
-    __GPU__ void avgpool(U16 n);  ///< average pooling with nxn filter
-    __GPU__ void maxpool(U16 n);  ///< maximum pooling with nxn filter
-    __GPU__ void minpool(U16 n);  ///< minimum pooling with nxn filter
+    __GPU__ void conv2d();        ///< convolution with bias and c output channel
+    __GPU__ void linear();        ///< linearize with n output
+    __GPU__ void flatten();       ///< flatten (fully connected)
     /// @}
     /// @name Activation ops
     /// @{
@@ -57,22 +52,21 @@ protected:
     __GPU__ void sigmoid();       ///< 1/(1+exp(-z))
     __GPU__ void softmax();       ///< probability vector exp(x)/sum(exp(x))
     /// @}
-    /// @name Linear ops
+    /// @name Pooling and Dropout ops
     /// @{
-    __GPU__ void linear(U16 n);   ///< linearize with n output
+    __GPU__ void maxpool();       ///< maximum pooling with nxn filter
+    __GPU__ void avgpool();       ///< average pooling with nxn filter
+    __GPU__ void minpool();       ///< minimum pooling with nxn filter
+    __GPU__ void dropout();       ///< zero out p% of channel data (add noise between data points)
     /// @}
-    /// @name Dropout ops
-    /// @{
-    __GPU__ void dropout(U16 p);  ///< zero out p% of channel data (add noise between data points)
-    /// @}
-    /// @name Back Propergation ops
-    /// @{
+    ///
+    /// Back propergation ops
+    ///
     __GPU__ void autograd(bool on=false);
     __GPU__ void for_batch();
     __GPU__ void backprop();
     __GPU__ void sgd();
     __GPU__ void adam();
-    /// @}
 #endif // T4_ENABLE_OBJ
 };
 #endif // TEN4_SRC_NETVM_H

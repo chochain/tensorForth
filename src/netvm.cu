@@ -23,7 +23,7 @@ __GPU__ void
 NetVM::predict(Tensor &A, Tensor &B, Tensor &C) {
 }
 ///
-/// Convolution ops
+/// Convolution and Linear ops
 ///
 __GPU__ void
 NetVM::conv2d() {
@@ -39,26 +39,30 @@ NetVM::conv2d() {
     if (IS_OBJ(top) || IS_OBJ(ss[-1])) {
         ERROR("conv2d bias c required!"); return;
     }
-    
-    U16 c      = POPi;                      ///> number of output channels
-    DU  bias   = POP();                     ///> convolution bias
-
+    U16 c    = POPi;                        ///> number of output channels
+    DU  bias = POP();                       ///> convolution bias
     if (wet()) model.iconv2d(bias, c, opt); /// create autograd tensors if needed
     ///
     /// perform 2D convolution
     ///
 }
-///
-/// Pooling ops
-///
 __GPU__ void
-NetVM::maxpool() {
-    if (IS_OBJ(top)) { ERROR("#maxpool n required!"); return; }
-    U16 n = POPi;
-    if (wet()) model.imaxpool(n);
+NetVM::linear() {
+    if (IS_OBJ(top) || IS_OBJ(ss[-1])) {
+        ERROR("linear bias n required!"); return;
+    }
+    U16 n    = POPi;                        ///> number of output channels
+    DU  bias = POP();                       ///> convolution bias
+    if (wet()) model.ilinear(bias, n);
     ///
-    /// perform maxpool
+    /// perform linear transformation
     ///
+}
+__GPU__ void
+NetVM::flatten() {
+    if (wet()) model.iflatten();
+    ///
+    /// flatten input tensor
 }
 ///
 /// Activation ops
@@ -70,17 +74,28 @@ NetVM::relu() {
     /// perform ReLU
     ///
 }
+__GPU__ void
+NetVM::softmax() {
+    if (wet()) model.isoftmax();
+    ///
+    /// perform ReLU
+    ///
+}
 ///
-/// Linear ops
+/// Pooling and Dropout ops
 ///
 __GPU__ void
-NetVM::linear() {
-    if (IS_OBJ(top)) { ERROR("#linear n required!"); return; }
+NetVM::maxpool() {
     U16 n = POPi;
-    if (wet()) model.ilinear(n);
+    if (wet()) model.imaxpool(n);
     ///
-    /// perform linear transformation
+    /// perform maxpool
     ///
+}
+__GPU__ void
+NetVM::dropout() {
+    DU p = POP();
+    if (wet()) model.idropout(int(100.0 * p + 0.5));
 }
 ///
 /// Back Propegation ops
@@ -111,27 +126,24 @@ NetVM::adam() {
 __GPU__ void
 NetVM::init() {
     const Code prim[] = {       /// singleton, build once only
-    ///@defgroup Convolution ops
+    ///@defgroup Convolution and Linear ops
     ///@{
     CODE("conv2d",    conv2d()),     ///> (Ta b c [A] -- Ta')
+    CODE("linear",    linear()),     ///> (Ta n -- Ta')
     ///@}
     ///@defgroup Activation ops
     ///@{
     CODE("relu",      relu()),       ///> (Ta -- Ta')
     CODE("tanh",      {}),
     CODE("sigmoid",   {}),
-    CODE("softmax",   {}),
+    CODE("softmax",   softmax()),
     ///@}
-    ///@defgroup Pooling ops
+    ///@defgroup Pooling and Dropout ops
     ///@{
     CODE("maxpool",   maxpool()),    ///> (Ta n -- Ta')
-    CODE("meanpool",  {}),
     CODE("avgpool",   {}),
     CODE("minpool",   {}),
-    ///@}
-    ///@defgroup Linear ops
-    ///@{
-    CODE("linear",    linear()),     ///> (Ta n -- Ta')
+    CODE("dropout",   dropout()),    ///> (Ta p -- Ta')
     ///@}
     ///@defgroup Loss functions
     ///@{
@@ -156,6 +168,12 @@ NetVM::init() {
     ///@}
     };
     const Code over[] = {          /// extended (overload) words
+    CODE("flatten",
+         if (f_auto) flatten();    /// (Ta -- Ta')
+         else {
+             Tensor &t = mmu.du2ten(top);
+             t.reshape(t.size);
+         }),
     CODE("boot", mmu.clear(FIND("autograd") + 1))
     };
     TensorVM::init();
