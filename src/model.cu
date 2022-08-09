@@ -7,6 +7,15 @@
 #include "model.h"
 
 #if T4_ENABLE_OBJ
+__HOST__ const char*
+Model::nname(int i) {               ///< network layer name
+    static const char *name[] = {   /// double check with t4_layer
+    "output ", "conv2d ", "linear ", "flatten", "relu   ",
+    "tanh   ", "sigmoid", "softmax", "maxpool", "avgpool",
+    "minpool", "dropout"
+    };
+    return name[i];
+}
 ///
 /// Convolution and Linear ops
 ///

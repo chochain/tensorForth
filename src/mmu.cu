@@ -411,14 +411,9 @@ MMU::mem_dump(std::ostream &fout, U16 p0, U16 sz) {
 __HOST__ void
 MMU::network(std::ostream &fout, U16 sz, DU mt) {
 #if T4_ENABLE_OBJ
-    const char *fname[] = {             /// * check with t4_layer
-        "output ", "conv2d ", "linear ", "flatten", "relu   ",
-        "tanh   ", "sigmoid", "softmax", "maxpool", "avgpool",
-        "minpool", "dropout"
-    };
     if (!IS_TEN(mt)) { fout << "ERROR: model?"; return; }
-    auto tinfo = [this, &fout, fname](Tensor &t, int fn) { ///> layer info
-        fout << "  " << fname[fn] << ":";
+    auto tinfo = [this, &fout](Tensor &t, int i, int fn) { ///> layer info
+        fout << "[" << std::setw(3) << i << "] " << Model::nname(fn) << ":";
         to_s(fout, t);
         int sz = t.grad[0] && t.grad[1]
             ? t.grad[0]->size * t.grad[1]->size
@@ -432,9 +427,9 @@ MMU::network(std::ostream &fout, U16 sz, DU mt) {
     };
     printf("network: model=0x%08x\n", *(U32*)&mt);
     Tensor &store = this->du2ten(mt);
-    for (int i = 1; i < sz; i++) {
+    for (int i = 1; i < sz; i++) {  /// skip root[0] and output[sz-1]
         Tensor &t = this->du2ten(store.data[i]);
-        tinfo(t, (i==sz-1) ? 0 : t.grad_fn);
+        tinfo(t, i, (i < sz-1) ? t.grad_fn : 0);
         if (_trace && t.grad_fn != NONE) finfo(t.grad);
         fout << "\n";
     }
