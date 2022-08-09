@@ -52,7 +52,7 @@ struct Tensor : public Managed {
         struct {
             U8     dsize;  ///< size of data element, F32 for now
             U8     rank;   ///< rank of tensor 2:matrix, 4:NHWC tensor
-            U8     xxx;    ///< reserved
+            U8     parm;   ///< parameter storage
             t4_obj ttype;  ///< 0: tensor, 1: view, 2: layer, 3: activation
         };
     };
