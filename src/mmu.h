@@ -194,9 +194,8 @@ public:
     __BOTH__ __INLINE__ int  trace()        { return _trace; }
     __BOTH__ __INLINE__ void trace(int lvl) { _trace = lvl;  }
     __BOTH__ __INLINE__ void stat() {
-        if (_trace < 1) return;
-        _tstore.show_stat();
-        _tstore.dump_freelist();
+        if (_trace > 0) _tstore.show_stat();
+        if (_trace > 1) _tstore.dump_freelist();
     }
     __HOST__ int  to_s(std::ostream &fout, Tensor &t);          ///< dump object on stack
     __HOST__ int  to_s(std::ostream &fout, DU s);               ///< dump object from descriptor
