@@ -450,13 +450,15 @@ Tensor::set_as_view(bool set) {
 __BOTH__ Tensor&
 Tensor::reset(void *mptr, U32 sz) {
     WARN("Tensor::reset(%p, %d)\n", mptr, sz);
-    dsize  = sizeof(DU);
-    size   = sz;
-    rank   = 1;
-    ttype  = TENSOR;
-    U16 t[4] = {1, 1, 1, 1};      memcpy(stride, t, sizeof(t));
-    U16 s[4] = {(U16)sz,1, 1, 1}; memcpy(shape,  s, sizeof(s));
-    data   = (DU*)mptr;
+    size    = sz;
+    dsize   = sizeof(DU);
+    rank    = 1;
+    ttype   = TENSOR;
+    memset(stride, 1, sizeof(stride));
+    memset(shape,  1, sizeof(shape));   shape[0] = (U16)sz;
+    data    = (DU*)mptr;
+    grad_fn = NONE;
+    memset(grad,   0, sizeof(grad));
     return *this;
 }
 
@@ -477,8 +479,9 @@ Tensor::reshape(U16 h, U16 w) {
     U32 sz = h * w;
     if (sz == size) {
         rank   = 2;
-        U16 t[4] = {1, 1, 1, 1}; memcpy(stride, t, sizeof(t));
-        U16 s[4] = {h, w, 1, 1}; memcpy(shape,  s, sizeof(s));
+        memset(stride, 1, sizeof(stride));
+        memset(shape,  1, sizeof(shape));
+        shape[0] = h; shape[1] = w;
         WARN("Tensor::reshaped(%d,%d)\n", shape[0], shape[1]);
     }
     else {
@@ -492,7 +495,7 @@ Tensor::reshape(U16 n, U16 h, U16 w, U16 c) {
     U32 sz = n * h * w * c;
     if (sz == size) {
         rank   = 4;
-        U16 t[4] = {1, 1, 1, 1}; memcpy(stride, t, sizeof(t));
+        memset(stride, 1, sizeof(stride));
         U16 s[4] = {h, w, c, n}; memcpy(shape,  s, sizeof(s));
         WARN("Tensor::reshaped(%d,%d,%d,%d)\n", shape[3], shape[0], shape[1], shape[2]);
     }
