@@ -413,8 +413,10 @@ MMU::network(std::ostream &fout, U16 sz, DU mt) {
 #if T4_ENABLE_OBJ
     if (!IS_TEN(mt)) { fout << "ERROR: model?"; return; }
     auto tinfo = [this, &fout](Tensor &t) { ///> layer info
-        const char *fname[] = {
-            "input  ", "conv2d ", "relu   ", "maxpool", "reshape", "linear "
+        const char *fname[] = {             /// * check with t4_layer
+            "input  ", "conv2d ", "linear ", "flatten", "relu   ",
+            "tanh   ", "sigmoid", "softmax", "maxpool", "avgpool",
+            "minpool", "dropout"
         };
         fout << fname[t.grad_fn] << ":";
         to_s(fout, t);
