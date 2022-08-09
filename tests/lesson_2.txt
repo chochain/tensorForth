@@ -37,8 +37,6 @@ cr .( ### verify M*M^-1 = I ) cr
 drop drop drop               \ drop the last tow matrices
 
 cr .( ## linear algebra - destructive ## ) cr
-1 trace                      \ turn mmu tracing (verbosity) on
-
 .( ### matrix addition )
 2 3 matrix{ 1 2 3 4 5 6 }    \ create a 2x3 matrix
 2 3 matrix ones              \ create a 2x3 matrix filled with 1s
