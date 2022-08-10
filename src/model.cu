@@ -19,8 +19,9 @@ Model::nname(int i) {               ///< network layer name
 ///
 /// Convolution and Linear ops
 ///
-__GPU__ void
+__GPU__ Model&
 Model::iconv2d(DU bias, IU c, U16 *opt) {
+    if (NO_INIT) return *this;
     Tensor &in = *nten; in.grad_fn = DCONV2D;    ///> derivative function
 
     U16 m = opt[0], n = opt[1];                  ///> filter sizing
@@ -38,10 +39,12 @@ Model::iconv2d(DU bias, IU c, U16 *opt) {
         in.H() + 2 * (p - int(m/2)),
         in.W() + 2 * (p - int(n/2)),
         c).map(FILL, DU0);
-    push(out);                                   /// * stage for next stage
+    npush(out);                                  /// * stage for next stage
+    return *this;
 }
-__GPU__ void
+__GPU__ Model&
 Model::ilinear(DU bias, U16 n) {
+    if (NO_INIT) return *this;
     Tensor &in = *nten; in.grad_fn = DLINEAR;    ///> derivative function
 
     U16 m = in.H();
@@ -52,44 +55,54 @@ Model::ilinear(DU bias, U16 n) {
     _mmu->random(*w, NORMAL);                    /// * randomize w
     
     Tensor &out = vector(n);                     ///> output tensor sizing
-    push(out);                                   /// * stage for next stage
+    npush(out);                                  /// * stage for next stage
+    return *this;
 }
-__GPU__ void
+__GPU__ Model&
 Model::iflatten() {
+    if (NO_INIT) return *this;
     Tensor &in  = *nten;
     Tensor &out = vector(in.size);
     in.grad_fn  = DFLATTEN;
     in.parm     = in.size;
-    push(out);
+    npush(out);
+    return *this;
 }
 ///
 /// Activation ops
 ///
-__GPU__ void
+__GPU__ Model&
 Model::irelu() {
+    if (NO_INIT) return *this;
     Tensor &in  = *nten;
     Tensor &out = _mmu->copy(in); ///> output tensor sizing
     in.grad_fn  = DRELU;
-    push(out);                    /// * stage for next stage
+    npush(out);                   /// * stage for next stage
+    return *this;
 }
-__GPU__ void
+__GPU__ Model&
 Model::itanh() {
+    return *this;
 }
-__GPU__ void
+__GPU__ Model&
 Model::isigmoid() {
+    return *this;
 }
-__GPU__ void
+__GPU__ Model&
 Model::isoftmax() {
+    if (NO_INIT) return;
     Tensor &in  = *nten;
     Tensor &out = _mmu->copy(in); ///> output tensor sizing
     in.grad_fn  = DSOFTMAX;
-    push(out);                    /// * stage for next stage
+    npush(out);                   /// * stage for next stage
+    return *this;
 }
 ///
 /// Pooling and Dropout ops
 ///
-__GPU__ void
+__GPU__ Model&
 Model::imaxpool(U16 f) {
+    if (NO_INIT) return *this;
     Tensor &in  = *nten; in.grad_fn = DMAXPOOL;
     in.parm     = f;
     
@@ -98,21 +111,26 @@ Model::imaxpool(U16 f) {
     U16 s[4] = { 1, f, f, 1 }; memcpy(in.stride, s, sizeof(s));  // stride
     
     Tensor &out = tensor(1, m, n, in.C());
-    push(out);                  /// * stage for next stage
+    npush(out);                 /// * stage for next stage
+    return *this;
 }
-__GPU__ void
+__GPU__ Model&
 Model::iavgpool(U16 n) {
+    return *this;
 }
-__GPU__ void
+__GPU__ Model&
 Model::iminpool(U16 n) {
+    return *this;
 }
-__GPU__ void
+__GPU__ Model&
 Model::idropout(U16 f) {
+    if (NO_INIT) return *this;
     Tensor &in  = *nten;
     Tensor &out = _mmu->copy(in);
     in.grad_fn  = DDROPOUT;
     in.parm     = f;
-    push(out);
+    npush(out);
+    return *this;
 }
 #endif  // T4_ENABLE_OBJ
 //==========================================================================
