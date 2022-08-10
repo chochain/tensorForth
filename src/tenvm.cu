@@ -69,7 +69,7 @@ TensorVM::tsop(t4_mat_op op, t4_drop_opt x, bool swap) {
 }
 __GPU__ void
 TensorVM::tmat(t4_mat_op op, t4_drop_opt x) {
-    bool s0 = !IS_TEN(top), s1 = !IS_TEN(ss[-1]); /// * scalar flags
+    bool s0 = !IS_OBJ(top), s1 = !IS_OBJ(ss[-1]); /// * scalar flags
     if (s0 && s1) return ssop(op);          ///> op(scalar, scalar)
     if (s0 || s1) return tsop(op, x, s1);   ///> op(tensor, scalar)
     ///
@@ -112,7 +112,7 @@ __GPU__ void
 TensorVM::tmul(t4_drop_opt x) {                       ///< tensor multiplication
     auto drop = [this](Tensor &X) { POP(); mmu.free(X); };
 
-    bool s0 = !IS_TEN(top), s1 = !IS_TEN(ss[-1]);     /// * scalar check
+    bool s0 = !IS_OBJ(top), s1 = !IS_OBJ(ss[-1]);     /// * scalar check
     if (s0 || s1) return;                             /// * matrix-matrix only
 
     Tensor &A = mmu.du2ten(ss[-1]);                   /// tensor @ tensor
@@ -132,7 +132,7 @@ __GPU__ void
 TensorVM::tdiv(t4_drop_opt x) {                       ///< tensor division
     auto drop = [this](Tensor &X) { POP(); mmu.free(X); };
 
-    bool s0 = !IS_TEN(top), s1 = !IS_TEN(ss[-1]);
+    bool s0 = !IS_OBJ(top), s1 = !IS_OBJ(ss[-1]);
     if (s0 || s1) return;
 
     /// tensor / tensor i.e. C = A * inv(B)
@@ -158,7 +158,7 @@ TensorVM::tdiv(t4_drop_opt x) {                       ///< tensor division
 ///
 __GPU__ void
 TensorVM::tinv() {
-    if (!IS_TEN(top)) { ERROR("tensor?"); return; }
+    if (!IS_OBJ(top)) { ERROR("tensor?"); return; }
     Tensor &A = mmu.du2ten(top);
     Tensor &I = mmu.tensor(A.H(), A.W()).identity();
     Tensor &C = mmu.copy(A);
@@ -171,7 +171,7 @@ TensorVM::tinv() {
 ///
 __GPU__ void
 TensorVM::tlu() {
-    if (!IS_TEN(top)) { ERROR("tensor?"); return; }
+    if (!IS_OBJ(top)) { ERROR("tensor?"); return; }
     Tensor &A  = mmu.du2ten(top);
     Tensor &LU = mmu.copy(A);             /// * hardcopy original matrix
     Tensor::lu(LU);                       /// * decompose A to LU
@@ -182,7 +182,7 @@ TensorVM::tlu() {
 ///
 __GPU__ void
 TensorVM::tdet() {
-    if (!IS_TEN(top)) { ERROR("tensor?"); return; }
+    if (!IS_OBJ(top)) { ERROR("tensor?"); return; }
     Tensor &A  = mmu.du2ten(top);
     Tensor &LU = mmu.copy(A);             /// * hardcopy original matrix
     Tensor &P  = mmu.tensor(A.H());       /// * dummy
@@ -192,7 +192,7 @@ TensorVM::tdet() {
 }
 __GPU__ void
 TensorVM::ttrans() {
-    if (!IS_TEN(top)) { ERROR("tensor?"); return; }
+    if (!IS_OBJ(top)) { ERROR("tensor?"); return; }
     Tensor &A = mmu.du2ten(top);
     U16 h = A.H(), w = A.W();
     Tensor &B = mmu.tensor(w, h);
@@ -202,7 +202,7 @@ TensorVM::ttrans() {
 }
 __GPU__ void
 TensorVM::solve() {
-    if (!IS_TEN(ss[-1]) || !IS_TEN(top)) { ERROR("tensor?"); return; }
+    if (!IS_OBJ(ss[-1]) || !IS_OBJ(top)) { ERROR("tensor?"); return; }
     Tensor &B = mmu.du2ten(ss[-1]);      /// B vector
     Tensor &A = mmu.du2ten(top);         /// A linear equations
     U16 m = A.H(), k = A.W(), n = B.W();
@@ -276,28 +276,28 @@ TensorVM::init() {
     ///@brief - stick to PyTorch naming when possible
     ///@{
     CODE("={",                          ///< (n -- ) or ( -- )
-         ten_off = IS_TEN(top) ? 0 : POPi;
-         ten_lvl = IS_TEN(top) ? 1 : 0),
-    CODE("zeros", if (IS_TEN(top)) mmu.du2ten(top).map(FILL, DU0)),
-    CODE("ones",  if (IS_TEN(top)) mmu.du2ten(top).map(FILL, DU1)),
-    CODE("full",  if (!IS_TEN(ss[-1])) return;
+         ten_off = IS_OBJ(top) ? 0 : POPi;
+         ten_lvl = IS_OBJ(top) ? 1 : 0),
+    CODE("zeros", if (IS_OBJ(top)) mmu.du2ten(top).map(FILL, DU0)),
+    CODE("ones",  if (IS_OBJ(top)) mmu.du2ten(top).map(FILL, DU1)),
+    CODE("full",  if (!IS_OBJ(ss[-1])) return;
          DU d = POP(); mmu.du2ten(top).map(FILL, d)),
-    CODE("eye",   if (IS_TEN(top)) mmu.du2ten(top).identity()),
+    CODE("eye",   if (IS_OBJ(top)) mmu.du2ten(top).identity()),
     CODE("rand",  top = mmu.rand(top, UNIFORM)),  ///< uniform randomize a tensor or number
     CODE("randn", top = mmu.rand(top, NORMAL)),   ///< normal dist. randomize a tensor
     ///@}
     ///@defgrup Tensor slice and dice
     ///@{
     CODE("sum",
-        if (IS_TEN(top)) {
+        if (IS_OBJ(top)) {
             DU d =  mmu.du2ten(top).sum();
             PUSH(d);
         }),
-    CODE("{",   if (IS_TEN(top) && ten_lvl > 0) ++ten_lvl),
-    CODE("}",   if (IS_TEN(top) && ten_lvl > 0) --ten_lvl),
+    CODE("{",   if (IS_OBJ(top) && ten_lvl > 0) ++ten_lvl),
+    CODE("}",   if (IS_OBJ(top) && ten_lvl > 0) --ten_lvl),
     CODE("slice",
          IU y1 = POPi; IU y0 = POPi; IU x1 = POPi; IU x0 = POPi;
-         if (IS_TEN(top)) {
+         if (IS_OBJ(top)) {
              Tensor &t0 = mmu.du2ten(top);
              Tensor &t1 = mmu.slice(t0, x0, x1, y0, y1);
              PUSH(t1);
@@ -318,7 +318,7 @@ TensorVM::init() {
          }
          else mmu.du2ten(top).map(TANH)),
     CODE("relu",
-         if (IS_TEN(top)) mmu.du2ten(top).map(RELU);
+         if (IS_OBJ(top)) mmu.du2ten(top).map(RELU);
          else top = top > DU0 ? top : DU0),
     CODE("+=",        tmat(ADD, DROP)),
     CODE("-=",        tmat(SUB, DROP)),
@@ -332,15 +332,15 @@ TensorVM::init() {
     CODE("det",       tdet()),     ///< (A -- A d)     matrix determinant
     CODE("lu",        tlu()),      ///< (A -- A A')    LU decomposition
     CODE("luinv",                  ///< (A -- A A')    inverse an LU matrix
-         if (!IS_TEN(top)) return;
+         if (!IS_OBJ(top)) return;
          Tensor &t0 = mmu.du2ten(top);
          Tensor::inverse(t0)),
-    CODE("upper", if (!IS_TEN(top)) return;
+    CODE("upper", if (!IS_OBJ(top)) return;
          Tensor &t0 = mmu.du2ten(top);
          Tensor &t1 = mmu.copy(t0);
          t1.triu();
          PUSH(t1)),
-    CODE("lower", if (!IS_TEN(top)) return;
+    CODE("lower", if (!IS_OBJ(top)) return;
          Tensor &t0 = mmu.du2ten(top);
          Tensor &t1 = mmu.copy(t0);
          t1.tril();
@@ -361,7 +361,7 @@ TensorVM::init() {
     CODE("*",   tmat(MUL, KEEP)),
     CODE("/",   tmat(DIV, KEEP)),
     CODE("@",
-         if (IS_TEN(top)) tmul(KEEP);
+         if (IS_OBJ(top)) tmul(KEEP);
          else {
              IU w = POPi; PUSH(mmu.rd((IU)w));
          }),

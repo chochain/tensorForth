@@ -295,64 +295,6 @@ Tensor::plu(Tensor &A, Tensor &P) {
     return A;
 }
 ///=======================================================================
-/// Tensor class constructors
-///
-__HOST__
-Tensor::Tensor() :
-    dsize(sizeof(DU)),
-    size(0),
-    rank(0),
-    stride{1, 1, 1, 1},
-    shape{1, 1, 1, 1} {}
-
-__HOST__
-Tensor::Tensor(U32 sz) :
-    dsize(sizeof(DU)),
-    size(sz),
-    rank(1),
-    stride{1, 1, 1, 1},
-    shape{(U16)sz, 1, 1, 1} {
-    cudaMallocManaged((void**)&data, (size_t)size * dsize);
-    GPU_CHK();
-    WARN("tensor[%d] allocated\n", size);
-}
-
-__HOST__
-Tensor::Tensor(U16 h, U16 w) :
-    dsize(sizeof(DU)),
-    size(h * w),
-    rank(2),
-    stride{1, 1, 1, 1},
-    shape{h, w, 1, 1} {
-    cudaMallocManaged((void**)&data, (size_t)size * dsize);
-    GPU_CHK();
-    WARN("matrix(%d,%d) allocated\n", shape[0], shape[1]);
-}
-
-__HOST__
-Tensor::Tensor(U16 n, U16 h, U16 w, U16 c) :
-    dsize(sizeof(DU)),
-    size(n * h * w * c),
-    rank(4),
-    stride{1, 1, 1, 1},
-    shape{h, w, n, c} {
-    cudaMallocManaged((void**)&data, (size_t)size * dsize);
-    GPU_CHK();
-    WARN("tensor(%d,%d,%d,%d) allocated\n", shape[3], shape[0], shape[1], shape[2]);
-}
-
-__HOST__
-Tensor::~Tensor()
-{
-    if (!data) return;
-    cudaFree((void*)data);
-    switch (rank) {
-    case 2: WARN("matrix(%d,%d) freed\n", shape[0], shape[1]); break;
-    case 4: WARN("tensor(%d,%d,%d,%d) freed\n", shape[3], shape[0], shape[1], shape[2]); break;
-    default: WARN("~Tensor error: rank=%d\n", rank);
-    }
-}
-///=======================================================================
 /// tensor arithmetics
 ///
 __BOTH__ DU
@@ -443,14 +385,10 @@ Tensor::map(t4_mat_op op, DU v) {
 /// Tensor life-cycle ops
 ///
 __BOTH__ Tensor&
-Tensor::set_as_view(bool set) {
-    ttype = set ? VIEW : TENSOR;
-    return *this;
-}
-__BOTH__ Tensor&
 Tensor::reset(void *mptr, U32 sz) {
     WARN("Tensor::reset(%p, %d)\n", mptr, sz);
-    const U16 s[4] = { 1, 1, 1, 1 }, t[4] = { (U16)sz, 1, 1, 1 };
+    const U16 s[4] = { 1, 1, 1, 1 };
+    const U16 t[4] = { (U16)sz, 1, 1, 1 };
     const DU  g[4] = { DU0, DU0, DU0, DU0 };
     size    = sz;
     dsize   = sizeof(DU);
