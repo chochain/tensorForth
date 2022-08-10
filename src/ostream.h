@@ -105,7 +105,7 @@ class Ostream : public Managed {
             case OP_SEE:   printf("see(%d)\n", o->a);                 break;
             case OP_DUMP:  printf("dump(%d, %d)\n", o->a, (U16)o->n); break;
             case OP_SS:    printf("ss_dump(%d)\n", o->a);             break;
-            case OP_NET:   printf("network(%d,%f)\n", o->a, o->n);    break;
+            case OP_NET:   printf("network(%08x)\n", *(U32*)&o->n);   break;
             }
         } break;
         default: printf("unknown type %d\n", gt);
