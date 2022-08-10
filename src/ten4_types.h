@@ -96,15 +96,13 @@ typedef F64         DU2;                    ///< double preciesion data unit
 #define MOD(t,n)    (fmodf(t, n))           /**< fmod two floats        */
 #define DIV(x,y)    (fdividef(x,y))         /**< fast math devide       */
 ///
-/// macros for Tensor definitions
+/// macros for object classification
 ///
 #define T4_OBJ_FLAG 1                             /**< tensor attibute flag     */
 #define SCALAR(v)   (*(U8*)&(v) &= ~T4_OBJ_FLAG)  /**< tensor flag mask for top */
 #if     T4_ENABLE_OBJ
 #define IS_OBJ(d)   ((*(U32*)&d) & T4_OBJ_FLAG)   /**< check if DU is a tensor  */
-#define IS_TEN(d)   IS_OBJ(d)                     /**< TODO: more object types  */
 #endif
-
 ///@}
 ///
 /// colon word compiler
@@ -117,8 +115,7 @@ enum {
     EXIT = 0, DONEXT, DOVAR, DOLIT, DOSTR, DOTSTR, BRAN, ZBRAN, DOES, TOR
 } forth_opcode;
 
-class Managed {
-public:
+struct Managed {
     void *operator new(size_t sz) {
         void *ptr;
         cudaMallocManaged(&ptr, sz);
