@@ -96,10 +96,10 @@ class MMU : public Managed {
     Code           *_dict;          ///< dictionary block
     U8             *_pmem;          ///< parameter memory block
     DU             *_vmss;          ///< VM data stack block
-    U8             *_ten;           ///< tensor storage block
+    U8             *_obj;           ///< object storage block
     DU             *_mark;          ///< list for tensors that marked free
     curandState    *_seed;          ///< for random number generator
-    TLSF           _tstore;         ///< tensor storage manager
+    TLSF           _ostore;         ///< object storage manager
     int            _trace = 0;      ///< debug tracing verbosity level
 
 public:
@@ -170,23 +170,18 @@ public:
     __GPU__  Tensor &copy(Tensor &t0);                      ///< hard copy a tensor
     __GPU__  Tensor &slice(Tensor &t0, IU x0, IU x1, IU y0, IU y1);     ///< a slice of a tensor
     __GPU__  Tensor &random(Tensor &t, t4_rand_opt ntype, int seed=0);  ///< randomize tensor cells (with given type)
+    __GPU__  DU     rand(DU d, t4_rand_opt n);              ///< randomize a tensor
     ///
-    /// short hands for eforth tensor ucodes (for DU <-> Tensor conversion)
-    /// TODO: more object types
+    /// short hands for eforth tensor ucodes (for DU <-> Object conversion)
     ///
-    __BOTH__ __INLINE__ Tensor &du2ten(DU d) {
-        U32    *off = (U32*)&d;
-        Tensor *t   = (Tensor*)(_ten + (*off & ~T4_OBJ_FLAG));
-        return *t;
-    }
-    __BOTH__ __INLINE__ DU     ten2du(Tensor &t) {
-        U32 o = ((U32)((U8*)&t - _ten)) | T4_OBJ_FLAG;
-        return *(DU*)&o;
-    }
-    __GPU__             DU   rand(DU d, t4_rand_opt n);     ///< randomize a tensor
-    __GPU__  __INLINE__ void drop(DU d) { if (IS_OBJ(d)) free(du2ten(d)); }
-    __GPU__  __INLINE__ DU   dup(DU d)  { return IS_OBJ(d) ? ten2du(view(du2ten(d))) : d; }
-    __GPU__  __INLINE__ DU   copy(DU d) { return IS_OBJ(d) ? ten2du(copy(du2ten(d))) : d; }
+    __BOTH__ Tensor &du2ten(DU d);
+    __BOTH__ Model  &du2mdl(DU d);
+    __BOTH__ DU     ten2du(Tensor &t);
+    __BOTH__ DU     mdl2du(Model &m);
+    __GPU__  void   drop(DU d);
+    __GPU__  __INLINE__ bool is_tensor(DU d) { Tensor &t = du2ten(d); return t.is_tensor();    }
+    __GPU__  __INLINE__ DU   dup(DU d)       { return IS_OBJ(d) ? ten2du(view(du2ten(d))) : d; }
+    __GPU__  __INLINE__ DU   copy(DU d)      { return IS_OBJ(d) ? ten2du(copy(du2ten(d))) : d; }
 #endif // T4_ENABLE_OBJ
     ///
     /// debugging methods (implemented in .cu)
@@ -194,8 +189,8 @@ public:
     __BOTH__ __INLINE__ int  trace()        { return _trace; }
     __BOTH__ __INLINE__ void trace(int lvl) { _trace = lvl;  }
     __BOTH__ __INLINE__ void stat() {
-        if (_trace > 0) _tstore.show_stat();
-        if (_trace > 1) _tstore.dump_freelist();
+        if (_trace > 0) _ostore.show_stat();
+        if (_trace > 1) _ostore.dump_freelist();
     }
     __HOST__ int  to_s(std::ostream &fout, Tensor &t);          ///< dump object on stack
     __HOST__ int  to_s(std::ostream &fout, DU s);               ///< dump object from descriptor
@@ -205,6 +200,6 @@ public:
     __HOST__ void see(std::ostream &fout, U16 w);               
     __HOST__ void ss_dump(std::ostream &fout, U16 vid, U16 n, int radix);
     __HOST__ void mem_dump(std::ostream &fout, U16 p0, U16 sz); ///< dump a section of param memory
-    __HOST__ void network(std::ostream &fout, U16 sz, DU mt);   ///< display neural network model
+    __HOST__ void network(std::ostream &fout, DU mt);           ///< display neural network model
 };
 #endif // TEN4_SRC_MMU_H
