@@ -31,17 +31,17 @@ __HOST__
 MMU::MMU(int verbose) : _trace(verbose) {
     cudaMallocManaged(&_dict, sizeof(Code) * T4_DICT_SZ);
     cudaMallocManaged(&_pmem, T4_PMEM_SZ);
-    cudaMallocManaged(&_ten,  T4_TENSOR_SZ);
+    cudaMallocManaged(&_obj,  T4_TENSOR_SZ);
     cudaMallocManaged(&_mark, sizeof(DU) * T4_TFREE_SZ);
     cudaMallocManaged(&_vmss, sizeof(DU) * T4_SS_SZ * VM_MIN_COUNT);
     cudaMallocManaged(&_seed, sizeof(curandState) * T4_RAND_SEED_SZ);
     GPU_CHK();
 
-    _tstore.init(_ten, T4_TENSOR_SZ);
+    _ostore.init(_obj, T4_TENSOR_SZ);
     k_rand_init<<<1, T4_RAND_SEED_SZ>>>(_seed);
     GPU_CHK();
 
-    TRACE1("\\  MMU dict=%p, mem=%p, vmss=%p, ten=%p\n", _dict, _pmem, _vmss, _ten);
+    TRACE1("\\  MMU dict=%p, mem=%p, vmss=%p, obj=%p\n", _dict, _pmem, _vmss, _obj);
 }
 __HOST__
 MMU::~MMU() {
@@ -50,7 +50,7 @@ MMU::~MMU() {
     cudaFree(_seed);
     cudaFree(_vmss);
     cudaFree(_mark);
-    cudaFree(_ten);
+    cudaFree(_obj);
     cudaFree(_pmem);
     cudaFree(_dict);
 }
@@ -141,8 +141,8 @@ MMU::sweep() {
 }
 __GPU__ Tensor&                    ///< create a one-dimensional tensor
 MMU::tensor(U32 sz) {
-    Tensor *t = (Tensor*)_tstore.malloc(sizeof(Tensor));
-    void   *d = _tstore.malloc((U64)sizeof(DU) * sz);
+    Tensor *t = (Tensor*)_ostore.malloc(sizeof(Tensor));
+    void   *d = _ostore.malloc((U64)sizeof(DU) * sz);
     t->reset(d, sz);
     return *t;
 }
@@ -164,7 +164,7 @@ MMU::tensor(U16 n, U16 h, U16 w, U16 c) {
 }
 __GPU__ Model&                     ///< create a NHWC tensor
 MMU::model(U32 sz) {
-    Model  *m = (Model*)_tstore.malloc(sizeof(Model));
+    Model  *m = (Model*)_ostore.malloc(sizeof(Model));
     Tensor &t = this->tensor(sz);  /// * allocate tensor storage
     m->reset(this, t);
 
@@ -172,12 +172,12 @@ MMU::model(U32 sz) {
 }
 __GPU__ Tensor&                   ///< create a view of a Tensor
 MMU::view(Tensor &t0) {
-    Tensor *t = (Tensor*)_tstore.malloc(sizeof(Tensor));
+    Tensor *t = (Tensor*)_ostore.malloc(sizeof(Tensor));
     ///
     /// replicate A tensor
     ///
     memcpy(t, &t0, sizeof(Tensor));
-    t->set_as_view(true);
+    t->ttype = VIEW;
 
     TRACE1("mmu#view:%p => size=%d\n", t, t->size);
     return *t;
@@ -185,18 +185,18 @@ MMU::view(Tensor &t0) {
 __GPU__ void                     ///< release tensor memory blocks
 MMU::free(Tensor &t) {
     TRACE1("mmu#free(T%d) size=%d\n", t.rank, t.size);
-    if (!t.is_view()) _tstore.free((void*)t.data);
+    if (!t.is_view()) _ostore.free((void*)t.data);
     if (t.grad_fn) {             /// * autograd tensors exist
         for (int i=0; i < 4; i++) free(*t.grad[i]);  /// recursive
     }
-    _tstore.free((void*)&t);
+    _ostore.free((void*)&t);
     stat();
 }
 __GPU__ void                     ///< release tensor memory blocks
 MMU::free(Model &m) {
-    TRACE1("mmu#free(Model)\n");
-    for (int i = 0; i < m.idx; i++) free(m[i]);
-    _tstore.free((void*)&m);
+    TRACE1("mmu#free(N%d)\n", m.size);
+    for (int i = 0; i < m.size; i++) free(m[i]);
+    _ostore.free((void*)&m);
     stat();
 }
 ///
@@ -205,14 +205,14 @@ MMU::free(Model &m) {
 ///
 __GPU__ Tensor&
 MMU::copy(Tensor &t0) {
-    Tensor *t1  = (Tensor*)_tstore.malloc(sizeof(Tensor));
+    Tensor *t1  = (Tensor*)_ostore.malloc(sizeof(Tensor));
     memcpy(t1, &t0, sizeof(Tensor));   /// * copy attributes
-    t1->set_as_view(false);            /// * physical copy, not a view
+    t1->ttype = TENSOR;                /// * physical copy, not a view
     ///
     /// hard copy data block
     ///
     U64 bsz = sizeof(DU) * t0.size;
-    t1->data = (DU*)_tstore.malloc(bsz);
+    t1->data = (DU*)_ostore.malloc(bsz);
     Tensor::copy(t0, *t1);
 
     TRACE1("mmu#copy(T%d) size=%d to T%d:%p\n", t0.rank, t0.size, t1->rank, t1);
@@ -230,6 +230,38 @@ MMU::random(Tensor &t, t4_rand_opt ntype, int seed) {
     cudaDeviceSynchronize();
 
     return t;
+}
+///
+/// short hands for eforth tensor ucodes (for DU <-> Tensor conversion)
+/// TODO: more object types
+///
+__BOTH__ Tensor&
+MMU::du2ten(DU d) {
+    U32    *off = (U32*)&d;
+    Tensor *t   = (Tensor*)(_obj + (*off & ~T4_OBJ_FLAG));
+    return *t;
+}
+__BOTH__ Model&
+MMU::du2mdl(DU d) {
+    U32    *off = (U32*)&d;
+    Model  *m   = (Model*)(_obj + (*off & ~T4_OBJ_FLAG));
+    return *m;
+}
+__BOTH__ DU
+MMU::ten2du(Tensor &t) {
+    U32 o = ((U32)((U8*)&t - _obj)) | T4_OBJ_FLAG;
+    return *(DU*)&o;
+}
+__BOTH__ DU
+MMU::mdl2du(Model &m) {
+    U32 o = ((U32)((U8*)&m - _obj)) | T4_OBJ_FLAG;
+    return *(DU*)&o;
+}
+__GPU__  void
+MMU::drop(DU d) {
+    if (!IS_OBJ(d)) return;
+    if (is_tensor(d)) free(du2ten(d));
+    else              free(du2mdl(d));
 }
 ///
 /// tensor slice & dice
@@ -296,9 +328,11 @@ MMU::to_s(std::ostream &fout, IU w) {
 #if T4_ENABLE_OBJ
 __HOST__ int
 MMU::to_s(std::ostream &fout, Tensor &t) {
-    fout << (char)(t.is_view() ? 'V' : 'T');
+    static const char tn[] = { 'T', 'V', 'N' };  /// sync with t4_obj
+    fout << tn[t.ttype];
     switch(t.rank) {
-    case 1: fout << "1[" << t.size << "]"; break;
+    case 0: fout << "["  << (t.size - 1) << "]";          break;
+    case 1: fout << "1[" << t.size << "]";                break;
     case 2: fout << "2[" << t.H() << "," << t.W() << "]"; break;
     case 4: fout << "4[" << t.N() << "," << t.H() << "," << t.W() << "," << t.C() << "]"; break;
     }
@@ -409,9 +443,8 @@ MMU::mem_dump(std::ostream &fout, U16 p0, U16 sz) {
     fout << std::endl;
 }
 __HOST__ void
-MMU::network(std::ostream &fout, U16 sz, DU mt) {
+MMU::network(std::ostream &fout, DU mt) {
 #if T4_ENABLE_OBJ
-    if (!IS_TEN(mt)) { fout << "ERROR: model?"; return; }
     auto tinfo = [this, &fout](Tensor &t, int i, int fn) { ///> layer info
         fout << "[" << std::setw(3) << i << "] " << Model::nname(fn) << ":";
         to_s(fout, t);
@@ -425,11 +458,13 @@ MMU::network(std::ostream &fout, U16 sz, DU mt) {
             fout << " "; to_s(fout, *g[i]);
         }
     };
-    printf("network: model=0x%08x\n", *(U32*)&mt);
-    Tensor &store = this->du2ten(mt);
-    for (int i = 1; i < sz; i++) {  /// skip root[0] and output[sz-1]
-        Tensor &t = this->du2ten(store.data[i]);
-        tinfo(t, i, (i < sz-1) ? t.grad_fn : 0);
+    Model &m = this->du2mdl(mt);
+    int   sz = m.size;
+    printf("network: model[%d]=%p\n", sz - 1, &m);
+    if (!m.is_model()) return;
+    for (int i = 1; i < sz; i++) {  /// skip root[0]
+        Tensor &t = m[i];
+        tinfo(t, i, (i==(sz-1)) ? 0 : t.grad_fn);
         if (_trace && t.grad_fn != NONE) finfo(t.grad);
         fout << "\n";
     }
