@@ -7,7 +7,7 @@
 #ifndef TEN4_SRC_TENSOR_H_
 #define TEN4_SRC_TENSOR_H_
 #include <ostream>
-#include "ten4_types.h"
+#include "t4base.h"
 #include "util.h"
 //===============================================================================
 /// tensorForth tensor class
@@ -29,11 +29,6 @@ typedef enum {
 } t4_mat_op;
 
 typedef enum {
-    TENSOR = 0,            ///< tensor object
-    VIEW                   ///< a view object
-} t4_obj;
-
-typedef enum {
     NONE = 0,
     DCONV2D,
     DLINEAR,
@@ -48,22 +43,11 @@ typedef enum {
     DDROPOUT
 } t4_layer;
 
-struct Tensor : public Managed {
-    U32      size;     ///< number of data elements, TODO: more than 4G elements
-    union {
-        U32  attr = 0;     ///< attrbutes collective
-        struct {
-            U8     dsize;  ///< size of data element, F32 for now
-            U8     rank;   ///< rank of tensor 2:matrix, 4:NHWC tensor
-            U8     parm;   ///< parameter storage
-            t4_obj ttype;  ///< 0: tensor, 1: view
-        };
-    };
-    U16      stride[4];    ///< strides to calculate memory offset
-    U16      shape[4];     ///< shape=HWCN, matrix C=N=1, vector W=C=N=1
-    DU       *data;        ///< managed memory block pointer
-    t4_layer grad_fn;      ///< grandiant funtion type
-    Tensor   *grad[4];     ///< gradiant and jacobian tensors
+struct Tensor : public T4Base {
+    U16      stride[4] = {1,1,1,1}; ///< strides to calculate memory offset
+    U16      shape[4]  = {1,1,1,1}; ///< shape=HWCN, matrix C=N=1, vector W=C=N=1
+    t4_layer grad_fn   = NONE;      ///< grandiant funtion type
+    Tensor   *grad[4];              ///< gradiant and jacobian tensors
     ///
     /// static ops
     /// Note:
@@ -83,11 +67,19 @@ struct Tensor : public Managed {
     ///
     /// class contructors
     ///
-    __HOST__ Tensor();
-    __HOST__ Tensor(U16 n, U16 h, U16 w, U16 c);
-    __HOST__ Tensor(U16 h, U16 w);
-    __HOST__ Tensor(U32 sz);
-    __HOST__ ~Tensor();
+    __HOST__ Tensor()       : T4Base() {}
+    __HOST__ Tensor(U32 sz) : T4Base(sz) {
+        shape[0] = (U16)sz;
+        WARN("vector[%d] allocated\n", size);
+    }
+    __HOST__ Tensor(U16 h, U16 w) : T4Base(h, w) {
+        shape[0] = h; shape[1] = w;
+        WARN("matrix(%d,%d) allocated\n", shape[0], shape[1]);
+    }
+    __HOST__ Tensor(U16 n, U16 h, U16 w, U16 c) : T4Base(n, h, w, c) {
+        shape[0] = h; shape[1] = w; shape[2] = n; shape[3] = c;
+        WARN("tensor(%d,%d,%d,%d) allocated\n", shape[3], shape[0], shape[1], shape[2]);
+    }
     ///
     /// attributes
     ///
@@ -95,7 +87,6 @@ struct Tensor : public Managed {
     __BOTH__ __INLINE__ U16  H()       { return shape[0]; }
     __BOTH__ __INLINE__ U16  W()       { return shape[1]; }
     __BOTH__ __INLINE__ U16  C()       { return shape[2]; }
-    __BOTH__ __INLINE__ bool is_view() { return ttype == VIEW; }
     ///
     /// tensor arithmetics
     ///
@@ -111,7 +102,6 @@ struct Tensor : public Managed {
     ///
     /// tensor life-cycle ops
     ///
-    __BOTH__ Tensor &set_as_view(bool set=true);
     __BOTH__ Tensor &reset(void *mptr, U32 sz);
     __BOTH__ Tensor &reshape(U32 sz);
     __BOTH__ Tensor &reshape(U16 h, U16 w);
