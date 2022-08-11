@@ -9,6 +9,7 @@
 #include "model.h"
 #include "tenvm.h"                /// extending TensorVM
 
+#define NTOP  (mmu.du2mdl(top))   /// Network Model on TOS
 class NetVM : public TensorVM {
 public:
 #if   !T4_ENABLE_OBJ
@@ -28,16 +29,12 @@ public:
     /// @name Class Object Constructor
     /// @{
     __GPU__ NetVM(int khz, Istream *istr, Ostream *ostr, MMU *mmu0) :
-        TensorVM(khz, istr, ostr, mmu0), model(mmu0->model()) {
-        VLOG1("\\  ::NetVM(...) model=%p\n", model.data);
+        TensorVM(khz, istr, ostr, mmu0) {
+        VLOG1("\\  ::NetVM(...) sizeof(Model)=%d\n", (int)sizeof(Model));
     }
     __GPU__ void init() final;    ///< override TensorVM, TODO: does not work without 'final'!
 
 protected:
-    bool    f_auto = false;       ///< autograd control flag
-    Model   &model;
-
-    __GPU__ __INLINE__ bool wet() { return f_auto && model.not_set(); }
     ///
     /// @name Convolution and Linear ops
     /// @{
