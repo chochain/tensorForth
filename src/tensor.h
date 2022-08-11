@@ -91,6 +91,8 @@ struct Tensor : public T4Base {
     /// tensor arithmetics
     ///
     __BOTH__ DU     sum();
+    __BOTH__ DU     max();
+    __BOTH__ DU     min();
     __BOTH__ DU     dot(Tensor &B);
     __BOTH__ Tensor &map(t4_mat_op op, DU v=DU0); ///< element-wise absolute
     ///

@@ -302,9 +302,26 @@ Tensor::sum() {
     DU v = DU0;
     for (int i=0; i < size; i++) v += data[i];   ///> TODO: CDP prefix sum
     cudaDeviceSynchronize();
-    return v;
+    return SCALAR(v);
 }
-
+__BOTH__ DU
+Tensor::max() {
+    DU v = data[0];
+    for (int i=1; i < size; i++) {               ///> TODO: CDP prefix sum
+        if (data[i] > v) v = data[i];
+    }
+    cudaDeviceSynchronize();
+    return SCALAR(v);
+}
+__BOTH__ DU
+Tensor::min() {
+    DU v = data[0];
+    for (int i=1; i < size; i++) {               ///> TODO: CDP prefix sum
+        if (data[i] < v) v = data[i];
+    }
+    cudaDeviceSynchronize();
+    return SCALAR(v);
+}
 __BOTH__ DU
 Tensor::dot(Tensor &B) {
     DU  acc = DU0;
