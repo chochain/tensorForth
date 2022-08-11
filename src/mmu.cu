@@ -172,6 +172,8 @@ MMU::model(U32 sz) {
 }
 __GPU__ Tensor&                   ///< create a view of a Tensor
 MMU::view(Tensor &t0) {
+    if (t0.is_model()) return t0; ///> TODO: create model view
+    
     Tensor *t = (Tensor*)_ostore.malloc(sizeof(Tensor));
     ///
     /// replicate A tensor
@@ -185,11 +187,13 @@ MMU::view(Tensor &t0) {
 __GPU__ void                     ///< release tensor memory blocks
 MMU::free(Tensor &t) {
     TRACE1("mmu#free(T%d) size=%d\n", t.rank, t.size);
-    if (!t.is_view()) _ostore.free((void*)t.data);
-    if (t.grad_fn) {             /// * autograd tensors exist
-        for (int i=0; i < 4; i++) free(*t.grad[i]);  /// recursive
+    if (t.is_tensor()) {              /// * skip view
+        _ostore.free((void*)t.data);  /// * free physical data
+        for (int i=0; t.grad_fn!=NONE && t.grad[i] && i < 4; i++) {
+            free(*t.grad[i]);     /// recursive
+        }
     }
-    _ostore.free((void*)&t);
+    _ostore.free((void*)&t);     /// * free tensor object itself
     stat();
 }
 __GPU__ void                     ///< release tensor memory blocks
@@ -205,6 +209,8 @@ MMU::free(Model &m) {
 ///
 __GPU__ Tensor&
 MMU::copy(Tensor &t0) {
+    if (t0.is_model()) return t0;      ///> TODO: copy model
+
     Tensor *t1  = (Tensor*)_ostore.malloc(sizeof(Tensor));
     memcpy(t1, &t0, sizeof(Tensor));   /// * copy attributes
     t1->ttype = TENSOR;                /// * physical copy, not a view
@@ -260,8 +266,9 @@ MMU::mdl2du(Model &m) {
 __GPU__  void
 MMU::drop(DU d) {
     if (!IS_OBJ(d)) return;
-    if (is_tensor(d)) free(du2ten(d));
-    else              free(du2mdl(d));
+    Tensor &t = du2ten(d);
+    if (t.is_model()) free(du2mdl(d));
+    else              free(t);
 }
 ///
 /// tensor slice & dice

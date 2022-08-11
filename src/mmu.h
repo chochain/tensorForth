@@ -179,7 +179,6 @@ public:
     __BOTH__ DU     ten2du(Tensor &t);
     __BOTH__ DU     mdl2du(Model &m);
     __GPU__  void   drop(DU d);
-    __GPU__  __INLINE__ bool is_tensor(DU d) { Tensor &t = du2ten(d); return t.is_tensor();    }
     __GPU__  __INLINE__ DU   dup(DU d)       { return IS_OBJ(d) ? ten2du(view(du2ten(d))) : d; }
     __GPU__  __INLINE__ DU   copy(DU d)      { return IS_OBJ(d) ? ten2du(copy(du2ten(d))) : d; }
 #endif // T4_ENABLE_OBJ
