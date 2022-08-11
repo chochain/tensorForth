@@ -12,10 +12,6 @@ TensorVM::tprint(DU d) {
     if (IS_OBJ(d)) { fout << d; mmu.mark_free(d); }
     else fout << " " << d;                  /// eForth has a space prefix
 }
-__GPU__ void TensorVM::add_to_tensor(DU n) {
-    Tensor &t = mmu.du2ten(top);
-    t.data[ten_off++] = n;
-}
 ///
 /// tensor methods
 ///
@@ -52,7 +48,7 @@ __GPU__ void
 TensorVM::tsop(t4_mat_op op, t4_drop_opt x, bool swap) {
     auto drop = [this](Tensor &A) { POP(); mmu.free(A); };
 
-    Tensor &A = mmu.du2ten(swap ? top : ss[-1]);
+    Tensor &A = swap ? TTOS : TNOS;
     DU     n  = swap ? ss[-1] : top;
     Tensor &C = mmu.tensor(A.H(), A.W());
     if (swap && (op==DIV || op==SUB)) {     /// * op(scaler, tensor)
@@ -78,10 +74,9 @@ TensorVM::tmat(t4_mat_op op, t4_drop_opt x) {
     auto free = [this](Tensor &A, Tensor &B) {
         POP(); mmu.free(B); POP(); mmu.free(A);
     };
-    Tensor &A = mmu.du2ten(ss[-1]);
-    Tensor &B = mmu.du2ten(top);
+    Tensor &A = TNOS, &B = TTOS;            ///> op(tensor, tensor) Hadamard
     U16 m = A.H(), n = A.W();               /// * get matrix dimensions
-    if (m == B.H() && n == B.W()) {         ///> op(tensor,tensor) (Hadamard)
+    if (m == B.H() && n == B.W()) {         ///> match sizes
         Tensor &C = mmu.tensor(m, n);
         Tensor::mat(op, A, B, C);
         if (x==DROP) free(A, B);            /// TODO: in-place 
@@ -115,8 +110,7 @@ TensorVM::tmul(t4_drop_opt x) {                       ///< tensor multiplication
     bool s0 = !IS_OBJ(top), s1 = !IS_OBJ(ss[-1]);     /// * scalar check
     if (s0 || s1) return;                             /// * matrix-matrix only
 
-    Tensor &A = mmu.du2ten(ss[-1]);                   /// tensor @ tensor
-    Tensor &B = mmu.du2ten(top);
+    Tensor &A = TNOS, &B = TTOS;                      /// tensor @ tensor
     U16 m = A.H(), ka = A.W(), kb = B.H(), n = B.W();
     VLOG2("A[%d,%d]=%p @ B[%d,%d]=%p ", m, ka, &A, kb, n, &B);
     if (A.rank==2 && B.rank==2 && ka == kb) {         /// * tensor x tensor
@@ -136,8 +130,7 @@ TensorVM::tdiv(t4_drop_opt x) {                       ///< tensor division
     if (s0 || s1) return;
 
     /// tensor / tensor i.e. C = A * inv(B)
-    Tensor &A  = mmu.du2ten(ss[-1]);
-    Tensor &B  = mmu.du2ten(top);
+    Tensor &A  = TNOS, &B = TTOS;
     U16 m = A.H(), ka = A.W(), kb = B.H(), n = B.W();
     if (kb != n || ka != kb) { ERROR("dim?"); return; }/// * B square?
 
@@ -159,7 +152,7 @@ TensorVM::tdiv(t4_drop_opt x) {                       ///< tensor division
 __GPU__ void
 TensorVM::tinv() {
     if (!IS_OBJ(top)) { ERROR("tensor?"); return; }
-    Tensor &A = mmu.du2ten(top);
+    Tensor &A = TTOS;
     Tensor &I = mmu.tensor(A.H(), A.W()).identity();
     Tensor &C = mmu.copy(A);
     Tensor::inverse(C, I);
@@ -172,7 +165,7 @@ TensorVM::tinv() {
 __GPU__ void
 TensorVM::tlu() {
     if (!IS_OBJ(top)) { ERROR("tensor?"); return; }
-    Tensor &A  = mmu.du2ten(top);
+    Tensor &A  = TTOS;
     Tensor &LU = mmu.copy(A);             /// * hardcopy original matrix
     Tensor::lu(LU);                       /// * decompose A to LU
     PUSH(LU);
@@ -183,7 +176,7 @@ TensorVM::tlu() {
 __GPU__ void
 TensorVM::tdet() {
     if (!IS_OBJ(top)) { ERROR("tensor?"); return; }
-    Tensor &A  = mmu.du2ten(top);
+    Tensor &A  = TTOS;
     Tensor &LU = mmu.copy(A);             /// * hardcopy original matrix
     Tensor &P  = mmu.tensor(A.H());       /// * dummy
     Tensor::plu(LU, P);                   /// * decompose A to LU
@@ -193,7 +186,7 @@ TensorVM::tdet() {
 __GPU__ void
 TensorVM::ttrans() {
     if (!IS_OBJ(top)) { ERROR("tensor?"); return; }
-    Tensor &A = mmu.du2ten(top);
+    Tensor &A = TTOS;
     U16 h = A.H(), w = A.W();
     Tensor &B = mmu.tensor(w, h);
     VLOG2("A[%d,%d]=%p => B[%d,%d]=%p", h, w, &A, B.H(), B.W(), &B);
@@ -203,8 +196,7 @@ TensorVM::ttrans() {
 __GPU__ void
 TensorVM::solve() {
     if (!IS_OBJ(ss[-1]) || !IS_OBJ(top)) { ERROR("tensor?"); return; }
-    Tensor &B = mmu.du2ten(ss[-1]);      /// B vector
-    Tensor &A = mmu.du2ten(top);         /// A linear equations
+    Tensor &B = TNOS, &A = TTOS;         /// linear equations
     U16 m = A.H(), k = A.W(), n = B.W();
     if (m==k && B.rank==1 && k==B.H()) {
         tinv();                          /// * inverse (i.e. A^-1)
@@ -218,8 +210,7 @@ TensorVM::solve() {
 }
 __GPU__ void
 TensorVM::gemm() {                       ///< blas GEMM
-    Tensor &C = mmu.du2ten(top);
-    Tensor &B = mmu.du2ten(ss[-1]);
+    Tensor &C = TTOS, &B = TNOS;
     Tensor &A = mmu.du2ten(ss[-2]);
     DU     b  = ss[-3];
     DU     a  = ss[-4];
@@ -263,14 +254,14 @@ TensorVM::init() {
     ///@brief - stick to PyTorch naming when possible
     ///@{
     CODE("flatten",                      ///< reshape as a vector (1-D array)
-        Tensor &t = mmu.du2ten(top);
+        Tensor &t = TTOS;
         t.reshape(t.size)),
     CODE("reshape2",                     ///< reshape as matrix(h,w)
         IU w = POPi; IU h = POPi;
-        mmu.du2ten(top).reshape(h, w)),
+        TTOS.reshape(h, w)),
     CODE("reshape4",                     ///< reshape as Tensor(NHWC)
         IU c = POPi; IU w = POPi; IU h = POPi; IU n = POPi;
-        mmu.du2ten(top).reshape(n, h, w, c)),
+        TTOS.reshape(n, h, w, c)),
     ///@}
     ///@defgroup Tensor fill ops
     ///@brief - stick to PyTorch naming when possible
@@ -278,27 +269,23 @@ TensorVM::init() {
     CODE("={",                          ///< (n -- ) or ( -- )
          ten_off = IS_OBJ(top) ? 0 : POPi;
          ten_lvl = IS_OBJ(top) ? 1 : 0),
-    CODE("zeros", if (IS_OBJ(top)) mmu.du2ten(top).map(FILL, DU0)),
-    CODE("ones",  if (IS_OBJ(top)) mmu.du2ten(top).map(FILL, DU1)),
+    CODE("zeros", if (IS_OBJ(top)) TTOS.map(FILL, DU0)),
+    CODE("ones",  if (IS_OBJ(top)) TTOS.map(FILL, DU1)),
     CODE("full",  if (!IS_OBJ(ss[-1])) return;
-         DU d = POP(); mmu.du2ten(top).map(FILL, d)),
-    CODE("eye",   if (IS_OBJ(top)) mmu.du2ten(top).identity()),
+         DU d = POP(); TTOS.map(FILL, d)),
+    CODE("eye",   if (IS_OBJ(top)) TTOS.identity()),
     CODE("rand",  top = mmu.rand(top, UNIFORM)),  ///< uniform randomize a tensor or number
     CODE("randn", top = mmu.rand(top, NORMAL)),   ///< normal dist. randomize a tensor
     ///@}
     ///@defgrup Tensor slice and dice
     ///@{
-    CODE("sum",
-        if (IS_OBJ(top)) {
-            DU d =  mmu.du2ten(top).sum();
-            PUSH(d);
-        }),
+    CODE("sum", if (IS_OBJ(top)) PUSH(TTOS.sum())),
     CODE("{",   if (IS_OBJ(top) && ten_lvl > 0) ++ten_lvl),
     CODE("}",   if (IS_OBJ(top) && ten_lvl > 0) --ten_lvl),
     CODE("slice",
          IU y1 = POPi; IU y0 = POPi; IU x1 = POPi; IU x0 = POPi;
          if (IS_OBJ(top)) {
-             Tensor &t0 = mmu.du2ten(top);
+             Tensor &t0 = TTOS;
              Tensor &t1 = mmu.slice(t0, x0, x1, y0, y1);
              PUSH(t1);
          }),
@@ -310,15 +297,15 @@ TensorVM::init() {
              top = EXP(top);
              SCALAR(top);          /// * mask off object-bit if any
          }
-         else mmu.du2ten(top).map(EXP)),
+         else TTOS.map(EXP)),
     CODE("tanh",                   ///< (A -- A')
          if (!IS_OBJ(top)) {       /// * scalar
              top = tanh(top);
              SCALAR(top);          /// * mask off object-bit if any
          }
-         else mmu.du2ten(top).map(TANH)),
+         else TTOS.map(TANH)),
     CODE("relu",
-         if (IS_OBJ(top)) mmu.du2ten(top).map(RELU);
+         if (IS_OBJ(top)) TTOS.map(RELU);
          else top = top > DU0 ? top : DU0),
     CODE("+=",        tmat(ADD, DROP)),
     CODE("-=",        tmat(SUB, DROP)),
@@ -333,15 +320,15 @@ TensorVM::init() {
     CODE("lu",        tlu()),      ///< (A -- A A')    LU decomposition
     CODE("luinv",                  ///< (A -- A A')    inverse an LU matrix
          if (!IS_OBJ(top)) return;
-         Tensor &t0 = mmu.du2ten(top);
+         Tensor &t0 = TTOS;
          Tensor::inverse(t0)),
     CODE("upper", if (!IS_OBJ(top)) return;
-         Tensor &t0 = mmu.du2ten(top);
+         Tensor &t0 = TTOS;
          Tensor &t1 = mmu.copy(t0);
          t1.triu();
          PUSH(t1)),
     CODE("lower", if (!IS_OBJ(top)) return;
-         Tensor &t0 = mmu.du2ten(top);
+         Tensor &t0 = TTOS;
          Tensor &t1 = mmu.copy(t0);
          t1.tril();
          PUSH(t1)),
@@ -367,10 +354,16 @@ TensorVM::init() {
          }),
     CODE("abs",
          if (!IS_OBJ(top)) top = ABS(top);
-         else mmu.du2ten(top).map(ABS)),
+         else TTOS.map(ABS)),
+    CODE("max",
+         if (IS_OBJ(top)) PUSH(TTOS.max());
+         else { DU n=ss.pop(); top = (top>n) ? top : n; }),
+    CODE("min",
+         if (IS_OBJ(top)) PUSH(TTOS.min());
+         else { DU n=ss.pop(); top = (top<n) ? top : n; }),
     CODE("negate",
          if (!IS_OBJ(top)) top *= -DU1;
-         else mmu.du2ten(top).map(SCALE, -DU1)),
+         else TTOS.map(SCALE, -DU1)),
     ///@}
     CODE("boot", mmu.clear(FIND("gemm") + 1))
     };
@@ -398,12 +391,13 @@ TensorVM::number(char *str) {
     }
     else if (ten_lvl > 0) {              /// * append literal into tensor storage
         VLOG2("T[%d]=%f\n", ten_off, n);
-        add_to_tensor(n);
+        TTOS.data[ten_off++] = n;        /// * append to tensor.data
     }
     else {                               ///> or, add value onto data stack
         VLOG2("ss.push(%08x)\n", *(U32*)&n);
         PUSH(n);
     }
+    return 1;
 }
 #endif  // T4_ENABLE_OBJ
 //=======================================================================================
