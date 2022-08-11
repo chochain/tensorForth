@@ -116,7 +116,7 @@ AIO::print_node(obuf_node *node) {
         case OP_SEE:   _mmu->see(std::cout, (IU)o->a);                break;
         case OP_DUMP:  _mmu->mem_dump(std::cout, (IU)o->a, (IU)o->n); break;
         case OP_SS:    _mmu->ss_dump(std::cout, (IU)node->id, o->a, _radix); break;
-        case OP_NET:   _mmu->network(std::cout, o->a, o->n);          break;
+        case OP_NET:   _mmu->network(std::cout, o->n);                break;
         }
     } break;
     default: std::cout << "print type not supported: " << (int)node->gt;  break;

@@ -28,7 +28,7 @@ NetVM::predict(Tensor &A, Tensor &B, Tensor &C) {
 __GPU__ void
 NetVM::conv2d() {
     U16 opt[] = { 3, 3, 1, 1, 1 };   ///> default 3x3 filter, padding=1, stride=1, dilation=1
-    if (IS_TEN(top)) {
+    if (IS_OBJ(top)) {
         Tensor &v = mmu.du2ten(top);
         if (v.rank == 1) {
             POP();
@@ -39,9 +39,9 @@ NetVM::conv2d() {
     if (IS_OBJ(top) || IS_OBJ(ss[-1])) {
         ERROR("conv2d bias c required!"); return;
     }
-    U16 c    = POPi;                        ///> number of output channels
-    DU  bias = POP();                       ///> convolution bias
-    if (wet()) model.iconv2d(bias, c, opt); /// create autograd tensors if needed
+    U16   c    = POPi;                        ///> number of output channels
+    DU    bias = POP();                       ///> convolution bias
+    Model &md  = NTOP.iconv2d(bias, c, opt);
     ///
     /// perform 2D convolution
     ///
@@ -51,16 +51,16 @@ NetVM::linear() {
     if (IS_OBJ(top) || IS_OBJ(ss[-1])) {
         ERROR("linear bias n required!"); return;
     }
-    U16 n    = POPi;                        ///> number of output channels
-    DU  bias = POP();                       ///> convolution bias
-    if (wet()) model.ilinear(bias, n);
+    U16   n    = POPi;                        ///> number of output channels
+    DU    bias = POP();                       ///> convolution bias
+    Model &md  = NTOP.ilinear(bias, n);
     ///
     /// perform linear transformation
     ///
 }
 __GPU__ void
 NetVM::flatten() {
-    if (wet()) model.iflatten();
+    Model &md = NTOP.iflatten();
     ///
     /// flatten input tensor
 }
@@ -69,14 +69,14 @@ NetVM::flatten() {
 ///
 __GPU__ void
 NetVM::relu() {
-    if (wet()) model.irelu();
+    Model &md = NTOP.irelu();
     ///
     /// perform ReLU
     ///
 }
 __GPU__ void
 NetVM::softmax() {
-    if (wet()) model.isoftmax();
+    Model &md = NTOP.isoftmax();
     ///
     /// perform ReLU
     ///
@@ -87,7 +87,7 @@ NetVM::softmax() {
 __GPU__ void
 NetVM::maxpool() {
     U16 n = POPi;
-    if (wet()) model.imaxpool(n);
+    Model &md = NTOP.imaxpool(n);
     ///
     /// perform maxpool
     ///
@@ -95,19 +95,14 @@ NetVM::maxpool() {
 __GPU__ void
 NetVM::dropout() {
     DU p = POP();
-    if (wet()) model.idropout(int(100.0 * p + 0.5));
+    Model &md = NTOP.idropout(int(100.0 * p + 0.5));
 }
 ///
 /// Back Propegation ops
 ///
 __GPU__ void
-NetVM::autograd(bool on) {
-    f_auto = on;
-}
-__GPU__ void
 NetVM::for_batch() {
     Tensor &A = mmu.tensor(1, 28, 28, 1);
-    model.push(A);
 }
 __GPU__ void
 NetVM::backprop() {
@@ -128,22 +123,23 @@ NetVM::init() {
     const Code prim[] = {       /// singleton, build once only
     ///@defgroup Convolution and Linear ops
     ///@{
-    CODE("conv2d",    conv2d()),     ///> (Ta b c [A] -- Ta')
-    CODE("linear",    linear()),     ///> (Ta n -- Ta')
+    CODE("model",     DU m = mmu.mdl2du(mmu.model(POPi)); PUSH(m)),
+    CODE("conv2d",    conv2d()),     ///> (N b c [A] -- N')
+    CODE("linear",    linear()),     ///> (N n -- N')
     ///@}
     ///@defgroup Activation ops
     ///@{
-    CODE("relu",      relu()),       ///> (Ta -- Ta')
+    CODE("relu",      relu()),       ///> (N -- N')
     CODE("tanh",      {}),
     CODE("sigmoid",   {}),
     CODE("softmax",   softmax()),
     ///@}
     ///@defgroup Pooling and Dropout ops
     ///@{
-    CODE("maxpool",   maxpool()),    ///> (Ta n -- Ta')
+    CODE("maxpool",   maxpool()),    ///> (N n -- N')
     CODE("avgpool",   {}),
     CODE("minpool",   {}),
-    CODE("dropout",   dropout()),    ///> (Ta p -- Ta')
+    CODE("dropout",   dropout()),    ///> (N p -- N')
     ///@}
     ///@defgroup Loss functions
     ///@{
@@ -161,19 +157,18 @@ NetVM::init() {
     ///@}
     ///@defgroup Debugging ops
     ///@{
-    CODE("network",   fout << opx(OP_NET, model.idx, model.data[0])),
-    CODE(">n",        model.push(top); POP()),
-    CODE("n>",        DU t = model.pop(); PUSH(t)),
-    CODE("autograd",  autograd(POPi)),
+    CODE("network",  fout << opx(OP_NET, 0, top)),
+    CODE(">n",       DU t = POP();   NTOP.npush(t)),
+    CODE("autograd", bool on = POPi; NTOP.autograd = on)
     ///@}
     };
     const Code over[] = {          /// extended (overload) words
-    CODE("flatten",
-         if (f_auto) flatten();    /// (Ta -- Ta')
-         else {
+    CODE("flatten",                /// (Ta -- Ta')
+         if (mmu.is_tensor(top)) {
              Tensor &t = mmu.du2ten(top);
              t.reshape(t.size);
-         }),
+         }
+         else flatten()),          /// (N -- N')
     CODE("boot", mmu.clear(FIND("autograd") + 1))
     };
     TensorVM::init();
