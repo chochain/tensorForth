@@ -34,34 +34,17 @@ public:
     }
     __GPU__ void init() final;    ///< override TensorVM, TODO: does not work without 'final'!
 
-protected:
+private:
+    __GPU__ void _conv2d();       ///< convolution layer
     ///
-    /// @name Convolution and Linear ops
-    /// @{
-    __GPU__ void conv2d();        ///< convolution with bias and c output channel
-    __GPU__ void linear();        ///< linearize with n output
-    __GPU__ void flatten();       ///< flatten (fully connected)
-    /// @}
-    /// @name Activation ops
-    /// @{
-    __GPU__ void relu();          ///< Rectified Linear Unit
-    __GPU__ void tanh();          ///< Tanh Unit
-    __GPU__ void sigmoid();       ///< 1/(1+exp(-z))
-    __GPU__ void softmax();       ///< probability vector exp(x)/sum(exp(x))
-    /// @}
-    /// @name Pooling and Dropout ops
-    /// @{
-    __GPU__ void maxpool();       ///< maximum pooling with nxn filter
-    __GPU__ void avgpool();       ///< average pooling with nxn filter
-    __GPU__ void minpool();       ///< minimum pooling with nxn filter
-    __GPU__ void dropout();       ///< zero out p% of channel data (add noise between data points)
-    /// @}
+    /// Batch ops
     ///
-    /// Back propergation ops
-    ///
-    __GPU__ void autograd(bool on=false);
     __GPU__ void for_batch();
+    __GPU__ void forward();
     __GPU__ void backprop();
+    ///
+    /// Gradiant ops
+    ///
     __GPU__ void sgd();
     __GPU__ void adam();
 #endif // T4_ENABLE_OBJ
