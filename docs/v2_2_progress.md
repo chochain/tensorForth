@@ -9,34 +9,39 @@ A Forth word can be seen as a nested function that process data flow, i.e. y = f
 
 ### CNN Application Example
 <pre>
-: seq1 (Ta -- Ta') 10 5 conv2d 2 maxpool2d relu ;
-: seq2 (Ta -- Ta') 20 5 conv2d 0.5 dropout 2 maxpool2d relu ;
-: lin1 (Ta -- Ta') -1 320 reshape relu 50 linear ;
-: lin2 (Ta -- Ta') 0.5 dropout 10 linear ;
-: fwd  (Ta -- Ta') seq1 seq2 lin1 lin2 softmax ;
-: train (set0 -- ) autograd for_batch fwd loss.nll backprop next 0.1 0.9 sgd nn.save ;
-: test  (set1 -- ) nn.load for_batch forward loss.nll avg predict next ;
-set0 train
-set1 test
+: seq1 (N -- N') 0.5 10 conv2d 2 maxpool relu ;
+: seq2 (N -- N') 0.5 20 conv2d 0.5 dropout 2 maxpool relu ;
+: lin1 (N -- N') flatten relu 0.0 50 linear ;
+: lin2 (N -- N') 0.5 dropout 0.0 10 linear ;
+20 model 1 autograd                  \ create a network model of max 20 layers
+1 28 28 1 tensor                     \ create an input tensor
+>n                                   \ setup model input dimension
+seq1 seq2 lin1 lin2 softmax loss.nll \ add layers to model
+constant mnist              
+: train (N set0 -- N') for_batch forward backprop next 0.1 0.9 sgd ;
+: test  (N set1 -- N') for_batch forward avg predict . next ;
+set0 train nn.save net_1             \ trainning session (and save the network)
+set1 test                            \ testing session
+nn.load net_1 set2 test              \ load network and test
 </pre>
 
 ### Case Study - MNIST
-|word|forward|param|grad_param|grad_fn|param[grad]|
+|word|forward|param|network DAG|grad_fn|param[grad]|
 |---|---|---|---|---|---|
-|    |autograd|(   -- 0)  |0                 |        |                                  |
-|seq1|conv2d  |(in -- c1) |in [f1 b1 df1 db1]|dconv2d |(in [f1 b1] dc1 -- dimg [df1 db1])|
-|    |relu    |(c1 -- r1) |c1                |drelu   |(c1 dr1 -- dc1)                   |
-|seq2|conv2d  |(r1 -- c2) |r1 [f2 b2 df2 db2]|dconv2d |(r1 [f2 b2] dc2 -- dr1 [df2 db2]) |
-|    |relu    |(c2 -- r2) |c2                |drelu   |(c2 dr2 -- dc2)                   |
-|    |maxpool |(r2 -- po) |r2 [fp]           |dmaxpool|(r2 [fp] dpo -- dr2)              |
-|lin1|reshape |(po -- fc) |po [sz]           |dreshape|(po [sz] dfc -- dpo)              |
-|    |linear  |(fc -- z)  |fc [w3 b3 dw3 db3]|dlinear |(fc [w3 b3] dz -- dfc [dw3 db3])  |
-|lin2|relu    |(z  -- r3) |z                 |drelu   |(z dr3 -- dz)                     |
-|    |linear  |(r3 -- out)|r3 [w4 b4 dw3 db3]|dlinear |(r3 [w4 b4] dout -- dr3 [dw4 db4])|
-|fwd |softmax |(out -- pb)|pb labels         |-       |(pb labels -- dout)               |
-|    |loss.ce |(pb labels -- loss)|          |        |                                  |
+|   |for_batch|(INs -- IN)        |IN                |        |                                  |
+|seq1|conv2d  |(IN b1 c1 -- C1)   |IN [f1 b1 df1 db1]|dconv2d |(IN [f1 b1] dC1 -- dIN [df1 db1]) |
+|    |relu    |(C1 -- R1)         |C1                |drelu   |(C1 dR1 -- dC1)                   |
+|seq2|conv2d  |(R1 b2 c2 -- C2)   |R1 [f2 b2 df2 db2]|dconv2d |(R1 [f2 b2] dC2 -- dR1 [df2 db2]) |
+|    |relu    |(C2 -- R2)         |C2                |drelu   |(C2 dR2 -- dC2)                   |
+|    |maxpool |(R2 fp -- PX)      |R2 [fp]           |dmaxpool|(R2 [fp] dPX -- dR2)              |
+|lin1|flatten |(PX -- FC)         |PX [sz]           |dflatten|(PX [sz] dFC -- dPX)              |
+|    |linear  |(FC b3 n3 -- Z)    |FC [w3 b3 dw3 db3]|dlinear |(FC [w3 b3] dZ -- dFC [dw3 db3])  |
+|lin2|relu    |(Z  -- R3)         |Z                 |drelu   |(Z dR3 -- dZ)                     |
+|    |linear  |(R3 b4 n4 -- OUT)  |R3 [w4 b4 dw3 db3]|dlinear |(R3 [w4 b4] dOUT -- dR3 [dw4 db4])|
+|fwd |softmax |(OUT -- PB)        |PB labels         |-       |(PB labels -- dOUT)               |
+|    |loss.ce |(PB labels -- loss)|                  |        |                                  |
 ||||||
-|back|sgd     |(loss b1 b2 -- )|[f1' b1' f2' b2' w3' b3' w4' b3']|||
+|back|sgd     |(loss b1 b2 -- )   |[f1' b1' f2' b2' w3' b3' w4' b3']|||
 
 ### Study NN forward and backward propegation
 * https://explained.ai/matrix-calculus/
@@ -84,61 +89,53 @@ def d_cross_e(y_true, y_pred):                  # CE derivative
 |---|---|---|
 |stack|(Aa Ab i - Aa Ab Tc)|stack arrays on given axis|
 |split|(Ta i - Ta Aa Ab Ac) |split matrix into matrix on a given axis|
-|reshape|?|with negative value (i.e. inferred size = size / other dims)|
 
 #### Load/Save - .npy
 |word|param/example|tensor creation ops|
 |---|---|---|
 |nn.dir|( -- )|list dataset directory|
-|nn.load|(root -- Ta Tb)|test_dataset train_dataset, i.g. Ta[10000,28,28,1], Tb[50000,28,28,1]|
-|nn.save|(Ta -- )|save tensor/gradiant|
+|nn.load|( -- N)|load trained network|
+|nn.save|(N -- )|export network as a file|
     
-#### Conv2D (destructive by default)
+#### Convolution and Linear funtions (destructive by default)
 |word|param/example|tensor creation ops|
 |---|---|---|
-|conv2d|(Ta -- Ta')|create a 2D convolution 3x3 filter, stride=1, padding=same, dilation=0, bias=0.5|
-|conv2d|(Ta c n -- Ta')|create a 2D convolution, c channels output, with nxn filter|
-|conv2d|(Ta c A -- Ta')|create a 2D convolution, c channels output, with config i.g. Vector[3, 3, 1, 0, 1, 0.3] for (3x3, stride=1, padding=0, dilation=1, bais=0.3)|
+|conv2d|(N -- N')|create a 2D convolution 3x3 filter, stride=1, padding=same, dilation=0, bias=0.5|
+|conv2d|(N b c -- N')|create a 2D convolution, bias=b, c channels output, with default 3x3 filter|
+|conv2d|(N b c A -- N')|create a 2D convolution, bias=b, c channels output, with config i.g. Vector[5, 5, 3, 2, 1] for (5x5, padding=3, stride=2, dilation=1, bais=0.3)|
+|flatten|(N -- N')|flatten a tensor (usually input to linear)|
+|linear|(N b n -- N')|linearize (y = Wx + b) from Ta input to n out_features|
 
 #### Activation (non-linear)
 |word|param/example|tensor creation ops|
 |---|---|---|
-|relu|(Ta -- Ta')|Rectified Linear Unit|
-|tanh|(Ta -- Ta')|Tanh Unit|
-|sigmoid|(Ta -- Ta')|1/(1+exp^-z)|
-|softmax|(Ta -- Ta')|probability vector exp(x)/sum(exp(x))|
+|relu|(N -- N')|Rectified Linear Unit|
+|tanh|(N -- N')|Tanh Unit|
+|sigmoid|(N -- N')|1/(1+exp^-z)|
+|softmax|(N -- N')|probability vector exp(x)/sum(exp(x))|
     
-#### Pooling (Downsampling)
+#### Pooling and Dropout (Downsampling)
 |word|param/example|tensor creation ops|
 |---|---|---|
-|avgpool2d|(Ta n -- Ta')|nxn cells average pooling|
-|maxpool2d|(Ta n -- Ta')|nxn cells maximum pooling|
-|minpool2d|(Ta n -- Ta')|nxn cell minimum pooling|
+|avgpool|(N n -- N')|nxn cells average pooling|
+|maxpool|(N n -- N')|nxn cells maximum pooling|
+|minpool|(N n -- N')|nxn cell minimum pooling|
+|dropout|(n p -- N')|zero out p% of channel data (add noise between data points)|
   
-#### Linear (fully connected)
-|word|param/example|tensor creation ops|
-|---|---|---|
-|linear|(Ta n -- Ta')|linearize (y = Wx + b) from Ta input to n out_features|
-
-#### Dropout (reduce strong correlation, improve feature independence)
-|word|param/example|tensor creation ops|
-|---|---|---|
-|dropout|(Ta p -- Ta')|zero out p% of channel data (add noise between data points)|
-
 #### Loss
 |word|param/example|tensor creation ops|
 |---|---|---|
-|loss.nll|(Ta Tb -- Tc)|negative likelihood|
-|loss.mse|(Ta Tb -- Tc)|mean sqare error|
-|loss.ce|(Ta Tb -- Tc)|cross-entropy|
-|predict|(Ta    -- n)|cost function (avg all losts)|
+|loss.nll|(N Ta -- N Ta')|negative likelihood|
+|loss.mse|(N Ta -- N Ta')|mean sqare error|
+|loss.ce|(N Ta -- N Ta')|cross-entropy|
+|predict|(N -- N n)|cost function (avg all losts)|
 
 #### Back Propergation
 |word|param/example|tensor creation ops|
 |---|---|---|
-|autograd|( -- )|enable Direct Acylic Graph building with zero gradiant|
-|backprop|(Ga -- Ga Ta)|stop DAG building, execute backward propergation|
-|sgd|(Ga Ta p m -- )|apply SGD(learn_rate=p, momentum=m) backprop on DAG|
-|adam|(Ga Ta p m -- )|apply Adam backprop|
+|autograd|(N n -- N')|enable/disable model autograd|
+|backprop|(N Ta -- N')|stop DAG building, execute backward propergation|
+|sgd|(N Ta p m -- N')|apply SGD(learn_rate=p, momentum=m) backprop on DAG|
+|adam|(N Ta p m -- N')|apply Adam backprop|
     
 
