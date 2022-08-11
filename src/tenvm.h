@@ -8,8 +8,9 @@
 #define TEN4_SRC_TENVM_H
 #include "eforth.h"                         /// extending ForthVM
 
-#define SCALAR(v) (*(U8*)&(v) &= ~T4_OBJ_FLAG)  /**< tensor flag mask for top       */
-#define EXP(d)    (expf(d))                     /**< exponential(float)             */
+#define EXP(d)    (expf(d))                 /**< exponential(float) */
+#define TTOS      (mmu.du2ten(top))         /**< tensor on TOS      */
+#define TNOS      (mmu.du2ten(ss[-1]))      /**< tensor on NOS      */
 typedef enum {
     KEEP = false,
     DROP = true
@@ -37,10 +38,6 @@ protected:
     ///
     __GPU__ void tprint(DU d);              ///< tensor dot (print)
     __GPU__ int  number(char *str) final;   ///< TODO: CC - this worked, why?
-    ///
-    /// mmu proxy functions
-    ///
-    __GPU__ void add_to_tensor(DU n);       ///< add tensor to parameter field
     ///
     /// tensor ops
     ///
