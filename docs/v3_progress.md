@@ -1,4 +1,4 @@
-# tensorForth - Release 2.2 / 2022-09
+# tensorForth - Release 3.0 / 2022-09
 A Forth word can be seen as a nested function that process data flow, i.e. y = fn(fn-1(...(f2(f1(x))...))). We can use chain rule to collection derivations for forward and backward diff.
   
 ## Features
@@ -13,16 +13,18 @@ A Forth word can be seen as a nested function that process data flow, i.e. y = f
 : seq2 (N -- N') 0.5 20 conv2d 0.5 dropout 2 maxpool relu ;
 : lin1 (N -- N') flatten relu 0.0 50 linear ;
 : lin2 (N -- N') 0.5 dropout 0.0 10 linear ;
-20 model 1 autograd                  \ create a network model of max 20 layers
-1 28 28 1 tensor                     \ create an input tensor
->n                                   \ setup model input dimension
-seq1 seq2 lin1 lin2 softmax loss.nll \ add layers to model
-constant mnist              
+
+20 model                               \ create a network model of max 20 layers
+1 28 28 1 tensor >n                    \ add input tensor to model (dimensions)
+seq1 seq2 lin1 lin2 softmax loss.nll   \ feed layers to model
+constant mnist                         \ model can be stored as a constant
+
 : train (N set0 -- N') for_batch forward backprop next 0.1 0.9 sgd ;
 : test  (N set1 -- N') for_batch forward avg predict . next ;
-set0 train nn.save net_1             \ trainning session (and save the network)
-set1 test                            \ testing session
-nn.load net_1 set2 test              \ load network and test
+
+mnist set0 train nn.save net_1         \ training session (and save the network)
+mnist set1 test                        \ predicting session, or
+nn.load net_1 set2 test                \ load trained network and test
 </pre>
 
 ### Case Study - MNIST
