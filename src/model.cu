@@ -7,6 +7,82 @@
 #include "model.h"
 
 #if T4_ENABLE_OBJ
+///
+/// Row convolution filter
+///
+template<int Th, int Tw>
+__KERN__ void k_conv_row(
+    DU *A, DU *B, DU *C,    /// input A[MxN], kernel B[KxK], output C[MxN]
+    int M, int N, int K
+    ) {
+    __shared__ DU data[Th * (Tw + K * 2) ];
+    
+    const int x   = threadIdx.x, y = threadIdx.y;
+    const int j   = x + blockIdx.x * blockDim.x;
+    const int i   = y + blockIdx.y * blockDim.y;
+    const int off = y * (Tw + K * 2);
+    const int idx = j + i * N;
+    /// padding
+    data[x + off]              = ((j - K) < 0) ? DU0 : A[idx - K];
+    data[x + blockDim.x + off] = ((j + K) < N) ? A[idx + K] : DU0;
+    __syncthreads();
+
+    DU sum = DU0;
+    for (int k = -K, j1 = x + K; k <= K; k++) {
+        sum += data[j1 + k + off] * B[k + K];
+    }
+    C[idx] = sum;
+}
+
+template<int Th, int Tw>
+__KERN__ void k_conv_col(
+    DU *A, DU *B, DU *C,    /// input A[MxN], kernel B[KxK], output C[MxN]
+    int M, int N, int K
+    ) {
+    __shared__ DU data[Tw * (Th + K * 2)];
+    const int x    = threadIdx.x, y = threadIdx.y;
+    const int j    = x + blockIdx.x * blockDim.x;
+    const int i    = y + blockIdx.y * blockDim.y;
+    const int off  = y * Tw;
+    const int idx  = j + i * N;
+
+    /// padding
+    data[x + off]                   = ((i - K) < 0) ? DU0 : A[idx - K * N];
+    data[x + blockDim.y * Tw + off] = ((i + K) < M) ? A[idx + K * N] : DU0;
+    __syncthreads();
+
+    DU sum = DU0;
+    for (int k = 0, x1 = x + y * Tw; k <= K*2; k++) {
+        sum += data[x1 + k * Tw] * B[k];
+    }
+    C[idx] = sum;
+}
+
+typedef enum {
+    POOL_MAX = 0,
+    POOL_MIN,
+    POOL_AVG
+} t4_pool_op;
+
+__KERN__ void k_pooling(
+    DU *A, DU *B, DU *C,
+    int M, int N, int K,
+    DU alpha, DU beta,
+    t4_pool_op
+    ) {
+    int x = threadIdx.x, y = threadIdx.y;
+    int i = (y + blockIdx.y * blockDim.y) * K;
+    int j = (x + blockIdx.x * blockDim.x) * K;
+
+    if (i < M && j < N) {
+        DU2 acc = 0;
+        for (int k = 0; k < K; ++k) {
+            acc += A[k + i * K] * B[j + k * N];
+        }
+        C[j + i * N] = alpha * acc + beta * C[j + i * N];
+    }
+    
+}
 __HOST__ const char*
 Model::nname(int i) {               ///< network layer name
     static const char *name[] = {   /// double check with t4_layer
@@ -104,7 +180,7 @@ __GPU__ Model&
 Model::imaxpool(U16 f) {
     if (NO_INIT) return *this;
     Tensor &in  = *nten; in.grad_fn = DMAXPOOL;
-    in.parm     = f;
+    in.parm     = f;             /// * keep pooling width
     
     U16 m = int((in.H() - f) / f) + 1;
     U16 n = int((in.W() - f) / f) + 1;
