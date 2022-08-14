@@ -8,6 +8,13 @@
 #define TEN4_SRC_MODEL_H
 #include "mmu.h"
 
+#define WARP_SZ   16
+typedef enum {
+    POOL_MAX = 0,
+    POOL_MIN,
+    POOL_AVG
+} t4_pool_op;
+
 #define NO_INIT  (!autograd || (nten->grad_fn != NONE))
 class Model : public T4Base {
     MMU     *_mmu;       ///< tensor storage base
@@ -81,5 +88,9 @@ public:
     __GPU__ Model &iminpool(U16 n); ///< minimum pooling with nxn filter
     __GPU__ Model &idropout(U16 p); ///< zero out p% of channel data (add noise between data points)
     /// @}
+    /// @name Convolution and Linear Layers
+    /// @{
+    __GPU__ Model &forward();
+    __GPU__ Model &step(t4_pool_op op);
 };
 #endif // TEN4_SRC_MODEL_H

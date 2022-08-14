@@ -10,79 +10,65 @@
 ///
 /// Row convolution filter
 ///
-template<int Th, int Tw>
-__KERN__ void k_conv_row(
-    DU *A, DU *B, DU *C,    /// input A[MxN], kernel B[KxK], output C[MxN]
-    int M, int N, int K
+#define CONV_SZ_3    (WARP_SZ - 3 + 1)
+#define CONV_SZ_5    (WARP_SZ - 5 + 1)
+
+template<int Z, int K>      /// WARP_SIZE, KERNEL_SIZE
+__KERN__ void k_conv2d(
+    DU *A, DU *B, DU *C,    ///< input A[MxN], kernel B[KxK], output C[MxN]
+    int M, int N
     ) {
-    __shared__ DU data[Th * (Tw + K * 2) ];
+    __shared__ DU d[Z * Z];                 ///< shared memory [WARPxWARP]
     
-    const int x   = threadIdx.x, y = threadIdx.y;
-    const int j   = x + blockIdx.x * blockDim.x;
-    const int i   = y + blockIdx.y * blockDim.y;
-    const int off = y * (Tw + K * 2);
-    const int idx = j + i * N;
-    /// padding
-    data[x + off]              = ((j - K) < 0) ? DU0 : A[idx - K];
-    data[x + blockDim.x + off] = ((j + K) < N) ? A[idx + K] : DU0;
+    const int tx = threadIdx.x, j0 = tx + blockIdx.x * blockDim.x;
+    const int ty = threadIdx.y, i0 = ty + blockIdx.y * blockDim.y;
+    const int i  = i0 - int(K / 2);         ///< transfrom to input coordinate
+    const int j  = j0 - int(K / 2);
+    
+    d[tx + ty * Z] =                        /// shared memory with zero padding
+        (i >= 0 && i < M && j >= 0 && j < N)
+        ? A[j + i * N] : DU0;
     __syncthreads();
 
-    DU sum = DU0;
-    for (int k = -K, j1 = x + K; k <= K; k++) {
-        sum += data[j1 + k + off] * B[k + K];
+    if (i0 < M && j0 < N) {                 /// update C[i][j]
+        DU sum = DU0;
+        for (int y = 0; y < K; y++) {       /// process one cell
+            int d0 = tx + (y + ty) * Z;     ///< offset to smem block
+            int b0 = y * K;
+            for (int x = 0; x < K; x++) {
+                sum += d[x + d0] * B[x + b0];
+            }
+        }
+        C[j0 + i0 * N] = sum;               ///< output matrix
     }
-    C[idx] = sum;
 }
-
-template<int Th, int Tw>
-__KERN__ void k_conv_col(
-    DU *A, DU *B, DU *C,    /// input A[MxN], kernel B[KxK], output C[MxN]
-    int M, int N, int K
-    ) {
-    __shared__ DU data[Tw * (Th + K * 2)];
-    const int x    = threadIdx.x, y = threadIdx.y;
-    const int j    = x + blockIdx.x * blockDim.x;
-    const int i    = y + blockIdx.y * blockDim.y;
-    const int off  = y * Tw;
-    const int idx  = j + i * N;
-
-    /// padding
-    data[x + off]                   = ((i - K) < 0) ? DU0 : A[idx - K * N];
-    data[x + blockDim.y * Tw + off] = ((i + K) < M) ? A[idx + K * N] : DU0;
-    __syncthreads();
-
-    DU sum = DU0;
-    for (int k = 0, x1 = x + y * Tw; k <= K*2; k++) {
-        sum += data[x1 + k * Tw] * B[k];
-    }
-    C[idx] = sum;
-}
-
-typedef enum {
-    POOL_MAX = 0,
-    POOL_MIN,
-    POOL_AVG
-} t4_pool_op;
 
 __KERN__ void k_pooling(
-    DU *A, DU *B, DU *C,
+    DU *A, DU *C,
     int M, int N, int K,
-    DU alpha, DU beta,
-    t4_pool_op
+    t4_pool_op op
     ) {
-    int x = threadIdx.x, y = threadIdx.y;
-    int i = (y + blockIdx.y * blockDim.y) * K;
-    int j = (x + blockIdx.x * blockDim.x) * K;
-
-    if (i < M && j < N) {
-        DU2 acc = 0;
-        for (int k = 0; k < K; ++k) {
-            acc += A[k + i * K] * B[j + k * N];
-        }
-        C[j + i * N] = alpha * acc + beta * C[j + i * N];
-    }
+    const int tx = threadIdx.x, j0 = tx + blockIdx.x * blockDim.x;
+    const int ty = threadIdx.y, i0 = ty + blockIdx.y * blockDim.y;
+    const int j  = j0 * K;
+    const int i  = i0 * K;
     
+    if (i0 < M && j0 < N) {
+        DU2 v = (op==POOL_AVG) ? DU0 : A[j + i * N];
+        for (int y = 0; y < K; y++) {
+            DU *d = &A[j + (y + i) * N];
+            for (int x = 0; x < K; x++, d++) {
+                switch (op) {
+                case POOL_MAX: if (*d > v) v = *d; break;
+                case POOL_AVG: v += *d;            break;
+                case POOL_MIN: if (*d < v) v = *d; break;
+                }
+            }
+        }
+        C[j0 + i0 * N] = (op==POOL_AVG) ? v/K/K : v;
+    }
 }
+        
 __HOST__ const char*
 Model::nname(int i) {               ///< network layer name
     static const char *name[] = {   /// double check with t4_layer
@@ -96,7 +82,7 @@ Model::nname(int i) {               ///< network layer name
 /// Convolution and Linear ops
 ///
 __GPU__ Model&
-Model::iconv2d(DU bias, IU c, U16 *opt) {
+Model::iconv2d(DU bias, U16 c, U16 *opt) {
     if (NO_INIT) return *this;
     Tensor &in = *nten; in.grad_fn = DCONV2D;    ///> derivative function
 
@@ -206,6 +192,54 @@ Model::idropout(U16 f) {
     in.grad_fn  = DDROPOUT;
     in.parm     = f;
     npush(out);
+    return *this;
+}
+///
+/// Convolution and Linear Layers
+///
+__GPU__ Model&
+Model::step(t4_pool_op op) {
+    Tensor &in  = *nten;
+    Tensor &out = *(nten+1);
+    int    m    = out.H();
+    int    n    = out.W();
+    dim3   block(WARP_SZ, WARP_SZ);
+
+    auto conv3 = [in, out, m, n, block](DU *kn) {
+        dim3 grid((n+CONV_SZ_3-1)/CONV_SZ_3, (m+CONV_SZ_3-1)/CONV_SZ_3);
+        k_conv2d<WARP_SZ, 3><<<grid, block>>>(in.data, kn, out.data, m, n);
+    };
+    auto conv5 = [in, out, m, n, block](DU *kn) {
+        dim3 grid((n+CONV_SZ_5-1)/CONV_SZ_5, (m+CONV_SZ_5-1)/CONV_SZ_5);
+        k_conv2d<WARP_SZ, 5><<<grid, block>>>(in.data, kn, out.data, m, n);
+    };
+    auto pool = [in, out, m, n, block, op]() {
+        int k = in.parm;
+        dim3 grid((n+WARP_SZ-1)/WARP_SZ, (m+WARP_SZ-1)/WARP_SZ);
+        k_pooling<<<grid, block>>>(in.data, out.data, m, n, k, op);
+    };
+    
+    Tensor &kn = *in.grad[0];
+    switch(in.grad_fn) {
+    case DCONV2D: {
+        int k = kn.H();
+        switch(k) {
+        case 3: conv3(kn.data); break;
+        case 5: conv5(kn.data); break;
+        default: ERROR("model#conv2d kernel size=%d not supported\n", k);
+        }
+    } break;
+    case DLINEAR:  break;
+    case DFLATTEN: break;
+    case DRELU:    break;
+    case DTANH:    break;
+    case DSIGMOID: break;
+    case DSOFTMAX: break;
+    case DMAXPOOL: pool(); break;
+    case DAVGPOOL: pool(); break;
+    case DMINPOOL: pool(); break;
+    case DDROPOUT: break;
+    }
     return *this;
 }
 #endif  // T4_ENABLE_OBJ
