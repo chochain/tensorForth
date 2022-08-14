@@ -156,7 +156,7 @@ TensorForth::is_running() {
 
 #define VMSS_SZ (sizeof(DU) * T4_SS_SZ * VM_MIN_COUNT)
 __HOST__ int
-TensorForth::run() {
+TensorForth::run() {          /// TODO: check ~CUDA/samples/simpleCallback for multi-workload callback
     int trace = mmu->trace();
     while (is_running()) {
         if (aio->readline()) {        // feed from host console to managed input buffer
