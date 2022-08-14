@@ -47,7 +47,11 @@ NetVM::_conv2d() {
 /// Batch ops
 ///
 __GPU__ void
-NetVM::for_batch() {
+NetVM::nn_for() {
+    Tensor &A = mmu.tensor(1, 28, 28, 1);
+}
+__GPU__ void
+NetVM::nn_next() {
     Tensor &A = mmu.tensor(1, 28, 28, 1);
 }
 __GPU__ void
@@ -72,7 +76,7 @@ NetVM::init() {
     const Code prim[] = {       /// singleton, build once only
     ///@defgroup Convolution and Linear ops
     ///@{
-    CODE("model",     DU m = mmu.mdl2du(mmu.model(POPi)); PUSH(m)),
+    CODE("nn.model",  DU m = mmu.mdl2du(mmu.model(POPi)); PUSH(m)),
     CODE("autograd",  bool on = POPi; NTOP.autograd = on),
     CODE("conv2d",    _conv2d()),                          ///> (N b c [A] -- N')
     CODE("linear",                                         ///> (N n -- N')
@@ -81,7 +85,7 @@ NetVM::init() {
              DU    bias = POP();         ///> convolution bias
              NTOP.ilinear(bias, n);                        ///> (N b c -- N')
          }
-         else ERROR("linear bias n required!")),
+         else ERROR("linear: bias n required!")),
     ///@}
     ///@defgroup Activation ops
     ///@{
@@ -92,30 +96,31 @@ NetVM::init() {
     ///@}
     ///@defgroup Pooling and Dropout ops
     ///@{
-    CODE("maxpool",   U16 n = POPi; NTOP.imaxpool(n)),     ///> (N n -- N')
-    CODE("avgpool",   U16 n = POPi; NTOP.iavgpool(n)),     ///> (N n -- N')
-    CODE("minpool",   U16 n = POPi; NTOP.iminpool(n)),     ///> (N n -- N')
+    CODE("pool.max",  U16 n = POPi; NTOP.imaxpool(n)),     ///> (N n -- N')
+    CODE("pool.avg",  U16 n = POPi; NTOP.iavgpool(n)),     ///> (N n -- N')
+    CODE("pool.min",  U16 n = POPi; NTOP.iminpool(n)),     ///> (N n -- N')
     CODE("dropout",                                        ///> (N p -- N')
          DU p = POP();
          NTOP.idropout(int(100.0 * p + 0.5))),
     ///@}
     ///@defgroup Loss functions
     ///@{
-    CODE("loss_nll",  {}),
-    CODE("loss_mse",  {}),
-    CODE("loss_ce",   {}),
+    CODE("loss.nll",  {}),
+    CODE("loss.mse",  {}),
+    CODE("loss.ce",   {}),
     CODE("predict",   {}),
     ///@}
     ///@defgroup Batch ops
     ///@{
-    CODE("batch_for", {}),
+    CODE("nn.for",    {}),
+    CODE("nn.next",   {}),
     CODE("forward",   {}),
     CODE("backprop",  {}),
     ///@}
     ///@defgroup Gradiant ops
     ///@{
-    CODE("sgd",       {}),
-    CODE("adam",      {}),
+    CODE("nn.sgd",    {}),
+    CODE("nn.adam",   {}),
     ///@}
     ///@defgroup Debugging ops
     ///@{
@@ -124,12 +129,10 @@ NetVM::init() {
     ///@}
     };
     const Code over[] = {           /// extended (overload) words
-    CODE("flatten",                 /// (Ta -- Ta') keep tensor ops
-         if (mmu.is_tensor(top)) { 
-             Tensor &t = mmu.du2ten(top);
-             t.reshape(t.size);
-         }
-         else NTOP.iflatten()),     /// (N -- N')
+    CODE("flatten",
+         Tensor &t = mmu.du2ten(top);
+         if (t.is_tensor()) t.reshape(t.size);    /// (Ta -- Ta')
+         else NTOP.iflatten()),                   /// (N -- N')
     CODE("boot", mmu.clear(FIND("network") + 1))
     };
     TensorVM::init();

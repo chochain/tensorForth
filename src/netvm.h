@@ -39,7 +39,8 @@ private:
     ///
     /// Batch ops
     ///
-    __GPU__ void for_batch();
+    __GPU__ void nn_for();
+    __GPU__ void nn_next();
     __GPU__ void forward();
     __GPU__ void backprop();
     ///
