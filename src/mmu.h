@@ -86,6 +86,7 @@ typedef enum {
 #define TRACE2(...)   { if (_trace > 1) INFO(__VA_ARGS__); }
 ///
 /// Forth memory manager
+/// TODO: compare TLSF to RMM (Rapids Memory Manager)
 ///
 struct Model;
 class MMU : public Managed {
