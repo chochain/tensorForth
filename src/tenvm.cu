@@ -280,6 +280,7 @@ TensorVM::init() {
     ///@defgrup Tensor slice and dice
     ///@{
     CODE("sum", if (IS_OBJ(top)) PUSH(TTOS.sum())),
+    CODE("avg", if (IS_OBJ(top)) PUSH(TTOS.sum() / TTOS.size)),
     CODE("{",   if (IS_OBJ(top) && ten_lvl > 0) ++ten_lvl),
     CODE("}",   if (IS_OBJ(top) && ten_lvl > 0) --ten_lvl),
     CODE("slice",
