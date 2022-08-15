@@ -41,8 +41,8 @@ private:
     ///
     __GPU__ void nn_for();
     __GPU__ void nn_next();
-    __GPU__ void forward();
-    __GPU__ void backprop();
+    __GPU__ void forward(Model &model, Tensor &input);
+    __GPU__ void backprop(Model &model, Tensor &output);
     ///
     /// Gradiant ops
     ///

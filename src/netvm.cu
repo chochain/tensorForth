@@ -54,11 +54,25 @@ __GPU__ void
 NetVM::nn_next() {
     Tensor &A = mmu.tensor(1, 28, 28, 1);
 }
+///
+/// NN model propegation
+///
 __GPU__ void
-NetVM::forward() {
+NetVM::forward(Model &model, Tensor &input) {
+    Tensor &in = model[1];
+    if (!in.is_same_shape(input)) {
+        ERROR("model#forward dim?\n");
+        return;
+    }
+    Tensor::copy(input, in);
+    for (int i = 2; i < (numel - 1); i++) {
+        Tensor &out = model[i];
+        model.step(in, out);
+        in = out;
+    }
 }
 __GPU__ void
-NetVM::backprop() {
+NetVM::backprop(Model &model, Tensor &output) {
 }
 __GPU__ void
 NetVM::sgd() {
@@ -131,7 +145,7 @@ NetVM::init() {
     const Code over[] = {           /// extended (overload) words
     CODE("flatten",
          Tensor &t = mmu.du2ten(top);
-         if (t.is_tensor()) t.reshape(t.size);    /// (Ta -- Ta')
+         if (t.is_tensor()) t.reshape(t.numel);   /// (Ta -- Ta')
          else NTOP.iflatten()),                   /// (N -- N')
     CODE("boot", mmu.clear(FIND("network") + 1))
     };
