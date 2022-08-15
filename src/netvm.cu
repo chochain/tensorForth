@@ -41,7 +41,7 @@ NetVM::_conv2d() {
     }
     U16   c    = POPi;                        ///> number of output channels
     DU    bias = POP();                       ///> convolution bias
-    NTOP.iconv2d(bias, c, opt);
+    NTOP.add(L_CONV2D, c, bias, opt);
 }
 ///
 /// Batch ops
@@ -57,23 +57,6 @@ NetVM::nn_next() {
 ///
 /// NN model propegation
 ///
-__GPU__ void
-NetVM::forward(Model &model, Tensor &input) {
-    Tensor &in = model[1];
-    if (!in.is_same_shape(input)) {
-        ERROR("model#forward dim?\n");
-        return;
-    }
-    Tensor::copy(input, in);
-    for (int i = 2; i < (numel - 1); i++) {
-        Tensor &out = model[i];
-        model.step(in, out);
-        in = out;
-    }
-}
-__GPU__ void
-NetVM::backprop(Model &model, Tensor &output) {
-}
 __GPU__ void
 NetVM::sgd() {
 }
@@ -97,25 +80,25 @@ NetVM::init() {
          if (!IS_OBJ(top) && !IS_OBJ(ss[-1])) {
              U16   n    = POPi;          ///> number of output channels
              DU    bias = POP();         ///> convolution bias
-             NTOP.ilinear(bias, n);                        ///> (N b c -- N')
+             NTOP.add(L_LINEAR, n, bias);                  ///> (N b c -- N')
          }
          else ERROR("linear: bias n required!")),
     ///@}
     ///@defgroup Activation ops
     ///@{
-    CODE("relu",      NTOP.irelu()),                       ///> (N -- N')
-    CODE("tanh",      NTOP.itanh()),                       ///> (N -- N')
-    CODE("sigmoid",   NTOP.isigmoid()),                    ///> (N -- N')
-    CODE("softmax",   NTOP.isoftmax()),                    ///> (N -- N')
+    CODE("relu",      NTOP.add(L_RELU)),                   ///> (N -- N')
+    CODE("tanh",      NTOP.add(L_TANH)),                   ///> (N -- N')
+    CODE("sigmoid",   NTOP.add(L_SIGMOID)),                ///> (N -- N')
+    CODE("softmax",   NTOP.add(L_SOFTMAX)),                ///> (N -- N')
     ///@}
     ///@defgroup Pooling and Dropout ops
     ///@{
-    CODE("pool.max",  U16 n = POPi; NTOP.imaxpool(n)),     ///> (N n -- N')
-    CODE("pool.avg",  U16 n = POPi; NTOP.iavgpool(n)),     ///> (N n -- N')
-    CODE("pool.min",  U16 n = POPi; NTOP.iminpool(n)),     ///> (N n -- N')
-    CODE("dropout",                                        ///> (N p -- N')
+    CODE("pool.max",  U16 n = POPi; NTOP.add(L_MAXPOOL, n)), ///> (N n -- N')
+    CODE("pool.avg",  U16 n = POPi; NTOP.add(L_AVGPOOL, n)), ///> (N n -- N')
+    CODE("pool.min",  U16 n = POPi; NTOP.add(L_MINPOOL, n)), ///> (N n -- N')
+    CODE("dropout",                                          ///> (N p -- N')
          DU p = POP();
-         NTOP.idropout(int(100.0 * p + 0.5))),
+         NTOP.add(L_DROPOUT, int(100.0 * p + 0.5))),
     ///@}
     ///@defgroup Loss functions
     ///@{
@@ -128,8 +111,8 @@ NetVM::init() {
     ///@{
     CODE("nn.for",    {}),
     CODE("nn.next",   {}),
-    CODE("forward",   {}),
-    CODE("backprop",  {}),
+    CODE("forward",   Tensor &t = mmu.du2ten(POP()); NTOP.forward(t)),
+    CODE("backprop",  Tensor &t = mmu.du2ten(POP()); NTOP.backprop(t)),
     ///@}
     ///@defgroup Gradiant ops
     ///@{
@@ -146,7 +129,7 @@ NetVM::init() {
     CODE("flatten",
          Tensor &t = mmu.du2ten(top);
          if (t.is_tensor()) t.reshape(t.numel);   /// (Ta -- Ta')
-         else NTOP.iflatten()),                   /// (N -- N')
+         else NTOP.add(L_FLATTEN)),               /// (N -- N')
     CODE("boot", mmu.clear(FIND("network") + 1))
     };
     TensorVM::init();
