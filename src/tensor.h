@@ -83,10 +83,13 @@ struct Tensor : public T4Base {
     ///
     /// attributes
     ///
-    __BOTH__ __INLINE__ U16  N()       { return shape[3]; }
-    __BOTH__ __INLINE__ U16  H()       { return shape[0]; }
-    __BOTH__ __INLINE__ U16  W()       { return shape[1]; }
-    __BOTH__ __INLINE__ U16  C()       { return shape[2]; }
+    __BOTH__ __INLINE__ U16  N() { return shape[3]; }
+    __BOTH__ __INLINE__ U16  H() { return shape[0]; }
+    __BOTH__ __INLINE__ U16  W() { return shape[1]; }
+    __BOTH__ __INLINE__ U16  C() { return shape[2]; }
+    __GPU__  __INLINE__ bool is_same_shape(Tensor &t) {
+        return MEMCMP(shape, t.shape, sizeof(shape)) == 0;
+    }
     ///
     /// tensor arithmetics
     ///
@@ -109,7 +112,7 @@ struct Tensor : public T4Base {
     __BOTH__ Tensor &reshape(U16 h, U16 w);
     __BOTH__ Tensor &reshape(U16 n, U16 h, U16 w, U16 c);
     __BOTH__ Tensor &identity();              ///< fill as an identity matrix
-    __HOST__ void   copy_to_host(void* dst) { cudaMemcpy(dst, data, size, cudaMemcpyDeviceToHost); }
+    __HOST__ void   copy_to_host(void* dst) { cudaMemcpy(dst, data, numel, cudaMemcpyDeviceToHost); }
     ///
     /// IO
     ///
@@ -132,6 +135,5 @@ struct Tensor : public T4Base {
     __BOTH__ __INLINE__ bool   operator<=(Tensor &t) { return 0; }
     __BOTH__ __INLINE__ bool   operator>=(Tensor &t) { return 0; }
     __BOTH__ __INLINE__ bool   operator==(Tensor &t) { return 0; }
-    __BOTH__ __INLINE__ bool   operator!=(Tensor &t) { return 0; }
 };
 #endif // TEN4_SRC_TENSOR_H_
