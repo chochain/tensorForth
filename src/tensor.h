@@ -16,37 +16,37 @@
 ///    PyTorch.Tensor: size, dtype, type_id, stride, tensorstore
 ///
 typedef enum {
-    ADD = 0,
-    SUB,
-    MUL,
-    DIV,
-    ABS,
-    EXP,
-    TANH,
-    RELU,
-    FILL,
-    SCALE
+    O_ADD = 0,
+    O_SUB,
+    O_MUL,
+    O_DIV,
+    O_ABS,
+    O_EXP,
+    O_TANH,
+    O_RELU,
+    O_FILL,
+    O_SCALE
 } t4_mat_op;
 
 typedef enum {
-    NONE = 0,
-    DCONV2D,
-    DLINEAR,
-    DFLATTEN,
-    DRELU,
-    DTANH,
-    DSIGMOID,
-    DSOFTMAX,
-    DMAXPOOL,
-    DAVGPOOL,
-    DMINPOOL,
-    DDROPOUT
+    L_NONE = 0,
+    L_CONV2D,
+    L_LINEAR,
+    L_FLATTEN,
+    L_RELU,
+    L_TANH,
+    L_SIGMOID,
+    L_SOFTMAX,
+    L_MAXPOOL,
+    L_AVGPOOL,
+    L_MINPOOL,
+    L_DROPOUT
 } t4_layer;
 
 struct Tensor : public T4Base {
     U16      stride[4] = {1,1,1,1}; ///< strides to calculate memory offset
     U16      shape[4]  = {1,1,1,1}; ///< shape=HWCN, matrix C=N=1, vector W=C=N=1
-    t4_layer grad_fn   = NONE;      ///< grandiant funtion type
+    t4_layer grad_fn   = L_NONE;    ///< grandiant funtion type
     Tensor   *grad[4];              ///< gradiant and jacobian tensors
     ///
     /// static ops
