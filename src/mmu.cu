@@ -189,7 +189,7 @@ MMU::free(Tensor &t) {
     TRACE1("mmu#free(T%d) size=%d\n", t.rank, t.size);
     if (t.is_tensor()) {              /// * skip view
         _ostore.free((void*)t.data);  /// * free physical data
-        for (int i=0; t.grad_fn!=NONE && t.grad[i] && i < 4; i++) {
+        for (int i=0; t.grad_fn!=L_NONE && t.grad[i] && i < 4; i++) {
             free(*t.grad[i]);     /// recursive
         }
     }
@@ -472,7 +472,7 @@ MMU::network(std::ostream &fout, DU mt) {
     for (int i = 1; i < sz; i++) {  /// skip root[0]
         Tensor &t = m[i];
         tinfo(t, i, (i==(sz-1)) ? 0 : t.grad_fn);
-        if (_trace && t.grad_fn != NONE) finfo(t.grad);
+        if (_trace && t.grad_fn != L_NONE) finfo(t.grad);
         fout << "\n";
     }
 #endif // T4_ENABLE_OBJ

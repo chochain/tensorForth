@@ -15,7 +15,7 @@ typedef enum {
     POOL_AVG
 } t4_pool_op;
 
-#define NO_INIT  (!autograd || (nten->grad_fn != NONE))
+#define NO_INIT  (!autograd || (nten->grad_fn != L_NONE))
 class Model : public T4Base {
     MMU     *_mmu;       ///< tensor storage base
     Tensor  *_store;     ///< model storage - Sequential, TODO: DAG
