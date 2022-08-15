@@ -9,7 +9,7 @@
 #include "model.h"
 #include "tenvm.h"                /// extending TensorVM
 
-#define NTOP  (mmu.du2mdl(top))   /// Network Model on TOS
+#define NN  (mmu.du2mdl(top))     /// Network Model on TOS
 class NetVM : public TensorVM {
 public:
 #if   !T4_ENABLE_OBJ

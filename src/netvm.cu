@@ -29,7 +29,7 @@ __GPU__ void
 NetVM::_conv2d() {
     U16 opt[] = { 3, 3, 1, 1, 1 };   ///> default 3x3 filter, padding=1, stride=1, dilation=1
     if (IS_OBJ(top)) {
-        Tensor &v = mmu.du2ten(top);
+        Tensor &v = TTOS;
         if (v.rank == 1) {
             POP();
             for (int i=0; i<5; i++) opt[i] = (U16)v.data[i];
@@ -41,7 +41,7 @@ NetVM::_conv2d() {
     }
     U16   c    = POPi;                        ///> number of output channels
     DU    bias = POP();                       ///> convolution bias
-    NTOP.add(L_CONV2D, c, bias, opt);
+    NN.add(L_CONV2D, c, bias, opt);
 }
 ///
 /// Batch ops
@@ -74,31 +74,31 @@ NetVM::init() {
     ///@defgroup Convolution and Linear ops
     ///@{
     CODE("nn.model",  DU m = mmu.mdl2du(mmu.model(POPi)); PUSH(m)),
-    CODE("autograd",  bool on = POPi; NTOP.autograd = on),
+    CODE("autograd",  bool on = POPi; NN.autograd = on),
     CODE("conv2d",    _conv2d()),                          ///> (N b c [A] -- N')
     CODE("linear",                                         ///> (N n -- N')
          if (!IS_OBJ(top) && !IS_OBJ(ss[-1])) {
              U16   n    = POPi;          ///> number of output channels
              DU    bias = POP();         ///> convolution bias
-             NTOP.add(L_LINEAR, n, bias);                  ///> (N b c -- N')
+             NN.add(L_LINEAR, n, bias);                    ///> (N b c -- N')
          }
          else ERROR("linear: bias n required!")),
     ///@}
     ///@defgroup Activation ops
     ///@{
-    CODE("relu",      NTOP.add(L_RELU)),                   ///> (N -- N')
-    CODE("tanh",      NTOP.add(L_TANH)),                   ///> (N -- N')
-    CODE("sigmoid",   NTOP.add(L_SIGMOID)),                ///> (N -- N')
-    CODE("softmax",   NTOP.add(L_SOFTMAX)),                ///> (N -- N')
+    CODE("relu",      NN.add(L_RELU)),                     ///> (N -- N')
+    CODE("tanh",      NN.add(L_TANH)),                     ///> (N -- N')
+    CODE("sigmoid",   NN.add(L_SIGMOID)),                  ///> (N -- N')
+    CODE("softmax",   NN.add(L_SOFTMAX)),                  ///> (N -- N')
     ///@}
     ///@defgroup Pooling and Dropout ops
     ///@{
-    CODE("pool.max",  U16 n = POPi; NTOP.add(L_MAXPOOL, n)), ///> (N n -- N')
-    CODE("pool.avg",  U16 n = POPi; NTOP.add(L_AVGPOOL, n)), ///> (N n -- N')
-    CODE("pool.min",  U16 n = POPi; NTOP.add(L_MINPOOL, n)), ///> (N n -- N')
-    CODE("dropout",                                          ///> (N p -- N')
+    CODE("pool.max",  U16 n = POPi; NN.add(L_MAXPOOL, n)), ///> (N n -- N')
+    CODE("pool.avg",  U16 n = POPi; NN.add(L_AVGPOOL, n)), ///> (N n -- N')
+    CODE("pool.min",  U16 n = POPi; NN.add(L_MINPOOL, n)), ///> (N n -- N')
+    CODE("dropout",                                        ///> (N p -- N')
          DU p = POP();
-         NTOP.add(L_DROPOUT, int(100.0 * p + 0.5))),
+         NN.add(L_DROPOUT, int(100.0 * p + 0.5))),
     ///@}
     ///@defgroup Loss functions
     ///@{
@@ -111,8 +111,8 @@ NetVM::init() {
     ///@{
     CODE("nn.for",    {}),
     CODE("nn.next",   {}),
-    CODE("forward",   Tensor &t = mmu.du2ten(POP()); NTOP.forward(t)),
-    CODE("backprop",  Tensor &t = mmu.du2ten(POP()); NTOP.backprop(t)),
+    CODE("forward",   Tensor &t = mmu.du2ten(POP()); NN.forward(t)),
+    CODE("backprop",  Tensor &t = mmu.du2ten(POP()); NN.backprop(t)),
     ///@}
     ///@defgroup Gradiant ops
     ///@{
@@ -121,15 +121,15 @@ NetVM::init() {
     ///@}
     ///@defgroup Debugging ops
     ///@{
-    CODE(">n",        DU t = POP();   NTOP.npush(t)),
+    CODE(">n",        DU t = POP();   NN.npush(t)),
     CODE("network",   fout << opx(OP_NET, 0, top)),
     ///@}
     };
     const Code over[] = {           /// extended (overload) words
     CODE("flatten",
-         Tensor &t = mmu.du2ten(top);
+         Tensor &t = TTOS;
          if (t.is_tensor()) t.reshape(t.numel);   /// (Ta -- Ta')
-         else NTOP.add(L_FLATTEN)),               /// (N -- N')
+         else NN.add(L_FLATTEN)),                 /// (N -- N')
     CODE("boot", mmu.clear(FIND("network") + 1))
     };
     TensorVM::init();
