@@ -59,7 +59,7 @@ __KERN__ void k_linear(                     ///< TODO: C
     }
 }
 
-__KERN__ void k_pooling(
+__KERN__ void k_pooling(                    ///< TODO: C
     DU *A, DU *C,
     int M, int N, int K,
     t4_pool_op op
@@ -69,7 +69,7 @@ __KERN__ void k_pooling(
     const int j  = j0 * K;
     const int i  = i0 * K;
     
-    if (i0 < M && j0 < N) {
+    if (i0 < M && j0 < N) {                ///< TODO: CDP
         DU2 v = (op==POOL_AVG) ? DU0 : A[j + i * N];
         for (int y = 0; y < K; y++) {
             DU *d = &A[j + (y + i) * N];
@@ -85,14 +85,14 @@ __KERN__ void k_pooling(
     }
 }
         
-__KERN__ void k_relu(
+__KERN__ void k_relu(                                        ///< TODO: C
     DU *A, DU *C, int M, int N) {
-    const int j0 = threadIdx.x + blockIdx.x * blockDim.x;
-    const int i0 = threadIdx.y + blockIdx.y * blockDim.y;
-    const int idx= i0 + j0 * N;
+    const int j = threadIdx.x + blockIdx.x * blockDim.x;
+    const int i = threadIdx.y + blockIdx.y * blockDim.y;
+    const int k = i + j * N;
     
-    if (i0 < M && j0 < N) {
-        C[idx] = A[idx] >= DU0 ? A[idx] : DU0;
+    if (i < M && j < N) {                                    ///< TODO: CDP
+        C[k] = (A[k] >= DU0) ? A[k] : DU0;
     }
 }
 
@@ -244,9 +244,6 @@ Model::step(t4_pool_op op) {
         dim3 g((n+CONV_SZ_5-1)/CONV_SZ_5, (m+CONV_SZ_5-1)/CONV_SZ_5);
         k_conv2d<WARP_SZ, CONV_SZ_5, 5><<<g, blk>>>(da, f, b, dc, m, n);
     };
-    auto pool = [da, dc, m, n, blk, grd, k, op]() {
-        k_pooling<<<grd, blk>>>(da, dc, m, n, k, op);
-    };
     
     switch(in.grad_fn) {
     case L_CONV2D: {
@@ -262,16 +259,22 @@ Model::step(t4_pool_op op) {
     case L_LINEAR:  {                ///< dc = W * da + B
         Tensor &w = *in.grad[0];  
         Tensor &b = *in.grad[1];
-        const int W2  = WARP_SZ * WARP_SZ;
-        dim3 blk1(1, W2), grd1(1, (w.H() + W2 - 1) / W2);
+        int    W2   = WARP_SZ * WARP_SZ;
+        dim3   blk1(1, W2), grd1(1, (w.H() + W2 - 1) / W2);
         k_linear<<<grd1, blk1>>>(w.data, da, b.data, dc, w.H(), w.W());
     } break;
     case L_FLATTEN: out.reshape(out.size); break;
     case L_RELU:    k_relu<<<grd, blk>>>(da, dc, m, n); break;
     case L_TANH:    break;
     case L_SIGMOID: break;
-    case L_SOFTMAX: break;
-    case L_MAXPOOL: case L_AVGPOOL: case L_MINPOOL: pool(); break;
+    case L_SOFTMAX: {
+        Tensor &tmp = _mmu->copy(in);
+        DU sum = tmp.map(O_EXP).sum();        /// * sum all probabilities
+        Tensor::mat(O_DIV, tmp, sum, out);    /// * p / sum(p)
+    } break;
+    case L_MAXPOOL:
+    case L_AVGPOOL:
+    case L_MINPOOL: k_pooling<<<grd, blk>>>(da, dc, m, n, k, op); break;
     case L_DROPOUT: break;
     }
     return *this;
