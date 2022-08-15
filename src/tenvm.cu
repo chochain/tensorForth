@@ -52,7 +52,7 @@ TensorVM::tsop(t4_mat_op op, t4_drop_opt x, bool swap) {
     DU     n  = swap ? ss[-1] : top;
     Tensor &C = mmu.tensor(A.H(), A.W());
     if (swap && (op==O_DIV || op==O_SUB)) { /// * op(scaler, tensor)
-        Tensor &B = mmu.tensor(A.size);     /// * working tensor
+        Tensor &B = mmu.tensor(A.numel);    /// * working tensor
         B.map(O_FILL, n);                   /// * broadcast
         Tensor::mat(op, B, A, C);           /// * Hadamard ops
         mmu.free(B);                        /// * free working tensor
@@ -88,13 +88,13 @@ TensorVM::tmat(t4_mat_op op, t4_drop_opt x) {
     ///
     /// broadcast_op(tensor, tensor)
     ///
-    if (A.rank==1 && A.size==B.size) {      ///> dot(vector, vector)
+    if (A.rank==1 && A.numel==B.numel) {    ///> dot(vector, vector)
         DU d = A.dot(B);                    /// * inner product
         if (x==DROP) free(A, B);
         PUSH(d);                            /// * dot product on TOS
         VLOG2(" => %f\n", top);
     }
-    else if (n==B.size) {                   ///> inner(tensor, vector)
+    else if (n==B.numel) {                  ///> inner(tensor, vector)
         Tensor &C = mmu.tensor(n);
         Tensor::mm(A, B, C);
         if (x==DROP) free(A, B);            /// TODO: in-place
@@ -255,7 +255,7 @@ TensorVM::init() {
     ///@{
     CODE("flatten",                      ///< reshape as a vector (1-D array)
         Tensor &t = TTOS;
-        t.reshape(t.size)),
+        t.reshape(t.numel)),
     CODE("reshape2",                     ///< reshape as matrix(h,w)
         IU w = POPi; IU h = POPi;
         TTOS.reshape(h, w)),
@@ -280,7 +280,7 @@ TensorVM::init() {
     ///@defgrup Tensor slice and dice
     ///@{
     CODE("sum", if (IS_OBJ(top)) PUSH(TTOS.sum())),
-    CODE("avg", if (IS_OBJ(top)) PUSH(TTOS.sum() / TTOS.size)),
+    CODE("avg", if (IS_OBJ(top)) PUSH(TTOS.sum() / TTOS.numel)),
     CODE("{",   if (IS_OBJ(top) && ten_lvl > 0) ++ten_lvl),
     CODE("}",   if (IS_OBJ(top) && ten_lvl > 0) --ten_lvl),
     CODE("slice",

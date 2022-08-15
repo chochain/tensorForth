@@ -69,9 +69,9 @@ AIO::print_obj(DU v) {
     std::cout << std::setprecision(_prec);
     switch (t.rank) {
     case 1: {
-        std::cout << "vector[" << t.size << "] = ";
-        int ri = (t.size < _thres) ? t.size : range(t.size);
-        print_vec(d, t.size, ri);
+        std::cout << "vector[" << t.numel << "] = ";
+        int ri = (t.numel < _thres) ? t.numel : range(t.numel);
+        print_vec(d, t.numel, ri);
     } break;
     case 2: {
         std::cout << "matrix[" << t.H() << "," << t.W() << "] = {\n\t";

@@ -181,12 +181,12 @@ MMU::view(Tensor &t0) {
     memcpy(t, &t0, sizeof(Tensor));
     t->ttype = VIEW;
 
-    TRACE1("mmu#view:%p => size=%d\n", t, t->size);
+    TRACE1("mmu#view:%p => numel=%d\n", t, t->numel);
     return *t;
 }
 __GPU__ void                     ///< release tensor memory blocks
 MMU::free(Tensor &t) {
-    TRACE1("mmu#free(T%d) size=%d\n", t.rank, t.size);
+    TRACE1("mmu#free(T%d) numel=%d\n", t.rank, t.numel);
     if (t.is_tensor()) {              /// * skip view
         _ostore.free((void*)t.data);  /// * free physical data
         for (int i=0; t.grad_fn!=L_NONE && t.grad[i] && i < 4; i++) {
@@ -198,8 +198,8 @@ MMU::free(Tensor &t) {
 }
 __GPU__ void                     ///< release tensor memory blocks
 MMU::free(Model &m) {
-    TRACE1("mmu#free(N%d)\n", m.size);
-    for (int i = 0; i < m.size; i++) free(m[i]);
+    TRACE1("mmu#free(N%d)\n", m.numel);
+    for (int i = 0; i < m.numel; i++) free(m[i]);
     _ostore.free((void*)&m);
     stat();
 }
@@ -217,11 +217,11 @@ MMU::copy(Tensor &t0) {
     ///
     /// hard copy data block
     ///
-    U64 bsz = sizeof(DU) * t0.size;
+    U64 bsz = sizeof(DU) * t0.numel;
     t1->data = (DU*)_ostore.malloc(bsz);
     Tensor::copy(t0, *t1);
 
-    TRACE1("mmu#copy(T%d) size=%d to T%d:%p\n", t0.rank, t0.size, t1->rank, t1);
+    TRACE1("mmu#copy(T%d) numel=%d to T%d:%p\n", t0.rank, t0.numel, t1->rank, t1);
     return *t1;
 }
 __GPU__ Tensor&
@@ -230,9 +230,9 @@ MMU::random(Tensor &t, t4_rand_opt ntype, int seed) {
         k_rand_init<<<1, T4_RAND_SEED_SZ>>>(_seed, seed);
         cudaDeviceSynchronize();
     }
-    TRACE1("mmu#random(T%d) size=%d\n", t.rank, t.size);
-    dim3 block(T4_RAND_SEED_SZ), grid((t.size + block.x - 1) / block.x);
-    k_rand<<<grid, block>>>(t.data, t.size, _seed, ntype);
+    TRACE1("mmu#random(T%d) numel=%d\n", t.rank, t.numel);
+    dim3 block(T4_RAND_SEED_SZ), grid((t.numel + block.x - 1) / block.x);
+    k_rand<<<grid, block>>>(t.data, t.numel, _seed, ntype);
     cudaDeviceSynchronize();
 
     return t;
@@ -294,7 +294,7 @@ MMU::slice(Tensor &t0, U16 x0, U16 x1, U16 y0, U16 y1) {
             memcpy(d1, d0, bsz);
         }
     }
-    TRACE1("mmu#slice(T%d)[%d:%d,%d:%d,] size=%d\n", t0.rank, t0.size, x0, x1, y0, y1);
+    TRACE1("mmu#slice(T%d)[%d:%d,%d:%d,] numel=%d\n", t0.rank, t0.numel, x0, x1, y0, y1);
     return t1;
 }
 __GPU__ DU
@@ -338,8 +338,8 @@ MMU::to_s(std::ostream &fout, Tensor &t) {
     static const char tn[] = { 'T', 'V', 'N' };  /// sync with t4_obj
     fout << tn[t.ttype];
     switch(t.rank) {
-    case 0: fout << "["  << (t.size - 1) << "]";          break;
-    case 1: fout << "1[" << t.size << "]";                break;
+    case 0: fout << "["  << (t.numel - 1) << "]";         break;
+    case 1: fout << "1[" << t.numel << "]";               break;
     case 2: fout << "2[" << t.H() << "," << t.W() << "]"; break;
     case 4: fout << "4[" << t.N() << "," << t.H() << "," << t.W() << "," << t.C() << "]"; break;
     }
@@ -456,7 +456,7 @@ MMU::network(std::ostream &fout, DU mt) {
         fout << "[" << std::setw(3) << i << "] " << Model::nname(fn) << ":";
         to_s(fout, t);
         int sz = t.grad[0] && t.grad[1]
-            ? t.grad[0]->size * t.grad[1]->size
+            ? t.grad[0]->numel * t.grad[1]->numel
             : 0;
         fout << ", #param=" << sz;
     };
@@ -466,7 +466,7 @@ MMU::network(std::ostream &fout, DU mt) {
         }
     };
     Model &m = this->du2mdl(mt);
-    int   sz = m.size;
+    int   sz = m.numel;
     printf("network: model[%d]=%p\n", sz - 1, &m);
     if (!m.is_model()) return;
     for (int i = 1; i < sz; i++) {  /// skip root[0]

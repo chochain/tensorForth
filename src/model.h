@@ -39,7 +39,7 @@ public:
     __BOTH__ __INLINE__ void reset(MMU *mmu, Tensor &store) {
         _mmu   = mmu;
         _store = &store;
-        size   = 0;
+        numel  = 0;
         dsize  = sizeof(DU);
         rank   = 0;
         ttype  = MODEL;
@@ -48,18 +48,18 @@ public:
         npush(store);            // keep store as root
     }
     __BOTH__ __INLINE__ DU npop() {
-        DU n = data[--size];
+        DU n = data[--numel];
         nten = &_mmu->du2ten(n);
         return n;
     }
     __BOTH__ __INLINE__ Model &npush(DU v) {
         nten = &_mmu->du2ten(v);
-        data[size++] = v;
+        data[numel++] = v;
         return *this;
     }
     __BOTH__ __INLINE__ Model &npush(Tensor &t) {
         nten = &t;
-        data[size++] = _mmu->ten2du(t);
+        data[numel++] = _mmu->ten2du(t);
         return *this;
     }
     __GPU__ __INLINE__ Tensor &tensor(U16 n, U16 h, U16 w, U16 c) {
@@ -88,9 +88,6 @@ public:
     __GPU__ Model &iminpool(U16 n); ///< minimum pooling with nxn filter
     __GPU__ Model &idropout(U16 p); ///< zero out p% of channel data (add noise between data points)
     /// @}
-    /// @name Convolution and Linear Layers
-    /// @{
-    __GPU__ Model &forward();
-    __GPU__ Model &step(t4_pool_op op);
+    __GPU__ void  step(Tensor &in, Tensor &out);
 };
 #endif // TEN4_SRC_MODEL_H
