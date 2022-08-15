@@ -151,9 +151,9 @@ __GPU__ Model&
 Model::iflatten() {
     if (NO_INIT) return *this;
     Tensor &in  = *nten;
-    Tensor &out = vector(in.size);
+    Tensor &out = vector(in.numel);
     in.grad_fn  = L_FLATTEN;
-    in.parm     = in.size;
+    in.parm     = in.numel;
     npush(out);
     return *this;
 }
@@ -192,8 +192,8 @@ Model::isoftmax() {
 __GPU__ Model&
 Model::imaxpool(U16 f) {
     if (NO_INIT) return *this;
-    Tensor &in  = *nten; in.grad_fn = L_MAXPOOL;
-    in.parm     = f;             /// * keep pooling width
+    Tensor &in = *nten; in.grad_fn = L_MAXPOOL;
+    in.parm    = f;              /// * keep pooling width
     
     U16 m = int((in.H() - f) / f) + 1;
     U16 n = int((in.W() - f) / f) + 1;
@@ -222,12 +222,10 @@ Model::idropout(U16 f) {
     return *this;
 }
 ///
-/// Convolution and Linear Layers
+/// private methods
 ///
-__GPU__ Model&
-Model::step(t4_pool_op op) {
-    Tensor &in  = *nten;
-    Tensor &out = *(nten+1);
+__GPU__ void
+Model::step(Tensor &in, Tensor &out) {
     DU     *da  = in.data;
     DU     *dc  = out.data;
     int    m    = out.H();
@@ -263,7 +261,7 @@ Model::step(t4_pool_op op) {
         dim3   blk1(1, W2), grd1(1, (w.H() + W2 - 1) / W2);
         k_linear<<<grd1, blk1>>>(w.data, da, b.data, dc, w.H(), w.W());
     } break;
-    case L_FLATTEN: out.reshape(out.size); break;
+    case L_FLATTEN: out.reshape(out.numel); break;
     case L_RELU:    k_relu<<<grd, blk>>>(da, dc, m, n); break;
     case L_TANH:    break;
     case L_SIGMOID: break;
@@ -272,12 +270,11 @@ Model::step(t4_pool_op op) {
         DU sum = tmp.map(O_EXP).sum();        /// * sum all probabilities
         Tensor::mat(O_DIV, tmp, sum, out);    /// * p / sum(p)
     } break;
-    case L_MAXPOOL:
-    case L_AVGPOOL:
-    case L_MINPOOL: k_pooling<<<grd, blk>>>(da, dc, m, n, k, op); break;
+    case L_MAXPOOL: k_pooling<<<grd, blk>>>(da, dc, m, n, k, POOL_MAX); break;
+    case L_AVGPOOL: k_pooling<<<grd, blk>>>(da, dc, m, n, k, POOL_AVG); break;
+    case L_MINPOOL: k_pooling<<<grd, blk>>>(da, dc, m, n, k, POOL_MIN); break;
     case L_DROPOUT: break;
     }
-    return *this;
 }
 #endif  // T4_ENABLE_OBJ
 //==========================================================================
