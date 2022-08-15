@@ -21,7 +21,7 @@ __KERN__ void k_gemm(                                        ///< 2D only
     int j = threadIdx.x + blockIdx.x * blockDim.x;
 
     if (i < M && j < N) {
-        DU2 acc = 0;
+        DU2 acc = DU0;
         for (int k = 0; k < K; ++k) {
             acc += A[k + i * K] * B[j + k * N];
         }
@@ -39,10 +39,10 @@ __KERN__ void k_mat_op(                                    ///< TODO: C
     if (i < M && j < N) {
         int k = j + i * N;
         switch (op) {                                      /// no divergence
-        case ADD: C[k] = A[k] + B[k]; break;
-        case SUB: C[k] = A[k] - B[k]; break;
-        case MUL: C[k] = A[k] * B[k]; break;               /// * convolution
-        case DIV: C[k] = A[k] / B[k]; break;
+        case O_ADD: C[k] = A[k] + B[k]; break;
+        case O_SUB: C[k] = A[k] - B[k]; break;
+        case O_MUL: C[k] = A[k] * B[k]; break;               /// * convolution
+        case O_DIV: C[k] = A[k] / B[k]; break;
         }
     }
 }
@@ -93,10 +93,10 @@ Tensor::mat(t4_mat_op op, Tensor &A, DU v, Tensor &C) {
     DU *dc = C.data, *da = A.data;
     for (int k = 0; k < A.size; k++) {
         switch (op) {
-        case ADD: *dc++ = *da++ + v; break;
-        case SUB: *dc++ = *da++ - v; break;
-        case MUL: *dc++ = *da++ * v; break;
-        case DIV: *dc++ = *da++ / v; break;
+        case O_ADD: *dc++ = *da++ + v; break;
+        case O_SUB: *dc++ = *da++ - v; break;
+        case O_MUL: *dc++ = *da++ * v; break;
+        case O_DIV: *dc++ = *da++ / v; break;
         }
     }
     return C;
@@ -387,12 +387,12 @@ Tensor::map(t4_mat_op op, DU v) {
     WARN("Tensor#%s v=%f\n", opn[op], v);
     dim3 block(256), grid((size + block.x -1)/block.x);
     switch(op) {
-    case ABS:   k_abs<<<  grid, block>>>(data, size);    break;
-    case EXP:   k_exp<<<  grid, block>>>(data, size);    break;
-    case TANH:  k_tanh<<< grid, block>>>(data, size);    break;
-    case RELU:  k_relu<<< grid, block>>>(data, size);    break;
-    case FILL:  k_fill<<< grid, block>>>(data, v, size); break;
-    case SCALE: k_scale<<<grid, block>>>(data, v, size); break;
+    case O_ABS:   k_abs<<<  grid, block>>>(data, size);    break;
+    case O_EXP:   k_exp<<<  grid, block>>>(data, size);    break;
+    case O_TANH:  k_tanh<<< grid, block>>>(data, size);    break;
+    case O_RELU:  k_relu<<< grid, block>>>(data, size);    break;
+    case O_FILL:  k_fill<<< grid, block>>>(data, v, size); break;
+    case O_SCALE: k_scale<<<grid, block>>>(data, v, size); break;
     default: ERROR("Tensor#map op=%d?\n", op); break;
     }
     cudaDeviceSynchronize();
@@ -412,7 +412,7 @@ Tensor::reset(void *mptr, U32 sz) {
     rank    = 1;
     ttype   = TENSOR;
     data    = (DU*)mptr;
-    grad_fn = NONE;
+    grad_fn = L_NONE;
     memcpy(stride, s, sizeof(s));
     memcpy(shape,  t, sizeof(t));
     memcpy(grad,   g, sizeof(g));

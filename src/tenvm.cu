@@ -18,10 +18,10 @@ TensorVM::tprint(DU d) {
 __GPU__ void
 TensorVM::ssop(t4_mat_op op) {
     switch (op) {
-    case ADD: top += ss.pop();      break;
-    case SUB: top = ss.pop() - top; break;
-    case MUL: top *= ss.pop();      break;
-    case DIV: top = DIV(ss.pop(), top); SCALAR(top); break;
+    case O_ADD: top += ss.pop();      break;
+    case O_SUB: top = ss.pop() - top; break;
+    case O_MUL: top *= ss.pop();      break;
+    case O_DIV: top = DIV(ss.pop(), top); SCALAR(top); break;
     }
     VLOG2(" => %f\n", top);
 }
@@ -51,9 +51,9 @@ TensorVM::tsop(t4_mat_op op, t4_drop_opt x, bool swap) {
     Tensor &A = swap ? TTOS : TNOS;
     DU     n  = swap ? ss[-1] : top;
     Tensor &C = mmu.tensor(A.H(), A.W());
-    if (swap && (op==DIV || op==SUB)) {     /// * op(scaler, tensor)
+    if (swap && (op==O_DIV || op==O_SUB)) { /// * op(scaler, tensor)
         Tensor &B = mmu.tensor(A.size);     /// * working tensor
-        B.map(FILL, n);                     /// * broadcast
+        B.map(O_FILL, n);                   /// * broadcast
         Tensor::mat(op, B, A, C);           /// * Hadamard ops
         mmu.free(B);                        /// * free working tensor
     }
@@ -84,7 +84,7 @@ TensorVM::tmat(t4_mat_op op, t4_drop_opt x) {
         VLOG2("=> C[%d,%d]=%p\n", C.H(), C.W(), &C);
         return;
     }
-    if (B.rank != 1 || op != MUL) { ERROR("mul?"); return; }
+    if (B.rank != 1 || op != O_MUL) { ERROR("mul?"); return; }
     ///
     /// broadcast_op(tensor, tensor)
     ///
@@ -269,10 +269,10 @@ TensorVM::init() {
     CODE("={",                          ///< (n -- ) or ( -- )
          ten_off = IS_OBJ(top) ? 0 : POPi;
          ten_lvl = IS_OBJ(top) ? 1 : 0),
-    CODE("zeros", if (IS_OBJ(top)) TTOS.map(FILL, DU0)),
-    CODE("ones",  if (IS_OBJ(top)) TTOS.map(FILL, DU1)),
+    CODE("zeros", if (IS_OBJ(top)) TTOS.map(O_FILL, DU0)),
+    CODE("ones",  if (IS_OBJ(top)) TTOS.map(O_FILL, DU1)),
     CODE("full",  if (!IS_OBJ(ss[-1])) return;
-         DU d = POP(); TTOS.map(FILL, d)),
+         DU d = POP(); TTOS.map(O_FILL, d)),
     CODE("eye",   if (IS_OBJ(top)) TTOS.identity()),
     CODE("rand",  top = mmu.rand(top, UNIFORM)),  ///< uniform randomize a tensor or number
     CODE("randn", top = mmu.rand(top, NORMAL)),   ///< normal dist. randomize a tensor
@@ -298,20 +298,20 @@ TensorVM::init() {
              top = EXP(top);
              SCALAR(top);          /// * mask off object-bit if any
          }
-         else TTOS.map(EXP)),
+         else TTOS.map(O_EXP)),
     CODE("tanh",                   ///< (A -- A')
          if (!IS_OBJ(top)) {       /// * scalar
              top = tanh(top);
              SCALAR(top);          /// * mask off object-bit if any
          }
-         else TTOS.map(TANH)),
+         else TTOS.map(O_TANH)),
     CODE("relu",
-         if (IS_OBJ(top)) TTOS.map(RELU);
+         if (IS_OBJ(top)) TTOS.map(O_RELU);
          else top = top > DU0 ? top : DU0),
-    CODE("+=",        tmat(ADD, DROP)),
-    CODE("-=",        tmat(SUB, DROP)),
-    CODE("*=",        tmat(MUL, DROP)),
-    CODE("/=",        tmat(DIV, DROP)),
+    CODE("+=",        tmat(O_ADD, DROP)),
+    CODE("-=",        tmat(O_SUB, DROP)),
+    CODE("*=",        tmat(O_MUL, DROP)),
+    CODE("/=",        tmat(O_DIV, DROP)),
     CODE("@=",        tmul(DROP)),
     ///@defgroup Tensor matrix ops
     ///@brief - stick to PyTorch naming when possible
@@ -344,10 +344,10 @@ TensorVM::init() {
     ///@defgroup redefined tensor ops
     ///@{
     CODE(".",   tprint(POP())),
-    CODE("+",   tmat(ADD, KEEP)),
-    CODE("-",   tmat(SUB, KEEP)),
-    CODE("*",   tmat(MUL, KEEP)),
-    CODE("/",   tmat(DIV, KEEP)),
+    CODE("+",   tmat(O_ADD, KEEP)),
+    CODE("-",   tmat(O_SUB, KEEP)),
+    CODE("*",   tmat(O_MUL, KEEP)),
+    CODE("/",   tmat(O_DIV, KEEP)),
     CODE("@",
          if (IS_OBJ(top)) tmul(KEEP);
          else {
@@ -355,7 +355,7 @@ TensorVM::init() {
          }),
     CODE("abs",
          if (!IS_OBJ(top)) top = ABS(top);
-         else TTOS.map(ABS)),
+         else TTOS.map(O_ABS)),
     CODE("max",
          if (IS_OBJ(top)) PUSH(TTOS.max());
          else { DU n=ss.pop(); top = (top>n) ? top : n; }),
@@ -364,7 +364,7 @@ TensorVM::init() {
          else { DU n=ss.pop(); top = (top<n) ? top : n; }),
     CODE("negate",
          if (!IS_OBJ(top)) top *= -DU1;
-         else TTOS.map(SCALE, -DU1)),
+         else TTOS.map(O_SCALE, -DU1)),
     ///@}
     CODE("boot", mmu.clear(FIND("gemm") + 1))
     };
