@@ -46,18 +46,16 @@ __KERN__ void k_conv2d(          ///< TODO: C
 }
 
 __KERN__ void k_linear(                     ///< TODO: C
-    DU *A, DU *W, DU *B, DU *C,
-    int M, int N, int K
+    DU *W, DU *A, DU *B, DU *C,
+    int M, int N
     ) {
-    const int j = threadIdx.x + blockIdx.x * blockDim.x;
     const int i = threadIdx.y + blockIdx.y * blockDim.y;
-
-    if (i < M && j < N) {
+    if (i < M) {
         DU2 acc = DU0;
-        for (int k = 0; k < K; k++) {       ///< TODO: CDP
-            acc += W[k + i * K] * A[j + k * N];
+        for (int j = 0; j < N; j++) {       ///< TODO: CDP
+            acc += W[j + i * N] * A[j];
         }
-        C[j + i * N] = acc + B[j + i * N];
+        C[i] = acc + B[i];
     }
 }
 
@@ -235,19 +233,19 @@ Model::step(t4_pool_op op) {
     int    m    = out.H();
     int    n    = out.W();
     int    k    = in.parm;
-    dim3   block(WARP_SZ, WARP_SZ);
-    dim3   grid((n + WARP_SZ - 1)/WARP_SZ, (m + WARP_SZ - 1)/WARP_SZ);
+    dim3   blk(WARP_SZ, WARP_SZ);
+    dim3   grd((n + WARP_SZ - 1)/WARP_SZ, (m + WARP_SZ - 1)/WARP_SZ);
 
-    auto conv3 = [da, dc, m, n, block](DU *f, DU *b) {
+    auto conv3 = [da, dc, m, n, blk](DU *f, DU *b) {
         dim3 g((n+CONV_SZ_3-1)/CONV_SZ_3, (m+CONV_SZ_3-1)/CONV_SZ_3);
-        k_conv2d<WARP_SZ, CONV_SZ_3, 3><<<g, block>>>(da, f, b, dc, m, n);
+        k_conv2d<WARP_SZ, CONV_SZ_3, 3><<<g, blk>>>(da, f, b, dc, m, n);
     };
-    auto conv5 = [da, dc, m, n, block](DU *f, DU *b) {
+    auto conv5 = [da, dc, m, n, blk](DU *f, DU *b) {
         dim3 g((n+CONV_SZ_5-1)/CONV_SZ_5, (m+CONV_SZ_5-1)/CONV_SZ_5);
-        k_conv2d<WARP_SZ, CONV_SZ_5, 5><<<g, block>>>(da, f, b, dc, m, n);
+        k_conv2d<WARP_SZ, CONV_SZ_5, 5><<<g, blk>>>(da, f, b, dc, m, n);
     };
-    auto pool = [da, dc, m, n, block, grid, k, op]() {
-        k_pooling<<<grid, block>>>(da, dc, m, n, k, op);
+    auto pool = [da, dc, m, n, blk, grd, k, op]() {
+        k_pooling<<<grd, blk>>>(da, dc, m, n, k, op);
     };
     
     switch(in.grad_fn) {
@@ -261,13 +259,15 @@ Model::step(t4_pool_op op) {
         default: ERROR("model#conv2d kernel size=%d not supported\n", k);
         }
     } break;
-    case L_LINEAR:  {
-        Tensor &w = *in.grad[0];
+    case L_LINEAR:  {                ///< dc = W * da + B
+        Tensor &w = *in.grad[0];  
         Tensor &b = *in.grad[1];
-        k_linear<<<grid, block>>>(da, w.data, b.data, dc, in.H(), n, m);
+        const int W2  = WARP_SZ * WARP_SZ;
+        dim3 blk1(1, W2), grd1(1, (w.H() + W2 - 1) / W2);
+        k_linear<<<grd1, blk1>>>(w.data, da, b.data, dc, w.H(), w.W());
     } break;
     case L_FLATTEN: out.reshape(out.size); break;
-    case L_RELU:    k_relu<<<grid, block>>>(da, dc, m, n); break;
+    case L_RELU:    k_relu<<<grd, blk>>>(da, dc, m, n); break;
     case L_TANH:    break;
     case L_SIGMOID: break;
     case L_SOFTMAX: break;
