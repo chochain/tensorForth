@@ -19,7 +19,7 @@ typedef enum {
 /// tensorForth base object class
 ///
 struct T4Base : public Managed {
-    U32 size;     ///< number of data elements, TODO: more than 4G elements
+    U32 numel;     ///< number of data elements, TODO: more than 4G elements
     union {
         U32  attr = 0;     ///< attrbutes collective
         struct {
@@ -34,20 +34,20 @@ struct T4Base : public Managed {
     /// class contructors
     ///
     __HOST__ T4Base() :
-        dsize(sizeof(DU)), size(0), rank(0) {}
+        dsize(sizeof(DU)), numel(0), rank(0) {}
     __HOST__ T4Base(U32 sz) :
-        dsize(sizeof(DU)), size(sz), rank(1) {
-        cudaMallocManaged((void**)&data, (size_t)size * dsize);
+        dsize(sizeof(DU)), numel(sz), rank(1) {
+        cudaMallocManaged((void**)&data, (size_t)numel * dsize);
         GPU_CHK();
     }
     __HOST__ T4Base(U16 h, U16 w) :
-        dsize(sizeof(DU)), size(h * w), rank(2) {
-        cudaMallocManaged((void**)&data, (size_t)size * dsize);
+        dsize(sizeof(DU)), numel(h * w), rank(2) {
+        cudaMallocManaged((void**)&data, (size_t)numel * dsize);
         GPU_CHK();
     }
     __HOST__ T4Base(U16 n, U16 h, U16 w, U16 c) :
-        dsize(sizeof(DU)), size(n * h * w * c), rank(4) {
-        cudaMallocManaged((void**)&data, (size_t)size * dsize);
+        dsize(sizeof(DU)), numel(n * h * w * c), rank(4) {
+        cudaMallocManaged((void**)&data, (size_t)numel * dsize);
         GPU_CHK();
     }
     __HOST__ ~T4Base() {
