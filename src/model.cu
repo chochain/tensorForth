@@ -10,37 +10,35 @@
 ///
 /// Row convolution filter
 ///
-#define CONV_SZ_3    (WARP_SZ - 3 + 1)
-#define CONV_SZ_5    (WARP_SZ - 5 + 1)
-
-template<int Z, int T, int K>    ///> WARP_SIZE, TILE_SIZE, KERNEL_SIZE
+template<int WZ, int T, int K>   ///> WARP_SIZE, TILE_SIZE, KERNEL_SIZE
 __KERN__ void k_conv2d(          ///< TODO: C
     DU *A, DU *F, DU *B, DU *C,  ///> input A[MxN], F[KxK] kernel B[KxK] bias, output C[MxN]
     int M, int N
     ) {
-    __shared__ DU d[Z * Z];                 ///< shared memory [WARPxWARP]
+    __shared__ DU d[WZ * WZ];               ///< shared memory [16x16]
     
     const int tx = threadIdx.x, j0 = tx + blockIdx.x * T;
     const int ty = threadIdx.y, i0 = ty + blockIdx.y * T;
     const int i  = i0 - int(K / 2);         ///< transfrom to input coordinate
     const int j  = j0 - int(K / 2);
     
-    d[tx + ty * Z] =                        ///< shared memory with zero padding
+    d[tx + ty * WZ] =                       ///< shared memory with zero padding
         (i >= 0 && i < M && j >= 0 && j < N)
         ? A[j + i * N] : DU0;
     __syncthreads();
 
-    if (tx < T && ty < T) {                 /// * within tile
+    if (tx < T && ty < T) {                 /// * within tile [12x12]
         DU sum = DU0;
         for (int y = 0; y < K; y++) {       /// * process one cell
-            int d0 = tx + (y + ty) * Z;     ///< offset to smem block
+            int d0 = tx + (y + ty) * WZ;    ///< offset to smem block
             int b0 = y * K;
             for (int x = 0; x < K; x++) {
-                sum += F[x + b0] * d[x + d0] + B[x]; 
+                sum += F[x + b0] * d[x + d0]; 
             }
         }
         if (i0 < M && j0 < N) {             /// * update C[i][j]
-            C[j0 + i0 * N] = sum;           /// * output matrix
+            int k = j0 + i0 * N;            /// * array index
+            C[k] = sum + B[k];              /// * update output matrix with bias
         }
     }
 }
@@ -132,19 +130,25 @@ Model::add(t4_layer fn, U16 n, DU bias, U16 *opt) {
 
 __GPU__ Model&
 Model::forward(Tensor &input) {
+    static const char *name[] = {   /// double check with t4_layer
+    "output ", "conv2d ", "linear ", "flatten", "relu   ",
+    "tanh   ", "sigmoid", "softmax", "maxpool", "avgpool",
+    "minpool", "dropout"
+    };
     Tensor &in = (*this)[1];
     if (!in.is_same_shape(input)) {
         ERROR("model#forward dim?\n");
         return *this;
     }
     Tensor::copy(input, in);
-    /*
-    for (int i = 2; i < (model.numel - 1); i++) {
-        Tensor &out = model[i];
-        model.forward(in, out);
+    for (int i = 2; i < numel; i++) {
+        printf("%d> %s [%d,%d]=>", i-1, name[in.grad_fn], in.H(), in.W()); 
+        Tensor &out = (*this)[i];
+        _fstep(in, out);
         in = out;
+        printf("\n");
+        break;
     }
-    */
     return *this;
 }
 __GPU__ Model&
@@ -154,8 +158,11 @@ Model::backprop(Tensor &output) {
 /// ========================================================================
 /// private methods 
 ///
+#define TILE3    (WARP_SZ - 3 + 1)
+#define TILE5    (WARP_SZ - 5 + 1)
+
 __GPU__ void
-Model::_step(Tensor &in, Tensor &out) {
+Model::_fstep(Tensor &in, Tensor &out) {
     DU   *da = in.data;
     DU   *dc = out.data;
     int  m   = out.H();
@@ -165,19 +172,21 @@ Model::_step(Tensor &in, Tensor &out) {
     dim3 grd((n + WARP_SZ - 1)/WARP_SZ, (m + WARP_SZ - 1)/WARP_SZ);
 
     auto conv3x3 = [da, dc, m, n, blk](DU *f, DU *b) {
-        dim3 g((n+CONV_SZ_3-1)/CONV_SZ_3, (m+CONV_SZ_3-1)/CONV_SZ_3);
-        k_conv2d<WARP_SZ, CONV_SZ_3, 3><<<g, blk>>>(da, f, b, dc, m, n);
+        dim3 g((n + TILE3 - 1) / TILE3, (m + TILE3 - 1) / TILE3);
+        k_conv2d<WARP_SZ, TILE3, 3><<<g, blk>>>(da, f, b, dc, m, n);
     };
     auto conv5x5 = [da, dc, m, n, blk](DU *f, DU *b) {
-        dim3 g((n+CONV_SZ_5-1)/CONV_SZ_5, (m+CONV_SZ_5-1)/CONV_SZ_5);
-        k_conv2d<WARP_SZ, CONV_SZ_5, 5><<<g, blk>>>(da, f, b, dc, m, n);
+        dim3 g((n + TILE5 - 1) / TILE5, (m + TILE5 - 1) / TILE5);
+        k_conv2d<WARP_SZ, TILE5, 5><<<g, blk>>>(da, f, b, dc, m, n);
     };
     
+    printf(" k=%d, out[%d,%d]", k, m, n);
     switch(in.grad_fn) {
     case L_CONV2D: {
         Tensor &f = *in.grad[0];     ///< filter tensor
         Tensor &b = *in.grad[1];     ///< bias tensor
         int ks = f.H();
+        printf(" ks=%d f[%d,%d], b[%d,%d]", ks, f.H(), f.W(), b.H(), b.W());
         switch(ks) {
         case 3: conv3x3(f.data, b.data); break;
         case 5: conv5x5(f.data, b.data); break;
@@ -191,7 +200,7 @@ Model::_step(Tensor &in, Tensor &out) {
         dim3   blk1(1, W2), grd1(1, (w.H() + W2 - 1) / W2);
         k_linear<<<grd1, blk1>>>(w.data, da, b.data, dc, w.H(), w.W());
     } break;
-    case L_FLATTEN: out.reshape(out.numel); break;
+    case L_FLATTEN: out.reshape(out.numel);             break;
     case L_RELU:    k_relu<<<grd, blk>>>(da, dc, m, n); break;
     case L_TANH:    break;
     case L_SIGMOID: break;
@@ -205,7 +214,10 @@ Model::_step(Tensor &in, Tensor &out) {
     case L_MINPOOL: k_pooling<<<grd, blk>>>(da, dc, m, n, k, POOL_MIN); break;
     case L_DROPOUT: break;
     }
+    cudaDeviceSynchronize();
 }
+__GPU__ void
+Model::_bstep(Tensor &in, Tensor &out) {}
 ///
 /// Convolution and Linear ops
 ///
