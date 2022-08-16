@@ -111,8 +111,12 @@ NetVM::init() {
     ///@{
     CODE("nn.for",    {}),
     CODE("nn.next",   {}),
-    CODE("forward",   Tensor &t = mmu.du2ten(POP()); NN.forward(t)),
-    CODE("backprop",  Tensor &t = mmu.du2ten(POP()); NN.backprop(t)),
+    CODE("forward",
+         if (!IS_OBJ(top) || !IS_OBJ(ss[-1])) return;
+         Tensor &t = mmu.du2ten(POP()); NN.forward(t)),
+    CODE("backprop",
+         if (!IS_OBJ(top) || !IS_OBJ(ss[-1])) return;
+         Tensor &t = mmu.du2ten(POP()); NN.backprop(t)),
     ///@}
     ///@defgroup Gradiant ops
     ///@{
@@ -121,7 +125,8 @@ NetVM::init() {
     ///@}
     ///@defgroup Debugging ops
     ///@{
-    CODE(">n",        DU t = POP();   NN.npush(t)),
+    CODE(">n",        DU t = POP(); NN.npush(t)),
+    CODE("n@",        DU i = POPi; PUSH(NN[i])),
     CODE("network",   fout << opx(OP_NET, 0, top)),
     ///@}
     };
