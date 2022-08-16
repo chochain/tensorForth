@@ -15,7 +15,6 @@ typedef enum {
     POOL_AVG
 } t4_pool_op;
 
-#define NO_INIT  (!autograd || (nten->grad_fn != L_NONE))
 class Model : public T4Base {
     MMU     *_mmu;       ///< tensor storage base
     Tensor  *_store;     ///< model storage - Sequential, TODO: DAG
@@ -55,8 +54,11 @@ public:
     __GPU__ Model &backprop(Tensor &output);
 
 private:
-    __GPU__ void _step(Tensor &in, Tensor &out);
-    
+    /// @name single step forward and backprop
+    /// @{
+    __GPU__ void _fstep(Tensor &in, Tensor &out);
+    __GPU__ void _bstep(Tensor &in, Tensor &out);
+    /// @}
     /// @name Convolution and Linear initializer
     /// @{
     __GPU__ void _iconv2d(Tensor &in, U16 c, DU bias, U16 *opt);
