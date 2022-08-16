@@ -82,7 +82,10 @@ AIO::print_obj(DU v) {
     case 4: {
         std::cout << "tensor["
                   << t.N() << "," << t.H() << "," << t.W() << "," << t.C()
-                  << "]";
+                  << "] = {\n\t";
+        int mj = t.H(), mi = t.W(), rj = range(mj),  ri = range(mi);
+        print_mat(d, mi, mj, ri, rj);
+        std::cout << " }";
     } break;
     default: std::cout << "tensor rank=" << t.rank << " not supported";
     }
