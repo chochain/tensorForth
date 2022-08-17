@@ -74,9 +74,8 @@ NetVM::init() {
     ///@defgroup Convolution and Linear ops
     ///@{
     CODE("nn.model",  DU m = mmu.mdl2du(mmu.model(POPi)); PUSH(m)),
-    CODE("autograd",  bool on = POPi; NN.autograd = on),
-    CODE("conv2d",    _conv2d()),                          ///> (N b c [A] -- N')
-    CODE("linear",                                         ///> (N n -- N')
+    CODE("nn.conv2d", _conv2d()),                          ///> (N b c [A] -- N')
+    CODE("nn.linear",                                      ///> (N n -- N')
          if (!IS_OBJ(top) && !IS_OBJ(ss[-1])) {
              U16   n    = POPi;          ///> number of output channels
              DU    bias = POP();         ///> convolution bias
@@ -86,17 +85,17 @@ NetVM::init() {
     ///@}
     ///@defgroup Activation ops
     ///@{
-    CODE("relu",      NN.add(L_RELU)),                     ///> (N -- N')
-    CODE("tanh",      NN.add(L_TANH)),                     ///> (N -- N')
-    CODE("sigmoid",   NN.add(L_SIGMOID)),                  ///> (N -- N')
-    CODE("softmax",   NN.add(L_SOFTMAX)),                  ///> (N -- N')
+    CODE("nn.relu",   NN.add(L_RELU)),                     ///> (N -- N')
+    CODE("nn.tanh",   NN.add(L_TANH)),                     ///> (N -- N')
+    CODE("nn.sigmoid",NN.add(L_SIGMOID)),                  ///> (N -- N')
+    CODE("nn.softmax",NN.add(L_SOFTMAX)),                  ///> (N -- N')
     ///@}
     ///@defgroup Pooling and Dropout ops
     ///@{
     CODE("pool.max",  U16 n = POPi; NN.add(L_MAXPOOL, n)), ///> (N n -- N')
     CODE("pool.avg",  U16 n = POPi; NN.add(L_AVGPOOL, n)), ///> (N n -- N')
     CODE("pool.min",  U16 n = POPi; NN.add(L_MINPOOL, n)), ///> (N n -- N')
-    CODE("dropout",                                        ///> (N p -- N')
+    CODE("nn.dropout",                                     ///> (N p -- N')
          DU p = POP();
          NN.add(L_DROPOUT, int(100.0 * p + 0.5))),
     ///@}
@@ -105,23 +104,24 @@ NetVM::init() {
     CODE("loss.nll",  {}),
     CODE("loss.mse",  {}),
     CODE("loss.ce",   {}),
-    CODE("predict",   {}),
+    ///@}
+    ///@defgroup Gradiant ops
+    ///@{
+    CODE("nn.sgd",    {}),
+    CODE("nn.adam",   {}),
     ///@}
     ///@defgroup Batch ops
     ///@{
     CODE("nn.for",    {}),
     CODE("nn.next",   {}),
+    CODE("autograd",  bool on = POPi; NN.autograd = on),
     CODE("forward",
          if (!IS_OBJ(top) || !IS_OBJ(ss[-1])) return;
          Tensor &t = mmu.du2ten(POP()); NN.forward(t)),
     CODE("backprop",
          if (!IS_OBJ(top) || !IS_OBJ(ss[-1])) return;
          Tensor &t = mmu.du2ten(POP()); NN.backprop(t)),
-    ///@}
-    ///@defgroup Gradiant ops
-    ///@{
-    CODE("nn.sgd",    {}),
-    CODE("nn.adam",   {}),
+    CODE("predict",   {}),
     ///@}
     ///@defgroup Debugging ops
     ///@{
