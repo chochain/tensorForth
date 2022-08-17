@@ -11,8 +11,8 @@
 /// tensorForth object types
 ///
 typedef enum {
-    TENSOR = 0,            ///< tensor object
-    VIEW,                  ///< a view object
+    VIEW = 0,              ///< a view object
+    TENSOR,                ///< tensor object
     MODEL                  ///< NN model
 } t4_obj;
 ///
@@ -59,8 +59,8 @@ struct T4Base : public Managed {
         default: WARN("~Tensor error: rank=%d\n", rank);
         }
     }
-    __BOTH__ __INLINE__ bool is_tensor() { return ttype == TENSOR; }
     __BOTH__ __INLINE__ bool is_view()   { return ttype == VIEW;   }
+    __BOTH__ __INLINE__ bool is_tensor() { return ttype <= TENSOR; }
     __BOTH__ __INLINE__ bool is_model()  { return ttype == MODEL;  }
 };
 #endif // TEN4_SRC_T4BASE_H_
