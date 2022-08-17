@@ -99,7 +99,8 @@ MMU::status() {
             (U16)((UFP)c->name - n0), c->name,
             c->name);
     }
-    TRACE1("\\  MMU.alloc dict[%d], pmem[%d], tfree[%d]\n", _didx, _midx, _fidx);
+    TRACE1("\\  MMU.alloc dict[%d/%d], pmem[%d]=%0.1f%%, tfree[%d/%d]\n",
+        _didx, T4_DICT_SZ, _midx, 100.0*(_midx/T4_PMEM_SZ), _fidx, T4_TFREE_SZ);
 }
 ///
 /// colon - dictionary word compiler
@@ -122,7 +123,7 @@ MMU::colon(const char *name) {
 __GPU__ void
 MMU::mark_free(DU v) {            ///< mark a tensor free for release
     Tensor &t = du2ten(v);
-    TRACE1("mark T[%x]=%p as free[%d]\n", *(U32*)&v, &t, _fidx);
+    TRACE1("mark T[%x] as free[%d]\n", *(U32*)&v, _fidx);
 //    lock();
     if (_fidx < T4_TFREE_SZ) _mark[_fidx++] = v;
     else ERROR("ERR: tfree store full, increase T4_TFREE_SZ!");
@@ -131,7 +132,7 @@ MMU::mark_free(DU v) {            ///< mark a tensor free for release
 __GPU__ void                      ///< release marked free tensor
 MMU::sweep() {
 //    lock();
-    for (int i=0; _fidx && i < _fidx; i++) {
+    for (int i = 0; _fidx && i < _fidx; i++) {
         DU v = _mark[i];
         TRACE1("release T[%x] from free[%d]\n", *(U32*)&v, i);
         drop(v);
@@ -143,13 +144,14 @@ __GPU__ Tensor&                    ///< create a one-dimensional tensor
 MMU::tensor(U32 sz) {
     Tensor *t = (Tensor*)_ostore.malloc(sizeof(Tensor));
     void   *d = _ostore.malloc((U64)sizeof(DU) * sz);
+    _ostore.status(_trace);
     t->reset(d, sz);
     return *t;
 }
 __GPU__ Tensor&                    ///< create a 2-dimensional tensor
 MMU::tensor(U16 h, U16 w) {
     U32 sz = h * w;
-    TRACE1("mmu#tensor(%d,%d) => size=%d\n", h, w, sz);
+    TRACE1("mmu#tensor(%d,%d) numel=%d, ", h, w, sz);
     Tensor &t = this->tensor(sz);
     t.reshape(h, w);
     return t;
@@ -157,7 +159,7 @@ MMU::tensor(U16 h, U16 w) {
 __GPU__ Tensor&                    ///< create a NHWC tensor
 MMU::tensor(U16 n, U16 h, U16 w, U16 c) {
     U32 sz = n * h * w * c;
-    TRACE1("mmu#tensor(%d,%d,%d,%d) => size=%d\n", n, h, w, c, sz);
+    TRACE1("mmu#tensor(%d,%d,%d,%d) numel=%d, ", n, h, w, c, sz);
     Tensor &t = this->tensor(sz);
     t.reshape(n, h, w, c);
     return t;
@@ -181,12 +183,13 @@ MMU::view(Tensor &t0) {
     memcpy(t, &t0, sizeof(Tensor));
     t->ttype = VIEW;
 
-    TRACE1("mmu#view:%p => numel=%d\n", t, t->numel);
+    TRACE1("mmu#view => V%d numel=%d, ", t->rank, t->numel);
+    _ostore.status(_trace);
     return *t;
 }
 __GPU__ void                     ///< release tensor memory blocks
 MMU::free(Tensor &t) {
-    TRACE1("mmu#free(T%d) numel=%d\n", t.rank, t.numel);
+    TRACE1("mmu#free(T%d) numel=%d, ", t.rank, t.numel);
     if (!t.is_view()) {               /// * skip view
         _ostore.free((void*)t.data);  /// * free physical data
         for (int i=0; t.grad_fn!=L_NONE && t.grad[i] && i < 4; i++) {
@@ -194,14 +197,14 @@ MMU::free(Tensor &t) {
         }
     }
     _ostore.free((void*)&t);     /// * free tensor object itself
-    stat();
+    _ostore.status(_trace);
 }
 __GPU__ void                     ///< release tensor memory blocks
 MMU::free(Model &m) {
-    TRACE1("mmu#free(N%d)\n", m.numel);
+    TRACE1("mmu#free(N%d), ", m.numel);
     for (int i = 0; i < m.numel; i++) free(m[i]);
     _ostore.free((void*)&m);
-    stat();
+    _ostore.status(_trace);
 }
 ///
 /// deep copy a tensor
@@ -219,9 +222,11 @@ MMU::copy(Tensor &t0) {
     ///
     U64 bsz = sizeof(DU) * t0.numel;
     t1->data = (DU*)_ostore.malloc(bsz);
+    
     Tensor::copy(t0, *t1);
-
-    TRACE1("mmu#copy(T%d) numel=%d to T%d:%p\n", t0.rank, t0.numel, t1->rank, t1);
+    DU off = ten2du(*t1);             /// * offset in object space
+    TRACE1("mmu#copy(T%d) numel=%d to T[%x], ", t0.rank, t0.numel, *(U32*)&off);
+    _ostore.status(_trace);
     return *t1;
 }
 __GPU__ Tensor&
@@ -430,7 +435,7 @@ MMU::ss_dump(std::ostream &fout, U16 vid, U16 n, int radix) {
 #define IU2H(i){ C2H((i)>>8); C2H((i)&0xff); }
 __HOST__ void
 MMU::mem_dump(std::ostream &fout, U16 p0, U16 sz) {
-    const char *i2h = "0123456789abcdef";
+    static const char *i2h = "0123456789abcdef";
     char buf[80];
     for (U16 i=ALIGN16(p0); i<=ALIGN16(p0+sz); i+=16) {
         int x = 0;
@@ -467,8 +472,9 @@ MMU::network(std::ostream &fout, DU mt) {
     };
     Model &m = this->du2mdl(mt);
     int   sz = m.numel;
-    printf("network: model[%d]=%p\n", sz - 1, &m);
     if (!m.is_model()) return;
+    
+    fout << "network: model[" << sz - 1 << "]=" << &m << "\n";
     for (int i = 1; i < sz; i++) {  /// skip root[0]
         Tensor &t = m[i];
         tinfo(t, i, (i==(sz-1)) ? 0 : t.grad_fn);
