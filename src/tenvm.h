@@ -57,7 +57,8 @@ private:
     ///
     /// tensor ops based on data types
     ///
-    __GPU__ void xop1(t4_ten_op op, DU v=DU0);                   /// 1-operand ops
+    __GPU__ void xop1(t4_ten_op op, DU v=DU0);                   /// 1-operand ops in-place
+    __GPU__ void xop1x(t4_ten_op op);                            /// 1-operand ops with new tensor
     __GPU__ void xop2(t4_ten_op op, t4_drop_opt x=KEEP);         /// 2-operand ops
     __GPU__ void _ss_op(t4_ten_op op);                           ///< scalar-scalar (Forth) ops
     __GPU__ void _ts_op(t4_ten_op op, t4_drop_opt x, bool swap); ///< tensor-scalar broadcast op

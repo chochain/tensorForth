@@ -42,45 +42,45 @@ TensorVM::xop1(t4_ten_op op, DU v) {
     case O_TANH:
     case O_RELU:  A.map(op);      break;
     case O_IDEN:  A.identity();   break;
-    /// ops => new tensor
-    case O_INV:   PUSH(_tinv(A)); break;
-    case O_LU: {
-        Tensor &t = mmu.copy(A);              /// * hardcopy original matrix
-        Tensor::lu(t);                        /// * decompose A to LU
-        PUSH(t);
-    } break;
-    case O_LUINV: {
-        Tensor &t = mmu.copy(A);              /// * hardcopy original matrix
-        Tensor::lu(t);                        /// * create the LU matrix
-        Tensor::lu_inverse(t);                /// * inverse it
-        PUSH(t);
-    } break;
+    default: ERROR("TensorVM#xop1(%d) not supprted\n", op);
+    }
+}
+///
+/// 1-operand ops with new tensor created (on TOS)
+///
+__GPU__ void
+TensorVM::xop1x(t4_ten_op op) {
+    Tensor &A  = TTOS;
+    if (!A.is_tensor() || A.rank != 2) { ERROR("tensor2?"); return; }
+    
+    Tensor &t  = mmu.copy(A);                 /// * hardcopy original matrix
+    bool   tos = true;
+    switch (op) {
+    case O_INV:
+        mmu.free(t);                          /// * not needed
+        PUSH(_tinv(A));                       /// * _tinv create its own temp
+        tos = false;              break;
     case O_DET: {
-        Tensor &t = mmu.copy(A);              /// * hardcopy original matrix
         Tensor &P = mmu.tensor(A.H());        /// * dummy
         Tensor::plu(t, P);                    /// * decompose A to LU
         mmu.free(P);
         PUSH(t.det());                        /// * return determinant on TOS
+        tos = false;
     } break;
-    case O_TRIU: {
-        Tensor &t = mmu.copy(A);
-        t.triu();
-        PUSH(t);
-    } break;
-    case O_TRIL: {
-        Tensor &t = mmu.copy(A);
-        t.tril();
-        PUSH(t);
-    } break;
-    case O_XPOS: {
-        U16 h = A.H(), w = A.W();
-        Tensor &t = mmu.tensor(w, h);
-        VLOG2("A[%d,%d]=%p => t[%d,%d]=%p", h, w, &A, t.H(), t.W(), &t);
-        Tensor::transpose(A, t);
-        PUSH(t);
-    } break;
-    default: ERROR("TensorVM#xop1=%d not supported\n", op);
+    case O_LU:  Tensor::lu(t);    break;      /// * decompose A to LU
+    case O_LUINV:
+        Tensor::lu(t);                        /// * create the LU matrix
+        Tensor::lu_inverse(t);    break;      /// * inverse it 
+    case O_TRIU: t.triu();        break;
+    case O_TRIL: t.tril();        break;
+    case O_XPOS:
+        t.reshape(A.W(), A.H());
+        Tensor::transpose(A, t);  break;
+    default:
+        ERROR("TensorVM#xop1x(%d) not supported\n", op);
+        tos = false;
     }
+    if (tos) PUSH(t);
 }
 __GPU__ void
 TensorVM::xop2(t4_ten_op op, t4_drop_opt x) {
@@ -307,27 +307,30 @@ TensorVM::init() {
              PUSH(t1);
          }),
     ///@}
-    ///@defgroup Tensor matrix ops (destructive, as in Forth)
+    ///@defgroup 1-tensor ops in-place (i.e. destructive, as in Forth)
     ///@{
-    CODE("exp",       xop1(O_EXP)),       ///< (A -- A')
-    CODE("tanh",      xop1(O_TANH)),      ///< (A -- A')
-    CODE("relu",      xop1(O_RELU, DU0)), ///< (A -- A')
+    CODE("exp",       xop1(O_EXP)),        ///< (A -- A')
+    CODE("tanh",      xop1(O_TANH)),       ///< (A -- A')
+    CODE("relu",      xop1(O_RELU, DU0)),  ///< (A -- A')
+    ///@}
+    ///@defgroup 1-tensor ops that create new tensor
+    ///@brief - stick to PyTorch naming when possible
+    ///@{
+    CODE("inverse",   xop1x(O_INV)),      ///< (A -- A Ai')   matrix inversion (GaussJordan)
+    CODE("det",       xop1x(O_DET)),      ///< (A -- A d)     matrix determinant
+    CODE("lu",        xop1x(O_LU)),       ///< (A -- A A')    LU decomposition
+    CODE("luinv",     xop1x(O_LUINV)),    ///< (A -- A A')    inverse the LU matrix
+    CODE("upper",     xop1x(O_TRIU)),     ///< (A -- A A')    upper triangle
+    CODE("lower",     xop1x(O_TRIL)),     ///< (A -- A A')    lower triangle
+    CODE("transpose", xop1x(O_XPOS)),     ///< (A -- A At)    matrix transpose
+    ///@}
+    ///@defgroup 2-tensor matrix ops
+    ///@{
     CODE("+=",        xop2(O_ADD, DROP)),
     CODE("-=",        xop2(O_SUB, DROP)),
     CODE("*=",        xop2(O_MUL, DROP)),
     CODE("/=",        xop2(O_DIV, DROP)),
     CODE("@=",        xop2(O_DOT, DROP)),
-    ///@}
-    ///@defgroup Tensor matrix ops
-    ///@brief - stick to PyTorch naming when possible
-    ///@{
-    CODE("inverse",   xop1(O_INV)),       ///< (A -- A Ai')   matrix inversion (GaussJordan)
-    CODE("det",       xop1(O_DET)),       ///< (A -- A d)     matrix determinant
-    CODE("lu",        xop1(O_LU)),        ///< (A -- A A')    LU decomposition
-    CODE("luinv",     xop1(O_LUINV)),     ///< (A -- A A')    inverse the LU matrix
-    CODE("upper",     xop1(O_TRIU)),      ///< (A -- A A')    upper triangle
-    CODE("lower",     xop1(O_TRIL)),      ///< (A -- A A')    lower triangle
-    CODE("transpose", xop1(O_XPOS)),      ///< (A -- A At)    matrix transpose
     CODE("matmul",    xop2(O_MUL, KEEP)), ///< (A B -- A B C) matrix multiply
     CODE("matdiv",    xop2(O_DIV, KEEP)), ///< (A B -- A B C) matrix divide
     CODE("solve",     xop2(O_SOLV,KEEP)), ///< (B A -- B A X) solve linear equations AX = B
