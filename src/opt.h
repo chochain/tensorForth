@@ -142,12 +142,12 @@ struct Options {
         out << "\ntensorForth - Forth does tensors, in GPU\n"
             << "Options:\n"
             << "  -h        list all GPUs and this usage statement.\n"
-            << "  -d <int>  GPU device id\n"
-            << "  -v <int>  Verbosity level, 0: default, 1: mmu debug, 2: more details\n\n"
+            << "  -d \<int\>  GPU device id\n"
+            << "  -v \<int\>  Verbosity level, 0: default, 1: mmu debug, 2: more details\n\n"
             << "Examples:\n"
-            << "$ ./tests/ten4 -h  ;# display help\n"
-            << "$ ./tests/ten4 -d 0\n"
-            << "$ ./tests/ten4 -n 7 -y 1024 -x 512 -k 2048 -a 2.0 -b 0.707\n";
+            << "$ ./tests/ten4 -h    ;# display help\n"
+            << "$ ./tests/ten4 -d 0  ;# use device 0\n"
+            << "$ ./tests/ten4 -v 1  ;# set verbosity to level 1\n";
         return out;
     }
 };
