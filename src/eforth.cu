@@ -295,6 +295,7 @@ ForthVM::init() {
     ///@}
     ///@defgroup System ops
     ///@{
+    CODE("mstat", mmu.status()),
     CODE("clock", DU t = (DU)(clock64() / khz); PUSH(t)),
     CODE("delay", delay(POPi)),                  ///< TODO: change to VM_WAIT
     CODE("bye",   status = VM_STOP),
