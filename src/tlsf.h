@@ -69,8 +69,10 @@ public:
     //
     // sanity check, JTAG
     //
-    __BOTH__ void        show_stat();
-    __BOTH__ void        dump_freelist();
+    __BOTH__ void status(int trace) {
+        if (trace > 0) _show_stat();
+        if (trace > 1) _dump_freelist();
+    }
 
 private:
     __GPU__  U32         _idx(U32 sz);                           ///> calc freemap index
@@ -86,5 +88,7 @@ private:
 
     /// mmu sanity check
     __BOTH__ int         _mmu_ok();
+    __BOTH__ void        _show_stat();
+    __BOTH__ void        _dump_freelist();
 };
 #endif // TEN4_SRC_TLSF_H_

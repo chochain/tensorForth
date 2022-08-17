@@ -141,60 +141,6 @@ TLSF::free(void *ptr) {
 }
 
 //================================================================
-// MMU JTAG sanity check - memory pool walker
-//
-//================================================================
-__BOTH__ void
-TLSF::show_stat() {
-    ///
-    /// stat pre-adjusted for the stopper block
-    ///
-    int tot=sizeof(used_block), free=0, used=0;
-    int nblk=-1, nused=-1, nfree=0, nfrag=0;
-
-    used_block *p = (used_block*)_heap;
-    U32 f0 = IS_FREE(p);                  // starting block type
-    while (p) {                           // walk the memory pool
-        U32 bsz = p->bsz;                 // current block size
-        tot   += bsz;
-        nblk  += 1;
-        if (IS_FREE(p)) {
-            nfree += 1;
-            free  += bsz;
-            if (!f0) nfrag++;             // is adjacent block fragmented
-        }
-        else {
-            nused += 1;
-            used  += bsz;
-        }
-        f0 = IS_FREE(p);
-        p  = (used_block*)BLK_AFTER(p);
-    }
-    float pct = 100.0*used/tot;
-
-    printf("total=%d(%x): free[%d]=%d(%x), used[%d]=%d(%x), nblk=%d, nfrag=%d, %.2f%% allocated\n",
-           tot, tot, nfree, free, free, nused, used, used, nblk, nfrag, pct);
-}
-
-__BOTH__ void
-TLSF::dump_freelist() {
-    printf("tlsf#L1=%4x: ", _l1_map);
-    for (int i=L1_BITS-1;  i>=0; i--) { printf("%02x%s", _l2_map[i], i%4==0 ? " " : ""); }
-    for (int i=FL_SLOTS-1; i>=0; i--) {
-        if (!_free_list[i]) continue;
-        printf("\n\t[%02x]=>[", i);
-        for (free_block *b = _free_list[i]; b!=NULL; b=NEXT_FREE(b)) {
-            printf(" %p:%04x", b, b->bsz);
-            if (IS_USED(b)) {
-                printf("<-USED?");
-                break;                // something is wrong (link is broken here)
-            }
-        }
-        printf(" ] ");
-    }
-    printf("\n");
-}
-//================================================================
 /*! calc l1 and l2, and returns fli,sli of free_blocks
 
   @param  alloc_size    alloc size
@@ -415,7 +361,10 @@ TLSF::_try_merge_prev(free_block *b1) {
 
     return b0;
 }
-
+//================================================================
+// MMU JTAG sanity check - memory pool walker
+//
+//================================================================
 __BOTH__ int
 TLSF::_mmu_ok()    {                         // mmu sanity check
     used_block *p0 = (used_block*)_heap;
@@ -430,4 +379,58 @@ TLSF::_mmu_ok()    {                         // mmu sanity check
         p1  = (used_block*)BLK_AFTER(p0);
     }
     return (tot==_heap_sz) && (!p1);         // last check
+}
+__BOTH__ void
+TLSF::_show_stat() {
+    ///
+    /// stat pre-adjusted for the stopper block
+    ///
+    int tot=sizeof(used_block), free=0, used=0;
+    int nblk=-1, nused=-1, nfree=0, nfrag=0;
+
+    used_block *p = (used_block*)_heap;
+    U32 f0 = IS_FREE(p);                  // starting block type
+    while (p) {                           // walk the memory pool
+        U32 bsz = p->bsz;                 // current block size
+        tot   += bsz;
+        nblk  += 1;
+        if (IS_FREE(p)) {
+            nfree += 1;
+            free  += bsz;
+            if (!f0) nfrag++;             // is adjacent block fragmented
+        }
+        else {
+            nused += 1;
+            used  += bsz;
+        }
+        f0 = IS_FREE(p);
+        p  = (used_block*)BLK_AFTER(p);
+    }
+    float pct = 100.0*used/tot;
+
+    DEBUG("obj#used[%d]=%d(0x%x) %.2f%% allocated", nused, used, used, pct);
+    WARN(" free[%d]=%d(0x%x), total=%d(0x%x) ", nfree, free, free, tot, tot);
+    WARN(" nblk=%d, nfrag=%d", nblk, nfrag);
+    DEBUG("\n");
+}
+
+__BOTH__ void
+TLSF::_dump_freelist() {
+    WARN("tlsf#L1=%4x: ", _l1_map);
+    for (int i=L1_BITS-1;  i>=0; i--) {
+        WARN("%02x%s", _l2_map[i], i%4==0 ? " " : "");
+    }
+    for (int i=FL_SLOTS-1; i>=0; i--) {
+        if (!_free_list[i]) continue;
+        WARN("\n\t[%02x]=>[", i);
+        for (free_block *b = _free_list[i]; b!=NULL; b=NEXT_FREE(b)) {
+            WARN(" %p:%04x", b, b->bsz);
+            if (IS_USED(b)) {
+                WARN("<-USED?");
+                break;                // something is wrong (link is broken here)
+            }
+        }
+        WARN(" ] ");
+    }
+    WARN("\n");
 }
