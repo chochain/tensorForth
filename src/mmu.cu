@@ -187,7 +187,7 @@ MMU::view(Tensor &t0) {
 __GPU__ void                     ///< release tensor memory blocks
 MMU::free(Tensor &t) {
     TRACE1("mmu#free(T%d) numel=%d\n", t.rank, t.numel);
-    if (t.is_tensor()) {              /// * skip view
+    if (!t.is_view()) {               /// * skip view
         _ostore.free((void*)t.data);  /// * free physical data
         for (int i=0; t.grad_fn!=L_NONE && t.grad[i] && i < 4; i++) {
             free(*t.grad[i]);     /// recursive
@@ -209,7 +209,7 @@ MMU::free(Model &m) {
 ///
 __GPU__ Tensor&
 MMU::copy(Tensor &t0) {
-    if (t0.is_model()) return t0;      ///> TODO: copy model
+    if (!t0.is_tensor()) return t0;    ///> skip, TODO: copy model
 
     Tensor *t1  = (Tensor*)_ostore.malloc(sizeof(Tensor));
     memcpy(t1, &t0, sizeof(Tensor));   /// * copy attributes
@@ -267,8 +267,8 @@ __GPU__  void
 MMU::drop(DU d) {
     if (!IS_OBJ(d)) return;
     Tensor &t = du2ten(d);
-    if (t.is_model()) free(du2mdl(d));
-    else              free(t);
+    if (t.is_tensor()) free(t);
+    else               free(du2mdl(d));
 }
 ///
 /// tensor slice & dice
@@ -335,7 +335,7 @@ MMU::to_s(std::ostream &fout, IU w) {
 #if T4_ENABLE_OBJ
 __HOST__ int
 MMU::to_s(std::ostream &fout, Tensor &t) {
-    static const char tn[] = { 'T', 'V', 'N' };  /// sync with t4_obj
+    static const char tn[] = { 'V', 'T', 'N' };  /// sync with t4_obj
     fout << tn[t.ttype];
     switch(t.rank) {
     case 0: fout << "["  << (t.numel - 1) << "]";         break;
