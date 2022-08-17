@@ -29,7 +29,7 @@ __KERN__ void k_gemm(                                        ///< 2D only
     }
 }
 __KERN__ void k_mat_op(                                    ///< TODO: C
-    t4_mat_op op,
+    t4_ten_op op,
     DU *A, DU *B, DU *C,
     int M, int N)
 {
@@ -70,9 +70,9 @@ Tensor::gemm(Tensor &A, Tensor &B, Tensor &C, DU alpha, DU beta) {
 /// tensor-tensor element-wise C = A op B where op=ADD|SUB|MUL|DIV (Hadamard)
 ///
 __BOTH__ Tensor&
-Tensor::mat(t4_mat_op op, Tensor &A, Tensor &B, Tensor &C) {
-    const char *opn[] = { "add", "sub", "mul", "div" };
+Tensor::mat(t4_ten_op op, Tensor &A, Tensor &B, Tensor &C) {
     U16 m = A.H(), n = A.W();
+    OPN("add", "sub", "mul", "div");
     WARN("Tensor::mat%s M=%d, N=%d\n", opn[op], m, n);
     dim3 block(16, 16), grid(
         (n + block.x - 1) / block.x,
@@ -86,9 +86,9 @@ Tensor::mat(t4_mat_op op, Tensor &A, Tensor &B, Tensor &C) {
 /// tensor-scalar addition C = A +- n element-wise (Hadamard)
 ///
 __BOTH__ Tensor&
-Tensor::mat(t4_mat_op op, Tensor &A, DU v, Tensor &C) {
-    const char *opn[] = { "add", "sub", "mul", "div" };
+Tensor::mat(t4_ten_op op, Tensor &A, DU v, Tensor &C) {
     U16 m = A.H(), n = A.W();
+    OPN("add", "sub", "mul", "div");
     WARN("Tensor::mat%s M=%d, N=%d\n", opn[op], m, n);
     DU *dc = C.data, *da = A.data;
     for (int k = 0; k < A.numel; k++) {
@@ -177,11 +177,39 @@ Tensor::inverse(Tensor &A, Tensor &I) {
     return I;
 }
 ///
+/// LU decomposition (no Pivot)
+/// Note: A stores both L and U in-place to save space
+/// TODO: CDP
+///
+__BOTH__ Tensor&
+Tensor::lu(Tensor &A) {
+    U16 m = A.H(), n = A.W();
+    WARN("Tensor::lu[%d,%d]\n", m, n);
+    if (m != n) { ERROR("square matrix?"); return A; }
+
+    DU *da = A.data;
+    auto elim = [da, n](U16 z) {
+        DU ra = da[z + z * n];
+        if (fabs(ra) < DU_EPS) return;      /// * if 0 skip the row
+        for (U16 y = z + 1; y < n; y++) {
+            DU r1 = da[z + y * n] / ra;     /// * substitution
+            for (U16 k = z; k < n; k++) {
+                da[k + y * n] -= r1 * da[k + z * n];
+            }
+            da[z + y * n] = r1;             /// L stored in A to save space
+        }
+    };
+    for (U16 z = 0; z < n; z++) {
+        elim(z);               /// * eliminate variables in upper triangle
+	}
+    return A;
+}
+///
 /// LU (preprocessed) matrix inversion
 /// TODO: CDP
 ///
 __BOTH__ Tensor&
-Tensor::inverse(Tensor &LU) {
+Tensor::lu_inverse(Tensor &LU) {
     U16 m = LU.H(), n = LU.W();
     DU *dd = LU.data;
     auto forward = [dd, n](U16 z) {
@@ -212,34 +240,6 @@ Tensor::inverse(Tensor &LU) {
     for (I16 z = n - 1; z >= 0; z--) backward(z);
     
     return LU;
-}
-///
-/// LU decomposition (no Pivot)
-/// Note: A stores both L and U in-place to save space
-/// TODO: CDP
-///
-__BOTH__ Tensor&
-Tensor::lu(Tensor &A) {
-    U16 m = A.H(), n = A.W();
-    WARN("Tensor::lu[%d,%d]\n", m, n);
-    if (m != n) { ERROR("square matrix?"); return A; }
-
-    DU *da = A.data;
-    auto elim = [da, n](U16 z) {
-        DU ra = da[z + z * n];
-        if (fabs(ra) < DU_EPS) return;      /// * if 0 skip the row
-        for (U16 y = z + 1; y < n; y++) {
-            DU r1 = da[z + y * n] / ra;     /// * substitution
-            for (U16 k = z; k < n; k++) {
-                da[k + y * n] -= r1 * da[k + z * n];
-            }
-            da[z + y * n] = r1;             /// L stored in A to save space
-        }
-    };
-    for (U16 z = 0; z < n; z++) {
-        elim(z);               /// * eliminate variables in upper triangle
-	}
-    return A;
 }
 ///
 /// PLU methods with permutation vector
@@ -382,17 +382,17 @@ Tensor::tril() {
     return *this;
 }
 __BOTH__ Tensor&
-Tensor::map(t4_mat_op op, DU v) {
-    const char *opn[] = { "+", "-", "*", "/", "abs", "exp", "tanh", "relu", "fill", "scale" };
+Tensor::map(t4_ten_op op, DU v) {
+    OPN("", "", "", "", "", "", "fill", "scale","abs", "exp", "tanh", "relu");
     WARN("Tensor#%s v=%f\n", opn[op], v);
     dim3 block(256), grid((numel + block.x -1)/block.x);
     switch(op) {
+    case O_FILL:  k_fill<<< grid, block>>>(data, v, numel); break;
+    case O_SCALE: k_scale<<<grid, block>>>(data, v, numel); break;
     case O_ABS:   k_abs<<<  grid, block>>>(data, numel);    break;
     case O_EXP:   k_exp<<<  grid, block>>>(data, numel);    break;
     case O_TANH:  k_tanh<<< grid, block>>>(data, numel);    break;
     case O_RELU:  k_relu<<< grid, block>>>(data, numel);    break;
-    case O_FILL:  k_fill<<< grid, block>>>(data, v, numel); break;
-    case O_SCALE: k_scale<<<grid, block>>>(data, v, numel); break;
     default: ERROR("Tensor#map op=%d?\n", op); break;
     }
     cudaDeviceSynchronize();
@@ -470,7 +470,7 @@ Tensor::identity() {
         (n + block.x - 1) / block.x,
         (m + block.y - 1) / block.y
     );
-    k_identity<<<grid, block>>>(data, m, n, sizeof(DU)*C());
+    k_identity<<<grid, block>>>(data, m, n, C()*sizeof(DU));
     cudaDeviceSynchronize();
     return *this;
 }
