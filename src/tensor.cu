@@ -305,6 +305,11 @@ Tensor::sum() {
     return SCALAR(v);
 }
 __BOTH__ DU
+Tensor::avg() {
+    DU v = sum() / numel;
+    return SCALAR(v);
+}
+__BOTH__ DU
 Tensor::max() {
     DU v = data[0];
     for (int i=1; i < numel; i++) {              ///> TODO: CDP prefix sum
@@ -383,16 +388,17 @@ Tensor::tril() {
 }
 __BOTH__ Tensor&
 Tensor::map(t4_ten_op op, DU v) {
-    OPN("", "", "", "", "", "", "fill", "scale","abs", "exp", "tanh", "relu");
+    OPN("+", "-", "*", "/", "@", "x", "fill", "scale","abs", "exp", "tanh", "relu", "sigmoid");
     WARN("Tensor#%s v=%f\n", opn[op], v);
-    dim3 block(256), grid((numel + block.x -1)/block.x);
+    dim3 blk(256), grd((numel + blk.x -1)/blk.x);
     switch(op) {
-    case O_FILL:  k_fill<<< grid, block>>>(data, v, numel); break;
-    case O_SCALE: k_scale<<<grid, block>>>(data, v, numel); break;
-    case O_ABS:   k_abs<<<  grid, block>>>(data, numel);    break;
-    case O_EXP:   k_exp<<<  grid, block>>>(data, numel);    break;
-    case O_TANH:  k_tanh<<< grid, block>>>(data, numel);    break;
-    case O_RELU:  k_relu<<< grid, block>>>(data, numel);    break;
+    case O_FILL:  k_fill   <<<grd, blk>>>(data, v, numel); break;
+    case O_SCALE: k_scale  <<<grd, blk>>>(data, v, numel); break;
+    case O_ABS:   k_abs    <<<grd, blk>>>(data, numel);    break;
+    case O_EXP:   k_exp    <<<grd, blk>>>(data, numel);    break;
+    case O_TANH:  k_tanh   <<<grd, blk>>>(data, numel);    break;
+    case O_RELU:  k_relu   <<<grd, blk>>>(data, numel);    break;
+    case O_SIGM:  k_sigmoid<<<grd, blk>>>(data, numel);    break;
     default: ERROR("Tensor#map op=%d?\n", op); break;
     }
     cudaDeviceSynchronize();

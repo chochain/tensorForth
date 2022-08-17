@@ -31,6 +31,7 @@ typedef enum {
     O_EXP,
     O_TANH,
     O_RELU,
+    O_SIGM,
     O_IDEN,
     O_INV,
     O_LU,
@@ -107,6 +108,7 @@ struct Tensor : public T4Base {
     /// tensor arithmetics
     ///
     __BOTH__ DU     sum();
+    __BOTH__ DU     avg();
     __BOTH__ DU     max();
     __BOTH__ DU     min();
     __BOTH__ DU     dot(Tensor &B);
