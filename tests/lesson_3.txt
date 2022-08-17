@@ -6,7 +6,7 @@ dup .                             \ show it
 
 cr .( ### calculate determinant ) cr
 det                               \ get determinant
-.                                 \ show it
+.                                 \ => 6 show it
 
 cr .( ### GaussJordan ) cr
 inverse .                         \ inverse (Gauss-Jordan with Pivot) and print
@@ -17,11 +17,11 @@ cr .( ### inverse a matrix with LU ) cr
 dup .                             \ print it
 
 cr .( ### show LU decomposition with L\U stacked ) cr
-lu                                \ create an LU matrix (in-place)
-dup .                             \ see L and U stacked
+lu                                \ create an LU matrix
+.                                 \ see L and U stacked
 
 cr .( ### inverse the LU matrix to L^-1\U^-1 stacked ) cr
-luinv                             \ inverse the LU matrix (in-place)
+luinv                             \ inverse the LU matrix
 dup .
 
 cr .( ### get the L^-1 ) cr
@@ -32,8 +32,8 @@ cr .( ### get the U^-1 ) cr
 upper dup .                       \ extrace upper triangle (i.e. U^-1)
 r>                                \ retrieve L^-1 from R-stack
 
-cr .( ### A^-1 = U^-1 x L^-1 ) cr
-*                                 \ A^-1 = U^-1 x L^-1
+cr .( ### A^-1 = U^-1 @ L^-1 ) cr
+@                                 \ A^-1 = U^-1 @ L^-1
 .                                 \ show the result
 drop drop drop                    \ clean up left-over
 
@@ -51,7 +51,7 @@ dup .                             \ show it
 solve                             \ solve linear equations
 
 cr .( ### show resultant vector X ) cr
-dup .                             \ show resultant X vector
+dup .                             \ show resultant X={+8,-1,-8}
 
 cr .( ### verify result AX against B={ 1 1 1 } ) cr
 *                                 \ A*X
