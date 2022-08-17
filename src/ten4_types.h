@@ -18,8 +18,10 @@
 #endif // T4_VERBOSE
 #if T4_MMU_DEBUG
 #define WARN(...)           printf(__VA_ARGS__)
+#define OPN(...)            static const char *opn[] = { __VA_ARGS__ }
 #else  // T4_MMU_DEBUG
 #define WARN(...)
+#define OPN(...)
 #endif // T4_MMU_DEBUG
 #define ERROR(...)          printf(__VA_ARGS__)
 #define NA(msg)             ({ ERROR("method not supported: %s\n", msg); })
