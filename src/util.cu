@@ -402,6 +402,11 @@ k_relu(float *t, int sz) {
     if (k < sz) t[k] = t[k] > 0.0 ? t[k] : 0.0;
 }
 __KERN__ void
+k_sigmoid(float *t, int sz) {
+    int k = threadIdx.x + blockIdx.x * blockDim.x;
+    if (k < sz) t[k] = 1.0 / (1.0 + expf(-t[k]));
+}
+__KERN__ void
 k_copy(float *src, float *dst, int sz) {           ///< Note: (src, dst)
     int k = threadIdx.x + blockIdx.x * blockDim.x;
     if (k < sz) dst[k] = src[k];
