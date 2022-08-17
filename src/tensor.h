@@ -16,17 +16,30 @@
 ///    PyTorch.Tensor: size, dtype, type_id, stride, tensorstore
 ///
 typedef enum {
+    /// 2-operand ops
     O_ADD = 0,
     O_SUB,
     O_MUL,
     O_DIV,
+    O_DOT,
+    O_SOLV,
+    /// 1-operand + a constant
+    O_FILL,
+    O_SCALE,
+    /// 1-operand ops
     O_ABS,
     O_EXP,
     O_TANH,
     O_RELU,
-    O_FILL,
-    O_SCALE
-} t4_mat_op;
+    O_IDEN,
+    O_INV,
+    O_LU,
+    O_LUINV,
+    O_DET,
+    O_TRIU,
+    O_TRIL,
+    O_XPOS
+} t4_ten_op;
 
 typedef enum {
     L_NONE = 0,
@@ -56,13 +69,13 @@ struct Tensor : public T4Base {
     ///
     static __BOTH__ Tensor &gemm(Tensor &A, Tensor &B, Tensor &C, DU alpha, DU beta);
     static __BOTH__ Tensor &mm(Tensor &A, Tensor &B, Tensor &C) { return gemm(A, B, C, 1.0, 0.0); }
-    static __BOTH__ Tensor &mat(t4_mat_op op, Tensor &A, Tensor &B, Tensor &C);  ///> matrix-matrix element-wise ops (Hadamard)
-    static __BOTH__ Tensor &mat(t4_mat_op op, Tensor &A, DU v, Tensor &C);       ///> matrix-scalar element-wise ops
+    static __BOTH__ Tensor &mat(t4_ten_op op, Tensor &A, Tensor &B, Tensor &C);  ///> matrix-matrix element-wise ops (Hadamard)
+    static __BOTH__ Tensor &mat(t4_ten_op op, Tensor &A, DU v, Tensor &C);       ///> matrix-scalar element-wise ops
     static __BOTH__ Tensor &copy(Tensor &A, Tensor &C);
     static __BOTH__ Tensor &transpose(Tensor &A, Tensor &T);
     static __BOTH__ Tensor &inverse(Tensor &A, Tensor &I);  /// GaussJordan (with Pivot)
-    static __BOTH__ Tensor &inverse(Tensor &LU);            /// from LU (no Pivot)
     static __BOTH__ Tensor &lu(Tensor &A);                  /// LU (no Pivot)
+    static __BOTH__ Tensor &lu_inverse(Tensor &LU);         /// inverse a pre-processed LU (no Pivot)
     static __BOTH__ Tensor &plu(Tensor &A, Tensor &P);      /// LU with permutation vector
     ///
     /// class contructors
@@ -97,7 +110,7 @@ struct Tensor : public T4Base {
     __BOTH__ DU     max();
     __BOTH__ DU     min();
     __BOTH__ DU     dot(Tensor &B);
-    __BOTH__ Tensor &map(t4_mat_op op, DU v=DU0); ///< element-wise absolute
+    __BOTH__ Tensor &map(t4_ten_op op, DU v=DU0); ///< element-wise absolute
     ///
     /// linear algebra methods
     ///
