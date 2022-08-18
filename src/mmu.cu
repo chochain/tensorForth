@@ -166,6 +166,7 @@ MMU::tensor(U16 n, U16 h, U16 w, U16 c) {
 }
 __GPU__ Model&                     ///< create a NHWC tensor
 MMU::model(U32 sz) {
+    TRACE1("mmu#model layers=%d, ", sz);
     Model  *m = (Model*)_ostore.malloc(sizeof(Model));
     Tensor &t = this->tensor(sz);  /// * allocate tensor storage
     m->reset(this, t);
@@ -187,23 +188,38 @@ MMU::view(Tensor &t0) {
     _ostore.status(_trace);
     return *t;
 }
+__GPU__ void
+MMU::resize(Tensor &t, U32 sz) {
+    if (t.rank != 1) { ERROR("mmu#resize rank==1 only\n"); return; }
+    TRACE1("mmu#resize numel=%d (was %d), ", sz, t.numel);
+    DU *d0 = t.data;             /// * keep original memory block
+    t.data = (DU*)_ostore.malloc(sz * sizeof(DU));
+    ///
+    /// hardcopy tensor storage
+    ///
+    memcpy(t.data, d0, (t.numel < sz ? t.numel : sz) * sizeof(DU));
+    t.shape[0] = t.numel = sz;   /// * adjust tensor storage size
+    
+    _ostore.free(d0);            /// * release 
+    _ostore.status(_trace);
+}
 __GPU__ void                     ///< release tensor memory blocks
 MMU::free(Tensor &t) {
     TRACE1("mmu#free(T%d) numel=%d, ", t.rank, t.numel);
-    if (!t.is_view()) {               /// * skip view
-        _ostore.free((void*)t.data);  /// * free physical data
+    if (!t.is_view()) {          /// * skip view
+        _ostore.free(t.data);    /// * free physical data
         for (int i=0; t.grad_fn!=L_NONE && t.grad[i] && i < 4; i++) {
-            free(*t.grad[i]);     /// recursive
+            free(*t.grad[i]);    /// recursive
         }
     }
-    _ostore.free((void*)&t);     /// * free tensor object itself
+    _ostore.free(&t);            /// * free tensor object itself
     _ostore.status(_trace);
 }
 __GPU__ void                     ///< release tensor memory blocks
 MMU::free(Model &m) {
     TRACE1("mmu#free(N%d), ", m.numel);
     for (int i = 0; i < m.numel; i++) free(m[i]);
-    _ostore.free((void*)&m);
+    _ostore.free(&m);
     _ostore.status(_trace);
 }
 ///
@@ -474,7 +490,7 @@ MMU::network(std::ostream &fout, DU mt) {
     int   sz = m.numel;
     if (!m.is_model()) return;
     
-    fout << "network: model[" << sz - 1 << "]=" << &m << "\n";
+    fout << "NN model[" << sz - 1 << "/" << m.slots() << "]\n";
     for (int i = 1; i < sz; i++) {  /// skip root[0]
         Tensor &t = m[i];
         tinfo(t, i, (i==(sz-1)) ? 0 : t.grad_fn);

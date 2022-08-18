@@ -165,6 +165,7 @@ public:
     __GPU__  Tensor &tensor(U16 h, U16 w);                  ///< create a matrix
     __GPU__  Tensor &tensor(U16 n, U16 h, U16 w, U16 c);    ///< create a NHWC tensor
     __GPU__  Model  &model(U32 sz=T4_NET_SZ);               ///< create a NN model
+    __GPU__  void   resize(Tensor &t, U32 sz);              ///< resize the tensor storage
     __GPU__  void   free(Tensor &t);                        ///< free the tensor
     __GPU__  void   free(Model &m);
     __GPU__  Tensor &view(Tensor &t0);                      ///< create a view to a tensor
