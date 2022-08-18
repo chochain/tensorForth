@@ -8,12 +8,12 @@
 #define TEN4_SRC_TENVM_H
 #include "eforth.h"                         /// extending ForthVM
 
-#define EXP(d)    (expf(d))                 /**< exponential(float) */
-#define TTOS      (mmu.du2ten(top))         /**< tensor on TOS      */
-#define TNOS      (mmu.du2ten(ss[-1]))      /**< tensor on NOS      */
+#define EXP(d)    (expf(d))                         /**< exponential(float) */
+#define TTOS      ((Tensor&)mmu.du2obj(top))        /**< tensor on TOS      */
+#define TNOS      ((Tensor&)mmu.du2obj(ss[-1]))     /**< tensor on NOS      */
 #define TOS1T     (IS_OBJ(top) && TTOS.is_tensor())
 #define TOS2T     (TOS1T && IS_OBJ(ss[-1]) && TNOS.is_tensor())
-#define TOS3T     (TOS2T && IS_OBJ(ss[-2]) && mmu.du2ten(ss[-2]).is_tensor())
+#define TOS3T     (TOS2T && IS_OBJ(ss[-2]) && mmu.du2obj(ss[-2]).is_tensor())
 
 typedef enum {
     KEEP = false,
