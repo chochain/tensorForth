@@ -108,7 +108,7 @@ Model::nname(int i) {               ///< network layer name
 ///
 __GPU__ Model&
 Model::add(t4_layer fn, U16 n, DU bias, U16 *opt) {
-    Tensor &in = _mmu->du2ten(data[numel - 1]);
+    Tensor &in = (Tensor&)_mmu->du2obj(data[numel - 1]);
     if (!autograd || in.grad_fn != L_NONE) return *this;
 
     switch(fn) {

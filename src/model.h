@@ -27,7 +27,7 @@ public:
     static __HOST__ const char* nname(int n);  /// network layer name
     /// @}
     __BOTH__ __INLINE__ Tensor &operator[](int i) {
-        return _mmu->du2ten(data[i]);
+        return (Tensor&)_mmu->du2obj(data[i]);
     }
     __BOTH__ __INLINE__ int  slots() { return _store->numel; }
     __GPU__  __INLINE__ void reset(MMU *mmu, Tensor &store) {
@@ -52,10 +52,10 @@ public:
     }
     __GPU__ __INLINE__ Model &npush(Tensor &t) { return npush(_mmu->ten2du(t)); }
     __GPU__  __INLINE__ DU    npop() { return data[--numel]; }
-    __GPU__ __INLINE__ Tensor &tensor(U16 n, U16 h, U16 w, U16 c) {
+    __GPU__  __INLINE__ Tensor &tensor(U16 n, U16 h, U16 w, U16 c) {
         return _mmu->tensor(n, h, w, c);
     }
-    __GPU__ __INLINE__ Tensor &vector(U16 n) {
+    __GPU__  __INLINE__ Tensor &vector(U16 n) {
         return _mmu->tensor(n);
     }
     __GPU__ Model &add(t4_layer fn, U16 n=0, DU bias=DU0, U16 *opt=0);
