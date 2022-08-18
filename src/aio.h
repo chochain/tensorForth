@@ -29,10 +29,16 @@ public:
     __HOST__ Ostream *ostream() { return _ostr; }
 
     __HOST__ int  readline();
-    __HOST__ void print_vec(DU *d, int mi, int ri);
-    __HOST__ void print_mat(DU *d, int mi, int mj, int ri, int rj);
-    __HOST__ void print_obj(DU v);
     __HOST__ void print_node(obuf_node *node);
     __HOST__ void flush();
+
+private:
+#if T4_ENABLE_OBJ
+    __HOST__ void _print_obj(DU v);
+    __HOST__ void _print_vec(DU *d, int mi, int ri);
+    __HOST__ void _print_mat(DU *d, int mi, int mj, int ri, int rj);
+    __HOST__ void _print_tensor(DU v);
+    __HOST__ void _print_model(DU v);
+#endif // T4_ENABLE_OBJ
 };
 #endif // TEN4_SRC_AIO_H_
