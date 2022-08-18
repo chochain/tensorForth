@@ -224,7 +224,7 @@ __GPU__ void
 TensorVM::_gemm() {                          ///< blas GEMM
     if (!TOS3T) { ERROR("tensors?"); return; }
     
-    Tensor &C = TTOS, &B = TNOS, &A = mmu.du2ten(ss[-2]);
+    Tensor &C = TTOS, &B = TNOS, &A = (Tensor&)mmu.du2obj(ss[-2]);
     DU     b  = ss[-3];
     DU     a  = ss[-4];
     U16    m  = A.H(), k = A.W(), n = B.W();

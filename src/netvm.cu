@@ -17,9 +17,10 @@ NetVM::nnop(t4_layer op) {
         case L_RELU:    xop1(O_RELU, DU0); break;   ///> (Ta -- Ta Ta')
         case L_TANH:    xop1(O_TANH);      break;   ///> (Ta -- Ta Ta')
         case L_SIGMOID: xop1(O_SIGM);      break;   ///> (Ta -- Ta Ta')
-        case L_FLATTEN:
+        case L_FLATTEN:                             ///> (Ta -- Ta Ta')
             Tensor &t = TTOS;
-            t.reshape(t.numel);            break;   ///> (Ta -- Ta Ta')
+            if (t.ttype==TENSOR) t.reshape(t.numel);
+            break;
         }
         return;
     }
@@ -29,13 +30,13 @@ NetVM::nnop(t4_layer op) {
     switch (op) {
     case L_CONV2D:   _conv2d(); break;
     case L_LINEAR:
-         if (!IS_OBJ(top) && !IS_OBJ(ss[-1])) {
-             U16   n    = POPi;                     ///> number of output channels
-             DU    bias = POP();                    ///> convolution bias
-             NN.add(L_LINEAR, n, bias);             ///> (N b c -- N')
-         }
-         else ERROR("linear: bias n required!");
-         break;
+        if (!MN2D) {                               ///> param checking
+            U16   n    = POPi;                     ///> number of output channels
+            DU    bias = POP();                    ///> convolution bias
+            NN.add(L_LINEAR, n, bias);             ///> (N b c -- N')
+        }
+        else ERROR("linear: bias n required!");
+        break;
     case L_FLATTEN:
     case L_RELU:
     case L_TANH:
@@ -79,15 +80,12 @@ NetVM::_conv2d() {
         }
         else { ERROR("vec?"); return; }
     }
-    if (IS_OBJ(top) || IS_OBJ(ss[-1])) {
+    if (!MN2D) {
         ERROR("conv2d bias c required!"); return;
     }
-    if (mmu.du2mdl(ss[-2]).is_model()) {
-        U16 c    = POPi;                 ///> number of output channels
-        DU  bias = POP();                ///> convolution bias
-        NN.add(L_CONV2D, c, bias, opt);
-    }
-    else ERROR("model bias c?");
+    U16 c    = POPi;                 ///> number of output channels
+    DU  bias = POP();                ///> convolution bias
+    NN.add(L_CONV2D, c, bias, opt);
 }
 ///
 /// Batch ops
@@ -119,11 +117,19 @@ NetVM::init() {
     const Code prim[] = {                   ///> singleton, build once only
     ///@defgroup Convolution and Linear ops
     ///@{
-    CODE("nn.model",                          ///> (n -- N)
-         Model &m = mmu.model();              /// create model with n layers
+    CODE("nn.model",                          ///> (n h w c -- N)
+         if (ss.idx < 4 ||                    /// * param check
+             IS_OBJ(top) || IS_OBJ(ss[-1]) ||
+             IS_OBJ(ss[-2]) || IS_OBJ(ss[-3])) {
+             ERROR("n h w c?\n"); return;
+         }
+         U16 c=POPi; U16 w=POPi; U16 h=POPi; U16 n=POPi;
+         Model  &m = mmu.model();             /// * create NN model
+         Tensor &t = mmu.tensor(n,h,w,c);     /// * create input tensor
+         m.npush(t);                          /// * serves as the 1st layer
          PUSH(mmu.mdl2du(m))),
     CODE("conv2d",    nnop(L_CONV2D)),        ///> (N b c [A] -- N')
-    CODE("linear",    nnop(L_LINEAR)),        ///> (N n -- N')
+    CODE("linear",    nnop(L_LINEAR)),        ///> (N b n -- N')
     ///@}
     ///@defgroup Activation ops
     ///@{
@@ -156,11 +162,11 @@ NetVM::init() {
     CODE("nn.next",   {}),
     CODE("autograd",  if (MNOS) { bool on = POPi; NN.autograd = on; }),
     CODE("forward",
-         if (TOS1T && MNOS) {
+         if (TOS1T && IS_M(ss[-1])) {
              Tensor &t = TTOS; POP(); NN.forward(t);
          }),
     CODE("backprop",
-         if (TOS1T && MNOS) {
+         if (TOS1T && IS_M(ss[-1])) {
              Tensor &t = TTOS; POP(); NN.backprop(t);
          }),
     CODE("predict",   {}),
@@ -169,7 +175,7 @@ NetVM::init() {
     ///@{
     CODE(">n",        if (MNOS) { DU t = POP(); NN.npush(t); }),
     CODE("n@",        if (MNOS) { DU i = POPi;  PUSH(NN[i]); }),
-    CODE("network",   if (MTOS) fout << opx(OP_NET, 0, top)),
+    CODE("network",   if (MTOS) fout << top),
     ///@}
     };
     const Code over[] = {           /// extended (overload) words
