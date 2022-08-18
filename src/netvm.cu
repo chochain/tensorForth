@@ -74,8 +74,8 @@ NetVM::init() {
     ///@defgroup Convolution and Linear ops
     ///@{
     CODE("nn.model",  DU m = mmu.mdl2du(mmu.model(POPi)); PUSH(m)),
-    CODE("nn.conv2d", _conv2d()),                          ///> (N b c [A] -- N')
-    CODE("nn.linear",                                      ///> (N n -- N')
+    CODE("conv2d", _conv2d()),                          ///> (N b c [A] -- N')
+    CODE("linear",                                      ///> (N n -- N')
          if (!IS_OBJ(top) && !IS_OBJ(ss[-1])) {
              U16   n    = POPi;          ///> number of output channels
              DU    bias = POP();         ///> convolution bias
@@ -85,17 +85,23 @@ NetVM::init() {
     ///@}
     ///@defgroup Activation ops
     ///@{
-    CODE("nn.relu",   NN.add(L_RELU)),                     ///> (N -- N')
-    CODE("nn.tanh",   NN.add(L_TANH)),                     ///> (N -- N')
-    CODE("nn.sigmoid",NN.add(L_SIGMOID)),                  ///> (N -- N')
-    CODE("nn.softmax",NN.add(L_SOFTMAX)),                  ///> (N -- N')
+    CODE("relu",
+        if (is_ten()) xop1(O_RELU, DU0);   ///> (Ta -- Ta Ta')
+        else NN.add(L_RELU)),              ///> (N -- N')
+    CODE("tanh",
+        if (is_ten()) xop1(O_TANH);        ///> (Ta -- Ta Ta')
+        else NN.add(L_TANH)),              ///> (N -- N')
+    CODE("sigmoid",
+        if (is_ten()) xop1(O_SIGM);        ///> (Ta -- Ta Ta')
+        else NN.add(L_SIGMOID)),           ///> (N -- N')
+    CODE("softmax",NN.add(L_SOFTMAX)),     ///> (N -- N')
     ///@}
     ///@defgroup Pooling and Dropout ops
     ///@{
     CODE("pool.max",  U16 n = POPi; NN.add(L_MAXPOOL, n)), ///> (N n -- N')
     CODE("pool.avg",  U16 n = POPi; NN.add(L_AVGPOOL, n)), ///> (N n -- N')
     CODE("pool.min",  U16 n = POPi; NN.add(L_MINPOOL, n)), ///> (N n -- N')
-    CODE("nn.dropout",                                     ///> (N p -- N')
+    CODE("dropout",                                     ///> (N p -- N')
          DU p = POP();
          NN.add(L_DROPOUT, int(100.0 * p + 0.5))),
     ///@}
