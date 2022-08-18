@@ -9,7 +9,10 @@
 #include "model.h"
 #include "tenvm.h"                /// extending TensorVM
 
-#define NN  (mmu.du2mdl(top))     /// Network Model on TOS
+#define NN    (mmu.du2mdl(top))   /// Network Model on TOS
+#define MTOS  (NN.is_model())     /// check whether TOS is a model
+#define MNOS  (mmu.du2mdl(ss[-1]).is_model())
+
 class NetVM : public TensorVM {
 public:
 #if   !T4_ENABLE_OBJ
@@ -33,6 +36,7 @@ public:
         VLOG1("\\  ::NetVM(...) sizeof(Model)=%d\n", (int)sizeof(Model));
     }
     __GPU__ void init() final;    ///< override TensorVM, TODO: does not work without 'final'!
+    __GPU__ void nnop(t4_layer op);
 
 private:
     __GPU__ void _conv2d();       ///< convolution layer
