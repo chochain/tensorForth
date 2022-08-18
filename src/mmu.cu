@@ -4,8 +4,7 @@
  * <pre>Copyright (C) 2022- GreenII, this file is distributed under BSD 3-Clause License.</pre>
  */
 #include <iomanip>          // setw, setbase
-#include "mmu.h"
-#include "model.h"
+#include "model.h"          // include mmu.h
 ///
 /// random number generator setup
 /// Note: kept here because curandStates stays in CUDA memory
@@ -122,7 +121,7 @@ MMU::colon(const char *name) {
 ///
 __GPU__ void
 MMU::mark_free(DU v) {            ///< mark a tensor free for release
-    Tensor &t = du2ten(v);
+    T4Base &t = du2obj(v);
     TRACE1("mark T[%x] as free[%d]\n", *(U32*)&v, _fidx);
 //    lock();
     if (_fidx < T4_TFREE_SZ) _mark[_fidx++] = v;
@@ -164,13 +163,12 @@ MMU::tensor(U16 n, U16 h, U16 w, U16 c) {
     t.reshape(n, h, w, c);
     return t;
 }
-__GPU__ Model&                     ///< create a NHWC tensor
+__GPU__ Model&                     ///< create a NN model with NHWC input
 MMU::model(U32 sz) {
     TRACE1("mmu#model layers=%d, ", sz);
     Model  *m = (Model*)_ostore.malloc(sizeof(Model));
     Tensor &t = this->tensor(sz);  /// * allocate tensor storage
     m->reset(this, t);
-
     return *m;
 }
 __GPU__ Tensor&                   ///< create a view of a Tensor
@@ -262,17 +260,11 @@ MMU::random(Tensor &t, t4_rand_opt ntype, int seed) {
 /// short hands for eforth tensor ucodes (for DU <-> Tensor conversion)
 /// TODO: more object types
 ///
-__BOTH__ Tensor&
-MMU::du2ten(DU d) {
+__BOTH__ T4Base&
+MMU::du2obj(DU d) {
     U32    *off = (U32*)&d;
-    Tensor *t   = (Tensor*)(_obj + (*off & ~T4_OBJ_FLAG));
+    T4Base *t   = (T4Base*)(_obj + (*off & ~T4_OBJ_FLAG));
     return *t;
-}
-__BOTH__ Model&
-MMU::du2mdl(DU d) {
-    U32    *off = (U32*)&d;
-    Model  *m   = (Model*)(_obj + (*off & ~T4_OBJ_FLAG));
-    return *m;
 }
 __BOTH__ DU
 MMU::ten2du(Tensor &t) {
@@ -287,9 +279,9 @@ MMU::mdl2du(Model &m) {
 __GPU__  void
 MMU::drop(DU d) {
     if (!IS_OBJ(d)) return;
-    Tensor &t = du2ten(d);
-    if (t.is_tensor()) free(t);
-    else               free(du2mdl(d));
+    T4Base &t = du2obj(d);
+    if (t.is_tensor()) free((Tensor&)t);
+    else               free((Model&)t);
 }
 ///
 /// tensor slice & dice
@@ -321,7 +313,7 @@ MMU::slice(Tensor &t0, U16 x0, U16 x1, U16 y0, U16 y1) {
 __GPU__ DU
 MMU::rand(DU d, t4_rand_opt ntype) {
     if (!IS_OBJ(d)) return d * curand_uniform(&_seed[0]);
-    random(du2ten(d), ntype);
+    random((Tensor&)du2obj(d), ntype);
     return d;
 }
 #endif // T4_ENABLE_OBJ
@@ -349,11 +341,8 @@ MMU::to_s(std::ostream &fout, IU w) {
         fout << c;
         cudaMemcpy(&c, code.name+(++i), 1, D2H);
     }
-    fout << (_trace ? "\n" : " ");
-
     return (int)i;
 }
-#if T4_ENABLE_OBJ
 __HOST__ int
 MMU::to_s(std::ostream &fout, Tensor &t) {
     static const char tn[] = { 'V', 'T', 'N' };  /// sync with t4_obj
@@ -364,17 +353,11 @@ MMU::to_s(std::ostream &fout, Tensor &t) {
     case 2: fout << "2[" << t.H() << "," << t.W() << "]"; break;
     case 4: fout << "4[" << t.N() << "," << t.H() << "," << t.W() << "," << t.C() << "]"; break;
     }
-    return 0;
 }
 __HOST__ int
 MMU::to_s(std::ostream &fout, DU s) {
-    Tensor &t = this->du2ten(s);
-    return to_s(fout, t);
+    return to_s(fout, (Tensor&)du2obj(s));
 }
-#else  // T4_ENABLE_OBJ
-__HOST__ int MMU::to_s(std::ostream &fout, Tensor &s) { NA(); }
-__HOST__ int MMU::to_s(std::ostream &fout, DU s) { NA(); }
-#endif // T4_ENABLE_OBJ
 ///
 /// display dictionary word list
 ///
@@ -402,8 +385,12 @@ MMU::see(std::ostream &fout, U8 *ip, int dp) {
         }
         ip += sizeof(IU);                                           /// * advance instruction pointer
         switch (c) {
-        case DOVAR: case DOLIT:
-            fout << "= " << (*(DU*)ip); ip += sizeof(DU); break;      /// fetch literal
+        case DOVAR: case DOLIT: {                                   /// * fetch literal
+            DU v = *(DU*)ip;  ip += sizeof(DU);
+            fout << "= ";
+            if (IS_OBJ(v)) to_s(fout, v);                           /// * handle object
+            else fout << v;                                         /// * display the literal
+        } break;
         case DOSTR: case DOTSTR: {
             char *s = (char*)ip;
             int  sz = strlen(s)+1;
@@ -469,33 +456,4 @@ MMU::mem_dump(std::ostream &fout, U16 p0, U16 sz) {
         fout << buf;
     }
     fout << std::endl;
-}
-__HOST__ void
-MMU::network(std::ostream &fout, DU mt) {
-#if T4_ENABLE_OBJ
-    auto tinfo = [this, &fout](Tensor &t, int i, int fn) { ///> layer info
-        fout << "[" << std::setw(3) << i << "] " << Model::nname(fn) << ":";
-        to_s(fout, t);
-        int sz = t.grad[0] && t.grad[1]
-            ? t.grad[0]->numel * t.grad[1]->numel
-            : 0;
-        fout << ", #param=" << sz;
-    };
-    auto finfo = [this, &fout](Tensor **g) {
-        for (int i=0; g[i] && i < 2; i++) {
-            fout << " "; to_s(fout, *g[i]);
-        }
-    };
-    Model &m = this->du2mdl(mt);
-    int   sz = m.numel;
-    if (!m.is_model()) return;
-    
-    fout << "NN model[" << sz - 1 << "/" << m.slots() << "]\n";
-    for (int i = 1; i < sz; i++) {  /// skip root[0]
-        Tensor &t = m[i];
-        tinfo(t, i, (i==(sz-1)) ? 0 : t.grad_fn);
-        if (_trace && t.grad_fn != L_NONE) finfo(t.grad);
-        fout << "\n";
-    }
-#endif // T4_ENABLE_OBJ
 }

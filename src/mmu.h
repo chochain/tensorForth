@@ -176,13 +176,12 @@ public:
     ///
     /// short hands for eforth tensor ucodes (for DU <-> Object conversion)
     ///
-    __BOTH__ Tensor &du2ten(DU d);
-    __BOTH__ Model  &du2mdl(DU d);
+    __BOTH__ T4Base &du2obj(DU d);
     __BOTH__ DU     ten2du(Tensor &t);
     __BOTH__ DU     mdl2du(Model &m);
     __GPU__  void   drop(DU d);
-    __GPU__  __INLINE__ DU   dup(DU d)       { return IS_OBJ(d) ? ten2du(view(du2ten(d))) : d; }
-    __GPU__  __INLINE__ DU   copy(DU d)      { return IS_OBJ(d) ? ten2du(copy(du2ten(d))) : d; }
+    __GPU__  __INLINE__ DU   dup(DU d)  { return IS_OBJ(d) ? ten2du(view((Tensor&)du2obj(d))) : d; }
+    __GPU__  __INLINE__ DU   copy(DU d) { return IS_OBJ(d) ? ten2du(copy((Tensor&)du2obj(d))) : d; }
 #endif // T4_ENABLE_OBJ
     ///
     /// debugging methods (implemented in .cu)
@@ -198,6 +197,5 @@ public:
     __HOST__ void see(std::ostream &fout, U16 w);               
     __HOST__ void ss_dump(std::ostream &fout, U16 vid, U16 n, int radix);
     __HOST__ void mem_dump(std::ostream &fout, U16 p0, U16 sz); ///< dump a section of param memory
-    __HOST__ void network(std::ostream &fout, DU mt);           ///< display neural network model
 };
 #endif // TEN4_SRC_MMU_H
