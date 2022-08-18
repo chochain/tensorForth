@@ -7,6 +7,49 @@
 #include "netvm.h"
 
 #if T4_ENABLE_OBJ
+__GPU__ void
+NetVM::nnop(t4_layer op) {
+    ///
+    /// handle tensor ops (proxy)
+    ///
+    if (TOS1T) {
+        switch (op) {
+        case L_RELU:    xop1(O_RELU, DU0); break;   ///> (Ta -- Ta Ta')
+        case L_TANH:    xop1(O_TANH);      break;   ///> (Ta -- Ta Ta')
+        case L_SIGMOID: xop1(O_SIGM);      break;   ///> (Ta -- Ta Ta')
+        case L_FLATTEN:
+            Tensor &t = TTOS;
+            t.reshape(t.numel);            break;   ///> (Ta -- Ta Ta')
+        }
+        return;
+    }
+    ///
+    /// model layer ops
+    ///
+    switch (op) {
+    case L_CONV2D:   _conv2d(); break;
+    case L_LINEAR:
+         if (!IS_OBJ(top) && !IS_OBJ(ss[-1])) {
+             U16   n    = POPi;                     ///> number of output channels
+             DU    bias = POP();                    ///> convolution bias
+             NN.add(L_LINEAR, n, bias);             ///> (N b c -- N')
+         }
+         else ERROR("linear: bias n required!");
+         break;
+    case L_FLATTEN:
+    case L_RELU:
+    case L_TANH:
+    case L_SIGMOID:
+    case L_SOFTMAX: if (MTOS) NN.add(op); break;
+    case L_MAXPOOL: 
+    case L_AVGPOOL:
+    case L_MINPOOL: if (MNOS) { U16 n = POPi; NN.add(op, n); } break;
+    case L_DROPOUT: if (MNOS) {
+            U16 p = int(100.0 * POP() + 0.5); NN.add(op, p);
+        } break;
+    default: ERROR("NetVM::nnop(%d) not supported\n", op);
+    }
+}
 ///===================================================================
 /// static loss functions
 ///
@@ -70,40 +113,28 @@ NetVM::adam() {
 ///
 __GPU__ void
 NetVM::init() {
-    const Code prim[] = {       /// singleton, build once only
+    const Code prim[] = {                   ///> singleton, build once only
     ///@defgroup Convolution and Linear ops
     ///@{
-    CODE("nn.model",  DU m = mmu.mdl2du(mmu.model(POPi)); PUSH(m)),
-    CODE("conv2d", _conv2d()),                          ///> (N b c [A] -- N')
-    CODE("linear",                                      ///> (N n -- N')
-         if (!IS_OBJ(top) && !IS_OBJ(ss[-1])) {
-             U16   n    = POPi;          ///> number of output channels
-             DU    bias = POP();         ///> convolution bias
-             NN.add(L_LINEAR, n, bias);                    ///> (N b c -- N')
-         }
-         else ERROR("linear: bias n required!")),
+    CODE("nn.model",                          ///> (n -- N)
+         Model &m = mmu.model(POPi);          /// create model with n layers
+         PUSH(mmu.mdl2du(m))),
+    CODE("conv2d",    nnop(L_CONV2D)),        ///> (N b c [A] -- N')
+    CODE("linear",    nnop(L_LINEAR)),        ///> (N n -- N')
     ///@}
     ///@defgroup Activation ops
     ///@{
-    CODE("relu",
-        if (is_ten()) xop1(O_RELU, DU0);   ///> (Ta -- Ta Ta')
-        else NN.add(L_RELU)),              ///> (N -- N')
-    CODE("tanh",
-        if (is_ten()) xop1(O_TANH);        ///> (Ta -- Ta Ta')
-        else NN.add(L_TANH)),              ///> (N -- N')
-    CODE("sigmoid",
-        if (is_ten()) xop1(O_SIGM);        ///> (Ta -- Ta Ta')
-        else NN.add(L_SIGMOID)),           ///> (N -- N')
-    CODE("softmax",NN.add(L_SOFTMAX)),     ///> (N -- N')
+    CODE("relu",      nnop(L_RELU)),          ///> (N -- N')
+    CODE("tanh",      nnop(L_TANH)),          ///> (N -- N')
+    CODE("sigmoid",   nnop(L_SIGMOID)),       ///> (N -- N')
+    CODE("softmax",   nnop(L_SOFTMAX)),       ///> (N -- N')
     ///@}
     ///@defgroup Pooling and Dropout ops
     ///@{
-    CODE("pool.max",  U16 n = POPi; NN.add(L_MAXPOOL, n)), ///> (N n -- N')
-    CODE("pool.avg",  U16 n = POPi; NN.add(L_AVGPOOL, n)), ///> (N n -- N')
-    CODE("pool.min",  U16 n = POPi; NN.add(L_MINPOOL, n)), ///> (N n -- N')
-    CODE("dropout",                                     ///> (N p -- N')
-         DU p = POP();
-         NN.add(L_DROPOUT, int(100.0 * p + 0.5))),
+    CODE("pool.max",  nnop(L_MAXPOOL)),       ///> (N n -- N')
+    CODE("pool.avg",  nnop(L_AVGPOOL)),       ///> (N n -- N')
+    CODE("pool.min",  nnop(L_MINPOOL)),       ///> (N n -- N')
+    CODE("dropout",   nnop(L_DROPOUT)),       ///> (N p -- N')
     ///@}
     ///@defgroup Loss functions
     ///@{
@@ -120,28 +151,27 @@ NetVM::init() {
     ///@{
     CODE("nn.for",    {}),
     CODE("nn.next",   {}),
-    CODE("autograd",  bool on = POPi; NN.autograd = on),
+    CODE("autograd",  if (MNOS) { bool on = POPi; NN.autograd = on; }),
     CODE("forward",
-         if (!IS_OBJ(top) || !IS_OBJ(ss[-1])) return;
-         Tensor &t = mmu.du2ten(POP()); NN.forward(t)),
+         if (TOS1T && MNOS) {
+             Tensor &t = TTOS; POP(); NN.forward(t);
+         }),
     CODE("backprop",
-         if (!IS_OBJ(top) || !IS_OBJ(ss[-1])) return;
-         Tensor &t = mmu.du2ten(POP()); NN.backprop(t)),
+         if (TOS1T && MNOS) {
+             Tensor &t = TTOS; POP(); NN.backprop(t);
+         }),
     CODE("predict",   {}),
     ///@}
     ///@defgroup Debugging ops
     ///@{
-    CODE(">n",        DU t = POP(); NN.npush(t)),
-    CODE("n@",        DU i = POPi; PUSH(NN[i])),
-    CODE("network",   fout << opx(OP_NET, 0, top)),
+    CODE(">n",        if (MNOS) { DU t = POP(); NN.npush(t); }),
+    CODE("n@",        if (MNOS) { DU i = POPi;  PUSH(NN[i]); }),
+    CODE("network",   if (MTOS) fout << opx(OP_NET, 0, top)),
     ///@}
     };
     const Code over[] = {           /// extended (overload) words
-    CODE("flatten",
-         Tensor &t = TTOS;
-         if (t.is_tensor()) t.reshape(t.numel);   /// (Ta -- Ta')
-         else NN.add(L_FLATTEN)),                 /// (N -- N')
-    CODE("boot", mmu.clear(FIND("network") + 1))
+    CODE("flatten",   nnop(L_FLATTEN)),
+    CODE("boot",      mmu.clear(FIND("network") + 1))
     };
     TensorVM::init();
 
