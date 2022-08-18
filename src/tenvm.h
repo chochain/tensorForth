@@ -11,6 +11,10 @@
 #define EXP(d)    (expf(d))                 /**< exponential(float) */
 #define TTOS      (mmu.du2ten(top))         /**< tensor on TOS      */
 #define TNOS      (mmu.du2ten(ss[-1]))      /**< tensor on NOS      */
+#define TOS1T     (IS_OBJ(top) && TTOS.is_tensor())
+#define TOS2T     (TOS1T && IS_OBJ(ss[-1]) && TNOS.is_tensor())
+#define TOS3T     (TOS2T && IS_OBJ(ss[-2]) && mmu.du2ten(ss[-2]).is_tensor())
+
 typedef enum {
     KEEP = false,
     DROP = true
@@ -39,20 +43,6 @@ protected:
     ///
     __GPU__ void tprint(DU d);              ///< tensor dot (print)
     __GPU__ int  number(char *str) final;   ///< TODO: CC - this worked, why?
-    ///
-    /// short-hands for object identification
-    ///
-    __GPU__ __INLINE__ bool is_ten() {      ///< is TOS a tensor?
-        return IS_OBJ(top) && mmu.du2ten(top).is_tensor();
-    }
-    __GPU__ __INLINE__ bool is_2ten() {     /// are both TOS and NOS tensors?
-        return is_ten() &&
-            IS_OBJ(ss[-1]) && mmu.du2ten(ss[-1]).is_tensor();
-    }
-    __GPU__ __INLINE__ bool is_3ten() {     /// all three on stack tensors
-        return is_2ten() &&
-            IS_OBJ(ss[-2]) && mmu.du2ten(ss[-2]).is_tensor();
-    }
     ///
     /// tensor ops based on number of operands
     ///

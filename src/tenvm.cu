@@ -222,7 +222,7 @@ TensorVM::_solv(Tensor &B, Tensor &A) {      /// Note: A B flipped [3,3]x[3,1]
 }
 __GPU__ void
 TensorVM::_gemm() {                          ///< blas GEMM
-    if (!is_3ten()) { ERROR("tensors?"); return; }
+    if (!TOS3T) { ERROR("tensors?"); return; }
     
     Tensor &C = TTOS, &B = TNOS, &A = mmu.du2ten(ss[-2]);
     DU     b  = ss[-3];
@@ -291,13 +291,13 @@ TensorVM::init() {
     ///@}
     ///@defgrup Tensor slice and dice
     ///@{
-    CODE("sum", if (is_ten()) PUSH(TTOS.sum())),
-    CODE("avg", if (is_ten()) PUSH(TTOS.avg())),
-    CODE("{",   if (is_ten() && ten_lvl > 0) ++ten_lvl),
-    CODE("}",   if (is_ten() && ten_lvl > 0) --ten_lvl),
+    CODE("sum", if (TOS1T) PUSH(TTOS.sum())),
+    CODE("avg", if (TOS1T) PUSH(TTOS.avg())),
+    CODE("{",   if (TOS1T && ten_lvl > 0) ++ten_lvl),
+    CODE("}",   if (TOS1T && ten_lvl > 0) --ten_lvl),
     CODE("slice",
          IU y1 = POPi; IU y0 = POPi; IU x1 = POPi; IU x0 = POPi;
-         if (is_ten()) {
+         if (TOS1T) {
              Tensor &t0 = TTOS;
              Tensor &t1 = mmu.slice(t0, x0, x1, y0, y1);
              PUSH(t1);
@@ -327,7 +327,7 @@ TensorVM::init() {
     CODE("@=",        xop2(O_DOT, DROP)),
     CODE("matmul",    xop2(O_DOT, KEEP)), ///< (A B -- A B C) matrix multiply
     CODE("matdiv",                        ///< (A B -- A B C) matrix divide
-        if (!is_2ten()) return;
+        if (TOS2T) return;
         Tensor &A = TNOS; Tensor &B = TTOS;
         Tensor *C = _tdiv(A, B);
         PUSH(*C)),
