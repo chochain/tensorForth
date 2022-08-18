@@ -29,8 +29,7 @@ typedef enum {
     OP_WORDS = 0,
     OP_SEE,
     OP_DUMP,
-    OP_SS,
-    OP_NET
+    OP_SS
 } OP;
 
 //================================================================
