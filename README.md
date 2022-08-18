@@ -172,15 +172,19 @@ Note:
    -         (Ta Tb -- Ta Tb Tc)  - tensor element-wise subtraction Tc = Ta - Tb
    -         (Ta n  -- Ta n  Ta') - tensor-scalar subtraction (broadcast) Ta' = Ta - n
    -         (n  Ta -- n  Ta Ta') - tensor-scalar subtraction (broadcast) Ta' = n - Ta
-   @         (Ta Tb -- Ta Tb Tc)  - matrix-matrix multiplication Tc = Ta @ Tb, i.e. matmul
+   @         (Ta Tb -- Ta Tb Tc)  - matrix-matrix inner product Tc = Ta @ Tb, i.e. matmul
+   @         (Ta Ab -- Ta Ab Ac)  - matrix-vector inner product Ac = Ta @ Ab
+   @         (Aa Ab -- Aa Ab n)   - vector-vector inner product n = Aa @ Ab, i.e. dot
    *         (Ta Tb -- Ta Tb Tc)  - tensor-tensor element-wise multiplication Tc = Ta * Tb
    *         (Ta Ab -- Ta Ab Ta') - matrix-vector multiplication Ta' = Ta * colum_vector(Ab)
    *         (Ta n  -- Ta n  Ta') - tensor-scalar multiplication Ta' = n * Ta, i.e. scale up
    *         (n  Ta -- n  Ta Ta') - scalar-tensor multiplication Ta' = n * Ta, i.e. scale up
-   *         (Aa Ab -- Aa Ab n)   - vector-vector inner product n = Aa . Ab
    /         (Ta Tb -- Ta Tb Tc)  - tensor-tensor element-wise divide Tc = Ta / Tb
    /         (Ta n  -- Ta n  Ta') - tensor-scalar scale down Ta' = 1/n * Ta
    sum       (Ta    -- Ta n)      - sum all elements of a tensor
+   avg       (Ta    -- Ta n)      - average of all elements of a tensor
+   max       (Ta    -- Ta n)      - max of all elements of a tensor
+   min       (Ta    -- Ta n)      - min of all elements of a tensor
 </pre>
 
 ### Tensor arithmetic (by default destructive, as in Forth)
@@ -188,20 +192,19 @@ Note:
    abs       (Ta    -- Ta')   - tensor element-wise absolute Ta' = abs(Ta)
    negate    (Ta    -- Ta')   - tensor element-wise negate   Ta' = -(Ta)
    exp       (Ta    -- Ta')   - tensor element-wise exponential Ta' = exp(Ta)
-   tanh      (Ta    -- Ta')   - tensor element-wise tanh Ta' = tanh(Ta)
-   relu      (Ta    -- Ta')   - tensor element-wise ReLU Ta' = max(0, Ta)
    +=        (Ta Tb -- Tc)    - tensor element-wise addition Tc = Ta + Tb
    +=        (Ta n  -- Ta')   - tensor-scalar addition (broadcast) Ta' = Ta + n
    +=        (n  Ta -- Ta')   - scalar-tensor addition (broadcast) Ta' = Ta + n
    -=        (Ta Tb -- Tc)    - tensor element-wise subtraction Tc = Ta - Tb
    -=        (Ta n  -- Ta')   - tensor-scalar subtraction (broadcast) Ta' = Ta - n
-   -=        (Ta n  -- Ta')   - tensor-scalar subtraction (broadcast) Ta' = n - Ta
-   @=        (Ta Tb -- Tc)    - matrix-matrix multiplication Tc = Ta @ Tb, i.e. matmul
+   -=        (n  Ta -- Ta')   - scalar-tensor subtraction (broadcast) Ta' = n - Ta
+   @=        (Ta Tb -- Tc)    - matrix-matrix inner product Tc = Ta @ Tb, i.e. matmul
+   @=        (Ta Ab -- Ac)    - matrix-vector inner product Ac = Ta @ Ab
+   @=        (Aa Ab -- Ac)    - vector-vector inner prodcut n = Aa @ Ab, i.e. dot
    *=        (Ta Tb -- Tc)    - matrix-matrix element-wise multiplication Tc = Ta * Tb
    *=        (Ta Ab -- Ac')   - matrix-vector multiplication Ac' = Ta * Ab
    *=        (Ta n  -- Ta')   - tensor-scalar multiplication Ta' = n * Ta
    *=        (n  Ta -- Ta')   - scalar-tensor multiplication Ta' = n * Ta
-   *=        (Aa Ab -- n)     - vector-vector inner product n = Aa . Ab
    /=        (Ta Tb -- Tc)    - matrix-matrix element-wise Tc = Ta / Tb 
    /=        (Ta n  -- Ta')   - tensor-scalar scale down multiplication Ta' = 1/n * Ta
 </pre>

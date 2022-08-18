@@ -2,7 +2,7 @@
 ## Features
 * vector, matrix, tensor objects (modeled to PyTorch)
 * TLSF tensor storage manager
-* matrix arithmetics (i.e. +, -, @, *, sum, min, max, avg, abs, negate, exp, tanh, relu)
+* matrix arithmetics (i.e. +, -, @, *, sum, min, max, avg, abs, negate, exp)
 * linear algebra (i.e. copy, matmul, inverse, transpose, det, lu, luinv, upper, lower, solve)
 * matrix fill (i.e. zeros, ones, full, eye, random)
 * matrix console input (i.e. matrix{..., vector{..., and T!{)
@@ -19,13 +19,14 @@
 <pre>
 tensorForth - Forth does tensors, in GPU
 Options:
-  -h        list all GPUs and this usage statement.
-  -d <int>  GPU device id
-  -v <int>  Verbosity level, 0: default, 1: mmu debug, 2: more details
+  -h      list all GPUs and this usage statement.
+  -d n    process using given device/GPU id
+  -v n    Verbosity level, 0: default, 1: mmu debug, 2: more details
 
 Examples:
-$ ./tests/ten4 -h
-$ ./tests/ten4 -d 0
+$ ./tests/ten4 -h     ;# display help
+$ ./tests/ten4 -d 0   ;# use device 0
+$ ./tests/ten4 -v 1   ;# set verbosity to level 1
 
 CUDA Device #0
 	Name:                          NVIDIA GeForce GTX 1660
@@ -45,12 +46,12 @@ CUDA Device #0
 	Concurrent copy and execution: Yes
 	Kernel execution timeout:      Yes
 </pre>
-* \-d device_id - enter GPU device id
+* \-d device_id - enter GPU/device id
 * > Example:> ./ten4 \-d 0
 <pre>
 tensorForth 2.0
-\  GPU 0 initialized at 1800MHz, dict[1024], pmem=48K, tensor=1024M
-\  VM[0] dict=0x7fe3d2000a00, mem=0x7fe3d2004a00, vss=0x7fe3d2010a00
+\  GPU 0 initialized at 1800MHz, dict[1024], vmss[64*1], pmem=48K, tensor=1024M
+\  VM[0] dict=0x7fe3d2000a00, mem=0x7fe3d2004a00, vmss=0x7fe3d2010a00, obj=0x7fe460000000
 </pre>
 * \-v verbose_level - set verbosity level 0: off (default), 1: mmu tracing on, 2: detailed trace
 
@@ -62,33 +63,33 @@ tensorForth 2.0
 \  VM[0] dict=0x7f56fe000a00, mem=0x7f56fe004a00, vss=0x7f56fe010a00
 
 2 3 matrix{ 1 2 3 4 5 6 }            \ create matrix
-mmu#tensor(2,3) => size=6            \ the optional debug traces
+mmu#tensor(2,3) => numel=6           \ the optional debug traces
  <0 T2[2,3]> ok                      \ 2-D tensor shown on top of stack (TOS)
 dup                                  \ duplicate i.e. create a view
-mmu#view 0x7efc18000078 => size=6
+mmu#view => V2 numel=6
  <0 T2[2,3] V2[2,3]> ok              \ view shown on TOS
 .                                    \ print the view
 matrix[2,3] = {
 	{ +1.0000 +2.0000 +3.0000 }
 	{ +4.0000 +5.0000 +6.0000 } }
  <0 T2[2,3]> ok
-mmu#free(T2) size=6                  \ view released after print
+mmu#free(T2) numel=6                 \ view released after print
  <0 T2[2,3]> ok
 3 2 matrix ones                      \ create a [3,2] matrix and fill with ones
-mmu#tensor(3,2) => size=6
+mmu#tensor(3,2) => numel=6
  <0 T2[2,3] T2[3,2]> ok
 @                                    \ multiply matrices [2,3] x [3,x]
-mmu#tensor(2,2) => size=4            \ a [2,x] resultant matrix created
+mmu#tensor(2,2) => numel=4           \ a [2,x] resultant matrix created
  <0 T2[2,3] T2[3,2] T2[2,2]> ok      \ shown on TOS
 .                                    \ print the matrix
 matrix[2,2] = {
 	{ +6.0000 +6.0000 }
 	{ +15.0000 +15.0000 } }
  <0 T2[2,3] T2[3,2]> ok
-mmu#free(T2) size=4                  \ matrix release after print
+mmu#free(T2) numel=4                 \ matrix release after print
 2drop                                \ free both matrics
-mmu#free(T2) size=6
-mmu#free(T2) size=6
+mmu#free(T2) numel=6
+mmu#free(T2) numel=6
  <0> ok
 bye                                  \ exit tensorForth
  <0 T2[2,3] T2[3,2]> ok
@@ -107,7 +108,7 @@ tensorForth 2.0 done.
 ||> `64 224 224 3`**`tensor`**|`T4[64,224,224,3]`|
 |vector{|(n -- T1)|create 1-D array from console stream|
 ||> `5`**`vector{`**`1 2 3 4 5 }`|`T1[5]`|
-|matrix[|(h w -- T2)|create a 2-D matrix as TOS|
+|matrix{|(h w -- T2)|create a 2-D matrix as TOS|
 ||> `2 3`**`matrix{`**`1 2 3 4 5 6 }`<br/>> `3 2`**`matrix{`**`{ 1 2 } { 3 4 } { 5 6 } }`|`T2[2,3]`</br>`T2[2,3] T2[3,2]`|
 |copy|(Ta -- Ta Ta')|duplicate (deep copy) a tensor on TOS|
 ||> `2 3 matrix`<br/>> **`copy`**|`T2[2,3]`<br/>`T2[2,3] T2[2,3]`|
@@ -173,18 +174,19 @@ tensorForth 2.0 done.
 |word|param/example|Tensor arithmetic ops (non-destructive)|
 |---|---|---|
 |+|(Ta Tb -- Ta Tb Tc)|tensor element-wise addition Tc = Ta + Tb|
-||> `2 2 matrix random`<br/>> `dup .`<br/>> `2 2 matrix ones`<br/>> **`+`**<br/>> `.`|`T2[2,2]`<br/>`matrix[2,2] = { { -0.5000 +0.1953 } { +0.1094 +0.4141 } }`<br/>`T2[2,2] T2[2,2]`<br/>`T2[2,2] T2[2,2] T[2,2]`<br/>`matrix[2,2] = { { +0.5000 +1.1953 } { +1.1094 +1.4141 } }`|
+||> `2 2 matrix rand`<br/>> `dup .`<br/>> `2 2 matrix ones`<br/>> **`+`**<br/>> `.`|`T2[2,2]`<br/>`matrix[2,2] = { { -0.5000 +0.1953 } { +0.1094 +0.4141 } }`<br/>`T2[2,2] T2[2,2]`<br/>`T2[2,2] T2[2,2] T[2,2]`<br/>`matrix[2,2] = { { +0.5000 +1.1953 } { +1.1094 +1.4141 } }`|
 |+|(Ta n  -- Ta n  Ta')|tensor-scalar addition (broadcast) Ta' = Ta + n|
 |+|(n  Ta -- n  Ta Ta')|scalar-tensor addition (broadcast) Ta' = Ta + n|
 |-|(Ta Tb -- Ta Tb Tc)|tensor element-wise subtraction Tc = Ta - Tb|
 |-|(Ta n  -- Ta n  Ta')|tensor-scalar subtraction (boardcast) Ta' = Ta - n|
 |-|(n  Ta -- n  Ta Ta')|scalar-tensor subtraction (boardcast) Ta' = n - Ta|
-|@|(Ta Tb -- Ta Tb Tc)|matrix-matrix multiplication Tc = Ta @ Tb|
+|@|(Ta Tb -- Ta Tb Tc)|matrix-matrix inner product Tc = Ta @ Tb|
+|@|(Ta Ab -- Ta Tb Ac)|matrix-vector inner product Ac = Ta @ Ab|
+|@|(Aa Ab -- Aa Ab n)|vector-vector inner product n = Aa @ Ab, i.e. dot|
 |*|(Ta Tb -- Ta Tb Tc)|matrix-matrix element-wise multiplication Tc = Ta * Tb|
-|*|(Ta Ab -- Ta Ab Ac)|matrix-vector multiplication Ac = Ta * column_vector(Ab)|
 |*|(Ta n  -- Ta n Ta')|tensor-scalar multiplication Ta' = n * Ta, i.e. scale up|
 |*|(n  Ta -- n  Ta Ta')|scalar-tensor multiplication Ta' = n * Ta, i.e. scale up|
-|*|(Aa Ab -- Aa Ab c)|vector-vector inner product c = Aa * Ab, i.e. dot|
+|*|(Aa Ab -- Aa Ab Ac)|vector-vector outer product Ac = Aa * Ab|
 |/|(Ta Tb -- Ta Tb Tc)|matrix-matrix element-wise division Tc = Ta / Tb|
 |/|(Ta n  -- Ta Ta')|tensor-scalar division Ta = 1/n * Ta, i.e. scale down|
 |sum|(Ta -- Ta n)|sum all elements of a tensor|
@@ -198,21 +200,20 @@ tensorForth 2.0 done.
 |abs|(Ta -- Ta')|tensor element-wise absolute Ta' = abs(Ta)|
 |negate|(Ta -- Ta')|tensor element-wise negate Ta' = -(Ta)|
 |exp|(Ta -- Ta')|tensor element-wise exponential Ta' = exp(Ta)|
-|tanh|(Ta -- Ta')|tensor element-wise tanh Ta' = tanh(Ta)|
-|relu|(Ta -- Ta')|tensor element-wise ReLU Ta' = max(0, Ta)|
 |+=|(Ta Tb -- Tc)|tensor element-wise addition Tc = Ta + Tb|
-||> `2 2 matrix random`<br/>> `dup .`<br/>> `2 2 matrix ones`<br/>> **`+=`**<br/>> `.`|`T2[2,2]`<br/>`matrix[2,2] = { { -0.5000 +0.1953 } { +0.1094 +0.4141 } }`<br/>`T2[2,2] T2[2,2]`<br/>`T2[2,2]`<br/>`matrix[2,2] = { { +0.5000 +1.1953 } { +1.1094 +1.4141 } }`|
+||> `2 2 matrix rand`<br/>> `dup .`<br/>> `2 2 matrix ones`<br/>> **`+=`**<br/>> `.`|`T2[2,2]`<br/>`matrix[2,2] = { { -0.5000 +0.1953 } { +0.1094 +0.4141 } }`<br/>`T2[2,2] T2[2,2]`<br/>`T2[2,2]`<br/>`matrix[2,2] = { { +0.5000 +1.1953 } { +1.1094 +1.4141 } }`|
 |+=|(Ta n  -- Ta')|tensor-scalar addition (broadcast) Ta' = Ta + n|
 |+=|(n  Ta -- Ta')|scalar-tensor addition (broadcast) Ta' = Ta + n|
 |-=|(Ta Tb -- Tc)|tensor element-wise subtraction Tc = Ta - Tb|
 |-=|(Ta n  -- Ta')|tensor-scalar subtraction (boardcast) Ta' = Ta - n|
 |-=|(n  Ta -- Ta')|scalar-tensor subtraction (boardcast) Ta' = n - Ta|
-|@=|(Ta Tb -- Tc)|matrix-matrix multiplication Tc = Ta @ Tb|
+|@=|(Ta Tb -- Tc)|matrix-matrix inner product Tc = Ta @ Tb|
+|@=|(Ta Ab -- Ac)|matrix-vector inner product Ac = Ta @ Ab|
+|@=|(Aa Ab -- n)|vector-vector inner (dot) product n = Aa * Ab|
 |*=|(Ta Tb -- Tc)|matrix-matrix element-wise multiplication Tc = Ta * Tb|
-|*=|(Ta Ab -- Ac)|matrix-vector multiplication Ac = Ta * Ab|
 |*=|(Ta n  -- Ta')|tensor-scalar multiplication Ta' = n * Ta|
 |*=|(n  Ta -- Ta')|scalar-tensor multiplication Ta' = n * Ta|
-|*=|(Aa Ab -- c)|vector-vector inner (dot) product c = Aa * Ab|
+|*=|(Aa Ab -- Ac')|vector-vector multiplication Ac = Aa * Ab|
 |/=|(Ta Tb -- Tc)|matrix-matrix element-wise division Tc = Ta / Tb|
 |/=|(Ta n  -- Ta')|tensor-scalar division Ta = 1/n * Ta|
 
@@ -221,20 +222,20 @@ tensorForth 2.0 done.
 |---|---|---|
 |matmul|(Ma Mb -- Ma Mb Mc)|matrix multiplication Mc = Ma @ Mb|
 |matdiv|(Ma Mb -- Ma Mb Mc)|matrix division Mc = Ma @ inverse(Mb)|
-||> `3 3 matrix={ 2 2 5 1 1 1 4 6 8 } copy`<br/>> **`matdiv`** `.`|`T2[3,3] T[3,3]`<br/>`matrix[3,3] = { { 1.0000 +0.0000 +0.0000 } { -0.0000 +1.0000 +0.0000 } { +0.0000 +0.0000 +1.0000 } }`|
+||> `3 3 matrix{ 2 2 5 1 1 1 4 6 8 } copy`<br/>> **`matdiv`** `.`|`T2[3,3] T[3,3]`<br/>`matrix[3,3] = { { 1.0000 +0.0000 +0.0000 } { -0.0000 +1.0000 +0.0000 } { +0.0000 +0.0000 +1.0000 } }`|
 |inverse|(Ma -- Ma Ma')|matrix inversion (Gauss-Jordan with Pivot)|
-||> `3 3 matrix={ 2 2 5 1 1 1 4 6 8 }`<br/>> **`inverse`**<br/>> `.`|`T2[3,3]`<br/>`T2[3,3] T[3,3]`<br/>`matrix[3,3] = { { 0.3333 +2.3333 -0.5000 } { -0.6667 -0.6667 +0.5000 } { +0.3333 -0.6667 +0.0000 } }`|
+||> `3 3 matrix{ 2 2 5 1 1 1 4 6 8 }`<br/>> **`inverse`**<br/>> `.`|`T2[3,3]`<br/>`T2[3,3] T[3,3]`<br/>`matrix[3,3] = { { 0.3333 +2.3333 -0.5000 } { -0.6667 -0.6667 +0.5000 } { +0.3333 -0.6667 +0.0000 } }`|
 |transpose|(Ma -- Ma Ma')|matrix transpose|
 |det|(Ma -- Ma d)|matrix determinant (with PLU)|
-||> `3 3 matrix={ 1 2 4 3 8 14 2 6 13 }`<br/>> **`det`**|`T2[3,3]`<br/>`T2[3,3] 6`|
-|lu|(Ma -- Ma Ma')|LU decomposition (stored in-place), no Pivot|
-||> `3 3 matrix={ 1 2 4 3 8 14 2 6 13 }`<br/>> **`lu`**`.`|`T2[3,3]`<br/>`matrix[3,3] = {`<br/>`{ +1.0000 +2.0000 +4.0000 }`<br/>`{ +3.0000 +2.0000 +2.0000 }`<br/>`{ +2.0000 +1.0000 +3.0000 } }`|
-|luinv|(Ma -- Ma Ma')|inverse of an LU matrix (i.e. forward & backward), stored in-place|
-||> `3 3 matrix={ 1 2 4 3 8 14 2 6 13 }`<br/>> **`luinv`**`.`|`T2[3,3]`<br/>`matrix[3,3] = {`<br/>`{ +1.0000 -1.0000 -0.6667 }`<br/>`{ -3.0000 +0.5000 -0.3333 }`<br/>`{ +1.0000 -1.0000 +0.3333 } }`|
+||> `3 3 matrix{ 1 2 4 3 8 14 2 6 13 }`<br/>> **`det`**|`T2[3,3]`<br/>`T2[3,3] 6`|
+|lu|(Ma -- Ma Ma')|LU decomposition, no Pivot|
+||> `3 3 matrix{ 1 2 4 3 8 14 2 6 13 }`<br/>> **`lu`**`.`|`T2[3,3]`<br/>`matrix[3,3] = {`<br/>`{ +1.0000 +2.0000 +4.0000 }`<br/>`{ +3.0000 +2.0000 +2.0000 }`<br/>`{ +2.0000 +1.0000 +3.0000 } }`|
+|luinv|(Ma -- Ma Ma')|inverse of an LU matrix (i.e. forward & backward)|
+||> `3 3 matrix{ 1 2 4 3 8 14 2 6 13 }`<br/>> **`luinv`**`.`|`T2[3,3]`<br/>`matrix[3,3] = {`<br/>`{ +1.0000 -1.0000 -0.6667 }`<br/>`{ -3.0000 +0.5000 -0.3333 }`<br/>`{ +1.0000 -1.0000 +0.3333 } }`|
 |upper|(Ma -- Ma Ma')|upper triangle|
-||> `3 3 matrix={ 1 -1 -2 -3 5 -4 1 -1 4 }`<br>> **`upper`**`.`|`T2[3,3]`<br/>`matrix[3,3] = {`<br/>`{ +1.0000 -1.0000 -2.0000 }`<br/>`{ +0.0000 +5.0000 -4.0000 }`<br/>`{ +0.0000 +0.0000 +4.0000 } }`|
+||> `3 3 matrix{ 1 -1 -2 -3 5 -4 1 -1 4 }`<br>> **`upper`**`.`|`T2[3,3]`<br/>`matrix[3,3] = {`<br/>`{ +1.0000 -1.0000 -2.0000 }`<br/>`{ +0.0000 +5.0000 -4.0000 }`<br/>`{ +0.0000 +0.0000 +4.0000 } }`|
 |lower|(Ma -- Ma Ma')|lower triangle with diag filled with 1s|
-||> `3 3 matrix={ 1 -1 -2 -3 5 -4 1 -1 4 }`<br>> **`lower`**`.`|`T2[3,3]`<br/>`matrix[3,3] = {`<br/>`{ +1.0000 +0.0000 +0.0000 }`<br/>`{ -3.0000 +1.0000 +0.0000 }`<br/>`{ +1.0000 -1.0000 +1.0000 } }`|
+||> `3 3 matrix{ 1 -1 -2 -3 5 -4 1 -1 4 }`<br>> **`lower`**`.`|`T2[3,3]`<br/>`matrix[3,3] = {`<br/>`{ +1.0000 +0.0000 +0.0000 }`<br/>`{ -3.0000 +1.0000 +0.0000 }`<br/>`{ +1.0000 -1.0000 +1.0000 } }`|
 |solve|(Ab Ma -- Ab Ma Ax)|solve linear equation AX = B|
 ||> `3 vector{ 1 1 1 }`<br>> `3 3 matrix{ 5 7 4 3 -1 3 6 7 5 }`<br>> **`solve`**<br>> `dup .`|`T1[3]`<br/>`T1[3] T2[3,3]`<br/>`T1[3] T2[3,3] T1[3]`<br/>`vector[3] = { +8.0000 -1.0000 -8.0000 }`|
 |gemm|(a b Ma Mb Mc -- a b Ma Mb Mc')|GEMM Mc' = a * Ma * Mb + b * Mc|
