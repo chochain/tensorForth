@@ -71,7 +71,7 @@ NetVM::predict(Tensor &A, Tensor &B, Tensor &C) {
 __GPU__ void
 NetVM::_conv2d() {
     U16 opt[] = { 3, 3, 1, 1, 1 };   ///> default 3x3 filter, padding=1, stride=1, dilation=1
-    if (IS_OBJ(top)) {
+    if (TOS1T) {                     ///> option vector
         Tensor &v = TTOS;
         if (v.rank == 1) {
             POP();
@@ -82,9 +82,12 @@ NetVM::_conv2d() {
     if (IS_OBJ(top) || IS_OBJ(ss[-1])) {
         ERROR("conv2d bias c required!"); return;
     }
-    U16   c    = POPi;                        ///> number of output channels
-    DU    bias = POP();                       ///> convolution bias
-    NN.add(L_CONV2D, c, bias, opt);
+    if (mmu.du2mdl(ss[-2]).is_model()) {
+        U16 c    = POPi;                 ///> number of output channels
+        DU  bias = POP();                ///> convolution bias
+        NN.add(L_CONV2D, c, bias, opt);
+    }
+    else ERROR("model bias c?");
 }
 ///
 /// Batch ops
@@ -117,7 +120,7 @@ NetVM::init() {
     ///@defgroup Convolution and Linear ops
     ///@{
     CODE("nn.model",                          ///> (n -- N)
-         Model &m = mmu.model(POPi);          /// create model with n layers
+         Model &m = mmu.model();              /// create model with n layers
          PUSH(mmu.mdl2du(m))),
     CODE("conv2d",    nnop(L_CONV2D)),        ///> (N b c [A] -- N')
     CODE("linear",    nnop(L_LINEAR)),        ///> (N n -- N')
