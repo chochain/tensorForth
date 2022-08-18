@@ -9,9 +9,11 @@
 #include "model.h"
 #include "tenvm.h"                /// extending TensorVM
 
-#define NN    (mmu.du2mdl(top))   /// Network Model on TOS
-#define MTOS  (NN.is_model())     /// check whether TOS is a model
-#define MNOS  (mmu.du2mdl(ss[-1]).is_model())
+#define NN       ((Model&)mmu.du2obj(top))                         /** Network Model on TOS   */
+#define IS_M(v)  (IS_OBJ(v) && mmu.du2obj(v).is_model())           /** check param is a model */
+#define MTOS     (IS_M(top))                                       /** TOS is a model         */
+#define MNOS     (!IS_OBJ(top) && IS_M(ss[-1]))                    /** NOS model w 1-param    */
+#define MN2D     (!IS_OBJ(top) && !IS_OBJ(ss[-1]) && IS_M(ss[-2])) /** ss[-2] model w 2-param */
 
 class NetVM : public TensorVM {
 public:
