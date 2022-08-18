@@ -110,7 +110,7 @@ __GPU__ Model&
 Model::add(t4_layer fn, U16 n, DU bias, U16 *opt) {
     Tensor &in = _mmu->du2ten(data[numel - 1]);
     if (!autograd || in.grad_fn != L_NONE) return *this;
-    
+
     switch(fn) {
     case L_CONV2D:  _iconv2d(in, n, bias, opt); break;
     case L_LINEAR:  _ilinear(in, n, bias);      break;

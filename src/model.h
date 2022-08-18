@@ -29,7 +29,8 @@ public:
     __BOTH__ __INLINE__ Tensor &operator[](int i) {
         return _mmu->du2ten(data[i]);
     }
-    __BOTH__ __INLINE__ void reset(MMU *mmu, Tensor &store) {
+    __BOTH__ __INLINE__ int  slots() { return _store->numel; }
+    __GPU__  __INLINE__ void reset(MMU *mmu, Tensor &store) {
         _mmu   = mmu;
         _store = &store;
         numel  = 0;
@@ -40,9 +41,17 @@ public:
         autograd = true;
         npush(store);            // keep store as root
     }
-    __BOTH__ __INLINE__ DU npop()               { return data[--numel]; }
-    __BOTH__ __INLINE__ Model &npush(DU v)      { data[numel++] = v; return *this; }
-    __BOTH__ __INLINE__ Model &npush(Tensor &t) { return npush(_mmu->ten2du(t)); }
+    __GPU__  __INLINE__ Model &npush(DU v) {
+        data[numel++] = v;
+        U32 tsz = _store->numel;
+        if (tsz <= numel) {
+            _mmu->resize(*_store, tsz + T4_NET_SZ);
+            data = _store->data; // reset storage cached pointer
+        }
+        return *this;
+    }
+    __GPU__ __INLINE__ Model &npush(Tensor &t) { return npush(_mmu->ten2du(t)); }
+    __GPU__  __INLINE__ DU    npop() { return data[--numel]; }
     __GPU__ __INLINE__ Tensor &tensor(U16 n, U16 h, U16 w, U16 c) {
         return _mmu->tensor(n, h, w, c);
     }
