@@ -250,7 +250,7 @@ Tensor::lu_inverse(Tensor &LU) {
 __BOTH__ Tensor&
 Tensor::plu(Tensor &A, Tensor &P) {
     U16 m = A.H(), n = A.W();
-    WARN("Tensor::lu[%d,%d]\n", m, n);
+    WARN("Tensor::plu[%d,%d]\n", m, n);
     if (m != n) { ERROR("square matrix?"); return A; }
 
     DU *da = A.data, *dp = P.data;
@@ -284,6 +284,7 @@ Tensor::plu(Tensor &A, Tensor &P) {
             da[z + y * n] = r1;              /// L stored in A to save space
         }
     };
+    for (U16 z = 0; z < m; z++) dp[z] = z;   /// init permutation vector
     for (U16 z = 0; z < n; z++) {
         int u = find_max(z);   /// * pivot to reduce rounding error
         if (u < 0) return A;
@@ -348,7 +349,7 @@ Tensor::det() {
     U16 m = H(), n = W();
     WARN("Tensor::det[%d,%d]\n", m, n);
 
-    DU v  = DU1;
+    DU v = DU1;
     for (U16 z = 0; z < m; z++) v *= data[z + z * n];
 
     return v;
