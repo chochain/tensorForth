@@ -41,7 +41,7 @@ protected:
     ///
     /// override literal handler
     ///
-    __GPU__ void tprint(DU d);              ///< tensor dot (print)
+    __GPU__ void tprint();                  ///< tensor dot (print)
     __GPU__ int  number(char *str) final;   ///< TODO: CC - this worked, why?
     ///
     /// tensor ops based on number of operands
