@@ -50,7 +50,7 @@ public:
         }
         return *this;
     }
-    __GPU__ __INLINE__ Model &npush(Tensor &t) { return npush(_mmu->ten2du(t)); }
+    __GPU__ __INLINE__ Model &npush(Tensor &t) { return npush(_mmu->obj2du(t)); }
     __GPU__  __INLINE__ DU    npop() { return data[--numel]; }
     __GPU__  __INLINE__ Tensor &tensor(U16 n, U16 h, U16 w, U16 c) {
         return _mmu->tensor(n, h, w, c);

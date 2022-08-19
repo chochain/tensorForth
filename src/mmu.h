@@ -177,11 +177,14 @@ public:
     /// short hands for eforth tensor ucodes (for DU <-> Object conversion)
     ///
     __BOTH__ T4Base &du2obj(DU d);
-    __BOTH__ DU     ten2du(Tensor &t);
-    __BOTH__ DU     mdl2du(Model &m);
+    __BOTH__ DU     obj2du(T4Base &t);
     __GPU__  void   drop(DU d);
-    __GPU__  __INLINE__ DU   dup(DU d)  { return IS_OBJ(d) ? ten2du(view((Tensor&)du2obj(d))) : d; }
-    __GPU__  __INLINE__ DU   copy(DU d) { return IS_OBJ(d) ? ten2du(copy((Tensor&)du2obj(d))) : d; }
+    __GPU__  __INLINE__ DU   dup(DU d)  {                  /// TODO: model
+        return IS_OBJ(d) ? obj2du(view((Tensor&)du2obj(d))) : d;
+    }
+    __GPU__  __INLINE__ DU   copy(DU d) {                  /// TODO: model
+        return IS_OBJ(d) ? obj2du(copy((Tensor&)du2obj(d))) : d;
+    }
 #endif // T4_ENABLE_OBJ
     ///
     /// debugging methods (implemented in .cu)
