@@ -11,9 +11,9 @@
 /// tensorForth object types
 ///
 typedef enum {
-    VIEW = 0,              ///< a view object
-    TENSOR,                ///< tensor object
-    MODEL                  ///< NN model
+    VIEW = 0,               ///< a view object
+    TENSOR,                 ///< tensor object
+    MODEL                   ///< NN model
 } t4_obj;
 ///
 /// tensorForth base object class
@@ -21,12 +21,13 @@ typedef enum {
 struct T4Base : public Managed {
     U32 numel;     ///< number of data elements, TODO: more than 4G elements
     union {
-        U32  attr = 0;     ///< attrbutes collective
+        U32  attr = 0;      ///< attrbutes collective
         struct {
-            U8     dsize;  ///< size of data element, F32 for now
-            U8     rank;   ///< rank of tensor 2:matrix, 4:NHWC tensor
-            U8     parm;   ///< parameter storage
-            t4_obj ttype;  ///< 0: tensor, 1: view
+            U8     dsize:5; ///< size of data element, F32 for now
+            U8     rank :3; ///< rank of tensor 2:matrix, 4:NHWC tensor
+            U8     parm;    ///< parameter storage
+            U8     refc;    ///< reference counter (reserved)
+            t4_obj ttype;   ///< 0: tensor, 1: view
         };
     };
     DU  *data;    ///< managed memory block pointer
