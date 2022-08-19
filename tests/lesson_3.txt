@@ -54,7 +54,7 @@ cr .( ### show resultant vector X ) cr
 dup .                             \ show resultant X={+8,-1,-8}
 
 cr .( ### verify result AX against B={ 1 1 1 } ) cr
-*                                 \ A*X
+@                                 \ A@X
 .                                 \ compare to B
 drop drop drop                    \ clean up
 
