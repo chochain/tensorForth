@@ -312,20 +312,17 @@ d_strtol(const char *s, char** p, int base) {
     long ret  = 0;
     bool sign = 0;
 
-REDO:
-    switch(*s) {
-    case '-': sign = 1;     // fall through.
-    case '+': s++;          break;
-    case ' ': s++;          goto REDO;
-    }
-    *p = NULL;
-    char ch;
+    while (*s==' ' || *s=='\t') s++;
+    if (*s=='+' || *s=='-') sign = *s++=='-' ? -1 : 1;
+
+    *p = (char*)s;      // init to not NULL
+    char c;
     int  n;
-    while ((ch = *s++) != '\0') {
+    while ((c = *s++) != '\0') {
         *p = (char*)s;
-        if      ('a' <= ch)              n = ch - 'a' + 10;
-        else if ('A' <= ch)              n = ch - 'A' + 10;
-        else if ('0' <= ch && ch <= '9') n = ch - '0';
+        if      (c >='a')            n = c - 'a' + 10;  // abcdef
+        else if (c >='A')            n = c - 'A' + 10;  // ABCDEF
+        else if (c <='9' && c >='0') n = c - '0';       // 0~9
         else break;
         if (n >= base) break;
 
@@ -336,32 +333,45 @@ REDO:
 
 __GPU__ double
 d_strtof(const char *s, char** p) {
-    int sign = 1, esign = 1, state=0;
-    int r = 0, e = 0;
+    int  sign = 1, esign = 1, state=0;
+    int  r = 0,  e = 0;
     long v = 0L, f = 0L;
-
-    while ((*s<'0' || *s>'9') && *s!='+' && *s!='-') s++;
-
+    auto digi = [](char c) { return c>='0' && c<='9'; };
+    auto expo = [](char c) { return c=='e' || c=='E'; };
+    
+    while (*s==' ' || *s=='\t') s++;
     if (*s=='+' || *s=='-') sign = *s++=='-' ? -1 : 1;
 
-    *p = NULL;
-    while (*s!='\0' && *s!='\n' && *s!=' ' && *s!='\t') {
-        if (state==0 && *s>='0' && *s<='9') {       // integer
-            v = (*s - '0') + v * 10;
+    *p = (char*)s;                                  // init to not NULL
+    char c = *s;
+    while (c!='\0' && c!='\n' && c!=' ' && c!='\t') {
+        printf("\n\nc,st,v,f,e=%x,%d:%ld,%ld[%d],%d", c, state, v, f, r, e);
+        if (state==0) {
+            if (digi(c)) {                          // integer
+                v = (c - '0') + v * 10;
+            }
+            else if (c=='.')  state = 1;
+            else if (expo(c)) state = 2;
+            else break;
         }
-        else if (state==1 && *s>='0' && *s<='9') {  // decimal
-            f = (*s - '0') + f * 10;
-            r--;
+        else if (state==1) {
+            if (digi(c)) {                          // decimal
+                f = (c - '0') + f * 10;
+                r--;                                // depth
+            }
+            else if (expo(c)) state = 2;
+            else break;
         }
         else if (state==2) {                        // exponential
-            if (*s=='-') {
+            if (c=='-') {
                 esign = -1;
-                s++;
+                c=*(++s);
             }
-            if (*s>='0' && *s<='9') e = (*s - '0') + e * 10;
+            if (digi(c)) e = (c - '0') + e * 10;
+            else break;
         }
-        state = (*s=='e' || *s=='E') ? 2 : ((*s=='.') ? 1 : state);
-        s++;
+        printf("\nc,st,v,f,e=%x,%d:%ld,%ld[%d],%d", c, state, v, f, r, e);
+        c = *(++s);
         *p = (char*)s;
     }
     return sign *
