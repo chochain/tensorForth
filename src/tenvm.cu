@@ -11,9 +11,12 @@
 /// Tensor print to host
 ///
 __GPU__ void
-TensorVM::tprint(DU d) {
-    if (IS_OBJ(d)) { fout << d; mmu.mark_free(d); }
-    else fout << " " << d;                  /// eForth has a space prefix
+TensorVM::tprint() {
+    if (TOS1T) {                            /// handle tensor
+        DU d = POP(); fout << d; mmu.mark_free(d);
+    }
+    else if (IS_OBJ(top)) fout << top;      /// other objects
+    else fout << " " << POP();              /// eForth has a space prefix
 }
 ///
 /// Tensor-self ops
@@ -58,12 +61,16 @@ TensorVM::xop1x(t4_ten_op op) {
     bool   tos = true;
     switch (op) {
     case O_INV:
-        mmu.free(t);                          /// * not needed
         PUSH(_tinv(A));                       /// * _tinv create its own temp
+        mmu.free(t);                          /// * not needed
         tos = false;              break;
     case O_DET: {                             /// * TODO: use PLU
-        Tensor::lu(t);                        /// * decompose A to LU
-        PUSH(t.det());                        /// * return determinant on TOS
+        int    ns;                            ///> number of row flipping
+        Tensor &P = mmu.tensor(A.H());        /// * dummy vector
+        Tensor::plu(t, P, &ns);               /// * decompose A to PLU
+        DU     v  = t.det();                  /// * multiply diagnal
+        PUSH(ns&1 ? -v : v);                  /// * return determinant on TOS
+        mmu.free(P);
         mmu.free(t);                          /// * not needed
         tos = false;
     } break;
@@ -78,6 +85,7 @@ TensorVM::xop1x(t4_ten_op op) {
         Tensor::transpose(A, t);  break;
     default:
         ERROR("TensorVM#xop1x(%d) not supported\n", op);
+        mmu.free(t);
         tos = false;
     }
     if (tos) PUSH(t);
@@ -339,7 +347,7 @@ TensorVM::init() {
     ///@defgroup redefined tensor ops
     ///@{
     CODE("abs",      xop1(O_ABS)),
-    CODE(".",        tprint(POP())),
+    CODE(".",        tprint()),
     CODE("+",        xop2(O_ADD, KEEP)),
     CODE("-",        xop2(O_SUB, KEEP)),
     CODE("*",        xop2(O_MUL, KEEP)),
