@@ -248,12 +248,13 @@ Tensor::lu_inverse(Tensor &LU) {
 /// TODO: CDP
 ///
 __BOTH__ Tensor&
-Tensor::plu(Tensor &A, Tensor &P) {
+Tensor::plu(Tensor &A, Tensor &P, int *ns) {
     U16 m = A.H(), n = A.W();
     WARN("Tensor::plu[%d,%d]\n", m, n);
     if (m != n) { ERROR("square matrix?"); return A; }
 
     DU *da = A.data, *dp = P.data;
+    *ns = 0;                                  ///> initialize flip sign
     auto swap_rows = [da, dp, n](U16 u, U16 z) {
         DU t = dp[z]; dp[z] = dp[u]; dp[u] = t;
         for (U16 k = z; k < n; k++) {         ///> TODO: swap entire row
@@ -290,6 +291,7 @@ Tensor::plu(Tensor &A, Tensor &P) {
         if (u < 0) return A;
         if (u != z) {          /// * swapping row which has maximum xth column element
             swap_rows(u, z);
+            *ns += 1;
         }
         elim(z);               /// * eliminate variables in upper triangle
     }

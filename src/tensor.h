@@ -77,7 +77,7 @@ struct Tensor : public T4Base {
     static __BOTH__ Tensor &inverse(Tensor &A, Tensor &I);  /// GaussJordan (with Pivot)
     static __BOTH__ Tensor &lu(Tensor &A);                  /// LU (no Pivot)
     static __BOTH__ Tensor &lu_inverse(Tensor &LU);         /// inverse a pre-processed LU (no Pivot)
-    static __BOTH__ Tensor &plu(Tensor &A, Tensor &P);      /// LU with permutation vector
+    static __BOTH__ Tensor &plu(Tensor &A, Tensor &P, int *ns);/// LU with permutation vector
     ///
     /// class contructors
     ///
