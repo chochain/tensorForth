@@ -150,7 +150,7 @@ MMU::tensor(U32 sz) {
 __GPU__ Tensor&                    ///< create a 2-dimensional tensor
 MMU::tensor(U16 h, U16 w) {
     U32 sz = h * w;
-    TRACE1("mmu#tensor(%d,%d) numel=%d, ", h, w, sz);
+    TRACE1("mmu#tensor(%d,%d) numel=%d", h, w, sz);
     Tensor &t = this->tensor(sz);
     t.reshape(h, w);
     return t;
@@ -158,14 +158,14 @@ MMU::tensor(U16 h, U16 w) {
 __GPU__ Tensor&                    ///< create a NHWC tensor
 MMU::tensor(U16 n, U16 h, U16 w, U16 c) {
     U32 sz = n * h * w * c;
-    TRACE1("mmu#tensor(%d,%d,%d,%d) numel=%d, ", n, h, w, c, sz);
+    TRACE1("mmu#tensor(%d,%d,%d,%d) numel=%d", n, h, w, c, sz);
     Tensor &t = this->tensor(sz);
     t.reshape(n, h, w, c);
     return t;
 }
 __GPU__ Model&                     ///< create a NN model with NHWC input
 MMU::model(U32 sz) {
-    TRACE1("mmu#model layers=%d, ", sz);
+    TRACE1("mmu#model layers=%d", sz);
     Model  *m = (Model*)_ostore.malloc(sizeof(Model));
     Tensor &t = this->tensor(sz);  /// * allocate tensor storage
     m->reset(this, t);
@@ -182,14 +182,14 @@ MMU::view(Tensor &t0) {
     memcpy(t, &t0, sizeof(Tensor));
     t->ttype = VIEW;
 
-    TRACE1("mmu#view => V%d numel=%d, ", t->rank, t->numel);
+    TRACE1("mmu#view => V%d numel=%d", t->rank, t->numel);
     _ostore.status(_trace);
     return *t;
 }
 __GPU__ void
 MMU::resize(Tensor &t, U32 sz) {
     if (t.rank != 1) { ERROR("mmu#resize rank==1 only\n"); return; }
-    TRACE1("mmu#resize numel=%d (was %d), ", sz, t.numel);
+    TRACE1("mmu#resize numel=%d (was %d)", sz, t.numel);
     DU *d0 = t.data;             /// * keep original memory block
     t.data = (DU*)_ostore.malloc(sz * sizeof(DU));
     ///
@@ -203,11 +203,15 @@ MMU::resize(Tensor &t, U32 sz) {
 }
 __GPU__ void                     ///< release tensor memory blocks
 MMU::free(Tensor &t) {
-    TRACE1("mmu#free(T%d) numel=%d, ", t.rank, t.numel);
+    TRACE1("mmu#free(T%d) numel=%d", t.rank, t.numel);
     if (!t.is_view()) {          /// * skip view
         _ostore.free(t.data);    /// * free physical data
-        for (int i=0; t.grad_fn!=L_NONE && t.grad[i] && i < 4; i++) {
-            free(*t.grad[i]);    /// recursive
+        if (t.grad_fn != L_NONE) {
+            TRACE1(" {\n");
+            for (int i=0; t.grad[i] && i < 4; i++) {
+                TRACE1("\t\t"); free(*t.grad[i]);    /// recursive
+            }
+            TRACE1("\t}");
         }
     }
     _ostore.free(&t);            /// * free tensor object itself
@@ -215,8 +219,11 @@ MMU::free(Tensor &t) {
 }
 __GPU__ void                     ///< release tensor memory blocks
 MMU::free(Model &m) {
-    TRACE1("mmu#free(N%d), ", m.numel);
-    for (int i = 0; i < m.numel; i++) free(m[i]);
+    TRACE1("mmu#free(N%d) [\n", m.numel);
+    for (int i = m.numel-1; i >= 0; i--) {
+        TRACE1("\t"); free(m[i]);
+    }
+    TRACE1("]");
     _ostore.free(&m);
     _ostore.status(_trace);
 }
@@ -239,7 +246,7 @@ MMU::copy(Tensor &t0) {
     
     Tensor::copy(t0, *t1);
     DU off = obj2du(*t1);             /// * offset in object space
-    TRACE1("mmu#copy(T%d) numel=%d to T[%x], ", t0.rank, t0.numel, *(U32*)&off);
+    TRACE1("mmu#copy(T%d) numel=%d to T[%x]", t0.rank, t0.numel, *(U32*)&off);
     _ostore.status(_trace);
     return *t1;
 }
@@ -275,8 +282,8 @@ __GPU__  void
 MMU::drop(DU d) {
     if (!IS_OBJ(d)) return;
     T4Base &t = du2obj(d);
-    if (t.is_tensor()) free((Tensor&)t);
-    else               free((Model&)t);
+    if (t.is_model()) free((Model&)t);
+    else              free((Model&)t);
 }
 ///
 /// tensor slice & dice
@@ -328,10 +335,11 @@ MMU::to_s(std::ostream &fout, IU w) {
     if (_trace) {
         fout << (code.immd ? "*" : " ")
              << "[" << std::setw(3) << w << "]"
-             << code.xt << ": ";
+             << code.xt << ":";
     }
     U8 c, i=0;
     cudaMemcpy(&c, code.name, 1, D2H);
+    fout << " ";
     while (c) {
         fout << c;
         cudaMemcpy(&c, code.name+(++i), 1, D2H);
@@ -362,7 +370,7 @@ MMU::words(std::ostream &fout) {
     fout << std::setbase(10);
     for (int i=0, sz=0; i<_didx; i++) {
         sz += to_s(fout, (IU)i);
-        if (!_trace && sz > 54) { fout << std::endl; sz = 0; }     /// TODO: width configuable
+        if (_trace || sz > 54) { fout << std::endl; sz = 0; } /// TODO: width configuable
     }
     fout << std::endl;
 }

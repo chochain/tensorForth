@@ -408,7 +408,7 @@ TLSF::_show_stat() {
     }
     float pct = 100.0*used/tot;
 
-    DEBUG("obj#used[%d]=%d(0x%x) %.2f%% allocated", nused, used, used, pct);
+    DEBUG(", obj#used[%d]=%d(0x%x) %.2f%% allocated", nused, used, used, pct);
     WARN(" free[%d]=%d(0x%x), total=%d(0x%x) ", nfree, free, free, tot, tot);
     WARN(" nblk=%d, nfrag=%d", nblk, nfrag);
     DEBUG("\n");
