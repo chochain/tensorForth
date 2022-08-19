@@ -127,7 +127,7 @@ NetVM::init() {
          Model  &m = mmu.model();             /// * create NN model
          Tensor &t = mmu.tensor(n,h,w,c);     /// * create input tensor
          m.npush(t);                          /// * serves as the 1st layer
-         PUSH(mmu.mdl2du(m))),
+         PUSH(m)),
     CODE("conv2d",    nnop(L_CONV2D)),        ///> (N b c [A] -- N')
     CODE("linear",    nnop(L_LINEAR)),        ///> (N b n -- N')
     ///@}
@@ -174,7 +174,7 @@ NetVM::init() {
     ///@defgroup Debugging ops
     ///@{
     CODE(">n",        if (MNOS) { DU t = POP(); NN.npush(t); }),
-    CODE("n@",        if (MNOS) { DU i = POPi;  PUSH(NN[i]); }),
+    CODE("n@",        if (MNOS) { DU i = POPi; PUSH(mmu.view(NN[i])); }),
     CODE("network",   if (MTOS) fout << top),
     ///@}
     };
