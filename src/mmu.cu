@@ -238,7 +238,7 @@ MMU::copy(Tensor &t0) {
     t1->data = (DU*)_ostore.malloc(bsz);
     
     Tensor::copy(t0, *t1);
-    DU off = ten2du(*t1);             /// * offset in object space
+    DU off = obj2du(*t1);             /// * offset in object space
     TRACE1("mmu#copy(T%d) numel=%d to T[%x], ", t0.rank, t0.numel, *(U32*)&off);
     _ostore.status(_trace);
     return *t1;
@@ -267,13 +267,8 @@ MMU::du2obj(DU d) {
     return *t;
 }
 __BOTH__ DU
-MMU::ten2du(Tensor &t) {
+MMU::obj2du(T4Base &t) {
     U32 o = ((U32)((U8*)&t - _obj)) | T4_OBJ_FLAG;
-    return *(DU*)&o;
-}
-__BOTH__ DU
-MMU::mdl2du(Model &m) {
-    U32 o = ((U32)((U8*)&m - _obj)) | T4_OBJ_FLAG;
     return *(DU*)&o;
 }
 __GPU__  void
@@ -353,8 +348,9 @@ MMU::to_s(std::ostream &fout, Tensor &t) {
     case 2: fout << "2[" << t.H() << "," << t.W() << "]"; break;
     case 4: fout << "4[" << t.N() << "," << t.H() << "," << t.W() << "," << t.C() << "]"; break;
     }
+    return 1;
 }
-__HOST__ int
+__HOST__ __INLINE__ int
 MMU::to_s(std::ostream &fout, DU s) {
     return to_s(fout, (Tensor&)du2obj(s));
 }
