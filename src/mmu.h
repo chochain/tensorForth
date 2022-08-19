@@ -161,6 +161,7 @@ public:
 #else // T4_ENABLE_OBJ
     __GPU__  void   mark_free(DU v);                        ///< mark a tensor free
     __GPU__  void   sweep();                                ///< free marked tensor
+    __GPU__  Tensor &talloc(U32 sz);                        ///< allocate from tensor space
     __GPU__  Tensor &tensor(U32 sz);                        ///< create an vector
     __GPU__  Tensor &tensor(U16 h, U16 w);                  ///< create a matrix
     __GPU__  Tensor &tensor(U16 n, U16 h, U16 w, U16 c);    ///< create a NHWC tensor
@@ -172,12 +173,12 @@ public:
     __GPU__  Tensor &copy(Tensor &t0);                      ///< hard copy a tensor
     __GPU__  Tensor &slice(Tensor &t0, IU x0, IU x1, IU y0, IU y1);     ///< a slice of a tensor
     __GPU__  Tensor &random(Tensor &t, t4_rand_opt ntype, int seed=0);  ///< randomize tensor cells (with given type)
-    __GPU__  DU     rand(DU d, t4_rand_opt n);              ///< randomize a tensor
     ///
     /// short hands for eforth tensor ucodes (for DU <-> Object conversion)
     ///
     __BOTH__ T4Base &du2obj(DU d);
     __BOTH__ DU     obj2du(T4Base &t);
+    
     __GPU__  void   drop(DU d);
     __GPU__  __INLINE__ DU   dup(DU d)  {                  /// TODO: model
         return IS_OBJ(d) ? obj2du(view((Tensor&)du2obj(d))) : d;
@@ -185,6 +186,7 @@ public:
     __GPU__  __INLINE__ DU   copy(DU d) {                  /// TODO: model
         return IS_OBJ(d) ? obj2du(copy((Tensor&)du2obj(d))) : d;
     }
+    __GPU__  DU     rand(DU d, t4_rand_opt n);             ///< randomize a tensor
 #endif // T4_ENABLE_OBJ
     ///
     /// debugging methods (implemented in .cu)

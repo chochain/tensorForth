@@ -139,19 +139,24 @@ MMU::sweep() {
     _fidx = 0;
 //  unlock();                      ///< TODO: CC: DEAD LOCK, now!
 }
-__GPU__ Tensor&                    ///< create a one-dimensional tensor
-MMU::tensor(U32 sz) {
+__GPU__ Tensor&                    ///< allocate a tensor from tensor space
+MMU::talloc(U32 sz) {
     Tensor *t = (Tensor*)_ostore.malloc(sizeof(Tensor));
     void   *d = _ostore.malloc((U64)sizeof(DU) * sz);
     _ostore.status(_trace);
     t->reset(d, sz);
     return *t;
 }
+__GPU__ Tensor&                    ///< create a one-dimensional tensor
+MMU::tensor(U32 sz) {
+    TRACE1("mmu#tensor(%d) numel=%d", sz, sz);
+    return talloc(sz);
+}
 __GPU__ Tensor&                    ///< create a 2-dimensional tensor
 MMU::tensor(U16 h, U16 w) {
     U32 sz = h * w;
     TRACE1("mmu#tensor(%d,%d) numel=%d", h, w, sz);
-    Tensor &t = this->tensor(sz);
+    Tensor &t = talloc(sz);
     t.reshape(h, w);
     return t;
 }
@@ -159,7 +164,7 @@ __GPU__ Tensor&                    ///< create a NHWC tensor
 MMU::tensor(U16 n, U16 h, U16 w, U16 c) {
     U32 sz = n * h * w * c;
     TRACE1("mmu#tensor(%d,%d,%d,%d) numel=%d", n, h, w, c, sz);
-    Tensor &t = this->tensor(sz);
+    Tensor &t = talloc(sz);
     t.reshape(n, h, w, c);
     return t;
 }
@@ -167,7 +172,7 @@ __GPU__ Model&                     ///< create a NN model with NHWC input
 MMU::model(U32 sz) {
     TRACE1("mmu#model layers=%d", sz);
     Model  *m = (Model*)_ostore.malloc(sizeof(Model));
-    Tensor &t = this->tensor(sz);  /// * allocate tensor storage
+    Tensor &t = talloc(sz);        /// * allocate tensor storage
     m->reset(this, t);
     return *m;
 }
