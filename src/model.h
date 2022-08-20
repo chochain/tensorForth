@@ -70,16 +70,12 @@ private:
     /// @}
     /// @name Activation ops
     /// @{
-    __GPU__ void _irelu(Tensor &in);         ///< Rectified Linear Unit
-    __GPU__ void _itanh(Tensor &in);         ///< Tanh Unit
-    __GPU__ void _isigmoid(Tensor &in);      ///< 1/(1+exp(-z))
+    __GPU__ void _icopy(Tensor &in);         ///< Relu, Tanh, Sigmoid
     __GPU__ void _isoftmax(Tensor &in);      ///< probability vector exp(x)/sum(exp(x))
     /// @}
     /// @name Pooling and Dropout ops
     /// @{
-    __GPU__ void _imaxpool(Tensor &in, U16 n); ///< maximum pooling with nxn filter
-    __GPU__ void _iavgpool(Tensor &in, U16 n); ///< average pooling with nxn filter
-    __GPU__ void _iminpool(Tensor &in, U16 n); ///< minimum pooling with nxn filter
+    __GPU__ void _ipooling(Tensor &in, U16 n); ///< maximum pooling with nxn filter
     __GPU__ void _idropout(Tensor &in, U16 p); ///< zero out p% of channel data (add noise between data points)
     /// @}
     __GPU__ void _dconv2d(Tensor &A, Tensor &B)  {}
