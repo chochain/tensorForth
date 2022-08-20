@@ -23,6 +23,9 @@ TensorVM::tprint() {
 ///
 __GPU__ void
 TensorVM::xop1(t4_ten_op op, DU v) {
+    ///
+    /// scalar handler
+    ///
     if (!IS_OBJ(top)) {                     /// * scalar value
         switch (op) {
         case O_ABS:  top = ABS(top);          break;
@@ -33,6 +36,9 @@ TensorVM::xop1(t4_ten_op op, DU v) {
         SCALAR(top);
         return;
     }
+    ///
+    /// single tensor handler
+    ///
     Tensor &A = TTOS;
     if (!A.is_tensor()) { ERROR("tensor?"); return; }
     
@@ -56,7 +62,9 @@ __GPU__ void
 TensorVM::xop1x(t4_ten_op op) {
     Tensor &A  = TTOS;
     if (!A.is_tensor() || A.rank != 2) { ERROR("tensor2?"); return; }
-    
+    ///
+    /// single tensor handler
+    ///
     Tensor &t  = mmu.copy(A);                 /// * hardcopy original matrix
     bool   tos = true;
     switch (op) {
@@ -92,6 +100,9 @@ TensorVM::xop1x(t4_ten_op op) {
 }
 __GPU__ void
 TensorVM::xop2(t4_ten_op op, t4_drop_opt x) {
+    ///
+    /// 2-operand operator
+    ///
     bool s0 = !IS_OBJ(top), s1 = !IS_OBJ(ss[-1]); /// * scalar flags
     if (s0 && s1) return _ss_op(op);              /// * op(scalar, scalar)
     if (s0 || s1) return _ts_op(op, x, s1);       /// * op(tensor, scalar)
@@ -402,4 +413,4 @@ TensorVM::number(char *str) {
     return 1;
 }
 #endif  // T4_ENABLE_OBJ
-//=======================================================================================
+//==========================================================================
