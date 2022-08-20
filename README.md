@@ -209,7 +209,7 @@ Note:
    /=        (Ta n  -- Ta')   - tensor-scalar scale down multiplication Ta' = 1/n * Ta
 </pre>
 
-### Linear Algebra (by default non-destructive, except luinv)
+### Linear Algebra (by default non-destructive)
 <pre>
    matmul    (Ma Mb -- Ma Mb Mc) - matrix-matrix multiplication Mc = Ma @ Mb
    matdiv    (Ma Mb -- Ma Mb Mc) - matrix-matrix division Mc = Ma @ inverse(Mb)
@@ -217,7 +217,7 @@ Note:
    transpose (Ma    -- Ma Ma')   - matrix transpose
    det       (Ma    -- Ma d)     - matrix determinant (with PLU)
    lu        (Ma    -- Ma Ma')   - LU decomposition (no Pivot)
-   luinv     (Ma    -- Ma')      - inverse of an LU matrix (stored in-place)
+   luinv     (Ma    -- Ma Ma')   - inverse of an LU matrix
    upper     (Ma    -- Ma Ma')   - upper triangle
    lower     (Ma    -- Ma Ma')   - lower triangle with diag filled with 1s
    solve     (Ab Ma -- Ab Ma Ax) - solve linear equation AX = B
@@ -225,7 +225,7 @@ Note:
 </pre>
 
 ### TODO
-* backprop and autograd
+* autograd and backprop
 * add CNN
   + study torch.nn, CUB (for kernel)
   + conv: ~pushing_the_limits_for_2d_conv..., shuffle reduction
