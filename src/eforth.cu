@@ -322,7 +322,10 @@ ForthVM::init() {
 __GPU__ int
 ForthVM::parse(char *str) {
     int w = FIND(str);                    /// * search through dictionary
-    if (w < 0) return 0;                  /// * word found!
+    if (w < 0) {                          /// * input word not found
+        VLOG2("%s not found\n");
+        return 0;                         /// * next, try as a number
+    }
     VLOG2("%4x:%p %s %d ",
          dict[w].def ? dict[w].pfa : 0, dict[w].xt, dict[w].name, w);
     if (compile && !dict[w].immd) {       /// * in compile mode?

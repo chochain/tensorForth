@@ -345,7 +345,7 @@ d_strtof(const char *s, char** p) {
     *p = (char*)s;                                  // init to not NULL
     char c = *s;
     while (c!='\0' && c!='\n' && c!=' ' && c!='\t') {
-        printf("\n\nc,st,v,f,e=%x,%d:%ld,%ld[%d],%d", c, state, v, f, r, e);
+//        printf("\n\nc,st,v,f,e=%x,%d:%ld,%ld[%d],%d", c, state, v, f, r, e);
         if (state==0) {
             if (digi(c)) {                          // integer
                 v = (c - '0') + v * 10;
@@ -370,7 +370,7 @@ d_strtof(const char *s, char** p) {
             if (digi(c)) e = (c - '0') + e * 10;
             else break;
         }
-        printf("\nc,st,v,f,e=%x,%d:%ld,%ld[%d],%d", c, state, v, f, r, e);
+//        printf("\nc,st,v,f,e=%x,%d:%ld,%ld[%d],%d", c, state, v, f, r, e);
         c = *(++s);
         *p = (char*)s;
     }
