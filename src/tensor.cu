@@ -12,20 +12,23 @@
 ///     C = alpha * A x B + beta * C
 ///     where A = MxK, B = KxN, C = MxN
 ///
+template<bool use_ab>
 __KERN__ void k_gemm(                                        ///< 2D only
     DU *A, DU *B, DU *C,   /* HxK, KxW, HxW */
     int M, int N, int K,
     DU alpha, DU beta)
 {
-    int i = threadIdx.y + blockIdx.y * blockDim.y;
-    int j = threadIdx.x + blockIdx.x * blockDim.x;
+    const int i = threadIdx.y + blockIdx.y * blockDim.y;
+    const int j = threadIdx.x + blockIdx.x * blockDim.x;
+    const int z = j + i * N;
 
-    if (i < M && j < N) {
+    if (i < M && j < N) {                                  /// * TODO: tiled
         DU2 acc = DU0;
         for (int k = 0; k < K; ++k) {
             acc += A[k + i * K] * B[j + k * N];
         }
-        C[j + i * N] = alpha * acc + beta * C[j + i * N];
+        if (use_ab) C[z] = alpha * acc + beta * C[z];      /// * scaling
+        else        C[z] += acc;
     }
 }
 __KERN__ void k_mat_op(                                    ///< TODO: C
@@ -53,16 +56,27 @@ __KERN__ void k_mat_op(                                    ///< TODO: C
 ///
 __BOTH__ Tensor&
 Tensor::gemm(Tensor &A, Tensor &B, Tensor &C, DU alpha, DU beta) {
-    U16 m = A.H(), n = B.W(), k = A.W();
-    WARN("GEMM M=%d, N=%d, K=%d a=%f, b=%f\n", m, n, k, alpha, beta);
+    U16 m = A.H(), n = B.W(), ka = A.W(), kb = B.H();
+    if (ka != kb) {
+        ERROR("Tensor#gemm ka(%d)!=kb(%d)\n", ka, kb);
+        return C;
+    }
+    WARN("GEMM M=%d, N=%d, K=%d a=%f, b=%f\n", m, n, ka, alpha, beta);
     dim3 blk(T4_WARP_SZ, T4_WARP_SZ), grd(
         (n + blk.x - 1) / blk.x,
         (m + blk.y - 1) / blk.y
     );
-    k_gemm<<<grd, blk>>>(
-        A.data, B.data, C.data,
-        m, n, k,
-        alpha, beta);
+    ///
+    /// TODO: cudaLaunchKernel is host mode only (as of CUDA 11.6)
+    ///
+    if (alpha==DU1 && beta==DU1) {
+        k_gemm<false><<<grd, blk>>>(
+            A.data, B.data, C.data, m, n, ka, alpha, beta);
+    }
+    else {
+        k_gemm<true><<<grd, blk>>>(
+            A.data, B.data, C.data, m, n, ka, alpha, beta);
+    }
     cudaDeviceSynchronize();     // TODO: deprecated 11.6, use cooperative_groups.sync()
     return C;
 }
