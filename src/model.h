@@ -8,13 +8,6 @@
 #define TEN4_SRC_MODEL_H
 #include "mmu.h"
 
-#define WARP_SZ   16
-typedef enum {
-    POOL_MAX = 0,
-    POOL_MIN,
-    POOL_AVG
-} t4_pool_op;
-
 class Model : public T4Base {
     MMU     *_mmu;       ///< tensor storage base
     Tensor  *_store;     ///< model storage - Sequential, TODO: DAG
@@ -41,7 +34,7 @@ public:
         autograd = true;
         npush(store);            // keep store as root
     }
-    __GPU__  __INLINE__ Model &npush(DU v) {
+    __GPU__ __INLINE__ Model &npush(DU v) {
         data[numel++] = v;
         U32 tsz = _store->numel;
         if (tsz <= numel) {
@@ -50,17 +43,18 @@ public:
         }
         return *this;
     }
-    __GPU__ __INLINE__ Model &npush(Tensor &t) { return npush(_mmu->obj2du(t)); }
-    __GPU__  __INLINE__ DU    npop() { return data[--numel]; }
-    __GPU__  __INLINE__ Tensor &tensor(U16 n, U16 h, U16 w, U16 c) {
+    __GPU__ __INLINE__ Model  &npush(Tensor &t) { return npush(_mmu->obj2du(t)); }
+    __GPU__ __INLINE__ DU     npop() { return data[--numel]; }
+    __GPU__ __INLINE__ Tensor &output() { return (*this)[numel-1]; }
+    __GPU__ __INLINE__ Tensor &tensor(U16 n, U16 h, U16 w, U16 c) {
         return _mmu->tensor(n, h, w, c);
     }
-    __GPU__  __INLINE__ Tensor &vector(U16 n) {
+    __GPU__ __INLINE__ Tensor &vector(U16 n) {
         return _mmu->tensor(n);
     }
-    __GPU__ Model &add(t4_layer fn, U16 n=0, DU bias=DU0, U16 *opt=0);
-    __GPU__ Model &forward(Tensor &input);
-    __GPU__ Model &backprop(Tensor &output);
+    __GPU__ Model  &add(t4_layer fn, U16 n=0, DU bias=DU0, U16 *opt=0);
+    __GPU__ Model  &forward(Tensor &input);
+    __GPU__ Model  &backprop(Tensor &output);
 
 private:
     /// @name single step forward and backprop
