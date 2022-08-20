@@ -8,7 +8,7 @@
 
 #if T4_ENABLE_OBJ
 __GPU__ void
-NetVM::nnop(t4_layer op) {
+NetVM::nnop(t4_layer op) {     /// vtable dispatcher
     ///
     /// handle tensor ops (proxy)
     ///
@@ -20,6 +20,7 @@ NetVM::nnop(t4_layer op) {
         case L_FLATTEN:                             ///> (Ta -- Ta Ta')
             Tensor &t = TTOS;
             if (t.ttype==TENSOR) t.reshape(t.numel);
+            else ERROR("tensor?\n");
             break;
         }
         return;
@@ -30,10 +31,10 @@ NetVM::nnop(t4_layer op) {
     switch (op) {
     case L_CONV2D:   _conv2d(); break;
     case L_LINEAR:
-        if (!MN2D) {                               ///> param checking
+        if (MN2D) {                                ///> param checking
             U16   n    = POPi;                     ///> number of output channels
             DU    bias = POP();                    ///> convolution bias
-            NN.add(L_LINEAR, n, bias);             ///> (N b c -- N')
+            NN0.add(L_LINEAR, n, bias);            ///> (N b c -- N')
         }
         else ERROR("linear: bias n required!");
         break;
@@ -41,12 +42,12 @@ NetVM::nnop(t4_layer op) {
     case L_RELU:
     case L_TANH:
     case L_SIGMOID:
-    case L_SOFTMAX: if (MTOS) NN.add(op); break;
+    case L_SOFTMAX: if (MTOS) NN0.add(op); break;
     case L_MAXPOOL: 
     case L_AVGPOOL:
-    case L_MINPOOL: if (MNOS) { U16 n = POPi; NN.add(op, n); } break;
+    case L_MINPOOL: if (MNOS) { U16 n = POPi; NN0.add(op, n); } break;
     case L_DROPOUT: if (MNOS) {
-            U16 p = int(100.0 * POP() + 0.5); NN.add(op, p);
+            U16 p = int(100.0 * POP() + 0.5); NN0.add(op, p);
         } break;
     default: ERROR("NetVM::nnop(%d) not supported\n", op);
     }
@@ -85,7 +86,7 @@ NetVM::_conv2d() {
     }
     U16 c    = POPi;                 ///> number of output channels
     DU  bias = POP();                ///> convolution bias
-    NN.add(L_CONV2D, c, bias, opt);
+    NN0.add(L_CONV2D, c, bias, opt);
 }
 ///
 /// Batch ops
@@ -160,21 +161,23 @@ NetVM::init() {
     ///@{
     CODE("nn.for",    {}),
     CODE("nn.next",   {}),
-    CODE("autograd",  if (MNOS) { bool on = POPi; NN.autograd = on; }),
-    CODE("forward",
+    CODE("autograd",  if (MNOS) { bool on = POPi; NN0.autograd = on; }),
+    CODE("forward", 
          if (TOS1T && IS_M(ss[-1])) {
-             Tensor &t = TTOS; POP(); NN.forward(t);
+             Tensor &t = TTOS; Model &m = NN1;
+             m.forward(t);
+             PUSH(mmu.view(m.output()));
          }),
     CODE("backprop",
          if (TOS1T && IS_M(ss[-1])) {
-             Tensor &t = TTOS; POP(); NN.backprop(t);
+             Tensor &t = TTOS; NN1.backprop(t);
          }),
     CODE("predict",   {}),
     ///@}
     ///@defgroup Debugging ops
     ///@{
-    CODE(">n",        if (MNOS) { DU t = POP(); NN.npush(t); }),
-    CODE("n@",        if (MNOS) { DU i = POPi; PUSH(mmu.view(NN[i])); }),
+    CODE(">n",        if (MNOS) { DU t = POP(); NN0.npush(t); }),
+    CODE("n@",        if (MNOS) { DU i = POPi; PUSH(mmu.view(NN0[i])); }),
     CODE("network",   if (MTOS) fout << top),
     ///@}
     };
@@ -189,4 +192,4 @@ NetVM::init() {
     mmu.status();
 };
 #endif  // T4_ENABLE_OBJ
-//=======================================================================================
+//===========================================================================
