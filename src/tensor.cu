@@ -55,11 +55,11 @@ __BOTH__ Tensor&
 Tensor::gemm(Tensor &A, Tensor &B, Tensor &C, DU alpha, DU beta) {
     U16 m = A.H(), n = B.W(), k = A.W();
     WARN("GEMM M=%d, N=%d, K=%d a=%f, b=%f\n", m, n, k, alpha, beta);
-    dim3 block(16, 16), grid(
-        (n + block.x - 1) / block.x,
-        (m + block.y - 1) / block.y
+    dim3 blk(T4_WARP_SZ, T4_WARP_SZ), grd(
+        (n + blk.x - 1) / blk.x,
+        (m + blk.y - 1) / blk.y
     );
-    k_gemm<<<grid, block>>>(
+    k_gemm<<<grd, blk>>>(
         A.data, B.data, C.data,
         m, n, k,
         alpha, beta);
@@ -74,11 +74,11 @@ Tensor::mat(t4_ten_op op, Tensor &A, Tensor &B, Tensor &C) {
     U16 m = A.H(), n = A.W();
     OPN("add", "sub", "mul", "div");
     WARN("Tensor::mat%s M=%d, N=%d\n", opn[op], m, n);
-    dim3 block(16, 16), grid(
-        (n + block.x - 1) / block.x,
-        (m + block.y - 1) / block.y
+    dim3 blk(T4_WARP_SZ, T4_WARP_SZ), grd(
+        (n + blk.x - 1) / blk.x,
+        (m + blk.y - 1) / blk.y
     );
-    k_mat_op<<<grid, block>>>(op, A.data, B.data, C.data, m, n);
+    k_mat_op<<<grd, blk>>>(op, A.data, B.data, C.data, m, n);
     cudaDeviceSynchronize();     // TODO: deprecated 11.6, use cooperative_groups.sync()
     return C;
 }
@@ -104,8 +104,8 @@ Tensor::mat(t4_ten_op op, Tensor &A, DU v, Tensor &C) {
 __BOTH__ Tensor&
 Tensor::copy(Tensor &A, Tensor &C) {
     WARN("Tensor::copy numel=%d\n", A.numel);
-    dim3 block(256), grid((A.numel + block.x -1) / block.x);
-    k_copy<<<grid, block>>>(A.data, C.data, A.numel);
+    dim3 blk(T4_WARP_SZ * T4_WARP_SZ), grd((A.numel + blk.x -1) / blk.x);
+    k_copy<<<grd, blk>>>(A.data, C.data, A.numel);
     cudaDeviceSynchronize();
     return C;
 }
@@ -113,11 +113,11 @@ __BOTH__ Tensor&
 Tensor::transpose(Tensor &A, Tensor &T) {
     U16 m = A.H(), n = A.W();
     WARN("Tensor::transpose A[%d,%d]\n", m, n);
-    dim3 block(16, 16), grid(
-        (n + block.x - 1) / block.x,
-        (m + block.y - 1) / block.y
+    dim3 blk(T4_WARP_SZ, T4_WARP_SZ), grd(
+        (n + blk.x - 1) / blk.x,
+        (m + blk.y - 1) / blk.y
     );
-    k_transpose<<<grid, block>>>(A.data, T.data, m, n);
+    k_transpose<<<grd, blk>>>(A.data, T.data, m, n);
     cudaDeviceSynchronize();
     return T;
 }
@@ -393,7 +393,7 @@ __BOTH__ Tensor&
 Tensor::map(t4_ten_op op, DU v) {
     OPN("+", "-", "*", "/", "@", "x", "fill", "scale","abs", "exp", "tanh", "relu", "sigmoid");
     WARN("Tensor#%s v=%f\n", opn[op], v);
-    dim3 blk(256), grd((numel + blk.x -1)/blk.x);
+    dim3 blk(T4_WARP_SZ*T4_WARP_SZ), grd((numel + blk.x -1)/blk.x);
     switch(op) {
     case O_FILL:  k_fill   <<<grd, blk>>>(data, v, numel); break;
     case O_SCALE: k_scale  <<<grd, blk>>>(data, v, numel); break;
@@ -475,11 +475,11 @@ __BOTH__ Tensor&
 Tensor::identity() {
     if (rank < 2) return *this;
     int m = H(), n = W();
-    dim3 block(16, 16), grid(
-        (n + block.x - 1) / block.x,
-        (m + block.y - 1) / block.y
+    dim3 blk(T4_WARP_SZ, T4_WARP_SZ), grd(
+        (n + blk.x - 1) / blk.x,
+        (m + blk.y - 1) / blk.y
     );
-    k_identity<<<grid, block>>>(data, m, n, C()*sizeof(DU));
+    k_identity<<<grd, blk>>>(data, m, n, C()*sizeof(DU));
     cudaDeviceSynchronize();
     return *this;
 }
