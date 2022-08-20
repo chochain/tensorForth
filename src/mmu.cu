@@ -287,8 +287,9 @@ __GPU__  void
 MMU::drop(DU d) {
     if (!IS_OBJ(d)) return;
     T4Base &t = du2obj(d);
+    bool m = t.is_model();
     if (t.is_model()) free((Model&)t);
-    else              free((Model&)t);
+    else              free((Tensor&)t);
 }
 ///
 /// tensor slice & dice
