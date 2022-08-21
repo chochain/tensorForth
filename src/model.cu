@@ -10,79 +10,88 @@
 ///
 /// Row convolution filter
 ///
-template<int T, int K>           ///> TILE_SIZE, KERNEL_SIZE
-__KERN__ void k_conv2d(          ///< TODO: C
-    DU *A, DU *F, DU *B, DU *C,  ///> input A[MxN], F[KxK] kernel B[KxK] bias, output C[MxN]
-    int M, int N
+template<int TS, int KS, int CS> ///> tile size, kernel size, 1:grey, 3:RGB
+__KERN__ void k_conv(
+    DU *I, DU *F, DU *B, DU *O,  ///> input A[MxN], F[KxK] kernel B[KxK] bias, output C[MxN]
+    int M, int N                 ///< HW
     ) {
-    __shared__ DU d[T4_WARP_SZ * T4_WARP_SZ];  ///< shared memory [16x16]
+    __shared__ DU d[CS][T4_WARP_SZ * T4_WARP_SZ];  ///< shared memory [3][16x16]
     
-    const int tx = threadIdx.x, j0 = tx + blockIdx.x * T;
-    const int ty = threadIdx.y, i0 = ty + blockIdx.y * T;
-    const int z0 = j0 + i0 * N;              /// * output array index
-    const int i  = i0 - int(K / 2);          ///< transfrom to input coordinate
-    const int j  = j0 - int(K / 2);
-    
-    d[tx + ty * T4_WARP_SZ] =                ///< shared memory with zero padding
-        (i >= 0 && i < M && j >= 0 && j < N)
-        ? A[j + i * N] : DU0;
-    __syncthreads();
+    const int tx = threadIdx.x, j0 = tx + blockIdx.x * TS;
+    const int ty = threadIdx.y, i0 = ty + blockIdx.y * TS;
+    const int tz = threadIdx.z, c0 = tz + blockIdx.z * blockDim.z;
+    const int i  = i0 - int(KS / 2);         ///< transfrom to input coordinate
+    const int j  = j0 - int(KS / 2);
+    const int z0 = c0 + (j0 + i0 * N) * CS;  ///< output array index
 
-    if (tx < T && ty < T) {                  /// * within tile [12x12]
+    for (int c = 0; c < CS; c++) {           /// channel depth
+        d[c][tx + ty * T4_WARP_SZ] =         ///< shared memory with zero padding
+            (i >= 0 && i < M && j >= 0 && j < N)
+            ? I[c + (j + i * N) * CS] : DU0;
+    }
+    __syncthreads();
+    ///
+    /// sum of element-wise multiplication
+    ///
+    if (tx < TS && ty < TS) {                /// * within tile [12x12]
         DU sum = DU0;
-        #pragma unroll                       /// unroll to 3x3 or 5x5
-        for (int y = 0; y < K; y++) {        /// * process one cell
-            int d0 = tx + (y + ty) * T4_WARP_SZ; ///< offset to smem block
-            int b0 = y * K;
-            #pragma unroll
-            for (int x = 0; x < K; x++) {
-                sum += F[x + b0] * d[x + d0]; 
+        for (int c = 0; c < CS; c++) {               /// 3D filter
+            for (int y = 0; y < KS; y++) {           /// * process one cell
+                int d0 = tx + (y + ty) * T4_WARP_SZ; ///< offset to smem block
+                int b0 = y * KS;
+                for (int x = 0; x < KS; x++) {
+                    sum += F[x + b0] * d[c][x + d0]; 
+                }
             }
         }
-        if (i0 < M && j0 < N) {             /// * update C[i][j]
-            C[z0] = sum + B[z0];            /// * update output matrix with bias
+        if (i0 < M && j0 < N && c0 < CS) {  /// * update C[i][j]
+            O[z0] = sum + B[c0];            /// * update output matrix with bias
         }
     }
 }
 
-template<int K>
-__KERN__ void k_pooling(                    ///< TODO: C
-    DU *A, DU *C,
-    int M, int N,
+template<int KS>                           /// kernel size
+__KERN__ void k_pooling(
+    DU *I, DU *O,
+    int M, int N, int C,                   /// HWC
     t4_layer op
     ) {
-    const int  j0 = threadIdx.x + blockIdx.x * blockDim.x;
-    const int  i0 = threadIdx.y + blockIdx.y * blockDim.y;
-    const int  z0 = j0 + i0 * N;            ///< output array index
-    const int  z1 = (j0 + i0 * N * K) * K;  ///< input array index 
+    const int j0 = threadIdx.x + blockIdx.x * blockDim.x;
+    const int i0 = threadIdx.y + blockIdx.y * blockDim.y;
+    const int c0 = threadIdx.z + blockIdx.z * blockDim.z;
+    const int z0 = j0 + i0 * N;            ///< output array index
+    const int z1 = j0 + i0 * N * KS;       ///< input array index 
     
-    if (i0 < M && j0 < N) {                 ///< TODO: CDP
-        DU2 v = op==L_AVGPOOL ? DU0 : A[z1];
-        DU *d = &A[z1];
-        #pragma unroll
-        for (int y = 0; y < K; y++, d += (N-1)*K) {
-            #pragma unroll
-            for (int x = 0; x < K; x++) {
-                DU dx = *d++;
+    if (i0 < M && j0 < N && c0 < C) {
+        DU *d  = &I[c0 + z1 * KS * C];
+        DU2 v  = op==L_AVGPOOL ? DU0 : *d;
+        for (int y = 0; y < KS; y++) {
+            for (int x = 0; x < KS; x++) {
+                DU dx = *d;
                 switch (op) {
                 case L_MAXPOOL: if (dx > v) v = dx; break;
                 case L_AVGPOOL: v += dx;            break;
                 case L_MINPOOL: if (dx < v) v = dx; break;
                 }
+                d += C;                   
             }
+            d += (N - 1) * KS * C;
         }
-        C[z0] = op==L_AVGPOOL ? v / (K*K) : v;
+        O[c0 + z0 * C] = op==L_AVGPOOL ? v / (KS * KS) : v;
     }
 }
-        
-__KERN__ void k_relu(                                        ///< TODO: C
-    DU *A, DU *C, int M, int N) {
-    const int j = threadIdx.x + blockIdx.x * blockDim.x;
-    const int i = threadIdx.y + blockIdx.y * blockDim.y;
-    const int k = i + j * N;
+
+__KERN__ void k_relu(
+    DU *I, DU *O,
+    int M, int N, int C                    ///< HWC
+    ) {
+    const int j0 = threadIdx.x + blockIdx.x * blockDim.x;
+    const int i0 = threadIdx.y + blockIdx.y * blockDim.y;
+    const int c0 = threadIdx.z + blockIdx.z * blockDim.z;
+    const int z0 = c0 + (i0 + j0 * N) * C;
     
-    if (i < M && j < N) {                                    ///< TODO: CDP
-        C[k] = (A[k] >= DU0) ? A[k] : DU0;
+    if (i0 < M && j0 < N && c0 < C) {
+        O[z0] = (I[z0] >= DU0) ? I[z0] : DU0;
     }
 }
 
@@ -104,7 +113,7 @@ Model::add(t4_layer fn, U16 n, DU bias, U16 *opt) {
     if (!autograd || in.grad_fn != L_NONE) return *this;
 
     switch(fn) {
-    case L_CONV2D:  _iconv2d(in, n, bias, opt); break;
+    case L_CONV:    _iconv(in, n, bias, opt);   break;
     case L_LINEAR:  _ilinear(in, n, bias);      break;
     case L_FLATTEN: _iflatten(in);              break;
     case L_RELU:
@@ -138,8 +147,8 @@ Model::forward(Tensor &input) {
     /// TODO: model execution becomes a superscalar pipeline
     ///
     for (int i = 2; i < numel; i++) {
-        printf("%2d> %s [%d,%d] p=%d =>",
-               i-1, name[in.grad_fn], in.H(), in.W(), in.parm); 
+        printf("%2d> %s [%d,%d,%d] p=%d =>",
+               i-1, name[in.grad_fn], in.H(), in.W(), in.C(), in.parm); 
         Tensor &out = (*this)[i];
         _fstep(in, out);
         in = out;
@@ -160,11 +169,31 @@ Model::backprop(Tensor &output) {
 __GPU__ void
 Model::_fstep(Tensor &in, Tensor &out) {
     DU   *da = in.data, *dc = out.data;              ///< input, output data
-    int  m = out.H(), n = out.W(), p = in.parm;      ///< output sizing
-    dim3 blk(T4_WARP_SZ, T4_WARP_SZ), grd(           ///< GPU warp size
+    int  m = out.H(), n = out.W(), c = out.C();      ///< HWC
+    dim3 blk(T4_WARP_SZ, T4_WARP_SZ, c), grd(        ///< GPU warp size setup
         (n + blk.x - 1) / blk.x,
         (m + blk.y - 1) / blk.y
     );
+    auto conv = [da, dc, m, n, c, blk](U16 kc, DU *f, DU *b) {
+        dim3 g3((n+TILE3-1)/TILE3, (m+TILE3-1)/TILE3);
+        dim3 g5((n+TILE5-1)/TILE5, (m+TILE5-1)/TILE5);
+        switch(kc) {            /// * TODO: handles rectangular filters
+        case 0x31: k_conv<TILE3,3,1><<<g3,blk>>>(da, f, b, dc, m, n); break;
+        case 0x33: k_conv<TILE3,3,3><<<g3,blk>>>(da, f, b, dc, m, n); break;
+        case 0x51: k_conv<TILE5,5,1><<<g5,blk>>>(da, f, b, dc, m, n); break;
+        case 0x53: k_conv<TILE5,5,3><<<g5,blk>>>(da, f, b, dc, m, n); break;
+        default: return -1;
+        }
+        return 0;
+    };
+    auto pooling = [da, dc, m, n, c, blk, grd](int ks, t4_layer fn) {
+        switch(ks) {           /// pooling kernel size
+        case 0x2: k_pooling<2><<<grd,blk>>>(da, dc, m, n, c, fn); break;
+        case 0x3: k_pooling<3><<<grd,blk>>>(da, dc, m, n, c, fn); break;
+        default: return -1;
+        }
+        return 0;
+    };
     auto dump = [](DU *v, int m, int n) {
         for (int i=0; i<m; i++) {
             printf("\n");
@@ -175,37 +204,29 @@ Model::_fstep(Tensor &in, Tensor &out) {
     ///
     /// layer function dispatcher
     ///
-    t4_layer fn = in.grad_fn;        ///< layer function
-    printf(" out[%d,%d]", m, n);
+    printf(" out[%d,%d,%d]", m, n, c);
+    t4_layer fn = in.grad_fn;                 ///< layer function
     switch(fn) {
-    case L_CONV2D: {
-        Tensor &f = *in.grad[0];     ///< filter tensor
-        Tensor &b = *in.grad[1];     ///< bias tensor
-        int ks = f.H();              ///< kerneal size
-        printf(" ks=%d f[%d,%d], b[%d,%d]", ks, f.H(), f.W(), b.H(), b.W());
-        switch(ks) {
-        case 3: {
-            dim3 g((n+TILE3-1)/TILE3, (m+TILE3-1)/TILE3);
-            k_conv2d<TILE3, 3><<<g, blk>>>(da, f.data, b.data, dc, m, n);
-        } break;
-        case 5: {
-            dim3 g((n+TILE5-1)/TILE5, (m+TILE5-1)/TILE5);
-            k_conv2d<TILE5, 5><<<g, blk>>>(da, f.data, b.data, dc, m, n);
-        } break;
-        default: ERROR("model#conv2d kernel_size=%d not supported\n", ks);
+    case L_CONV:   {
+        Tensor &f = *in.grad[0];              ///< filter tensor
+        Tensor &b = *in.grad[1];              ///< bias tensor
+        U16 kc = f.H() << 4 | c;              ///< (kerneal_size, channel_depth)
+        printf(" f[%d,%d,%d], b[%d]", f.H(), f.W(), f.C(), b.C());
+        if (conv(kc, f.data, b.data)) {
+            ERROR("model#conv kernel_size=0x%02x not supported\n", kc);
         }
         dump(dc, m, n);
     } break;
-    case L_LINEAR:  {                         ///< out = w @ in + b
+    case L_LINEAR: {                          ///< out = w @ in + b
         Tensor &w = *in.grad[0];  
         Tensor &b = *in.grad[1];
         printf(" w[%d,%d] @ in[%d,%d] + b[%d,%d]", w.H(), w.W(), in.H(), in.W(), b.H(), b.W());
         Tensor::copy(b, out);                 ///< add bias first
         Tensor::gemm(w, in, out, 1.0, 1.0);   ///< out += W * in
-        dump(dc, (out.numel+9)/10, 10);                 break;
+        dump(dc, (out.numel+6)/7, 7);
     } break;
-    case L_FLATTEN: Tensor::copy(in, out);              break;
-    case L_RELU:    k_relu<<<grd, blk>>>(da, dc, m, n); break;
+    case L_FLATTEN: Tensor::copy(in, out);                 break;
+    case L_RELU:    k_relu<<<grd, blk>>>(da, dc, m, n, c); break;
     case L_TANH:    break;
     case L_SIGMOID: break;
     case L_SOFTMAX: {
@@ -219,11 +240,11 @@ Model::_fstep(Tensor &in, Tensor &out) {
     case L_MAXPOOL:
     case L_AVGPOOL: 
     case L_MINPOOL: {
-        switch(p) {                          /// pooling stripe size
-        case 2: k_pooling<2><<<grd, blk>>>(da, dc, m, n, fn); break;
-        case 3: k_pooling<3><<<grd, blk>>>(da, dc, m, n, fn); break;
-        default: ERROR("model#conv2d kernel_size=%d not supported\n", p);
+        U16 ks = in.parm;                    ///< kerneal_size
+        if (pooling(ks, fn)) {
+            ERROR("model#pooling kernel_size=%d not supported\n", ks);
         }
+        dump(dc, m, n);
     } break;
     case L_DROPOUT: Tensor::copy(in, out); break;
     }
@@ -235,20 +256,21 @@ Model::_bstep(Tensor &in, Tensor &out) {}
 /// Convolution and Linear ops
 ///
 __GPU__ void
-Model::_iconv2d(Tensor &in, U16 c, DU bias, U16 *opt) {
+Model::_iconv(Tensor &in, U16 c, DU bias, U16 *opt) {
     U16 m = opt[0], n = opt[1];                  ///> filter sizing
     U16 p = opt[2] ? opt[2] : int((m-1)/2);      ///> padding
     U16 s = opt[3], d = opt[4];                  ///> stride, dilation
-    U16 h = in.H() - 2 * (p - int(m/2));         ///> output height
-    U16 w = in.W() - 2 * (p - int(n/2));         ///> output width
+    U16 h = (in.H() - m + p*2) / s + 1;          ///> output height
+    U16 w = (in.W() - n + p*2) / s + 1;          ///> output width
     if (m != n || (m != 3 && m != 5)) {
         ERROR("Model#conv2d f=[%d,%d]? 3x3 and 5x5 supported only.\n", m, n);
         return;
     }
+    in.stride[0] = in.stride[1] = s;
     Tensor *f  = in.grad[0] = &tensor(1, m, n, c).map(O_FILL, DU1); ///> f
     Tensor *df = in.grad[2] = &tensor(1, m, n, c).map(O_FILL, DU0); ///> df
-    Tensor *b  = in.grad[1] = &tensor(1, h, w, 1).map(O_FILL, DU0); //bias); ///> b
-    Tensor *db = in.grad[3] = &tensor(1, h, w, 1).map(O_FILL, DU0);  ///> db
+    Tensor *b  = in.grad[1] = &tensor(1, 1, 1, c).map(O_FILL, DU0); //bias); ///> b
+    Tensor *db = in.grad[3] = &tensor(1, 1, 1, c).map(O_FILL, DU0);  ///> db
 //    _mmu->random(*f, UNIFORM);                   /// * randomize f
 //    Tensor::mat(O_SUB, *f, 0.5, *f);
     
@@ -258,11 +280,11 @@ Model::_iconv2d(Tensor &in, U16 c, DU bias, U16 *opt) {
 __GPU__ void
 Model::_ilinear(Tensor &in, U16 n, DU bias) {
     U16 m = in.H();
-    Tensor *w  = in.grad[0] = &tensor(1, n, m, 1).map(O_FILL, DU1);  ///> w
+    Tensor *w  = in.grad[0] = &tensor(1, n, m, 1).identity();  ///> w
     Tensor *dw = in.grad[2] = &tensor(1, n, m, 1).map(O_FILL, DU0);  ///> dw
-    Tensor *b  = in.grad[1] = &vector(n).map(O_FILL, DU1); //bias);          ///> b
+    Tensor *b  = in.grad[1] = &vector(n).map(O_FILL, DU0); //bias);          ///> b
     Tensor *db = in.grad[3] = &vector(n).map(O_FILL, DU0);           ///> db
-    Tensor::mat(O_MUL, *w, 0.001, *w);
+//    Tensor::mat(O_MUL, *w, 0.001, *w);
 //    _mmu->random(*w, UNIFORM);                   /// * randomize w
     
     Tensor &out = vector(n);                     ///> output tensor sizing
@@ -300,7 +322,7 @@ Model::_ipooling(Tensor &in, U16 f) {
     in.parm = f;                  /// * keep pooling width
     U16 m = int((in.H() - f) / f) + 1;
     U16 n = int((in.W() - f) / f) + 1;
-    U16 s[4] = { 1, f, f, 1 }; memcpy(in.stride, s, sizeof(s));  // stride
+    U16 s[4] = { f, f, 1, 1 }; memcpy(in.stride, s, sizeof(s));  // stride
     
     Tensor &out = tensor(1, m, n, in.C());
     npush(out);                 /// * stage for next stage
