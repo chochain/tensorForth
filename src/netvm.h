@@ -42,7 +42,7 @@ public:
     __GPU__ void nnop(t4_layer op);
 
 private:
-    __GPU__ void _conv2d();       ///< convolution layer
+    __GPU__ void _conv();         ///< convolution layer
     ///
     /// Batch ops
     ///

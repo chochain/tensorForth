@@ -29,7 +29,7 @@ NetVM::nnop(t4_layer op) {     /// vtable dispatcher
     /// model layer ops
     ///
     switch (op) {
-    case L_CONV2D:   _conv2d(); break;
+    case L_CONV:  _conv(); break;
     case L_LINEAR:
         if (MN2D) {                                ///> param checking
             U16   n    = POPi;                     ///> number of output channels
@@ -69,11 +69,12 @@ NetVM::predict(Tensor &A, Tensor &B, Tensor &C) {
 }
 ///
 /// Convolution and Linear ops
+/// @default: 3x3 filter, padding=1, stride=1, dilation=1
 ///
 __GPU__ void
-NetVM::_conv2d() {
-    U16 opt[] = { 3, 3, 1, 1, 1 };   ///> default 3x3 filter, padding=1, stride=1, dilation=1
-    if (TOS1T) {                     ///> option vector
+NetVM::_conv() {
+    U16 opt[] = { 3, 3, 1, 1, 1 };   ///> default config vector
+    if (TOS1T) {                     ///> if optional vector given
         Tensor &v = TTOS;
         if (v.rank == 1) {
             POP();
@@ -86,28 +87,24 @@ NetVM::_conv2d() {
     }
     U16 c    = POPi;                 ///> number of output channels
     DU  bias = POP();                ///> convolution bias
-    NN0.add(L_CONV2D, c, bias, opt);
+    NN0.add(L_CONV, c, bias, opt);
 }
 ///
 /// Batch ops
 ///
 __GPU__ void
-NetVM::nn_for() {
-    Tensor &A = mmu.tensor(1, 28, 28, 1);
-}
+NetVM::nn_for() {}
+
 __GPU__ void
-NetVM::nn_next() {
-    Tensor &A = mmu.tensor(1, 28, 28, 1);
-}
+NetVM::nn_next() {}
 ///
 /// NN model propegation
 ///
 __GPU__ void
-NetVM::sgd() {
-}
+NetVM::sgd() {}
+
 __GPU__ void
-NetVM::adam() {
-}
+NetVM::adam() {}
 ///===================================================================
 /// class methods
 ///
@@ -129,7 +126,7 @@ NetVM::init() {
          Tensor &t = mmu.tensor(n,h,w,c);     /// * create input tensor
          m.npush(t);                          /// * serves as the 1st layer
          PUSH(m)),
-    CODE("conv2d",    nnop(L_CONV2D)),        ///> (N b c [A] -- N')
+    CODE("conv2d",    nnop(L_CONV)),          ///> (N b c [A] -- N')
     CODE("linear",    nnop(L_LINEAR)),        ///> (N b n -- N')
     ///@}
     ///@defgroup Activation ops
@@ -141,9 +138,9 @@ NetVM::init() {
     ///@}
     ///@defgroup Pooling and Dropout ops
     ///@{
-    CODE("pool.max",  nnop(L_MAXPOOL)),       ///> (N n -- N')
-    CODE("pool.avg",  nnop(L_AVGPOOL)),       ///> (N n -- N')
-    CODE("pool.min",  nnop(L_MINPOOL)),       ///> (N n -- N')
+    CODE("maxpool",   nnop(L_MAXPOOL)),       ///> (N n -- N')
+    CODE("avgpool",   nnop(L_AVGPOOL)),       ///> (N n -- N')
+    CODE("minpool",   nnop(L_MINPOOL)),       ///> (N n -- N')
     CODE("dropout",   nnop(L_DROPOUT)),       ///> (N p -- N')
     ///@}
     ///@defgroup Loss functions
