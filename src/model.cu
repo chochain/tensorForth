@@ -13,37 +13,44 @@
 template<int TS, int KS>         ///> tile size, kernel size
 __KERN__ void k_conv2d(
     DU *I, DU *F, DU *B, DU *O,  ///> input A[HxW], F[KxK] kernel B[C] bias, output C[HxW]
-    int H, int W, int C1, int c1 ///< output HW, input channel & offset
+    int H, int W, int C1         ///< output HW, input channel & offset
     ) {
-    __shared__ DU d[T4_WARP_SZ * T4_WARP_SZ];  ///< shared memory [3][16x16]
+    __shared__ DU d[T4_WARP_SZ * T4_WARP_SZ];        ///< shared memory [16x16]
     
     const int tx = threadIdx.x, j0 = tx + blockIdx.x * TS;
     const int ty = threadIdx.y, i0 = ty + blockIdx.y * TS;
-    const int C  = blockDim.z,  c0 = threadIdx.z;  /// input channels
-    const int z0 = c0 + (j0 + i0 * W) * C;         ///< output array index
-    const int i  = i0 - int(KS / 2);               ///< input coordinates
+    const int C  = blockDim.z,  c0 = threadIdx.z;    ///< output channels
+    const int z0 = c0 + (j0 + i0 * W) * C;           ///< output array index
+    ///
+    /// process z0, i.e. [TS, TS, C] cells per kernel call
+    ///
+    const int i  = i0 - int(KS / 2);                 ///< input coordinates
     const int j  = j0 - int(KS / 2);
 
-    d[tx + ty * T4_WARP_SZ] =    ///< shared memory with zero padding
-        (i >= 0 && i < H && j >= 0 && j < W)
-        ? I[c1 + (j + i * W) * C1] : DU0;        ///< by input data by channel
-    __syncthreads();
-    ///
-    /// sum of element-wise multiplication
-    ///
-    if (tx < TS && ty < TS) {                    /// * within tile [12x12]
-        DU sum = DU0;
-        for (int y = 0; y < KS; y++) {           /// * process one cell
-            int d0 = tx + (y + ty) * T4_WARP_SZ; ///< offset to smem block
-            int b0 = (y * KS);
-            for (int x = 0; x < KS; x++) {
-                sum += F[c1 + (x + b0) * C1] * d[x + d0];
+    for (int c1 = 0; c1 < C1; c1++) {                ///< each input channel
+        d[tx + ty * T4_WARP_SZ] =                    /// * cache input data
+            (i >= 0 && i < H && j >= 0 && j < W)     /// * with zero padding
+            ? I[c1 + (j + i * W) * C1] : DU0;        /// * by channel
+        __syncthreads();                             /// * smem write barrier
+        ///
+        /// sum of element-wise multiplication
+        ///
+        int f1 = c1 * KS * KS * C;                   /// * dense [C1,C] filter
+        if (tx < TS && ty < TS) {                    /// * within tile [12x12]
+            DU sum = DU0;
+            for (int y = 0; y < KS; y++) {           /// * process one cell
+                int d0 = tx + (y + ty) * T4_WARP_SZ; ///< offset to smem
+                int b0 = (y * KS) + f1;              ///< offset to filter
+                for (int x = 0; x < KS; x++) {
+                    sum += F[x + b0] * d[x + d0];
+                }
+            }
+            if (i0 < H && j0 < W) {                  /// * update output matrix
+                if (c1==0) O[z0] = sum + B[c0];      /// * O[ijk] with bias
+                else       O[z0] += sum;
             }
         }
-        if (i0 < H && j0 < W) {   /// * update output matrix if in range
-            if (c1==0) O[z0] = sum + B[c0];      /// * O[ijk] with bias
-            else       O[z0] += sum;
-        }
+        __syncthreads();                             /// * d read barrier
     }
 }
 
@@ -174,13 +181,10 @@ Model::_fstep(Tensor &in, Tensor &out) {
     auto conv = [da, dc, H, W, C, blk](U16 C1, U16 ks, DU *f, DU *b) {
         dim3 g3((W+TILE3-1)/TILE3, (H+TILE3-1)/TILE3);
         dim3 g5((W+TILE5-1)/TILE5, (H+TILE5-1)/TILE5);
-        for (int c1 = 0; c1 < C1; c1++) {
-            switch(ks) {            /// * TODO: handles rectangular filters
-            case 3: k_conv2d<TILE3,3><<<g3,blk>>>(da, f, b, dc, H, W, C1, c1); break;
-            case 5: k_conv2d<TILE5,5><<<g5,blk>>>(da, f, b, dc, H, W, C1, c1); break;
-            default: return -1;
-            }
-            cudaDeviceSynchronize();
+        switch(ks) {            /// * TODO: handles rectangular filters
+        case 3: k_conv2d<TILE3,3><<<g3,blk>>>(da, f, b, dc, H, W, C1); break;
+        case 5: k_conv2d<TILE5,5><<<g5,blk>>>(da, f, b, dc, H, W, C1); break;
+        default: return -1;
         }
         return 0;
     };
@@ -261,6 +265,7 @@ Model::_bstep(Tensor &in, Tensor &out) {}
 ///
 __GPU__ void
 Model::_iconv(Tensor &in, U16 C, DU bias, U16 *opt) {
+    U16 C1= in.C();
     U16 M = opt[0], N = opt[1];                  ///> filter sizing
     U16 p = opt[2] ? opt[2] : int((M-1)/2);      ///> padding
     U16 s = opt[3], d = opt[4];                  ///> stride, dilation
@@ -271,10 +276,14 @@ Model::_iconv(Tensor &in, U16 C, DU bias, U16 *opt) {
         return;
     }
     in.stride[0] = in.stride[1] = s;
-    Tensor *f  = in.grad[0] = &tensor(1, M, N, C).map(O_FILL, DU1); ///> f
-    Tensor *df = in.grad[2] = &tensor(1, M, N, C).map(O_FILL, DU0); ///> df
-    Tensor *b  = in.grad[1] = &tensor(1, 1, 1, C).map(O_FILL, DU0); //bias); ///> b
-    Tensor *db = in.grad[3] = &tensor(1, 1, 1, C).map(O_FILL, DU0); ///> db
+    ///
+    /// filter: C1 to C fully connected
+    /// TODO: filters should have 5th dimension but we steal N for C1 now
+    ///
+    Tensor *f  = in.grad[0] = &tensor(C1, M, N, C).map(O_FILL, DU1); ///> f
+    Tensor *df = in.grad[2] = &tensor(C1, M, N, C).map(O_FILL, DU0); ///> df
+    Tensor *b  = in.grad[1] = &tensor(1,  1, 1, C).map(O_FILL, DU0); //bias); ///> b
+    Tensor *db = in.grad[3] = &tensor(1,  1, 1, C).map(O_FILL, DU0); ///> db
     b->data[1] = -0.8;
 //    _mmu->random(*f, UNIFORM);                   /// * randomize f
 //    Tensor::mat(O_SUB, *f, 0.5, *f);
