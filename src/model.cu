@@ -218,7 +218,8 @@ Model::_fstep(Tensor &in, Tensor &out) {
     case L_CONV:   {
         Tensor &f = *in.grad[0];              ///< filter tensor
         Tensor &b = *in.grad[1];              ///< bias tensor
-        printf(" f[%d,%d,%d,%d], b[%d]", f.N(), f.H(), f.W(), f.C(), b.C());
+        printf(" f[%d][%d,%d,%d,%d], b[%d]",
+               f.parm, f.N(), f.H(), f.W(), f.C(), b.C());
         if (conv(in.C(), f.H(), f.data, b.data)) {
             ERROR("model#conv kernel_size=%d not supported\n", f.H());
         }
@@ -280,10 +281,10 @@ Model::_iconv(Tensor &in, U16 C, DU bias, U16 *opt) {
     /// filter: C1 to C fully connected
     /// TODO: filters should have 5th dimension but we steal N for C1 now
     ///
-    Tensor *f  = in.grad[0] = &tensor(C1, M, N, C).map(O_FILL, DU1); ///> f
-    Tensor *df = in.grad[2] = &tensor(C1, M, N, C).map(O_FILL, DU0); ///> df
-    Tensor *b  = in.grad[1] = &tensor(1,  1, 1, C).map(O_FILL, DU0); //bias); ///> b
-    Tensor *db = in.grad[3] = &tensor(1,  1, 1, C).map(O_FILL, DU0); ///> db
+    Tensor *f  = in.grad[0] = &tensor(C1, 1, M, N, C).map(O_FILL, DU1); ///> f
+    Tensor *df = in.grad[2] = &tensor(C1, 1, M, N, C).map(O_FILL, DU0); ///> df
+    Tensor *b  = in.grad[1] = &tensor(1, 1, 1, C).map(O_FILL, DU0); //bias); ///> b
+    Tensor *db = in.grad[3] = &tensor(1, 1, 1, C).map(O_FILL, DU0); ///> db
     b->data[1] = -0.8;
 //    _mmu->random(*f, UNIFORM);                   /// * randomize f
 //    Tensor::mat(O_SUB, *f, 0.5, *f);
