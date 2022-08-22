@@ -10,42 +10,39 @@
 ///
 /// Row convolution filter
 ///
-template<int TS, int KS, int CS> ///> tile size, kernel size, 1:grey, 3:RGB
-__KERN__ void k_conv(
+template<int TS, int KS>         ///> tile size, kernel size
+__KERN__ void k_conv2d(
     DU *I, DU *F, DU *B, DU *O,  ///> input A[HxW], F[KxK] kernel B[C] bias, output C[HxW]
-    int H, int W                 ///< HWC
+    int H, int W, int C1, int c1 ///< output HW, input channel & offset
     ) {
-    __shared__ DU d[CS][T4_WARP_SZ * T4_WARP_SZ];  ///< shared memory [3][16x16]
+    __shared__ DU d[T4_WARP_SZ * T4_WARP_SZ];  ///< shared memory [3][16x16]
     
     const int tx = threadIdx.x, j0 = tx + blockIdx.x * TS;
     const int ty = threadIdx.y, i0 = ty + blockIdx.y * TS;
-    const int tz = threadIdx.z, c0 = tz + blockIdx.z * blockDim.z;
-    const int i  = i0 - int(KS / 2);         ///< transfrom to input coordinate
+    const int C  = blockDim.z,  c0 = threadIdx.z;  /// input channels
+    const int z0 = c0 + (j0 + i0 * W) * C;         ///< output array index
+    const int i  = i0 - int(KS / 2);               ///< input coordinates
     const int j  = j0 - int(KS / 2);
-    const int z0 = c0 + (j0 + i0 * W) * CS;  ///< output array index
 
-    for (int c = 0; c < CS; c++) {           /// channel depth
-        d[c][tx + ty * T4_WARP_SZ] =         ///< shared memory with zero padding
-            (i >= 0 && i < H && j >= 0 && j < W)
-            ? I[c + (j + i * W) * CS] : DU0;
-    }
+    d[tx + ty * T4_WARP_SZ] =    ///< shared memory with zero padding
+        (i >= 0 && i < H && j >= 0 && j < W)
+        ? I[c1 + (j + i * W) * C1] : DU0;        ///< by input data by channel
     __syncthreads();
     ///
     /// sum of element-wise multiplication
     ///
-    if (tx < TS && ty < TS) {                /// * within tile [12x12]
+    if (tx < TS && ty < TS) {                    /// * within tile [12x12]
         DU sum = DU0;
-        for (int c = 0; c < CS; c++) {               /// 3D filter
-            for (int y = 0; y < KS; y++) {           /// * process one cell
-                int d0 = tx + (y + ty) * T4_WARP_SZ; ///< offset to smem block
-                int b0 = y * KS;
-                for (int x = 0; x < KS; x++) {
-                    sum += F[x + b0] * d[c][x + d0]; 
-                }
+        for (int y = 0; y < KS; y++) {           /// * process one cell
+            int d0 = tx + (y + ty) * T4_WARP_SZ; ///< offset to smem block
+            int b0 = (y * KS);
+            for (int x = 0; x < KS; x++) {
+                sum += F[c1 + (x + b0) * C1] * d[x + d0];
             }
         }
-        if (i0 < H && j0 < W && c0 < CS) {  /// * update C[i][j]
-            O[z0] = sum + B[c0];            /// * update output matrix with bias
+        if (i0 < H && j0 < W) {   /// * update output matrix if in range
+            if (c1==0) O[z0] = sum + B[c0];      /// * O[ijk] with bias
+            else       O[z0] += sum;
         }
     }
 }
@@ -53,7 +50,7 @@ __KERN__ void k_conv(
 template<int KS>                           /// kernel size
 __KERN__ void k_pooling(
     DU *I, DU *O,
-    int H, int W, int C,                   /// HWC
+    int H, int W, int C,                   /// HWC (C preserved)
     t4_layer op
     ) {
     const int j0 = threadIdx.x + blockIdx.x * blockDim.x;
@@ -174,15 +171,16 @@ Model::_fstep(Tensor &in, Tensor &out) {
         (W + blk.x - 1) / blk.x,
         (H + blk.y - 1) / blk.y
     );
-    auto conv = [da, dc, H, W, C, blk](U16 kc, DU *f, DU *b) {
+    auto conv = [da, dc, H, W, C, blk](U16 C1, U16 ks, DU *f, DU *b) {
         dim3 g3((W+TILE3-1)/TILE3, (H+TILE3-1)/TILE3);
         dim3 g5((W+TILE5-1)/TILE5, (H+TILE5-1)/TILE5);
-        switch(kc) {            /// * TODO: handles rectangular filters
-        case 0x31: k_conv<TILE3,3,1><<<g3,blk>>>(da, f, b, dc, H, W); break;
-        case 0x33: k_conv<TILE3,3,3><<<g3,blk>>>(da, f, b, dc, H, W); break;
-        case 0x51: k_conv<TILE5,5,1><<<g5,blk>>>(da, f, b, dc, H, W); break;
-        case 0x53: k_conv<TILE5,5,3><<<g5,blk>>>(da, f, b, dc, H, W); break;
-        default: return -1;
+        for (int c1 = 0; c1 < C1; c1++) {
+            switch(ks) {            /// * TODO: handles rectangular filters
+            case 3: k_conv2d<TILE3,3><<<g3,blk>>>(da, f, b, dc, H, W, C1, c1); break;
+            case 5: k_conv2d<TILE5,5><<<g5,blk>>>(da, f, b, dc, H, W, C1, c1); break;
+            default: return -1;
+            }
+            cudaDeviceSynchronize();
         }
         return 0;
     };
@@ -200,7 +198,8 @@ Model::_fstep(Tensor &in, Tensor &out) {
             for (int i = 0; i < H; i++) {
                 printf("\n");
                 for (int j = 0; j < W; j++) {
-                    printf("%.2f ", v[k + (j + i * W) * C]);
+                    DU x = v[k + (j + i * W) * C];
+                    printf(x < DU0 ? "%.2f" : " %.2f", x);
                 }
             }
         }
@@ -215,10 +214,9 @@ Model::_fstep(Tensor &in, Tensor &out) {
     case L_CONV:   {
         Tensor &f = *in.grad[0];              ///< filter tensor
         Tensor &b = *in.grad[1];              ///< bias tensor
-        U16 kc = f.H() << 4 | C;              ///< (kerneal_size, channel_depth)
-        printf(" f[%d,%d,%d], b[%d]", f.H(), f.W(), f.C(), b.C());
-        if (conv(kc, f.data, b.data)) {
-            ERROR("model#conv kernel_size=0x%02x not supported\n", kc);
+        printf(" f[%d,%d,%d,%d], b[%d]", f.N(), f.H(), f.W(), f.C(), b.C());
+        if (conv(in.C(), f.H(), f.data, b.data)) {
+            ERROR("model#conv kernel_size=%d not supported\n", f.H());
         }
         dump(dc, H, W, C);
     } break;
@@ -276,7 +274,8 @@ Model::_iconv(Tensor &in, U16 C, DU bias, U16 *opt) {
     Tensor *f  = in.grad[0] = &tensor(1, M, N, C).map(O_FILL, DU1); ///> f
     Tensor *df = in.grad[2] = &tensor(1, M, N, C).map(O_FILL, DU0); ///> df
     Tensor *b  = in.grad[1] = &tensor(1, 1, 1, C).map(O_FILL, DU0); //bias); ///> b
-    Tensor *db = in.grad[3] = &tensor(1, 1, 1, C).map(O_FILL, DU0);  ///> db
+    Tensor *db = in.grad[3] = &tensor(1, 1, 1, C).map(O_FILL, DU0); ///> db
+    b->data[1] = -0.8;
 //    _mmu->random(*f, UNIFORM);                   /// * randomize f
 //    Tensor::mat(O_SUB, *f, 0.5, *f);
     
