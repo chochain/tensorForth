@@ -100,12 +100,13 @@ typedef F64         DU2;                    ///< double preciesion data unit
 ///
 /// macros for object classification
 ///
-#define T4_OBJ_FLAG 1                                    /**< obj flag       */
-#define SCALAR(v)   ((*(U32*)&(v) &= ~T4_OBJ_FLAG), (v)) /**< clear obj flag */
+#define T4_OBJ_FLAG 1                                /**< obj flag       */
+#define DU2X(v)     (*(U32*)&(v))                    /**< to U32 ptr     */
+#define SCALAR(v)   ((DU2X(v) &= ~T4_OBJ_FLAG), (v)) /**< clear obj flag */
 #if     T4_ENABLE_OBJ
-#define IS_OBJ(d)   ((*(U32*)&d) & T4_OBJ_FLAG)          /**< if is an obj   */
+#define IS_OBJ(v)   (DU2X(v) & T4_OBJ_FLAG)          /**< if is an obj   */
 #else  // T4_ENABLE_OBJ
-#define IS_OBJ(d)   (0)
+#define IS_OBJ(v)   (0)
 #endif // T4_ENABLE_OBJ
 ///@}
 ///
