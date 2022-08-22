@@ -168,6 +168,14 @@ MMU::tensor(U16 n, U16 h, U16 w, U16 c) {
     t.reshape(n, h, w, c);
     return t;
 }
+__GPU__ Tensor&                    ///< create a C1NHWC tensor
+MMU::tensor(U16 c1, U16 n, U16 h, U16 w, U16 c) {
+    U32 sz = c1 * n * h * w * c;
+    TRACE1("mmu#tensor[%d](%d,%d,%d,%d) numel=%d", c1, n, h, w, c, sz);
+    Tensor &t = talloc(sz);
+    t.reshape(c1, n, h, w, c);
+    return t;
+}
 __GPU__ Model&                     ///< create a NN model with NHWC input
 MMU::model(U32 sz) {
     TRACE1("mmu#model layers=%d", sz);
@@ -355,12 +363,16 @@ MMU::to_s(std::ostream &fout, IU w) {
 __HOST__ int
 MMU::to_s(std::ostream &fout, Tensor &t) {
     static const char tn[] = { 'V', 'T', 'N' };  /// sync with t4_obj
+    auto t4 = [&fout, &t]() {
+        fout << t.N() << "," << t.H() << "," << t.W() << "," << t.C() << "]";
+    };
     fout << tn[t.ttype];
     switch(t.rank) {
     case 0: fout << "["  << (t.numel - 1) << "]";         break;
     case 1: fout << "1[" << t.numel << "]";               break;
     case 2: fout << "2[" << t.H() << "," << t.W() << "]"; break;
-    case 4: fout << "4[" << t.N() << "," << t.H() << "," << t.W() << "," << t.C() << "]"; break;
+    case 4: fout << "4["; t4();                           break;
+    case 5: fout << "5[" << (U16)t.parm << "]["; t4();    break;
     }
     return 1;
 }

@@ -141,6 +141,11 @@ AIO::_print_tensor(DU v) {
         _print_mat(d, mi, mj, ri, rj);
         cout << " }";
     } break;
+    case 5: {
+        cout << "tensor[" << t.parm << "]["
+             << t.N() << "," << t.H() << "," << t.W() << "," << t.C()
+             << "] = {...}";
+    } break;        
     default: cout << "tensor rank=" << t.rank << " not supported";
     }
     cout << "\n";
@@ -152,9 +157,8 @@ AIO::_print_model(DU v) {
         cout << "[" << std::setw(3) << i << "] "
              << Model::nname(fn) << ":";
         _mmu->to_s(cout, t);
-        int sz = t.grad[0] && t.grad[1]
-            ? t.grad[0]->numel * t.grad[1]->numel
-            : 0;
+        int sz = t.grad[0] ? t.grad[0]->numel : 0;
+        sz += t.grad[1] ? t.grad[1]->numel : 0;
         cout << ", #param=" << sz;
     };
     auto finfo = [this](Tensor **g) {

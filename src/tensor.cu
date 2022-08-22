@@ -486,6 +486,22 @@ Tensor::reshape(U16 n, U16 h, U16 w, U16 c) {
     return *this;
 }
 __BOTH__ Tensor&
+Tensor::reshape(U16 c1, U16 n, U16 h, U16 w, U16 c) {
+    const U16 s[4] = { 1, 1, 1, 1 }, t[4] = { h, w, c, n };
+    U32 sz = c1 * n * h * w * c;
+    if (sz == numel) {
+        rank = 5;
+        parm = c1;                       /// borrow parm field for C1
+        memcpy(stride, s, sizeof(s));
+        memcpy(shape,  t, sizeof(t));
+        WARN("Tensor::reshaped(%d,%d,%d,%d,%d)\n", c1, shape[3], shape[0], shape[1], shape[2]);
+    }
+    else {
+        ERROR("Tensor::reshape sz != numel (%d != %d)\n", sz, numel);
+    }
+    return *this;
+}
+__BOTH__ Tensor&
 Tensor::identity() {
     if (rank < 2) return *this;
     int m = H(), n = W();

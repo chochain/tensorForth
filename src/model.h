@@ -49,6 +49,9 @@ public:
     __GPU__ __INLINE__ Tensor &tensor(U16 n, U16 h, U16 w, U16 c) {
         return _mmu->tensor(n, h, w, c);
     }
+    __GPU__ __INLINE__ Tensor &tensor(U16 c1, U16 n, U16 h, U16 w, U16 c) {
+        return _mmu->tensor(c1, n, h, w, c);
+    }
     __GPU__ __INLINE__ Tensor &vector(U16 n) {
         return _mmu->tensor(n);
     }
