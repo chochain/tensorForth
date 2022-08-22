@@ -407,7 +407,7 @@ TensorVM::number(char *str) {
         TTOS.data[ten_off++] = n;        /// * append to tensor.data
     }
     else {                               ///> or, add value onto data stack
-        VLOG2("ss.push(%08x)\n", *(U32*)&n);
+        VLOG2("ss.push(%08x)\n", DU2X(n));
         PUSH(n);
     }
     return 1;

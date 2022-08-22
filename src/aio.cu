@@ -42,7 +42,7 @@ AIO::print_node(obuf_node *node) {
     case GT_OBJ: _print_obj(*(DU*)v); break;
     case GT_OPX: {
         _opx *o = (_opx*)v;
-        // printf("OP=%d a=%d, n=0x%08x=%f\n", o->op, o->a, *(U32*)&o->n, o->n);
+        // printf("OP=%d a=%d, n=0x%08x=%f\n", o->op, o->a, DU2X(o->n), o->n);
         switch (o->op) {
         case OP_WORDS: _mmu->words(cout);                               break;
         case OP_SEE:   _mmu->see(cout, (IU)o->a);                       break;
@@ -116,7 +116,7 @@ AIO::_print_tensor(DU v) {
 
     Tensor &t = (Tensor&)_mmu->du2obj(v);
     DU     *d = t.data;                     /// * short hand
-    WARN("aio#print_tensor::T[%x]=%p data=%p\n", *(U32*)&v, &t, d);
+    WARN("aio#print_tensor::T[%x]=%p data=%p\n", DU2X(v), &t, d);
 
     ios::fmtflags fmt0 = cout.flags();
     cout.flags(ios::showpos | ios::right | ios::fixed);

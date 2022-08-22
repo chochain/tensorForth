@@ -122,7 +122,7 @@ MMU::colon(const char *name) {
 __GPU__ void
 MMU::mark_free(DU v) {            ///< mark a tensor free for release
     T4Base &t = du2obj(v);
-    TRACE1("mark T[%x] as free[%d]\n", *(U32*)&v, _fidx);
+    TRACE1("mark T[%x] as free[%d]\n", DU2X(v), _fidx);
 //    lock();
     if (_fidx < T4_TFREE_SZ) _mark[_fidx++] = v;
     else ERROR("ERR: tfree store full, increase T4_TFREE_SZ!");
@@ -133,7 +133,7 @@ MMU::sweep() {
 //    lock();
     for (int i = 0; _fidx && i < _fidx; i++) {
         DU v = _mark[i];
-        TRACE1("release T[%x] from free[%d]\n", *(U32*)&v, i);
+        TRACE1("release T[%x] from free[%d]\n", DU2X(v), i);
         drop(v);
     }
     _fidx = 0;
@@ -251,7 +251,7 @@ MMU::copy(Tensor &t0) {
     
     Tensor::copy(t0, *t1);
     DU off = obj2du(*t1);             /// * offset in object space
-    TRACE1("mmu#copy(T%d) numel=%d to T[%x]", t0.rank, t0.numel, *(U32*)&off);
+    TRACE1("mmu#copy(T%d) numel=%d to T[%x]", t0.rank, t0.numel, DU2X(off));
     _ostore.status(_trace);
     return *t1;
 }
