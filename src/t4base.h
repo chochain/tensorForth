@@ -54,11 +54,6 @@ struct T4Base : public Managed {
     __HOST__ ~T4Base() {
         if (!data) return;
         cudaFree((void*)data);
-        switch (rank) {
-        case 2: WARN("matrix(%d,%d) freed\n", shape[0], shape[1]); break;
-        case 4: WARN("tensor(%d,%d,%d,%d) freed\n", shape[3], shape[0], shape[1], shape[2]); break;
-        default: WARN("~Tensor error: rank=%d\n", rank);
-        }
     }
     __BOTH__ __INLINE__ bool is_view()   { return ttype == VIEW;   }
     __BOTH__ __INLINE__ bool is_tensor() { return ttype <= TENSOR; }

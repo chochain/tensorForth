@@ -44,7 +44,7 @@ typedef enum {
 
 typedef enum {
     L_NONE = 0,
-    L_CONV2D,
+    L_CONV,
     L_LINEAR,
     L_FLATTEN,
     L_RELU,
@@ -58,7 +58,7 @@ typedef enum {
 } t4_layer;
 
 struct Tensor : public T4Base {
-    U16      stride[4] = {1,1,1,1}; ///< strides to calculate memory offset
+    U16      stride[4] = {1,1,1,1}; ///< stride=HWCN, for calc memory offset
     U16      shape[4]  = {1,1,1,1}; ///< shape=HWCN, matrix C=N=1, vector W=C=N=1
     t4_layer grad_fn   = L_NONE;    ///< grandiant funtion type
     Tensor   *grad[4];              ///< gradiant and jacobian tensors
@@ -84,7 +84,7 @@ struct Tensor : public T4Base {
     __HOST__ Tensor()       : T4Base() {}
     __HOST__ Tensor(U32 sz) : T4Base(sz) {
         shape[0] = (U16)sz;
-        WARN("vector[%d] allocated\n", size);
+        WARN("vector[%d] allocated\n", numel);
     }
     __HOST__ Tensor(U16 h, U16 w) : T4Base(h, w) {
         shape[0] = h; shape[1] = w;
@@ -93,6 +93,13 @@ struct Tensor : public T4Base {
     __HOST__ Tensor(U16 n, U16 h, U16 w, U16 c) : T4Base(n, h, w, c) {
         shape[0] = h; shape[1] = w; shape[2] = n; shape[3] = c;
         WARN("tensor(%d,%d,%d,%d) allocated\n", shape[3], shape[0], shape[1], shape[2]);
+    }
+    __HOST__ ~Tensor() {
+        switch (rank) {
+        case 2: WARN("matrix(%d,%d) freed\n", shape[0], shape[1]); break;
+        case 4: WARN("tensor(%d,%d,%d,%d) freed\n", shape[3], shape[0], shape[1], shape[2]); break;
+        default: WARN("~Tensor error: rank=%d\n", rank);
+        }
     }
     ///
     /// attributes
