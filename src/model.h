@@ -27,9 +27,9 @@ public:
         _mmu   = mmu;
         _store = &store;
         numel  = 0;
-        dsize  = sizeof(DU);
+        dsize  = DSIZE;
         rank   = 0;
-        ttype  = MODEL;
+        ttype  = T4_MODEL;
         data   = store.data;     // cached entries
         autograd = true;
         npush(store);            // keep store as root

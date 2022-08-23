@@ -74,9 +74,9 @@ __HOST__ void
 AIO::_print_obj(DU v) {
     T4Base &b = _mmu->du2obj(v);
     switch (b.ttype) {
-    case VIEW:
-    case TENSOR: _print_tensor(v);
-    case MODEL:  _print_model(v);
+    case T4_VIEW:
+    case T4_TENSOR: _print_tensor(v);
+    case T4_MODEL:  _print_model(v);
     }
 }
 __HOST__ void

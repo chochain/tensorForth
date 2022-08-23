@@ -191,13 +191,12 @@ MMU::model(U32 sz) {
 __GPU__ Tensor&                   ///< create a view of a Tensor
 MMU::view(Tensor &t0) {
     if (t0.is_model()) return t0; ///> TODO: create model view
-    
     Tensor *t = (Tensor*)_ostore.malloc(sizeof(Tensor));
     ///
     /// replicate A tensor
     ///
     memcpy(t, &t0, sizeof(Tensor));
-    t->ttype = VIEW;
+    t->ttype = T4_VIEW;
 
     TRACE1("mmu#view => V%d numel=%d", t->rank, t->numel);
     _ostore.status(_trace);
@@ -254,7 +253,7 @@ MMU::copy(Tensor &t0) {
 
     Tensor *t1  = (Tensor*)_ostore.malloc(sizeof(Tensor));
     memcpy(t1, &t0, sizeof(Tensor));   /// * copy attributes
-    t1->ttype = TENSOR;                /// * physical copy, not a view
+    t1->ttype = T4_TENSOR;             /// * physical copy, not a view
     ///
     /// hard copy data block
     ///
@@ -377,7 +376,7 @@ MMU::to_s(std::ostream &fout, Tensor &t) {
     case 1: fout << "1[" << t.numel << "]";               break;
     case 2: fout << "2[" << t.H() << "," << t.W() << "]"; break;
     case 4: fout << "4["; t4();                           break;
-    case 5: fout << "5[" << (U16)t.parm << "]["; t4();    break;
+    case 5: fout << "5[" << t.parm << "]["; t4();         break;
     }
     return 1;
 }
