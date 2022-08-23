@@ -14,14 +14,12 @@ NetVM::nnop(t4_layer op) {     /// vtable dispatcher
     ///
     if (TOS1T) {
         switch (op) {
-        case L_RELU:    xop1(O_RELU, DU0); break;   ///> (Ta -- Ta Ta')
-        case L_TANH:    xop1(O_TANH);      break;   ///> (Ta -- Ta Ta')
-        case L_SIGMOID: xop1(O_SIGM);      break;   ///> (Ta -- Ta Ta')
-        case L_FLATTEN:                             ///> (Ta -- Ta Ta')
+        case L_RELU:    xop1(O_RELU, DU0); break; ///> (Ta -- Ta Ta')
+        case L_TANH:    xop1(O_TANH);      break; ///> (Ta -- Ta Ta')
+        case L_SIGMOID: xop1(O_SIGM);      break; ///> (Ta -- Ta Ta')
+        case L_FLATTEN:                           ///> (Ta -- Ta Ta')
             Tensor &t = TTOS;
-            if (t.ttype==TENSOR) t.reshape(t.numel);
-            else ERROR("tensor?\n");
-            break;
+            t.reshape(t.numel);            break; 
         }
         return;
     }
