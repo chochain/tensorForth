@@ -11,16 +11,20 @@
 ///
 #define T4_RAND_SEED_SZ  256
 
-__KERN__ void k_rand_init(curandState *st, U64 seed=0) {
+__KERN__ void
+k_rand_init(curandState *st, U64 seed=0) {
     int k = threadIdx.x;
     curand_init((seed != 0) ? seed : clock64() + k, k, 0, &st[k]);
 }
-__KERN__ void k_rand(DU *mat, int sz, curandState *st, t4_rand_opt ntype) {
+__KERN__ void
+k_rand(DU *mat, int sz, DU bias, DU scale, curandState *st, t4_rand_opt ntype) {
     int k = threadIdx.x + blockIdx.x * blockDim.x;
     curandState *s = &st[threadIdx.x];
 
     if (k < sz) {
-        mat[k] = ntype==NORMAL ? curand_normal(s) : curand_uniform(s); // no divergence
+        mat[k] = scale * (
+            bias + (ntype==NORMAL ? curand_normal(s) : curand_uniform(s))
+        );
     }
 }
 ///
@@ -264,14 +268,15 @@ MMU::copy(Tensor &t0) {
     return *t1;
 }
 __GPU__ Tensor&
-MMU::random(Tensor &t, t4_rand_opt ntype, int seed) {
+MMU::random(Tensor &t, t4_rand_opt ntype, DU bias, DU scale, int seed) {
     if (seed != 0) {
         k_rand_init<<<1, T4_RAND_SEED_SZ>>>(_seed, seed);
         cudaDeviceSynchronize();
     }
-    TRACE1("mmu#random(T%d) numel=%d\n", t.rank, t.numel);
+    TRACE1("mmu#random(T%d) numel=%d bias=%.2f, scale=%.2f\n",
+           t.rank, t.numel, bias, scale);
     dim3 block(T4_RAND_SEED_SZ), grid((t.numel + block.x - 1) / block.x);
-    k_rand<<<grid, block>>>(t.data, t.numel, _seed, ntype);
+    k_rand<<<grid, block>>>(t.data, t.numel, bias, scale, _seed, ntype);
     cudaDeviceSynchronize();
 
     return t;
