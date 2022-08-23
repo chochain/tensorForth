@@ -188,6 +188,15 @@ Model::_fstep(Tensor &in, Tensor &out) {
         }
         return 0;
     };
+    auto linear = [da, dc](int M, int N, DU *w, DU *b) {
+        for (int y = 0; y < M; y++) {        /// TODO: kernel version
+            int yn = y * N;
+            dc[y] = b[y];                    /// init with bias
+            for (int x = 0; x < N; x++) {    /// dot product
+                dc[y] += w[x + yn] * da[x];
+            }
+        }
+    };
     auto pooling = [da, dc, H, W, C, blk, grd](int ks, t4_layer fn) {
         switch(ks) {           /// pooling kernel size
         case 0x2: k_pooling<2><<<grd,blk>>>(da, dc, H, W, C, fn); break;
@@ -219,19 +228,18 @@ Model::_fstep(Tensor &in, Tensor &out) {
         Tensor &f = *in.grad[0];              ///< filter tensor
         Tensor &b = *in.grad[1];              ///< bias tensor
         printf(" f[%d][%d,%d,%d,%d], b[%d]",
-               f.parm, f.N(), f.H(), f.W(), f.C(), b.C());
+               f.parm, f.N(), f.H(), f.W(), f.C(), b.numel);
         if (conv(in.C(), f.H(), f.data, b.data)) {
             ERROR("model#conv kernel_size=%d not supported\n", f.H());
         }
         dump(dc, H, W, C);
     } break;
     case L_LINEAR: {                          ///< out = w @ in + b
-        Tensor &w = *in.grad[0];  
-        Tensor &b = *in.grad[1];
-        printf(" w[%d,%d] @ in[%d,%d] + b[%d,%d]",
-               w.H(), w.W(), in.H(), in.W(), b.H(), b.W());
-        Tensor::copy(b, out);                 ///< add bias first
-        Tensor::gemm(w, in, out, 1.0, 1.0);   ///< out += W * in
+        Tensor &w = *in.grad[0];              ///< weight tensor
+        Tensor &b = *in.grad[1];              ///< bias tensor
+        int M = w.H(), N = w.W();             ///< fully connected dimensions
+        printf(" w[%d,%d] @ in[%d] + b[%d]", M, N, in.numel, b.numel);
+        linear(M, N, w.data, b.data);         ///< out = W @ in + B
         dump(dc, (out.numel+6)/7, 7, 1);
     } break;
     case L_FLATTEN: Tensor::copy(in, out);                 break;
@@ -283,8 +291,8 @@ Model::_iconv(Tensor &in, U16 C, DU bias, U16 *opt) {
     ///
     Tensor *f  = in.grad[0] = &tensor(C1, 1, M, N, C).map(O_FILL, DU1); ///> f
     Tensor *df = in.grad[2] = &tensor(C1, 1, M, N, C).map(O_FILL, DU0); ///> df
-    Tensor *b  = in.grad[1] = &tensor(1, 1, 1, C).map(O_FILL, DU0); //bias); ///> b
-    Tensor *db = in.grad[3] = &tensor(1, 1, 1, C).map(O_FILL, DU0); ///> db
+    Tensor *b  = in.grad[1] = &vector(C).map(O_FILL, DU0); //bias); ///> b
+    Tensor *db = in.grad[3] = &vector(C).map(O_FILL, DU0); ///> db
     b->data[1] = -0.8;
 //    _mmu->random(*f, UNIFORM);                   /// * randomize f
 //    Tensor::mat(O_SUB, *f, 0.5, *f);
@@ -294,7 +302,7 @@ Model::_iconv(Tensor &in, U16 C, DU bias, U16 *opt) {
 }
 __GPU__ void
 Model::_ilinear(Tensor &in, U16 n, DU bias) {
-    U16 m = in.H();
+    U16 m = in.numel;
     Tensor *w  = in.grad[0] = &tensor(1, n, m, 1).identity();  ///> w
     Tensor *dw = in.grad[2] = &tensor(1, n, m, 1).map(O_FILL, DU0);  ///> dw
     Tensor *b  = in.grad[1] = &vector(n).map(O_FILL, DU0); //bias);          ///> b
@@ -340,7 +348,7 @@ Model::_ipooling(Tensor &in, U16 f) {
     U16 s[4] = { f, f, 1, 1 }; memcpy(in.stride, s, sizeof(s));  // stride
     
     Tensor &out = tensor(1, m, n, in.C());
-    npush(out);                 /// * stage for next stage
+    npush(out);                   /// * stage for next stage
 }
 __GPU__ void
 Model::_idropout(Tensor &in, U16 f) {

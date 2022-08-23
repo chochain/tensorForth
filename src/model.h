@@ -46,14 +46,14 @@ public:
     __GPU__ __INLINE__ Model  &npush(Tensor &t) { return npush(_mmu->obj2du(t)); }
     __GPU__ __INLINE__ DU     npop() { return data[--numel]; }
     __GPU__ __INLINE__ Tensor &output() { return (*this)[numel-1]; }
+    __GPU__ __INLINE__ Tensor &vector(U16 sz) {
+        return _mmu->tensor(sz);
+    }
     __GPU__ __INLINE__ Tensor &tensor(U16 n, U16 h, U16 w, U16 c) {
         return _mmu->tensor(n, h, w, c);
     }
     __GPU__ __INLINE__ Tensor &tensor(U16 c1, U16 n, U16 h, U16 w, U16 c) {
         return _mmu->tensor(c1, n, h, w, c);
-    }
-    __GPU__ __INLINE__ Tensor &vector(U16 n) {
-        return _mmu->tensor(n);
     }
     __GPU__ Model  &add(t4_layer fn, U16 n=0, DU bias=DU0, U16 *opt=0);
     __GPU__ Model  &forward(Tensor &input);
