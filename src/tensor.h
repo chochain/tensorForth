@@ -129,7 +129,7 @@ struct Tensor : public T4Base {
     ///
     /// tensor life-cycle ops
     ///
-    __BOTH__ Tensor &reset(void *mptr, U32 sz);
+    __BOTH__ Tensor &reset(void *mptr, U32 sz, t4_obj tt=T4_TENSOR, t4_layer fn=L_NONE);
     __BOTH__ Tensor &reshape(U32 sz);
     __BOTH__ Tensor &reshape(U16 h, U16 w);
     __BOTH__ Tensor &reshape(U16 n, U16 h, U16 w, U16 c);

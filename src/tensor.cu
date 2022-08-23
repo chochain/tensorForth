@@ -425,17 +425,17 @@ Tensor::map(t4_ten_op op, DU v) {
 /// Tensor life-cycle ops
 ///
 __BOTH__ Tensor&
-Tensor::reset(void *mptr, U32 sz) {
+Tensor::reset(void *mptr, U32 sz, t4_obj tt, t4_layer fn) {
     WARN("Tensor::reset(%p, %d)\n", mptr, sz);
     const U16 s[4] = { 1, 1, 1, 1 };
     const U16 t[4] = { (U16)sz, 1, 1, 1 };
     const DU  g[4] = { DU0, DU0, DU0, DU0 };
     numel   = sz;
-    dsize   = sizeof(DU);
+    dsize   = DSIZE;
     rank    = 1;
-    ttype   = TENSOR;
+    ttype   = tt;
     data    = (DU*)mptr;
-    grad_fn = L_NONE;
+    grad_fn = fn;
     memcpy(stride, s, sizeof(s));
     memcpy(shape,  t, sizeof(t));
     memcpy(grad,   g, sizeof(g));
@@ -445,7 +445,7 @@ Tensor::reset(void *mptr, U32 sz) {
 __BOTH__ Tensor&
 Tensor::reshape(U32 sz) {
     if (sz == numel) {
-        reset(data, numel);
+        reset(data, numel, (t4_obj)ttype, grad_fn);   /// preserve ttype and fn
         WARN("Tensor::reshaped(%d)\n", numel);
     }
     else {
@@ -491,7 +491,7 @@ Tensor::reshape(U16 c1, U16 n, U16 h, U16 w, U16 c) {
     U32 sz = c1 * n * h * w * c;
     if (sz == numel) {
         rank = 5;
-        parm = c1;                       /// borrow parm field for C1
+        parm = c1;        /// use parm field, so we don't need s[5]
         memcpy(stride, s, sizeof(s));
         memcpy(shape,  t, sizeof(t));
         WARN("Tensor::reshaped(%d,%d,%d,%d,%d)\n", c1, shape[3], shape[0], shape[1], shape[2]);
