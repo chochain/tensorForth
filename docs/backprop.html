@@ -74,56 +74,104 @@ $$
   <tr>
     <td>linear</td>
     <td>$$Y_1 = W_1 X_1 + B_1$$</td>
-    <td>$$\frac{\partial C}{\partial W_1} = \frac{\partial C}{\partial Y_1} \frac{\partial Y_1}{\partial W_1}$$<p/>
-        $$\frac{\partial C}{\partial B_1} = \frac{\partial C}{\partial Y_1} \frac{\partial Y_1}{\partial B_1}$$</td>
-    <td>$$= dY_1 \cdot X_1^T$$<p/>
-        $$= dY_1 \cdot 1$$</td>
+    <td>$$
+      \frac{\partial C}{\partial W_1} = \frac{\partial C}{\partial Y_1} \frac{\partial Y_1}{\partial W_1} \\
+      \frac{\partial C}{\partial B_1} = \frac{\partial C}{\partial Y_1} \frac{\partial Y_1}{\partial B_1}$$</td>
+    <td>$$= dY_1 \cdot
+      \begin{cases}
+      X_1^T \\
+      1 \\
+      \end{cases}$$</td>
     <td>$$dX_1 = \frac{\partial C}{\partial Y_1} \frac{\partial Y_1}{\partial X_1} = dY_1 \cdot W_1^T$$</td>
-    <td>$$W'_1 = W_1 - \eta \frac{\partial C}{\partial W_1}$$<p/>
-        $$B'_1 = B_1 - \eta \frac{\partial C}{\partial B_1}$$</td>
+    <td>$$
+      W'_1 = W_1 - \eta \frac{\partial C}{\partial W_1} \\
+      B'_1 = B_1 - \eta \frac{\partial C}{\partial B_1}$$</td>
   </tr>
   <tr>
     <td>sigmoid<p/>relu</td>
-    <td>$$Y_2 = \sigma(Y_1)$$<p/>$$Y_2 = max(0,Y_1)$$</td>
+    <td>$$Y_2 =
+      \begin{cases}
+      \sigma(Y_1) \\
+      max(0,Y_1) \\
+      \end{cases}$$</td>
     <td>$$\frac{\partial C}{\partial Y_1} = (\frac{\partial C}{\partial Y_3} \frac{\partial Y_3}{\partial Y_2}) \frac{\partial Y_2}{\partial Y_1}$$</td>
-    <td>$$= dY_2 \cdot \sigma^{-1}(Y_1)$$<p/>$$= dY_2 \cdot max^{-1}(0,Y_1)$$</td>
-    <td>$$dY_1 = dY_2 \cdot Y_1(1 - Y_1)$$<p/>$$dY_1 = dY_2 \cdot \text(Y_1>0 ? 1:0)$$</td>
+    <td>$$= dY_2 \cdot
+      \begin{cases}
+      \sigma^{-1}(Y_1) \\
+      max^{-1}(0,Y_1) \\
+      \end{cases}$$</td>
+    <td>$$dY_1 = dY_2 \cdot
+      \begin{cases}
+      Y_1 \cdot (1 - Y_1) \\
+      Y_1 \gt 0 \text{ ? 1 : 0} \\
+      \end{cases}$$</td>
     <td/>
   </tr>
   <tr>
     <td>linear</td>
     <td>$$Y_3 = W_2 Y_2 + B_2$$</td>
-    <td>$$\frac{\partial C}{\partial W_2} = \frac{\partial C}{\partial Y_3} \frac{\partial Y_3}{\partial W_2}$$<p/>
-        $$\frac{\partial C}{\partial B_2} = \frac{\partial C}{\partial Y_3} \frac{\partial Y_3}{\partial B_2}$$</td>
-    <td>$$= dY_3 \cdot Y_2^T$$<p/>
-        $$= dY_3 \cdot 1$$</td>
+    <td>$$
+      \frac{\partial C}{\partial W_2} = \frac{\partial C}{\partial Y_3} \frac{\partial Y_3}{\partial W_2} \\
+      \frac{\partial C}{\partial B_2} = \frac{\partial C}{\partial Y_3} \frac{\partial Y_3}{\partial B_2}$$</td>
+    <td>$$= dY_3 \cdot
+      \begin{cases}
+      Y_2^T \\
+      1 \\
+      \end{cases}$$</td>
     <td>$$dY_2 = \frac{\partial C}{\partial Y_3} \frac{\partial Y_3}{\partial Y_2} = dY_3 \cdot W_2^T$$</td>
-    <td>$$W'_2 = W_2 - \eta \frac{\partial C}{\partial W_2}$$<p/>
-        $$B'_2 = B_2 - \eta \frac{\partial C}{\partial B_2}$$</td>
+    <td>$$
+      W'_2 = W_2 - \eta \frac{\partial C}{\partial W_2} \\
+      B'_2 = B_2 - \eta \frac{\partial C}{\partial B_2}$$</td>
   </tr>
   <tr>
     <td>sigmoid<p/>relu</td>
-    <td>$$Y_4 = \sigma(Y_3)$$<p/>$$Y_4 = max(0,Y_3)$$</td>
+    <td>$$
+      Y_4 = \begin{cases}
+      \sigma(Y_3) \\
+      max(0,Y_3) \\
+      \end{cases}$$</td>
     <td>$$\frac{\partial C}{\partial Y_3} = \frac{\partial C}{\partial Y_4} \frac{\partial Y_4}{\partial Y_3}$$</td>
-    <td>$$= dY_4 \cdot \sigma^{-1}(Y_3)$$<p/>$$= dY_4 \cdot max^{-1}(0,Y_3)$$</td>
-    <td>$$dY_3 = dY_4 \cdot Y_3(1 - Y_3)$$<p/>$$dY_3 = dY_4 \cdot \text(Y_3>0 ? 1 : 0)$$</td>
-    <td/>
-  </tr>
-  <tr>
-    <td>softmax</td>
-    <td>$$Y_4 = softmax(Y_3)$$<p/>$$f_i(x) = \frac{exp(x_i)}{\sum_{j}exp(x_j)}$$</td>
-    <td>$$\frac{\partial C}{\partial Y_3} = \frac{\partial C}{\partial Y_4} \frac{\partial Y_4}{\partial Y_3}$$</td>
-    <td/>
-    <td/>
+    <td>$$= dY_4 \cdot
+      \begin{cases}
+      \sigma^{-1}(Y_3) \\
+      max^{-1}(0,Y_3) \\
+      \end{cases}$$</td>
+    <td>$$dY_3 = dY_4 \cdot
+      \begin{cases}
+      Y_3 \cdot (1 - Y_3) \\
+      Y_3 \gt 0 \text{ ? 1 : 0} \\
+      \end{cases}$$</td>
     <td/>
   </tr>
   <tr>
     <td>loss</td>
-    <td>$$C = CrossEntropy(Y_4, L)$$<p/>$$ C = MSE(Y_4, L)$$</td>
+    <td>$$C =
+      \begin{cases}
+        MSE(Y_4, L) \\
+        \begin{cases}
+        softmax(Y_4) \\
+        CE(Y_4, L) \\
+        \end{cases} \\
+      \end{cases}$$</td>
     <td>$$\frac{\partial C}{\partial Y_4}$$</td>
-    <td>$$= Y_4 - L$$<p/>
-      $$=\frac{1}{N}\sum_{i=1}^N(Y_4 - L_i)^2$$</td>
-    <td>$$dY_4 = (Y_4 - L)^T$$</td>
+    <td>$$
+      \begin{cases}
+      \frac{\partial}{\partial y_i} \{\frac{1}{N}\sum_{i=1}^N(y_i - L_i)^2\} \\
+        \begin{cases}
+        y_i \cdot (\delta_{ij} - y_j) \text{ where } \delta_{ij} =
+          \begin{cases}
+          1 \text{ if } i = j \\
+          0 \text{ if } i \ne j \\
+          \end{cases} \\
+        \frac{\partial}{\partial y_i} \{-\sum_{i=1}^N y_i \cdot log(L_i)\} \\
+        \end{cases} \\
+      \end{cases}
+      $$</td>
+    <td>$$
+      dY_4 = \begin{cases}
+      Y_4 - L \\
+      Y_4 - L \\
+      \end{cases}$$</td>
     <td/>
 </table>
 
