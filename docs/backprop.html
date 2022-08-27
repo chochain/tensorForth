@@ -1,7 +1,11 @@
+<head>
 <script type="text/javascript"
   src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.0/MathJax.js?config=TeX-AMS_CHTML">
 </script>
-<table>
+</head>
+<body>
+<h1>Back Propogation Derivation</h1>
+<table style='table-layout:fixed'>
 <tr><td align=left>
 $$
 \mathbf{\frac{\partial y}{\partial x}} =
@@ -36,22 +40,28 @@ $$
 <tr><td align=left>
 $$
 \begin{cases}
-& u(\mathbf{w},\mathbf{x},b) & = max(0, \mathbf{w} \cdot \mathbf{x} + b) \\
-& v(y, u) & = y - u \\
-& C(v) = MSE(v) & = \frac{1}{N}\sum_{i=1}^N v^2 & derivatives =
+& u(\mathbf{w},\mathbf{x},b) & = max(0, \mathbf{w} \cdot \mathbf{x} + b) & derivatives =
 \begin{cases}
 & e_i & = \mathbf{w} \cdot \mathbf{x_i} + b - y_i \\
-& \frac{\partial C}{\partial W} & = \frac{2}{N}\sum\limits_{i=1}^N e_i\mathbf{x}_i^T & \text{ for non-zero activation cases } \\
-& \frac{\partial C}{\partial B} & = \frac{2}{N}\sum\limits_{i=1}^N e_i & \text{ for non-zero activation cases} \\
+& \frac{\partial \mathbf{u}}{\partial w} & = \frac{2}{N}\sum\limits_{i=1}^N e_i\mathbf{x}_i^T & \text{ for non-zero activation cases } \\
+& \frac{\partial \mathbf{u}}{\partial b} & = \frac{2}{N}\sum\limits_{i=1}^N e_i & \text{ for non-zero activation cases} \\
 \end{cases} \\
-& C(v) = CrossEntropy(v) & =
+& \\
+& v(\mathbf{u}, \mathbf{\hat y}) & = \mathbf{u} - \mathbf{\hat y} \\
+& C(v) = MSE(v) & = \frac{1}{N}\sum\limits_{i=1}^N v_i^2 \\
+& \\
+& z(u) = softmax(u) & = \exp^{u_i} / \sum\limits_{i=1}^N\exp^{u_i} & derivatives =
+u_i \cdot (\delta_{ij} - u_j) \text{ where } \delta_{ij} =
 \begin{cases}
-& -log(\hat y) & \text{if y = 1} \\
-& -log(1- \hat y) & \text{if y = 0} \\
+1 \text{ if } i = j \\
+0 \text{ if } i \ne j \\
 \end{cases} \\
+& C(z) = CrossEntropy(z) & = -\sum\limits_i z_i \cdot log(\hat z_i)\ & derivatives =
+\mathbf{u} - \mathbf{\hat y} \text{ where } \mathbf{\hat y} \text{ is a one-hot vector} \\
 \end{cases}
 $$
 </td></tr>
+<tr><td><img width='90%' src="./img/backprop.png"></td></tr>
 <tr><td align=left>
 </td>
 </tr>
@@ -147,32 +157,33 @@ $$
     <td>loss</td>
     <td>$$C =
       \begin{cases}
-        MSE(Y_4, L) \\
-        \begin{cases}
-        softmax(Y_4) \\
-        CE(Y_4, L) \\
-        \end{cases} \\
+        MSE(Y_4, \hat Y) \\
+        CE(softmax(Y_4), \hat Y) \\
       \end{cases}$$</td>
     <td>$$\frac{\partial C}{\partial Y_4}$$</td>
     <td>$$
       \begin{cases}
-      \frac{\partial}{\partial y_i} \{\frac{1}{N}\sum_{i=1}^N(y_i - L_i)^2\} \\
+      \frac{1}{N}\sum\limits_i(y_i - \hat y_i)^2\ \\
         \begin{cases}
         y_i \cdot (\delta_{ij} - y_j) \text{ where } \delta_{ij} =
           \begin{cases}
           1 \text{ if } i = j \\
           0 \text{ if } i \ne j \\
           \end{cases} \\
-        \frac{\partial}{\partial y_i} \{-\sum_{i=1}^N y_i \cdot log(L_i)\} \\
+        \begin{cases}
+        -{\hat y_i} \cdot log(y_i) & \text{ if } \hat y_i = 1 \\
+        -(1 - \hat y_i) \cdot log(1 - y_i) & \text { if } \hat y_i = 0 \\
         \end{cases} \\
+      \end{cases} \\
       \end{cases}
       $$</td>
     <td>$$
       dY_4 = \begin{cases}
-      Y_4 - L \\
-      Y_4 - L \\
+      Y_4 - \hat Y \\
+      Y_4 - \hat Y \\
       \end{cases}$$</td>
     <td/>
 </table>
+</body>
 
 
