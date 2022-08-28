@@ -11,26 +11,27 @@ A Forth word can be seen as a nested function that process data flow, i.e. y = f
 <pre>
 : seq1 (N -- N') 0.5 10 conv2d 2 maxpool relu ;
 : seq2 (N -- N') 0.5 20 conv2d 0.5 dropout 2 maxpool relu ;
-: lin1 (N -- N') flatten relu 0.0 50 linear ;
+: lin1 (N -- N') flatten 0.0 50 linear ;
 : lin2 (N -- N') 0.5 dropout 0.0 10 linear ;
-
-20 model                               \ create a network model of max 20 layers
-1 28 28 1 tensor >n                    \ add input tensor to model (dimensions)
-seq1 seq2 lin1 lin2 softmax loss.nll   \ feed layers to model
+: md1  (N -- N') seq1 seq2 lin1 lin2 softmax loss.ce ;
+nn.model                               \ create a network model
+10 28 28 1 tensor >n                   \ add input tensor to model (dimensions)
+md1                                    \ feed layers to model
 constant mnist                         \ model can be stored as a constant
 
-: train (N set0 -- N') for_batch forward backprop next 0.1 0.9 sgd ;
-: test  (N set1 -- N') for_batch forward avg predict . next ;
+: epoch (N ds0a -- N') nn.for r@ forward backprop nn.next 0.1 0.9 nn.sgd ;
+: train (N ds0  -- N') nn.for 10 rset@ epoch nn.next ;
+: test  (N ds1  -- N') nn.for r@ forward avg predict . nn.next ;
 
-mnist set0 train nn.save net_1         \ training session (and save the network)
-mnist set1 test                        \ predicting session, or
-nn.load net_1 set2 test                \ load trained network and test
+mnist ds0 train1 nn.save net_1         \ training session (and save the network)
+mnist ds1 test                         \ predicting session, or
+nn.load net_1 ds2 test                 \ load trained network and test
 </pre>
 
 ### Case Study - MNIST
 |word|forward|param|network DAG|grad_fn|param[grad]|
 |---|---|---|---|---|---|
-|   |for_batch|(INs -- IN)        |IN                |        |                                  |
+|    |nn.for  |(INs -- IN)        |IN                |        |                                  |
 |seq1|conv2d  |(IN b1 c1 -- C1)   |IN [f1 b1 df1 db1]|dconv2d |(IN [f1 b1] dC1 -- dIN [df1 db1]) |
 |    |relu    |(C1 -- R1)         |C1                |drelu   |(C1 dR1 -- dC1)                   |
 |seq2|conv2d  |(R1 b2 c2 -- C2)   |R1 [f2 b2 df2 db2]|dconv2d |(R1 [f2 b2] dC2 -- dR1 [df2 db2]) |
@@ -39,62 +40,36 @@ nn.load net_1 set2 test                \ load trained network and test
 |lin1|flatten |(PX -- FC)         |PX [sz]           |dflatten|(PX [sz] dFC -- dPX)              |
 |    |linear  |(FC b3 n3 -- Z)    |FC [w3 b3 dw3 db3]|dlinear |(FC [w3 b3] dZ -- dFC [dw3 db3])  |
 |lin2|relu    |(Z  -- R3)         |Z                 |drelu   |(Z dR3 -- dZ)                     |
-|    |linear  |(R3 b4 n4 -- OUT)  |R3 [w4 b4 dw3 db3]|dlinear |(R3 [w4 b4] dOUT -- dR3 [dw4 db4])|
-|fwd |softmax |(OUT -- PB)        |PB labels         |-       |(PB labels -- dOUT)               |
+|    |linear  |(R3 b4 n4 -- OUT)  |R3 [w4 b4 dw4 db4]|dlinear |(R3 [w4 b4] dOUT -- dR3 [dw4 db4])|
+||||||
+|fwd |softmax |(OUT -- PB)        |PB labels         |-       |(OUT labels -- dOUT)              |
 |    |loss.ce |(PB labels -- loss)|                  |        |                                  |
 ||||||
-|back|sgd     |(loss b1 b2 -- )   |[f1' b1' f2' b2' w3' b3' w4' b3']|||
+|back|nn.sgd  |(N &eta; -- )      |[f1' b1' f2' b2' w3' b3' w4' b3']|f -= &eta; * df||
 
-### Study NN forward and backward propegation
+### Backpropagation Study - MNIST
+{% include backprop.html %}
+
+### Study NN forward and backward propagation
 * https://explained.ai/matrix-calculus/
+* https://github.com/dnouri/cuda-convnet
 * https://en.wikipedia.org/wiki/Automatic_differentiation
 * https://en.wikipedia.org/wiki/Adept_(C%2B%2B_library) and Stan
 * for 1D nn   https://machinelearningmastery.com/implement-backpropagation-algorithm-scratch-python/
 * for 2D conv https://datascience-enthusiast.com/DL/Convolution_model_Step_by_Stepv2.html
-<pre>
-def linear(A, W, b):
-    Z = np.dot(W,A) + b
-    cache = (A, W, b)
-    return Z, cache
-    
-def d_linear(dZ, cache):
-    A_prev, W, b = cache
-    m  = A_prev.shape[1]
-    dW = 1./m * np.dot(dZ, A_prev.T)
-    db = 1./m * np.sum(dZ, axis=1, keepdims=True)
-    dA_prev = np.dot(W.T, dZ)
-    return dA_prev, dW, db
-    
-def sigmoid(x):                                 # Sigmoid  
-    return 1 / (1 + exp(-x))
-    
-def d_sigmoid(x):                               # Sigmoid derivative  
-    return sigmoid(x) * (1 - sigmoid(x))
-    
-def softmax(x):                                 # Softmax
-    return np.exp(x) / np.sum(np.exp(x))
-
-def d_softmax(x):                               # Softmax derivative
-    I = np.eye(x.shape[0])
-    return softmax(x) * (I - softmax(x).T)
-    
-def cross_e(y_true, y_pred):                    # CE
-    return -sum(y_true * np.log(y_pred + 10**-100))
-
-def d_cross_e(y_true, y_pred):                  # CE derivative
-    return -y_true / (y_pred + 10**-100)
-</pre>
+* backprop    https://www.google.com/search?channel=fs&client=ubuntu&q=forward+backward+propagation
 
 ### CNN volcabularies
 #### Tensor ops
 |word|param/example|tensor creation ops|
 |---|---|---|
 |stack|(Aa Ab i - Aa Ab Tc)|stack arrays on given axis|
-|split|(Ta i - Ta Aa Ab Ac) |split matrix into matrix on a given axis|
+|split|(Ta i - Ta Aa Ab Ac)|split matrix into matrix on a given axis|
 
 #### Load/Save - .npy
 |word|param/example|tensor creation ops|
 |---|---|---|
+|nn.model|(n h w c -- N)|create a Neural Network model with (n,h,w,c) input|
 |nn.dir|( -- )|list dataset directory|
 |nn.load|( -- N)|load trained network|
 |nn.save|(N -- )|export network as a file|
@@ -111,18 +86,21 @@ def d_cross_e(y_true, y_pred):                  # CE derivative
 #### Activation (non-linear)
 |word|param/example|tensor creation ops|
 |---|---|---|
-|relu|(N -- N')|Rectified Linear Unit|
-|tanh|(N -- N')|Tanh Unit|
-|sigmoid|(N -- N')|1/(1+exp^-z)|
-|softmax|(N -- N')|probability vector exp(x)/sum(exp(x))|
+|tanh|(Ta -- Ta')|tensor element-wise tanh Ta' = tanh(Ta)|
+|relu|(Ta -- Ta')|tensor element-wise ReLU Ta' = max(0, Ta)|
+|sigmoid|(Ta -- Ta')|tensor element-wise Sigmoid Ta' = sigmoid(Ta)|
+|tanh|(N -- N')|add tanh layer to network model|
+|relu|(N -- N')|add Rectified Linear Unit to network model|
+|sigmoid|(N -- N')|add sigmoid 1/(1+exp^-z) activation to network model|
+|softmax|(N -- N')|add probability vector exp(x)/sum(exp(x)) to network model|
     
 #### Pooling and Dropout (Downsampling)
 |word|param/example|tensor creation ops|
 |---|---|---|
-|avgpool|(N n -- N')|nxn cells average pooling|
 |maxpool|(N n -- N')|nxn cells maximum pooling|
+|avgpool|(N n -- N')|nxn cells average pooling|
 |minpool|(N n -- N')|nxn cell minimum pooling|
-|dropout|(n p -- N')|zero out p% of channel data (add noise between data points)|
+|dropout|(N p -- N')|zero out p% of channel data (add noise between data points)|
   
 #### Loss
 |word|param/example|tensor creation ops|
@@ -132,12 +110,16 @@ def d_cross_e(y_true, y_pred):                  # CE derivative
 |loss.ce|(N Ta -- N Ta')|cross-entropy|
 |predict|(N -- N n)|cost function (avg all losts)|
 
-#### Back Propergation
+#### Propagation controls
 |word|param/example|tensor creation ops|
 |---|---|---|
+|nn.for|(N ds -- N')|loop through a data set|
+|nn.next|(N ds -- N')|loop if any subset left|
 |autograd|(N n -- N')|enable/disable model autograd|
-|backprop|(N Ta -- N')|stop DAG building, execute backward propergation|
-|sgd|(N Ta p m -- N')|apply SGD(learn_rate=p, momentum=m) backprop on DAG|
-|adam|(N Ta p m -- N')|apply Adam backprop|
+|forward|(N in -- N')|execute one forward propagation, layer-by-layer in given model|
+|backprop|(N out -- N')|execute one backward propagation, adding derivatives for all parameters|
+|nn.sgd|(N Ta p m -- N')|apply SGD(learn_rate=p, momentum=m) backprop on DAG|
+|nn.adam|(N Ta -- N')|apply Adam backprop (alpha=0.001, beta1=0.1, beta2=0.999, eps=1e-6)|
+|nn.adam|(N Ta a b -- N')|apply Adam backprop with given alpha, beta1, (beta2=0.999, eps=1e-6)|
     
 
