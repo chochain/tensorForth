@@ -17,7 +17,8 @@ public:
     ///
     /// @name Derivertive ops
     /// @{
-    static __HOST__ const char* nname(int n);  /// network layer name
+    static __HOST__ const char* nname(int n);    /// network layer name
+    static __GPU__  const char* d_nname(int n);
     /// @}
     __BOTH__ __INLINE__ Tensor &operator[](int i) {
         return (Tensor&)_mmu->du2obj(data[(i < 0) ? numel + i : i]);
