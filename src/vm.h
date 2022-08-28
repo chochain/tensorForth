@@ -11,7 +11,7 @@
 ///@name Cross platform support
 ///@{
 #define ENDL         '\n'
-#define delay(ticks) { clock_t t = clock()+ticks; while (clock()<t) yield(); }
+#define delay(ticks) { U64 t = clock64()+ (ticks * khz); while ((U64)clock64()<t) yield(); }
 #define yield()                        /**< TODO: multi-VM  */
 ///@}
 #define VLOG1(...) { if (mmu.trace() > 0) INFO(__VA_ARGS__); }
