@@ -7,6 +7,11 @@
 #include "model.h"
 
 #if T4_ENABLE_OBJ
+__GPU__ static const char *layer_name[] = {   /// double check with t4_layer
+    "output ", "conv2d ", "linear ", "flatten", "relu   ",
+    "tanh   ", "sigmoid", "softmax", "maxpool", "avgpool",
+    "minpool", "dropout"
+};
 ///
 /// Row convolution filter
 ///
@@ -135,33 +140,44 @@ Model::add(t4_layer fn, U16 n, DU bias, U16 *opt) {
 
 __GPU__ Model&
 Model::forward(Tensor &input) {
-    static const char *name[] = {   /// double check with t4_layer
-    "output ", "conv2d ", "linear ", "flatten", "relu   ",
-    "tanh   ", "sigmoid", "softmax", "maxpool", "avgpool",
-    "minpool", "dropout"
-    };
-    Tensor &in = (*this)[1];
-    if (!in.is_same_shape(input)) {
+    Tensor &n1 = (*this)[1];
+    if (!n1.is_same_shape(input)) {
         ERROR("Model#forward input dim?\n");
         return *this;
     }
-    Tensor::copy(input, in);       /// * feed input into model
+    Tensor::copy(input, n1);       /// * feed input into model
     ///
-    /// cascade execution layer by layer
+    /// cascade execution layer by layer forward
     /// TODO: model execution becomes a superscalar pipeline
     ///
-    for (int i = 2; i < numel; i++) {
+    for (U16 i = 1; i < numel - 1; i++) {
+        Tensor &in = (*this)[i], &out = (*this)[i + 1];
         printf("%2d> %s [%d,%d,%d] p=%d =>",
-               i-1, name[in.grad_fn], in.H(), in.W(), in.C(), in.parm); 
-        Tensor &out = (*this)[i];
+               i, layer_name[in.grad_fn], in.H(), in.W(), in.C(), in.parm);
         _fstep(in, out);
-        in = out;
         printf("\n");
     }
     return *this;
 }
 __GPU__ Model&
-Model::backprop(Tensor &output) {
+Model::backprop(Tensor &tgt) {
+    printf("here\n");
+    Tensor &nx = (*this)[numel - 1];
+    if (!nx.is_same_shape(tgt)) {
+        ERROR("Model#backprop target dim?\n");
+        return *this;
+    }
+    ///
+    /// cascade execution layer by layer backward
+    ///
+    nx -= tgt;
+    for (U16 i = numel - 2; i > 0; i--) {
+        Tensor &in = (*this)[i], &out = (*this)[i + 1];
+        printf("%2d> %s [%d,%d,%d] p=%d <=",
+               i, layer_name[in.grad_fn], in.H(), in.W(), in.C(), in.parm); 
+        _bstep(in, out);
+        printf("\n");
+    }
     return *this;
 }
 /// ========================================================================
@@ -232,7 +248,6 @@ Model::_fstep(Tensor &in, Tensor &out) {
         if (conv(in.C(), f.H(), f.data, b.data)) {
             ERROR("model#conv kernel_size=%d not supported\n", f.H());
         }
-        dump(dc, H, W, C);
     } break;
     case L_LINEAR: {                          ///< out = w @ in + b
         Tensor &w = *in.grad[0];              ///< weight tensor
@@ -240,18 +255,26 @@ Model::_fstep(Tensor &in, Tensor &out) {
         int M = w.H(), N = w.W();             ///< fully connected dimensions
         printf(" w[%d,%d] @ in[%d] + b[%d]", M, N, in.numel, b.numel);
         linear(M, N, w.data, b.data);         ///< out = W @ in + B
-        dump(dc, (out.numel+6)/7, 7, 1);
+        
+        if (out.numel < 20) dump(dc, 1, out.numel, 1);
+        else {
+            int k = sqrt(out.numel);
+            dump(dc, k+1, k, 1);
+        }
     } break;
-    case L_FLATTEN: Tensor::copy(in, out);                 break;
-    case L_RELU:    k_relu<<<grd, blk>>>(da, dc, H, W, C); break;
+    case L_FLATTEN: Tensor::copy(in, out); break;
+    case L_RELU:
+        k_relu<<<grd, blk>>>(da, dc, H, W, C);
+        dump(dc, H, W, C);
+        break;
     case L_TANH:    break;
     case L_SIGMOID: break;
     case L_SOFTMAX: {
         Tensor &t = *in.grad[0];             ///< tmp tensor
         Tensor::copy(in, t);                 /// * copy content for exp calc
         DU sum = t.map(O_EXP).sum() + DU_EPS;/// * sum all probabilities
-        printf(" sum=%.2f ", sum);
         Tensor::mat(O_MUL, t, DU1/sum, out); /// * p / sum(p)
+        printf(" sum=%.3f", out.sum());      /// * verify sum
         dump(dc, 1, out.numel, 1);
     } break;
     case L_MAXPOOL:
@@ -261,14 +284,67 @@ Model::_fstep(Tensor &in, Tensor &out) {
         if (pooling(ks, fn)) {
             ERROR("model#pooling kernel_size=%d not supported\n", ks);
         }
-        dump(dc, H, W, C);
     } break;
     case L_DROPOUT: Tensor::copy(in, out); break;
     }
     cudaDeviceSynchronize();
 }
 __GPU__ void
-Model::_bstep(Tensor &in, Tensor &out) {}
+Model::_bstep(Tensor &in, Tensor &out) {
+    DU   *da = in.data, *dc = out.data;              ///< input, output data
+    int  H = out.H(), W = out.W(), C = out.C();      ///< output HWC
+    dim3 blk(T4_WARP_SZ, T4_WARP_SZ, C), grd(        ///< GPU warp size setup
+        (W + blk.x - 1) / blk.x,
+        (H + blk.y - 1) / blk.y
+    );
+    auto dump = [](DU *v, int H, int W, int C) {
+        for (int k = 0; k < C; k++) {
+            printf("\nC=%d ---", k);
+            for (int i = 0; i < H; i++) {
+                printf("\n");
+                for (int j = 0; j < W; j++) {
+                    DU x = v[k + (j + i * W) * C];
+                    printf(x < DU0 ? "%.2f" : " %.2f", x);
+                }
+            }
+        }
+        printf("\n");
+    };
+    ///
+    /// layer function dispatcher
+    ///
+    printf(" out'[%d,%d,%d]", H, W, C);
+    t4_layer fn = in.grad_fn;                 ///< layer function
+    switch(fn) {
+    case L_CONV:   {
+        Tensor &f = *in.grad[0];              ///< filter tensor
+        Tensor &b = *in.grad[1];              ///< bias tensor
+        printf(" f[%d][%d,%d,%d,%d], b[%d]",
+               f.parm, f.N(), f.H(), f.W(), f.C(), b.numel);
+    } break;
+    case L_LINEAR: {                          ///< out = w @ in + b
+        Tensor &dw = *in.grad[2];             ///< weight tensor
+        Tensor &db = *in.grad[3];             ///< bias tensor
+        int M = dw.H(), N = dw.W();           ///< fully connected dimensions
+        printf(" out'[%d] @ dw[%d,%d].t", out.numel, M, N);
+        if (db.numel == out.numel) {
+            db += out;
+        }
+        else ERROR("db, out' dim?\n");
+        dump(db.data, 1, db.numel, 1);
+    } break;
+    case L_FLATTEN: break;
+    case L_RELU:    break;
+    case L_TANH:    break;
+    case L_SIGMOID: break;
+    case L_SOFTMAX: break;
+    case L_MAXPOOL:
+    case L_AVGPOOL: 
+    case L_MINPOOL: break;
+    case L_DROPOUT: break;
+    }
+    cudaDeviceSynchronize();
+}
 ///
 /// Convolution and Linear ops
 ///
@@ -289,28 +365,38 @@ Model::_iconv(Tensor &in, U16 C, DU bias, U16 *opt) {
     /// filter: C1 to C fully connected
     /// TODO: filters should have 5th dimension but we steal N for C1 now
     ///
-    Tensor *f  = in.grad[0] = &tensor(C1, 1, M, N, C).map(O_FILL, DU1); ///> f
+    Tensor *f  = in.grad[0] = &tensor(C1, 1, M, N, C);                  ///> f
     Tensor *df = in.grad[2] = &tensor(C1, 1, M, N, C).map(O_FILL, DU0); ///> df
-    Tensor *b  = in.grad[1] = &vector(C).map(O_FILL, DU0); //bias); ///> b
-    Tensor *db = in.grad[3] = &vector(C).map(O_FILL, DU0); ///> db
-    b->data[1] = -0.8;
-//    _mmu->random(*f, UNIFORM);                   /// * randomize f
-//    Tensor::mat(O_SUB, *f, 0.5, *f);
+    Tensor *b  = in.grad[1] = &vector(C).map(O_FILL, bias);             ///> b
+    Tensor *db = in.grad[3] = &vector(C).map(O_FILL, DU0);              ///> db
+    DU k = DU1 / sqrtf(M * N * C1);              /// * filter default range
+    _mmu->random(*f, UNIFORM, -0.5, 2.0 * k);    /// * randomize f [-k ~ k)
+    printf("bias=%.2f,  k=%.4f, f.std=%.4f\n", bias, k, f->std());
+    for (int i=0; i<M; i++) {
+        DU *p = &f->data[i * N];
+        for (int j=0; j<N; j++, p++) {
+            if (*p < DU0) printf(" -%.3f", -*p);
+            else          printf("  %.3f", *p); 
+        }
+        printf("\n");
+    }
     
-    Tensor &out= tensor(1, h, w, C).map(O_FILL, DU0);  ///> output tensor
+    Tensor &out= tensor(1, h, w, C);             ///> output tensor
     npush(out);                                  /// * stage for next stage
 }
 __GPU__ void
-Model::_ilinear(Tensor &in, U16 n, DU bias) {
-    U16 m = in.numel;
-    Tensor *w  = in.grad[0] = &tensor(1, n, m, 1).identity();  ///> w
-    Tensor *dw = in.grad[2] = &tensor(1, n, m, 1).map(O_FILL, DU0);  ///> dw
-    Tensor *b  = in.grad[1] = &vector(n).map(O_FILL, DU0); //bias);          ///> b
-    Tensor *db = in.grad[3] = &vector(n).map(O_FILL, DU0);           ///> db
-//    Tensor::mat(O_MUL, *w, 0.001, *w);
-//    _mmu->random(*w, UNIFORM);                   /// * randomize w
+Model::_ilinear(Tensor &in, U16 C, DU bias) {
+    U16 C1 = in.numel;
+    Tensor *w  = in.grad[0] = &tensor(1, C, C1, 1);                  ///> w
+    Tensor *dw = in.grad[2] = &tensor(1, C, C1, 1).map(O_FILL, DU0); ///> dw
+    Tensor *b  = in.grad[1] = &vector(C).map(O_FILL, bias);          ///> b
+    Tensor *db = in.grad[3] = &vector(C).map(O_FILL, DU0);           ///> db
     
-    Tensor &out = vector(n);                     ///> output tensor sizing
+    DU k = DU1 / sqrtf(C1);                      /// * default weight
+    _mmu->random(*w, UNIFORM, -0.5, 2.0 * k);    /// * randomize w
+    printf("bias=%.2f,  k=%.4f, w.std=%.4f\n", bias, k, w->std());
+    
+    Tensor &out = vector(C);                     ///> output tensor sizing
     npush(out);                                  /// * stage for next stage
 }
 __GPU__ void
