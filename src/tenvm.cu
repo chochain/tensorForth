@@ -65,13 +65,12 @@ TensorVM::xop1x(t4_ten_op op) {
     ///
     /// single tensor handler
     ///
-    Tensor &t  = mmu.copy(A);                 /// * hardcopy original matrix
+    Tensor &t = (op == O_INV) ? A : mmu.copy(A); /// * hardcopy original matrix if needed
     bool   tos = true;
     switch (op) {
     case O_INV:
-        PUSH(_tinv(A));                       /// * _tinv create its own temp
-        mmu.free(t);                          /// * not needed
-        tos = false;              break;
+        PUSH(_tinv(A));                       /// * inverse A matrix
+        tos = false;             break;       /// * _tinv create its own temp
     case O_DET: {                             /// * TODO: use PLU
         int    ns;                            ///> number of row flipping
         Tensor &P = mmu.tensor(A.H());        /// * dummy vector
@@ -191,7 +190,7 @@ TensorVM::_tt_op(t4_ten_op op, t4_drop_opt x) {///< tensor-tensor ops
 __GPU__ Tensor&
 TensorVM::_tinv(Tensor &A) {                 ///< matrix inverse
     Tensor &I = mmu.tensor(A.H(), A.W()).identity();
-    Tensor &X = mmu.copy(A);
+    Tensor &X = mmu.copy(A);                 ///< tmep, keep A untouched
     Tensor::inverse(X, I);
     mmu.free(X);                             /// * release temp 
     return I;
