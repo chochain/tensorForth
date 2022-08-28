@@ -20,7 +20,7 @@ public:
     static __HOST__ const char* nname(int n);  /// network layer name
     /// @}
     __BOTH__ __INLINE__ Tensor &operator[](int i) {
-        return (Tensor&)_mmu->du2obj(data[i]);
+        return (Tensor&)_mmu->du2obj(data[(i < 0) ? numel + i : i]);
     }
     __BOTH__ __INLINE__ int  slots() { return _store->numel; }
     __GPU__  __INLINE__ void reset(MMU *mmu, Tensor &store) {
@@ -57,7 +57,7 @@ public:
     }
     __GPU__ Model  &add(t4_layer fn, U16 n=0, DU bias=DU0, U16 *opt=0);
     __GPU__ Model  &forward(Tensor &input);
-    __GPU__ Model  &backprop(Tensor &output);
+    __GPU__ Model  &backprop(Tensor &tgt);
 
 private:
     /// @name single step forward and backprop
