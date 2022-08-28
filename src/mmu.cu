@@ -424,7 +424,7 @@ MMU::see(std::ostream &fout, U8 *ip, int dp) {
             fout << "= \"" << s << "\"";
         } break;
         case BRAN: case ZBRAN: case DONEXT:
-            fout << "j" << *(IU*)ip; ip += sizeof(IU); break;       /// fetch jump target
+            fout << " j" << *(IU*)ip; ip += sizeof(IU); break;      /// fetch jump target
         }
         fout << "] ";
     }
