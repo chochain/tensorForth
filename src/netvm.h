@@ -16,6 +16,12 @@
 #define MNOS     (!IS_OBJ(top) && IS_M(ss[-1]))                    /** NOS model w 1-param    */
 #define MN2D     (!IS_OBJ(top) && !IS_OBJ(ss[-1]) && IS_M(ss[-2])) /** ss[-2] model w 2-param */
 
+typedef enum {
+    LOSS_MSE = 0,     ///< mean square error
+    LOSS_NLL,         ///< negative likelihood
+    LOSS_CE           ///< cross entropy
+} t4_loss;
+
 class NetVM : public TensorVM {
 public:
 #if   !T4_ENABLE_OBJ
@@ -25,13 +31,6 @@ public:
 
 #else // T4_ENABLE_OBJ
     ///
-    /// @name static Loss functions
-    /// @{
-    static __GPU__ void loss_nll(Tensor &A, Tensor &B, Tensor &C);  ///< negative likelihood
-    static __GPU__ void loss_mse(Tensor &A, Tensor &B, Tensor &C);  ///< mean square error
-    static __GPU__ void loss_ce(Tensor &A, Tensor &B, Tensor &C);   ///< cross entropy
-    static __GPU__ void predict(Tensor &A, Tensor &B, Tensor &C);   ///< predict result
-    /// @}
     /// @name Class Object Constructor
     /// @{
     __GPU__ NetVM(int khz, Istream *istr, Ostream *ostr, MMU *mmu0) :
@@ -40,19 +39,25 @@ public:
     }
     __GPU__ void init() final;    ///< override TensorVM, TODO: does not work without 'final'!
     __GPU__ void nnop(t4_layer op);
+    __GPU__ void predict(Tensor &I, Tensor &P);   ///< predict result
 
 private:
-    __GPU__ void _conv();         ///< convolution layer
     ///
-    /// Batch ops
-    ///
+    /// @name Batch ops
+    /// @{
     __GPU__ void nn_for();
     __GPU__ void nn_next();
-    ///
-    /// Gradiant ops
-    ///
-    __GPU__ void sgd();
-    __GPU__ void adam();
+    /// @}
+    /// @name static Loss functions
+    /// @{
+    /// @}
+    /// @name Convolution, loss and Gradiant ops
+    /// @{
+    __GPU__ void _conv();         ///< convolution layer
+    __GPU__ void _loss(t4_loss op, Tensor &A, Tensor &B);
+    __GPU__ void _sgd();
+    __GPU__ void _adam();
+    /// @}
 #endif // T4_ENABLE_OBJ
 };
 #endif // TEN4_SRC_NETVM_H
