@@ -25,7 +25,7 @@ __GPU__ NetVM *vm_pool[VM_MIN_COUNT]; /// TODO: CC - polymorphic does not work?
 /// instantiate VMs (threadIdx.x is vm_id)
 ///
 __KERN__ void
-ten4_init(int khz, Istream *istr, Ostream *ostr, MMU *mmu) {
+k_ten4_init(int khz, Istream *istr, Ostream *ostr, MMU *mmu) {
     int k = threadIdx.x;
     NetVM *vm;
     if (k < VM_MIN_COUNT) {
@@ -41,7 +41,7 @@ ten4_init(int khz, Istream *istr, Ostream *ostr, MMU *mmu) {
 /// check VM status (using parallel reduction - overkill?)
 ///
 __KERN__ void
-ten4_busy(int *busy) {
+k_ten4_busy(int *busy) {
     extern __shared__ bool b[];              // share memory for fast calc
 
     int k = threadIdx.x;
@@ -64,7 +64,7 @@ ten4_busy(int *busy) {
 /// tensorForth kernel - VM dispatcher
 ///
 __KERN__ void
-ten4_exec(int trace) {
+k_ten4_exec(int trace) {
     const char *st[] = {"READY", "RUN", "WAITING", "STOPPED"};
     extern __shared__ DU shared_ss[];
     if (threadIdx.x!=0) return;
@@ -87,7 +87,7 @@ ten4_exec(int trace) {
 /// clean up marked free tensors
 ///
 __KERN__ void
-ten4_sweep(MMU *mmu) {
+k_ten4_sweep(MMU *mmu) {
 //    mmu->lock();
     if (blockIdx.x ==0 && threadIdx.x == 0) {
         mmu->sweep();
@@ -130,7 +130,7 @@ TensorForth::TensorForth(int device, int verbose) {
     /// instantiate virtual machines
     ///
     int t = WARP(VM_MIN_COUNT);                 ///> thread count = 32 modulo
-    ten4_init<<<1, t>>>(khz, aio->istream(), aio->ostream(), mmu); // create VMs
+    k_ten4_init<<<1, t>>>(khz, aio->istream(), aio->ostream(), mmu); // create VMs
     GPU_CHK();
 }
 
@@ -145,7 +145,7 @@ TensorForth::is_running() {
     int h_busy;
     //LOCK();                 // TODO: lock on vm_pool
     int t = WARP(VM_MIN_COUNT);
-    ten4_busy<<<1, t, t * sizeof(bool)>>>(busy);
+    k_ten4_busy<<<1, t, t * sizeof(bool)>>>(busy);
     GPU_SYNC();
     //UNLOCK();               // TODO:
 
@@ -160,10 +160,11 @@ TensorForth::run() {          /// TODO: check ~CUDA/samples/simpleCallback for m
     int trace = mmu->trace();
     while (is_running()) {
         if (aio->readline()) {        // feed from host console to managed input buffer
-            ten4_exec<<<VM_MIN_COUNT, 1, VMSS_SZ>>>(trace);
+            k_ten4_exec<<<VM_MIN_COUNT, 1, VMSS_SZ>>>(trace);
             GPU_CHK();                // cudaDeviceSynchronize() and check error
             aio->flush();             // flush output buffer
-            ten4_sweep<<<1, 1>>>(mmu);
+            k_ten4_sweep<<<1, 1>>>(mmu);
+            cudaDeviceSynchronize();
         }
         yield();
         
