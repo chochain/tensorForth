@@ -63,10 +63,11 @@ variable julian variable leap
 
 2022 year 6 month
 
-.( ### 5. benchmark 100000 cycles ) cr
-: xx 999 for 34 drop next ;
-: yy clock swap for xx next clock - negate 1000 / . ." us/cycle" ;
-99 yy
+.( ### 5. benchmark 100K cycles ) cr
+: 1k  999 for 34 drop next ;
+: clk clock >r for 1k next clock r> - ;
+: time ( n -- ) dup >r clk r> 1 + / . ."  us/cycle" ;
+99 time
 
 bye
 
