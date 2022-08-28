@@ -50,23 +50,22 @@ NetVM::nnop(t4_layer op) {     /// vtable dispatcher
     default: ERROR("NetVM::nnop(%d) not supported\n", op);
     }
 }
+
+__GPU__ void
+NetVM::predict(Tensor &I, Tensor &P) {
+}
 ///===================================================================
-/// static loss functions
+/// private functions
+///
+/// Batch ops
 ///
 __GPU__ void
-NetVM::loss_nll(Tensor &A, Tensor &B, Tensor &C) {
-}
+NetVM::nn_for() {}
+
 __GPU__ void
-NetVM::loss_mse(Tensor &A, Tensor &B, Tensor &C) {
-}
-__GPU__ void
-NetVM::loss_ce(Tensor &A, Tensor &B, Tensor &C) {
-}
-__GPU__ void
-NetVM::predict(Tensor &A, Tensor &B, Tensor &C) {
-}
+NetVM::nn_next() {}
 ///
-/// Convolution and Linear ops
+/// Convolution ops
 /// @default: 3x3 filter, padding=1, stride=1, dilation=1
 ///
 __GPU__ void
@@ -88,21 +87,39 @@ NetVM::_conv() {
     NN0.add(L_CONV, c, bias, opt);
 }
 ///
-/// Batch ops
+/// loss functions
 ///
 __GPU__ void
-NetVM::nn_for() {}
+NetVM::_loss(t4_loss op, Tensor &A, Tensor &B) {
+    if (!A.is_same_shape(B)) { ERROR("same size?\n"); return; }
+    U16 SZ = A.numel;
+    DU  *da = A.data, *db = B.data;
+    DU  rst = DU0;
+    switch (op) {
+    case LOSS_MSE: {
+        for (int i=0; i < SZ; i++) {
+            DU v = *da++ - *db++;
+            rst += v * v;
+        }
+        printf("NetVM#mse sum=%.3f, N=%d => %.3f",
+               rst, A.N(), rst / (2.0*A.N()));
+        rst /= (2.0 * A.N());
+    } break;
+    case LOSS_NLL: break;
+    case LOSS_CE:  break;
+    default: ERROR("loss funtion %d not supported\n", op);
+    }
+    PUSH(rst);
+}
+///
+/// gradiant ops
+///
+__GPU__ void
+NetVM::_sgd() {}
 
 __GPU__ void
-NetVM::nn_next() {}
-///
-/// NN model propegation
-///
-__GPU__ void
-NetVM::sgd() {}
+NetVM::_adam() {}
 
-__GPU__ void
-NetVM::adam() {}
 ///===================================================================
 /// class methods
 ///
@@ -143,9 +160,9 @@ NetVM::init() {
     ///@}
     ///@defgroup Loss functions
     ///@{
-    CODE("loss.nll",  {}),
-    CODE("loss.mse",  {}),
-    CODE("loss.ce",   {}),
+    CODE("loss.nll",  if (TOS2T) _loss(LOSS_NLL, TTOS, TNOS)),
+    CODE("loss.mse",  if (TOS2T) _loss(LOSS_MSE, TTOS, TNOS)),
+    CODE("loss.ce",   if (TOS2T) _loss(LOSS_CE,  TTOS, TNOS)),
     ///@}
     ///@defgroup Gradiant ops
     ///@{
@@ -158,21 +175,24 @@ NetVM::init() {
     CODE("nn.next",   {}),
     CODE("autograd",  if (MNOS) { bool on = POPi; NN0.autograd = on; }),
     CODE("forward", 
-         if (TOS1T && IS_M(ss[-1])) {
-             Tensor &t = TTOS; Model &m = NN1;
-             m.forward(t);
-             PUSH(mmu.view(m.output()));
-         }),
+        if (TOS1T && IS_M(ss[-1])) {
+            Tensor &t = TTOS; POP();
+            NN0.forward(t);
+        }
+        else ERROR("N set?\n")),
     CODE("backprop",
          if (TOS1T && IS_M(ss[-1])) {
-             Tensor &t = TTOS; NN1.backprop(t);
-         }),
+             Tensor &t  = TTOS; POP();
+             NN0.backprop(t);
+         }
+         else ERROR("N tgt?\n")),
     CODE("predict",   {}),
     ///@}
     ///@defgroup Debugging ops
     ///@{
     CODE(">n",        if (MNOS) { DU t = POP(); NN0.npush(t); }),
-    CODE("n@",        if (MNOS) { DU i = POPi; PUSH(mmu.view(NN0[i])); }),
+    CODE("n@",        if (MNOS) { I16 i = POPi; PUSH(mmu.view(NN0[i]));
+        }),
     CODE("network",   if (MTOS) fout << top),
     ///@}
     };
