@@ -12,8 +12,8 @@
 ///     C = alpha * A x B + beta * C
 ///     where A = MxK, B = KxN, C = MxN
 ///
-template<bool use_ab>
-__KERN__ void k_gemm(                                        ///< 2D only
+__KERN__ void
+k_gemm(                                      ///< 2D only
     DU *A, DU *B, DU *C,   /* HxK, KxW, HxW */
     int M, int N, int K,
     DU alpha, DU beta)
@@ -27,8 +27,26 @@ __KERN__ void k_gemm(                                        ///< 2D only
         for (int k = 0; k < K; ++k) {
             acc += A[k + i * K] * B[j + k * N];
         }
-        if (use_ab) C[z] = alpha * acc + beta * C[z];      /// * scaling
-        else        C[z] += acc;
+        C[z] = alpha * acc + beta * C[z];                  /// * scaling
+    }
+}
+template<bool b_txp=false>
+__KERN__ void
+k_matmul(
+    DU *A, DU *B, DU *C,   /* HxK, KxW, HxW */
+    int M, int N, int K)
+{
+    const int i = threadIdx.y + blockIdx.y * blockDim.y;
+    const int j = threadIdx.x + blockIdx.x * blockDim.x;
+    const int z = j + i * N;
+
+    if (i < M && j < N) {                                  /// * TODO: tiled
+        DU2 acc = DU0;
+        for (int k = 0; k < K; ++k) {
+            if (b_txp) acc += A[k + i * K] * B[N - j - 1 + k * K];
+            else       acc += A[k + i * K] * B[k + j * N];
+        }
+        C[z] += acc;
     }
 }
 __KERN__ void k_mat_op(                                    ///< TODO: C
@@ -69,15 +87,26 @@ Tensor::gemm(Tensor &A, Tensor &B, Tensor &C, DU alpha, DU beta) {
     ///
     /// TODO: cudaLaunchKernel is host mode only (as of CUDA 11.6)
     ///
-    if (alpha==DU1 && beta==DU1) {
-        k_gemm<false><<<grd, blk>>>(
-            A.data, B.data, C.data, m, n, ka, alpha, beta);
-    }
-    else {
-        k_gemm<true><<<grd, blk>>>(
-            A.data, B.data, C.data, m, n, ka, alpha, beta);
-    }
+    k_gemm<<<grd, blk>>>(A.data, B.data, C.data, m, n, ka, alpha, beta);
     cudaDeviceSynchronize();     // TODO: deprecated 11.6, use cooperative_groups.sync()
+    return C;
+}
+__BOTH__ Tensor&
+Tensor::mm(Tensor &A, Tensor &B, Tensor &C, bool b_txp) {
+    U16 m = A.H(), ka = A.W();
+    U16 n = b_txp ? B.H() : B.W(), kb = b_txp ? B.W() : B.H();
+    if (ka != kb) {
+        ERROR("Tensor#mm ka(%d)!=kb(%d)\n", ka, kb);
+        return C;
+    }
+    WARN("GEMM M=%d, N=%d, K=%d\n", m, n, ka);
+    dim3 blk(T4_WARP_SZ, T4_WARP_SZ), grd(
+        (n + blk.x - 1) / blk.x,
+        (m + blk.y - 1) / blk.y
+    );
+    if (b_txp) k_matmul<true> <<<grd,blk>>>(A.data, B.data, C.data, m, n, ka);
+    else       k_matmul<false><<<grd,blk>>>(A.data, B.data, C.data, m, n, ka);
+    cudaDeviceSynchronize();
     return C;
 }
 ///
@@ -226,32 +255,32 @@ __BOTH__ Tensor&
 Tensor::lu_inverse(Tensor &LU) {
     U16 m = LU.H(), n = LU.W();
     DU *dd = LU.data;
-    auto forward = [dd, n](U16 z) {
-        for (U16 y = z + 1; y < n; y++) {
+    auto forward = [dd, n](int z) {
+        for (int y = z + 1; y < n; y++) {
             DU r1 = dd[z + y * n];
-            for (U16 k = 0; k < z; k++) {               // columns before
+            for (int k = 0; k < z; k++) {               // columns before
                 dd[k + y * n] -= dd[k + z * n] * r1;
             }
             dd[z + y * n] = -r1;                        // current z column
         }};
-    auto backward = [dd, n](U16 z) {
+    auto backward = [dd, n](int z) {
         DU r0 = DU1 / dd[z + z * n];
         dd[z + z * n] = r0;                             // diag
-        for (U16 k = z + 1; k < n; k++) {               // current z row
+        for (int k = z + 1; k < n; k++) {               // current z row
             dd[k + z * n] *= r0;
         }
-        for (U16 y = 0; y < z; y++) {                   // factorize rows above
+        for (int y = 0; y < z; y++) {                   // factorize rows above
             DU r1 = dd[z + y * n];
             dd[z + y *  n] = -r1 * r0;                  // current z column
-            for (U16 k = z + 1; k < n; k++) {           // columns after
+            for (int k = z + 1; k < n; k++) {           // columns after
                 dd[k + y * n] -= dd[k + z * n] * r1;
             }
         }};
     
     if (LU.det() < DU_EPS) return LU;
     
-    for (U16 z = 0; z < n - 1; z++)  forward(z);
-    for (I16 z = n - 1; z >= 0; z--) backward(z);
+    for (int z = 0; z < n - 1; z++)  forward(z);
+    for (int z = n - 1; z >= 0; z--) backward(z);
     
     return LU;
 }
@@ -325,6 +354,16 @@ __BOTH__ DU
 Tensor::avg() {
     DU v = sum() / numel;
     return SCALAR(v);
+}
+__BOTH__ DU
+Tensor::std() {
+    DU sum = DU0, avg = this->avg();
+    DU *d  = data;
+    for (int i=0; i < numel; i++, d++) {
+        DU v = *d - avg;
+        sum += v * v;
+    }
+    return numel ? sqrtf(sum / numel) : DU0;
 }
 __BOTH__ DU
 Tensor::max() {

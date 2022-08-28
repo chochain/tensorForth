@@ -69,7 +69,7 @@ struct Tensor : public T4Base {
     ///   2. return the resultant tensor
     ///
     static __BOTH__ Tensor &gemm(Tensor &A, Tensor &B, Tensor &C, DU alpha, DU beta);
-    static __BOTH__ Tensor &mm(Tensor &A, Tensor &B, Tensor &C) { return gemm(A, B, C, 1.0, 0.0); }
+    static __BOTH__ Tensor &mm(Tensor &A, Tensor &B, Tensor &C, bool b_txp=false);
     static __BOTH__ Tensor &mat(t4_ten_op op, Tensor &A, Tensor &B, Tensor &C);  ///> matrix-matrix element-wise ops (Hadamard)
     static __BOTH__ Tensor &mat(t4_ten_op op, Tensor &A, DU v, Tensor &C);       ///> matrix-scalar element-wise ops
     static __BOTH__ Tensor &copy(Tensor &A, Tensor &C);
@@ -116,6 +116,7 @@ struct Tensor : public T4Base {
     ///
     __BOTH__ DU     sum();
     __BOTH__ DU     avg();
+    __BOTH__ DU     std();    // standard distribution
     __BOTH__ DU     max();
     __BOTH__ DU     min();
     __BOTH__ DU     dot(Tensor &B);
@@ -143,13 +144,8 @@ struct Tensor : public T4Base {
     ///
     /// TODO: tensor arithmetics
     ///
-    __BOTH__ __INLINE__ Tensor &operator+=(Tensor &t){ return *this; }
-    __BOTH__ __INLINE__ Tensor &operator-=(Tensor &t){ return *this; }
-    __BOTH__ __INLINE__ Tensor &operator+(Tensor &t) { return *this; }
-    __BOTH__ __INLINE__ Tensor &operator-(Tensor &t) { return *this; }
-    __BOTH__ __INLINE__ Tensor &operator*(Tensor &t) { return *this; }
-    __BOTH__ __INLINE__ Tensor &operator/(Tensor &t) { return *this; }
-    __BOTH__ __INLINE__ Tensor &operator%(Tensor &t) { return *this; }
+    __BOTH__ __INLINE__ Tensor &operator+=(Tensor &t){ mat(O_ADD, *this, t, *this); return *this; }
+    __BOTH__ __INLINE__ Tensor &operator-=(Tensor &t){ mat(O_SUB, *this, t, *this); return *this; }
     ///
     /// TODO: tensor logical ops
     ///
