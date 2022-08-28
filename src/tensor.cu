@@ -30,7 +30,7 @@ k_gemm(                                      ///< 2D only
         C[z] = alpha * acc + beta * C[z];                  /// * scaling
     }
 }
-template<bool b_txp=false>
+template<bool b_txp>
 __KERN__ void
 k_matmul(
     DU *A, DU *B, DU *C,   /* HxK, KxW, HxW */
@@ -43,10 +43,10 @@ k_matmul(
     if (i < M && j < N) {                                  /// * TODO: tiled
         DU2 acc = DU0;
         for (int k = 0; k < K; ++k) {
-            if (b_txp) acc += A[k + i * K] * B[N - j - 1 + k * K];
-            else       acc += A[k + i * K] * B[k + j * N];
+            if (b_txp) acc += A[k + i * K] * B[k + j * K];
+            else       acc += A[k + i * K] * B[j + k * N];
         }
-        C[z] += acc;
+        C[z] = acc;
     }
 }
 __KERN__ void k_mat_op(                                    ///< TODO: C
@@ -99,7 +99,7 @@ Tensor::mm(Tensor &A, Tensor &B, Tensor &C, bool b_txp) {
         ERROR("Tensor#mm ka(%d)!=kb(%d)\n", ka, kb);
         return C;
     }
-    WARN("GEMM M=%d, N=%d, K=%d\n", m, n, ka);
+    WARN("Tensor#matmul M=%d, N=%d, K=%d\n", m, n, ka);
     dim3 blk(T4_WARP_SZ, T4_WARP_SZ), grd(
         (n + blk.x - 1) / blk.x,
         (m + blk.y - 1) / blk.y
