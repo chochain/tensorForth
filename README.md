@@ -72,21 +72,22 @@ matrix[1024,512] = {                 \ in PyTorch style (edgeitem=3)
 	{ +0.5041 +0.5041 +0.5041 ... +0.5041 +0.5041 +0.5041 }
 	{ +0.5007 +0.5007 +0.5007 ... +0.5007 +0.5007 +0.5007 }
 	{ +0.5269 +0.5269 +0.5269 ... +0.5269 +0.5269 +0.5269 } }
- <0 T2[1024,2048] T2[2048,512] T2[1024,512> ok     \ original T2[1024,512] is still left on TOS
-drop                                               \ because tensor ops are by default non-destructive
- <0 T2[1024,2048] T2[2048,512]> ok                 \ so we drop it from TOS
-: mx clock >r for @ drop next clock r> - ;         \ define a word 'mx' for benchmark loop
-9 mx                                               \ run benchmark for 10 loops
- <0 T2[1024,2048] T2[2048,512] 396> ok             \ 396 ms for 10 cycles
-drop                                               \ drop the value
+ <0 T2[1024,2048] T2[2048,512] T2[1024,512] 2048> ok  \ matrix and 2048 are untouched
+2drop                                       \ because tensor ops are by default non-destructive
+ <0 T2[1024,2048] T2[2048,512]> ok          \ so we drop them from TOS
+
+: mx clock >r for @ drop next clock r> - ;  \ now let's define a word 'mx' for benchmark loop
+9 mx                                        \ run benchmark for 10 loops
+ <0 T2[1024,2048] T2[2048,512] 396> ok      \ 396 ms for 10 cycles
+drop                                        \ drop the value
  <0 T2[1024,2048] T2[2048,512]> ok
-999 mx                                             \ now try 1000 loops
- <0 T2[1024,2048] T2[2048,512] 3.938+04> ok        \ that is 39.38 sec (i.e. ~40ms / loop)
+999 mx                                      \ now try 1000 loops
+ <0 T2[1024,2048] T2[2048,512] 3.938+04> ok \ that is 39.38 sec (i.e. ~40ms / loop)
 </pre>
 
 Note:
 * cuRAND uniform distribution averaged 0.5 is doing OK.
-* 39.4 ms per 1Kx1K matmul on GTX 1660 with naive implementation. PyTorch average 0.850 ms which is 50x faster. Luckily, CUDA matmul tuning methods are well known. TODO!
+* 39.4 ms per 1Kx1K matmul on GTX 1660 with my laptop. PyTorch average 0.850 ms which is 50x faster. Luckily, CUDA matmul tuning methods are well known. TODO!
 
 ### To build
 * install CUDA 11.6 on your machine
