@@ -387,36 +387,6 @@ d_hash(const char *s) {
   Tensor basic ops
 */
 __KERN__ void
-k_fill(float *t, float v, int sz) {
-    int k = threadIdx.x + blockIdx.x * blockDim.x;
-    if (k < sz) t[k] = v;
-}
-__KERN__ void
-k_abs(float *t, int sz) {
-    int k = threadIdx.x + blockIdx.x * blockDim.x;
-    if (k < sz) t[k] = fabsf(t[k]);
-}
-__KERN__ void
-k_exp(float *t, int sz) {
-    int k = threadIdx.x + blockIdx.x * blockDim.x;
-    if (k < sz) t[k] = expf(t[k]);
-}
-__KERN__ void
-k_tanh(float *t, int sz) {
-    int k = threadIdx.x + blockIdx.x * blockDim.x;
-    if (k < sz) t[k] = tanhf(t[k]);
-}
-__KERN__ void
-k_relu(float *t, int sz) {
-    int k = threadIdx.x + blockIdx.x * blockDim.x;
-    if (k < sz) t[k] = t[k] > 0.0 ? t[k] : 0.0;
-}
-__KERN__ void
-k_sigmoid(float *t, int sz) {
-    int k = threadIdx.x + blockIdx.x * blockDim.x;
-    if (k < sz) t[k] = 1.0 / (1.0 + expf(-t[k]));
-}
-__KERN__ void
 k_copy(float *src, float *dst, int sz) {           ///< Note: (src, dst)
     int k = threadIdx.x + blockIdx.x * blockDim.x;
     if (k < sz) dst[k] = src[k];
@@ -429,11 +399,6 @@ k_transpose(float *src, float *dst, int M, int N) { ///< Note: (src, dst), TODO:
     if (i < M && j < N) {
         dst[i + j * M] = src[j + i * N];
     }
-}
-__KERN__ void
-k_scale(float *t, float v, int sz) {
-    int k = threadIdx.x + blockIdx.x * blockDim.x;
-    if (k < sz) t[k] *= v;
 }
 __KERN__ void
 k_identity(float *t, int M, int N, int sz) {

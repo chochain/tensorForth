@@ -61,15 +61,8 @@ __GPU__ int          d_hash(const char *s);
 ///@}
 ///@name Tensor ops (kernel mode)
 ///@{
-__KERN__ void        k_fill(float *t, float v, int sz);
-__KERN__ void        k_abs(float *t, int sz);
-__KERN__ void        k_exp(float *t, int sz);
-__KERN__ void        k_tanh(float *t, int sz);
-__KERN__ void        k_relu(float *t, int sz);
-__KERN__ void        k_sigmoid(float *t, int sz);
 __KERN__ void        k_copy(float *src, float *dst, int sz);  ///< Note: (src, dst)
 __KERN__ void        k_transpose(float *src, float *dst, int m, int n); ///< Note: (src, dst), TODO: CDP
-__KERN__ void        k_scale(float *t, float v, int sz);
 __KERN__ void        k_identity(float *t, int m, int n, int c);
 ///@}
 ///==========================================================================
