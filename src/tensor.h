@@ -26,13 +26,15 @@ typedef enum {
     /// 1-operand + a constant
     O_FILL,
     O_SCALE,
-    /// 1-operand ops
+    O_POW,
+    /// 1-operand arithmetic ops
     O_ABS,
     O_EXP,
     O_LOG,
     O_TANH,
     O_RELU,
     O_SIGM,
+    /// 1-operand matrix ops
     O_IDEN,
     O_INV,
     O_LU,
@@ -154,6 +156,7 @@ struct Tensor : public T4Base {
     ///
     __BOTH__ __INLINE__ Tensor &operator+=(Tensor &t){ mat(O_ADD, *this, t, *this); return *this; }
     __BOTH__ __INLINE__ Tensor &operator-=(Tensor &t){ mat(O_SUB, *this, t, *this); return *this; }
+    __BOTH__ __INLINE__ Tensor &operator*=(Tensor &t){ mat(O_MUL, *this, t, *this); return *this; }
     ///
     /// TODO: tensor logical ops
     ///
