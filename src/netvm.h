@@ -9,12 +9,11 @@
 #include "model.h"
 #include "tenvm.h"                /// extending TensorVM
 
-#define NN0      ((Model&)mmu.du2obj(top))                         /** Network Model on TOS   */
-#define NN1      ((Model&)mmu.du2obj(ss[-1]))                      /** Network Model on NOS   */
+#define MTOS     ((Model&)mmu.du2obj(top))                         /** Network Model on TOS   */
+#define MNOS     ((Model&)mmu.du2obj(ss[-1]))                      /** Network Model on NOS   */
 #define IS_M(v)  (IS_OBJ(v) && mmu.du2obj(v).is_model())           /** check param is a model */
-#define MTOS     (IS_M(top))                                       /** TOS is a model         */
-#define MNOS     (!IS_OBJ(top) && IS_M(ss[-1]))                    /** NOS model w 1-param    */
-#define MN2D     (!IS_OBJ(top) && !IS_OBJ(ss[-1]) && IS_M(ss[-2])) /** ss[-2] model w 2-param */
+#define M1V      (!IS_OBJ(top) && IS_M(ss[-1]))                    /** NOS model w 1-param    */
+#define M2V      (!IS_OBJ(top) && !IS_OBJ(ss[-1]) && IS_M(ss[-2])) /** ss[-2] model w 2-param */
 
 class NetVM : public TensorVM {
 public:
@@ -47,8 +46,8 @@ private:
     /// @}
     /// @name Convolution, loss and Gradiant ops
     /// @{
-    __GPU__ void _conv();         ///< convolution layer
-    __GPU__ void _loss(t4_loss op, Tensor &A, Tensor &B);
+    __GPU__ void _conv();                   ///< init convolution layer
+    __GPU__ void _loss(t4_loss op);         ///< calculate loss
     __GPU__ void _sgd();
     __GPU__ void _adam();
     /// @}
