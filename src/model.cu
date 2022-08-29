@@ -49,6 +49,29 @@ Model::add(t4_layer fn, U16 n, DU bias, U16 *opt) {
     in.grad_fn = fn;
     return *this;
 }
+__GPU__ DU
+Model::loss(t4_loss op, Tensor &exp) {
+    Tensor &out = (Tensor&)_mmu->du2obj(data[numel - 1]);
+    if (!out.is_same_shape(exp)) { ERROR("Model::loss dim?\n"); return; }
+
+    Tensor &err = _mmu->copy(out);
+    DU     rst  = DU0;
+    switch (op) {
+    case LOSS_NLL: break;
+    case LOSS_MSE: {
+        err -= exp;
+        Tensor::mat(O_MUL, err, err, err);
+        rst = 0.5 * err.sum() / err.numel;
+    } break;
+    case LOSS_CE:  {
+        err.map(O_LOG);
+        Tensor::mat(O_MUL, exp, err, err);
+        rst = err.sum() / -err.numel;
+    } break;
+    default: ERROR("Model#loss op=%d not supported\n", op);
+    }
+    return rst;
+}
 ///
 /// Convolution and Linear ops
 ///
@@ -143,7 +166,13 @@ Model::_ipooling(Tensor &in, U16 f) {
 __GPU__ void
 Model::_idropout(Tensor &in, U16 f) {
     Tensor &out = _mmu->copy(in);
-    in.parm = f;
+    Tensor *msk = in.grad[0] = &_mmu->copy(in);  ///> dropout mask
+    
+    in.parm = f;                                 /// * keep fraction
+    DU p = -0.01 * f;                            ///< dropout fraction
+    _mmu->random(*msk, UNIFORM, p);              /// * randomize w, shift p
+    printf("dropout=%d\%\n", f);
+    
     npush(out);
 }
 #endif  // T4_ENABLE_OBJ
