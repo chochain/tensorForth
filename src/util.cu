@@ -422,12 +422,12 @@ k_copy(float *src, float *dst, int sz) {           ///< Note: (src, dst)
     if (k < sz) dst[k] = src[k];
 }
 __KERN__ void
-k_transpose(float *src, float *dst, int m, int n) { ///< Note: (src, dst), TODO: CDP
+k_transpose(float *src, float *dst, int M, int N) { ///< Note: (src, dst), TODO: CDP
     int i = threadIdx.y + blockIdx.y * blockDim.y;
     int j = threadIdx.x + blockIdx.x * blockDim.x;
 
-    if (i < m && j < n) {
-        dst[i + j * m] = src[j + i * n];
+    if (i < M && j < N) {
+        dst[i + j * M] = src[j + i * N];
     }
 }
 __KERN__ void
@@ -436,12 +436,12 @@ k_scale(float *t, float v, int sz) {
     if (k < sz) t[k] *= v;
 }
 __KERN__ void
-k_identity(float *t, int m, int n, int sz) {
+k_identity(float *t, int M, int N, int sz) {
     const float i01[2][4] = {
         { 0.0f, 0.0f, 0.0f, 0.0f }, { 1.0f, 1.0f, 1.0f, 1.0f }};
     int i = threadIdx.y + blockIdx.y * blockDim.y;
     int j = threadIdx.x + blockIdx.x * blockDim.x;
-    if (i < m && j < n) {
-        memcpy(&t[j + i * n], i01[i==j], sz); /// * assume x==y return 0|1
+    if (i < M && j < N) {
+        memcpy(&t[j + i * N], i01[i==j], sz); /// * assume x==y return 0|1
     }
 }
