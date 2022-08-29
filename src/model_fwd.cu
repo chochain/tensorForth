@@ -86,7 +86,7 @@ __KERN__ void k_pooling(
 }
 
 __KERN__ void k_relu(
-    DU *I, DU *O,
+    DU *I, DU *F, DU *O,                   ///< input, filter, output tensors
     int H, int W, int C                    ///< HWC
     ) {
     const int j0 = threadIdx.x + blockIdx.x * blockDim.x;
@@ -95,7 +95,7 @@ __KERN__ void k_relu(
     const int z0 = c0 + (i0 + j0 * W) * C;
     
     if (i0 < H && j0 < W && c0 < C) {
-        O[z0] = (I[z0] >= DU0) ? I[z0] : DU0;
+        O[z0] = (F[z0] > DU0) ? I[z0] : DU0;
     }
 }
 
@@ -128,35 +128,35 @@ Model::forward(Tensor &input) {
 
 __GPU__ void
 Model::_fstep(Tensor &in, Tensor &out) {
-    DU   *da = in.data, *dc = out.data;              ///< input, output data
+    DU   *d1 = in.data, *d0 = out.data;              ///< input, output data
     int  H = out.H(), W = out.W(), C = out.C();      ///< HWC
     dim3 blk(T4_WARP_SZ, T4_WARP_SZ, C), grd(        ///< GPU warp size setup
         (W + blk.x - 1) / blk.x,
         (H + blk.y - 1) / blk.y
     );
-    auto conv = [da, dc, H, W, C, blk](U16 C1, U16 ks, DU *f, DU *b) {
+    auto conv = [d1, d0, H, W, C, blk](U16 C1, U16 ks, DU *f, DU *b) {
         dim3 g3((W+TILE3-1)/TILE3, (H+TILE3-1)/TILE3);
         dim3 g5((W+TILE5-1)/TILE5, (H+TILE5-1)/TILE5);
         switch(ks) {            /// * TODO: handles rectangular filters
-        case 3: k_conv2d<TILE3,3><<<g3,blk>>>(da, f, b, dc, H, W, C1); break;
-        case 5: k_conv2d<TILE5,5><<<g5,blk>>>(da, f, b, dc, H, W, C1); break;
+        case 3: k_conv2d<TILE3,3><<<g3,blk>>>(d1, f, b, d0, H, W, C1); break;
+        case 5: k_conv2d<TILE5,5><<<g5,blk>>>(d1, f, b, d0, H, W, C1); break;
         default: return -1;
         }
         return 0;
     };
-    auto linear = [da, dc](int M, int N, DU *w, DU *b) {
+    auto linear = [d1, d0](int M, int N, DU *w, DU *b) {
         for (int y = 0; y < M; y++) {        /// TODO: kernel version
             int yn = y * N;
-            dc[y] = b[y];                    /// init with bias
+            d0[y] = b[y];                    /// init with bias
             for (int x = 0; x < N; x++) {    /// dot product
-                dc[y] += w[x + yn] * da[x];
+                d0[y] += w[x + yn] * d1[x];
             }
         }
     };
-    auto pooling = [da, dc, H, W, C, blk, grd](int ks, t4_layer fn) {
+    auto pooling = [d1, d0, H, W, C, blk, grd](int ks, t4_layer fn) {
         switch(ks) {           /// pooling kernel size
-        case 0x2: k_pooling<2><<<grd,blk>>>(da, dc, H, W, C, fn); break;
-        case 0x3: k_pooling<3><<<grd,blk>>>(da, dc, H, W, C, fn); break;
+        case 0x2: k_pooling<2><<<grd,blk>>>(d1, d0, H, W, C, fn); break;
+        case 0x3: k_pooling<3><<<grd,blk>>>(d1, d0, H, W, C, fn); break;
         default: return -1;
         }
         return 0;
@@ -196,16 +196,16 @@ Model::_fstep(Tensor &in, Tensor &out) {
         printf(" w[%d,%d] @ in[%d] + b[%d]", M, N, in.numel, b.numel);
         linear(M, N, w.data, b.data);         ///< out = W @ in + B
         
-        if (out.numel < 20) dump(dc, 1, out.numel, 1);
+        if (out.numel < 20) dump(d0, 1, out.numel, 1);
         else {
             int k = sqrt(out.numel);
-            dump(dc, k+1, k, 1);
+            dump(d0, k+1, k, 1);
         }
     } break;
     case L_FLATTEN: Tensor::copy(in, out); break;
     case L_RELU:
-        k_relu<<<grd, blk>>>(da, dc, H, W, C);
-        dump(dc, H, W, C);
+        k_relu<<<grd, blk>>>(d1, d1, d0, H, W, C);
+        dump(d0, H, W, C);
         break;
     case L_TANH:    break;
     case L_SIGMOID: break;
@@ -215,7 +215,7 @@ Model::_fstep(Tensor &in, Tensor &out) {
         DU sum = t.map(O_EXP).sum() + DU_EPS;/// * sum all probabilities
         Tensor::mat(O_MUL, t, DU1/sum, out); /// * p / sum(p)
         printf(" sum=%.3f", out.sum());      /// * verify sum
-        dump(dc, 1, out.numel, 1);
+        dump(d0, 1, out.numel, 1);
     } break;
     case L_MAXPOOL:
     case L_AVGPOOL: 
@@ -225,7 +225,10 @@ Model::_fstep(Tensor &in, Tensor &out) {
             ERROR("model#pooling kernel_size=%d not supported\n", ks);
         }
     } break;
-    case L_DROPOUT: Tensor::copy(in, out); break;
+    case L_DROPOUT:
+        Tensor &msk = *in.grad[0];
+        k_relu<<<grd, blk>>>(d1, msk.data, d0, H, W, C);
+        break;
     }
     cudaDeviceSynchronize();
 }
