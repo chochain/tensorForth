@@ -116,7 +116,6 @@ Tensor::mm(
         return C;
     }
     WARN("Tensor#matmul M=%d, N=%d, K=%d\n", M, N, Ka);
-    printf("Tensor#matmul M=%d, N=%d, K=%d\n", M, N, Ka);
     dim3 blk(T4_WARP_SZ, T4_WARP_SZ), grd(
         (N + blk.x - 1) / blk.x,
         (M + blk.y - 1) / blk.y
