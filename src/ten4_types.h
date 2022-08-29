@@ -95,9 +95,15 @@ typedef F64         DU2;                    /**< double preciesion data */
 #define BOOL(d)     (ZERO(d) ? DU0 : -DU1)  /**< default boolean        */
 #define ABS(d)      (fabsf(d))              /**< absolute value         */
 #define EXP(d)      (expf(d))               /**< exponential(float)     */
+#define LOG(d)      (logf(d))               /**< natural logarithm      */
+#define POW(d,e)    (powf(d,e))             /**< power d^(e)            */
+#define SQRT(d)     (sqrtf(d))              /**< square root            */
 #define TANH(d)     (tanhf(d))              /**< tanh(float)            */
 #define MOD(t,n)    (fmodf(t, n))           /**< fmod two floats        */
 #define DIV(x,y)    (fdividef(x,y))         /**< fast math devide       */
+#define MAX(x,y)    (fmaxf(x,y))            /**< maximum of the two     */
+#define MIN(x,y)    (fminf(x,y))            /**< minimum of the two     */
+#define NORM(n,p)   (normf(n,p))            /**< normal of n floats     */
 ///
 /// macros for object classification
 ///
