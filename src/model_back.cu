@@ -67,21 +67,25 @@ __KERN__ void k_dpooling(
     const int z1 = j0 + i0 * W * KS;       ///< input array index 
     
     if (i0 < H && j0 < W && c0 < C) {
-        DU *d  = &I[c0 + z1 * KS * C];
-        DU2 v  = op==L_AVGPOOL ? DU0 : *d;
+        DU *d  = &I[c0 + z1 * KS * C], *t = d;
+        DU2 v  = (op != L_AVGPOOL) ? *d : O[c0 + z0 * C] / (KS * KS);
         for (int y = 0; y < KS; y++) {
             for (int x = 0; x < KS; x++) {
                 DU dx = *d;
                 switch (op) {
-                case L_MAXPOOL: if (dx > v) v = dx; break;
-                case L_AVGPOOL: v += dx;            break;
-                case L_MINPOOL: if (dx < v) v = dx; break;
+                case L_MAXPOOL:
+                    *d = DU0;               /// * zero out all elements
+                    if (dx > v) { v = dx; t = d; }  break;
+                case L_AVGPOOL: *d = v;             break;
+                case L_MINPOOL:
+                    *d = DU0;
+                    if (dx < v) { v = dx; t = d; }  break;
                 }
-                d += C;                   
+                d += C;
             }
             d += (W - 1) * KS * C;
         }
-        O[c0 + z0 * C] = op==L_AVGPOOL ? v / (KS * KS) : v;
+        if (op != L_AVGPOOL) *t = O[c0 + z0 * C]; /// * update arg cell
     }
 }
 
@@ -129,10 +133,10 @@ Model::backprop(Tensor &tgt) {
 __GPU__ void
 Model::_bstep(Tensor &in, Tensor &out) {
     DU   *d1 = in.data, *d0 = out.data;              ///< input, output data
-    int  H = in.H(), W = in.W(), C = in.C();         ///< input HWC
+    int  H = out.H(), W = out.W(), C = out.C();      ///< input HWC
     dim3 blk(T4_WARP_SZ, T4_WARP_SZ, C), grd(        ///< GPU warp size setup
-        (out.W() + blk.x - 1) / blk.x,
-        (out.H() + blk.y - 1) / blk.y
+        (W + blk.x - 1) / blk.x,
+        (H + blk.y - 1) / blk.y
     );
     auto dump = [](DU *v, int H, int W, int C) {
         for (int k = 0; k < C; k++) {
@@ -150,7 +154,7 @@ Model::_bstep(Tensor &in, Tensor &out) {
     ///
     /// layer function dispatcher
     ///
-    printf(" out'[%d,%d,%d]", out.H(), out.W(), out.C());
+    printf(" out'[%d,%d,%d]", H, W, C);
     t4_layer fn = in.grad_fn;                 ///< layer function
     switch(fn) {
     case L_CONV:   {
@@ -163,32 +167,30 @@ Model::_bstep(Tensor &in, Tensor &out) {
         Tensor &w  = *in.grad[0];             ///< weight tensor
         Tensor &dw = *in.grad[2];             ///< d_weight tensor
         Tensor &db = *in.grad[3];             ///< d_bias tensor
-        int O = out.H(), M = w.H(), N = w.W();///< fully connected dimensions
+        int I = in.H(), M = w.H(), N = w.W();///< fully connected dimensions
         
         db += out;
         // dw += out[10,1] @ in^t[1,49]
-        printf("\n\tdw[%d,%d] += out'[%d,1] @ in^t[1,%d] ", M, N, O, H);
+        printf("\n\tdw[%d,%d] += out'[%d,1] @ in^t[1,%d]", M, N, H, I);
         Tensor::mm(out, in, dw, (t4_mm_opt)(MM_INC | MM_B_TXP));
         // in = w^t[49,10] @ out[10,1]
-        printf("\tin[%d,1] = w^t[%d,%d] @ out'[%d,1] ", H, N, M, O);
+        printf("\n\tin[%d, 1]  = w^t[%d,%d] @ out'[%d,1]", I, N, M, H);
         Tensor::mm(w, out, in, MM_A_TXP);
     } break;
     case L_FLATTEN: Tensor::copy(out, in); break;
-    case L_RELU:
-        k_drelu<<<grd,blk>>>(d1, d1, d0, H, W, C);
-        dump(d1, W, H, C);
-        break;
+    case L_RELU:    k_drelu<<<grd,blk>>>(d1, d1, d0, H, W, C); break;
     case L_TANH:    break;
     case L_SIGMOID: break;
     case L_SOFTMAX: in -= out; break;
     case L_MAXPOOL:
     case L_AVGPOOL: 
     case L_MINPOOL: {
-        U16 ks2 = in.parm * in.parm;
-        for (int j=0; j < out.numel; j++) {
-            DU v = *d0++ / ks2;
-            for (int i=0; i < ks2; i++) *d1++ += v;
+        U16 ks = in.parm;
+        switch(ks) {           /// pooling kernel size
+        case 0x2: k_dpooling<2><<<grd,blk>>>(d1, d0, H, W, C, fn); break;
+        case 0x3: k_dpooling<3><<<grd,blk>>>(d1, d0, H, W, C, fn); break;
         }
+        if (H < 10) dump(d1, in.W(), in.H(), in.C());
     } break;
     case L_DROPOUT:
         Tensor &msk = *in.grad[0];
