@@ -7,9 +7,30 @@
 #include "tensor.h"
 
 #define ABS(d) (fabsf(d))  /**< absolute value */
+///=======================================================================
+/// static methods
+///
+/// matrix-matrix multiplication with transpose, increment options
+///
+__KERN__ void
+k_ten_op(t4_ten_op op, float *t, int sz, float v=DU0) {
+    int k = threadIdx.x + blockIdx.x * blockDim.x;
+    if (k < sz) {
+        switch(op) {
+        case O_FILL:  t[k] = v;                         break;
+        case O_SCALE: t[k] *= v;                        break;
+        case O_ABS:   t[k] = fabsf(t[k]);               break;
+        case O_EXP:   t[k] = expf(t[k]);                break;
+        case O_LOG:   t[k] = logf(t[k]);                break;
+        case O_TANH:  t[k] = tanhf(t[k]);               break;
+        case O_RELU:  t[k] = t[k] > DU0 ? t[k] : DU0;   break;
+        case O_SIGM:  t[k] = DU1 / (DU1 + expf(-t[k])); break;
+        }
+    }
+}
 __KERN__ void
 k_matmul(
-    DU *A, DU *B, DU *C,   /* HxK, KxW, HxW */
+    DU *A, DU *B, DU *C,   /* C[MxN] = A[MxK] @ B[KxN] */
     int M, int N, int K,
     t4_mm_opt opt)
 {
@@ -44,8 +65,8 @@ k_matmul(
 ///     where A = MxK, B = KxN, C = MxN
 ///
 __KERN__ void
-k_gemm(                                      ///< 2D only
-    DU *A, DU *B, DU *C,   /* HxK, KxW, HxW */
+k_gemm(                       ///< 2D only, TODO: C
+    DU *A, DU *B, DU *C,      /* C[MxN] = a * A[MxK] @ B[KxN] + b * C[MxN] */
     int M, int N, int K,
     DU alpha, DU beta)
 {
@@ -61,7 +82,10 @@ k_gemm(                                      ///< 2D only
         C[z] = alpha * acc + beta * C[z];                  /// * scaling
     }
 }
-__KERN__ void k_mat_op(                                    ///< TODO: C
+///
+/// matrix-matrix element-wise ops
+///
+__KERN__ void k_mat_op(                                    ///< 2D only, TODO: C
     t4_ten_op op,
     DU *A, DU *B, DU *C,
     int M, int N)
@@ -74,14 +98,11 @@ __KERN__ void k_mat_op(                                    ///< TODO: C
         switch (op) {                                      /// no divergence
         case O_ADD: C[k] = A[k] + B[k]; break;
         case O_SUB: C[k] = A[k] - B[k]; break;
-        case O_MUL: C[k] = A[k] * B[k]; break;               /// * convolution
+        case O_MUL: C[k] = A[k] * B[k]; break;             /// * convolution
         case O_DIV: C[k] = A[k] / B[k]; break;
         }
     }
 }
-///=======================================================================
-/// static methods
-///
 __BOTH__ Tensor&
 Tensor::mm(
     Tensor &A, Tensor &B, Tensor &C, t4_mm_opt opt) {
@@ -462,16 +483,7 @@ Tensor::map(t4_ten_op op, DU v) {
     OPN("+", "-", "*", "/", "@", "x", "fill", "scale","abs", "exp", "tanh", "relu", "sigmoid");
     WARN("Tensor#%s v=%f\n", opn[op], v);
     dim3 blk(T4_WARP_SZ*T4_WARP_SZ), grd((numel + blk.x -1)/blk.x);
-    switch(op) {
-    case O_FILL:  k_fill   <<<grd, blk>>>(data, v, numel); break;
-    case O_SCALE: k_scale  <<<grd, blk>>>(data, v, numel); break;
-    case O_ABS:   k_abs    <<<grd, blk>>>(data, numel);    break;
-    case O_EXP:   k_exp    <<<grd, blk>>>(data, numel);    break;
-    case O_TANH:  k_tanh   <<<grd, blk>>>(data, numel);    break;
-    case O_RELU:  k_relu   <<<grd, blk>>>(data, numel);    break;
-    case O_SIGM:  k_sigmoid<<<grd, blk>>>(data, numel);    break;
-    default: ERROR("Tensor#map op=%d?\n", op); break;
-    }
+    k_ten_op<<<grd, blk>>>(op, data, numel, v);
     cudaDeviceSynchronize();
     return *this;
 }
