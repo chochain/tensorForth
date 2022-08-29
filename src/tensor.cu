@@ -7,6 +7,37 @@
 #include "tensor.h"
 
 #define ABS(d) (fabsf(d))  /**< absolute value */
+__KERN__ void
+k_matmul(
+    DU *A, DU *B, DU *C,   /* HxK, KxW, HxW */
+    int M, int N, int K,
+    t4_mm_opt opt)
+{
+    const int i = threadIdx.y + blockIdx.y * blockDim.y;
+    const int j = threadIdx.x + blockIdx.x * blockDim.x;
+    const int z = j + i * N;
+
+    if (i < M && j < N) {                                  /// * TODO: tiled
+        DU2 acc = DU0;
+        if (opt & MM_A_TXP) {                              /// * no divergence
+            for (int k = 0; k < K; ++k) {
+                acc += A[i + k * M] * B[j + k * N];        /// * transpose A
+            }
+        }
+        else if (opt & MM_B_TXP) {                         /// * transpose B
+            for (int k = 0; k < K; ++k) {
+                acc += A[k + i * K] * B[k + j * K];
+            }
+        }
+        else {
+            for (int k = 0; k < K; ++k) {
+                acc += A[k + i * K] * B[j + k * N];
+            }
+        }
+        if (opt & MM_INC) C[z] += acc;                     /// * increment C
+        else              C[z] =  acc;
+    }
+}
 ///
 /// GEMM kernel (used CUDA dynamic parallelism)
 ///     C = alpha * A x B + beta * C
@@ -30,25 +61,6 @@ k_gemm(                                      ///< 2D only
         C[z] = alpha * acc + beta * C[z];                  /// * scaling
     }
 }
-template<bool b_txp>
-__KERN__ void
-k_matmul(
-    DU *A, DU *B, DU *C,   /* HxK, KxW, HxW */
-    int M, int N, int K)
-{
-    const int i = threadIdx.y + blockIdx.y * blockDim.y;
-    const int j = threadIdx.x + blockIdx.x * blockDim.x;
-    const int z = j + i * N;
-
-    if (i < M && j < N) {                                  /// * TODO: tiled
-        DU2 acc = DU0;
-        for (int k = 0; k < K; ++k) {
-            if (b_txp) acc += A[k + i * K] * B[k + j * K];
-            else       acc += A[k + i * K] * B[j + k * N];
-        }
-        C[z] = acc;
-    }
-}
 __KERN__ void k_mat_op(                                    ///< TODO: C
     t4_ten_op op,
     DU *A, DU *B, DU *C,
@@ -70,6 +82,27 @@ __KERN__ void k_mat_op(                                    ///< TODO: C
 ///=======================================================================
 /// static methods
 ///
+__BOTH__ Tensor&
+Tensor::mm(
+    Tensor &A, Tensor &B, Tensor &C, t4_mm_opt opt) {
+    U16 M  = opt & MM_A_TXP ? A.W() : A.H();
+    U16 Ka = opt & MM_A_TXP ? A.H() : A.W();
+    U16 N  = opt & MM_B_TXP ? B.H() : B.W();
+    U16 Kb = opt & MM_B_TXP ? B.W() : B.H();
+    if (Ka != Kb) {
+        ERROR("Tensor#mm Ka(%d)!=Kb(%d)\n", Ka, Kb);
+        return C;
+    }
+    WARN("Tensor#matmul M=%d, N=%d, K=%d\n", M, N, Ka);
+    printf("Tensor#matmul M=%d, N=%d, K=%d\n", M, N, Ka);
+    dim3 blk(T4_WARP_SZ, T4_WARP_SZ), grd(
+        (N + blk.x - 1) / blk.x,
+        (M + blk.y - 1) / blk.y
+    );
+    k_matmul<<<grd,blk>>>(A.data, B.data, C.data, M, N, Ka, opt);
+    cudaDeviceSynchronize();
+    return C;
+}
 /// tensor GEMM C' = alpha * A x B + beta * C
 ///
 __BOTH__ Tensor&
@@ -89,24 +122,6 @@ Tensor::gemm(Tensor &A, Tensor &B, Tensor &C, DU alpha, DU beta) {
     ///
     k_gemm<<<grd, blk>>>(A.data, B.data, C.data, m, n, ka, alpha, beta);
     cudaDeviceSynchronize();     // TODO: deprecated 11.6, use cooperative_groups.sync()
-    return C;
-}
-__BOTH__ Tensor&
-Tensor::mm(Tensor &A, Tensor &B, Tensor &C, bool b_txp) {
-    U16 m = A.H(), ka = A.W();
-    U16 n = b_txp ? B.H() : B.W(), kb = b_txp ? B.W() : B.H();
-    if (ka != kb) {
-        ERROR("Tensor#mm ka(%d)!=kb(%d)\n", ka, kb);
-        return C;
-    }
-    WARN("Tensor#matmul M=%d, N=%d, K=%d\n", m, n, ka);
-    dim3 blk(T4_WARP_SZ, T4_WARP_SZ), grd(
-        (n + blk.x - 1) / blk.x,
-        (m + blk.y - 1) / blk.y
-    );
-    if (b_txp) k_matmul<true> <<<grd,blk>>>(A.data, B.data, C.data, m, n, ka);
-    else       k_matmul<false><<<grd,blk>>>(A.data, B.data, C.data, m, n, ka);
-    cudaDeviceSynchronize();
     return C;
 }
 ///
@@ -543,12 +558,12 @@ Tensor::reshape(U16 c1, U16 n, U16 h, U16 w, U16 c) {
 __BOTH__ Tensor&
 Tensor::identity() {
     if (rank < 2) return *this;
-    int m = H(), n = W();
+    int M = H(), N = W();
     dim3 blk(T4_WARP_SZ, T4_WARP_SZ), grd(
-        (n + blk.x - 1) / blk.x,
-        (m + blk.y - 1) / blk.y
+        (N + blk.x - 1) / blk.x,
+        (M + blk.y - 1) / blk.y
     );
-    k_identity<<<grd, blk>>>(data, m, n, C()*sizeof(DU));
+    k_identity<<<grd, blk>>>(data, M, N, C()*sizeof(DU));
     cudaDeviceSynchronize();
     return *this;
 }
