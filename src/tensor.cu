@@ -19,12 +19,13 @@ k_ten_op(t4_ten_op op, float *t, int sz, float v=DU0) {
         switch(op) {
         case O_FILL:  t[k] = v;                         break;
         case O_SCALE: t[k] *= v;                        break;
-        case O_ABS:   t[k] = fabsf(t[k]);               break;
-        case O_EXP:   t[k] = expf(t[k]);                break;
-        case O_LOG:   t[k] = logf(t[k]);                break;
-        case O_TANH:  t[k] = tanhf(t[k]);               break;
+        case O_POW:   t[k] = POW(t[k], v);              break;
+        case O_ABS:   t[k] = ABS(t[k]);                 break;
+        case O_EXP:   t[k] = EXP(t[k]);                 break;
+        case O_LOG:   t[k] = LOG(t[k]);                 break;
+        case O_TANH:  t[k] = TANH(t[k]);                break;
         case O_RELU:  t[k] = t[k] > DU0 ? t[k] : DU0;   break;
-        case O_SIGM:  t[k] = DU1 / (DU1 + expf(-t[k])); break;
+        case O_SIGM:  t[k] = DU1 / (DU1 + EXP(-t[k]));  break;
         }
     }
 }
@@ -405,7 +406,7 @@ __BOTH__ DU
 Tensor::max() {
     DU v = data[0];
     for (int i=1; i < numel; i++) {              ///> TODO: CDP prefix sum
-        if (data[i] > v) v = data[i];
+        v = MAX(data[i], v);
     }
     cudaDeviceSynchronize();
     return SCALAR(v);
@@ -414,7 +415,7 @@ __BOTH__ DU
 Tensor::min() {
     DU v = data[0];
     for (int i=1; i < numel; i++) {              ///> TODO: CDP prefix sum
-        if (data[i] < v) v = data[i];
+        v = MIN(data[i], v);
     }
     cudaDeviceSynchronize();
     return SCALAR(v);
@@ -480,7 +481,7 @@ Tensor::tril() {
 }
 __BOTH__ Tensor&
 Tensor::map(t4_ten_op op, DU v) {
-    OPN("+", "-", "*", "/", "@", "x", "fill", "scale","abs", "exp", "tanh", "relu", "sigmoid");
+    OPN("+", "-", "*", "/", "@", "x", "fill", "scale","pow", "abs", "exp", "log", "tanh", "relu", "sigmoid");
     WARN("Tensor#%s v=%f\n", opn[op], v);
     dim3 blk(T4_WARP_SZ*T4_WARP_SZ), grd((numel + blk.x -1)/blk.x);
     k_ten_op<<<grd, blk>>>(op, data, numel, v);
