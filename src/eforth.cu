@@ -149,8 +149,8 @@ ForthVM::init() {
     CODE("xor",  top = I2D(INT(ss.pop()) ^ INT(top))),
     CODE("abs",  top = ABS(top)),
     CODE("negate", top *= -1),
-    CODE("max",  DU n=ss.pop(); top = (top>n)?top:n),
-    CODE("min",  DU n=ss.pop(); top = (top<n)?top:n),
+    CODE("max",  DU n=ss.pop(); top = MAX(top, n)),
+    CODE("min",  DU n=ss.pop(); top = MIN(top, n)),
     ///@}
     ///@defgroup Data conversion ops
     ///@{
