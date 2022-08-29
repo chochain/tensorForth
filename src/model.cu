@@ -50,27 +50,27 @@ Model::add(t4_layer fn, U16 n, DU bias, U16 *opt) {
     return *this;
 }
 __GPU__ DU
-Model::loss(t4_loss op, Tensor &exp) {
-    Tensor &out = (Tensor&)_mmu->du2obj(data[numel - 1]);
-    if (!out.is_same_shape(exp)) { ERROR("Model::loss dim?\n"); return; }
+Model::loss(t4_loss op, Tensor &tgt) {
+    Tensor &nx = (Tensor&)_mmu->du2obj(data[numel - 1]);  ///< model output 
+    if (!nx.is_same_shape(tgt)) { ERROR("Model::loss dim?\n"); return; }
 
-    Tensor &err = _mmu->copy(out);
-    DU     rst  = DU0;
+    Tensor &out = _mmu->copy(nx);                  ///> tmp, hardcopy
+    DU     err  = DU0;                             ///> result loss value
     switch (op) {
     case LOSS_NLL: break;
     case LOSS_MSE: {
-        err -= exp;
-        Tensor::mat(O_MUL, err, err, err);
-        rst = 0.5 * err.sum() / err.numel;
+        out -= tgt;
+        err = 0.5 * NORM(out.numel, out.data) / out.numel;
     } break;
     case LOSS_CE:  {
-        err.map(O_LOG);
-        Tensor::mat(O_MUL, exp, err, err);
-        rst = err.sum() / -err.numel;
+        out.map(O_LOG) *= tgt;
+        err = -out.avg();
     } break;
     default: ERROR("Model#loss op=%d not supported\n", op);
     }
-    return rst;
+    _mmu->free(out);                              /// * release the tmp
+    SCALAR(err);
+    return err;
 }
 ///
 /// Convolution and Linear ops
@@ -96,7 +96,7 @@ Model::_iconv(Tensor &in, U16 C, DU bias, U16 *opt) {
     Tensor *df = in.grad[2] = &tensor(C1, 1, M, N, C).map(O_FILL, DU0); ///> df
     Tensor *b  = in.grad[1] = &vector(C).map(O_FILL, bias);             ///> b
     Tensor *db = in.grad[3] = &vector(C).map(O_FILL, DU0);              ///> db
-    DU k = DU1 / sqrtf(M * N * C1);              /// * filter default range
+    DU k = DU1 / SQRT(M * N * C1);               /// * filter default range
     _mmu->random(*f, UNIFORM, -0.5, 2.0 * k);    /// * randomize f [-k ~ k)
     printf("bias=%.2f,  k=%.4f, f.std=%.4f\n", bias, k, f->std());
     for (int i=0; i<M; i++) {
@@ -119,7 +119,7 @@ Model::_ilinear(Tensor &in, U16 C, DU bias) {
     Tensor *b  = in.grad[1] = &vector(C).map(O_FILL, bias);          ///> b
     Tensor *db = in.grad[3] = &vector(C).map(O_FILL, DU0);           ///> db
     
-    DU k = DU1 / sqrtf(C1);                      /// * default weight
+    DU k = DU1 / SQRT(C1);                       /// * default weight
     _mmu->random(*w, UNIFORM, -0.5, 2.0 * k);    /// * randomize w
     printf("bias=%.2f,  k=%.4f, w.std=%.4f\n", bias, k, w->std());
     

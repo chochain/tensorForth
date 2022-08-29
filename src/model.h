@@ -65,7 +65,7 @@ public:
     __GPU__ Model  &add(t4_layer fn, U16 n=0, DU bias=DU0, U16 *opt=0);
     __GPU__ Model  &forward(Tensor &input);
     __GPU__ Model  &backprop(Tensor &tgt);
-    __GPU__ DU     loss(t4_loss op, Tensor &exp);
+    __GPU__ DU     loss(t4_loss op, Tensor &tgt);
 
 private:
     /// @name single step forward and backprop
