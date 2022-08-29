@@ -29,6 +29,7 @@ typedef enum {
     /// 1-operand ops
     O_ABS,
     O_EXP,
+    O_LOG,
     O_TANH,
     O_RELU,
     O_SIGM,
