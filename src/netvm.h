@@ -16,12 +16,6 @@
 #define MNOS     (!IS_OBJ(top) && IS_M(ss[-1]))                    /** NOS model w 1-param    */
 #define MN2D     (!IS_OBJ(top) && !IS_OBJ(ss[-1]) && IS_M(ss[-2])) /** ss[-2] model w 2-param */
 
-typedef enum {
-    LOSS_MSE = 0,     ///< mean square error
-    LOSS_NLL,         ///< negative likelihood
-    LOSS_CE           ///< cross entropy
-} t4_loss;
-
 class NetVM : public TensorVM {
 public:
 #if   !T4_ENABLE_OBJ

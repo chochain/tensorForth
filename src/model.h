@@ -8,6 +8,12 @@
 #define TEN4_SRC_MODEL_H
 #include "mmu.h"
 
+typedef enum {
+    LOSS_MSE = 0,        ///< mean square error
+    LOSS_NLL,            ///< negative likelihood
+    LOSS_CE              ///< cross entropy
+} t4_loss;
+
 class Model : public T4Base {
     MMU     *_mmu;       ///< tensor storage base
     Tensor  *_store;     ///< model storage - Sequential, TODO: DAG
@@ -59,6 +65,7 @@ public:
     __GPU__ Model  &add(t4_layer fn, U16 n=0, DU bias=DU0, U16 *opt=0);
     __GPU__ Model  &forward(Tensor &input);
     __GPU__ Model  &backprop(Tensor &tgt);
+    __GPU__ DU     loss(t4_loss op, Tensor &exp);
 
 private:
     /// @name single step forward and backprop
