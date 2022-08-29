@@ -57,6 +57,13 @@ typedef enum {
     L_DROPOUT
 } t4_layer;
 
+typedef enum {
+    MM_NONE  = 0,
+    MM_INC   = 1,
+    MM_A_TXP = 2,
+    MM_B_TXP = 4
+} t4_mm_opt;
+
 struct Tensor : public T4Base {
     U16      stride[4] = {1,1,1,1}; ///< stride=HWCN, for calc memory offset
     U16      shape[4]  = {1,1,1,1}; ///< shape=HWCN, matrix C=N=1, vector W=C=N=1
@@ -68,8 +75,8 @@ struct Tensor : public T4Base {
     ///   1. resultant tensor as last parameter
     ///   2. return the resultant tensor
     ///
+    static __BOTH__ Tensor &mm(Tensor &A, Tensor &B, Tensor &C, t4_mm_opt opt=MM_NONE);
     static __BOTH__ Tensor &gemm(Tensor &A, Tensor &B, Tensor &C, DU alpha, DU beta);
-    static __BOTH__ Tensor &mm(Tensor &A, Tensor &B, Tensor &C, bool b_txp=false);
     static __BOTH__ Tensor &mat(t4_ten_op op, Tensor &A, Tensor &B, Tensor &C);  ///> matrix-matrix element-wise ops (Hadamard)
     static __BOTH__ Tensor &mat(t4_ten_op op, Tensor &A, DU v, Tensor &C);       ///> matrix-scalar element-wise ops
     static __BOTH__ Tensor &copy(Tensor &A, Tensor &C);
