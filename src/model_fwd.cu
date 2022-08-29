@@ -73,9 +73,9 @@ __KERN__ void k_pooling(
             for (int x = 0; x < KS; x++) {
                 DU dx = *d;
                 switch (op) {
-                case L_MAXPOOL: if (dx > v) v = dx; break;
-                case L_AVGPOOL: v += dx;            break;
-                case L_MINPOOL: if (dx < v) v = dx; break;
+                case L_MAXPOOL: v = MAX(dx, v); break;
+                case L_AVGPOOL: v += dx;        break;
+                case L_MINPOOL: v = MIN(dx, v); break;
                 }
                 d += C;                   
             }
@@ -195,18 +195,17 @@ Model::_fstep(Tensor &in, Tensor &out) {
         int M = w.H(), N = w.W();             ///< fully connected dimensions
         printf(" w[%d,%d] @ in[%d] + b[%d]", M, N, in.numel, b.numel);
         linear(M, N, w.data, b.data);         ///< out = W @ in + B
-        
+
         if (out.numel < 20) dump(d0, 1, out.numel, 1);
+        /*
         else {
-            int k = sqrt(out.numel);
+            int k = SQRT(out.numel);
             dump(d0, k+1, k, 1);
         }
+        */
     } break;
     case L_FLATTEN: Tensor::copy(in, out); break;
-    case L_RELU:
-        k_relu<<<grd, blk>>>(d1, d1, d0, H, W, C);
-        dump(d0, H, W, C);
-        break;
+    case L_RELU:    k_relu<<<grd, blk>>>(d1, d1, d0, H, W, C); break;
     case L_TANH:    break;
     case L_SIGMOID: break;
     case L_SOFTMAX: {
@@ -215,7 +214,6 @@ Model::_fstep(Tensor &in, Tensor &out) {
         DU sum = t.map(O_EXP).sum() + DU_EPS;/// * sum all probabilities
         Tensor::mat(O_MUL, t, DU1/sum, out); /// * p / sum(p)
         printf(" sum=%.3f", out.sum());      /// * verify sum
-        dump(d0, 1, out.numel, 1);
     } break;
     case L_MAXPOOL:
     case L_AVGPOOL: 
