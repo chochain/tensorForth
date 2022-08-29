@@ -29,10 +29,10 @@ NetVM::nnop(t4_layer op) {     /// vtable dispatcher
     switch (op) {
     case L_CONV:  _conv(); break;
     case L_LINEAR:
-        if (MN2D) {                                ///> param checking
+        if (M2V) {                                 ///> param checking
             U16   n    = POPi;                     ///> number of output channels
             DU    bias = POP();                    ///> convolution bias
-            NN0.add(L_LINEAR, n, bias);            ///> (N b c -- N')
+            MTOS.add(L_LINEAR, n, bias);           ///> (N b c -- N')
         }
         else ERROR("linear: bias n required!");
         break;
@@ -40,12 +40,12 @@ NetVM::nnop(t4_layer op) {     /// vtable dispatcher
     case L_RELU:
     case L_TANH:
     case L_SIGMOID:
-    case L_SOFTMAX: if (MTOS) NN0.add(op); break;
+    case L_SOFTMAX: if (IS_M(top)) MTOS.add(op); break;
     case L_MAXPOOL: 
     case L_AVGPOOL:
-    case L_MINPOOL: if (MNOS) { U16 n = POPi; NN0.add(op, n); } break;
-    case L_DROPOUT: if (MNOS) {
-            U16 p = int(100.0 * POP() + 0.5); NN0.add(op, p);
+    case L_MINPOOL: if (M1V) { U16 n = POPi; MTOS.add(op, n); } break;
+    case L_DROPOUT: if (M1V) {
+            U16 p = int(100.0 * POP() + 0.5); MTOS.add(op, p);
         } break;
     default: ERROR("NetVM::nnop(%d) not supported\n", op);
     }
@@ -79,37 +79,23 @@ NetVM::_conv() {
         }
         else { ERROR("vec?"); return; }
     }
-    if (!MN2D) {
+    if (!M2V) {
         ERROR("conv2d bias c required!"); return;
     }
     U16 c    = POPi;                 ///> number of output channels
     DU  bias = POP();                ///> convolution bias
-    NN0.add(L_CONV, c, bias, opt);
+    MTOS.add(L_CONV, c, bias, opt);
 }
 ///
 /// loss functions
 ///
 __GPU__ void
-NetVM::_loss(t4_loss op, Tensor &A, Tensor &B) {
-    if (!A.is_same_shape(B)) { ERROR("same size?\n"); return; }
-    U16 SZ = A.numel;
-    DU  *da = A.data, *db = B.data;
-    DU  rst = DU0;
-    switch (op) {
-    case LOSS_MSE: {
-        for (int i=0; i < SZ; i++) {
-            DU v = *da++ - *db++;
-            rst += v * v;
-        }
-        printf("NetVM#mse sum=%.3f, N=%d => %.3f",
-               rst, A.N(), rst / (2.0*A.N()));
-        rst /= (2.0 * A.N());
-    } break;
-    case LOSS_NLL: break;
-    case LOSS_CE:  break;
-    default: ERROR("loss funtion %d not supported\n", op);
-    }
-    PUSH(rst);
+NetVM::_loss(t4_loss op) {
+    if (!TOS1T || !IS_M(ss[-1])) { ERROR("target tensor?\n"); return; }
+    Tensor &t = TTOS;
+    DU      n = MNOS.loss(op, t);
+    printf("NetVM#loss => %.3f", n);
+    PUSH(n);
 }
 ///
 /// gradiant ops
@@ -160,9 +146,9 @@ NetVM::init() {
     ///@}
     ///@defgroup Loss functions
     ///@{
-    CODE("loss.nll",  if (TOS2T) _loss(LOSS_NLL, TTOS, TNOS)),
-    CODE("loss.mse",  if (TOS2T) _loss(LOSS_MSE, TTOS, TNOS)),
-    CODE("loss.ce",   if (TOS2T) _loss(LOSS_CE,  TTOS, TNOS)),
+    CODE("loss.nll",  _loss(LOSS_NLL)),       ///> (N T -- N T n)
+    CODE("loss.mse",  _loss(LOSS_MSE)),       ///> (N T -- N T n)
+    CODE("loss.ce",   _loss(LOSS_CE)),        ///> (N T -- N T n)
     ///@}
     ///@defgroup Gradiant ops
     ///@{
@@ -173,27 +159,28 @@ NetVM::init() {
     ///@{
     CODE("nn.for",    {}),
     CODE("nn.next",   {}),
-    CODE("autograd",  if (MNOS) { bool on = POPi; NN0.autograd = on; }),
+    CODE("autograd",  if (M1V) { bool on = POPi; MTOS.autograd = on; }),
     CODE("forward", 
         if (TOS1T && IS_M(ss[-1])) {
             Tensor &t = TTOS; POP();
-            NN0.forward(t);
+            MTOS.forward(t);
         }
         else ERROR("N set?\n")),
     CODE("backprop",
          if (TOS1T && IS_M(ss[-1])) {
              Tensor &t  = TTOS; POP();
-             NN0.backprop(t);
+             MTOS.backprop(t);
          }
          else ERROR("N tgt?\n")),
     CODE("predict",   {}),
     ///@}
     ///@defgroup Debugging ops
     ///@{
-    CODE(">n",        if (MNOS) { DU t = POP(); NN0.npush(t); }),
-    CODE("n@",        if (MNOS) { I16 i = POPi; PUSH(mmu.view(NN0[i]));
+    CODE(">n",        if (M1V) { DU t = POP(); MTOS.npush(t); }),
+    CODE("n@",        if (M1V) { I16 i = POPi; PUSH(mmu.view(MTOS[i]));
         }),
-    CODE("network",   if (MTOS) fout << top),
+    CODE("log",       Tensor &t = TTOS; t.map(O_LOG)),
+    CODE("network",   if (IS_M(top)) fout << top),
     ///@}
     };
     const Code over[] = {           /// extended (overload) words
