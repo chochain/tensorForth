@@ -8,7 +8,6 @@
 #define TEN4_SRC_TENVM_H
 #include "eforth.h"                         /// extending ForthVM
 
-#define EXP(d)    (expf(d))                         /**< exponential(float) */
 #define TTOS      ((Tensor&)mmu.du2obj(top))        /**< tensor on TOS      */
 #define TNOS      ((Tensor&)mmu.du2obj(ss[-1]))     /**< tensor on NOS      */
 #define TOS1T     (IS_OBJ(top) && TTOS.is_tensor())
