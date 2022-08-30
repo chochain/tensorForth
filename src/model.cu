@@ -43,7 +43,7 @@ Model::add(t4_layer fn, U16 n, DU bias, U16 *opt) {
     case L_SOFTMAX: _isoftmax(in);              break;
     case L_MAXPOOL:
     case L_AVGPOOL:
-    case L_MINPOOL: _ipooling(in, n);           break;
+    case L_MINPOOL: _ipool(in, n);              break;
     case L_DROPOUT: _idropout(in, n);           break;
     }
     in.grad_fn = fn;
@@ -150,7 +150,7 @@ Model::_isoftmax(Tensor &in) {
 /// Pooling and Dropout ops
 ///
 __GPU__ void
-Model::_ipooling(Tensor &in, U16 f) {
+Model::_ipool(Tensor &in, U16 f) {
     if (f != 2 && f != 3) {
         ERROR("Model#pooling f=[%d,%d]? 2x2 and 3x3 supported only\n", f, f);
         return;

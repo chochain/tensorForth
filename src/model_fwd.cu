@@ -1,6 +1,6 @@
 /** -*- c++ -*-
  * @File
- * @brief - Neural Network Model Forward Propagation implementation
+ * @brief - Neural Network Model Feed Forward implementation
  *
  * <pre>Copyright (C) 2022- GreenII, this file is distributed under BSD 3-Clause License.</pre>
  */
@@ -55,7 +55,7 @@ __KERN__ void k_conv2d(
 }
 
 template<int KS>                           /// kernel size
-__KERN__ void k_pooling(
+__KERN__ void k_pool(
     DU *I, DU *O,
     int H, int W, int C,                   /// HWC (C preserved)
     t4_layer op
@@ -85,7 +85,7 @@ __KERN__ void k_pooling(
     }
 }
 
-__KERN__ void k_relu(
+__KERN__ void k_filter(
     DU *I, DU *F, DU *O,                   ///< input, filter, output tensors
     int H, int W, int C                    ///< HWC
     ) {
@@ -153,10 +153,10 @@ Model::_fstep(Tensor &in, Tensor &out) {
             }
         }
     };
-    auto pooling = [d1, d0, H, W, C, blk, grd](int ks, t4_layer fn) {
+    auto pool = [d1, d0, H, W, C, blk, grd](int ks, t4_layer fn) {
         switch(ks) {           /// pooling kernel size
-        case 0x2: k_pooling<2><<<grd,blk>>>(d1, d0, H, W, C, fn); break;
-        case 0x3: k_pooling<3><<<grd,blk>>>(d1, d0, H, W, C, fn); break;
+        case 0x2: k_pool<2><<<grd,blk>>>(d1, d0, H, W, C, fn); break;
+        case 0x3: k_pool<3><<<grd,blk>>>(d1, d0, H, W, C, fn); break;
         default: return -1;
         }
         return 0;
@@ -205,7 +205,7 @@ Model::_fstep(Tensor &in, Tensor &out) {
         */
     } break;
     case L_FLATTEN: Tensor::copy(in, out); break;
-    case L_RELU:    k_relu<<<grd, blk>>>(d1, d1, d0, H, W, C); break;
+    case L_RELU:    k_filter<<<grd, blk>>>(d1, d1, d0, H, W, C); break;
     case L_TANH:    break;
     case L_SIGMOID: break;
     case L_SOFTMAX: {
@@ -219,13 +219,13 @@ Model::_fstep(Tensor &in, Tensor &out) {
     case L_AVGPOOL: 
     case L_MINPOOL: {
         U16 ks = in.parm;                    ///< kerneal_size
-        if (pooling(ks, fn)) {
+        if (pool(ks, fn)) {
             ERROR("model#pooling kernel_size=%d not supported\n", ks);
         }
     } break;
     case L_DROPOUT:
         Tensor &msk = *in.grad[0];
-        k_relu<<<grd, blk>>>(d1, msk.data, d0, H, W, C);
+        k_filter<<<grd, blk>>>(d1, msk.data, d0, H, W, C);
         break;
     }
     cudaDeviceSynchronize();
