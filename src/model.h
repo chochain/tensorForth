@@ -77,22 +77,17 @@ private:
     /// @{
     __GPU__ void _iconv(Tensor &in, U16 c, DU bias, U16 *opt);
     __GPU__ void _ilinear(Tensor &in, U16 n, DU bias);   ///< linearize (Dense) with n output
-    __GPU__ void _iflatten(Tensor &in);      ///< flatten (input 
+    __GPU__ void _iflatten(Tensor &in);        ///< flatten (input 
     /// @}
     /// @name Activation ops
     /// @{
-    __GPU__ void _icopy(Tensor &in);         ///< Relu, Tanh, Sigmoid
-    __GPU__ void _isoftmax(Tensor &in);      ///< probability vector exp(x)/sum(exp(x))
+    __GPU__ void _icopy(Tensor &in);           ///< Relu, Tanh, Sigmoid
+    __GPU__ void _isoftmax(Tensor &in);        ///< probability vector exp(x)/sum(exp(x))
     /// @}
     /// @name Pooling and Dropout ops
     /// @{
-    __GPU__ void _ipooling(Tensor &in, U16 n); ///< maximum pooling with nxn filter
+    __GPU__ void _ipool(Tensor &in, U16 n);    ///< maximum pooling with nxn filter
     __GPU__ void _idropout(Tensor &in, U16 p); ///< zero out p% of channel data (add noise between data points)
     /// @}
-    __GPU__ void _dconv2d(Tensor &A, Tensor &B)  {}
-    __GPU__ void _dlinear(Tensor &A, Tensor &B)  {}
-    __GPU__ void _dflatten(Tensor &A, Tensor &B) {}
-    __GPU__ void _drelu(Tensor &A, Tensor &B)    {}
-    __GPU__ void _dmaxpool(Tensor &A, Tensor &B) {}
 };
 #endif // TEN4_SRC_MODEL_H
