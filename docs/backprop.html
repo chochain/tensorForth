@@ -82,37 +82,48 @@ $$
     <td>$$\nabla$$</td>
   </tr>
   <tr>
-    <td>linear</td>
-    <td>$$Y_1 = W_1 X_1 + B_1$$</td>
-    <td>$$
-      \frac{\partial C}{\partial W_1} = \frac{\partial C}{\partial Y_1} \frac{\partial Y_1}{\partial W_1} \\
-      \frac{\partial C}{\partial B_1} = \frac{\partial C}{\partial Y_1} \frac{\partial Y_1}{\partial B_1}$$</td>
-    <td>$$= dY_1 \cdot
+    <td>conv2d<p/>linear</td>
+    <td>$$Y_1 =
       \begin{cases}
-      X_1^T \\
-      1 \\
-      \end{cases}$$</td>
-    <td>$$dX_1 = \frac{\partial C}{\partial Y_1} \frac{\partial Y_1}{\partial X_1} = dY_1 \cdot W_1^T$$</td>
+      \ conv(W_1, X_1) \\ \\
+      \ W_1X_1 \\
+      \end{cases} + B_1$$</td>
     <td>$$
-      W'_1 = W_1 - \eta \frac{\partial C}{\partial W_1} \\
-      B'_1 = B_1 - \eta \frac{\partial C}{\partial B_1}$$</td>
+      \frac{\partial L}{\partial W_1} = \frac{\partial L}{\partial Y_1} \frac{\partial Y_1}{\partial W_1} \\
+      \frac{\partial L}{\partial B_1} = \frac{\partial L}{\partial Y_1} \frac{\partial Y_1}{\partial B_1}$$</td>
+    <td>$$=
+      \begin{cases}
+      \begin{cases}
+      conv(dilate(dY_1), pad(X_1)) \\
+      dY_1 \cdot X_1^T \\
+      \end{cases} \\ \\
+      dY_1 \cdot 1\\
+      \end{cases}$$</td>
+    <td>$$dX_1 = \frac{\partial L}{\partial Y_1} \frac{\partial Y_1}{\partial X_1} =
+      \begin{cases}
+      conv(rot_{180^o}(W_1), dilate(dY_1)) \\ \\
+      W_1^T \cdot dY_1 \\
+      \end{cases}$$</td>
+    <td>$$
+      W'_1 = W_1 - \eta \frac{\partial L}{\partial W_1}\\
+      B'_1 = B_1 - \eta \frac{\partial L}{\partial B_1}$$</td>
   </tr>
   <tr>
     <td>sigmoid<p/>relu</td>
     <td>$$Y_2 =
       \begin{cases}
-      \sigma(Y_1) \\
+      \sigma(Y_1) \\ \\
       max(0,Y_1) \\
       \end{cases}$$</td>
-    <td>$$\frac{\partial C}{\partial Y_1} = (\frac{\partial C}{\partial Y_3} \frac{\partial Y_3}{\partial Y_2}) \frac{\partial Y_2}{\partial Y_1}$$</td>
+    <td>$$\frac{\partial L}{\partial Y_1} = (\frac{\partial L}{\partial Y_3} \frac{\partial Y_3}{\partial Y_2}) \frac{\partial Y_2}{\partial Y_1}$$</td>
     <td>$$= dY_2 \cdot
       \begin{cases}
-      \sigma^{-1}(Y_1) \\
+      \sigma^{-1}(Y_1) \\ \\
       max^{-1}(0,Y_1) \\
       \end{cases}$$</td>
     <td>$$dY_1 = dY_2 \cdot
       \begin{cases}
-      Y_1 \cdot (1 - Y_1) \\
+      Y_1 \cdot (1 - Y_1) \\ \\
       Y_1 \gt 0 \text{ ? 1 : 0} \\
       \end{cases}$$</td>
     <td/>
@@ -121,55 +132,55 @@ $$
     <td>linear</td>
     <td>$$Y_3 = W_2 Y_2 + B_2$$</td>
     <td>$$
-      \frac{\partial C}{\partial W_2} = \frac{\partial C}{\partial Y_3} \frac{\partial Y_3}{\partial W_2} \\
-      \frac{\partial C}{\partial B_2} = \frac{\partial C}{\partial Y_3} \frac{\partial Y_3}{\partial B_2}$$</td>
+      \frac{\partial L}{\partial W_2} = \frac{\partial L}{\partial Y_3} \frac{\partial Y_3}{\partial W_2} \\
+      \frac{\partial L}{\partial B_2} = \frac{\partial L}{\partial Y_3} \frac{\partial Y_3}{\partial B_2}$$</td>
     <td>$$= dY_3 \cdot
       \begin{cases}
-      Y_2^T \\
+      Y_2^T \\ \\
       1 \\
       \end{cases}$$</td>
-    <td>$$dY_2 = \frac{\partial C}{\partial Y_3} \frac{\partial Y_3}{\partial Y_2} = dY_3 \cdot W_2^T$$</td>
+    <td>$$dY_2 = \frac{\partial L}{\partial Y_3} \frac{\partial Y_3}{\partial Y_2} = W_2^T \cdot dY_3$$</td>
     <td>$$
-      W'_2 = W_2 - \eta \frac{\partial C}{\partial W_2} \\
-      B'_2 = B_2 - \eta \frac{\partial C}{\partial B_2}$$</td>
+      W'_2 = W_2 - \eta \frac{\partial L}{\partial W_2} \\
+      B'_2 = B_2 - \eta \frac{\partial L}{\partial B_2}$$</td>
   </tr>
   <tr>
     <td>sigmoid<p/>relu</td>
     <td>$$
       Y_4 = \begin{cases}
-      \sigma(Y_3) \\
+      \sigma(Y_3) \\ \\
       max(0,Y_3) \\
       \end{cases}$$</td>
-    <td>$$\frac{\partial C}{\partial Y_3} = \frac{\partial C}{\partial Y_4} \frac{\partial Y_4}{\partial Y_3}$$</td>
+    <td>$$\frac{\partial L}{\partial Y_3} = \frac{\partial L}{\partial Y_4} \frac{\partial Y_4}{\partial Y_3}$$</td>
     <td>$$= dY_4 \cdot
       \begin{cases}
-      \sigma^{-1}(Y_3) \\
+      \sigma^{-1}(Y_3) \\ \\
       max^{-1}(0,Y_3) \\
       \end{cases}$$</td>
     <td>$$dY_3 = dY_4 \cdot
       \begin{cases}
-      Y_3 \cdot (1 - Y_3) \\
+      Y_3 \cdot (1 - Y_3) \\ \\
       Y_3 \gt 0 \text{ ? 1 : 0} \\
       \end{cases}$$</td>
     <td/>
   </tr>
   <tr>
     <td>loss</td>
-    <td>$$C =
+    <td>$$L =
       \begin{cases}
-        MSE(Y_4, \hat Y) \\
+        MSE(Y_4, \hat Y) \\ \\
         CE(softmax(Y_4), \hat Y) \\
       \end{cases}$$</td>
-    <td>$$\frac{\partial C}{\partial Y_4}$$</td>
+    <td>$$\frac{\partial L}{\partial Y_4}$$</td>
     <td>$$
       \begin{cases}
-      \frac{1}{N}\sum\limits_i(y_i - \hat y_i)^2\ \\
+      \frac{1}{N}\sum\limits_i(y_i - \hat y_i)^2\ \\ \\
         \begin{cases}
         y_i \cdot (\delta_{ij} - y_j) \text{ where } \delta_{ij} =
           \begin{cases}
           1 \text{ if } i = j \\
           0 \text{ if } i \ne j \\
-          \end{cases} \\
+          \end{cases} \\ \\
         \begin{cases}
         -{\hat y_i} \cdot log(y_i) & \text{ if } \hat y_i = 1 \\
         -(1 - \hat y_i) \cdot log(1 - y_i) & \text { if } \hat y_i = 0 \\
@@ -179,8 +190,8 @@ $$
       $$</td>
     <td>$$
       dY_4 = \begin{cases}
-      Y_4 - \hat Y \\
-      Y_4 - \hat Y \\
+      (Y_4 - \hat Y)^T \\ \\
+      (Y_4 - \hat Y)^T \\
       \end{cases}$$</td>
     <td/>
 </table>
