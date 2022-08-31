@@ -36,18 +36,17 @@ __KERN__ void k_conv2d(
         ///
         /// sum of element-wise multiplication
         ///
-        int f1 = c1 * KS * KS * C;                   /// * dense [C1,C] filter
+        DU sum = DU0;
+        DU *fx = &F[c0 * KS * KS * C1];              /// * filter[0] ptr
         if (tx < TS && ty < TS) {                    /// * within tile [12x12]
-            DU sum = DU0;
             for (int y = 0; y < KS; y++) {           /// * process one cell
-                int d0 = tx + (y + ty) * T4_WARP_SZ; ///< offset to smem
-                int b0 = (y * KS) + f1;              ///< offset to filter
+                DU *dx = &d[tx + (y + ty) * T4_WARP_SZ];   ///< smem ptr
                 for (int x = 0; x < KS; x++) {
-                    sum += F[x + b0] * d[x + d0];
+                    sum += (*fx++) * (*dx++);
                 }
             }
             if (i0 < H && j0 < W) {                  /// * update output matrix
-                if (c1==0) O[z0] = sum + B[c0];      /// * O[ijk] with bias
+                if (c1==0) O[z0] = sum + B[c0];      /// * O[ijc] with bias
                 else       O[z0] += sum;
             }
         }
