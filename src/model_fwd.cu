@@ -8,11 +8,12 @@
 
 #if T4_ENABLE_OBJ
 ///
-/// Row convolution filter
+/// convolution filter
+/// TODO: stride, dilation
 ///
 template<int TS, int KS>         ///> tile size, kernel size
 __KERN__ void k_conv2d(
-    DU *I, DU *F, DU *B, DU *O,  ///> input A[HxW], F[KxK] kernel B[C] bias, output C[HxW]
+    DU *I, DU *F, DU *B, DU *O,  ///> input I[HxW], F[KxK] kernel B[C] bias, output O[HxW]
     int H, int W, int C1         ///< output HW, input channel & offset
     ) {
     __shared__ DU d[T4_WARP_SZ * T4_WARP_SZ];        ///< shared memory [16x16]
@@ -24,13 +25,13 @@ __KERN__ void k_conv2d(
     ///
     /// process z0, i.e. [TS, TS, C] cells per kernel call
     ///
-    const int i  = i0 - int(KS / 2);                 ///< input coordinates
-    const int j  = j0 - int(KS / 2);
+    const int i1 = i0 - int(KS / 2);                 ///< input coordinates
+    const int j1 = j0 - int(KS / 2);
 
     for (int c1 = 0; c1 < C1; c1++) {                ///< each input channel
         d[tx + ty * T4_WARP_SZ] =                    /// * cache input data
-            (i >= 0 && i < H && j >= 0 && j < W)     /// * with zero padding
-            ? I[c1 + (j + i * W) * C1] : DU0;        /// * by channel
+            (i1 >= 0 && i1 < H && j1 >= 0 && j1 < W) /// * with zero padding
+            ? I[c1 + (j1 + i1 * W) * C1] : DU0;      /// * by channel
         __syncthreads();                             /// * smem write barrier
         ///
         /// sum of element-wise multiplication
