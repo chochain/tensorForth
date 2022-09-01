@@ -28,9 +28,11 @@ TensorVM::xop1(t4_ten_op op, DU v) {
     ///
     if (!IS_OBJ(top)) {                     /// * scalar value
         switch (op) {
+        case O_POW:  top = POW(top, v);       break;
         case O_ABS:  top = ABS(top);          break;
         case O_EXP:  top = EXP(top);          break;
-        case O_TANH: top = tanh(top);         break;
+        case O_LOG:  top = LOG(top);          break;
+        case O_TANH: top = TANH(top);         break;
         case O_RELU: top = top > v ? top : v; break;
         }
         SCALAR(top);
@@ -45,9 +47,11 @@ TensorVM::xop1(t4_ten_op op, DU v) {
     switch (op) {
     /// ops => update in-place
     case O_FILL:
-    case O_SCALE: A.map(op, v);   break;
+    case O_SCALE:
+    case O_POW:   A.map(op, v);   break;
     case O_ABS:
-    case O_EXP:   
+    case O_EXP:
+    case O_LOG:
     case O_TANH:
     case O_RELU:
     case O_SIGM:  A.map(op);      break;
@@ -141,19 +145,19 @@ TensorVM::_ts_op(t4_ten_op op, t4_drop_opt x, bool swap) { ///< tensor-scalar op
 
     Tensor &A = swap ? TTOS : TNOS;
     DU     v  = swap ? ss[-1] : top;
-    Tensor &C = mmu.tensor(A.H(), A.W());
+    Tensor &O = mmu.tensor(A.H(), A.W());
     if (swap && (op==O_DIV || op==O_SUB)) {   /// * op(scaler, tensor)
         Tensor &B = mmu.tensor(A.numel);      /// * working tensor
         B.map(O_FILL, v);                     /// * broadcast
-        Tensor::mat(op, B, A, C);             /// * Hadamard ops
+        Tensor::mat(op, B, A, O);             /// * Hadamard ops
         mmu.free(B);                          /// * free working tensor
     }
-    else Tensor::mat(op, A, v, C);            /// * broadcast_op(tensor, scalar)
+    else Tensor::mat(op, A, v, O);            /// * broadcast_op(tensor, scalar)
 
     static const char *opn[] = { "+", "-", "*", "/", "@", "x" };
-    VLOG1("A[%d,%d] %s %f => C[%d,%d]\n", A.H(), A.W(), opn[op], v, C.H(), C.W());
+    VLOG1("A[%d,%d] %s %f => O[%d,%d]\n", A.H(), A.W(), opn[op], v, O.H(), O.W());
     if (x==DROP) { drop(A); POP(); }          /// TODO: in-place
-    PUSH(C);
+    PUSH(O);
 }
 ///
 /// op(tensor, tensor)
@@ -164,26 +168,26 @@ TensorVM::_tt_op(t4_ten_op op, t4_drop_opt x) {///< tensor-tensor ops
     ///
     /// broadcast_op(tensor, tensor)
     ///
-    Tensor *C = NULL;
+    Tensor *O = NULL;
     bool   tt = true;                        ///< tensor-tensor flag
     switch (op) {                            ///> op(tensor, tensor)
-    case O_DOT:  C = _tdot(A, B, &tt); break;
-    case O_SOLV: C = _solv(A, B);      break;
+    case O_DOT:  O = _tdot(A, B, &tt); break;
+    case O_SOLV: O = _solv(A, B);      break;
     default:                                 ///> op(tensor, tensor) Hadamard
         if (A.is_same_shape(B)) {            /// * match sizes
-            C = (A.rank==1 && B.rank==1)
+            O = (A.rank==1 && B.rank==1)
                 ? &mmu.tensor(A.H())
                 : &mmu.tensor(A.H(), A.W());
-            Tensor::mat(op, A, B, *C);       /// * Hadamard ops
-            if (A.rank==1 && B.rank==1) C->reshape(C->numel);
+            Tensor::mat(op, A, B, *O);       /// * Hadamard ops
+            if (A.rank==1 && B.rank==1) O->reshape(O->numel);
         }
     }
-    if (tt && C) {
+    if (tt && O) {
         static const char *opn[] = { "+", "-", "*", "/", "@", "x" };
-        VLOG1("TensorVM# A[%d,%d] %s B[%d,%d] => C[%d,%d]\n",
-              A.H(), A.W(), opn[op], B.H(), B.W(), C->H(), C->W());
+        VLOG1("TensorVM# A[%d,%d] %s B[%d,%d] => O[%d,%d]\n",
+              A.H(), A.W(), opn[op], B.H(), B.W(), O->H(), O->W());
         if (x==DROP) { POP(); mmu.free(B); POP(); mmu.free(A); }
-        PUSH(*C);
+        PUSH(*O);
     }
     else if (tt) ERROR("dim?");
 }
@@ -201,14 +205,14 @@ TensorVM::_tdiv(Tensor &A, Tensor &B) {      ///< tensor division
     if (kb != n || ka != kb) return NULL;    /// * B square?
 
     Tensor &I = _tinv(B);
-    Tensor &C = mmu.tensor(m, n);
-    Tensor::mm(A, I, C);                     /// A * B^-1
+    Tensor &O = mmu.tensor(m, n);
+    Tensor::mm(A, I, O);                     /// A * B^-1
     mmu.free(I);
-    return &C;
+    return &O;
 }
 __GPU__ Tensor*
 TensorVM::_tdot(Tensor &A, Tensor &B, bool *tt) {///< tensor dot product
-    Tensor *C = NULL;
+    Tensor *O = NULL;
     if (B.rank==1 &&                         ///> dot(vector, vector)
         A.rank==1 && A.numel==B.numel) {
         DU v = A.dot(B);
@@ -217,14 +221,14 @@ TensorVM::_tdot(Tensor &A, Tensor &B, bool *tt) {///< tensor dot product
         VLOG1("A[%d] @ B[%d] => %f\n", A.H(), B.H(), v);
     }
     else if (B.rank==1 && A.W()==B.numel) {  ///> inner(tensor, vector)
-        C = &mmu.tensor(A.H());
-        Tensor::mm(A, B, *C);
+        O = &mmu.tensor(A.H());
+        Tensor::mm(A, B, *O);
     }
     else if (A.W()==B.H()) {                 /// * tensor @ tensor
-        C = &mmu.tensor(A.H(), B.W());
-        Tensor::mm(A, B, *C);
+        O = &mmu.tensor(A.H(), B.W());
+        Tensor::mm(A, B, *O);
     }
-    return C;
+    return O;
 }
 __GPU__ Tensor*
 TensorVM::_solv(Tensor &B, Tensor &A) {      /// Note: A B flipped [3,3]x[3,1]
@@ -233,23 +237,23 @@ TensorVM::_solv(Tensor &B, Tensor &A) {      /// Note: A B flipped [3,3]x[3,1]
     if (B.rank!=1 || m!=k || k!=n) return NULL;
     
     Tensor &I = _tinv(A);
-    Tensor &C = mmu.tensor(k);               /// resultant vector
-    Tensor::mm(I, B, C);                     /// C = A^-1 x B
+    Tensor &O = mmu.tensor(k);               /// resultant vector
+    Tensor::mm(I, B, O);                     /// O = A^-1 x B
     mmu.free(I);
-    return &C;
+    return &O;
 }
 __GPU__ void
 TensorVM::_gemm() {                          ///< blas GEMM
     if (!TOS3T) { ERROR("tensors?"); return; }
     
-    Tensor &C = TTOS, &B = TNOS, &A = (Tensor&)mmu.du2obj(ss[-2]);
+    Tensor &O = TTOS, &B = TNOS, &A = (Tensor&)mmu.du2obj(ss[-2]);
     DU     b  = ss[-3];
     DU     a  = ss[-4];
     U16    m  = A.H(), k = A.W(), n = B.W();
-    if (k == B.H() && m == C.H() && n == C.W()) {
-        Tensor &D = mmu.copy(C);             /// * hard copy C tensor
-        Tensor::gemm(A, B, D, a, b);
-        PUSH(D);
+    if (k == B.H() && m == O.H() && n == O.W()) {
+        Tensor &X = mmu.copy(O);             /// * hard copy O tensor
+        Tensor::gemm(A, B, X, a, b);
+        PUSH(X);
     }
     else ERROR("dim?");
 }
@@ -323,7 +327,9 @@ TensorVM::init() {
     ///@}
     ///@defgroup 1-tensor ops in-place (i.e. destructive, as in Forth)
     ///@{
-    CODE("exp",       xop1(O_EXP)),        ///< (A -- A')
+    CODE("pow",       DU n = POP(); xop1(O_POW, n)),    ///< (A n -- A')
+    CODE("exp",       xop1(O_EXP)),                     ///< (A -- A')
+    CODE("log",       xop1(O_LOG)),                     ///< (A -- A')
     ///@}
     ///@defgroup 1-tensor ops that create new tensor
     ///@brief - stick to PyTorch naming when possible
