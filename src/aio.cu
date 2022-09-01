@@ -80,33 +80,39 @@ AIO::_print_obj(DU v) {
     }
 }
 __HOST__ void
-AIO::_print_vec(DU *d, int mi, int ri) {
+AIO::_print_vec(DU *d, int mi, int ri, int ci) {
     cout << "{";
     for (int i=0; i<ri; i++) {
-        cout << " " << d[i];
+        DU *dx = &d[i * ci];
+        for (int c=0; c < ci; c++) {
+            cout << (c>0 ? "_" : " ") << *dx++;
+        }
     }
     int x = mi - ri;
     if (x > ri) cout << " ...";
     for (int i=(x > ri ? x : ri); i<mi; i++) {
-        cout << " " << d[i];
+        DU *dx = &d[i * ci];
+        for (int c=0; c < ci; c++) {
+            cout << (c>0 ? "_" : " ") << *dx++;
+        }
     }
     cout << " }";
 }
 __HOST__ void
-AIO::_print_mat(DU *d, int mi, int mj, int ri, int rj) {
+AIO::_print_mat(DU *d, int mi, int mj, int ri, int rj, int ci) {
     bool full = (mi * mj) <= _thres;
     int  xi   = full ? mi : ri;
     DU   *d0  = d;
-    for (int j=0, j1=1; j<rj; j++, j1++, d0+=mi) {
-        _print_vec(d0, mi, xi);
+    for (int j=0, j1=1; j<rj; j++, j1++, d0+=(mi * ci)) {
+        _print_vec(d0, mi, xi, ci);
         cout << (j1==mj ? "" : "\n\t");
     }
     int y = full ? rj : mj - rj;
     if (y > rj) cout << "...\n\t";
     else y = rj;
-    DU *d1 = d + y * mi;
-    for (int j=y, j1=j+1; j<mj; j++, j1++, d1+=mi) {
-        _print_vec(d1, mi, xi);
+    DU *d1 = (d + y * mi * ci);
+    for (int j=y, j1=j+1; j<mj; j++, j1++, d1+=(mi * ci)) {
+        _print_vec(d1, mi, xi, ci);
         cout << (j1==mj ? "" : "\n\t");
     }
 }
@@ -125,12 +131,12 @@ AIO::_print_tensor(DU v) {
     case 1: {
         cout << "vector[" << t.numel << "] = ";
         int ri = (t.numel < _thres) ? t.numel : range(t.numel);
-        _print_vec(d, t.numel, ri);
+        _print_vec(d, t.numel, ri, 1);
     } break;
     case 2: {
         cout << "matrix[" << t.H() << "," << t.W() << "] = {\n\t";
         int mj = t.H(), mi = t.W(), rj = range(mj),  ri = range(mi);
-        _print_mat(d, mi, mj, ri, rj);
+        _print_mat(d, mi, mj, ri, rj, 1);
         cout << " }";
     } break;
     case 4: {
@@ -138,7 +144,7 @@ AIO::_print_tensor(DU v) {
              << t.N() << "," << t.H() << "," << t.W() << "," << t.C()
              << "] = {\n\t";
         int mj = t.H(), mi = t.W(), rj = range(mj),  ri = range(mi);
-        _print_mat(d, mi, mj, ri, rj);
+        _print_mat(d, mi, mj, ri, rj, t.C());
         cout << " }";
     } break;
     case 5: {

@@ -35,8 +35,8 @@ public:
 private:
 #if T4_ENABLE_OBJ
     __HOST__ void _print_obj(DU v);
-    __HOST__ void _print_vec(DU *d, int mi, int ri);
-    __HOST__ void _print_mat(DU *d, int mi, int mj, int ri, int rj);
+    __HOST__ void _print_vec(DU *d, int mi, int ri, int ci);
+    __HOST__ void _print_mat(DU *d, int mi, int mj, int ri, int rj, int ci);
     __HOST__ void _print_tensor(DU v);
     __HOST__ void _print_model(DU v);
 #endif // T4_ENABLE_OBJ
