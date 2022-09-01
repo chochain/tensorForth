@@ -12,7 +12,7 @@
 __KERN__ void
 k_rand_init(curandState *st, U64 seed=0) {
     ///
-    /// serialize to make sure states are randomized
+    /// serialize to make sure states are randomized properly
     ///
     for (U64 k = 0; k < T4_RAND_SZ; k++) {
         curand_init(seed != 0L ? seed : clock64(), k, k, &st[k]);
@@ -43,7 +43,7 @@ MMU::MMU(int verbose) : _trace(verbose) {
     GPU_CHK();
 
     _ostore.init(_obj, T4_TENSOR_SZ);
-    k_rand_init<<<1, T4_RAND_SZ>>>(_seed);
+    k_rand_init<<<1, 1>>>(_seed);       /// serialized
     GPU_CHK();
     
     TRACE1("\\  MMU dict=%p, mem=%p, vmss=%p, obj=%p\n", _dict, _pmem, _vmss, _obj);
