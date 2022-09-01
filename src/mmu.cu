@@ -9,12 +9,14 @@
 /// random number generator setup
 /// Note: kept here because curandStates stays in CUDA memory
 ///
-#define T4_RAND_SZ  256
-
 __KERN__ void
 k_rand_init(curandState *st, U64 seed=0) {
-    int k = threadIdx.x;
-    curand_init((seed != 0) ? seed : clock64() + k, k, 0, &st[k]);
+    ///
+    /// serialize to make sure states are randomized
+    ///
+    for (U64 k = 0; k < T4_RAND_SZ; k++) {
+        curand_init(seed != 0L ? seed : clock64(), k, k, &st[k]);
+    }
 }
 __KERN__ void
 k_rand(DU *mat, int sz, DU bias, DU scale, curandState *st, t4_rand_opt ntype) {
@@ -43,7 +45,7 @@ MMU::MMU(int verbose) : _trace(verbose) {
     _ostore.init(_obj, T4_TENSOR_SZ);
     k_rand_init<<<1, T4_RAND_SZ>>>(_seed);
     GPU_CHK();
-
+    
     TRACE1("\\  MMU dict=%p, mem=%p, vmss=%p, obj=%p\n", _dict, _pmem, _vmss, _obj);
 }
 __HOST__
@@ -267,15 +269,13 @@ MMU::copy(Tensor &t0) {
     return *t1;
 }
 __GPU__ Tensor&
-MMU::random(Tensor &t, t4_rand_opt ntype, DU bias, DU scale, int seed) {
-    if (seed != 0) {
-        k_rand_init<<<1, T4_RAND_SZ>>>(_seed, seed);
-        cudaDeviceSynchronize();
-    }
+MMU::random(Tensor &t, t4_rand_opt ntype, DU bias, DU scale) {
     TRACE1("mmu#random(T%d) numel=%d bias=%.2f, scale=%.2f\n",
            t.rank, t.numel, bias, scale);
-    dim3 block(T4_RAND_SZ), grid((t.numel + block.x - 1) / block.x);
-    k_rand<<<grid, block>>>(t.data, t.numel, bias, scale, _seed, ntype);
+    dim3 blk(T4_RAND_SZ);
+    dim3 grd((t.numel + blk.x - 1) / blk.x);
+    
+    k_rand<<<grd, blk>>>(t.data, t.numel, bias, scale, _seed, ntype);
     cudaDeviceSynchronize();
 
     return t;
