@@ -395,18 +395,21 @@ __KERN__ void
 k_transpose(float *src, float *dst, int M, int N) { ///< Note: (src, dst), TODO: CDP
     int i = threadIdx.y + blockIdx.y * blockDim.y;
     int j = threadIdx.x + blockIdx.x * blockDim.x;
+    int C = blockDim.z, c = threadIdx.z;
 
-    if (i < M && j < N) {
-        dst[i + j * M] = src[j + i * N];
+    if (i < M && j < N && c < C) {
+        dst[c + (i + j * M) * C] = src[c + (j + i * N) * C];
     }
 }
 __KERN__ void
 k_identity(float *t, int M, int N, int sz) {
-    const float i01[2][4] = {
-        { 0.0f, 0.0f, 0.0f, 0.0f }, { 1.0f, 1.0f, 1.0f, 1.0f }};
+    const float i01[2] = { 0.0f, 1.0f };
+    
     int i = threadIdx.y + blockIdx.y * blockDim.y;
     int j = threadIdx.x + blockIdx.x * blockDim.x;
-    if (i < M && j < N) {
-        memcpy(&t[j + i * N], i01[i==j], sz); /// * assume x==y return 0|1
+    int C = blockDim.z, c = threadIdx.z;
+    
+    if (i < M && j < N && c < C) {
+        t[c + (j + i * N) * C] = i01[i==j];
     }
 }
