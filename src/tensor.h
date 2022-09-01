@@ -78,11 +78,11 @@ struct Tensor : public T4Base {
     ///   1. resultant tensor as last parameter
     ///   2. return the resultant tensor
     ///
-    static __BOTH__ Tensor &mm(Tensor &A, Tensor &B, Tensor &C, t4_mm_opt opt=MM_NONE);
-    static __BOTH__ Tensor &gemm(Tensor &A, Tensor &B, Tensor &C, DU alpha, DU beta);
-    static __BOTH__ Tensor &mat(t4_ten_op op, Tensor &A, Tensor &B, Tensor &C);  ///> matrix-matrix element-wise ops (Hadamard)
-    static __BOTH__ Tensor &mat(t4_ten_op op, Tensor &A, DU v, Tensor &C);       ///> matrix-scalar element-wise ops
-    static __BOTH__ Tensor &copy(Tensor &A, Tensor &C);
+    static __BOTH__ Tensor &mm(Tensor &A, Tensor &B, Tensor &O, t4_mm_opt opt=MM_NONE);
+    static __BOTH__ Tensor &gemm(Tensor &A, Tensor &B, Tensor &O, DU alpha, DU beta);
+    static __BOTH__ Tensor &mat(t4_ten_op op, Tensor &A, Tensor &B, Tensor &O);  ///> matrix-matrix element-wise ops (Hadamard)
+    static __BOTH__ Tensor &mat(t4_ten_op op, Tensor &A, DU v, Tensor &O);       ///> matrix-scalar element-wise ops
+    static __BOTH__ Tensor &copy(Tensor &A, Tensor &O);
     static __BOTH__ Tensor &transpose(Tensor &A, Tensor &T);
     static __BOTH__ Tensor &inverse(Tensor &A, Tensor &I);  /// GaussJordan (with Pivot)
     static __BOTH__ Tensor &lu(Tensor &A);                  /// LU (no Pivot)
