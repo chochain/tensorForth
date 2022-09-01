@@ -177,9 +177,7 @@ NetVM::init() {
     ///@defgroup Debugging ops
     ///@{
     CODE(">n",        if (M1V) { DU t = POP(); MTOS.npush(t); }),
-    CODE("n@",        if (M1V) { I16 i = POPi; PUSH(mmu.view(MTOS[i]));
-        }),
-    CODE("log",       Tensor &t = TTOS; t.map(O_LOG)),
+    CODE("n@",        if (M1V) { I16 i = POPi; PUSH(mmu.view(MTOS[i])); }),
     CODE("network",   if (IS_M(top)) fout << top),
     ///@}
     };
