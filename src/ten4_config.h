@@ -52,16 +52,18 @@
 ///@name Storage sizing
 ///@{
 #define T4_32BIT_ALIGN_REQUIRED   1
-#define T4_PMEM_SZ                (48*1024) /**< parameter memory block size  */
-#define T4_RS_SZ                  64        /**< depth of return stack        */
-#define T4_SS_SZ                  64        /**< depth of data stack          */
-#define T4_NET_SZ                 32        /**< size of network DAG          */
-#define T4_DICT_SZ                1024      /**< number of dictionary entries */
-#define T4_IBUF_SZ                1024      /**< host input buffer size       */
-#define T4_OBUF_SZ                8192      /**< device output buffer size    */
-#define T4_STRBUF_SZ              128       /**< temp string buffer size      */
-#define T4_TENSOR_SZ              (1*1024*1024*1024) /**< tensor storage size */
-#define T4_TFREE_SZ               T4_NET_SZ /**< size of tensor free queue    */
-#define T4_WARP_SZ                16        /**< CUDA GPU warp size           */
+
+#define T4_PMEM_SZ   (48*1024) /**< parameter memory block size  */
+#define T4_RS_SZ     64        /**< depth of return stack        */
+#define T4_SS_SZ     64        /**< depth of data stack          */
+#define T4_NET_SZ    32        /**< size of network DAG          */
+#define T4_DICT_SZ   1024      /**< number of dictionary entries */
+#define T4_IBUF_SZ   1024      /**< host input buffer size       */
+#define T4_OBUF_SZ   8192      /**< device output buffer size    */
+#define T4_STRBUF_SZ 128       /**< temp string buffer size      */
+#define T4_TENSOR_SZ (1*1024*1024*1024) /**< tensor storage size */
+#define T4_TFREE_SZ  T4_NET_SZ /**< size of tensor free queue    */
+#define T4_WARP_SZ   16        /**< CUDA GPU warp size           */
+#define T4_RAND_SZ   256       /**< number of random seeds       */
 ///@}
 #endif // TEN4_SRC_TEN4_CONFIG_H_
