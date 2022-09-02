@@ -8,54 +8,63 @@
 
 #if T4_ENABLE_OBJ
 ///
-/// Row convolution filter
+/// convolution filter derivatives
+/// TODO: stride, dilation
 ///
 template<int TS, int KS>         ///> tile size, kernel size
-__KERN__ void k_dconv2d(
-    DU *I, DU *F, DU *B, DU *O,  ///> input A[HxW], F[KxK] kernel B[C] bias, output C[HxW]
-    int H, int W, int C1         ///< output HW, input channel & offset
+__KERN__ void k_conv2d(
+    DU *I, DU *F, DU *DF, DU *O, ///> input I[HxW], F[KSxKS], output O[HxW]
+    int H, int W, int C          ///< output HWC
     ) {
-    __shared__ DU d[T4_WARP_SZ * T4_WARP_SZ];        ///< shared memory [16x16]
-    
-    const int tx = threadIdx.x, j0 = tx + blockIdx.x * TS;
-    const int ty = threadIdx.y, i0 = ty + blockIdx.y * TS;
-    const int C  = blockDim.z,  c0 = threadIdx.z;    ///< output channels
-    const int z0 = c0 + (j0 + i0 * W) * C;           ///< output array index
+    __shared__ DU it[T4_WARP_SZ * T4_WARP_SZ];       ///< shared memory [16x16]
+    __shared__ DU ot[T4_WARP_SZ * T4_WARP_SZ];       ///< shared memory [16x16]
+    const int tx = threadIdx.x, j1 = tx + blockIdx.x * TS;
+    const int ty = threadIdx.y, i1 = ty + blockIdx.y * TS;
+    const int C1 = blockDim.z,  c1 = threadIdx.z;    ///< input channels
+    const int z1 = c1 + (j1 + i1 * W) * C1;          ///< input array index
+    const int zt = tx + ty * T4_WARP_SZ;             ///< tile index
     ///
-    /// process z0, i.e. [TS, TS, C] cells per kernel call
+    /// process z1, i.e. [TS, TS, C1] cells per kernel call
     ///
-    const int i  = i0 - int(KS / 2);                 ///< input coordinates
-    const int j  = j0 - int(KS / 2);
+    const int i0 = i1 - int(KS / 2);                 ///< dY coordinates
+    const int j0 = j1 - int(KS / 2);
 
-    for (int c1 = 0; c1 < C1; c1++) {                ///< each input channel
-        d[tx + ty * T4_WARP_SZ] =                    /// * cache input data
-            (i >= 0 && i < H && j >= 0 && j < W)     /// * with zero padding
-            ? I[c1 + (j + i * W) * C1] : DU0;        /// * by channel
+    it[zt] = (i1 < H && j1 < W) ? I[z1] : DU0;       ///< cached input tile
+    __syncthreads();
+    
+    for (int c0 = 0; c0 < C; c0++) {                 ///< each dY channel
+        ot[zt] =                                     /// * cache dY tile
+            (i0 >= 0 && i0 < H && j0 >= 0 && j0 < W) /// * with zero padding
+            ? O[c0 + (j0 + i0 * W) * C] : DU0;       /// * by channel
         __syncthreads();                             /// * smem write barrier
         ///
-        /// sum of element-wise multiplication
+        /// dX = sum(F * dY)
+        /// dF = sum(dY * X)
         ///
-        int f1 = c1 * KS * KS * C;                   /// * dense [C1,C] filter
+        const int zf = (c0 + c1 * C) * KS * KS;      ///< filter index
         if (tx < TS && ty < TS) {                    /// * within tile [12x12]
             DU sum = DU0;
+            DU *fx = &F[zf + C * (KS * KS - 1)];     ///< F[KS-1,KS-1] rot180
+            DU *dfx= &DF[zf];                        ///< dF pointer
             for (int y = 0; y < KS; y++) {           /// * process one cell
-                int d0 = tx + (y + ty) * T4_WARP_SZ; ///< offset to smem
-                int b0 = (y * KS) + f1;              ///< offset to filter
                 for (int x = 0; x < KS; x++) {
-                    sum += F[x + b0] * d[x + d0];
+                    int k = zt + (x + y * T4_WARP_SZ);
+                    sum  += (*fx) * ot[k];           /// * dX += F * dY
+                    *dfx += ot[k] * it[k];           /// * dF += dY * X
+                    fx   -= C;                       /// * walk F backward
+                    dfx  += C;                       /// * advance dF ptr
                 }
             }
-            if (i0 < H && j0 < W) {                  /// * update output matrix
-                if (c1==0) O[z0] = sum + B[c0];      /// * O[ijk] with bias
-                else       O[z0] += sum;
+            if (i1 < H && j1 < W) {                  /// * update input matrix
+                if (c0==0) I[z1] = sum;              /// * no bias
+                else       I[z1] += sum;             /// * accumulate all c0
             }
         }
         __syncthreads();                             /// * d read barrier
     }
 }
-
 template<int KS>                           /// kernel size
-__KERN__ void k_dpooling(
+__KERN__ void k_dpool(
     DU *I, DU *O,
     int H, int W, int C,                   /// HWC (C preserved)
     t4_layer op
@@ -63,13 +72,14 @@ __KERN__ void k_dpooling(
     const int j0 = threadIdx.x + blockIdx.x * blockDim.x;
     const int i0 = threadIdx.y + blockIdx.y * blockDim.y;
     const int c0 = threadIdx.z + blockIdx.z * blockDim.z;
-    const int z0 = j0 + i0 * W;            ///< output array index
-    const int z1 = j0 + i0 * W * KS;       ///< input array index 
+    const int z1 = j0 + i0 * W * KS;        ///< input matrix index
+    const int z0 = j0 + i0 * W;             ///< output matrix index
+    const int zc = c0 + z0 * C;             ///< output tensor index
     
     if (i0 < H && j0 < W && c0 < C) {
         DU *d  = &I[c0 + z1 * KS * C], *t = d;
-        DU2 v  = (op != L_AVGPOOL) ? *d : O[c0 + z0 * C] / (KS * KS);
-        for (int y = 0; y < KS; y++) {
+        DU2 v  = (op != L_AVGPOOL) ? *d : O[zc] / (KS * KS);
+        for (int y = 0; y < KS; y++) {      /// * handle one kernel
             for (int x = 0; x < KS; x++) {
                 DU dx = *d;
                 switch (op) {
@@ -85,11 +95,11 @@ __KERN__ void k_dpooling(
             }
             d += (W - 1) * KS * C;
         }
-        if (op != L_AVGPOOL) *t = O[c0 + z0 * C]; /// * update arg cell
+        if (op != L_AVGPOOL) *t = O[zc]; /// * update arg cell
     }
 }
 
-__KERN__ void k_drelu(
+__KERN__ void k_dfilter(
     DU *I, DU *F, DU *O,                   ///< input, filter, output
     int H, int W, int C                    ///< HWC
     ) {
@@ -167,7 +177,7 @@ Model::_bstep(Tensor &in, Tensor &out) {
         Tensor &w  = *in.grad[0];             ///< weight tensor
         Tensor &dw = *in.grad[2];             ///< d_weight tensor
         Tensor &db = *in.grad[3];             ///< d_bias tensor
-        int I = in.H(), M = w.H(), N = w.W();///< fully connected dimensions
+        int I = in.H(), M = w.H(), N = w.W(); ///< fully connected dimensions
         
         db += out;
         // dw += out[10,1] @ in^t[1,49]
@@ -178,23 +188,24 @@ Model::_bstep(Tensor &in, Tensor &out) {
         Tensor::mm(w, out, in, MM_A_TXP);
     } break;
     case L_FLATTEN: Tensor::copy(out, in); break;
-    case L_RELU:    k_drelu<<<grd,blk>>>(d1, d1, d0, H, W, C); break;
+    case L_RELU:    k_dfilter<<<grd,blk>>>(d1, d1, d0, H, W, C); break;
     case L_TANH:    break;
     case L_SIGMOID: break;
-    case L_SOFTMAX: in -= out; break;
+    case L_SOFTMAX: in -= out; /* delta */ break;
     case L_MAXPOOL:
     case L_AVGPOOL: 
     case L_MINPOOL: {
-        U16 ks = in.parm;
-        switch(ks) {           /// pooling kernel size
-        case 0x2: k_dpooling<2><<<grd,blk>>>(d1, d0, H, W, C, fn); break;
-        case 0x3: k_dpooling<3><<<grd,blk>>>(d1, d0, H, W, C, fn); break;
+        U16 ks = in.parm;                      ///< pooling kernel size
+        switch(ks) {                           
+        case 0x2: k_dpool<2><<<grd,blk>>>(d1, d0, H, W, C, fn); break;
+        case 0x3: k_dpool<3><<<grd,blk>>>(d1, d0, H, W, C, fn); break;
         }
         if (H < 10) dump(d1, in.W(), in.H(), in.C());
     } break;
     case L_DROPOUT:
-        Tensor &msk = *in.grad[0];
-        k_drelu<<<grd,blk>>>(d1, msk.data, d0, H, W, C);
+        Tensor &msk = *in.grad[0];             ///< dropout mask
+        k_dfilter<<<grd,blk>>>(d1, msk.data, d0, H, W, C);
+        break;
     }
     cudaDeviceSynchronize();
 }
