@@ -16,12 +16,13 @@ __KERN__ void k_conv2d(
     DU *I, DU *F, DU *B, DU *O,  ///> input I[HxW], F[KxK] kernel B[C] bias, output O[HxW]
     int H, int W, int C1         ///< output HW, input channel & offset
     ) {
-    __shared__ DU d[T4_WARP_SZ * T4_WARP_SZ];        ///< shared memory [16x16]
+    __shared__ DU it[T4_WARP_SZ * T4_WARP_SZ];       ///< shared memory [16x16]
     
     const int tx = threadIdx.x, j0 = tx + blockIdx.x * TS;
     const int ty = threadIdx.y, i0 = ty + blockIdx.y * TS;
     const int C  = blockDim.z,  c0 = threadIdx.z;    ///< output channels
     const int z0 = c0 + (j0 + i0 * W) * C;           ///< output array index
+    const int zt = tx + ty * T4_WARP_SZ;             ///< tile index
     ///
     /// process z0, i.e. [TS, TS, C] cells per kernel call
     ///
@@ -29,23 +30,26 @@ __KERN__ void k_conv2d(
     const int j1 = j0 - int(KS / 2);
 
     for (int c1 = 0; c1 < C1; c1++) {                ///< each input channel
-        d[tx + ty * T4_WARP_SZ] =                    /// * cache input data
+        it[zt] =                                     /// * cache input data
             (i1 >= 0 && i1 < H && j1 >= 0 && j1 < W) /// * with zero padding
             ? I[c1 + (j1 + i1 * W) * C1] : DU0;      /// * by channel
         __syncthreads();                             /// * smem write barrier
         ///
-        /// sum of element-wise multiplication
+        /// Y = sum(W * X)
         ///
-        DU sum = DU0;
-        DU *fx = &F[c0 * KS * KS * C1];              /// * filter[0] ptr
-        if (tx < TS && ty < TS) {                    /// * within tile [12x12]
-            for (int y = 0; y < KS; y++) {           /// * process one cell
-                DU *dx = &d[tx + (y + ty) * T4_WARP_SZ];   ///< smem ptr
+        const int zf = (c0 + c1 * C) * KS * KS;      ///< filter index
+        if (tx < TS && ty < TS) {                    /// * each tile
+            DU sum = DU0;
+            DU *fx = &F[zf];                         /// * filter[0] ptr
+            DU *ix = &it[zt];                        /// * tile[tx,ty]
+            for (int y = 0; y < KS; y++) {           /// * each filter
                 for (int x = 0; x < KS; x++) {
-                    sum += (*fx++) * (*dx++);
+                    sum += (*fx) * ix[x];            /// Y += W * X
+                    fx += C;                         /// * next filter cell
                 }
+                ix += T4_WARP_SZ;                    /// next row of tile
             }
-            if (i0 < H && j0 < W) {                  /// * update output matrix
+            if (i0 < W && j0 < H) {
                 if (c1==0) O[z0] = sum + B[c0];      /// * O[ijc] with bias
                 else       O[z0] += sum;
             }
