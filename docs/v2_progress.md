@@ -2,7 +2,7 @@
 ## Features
 * vector, matrix, tensor objects (modeled to PyTorch)
 * TLSF tensor storage manager
-* matrix arithmetics (i.e. +, -, @, *, sum, min, max, avg, abs, negate, exp)
+* matrix arithmetics (i.e. +, -, @, *, sum, min, max, avg, abs, negate, exp, log, pow)
 * linear algebra (i.e. copy, matmul, inverse, transpose, det, lu, luinv, upper, lower, solve)
 * matrix fill (i.e. zeros, ones, full, eye, random)
 * matrix console input (i.e. matrix{..., vector{..., and T!{)
@@ -200,6 +200,8 @@ tensorForth 2.0 done.
 |abs|(Ta -- Ta')|tensor element-wise absolute Ta' = abs(Ta)|
 |negate|(Ta -- Ta')|tensor element-wise negate Ta' = -(Ta)|
 |exp|(Ta -- Ta')|tensor element-wise exponential Ta' = exp(Ta)|
+|log|(Ta -- Ta')|tensor element-wise natural logarithm Ta' = ln(Ta)|
+|pow|(Ta n -- Ta')|tensor element-wise power Ta' = e^n(Ta)|
 |+=|(Ta Tb -- Tc)|tensor element-wise addition Tc = Ta + Tb|
 ||> `2 2 matrix rand`<br/>> `dup .`<br/>> `2 2 matrix ones`<br/>> **`+=`**<br/>> `.`|`T2[2,2]`<br/>`matrix[2,2] = { { -0.5000 +0.1953 } { +0.1094 +0.4141 } }`<br/>`T2[2,2] T2[2,2]`<br/>`T2[2,2]`<br/>`matrix[2,2] = { { +0.5000 +1.1953 } { +1.1094 +1.4141 } }`|
 |+=|(Ta n  -- Ta')|tensor-scalar addition (broadcast) Ta' = Ta + n|
