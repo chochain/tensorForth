@@ -9,7 +9,7 @@
 #if T4_ENABLE_OBJ
 ///
 /// convolution filter
-/// TODO: stride, dilation
+/// TODO: stride, dilation, [C1]NCHW filter
 ///
 template<int TS, int KS>         ///> tile size, kernel size
 __KERN__ void k_conv2d(
@@ -61,12 +61,12 @@ __KERN__ void k_conv2d(
 template<int KS>                           /// kernel size
 __KERN__ void k_pool(
     DU *I, DU *O,
-    int H, int W, int C,                   /// HWC (C preserved)
+    int H, int W,                          /// HWC (C preserved)
     t4_layer op
     ) {
     const int j0 = threadIdx.x + blockIdx.x * blockDim.x;
     const int i0 = threadIdx.y + blockIdx.y * blockDim.y;
-    const int c0 = threadIdx.z + blockIdx.z * blockDim.z;
+    const int c0 = threadIdx.z, C = blockDim.z;
     const int z0 = j0 + i0 * W;            ///< output array index
     const int z1 = j0 + i0 * W * KS;       ///< input array index 
     
@@ -91,11 +91,11 @@ __KERN__ void k_pool(
 
 __KERN__ void k_filter(
     DU *I, DU *F, DU *O,                   ///< input, filter, output tensors
-    int H, int W, int C                    ///< HWC
+    int H, int W                           ///< HWC
     ) {
     const int j0 = threadIdx.x + blockIdx.x * blockDim.x;
     const int i0 = threadIdx.y + blockIdx.y * blockDim.y;
-    const int c0 = threadIdx.z + blockIdx.z * blockDim.z;
+    const int c0 = threadIdx.z, C = blockDim.z;
     const int z0 = c0 + (i0 + j0 * W) * C;
     
     if (i0 < H && j0 < W && c0 < C) {
@@ -134,13 +134,12 @@ __GPU__ void
 Model::_fstep(Tensor &in, Tensor &out) {
     DU   *d1 = in.data, *d0 = out.data;              ///< input, output data
     int  H = out.H(), W = out.W(), C = out.C();      ///< HWC
-    dim3 blk(T4_WARP_SZ, T4_WARP_SZ, C), grd(        ///< GPU warp size setup
-        (W + blk.x - 1) / blk.x,
-        (H + blk.y - 1) / blk.y
-    );
-    auto conv = [d1, d0, H, W, C, blk](U16 C1, U16 ks, DU *f, DU *b) {
-        dim3 g3((W+TILE3-1)/TILE3, (H+TILE3-1)/TILE3);
-        dim3 g5((W+TILE5-1)/TILE5, (H+TILE5-1)/TILE5);
+    dim3 blk(T4_WARP_SZ, T4_WARP_SZ, C);
+    dim3 grd((W + blk.x - 1) / blk.x, (H + blk.y - 1) / blk.y, 1);
+    
+    auto conv = [d1, d0, H, W, blk](U16 C1, U16 ks, DU *f, DU *b) {
+        dim3 g3((W + TILE3 - 1) / TILE3, (H + TILE3 - 1) / TILE3, 1);
+        dim3 g5((W + TILE5 - 1) / TILE5, (H + TILE5 - 1) / TILE5, 1);
         switch(ks) {            /// * TODO: handles rectangular filters
         case 3: k_conv2d<TILE3,3><<<g3,blk>>>(d1, f, b, d0, H, W, C1); break;
         case 5: k_conv2d<TILE5,5><<<g5,blk>>>(d1, f, b, d0, H, W, C1); break;
@@ -157,10 +156,10 @@ Model::_fstep(Tensor &in, Tensor &out) {
             }
         }
     };
-    auto pool = [d1, d0, H, W, C, blk, grd](int ks, t4_layer fn) {
+    auto pool = [d1, d0, H, W, blk, grd](int ks, t4_layer fn) {
         switch(ks) {           /// pooling kernel size
-        case 0x2: k_pool<2><<<grd,blk>>>(d1, d0, H, W, C, fn); break;
-        case 0x3: k_pool<3><<<grd,blk>>>(d1, d0, H, W, C, fn); break;
+        case 0x2: k_pool<2><<<grd,blk>>>(d1, d0, H, W, fn); break;
+        case 0x3: k_pool<3><<<grd,blk>>>(d1, d0, H, W, fn); break;
         default: return -1;
         }
         return 0;
@@ -209,7 +208,7 @@ Model::_fstep(Tensor &in, Tensor &out) {
         */
     } break;
     case L_FLATTEN: Tensor::copy(in, out); break;
-    case L_RELU:    k_filter<<<grd, blk>>>(d1, d1, d0, H, W, C); break;
+    case L_RELU:    k_filter<<<grd, blk>>>(d1, d1, d0, H, W); break;
     case L_TANH:    break;
     case L_SIGMOID: break;
     case L_SOFTMAX: {
@@ -229,7 +228,7 @@ Model::_fstep(Tensor &in, Tensor &out) {
     } break;
     case L_DROPOUT:
         Tensor &msk = *in.grad[0];
-        k_filter<<<grd, blk>>>(d1, msk.data, d0, H, W, C);
+        k_filter<<<grd, blk>>>(d1, msk.data, d0, H, W);
         break;
     }
     cudaDeviceSynchronize();
