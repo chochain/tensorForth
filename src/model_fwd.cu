@@ -13,15 +13,15 @@
 ///
 template<int TS, int KS>         ///> tile size, kernel size
 __KERN__ void k_conv2d(
-    DU *I, DU *F, DU *B, DU *O,  ///> input I[HxW], F[KxK] kernel B[C] bias, output O[HxW]
-    int H, int W, int C1         ///< output HW, input channel & offset
+    DU *I, DU *F, DU *B, DU *O,  ///> input I[HxW], F[KxK] kernel, B[C] bias, output O[HxW]
+    int H, int W, int C1         ///< (H0==H1, W0==W1), input channels
     ) {
     __shared__ DU it[T4_WARP_SZ * T4_WARP_SZ];       ///< shared memory [16x16]
     
     const int tx = threadIdx.x, j0 = tx + blockIdx.x * TS;
     const int ty = threadIdx.y, i0 = ty + blockIdx.y * TS;
-    const int C  = blockDim.z,  c0 = threadIdx.z;    ///< output channels
-    const int z0 = c0 + (j0 + i0 * W) * C;           ///< output array index
+    const int C0 = blockDim.z,  c0 = threadIdx.z;    ///< output channels
+    const int z0 = c0 + (j0 + i0 * W) * C0;          ///< output array index
     const int zt = tx + ty * T4_WARP_SZ;             ///< tile index
     ///
     /// process z0, i.e. [TS, TS, C] cells per kernel call
@@ -36,8 +36,9 @@ __KERN__ void k_conv2d(
         __syncthreads();                             /// * smem write barrier
         ///
         /// Y = sum(W * X)
+        /// TODO: cache F
         ///
-        const int zf = (c0 + c1 * C) * KS * KS;      ///< filter index
+        const int zf = (c1 + c0 * C1) * KS * KS;     ///< filter index
         if (tx < TS && ty < TS) {                    /// * each tile
             DU sum = DU0;
             DU *fx = &F[zf];                         /// * filter[0] ptr
@@ -45,7 +46,7 @@ __KERN__ void k_conv2d(
             for (int y = 0; y < KS; y++) {           /// * each filter
                 for (int x = 0; x < KS; x++) {
                     sum += (*fx) * ix[x];            /// Y += W * X
-                    fx += C;                         /// * next filter cell
+                    fx += C1;                        /// * next filter cell
                 }
                 ix += T4_WARP_SZ;                    /// next row of tile
             }
@@ -60,45 +61,45 @@ __KERN__ void k_conv2d(
 
 template<int KS>                           /// kernel size
 __KERN__ void k_pool(
-    DU *I, DU *O,
-    int H, int W,                          /// HWC (C preserved)
-    t4_layer op
+    DU *I, DU *O,                          ///< input, output buffers
+    int H0, int W0,                        ///< output HW (C0==C1)
+    t4_layer op                            ///< pooling ops
     ) {
     const int j0 = threadIdx.x + blockIdx.x * blockDim.x;
     const int i0 = threadIdx.y + blockIdx.y * blockDim.y;
-    const int c0 = threadIdx.z, C = blockDim.z;
-    const int z0 = j0 + i0 * W;            ///< output array index
-    const int z1 = j0 + i0 * W * KS;       ///< input array index 
+    const int c  = threadIdx.z, C = blockDim.z;
+    const int z0 = j0 + i0 * W0;            ///< output array index
+    const int z1 = (j0 + i0 * W0 * KS) * KS;///< input array index 
     
-    if (i0 < H && j0 < W && c0 < C) {
-        DU *d  = &I[c0 + z1 * KS * C];
-        DU2 v  = op==L_AVGPOOL ? DU0 : *d;
+    if (i0 < H0 && j0 < W0 && c < C) {
+        DU *ix = &I[c + z1 * C];
+        DU2 v  = op==L_AVGPOOL ? DU0 : *ix;
         for (int y = 0; y < KS; y++) {
             for (int x = 0; x < KS; x++) {
-                DU dx = *d;
+                DU dx = *ix;
                 switch (op) {
                 case L_MAXPOOL: v = MAX(dx, v); break;
                 case L_AVGPOOL: v += dx;        break;
                 case L_MINPOOL: v = MIN(dx, v); break;
                 }
-                d += C;                   
+                ix += C;
             }
-            d += (W - 1) * KS * C;
+            ix += (W0 - 1) * KS * C;
         }
-        O[c0 + z0 * C] = op==L_AVGPOOL ? v / (KS * KS) : v;
+        O[c + z0 * C] = op==L_AVGPOOL ? v / (KS * KS) : v;
     }
 }
 
 __KERN__ void k_filter(
     DU *I, DU *F, DU *O,                   ///< input, filter, output tensors
-    int H, int W                           ///< HWC
+    int H, int W                           ///< H0=H1, W0==W1 (C0==C1)
     ) {
     const int j0 = threadIdx.x + blockIdx.x * blockDim.x;
     const int i0 = threadIdx.y + blockIdx.y * blockDim.y;
-    const int c0 = threadIdx.z, C = blockDim.z;
-    const int z0 = c0 + (i0 + j0 * W) * C;
+    const int c  = threadIdx.z, C = blockDim.z;
+    const int z0 = c + (i0 + j0 * W) * C;
     
-    if (i0 < H && j0 < W && c0 < C) {
+    if (i0 < H && j0 < W && c < C) {
         O[z0] = (F[z0] > DU0) ? I[z0] : DU0;
     }
 }
@@ -149,15 +150,15 @@ Model::_fstep(Tensor &in, Tensor &out) {
     };
     auto linear = [d1, d0](int M, int N, DU *w, DU *b) {
         for (int y = 0; y < M; y++) {        /// TODO: kernel version
-            int yn = y * N;
             d0[y] = b[y];                    /// init with bias
             for (int x = 0; x < N; x++) {    /// dot product
-                d0[y] += w[x + yn] * d1[x];
+                d0[y] += w[x + y * N] * d1[x];
             }
         }
     };
     auto pool = [d1, d0, H, W, blk, grd](int ks, t4_layer fn) {
-        switch(ks) {           /// pooling kernel size
+        /// Note: H, W are output dimensions
+        switch(ks) {                         /// pooling kernel size
         case 0x2: k_pool<2><<<grd,blk>>>(d1, d0, H, W, fn); break;
         case 0x3: k_pool<3><<<grd,blk>>>(d1, d0, H, W, fn); break;
         default: return -1;
@@ -189,7 +190,7 @@ Model::_fstep(Tensor &in, Tensor &out) {
         printf(" f[%d][%d,%d,%d,%d], b[%d]",
                f.parm, f.N(), f.H(), f.W(), f.C(), b.numel);
         if (conv(in.C(), f.H(), f.data, b.data)) {
-            ERROR("model#conv kernel_size=%d not supported\n", f.H());
+            ERROR("model_fwd#conv kernel_size=%d not supported\n", f.H());
         }
     } break;
     case L_LINEAR: {                          ///< out = w @ in + b
