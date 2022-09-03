@@ -96,18 +96,17 @@ Model::_iconv(Tensor &in, U16 C, DU bias, U16 *opt) {
     Tensor *df = in.grad[2] = &tensor(C1, 1, M, N, C).map(O_FILL, DU0); ///> df
     Tensor *b  = in.grad[1] = &vector(C).map(O_FILL, bias);             ///> b
     Tensor *db = in.grad[3] = &vector(C).map(O_FILL, DU0);              ///> db
+
     DU k = DU1 / SQRT(M * N * C1);               /// * filter default range
     _mmu->random(*f, UNIFORM, -0.5, 2.0 * k);    /// * randomize f [-k ~ k)
+    /*
     printf("bias=%.2f,  k=%.4f, f.std=%.4f\n", bias, k, f->std());
-    for (int i=0; i<M; i++) {
-        DU *p = &f->data[i * N];
-        for (int j=0; j<N; j++, p++) {
-            if (*p < DU0) printf(" -%.3f", -*p);
-            else          printf("  %.3f", *p); 
-        }
-        printf("\n");
+    for (int i=0; i<f->numel; i++) {
+        DU dx = f->data[i];
+        if (dx < DU0) printf(" -%.3f", -dx);
+        else          printf("  %.3f", dx); 
     }
-    
+    */
     Tensor &out= tensor(1, h, w, C);             ///> output tensor
     npush(out);                                  /// * stage for next stage
 }
