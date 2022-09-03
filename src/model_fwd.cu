@@ -134,16 +134,16 @@ Model::forward(Tensor &input) {
 __GPU__ void
 Model::_fstep(Tensor &in, Tensor &out) {
     DU   *d1 = in.data, *d0 = out.data;              ///< input, output data
-    int  H = out.H(), W = out.W(), C = out.C();      ///< HWC
-    dim3 blk(T4_WARP_SZ, T4_WARP_SZ, C);
-    dim3 grd((W + blk.x - 1) / blk.x, (H + blk.y - 1) / blk.y, 1);
+    int  H0 = out.H(), W0 = out.W(), C0 = out.C();   ///< output HWC
+    dim3 blk(T4_WARP_SZ, T4_WARP_SZ, C0);
+    dim3 grd((W0 + blk.x - 1) / blk.x, (H0 + blk.y - 1) / blk.y, 1);
     
-    auto conv = [d1, d0, H, W, blk](U16 C1, U16 ks, DU *f, DU *b) {
-        dim3 g3((W + TILE3 - 1) / TILE3, (H + TILE3 - 1) / TILE3, 1);
-        dim3 g5((W + TILE5 - 1) / TILE5, (H + TILE5 - 1) / TILE5, 1);
+    auto conv = [d1, d0, H0, W0, blk](U16 C1, U16 ks, DU *f, DU *b) {
+        dim3 g3((W0 + TILE3 - 1) / TILE3, (H0 + TILE3 - 1) / TILE3, 1);
+        dim3 g5((W0 + TILE5 - 1) / TILE5, (H0 + TILE5 - 1) / TILE5, 1);
         switch(ks) {            /// * TODO: handles rectangular filters
-        case 3: k_conv2d<TILE3,3><<<g3,blk>>>(d1, f, b, d0, H, W, C1); break;
-        case 5: k_conv2d<TILE5,5><<<g5,blk>>>(d1, f, b, d0, H, W, C1); break;
+        case 3: k_conv2d<TILE3,3><<<g3,blk>>>(d1, f, b, d0, H0, W0, C1); break;
+        case 5: k_conv2d<TILE5,5><<<g5,blk>>>(d1, f, b, d0, H0, W0, C1); break;
         default: return -1;
         }
         return 0;
@@ -156,11 +156,11 @@ Model::_fstep(Tensor &in, Tensor &out) {
             }
         }
     };
-    auto pool = [d1, d0, H, W, blk, grd](int ks, t4_layer fn) {
+    auto pool = [d1, d0, H0, W0, blk, grd](int ks, t4_layer fn) {
         /// Note: H, W are output dimensions
         switch(ks) {                         /// pooling kernel size
-        case 0x2: k_pool<2><<<grd,blk>>>(d1, d0, H, W, fn); break;
-        case 0x3: k_pool<3><<<grd,blk>>>(d1, d0, H, W, fn); break;
+        case 0x2: k_pool<2><<<grd,blk>>>(d1, d0, H0, W0, fn); break;
+        case 0x3: k_pool<3><<<grd,blk>>>(d1, d0, H0, W0, fn); break;
         default: return -1;
         }
         return 0;
@@ -181,7 +181,7 @@ Model::_fstep(Tensor &in, Tensor &out) {
     ///
     /// layer function dispatcher
     ///
-    printf(" out[%d,%d,%d]", H, W, C);
+    printf(" out[%d,%d,%d]", H0, W0, C0);
     t4_layer fn = in.grad_fn;                 ///< layer function
     switch(fn) {
     case L_CONV:   {
@@ -209,7 +209,7 @@ Model::_fstep(Tensor &in, Tensor &out) {
         */
     } break;
     case L_FLATTEN: Tensor::copy(in, out); break;
-    case L_RELU:    k_filter<<<grd, blk>>>(d1, d1, d0, H, W); break;
+    case L_RELU:    k_filter<<<grd, blk>>>(d1, d1, d0, H0, W0); break;
     case L_TANH:    break;
     case L_SIGMOID: break;
     case L_SOFTMAX: {
@@ -229,7 +229,7 @@ Model::_fstep(Tensor &in, Tensor &out) {
     } break;
     case L_DROPOUT:
         Tensor &msk = *in.grad[0];
-        k_filter<<<grd, blk>>>(d1, msk.data, d0, H, W);
+        k_filter<<<grd, blk>>>(d1, msk.data, d0, H0, W0);
         break;
     }
     cudaDeviceSynchronize();
