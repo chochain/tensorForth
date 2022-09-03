@@ -144,9 +144,9 @@ Model::backprop(Tensor &tgt) {
 __GPU__ void
 Model::_bstep(Tensor &in, Tensor &out) {
     DU   *d1 = in.data, *d0 = out.data;              ///< input, output data
-    int  H = in.H(), W = in.W(), C = in.C();         ///< input HWC
-    dim3 blk(T4_WARP_SZ, T4_WARP_SZ, C);
-    dim3 grd((W + blk.x - 1) / blk.x, (H + blk.y - 1) / blk.y, 1);
+    int  H1 = in.H(), W1 = in.W(), C1 = in.C();      ///< input HWC
+    dim3 blk(T4_WARP_SZ, T4_WARP_SZ, C1);
+    dim3 grd((W1 + blk.x - 1) / blk.x, (H1 + blk.y - 1) / blk.y, 1);
 
     auto dump = [](DU *v, int H, int W, int C) {
         for (int k = 0; k < C; k++) {
@@ -161,13 +161,19 @@ Model::_bstep(Tensor &in, Tensor &out) {
         }
         printf("\n");
     };
-    auto conv = [d1, d0, H, W, blk](int C0, int ks, DU *f, DU *df) {
-        dim3 g3((W + TILE3 - 1) / TILE3, (H + TILE3 - 1) / TILE3, 1);
-        dim3 g5((W + TILE5 - 1) / TILE5, (H + TILE5 - 1) / TILE5, 1);
+    auto conv = [d1, d0, H1, W1, blk](int C0, int ks, DU *f, DU *df, DU *db) {
+        dim3 g3((W1 + TILE3 - 1) / TILE3, (H1 + TILE3 - 1) / TILE3, 1);
+        dim3 g5((W1 + TILE5 - 1) / TILE5, (H1 + TILE5 - 1) / TILE5, 1);
         switch (ks) {
-        case 3: k_dconv2d<TILE3,3><<<g3,blk>>>(d1, f, df, d0, H, W, C0); break;
-        case 5: k_dconv2d<TILE5,5><<<g5,blk>>>(d1, f, df, d0, H, W, C0); break;
+        case 3: k_dconv2d<TILE3,3><<<g3,blk>>>(d1, f, df, d0, H1, W1, C0); break;
+        case 5: k_dconv2d<TILE5,5><<<g5,blk>>>(d1, f, df, d0, H1, W1, C0); break;
         default: return -1;
+        }
+        /// accumulate dB = sum(dY), TODO: CDP
+        DU *ox = d0;
+        for (int c0 = 0; c0 < C0; c0++, db++) {
+            *db = DU0;
+            for (int k = 0; k < H1 * W1; k++, ox+=C0) *db += *ox;
         }
         return 0;
     };
@@ -179,36 +185,37 @@ Model::_bstep(Tensor &in, Tensor &out) {
     switch(fn) {
     case L_CONV:   {
         Tensor &f = *in.grad[0], &df = *in.grad[2]; ///< filter tensor
-        Tensor &b = *in.grad[1], &db = *in.grad[3]; ///< bias tensor
+        Tensor &b = *in.grad[1], &db= *in.grad[3];  ///< bias tensor
         int C1 = f.parm, Nf = f.N(), Hf = f.H(), Wf = f.W(), Cf = f.C();
+        int C0 = out.C();
         printf(" f[%d][%d,%d,%d,%d], b[%d]", C1, Nf, Hf, Wf, Cf, b.numel);
-        if (conv(out.C(), Hf, f.data, df.data)) {
+        if (conv(out.C(), Hf, f.data, df.data, db.data)) {
             ERROR("model_back#conv kernel_size %d not supported\n", Hf);
         }
-        printf("\n");
-        for (int i=0; i<f.numel; i++) {
-            DU dx = df.data[i];
-            if (dx < DU0) printf(" -%.3f", -dx);
-            else          printf("  %.3f", dx); 
+        int pg = Nf * Hf * Wf * Cf;
+        for (int c0 = 0; c0 < C0; c0++) {
+            printf("\ndb= %.3f df%d=", db.data[c0], c0);
+            DU *dx = &df.data[c0 * pg];
+            for (int i=0; i<pg; i++, dx++) printf(*dx < DU0 ? " -%.3f" : "  %.3f", ABS(*dx));
         }
-        dump(d1, H, W, C);
+        printf("\nin=");   dump(d1, H1, W1, C1);
     } break;
     case L_LINEAR: {                          ///< out = w @ in + b
         Tensor &w  = *in.grad[0];             ///< weight tensor
         Tensor &dw = *in.grad[2];             ///< d_weight tensor
         Tensor &db = *in.grad[3];             ///< d_bias tensor
-        int O = out.H(), M = w.H(), N = w.W();///< fully connected dimensions
+        int H0 = out.H(), M = w.H(), N = w.W();///< fully connected dimensions
         
         db += out;
         // dw += out[10,1] @ in^t[1,49]
-        printf("\n\tdw[%d,%d] += out'[%d,1] @ in^t[1,%d]", M, N, O, H);
+        printf("\n\tdw[%d,%d] += out'[%d,1] @ in^t[1,%d]", M, N, H0, H1);
         Tensor::mm(out, in, dw, (t4_mm_opt)(MM_INC | MM_B_TXP));
         // in = w^t[49,10] @ out[10,1]
-        printf("\n\tin[%d, 1]  = w^t[%d,%d] @ out'[%d,1]", H, N, M, O);
+        printf("\n\tin[%d, 1]  = w^t[%d,%d] @ out'[%d,1]", H1, N, M, H0);
         Tensor::mm(w, out, in, MM_A_TXP);
     } break;
     case L_FLATTEN: Tensor::copy(out, in); break;  /// * pass dY to X
-    case L_RELU:    k_dfilter<<<grd,blk>>>(d1, d1, d0, H, W); break;
+    case L_RELU:    k_dfilter<<<grd,blk>>>(d1, d1, d0, H1, W1); break;
     case L_TANH:    break;
     case L_SIGMOID: break;
     case L_SOFTMAX: in -= out; /* delta */ break;
@@ -222,11 +229,11 @@ Model::_bstep(Tensor &in, Tensor &out) {
         case 0x2: k_dpool<2><<<g,blk>>>(d1, d0, H0, W0, fn); break;
         case 0x3: k_dpool<3><<<g,blk>>>(d1, d0, H0, W0, fn); break;
         }
-        if (H < 10) dump(d1, W, H, C);
+        if (H1 < 10) dump(d1, W1, H1, C1);
     } break;
     case L_DROPOUT:
         Tensor &msk = *in.grad[0];             ///< dropout mask
-        k_dfilter<<<grd,blk>>>(d1, msk.data, d0, H, W);
+        k_dfilter<<<grd,blk>>>(d1, msk.data, d0, H1, W1);
         break;
     }
     cudaDeviceSynchronize();
