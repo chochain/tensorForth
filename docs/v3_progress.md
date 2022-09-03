@@ -2,7 +2,9 @@
 A Forth word can be seen as a nested function that process data flow, i.e. y = fn(fn-1(...(f2(f1(x))...))). We can use chain rule to collection derivations for forward and backward diff.
   
 ## Features
-  * KV   new data structure to keep kv pair (i.e. associative array)
+  * Tensor Format
+    + NHWC (as in TensorFlow) supported
+    + NCHW (as in PyTorch), future release
   * CNN
     + define word as the functional (implicit sequential)
     + words are destructive by default (i.e. input tensor updated)
@@ -40,7 +42,8 @@ nn.load net_1 ds2 test                 \ load trained network and test
 |lin1|flatten |(PX -- FC)         |PX [sz]           |dflatten|(PX [sz] dFC -- dPX)              |
 |    |linear  |(FC b3 n3 -- Z)    |FC [w3 b3 dw3 db3]|dlinear |(FC [w3 b3] dZ -- dFC [dw3 db3])  |
 |lin2|relu    |(Z  -- R3)         |Z                 |drelu   |(Z dR3 -- dZ)                     |
-|    |linear  |(R3 b4 n4 -- OUT)  |R3 [w4 b4 dw4 db4]|dlinear |(R3 [w4 b4] dOUT -- dR3 [dw4 db4])|
+|    |linear  |(R3 b4 n4 -- R4)   |R3 [w4 b4 dw4 db4]|dlinear |(R3 [w4 b4] dR4 -- dR3 [dw4 db4]) |
+|    |dropout |(R4 p -- OUT)      |R4 [p msk]        |ddropout|(R4 dOUT [p msk] -- dR4)          |
 ||||||
 |fwd |softmax |(OUT -- PB)        |PB labels         |-       |(OUT labels -- dOUT)              |
 |    |loss.ce |(PB labels -- loss)|                  |        |                                  |
@@ -58,6 +61,7 @@ nn.load net_1 ds2 test                 \ load trained network and test
 * for 1D nn   https://machinelearningmastery.com/implement-backpropagation-algorithm-scratch-python/
 * for 2D conv https://datascience-enthusiast.com/DL/Convolution_model_Step_by_Stepv2.html
 * backprop    https://www.google.com/search?channel=fs&client=ubuntu&q=forward+backward+propagation
+* code ref    https://github.com/rasmusbergpalm/DeepLearnToolbox
 
 ### CNN volcabularies
 #### Tensor ops
