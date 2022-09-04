@@ -20,7 +20,7 @@ __KERN__ void k_conv2d(
     
     const int tx = threadIdx.x, j0 = tx + blockIdx.x * TS;
     const int ty = threadIdx.y, i0 = ty + blockIdx.y * TS;
-    const int C0 = blockDim.z,  c0 = threadIdx.z;    ///< output channels
+    const int C0 = gridDim.z,   c0 = blockIdx.z;     ///< output channels
     const int z0 = c0 + (j0 + i0 * W) * C0;          ///< output array index
     const int zt = tx + ty * T4_WARP_SZ;             ///< tile index
     ///
@@ -67,7 +67,7 @@ __KERN__ void k_pool(
     ) {
     const int j0 = threadIdx.x + blockIdx.x * blockDim.x;
     const int i0 = threadIdx.y + blockIdx.y * blockDim.y;
-    const int c  = threadIdx.z, C = blockDim.z;
+    const int c  = blockIdx.z, C = gridDim.z;
     const int z0 = j0 + i0 * W0;            ///< output array index
     const int z1 = (j0 + i0 * W0 * KS) * KS;///< input array index 
     
@@ -96,7 +96,7 @@ __KERN__ void k_filter(
     ) {
     const int j0 = threadIdx.x + blockIdx.x * blockDim.x;
     const int i0 = threadIdx.y + blockIdx.y * blockDim.y;
-    const int c  = threadIdx.z, C = blockDim.z;
+    const int c  = blockIdx.z, C = gridDim.z;
     const int z0 = c + (i0 + j0 * W) * C;
     
     if (i0 < H && j0 < W && c < C) {
@@ -135,12 +135,12 @@ __GPU__ void
 Model::_fstep(Tensor &in, Tensor &out) {
     DU   *d1 = in.data, *d0 = out.data;              ///< input, output data
     int  H0 = out.H(), W0 = out.W(), C0 = out.C();   ///< output HWC
-    dim3 blk(T4_WARP_SZ, T4_WARP_SZ, C0);
-    dim3 grd((W0 + blk.x - 1) / blk.x, (H0 + blk.y - 1) / blk.y, 1);
+    dim3 blk(T4_WARP_SZ, T4_WARP_SZ, 1);
+    dim3 grd(TGRID(W0, H0, C0, blk));
     
-    auto conv = [d1, d0, H0, W0, blk](U16 C1, U16 ks, DU *f, DU *b) {
-        dim3 g3((W0 + TILE3 - 1) / TILE3, (H0 + TILE3 - 1) / TILE3, 1);
-        dim3 g5((W0 + TILE5 - 1) / TILE5, (H0 + TILE5 - 1) / TILE5, 1);
+    auto conv = [d1, d0, H0, W0, C0, blk](U16 C1, U16 ks, DU *f, DU *b) {
+        dim3 g3((W0 + TILE3 - 1) / TILE3, (H0 + TILE3 - 1) / TILE3, C0);
+        dim3 g5((W0 + TILE5 - 1) / TILE5, (H0 + TILE5 - 1) / TILE5, C0);
         switch(ks) {            /// * TODO: handles rectangular filters
         case 3: k_conv2d<TILE3,3><<<g3,blk>>>(d1, f, b, d0, H0, W0, C1); break;
         case 5: k_conv2d<TILE5,5><<<g5,blk>>>(d1, f, b, d0, H0, W0, C1); break;
@@ -172,7 +172,7 @@ Model::_fstep(Tensor &in, Tensor &out) {
                 printf("\n");
                 for (int j = 0; j < W; j++) {
                     DU x = v[k + (j + i * W) * C];
-                    printf(x < DU0 ? "%.2f" : " %.2f", x);
+                    printf("%4.2f", x);
                 }
             }
         }
@@ -217,7 +217,7 @@ Model::_fstep(Tensor &in, Tensor &out) {
         Tensor::copy(in, t);                 /// * copy content for exp calc
         DU sum = t.map(O_EXP).sum() + DU_EPS;/// * sum all probabilities
         Tensor::mat(O_MUL, t, DU1/sum, out); /// * p / sum(p)
-        printf(" sum=%.3f", out.sum());      /// * verify sum
+        printf(" sum=%5.3f", out.sum());     /// * verify sum
     } break;
     case L_MAXPOOL:
     case L_AVGPOOL: 
