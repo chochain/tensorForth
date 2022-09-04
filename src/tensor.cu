@@ -35,33 +35,30 @@ k_matmul(
     int M, int N, int K,
     t4_mm_opt opt)
 {
-    const int i = threadIdx.y + blockIdx.y * blockDim.y;   
-    const int j = threadIdx.x + blockIdx.x * blockDim.x;
-    const int C = blockDim.z, c = threadIdx.z;             ///> channels
-    const int z = c + (j + i * N) * C;
+    const int tx = threadIdx.x, i = tx + blockIdx.y * blockDim.y;
+    const int ty = threadIdx.y, j = ty + blockIdx.x * blockDim.x;
+    const int c  = blockIdx.z, C = gridDim.z;               ///> channels
+    const int z  = c + (j + i * N) * C;
 
     if (i < M && j < N && c < C) {                         /// * TODO: tiled
-        DU2 acc = DU0;
+        DU  *ax, *bx;
+        int ai, bi;
         if (opt & MM_A_TXP) {                              /// * no divergence
-            DU *ax = &A[c + i * C];
-            DU *bx = &B[c + j * C];
-            for (int k = 0; k < K; ++k) {
-                acc += ax[k * M *C] * bx[k * N * C];       /// * transpose A
-            }
+            ax = &A[c + i * C];     ai = M * C;
+            bx = &B[c + j * C];     bi = N * C;
         }
         else if (opt & MM_B_TXP) {                         /// * transpose B
-            DU *ax = &A[c + i * K * C];
-            DU *bx = &B[c + j * K * C];
-            for (int k = 0; k < K; ++k) {
-                acc += ax[k * C] * bx[k * C];
-            }
+            ax = &A[c + i * K * C]; ai = C;
+            bx = &B[c + j * K * C]; bi = C;
         }
         else {
-            DU *ax = &A[c + i * K * C];
-            DU *bx = &B[c + j * C];
-            for (int k = 0; k < K; ++k) {
-                acc += ax[k * C] * bx[k * N * C];
-            }
+            ax = &A[c + i * K * C]; ai = C;
+            bx = &B[c + j * C];     bi = N * C;
+        }
+        DU2 acc = DU0;
+//      acc += ax[k * C] * bx[k * N * C];                  /// * 8.1 ms 1Kx1K
+        for (int k = 0; k < K; k++, ax += ai, bx += bi) {
+            acc += (*ax) * (*bx);                          /// * 6.2 ms 1Kx1K
         }
         if (opt & MM_INC) O[z] += acc;                     /// * increment O
         else              O[z] =  acc;
@@ -80,15 +77,16 @@ k_gemm(
 {
     const int i = threadIdx.y + blockIdx.y * blockDim.y;
     const int j = threadIdx.x + blockIdx.x * blockDim.x;
-    const int C = blockDim.z, c = threadIdx.z;             ///> channels
-    const int z = c + (j + i * N) * C;
+    const int c = blockIdx.z, C = gridDim.z;               ///> channels
+    const int NC= N * C;
+    const int z = c + j * C + i * NC;
 
     if (i < M && j < N && c < C) {                         /// * TODO: tiled
         DU2 acc = DU0;
-        for (int k = 0; k < K; ++k) {
-            DU *ax = &A[c + i * K * C];
-            DU *bx = &B[c + j * C];
-            acc += ax[k * C] * bx[k * N * C];
+        DU *ax = &A[c + i * K * C];
+        DU *bx = &B[c + j * C];
+        for (int k = 0; k < K; k++, ax += C, bx += NC) {
+            acc += (*ax) * (*bx);
         }
         O[z] = alpha * acc + beta * O[z];                  /// * scaling
     }
@@ -103,7 +101,7 @@ __KERN__ void k_mat_op(
 {
     int i = threadIdx.y + blockIdx.y * blockDim.y;
     int j = threadIdx.x + blockIdx.x * blockDim.x;
-    int C = blockDim.z, c = threadIdx.z;                   ///> channels
+    int c = blockIdx.z, C = gridDim.z;                     ///> channels
 
     if (i < M && j < N && c < C) {
         int k = c + (j + i * N) * C;
@@ -128,8 +126,8 @@ Tensor::mm(
         return O;
     }
     WARN("Tensor#matmul C=%d, M=%d, N=%d, K=%d\n", C, M, N, Ka);
-    dim3 blk(T4_WARP_SZ, T4_WARP_SZ, C);
-    dim3 grd((N + blk.x - 1) / blk.x, (M + blk.y - 1) / blk.y, 1);
+    dim3 blk(T4_WARP_SZ, T4_WARP_SZ, 1);
+    dim3 grd(TGRID(N, M, C, blk));
 
     k_matmul<<<grd,blk>>>(A.data, B.data, O.data, M, N, Ka, opt);
     cudaDeviceSynchronize();
@@ -145,8 +143,8 @@ Tensor::gemm(Tensor &A, Tensor &B, Tensor &O, DU alpha, DU beta) {
         return O;
     }
     WARN("GEMM C=%d, M=%d, N=%d, K=%d a=%f, b=%f\n", M, N, Ka, alpha, beta);
-    dim3 blk(T4_WARP_SZ, T4_WARP_SZ, C);
-    dim3 grd((N + blk.x - 1) / blk.x, (M + blk.y - 1) / blk.y, 1);
+    dim3 blk(T4_WARP_SZ, T4_WARP_SZ, 1);
+    dim3 grd(TGRID(N, M, C, blk));
     ///
     /// TODO: cudaLaunchKernel is host mode only (as of CUDA 11.6)
     ///
@@ -162,8 +160,8 @@ Tensor::mat(t4_ten_op op, Tensor &A, Tensor &B, Tensor &O) {
     U16 M = A.H(), N = A.W(), C = A.C();
     OPN("add", "sub", "mul", "div");
     WARN("Tensor::mat%s C=%d, M=%d, N=%d\n", opn[op], C, M, N);
-    dim3 blk(T4_WARP_SZ, T4_WARP_SZ, C);
-    dim3 grd((N + blk.x - 1) / blk.x, (M + blk.y - 1) / blk.y, 1);
+    dim3 blk(T4_WARP_SZ, T4_WARP_SZ, 1);
+    dim3 grd(TGRID(N, M, C, blk));
     
     k_mat_op<<<grd, blk>>>(op, A.data, B.data, O.data, M, N);
     cudaDeviceSynchronize();     // TODO: deprecated 11.6, use cooperative_groups.sync()
@@ -192,7 +190,7 @@ __BOTH__ Tensor&
 Tensor::copy(Tensor &A, Tensor &O) {
     WARN("Tensor::copy numel=%d\n", A.numel);
     dim3 blk(T4_WARP_SZ * T4_WARP_SZ);
-    dim3 grd((A.numel + blk.x -1) / blk.x);
+    dim3 grd(TGRID(A.numel, 1, 1, blk));
     
     k_copy<<<grd, blk>>>(A.data, O.data, A.numel);
     cudaDeviceSynchronize();
@@ -202,8 +200,8 @@ __BOTH__ Tensor&
 Tensor::transpose(Tensor &A, Tensor &T) {
     U16 M = A.H(), N = A.W(), C = A.C();
     WARN("Tensor::transpose A[%d,%d,%d]\n", M, N, C);
-    dim3 blk(T4_WARP_SZ, T4_WARP_SZ, C);
-    dim3 grd((N + blk.x - 1) / blk.x, (M + blk.y - 1) / blk.y, 1);
+    dim3 blk(T4_WARP_SZ, T4_WARP_SZ, 1);
+    dim3 grd(TGRID(N, M, C, blk));
     k_transpose<<<grd, blk>>>(A.data, T.data, M, N);
     cudaDeviceSynchronize();
     return T;
@@ -407,7 +405,7 @@ Tensor::std() {
         DU v = *d - avg;
         sum += v * v;
     }
-    return numel ? sqrtf(sum / numel) : DU0;
+    return numel ? SQRT(sum / numel) : DU0;
 }
 __BOTH__ DU
 Tensor::max() {
@@ -491,7 +489,7 @@ Tensor::map(t4_ten_op op, DU v) {
     OPN("+", "-", "*", "/", "@", "x", "fill", "scale","pow", "abs", "exp", "log", "tanh", "relu", "sigmoid");
     WARN("Tensor#%s v=%f\n", opn[op], v);
     dim3 blk(T4_WARP_SZ * T4_WARP_SZ);
-    dim3 grd((numel + blk.x -1) / blk.x);
+    dim3 grd(TGRID(numel, 1, 1, blk));
     
     k_ten_op<<<grd, blk>>>(op, data, numel, v);
     cudaDeviceSynchronize();
@@ -581,8 +579,8 @@ __BOTH__ Tensor&
 Tensor::identity() {
     if (rank < 2) return *this;
     int M = H(), N = W();
-    dim3 blk(T4_WARP_SZ, T4_WARP_SZ, C());
-    dim3 grd((N + blk.x - 1) / blk.x, (M + blk.y - 1) / blk.y, 1);
+    dim3 blk(T4_WARP_SZ, T4_WARP_SZ, 1);
+    dim3 grd(TGRID(N, M, C(), blk));
     
     k_identity<<<grd, blk>>>(data, M, N, sizeof(DU));
     cudaDeviceSynchronize();
