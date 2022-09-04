@@ -123,7 +123,7 @@ _hash(const char *str, int bsz) {
         GPU_SYNC();                                         // sync all children threads
     }
 
-    dim3 xyz(32, (bsz>>5)+1, 0);
+    dim3 xyz(32, (bsz>>5)+1);
     int  blk = bsz+(-bsz&0x1f);
     _dyna_hash2d<<<1,xyz,blk*sizeof(int)>>>(h, str, bsz);
 
@@ -395,7 +395,7 @@ __KERN__ void
 k_transpose(float *src, float *dst, int M, int N) { ///< Note: (src, dst), TODO: CDP
     int i = threadIdx.y + blockIdx.y * blockDim.y;
     int j = threadIdx.x + blockIdx.x * blockDim.x;
-    int C = blockDim.z, c = threadIdx.z;
+    int c = blockIdx.z, C = gridDim.z;
 
     if (i < M && j < N && c < C) {
         dst[c + (i + j * M) * C] = src[c + (j + i * N) * C];
@@ -407,7 +407,7 @@ k_identity(float *t, int M, int N, int sz) {
     
     int i = threadIdx.y + blockIdx.y * blockDim.y;
     int j = threadIdx.x + blockIdx.x * blockDim.x;
-    int C = blockDim.z, c = threadIdx.z;
+    int c = blockIdx.z, C = gridDim.z;
     
     if (i < M && j < N && c < C) {
         t[c + (j + i * N) * C] = i01[i==j];
