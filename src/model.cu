@@ -76,13 +76,13 @@ Model::loss(t4_loss op, Tensor &tgt) {
 /// Convolution and Linear ops
 ///
 __GPU__ void
-Model::_iconv(Tensor &in, U16 C, DU bias, U16 *opt) {
-    U16 C1= in.C();
-    U16 M = opt[0], N = opt[1];                  ///> filter sizing
-    U16 p = opt[2] ? opt[2] : int((M-1)/2);      ///> padding
-    U16 s = opt[3], d = opt[4];                  ///> stride, dilation
-    U16 h = (in.H() - M + p*2) / s + 1;          ///> output height
-    U16 w = (in.W() - N + p*2) / s + 1;          ///> output width
+Model::_iconv(Tensor &in, U16 C0, DU bias, U16 *opt) {
+    U16 C1 = in.C();
+    U16 M  = opt[0], N = opt[1];                  ///> filter sizing
+    U16 p  = opt[2] ? opt[2] : int((M-1)/2);      ///> padding
+    U16 s  = opt[3], d = opt[4];                  ///> stride, dilation
+    U16 H0 = (in.H() - M + p*2) / s + 1;          ///> output height
+    U16 W0 = (in.W() - N + p*2) / s + 1;          ///> output width
     if (M != N || (M != 3 && M != 5)) {
         ERROR("Model#conv2d f=[%d,%d]? 3x3 and 5x5 supported only.\n", M, N);
         return;
@@ -92,37 +92,36 @@ Model::_iconv(Tensor &in, U16 C, DU bias, U16 *opt) {
     /// filter: C1 to C fully connected
     /// TODO: filters should have 5th dimension but we steal N for C1 now
     ///
-    Tensor *f  = in.grad[0] = &tensor(C1, 1, M, N, C);                  ///> f
-    Tensor *df = in.grad[2] = &tensor(C1, 1, M, N, C).map(O_FILL, DU0); ///> df
-    Tensor *b  = in.grad[1] = &vector(C).map(O_FILL, bias);             ///> b
-    Tensor *db = in.grad[3] = &vector(C).map(O_FILL, DU0);              ///> db
+    Tensor *f  = in.grad[0] = &tensor(C1, 1, M, N, C0);                  ///> f
+    Tensor *df = in.grad[2] = &tensor(C1, 1, M, N, C0).map(O_FILL, DU0); ///> df
+    Tensor *b  = in.grad[1] = &vector(C0).map(O_FILL, bias);             ///> b
+    Tensor *db = in.grad[3] = &vector(C0).map(O_FILL, DU0);              ///> db
 
     DU k = DU1 / SQRT(M * N * C1);               /// * filter default range
     _mmu->random(*f, UNIFORM, -0.5, 2.0 * k);    /// * randomize f [-k ~ k)
     /*
-    printf("bias=%.2f,  k=%.4f, f.std=%.4f\n", bias, k, f->std());
+    printf("bias=%4.2f,  k=%6.4f, f.std=%6.4f\n", bias, k, f->std());
     for (int i=0; i<f->numel; i++) {
         DU dx = f->data[i];
-        if (dx < DU0) printf(" -%.3f", -dx);
-        else          printf("  %.3f", dx); 
+        printf("%6.3f", dx);
     }
     */
-    Tensor &out= tensor(1, h, w, C);             ///> output tensor
+    Tensor &out= tensor(1, H0, W0, C0);          ///> output tensor
     npush(out);                                  /// * stage for next stage
 }
 __GPU__ void
-Model::_ilinear(Tensor &in, U16 C, DU bias) {
+Model::_ilinear(Tensor &in, U16 C0, DU bias) {
     U16 C1 = in.numel;
-    Tensor *w  = in.grad[0] = &tensor(1, C, C1, 1);                  ///> w
-    Tensor *dw = in.grad[2] = &tensor(1, C, C1, 1).map(O_FILL, DU0); ///> dw
-    Tensor *b  = in.grad[1] = &vector(C).map(O_FILL, bias);          ///> b
-    Tensor *db = in.grad[3] = &vector(C).map(O_FILL, DU0);           ///> db
+    Tensor *w  = in.grad[0] = &tensor(1, C0, C1, 1);                  ///> w
+    Tensor *dw = in.grad[2] = &tensor(1, C0, C1, 1).map(O_FILL, DU0); ///> dw
+    Tensor *b  = in.grad[1] = &vector(C0).map(O_FILL, bias);          ///> b
+    Tensor *db = in.grad[3] = &vector(C0).map(O_FILL, DU0);           ///> db
     
     DU k = DU1 / SQRT(C1);                       /// * default weight
     _mmu->random(*w, UNIFORM, -0.5, 2.0 * k);    /// * randomize w
-    printf("bias=%.2f,  k=%.4f, w.std=%.4f\n", bias, k, w->std());
+    printf("bias=%4.2f,  k=%6.3f, w.std=%6.3f\n", bias, k, w->std());
     
-    Tensor &out = vector(C);                     ///> output tensor sizing
+    Tensor &out = vector(C0);                    ///> output tensor sizing
     npush(out);                                  /// * stage for next stage
 }
 __GPU__ void
