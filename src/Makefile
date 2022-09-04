@@ -12,13 +12,13 @@ OBJS += \
 	./src/mmu.o \
 	./src/vm.o \
 	./src/eforth.o \
+	./src/tlsf.o \
 	./src/tensor.o \
 	./src/tenvm.o \
 	./src/model.o \
 	./src/model_fwd.o \
 	./src/model_back.o \
 	./src/netvm.o \
-	./src/tlsf.o \
 	./src/ten4.o
 
 # Additional CUDA includes if any
