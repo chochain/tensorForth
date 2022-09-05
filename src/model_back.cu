@@ -16,8 +16,10 @@ __KERN__ void k_dconv2d(
     DU *I, DU *F, DU *DF, DU *O, ///> input I[HxW], F,DF[KSxKS], output O[HxW]
     int H, int W, int C0         ///< H1==H0, W1==W0, output Channels
     ) {
-    __shared__ DU it[T4_WARP_SZ * T4_WARP_SZ];       ///< shared memory [16x16]
-    __shared__ DU ot[T4_WARP_SZ * T4_WARP_SZ];       ///< shared memory [16x16]
+    __shared__ DU it[T4_WARP_SZ * T4_WARP_SZ];       ///< input cache [16x16]
+    __shared__ DU ot[T4_WARP_SZ * T4_WARP_SZ];       ///< output cache [16x16]
+    __shared__ DU df[TS * TS * KS * KS];             ///< df cache [12x12x3x3]
+    
     const int tx = threadIdx.x, j1 = tx + blockIdx.x * TS;
     const int ty = threadIdx.y, i1 = ty + blockIdx.y * TS;
     const int C1 = gridDim.z,   c1 = blockIdx.z;     ///< input channels
@@ -40,25 +42,33 @@ __KERN__ void k_dconv2d(
         ///
         /// dX = sum(F * dY)
         /// dF = sum(dY * X)
-        /// TODO: cache F
         ///
+        DU sum = DU0;
         const int zf = (c1 + c0 * C1) * KS * KS;     ///< filter index
         if (tx < TS && ty < TS) {                    /// * within tile [12x12]
-            DU sum = DU0;
             DU *fx = &F[zf + C1 * (KS * KS - 1)];    ///< F[KS-1,KS-1] rot180
-            DU *dfx= &DF[zf];                        ///< dF pointer
+            DU *dfx= &df[(tx + ty * TS) * KS * KS];  ///< df cache ptr
             for (int y = 0; y < KS; y++) {           /// * process one cell
-                for (int x = 0; x < KS; x++) {
+                for (int x = 0; x < KS; x++, fx -= C1) {
                     int k = zt + x + y * T4_WARP_SZ;
-                    sum  += (*fx) * ot[k];           /// * dX += F * dY
-                    *dfx += ot[k] * it[k];           /// * dF += dY * X
-                    fx   -= C1;                      /// * walk F backward
-                    dfx  += C1;                      /// * advance dF ptr
+                    sum      += (*fx) * ot[k];       /// * dX += F * dY
+                    *(dfx++) =  ot[k] * it[k];       /// * df = dY * X
                 }
             }
             if (i1 < H && j1 < W) {                  /// * update input matrix
                 if (c0==0) I[z1] = sum;              /// * no bias
                 else       I[z1] += sum;             /// * accumulate all c0
+            }
+        }
+        __syncthreads();                             /// * d read barrier
+        ///
+        /// collect dF (= dY * X), KS * KS threads
+        ///
+        if (tx < KS && ty < KS) {                    /// * TODO: CDP scan
+            DU *DFx = &DF[c1 + (tx + (ty + c0 * KS) * KS) * C1];
+            DU *dfx = &df[tx + ty * KS];
+            for (int i = 0; i < TS * TS; i++, dfx += KS * KS) {
+                *DFx += *dfx;                        /// dF += df (= dY * X)
             }
         }
         __syncthreads();                             /// * d read barrier
@@ -116,7 +126,6 @@ __KERN__ void k_dfilter(
 
 __GPU__ Model&
 Model::backprop(Tensor &tgt) {
-    printf("here\n");
     Tensor &nx = (*this)[numel - 1];
     if (!nx.is_same_shape(tgt)) {
         ERROR("Model#backprop target dim?\n");
