@@ -20,7 +20,7 @@ __KERN__ void k_dconv2d(
     __shared__ DU ot[T4_WARP_SZ * T4_WARP_SZ];       ///< shared memory [16x16]
     const int tx = threadIdx.x, j1 = tx + blockIdx.x * TS;
     const int ty = threadIdx.y, i1 = ty + blockIdx.y * TS;
-    const int C1 = blockDim.z,  c1 = threadIdx.z;    ///< input channels
+    const int C1 = gridDim.z,   c1 = blockIdx.z;     ///< input channels
     const int z1 = c1 + (j1 + i1 * W) * C1;          ///< input array index
     const int zt = tx + ty * T4_WARP_SZ;             ///< tile index
     ///
@@ -72,7 +72,7 @@ __KERN__ void k_dpool(
     ) {
     const int j0 = threadIdx.x + blockIdx.x * blockDim.x;
     const int i0 = threadIdx.y + blockIdx.y * blockDim.y;
-    const int c  = threadIdx.z, C = blockDim.z;
+    const int c  = blockIdx.z, C = gridDim.z;
     const int z0 = j0 + i0 * W0;            ///< output matrix index
     const int z1 = (j0 + i0 * W0 * KS) * KS;///< input tensor index
     const int zc = c + z0 * C;              ///< output tensor index
@@ -106,7 +106,7 @@ __KERN__ void k_dfilter(
     ) {
     const int j1 = threadIdx.x + blockIdx.x * blockDim.x;
     const int i1 = threadIdx.y + blockIdx.y * blockDim.y;
-    const int c  = threadIdx.z, C = blockDim.z;
+    const int c  = blockIdx.z, C = gridDim.z;
     const int z1 = c + (i1 + j1 * W) * C;
     
     if (i1 < H && j1 < W && c < C) {
@@ -128,8 +128,10 @@ Model::backprop(Tensor &tgt) {
     Tensor::copy(tgt, nx);
     for (U16 i = numel - 2; i > 0; i--) {
         Tensor &in = (*this)[i], &out = (*this)[i + 1];
-        printf("%2d> %s [%d,%d,%d] p=%d <=",
-               i, d_nname(in.grad_fn), in.H(), in.W(), in.C(), in.parm); 
+        printf("%2d> %s [%d,%d,%d]\tp=%2d <= out'Σ=%6.2f [%d,%d,%d] ",
+            i, d_nname(in.grad_fn),
+            in.H(), in.W(), in.C(), in.parm,
+            out.sum(), out.H(), out.W(), out.C());
         _bstep(in, out);
         printf("\n");
     }
@@ -145,34 +147,55 @@ __GPU__ void
 Model::_bstep(Tensor &in, Tensor &out) {
     DU   *d1 = in.data, *d0 = out.data;              ///< input, output data
     int  H1 = in.H(), W1 = in.W(), C1 = in.C();      ///< input HWC
-    dim3 blk(T4_WARP_SZ, T4_WARP_SZ, C1);
-    dim3 grd((W1 + blk.x - 1) / blk.x, (H1 + blk.y - 1) / blk.y, 1);
+    dim3 blk(T4_WARP_SZ, T4_WARP_SZ, 1);
+    dim3 grd(TGRID(W1, H1, C1, blk));
 
     auto dump = [](DU *v, int H, int W, int C) {
         for (int k = 0; k < C; k++) {
-            printf("\nC=%d ---", k);
+            printf("\nC=%d ---\n", k);
+            DU sum = DU0;
             for (int i = 0; i < H; i++) {
-                printf("\n");
+                DU isum = DU0;
                 for (int j = 0; j < W; j++) {
                     DU x = v[k + (j + i * W) * C];
-                    printf(x < DU0 ? "%.2f" : " %.2f", x);
+                    isum += x;
+                    printf("%5.2f", x);
                 }
+                printf(" Σ=%6.3f\n", isum);
+                sum += isum;
             }
+            printf(" ΣΣ=%6.3f\n", sum);
         }
-        printf("\n");
     };
-    auto conv = [d1, d0, H1, W1, blk](int C0, int ks, DU *f, DU *df, DU *db) {
-        dim3 g3((W1 + TILE3 - 1) / TILE3, (H1 + TILE3 - 1) / TILE3, 1);
-        dim3 g5((W1 + TILE5 - 1) / TILE5, (H1 + TILE5 - 1) / TILE5, 1);
+    auto dump_dbdf = [C1](DU *df, DU *db, int C0, int fsz) {
+        DU sum = DU0;
+        printf("\n\tdb=");
+        for (int c0 = 0; c0 < C0; c0++) {
+            printf("%6.3f ", db[c0]);
+            sum += db[c0];
+        }
+        printf("Σ=%6.3f", sum);
+        for (int c1 = 0; c1 < C1; c1++) {
+            printf("\n\tdf[%d]=", c1);
+            sum = DU0;
+            for (int i=0; i<fsz; i++, df++) {
+                sum += *df;
+                printf("%6.3f", *df);
+            }
+            printf(" Σ=%6.3f", sum);
+        }
+    };
+    auto conv = [d1, d0, H1, W1, C1, blk](int C0, int ks, DU *f, DU *df, DU *db) {
+        dim3 g3((W1 + TILE3 - 1) / TILE3, (H1 + TILE3 - 1) / TILE3, C1);
+        dim3 g5((W1 + TILE5 - 1) / TILE5, (H1 + TILE5 - 1) / TILE5, C1);
         switch (ks) {
         case 3: k_dconv2d<TILE3,3><<<g3,blk>>>(d1, f, df, d0, H1, W1, C0); break;
         case 5: k_dconv2d<TILE5,5><<<g5,blk>>>(d1, f, df, d0, H1, W1, C0); break;
         default: return -1;
         }
         /// accumulate dB = sum(dY), TODO: CDP
-        DU *ox = d0;
         for (int c0 = 0; c0 < C0; c0++, db++) {
-            *db = DU0;
+            DU *ox = d0 + c0;
             for (int k = 0; k < H1 * W1; k++, ox+=C0) *db += *ox;
         }
         return 0;
@@ -180,38 +203,30 @@ Model::_bstep(Tensor &in, Tensor &out) {
     ///
     /// layer function dispatcher
     ///
-    printf(" out'[%d,%d,%d]", out.H(), out.W(), out.C());
     t4_layer fn = in.grad_fn;                 ///< layer function
     switch(fn) {
     case L_CONV:   {
         Tensor &f = *in.grad[0], &df = *in.grad[2]; ///< filter tensor
-        Tensor &b = *in.grad[1], &db= *in.grad[3];  ///< bias tensor
-        int C1 = f.parm, Nf = f.N(), Hf = f.H(), Wf = f.W(), Cf = f.C();
-        int C0 = out.C();
+        Tensor &b = *in.grad[1], &db = *in.grad[3]; ///< bias tensor
+        const int C1 = f.parm, Nf = f.N(), Hf = f.H(), Wf = f.W(), Cf = f.C();
         printf(" f[%d][%d,%d,%d,%d], b[%d]", C1, Nf, Hf, Wf, Cf, b.numel);
         if (conv(out.C(), Hf, f.data, df.data, db.data)) {
             ERROR("model_back#conv kernel_size %d not supported\n", Hf);
         }
-        int pg = Nf * Hf * Wf * Cf;
-        for (int c0 = 0; c0 < C0; c0++) {
-            printf("\ndb= %.3f df%d=", db.data[c0], c0);
-            DU *dx = &df.data[c0 * pg];
-            for (int i=0; i<pg; i++, dx++) printf(*dx < DU0 ? " -%.3f" : "  %.3f", ABS(*dx));
-        }
-        printf("\nin=");   dump(d1, H1, W1, C1);
+        dump_dbdf(df.data, db.data, out.C(), Nf * Hf * Wf * Cf);
+        printf("\nin[%d,%d,%d]=", H1, W1, C1); dump(d1, H1, W1, C1);
     } break;
     case L_LINEAR: {                          ///< out = w @ in + b
         Tensor &w  = *in.grad[0];             ///< weight tensor
         Tensor &dw = *in.grad[2];             ///< d_weight tensor
         Tensor &db = *in.grad[3];             ///< d_bias tensor
         int H0 = out.H(), M = w.H(), N = w.W();///< fully connected dimensions
-        
-        db += out;
-        // dw += out[10,1] @ in^t[1,49]
+        /// dw += out[10,1] @ in^t[1,49]
+        /// in = w^t[49,10] @ out[10,1]
         printf("\n\tdw[%d,%d] += out'[%d,1] @ in^t[1,%d]", M, N, H0, H1);
-        Tensor::mm(out, in, dw, (t4_mm_opt)(MM_INC | MM_B_TXP));
-        // in = w^t[49,10] @ out[10,1]
         printf("\n\tin[%d, 1]  = w^t[%d,%d] @ out'[%d,1]", H1, N, M, H0);
+        db += out;
+        Tensor::mm(out, in, dw, (t4_mm_opt)(MM_INC | MM_B_TXP));
         Tensor::mm(w, out, in, MM_A_TXP);
     } break;
     case L_FLATTEN: Tensor::copy(out, in); break;  /// * pass dY to X
@@ -222,9 +237,9 @@ Model::_bstep(Tensor &in, Tensor &out) {
     case L_MAXPOOL:
     case L_AVGPOOL: 
     case L_MINPOOL: {
-        U16 ks = in.parm;                      ///< pooling kernel size
-        U16 W0 = out.W(), H0 = out.H();        ///< output dimensions
-        dim3 g((W0 + blk.x - 1) / blk.x, (H0 + blk.y - 1) / blk.y, 1);
+        U16 ks = in.parm;                              ///< pooling kernel size
+        U16 W0 = out.W(), H0 = out.H(), C0 = out.C();  ///< output dimensions
+        dim3 g(TGRID(W0, H0, C0, blk));
         switch(ks) {                           
         case 0x2: k_dpool<2><<<g,blk>>>(d1, d0, H0, W0, fn); break;
         case 0x3: k_dpool<3><<<g,blk>>>(d1, d0, H0, W0, fn); break;
