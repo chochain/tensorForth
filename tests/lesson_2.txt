@@ -11,14 +11,14 @@ cr .( ### large matrix multiplication ) cr
 512 1024 matrix rand         \ create a 512x1024 matrix with random values
 1024 256 matrix ones         \ create a 1024x256 matrix filled with 1s
 @                            \ multiply the matrices
-1024 / .                     \ scale down element-wise and print
+2048 / .                     \ scale down element-wise and print
 2drop                        \ clean up
 
 cr .( ### benchmark - 100 loops ) cr
 : mx dup >r clock >r         \ create a word for benchmark loops
   for @ drop next            \ loop of matrix multiplication (and drop the result)
   clock r> -                 \ clock it
-  r> / ." =>"                \ retrieve loop count and calc average
+  r> 1 + / ." =>"            \ retrieve loop count and calc average
   . ."  msec/cycle" cr ;     \ print result
 see mx                       \ show the word
 99 mx                        \ run 100 the multiplication loop 100 times
