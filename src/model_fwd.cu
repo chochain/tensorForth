@@ -118,8 +118,10 @@ Model::forward(Tensor &input) {
     ///
     for (U16 i = 1; i < numel - 1; i++) {
         Tensor &in = (*this)[i], &out = (*this)[i + 1];
-        printf("%2d> %s [%d,%d,%d] p=%d =>",
-               i, d_nname(in.grad_fn), in.H(), in.W(), in.C(), in.parm);
+        printf("%2d> %s Σ=%6.2f [%d,%d,%d]\tp=%2d => out[%d,%d,%d]",
+            i, d_nname(in.grad_fn), in.sum(),
+            in.H(), in.W(), in.C(), in.parm,
+            out.H(), out.W(), out.C());
         _fstep(in, out);
         printf("\n");
     }
@@ -138,6 +140,19 @@ Model::_fstep(Tensor &in, Tensor &out) {
     dim3 blk(T4_WARP_SZ, T4_WARP_SZ, 1);
     dim3 grd(TGRID(W0, H0, C0, blk));
     
+    auto dump = [](DU *v, int H, int W, int C) {
+        for (int k = 0; k < C; k++) {
+            printf("\nC=%d ---", k);
+            for (int i = 0; i < H; i++) {
+                printf("\n");
+                for (int j = 0; j < W; j++) {
+                    DU x = v[k + (j + i * W) * C];
+                    printf("%5.2f", x);
+                }
+            }
+        }
+        printf("\n");
+    };
     auto conv = [d1, d0, H0, W0, C0, blk](U16 C1, U16 ks, DU *f, DU *b) {
         dim3 g3((W0 + TILE3 - 1) / TILE3, (H0 + TILE3 - 1) / TILE3, C0);
         dim3 g5((W0 + TILE5 - 1) / TILE5, (H0 + TILE5 - 1) / TILE5, C0);
@@ -165,32 +180,19 @@ Model::_fstep(Tensor &in, Tensor &out) {
         }
         return 0;
     };
-    auto dump = [](DU *v, int H, int W, int C) {
-        for (int k = 0; k < C; k++) {
-            printf("\nC=%d ---", k);
-            for (int i = 0; i < H; i++) {
-                printf("\n");
-                for (int j = 0; j < W; j++) {
-                    DU x = v[k + (j + i * W) * C];
-                    printf("%4.2f", x);
-                }
-            }
-        }
-        printf("\n");
-    };
     ///
     /// layer function dispatcher
     ///
-    printf(" out[%d,%d,%d]", H0, W0, C0);
     t4_layer fn = in.grad_fn;                 ///< layer function
     switch(fn) {
     case L_CONV:   {
         Tensor &f = *in.grad[0];              ///< filter tensor
         Tensor &b = *in.grad[1];              ///< bias tensor
-        printf(" f[%d][%d,%d,%d,%d], b[%d]",
-               f.parm, f.N(), f.H(), f.W(), f.C(), b.numel);
-        if (conv(in.C(), f.H(), f.data, b.data)) {
-            ERROR("model_fwd#conv kernel_size=%d not supported\n", f.H());
+        U16 Nf = f.N(), Hf = f.H(), Wf = f.W(), Cf = f.C();
+        printf(" f[%d][%d,%d,%d,%d], b[%d]", f.parm, Nf, Hf, Wf, Cf, b.numel);
+        
+        if (conv(in.C(), Hf, f.data, b.data)) {
+            ERROR("model_fwd#conv kernel_size=%d not supported\n", Hf);
         }
     } break;
     case L_LINEAR: {                          ///< out = w @ in + b
@@ -217,7 +219,7 @@ Model::_fstep(Tensor &in, Tensor &out) {
         Tensor::copy(in, t);                 /// * copy content for exp calc
         DU sum = t.map(O_EXP).sum() + DU_EPS;/// * sum all probabilities
         Tensor::mat(O_MUL, t, DU1/sum, out); /// * p / sum(p)
-        printf(" sum=%5.3f", out.sum());     /// * verify sum
+        printf(" Σ=%5.3f", out.sum());       /// * verify sum
     } break;
     case L_MAXPOOL:
     case L_AVGPOOL: 
