@@ -206,8 +206,10 @@ int main(int argc, char**argv) {
     if (opt.help) {
         opt.print_usage(std::cout);
         opt.check_devices(std::cout);
+        cout << "\nRecommended GPU: " << opt.device_id << std::endl;
         return 0;
     }
+    else opt.check_devices(std::cout, false);
 
     cout << APP << endl;
     
