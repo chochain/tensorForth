@@ -16,8 +16,8 @@ __KERN__ void k_dconv2d(
     DU *I, DU *F, DU *DF, DU *O, ///> input I[HxW], F,DF[KSxKS], output O[HxW]
     int H, int W, int C0         ///< H1==H0, W1==W0, output Channels
     ) {
-    __shared__ DU it[T4_WARP_SZ * T4_WARP_SZ];       ///< input cache [16x16]
-    __shared__ DU ot[T4_WARP_SZ * T4_WARP_SZ];       ///< output cache [16x16]
+    __shared__ DU it[T4_WARP_SQ];                    ///< input cache [16x16]
+    __shared__ DU ot[T4_WARP_SQ];                    ///< output cache [16x16]
     __shared__ DU df[TS * TS * KS * KS];             ///< df cache [12x12x3x3]
     
     const int tx = threadIdx.x, j1 = tx + blockIdx.x * TS;

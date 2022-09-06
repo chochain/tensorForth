@@ -16,7 +16,7 @@ __KERN__ void k_conv2d(
     DU *I, DU *F, DU *B, DU *O,  ///> input I[HxW], F[KxK] kernel, B[C] bias, output O[HxW]
     int H, int W, int C1         ///< (H0==H1, W0==W1), input channels
     ) {
-    __shared__ DU it[T4_WARP_SZ * T4_WARP_SZ];       ///< shared memory [16x16]
+    __shared__ DU it[T4_WARP_SQ];                    ///< shared memory [16x16]
     
     const int tx = threadIdx.x, j0 = tx + blockIdx.x * TS;
     const int ty = threadIdx.y, i0 = ty + blockIdx.y * TS;

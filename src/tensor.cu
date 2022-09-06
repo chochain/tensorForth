@@ -189,10 +189,9 @@ Tensor::mat(t4_ten_op op, Tensor &A, DU v, Tensor &O) {
 __BOTH__ Tensor&
 Tensor::copy(Tensor &A, Tensor &O) {
     WARN("Tensor::copy numel=%d\n", A.numel);
-    dim3 blk(T4_WARP_SZ * T4_WARP_SZ);
-    dim3 grd(TGRID(A.numel, 1, 1, blk));
+    int g = (A.numel + T4_WARP_SQ - 1) / T4_WARP_SQ;
     
-    k_copy<<<grd, blk>>>(A.data, O.data, A.numel);
+    k_copy<<<g, T4_WARP_SQ>>>(A.data, O.data, A.numel);
     cudaDeviceSynchronize();
     return O;
 }
@@ -488,10 +487,8 @@ __BOTH__ Tensor&
 Tensor::map(t4_ten_op op, DU v) {
     OPN("+", "-", "*", "/", "@", "x", "fill", "scale","pow", "abs", "exp", "log", "tanh", "relu", "sigmoid");
     WARN("Tensor#%s v=%f\n", opn[op], v);
-    dim3 blk(T4_WARP_SZ * T4_WARP_SZ);
-    dim3 grd(TGRID(numel, 1, 1, blk));
-    
-    k_ten_op<<<grd, blk>>>(op, data, numel, v);
+    int g = (numel + T4_WARP_SQ - 1) / T4_WARP_SQ;
+    k_ten_op<<<g, T4_WARP_SQ>>>(op, data, numel, v);
     cudaDeviceSynchronize();
     return *this;
 }
