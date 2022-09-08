@@ -1,6 +1,6 @@
 /** -*- c++ -*- 
  * @File
- * @brief - tensorForth GUI - static, implementated in OpenGL
+ * @brief - tensorForth GUI - static, OpenGL in freeglut
  *
  * <pre>Copyright (C) 2022- GreenII, this file is distributed under BSD 3-Clause License.</pre>
  */
@@ -57,7 +57,7 @@ void _cleanup() {
     glDeleteProgramsARB(1, &shader_id);   /// remove shader
 }
 
-void _gl_codepath(int h, int w) {
+void _gl_codepath(int w, int h) {
     // Common display code path
     glClear(GL_COLOR_BUFFER_BIT);
     glTexSubImage2D(
@@ -72,34 +72,6 @@ void _gl_codepath(int h, int w) {
     glVertex2f(-1, +3);
     glEnd();
     glFinish();
-}
-
-void _display() {
-    int   id  = glutGetWindow();
-    ImgVu *vu = _vu_get(id);
-    if (!vu) return;
-    
-    TColor *d_dst = NULL;
-    size_t num_bytes;
-
-    cudaGraphicsMapResources(1, &cuda_pbo, 0);   GPU_CHK();
-    cudaGraphicsResourceGetMappedPointer(
-        (void **)&d_dst, &num_bytes, cuda_pbo);  GPU_CHK();
-
-    vu->display(d_dst);
-    
-    cudaGraphicsUnmapResources(1, &cuda_pbo, 0); GPU_CHK();
-    _gl_codepath(vu->height, vu->width);
-    
-    glutSwapBuffers();
-    glutReportErrors();
-}
-
-void _refresh(int) {
-    if (glutGetWindow()) {
-        glutPostRedisplay();
-        glutTimerFunc(REFRESH_DELAY, _refresh, 0);
-    }
 }
 
 void _keyboard(unsigned char k, int /*x*/, int /*y*/) {
@@ -117,6 +89,34 @@ void _keyboard(unsigned char k, int /*x*/, int /*y*/) {
             exit(-1);
         }
         break;
+    }
+}
+
+void _display() {
+    int   id  = glutGetWindow();
+    ImgVu *vu = _vu_get(id);
+    if (!vu) return;
+    
+    TColor *d_dst = NULL;
+    size_t num_bytes;
+
+    cudaGraphicsMapResources(1, &cuda_pbo, 0);   GPU_CHK();
+    cudaGraphicsResourceGetMappedPointer(
+        (void **)&d_dst, &num_bytes, cuda_pbo);  GPU_CHK();
+
+    vu->display(d_dst);
+    
+    cudaGraphicsUnmapResources(1, &cuda_pbo, 0); GPU_CHK();
+    _gl_codepath(vu->W, vu->H);
+    
+    glutSwapBuffers();
+    glutReportErrors();
+}
+
+void _refresh(int) {
+    if (glutGetWindow()) {
+        glutPostRedisplay();
+        glutTimerFunc(REFRESH_DELAY, _refresh, 0);
     }
 }
 
@@ -154,12 +154,14 @@ void _init_opengl(uchar4 *h_src, int W, int H) {
 extern "C" int gui_init(int *argc, char **argv, ImgVu *vu, int x, int y) {
     static const char *ext =
         "GL_ARB_vertex_buffer_object GL_ARB_pixel_buffer_object";
-
+    static const char *errmsg =
+        "GL Error: failed to get minimal extensions of version 1.5\n";
+    
     printf("\nGLUT...");
     glutInit(argc, argv);                /// * consumes X11 input parameters
     glutInitDisplayMode(GLUT_RGBA | GLUT_DOUBLE);
-    glutInitWindowSize(vu->width, vu->height);
-    glutInitWindowPosition(x - vu->width / 2, y - vu->height / 2);
+    glutInitWindowSize(vu->W, vu->H);
+    glutInitWindowPosition(x - vu->W / 2, y - vu->H / 2);
     printf("initialized\n");
     ///
     /// create window for img
@@ -176,9 +178,12 @@ extern "C" int gui_init(int *argc, char **argv, ImgVu *vu, int x, int y) {
     glutCloseFunc(_cleanup);
     printf("created\n");
     
-    if (!isGLVersionOK(1, 5) || !areGLExtOK(ext)) return -1;
+    if (!isGLVersionOK(1, 5) || !areGLExtOK(ext)) {
+        fprintf(stderr, "%s and %s\n", errmsg, ext);
+        return -1;
+    }
     
-    _init_opengl(vu->h_src, vu->width, vu->height);
+    _init_opengl(vu->h_src, vu->W, vu->H);
     _compile_shader();                     /// load float shader
     
     return 0;
