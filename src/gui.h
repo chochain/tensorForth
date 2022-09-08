@@ -20,13 +20,16 @@
 #include <GL/freeglut.h>
 #include <cuda_gl_interop.h>
 
+#include "vu.h"
+
 namespace T4GUI {
-    
-#ifndef HELPERGL_EXTERN_GL_FUNC_IMPLEMENTATION
+#ifndef __GL_FUNC_EXTERN
+#define __GL_FUNC_EXTERN
 #define GLFN(f,intf) intf f = (intf)glXGetProcAddress((const GLubyte*)#f)
 #else
 #define GLFN(f,intf) extern intf f
-#endif
+#endif  // __GL_FUNC_EXTERN
+
     GLFN(glBindBuffer,              PFNGLBINDBUFFERPROC);
     GLFN(glDeleteBuffers,           PFNGLDELETEBUFFERSPROC);
     GLFN(glBufferData,              PFNGLBUFFERDATAPROC);
@@ -86,7 +89,7 @@ namespace T4GUI {
     GLFN(glActiveTexture,           PFNGLACTIVETEXTUREPROC);
     GLFN(glClientActiveTexture,     PFNGLACTIVETEXTUREPROC);
 #endif
-    #undef GLFN
+#undef GLFN
 
     namespace Int {
         static std::vector<std::string> split(const std::string &str) {
@@ -108,7 +111,7 @@ namespace T4GUI {
             return std::equal(a.begin(), a.end(), b.begin());
         }
         template<typename T>
-        static std::vector<T> getHit(std::vector<T> a, std::vector<T> b) {
+        static std::vector<T> hit(std::vector<T> a, std::vector<T> b) {
             sort(a);
             sort(b);
             std::vector<T> rc;
@@ -117,27 +120,27 @@ namespace T4GUI {
                 std::back_inserter<std::vector<std::string> >(rc));
             return rc;
         }
-        static std::vector<std::string> getGLExt() {
+        static std::vector<std::string> gl_ext() {
             std::string ext((const char*)glGetString(GL_EXTENSIONS));
             return split(ext);
         }
     }
-    static int areGLExtOK(const std::string &ext) {
-        std::vector<std::string> all = Int::getGLExt();
+    static int glExtOK(const std::string &ext) {
+        std::vector<std::string> all = Int::gl_ext();
         std::vector<std::string> req = Int::split(ext);
-        std::vector<std::string> hit = Int::getHit(all, req);
+        std::vector<std::string> hit = Int::hit(all, req);
         return Int::equals(hit, req);
     }
-    static int isGLVersionOK(unsigned major, unsigned minor) {
+    static int glVersionOK(int major, int minor) {
         std::string       ver((const char*)glGetString(GL_VERSION));
         std::stringstream ss(ver);
-        unsigned m, n;
+        int  m, n;
         char dot;
         ss >> m >> dot >> n;
         assert(dot == '.');
         return m > major || (m == major && n >= minor);
     }
-    static inline const char* glErrorString(GLenum err) {
+    static inline const char* glErrString(GLenum err) {
         switch(err) {
         case GL_NO_ERROR:         return "GL_NO_ERROR";
         case GL_INVALID_ENUM:     return "GL_INVALID_ENUM";
@@ -156,7 +159,7 @@ namespace T4GUI {
         GLenum err = glGetError();
         if (err != GL_NO_ERROR) {
             fprintf(stderr, "GL Error in file '%s' in line %d :\n", file, line);
-            fprintf(stderr, "%s\n", glErrorString(err));
+            fprintf(stderr, "%s\n", glErrString(err));
             return false;
         }
         return true;
@@ -165,7 +168,6 @@ namespace T4GUI {
     if(!gl_check( __FILE__, __LINE__)) { \
         exit(EXIT_FAILURE);              \
     }
-    
 } /// namespace T4GUI
 
 using namespace T4GUI;
