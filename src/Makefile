@@ -4,7 +4,11 @@
 # Add inputs and outputs from these tool invocations to the build variables
 SRCS +=
 
-INCS +=
+INCS += \
+	${CUDA_HOME}/cuda-samples/Common \
+	${CUDA_HOME}/cuda-samples/Samples/2_Concepts_and_Techniques/imageDenoising
+
+INC_PARMS = $(INCS:%=-I%)
 
 OBJS += \
 	./src/util.o \
@@ -19,7 +23,10 @@ OBJS += \
 	./src/model_fwd.o \
 	./src/model_back.o \
 	./src/netvm.o \
-	./src/ten4.o
+	./src/ten4.o \
+	./src/imgvu_bmp.o \
+    ./src/gui.o \
+	./src/imgvu.o
 
 # Additional CUDA includes if any
 CU_INCS := \
@@ -53,6 +60,7 @@ src/%.o: src/%.cu ${CU_INCS}
 	@echo 'Building source file: $<'
 	@echo 'Invoking: NVCC Compiler'
 	${CUDA_HOME}/bin/nvcc -ccbin g++ \
+		${INC_PARMS} \
 		-D__CDPRT_SUPPRESS_SYNC_DEPRECATION_WARNING \
 		-t=0 -c -std=c++14 -O3 -D__CUDACC__ -o "$@" "$<" \
 		--device-c --extended-lambda --expt-relaxed-constexpr \
