@@ -10,19 +10,19 @@
 
 #include "ten4_types.h"
 
-typedef unsigned int TColor;
+typedef U32 TColor;
 
 class ImgVu;
 
 extern "C" int  gui_init(int *argc, char **argv, ImgVu *vu, int x, int y);
 extern "C" int  gui_loop();
 
-extern "C" void load_bmp(const char *fname, uchar4 **bmp_src, int *bmp_h, int *bmp_w);
+extern "C" void load_bmp(const char *fname, uchar4 **bmp, int *h, int *w);
 
 class ImgVu {
 public:
     uchar4 *h_src;               ///< source image on host
-    int    width, height;
+    int    W, H;
     
     ImgVu(const char *fname);
     ~ImgVu() {
@@ -30,18 +30,14 @@ public:
         cudaFreeArray(d_ary);
         GPU_CHK();
     }
-    void   keyboard(unsigned char k);
-    void   display(TColor *d_dst);
+    void   keyboard(U8 k) { _vuop = (k == '0'); }
+    void   display(TColor *d_dst) {
+        if (_vuop) _img_flip(d_dst);
+        else       _img_copy(d_dst);
+    }
 
 private:
-    int   g_Kernel  = 0;
-    bool  g_Diag    = false;
-    
-    float noiseStep = 0.025f;
-    float lerpStep  = 0.025f;
-    float knnNoise  = 0.32f;
-    float nlmNoise  = 1.45f;
-    float lerpC     = 0.2f;
+    int    _vuop = 0;
     
     // CUDA array descriptor
     cudaArray           *d_ary;  ///< image on device
