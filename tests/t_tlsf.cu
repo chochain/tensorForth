@@ -17,8 +17,7 @@ test_host_init(U8 *data, U32 sz) {
     printf("test HOST init ====================\n");
     TLSF tlsf;
     tlsf.init(data, sz);
-    tlsf.show_stat();
-    tlsf.dump_freelist();
+    tlsf.status(2);
 }
 
 __KERN__ void
@@ -28,8 +27,7 @@ test_kern_init(U8 *data, U32 sz) {
     printf("test KERN init =====================\n");
     TLSF tlsf;
     tlsf.init(data, sz);
-    tlsf.show_stat();
-    tlsf.dump_freelist();
+    tlsf.status(2);
 }
 
 __KERN__ void
@@ -44,29 +42,25 @@ test_alloc(U8 *data, U32 sz) {
     for (int i=0; i<4; i++) {
         blk[i] = (DU*)tlsf.malloc(a[i]);
         printf("malloc(%x) => %p\n", a[i], blk[i]);
-        tlsf.show_stat();
-        tlsf.dump_freelist();
+        tlsf.status(2);
     }
     printf("test KERN free ==================\n");
     for (int i=0; i<4; i++) {
         printf("free(%p)\n", blk[i]);
         tlsf.free(blk[i]);
-        tlsf.show_stat();
-        tlsf.dump_freelist();
+        tlsf.status(2);
     }
     printf("test KERN 2nd malloc ====================\n");
     for (int i=0; i<4; i++) {
         blk[i] = (DU*)tlsf.malloc(a[i]);
         printf("malloc(%x) => %p\n", a[i], blk[i]);
-        tlsf.show_stat();
-        tlsf.dump_freelist();
+        tlsf.status(2);
     }
     printf("test KERN 2nd free ===============\n");
     for (int i=3; i>=0; i--) {
         printf("free(%p)\n", blk[i]);
         tlsf.free(blk[i]);
-        tlsf.show_stat();
-        tlsf.dump_freelist();
+        tlsf.status(2);
     }
 }
 
