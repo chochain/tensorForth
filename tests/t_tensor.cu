@@ -23,7 +23,7 @@ typedef cudaError_t (*gemm_op)(Tensor &A, Tensor &B, Tensor &C, FP alpha, FP bet
 
 void random(Tensor &A, U64 seed=0) {
     if (seed != 0) srand(seed);
-    for (int i=0; i < A.size; i++) ((DU*)A.data)[i] = rand() % 10;
+    for (int i=0; i < A.numel; i++) ((DU*)A.data)[i] = rand() % 10;
 }
 
 void benchmark(gemm_op op, Tensor &A, Tensor &B, Tensor &C, FP alpha, FP beta) {
@@ -146,8 +146,8 @@ cudaError_t TestCutlassGemm(int M, int N, int K, FP alpha, FP beta) {
     //
     // Verify: copy to host and verify equivalence.
     //
-    std::vector<FP> h_c(C.size, 0);
-    std::vector<FP> h_r(R.size, 0);
+    std::vector<FP> h_c(C.numel, 0);
+    std::vector<FP> h_r(R.numel, 0);
     
     C.copy_to_host(h_c.data());
     R.copy_to_host(h_r.data());
