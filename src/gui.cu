@@ -5,10 +5,11 @@
  * <pre>Copyright (C) 2022- GreenII, this file is distributed under BSD 3-Clause License.</pre>
  */
 #include <map>
-#include <GL/freeglut.h>
-#include <cuda_gl_interop.h>
-#include <helper_gl.h>                   /// from CUDA Samples
+#include "gui.h"
 #include "imgvu.h"
+
+#define REFRESH_DELAY     10              /** ms */
+#define BUFFER_DATA(i)    ((char*)0 + i)
 
 namespace T4GUI {
     
@@ -175,8 +176,7 @@ extern "C" int gui_init(int *argc, char **argv, ImgVu *vu, int x, int y) {
     glutCloseFunc(_cleanup);
     printf("created\n");
     
-    if (!isGLVersionSupported(1, 5) ||
-        !areGLExtensionsSupported(ext)) return -1;
+    if (!isGLVersionOK(1, 5) || !areGLExtOK(ext)) return -1;
     
     _init_opengl(vu->h_src, vu->width, vu->height);
     _compile_shader();                     /// load float shader
