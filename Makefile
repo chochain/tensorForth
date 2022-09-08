@@ -25,7 +25,7 @@ SUBDIRS := src
 -include tests/Makefile
 
 # Cutlass library in ${CUTLASS_HOME}/build/tools/library
-CL_LIB := cutlass
+CL_LIB := -lcutlass -lGL -lGLU -lglut
 
 # Extra pre-compiled object and libraries
 USER_OBJS :=
@@ -56,7 +56,7 @@ $(APP_NAME): $(OBJS) $(USER_OBJS) $(OPTIONAL_TOOL_DEPS)
 		$(CUDA_FLAGS) \
 		-L$(CUDA_LIB) \
 		-L${CUTLASS_HOME}/build/tools/library \
-		-l$(CL_LIB) \
+		$(CL_LIB) \
 		-gencode arch=${CUDA_ARCH},code=${CUDA_CODE} \
 		$^
 	@echo 'Finished building target: $@'
