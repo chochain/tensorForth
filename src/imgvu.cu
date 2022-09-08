@@ -3,16 +3,7 @@
 #include <string.h>
 #include "imgvu.h"
 
-/////////////////////////////////////////////////////////////////////////////
-// device/kernel functions
-/////////////////////////////////////////////////////////////////////////////
-__GPU__ float lerpf(float a, float b, float c) { return a + (b - a) * c; }
-__GPU__ float vecLen(float4 a, float4 b) {
-    return ((b.x - a.x) * (b.x - a.x) +
-            (b.y - a.y) * (b.y - a.y) +
-            (b.z - a.z) * (b.z - a.z));
-}
-__GPU__ TColor make_color(float r, float g, float b, float a) {
+__GPU__ __INLINE__ TColor make_color(float r, float g, float b, float a) {
     return
         ((int)(a * 255.0f) << 24) |
         ((int)(b * 255.0f) << 16) |
@@ -33,20 +24,20 @@ __KERN__ void k_img_copy(TColor *dst, int W, int H, cudaTextureObject_t img, boo
 }
 void ImgVu::_img_copy(TColor *d_dst) {
     dim3 blk(T4_WARP_SZ, T4_WARP_SZ, 1);
-    dim3 grd(TGRID(width, height, 1, blk));
+    dim3 grd(TGRID(W, H, 1, blk));
 
-    k_img_copy<<<grd,blk>>>(d_dst, width, height, img, false);
+    k_img_copy<<<grd,blk>>>(d_dst, W, H, img, false);
     GPU_CHK();
 }
 void ImgVu::_img_flip(TColor *d_dst) {
     dim3 blk(T4_WARP_SZ, T4_WARP_SZ, 1);
-    dim3 grd(TGRID(width, height, 1, blk));
+    dim3 grd(TGRID(W, H, 1, blk));
 
-    k_img_copy<<<grd,blk>>>(d_dst, width, height, img, true);
+    k_img_copy<<<grd,blk>>>(d_dst, W, H, img, true);
     GPU_CHK();
 }
 ImgVu::ImgVu(const char *fname) {
-    load_bmp(fname, &h_src, &height, &width);
+    load_bmp(fname, &h_src, &H, &W);
     /*
     uchar4 *p = h_src;
     for (int i = 0; i < 10; i++) {
@@ -56,32 +47,23 @@ ImgVu::ImgVu(const char *fname) {
         }
     }
     */
-    printf("\nbmp %s[%d,%d] loaded", fname, height, width);
     _alloc_array();
-}
-
-void ImgVu::keyboard(unsigned char k) {
-    g_Kernel = (k == '0');
-}
-void ImgVu::display(TColor *d_dst) {
-    if (g_Kernel) _img_flip(d_dst);
-    else          _img_copy(d_dst);
 }
 
 void ImgVu::_alloc_array() {
     cudaChannelFormatDesc uchar4tex = cudaCreateChannelDesc<uchar4>();
-    cudaMallocArray(&d_ary, &uchar4tex, width, height); GPU_CHK();
+    cudaMallocArray(&d_ary, &uchar4tex, W, H); GPU_CHK();
     cudaMemcpy2DToArray(
         d_ary, 0, 0,
-        h_src, sizeof(uchar4) * width, sizeof(uchar4) * width, height,
+        h_src, sizeof(uchar4) * W, sizeof(uchar4) * W, H,
         cudaMemcpyHostToDevice);
     GPU_CHK();
 
     cudaResourceDesc res;
     memset(&res, 0, sizeof(cudaResourceDesc));
 
-    res.resType = cudaResourceTypeArray;
-    res.res.array.array = d_ary;
+    res.resType           = cudaResourceTypeArray;
+    res.res.array.array   = d_ary;
 
     cudaTextureDesc desc;
     memset(&desc, 0, sizeof(cudaTextureDesc));
@@ -102,13 +84,6 @@ static const char *list_keys =
     "Press [1] to view original image\n"
     "Press [q] to exit\n";
 
-static const char *err_gui =
-    "Error: failed to get minimal extensions for demo\n"
-    "This sample requires:\n"
-    "  OpenGL version 1.5\n"
-    "  GL_ARB_vertex_buffer_object\n"
-    "  GL_ARB_pixel_buffer_object\n";
-
 int main(int argc, char **argv) {
 #if defined(__linux__)
     setenv("DISPLAY", ":0", 0);
@@ -120,10 +95,7 @@ int main(int argc, char **argv) {
     const char *image_path = "./data/portrait_noise.bmp";
     ImgVu *vu = new ImgVu(image_path);
 
-    if (gui_init(&argc, argv, vu, 512, 384)) {
-        fprintf(stderr, "%s", err_gui);
-        return -1;
-    }
+    if (gui_init(&argc, argv, vu, 512, 384)) return -1;
     
     printf("%s", list_keys);
     
