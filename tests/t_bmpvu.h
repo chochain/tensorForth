@@ -5,9 +5,9 @@
  *
  * <pre>Copyright (C) 2022- GreenII, this file is distributed under BSD 3-Clause License.</pre>
  */
-#ifndef TEN4_BMPVU_H
-#define TEN4_BMPVU_H
-#include "vu.h"
+#ifndef TEST_BMPVU_H
+#define TEST_BMPVU_H
+#include "../src/vu.h"
 
 #pragma pack(1)
 
@@ -50,4 +50,4 @@ private:
     void   _img_copy(TColor *d_dst);
     void   _img_flip(TColor *d_dst);
 };
-#endif // TEN4_BMPVU_H
+#endif // TEST_BMPVU_H

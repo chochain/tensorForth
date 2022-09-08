@@ -7,7 +7,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include "bmpvu.h"
+#include "t_bmpvu.h"
 
 __GPU__ __INLINE__ TColor make_color(float r, float g, float b, float a) {
     return
