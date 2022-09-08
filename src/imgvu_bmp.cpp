@@ -1,10 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#if defined(WIN32) || defined(_WIN32) || defined(WIN64) || defined(_WIN64)
-#pragma warning(disable : 4996)  // disable deprecated warning
-#endif
-
 #pragma pack(1)
 
 typedef struct { unsigned char x, y, z, w; } uchar4;
@@ -91,5 +87,6 @@ extern "C" void load_bmp(
     else printf("BMP file loaded successfully!\n");
 
     fclose(fd);
+    printf("\nbmp %s[%d,%d] loaded", fname, info.height, info.width);
 }
 
