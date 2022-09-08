@@ -6,25 +6,25 @@
  */
 #include <map>
 #include "gui.h"
-#include "imgvu.h"
+//#include "imgvu.h"
 
 #define REFRESH_DELAY     10              /** ms */
 #define BUFFER_DATA(i)    ((char*)0 + i)
 
 namespace T4GUI {
     
-typedef std::map<int, ImgVu*> VuMap;
+typedef std::map<int, Vu*> VuMap;
 VuMap vu_map;
 
 // OpenGL PBO and texture "names"
 struct cudaGraphicsResource *cuda_pbo;  ///< OpenGL-CUDA exchange
 GLuint shader_id;                       ///< 
 
-void _vu_set(int id, ImgVu *vu) {
+void _vu_set(int id, Vu *vu) {
     vu_map[id] = vu;
 }
 
-ImgVu *_vu_get(int id) {
+Vu *_vu_get(int id) {
     VuMap::iterator vu = vu_map.find(id);
     return (vu == vu_map.end()) ? NULL : vu->second;
 }
@@ -82,10 +82,10 @@ void _keyboard(unsigned char k, int /*x*/, int /*y*/) {
     case 'q':
     case 'Q': glutDestroyWindow(id); return;
     default: 
-        ImgVu *vu = _vu_get(id);
+        Vu *vu = _vu_get(id);
         if (vu) vu->keyboard(k);
         else {
-            fprintf(stderr, "ImgVu[%d] not found\n", id);
+            fprintf(stderr, "Vu[%d] not found\n", id);
             exit(-1);
         }
         break;
@@ -93,8 +93,8 @@ void _keyboard(unsigned char k, int /*x*/, int /*y*/) {
 }
 
 void _display() {
-    int   id  = glutGetWindow();
-    ImgVu *vu = _vu_get(id);
+    int id  = glutGetWindow();
+    Vu  *vu = _vu_get(id);
     if (!vu) return;
     
     TColor *d_dst = NULL;
@@ -151,7 +151,7 @@ void _init_opengl(uchar4 *h_src, int W, int H) {
     printf("created\n");
 }
 
-extern "C" int gui_init(int *argc, char **argv, ImgVu *vu, int x, int y) {
+extern "C" int gui_init(int *argc, char **argv, Vu *vu, int x, int y) {
     static const char *ext =
         "GL_ARB_vertex_buffer_object GL_ARB_pixel_buffer_object";
     static const char *errmsg =
@@ -178,7 +178,7 @@ extern "C" int gui_init(int *argc, char **argv, ImgVu *vu, int x, int y) {
     glutCloseFunc(_cleanup);
     printf("created\n");
     
-    if (!isGLVersionOK(1, 5) || !areGLExtOK(ext)) {
+    if (!glVersionOK(1, 5) || !glExtOK(ext)) {
         fprintf(stderr, "%s and %s\n", errmsg, ext);
         return -1;
     }
