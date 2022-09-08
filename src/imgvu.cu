@@ -1,3 +1,9 @@
+/** -*- c++ -*-
+ * @File
+ * @brief - eForth Image Viewer implementation
+ *
+ * <pre>Copyright (C) 2022- GreenII, this file is distributed under BSD 3-Clause License.</pre>
+ */
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -36,9 +42,9 @@ void ImgVu::_img_flip(TColor *d_dst) {
     k_img_copy<<<grd,blk>>>(d_dst, W, H, img, true);
     GPU_CHK();
 }
-ImgVu::ImgVu(const char *fname) {
+ImgVu::ImgVu(const char *fname) : Vu(fname) {
     load_bmp(fname, &h_src, &H, &W);
-    /*
+
     uchar4 *p = h_src;
     for (int i = 0; i < 10; i++) {
         printf("\n");
@@ -46,36 +52,7 @@ ImgVu::ImgVu(const char *fname) {
             printf("[%02x,%02x,%02x,%02x] ", p->x, p->y, p->z, p->w);
         }
     }
-    */
-    _alloc_array();
-}
-
-void ImgVu::_alloc_array() {
-    cudaChannelFormatDesc uchar4tex = cudaCreateChannelDesc<uchar4>();
-    cudaMallocArray(&d_ary, &uchar4tex, W, H); GPU_CHK();
-    cudaMemcpy2DToArray(
-        d_ary, 0, 0,
-        h_src, sizeof(uchar4) * W, sizeof(uchar4) * W, H,
-        cudaMemcpyHostToDevice);
-    GPU_CHK();
-
-    cudaResourceDesc res;
-    memset(&res, 0, sizeof(cudaResourceDesc));
-
-    res.resType           = cudaResourceTypeArray;
-    res.res.array.array   = d_ary;
-
-    cudaTextureDesc desc;
-    memset(&desc, 0, sizeof(cudaTextureDesc));
-
-    desc.normalizedCoords = false;
-    desc.filterMode       = cudaFilterModeLinear;
-    desc.addressMode[0]   = cudaAddressModeWrap;
-    desc.addressMode[1]   = cudaAddressModeWrap;
-    desc.readMode         = cudaReadModeNormalizedFloat;
-  
-    cudaCreateTextureObject(&img, &res, &desc, NULL);
-    GPU_CHK();
+    Vu::setup();
 }
 
 static const char *list_keys =
