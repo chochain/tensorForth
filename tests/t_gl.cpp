@@ -36,13 +36,14 @@ int main(int argc, char ** argv) {
         GLX_GREEN_SIZE, 1,
         GLX_BLUE_SIZE,  1,
         GLX_DEPTH_SIZE, 12,   ///< depth buffer
+        GLX_DOUBLEBUFFER,
         None
     };
     /// 1. Xlib creates windows
     /// 2. GLX hooks OpenGL <=> X
     /// 3. OpenGL draws
-    Display * display = XOpenDisplay(0);
-    XVisualInfo* vi   = glXChooseVisual(display, DefaultScreen(display), sngBuf);
+    Display *display = XOpenDisplay(0);
+    XVisualInfo *vi  = glXChooseVisual(display, DefaultScreen(display), sngBuf);
     GLXContext glContext = glXCreateContext(display, vi, 0, GL_TRUE);
 
     // Create two windows
