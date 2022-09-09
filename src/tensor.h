@@ -146,6 +146,7 @@ struct Tensor : public T4Base {
     __BOTH__ Tensor &reshape(U16 n, U16 h, U16 w, U16 c);
     __BOTH__ Tensor &reshape(U16 c1, U16 n, U16 h, U16 w, U16 c);
     __BOTH__ Tensor &identity();              ///< fill as an identity matrix
+    __BOTH__ Tensor &fill(DU v) { return this->map(O_FILL, v); }
     __HOST__ void   copy_to_host(void* dst) { cudaMemcpy(dst, data, numel, cudaMemcpyDeviceToHost); }
     ///
     /// IO
