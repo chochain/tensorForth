@@ -110,10 +110,11 @@ BmpVu::BmpVu(const char *fname) : Vu(fname) {
     uchar4 *p = h_src;
     for (int i = 0; i < 10; i++) {
         printf("\n");
-        for (int i = 0; i < 4; i++, p++) {
+        for (int j = 0; j < 4; j++, p++) {
             printf("[%02x,%02x,%02x,%02x] ", p->x, p->y, p->z, p->w);
         }
     }
+    printf("\n");
     Vu::setup();
 }
 
@@ -123,9 +124,6 @@ static const char *list_keys =
     "Press [1] to view original image\n"
     "Press [q] to exit\n";
 
-extern "C" int  gui_init(int *argc, char **argv, Vu *vu, int x, int y);
-extern "C" int  gui_loop();
-
 int main(int argc, char **argv) {
 #if defined(__linux__)
     setenv("DISPLAY", ":0", 0);
@@ -134,10 +132,10 @@ int main(int argc, char **argv) {
 
     cudaSetDevice(0);
 
-    const char *image_path = "./data/portrait_noise.bmp";
-    BmpVu *vu = new BmpVu(image_path);
-
-    if (gui_init(&argc, argv, vu, 512, 384)) return -1;
+    if (gui_init(&argc, argv)) return -1;
+    
+    BmpVu *vu = new BmpVu("./data/portrait_noise.bmp");
+    gui_add(vu);
     
     printf("%s", list_keys);
     
