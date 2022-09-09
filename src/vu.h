@@ -6,6 +6,7 @@
  */
 #ifndef T4_VU_H
 #define T4_VU_H
+#include <GL/gl.h>
 #include "ten4_types.h"
 
 typedef U32 TColor;
@@ -13,10 +14,11 @@ typedef U32 TColor;
 class Vu {
 public:
     const char          *fname;         ///< file name
-    int                 W, H;           ///< dimensions
+    int                 W, H, N;        ///< dimensions
     uchar4              *h_src = NULL;  ///< source image on host
     cudaArray           *d_ary = NULL;  ///< image on device
-    cudaTextureObject_t img;            ///
+    cudaTextureObject_t img;            ///< cuda Textrure object
+    struct cudaGraphicsResource *pbo;   ///< OpenGL-CUDA exchange
     
     Vu(const char *name);
     ~Vu();
@@ -27,5 +29,9 @@ public:
     virtual void display(TColor *d_dst)    {}
 };
 
+extern "C" int  gui_init(int *argc, char **argv);
+extern "C" int  gui_add(Vu *vu);
+extern "C" int  gui_loop();
+    
 #endif // T4_VU_H
 
