@@ -50,16 +50,14 @@ main-build: $(APP_NAME)
 
 # Tool invocations
 $(APP_NAME): $(OBJS) $(USER_OBJS) $(OPTIONAL_TOOL_DEPS)
-	@echo 'Building target: $@'
-	@echo 'Invoking: NVCC linker'
-	${CUDA_HOME}/bin/nvcc -ccbin g++ --cudart=static -o "$(APP_TARGET)" \
-		$(CUDA_FLAGS) \
-		-L$(CUDA_LIB) \
-		-L${CUTLASS_HOME}/build/tools/library \
-		$(CL_LIB) \
-		-gencode arch=${CUDA_ARCH},code=${CUDA_CODE} \
-		$^
-	@echo 'Finished building target: $@'
+	@echo '<App><Action>Link</Action><Filename>$<</Filename>'
+	    ${CUDA_HOME}/bin/nvcc -ccbin g++ --cudart=static -o "$(APP_TARGET)" \
+			$(CUDA_FLAGS) \
+			-L$(CUDA_LIB) \
+			-L${CUTLASS_HOME}/build/tools/library \
+			$(CL_LIB) \
+			-gencode arch=${CUDA_ARCH},code=${CUDA_CODE} $^
+	@echo '<Status>Finished</Status></App>'
 	@echo ' '
 
 # Other Targets
