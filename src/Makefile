@@ -2,13 +2,13 @@
 # tensorForth src/Makefile
 #
 # Add inputs and outputs from these tool invocations to the build variables
-SRCS += imgvu_bmp.cpp
+SRCS +=
 
 INCS += \
 	${CUDA_HOME}/cuda-samples/Common \
 	${CUDA_HOME}/cuda-samples/Samples/2_Concepts_and_Techniques/imageDenoising
 
-INC_PARMS = $(INCS:%=-I%)
+INC_LIST = $(INCS:%=-I%)
 
 OBJS += \
 	./src/util.o \
@@ -23,11 +23,9 @@ OBJS += \
 	./src/model_fwd.o \
 	./src/model_back.o \
 	./src/netvm.o \
-	./src/ten4.o \
-	./src/imgvu_bmp.o \
 	./src/vu.o \
     ./src/gui.o \
-	./src/imgvu.o
+	./src/ten4.o
 
 # Additional CUDA includes if any
 CU_INCS := \
@@ -48,12 +46,9 @@ CU_INCS := \
 	src/tenvm.h \
 	src/model.h \
 	src/netvm.h \
-	src/ten4.h
-
-GUI_INCS := \
 	src/vu.h \
 	src/gui.h \
-	src/imgvu.h
+	src/ten4.h
 
 # Cutlass includes
 CL_INC  := ${CUTLASS_HOME}/include
@@ -62,18 +57,17 @@ CL_TOOL := ${CUTLASS_HOME}/tools
 .PHONY: clean clean-src
 
 # Each subdirectory must supply rules for building sources it contributes
-src/%.o: src/%.cu ${CU_INCS} ${GUI_INCS}
-	@echo 'Building source file: $<'
-	@echo 'Invoking: NVCC Compiler'
+src/%.o: src/%.cu ${CU_INCS}
+	@echo '<Source><Action>Compile</Action><Filename>$<</Filename>'
 	${CUDA_HOME}/bin/nvcc -ccbin g++ \
-		${INC_PARMS} \
+		${INC_LIST} \
 		-D__CDPRT_SUPPRESS_SYNC_DEPRECATION_WARNING \
 		-t=0 -c -std=c++14 -O3 -D__CUDACC__ -o "$@" "$<" \
 		--device-c --extended-lambda --expt-relaxed-constexpr \
 		--device-debug --debug \
 		 -gencode arch=${CUDA_ARCH},code=${CUDA_CODE} \
 		--keep-dir $(APP_HOME)/src
-	@echo 'Finished building: $<'
+	@echo '<Status>OK</Status></Source>'
 	@echo ' '
 
 clean: clean-src
