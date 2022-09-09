@@ -6,7 +6,6 @@
  */
 #include <map>
 #include "gui.h"
-//#include "imgvu.h"
 
 #define REFRESH_DELAY     10              /** ms */
 #define BUFFER_DATA(i)    ((char*)0 + i)
@@ -14,17 +13,15 @@
 namespace T4GUI {
     
 typedef std::map<int, Vu*> VuMap;
-VuMap vu_map;
-
-// OpenGL PBO and texture "names"
-struct cudaGraphicsResource *cuda_pbo;  ///< OpenGL-CUDA exchange
-GLuint shader_id;                       ///< 
+VuMap   vu_map;
+GLuint  shader_id = 0;         ///< floating point shader
 
 void _vu_set(int id, Vu *vu) {
     vu_map[id] = vu;
 }
 
-Vu *_vu_get(int id) {
+Vu *_vu_get() {
+    int id = glutGetWindow();
     VuMap::iterator vu = vu_map.find(id);
     return (vu == vu_map.end()) ? NULL : vu->second;
 }
@@ -35,6 +32,8 @@ void _compile_shader() {
         "!!ARBfp1.0\n"
         "TEX result.color, fragment.texcoord, texture[0], 2D; \n"
         "END";
+
+    if (shader_id) return;    ///< already compiled
     
     printf("\tShader...");
     glGenProgramsARB(1, &shader_id);
@@ -53,8 +52,12 @@ void _compile_shader() {
 }
 
 void _cleanup() {
-    cudaGraphicsUnregisterResource(cuda_pbo); GPU_CHK();
-    glDeleteProgramsARB(1, &shader_id);   /// remove shader
+    Vu *vu = _vu_get();
+    cudaGraphicsUnregisterResource(vu->pbo); GPU_CHK();
+    
+    if (vu_map.size()==0) {
+        glDeleteProgramsARB(1, &shader_id);   /// remove shader
+    }
 }
 
 void _gl_codepath(int w, int h) {
@@ -64,9 +67,9 @@ void _gl_codepath(int w, int h) {
         GL_TEXTURE_2D, 0, 0, 0, w, h, GL_RGBA,
         GL_UNSIGNED_BYTE, BUFFER_DATA(0));
     glBegin(GL_TRIANGLES);
-    glTexCoord2f(0, 0);
-    glVertex2f(-1, -1);
-    glTexCoord2f(2, 0);
+    glTexCoord2f(0, 0);       /// texture coordinates:
+    glVertex2f(-1, -1);       ///     (0,0) lower left
+    glTexCoord2f(2, 0);       ///     (1,1) upper right
     glVertex2f(+3, -1);
     glTexCoord2f(0, 2);
     glVertex2f(-1, +3);
@@ -75,38 +78,31 @@ void _gl_codepath(int w, int h) {
 }
 
 void _keyboard(unsigned char k, int /*x*/, int /*y*/) {
-    int id = glutGetWindow();
-    
     switch (k) {
     case 27:     // ESC
     case 'q':
-    case 'Q': glutDestroyWindow(id); return;
+    case 'Q': glutDestroyWindow(glutGetWindow()); return;
     default: 
-        Vu *vu = _vu_get(id);
+        Vu *vu = _vu_get();
         if (vu) vu->keyboard(k);
-        else {
-            fprintf(stderr, "Vu[%d] not found\n", id);
-            exit(-1);
-        }
         break;
     }
 }
 
 void _display() {
-    int id  = glutGetWindow();
-    Vu  *vu = _vu_get(id);
+    Vu  *vu = _vu_get();
     if (!vu) return;
     
     TColor *d_dst = NULL;
     size_t num_bytes;
 
-    cudaGraphicsMapResources(1, &cuda_pbo, 0);   GPU_CHK();
+    cudaGraphicsMapResources(1, &vu->pbo, 0);   GPU_CHK();
     cudaGraphicsResourceGetMappedPointer(
-        (void **)&d_dst, &num_bytes, cuda_pbo);  GPU_CHK();
+        (void **)&d_dst, &num_bytes, vu->pbo);  GPU_CHK();
 
     vu->display(d_dst);
     
-    cudaGraphicsUnmapResources(1, &cuda_pbo, 0); GPU_CHK();
+    cudaGraphicsUnmapResources(1, &vu->pbo, 0); GPU_CHK();
     _gl_codepath(vu->W, vu->H);
     
     glutSwapBuffers();
@@ -120,9 +116,9 @@ void _refresh(int) {
     }
 }
 
-void _init_opengl(uchar4 *h_src, int W, int H) {
+void _bind_texture(Vu *vu) {
+    int    buf_sz = vu->W * vu->H * 4;
     GLuint gl_pbo, gl_tex;
-    int    buf_sz = W * H * 4;
 
     printf("\tTexture...");
     glEnable(GL_TEXTURE_2D);
@@ -133,36 +129,37 @@ void _init_opengl(uchar4 *h_src, int W, int H) {
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8,
-                 W, H, 0, GL_RGBA, GL_UNSIGNED_BYTE, h_src);
+                 vu->W, vu->H, 0, GL_RGBA, GL_UNSIGNED_BYTE, vu->h_src);
     printf("created\n");
 
     printf("\tPBO...");
     glGenBuffers(1, &gl_pbo);
     glBindBuffer(GL_PIXEL_UNPACK_BUFFER_ARB, gl_pbo);
-    glBufferData(GL_PIXEL_UNPACK_BUFFER_ARB, buf_sz, h_src, GL_STREAM_COPY);
+    glBufferData(GL_PIXEL_UNPACK_BUFFER_ARB, buf_sz, vu->h_src, GL_STREAM_COPY);
     // While a PBO is registered to CUDA, it can't be used
     // as the destination for OpenGL drawing calls.
     // But in our particular case OpenGL is used
     // to display the content of the PBO, specified by CUDA kernels,
     // so we need to register/unregister it (once only).
     cudaGraphicsGLRegisterBuffer(
-        &cuda_pbo, gl_pbo, cudaGraphicsMapFlagsWriteDiscard);
+        &vu->pbo, gl_pbo, cudaGraphicsMapFlagsWriteDiscard);
     GPU_CHK();
     printf("created\n");
 }
 
-extern "C" int gui_init(int *argc, char **argv, Vu *vu, int x, int y) {
-    static const char *ext =
-        "GL_ARB_vertex_buffer_object GL_ARB_pixel_buffer_object";
-    static const char *errmsg =
-        "GL Error: failed to get minimal extensions of version 1.5\n";
-    
+extern "C" int gui_init(int *argc, char **argv) {
     printf("\nGLUT...");
     glutInit(argc, argv);                /// * consumes X11 input parameters
     glutInitDisplayMode(GLUT_RGBA | GLUT_DOUBLE);
-    glutInitWindowSize(vu->W, vu->H);
-    glutInitWindowPosition(x - vu->W / 2, y - vu->H / 2);
     printf("initialized\n");
+    
+    return 0;
+}
+
+extern "C" int gui_add(Vu *vu) {
+    int z = 40 * vu_map.size();
+    glutInitWindowPosition(600 + z - (vu->W / 2), 100 + z);
+    glutInitWindowSize(vu->W, vu->H);
     ///
     /// create window for img
     ///
@@ -177,14 +174,9 @@ extern "C" int gui_init(int *argc, char **argv, Vu *vu, int x, int y) {
     glutTimerFunc(REFRESH_DELAY, _refresh, 0);
     glutCloseFunc(_cleanup);
     printf("created\n");
-    
-    if (!glVersionOK(1, 5) || !glExtOK(ext)) {
-        fprintf(stderr, "%s and %s\n", errmsg, ext);
-        return -1;
-    }
-    
-    _init_opengl(vu->h_src, vu->W, vu->H);
-    _compile_shader();                     /// load float shader
+
+    _bind_texture(vu);
+    _compile_shader();                      /// load float shader
     
     return 0;
 }
@@ -193,6 +185,5 @@ extern "C" int gui_loop() {
     glutMainLoop();
     return 0;
 }
-
 
 } // namespace T4GUI
