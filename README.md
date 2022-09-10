@@ -226,14 +226,11 @@ Note:
 </pre>
 
 ### TODO
-* autograd and backprop
-* add CNN
-  + study torch.nn, CUB (for kernel)
-  + conv: ~pushing_the_limits_for_2d_conv..., shuffle reduction
-  + benchmark (MNIST, CIFAR, Kaggle...)
+* add OpenGL viewer (for dataset)
 * models load/save - (VGG-19, ResNet (i.e. skip-connect), compare to Keras)
+* benchmark (MNIST, CIFAR, Kaggle...)
 * sampling and distribution
-* refactor - add namespace
+* refactor - add namespace, (study MordenGPU for kernel)
 * add RNN
 * add inter-VM communication (CUDA stream, review CUB again)
 * add batch loader (from VM->VM)
@@ -241,6 +238,7 @@ Note:
 * add GNN - dynamic graph with VMs
 
 ### LATER
+* NCHW tensor format support (as in PyTorch)
 * integrate plots (matplotlib, tensorboard)
 * integrate ONNX
 * integrate CUB, CUTLASS (utilities.init, gemm_api) - slow, later

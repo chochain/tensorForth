@@ -2,12 +2,18 @@
 A Forth word can be seen as a nested function that process data flow, i.e. y = fn(fn-1(...(f2(f1(x))...))). We can use chain rule to collection derivations for forward and backward diff.
   
 ## Features
-  * Tensor Format
+  * Tensor Format support
     + NHWC (as in TensorFlow) supported
     + NCHW (as in PyTorch), future release
-  * CNN
-    + define word as the functional (implicit sequential)
-    + words are destructive by default (i.e. input tensor updated)
+  * Neural Network Model
+    + words are functional (implicit sequential)
+    + layers: conv2d, linear, flatten
+    + pooling: maxpool, minpool, avgpool, dropout
+    + activation: relu, sigmoid
+    + loss: ce, mse
+    + feedforward (autograd)
+    + backprop
+    + gradiant: sgd, adam
 
 ### CNN Application Example
 <pre>
@@ -25,7 +31,7 @@ constant mnist                         \ model can be stored as a constant
 : train (N ds0  -- N') nn.for 10 rset@ epoch nn.next ;
 : test  (N ds1  -- N') nn.for r@ forward avg predict . nn.next ;
 
-mnist ds0 train1 nn.save net_1         \ training session (and save the network)
+mnist ds0 train nn.save net_1          \ training session (and save the network)
 mnist ds1 test                         \ predicting session, or
 nn.load net_1 ds2 test                 \ load trained network and test
 </pre>
@@ -60,6 +66,7 @@ nn.load net_1 ds2 test                 \ load trained network and test
 * https://en.wikipedia.org/wiki/Adept_(C%2B%2B_library) and Stan
 * for 1D nn   https://machinelearningmastery.com/implement-backpropagation-algorithm-scratch-python/
 * for 2D conv https://datascience-enthusiast.com/DL/Convolution_model_Step_by_Stepv2.html
+* backprop    https://medium.com/@ngocson2vn/a-gentle-explanation-of-backpropagation-in-convolutional-neural-network-cnn-1a70abff508b
 * backprop    https://www.google.com/search?channel=fs&client=ubuntu&q=forward+backward+propagation
 * code ref    https://github.com/rasmusbergpalm/DeepLearnToolbox
 
