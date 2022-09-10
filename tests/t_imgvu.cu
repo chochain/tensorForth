@@ -25,7 +25,7 @@ __KERN__ void k_img_copy(TColor *dst, int W, int H, cudaTextureObject_t img, boo
     const int i = threadIdx.y + blockDim.y * blockIdx.y;
     // Add half of a texel to always address exact texel centers
     const float x = flip ? (float)(W - j) - 0.5f : (float)j + 0.5f;
-    const float y = (float)(H - i) - 0.5f;
+    const float y = (float)i + 0.5f;
 
     if (j < W && i < H) {
         float4 v = tex2D<float4>(img, x, y);
@@ -33,20 +33,27 @@ __KERN__ void k_img_copy(TColor *dst, int W, int H, cudaTextureObject_t img, boo
     }
 }
 
-void ImgVu::_load() {
+int ImgVu::_load() {
     printf("Loading %s...", fname);
-    U8     *img = stbi_load(fname, &W, &H, &N, 0);
-    uchar4 *x = h_src = (uchar4*)malloc(W * H * 4);
+    stbi_set_flip_vertically_on_load(true);
+    U8 *img = stbi_load(fname, &W, &H, &N, 0);
+    if (!img) {
+        printf(" => failed\n");
+        return -1;
+    }
+    uchar4 *x = h_src = (uchar4*)malloc(W * H * sizeof(uchar4));
     U8     *p = img;
     for (int i = 0; i < H; i++) {
         for (int j = 0; j < W; j++, x++) {
             x->x = *p++;
             x->y = *p++;
             x->z = *p++;
+            x->w = 0x80;
         }
     }
     stbi_image_free(img);
     printf(" => [%d,%d,%d] loaded\n", W, H, N);
+    return 0;
 }
 void ImgVu::_img_copy(TColor *d_dst) {
     dim3 blk(T4_WARP_SZ, T4_WARP_SZ, 1);
@@ -63,7 +70,7 @@ void ImgVu::_img_flip(TColor *d_dst) {
     GPU_CHK();
 }
 ImgVu::ImgVu(const char *fname) : Vu(fname) {
-    _load();
+    if (_load()) return;
     Vu::setup();
 }
 

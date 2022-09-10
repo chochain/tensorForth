@@ -22,7 +22,7 @@ public:
 private:
     int    _vuop = 0;
 
-    void   _load();
+    int    _load();
     void   _img_copy(TColor *d_dst);
     void   _img_flip(TColor *d_dst);
 };
