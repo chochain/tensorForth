@@ -60,7 +60,7 @@ void _cleanup() {
     }
 }
 
-void _gl_codepath(int w, int h) {
+void _gl_draw(int w, int h) {
     // Common display code path
     glClear(GL_COLOR_BUFFER_BIT);
     glTexSubImage2D(
@@ -103,7 +103,7 @@ void _display() {
     vu->display(d_dst);
     
     cudaGraphicsUnmapResources(1, &vu->pbo, 0); GPU_CHK();
-    _gl_codepath(vu->W, vu->H);
+    _gl_draw(vu->W, vu->H);
     
     glutSwapBuffers();
     glutReportErrors();
@@ -117,10 +117,19 @@ void _refresh(int) {
 }
 
 void _bind_texture(Vu *vu) {
-    int    buf_sz = vu->W * vu->H * 4;
     GLuint gl_pbo, gl_tex;
+    GLuint format = GL_RGBA8, depth = GL_RGBA;
+    /*
+    /// See OpenGL Core 3.2 internal format
+    switch (vu->N) {
+    case 1:  format = GL_R8;    depth = GL_RED;  break;
+    case 2:  format = GL_RG8;   depth = GL_RG;   break;
+    case 3:  format = GL_RGB8;  depth = GL_RGB;  break;
+    default: format = GL_RGBA8; depth = GL_RGBA;
+    }
+    */
 
-    printf("\tTexture...");
+    printf("\tTexture");
     glEnable(GL_TEXTURE_2D);
     glGenTextures(1, &gl_tex);
     glBindTexture(GL_TEXTURE_2D, gl_tex);
@@ -128,14 +137,15 @@ void _bind_texture(Vu *vu) {
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T,     GL_CLAMP);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8,
-                 vu->W, vu->H, 0, GL_RGBA, GL_UNSIGNED_BYTE, vu->h_src);
-    printf("created\n");
+    glTexImage2D(GL_TEXTURE_2D, 0, format,
+                 vu->W, vu->H, 0, depth, GL_UNSIGNED_BYTE, NULL);
+    printf("[%d] created\n", gl_tex);
 
-    printf("\tPBO...");
+    printf("\tPBO");
+    int bsz = vu->W * vu->H * sizeof(uchar4);
     glGenBuffers(1, &gl_pbo);
     glBindBuffer(GL_PIXEL_UNPACK_BUFFER_ARB, gl_pbo);
-    glBufferData(GL_PIXEL_UNPACK_BUFFER_ARB, buf_sz, vu->h_src, GL_STREAM_COPY);
+    glBufferData(GL_PIXEL_UNPACK_BUFFER_ARB, bsz, vu->h_src, GL_STREAM_COPY);
     // While a PBO is registered to CUDA, it can't be used
     // as the destination for OpenGL drawing calls.
     // But in our particular case OpenGL is used
@@ -144,7 +154,7 @@ void _bind_texture(Vu *vu) {
     cudaGraphicsGLRegisterBuffer(
         &vu->pbo, gl_pbo, cudaGraphicsMapFlagsWriteDiscard);
     GPU_CHK();
-    printf("created\n");
+    printf("[%d] created\n", gl_pbo);
 }
 
 extern "C" int gui_init(int *argc, char **argv) {
