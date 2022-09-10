@@ -25,8 +25,9 @@ Vu *_vu_get() {
     VuMap::iterator vu = vu_map.find(id);
     return (vu == vu_map.end()) ? NULL : vu->second;
 }
-
-// shader for displaying floating-point texture
+///
+/// default texture shader for displaying floating-point
+///
 void _compile_shader() {
     static const char *code =
         "!!ARBfp1.0\n"
@@ -43,7 +44,7 @@ void _compile_shader() {
         (GLsizei)strlen(code), (GLubyte*)code);
     
     GLint xpos;
-    glGetIntegerv(GL_PROGRAM_ERROR_POSITION_ARB, &xpos);
+    glGetIntegerv(GL_PROGRAM_ERROR_POSITION_ARB, &xpos); /// CUDA GL extension
     if (xpos != -1) {
         const GLubyte *errmsg = glGetString(GL_PROGRAM_ERROR_STRING_ARB);
         fprintf(stderr, "Shader error at: %d\n%s\n",  (int)xpos, errmsg);
@@ -60,7 +61,7 @@ void _cleanup() {
     }
 }
 
-void _gl_draw(int w, int h) {
+void _paint(int w, int h) {
     // Common display code path
     glClear(GL_COLOR_BUFFER_BIT);
     glTexSubImage2D(
@@ -75,6 +76,23 @@ void _gl_draw(int w, int h) {
     glVertex2f(-1, +3);
     glEnd();
     glFinish();
+    
+    glutSwapBuffers();
+    glutReportErrors();
+}
+
+void _mouse(int button, int state, int x, int y) {
+    /// button: GLUT_LEFT_BUTTON, GLUT_MIDDLE_BUTTON, GLUT_RIGHT_BUTTON
+    /// state:  GLUT_UP=1, GLUT_DOWN=0
+    /// x,y: mouse location in window relative coordinates
+    switch (button) {
+    case GLUT_LEFT_BUTTON:
+    case GLUT_MIDDLE_BUTTON:
+    case GLUT_RIGHT_BUTTON:
+        Vu *vu = _vu_get();
+        if (vu) vu->mouse(button, state, x, y);
+        break;
+    }
 }
 
 void _keyboard(unsigned char k, int /*x*/, int /*y*/) {
@@ -94,26 +112,24 @@ void _display() {
     if (!vu) return;
     
     TColor *d_dst = NULL;
-    size_t num_bytes;
+    size_t bsz;
 
-    cudaGraphicsMapResources(1, &vu->pbo, 0);   GPU_CHK();
+    cudaGraphicsMapResources(1, &vu->pbo, 0);   GPU_CHK();  /// lock
     cudaGraphicsResourceGetMappedPointer(
-        (void **)&d_dst, &num_bytes, vu->pbo);  GPU_CHK();
+        (void**)&d_dst, &bsz, vu->pbo);         GPU_CHK();
 
-    vu->display(d_dst);
+    vu->display(d_dst);         /// update buffer content
     
-    cudaGraphicsUnmapResources(1, &vu->pbo, 0); GPU_CHK();
-    _gl_draw(vu->W, vu->H);
+    cudaGraphicsUnmapResources(1, &vu->pbo, 0); GPU_CHK();  /// unlock
     
-    glutSwapBuffers();
-    glutReportErrors();
+    _paint(vu->W, vu->H);
 }
 
 void _refresh(int) {
-    if (glutGetWindow()) {
-        glutPostRedisplay();
-        glutTimerFunc(REFRESH_DELAY, _refresh, 0);
-    }
+    if (!glutGetWindow()) return;
+    
+    glutPostRedisplay();       /// mark current window for refresh
+    glutTimerFunc(REFRESH_DELAY, _refresh, 0);
 }
 
 void _bind_texture(Vu *vu) {
@@ -181,12 +197,13 @@ extern "C" int gui_add(Vu *vu) {
     ///
     glutDisplayFunc(_display);
     glutKeyboardFunc(_keyboard);
+    glutMouseFunc(_mouse);
     glutTimerFunc(REFRESH_DELAY, _refresh, 0);
     glutCloseFunc(_cleanup);
     printf("created\n");
 
     _bind_texture(vu);
-    _compile_shader();                      /// load float shader
+//    _compile_shader();                      /// load float shader
     
     return 0;
 }

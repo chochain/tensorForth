@@ -14,7 +14,7 @@ typedef U32 TColor;
 class Vu {
 public:
     const char          *fname;         ///< file name
-    int                 W, H, N;        ///< dimensions
+    int                 W, H, N;        ///< dimensions and channel
     uchar4              *h_src = NULL;  ///< source image on host
     cudaArray           *d_ary = NULL;  ///< image on device
     cudaTextureObject_t img;            ///< cuda Textrure object
@@ -25,8 +25,9 @@ public:
     
     Vu &setup();                        ///< initialize cuda Texture
     
-    virtual void keyboard(U8 k) {}
-    virtual void display(TColor *d_dst)    {}
+    virtual void mouse(int button, int state, int x, int y) {}
+    virtual void keyboard(U8 k)         {}
+    virtual void display(TColor *d_dst) {}
 };
 
 extern "C" int  gui_init(int *argc, char **argv);
