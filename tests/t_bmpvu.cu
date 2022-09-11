@@ -29,12 +29,12 @@ __KERN__ void k_img_copy(TColor *dst, int W, int H, cudaTextureObject_t img, boo
     }
 }
 
-void BmpVu::_load() {
+int BmpVu::_load() {
     BMPHeader     hdr;
     BMPInfoHeader info;
     FILE *fd;
 
-    printf("Loading %s...\n", fname);
+    printf("Loading %s", fname);
     if (sizeof(uchar4) != 4) {
         printf("***Bad uchar4 size***\n");
         exit(EXIT_SUCCESS);
@@ -62,20 +62,19 @@ void BmpVu::_load() {
 
     W     = info.width;
     H     = info.height;
-    h_src = (uchar4*)malloc(info.width * info.height * 4);
-
-    printf("BMP width: %u\n",  info.width);
-    printf("BMP height: %u\n", info.height);
+    N     = sizeof(uchar4);
+    h_src = (uchar4*)malloc(W * H * N);
 
     fseek(fd, hdr.offset - sizeof(hdr) - sizeof(info), SEEK_CUR);
 
     uchar4 *p = h_src;
-    int z = (4 - (3 * info.width) % 4) % 4;
-    for (int y = 0; y < info.height; y++) {
-        for (int x = 0; x < info.width; x++, p++) {
+    int z = (4 - (3 * W) % 4) % 4;
+    for (int y = 0; y < H; y++) {
+        for (int x = 0; x < W; x++, p++) {
             p->z = fgetc(fd);
             p->y = fgetc(fd);
             p->x = fgetc(fd);
+            p->w = 0xff;
         }
         for (int x = 0; x < z; x++) fgetc(fd);  // skip padding
     }
@@ -84,10 +83,10 @@ void BmpVu::_load() {
         free(h_src);
         exit(EXIT_SUCCESS);
     }
-    else printf("BMP file loaded successfully!\n");
-
     fclose(fd);
-    printf("\nbmp %s[%d,%d] loaded", fname, info.height, info.width);
+    printf(" => [%d,%d,%d] loaded\n", H, W, N);
+
+    return 0;
 }
 
 void BmpVu::_img_copy(TColor *d_dst) {
@@ -105,7 +104,7 @@ void BmpVu::_img_flip(TColor *d_dst) {
     GPU_CHK();
 }
 BmpVu::BmpVu(const char *fname) : Vu(fname) {
-    _load();
+    if (_load()) return;
 
     uchar4 *p = h_src;
     for (int i = 0; i < 10; i++) {
