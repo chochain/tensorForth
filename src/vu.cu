@@ -10,8 +10,8 @@ Vu::Vu(const char *name) : fname(name) {}
 Vu::~Vu() {
     if (!h_src) return;
     
-    free(h_src);
-    cudaFreeArray(d_ary);
+    free(h_src);             /// * free host memory = stbi_image_free(h_src)
+    cudaFreeArray(d_ary);    /// * free device memory
     GPU_CHK();
 }
 
