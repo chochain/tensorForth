@@ -34,28 +34,24 @@ __KERN__ void k_img_copy(TColor *dst, int W, int H, cudaTextureObject_t img, boo
 }
 
 int ImgVu::_load() {
-    printf("Loading %s...", fname);
+    printf("Loading %s", fname);
     stbi_set_flip_vertically_on_load(true);
-    U8 *img = stbi_load(fname, &W, &H, &N, 0);
-    if (!img) {
+    h_src = (uchar4*)stbi_load(fname, &W, &H, &N, STBI_rgb_alpha);
+    if (!h_src) {
         printf(" => failed\n");
         return -1;
     }
-    uchar4 *x = h_src = (uchar4*)malloc(W * H * sizeof(uchar4));
-    U8     *p = img;
-    for (int i = 0; i < H; i++) {
-        for (int j = 0; j < W; j++, x++) {
-            x->x = *p++;
-            x->y = *p++;
-            x->z = *p++;
-            x->w = 0x80;
+    uchar4 *p = h_src;
+    for (int i = 0; i < 10; i++) {
+        printf("\n");
+        for (int j = 0; j < 4; j++, p++) {
+            printf("[%02x,%02x,%02x,%02x] ", p->x, p->y, p->z, p->w);
         }
     }
-    stbi_image_free(img);
-    printf(" => [%d,%d,%d] loaded\n", W, H, N);
+    printf("\n");
     
     Vu::setup();
-    
+    printf(" => [%d,%d,%d] loaded\n", W, H, N);
     return 0;
 }
 void ImgVu::_img_copy(TColor *d_dst) {
