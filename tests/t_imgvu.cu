@@ -53,6 +53,9 @@ int ImgVu::_load() {
     }
     stbi_image_free(img);
     printf(" => [%d,%d,%d] loaded\n", W, H, N);
+    
+    Vu::setup();
+    
     return 0;
 }
 void ImgVu::_img_copy(TColor *d_dst) {
@@ -68,10 +71,6 @@ void ImgVu::_img_flip(TColor *d_dst) {
 
     k_img_copy<<<grd,blk>>>(d_dst, W, H, img, true);
     GPU_CHK();
-}
-ImgVu::ImgVu(const char *fname) : Vu(fname) {
-    if (_load()) return;
-    Vu::setup();
 }
 
 static const char *list_keys =

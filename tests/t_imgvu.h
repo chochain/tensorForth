@@ -11,7 +11,7 @@
 
 class ImgVu : public Vu {
 public:
-    ImgVu(const char *fname);
+    ImgVu(const char *fname) : Vu(fname) { _load(); }
 
     void   keyboard(U8 k) { _vuop = (k == '0'); }
     void   display(TColor *d_dst) {
