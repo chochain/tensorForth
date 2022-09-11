@@ -16,23 +16,21 @@ Vu::~Vu() {
 }
 
 Vu &Vu::setup() {
-    cudaChannelFormatDesc uchar4tex = cudaCreateChannelDesc<uchar4>();
-    cudaMallocArray(&d_ary, &uchar4tex, W, H); GPU_CHK();
+    int pitch = sizeof(uchar4) * W;
+    
+    cudaChannelFormatDesc fmt = cudaCreateChannelDesc<uchar4>();
+    cudaMallocArray(&d_ary, &fmt, W, H); GPU_CHK();
     cudaMemcpy2DToArray(
-        d_ary, 0, 0,
-        h_src, sizeof(uchar4) * W, sizeof(uchar4) * W, H,
-        cudaMemcpyHostToDevice);
+        d_ary, 0, 0, h_src, pitch, pitch, H, cudaMemcpyHostToDevice);
     GPU_CHK();
 
     cudaResourceDesc res;
     memset(&res, 0, sizeof(cudaResourceDesc));
-
     res.resType           = cudaResourceTypeArray;
     res.res.array.array   = d_ary;
 
     cudaTextureDesc desc;
     memset(&desc, 0, sizeof(cudaTextureDesc));
-
     desc.normalizedCoords = false;
     desc.filterMode       = cudaFilterModeLinear;
     desc.addressMode[0]   = cudaAddressModeWrap;
