@@ -15,7 +15,7 @@ void keyPressed2(unsigned char key, int x, int y) {
 
 int main(int argc, char ** argv) {
     // Draw green quad
-    auto gl_path = [](float r, float g, float b) {
+    auto _paint = [](float r, float g, float b) {
         PRINT("current glX drawable is " << glXGetCurrentDrawable());
         PRINT("current glX context is "  << glXGetCurrentContext());
         
@@ -42,9 +42,9 @@ int main(int argc, char ** argv) {
     /// 1. Xlib creates windows
     /// 2. GLX hooks OpenGL <=> X
     /// 3. OpenGL draws
-    Display *display = XOpenDisplay(0);
-    XVisualInfo *vi  = glXChooseVisual(display, DefaultScreen(display), sngBuf);
-    GLXContext glContext = glXCreateContext(display, vi, 0, GL_TRUE);
+    Display     *display  = XOpenDisplay(0);
+    XVisualInfo *vi       = glXChooseVisual(display, DefaultScreen(display), sngBuf);
+    GLXContext  glContext = glXCreateContext(display, vi, 0, GL_TRUE);
 
     // Create two windows
     glutInit(&argc, argv);
@@ -69,12 +69,12 @@ int main(int argc, char ** argv) {
     // Render to window 1
     bool success = glXMakeCurrent(display, window1, glContext);
     if(!success) PRINT("failed to switch to window 1");
-    gl_path(0.0f, 1.0f, 0.0f);
+    _paint(0.0f, 1.0f, 0.0f);
 
     // Render to window 2
     success = glXMakeCurrent(display, window2, glContext);
     if(!success) PRINT("failed to switch to window 2");
-    gl_path(1.0f, 0.0f, 0.0f);
+    _paint(1.0f, 0.0f, 0.0f);
 
     glutMainLoop();
 }
