@@ -7,7 +7,7 @@
 #include <map>
 #include "gui.h"
 
-#define REFRESH_DELAY     10              /** ms */
+#define REFRESH_DELAY     100              /** ms */
 #define BUFFER_DATA(i)    ((char*)0 + i)
 
 namespace T4GUI {

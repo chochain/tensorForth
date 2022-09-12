@@ -14,7 +14,7 @@ typedef U32 TColor;
 class Vu {
 public:
     const char          *fname;         ///< file name
-    int                 W, H, N;        ///< dimensions and channel
+    int                 N, W, H, C;     ///< dimensions and channel
     uchar4              *h_src = NULL;  ///< source image on host
     cudaArray           *d_ary = NULL;  ///< image on device
     cudaTextureObject_t img;            ///< cuda Textrure object
