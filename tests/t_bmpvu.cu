@@ -62,8 +62,8 @@ int BmpVu::_load() {
 
     W     = info.width;
     H     = info.height;
-    N     = sizeof(uchar4);
-    h_src = (uchar4*)malloc(W * H * N);
+    C     = sizeof(uchar4);
+    h_src = (uchar4*)malloc(W * H * C);
 
     fseek(fd, hdr.offset - sizeof(hdr) - sizeof(info), SEEK_CUR);
 
@@ -84,7 +84,7 @@ int BmpVu::_load() {
         exit(EXIT_SUCCESS);
     }
     fclose(fd);
-    printf(" => [%d,%d,%d] loaded\n", H, W, N);
+    printf(" => [%d,%d,%d] loaded\n", H, W, C);
 
     return 0;
 }

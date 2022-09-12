@@ -36,7 +36,7 @@ __KERN__ void k_img_copy(TColor *dst, int W, int H, cudaTextureObject_t img, boo
 int ImgVu::_load() {
     printf("Loading %s", fname);
     stbi_set_flip_vertically_on_load(true);
-    h_src = (uchar4*)stbi_load(fname, &W, &H, &N, STBI_rgb_alpha);
+    h_src = (uchar4*)stbi_load(fname, &W, &H, &C, STBI_rgb_alpha);
     if (!h_src) {
         printf(" => failed\n");
         return -1;
@@ -51,7 +51,7 @@ int ImgVu::_load() {
     printf("\n");
     
     Vu::setup();
-    printf(" => [%d,%d,%d] loaded\n", W, H, N);
+    printf(" => [%d,%d,%d] loaded\n", W, H, C);
     return 0;
 }
 void ImgVu::_img_copy(TColor *d_dst) {
