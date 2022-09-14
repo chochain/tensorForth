@@ -11,7 +11,6 @@
 #define T4_VU_X_CENTER          600              /** pixels */
 #define T4_VU_Y_CENTER          100              /** pixels */
 #define T4_VU_OFFSET            40               /** pixels */
-#define BUFFER_DATA(i)          ((char*)0 + i)
 
 namespace T4GUI {
     
@@ -21,12 +20,16 @@ GLuint  shader_id = 0;         ///< floating point shader
 
 void _vu_set(int id, Vu *vu) {
     vu_map[id] = vu;
+    printf("vu[%d] ", id);
 }
 
-Vu *_vu_get() {
-    int id = glutGetWindow();
-    VuMap::iterator vu = vu_map.find(id);
-    return (vu == vu_map.end()) ? NULL : vu->second;
+Vu *_vu_get(int id) {
+    VuMap::iterator it = vu_map.find(id);
+    return (it == vu_map.end()) ? NULL : it->second;
+}
+
+Vu *_vu_now() {
+    return _vu_get(glutGetWindow());
 }
 ///
 /// default texture shader for displaying floating-point
@@ -55,21 +58,35 @@ void _compile_shader() {
     printf("compiled\n");
 }
 
-void _cleanup() {
-    Vu *vu = _vu_get();
-    cudaGraphicsUnregisterResource(vu->pbo); GPU_CHK();
+void _close_and_switch_vu() {
+    int id = glutGetWindow();
+    Vu *vu = _vu_get(id);
+    glutDestroyWindow(id);
     
-    if (vu_map.size()==0) {
-        glDeleteProgramsARB(1, &shader_id);   /// remove shader
+    cudaGraphicsUnregisterResource(vu->pbo); GPU_CHK();
+    vu_map.erase(id);                        /// * erase by key
+    printf("\tvu[%d] released...", id);
+    
+    if (vu_map.size() > 0) {
+        id = vu_map.rbegin()->first;
+        glutSetWindow(id);                   /// * use another window
+        printf("vu[%d] now active\n", id);
     }
+    else printf("no avtive vu, shutting down...\n");
+}
+
+void _shutdown() {
+    if (vu_map.size() > 0) return;
+    
+//    glDeleteProgramsARB(1, &shader_id);      /// remove shader
 }
 
 void _paint(int w, int h) {
     // Common display code path
     glClear(GL_COLOR_BUFFER_BIT);
     glTexSubImage2D(
-        GL_TEXTURE_2D, 0, 0, 0, w, h, GL_RGBA,
-        GL_UNSIGNED_BYTE, BUFFER_DATA(0));
+        GL_TEXTURE_2D, 0, 0, 0, w, h,
+        GL_RGBA, GL_UNSIGNED_BYTE, 0);
     glBegin(GL_TRIANGLES);
     glTexCoord2f(0, 0);       /// texture coordinates:
     glVertex2f(-1, -1);       ///     (0,0) lower left
@@ -92,7 +109,7 @@ void _mouse(int button, int state, int x, int y) {
     case GLUT_LEFT_BUTTON:
     case GLUT_MIDDLE_BUTTON:
     case GLUT_RIGHT_BUTTON:
-        Vu *vu = _vu_get();
+        Vu *vu = _vu_now();
         if (vu) vu->mouse(button, state, x, y);
         break;
     }
@@ -102,16 +119,16 @@ void _keyboard(unsigned char k, int /*x*/, int /*y*/) {
     switch (k) {
     case 27:     // ESC
     case 'q':
-    case 'Q': glutDestroyWindow(glutGetWindow()); return;
+    case 'Q': _close_and_switch_vu(); break;
     default: 
-        Vu *vu = _vu_get();
+        Vu *vu = _vu_now();
         if (vu) vu->keyboard(k);
         break;
     }
 }
 
 void _display() {
-    Vu  *vu = _vu_get();
+    Vu  *vu = _vu_now();
     if (!vu) return;
     
     TColor *d_dst = NULL;
@@ -201,7 +218,7 @@ extern "C" int gui_add(Vu &vu) {
     glutKeyboardFunc(_keyboard);
     glutMouseFunc(_mouse);
     glutTimerFunc(T4_VU_REFRESH_DELAY, _refresh, 0);
-    glutCloseFunc(_cleanup);
+    glutCloseFunc(_shutdown);
     printf("created\n");
 
     _bind_texture(&vu);
