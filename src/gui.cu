@@ -7,8 +7,11 @@
 #include <map>
 #include "gui.h"
 
-#define REFRESH_DELAY     100              /** ms */
-#define BUFFER_DATA(i)    ((char*)0 + i)
+#define T4_VU_REFRESH_DELAY     100              /** ms     */
+#define T4_VU_X_CENTER          600              /** pixels */
+#define T4_VU_Y_CENTER          100              /** pixels */
+#define T4_VU_OFFSET            40               /** pixels */
+#define BUFFER_DATA(i)          ((char*)0 + i)
 
 namespace T4GUI {
     
@@ -42,7 +45,7 @@ void _compile_shader() {
     glProgramStringARB(
         GL_FRAGMENT_PROGRAM_ARB, GL_PROGRAM_FORMAT_ASCII_ARB,
         (GLsizei)strlen(code), (GLubyte*)code);
-    
+   
     GLint xpos;
     glGetIntegerv(GL_PROGRAM_ERROR_POSITION_ARB, &xpos); /// CUDA GL extension
     if (xpos != -1) {
@@ -122,14 +125,14 @@ void _display() {
     
     cudaGraphicsUnmapResources(1, &vu->pbo, 0); GPU_CHK();  /// unlock
     
-    _paint(vu->W, vu->H);
+    _paint(vu->X, vu->Y);
 }
 
 void _refresh(int) {
     if (!glutGetWindow()) return;
     
     glutPostRedisplay();       /// mark current window for refresh
-    glutTimerFunc(REFRESH_DELAY, _refresh, 0);
+    glutTimerFunc(T4_VU_REFRESH_DELAY, _refresh, 0);
 }
 
 void _bind_texture(Vu *vu) {
@@ -144,7 +147,6 @@ void _bind_texture(Vu *vu) {
     default: format = GL_RGBA8; depth = GL_RGBA;
     }
     */
-
     printf("\tTexture");
     glEnable(GL_TEXTURE_2D);
     glGenTextures(1, &gl_tex);
@@ -154,14 +156,14 @@ void _bind_texture(Vu *vu) {
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
     glTexImage2D(GL_TEXTURE_2D, 0, format,
-                 vu->W, vu->H, 0, depth, GL_UNSIGNED_BYTE, NULL);
+                 vu->X, vu->Y, 0, depth, GL_UNSIGNED_BYTE, NULL);
     printf("[%d] created\n", gl_tex);
 
     printf("\tPBO");
-    int bsz = vu->W * vu->H * sizeof(uchar4);
+    int bsz = vu->X * vu->Y * sizeof(uchar4);
     glGenBuffers(1, &gl_pbo);
     glBindBuffer(GL_PIXEL_UNPACK_BUFFER_ARB, gl_pbo);
-    glBufferData(GL_PIXEL_UNPACK_BUFFER_ARB, bsz, vu->h_src, GL_STREAM_COPY);
+    glBufferData(GL_PIXEL_UNPACK_BUFFER_ARB, bsz, vu->h_tex, GL_STREAM_COPY);
     // While a PBO is registered to CUDA, it can't be used
     // as the destination for OpenGL drawing calls.
     // But in our particular case OpenGL is used
@@ -182,27 +184,27 @@ extern "C" int gui_init(int *argc, char **argv) {
     return 0;
 }
 
-extern "C" int gui_add(Vu *vu) {
-    int z = 40 * vu_map.size();
-    glutInitWindowPosition(600 + z - (vu->W / 2), 100 + z);
-    glutInitWindowSize(vu->W, vu->H);
+extern "C" int gui_add(Vu &vu) {
+    int z = T4_VU_OFFSET * vu_map.size();
+    glutInitWindowPosition(T4_VU_X_CENTER + z - (vu.X / 2), T4_VU_Y_CENTER + z);
+    glutInitWindowSize(vu.X, vu.Y);
     ///
     /// create window for img
     ///
     printf("\tWindow...");
     int id = glutCreateWindow(T4_APP_NAME); /// * create named window (as current)
-    _vu_set(id, vu);
+    _vu_set(id, &vu);
     ///
     /// * set callbacks (for current window, i.e. id)
     ///
     glutDisplayFunc(_display);
     glutKeyboardFunc(_keyboard);
     glutMouseFunc(_mouse);
-    glutTimerFunc(REFRESH_DELAY, _refresh, 0);
+    glutTimerFunc(T4_VU_REFRESH_DELAY, _refresh, 0);
     glutCloseFunc(_cleanup);
     printf("created\n");
 
-    _bind_texture(vu);
+    _bind_texture(&vu);
 //    _compile_shader();                      /// load float shader
     
     return 0;
