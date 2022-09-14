@@ -73,7 +73,7 @@ __GPU__ __INLINE__ TColor make_color(float r, float g, float b, float a) {
         ((int)(g * 255.0f) << 8)  |
         ((int)(r * 255.0f) << 0);
 }
-__KERN__ void k_img_copy(TColor *dst, int W, int H, cudaTextureObject_t img, bool flip) {
+__KERN__ void k_img_copy(TColor *dst, int W, int H, CuTexObj tex, bool flip) {
     const int j = threadIdx.x + blockDim.x * blockIdx.x;
     const int i = threadIdx.y + blockDim.y * blockIdx.y;
     // Add half of a texel to always address exact texel centers
@@ -81,7 +81,7 @@ __KERN__ void k_img_copy(TColor *dst, int W, int H, cudaTextureObject_t img, boo
     const float y = (float)i + 0.5f;
 
     if (j < W && i < H) {
-        float4 v = tex2D<float4>(img, x, y);
+        float4 v = tex2D<float4>(tex, x, y);
         dst[j + i * W] = make_color(v.x, v.y, v.z, 0);
     }
 }
@@ -90,18 +90,18 @@ void BmpVu::_img_copy(TColor *d_dst) {
     dim3 blk(T4_WARP_SZ, T4_WARP_SZ, 1);
     dim3 grd(TGRID(X, Y, 1, blk));
 
-    k_img_copy<<<grd,blk>>>(d_dst, X, Y, img, false);
+    k_img_copy<<<grd,blk>>>(d_dst, X, Y, cu_tex, false);
     GPU_CHK();
 }
 void BmpVu::_img_flip(TColor *d_dst) {
     dim3 blk(T4_WARP_SZ, T4_WARP_SZ, 1);
     dim3 grd(TGRID(X, Y, 1, blk));
 
-    k_img_copy<<<grd,blk>>>(d_dst, X, Y, img, true);
+    k_img_copy<<<grd,blk>>>(d_dst, X, Y, cu_tex, true);
     GPU_CHK();
 }
 
-BmpVu::BmpVu(Dataset &ds) : Vu(ds, ds.W, ds.H) {
+BmpVu::BmpVu(Dataset &ds) : Vu(ds) {
     uchar4 *p = h_tex;
     for (int i = 0; i < 10; i++) {
         printf("\n");
