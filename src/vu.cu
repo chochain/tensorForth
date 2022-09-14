@@ -6,16 +6,12 @@
  */
 #include "vu.h"
 
-int Vu::_build_texture() {
-    int c = dset.C;
-    if (c==4) {
-        h_tex = (uchar4*)dset.h_data;        ///< pass through
-        _bind_to_cuda();
-        return 0;                            ///< no extra mem allocated
-    }
+__HOST__ int
+Vu::build_texture() {
     ///
-    /// need rebuild GL texture in uchar4 format
+    /// rebuild GL texture in uchar4 format
     /// 
+    int c   = dset.C;
     int bsz = X * Y * sizeof(uchar4);        ///< texture block size
 
     h_tex = (uchar4*)malloc(bsz);            ///< alloc block
@@ -35,7 +31,8 @@ int Vu::_build_texture() {
     return 1;                                ///< has malloc
 }
 
-void Vu::_bind_to_cuda() {
+__HOST__ void
+Vu::_bind_to_cuda() {
     int pitch = sizeof(uchar4) * X;
     
     cudaChannelFormatDesc fmt = cudaCreateChannelDesc<uchar4>();
@@ -57,7 +54,7 @@ void Vu::_bind_to_cuda() {
     desc.addressMode[1]   = cudaAddressModeWrap;
     desc.readMode         = cudaReadModeNormalizedFloat;
   
-    cudaCreateTextureObject(&img, &res, &desc, NULL);
+    cudaCreateTextureObject(&cu_tex, &res, &desc, NULL);
     GPU_CHK();
 }
 
