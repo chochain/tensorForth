@@ -9,37 +9,14 @@
 #include <string.h>
 #include "t_bmpvu.h"
 
-__GPU__ __INLINE__ TColor make_color(float r, float g, float b, float a) {
-    return
-        ((int)(a * 255.0f) << 24) |
-        ((int)(b * 255.0f) << 16) |
-        ((int)(g * 255.0f) << 8)  |
-        ((int)(r * 255.0f) << 0);
-}
-__KERN__ void k_img_copy(TColor *dst, int W, int H, cudaTextureObject_t img, bool flip) {
-    const int j = threadIdx.x + blockDim.x * blockIdx.x;
-    const int i = threadIdx.y + blockDim.y * blockIdx.y;
-    // Add half of a texel to always address exact texel centers
-    const float x = flip ? (float)(W - j) - 0.5f : (float)j + 0.5f;
-    const float y = (float)i + 0.5f;
-
-    if (j < W && i < H) {
-        float4 v = tex2D<float4>(img, x, y);
-        dst[j + i * W] = make_color(v.x, v.y, v.z, 0);
-    }
-}
-
-int BmpVu::_load() {
+BmpLoader &BmpLoader::load() {
     BMPHeader     hdr;
     BMPInfoHeader info;
-    FILE *fd;
+    FILE          *fd;
 
-    printf("Loading %s", fname);
-    if (sizeof(uchar4) != 4) {
-        printf("***Bad uchar4 size***\n");
-        exit(EXIT_SUCCESS);
-    }
-    if (!(fd = fopen(fname, "rb"))) {
+    printf("Loading %s", d_fn);
+    
+    if (!(fd = fopen(d_fn, "rb"))) {
         printf("***BMP load error: file access denied***\n");
         exit(EXIT_SUCCESS);
     }
@@ -63,12 +40,12 @@ int BmpVu::_load() {
     W     = info.width;
     H     = info.height;
     C     = sizeof(uchar4);
-    h_src = (uchar4*)malloc(W * H * C);
+    h_data= (U8*)malloc(W * H * C);
 
     fseek(fd, hdr.offset - sizeof(hdr) - sizeof(info), SEEK_CUR);
 
-    uchar4 *p = h_src;
-    int z = (4 - (3 * W) % 4) % 4;
+    uchar4 *p = (uchar4*)h_data;
+    int    z  = (4 - (3 * W) % 4) % 4;
     for (int y = 0; y < H; y++) {
         for (int x = 0; x < W; x++, p++) {
             p->z = fgetc(fd);
@@ -80,33 +57,52 @@ int BmpVu::_load() {
     }
     if (ferror(fd)) {
         printf("***Unknown BMP load error.***\n");
-        free(h_src);
+        free(h_data);
         exit(EXIT_SUCCESS);
     }
     fclose(fd);
     printf(" => [%d,%d,%d] loaded\n", H, W, C);
 
-    return 0;
+    return *this;
+}
+
+__GPU__ __INLINE__ TColor make_color(float r, float g, float b, float a) {
+    return
+        ((int)(a * 255.0f) << 24) |
+        ((int)(b * 255.0f) << 16) |
+        ((int)(g * 255.0f) << 8)  |
+        ((int)(r * 255.0f) << 0);
+}
+__KERN__ void k_img_copy(TColor *dst, int W, int H, cudaTextureObject_t img, bool flip) {
+    const int j = threadIdx.x + blockDim.x * blockIdx.x;
+    const int i = threadIdx.y + blockDim.y * blockIdx.y;
+    // Add half of a texel to always address exact texel centers
+    const float x = flip ? (float)(W - j) - 0.5f : (float)j + 0.5f;
+    const float y = (float)i + 0.5f;
+
+    if (j < W && i < H) {
+        float4 v = tex2D<float4>(img, x, y);
+        dst[j + i * W] = make_color(v.x, v.y, v.z, 0);
+    }
 }
 
 void BmpVu::_img_copy(TColor *d_dst) {
     dim3 blk(T4_WARP_SZ, T4_WARP_SZ, 1);
-    dim3 grd(TGRID(W, H, 1, blk));
+    dim3 grd(TGRID(X, Y, 1, blk));
 
-    k_img_copy<<<grd,blk>>>(d_dst, W, H, img, false);
+    k_img_copy<<<grd,blk>>>(d_dst, X, Y, img, false);
     GPU_CHK();
 }
 void BmpVu::_img_flip(TColor *d_dst) {
     dim3 blk(T4_WARP_SZ, T4_WARP_SZ, 1);
-    dim3 grd(TGRID(W, H, 1, blk));
+    dim3 grd(TGRID(X, Y, 1, blk));
 
-    k_img_copy<<<grd,blk>>>(d_dst, W, H, img, true);
+    k_img_copy<<<grd,blk>>>(d_dst, X, Y, img, true);
     GPU_CHK();
 }
-BmpVu::BmpVu(const char *fname) : Vu(fname) {
-    if (_load()) return;
 
-    uchar4 *p = h_src;
+BmpVu::BmpVu(Dataset &ds) : Vu(ds, ds.W, ds.H) {
+    uchar4 *p = h_tex;
     for (int i = 0; i < 10; i++) {
         printf("\n");
         for (int j = 0; j < 4; j++, p++) {
@@ -114,7 +110,6 @@ BmpVu::BmpVu(const char *fname) : Vu(fname) {
         }
     }
     printf("\n");
-    Vu::setup();
 }
 
 static const char *list_keys =
@@ -132,8 +127,9 @@ int main(int argc, char **argv) {
     cudaSetDevice(0);
 
     if (gui_init(&argc, argv)) return -1;
-    
-    BmpVu *vu = new BmpVu("./data/portrait_noise.bmp");
+
+    BmpLoader &ldr = (*new BmpLoader("./data/portrait_noise.bmp")).load();
+    BmpVu     &vu  = *new BmpVu(ldr);
     gui_add(vu);
     
     printf("%s", list_keys);
