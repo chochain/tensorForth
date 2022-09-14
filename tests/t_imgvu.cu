@@ -13,6 +13,22 @@
 
 typedef unsigned char U8;
 
+ImgLoader &ImgLoader::load() {
+    printf("Loading %s", d_fn);
+    
+    stbi_set_flip_vertically_on_load(true);
+    h_data = stbi_load(d_fn, &W, &H, &C, STBI_rgb); 
+//    h_data = stbi_load(d_fn, &W, &H, &C, STBI_rgb_alpha);
+//    C = 4;           // plus alpha
+    if (!h_data) {
+        printf(" => failed\n");
+        exit(-1);
+    }
+    printf(" => [%d,%d,%d] loaded\n", H, W, C);
+    
+    return *this;
+}
+
 __GPU__ __INLINE__ TColor tex2color(float r, float g, float b, float a) {
     return
         ((int)(a * 255.0f) << 24) |
@@ -33,15 +49,8 @@ __KERN__ void k_img_copy(TColor *dst, int W, int H, cudaTextureObject_t img, boo
     }
 }
 
-int ImgVu::_load() {
-    printf("Loading %s", fname);
-    stbi_set_flip_vertically_on_load(true);
-    h_src = (uchar4*)stbi_load(fname, &W, &H, &C, STBI_rgb_alpha);
-    if (!h_src) {
-        printf(" => failed\n");
-        return -1;
-    }
-    uchar4 *p = h_src;
+ImgVu::ImgVu(Dataset &ds) : Vu(ds, ds.W, ds.H) {
+    uchar4 *p = h_tex;
     for (int i = 0; i < 10; i++) {
         printf("\n");
         for (int j = 0; j < 4; j++, p++) {
@@ -49,23 +58,20 @@ int ImgVu::_load() {
         }
     }
     printf("\n");
-    
-    Vu::setup();
-    printf(" => [%d,%d,%d] loaded\n", W, H, C);
-    return 0;
 }
+
 void ImgVu::_img_copy(TColor *d_dst) {
     dim3 blk(T4_WARP_SZ, T4_WARP_SZ, 1);
-    dim3 grd(TGRID(W, H, 1, blk));
+    dim3 grd(TGRID(X, Y, 1, blk));
 
-    k_img_copy<<<grd,blk>>>(d_dst, W, H, img, false);
+    k_img_copy<<<grd,blk>>>(d_dst, X, Y, img, false);
     GPU_CHK();
 }
 void ImgVu::_img_flip(TColor *d_dst) {
     dim3 blk(T4_WARP_SZ, T4_WARP_SZ, 1);
-    dim3 grd(TGRID(W, H, 1, blk));
+    dim3 grd(TGRID(X, Y, 1, blk));
 
-    k_img_copy<<<grd,blk>>>(d_dst, W, H, img, true);
+    k_img_copy<<<grd,blk>>>(d_dst, X, Y, img, true);
     GPU_CHK();
 }
 
@@ -84,14 +90,14 @@ int main(int argc, char **argv) {
     cudaSetDevice(0);
 
     if (gui_init(&argc, argv)) return -1;
-    
-    ImgVu *vu0 = new ImgVu("./data/cat_n_dog.jpg");
-    ImgVu *vu1 = new ImgVu("./data/cat_n_dog.jpg");
+
+    ImgLoader &ldr = (*new ImgLoader("./data/cat_n_dog.jpg")).load();
+    ImgVu &vu0 = *new ImgVu(ldr);
+    ImgVu &vu1 = *new ImgVu(ldr);
     gui_add(vu0);
     gui_add(vu1);
     
     printf("%s", list_keys);
     
     return gui_loop();
-    return 0;
 }

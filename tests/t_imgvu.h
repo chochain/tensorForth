@@ -9,9 +9,15 @@
 #define TEST_IMGVU_H
 #include "../src/vu.h"
 
+class ImgLoader : public Dataset {
+public:
+    ImgLoader(const char *name) : Dataset(name, NULL) {}
+    ImgLoader &load();
+};
+
 class ImgVu : public Vu {
 public:
-    ImgVu(const char *fname) : Vu(fname) { _load(); }
+    ImgVu(Dataset &ds);
 
     void   keyboard(U8 k) { _vuop = (k == '0'); }
     void   display(TColor *d_dst) {
@@ -22,7 +28,6 @@ public:
 private:
     int    _vuop = 0;
 
-    int    _load();
     void   _img_copy(TColor *d_dst);
     void   _img_flip(TColor *d_dst);
 };
