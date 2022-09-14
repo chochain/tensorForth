@@ -33,10 +33,16 @@ typedef struct {
     int      clrImportant;
 } BMPInfoHeader;
 
+class BmpLoader : public Dataset {
+public:
+    BmpLoader(const char *name) : Dataset(name, NULL) {}
+    BmpLoader &load();
+};
+
 class BmpVu : public Vu {
 public:
-    BmpVu(const char *fname);
-
+    BmpVu(Dataset &ds);
+    
     void   keyboard(U8 k) { _vuop = (k == '0'); }
     void   display(TColor *d_dst) {
         if (_vuop) _img_flip(d_dst);
@@ -46,7 +52,6 @@ public:
 private:
     int    _vuop = 0;
 
-    int    _load();
     void   _img_copy(TColor *d_dst);
     void   _img_flip(TColor *d_dst);
 };
