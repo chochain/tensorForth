@@ -15,7 +15,7 @@ public:
     const char *t_fn;              ///< target lable file name
     int        N, H, W, C;         ///< dimensions and channel size
     U8         *h_data  = NULL;    ///< source data on host
-    U8         *h_lable = NULL;    ///< label data on host
+    U8         *h_label = NULL;    ///< label data on host
     U8         *d_data  = NULL;    ///< source data on device
 
     Dataset(const char *data_fn, const char *label_fn) : d_fn(data_fn), t_fn(label_fn) {}

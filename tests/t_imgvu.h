@@ -17,7 +17,7 @@ public:
 
 class ImgVu : public Vu {
 public:
-    ImgVu(Dataset &ds);
+    ImgVu(Dataset &ds) : Vu(ds) {}
 
     virtual void keyboard(U8 k) { _vuop = (k == '0'); }
     virtual void display(TColor *d_dst) {
