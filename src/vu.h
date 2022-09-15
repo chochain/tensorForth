@@ -21,8 +21,8 @@ public:
     uchar4    *h_tex = NULL;  ///< texture on host
     
     cudaArray *d_ary = NULL;  ///< texture buffer on device
-    CuTexObj   cu_tex;        ///< cuda Textrure object
-    CuGfxPbo   *pbo;          ///< OpenGL-CUDA exchange
+    CuGfxPbo  *pbo   = NULL;  ///< OpenGL-CUDA exchange
+    CuTexObj  cu_tex = 0;     ///< cuda Textrure object
     
     __HOST__ Vu(Dataset &ds, int x=0, int y=0) :
         dset(ds), X(x ? x : ds.W), Y(y ? y : ds.H) {
@@ -33,18 +33,18 @@ public:
         if (X == ds.W && Y == ds.H && ds.C == 4) {
             h_tex = (uchar4*)dset.h_data;   /// * pass thru, no buffer needed
         }
-        else build_texture();               /// * alloc memory for texture
+        else transform();                   /// * rebuild texture
         _bind_to_cuda();
     }
     __HOST__ ~Vu() {
         if (!h_tex) return;
         free(h_tex);
-        
-        if (!d_ary) return;
+
+        cudaDestroyTextureObject(cu_tex);   /// * release texture object
         cudaFreeArray(d_ary);               /// * free device memory
         GPU_CHK();
     }
-    __HOST__ virtual int  build_texture();  ///< build texture buffer
+    __HOST__ virtual int  transform();      ///< rebuild texture buffer
     __HOST__ virtual void mouse(int button, int state, int x, int y) {}
     __HOST__ virtual void keyboard(U8 k)         {}
     __HOST__ virtual void display(TColor *d_dst) {}
