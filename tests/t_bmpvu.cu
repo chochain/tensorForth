@@ -101,17 +101,6 @@ void BmpVu::_img_flip(TColor *d_dst) {
     GPU_CHK();
 }
 
-BmpVu::BmpVu(Dataset &ds) : Vu(ds) {
-    uchar4 *p = h_tex;
-    for (int i = 0; i < 10; i++) {
-        printf("\n");
-        for (int j = 0; j < 4; j++, p++) {
-            printf("[%02x,%02x,%02x,%02x] ", p->x, p->y, p->z, p->w);
-        }
-    }
-    printf("\n");
-}
-
 static const char *list_keys =
     "\nStarting GLUT main loop...\n"
     "Press [0] to view flipped image\n"

@@ -47,17 +47,6 @@ __KERN__ void k_img_copy(TColor *dst, int W, int H, CuTexObj tex, bool flip) {
     }
 }
 
-ImgVu::ImgVu(Dataset &ds) : Vu(ds) {
-    uchar4 *p = h_tex;
-    for (int i = 0; i < 10; i++) {
-        printf("\n");
-        for (int j = 0; j < 4; j++, p++) {
-            printf("[%02x,%02x,%02x,%02x] ", p->x, p->y, p->z, p->w);
-        }
-    }
-    printf("\n");
-}
-
 void ImgVu::_img_copy(TColor *d_dst) {
     dim3 blk(T4_WARP_SZ, T4_WARP_SZ, 1);
     dim3 grd(TGRID(X, Y, 1, blk));
