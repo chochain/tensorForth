@@ -46,6 +46,7 @@ CU_INCS := \
 	src/tenvm.h \
 	src/model.h \
 	src/netvm.h \
+	src/dataset.h \
 	src/vu.h \
 	src/gui.h \
 	src/ten4.h
