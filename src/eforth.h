@@ -25,7 +25,7 @@ public:
         VLOG1("\\  ::ForthVM[%d](dict=%p) sizeof(Code)=%ld\n",
               blockIdx.x, dict, sizeof(Code));
     }
-    __GPU__ void virtual init();            ///< override VM
+    __GPU__ virtual void init();            ///< override VM
     
 protected:
     Code  *dict;                            ///< dictionary array
@@ -46,8 +46,8 @@ protected:
     ///
     /// Forth inner interpreter
     ///
-    __GPU__ int  virtual parse(char *str) override;  ///< TODO: CC - this worked, why?
-    __GPU__ int  virtual number(char *str) override; ///< TODO: CC - this worked, why?
+    __GPU__ virtual int parse(char *str);   ///< TODO: CC - this worked, why?
+    __GPU__ virtual int number(char *str);  ///< TODO: CC - this worked, why?
 
     __GPU__ int  find(const char *s);       ///< search dictionary reversely
     __GPU__ void nest();

@@ -24,14 +24,14 @@ public:
 #if   !T4_ENABLE_OBJ
     __GPU__ TensorVM(int khz, Istream *istr, Ostream *ostr, MMU *mmu0) :
         ForthVM(khz, istr, ostr, mmu0) {}
-    __GPU__ void init() { ForthVM::init(); }
+    __GPU__ virtual void init() { ForthVM::init(); }
     
 #else // T4_ENABLE_OBJ
     __GPU__ TensorVM(int khz, Istream *istr, Ostream *ostr, MMU *mmu0) :
         ForthVM(khz, istr, ostr, mmu0) {
         VLOG1("\\  ::TensorVM(...) sizeof(Tensor)=%ld\n", sizeof(Tensor));
     }
-    __GPU__ void virtual init();            ///< override ForthVM
+    __GPU__ virtual void init();            ///< override ForthVM
     
 protected:
     int    ten_lvl = 0;                     ///< tensor input level
