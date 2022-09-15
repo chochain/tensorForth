@@ -26,11 +26,11 @@ public:
         cudaFree(d_data);
         GPU_CHK();
     }
-    int dsize() { return C; }
+    int dsize() { return H * W * C; }
     int len()   { return N; }
     
     virtual Dataset &load() { printf("load() implemented?\n"); return *this; }
-    virtual U8      *operator [](int idx) { return &h_data[idx * C]; }
+    virtual U8      *operator [](int idx) { return &h_data[idx * dsize()]; }
 };
 #endif // T4_DATASET_H
 
