@@ -28,8 +28,8 @@ public:
 
    __GPU__ VM(int khz, Istream *istr, Ostream *ostr, MMU *mmu);
 
-    __GPU__ void virtual init() {}
-    __GPU__ void virtual outer();
+    __GPU__ virtual void init() {}
+    __GPU__ virtual void outer();
 
 protected:
     Istream  &fin;                     ///< VM stream input
@@ -44,10 +44,10 @@ protected:
     ///
     /// inner interpreter handlers
     ///
-    __GPU__ int  virtual pre(char *str)    { return 0; }
-    __GPU__ int  virtual parse(char *str)  { return 0; }
-    __GPU__ int  virtual number(char *str) { return 0; }
-    __GPU__ int  virtual post(void)        { return 0; }
+    __GPU__ virtual int pre(char *str)    { return 0; }
+    __GPU__ virtual int parse(char *str)  { return 0; }
+    __GPU__ virtual int number(char *str) { return 0; }
+    __GPU__ virtual int post(void)        { return 0; }
     ///
     /// input stream handler
     ///
