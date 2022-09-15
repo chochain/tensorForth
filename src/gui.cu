@@ -18,23 +18,26 @@ typedef std::map<int, Vu*> VuMap;
 VuMap   vu_map;
 GLuint  shader_id = 0;         ///< floating point shader
 
-void _vu_set(int id, Vu *vu) {
+__HOST__ void
+_vu_set(int id, Vu *vu) {
     vu_map[id] = vu;
-    printf("vu[%d] ", id);
 }
 
-Vu *_vu_get(int id) {
+__HOST__ Vu*
+_vu_get(int id) {
     VuMap::iterator it = vu_map.find(id);
     return (it == vu_map.end()) ? NULL : it->second;
 }
 
-Vu *_vu_now() {
+__HOST__ Vu*
+_vu_now() {
     return _vu_get(glutGetWindow());
 }
 ///
 /// default texture shader for displaying floating-point
 ///
-void _compile_shader() {
+__HOST__ void
+_compile_shader() {
     static const char *code =
         "!!ARBfp1.0\n"
         "TEX result.color, fragment.texcoord, texture[0], 2D; \n"
@@ -58,7 +61,8 @@ void _compile_shader() {
     printf("compiled\n");
 }
 
-void _close_and_switch_vu() {
+__HOST__ void
+_close_and_switch_vu() {
     int id = glutGetWindow();
     Vu *vu = _vu_get(id);
     glutDestroyWindow(id);
@@ -68,20 +72,23 @@ void _close_and_switch_vu() {
     printf("\tvu[%d] released...", id);
     
     if (vu_map.size() > 0) {
-        id = vu_map.rbegin()->first;
-        glutSetWindow(id);                   /// * use another window
+        id = vu_map.rbegin()->first;         /// * use another window
+        glutSetWindow(id);
         printf("vu[%d] now active\n", id);
     }
-    else printf("no avtive vu, shutting down...\n");
+    else printf("no avtive vu\n");
 }
 
-void _shutdown() {
+__HOST__ void
+_shutdown() {
     if (vu_map.size() > 0) return;
     
-//    glDeleteProgramsARB(1, &shader_id);      /// remove shader
+//    glDeleteProgramsARB(1, &shader_id);    /// release shader
+    printf("GLUT Done.\n");
 }
 
-void _paint(int w, int h) {
+__HOST__ void
+_paint(int w, int h) {
     // Common display code path
     glClear(GL_COLOR_BUFFER_BIT);
     glTexSubImage2D(
@@ -101,7 +108,8 @@ void _paint(int w, int h) {
     glutReportErrors();
 }
 
-void _mouse(int button, int state, int x, int y) {
+__HOST__ void
+_mouse(int button, int state, int x, int y) {
     /// button: GLUT_LEFT_BUTTON, GLUT_MIDDLE_BUTTON, GLUT_RIGHT_BUTTON
     /// state:  GLUT_UP=1, GLUT_DOWN=0
     /// x,y: mouse location in window relative coordinates
@@ -115,7 +123,8 @@ void _mouse(int button, int state, int x, int y) {
     }
 }
 
-void _keyboard(unsigned char k, int /*x*/, int /*y*/) {
+__HOST__ void
+_keyboard(unsigned char k, int /*x*/, int /*y*/) {
     switch (k) {
     case 27:     // ESC
     case 'q':
@@ -127,7 +136,8 @@ void _keyboard(unsigned char k, int /*x*/, int /*y*/) {
     }
 }
 
-void _display() {
+__HOST__ void
+_display() {
     Vu  *vu = _vu_now();
     if (!vu) return;
     
@@ -145,26 +155,28 @@ void _display() {
     _paint(vu->X, vu->Y);
 }
 
-void _refresh(int) {
+__HOST__ void
+_refresh(int) {
     if (!glutGetWindow()) return;
     
     glutPostRedisplay();       /// mark current window for refresh
     glutTimerFunc(T4_VU_REFRESH_DELAY, _refresh, 0);
 }
 
-void _bind_texture(Vu *vu) {
+__HOST__ void
+_bind_texture(Vu *vu) {
     GLuint gl_pbo, gl_tex;
-    GLuint format = GL_RGBA8, depth = GL_RGBA;
+    GLuint fmt = GL_RGBA8, depth = GL_RGBA;
     /*
     /// See OpenGL Core 3.2 internal format
     switch (vu->N) {
-    case 1:  format = GL_R8;    depth = GL_RED;  break;
-    case 2:  format = GL_RG8;   depth = GL_RG;   break;
-    case 3:  format = GL_RGB8;  depth = GL_RGB;  break;
-    default: format = GL_RGBA8; depth = GL_RGBA;
+    case 1:  fmt = GL_R8;    depth = GL_RED;  break;
+    case 2:  fmt = GL_RG8;   depth = GL_RG;   break;
+    case 3:  fmt = GL_RGB8;  depth = GL_RGB;  break;
+    default: fmt = GL_RGBA8; depth = GL_RGBA;
     }
     */
-    printf("\tTexture");
+    printf(": Texture");
     glEnable(GL_TEXTURE_2D);
     glGenTextures(1, &gl_tex);
     glBindTexture(GL_TEXTURE_2D, gl_tex);
@@ -172,11 +184,10 @@ void _bind_texture(Vu *vu) {
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T,     GL_CLAMP);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexImage2D(GL_TEXTURE_2D, 0, format,
+    glTexImage2D(GL_TEXTURE_2D, 0, fmt,
                  vu->X, vu->Y, 0, depth, GL_UNSIGNED_BYTE, NULL);
-    printf("[%d] created\n", gl_tex);
+    printf("[%d], PBO", gl_tex);
 
-    printf("\tPBO");
     int bsz = vu->X * vu->Y * sizeof(uchar4);
     glGenBuffers(1, &gl_pbo);
     glBindBuffer(GL_PIXEL_UNPACK_BUFFER_ARB, gl_pbo);
@@ -192,7 +203,8 @@ void _bind_texture(Vu *vu) {
     printf("[%d] created\n", gl_pbo);
 }
 
-extern "C" int gui_init(int *argc, char **argv) {
+extern "C" int
+gui_init(int *argc, char **argv) {
     printf("\nGLUT...");
     glutInit(argc, argv);                /// * consumes X11 input parameters
     glutInitDisplayMode(GLUT_RGBA | GLUT_DOUBLE);
@@ -201,14 +213,15 @@ extern "C" int gui_init(int *argc, char **argv) {
     return 0;
 }
 
-extern "C" int gui_add(Vu &vu) {
+extern "C" int
+gui_add(Vu &vu) {
     int z = T4_VU_OFFSET * vu_map.size();
     glutInitWindowPosition(T4_VU_X_CENTER + z - (vu.X / 2), T4_VU_Y_CENTER + z);
     glutInitWindowSize(vu.X, vu.Y);
     ///
     /// create window for img
     ///
-    printf("\tWindow...");
+    printf("Window...");
     int id = glutCreateWindow(T4_APP_NAME); /// * create named window (as current)
     _vu_set(id, &vu);
     ///
@@ -219,7 +232,7 @@ extern "C" int gui_add(Vu &vu) {
     glutMouseFunc(_mouse);
     glutTimerFunc(T4_VU_REFRESH_DELAY, _refresh, 0);
     glutCloseFunc(_shutdown);
-    printf("created\n");
+    printf("vu[%d]", id);
 
     _bind_texture(&vu);
 //    _compile_shader();                      /// load float shader
@@ -227,7 +240,8 @@ extern "C" int gui_add(Vu &vu) {
     return 0;
 }
 
-extern "C" int gui_loop() {
+extern "C" int
+gui_loop() {
     glutMainLoop();
     return 0;
 }
