@@ -36,15 +36,15 @@ typedef struct {
 class BmpLoader : public Dataset {
 public:
     BmpLoader(const char *name) : Dataset(name, NULL) {}
-    BmpLoader &load();
+    virtual BmpLoader &load();
 };
 
 class BmpVu : public Vu {
 public:
     BmpVu(Dataset &ds);
     
-    void   keyboard(U8 k) { _vuop = (k == '0'); }
-    void   display(TColor *d_dst) {
+    virtual void   keyboard(U8 k) { _vuop = (k == '0'); }
+    virtual void   display(TColor *d_dst) {
         if (_vuop) _img_flip(d_dst);
         else       _img_copy(d_dst);
     }

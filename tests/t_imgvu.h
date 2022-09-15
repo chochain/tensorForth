@@ -12,15 +12,15 @@
 class ImgLoader : public Dataset {
 public:
     ImgLoader(const char *name) : Dataset(name, NULL) {}
-    ImgLoader &load();
+    virtual ImgLoader &load();
 };
 
 class ImgVu : public Vu {
 public:
     ImgVu(Dataset &ds);
 
-    void   keyboard(U8 k) { _vuop = (k == '0'); }
-    void   display(TColor *d_dst) {
+    virtual void keyboard(U8 k) { _vuop = (k == '0'); }
+    virtual void display(TColor *d_dst) {
         if (_vuop) _img_flip(d_dst);
         else       _img_copy(d_dst);
     }
