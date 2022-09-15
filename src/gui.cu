@@ -188,7 +188,7 @@ _bind_texture(Vu *vu) {
                  vu->X, vu->Y, 0, depth, GL_UNSIGNED_BYTE, NULL);
     printf("[%d], PBO", gl_tex);
 
-    int bsz = vu->X * vu->Y * sizeof(uchar4);
+    U64 bsz = vu->X * vu->Y * sizeof(uchar4);
     glGenBuffers(1, &gl_pbo);
     glBindBuffer(GL_PIXEL_UNPACK_BUFFER_ARB, gl_pbo);
     glBufferData(GL_PIXEL_UNPACK_BUFFER_ARB, bsz, vu->h_tex, GL_STREAM_COPY);
@@ -223,10 +223,6 @@ gui_add(Vu &vu) {
     ///
     printf("Window...");
     int id = glutCreateWindow(T4_APP_NAME); /// * create named window (as current)
-    _vu_set(id, &vu);
-    vu.init_host_tex();                  /// * create texture on host
-    vu.tex_dump();                       /// * debug dump
-    vu.init_cuda_tex();                  /// * sync texture onto device
     ///
     /// * set callbacks (for current window, i.e. id)
     ///
@@ -235,11 +231,17 @@ gui_add(Vu &vu) {
     glutMouseFunc(_mouse);
     glutTimerFunc(T4_VU_REFRESH_DELAY, _refresh, 0);
     glutCloseFunc(_shutdown);
-    printf("vu[%d]", id);
-
-    _bind_texture(&vu);
-//    _compile_shader();                      /// load float shader
+    ///
+    /// * build host and cuda texture, bind to GL
+    ///
+    _vu_set(id, &vu);                       /// * keep (id,*vu) pair in vu_map
+    vu.init_host_tex();                     /// * create texture on host
+    vu.tex_dump();                          /// * debug dump
+    vu.init_cuda_tex();                     /// * sync texture onto device
+    _bind_texture(&vu);                     /// * bind h_tex to GL buffer
+//    _compile_shader();                      /// load GL float shader
     
+    printf("vu[%d]", id);
     return 0;
 }
 
