@@ -224,6 +224,9 @@ gui_add(Vu &vu) {
     printf("Window...");
     int id = glutCreateWindow(T4_APP_NAME); /// * create named window (as current)
     _vu_set(id, &vu);
+    vu.init_host_tex();                  /// * create texture on host
+    vu.tex_dump();                       /// * debug dump
+    vu.init_cuda_tex();                  /// * sync texture onto device
     ///
     /// * set callbacks (for current window, i.e. id)
     ///
