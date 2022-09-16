@@ -7,6 +7,7 @@
 #ifndef TEN4_SRC_TEN4_TYPES_H_
 #define TEN4_SRC_TEN4_TYPES_H_
 #include "ten4_config.h"
+
 ///
 ///@name Debug tracing options
 ///@{
@@ -30,6 +31,7 @@
 ///@{
 #if defined(__CUDACC__)
 #include <cuda.h>
+#include <cooperative_groups.h>
 #define __GPU__             __device__
 #define __HOST__            __host__
 #define __BOTH__            __host__ __device__
@@ -50,6 +52,8 @@
         cudaDeviceReset(); \
     } \
 }
+
+namespace cg = cooperative_groups;
 #else  // defined(__CUDACC__)
 #define __GPU__
 #define __HOST__
