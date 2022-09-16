@@ -189,7 +189,8 @@ NetVM::init() {
 
     mmu.append(prim, sizeof(prim)/sizeof(Code)); /// * append tensor words
     mmu.merge(over,  sizeof(over)/sizeof(Code)); /// * overload existed words
-    mmu.status();
+    
+    VLOG1("NetVM::init ok\n");
 };
 #endif  // T4_ENABLE_OBJ
 //===========================================================================
