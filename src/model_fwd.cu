@@ -71,7 +71,8 @@ __KERN__ void k_pool(
     const int i0 = threadIdx.y + blockIdx.y * blockDim.y;
     const int c  = blockIdx.z, C = gridDim.z;
     const int z0 = j0 + i0 * W0;            ///< output array index
-    const int z1 = (j0 + i0 * W0 * KS) * KS;///< input array index 
+    const int z1 = (j0 + i0 * W0 * KS) * KS;///< input array index
+    auto g = cg::this_thread_block();
     
     if (i0 < H0 && j0 < W0 && c < C) {
         DU *ix = &I[c + z1 * C];
@@ -90,6 +91,7 @@ __KERN__ void k_pool(
         }
         O[c + z0 * C] = op==L_AVGPOOL ? v / (KS * KS) : v;
     }
+    g.sync();
 }
 
 __KERN__ void k_filter(
@@ -100,10 +102,12 @@ __KERN__ void k_filter(
     const int i0 = threadIdx.y + blockIdx.y * blockDim.y;
     const int c  = blockIdx.z, C = gridDim.z;
     const int z0 = c + (i0 + j0 * W) * C;
+    auto g = cg::this_thread_block();
     
     if (i0 < H && j0 < W && c < C) {
         O[z0] = (F[z0] > DU0) ? I[z0] : DU0;
     }
+    g.sync();
 }
 
 __GPU__ Model&
@@ -236,7 +240,6 @@ Model::_fstep(Tensor &in, Tensor &out) {
         k_filter<<<grd, blk>>>(d1, msk.data, d0, H0, W0);
         break;
     }
-    cudaDeviceSynchronize();
 }
 #endif  // T4_ENABLE_OBJ
 //==========================================================================

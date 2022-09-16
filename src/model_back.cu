@@ -88,6 +88,7 @@ __KERN__ void k_dpool(
     const int z0 = j0 + i0 * W0;            ///< output matrix index
     const int z1 = (j0 + i0 * W0 * KS) * KS;///< input tensor index
     const int zc = c + z0 * C;              ///< output tensor index
+    auto g = cg::this_thread_block();
     
     if (i0 < H0 && j0 < W0 && c < C) {
         DU *ix = &I[c + z1 * C], *t = ix;
@@ -110,6 +111,7 @@ __KERN__ void k_dpool(
         }
         if (op != L_AVGPOOL) *t = O[zc];   /// * update arg cell
     }
+    g.sync();
 }
 
 __KERN__ void k_dfilter(
@@ -120,10 +122,12 @@ __KERN__ void k_dfilter(
     const int i1 = threadIdx.y + blockIdx.y * blockDim.y;
     const int c  = blockIdx.z, C = gridDim.z;
     const int z1 = c + (i1 + j1 * W) * C;
+    auto g = cg::this_thread_block();
     
     if (i1 < H && j1 < W && c < C) {
         I[z1] = (F[z1] > DU0) ? O[z1] : DU0;
     }
+    g.sync();
 }
 
 __GPU__ Model&
@@ -262,7 +266,6 @@ Model::_bstep(Tensor &in, Tensor &out) {
         k_dfilter<<<grd,blk>>>(d1, msk.data, d0, H1, W1);
         break;
     }
-    cudaDeviceSynchronize();
 }
 #endif  // T4_ENABLE_OBJ
 //==========================================================================
