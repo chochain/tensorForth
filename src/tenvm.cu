@@ -389,7 +389,8 @@ TensorVM::init() {
 
     mmu.append(prim, sizeof(prim)/sizeof(Code)); /// * append tensor words
     mmu.merge(ext,   sizeof(ext)/sizeof(Code));  /// * overload existed words
-    mmu.status();
+    
+    VLOG1("TensorVM::init ok\n");
 };
 ///
 /// override with tensor handler
@@ -403,16 +404,16 @@ TensorVM::number(char *str) {
     if (*p != '\0') return 0;
     SCALAR(n);                           /// * mask out object bit
     if (compile) {                       /// * add literal when in compile mode
-        VLOG2("%f\n", n);
+        VLOG2("%d] %f\n", vid, n);
         add_w(DOLIT);                    ///> dovar (+parameter field)
         add_du(n);                       ///> store literal
     }
     else if (ten_lvl > 0) {              /// * append literal into tensor storage
-        VLOG2("T[%d]=%f\n", ten_off, n);
+        VLOG2("%d] T[%d]=%f\n", vid, ten_off, n);
         TTOS.data[ten_off++] = n;        /// * append to tensor.data
     }
     else {                               ///> or, add value onto data stack
-        VLOG2("ss.push(%08x)\n", DU2X(n));
+        VLOG2("%d] ss.push(%f)=%08x\n", vid, n, DU2X(n));
         PUSH(n);
     }
     return 1;

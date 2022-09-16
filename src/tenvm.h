@@ -29,19 +29,19 @@ public:
 #else // T4_ENABLE_OBJ
     __GPU__ TensorVM(int khz, Istream *istr, Ostream *ostr, MMU *mmu0) :
         ForthVM(khz, istr, ostr, mmu0) {
-        VLOG1("\\  ::TensorVM(...) sizeof(Tensor)=%ld\n", sizeof(Tensor));
+        VLOG1("\\  ::TensorVM[%d](...) sizeof(Tensor)=%ld\n",
+              threadIdx.x, sizeof(Tensor));
     }
     __GPU__ virtual void init();            ///< override ForthVM
     
 protected:
     int    ten_lvl = 0;                     ///< tensor input level
     int    ten_off = 0;                     ///< tensor offset (storage index)
-    
     ///
     /// override literal handler
     ///
+    __GPU__ virtual int  number(char *str); ///< TODO: CC - worked without 'final', why?
     __GPU__ void tprint();                  ///< tensor dot (print)
-    __GPU__ int  number(char *str) final;   ///< TODO: CC - this worked, why?
     ///
     /// tensor ops based on number of operands
     ///
