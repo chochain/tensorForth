@@ -59,9 +59,8 @@ __HOST__ void
 AIO::flush() {
     obuf_node *node = (obuf_node*)_ostr->rdbuf();
     while (node->gt != GT_EMPTY) {          // 0
-        if (_trace > 1) cout << '<' << node->id << '>';
+        if (_trace > 0) cout << node->id << ']';
         print_node(node);
-        if (_trace > 1) cout << "</" << node->id << '>' << endl;
         node = NEXTNODE(node);
     }
     _ostr->clear();
