@@ -22,13 +22,14 @@
 typedef enum { VM_READY=0, VM_RUN, VM_WAIT, VM_STOP } vm_status;
 class VM {
 public:
+    int       vid    = 0;              ///< VM id
     vm_status status = VM_READY;       ///< VM status
     DU        top    = DU0;            ///< cached top of stack
     Vector<DU, 0> ss;                  ///< parameter stack (setup in ten4.cu)
 
    __GPU__ VM(int khz, Istream *istr, Ostream *ostr, MMU *mmu);
 
-    __GPU__ virtual void init() {}
+    __GPU__ virtual void init() { VLOG1("VM::init ok\n"); }
     __GPU__ virtual void outer();
 
 protected:
