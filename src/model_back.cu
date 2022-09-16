@@ -31,14 +31,16 @@ __KERN__ void k_dconv2d(
     const int i0 = i1 - int(KS / 2);                 ///< dY coordinates
     const int j0 = j1 - int(KS / 2);
 
+    auto g = cg::this_thread_block();                ///< group all threads
+
     it[zt] = (i1 < H && j1 < W) ? I[z1] : DU0;       ///< cached input tile
-    __syncthreads();
+    g.sync();
     
     for (int c0 = 0; c0 < C0; c0++) {                ///< each dY channel
         ot[zt] =                                     /// * cache dY tile
             (i0 >= 0 && i0 < H && j0 >= 0 && j0 < W) /// * with zero padding
             ? O[c0 + (j0 + i0 * W) * C0] : DU0;      /// * by channel
-        __syncthreads();                             /// * smem write barrier
+        g.sync();                                    /// * smem write barrier
         ///
         /// dX = sum(F * dY)
         /// dF = sum(dY * X)
@@ -60,7 +62,7 @@ __KERN__ void k_dconv2d(
                 else       I[z1] += sum;             /// * accumulate all c0
             }
         }
-        __syncthreads();                             /// * d read barrier
+        g.sync();                                    /// * d read barrier
         ///
         /// collect dF (= dY * X), KS * KS threads
         ///
@@ -71,7 +73,7 @@ __KERN__ void k_dconv2d(
                 *DFx += *dfx;                        /// dF += df (= dY * X)
             }
         }
-        __syncthreads();                             /// * d read barrier
+        g.sync();                           /// * d read barrier
     }
 }
 template<int KS>                            /// kernel size

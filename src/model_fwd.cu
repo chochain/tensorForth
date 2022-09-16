@@ -29,11 +29,13 @@ __KERN__ void k_conv2d(
     const int i1 = i0 - int(KS / 2);                 ///< input coordinates
     const int j1 = j0 - int(KS / 2);
 
+    auto g = cg::this_thread_block();                ///< all threads of block
+
     for (int c1 = 0; c1 < C1; c1++) {                ///< each input channel
         it[zt] =                                     /// * cache input data
             (i1 >= 0 && i1 < H && j1 >= 0 && j1 < W) /// * with zero padding
             ? I[c1 + (j1 + i1 * W) * C1] : DU0;      /// * by channel
-        __syncthreads();                             /// * smem write barrier
+        g.sync();                                    /// * smem write barrier
         ///
         /// Y = sum(W * X)
         /// TODO: cache F
@@ -55,7 +57,7 @@ __KERN__ void k_conv2d(
                 else       O[z0] += sum;
             }
         }
-        __syncthreads();                             /// * d read barrier
+        g.sync();                          /// * d read barrier
     }
 }
 

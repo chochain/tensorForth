@@ -12,8 +12,8 @@
  */
 #include <iostream>          // cin, cout
 #include <signal.h>
-using namespace std;
 
+using namespace std;
 #include "netvm.h"           // VM + ForthVM + TensorVM + NetVM
 #include "ten4.h"            // wrapper
 
@@ -26,7 +26,9 @@ __GPU__ NetVM *vm_pool[VM_MIN_COUNT]; /// TODO: CC - polymorphic does not work?
 ///
 __KERN__ void
 k_ten4_init(int khz, Istream *istr, Ostream *ostr, MMU *mmu) {
-    int k = threadIdx.x;
+    const int k = threadIdx.x;
+    auto  g = cg::this_thread_block();
+    
     NetVM *vm;
     if (k < VM_MIN_COUNT) {
         vm = vm_pool[k] = new NetVM(khz, istr, ostr, mmu);  // instantiate VM
@@ -35,7 +37,7 @@ k_ten4_init(int khz, Istream *istr, Ostream *ostr, MMU *mmu) {
     
         vm->status = VM_RUN;
     }
-    __syncthreads();
+    g.sync();
 }
 ///
 /// check VM status (using parallel reduction - overkill?)
@@ -44,13 +46,15 @@ __KERN__ void
 k_ten4_busy(int *busy) {
     extern __shared__ bool b[];              // share memory for fast calc
 
-    int k = threadIdx.x;
+    const int k = threadIdx.x;
+    auto  g = cg::this_thread_block();
+    
     b[k] = (k < VM_MIN_COUNT) ? vm_pool[k]->status==VM_RUN : 0;
-    __syncthreads();
+    g.sync();
 
     for (int n=blockDim.x>>1; n>16; n>>=1) {
         if (k < n) b[k] |= b[k + n];
-        __syncthreads();
+        g.sync();
     }
     if (k < 16) {                        // reduce spinning threads
         #pragma unroll
@@ -69,6 +73,8 @@ k_ten4_exec(int trace) {
     extern __shared__ DU shared_ss[];
     if (threadIdx.x!=0) return;
 
+    auto g   = cg::this_thread_block();         ///< all threads
+
     int b    = blockIdx.x;
     VM  *vm  = vm_pool[b];
     DU  *ss  = &shared_ss[b * T4_SS_SZ];        // adjust stack pointer based on VM id
@@ -79,7 +85,7 @@ k_ten4_exec(int trace) {
     if (vm->status == VM_RUN) vm->outer();
     else if (trace > 1) INFO("VM[%d] %s\n", blockIdx.x, st[vm->status]);
 
-    __syncthreads();
+    g.sync();
     MEMCPY(ss0, ss, sizeof(DU) * T4_SS_SZ);     // copy updated stack to managed memory
     vm->ss.v = ss0;                             // restore stack back to VM
 }
@@ -88,11 +94,12 @@ k_ten4_exec(int trace) {
 ///
 __KERN__ void
 k_ten4_sweep(MMU *mmu) {
+    auto g = cg::this_thread_block();
 //    mmu->lock();
     if (blockIdx.x ==0 && threadIdx.x == 0) {
         mmu->sweep();
     }
-    __syncthreads();
+    g.sync();
 //    mmu->unlock(); !!! DEAD LOCK now
 }
 
