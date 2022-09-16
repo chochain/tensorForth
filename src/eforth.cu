@@ -69,6 +69,7 @@ __GPU__ __INLINE__ void ForthVM::call(IU w) {
     if (dict[w].def) { WP = w; IP = dict[w].pfa; nest(); }
     else (*(FPTR)((UFP)dict[w].xt & ~CODE_ATTR_FLAG))(); ///> execute function pointer (strip off immdiate bit)
 }
+__GPU__ __INLINE__ void ForthVM::resume() { nest(); }
 ///
 /// dictionary initializer
 ///
@@ -298,12 +299,15 @@ ForthVM::init() {
     CODE("mstat", mmu.status()),
     CODE("clock", DU t = I2D(clock64()) / khz; SCALAR(t); PUSH(t)),
     CODE("delay", delay(POPi)),                  ///< TODO: change to VM_WAIT
+    CODE("pause", status = VM_WAIT),
     CODE("bye",   status = VM_STOP),
     ///@}
     CODE("boot",  mmu.clear(FIND("boot") + 1))
     };
+    VM::init();
+    
     mmu.append(prim, sizeof(prim)/sizeof(Code)); ///< append dictionary
-    mmu.status();
+    VLOG1("ForthVM::init ok\n");
 };
 ///
 /// ForthVM Outer interpreter
@@ -323,7 +327,7 @@ __GPU__ int
 ForthVM::parse(char *str) {
     int w = FIND(str);                    /// * search through dictionary
     if (w < 0) {                          /// * input word not found
-        VLOG2("%s not found\n");
+        VLOG2("'%s' not found\n", str);
         return 0;                         /// * next, try as a number
     }
     VLOG2("%4x:%p %s %d ",
@@ -349,12 +353,12 @@ ForthVM::number(char *str) {
     if (*p != '\0') return 0;            /// * not a number, bail
     // is a number
     if (compile) {                       /// * add literal when in compile mode
-        VLOG2("%f\n", n);
+        VLOG2("%d] %f\n", vid, n);
         add_w(DOLIT);                    ///> dovar (+parameter field)
         add_du(n);                       ///> store literal
     }
     else {                               ///> or, add value onto data stack
-        VLOG2("ss.push(%f)\n", n);
+        VLOG2("%%d] ss.push(%f)\n", vid, n);
         PUSH(n);
     }
     return 1;

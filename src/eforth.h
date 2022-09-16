@@ -23,7 +23,7 @@ public:
     __GPU__ ForthVM(int khz, Istream *istr, Ostream *ostr, MMU *mmu0)
         : VM(khz, istr, ostr, mmu0), dict(mmu0->dict()) {
         VLOG1("\\  ::ForthVM[%d](dict=%p) sizeof(Code)=%ld\n",
-              blockIdx.x, dict, sizeof(Code));
+              vid, dict, sizeof(Code));
     }
     __GPU__ virtual void init();            ///< override VM
     
@@ -46,10 +46,8 @@ protected:
     ///
     /// Forth inner interpreter
     ///
-    __GPU__ virtual int parse(char *str);   ///< TODO: CC - this worked, why?
-    __GPU__ virtual int number(char *str);  ///< TODO: CC - this worked, why?
-
-    __GPU__ int  find(const char *s);       ///< search dictionary reversely
+    __GPU__ virtual int parse(char *str);   ///< TODO: CC - this worked without 'final', why?
+    __GPU__ virtual int number(char *str);  ///< TODO: CC - same, why?
     __GPU__ void nest();
     ///
     /// compiler proxy funtions to reduce verbosity
