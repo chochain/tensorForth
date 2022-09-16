@@ -389,6 +389,7 @@ MMU::to_s(std::ostream &fout, DU s) {
 ///
 __HOST__ void
 MMU::words(std::ostream &fout) {
+    if (_trace > 0) fout << " words:" << std::endl;
     fout << std::setbase(10);
     for (int i=0, sz=0; i<_didx; i++) {
         sz += to_s(fout, (IU)i);
@@ -450,10 +451,10 @@ MMU::ss_dump(std::ostream &fout, U16 vid, U16 n, int radix) {
     fout << " <";
     if (x) fout << std::setbase(radix);
     for (U16 i=0; i<n; i++) {
-        show(ss[i]);
+        show(ss[i]);                 /// * show stack elements
         fout << " ";
     }
-    show(ss[T4_SS_SZ-1]);
+    show(ss[T4_SS_SZ-1]);            /// * show top
     fout << "> ok" << std::endl;
 }
 ///
