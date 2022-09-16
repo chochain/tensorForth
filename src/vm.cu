@@ -9,8 +9,8 @@
 __GPU__
 VM::VM(int khz, Istream *istr, Ostream *ostr, MMU *mmu0)
     : khz(khz), fin(*istr), fout(*ostr), mmu(*mmu0) {
-    VLOG1("\\  VM[%d](mem=%p, vmss=%p)\n",
-          blockIdx.x, mmu.pmem(0), mmu.vmss(blockIdx.x));
+    vid = threadIdx.x;
+    VLOG1("\\  VM[%d](mem=%p, vmss=%p)\n", vid, mmu.pmem(0), mmu.vmss(vid));
 }
 ///
 /// ForthVM Outer interpreter
@@ -26,16 +26,16 @@ VM::VM(int khz, Istream *istr, Ostream *ostr, MMU *mmu0)
 ///
 __GPU__ void
 VM::outer() {
-    VLOG1("%c< %s\n", compile ? ':' : '<', fin.rdbuf()); /// * display input buffer
-    while (fin >> idiom) {                   /// * loop throught tib
-        if (pre(idiom)) continue;            /// * pre process
-        VLOG2("%d>> %-10s => ", blockIdx.x, idiom);
+    VLOG1("%d]%c< %s\n", vid, compile ? ':' : '<', fin.rdbuf()); /// * display input buffer
+    while (status == VM_READY && fin >> idiom) { /// * loop throught tib
+        if (pre(idiom)) continue;                /// * pre process
+        VLOG2("%d]>> %-10s => ", vid, idiom);
         if (!parse(idiom) && !number(idiom)) {
-            fout << idiom << "? " << ENDL;   /// * display error prompt
-            compile = false;                 /// * reset to interpreter mode
+            fout << idiom << "? " << ENDL;       /// * display error prompt
+            compile = false;                     /// * reset to interpreter mode
         }
-        if (post()) break;                   /// * post process
+        if (post()) break;                       /// * post process
     }
-    if (!compile) ss_dump(ss.idx);
+    if (status==VM_READY && !compile) ss_dump(ss.idx);
 }
 //=======================================================================================
