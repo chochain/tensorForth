@@ -33,42 +33,32 @@ k_ten4_init(int khz, Istream *istr, Ostream *ostr, MMU *mmu) {
     if (vid < VM_MIN_COUNT) {
         vm = vm_pool[vid] = new NetVM(khz, istr, ostr, mmu);  /// * instantiate VM
         vm->ss.init(mmu->vmss(vid), T4_SS_SZ);  /// * point data stack to managed memory block
-        vm->status = VM_STOP;
+        vm->status = VM_WAIT;                   /// * workers wait in queue
         
         if (vid==0) {
-            vm->init();  /// * initialize common dictionary (once only)
-            mmu->status();
-            vm->status = VM_READY;
+            vm->init();                         /// * initialize common dictionary (once only)
+            mmu->status();                      /// * report MMU status after init
+            vm->status = VM_READY;              /// * VM[0] available for work
         }
     }
     g.sync();
 }
 ///
-/// check VM status (using parallel reduction - overkill?)
+/// check VM status (using warp-level collectives)
 ///
 __KERN__ void
 k_ten4_busy(int *busy) {
-    extern __shared__ bool b[];              // share memory for fast calc
-    auto  g   = cg::this_thread_block();
-    int   vid = g.thread_rank();             ///< VM id
-    
-    b[vid] = (vid < VM_MIN_COUNT) ? vm_pool[vid]->status!=VM_STOP : 0;
-    g.sync();
-
-    for (int n = blockDim.x >> 1; n > 16; n >>= 1) {
-        if (vid < n) b[vid] |= b[vid + n];
-        g.sync();
-    }
-    if (vid < 16) {                         // reduce spinning threads
-        #pragma unroll
-        for (int i = 16; i > 0; i >>= 1) {
-            b[vid] |= b[vid + i];
+    int vid = threadIdx.x;                 ///< VM id
+    if (vid < VM_MIN_COUNT) {
+        if (vm_pool[vid]->status != VM_STOP) {
+            auto g1 = cg::coalesced_threads();
+            if (vid == 0) *busy = g1.size();
         }
     }
-    if (vid==0) *busy = b[0];
 }
 ///
 /// tensorForth kernel - VM dispatcher
+/// Note: 1 block per VM, thread 0 working only (wasteful?)
 ///
 __KERN__ void
 k_ten4_exec(int trace) {
@@ -78,11 +68,11 @@ k_ten4_exec(int trace) {
     const int tx  = threadIdx.x;                ///< thread id (0 only)
     const int vid = blockIdx.x;                 ///< VM id
 
-    VM  *vm  = vm_pool[vid];
-    DU  *ss  = &shared_ss[vid * T4_SS_SZ];      ///< each VM uses its own ss
-    DU  *ss0 = vm->ss.v;                        ///< VM's data stack
-
+    VM *vm = vm_pool[vid];
     if (tx == 0 && vm->status != VM_STOP) {     /// * one thread per VM
+        DU *ss  = &shared_ss[vid * T4_SS_SZ];   ///< each VM uses its own ss
+        DU *ss0 = vm->ss.v;                     ///< VM's data stack
+
         MEMCPY(ss, ss0, sizeof(DU) * T4_SS_SZ); /// * copy stack into shared memory block
         vm->ss.v = ss;                          /// * redirect data stack to shared memory
         
@@ -152,16 +142,14 @@ TensorForth::~TensorForth() {
 }
 
 __HOST__ int
-TensorForth::is_running() {
-    int h_busy;
+TensorForth::is_ready() {
+    int h_busy = 0;
     //LOCK();                 // TODO: lock on vm_pool
     int t = WARP(VM_MIN_COUNT);
-    k_ten4_busy<<<1, t, t * sizeof(bool)>>>(busy);
+    k_ten4_busy<<<1, t>>>(busy);
     GPU_SYNC();
     //UNLOCK();               // TODO:
-
     cudaMemcpy(&h_busy, busy, sizeof(int), D2H);
-
     return h_busy;
 }
 
@@ -169,7 +157,7 @@ TensorForth::is_running() {
 __HOST__ int
 TensorForth::run() {          /// TODO: check ~CUDA/samples/simpleCallback for multi-workload callback
     int trace = mmu->trace();
-    while (is_running()) {
+    while (is_ready()) {
         if (aio->readline()) {        // feed from host console to managed input buffer
             k_ten4_exec<<<VM_MIN_COUNT, 1, VMSS_SZ>>>(trace);
             GPU_CHK();                // cudaDeviceSynchronize() and check error
@@ -183,6 +171,7 @@ TensorForth::run() {          /// TODO: check ~CUDA/samples/simpleCallback for m
         int m0 = (int)mmu->here() - 0x80;
         mmu->mem_dump(cout, m0 < 0 ? 0 : m0, 0x80);
 #endif // T4_MMU_DEBUG
+        break;
     }
     return 0;
 }
