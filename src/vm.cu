@@ -26,10 +26,10 @@ VM::VM(int khz, Istream *istr, Ostream *ostr, MMU *mmu0)
 ///
 __GPU__ void
 VM::outer() {
-    VLOG1("%d]%c< %s\n", vid, compile ? ':' : '<', fin.rdbuf()); /// * display input buffer
+    VLOG1("%d%c %s\n", vid, compile ? ':' : '{', fin.rdbuf()); /// * display input buffer
     while (status == VM_READY && fin >> idiom) { /// * loop throught tib
         if (pre(idiom)) continue;                /// * pre process
-        VLOG2("%d]>> %-10s => ", vid, idiom);
+        VLOG2("%d| >> %-10s => ", vid, idiom);
         if (!parse(idiom) && !number(idiom)) {
             fout << idiom << "? " << ENDL;       /// * display error prompt
             compile = false;                     /// * reset to interpreter mode

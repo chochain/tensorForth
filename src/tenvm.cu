@@ -149,10 +149,10 @@ TensorVM::_ts_op(t4_ten_op op, t4_drop_opt x, bool swap) { ///< tensor-scalar op
     if (swap && (op==O_DIV || op==O_SUB)) {   /// * op(scaler, tensor)
         Tensor &B = mmu.tensor(A.numel);      /// * working tensor
         B.map(O_FILL, v);                     /// * broadcast
-        Tensor::mat(op, B, A, O);             /// * Hadamard ops
+        Tensor::matx(op, B, A, O);            /// * Hadamard ops
         mmu.free(B);                          /// * free working tensor
     }
-    else Tensor::mat(op, A, v, O);            /// * broadcast_op(tensor, scalar)
+    else Tensor::matx(op, A, v, O);           /// * broadcast_op(tensor, scalar)
 
     static const char *opn[] = { "+", "-", "*", "/", "@", "x" };
     VLOG1("A[%d,%d] %s %f => O[%d,%d]\n", A.H(), A.W(), opn[op], v, O.H(), O.W());
@@ -178,7 +178,7 @@ TensorVM::_tt_op(t4_ten_op op, t4_drop_opt x) {///< tensor-tensor ops
             O = (A.rank==1 && B.rank==1)
                 ? &mmu.tensor(A.H())
                 : &mmu.tensor(A.H(), A.W());
-            Tensor::mat(op, A, B, *O);       /// * Hadamard ops
+            Tensor::matx(op, A, B, *O);      /// * Hadamard ops
             if (A.rank==1 && B.rank==1) O->reshape(O->numel);
         }
     }
@@ -404,16 +404,16 @@ TensorVM::number(char *str) {
     if (*p != '\0') return 0;
     SCALAR(n);                           /// * mask out object bit
     if (compile) {                       /// * add literal when in compile mode
-        VLOG2("%d] %f\n", vid, n);
+        VLOG2("%d| %f\n", vid, n);
         add_w(DOLIT);                    ///> dovar (+parameter field)
         add_du(n);                       ///> store literal
     }
     else if (ten_lvl > 0) {              /// * append literal into tensor storage
-        VLOG2("%d] T[%d]=%f\n", vid, ten_off, n);
+        VLOG2("%d| T[%d]=%f\n", vid, ten_off, n);
         TTOS.data[ten_off++] = n;        /// * append to tensor.data
     }
     else {                               ///> or, add value onto data stack
-        VLOG2("%d] ss.push(%f)=%08x\n", vid, n, DU2X(n));
+        VLOG2("%d| ss.push(%f)=%08x\n", vid, n, DU2X(n));
         PUSH(n);
     }
     return 1;
