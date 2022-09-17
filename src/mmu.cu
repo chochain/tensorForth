@@ -404,14 +404,14 @@ __HOST__ void
 MMU::see(std::ostream &fout, U8 *ip, int dp) {
     while (*(IU*)ip) {                                              /// * loop until EXIT
         fout << std::endl; for (int n=dp; n>0; n--) fout << "  ";   /// * indentation by level
-           fout << "[" << std::setw(4) << (IU)(ip - _pmem) << ": ";
-        IU c = *(IU*)ip;                                            /// * fetch word index
-        to_s(fout, c);                                              /// * display word name
-        if (_dict[c].def && dp < 2) {                               /// * check if is a colon word
-            see(fout, &_pmem[_dict[c].pfa], dp+1);                  /// * go one level deeper
+        fout << "[" << std::setw(4) << (IU)(ip - _pmem) << ": ";
+        IU w = *(IU*)ip;                                            /// * fetch word index
+        to_s(fout, w);                                              /// * display word name
+        if (_dict[w].def && dp < 2) {                               /// * check if is a colon word
+            see(fout, &_pmem[_dict[w].pfa], dp+1);                  /// * go one level deeper
         }
         ip += sizeof(IU);                                           /// * advance instruction pointer
-        switch (c) {
+        switch (w) {
         case DOVAR: case DOLIT: {                                   /// * fetch literal
             DU v = *(DU*)ip;  ip += sizeof(DU);
             fout << "= ";
@@ -432,7 +432,7 @@ MMU::see(std::ostream &fout, U8 *ip, int dp) {
 }
 __HOST__ void
 MMU::see(std::ostream &fout, U16 w) {
-    fout << "[ "; to_s(fout, w);
+    fout << "["; to_s(fout, w);
     if (_dict[w].def) see(fout, &_pmem[_dict[w].pfa]);
     fout << "]" << std::endl;
 }
@@ -448,6 +448,7 @@ MMU::ss_dump(std::ostream &fout, U16 vid, U16 n, int radix) {
         else           fout << s;
     };
     DU *ss = &_vmss[vid * T4_SS_SZ];
+    if (_trace > 0) fout << vid << "}";
     fout << " <";
     if (x) fout << std::setbase(radix);
     for (U16 i=0; i<n; i++) {
