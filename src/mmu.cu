@@ -274,9 +274,11 @@ MMU::random(Tensor &t, t4_rand_opt ntype, DU bias, DU scale) {
            t.rank, t.numel, bias, scale);
     dim3 blk(T4_RAND_SZ);
     dim3 grd((t.numel + blk.x - 1) / blk.x);
-    
-    k_rand<<<grd, blk>>>(t.data, t.numel, bias, scale, _seed, ntype);
-    cudaDeviceSynchronize();
+
+    auto g = cg::this_thread_block();
+    if (g.thread_rank() == 0) 
+        k_rand<<<grd, blk>>>(t.data, t.numel, bias, scale, _seed, ntype);
+    g.sync();
 
     return t;
 }
