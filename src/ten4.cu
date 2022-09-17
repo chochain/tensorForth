@@ -26,16 +26,20 @@ __GPU__ NetVM *vm_pool[VM_MIN_COUNT]; /// TODO: CC - polymorphic does not work?
 ///
 __KERN__ void
 k_ten4_init(int khz, Istream *istr, Ostream *ostr, MMU *mmu) {
-    const int k = threadIdx.x;
+    const int vid = threadIdx.x;      ///< VM id
     auto  g = cg::this_thread_block();
     
     NetVM *vm;
-    if (k < VM_MIN_COUNT) {
-        vm = vm_pool[k] = new NetVM(khz, istr, ostr, mmu);  // instantiate VM
-        vm->ss.init(mmu->vmss(k), T4_SS_SZ);  // point data stack to managed memory block
-        if (k==0) vm->init();  /// * initialize common dictionary (once only)
-    
-        vm->status = VM_RUN;
+    if (vid < VM_MIN_COUNT) {
+        vm = vm_pool[vid] = new NetVM(khz, istr, ostr, mmu);  /// * instantiate VM
+        vm->ss.init(mmu->vmss(vid), T4_SS_SZ);  /// * point data stack to managed memory block
+        vm->status = VM_STOP;
+        
+        if (vid==0) {
+            vm->init();  /// * initialize common dictionary (once only)
+            mmu->status();
+            vm->status = VM_READY;
+        }
     }
     g.sync();
 }
@@ -46,48 +50,49 @@ __KERN__ void
 k_ten4_busy(int *busy) {
     extern __shared__ bool b[];              // share memory for fast calc
 
-    const int k = threadIdx.x;
+    const int vid = threadIdx.x;
     auto  g = cg::this_thread_block();
     
-    b[k] = (k < VM_MIN_COUNT) ? vm_pool[k]->status==VM_RUN : 0;
+    b[vid] = (vid < VM_MIN_COUNT) ? vm_pool[vid]->status!=VM_STOP : 0;
     g.sync();
 
-    for (int n=blockDim.x>>1; n>16; n>>=1) {
-        if (k < n) b[k] |= b[k + n];
+    for (int n = blockDim.x >> 1; n > 16; n >>= 1) {
+        if (vid < n) b[vid] |= b[vid + n];
         g.sync();
     }
-    if (k < 16) {                        // reduce spinning threads
+    if (vid < 16) {                         // reduce spinning threads
         #pragma unroll
         for (int i = 16; i > 0; i >>= 1) {
-            b[k] |= b[k + i];
+            b[vid] |= b[vid + i];
         }
     }
-    if (k==0) *busy = b[0];
+    if (vid==0) *busy = b[0];
 }
 ///
 /// tensorForth kernel - VM dispatcher
 ///
 __KERN__ void
 k_ten4_exec(int trace) {
-    const char *st[] = {"READY", "RUN", "WAITING", "STOPPED"};
-    extern __shared__ DU shared_ss[];
-    if (threadIdx.x!=0) return;
+    const char *st[] = {"READY", "RUN", "WAIT", "STOP"};
+    extern __shared__ DU shared_ss[];           ///< use shard mem for ss
 
-    auto g   = cg::this_thread_block();         ///< all threads
+    const int tx  = threadIdx.x;                ///< thread id (0 only)
+    const int vid = blockIdx.x;                 ///< VM id
 
-    int b    = blockIdx.x;
-    VM  *vm  = vm_pool[b];
-    DU  *ss  = &shared_ss[b * T4_SS_SZ];        // adjust stack pointer based on VM id
-    DU  *ss0 = vm->ss.v;                        // capture VM data stack
-    MEMCPY(ss, ss0, sizeof(DU) * T4_SS_SZ);     // copy stack into shared memory block
-    vm->ss.v = ss;                              // redirect data stack to shared memory
+    VM  *vm  = vm_pool[vid];
+    DU  *ss  = &shared_ss[vid * T4_SS_SZ];      ///< each VM uses its own ss
+    DU  *ss0 = vm->ss.v;                        ///< VM's data stack
 
-    if (vm->status == VM_RUN) vm->outer();
-    else if (trace > 1) INFO("VM[%d] %s\n", blockIdx.x, st[vm->status]);
-
-    g.sync();
-    MEMCPY(ss0, ss, sizeof(DU) * T4_SS_SZ);     // copy updated stack to managed memory
-    vm->ss.v = ss0;                             // restore stack back to VM
+    if (tx == 0 && vm->status != VM_STOP) {     /// * one thread per VM
+        MEMCPY(ss, ss0, sizeof(DU) * T4_SS_SZ); /// * copy stack into shared memory block
+        vm->ss.v = ss;                          /// * redirect data stack to shared memory
+        
+        vm->outer();                            /// * enter VM outer loop
+        
+        MEMCPY(ss0, ss, sizeof(DU) * T4_SS_SZ); /// * copy updated stack back to global mem
+        vm->ss.v = ss0;                         /// * restore stack ptr
+    }
+    if (trace > 0) INFO("VM[%d].%d.%s\n", vid, tx, st[vm->status]);
 }
 ///
 /// clean up marked free tensors

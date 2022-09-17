@@ -224,7 +224,7 @@ Model::_fstep(Tensor &in, Tensor &out) {
         Tensor &t = *in.grad[0];             ///< tmp tensor
         Tensor::copy(in, t);                 /// * copy content for exp calc
         DU sum = t.map(O_EXP).sum() + DU_EPS;/// * sum all probabilities
-        Tensor::mat(O_MUL, t, DU1/sum, out); /// * p / sum(p)
+        Tensor::matx(O_MUL, t, DU1/sum, out);/// * p / sum(p)
         printf(" Σ=%5.3f", out.sum());       /// * verify sum
     } break;
     case L_MAXPOOL:
