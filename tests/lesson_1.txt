@@ -67,7 +67,7 @@ variable julian variable leap
 : 1k  999 for 34 drop next ;
 : clk clock >r for 1k next clock r> - ;
 : time ( n -- ) dup >r clk r> 1 + / . ."  us/cycle" ;
-99 time
+99 time cr
 
 bye
 
