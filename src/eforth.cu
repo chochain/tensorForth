@@ -24,11 +24,14 @@
 ///@}
 ///
 /// Forth inner interpreter (colon word handler)
+/// Note: nest is also used for resume where RS != 0
 ///
 __GPU__ void
 ForthVM::nest() {
-    int RS = 0;
-    while (RS >= 0) {
+    ///
+    /// RS may not equals to 0 when run as resume
+    ///
+    while (RS > 0) {                                 /// * try no recursion
         IU w = LDi(IP);                              ///< fetch opcode, and cache dataline hopefully
         while (w != EXIT) {                          ///< loop till EXIT
             IP += sizeof(IU);                        ///< ready IP for next opcode
@@ -53,7 +56,7 @@ ForthVM::nest() {
     }
 }
 __GPU__ __INLINE__ void ForthVM::call(IU w) {
-    if (dict[w].def) { WP = w; IP = dict[w].pfa; RS = 0; nest(); }
+    if (dict[w].def) { WP = w; IP = dict[w].pfa; RS = 1; nest(); }
     else (*(FPTR)((UFP)dict[w].xt & ~CODE_ATTR_FLAG))(); ///> execute function pointer (strip off immdiate bit)
 }
 ///
