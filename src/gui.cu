@@ -221,7 +221,7 @@ gui_add(Vu &vu) {
     ///
     /// create window for img
     ///
-    printf("Window...");
+    printf("\nWindow...");
     int id = glutCreateWindow(T4_APP_NAME); /// * create named window (as current)
     ///
     /// * set callbacks (for current window, i.e. id)
