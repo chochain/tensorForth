@@ -78,16 +78,16 @@ struct Tensor : public T4Base {
     ///   1. resultant tensor as last parameter
     ///   2. return the resultant tensor
     ///
-    static __BOTH__ Tensor &mm(Tensor &A, Tensor &B, Tensor &O, t4_mm_opt opt=MM_NONE);
-    static __BOTH__ Tensor &gemm(Tensor &A, Tensor &B, Tensor &O, DU alpha, DU beta);
-    static __BOTH__ Tensor &mat(t4_ten_op op, Tensor &A, Tensor &B, Tensor &O);  ///> matrix-matrix element-wise ops (Hadamard)
-    static __BOTH__ Tensor &mat(t4_ten_op op, Tensor &A, DU v, Tensor &O);       ///> matrix-scalar element-wise ops
-    static __BOTH__ Tensor &copy(Tensor &A, Tensor &O);
-    static __BOTH__ Tensor &transpose(Tensor &A, Tensor &T);
-    static __BOTH__ Tensor &inverse(Tensor &A, Tensor &I);  /// GaussJordan (with Pivot)
-    static __BOTH__ Tensor &lu(Tensor &A);                  /// LU (no Pivot)
-    static __BOTH__ Tensor &lu_inverse(Tensor &LU);         /// inverse a pre-processed LU (no Pivot)
-    static __BOTH__ Tensor &plu(Tensor &A, Tensor &P, int *ns);/// LU with permutation vector
+    static __GPU__  Tensor &mm(Tensor &A, Tensor &B, Tensor &O, t4_mm_opt opt=MM_NONE);
+    static __GPU__  Tensor &gemm(Tensor &A, Tensor &B, Tensor &O, DU alpha, DU beta);
+    static __GPU__  Tensor &matx(t4_ten_op op, Tensor &A, Tensor &B, Tensor &O);  ///> matrix-matrix element-wise ops (Hadamard)
+    static __GPU__  Tensor &matx(t4_ten_op op, Tensor &A, DU v, Tensor &O);       ///> matrix-scalar element-wise ops
+    static __GPU__  Tensor &copy(Tensor &A, Tensor &O);
+    static __GPU__  Tensor &transpose(Tensor &A, Tensor &T);
+    static __GPU__  Tensor &inverse(Tensor &A, Tensor &I);  /// GaussJordan (with Pivot)
+    static __GPU__  Tensor &lu(Tensor &A);                  /// LU (no Pivot)
+    static __GPU__  Tensor &lu_inverse(Tensor &LU);         /// inverse a pre-processed LU (no Pivot)
+    static __GPU__  Tensor &plu(Tensor &A, Tensor &P, int *ns);/// LU with permutation vector
     ///
     /// class contructors
     ///
@@ -124,19 +124,18 @@ struct Tensor : public T4Base {
     ///
     /// tensor arithmetics
     ///
-    __BOTH__ DU     sum();
-    __BOTH__ DU     avg();
-    __BOTH__ DU     std();    // standard distribution
-    __BOTH__ DU     max();
-    __BOTH__ DU     min();
-    __BOTH__ DU     dot(Tensor &B);
-    __BOTH__ Tensor &map(t4_ten_op op, DU v=DU0); ///< element-wise absolute
+    __GPU__  DU     sum();
+    __GPU__  DU     avg();
+    __GPU__  DU     std();    // standard distribution
+    __GPU__  DU     max();
+    __GPU__  DU     min();
+    __GPU__  DU     dot(Tensor &B);
     ///
     /// linear algebra methods
     ///
-    __BOTH__ DU     det();                    ///< matrix determinant
-    __BOTH__ Tensor &triu();                  ///< upper triangle
-    __BOTH__ Tensor &tril();                  ///< lower triangle
+    __GPU__  DU     det();                    ///< matrix determinant
+    __GPU__  Tensor &triu();                  ///< upper triangle
+    __GPU__  Tensor &tril();                  ///< lower triangle
     ///
     /// tensor life-cycle ops
     ///
@@ -145,7 +144,9 @@ struct Tensor : public T4Base {
     __BOTH__ Tensor &reshape(U16 h, U16 w);
     __BOTH__ Tensor &reshape(U16 n, U16 h, U16 w, U16 c);
     __BOTH__ Tensor &reshape(U16 c1, U16 n, U16 h, U16 w, U16 c);
+    
     __BOTH__ Tensor &identity();              ///< fill as an identity matrix
+    __BOTH__ Tensor &map(t4_ten_op op, DU v=DU0); ///< element-wise absolute
     __BOTH__ Tensor &fill(DU v) { return this->map(O_FILL, v); }
     __HOST__ void   copy_to_host(void* dst) { cudaMemcpy(dst, data, numel, cudaMemcpyDeviceToHost); }
     ///
@@ -155,16 +156,16 @@ struct Tensor : public T4Base {
     ///
     /// TODO: tensor arithmetics
     ///
-    __BOTH__ __INLINE__ Tensor &operator+=(Tensor &t){ mat(O_ADD, *this, t, *this); return *this; }
-    __BOTH__ __INLINE__ Tensor &operator-=(Tensor &t){ mat(O_SUB, *this, t, *this); return *this; }
-    __BOTH__ __INLINE__ Tensor &operator*=(Tensor &t){ mat(O_MUL, *this, t, *this); return *this; }
+    __GPU__ __INLINE__ Tensor &operator+=(Tensor &t){ matx(O_ADD, *this, t, *this); return *this; }
+    __GPU__ __INLINE__ Tensor &operator-=(Tensor &t){ matx(O_SUB, *this, t, *this); return *this; }
+    __GPU__ __INLINE__ Tensor &operator*=(Tensor &t){ matx(O_MUL, *this, t, *this); return *this; }
     ///
     /// TODO: tensor logical ops
     ///
-    __BOTH__ __INLINE__ bool   operator<(Tensor &t)  { return 0; }
-    __BOTH__ __INLINE__ bool   operator>(Tensor &t)  { return 0; }
-    __BOTH__ __INLINE__ bool   operator<=(Tensor &t) { return 0; }
-    __BOTH__ __INLINE__ bool   operator>=(Tensor &t) { return 0; }
-    __BOTH__ __INLINE__ bool   operator==(Tensor &t) { return 0; }
+    __GPU__ __INLINE__ bool   operator<(Tensor &t)  { return 0; }
+    __GPU__ __INLINE__ bool   operator>(Tensor &t)  { return 0; }
+    __GPU__ __INLINE__ bool   operator<=(Tensor &t) { return 0; }
+    __GPU__ __INLINE__ bool   operator>=(Tensor &t) { return 0; }
+    __GPU__ __INLINE__ bool   operator==(Tensor &t) { return 0; }
 };
 #endif // TEN4_SRC_TENSOR_H_

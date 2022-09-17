@@ -14,7 +14,7 @@
 ///
 __KERN__ void
 k_ten_op(t4_ten_op op, float *t, int sz, float v=DU0) {
-    int k = threadIdx.x + blockIdx.x * blockDim.x;
+    const int k = threadIdx.x + blockIdx.x * blockDim.x;
     if (k < sz) {
         switch(op) {
         case O_FILL:  t[k] = v;                         break;
@@ -99,9 +99,9 @@ __KERN__ void k_mat_op(
     DU *A, DU *B, DU *O,
     int M, int N)
 {
-    int i = threadIdx.y + blockIdx.y * blockDim.y;
-    int j = threadIdx.x + blockIdx.x * blockDim.x;
-    int c = blockIdx.z, C = gridDim.z;                     ///> channels
+    const int i = threadIdx.y + blockIdx.y * blockDim.y;
+    const int j = threadIdx.x + blockIdx.x * blockDim.x;
+    const int c = blockIdx.z, C = gridDim.z;               ///> channels
 
     if (i < M && j < N && c < C) {
         int k = c + (j + i * N) * C;
@@ -113,7 +113,7 @@ __KERN__ void k_mat_op(
         }
     }
 }
-__BOTH__ Tensor&
+__GPU__ Tensor&
 Tensor::mm(
     Tensor &A, Tensor &B, Tensor &O, t4_mm_opt opt) {
     U16 M  = opt & MM_A_TXP ? A.W() : A.H();
@@ -129,13 +129,16 @@ Tensor::mm(
     dim3 blk(T4_WARP_SZ, T4_WARP_SZ, 1);
     dim3 grd(TGRID(N, M, C, blk));
 
-    k_matmul<<<grd,blk>>>(A.data, B.data, O.data, M, N, Ka, opt);
-    cudaDeviceSynchronize();
+    auto g = cg::this_thread_block();
+    if (threadIdx.x==0)
+        k_matmul<<<grd,blk>>>(A.data, B.data, O.data, M, N, Ka, opt);
+    g.sync();
+    
     return O;
 }
 /// tensor GEMM C' = alpha * A x B + beta * C
 ///
-__BOTH__ Tensor&
+__GPU__ Tensor&
 Tensor::gemm(Tensor &A, Tensor &B, Tensor &O, DU alpha, DU beta) {
     U16 M = A.H(), N = B.W(), Ka = A.W(), Kb = B.H(), C = A.C();
     if (Ka != Kb || C != B.C()) {
@@ -148,30 +151,36 @@ Tensor::gemm(Tensor &A, Tensor &B, Tensor &O, DU alpha, DU beta) {
     ///
     /// TODO: cudaLaunchKernel is host mode only (as of CUDA 11.6)
     ///
-    k_gemm<<<grd, blk>>>(A.data, B.data, O.data, M, N, Ka, alpha, beta);
-    cudaDeviceSynchronize();     // TODO: deprecated 11.6, use cooperative_groups.sync()
+    auto g = cg::this_thread_block();
+    if (threadIdx.x == 0) 
+        k_gemm<<<grd, blk>>>(A.data, B.data, O.data, M, N, Ka, alpha, beta);
+    g.sync();
+    
     return O;
 }
 ///
 /// tensor-tensor element-wise C = A op B where op=ADD|SUB|MUL|DIV (Hadamard)
 ///
-__BOTH__ Tensor&
-Tensor::mat(t4_ten_op op, Tensor &A, Tensor &B, Tensor &O) {
+__GPU__ Tensor&
+Tensor::matx(t4_ten_op op, Tensor &A, Tensor &B, Tensor &O) {
     U16 M = A.H(), N = A.W(), C = A.C();
     OPN("add", "sub", "mul", "div");
     WARN("Tensor::mat%s C=%d, M=%d, N=%d\n", opn[op], C, M, N);
     dim3 blk(T4_WARP_SZ, T4_WARP_SZ, 1);
     dim3 grd(TGRID(N, M, C, blk));
     
-    k_mat_op<<<grd, blk>>>(op, A.data, B.data, O.data, M, N);
-    cudaDeviceSynchronize();     // TODO: deprecated 11.6, use cooperative_groups.sync()
+    auto g = cg::this_thread_block();
+    if (threadIdx.x == 0)
+        k_mat_op<<<grd, blk>>>(op, A.data, B.data, O.data, M, N);
+    g.sync();
+    
     return O;
 }
 ///
 /// tensor-scalar addition O = A +- n element-wise (Hadamard)
 ///
-__BOTH__ Tensor&
-Tensor::mat(t4_ten_op op, Tensor &A, DU v, Tensor &O) {
+__GPU__ Tensor&
+Tensor::matx(t4_ten_op op, Tensor &A, DU v, Tensor &O) {
     U16 M = A.H(), N = A.W(), C = A.C();
     OPN("add", "sub", "mul", "div");
     WARN("Tensor::mat%s C=%d, M=%d, N=%d\n", opn[op], C, M, N);
@@ -186,23 +195,31 @@ Tensor::mat(t4_ten_op op, Tensor &A, DU v, Tensor &O) {
     }
     return O;
 }
-__BOTH__ Tensor&
+__GPU__ Tensor&
 Tensor::copy(Tensor &A, Tensor &O) {
     WARN("Tensor::copy numel=%d\n", A.numel);
-    int g = (A.numel + T4_WARP_SQ - 1) / T4_WARP_SQ;
+    int n = (A.numel + T4_WARP_SQ - 1) / T4_WARP_SQ;
     
-    k_copy<<<g, T4_WARP_SQ>>>(A.data, O.data, A.numel);
-    cudaDeviceSynchronize();
+    auto g = cg::this_thread_block();
+    if (threadIdx.x == 0)
+        k_copy<<<n, T4_WARP_SQ>>>(A.data, O.data, A.numel);
+    g.sync();
+    
     return O;
 }
-__BOTH__ Tensor&
+__GPU__ Tensor&
 Tensor::transpose(Tensor &A, Tensor &T) {
     U16 M = A.H(), N = A.W(), C = A.C();
     WARN("Tensor::transpose A[%d,%d,%d]\n", M, N, C);
+    
     dim3 blk(T4_WARP_SZ, T4_WARP_SZ, 1);
     dim3 grd(TGRID(N, M, C, blk));
-    k_transpose<<<grd, blk>>>(A.data, T.data, M, N);
-    cudaDeviceSynchronize();
+    
+    auto g = cg::this_thread_block();
+    if (threadIdx.x == 0) 
+        k_transpose<<<grd, blk>>>(A.data, T.data, M, N);
+    g.sync();
+    
     return T;
 }
 ///
@@ -210,7 +227,7 @@ Tensor::transpose(Tensor &A, Tensor &T) {
 /// Note: Gauss-Jordan elimination is expensive O(N^3)
 /// TODO: CDP
 ///
-__BOTH__ Tensor&
+__GPU__ Tensor&
 Tensor::inverse(Tensor &A, Tensor &I) {
     U16 m = A.H(), n = A.W();
     WARN("Tensor::inverse[%d,%d]\n", m, n);
@@ -265,7 +282,7 @@ Tensor::inverse(Tensor &A, Tensor &I) {
 /// Note: A stores both L and U in-place to save space
 /// TODO: CDP
 ///
-__BOTH__ Tensor&
+__GPU__ Tensor&
 Tensor::lu(Tensor &A) {
     U16 m = A.H(), n = A.W();
     WARN("Tensor::lu[%d,%d]\n", m, n);
@@ -292,7 +309,7 @@ Tensor::lu(Tensor &A) {
 /// LU (preprocessed) matrix inversion
 /// TODO: CDP
 ///
-__BOTH__ Tensor&
+__GPU__ Tensor&
 Tensor::lu_inverse(Tensor &LU) {
     U16 m = LU.H(), n = LU.W();
     DU *dd = LU.data;
@@ -331,7 +348,7 @@ Tensor::lu_inverse(Tensor &LU) {
 ///       P is permutation vector
 /// TODO: CDP
 ///
-__BOTH__ Tensor&
+__GPU__ Tensor&
 Tensor::plu(Tensor &A, Tensor &P, int *ns) {
     U16 m = A.H(), n = A.W();
     WARN("Tensor::plu[%d,%d]\n", m, n);
@@ -384,19 +401,18 @@ Tensor::plu(Tensor &A, Tensor &P, int *ns) {
 ///=======================================================================
 /// tensor arithmetics
 ///
-__BOTH__ DU
+__GPU__ DU
 Tensor::sum() {
     DU v = DU0;
     for (int i=0; i < numel; i++) v += data[i];  ///> TODO: CDP prefix sum
-    cudaDeviceSynchronize();
     return SCALAR(v);
 }
-__BOTH__ DU
+__GPU__ DU
 Tensor::avg() {
     DU v = sum() / numel;
     return SCALAR(v);
 }
-__BOTH__ DU
+__GPU__ DU
 Tensor::std() {
     DU sum = DU0, avg = this->avg();
     DU *d  = data;
@@ -406,25 +422,23 @@ Tensor::std() {
     }
     return numel ? SQRT(sum / numel) : DU0;
 }
-__BOTH__ DU
+__GPU__ DU
 Tensor::max() {
     DU v = data[0];
     for (int i=1; i < numel; i++) {              ///> TODO: CDP prefix sum
         v = MAX(data[i], v);
     }
-    cudaDeviceSynchronize();
     return SCALAR(v);
 }
-__BOTH__ DU
+__GPU__ DU
 Tensor::min() {
     DU v = data[0];
     for (int i=1; i < numel; i++) {              ///> TODO: CDP prefix sum
         v = MIN(data[i], v);
     }
-    cudaDeviceSynchronize();
     return SCALAR(v);
 }
-__BOTH__ DU
+__GPU__ DU
 Tensor::dot(Tensor &B) {
     DU  acc = DU0;
     if (rank == 1 && B.rank == 1 && numel == B.numel) {
@@ -440,7 +454,7 @@ Tensor::dot(Tensor &B) {
 ///=======================================================================
 /// matrix determinant
 ///
-__BOTH__ DU
+__GPU__ DU
 Tensor::det() {
     U16 m = H(), n = W();
     WARN("Tensor::det[%d,%d]\n", m, n);
@@ -453,7 +467,7 @@ Tensor::det() {
 ///
 /// matrix upper triangle
 ///
-__BOTH__ Tensor&
+__GPU__ Tensor&
 Tensor::triu() {
     U16 m  = H(), n = W();
     WARN("Tensor::upper[%d,%d]\n", m, n);
@@ -463,13 +477,12 @@ Tensor::triu() {
             data[k + z * n] = DU0;
         }
     }
-    cudaDeviceSynchronize();
     return *this;
 }
 ///
 /// matrix lower triangle with diag filled with 1
 ///
-__BOTH__ Tensor&
+__GPU__ Tensor&
 Tensor::tril() {
     U16 m = H(), n = W();
     WARN("Tensor::lower[%d,%d]\n", m, n);
@@ -480,16 +493,6 @@ Tensor::tril() {
             data[k + z * n] = DU0;
         }
     }
-    cudaDeviceSynchronize();
-    return *this;
-}
-__BOTH__ Tensor&
-Tensor::map(t4_ten_op op, DU v) {
-    OPN("+", "-", "*", "/", "@", "x", "fill", "scale","pow", "abs", "exp", "log", "tanh", "relu", "sigmoid");
-    WARN("Tensor#%s v=%f\n", opn[op], v);
-    int g = (numel + T4_WARP_SQ - 1) / T4_WARP_SQ;
-    k_ten_op<<<g, T4_WARP_SQ>>>(op, data, numel, v);
-    cudaDeviceSynchronize();
     return *this;
 }
 ///=======================================================================
@@ -572,6 +575,7 @@ Tensor::reshape(U16 c1, U16 n, U16 h, U16 w, U16 c) {
     }
     return *this;
 }
+
 __BOTH__ Tensor&
 Tensor::identity() {
     if (rank < 2) return *this;
@@ -579,7 +583,32 @@ Tensor::identity() {
     dim3 blk(T4_WARP_SZ, T4_WARP_SZ, 1);
     dim3 grd(TGRID(N, M, C(), blk));
     
+#ifdef __CUDA_ARCH__
+    auto g = cg::this_thread_block();
+    if (threadIdx.x == 0)
+        k_identity<<<grd, blk>>>(data, M, N, sizeof(DU));
+    g.sync();
+#else  // __CUDA_ARCH__
     k_identity<<<grd, blk>>>(data, M, N, sizeof(DU));
-    cudaDeviceSynchronize();
+    GPU_CHK();
+#endif // __CUDA_ARCH__
+    return *this;
+}
+
+__BOTH__ Tensor&
+Tensor::map(t4_ten_op op, DU v) {
+    OPN("+", "-", "*", "/", "@", "x", "fill", "scale","pow", "abs", "exp", "log", "tanh", "relu", "sigmoid");
+    WARN("Tensor#%s v=%f\n", opn[op], v);
+    int n = (numel + T4_WARP_SQ - 1) / T4_WARP_SQ;
+    
+#ifdef __CUDA_ARCH__
+    auto g = cg::this_thread_block();
+    if (threadIdx.x == 0)
+        k_ten_op<<<n, T4_WARP_SQ>>>(op, data, numel, v);
+    g.sync();
+#else  // __CUDA_ARCH__
+    k_ten_op<<<n, T4_WARP_SQ>>>(op, data, numel, v);
+    GPU_CHK();
+#endif // __CUDA_ARCH__
     return *this;
 }
