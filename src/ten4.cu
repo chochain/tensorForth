@@ -26,8 +26,8 @@ __GPU__ NetVM *vm_pool[VM_MIN_COUNT]; /// TODO: CC - polymorphic does not work?
 ///
 __KERN__ void
 k_ten4_init(int khz, Istream *istr, Ostream *ostr, MMU *mmu) {
-    const int vid = threadIdx.x;      ///< VM id
-    auto  g = cg::this_thread_block();
+    auto  g   = cg::this_thread_block();
+    int   vid = g.thread_rank();      ///< VM id
     
     NetVM *vm;
     if (vid < VM_MIN_COUNT) {
@@ -49,9 +49,8 @@ k_ten4_init(int khz, Istream *istr, Ostream *ostr, MMU *mmu) {
 __KERN__ void
 k_ten4_busy(int *busy) {
     extern __shared__ bool b[];              // share memory for fast calc
-
-    const int vid = threadIdx.x;
-    auto  g = cg::this_thread_block();
+    auto  g   = cg::this_thread_block();
+    int   vid = g.thread_rank();             ///< VM id
     
     b[vid] = (vid < VM_MIN_COUNT) ? vm_pool[vid]->status!=VM_STOP : 0;
     g.sync();
@@ -101,7 +100,7 @@ __KERN__ void
 k_ten4_sweep(MMU *mmu) {
     auto g = cg::this_thread_block();
 //    mmu->lock();
-    if (blockIdx.x ==0 && threadIdx.x == 0) {
+    if (blockIdx.x == 0 && g.thread_rank() == 0) {
         mmu->sweep();
     }
     g.sync();

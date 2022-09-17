@@ -130,7 +130,7 @@ Tensor::mm(
     dim3 grd(TGRID(N, M, C, blk));
 
     auto g = cg::this_thread_block();
-    if (threadIdx.x==0)
+    if (g.thread_rank() == 0)
         k_matmul<<<grd,blk>>>(A.data, B.data, O.data, M, N, Ka, opt);
     g.sync();
     
@@ -152,7 +152,7 @@ Tensor::gemm(Tensor &A, Tensor &B, Tensor &O, DU alpha, DU beta) {
     /// TODO: cudaLaunchKernel is host mode only (as of CUDA 11.6)
     ///
     auto g = cg::this_thread_block();
-    if (threadIdx.x == 0) 
+    if (g.thread_rank() == 0) 
         k_gemm<<<grd, blk>>>(A.data, B.data, O.data, M, N, Ka, alpha, beta);
     g.sync();
     
@@ -170,7 +170,7 @@ Tensor::matx(t4_ten_op op, Tensor &A, Tensor &B, Tensor &O) {
     dim3 grd(TGRID(N, M, C, blk));
     
     auto g = cg::this_thread_block();
-    if (threadIdx.x == 0)
+    if (g.thread_rank() == 0)
         k_mat_op<<<grd, blk>>>(op, A.data, B.data, O.data, M, N);
     g.sync();
     
@@ -201,7 +201,7 @@ Tensor::copy(Tensor &A, Tensor &O) {
     int n = (A.numel + T4_WARP_SQ - 1) / T4_WARP_SQ;
     
     auto g = cg::this_thread_block();
-    if (threadIdx.x == 0)
+    if (g.thread_rank() == 0)
         k_copy<<<n, T4_WARP_SQ>>>(A.data, O.data, A.numel);
     g.sync();
     
@@ -216,7 +216,7 @@ Tensor::transpose(Tensor &A, Tensor &T) {
     dim3 grd(TGRID(N, M, C, blk));
     
     auto g = cg::this_thread_block();
-    if (threadIdx.x == 0) 
+    if (g.thread_rank() == 0) 
         k_transpose<<<grd, blk>>>(A.data, T.data, M, N);
     g.sync();
     
@@ -585,7 +585,7 @@ Tensor::identity() {
     
 #ifdef __CUDA_ARCH__
     auto g = cg::this_thread_block();
-    if (threadIdx.x == 0)
+    if (g.thread_rank() == 0)
         k_identity<<<grd, blk>>>(data, M, N, sizeof(DU));
     g.sync();
 #else  // __CUDA_ARCH__
@@ -603,7 +603,7 @@ Tensor::map(t4_ten_op op, DU v) {
     
 #ifdef __CUDA_ARCH__
     auto g = cg::this_thread_block();
-    if (threadIdx.x == 0)
+    if (g.thread_rank() == 0)
         k_ten_op<<<n, T4_WARP_SQ>>>(op, data, numel, v);
     g.sync();
 #else  // __CUDA_ARCH__
