@@ -31,10 +31,11 @@ protected:
     Code  *dict;                            ///< dictionary array
     Vector<DU, T4_RS_SZ> rs;                ///< return stack
     
-    bool  ucase   = true;                   ///< case insensitive
     int   radix   = 10;                     ///< numeric radix
+    bool  ucase   = true;                   ///< case insensitive
     IU    WP      = 0;                      ///< word and parameter pointers
     IU    IP      = 0;                      ///< instruction pointer
+    IU    RS      = 0;                      ///< call stack depth
     ///
     /// stack short hands
     ///
@@ -44,11 +45,15 @@ protected:
     __GPU__ __INLINE__ DU PUSH(T4Base &t) { ss.push(top); return top = mmu.obj2du(t); }
 #endif // T4_ENABLE_OBJ
     ///
-    /// Forth inner interpreter
+    /// Forth outer interpreter
     ///
     __GPU__ virtual int parse(char *str);   ///< TODO: CC - this worked without 'final', why?
     __GPU__ virtual int number(char *str);  ///< TODO: CC - same, why?
-    __GPU__ void nest();
+    ///
+    /// Forth inner interpreter
+    ///
+    __GPU__ void nest();                    ///< inner interpreter
+    __GPU__ void call(IU w);                ///< execute word by index
     ///
     /// compiler proxy funtions to reduce verbosity
     ///
@@ -56,6 +61,5 @@ protected:
     __GPU__ void add_iu(IU i);              ///< append an instruction unit to parameter memory
     __GPU__ void add_du(DU d);              ///< append a data unit to pmem
     __GPU__ void add_str(const char *s);    ///< append a string to pmem
-    __GPU__ void call(IU w);                ///< execute word by index
 };
 #endif // TEN4_SRC_EFORTH_H

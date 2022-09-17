@@ -27,8 +27,8 @@
 ///
 __GPU__ void
 ForthVM::nest() {
-    int dp = 0;                                      ///< iterator depth control
-    while (dp >= 0) {
+    int RS = 0;
+    while (RS >= 0) {
         IU w = LDi(IP);                              ///< fetch opcode, and cache dataline hopefully
         while (w != EXIT) {                          ///< loop till EXIT
             IP += sizeof(IU);                        ///< ready IP for next opcode
@@ -36,7 +36,7 @@ ForthVM::nest() {
                 rs.push(WP);                         ///< * setup callframe (ENTER)
                 rs.push(IP);
                 IP = PFA(w);                         ///< jump to pfa of given colon word
-                dp++;                                ///< go one level deeper
+                RS++;                                ///< go one level deeper
             }
             else if (w == DONEXT) {                  ///< DONEXT handler (save 600ms / 100M cycles on Intel)
                 if ((rs[-1] -= 1) >= -DU_EPS) IP = LDi(IP); ///< decrement loop counter, and fetch target addr
@@ -45,12 +45,16 @@ ForthVM::nest() {
             else EXEC(w);                            ///< execute primitive word
             w = LDi(IP);                             ///< fetch next opcode
         }
-        if (dp-- > 0) {                              ///< pop off a level
+        if (RS-- > 0) {                              ///< pop off a level
             IP = INT(rs.pop());                      ///< * restore call frame (EXIT)
             WP = INT(rs.pop());
         }
         yield();                                     ///< give other tasks some time
     }
+}
+__GPU__ __INLINE__ void ForthVM::call(IU w) {
+    if (dict[w].def) { WP = w; IP = dict[w].pfa; RS = 0; nest(); }
+    else (*(FPTR)((UFP)dict[w].xt & ~CODE_ATTR_FLAG))(); ///> execute function pointer (strip off immdiate bit)
 }
 ///
 /// Dictionary compiler proxy macros to reduce verbosity
@@ -65,11 +69,6 @@ __GPU__ void ForthVM::add_str(const char *s) {
     int sz = STRLENB(s)+1; sz = ALIGN2(sz);             ///> calculate string length, then adjust alignment (combine?)
     mmu.add((U8*)s, sz);
 }
-__GPU__ __INLINE__ void ForthVM::call(IU w) {
-    if (dict[w].def) { WP = w; IP = dict[w].pfa; nest(); }
-    else (*(FPTR)((UFP)dict[w].xt & ~CODE_ATTR_FLAG))(); ///> execute function pointer (strip off immdiate bit)
-}
-__GPU__ __INLINE__ void ForthVM::resume() { nest(); }
 ///
 /// dictionary initializer
 ///
@@ -353,12 +352,12 @@ ForthVM::number(char *str) {
     if (*p != '\0') return 0;            /// * not a number, bail
     // is a number
     if (compile) {                       /// * add literal when in compile mode
-        VLOG2("%d] %f\n", vid, n);
+        VLOG2("%d| %f\n", vid, n);
         add_w(DOLIT);                    ///> dovar (+parameter field)
         add_du(n);                       ///> store literal
     }
     else {                               ///> or, add value onto data stack
-        VLOG2("%%d] ss.push(%f)\n", vid, n);
+        VLOG2("%%d| ss.push(%f)\n", vid, n);
         PUSH(n);
     }
     return 1;
