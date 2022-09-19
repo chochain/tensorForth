@@ -104,7 +104,7 @@ MMU::status() {
             (U16)((UFP)c->name - n0), c->name,
             c->name);
     }
-    TRACE1("\\  MMU.alloc dict[%d/%d], pmem[%d]=%0.1f%%, tfree[%d/%d]\n",
+    TRACE1("\\  MMU.stat dict[%d/%d], pmem[%d]=%0.1f%%, tfree[%d/%d]\n",
         _didx, T4_DICT_SZ, _midx, 100.0*(_midx/T4_PMEM_SZ), _fidx, T4_TFREE_SZ);
 }
 ///
@@ -391,13 +391,12 @@ MMU::to_s(std::ostream &fout, DU s) {
 ///
 __HOST__ void
 MMU::words(std::ostream &fout) {
-    if (_trace > 0) fout << " words:" << std::endl;
     fout << std::setbase(10);
     for (int i=0, sz=0; i<_didx; i++) {
         sz += to_s(fout, (IU)i);
         if (_trace || sz > 54) { fout << std::endl; sz = 0; } /// TODO: width configuable
     }
-    fout << std::endl;
+    if (_trace < 1) fout << std::endl;
 }
 ///
 /// recursively disassemble colon word
@@ -486,4 +485,8 @@ MMU::mem_dump(std::ostream &fout, U16 p0, U16 sz) {
         fout << buf;
     }
     fout << std::endl;
+}
+
+__HOST__ void
+MMU::load(std::ostream &fout, U16 vid, DU n) {
 }
