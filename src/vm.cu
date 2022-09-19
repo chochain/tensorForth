@@ -27,15 +27,17 @@ VM::VM(int khz, Istream *istr, Ostream *ostr, MMU *mmu0)
 __GPU__ void
 VM::outer() {
     VLOG1("%d%c %s\n", vid, compile ? ':' : '{', fin.rdbuf()); /// * display input buffer
-    while (status == VM_READY && fin >> idiom) { /// * loop throught tib
-        if (pre(idiom)) continue;                /// * pre process
+    while (state == VM_RUN ||                      /// * resume work, or
+           (state == VM_READY && fin >> idiom)) {  /// * loop throught tib
+        if (state == VM_RUN && resume()) break;    /// * resume suspended VM
+        if (pre(idiom)) continue;                  /// * pre process
         VLOG2("%d| >> %-10s => ", vid, idiom);
         if (!parse(idiom) && !number(idiom)) {
-            fout << idiom << "? " << ENDL;       /// * display error prompt
-            compile = false;                     /// * reset to interpreter mode
+            fout << idiom << "? " << ENDL;         /// * display error prompt
+            compile = false;                       /// * reset to interpreter mode
         }
-        if (post()) break;                       /// * post process
+        if (post()) break;                         /// * post process
     }
-    if (status==VM_READY && !compile) ss_dump(ss.idx);
+    if (state==VM_READY && !compile) ss_dump(ss.idx);
 }
 //=======================================================================================
