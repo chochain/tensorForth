@@ -30,6 +30,25 @@ k_ten_op(t4_ten_op op, float *t, int sz, float v=DU0) {
     }
 }
 __KERN__ void
+k_sum(DU *A, DU *sum, int N) {
+    __shared__ DU tmp[T4_WARP_SQ];          /// * shared memory 
+    
+    const int tx = threadIdx.x, j = tx + blockIdx.x * blockDim.x;
+    auto g = cg::this_thread_block();
+
+    tmp[tx] = tx < N ? A[j] : DU0;
+    g.sync();
+    
+    for (int k = blockDim.x >> 1; k > 16; k >>= 1) {
+        if (tx < k) tmp[tx] += tmp[tx + k];
+        g.sync();
+    }
+    for (int k = 16; k > 0; k>>=1) {
+        tmp[tx] += __shfl_down_sync(-1, (float)tmp[tx], k);
+    }
+    if (tx == 0) atomicAdd(sum, tmp[0]);
+}
+__KERN__ void
 k_matmul(
     DU *A, DU *B, DU *O,   /* O[MxN] = A[MxK] @ B[KxN] */
     int M, int N, int K,
@@ -400,11 +419,21 @@ Tensor::plu(Tensor &A, Tensor &P, int *ns) {
 }
 ///=======================================================================
 /// tensor arithmetics
+/// TODO: cooperative_groups dos not work with dynamic parallism, per 11.6
 ///
 __GPU__ DU
 Tensor::sum() {
-    DU v = DU0;
-    for (int i=0; i < numel; i++) v += data[i];  ///> TODO: CDP prefix sum
+    const int n = (numel + T4_WARP_SQ -1) / T4_WARP_SQ;
+
+    U64 t0 = clock64();
+    DU *sum = new DU;
+    
+    k_sum<<<n, T4_WARP_SQ>>>(data, sum, numel);  /// * 8x straight loop
+    cudaDeviceSynchronize();
+    
+    DU v = *sum;
+    delete sum;
+    
     return SCALAR(v);
 }
 __GPU__ DU
