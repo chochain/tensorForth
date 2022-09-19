@@ -127,6 +127,8 @@ struct Options {
             << "\tTotal constant memory:         " << (U32)(p.totalConstMem>>10) << "K\n"
             << "\tTexture alignment:             " << p.textureAlignment << "\n"
             << "\tConcurrent copy and execution: " << yes_no[p.deviceOverlap] << "\n"
+            << "\tCooperativeLaunch:             " << yes_no[p.cooperativeLaunch] << "\n"
+            << "\tCooperativeMultiDeviceLaunch:  " << yes_no[p.cooperativeMultiDeviceLaunch] << "\n"
             << "\tKernel execution timeout:      " << yes_no[p.kernelExecTimeoutEnabled] << std::endl;
        return out;
     }
