@@ -47,8 +47,9 @@ protected:
     ///
     /// Forth outer interpreter
     ///
-    __GPU__ virtual int parse(char *str);   ///< TODO: CC - this worked without 'final', why?
-    __GPU__ virtual int number(char *str);  ///< TODO: CC - same, why?
+    __GPU__ virtual int resume();           ///< resume suspended work
+    __GPU__ virtual int parse(char *str);   ///< parse command string
+    __GPU__ virtual int number(char *str);  ///< parse input as number
     ///
     /// Forth inner interpreter
     ///

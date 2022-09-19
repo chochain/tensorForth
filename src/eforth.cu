@@ -29,11 +29,11 @@
 __GPU__ void
 ForthVM::nest() {
     ///
-    /// RS may not equals to 0 when run as resume
+    /// when RS != 0, it resumes paused VM
     ///
-    while (RS > 0) {                                 /// * try no recursion
+    while (state == VM_RUN && RS > 0) {              /// * try no recursion
         IU w = LDi(IP);                              ///< fetch opcode, and cache dataline hopefully
-        while (w != EXIT) {                          ///< loop till EXIT
+        while (state == VM_RUN && w != EXIT) {       ///< loop till EXIT
             IP += sizeof(IU);                        ///< ready IP for next opcode
             if (dict[w].def) {                       ///< is it a colon word?
                 rs.push(WP);                         ///< * setup callframe (ENTER)
@@ -48,16 +48,26 @@ ForthVM::nest() {
             else EXEC(w);                            ///< execute primitive word
             w = LDi(IP);                             ///< fetch next opcode
         }
-        if (RS-- > 0) {                              ///< pop off a level
+        if (state == VM_RUN && RS-- > 0) {           ///< pop off a level
             IP = INT(rs.pop());                      ///< * restore call frame (EXIT)
             WP = INT(rs.pop());
+            yield();                                 ///< give other tasks some time
         }
-        yield();                                     ///< give other tasks some time
     }
+    if (state == VM_RUN) state = VM_READY;           /// * READY for next input
 }
 __GPU__ __INLINE__ void ForthVM::call(IU w) {
-    if (dict[w].def) { WP = w; IP = dict[w].pfa; RS = 1; nest(); }
-    else (*(FPTR)((UFP)dict[w].xt & ~CODE_ATTR_FLAG))(); ///> execute function pointer (strip off immdiate bit)
+    if (dict[w].def) {                               /// * userd defined word
+        WP    = w;                                   /// * setup call frame
+        IP    = dict[w].pfa;
+        RS    = 1;
+        state = VM_RUN;
+        nest();                                      /// * Forth inner loop
+    }
+    else {
+        UFP xt = (UFP)dict[w].xt & ~CODE_ATTR_FLAG;  /// * strip off immediate bit
+        (*(FPTR)xt)();                               /// * execute function pointer
+    }
 }
 ///
 /// Dictionary compiler proxy macros to reduce verbosity
@@ -290,6 +300,7 @@ ForthVM::init() {
     CODE("words", fout << opx(OP_WORDS)),
     CODE("see",   int w = FIND(next_idiom()); fout << opx(OP_SEE, w)),
     CODE("dump",  DU n = POP(); int a = POPi; fout << opx(OP_DUMP, a, n)),
+    CODE("load",  state = VM_WAIT; fout << opx(OP_LOAD, 0, 0)),
     CODE("forget",
         int w = FIND(next_idiom());
         if (w<0) return;
@@ -305,8 +316,8 @@ ForthVM::init() {
          mmu.trace(t)),
     CODE("clock", DU t = I2D(clock64()) / khz; SCALAR(t); PUSH(t)),
     CODE("delay", delay(POPi)),                  ///< TODO: change to VM_WAIT
-    CODE("pause", status = VM_WAIT),
-    CODE("bye",   status = VM_STOP),
+    CODE("pause", state = VM_WAIT),              ///< yield to other VM
+    CODE("bye",   state = VM_STOP),
     ///@}
     CODE("boot",  mmu.clear(FIND("boot") + 1))
     };
@@ -329,6 +340,15 @@ ForthVM::init() {
 ///
 /// parse input idiom as a word
 ///
+__GPU__ int
+ForthVM::resume() {
+    ///
+    /// resume suspended task
+    ///
+    printf("VM[%d] resumed at WP=%d, IP=%d, RS=%d\n", vid, WP, IP, RS);
+    nest();                               /// * should set state to VM_READY
+    return 1;                             /// * skip outer loop
+}
 __GPU__ int
 ForthVM::parse(char *str) {
     int w = FIND(str);                    /// * search through dictionary
