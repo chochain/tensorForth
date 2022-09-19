@@ -19,11 +19,11 @@
 ///
 /// virtual machine base class
 ///
-typedef enum { VM_READY=0, VM_RUN, VM_WAIT, VM_STOP } vm_status;
+typedef enum { VM_READY=0, VM_RUN, VM_WAIT, VM_STOP } vm_state;
 class VM {
 public:
     int       vid    = 0;              ///< VM id
-    vm_status status = VM_READY;       ///< VM status
+    vm_state  state  = VM_READY;       ///< VM state
     DU        top    = DU0;            ///< cached top of stack
     Vector<DU, 0> ss;                  ///< parameter stack (setup in ten4.cu)
 
@@ -45,6 +45,7 @@ protected:
     ///
     /// inner interpreter handlers
     ///
+    __GPU__ virtual int resume()          { return 0; }
     __GPU__ virtual int pre(char *str)    { return 0; }
     __GPU__ virtual int parse(char *str)  { return 0; }
     __GPU__ virtual int number(char *str) { return 0; }
