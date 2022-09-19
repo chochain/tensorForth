@@ -29,7 +29,8 @@ typedef enum {
     OP_WORDS = 0,
     OP_SEE,
     OP_DUMP,
-    OP_SS
+    OP_SS,
+    OP_LOAD
 } OP;
 
 //================================================================
@@ -104,6 +105,7 @@ class Ostream : public Managed {
             case OP_SEE:   printf("see(%d)\n", o->a);                 break;
             case OP_DUMP:  printf("dump(%d, %d)\n", o->a, (U16)o->n); break;
             case OP_SS:    printf("ss_dump(%d)\n", o->a);             break;
+            case OP_LOAD:  printf("load(%d)\n", o->a);                break;
             }
         } break;
         default: printf("unknown type %d\n", gt);
