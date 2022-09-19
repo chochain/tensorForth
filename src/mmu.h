@@ -203,5 +203,6 @@ public:
     __HOST__ void see(std::ostream &fout, U16 w);               
     __HOST__ void ss_dump(std::ostream &fout, U16 vid, U16 n, int radix);
     __HOST__ void mem_dump(std::ostream &fout, U16 p0, U16 sz); ///< dump a section of param memory
+    __HOST__ void load(std::ostream &fout, U16 vid, DU n);      ///< load a memory block
 };
 #endif // TEN4_SRC_MMU_H
