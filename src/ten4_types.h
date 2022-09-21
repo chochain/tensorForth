@@ -52,8 +52,11 @@
         cudaDeviceReset(); \
     } \
 }
+#define MM_ALLOC(...)      { cudaMallocManaged(__VA_ARGS__); GPU_CHK(); }
+#define MM_FREE(m)         cudaFree(m)
 
 namespace cg = cooperative_groups;
+#define K_RUN(...)          { cudaLaunchCooperativeKernel(__VA_ARGS__); GPU_CHK(); }
 #else  // defined(__CUDACC__)
 #define __GPU__
 #define __HOST__
