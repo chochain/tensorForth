@@ -29,24 +29,29 @@ k_ten_op(t4_ten_op op, float *t, int sz, float v=DU0) {
         }
     }
 }
+///
+/// array sum
+/// Note: tiled_partition<32> used
+///
 __KERN__ void
 k_sum(DU *A, DU *sum, int N) {
-    __shared__ DU tmp[T4_WARP_SQ];          /// * shared memory 
-    
-    const int tx = threadIdx.x, j = tx + blockIdx.x * blockDim.x;
-    auto g = cg::this_thread_block();
-
-    tmp[tx] = tx < N ? A[j] : DU0;
-    g.sync();
-    
-    for (int k = blockDim.x >> 1; k > 16; k >>= 1) {
-        if (tx < k) tmp[tx] += tmp[tx + k];
-        g.sync();
-    }
-    for (int k = 16; k > 0; k>>=1) {
-        tmp[tx] += __shfl_down_sync(-1, (float)tmp[tx], k);
-    }
-    if (tx == 0) atomicAdd(sum, tmp[0]);
+    const int j = threadIdx.x + blockIdx.x * blockDim.x;
+    DU vj = j < N ? A[j] : DU0;
+    ///
+    /// prefix sum every 32-threaded tile
+    ///
+    auto t = cg::tiled_partition<32>(cg::this_thread_block());
+    auto shfl_sum = [](cg::thread_block_tile<32> t, DU v) {
+        for (int k = 16; k > 0; k >>= 1) {
+            v += t.shfl_down(v, k);
+        }
+        return v;
+    };
+    DU tt = shfl_sum(t, vj);
+    ///
+    /// sum up atomic
+    ///
+    if (t.thread_rank() == 0) atomicAdd(sum, tt);
 }
 __KERN__ void
 k_matmul(
@@ -148,10 +153,8 @@ Tensor::mm(
     dim3 blk(T4_WARP_SZ, T4_WARP_SZ, 1);
     dim3 grd(TGRID(N, M, C, blk));
 
-    auto g = cg::this_thread_block();
-    if (g.thread_rank() == 0)
-        k_matmul<<<grd,blk>>>(A.data, B.data, O.data, M, N, Ka, opt);
-    g.sync();
+    k_matmul<<<grd,blk>>>(A.data, B.data, O.data, M, N, Ka, opt);
+    GPU_SYNC();
     
     return O;
 }
@@ -167,13 +170,9 @@ Tensor::gemm(Tensor &A, Tensor &B, Tensor &O, DU alpha, DU beta) {
     WARN("GEMM C=%d, M=%d, N=%d, K=%d a=%f, b=%f\n", M, N, Ka, alpha, beta);
     dim3 blk(T4_WARP_SZ, T4_WARP_SZ, 1);
     dim3 grd(TGRID(N, M, C, blk));
-    ///
-    /// TODO: cudaLaunchKernel is host mode only (as of CUDA 11.6)
-    ///
-    auto g = cg::this_thread_block();
-    if (g.thread_rank() == 0) 
-        k_gemm<<<grd, blk>>>(A.data, B.data, O.data, M, N, Ka, alpha, beta);
-    g.sync();
+    
+    k_gemm<<<grd, blk>>>(A.data, B.data, O.data, M, N, Ka, alpha, beta);
+    GPU_SYNC();
     
     return O;
 }
@@ -188,10 +187,8 @@ Tensor::matx(t4_ten_op op, Tensor &A, Tensor &B, Tensor &O) {
     dim3 blk(T4_WARP_SZ, T4_WARP_SZ, 1);
     dim3 grd(TGRID(N, M, C, blk));
     
-    auto g = cg::this_thread_block();
-    if (g.thread_rank() == 0)
-        k_mat_op<<<grd, blk>>>(op, A.data, B.data, O.data, M, N);
-    g.sync();
+    k_mat_op<<<grd, blk>>>(op, A.data, B.data, O.data, M, N);
+    GPU_SYNC();
     
     return O;
 }
@@ -219,10 +216,8 @@ Tensor::copy(Tensor &A, Tensor &O) {
     WARN("Tensor::copy numel=%d\n", A.numel);
     int n = (A.numel + T4_WARP_SQ - 1) / T4_WARP_SQ;
     
-    auto g = cg::this_thread_block();
-    if (g.thread_rank() == 0)
-        k_copy<<<n, T4_WARP_SQ>>>(A.data, O.data, A.numel);
-    g.sync();
+    k_copy<<<n, T4_WARP_SQ>>>(A.data, O.data, A.numel);
+    GPU_SYNC();
     
     return O;
 }
@@ -234,10 +229,8 @@ Tensor::transpose(Tensor &A, Tensor &T) {
     dim3 blk(T4_WARP_SZ, T4_WARP_SZ, 1);
     dim3 grd(TGRID(N, M, C, blk));
     
-    auto g = cg::this_thread_block();
-    if (g.thread_rank() == 0) 
-        k_transpose<<<grd, blk>>>(A.data, T.data, M, N);
-    g.sync();
+    k_transpose<<<grd, blk>>>(A.data, T.data, M, N);
+    GPU_SYNC();
     
     return T;
 }
@@ -419,17 +412,15 @@ Tensor::plu(Tensor &A, Tensor &P, int *ns) {
 }
 ///=======================================================================
 /// tensor arithmetics
-/// TODO: cooperative_groups dos not work with dynamic parallism, per 11.6
 ///
 __GPU__ DU
 Tensor::sum() {
     const int n = (numel + T4_WARP_SQ -1) / T4_WARP_SQ;
-
-    U64 t0 = clock64();
     DU *sum = new DU;
-    
+    *sum = DU0;
+
     k_sum<<<n, T4_WARP_SQ>>>(data, sum, numel);  /// * 8x straight loop
-    cudaDeviceSynchronize();
+    GPU_SYNC();               /// * cooperative_groups.sync() does not work!
     
     DU v = *sum;
     delete sum;
@@ -612,15 +603,9 @@ Tensor::identity() {
     dim3 blk(T4_WARP_SZ, T4_WARP_SZ, 1);
     dim3 grd(TGRID(N, M, C(), blk));
     
-#ifdef __CUDA_ARCH__
-    auto g = cg::this_thread_block();
-    if (g.thread_rank() == 0)
-        k_identity<<<grd, blk>>>(data, M, N, sizeof(DU));
-    g.sync();
-#else  // __CUDA_ARCH__
     k_identity<<<grd, blk>>>(data, M, N, sizeof(DU));
-    GPU_CHK();
-#endif // __CUDA_ARCH__
+    GPU_SYNC();
+    
     return *this;
 }
 
@@ -630,14 +615,8 @@ Tensor::map(t4_ten_op op, DU v) {
     WARN("Tensor#%s v=%f\n", opn[op], v);
     int n = (numel + T4_WARP_SQ - 1) / T4_WARP_SQ;
     
-#ifdef __CUDA_ARCH__
-    auto g = cg::this_thread_block();
-    if (g.thread_rank() == 0)
-        k_ten_op<<<n, T4_WARP_SQ>>>(op, data, numel, v);
-    g.sync();
-#else  // __CUDA_ARCH__
     k_ten_op<<<n, T4_WARP_SQ>>>(op, data, numel, v);
-    GPU_CHK();
-#endif // __CUDA_ARCH__
+    GPU_SYNC();
+    
     return *this;
 }
