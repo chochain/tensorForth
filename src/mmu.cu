@@ -34,13 +34,12 @@ k_rand(DU *mat, int sz, DU bias, DU scale, curandState *st, t4_rand_opt ntype) {
 ///
 __HOST__
 MMU::MMU(int verbose) : _trace(verbose) {
-    cudaMallocManaged(&_dict, sizeof(Code) * T4_DICT_SZ);
-    cudaMallocManaged(&_pmem, T4_PMEM_SZ);
-    cudaMallocManaged(&_obj,  T4_TENSOR_SZ);
-    cudaMallocManaged(&_mark, sizeof(DU) * T4_TFREE_SZ);
-    cudaMallocManaged(&_vmss, sizeof(DU) * T4_SS_SZ * VM_MIN_COUNT);
-    cudaMallocManaged(&_seed, sizeof(curandState) * T4_RAND_SZ);
-    GPU_CHK();
+    MM_ALLOC(&_dict, sizeof(Code) * T4_DICT_SZ);
+    MM_ALLOC(&_pmem, T4_PMEM_SZ);
+    MM_ALLOC(&_obj,  T4_TENSOR_SZ);
+    MM_ALLOC(&_mark, sizeof(DU) * T4_TFREE_SZ);
+    MM_ALLOC(&_vmss, sizeof(DU) * T4_SS_SZ * VM_MIN_COUNT);
+    MM_ALLOC(&_seed, sizeof(curandState) * T4_RAND_SZ);
 
     _ostore.init(_obj, T4_TENSOR_SZ);
     k_rand_init<<<1, 1>>>(_seed);       /// serialized
@@ -52,12 +51,12 @@ __HOST__
 MMU::~MMU() {
     GPU_SYNC();
     TRACE1("\\  MMU releasing CUDA managed memory...\n");
-    cudaFree(_seed);
-    cudaFree(_vmss);
-    cudaFree(_mark);
-    cudaFree(_obj);
-    cudaFree(_pmem);
-    cudaFree(_dict);
+    MM_FREE(_seed);
+    MM_FREE(_vmss);
+    MM_FREE(_mark);
+    MM_FREE(_obj);
+    MM_FREE(_pmem);
+    MM_FREE(_dict);
 }
 ///
 /// dictionary management methods
