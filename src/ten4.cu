@@ -27,7 +27,7 @@ __GPU__ NetVM *vm_pool[VM_MIN_COUNT]; /// TODO: CC - polymorphic does not work?
 __KERN__ void
 k_ten4_init(int khz, Istream *istr, Ostream *ostr, MMU *mmu) {
     auto  g   = cg::this_thread_block();
-    int   vid = g.thread_rank();      ///< VM id
+    int   vid = g.thread_rank();                ///< VM id
 
     if (vid < VM_MIN_COUNT) {
         NetVM *vm = vm_pool[vid] = new NetVM(khz, istr, ostr, mmu);  /// * instantiate VM
@@ -47,9 +47,9 @@ k_ten4_init(int khz, Istream *istr, Ostream *ostr, MMU *mmu) {
 ///
 __KERN__ void
 k_ten4_tally(vm_state *vmst, int *vmst_cnt) {
-    const int vid = threadIdx.x;                 ///< VM id
-
-    auto g = cg::this_thread_block();
+    const auto g   = cg::this_thread_block();
+    const int  vid = g.thread_rank();            ///< VM id
+    
     for (int i = 0; i < 4; i++) vmst_cnt[i] = 0;
     g.sync();
     
@@ -62,7 +62,7 @@ k_ten4_tally(vm_state *vmst, int *vmst_cnt) {
 }
 ///
 /// tensorForth kernel - VM dispatcher
-/// Note: 1 block per VM, thread 0 working only (wasteful?)
+/// Note: 1 block per VM, thread 0 active only (wasteful?)
 ///
 __KERN__ void
 k_ten4_exec() {
@@ -70,7 +70,7 @@ k_ten4_exec() {
 
     const int tx  = threadIdx.x;                ///< thread id (0 only)
     const int vid = blockIdx.x;                 ///< VM id
-
+    
     VM *vm = vm_pool[vid];
     if (tx == 0 && vm->state != VM_STOP) {      /// * one thread per VM
         DU *ss  = &shared_ss[vid * T4_SS_SZ];   ///< each VM uses its own ss
@@ -78,24 +78,26 @@ k_ten4_exec() {
 
         MEMCPY(ss, ss0, sizeof(DU) * T4_SS_SZ); /// * copy stack into shared memory block
         vm->ss.v = ss;                          /// * redirect data stack to shared memory
-        
+        ///
+        /// * enter ForthVM outer loop
+        /// * Note: single-threaded, dynamic parallelism when needed
+        ///
         vm->outer();                            /// * enter VM outer loop
         
         MEMCPY(ss0, ss, sizeof(DU) * T4_SS_SZ); /// * copy updated stack back to global mem
         vm->ss.v = ss0;                         /// * restore stack ptr
     }
+    /// * grid sync needed but CUDA 11.6 does not support dymanic parallelism
 }
 ///
 /// clean up marked free tensors
 ///
 __KERN__ void
 k_ten4_sweep(MMU *mmu) {
-    auto g = cg::this_thread_block();
 //    mmu->lock();
-    if (blockIdx.x == 0 && g.thread_rank() == 0) {
+    if (blockIdx.x == 0 && threadIdx.x == 0) {  /// * one thread only
         mmu->sweep();
     }
-    g.sync();
 //    mmu->unlock(); !!! DEAD LOCK now
 }
 
@@ -136,10 +138,8 @@ TensorForth::TensorForth(int device, int verbose) {
     ///
     mmu = new MMU(verbose);                     ///> instantiate memory manager
     aio = new AIO(mmu, verbose);                ///> instantiate async IO manager
-    cudaMallocManaged((void**)&vmst, VMST_SZ);  ///> allocate for state of VMs
-    GPU_CHK();
-    cudaMallocManaged((void**)&vmst_cnt, sizeof(int)*4);
-    GPU_CHK();
+    MM_ALLOC(&vmst, VMST_SZ);          ///> allocate for state of VMs
+    MM_ALLOC(&vmst_cnt, sizeof(int)*4);
     ///
     /// instantiate virtual machines
     ///
@@ -150,18 +150,18 @@ TensorForth::TensorForth(int device, int verbose) {
 
 TensorForth::~TensorForth() {
     delete aio;
-    cudaFree(vmst_cnt);
-    cudaFree(vmst);
+    
+    MM_FREE(vmst_cnt);
+    MM_FREE(vmst);
     cudaDeviceReset();
 }
 
 __HOST__ int
 TensorForth::vm_tally() {
-    int t = WARP(VM_MIN_COUNT);
-    k_ten4_tally<<<1, t>>>(vmst, vmst_cnt);
+    k_ten4_tally<<<1, WARP(VM_MIN_COUNT)>>>(vmst, vmst_cnt);
     GPU_CHK();
-
-    if (mmu->trace()) {
+    
+    if (mmu->trace() > 1) {
         cout << "VM.state[READY,RUN,WAIT,STOP]=[";
         for (int i = 0; i < 4; i++) cout << " " << vmst_cnt[i];
         cout << " ]" << std::endl;
@@ -176,6 +176,9 @@ __HOST__ int
 TensorForth::run() {
     while (vm_tally() && HAS_BUSY) {
         if (HAS_RUN || aio->readline()) { /// * feed from host console to managed input buffer
+            ///
+            /// CUDA 11.6, dynamic parallelism does not work with coop-launch
+            ///
             k_ten4_exec<<<VM_MIN_COUNT, 1, VMSS_SZ>>>();
             GPU_CHK();
             
