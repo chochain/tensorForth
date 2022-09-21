@@ -275,10 +275,8 @@ MMU::random(Tensor &t, t4_rand_opt ntype, DU bias, DU scale) {
     dim3 blk(T4_RAND_SZ);
     dim3 grd((t.numel + blk.x - 1) / blk.x);
 
-    auto g = cg::this_thread_block();
-    if (g.thread_rank() == 0) 
-        k_rand<<<grd, blk>>>(t.data, t.numel, bias, scale, _seed, ntype);
-    g.sync();
+    k_rand<<<grd, blk>>>(t.data, t.numel, bias, scale, _seed, ntype);
+    GPU_SYNC();
 
     return t;
 }
@@ -450,7 +448,7 @@ MMU::ss_dump(std::ostream &fout, U16 vid, U16 n, int radix) {
     };
     DU *ss = &_vmss[vid * T4_SS_SZ];
     if (_trace > 0) fout << vid << "}";
-    fout << " <";
+    fout << std::setprecision(-1) << " <";
     if (x) fout << std::setbase(radix);
     for (U16 i=0; i<n; i++) {
         show(ss[i]);                 /// * show stack elements
