@@ -486,4 +486,5 @@ MMU::mem_dump(std::ostream &fout, U16 p0, U16 sz) {
 
 __HOST__ void
 MMU::load(std::ostream &fout, U16 vid, DU n) {
+    fout << "load[" << vid << "] " << DU2X(n);
 }
