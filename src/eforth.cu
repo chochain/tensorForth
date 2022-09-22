@@ -300,7 +300,6 @@ ForthVM::init() {
     CODE("words", fout << opx(OP_WORDS)),
     CODE("see",   int w = FIND(next_idiom()); fout << opx(OP_SEE, w)),
     CODE("dump",  DU n = POP(); int a = POPi; fout << opx(OP_DUMP, a, n)),
-    CODE("load",  state = VM_WAIT; fout << opx(OP_LOAD, 0, 0)),
     CODE("forget",
         int w = FIND(next_idiom());
         if (w<0) return;

@@ -179,6 +179,11 @@ NetVM::init() {
     CODE(">n",        if (M1V) { DU t = POP(); MTOS.npush(t); }),
     CODE("n@",        if (M1V) { I16 i = POPi; PUSH(mmu.view(MTOS[i])); }),
     CODE("network",   if (IS_M(top)) fout << top),
+    CODE("load",
+         char *fn = next_idiom();
+         printf("load >%s<\n", fn);
+//         state = VM_WAIT;
+         fout << opx(OP_LOAD, 0, 0) << fn),
     ///@}
     };
     const Code over[] = {           /// extended (overload) words
