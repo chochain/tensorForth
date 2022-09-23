@@ -15,8 +15,8 @@ CUDA_CODE := sm_75
 CUDA_FLAGS:= -Xnvlink --suppress-stack-size-warning --cudart=static
 
 # All of the sources participating in the build are defined here
-SRCS :=
-OBJS :=
+SRCS := src/ten4.cu
+OBJS := $(SRCS:%.cu=%.o)
 
 # Every subdirectory with source files must be described here
 SUBDIRS := src
@@ -27,12 +27,12 @@ CL_TOOL := ${CUTLASS_HOME}/tools
 CL_INCS := \
 	${CUTLASS_HOME}/include \
 	${CUTLASS_HOME}/tools/library/include \
-	${CUTLASS_HOME}/tools/util/include \
-    /u01/src/stb
+	${CUTLASS_HOME}/tools/util/include
 
 # GL libraries
 GL_LIB  := -lGL -lGLU -lglut -lX11
 GL_INCS := \
+    /u01/src/stb \
 	${CUDA_HOME}/cuda-samples/Common \
 	${CUDA_HOME}/cuda-samples/Samples/2_Concepts_and_Techniques/imageDenoising
 
@@ -77,7 +77,7 @@ tests: test
 # Tool invocations
 $(APP_NAME): $(OBJS) $(USER_OBJS) $(OPTIONAL_TOOL_DEPS)
 	@echo '<App><Action>Link</Action><Filename>$<</Filename>'
-	$(NV_LNK) -o "$(APP_TGT)" $^
+	-$(NV_LNK) -o "$(APP_TGT)" $^
 	@echo '<Status>Finished</Status></App>'
 	@echo ' '
 
