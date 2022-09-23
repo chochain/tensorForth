@@ -18,8 +18,8 @@ void Loader::init() {
             "/u01/data/mnist/train-labels-idx1-ubyte");
     ds_map["mnist_test"] =
         new Mnist(
-            "/u01/data/mnist/test-images-idx3-ubyte",
-            "/u01/data/mnist/test-labels-idx1-ubyte");
+            "/u01/data/mnist/t10k-images-idx3-ubyte",
+            "/u01/data/mnist/t10k-labels-idx1-ubyte");
 }
 
 Dataset *Loader::get(const char *ds_name) {
@@ -28,10 +28,7 @@ Dataset *Loader::get(const char *ds_name) {
         printf("ERROR: Loader => %s not found\n", ds_name);
         return NULL;
     }
-    else {
-        Dataset *ds = it->second;
-        return ds->load();
-    }
+    else return it->second->load();
 }
 
 
