@@ -180,13 +180,12 @@ NetVM::init() {
     CODE("n@",        if (M1V) { I16 i = POPi; PUSH(mmu.view(MTOS[i])); }),
     CODE("network",   if (IS_M(top)) fout << top),
     CODE("load",
-         char *fn = next_idiom();
-         printf("load >%s<\n", fn);
-//         state = VM_WAIT;
-         fout << opx(OP_LOAD, 0, 0) << fn),
+        char *fname = next_idiom();    /// retrieve file name
+        fout << opx(OP_LOAD, 0, top) << fname;
+        state = VM_WAIT),
     ///@}
     };
-    const Code over[] = {           /// extended (overload) words
+    const Code over[] = {              ///< extended (overload) words
     CODE("flatten",   nnop(L_FLATTEN)),
     CODE("boot",      mmu.clear(FIND("network") + 1))
     };
