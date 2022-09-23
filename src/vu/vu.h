@@ -37,7 +37,7 @@ public:
 };
 
 extern "C" int  gui_init(int *argc, char **argv);
-extern "C" int  gui_add(Vu &vu);
+extern "C" int  gui_add(Vu *vu);
 extern "C" int  gui_loop();
     
 #endif // T4_VU_H
