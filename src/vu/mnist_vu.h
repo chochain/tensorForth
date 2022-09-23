@@ -13,10 +13,10 @@
 class MnistVu : public Vu {
     int NX, NY;
 public:
-    MnistVu(Dataset &ds, int nx=40, int ny=30) :
+    __HOST__ MnistVu(Dataset &ds, int nx=40, int ny=30) :
         Vu(ds, ds.W * nx, ds.H * ny), NX(nx), NY(ny) {}
     
-    virtual int init_host_texture();
+    __HOST__ virtual int init_host_tex();
 };
 #endif  // TEN4_SRC_VU_MNIST_VU_H
 

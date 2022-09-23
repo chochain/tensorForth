@@ -8,7 +8,8 @@
 ///
 /// MNIST GUI texture builder
 ///
-int MnistVu::init_host_texture() {
+__HOST__ int
+MnistVu::init_host_tex() {
     auto fit = [this](int z0, unsigned char *src) {
         uchar4 *t = &h_tex[z0];
         for (int i = dset.H - 1; i >= 0; i--) {      // y top-down flip
