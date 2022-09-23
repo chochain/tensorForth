@@ -4,12 +4,6 @@
 # Add inputs and outputs from these tool invocations to the build variables
 SRCS +=
 
-INCS += \
-	${CUDA_HOME}/cuda-samples/Common \
-	${CUDA_HOME}/cuda-samples/Samples/2_Concepts_and_Techniques/imageDenoising
-
-INC_LIST = $(INCS:%=-I%)
-
 OBJS += \
 	./src/util.o \
 	./src/aio.o \
@@ -28,50 +22,46 @@ OBJS += \
 	./src/ten4.o
 
 # Additional CUDA includes if any
-CU_INCS := \
+T4_INCS := \
     src/ten4_config.h \
     src/ten4_types.h \
 	src/opt.h \
     src/util.h \
+	src/t4base.h \
     src/vector.h \
 	src/istream.h \
 	src/ostream.h \
-	src/aio.h \
-	src/mmu.h \
 	src/tlsf.h \
 	src/tensor.h \
+	src/mmu.h \
+	src/aio.h
+
+VM_INCS := \
 	src/vm.h \
 	src/eforth.h \
-	src/t4base.h \
 	src/tenvm.h \
 	src/model.h \
 	src/netvm.h \
-	src/dataset.h \
-	src/vu.h \
-	src/gui.h \
 	src/ten4.h
 
-# Cutlass includes
-CL_INC  := ${CUTLASS_HOME}/include
-CL_TOOL := ${CUTLASS_HOME}/tools
+DS_INCS := \
+	src/dataset.h \
+	src/vu.h \
+	src/gui.h
 
-.PHONY: clean clean-src
+-include src/ldr/Makefile
+-include src/vu/Makefile
+
+.PHONY: src clean clean-src
+
+src: $(OBJS) src-ldr src-vu
 
 # Each subdirectory must supply rules for building sources it contributes
-src/%.o: src/%.cu ${CU_INCS}
+src/%.o: src/%.cu $(T4_INCS) $(VM_INCS) $(DS_INCS)
 	@echo '<Source><Action>Compile</Action><Filename>$<</Filename>'
-	${CUDA_HOME}/bin/nvcc -ccbin g++ \
-		${INC_LIST} \
-		-D__CDPRT_SUPPRESS_SYNC_DEPRECATION_WARNING \
-		-t=0 -c -std=c++14 -O3 -D__CUDACC__ -o "$@" "$<" \
-		--device-c --extended-lambda --expt-relaxed-constexpr \
-		--device-debug --debug \
-		 -gencode arch=${CUDA_ARCH},code=${CUDA_CODE} \
-		--keep-dir $(APP_HOME)/src
+	$(NV_CC) -o "$@" "$<" --keep-dir $(APP_HOME)/src
 	@echo '<Status>OK</Status></Source>'
 	@echo ' '
 
-clean: clean-src
-
-clean-src:
+clean-src: clean-src-ldr clean-src-vu
 	-$(RM) $(OBJS)
