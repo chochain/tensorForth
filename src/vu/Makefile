@@ -2,15 +2,17 @@
 # tensorForth src/vu/Makefile
 #
 # Add inputs and outputs from these tool invocations to the build variables
-VU_OBJS := \
-	./src/vu/gui.o \
-	./src/vu/vu.o \
-	./src/vu/mnist_vu.o
+VU_SRCS := \
+	./src/vu/gui.cu \
+	./src/vu/vu.cu \
+	./src/vu/mnist_vu.cu
 
+VU_OBJS := $(VU_SRCS:%.cu=%.o)
 VU_INCS := \
 	./src/ten4_types.h \
 	./src/dataset.h \
-	./src/vu/vu.h
+	./src/vu/vu.h \
+	./src/vu/mnist_vu.h
 
 SRCS +=
 INCS +=
@@ -23,7 +25,7 @@ src-vu: $(VU_OBJS)
 # Each subdirectory must supply rules for building sources it contributes
 src/vu/%.o: src/vu/%.cu $(VU_INCS)
 	@echo '<Source><Action>Compile</Action><Filename>$<</Filename>'
-	$(NV_CC) -o "$@" "$<" --keep-dir $(APP_HOME)/src/vu
+	-$(NV_CC) -o "$@" "$<" --keep-dir $(APP_HOME)/src/vu
 	@echo '<Status>OK</Status></Source>'
 	@echo ' '
 
