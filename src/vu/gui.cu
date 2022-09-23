@@ -18,21 +18,9 @@ typedef std::map<int, Vu*> VuMap;
 VuMap   vu_map;
 GLuint  shader_id = 0;         ///< floating point shader
 
-__HOST__ void
-_vu_set(int id, Vu *vu) {
-    vu_map[id] = vu;
-}
-
-__HOST__ Vu*
-_vu_get(int id) {
-    VuMap::iterator it = vu_map.find(id);
-    return (it == vu_map.end()) ? NULL : it->second;
-}
-
-__HOST__ Vu*
-_vu_now() {
-    return _vu_get(glutGetWindow());
-}
+__HOST__ void _vu_set(int id, Vu *vu) { vu_map[id] = vu; }
+__HOST__ Vu   *_vu_get(int id)        { return vu_map.find(id)->second; }
+__HOST__ Vu   *_vu_now()              { return _vu_get(glutGetWindow()); }
 ///
 /// default texture shader for displaying floating-point
 ///
@@ -63,8 +51,8 @@ _compile_shader() {
 
 __HOST__ void
 _close_and_switch_vu() {
-    int id = glutGetWindow();
-    Vu *vu = _vu_get(id);
+    int id  = glutGetWindow();
+    Vu  *vu = _vu_get(id);
     glutDestroyWindow(id);
     
     cudaGraphicsUnregisterResource(vu->pbo); GPU_CHK();
@@ -117,8 +105,7 @@ _mouse(int button, int state, int x, int y) {
     case GLUT_LEFT_BUTTON:
     case GLUT_MIDDLE_BUTTON:
     case GLUT_RIGHT_BUTTON:
-        Vu *vu = _vu_now();
-        if (vu) vu->mouse(button, state, x, y);
+        _vu_now()->mouse(button, state, x, y);
         break;
     }
 }
@@ -129,17 +116,13 @@ _keyboard(unsigned char k, int /*x*/, int /*y*/) {
     case 27:     // ESC
     case 'q':
     case 'Q': _close_and_switch_vu(); break;
-    default: 
-        Vu *vu = _vu_now();
-        if (vu) vu->keyboard(k);
-        break;
+    default:  _vu_now()->keyboard(k);  break;
     }
 }
 
 __HOST__ void
 _display() {
-    Vu  *vu = _vu_now();
-    if (!vu) return;
+    Vu *vu = _vu_now();
     
     TColor *d_dst = NULL;
     size_t bsz;
@@ -214,12 +197,12 @@ gui_init(int *argc, char **argv) {
 }
 
 extern "C" int
-gui_add(Vu &vu) {
-    printf("\nWindow[%d,%d]...", vu.X, vu.Y);
+gui_add(Vu *vu) {
+    printf("\nWindow[%d,%d]...", vu->X, vu->Y);
     
     int z = T4_VU_OFFSET * vu_map.size();
-    glutInitWindowPosition(T4_VU_X_CENTER + z - (vu.X / 2), T4_VU_Y_CENTER + z);
-    glutInitWindowSize(vu.X, vu.Y);
+    glutInitWindowPosition(T4_VU_X_CENTER + z - (vu->X / 2), T4_VU_Y_CENTER + z);
+    glutInitWindowSize(vu->X, vu->Y);
     ///
     /// create GL window
     ///
@@ -235,14 +218,14 @@ gui_add(Vu &vu) {
     ///
     /// * build host and cuda texture, bind to GL
     ///
-    _vu_set(id, &vu);                       /// * keep (id,*vu) pair in vu_map
-    vu.init_host_tex();                     /// * create texture on host
-    vu.tex_dump();                          /// * debug dump
-    vu.init_cuda_tex();                     /// * sync texture onto device
-    _bind_texture(&vu);                     /// * bind h_tex to GL buffer
-//    _compile_shader();                      /// load GL float shader
+    _vu_set(id, vu);                        /// * keep (id,vu&) pair in vu_map
+    vu->init_host_tex();                    /// * create texture on host
+    vu->tex_dump();                         /// * debug dump
+    vu->init_cuda_tex();                    /// * sync texture onto device
+    _bind_texture(vu);                      /// * bind h_tex to GL buffer
+//    _compile_shader();                    /// load GL float shader
     
-    printf("vu[%d]", id);
+    printf(" => vu[%d]", id);
     return 0;
 }
 
