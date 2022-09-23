@@ -7,13 +7,15 @@
 #ifndef T4_DATASET_H
 #define T4_DATASET_H
 
-typedef unsigned char U8;
+typedef uint8_t U8;
 
 class Dataset {
 public:
     const char *d_fn;              ///< data file name
     const char *t_fn;              ///< target lable file name
+    
     int        N, H, W, C;         ///< dimensions and channel size
+    
     U8         *h_data  = NULL;    ///< source data on host
     U8         *h_label = NULL;    ///< label data on host
     U8         *d_data  = NULL;    ///< source data on device
@@ -24,7 +26,6 @@ public:
 
         free(h_data);
         cudaFree(d_data);
-        GPU_CHK();
     }
     int dsize() { return H * W * C; }
     int len()   { return N; }
