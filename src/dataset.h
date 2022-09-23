@@ -30,7 +30,7 @@ public:
     int dsize() { return H * W * C; }
     int len()   { return N; }
     
-    virtual Dataset &load() { printf("load() implemented?\n"); return *this; }
+    virtual Dataset *load() { printf("load() implemented?\n"); return this; }
     virtual U8      *operator [](int idx) { return &h_data[idx * dsize()]; }
 };
 #endif // T4_DATASET_H
