@@ -8,6 +8,16 @@
 
 using namespace std;
 
+Dataset *Mnist::load() {
+    int N0 = _load_labels();
+    int N1 = _load_images();
+    if (N0 != N1) {
+        fprintf(stderr, "ERROR: Mnist::load lable count != image count\n");
+        return NULL;
+    }
+    return this;
+}
+
 U32 Mnist::_get_u32(ifstream &fs) {
     U32 v = 0;
     char x;
