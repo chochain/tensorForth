@@ -195,14 +195,14 @@ public:
     __BOTH__ __INLINE__ int  trace()        { return _trace; }
     __BOTH__ __INLINE__ void trace(int lvl) { _trace = lvl;  }
     
-    __HOST__ int  to_s(std::ostream &fout, Tensor &t);          ///< dump object on stack
-    __HOST__ int  to_s(std::ostream &fout, DU s);               ///< dump object from descriptor
-    __HOST__ int  to_s(std::ostream &fout, IU w);               ///< dump word 
-    __HOST__ void words(std::ostream &fout);                    ///< display dictionary
-    __HOST__ void see(std::ostream &fout, U8 *p, int dp=1);     ///< disassemble a word
+    __HOST__ int  to_s(std::ostream &fout, Tensor &t);           ///< dump object on stack
+    __HOST__ int  to_s(std::ostream &fout, DU s);                ///< dump object from descriptor
+    __HOST__ int  to_s(std::ostream &fout, IU w);                ///< dump word 
+    __HOST__ void words(std::ostream &fout);                     ///< display dictionary
+    __HOST__ void see(std::ostream &fout, U8 *p, int dp=1);      ///< disassemble a word
     __HOST__ void see(std::ostream &fout, U16 w);               
     __HOST__ void ss_dump(std::ostream &fout, U16 vid, U16 n, int radix);
-    __HOST__ void mem_dump(std::ostream &fout, U16 p0, U16 sz); ///< dump a section of param memory
-    __HOST__ void load(std::ostream &fout, U16 vid, DU n);      ///< load a memory block
+    __HOST__ void mem_dump(std::ostream &fout, U16 p0, U16 sz);   ///< dump a section of param memory
+    __HOST__ void load(std::ostream &fout, U16 vid, char *fname, DU top); ///< load a memory block
 };
 #endif // TEN4_SRC_MMU_H
