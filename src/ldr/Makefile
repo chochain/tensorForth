@@ -1,0 +1,29 @@
+#
+# tensorForth src/ldr/Makefile
+#
+# Add inputs and outputs from these tool invocations to the build variables
+LDR_OBJS := \
+	./src/ldr/mnist.o
+
+LDR_INCS := \
+	./src/ten4_types.h \
+	./src/dataset.h \
+	./src/ldr/mnist.h 
+
+SRCS +=
+INCS +=
+OBJS += $(LDR_OBJS)
+
+.PHONY: src-ldr clean-src-ldr
+
+src-ldr: $(LDR_OBJS)
+
+# Each subdirectory must supply rules for building sources it contributes
+src/ldr/%.o: src/ldr/%.cu $(LDR_INCS)
+	@echo '<Source><Action>Compile</Action><Filename>$<</Filename>'
+	$(NV_CC) -o "$@" "$<" --keep-dir $(APP_HOME)/src/ldr
+	@echo '<Status>OK</Status></Source>'
+	@echo ' '
+
+clean-src-ld:
+	-$(RM) $(LD_OBJS)
