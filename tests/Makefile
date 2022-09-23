@@ -2,15 +2,17 @@
 # tensorForth tests/Makefile
 #
 # Add inputs and outputs from these tool invocations to the build variables
-TTGTS := \
+TSTS := \
 	t_tensor \
 	t_tlsf \
 	t_mmu_tensor \
 	t_inverse \
-	t_bmpvu	\
 	t_solver \
 	t_gl \
-	t_imgvu
+	t_cg \
+	t_bmpvu	\
+	t_imgvu \
+	t_mnist
 
 TOBJS := \
 	./src/util.o \
@@ -20,50 +22,22 @@ TOBJS := \
 	./src/vu.o \
 	./src/gui.o
 
-# Additional CUDA includes if any
-CU_INCS := \
-	${CUTLASS_HOME}/include \
-	${CUTLASS_HOME}/tools/library/include \
-	${CUTLASS_HOME}/tools/util/include \
-    /u01/src/stb
+.PHONY: test clean-test
 
-INC_LST = $(CU_INCS:%=-I%)
-
-GL_LIB = -lGL -lGLU -lglut -lX11
-
-# Cutlass includes
-CU_BUILD:= \
-
-.PHONY: test clean clean-test
-
-test: $(TTGTS)
+test: $(TSTS)
 
 # Each subdirectory must supply rules for building sources it contributes
-$(TTGTS): $(TTGTS:%=tests/%.o) 
-	@echo '<Test><Action>Link</Action><Filename>$@</Filename>'
-	${CUDA_HOME}/bin/nvcc -ccbin g++ --cudart=static \
-		-L$(CUDA_LIB) \
-		-L${CUTLASS_HOME}/build/tools/library \
-		-lcutlass -lcusolver $(GL_LIB) \
-		-gencode arch=${CUDA_ARCH},code=${CUDA_CODE} \
-		-o "./tests/$(@:.o=)" "./tests/$@.o" $(TOBJS)
-	@echo '<Status>OK</Status></Test>'
-	@echo ' '
-
-tests/%.o: tests/%.cu $(TOBJS) $(CU_INCS)
+tests/%.o: tests/%.cu $(TOBJS) $(T4_INCS) $(DS_INCS)
 	@echo '<Test><Action>Compile></Action><Filename>$<</Filename>'
-	${CUDA_HOME}/bin/nvcc -ccbin g++ \
-		${INC_LST} \
-		-D__CDPRT_SUPPRESS_SYNC_DEPRECATION_WARNING \
-		-t=0 -c -std=c++14 -O3 -D__CUDACC__ -o "$@" "$<" \
-		--device-c --extended-lambda --expt-relaxed-constexpr \
-		--device-debug --debug \
-		-gencode arch=${CUDA_ARCH},code=${CUDA_CODE} \
-		--keep-dir ${APP_HOME}/tests
+	$(NV_CC) -o "$@" "$<" --keep-dir ${APP_HOME}/tests
 	@echo '<Status>OK</Status></Test>'
 	@echo ' '
 
-clean: clean-tst
+$(TSTS): $(TSTS:%=tests/%.o) 
+	@echo '<Test><Action>Link</Action><Filename>$@</Filename>'
+	$(NV_LNK) -lcusolver -o "./tests/$(@:.o=)" "./tests/$@.o" $(TOBJS)
+	@echo '<Status>OK</Status></Test>'
+	@echo ' '
 
 clean-tst:
-	-$(RM) $(TTGTS:%=./tests/%.o)
+	-$(RM) $(TSTS:%=./tests/%.o)
