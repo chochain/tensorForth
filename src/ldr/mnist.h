@@ -19,14 +19,14 @@ class Mnist : public Dataset {
 public:
     Mnist(const char *data, const char *label) : Dataset(data, label) {}
     
-    virtual Dataset &load() {
+    virtual Dataset *load() {
         int N0 = _load_labels();
         int N1 = _load_images();
         if (N0 != N1) {
             fprintf(stderr, "lable count != image count\n");
             exit(-1);
         }
-        return *this;
+        return this;
     }
 
 private:
