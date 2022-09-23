@@ -2,26 +2,12 @@
 # tensorForth src/Makefile
 #
 # Add inputs and outputs from these tool invocations to the build variables
-SRCS +=
-
-OBJS += \
-	./src/util.o \
-	./src/aio.o \
-	./src/mmu.o \
-	./src/vm.o \
-	./src/eforth.o \
-	./src/tlsf.o \
-	./src/tensor.o \
-	./src/tenvm.o \
-	./src/model.o \
-	./src/model_fwd.o \
-	./src/model_back.o \
-	./src/netvm.o \
-	./src/vu.o \
-    ./src/gui.o \
-	./src/ten4.o
-
-# Additional CUDA includes if any
+T4_SRCS := \
+	./src/util.cu \
+	./src/aio.cu \
+	./src/mmu.cu \
+	./src/tlsf.cu \
+	./src/tensor.cu
 T4_INCS := \
     src/ten4_config.h \
     src/ten4_types.h \
@@ -36,30 +22,42 @@ T4_INCS := \
 	src/mmu.h \
 	src/aio.h
 
+VM_SRCS := \
+	./src/vm.cu \
+	./src/eforth.cu \
+	./src/tenvm.cu \
+	./src/model.cu \
+	./src/model_fwd.cu \
+	./src/model_back.cu \
+	./src/netvm.cu
 VM_INCS := \
 	src/vm.h \
 	src/eforth.h \
 	src/tenvm.h \
 	src/model.h \
 	src/netvm.h \
-	src/ten4.h
+	src/dataset.h
 
-DS_INCS := \
-	src/dataset.h \
-	src/vu.h \
-	src/gui.h
+TS_OBJS := $(T4_SRCS:%.cu=%.o)
+VM_OBJS := $(VM_SRCS:%.cu=%.o)
+
+OBJS += $(TS_OBJS) $(VM_OBJS)
 
 -include src/ldr/Makefile
 -include src/vu/Makefile
 
-.PHONY: src clean clean-src
+.PHONY: src src-t4 src-vm src-ds clean clean-src
 
-src: $(OBJS) src-ldr src-vu
+src: src-ldr src-vu
+
+src-t4: $(T4_OBJS) $(T4_INCS)
+
+src-vm: $(VM_OBJS) src-t4 $(VM_INCS)
 
 # Each subdirectory must supply rules for building sources it contributes
-src/%.o: src/%.cu $(T4_INCS) $(VM_INCS) $(DS_INCS)
+src/%.o: src/%.cu
 	@echo '<Source><Action>Compile</Action><Filename>$<</Filename>'
-	$(NV_CC) -o "$@" "$<" --keep-dir $(APP_HOME)/src
+	-$(NV_CC) -o "$@" "$<" --keep-dir $(APP_HOME)/src
 	@echo '<Status>OK</Status></Source>'
 	@echo ' '
 
