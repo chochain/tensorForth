@@ -215,13 +215,14 @@ gui_init(int *argc, char **argv) {
 
 extern "C" int
 gui_add(Vu &vu) {
+    printf("\nWindow[%d,%d]...", vu.X, vu.Y);
+    
     int z = T4_VU_OFFSET * vu_map.size();
     glutInitWindowPosition(T4_VU_X_CENTER + z - (vu.X / 2), T4_VU_Y_CENTER + z);
     glutInitWindowSize(vu.X, vu.Y);
     ///
-    /// create window for img
+    /// create GL window
     ///
-    printf("\nWindow...");
     int id = glutCreateWindow(T4_APP_NAME); /// * create named window (as current)
     ///
     /// * set callbacks (for current window, i.e. id)
