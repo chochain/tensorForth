@@ -15,6 +15,9 @@ Dataset *Mnist::load() {
         fprintf(stderr, "ERROR: Mnist::load lable count != image count\n");
         return NULL;
     }
+    for (int n = 0; n < 5; n++) {
+        _preview((*this)[n], H, W, (int)h_label[n]);
+    }
     return this;
 }
 
@@ -77,9 +80,6 @@ int Mnist::_load_images() {
     icin.close();
     printf(" => [%d][%d,%d,%d], dsize=%d\n", N, H, W, C, dsz);
     
-    for (int n = 0; n < 5; n++) {
-        _preview((*this)[n], H, W, (int)h_label[n]);
-    }
     return N;
 }
 
