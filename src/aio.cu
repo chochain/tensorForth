@@ -15,6 +15,8 @@
 ///
 using namespace std;
 
+#define NEXTNODE(n) ((obuf_node*)((char*)&node->data[0] + node->sz))
+
 __HOST__ int
 AIO::readline() {
     _istr->clear();
@@ -23,10 +25,11 @@ AIO::readline() {
     return strlen(tib);
 }
 
-__HOST__ void
+__HOST__ obuf_node*
 AIO::print_node(obuf_node *node) {
     cudaDeviceSynchronize();        /// * make sure data is completely written
-    char *v = (char*)node->data;
+    
+    char *v = (char*)node->data;    ///< fetch payload in buffered print node
     switch (node->gt) {
     case GT_INT:   cout << (*(I32*)v); break;
     case GT_FLOAT: cout << (*(F32*)v); break;
@@ -48,20 +51,22 @@ AIO::print_node(obuf_node *node) {
         case OP_SEE:   _mmu->see(cout, (IU)o->a);                       break;
         case OP_DUMP:  _mmu->mem_dump(cout, (IU)o->a, (IU)o->n);        break;
         case OP_SS:    _mmu->ss_dump(cout, (IU)node->id, o->a, _radix); break;
-        case OP_LOAD:  _mmu->load(cout, (IU)node->id, o->n);            break;
+        case OP_LOAD:
+            node = NEXTNODE(node);          ///< fetch file name
+            _mmu->load(cout, (IU)o->a, (char*)node->data, o->n);
+            break;
         }
     } break;
     default: cout << "print type not supported: " << (int)node->gt; break;
     }
+    return NEXTNODE(node);
 }
 
-#define NEXTNODE(n) ((obuf_node*)((char*)&node->data[0] + node->sz))
 __HOST__ void
 AIO::flush() {
     obuf_node *node = (obuf_node*)_ostr->rdbuf();
     while (node->gt != GT_EMPTY) {          // 0
-        print_node(node);
-        node = NEXTNODE(node);
+        node = print_node(node);
     }
     _ostr->clear();
 }
