@@ -13,8 +13,8 @@ Vu::Vu(Dataset &ds, int x, int y) :
         fprintf(stderr, "ERR: Bad uchar4 size = %ld\n", sizeof(uchar4));
         exit(-1);
     }
-    if (X == dset.W && Y == dset.H && dset.C == 4) {
-        h_tex = (uchar4*)dset.h_data;   /// * pass thru, no buffer needed
+    if (X == ds.W && Y == ds.H && ds.C == 4) {
+        h_tex = (uchar4*)ds.h_data;     /// * pass thru, no buffer needed
         return;
     }
     ///
