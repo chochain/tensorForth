@@ -7,7 +7,7 @@
  */
 #ifndef TEST_BMPVU_H
 #define TEST_BMPVU_H
-#include "../src/vu.h"
+#include "../src/vu/vu.h"
 
 #pragma pack(1)
 

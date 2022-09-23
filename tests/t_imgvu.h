@@ -7,7 +7,7 @@
  */
 #ifndef TEST_IMGVU_H
 #define TEST_IMGVU_H
-#include "../src/vu.h"
+#include "../src/vu/vu.h"
 
 class ImgLoader : public Dataset {
 public:
