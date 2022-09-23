@@ -11,7 +11,7 @@
 #include <stb_image.h>
 #include "t_imgvu.h"
 
-ImgLoader &ImgLoader::load() {
+ImgLoader *ImgLoader::load() {
     printf("Loading %s", d_fn);
     
     stbi_set_flip_vertically_on_load(true);
@@ -24,7 +24,7 @@ ImgLoader &ImgLoader::load() {
     }
     printf(" => [%d,%d,%d] loaded\n", H, W, C);
     
-    return *this;
+    return this;
 }
 
 __GPU__ __INLINE__ TColor tex2color(float r, float g, float b, float a) {
@@ -78,9 +78,9 @@ int main(int argc, char **argv) {
 
     if (gui_init(&argc, argv)) return -1;
 
-    ImgLoader &ldr = (*new ImgLoader("./data/cat_n_dog.jpg")).load();
-    ImgVu &vu0 = *new ImgVu(ldr);
-    ImgVu &vu1 = *new ImgVu(ldr);
+    ImgLoader *ldr = (*new ImgLoader("./data/cat_n_dog.jpg")).load();
+    ImgVu *vu0 = new ImgVu(*ldr);
+    ImgVu *vu1 = new ImgVu(*ldr);
     gui_add(vu0);
     gui_add(vu1);
     

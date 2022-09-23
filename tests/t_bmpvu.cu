@@ -9,7 +9,7 @@
 #include <string.h>
 #include "t_bmpvu.h"
 
-BmpLoader &BmpLoader::load() {
+BmpLoader *BmpLoader::load() {
     BMPHeader     hdr;
     BMPInfoHeader info;
     FILE          *fd;
@@ -63,7 +63,7 @@ BmpLoader &BmpLoader::load() {
     fclose(fd);
     printf(" => [%d,%d,%d] loaded\n", H, W, C);
 
-    return *this;
+    return this;
 }
 
 __GPU__ __INLINE__ TColor make_color(float r, float g, float b, float a) {
@@ -117,8 +117,8 @@ int main(int argc, char **argv) {
 
     if (gui_init(&argc, argv)) return -1;
 
-    BmpLoader &ldr = (*new BmpLoader("./data/portrait_noise.bmp")).load();
-    BmpVu     &vu  = *new BmpVu(ldr);
+    BmpLoader *ldr = (new BmpLoader("./data/portrait_noise.bmp"))->load();
+    BmpVu     *vu  = new BmpVu(*ldr);
     gui_add(vu);
     
     printf("%s", list_keys);

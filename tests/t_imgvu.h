@@ -12,7 +12,7 @@
 class ImgLoader : public Dataset {
 public:
     ImgLoader(const char *name) : Dataset(name, NULL) {}
-    virtual ImgLoader &load();
+    virtual ImgLoader *load();
 };
 
 class ImgVu : public Vu {
