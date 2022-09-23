@@ -226,11 +226,10 @@ Note:
 </pre>
 
 ### TODO
-* add OpenGL viewer (for dataset)
 * models load/save - (VGG-19, ResNet (i.e. skip-connect), compare to Keras)
 * benchmark (MNIST, CIFAR, Kaggle...)
 * sampling and distribution
-* refactor - add namespace, (study MordenGPU for kernel)
+* refactor - add namespace, warp-level collectives (study libcu++, MordenGPU for kernel)
 * add RNN
 * add inter-VM communication (CUDA stream, review CUB again)
 * add batch loader (from VM->VM)

@@ -14,6 +14,7 @@ A Forth word can be seen as a nested function that process data flow, i.e. y = f
     + feedforward (autograd)
     + backprop
     + gradiant: sgd, adam
+  * add OpenGL viewer (for dataset)
 
 ### CNN Application Example
 <pre>
@@ -27,13 +28,15 @@ nn.model                               \ create a network model
 md1                                    \ feed layers to model
 constant mnist                         \ model can be stored as a constant
 
-: epoch (N ds0a -- N') nn.for r@ forward backprop nn.next 0.1 0.9 nn.sgd ;
-: train (N ds0  -- N') nn.for 10 rset@ epoch nn.next ;
-: test  (N ds1  -- N') nn.for r@ forward avg predict . nn.next ;
+dataset ds0 ." train_fpath" ." label_fpath"
+dataset ds1 ." test_fpath"  ." rst_fpath"
+
+: train (N ds0 -- N') nn.for r@ forward backprop nn.next 0.1 0.9 nn.sgd ;
+: test  (N ds1 -- N') nn.for r@ forward avg predict . nn.next ;
 
 mnist ds0 train nn.save net_1          \ training session (and save the network)
 mnist ds1 test                         \ predicting session, or
-nn.load net_1 ds2 test                 \ load trained network and test
+nn.load net_1 ds1 test                 \ load trained network and test
 </pre>
 
 ### Case Study - MNIST
