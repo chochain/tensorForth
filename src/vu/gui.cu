@@ -66,8 +66,7 @@ _close_and_switch_vu() {
     }
     else printf("no avtive vu\n");
 
-    // delete vu;     /// * TODO: this causes core dump
-
+    vu->free_tex();    /// * TODO: this causes core dump
 }
 
 __HOST__ void
