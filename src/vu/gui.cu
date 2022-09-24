@@ -55,7 +55,7 @@ _close_and_switch_vu() {
     Vu  *vu = _vu_get(id);
     glutDestroyWindow(id);
     
-    cudaGraphicsUnregisterResource(vu->pbo); GPU_CHK();
+    CUX(cudaGraphicsUnregisterResource(vu->pbo));
     vu_map.erase(id);                        /// * erase by key
     printf("\tvu[%d] released...", id);
     
@@ -65,6 +65,9 @@ _close_and_switch_vu() {
         printf("vu[%d] now active\n", id);
     }
     else printf("no avtive vu\n");
+
+    // delete vu;     /// * TODO: this causes core dump
+
 }
 
 __HOST__ void
@@ -116,7 +119,7 @@ _keyboard(unsigned char k, int /*x*/, int /*y*/) {
     case 27:     // ESC
     case 'q':
     case 'Q': _close_and_switch_vu(); break;
-    default:  _vu_now()->keyboard(k);  break;
+    default:  _vu_now()->keyboard(k); break;
     }
 }
 
@@ -127,13 +130,13 @@ _display() {
     TColor *d_dst = NULL;
     size_t bsz;
 
-    cudaGraphicsMapResources(1, &vu->pbo, 0);   GPU_CHK();  /// lock
-    cudaGraphicsResourceGetMappedPointer(
-        (void**)&d_dst, &bsz, vu->pbo);         GPU_CHK();
+    CUX(cudaGraphicsMapResources(1, &vu->pbo, 0));  /// lock
+    CUX(cudaGraphicsResourceGetMappedPointer(
+        (void**)&d_dst, &bsz, vu->pbo));
 
     vu->display(d_dst);         /// update buffer content
     
-    cudaGraphicsUnmapResources(1, &vu->pbo, 0); GPU_CHK();  /// unlock
+    CUX(cudaGraphicsUnmapResources(1, &vu->pbo, 0)); /// unlock
     
     _paint(vu->X, vu->Y);
 }
@@ -180,9 +183,8 @@ _bind_texture(Vu *vu) {
     // But in our particular case OpenGL is used
     // to display the content of the PBO, specified by CUDA kernels,
     // so we need to register/unregister it (once only).
-    cudaGraphicsGLRegisterBuffer(
-        &vu->pbo, gl_pbo, cudaGraphicsMapFlagsWriteDiscard);
-    GPU_CHK();
+    CUX(cudaGraphicsGLRegisterBuffer(
+        &vu->pbo, gl_pbo, cudaGraphicsMapFlagsWriteDiscard));
     printf("[%d] created\n", gl_pbo);
 }
 

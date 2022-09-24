@@ -20,9 +20,9 @@ Vu::Vu(Dataset &ds, int x, int y) :
     ///
     /// malloc GL texture block (in uchar4 format)
     ///
-    U64 bsz = X * Y * sizeof(uchar4);   ///< texture block size
+    size_t bsz = X * Y * sizeof(uchar4);   ///< texture block size
 
-    h_tex = (uchar4*)malloc(bsz);       ///< alloc texture block
+    h_tex = (uchar4*)malloc(bsz);          ///< alloc texture block
     if (!h_tex) {
         fprintf(stderr, "Vu.h_tex malloc %ld bytes failed\n", bsz);
         exit(-1);
@@ -31,12 +31,19 @@ Vu::Vu(Dataset &ds, int x, int y) :
 
 __HOST__
 Vu::~Vu() {
-    if (!h_tex) return;
-    free(h_tex);
-
-    cudaDestroyTextureObject(cu_tex);   /// * release texture object
-    cudaFreeArray(d_ary);               /// * free device memory
-    GPU_CHK();
+    printf("~Vu");
+    if (h_tex) {
+        free(h_tex);
+        printf(" h_tex");
+    }
+    if (cu_tex) {
+        CUX(cudaDestroyTextureObject(cu_tex));   /// * release texture object
+        printf(" cu_tex");
+    }
+    if (d_ary) {
+        CUX(cudaFreeArray(d_ary));               /// * free device memory
+        printf(" d_ary freed\n");
+    }
 }
 
 __HOST__ int
@@ -75,10 +82,9 @@ Vu::init_cuda_tex() {
     int pitch = sizeof(uchar4) * X;
     
     cudaChannelFormatDesc fmt = cudaCreateChannelDesc<uchar4>();
-    cudaMallocArray(&d_ary, &fmt, X, Y); GPU_CHK();
-    cudaMemcpy2DToArray(
-        d_ary, 0, 0, h_tex, pitch, pitch, Y, cudaMemcpyHostToDevice);
-    GPU_CHK();
+    CUX(cudaMallocArray(&d_ary, &fmt, X, Y));
+    CUX(cudaMemcpy2DToArray(
+        d_ary, 0, 0, h_tex, pitch, pitch, Y, cudaMemcpyHostToDevice));
 
     cudaResourceDesc res;
     memset(&res, 0, sizeof(cudaResourceDesc));
@@ -93,8 +99,7 @@ Vu::init_cuda_tex() {
     desc.addressMode[1]   = cudaAddressModeWrap;
     desc.readMode         = cudaReadModeNormalizedFloat;
   
-    cudaCreateTextureObject(&cu_tex, &res, &desc, NULL);
-    GPU_CHK();
+    CUX(cudaCreateTextureObject(&cu_tex, &res, &desc, NULL));
 }
 
 
