@@ -15,10 +15,13 @@ ImgLoader *ImgLoader::load() {
     printf("Loading %s", d_fn);
     
     stbi_set_flip_vertically_on_load(true);
-    h_data = stbi_load(d_fn, &W, &H, &C, STBI_rgb); 
-//    h_data = stbi_load(d_fn, &W, &H, &C, STBI_rgb_alpha);
+    ///
+    /// STB use host memory, (compare to t_bmpvm which uses CUDA managed mem)
+    ///
+    data = stbi_load(d_fn, &W, &H, &C, STBI_rgb);
+//    data = stbi_load(d_fn, &W, &H, &C, STBI_rgb_alpha);
 //    C = 4;           // plus alpha
-    if (!h_data) {
+    if (!data) {
         printf(" => failed\n");
         exit(-1);
     }
