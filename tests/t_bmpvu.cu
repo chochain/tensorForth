@@ -37,14 +37,17 @@ BmpLoader *BmpLoader::load() {
         exit(EXIT_SUCCESS);
     }
 
-    W     = info.width;
-    H     = info.height;
-    C     = sizeof(uchar4);
-    h_data= (U8*)malloc(W * H * C);
+    W = info.width;
+    H = info.height;
+    C = sizeof(uchar4);
+    ///
+    /// CUDA managed memory, (compare to t_imgvu which using host mem)
+    ///
+    DS_ALLOC(&data, W * H * C);
 
     fseek(fd, hdr.offset - sizeof(hdr) - sizeof(info), SEEK_CUR);
 
-    uchar4 *p = (uchar4*)h_data;
+    uchar4 *p = (uchar4*)data;
     int    z  = (4 - (3 * W) % 4) % 4;
     for (int y = 0; y < H; y++) {
         for (int x = 0; x < W; x++, p++) {
@@ -57,7 +60,7 @@ BmpLoader *BmpLoader::load() {
     }
     if (ferror(fd)) {
         printf("***Unknown BMP load error.***\n");
-        free(h_data);
+        cudaFree(data);
         exit(EXIT_SUCCESS);
     }
     fclose(fd);
