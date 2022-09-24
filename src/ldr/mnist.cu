@@ -9,6 +9,8 @@
 using namespace std;
 
 Dataset *Mnist::load() {
+    if (data) return this;
+    
     int N0 = _load_labels();
     int N1 = _load_images();
     if (N0 != N1) {
@@ -16,7 +18,7 @@ Dataset *Mnist::load() {
         return NULL;
     }
     for (int n = 0; n < 5; n++) {
-        _preview((*this)[n], H, W, (int)h_label[n]);
+        _preview((*this)[n], H, W, (int)label[n]);
     }
     return this;
 }
@@ -52,9 +54,11 @@ int Mnist::_load_labels() {
     U32 X = _get_u32(icin);
     N = _get_u32(icin);
     printf("MNIST label: magic=%08x => [%d]\n", X, N);
-    h_label = new U8[N];
+    
+    DS_ALLOC(&label, N * sizeof(U8));
+
     for (int n = 0; n < N; n++) {
-        icin.read((char*)h_label, N);
+        icin.read((char*)label, N);
     }
     icin.close();
     return N;
@@ -72,8 +76,9 @@ int Mnist::_load_images() {
     int dsz = H * W * C;
 
     printf("MNIST image: magic=%08x", X);
-    h_data = (U8*)malloc(N * dsz);
-    char *p = (char*)h_data;
+
+    DS_ALLOC(&data, dsz * N);
+    char *p = (char*)data;
     for (int n = 0; n < N; n++, p+=dsz) {
         icin.read(p, dsz);
     }
