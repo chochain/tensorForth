@@ -27,7 +27,7 @@ MnistVu::init_host_tex() {
             U8 *src = dset[z];
             int z0  = (x + y1 * dset.H * NX) * dset.W;
             fit(z0, src);
-            printf("%1d", dset.h_label[z]);
+            printf("%1d", dset.label[z]);
         }
     }
     printf("\n");

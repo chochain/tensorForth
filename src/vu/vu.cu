@@ -14,7 +14,7 @@ Vu::Vu(Dataset &ds, int x, int y) :
         exit(-1);
     }
     if (X == ds.W && Y == ds.H && ds.C == 4) {
-        h_tex = (uchar4*)ds.h_data;     /// * pass thru, no buffer needed
+        h_tex = (uchar4*)ds.data;       /// * pass thru, no buffer needed
         return;
     }
     ///
@@ -42,7 +42,7 @@ Vu::~Vu() {
 __HOST__ int
 Vu::init_host_tex() {
     int    C  = dset.C;
-    U8     *s = dset.h_data;
+    U8     *s = dset.data;
     uchar4 *t = h_tex;
     for (int i = 0; i < Y; i++) {
         for (int j = 0; j < X; j++, t++, s+=C) {
