@@ -10,7 +10,9 @@
 
 typedef std::map<const char*, Dataset*> DatasetMap;
 DatasetMap ds_map;
-
+///
+/// TODO: to read from YAML config file
+///
 void Loader::init() {
     ds_map["mnist_train"] =
         new Mnist(
