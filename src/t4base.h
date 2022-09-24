@@ -39,22 +39,19 @@ struct T4Base : public Managed {
         dsize(DSIZE), numel(0), rank(0) {}
     __HOST__ T4Base(U32 sz) :
         dsize(DSIZE), numel(sz), rank(1) {
-        cudaMallocManaged((void**)&data, (size_t)numel * dsize);
-        GPU_CHK();
+        MM_ALLOC((void**)&data, (size_t)numel * dsize);
     }
     __HOST__ T4Base(U16 h, U16 w) :
         dsize(DSIZE), numel(h * w), rank(2) {
-        cudaMallocManaged((void**)&data, (size_t)numel * dsize);
-        GPU_CHK();
+        MM_ALLOC((void**)&data, (size_t)numel * dsize);
     }
     __HOST__ T4Base(U16 n, U16 h, U16 w, U16 c) :
         dsize(DSIZE), numel(n * h * w * c), rank(4) {
-        cudaMallocManaged((void**)&data, (size_t)numel * dsize);
-        GPU_CHK();
+        MM_ALLOC((void**)&data, (size_t)numel * dsize);
     }
     __HOST__ ~T4Base() {
         if (!data) return;
-        cudaFree((void*)data);
+        MM_FREE((void*)data);
     }
     __BOTH__ __INLINE__ bool is_view()   { return ttype == T4_VIEW;   }
     __BOTH__ __INLINE__ bool is_tensor() { return ttype <= T4_TENSOR; }

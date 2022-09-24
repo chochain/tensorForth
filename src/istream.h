@@ -24,8 +24,8 @@ class Istream : public Managed {
         return nidx;
     }
 public:
-    Istream(int sz=T4_IBUF_SZ) { cudaMallocManaged(&_buf, sz); GPU_CHK(); }
-    ~Istream()                 { GPU_SYNC(); cudaFree(_buf); }
+    Istream(int sz=T4_IBUF_SZ) { MM_ALLOC(&_buf, sz);       }
+    ~Istream()                 { GPU_SYNC(); MM_FREE(_buf); }
     ///
     /// intialize by a given string
     ///
