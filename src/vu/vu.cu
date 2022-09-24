@@ -29,23 +29,6 @@ Vu::Vu(Dataset &ds, int x, int y) :
     }
 }
 
-__HOST__
-Vu::~Vu() {
-    printf("~Vu");
-    if (h_tex) {
-        free(h_tex);
-        printf(" h_tex");
-    }
-    if (cu_tex) {
-        CUX(cudaDestroyTextureObject(cu_tex));   /// * release texture object
-        printf(" cu_tex");
-    }
-    if (d_ary) {
-        CUX(cudaFreeArray(d_ary));               /// * free device memory
-        printf(" d_ary freed\n");
-    }
-}
-
 __HOST__ int
 Vu::init_host_tex() {
     int    C  = dset.C;
@@ -100,6 +83,16 @@ Vu::init_cuda_tex() {
     desc.readMode         = cudaReadModeNormalizedFloat;
   
     CUX(cudaCreateTextureObject(&cu_tex, &res, &desc, NULL));
+}
+
+__HOST__ void
+Vu::free_tex() {
+    if (!h_tex) return;
+    
+    CUX(cudaDestroyTextureObject(cu_tex));   /// * release texture object
+    CUX(cudaFreeArray(d_ary));               /// * free device texture memory
+
+    // free(h_tex);  /// * free host texture memory, TODO: => core dump?
 }
 
 

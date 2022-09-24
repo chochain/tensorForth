@@ -25,7 +25,6 @@ public:
     CuTexObj  cu_tex   = 0;     ///< cuda Textrure object
     
     __HOST__ Vu(Dataset &ds, int x=0, int y=0);
-    __HOST__ ~Vu();
     __HOST__ virtual int  init_host_tex();   ///< rebuild texture buffer
     
     __HOST__ virtual void mouse(int button, int state, int x, int y) {}
@@ -34,6 +33,7 @@ public:
     
     __HOST__ void tex_dump();
     __HOST__ void init_cuda_tex();
+    __HOST__ void free_tex();
 };
 
 extern "C" int  gui_init(int *argc, char **argv);
