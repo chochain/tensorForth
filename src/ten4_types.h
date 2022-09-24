@@ -44,19 +44,21 @@
 #define ASSERT(X) \
     if (!(X)) ERROR("ASSERT tid %d: line %d in %s\n", threadIdx.x, __LINE__, __FILE__);
 #define GPU_SYNC()          { cudaDeviceSynchronize(); }
-#define GPU_CHK()           { \
-    cudaDeviceSynchronize(); \
-    cudaError_t code = cudaGetLastError(); \
-    if (code != cudaSuccess) { \
-        fprintf(stderr, "GPUassert: %s %s %d\n", cudaGetErrorString(code), __FILE__, __LINE__); \
-        cudaDeviceReset(); \
-    } \
+#define GPU_ERR(code) {          \
+    if ((code) != cudaSuccess) { \
+        fprintf(stderr, "GPUassert: %s %s %d\n", cudaGetErrorString(code), __FILE__, __LINE__);                \
+        cudaDeviceReset();       \
+    }}
+#define GPU_CHK() {              \
+    GPU_SYNC();                  \
+    GPU_ERR(cudaGetLastError()); \
 }
-#define MM_ALLOC(...)      { cudaMallocManaged(__VA_ARGS__); GPU_CHK(); }
-#define MM_FREE(m)         cudaFree(m)
+#define CUX(g)             GPU_ERR(g)
+#define MM_ALLOC(...)      CUX(cudaMallocManaged(__VA_ARGS__))
+#define MM_FREE(m)         CUX(cudaFree(m))
 
 namespace cg = cooperative_groups;
-#define K_RUN(...)          { cudaLaunchCooperativeKernel(__VA_ARGS__); GPU_CHK(); }
+#define K_RUN(...)         CUX(cudaLaunchCooperativeKernel(__VA_ARGS__))
 #else  // defined(__CUDACC__)
 #define __GPU__
 #define __HOST__
@@ -141,13 +143,9 @@ enum {
 struct Managed {
     void *operator new(size_t sz) {
         void *ptr;
-        cudaMallocManaged(&ptr, sz);
-        GPU_SYNC();
+        MM_ALLOC(&ptr, sz);
         return ptr;
     }
-    void operator delete(void *ptr) {
-        GPU_SYNC();
-        cudaFree(ptr);
-    }
+    void operator delete(void *ptr) { MM_FREE(ptr); }
 };
 #endif // TEN4_SRC_TEN4_TYPES_H_
