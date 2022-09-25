@@ -30,8 +30,18 @@ public:
     ~Dataset() {
         if (!data) return;
 
-        cudaFree(data);
-        cudaFree(label);
+        cudaPointerAttributes attr;
+        cudaPointerGetAttributes(&attr, data);
+        if (attr.devicePointer != NULL) {
+            printf("free CUDA managed memory\n");
+            cudaFree(data);
+            if (label) cudaFree(label);
+        }
+        else {
+            printf("free HOST memory\n");
+            free(data);
+            if (label) free(label);
+        }
     }
     int dsize() { return H * W * C; }
     int len()   { return N; }
