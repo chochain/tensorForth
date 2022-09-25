@@ -118,8 +118,12 @@ struct Tensor : public T4Base {
     __BOTH__ __INLINE__ U16  H() { return shape[0]; }
     __BOTH__ __INLINE__ U16  W() { return shape[1]; }
     __BOTH__ __INLINE__ U16  C() { return shape[2]; }
-    __GPU__  __INLINE__ bool is_same_shape(Tensor &t) {
+    __BOTH__ __INLINE__ bool is_same_shape(Tensor &t) {
+#ifdef __CUDA_ARCH__
         return MEMCMP(shape, t.shape, sizeof(shape)) == 0;
+#else  // __CUDA_ARCH
+        return memcpy(shape, t.shape, sizeof(shape)) == 0;
+#endif // __CUDA_ARCH__
     }
     ///
     /// tensor arithmetics
