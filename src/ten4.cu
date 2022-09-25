@@ -5,15 +5,16 @@
  * <pre>Copyright (C) 2022- GreenII, this file is distributed under BSD 3-Clause License.</pre>
  *
  * Benchmark: 1K*1K cycles on 3.2GHz AMD, Nvidia GTX1660
- *    + 19.0 sec - REALLY SLOW! Probably due to heavy branch divergence.
- *    + 21.1 sec - without NXT cache in nest() => branch is slow
- *    + 19.1 sec - without push/pop WP         => static ram access is fast
- *    + 20.3 sec - token indirect threading    => not that much worse but portable
+ *    + 19.0 msec - REALLY SLOW! Probably due to heavy branch divergence.
+ *    + 21.1 msec - without NXT cache in nest() => branch is slow
+ *    + 19.1 msec - without push/pop WP         => static ram access is fast
+ *    + 20.3 msec - token indirect threading    => not that much worse but portable
  */
 #include <iostream>          // cin, cout
 #include <signal.h>
 
 using namespace std;
+#include "ldr/loader.h"      // default dataset loader
 #include "netvm.h"           // VM + ForthVM + TensorVM + NetVM
 #include "ten4.h"            // wrapper
 
@@ -123,8 +124,7 @@ TensorForth::TensorForth(int device, int verbose) {
     /// query GPU shader clock rate
     ///
     int khz = 0;
-    cudaDeviceGetAttribute(&khz, cudaDevAttrClockRate, device);
-    GPU_CHK();
+    CUX(cudaDeviceGetAttribute(&khz, cudaDevAttrClockRate, device));
 
     cout << "\\  GPU " << device
          << " initialized at " << khz/1000 << "MHz"
@@ -138,8 +138,10 @@ TensorForth::TensorForth(int device, int verbose) {
     ///
     mmu = new MMU(verbose);                     ///> instantiate memory manager
     aio = new AIO(mmu, verbose);                ///> instantiate async IO manager
-    MM_ALLOC(&vmst, VMST_SZ);          ///> allocate for state of VMs
+    MM_ALLOC(&vmst, VMST_SZ);                   ///> allocate for state of VMs
     MM_ALLOC(&vmst_cnt, sizeof(int)*4);
+    
+    Loader::init();
     ///
     /// instantiate virtual machines
     ///
@@ -232,7 +234,7 @@ int main(int argc, char**argv) {
     else opt.check_devices(std::cout, false);
 
     cout << APP << endl;
-    
+
     TensorForth *f = new TensorForth(opt.device_id, opt.verbose);
     f->run();
 
