@@ -24,9 +24,9 @@ src-vu: $(VU_OBJS)
 
 # Each subdirectory must supply rules for building sources it contributes
 src/vu/%.o: src/vu/%.cu $(VU_INCS)
-	@echo '<Source><Action>Compile</Action><Filename>$<</Filename>'
-	-$(NV_CC) -o "$@" "$<" --keep-dir $(APP_HOME)/src/vu
-	@echo '<Status>OK</Status></Source>'
+	@echo '<Source><Action>Compile</Action><Filename>$<</Filename><Status>'
+	-$(NV_CC) -o "$@" "$<" --keep-dir $(APP_HOME)/src/vu || echo 'FAILED'
+	@echo '</Status></Source>'
 	@echo ' '
 
 clean-src-vu:
