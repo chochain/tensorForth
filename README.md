@@ -12,18 +12,26 @@
 |-|**Adaptive**|long|-|-|
 
 ### Why?
-Compiled programs run fast on Linux. On the other hand, command-line interface and shell scripting tie them together. Productivity grows with this model especially for researchers.
+Compiled programs run fast on Linux. On the other hand, command-line interface and shell scripting tie them together in operation. With interactive development, small tools are built along the way, productivity usually grows with time, especially in the hands of researchers.
 
-For AI development today, we use Python mostly. To enable processing on CUDA device, say with Numba or the likes, mostly there will be 'just-in-time' compilations behind the scene then load and run. In a sense, your Python code behaves like a Makefile which requires compilers to be on the host box. At the tailend, to analyze, visualization can then be have. This is usually a long journey. After many coffee breaks, we tweek the Python code and restart again. In order to catch progress, scanning the intermediate formatted files sometimes become necessary which probably reminisce the line-printer days for seasoned developers.
+*Niklaus Wirth*: **Algorithms + Data Structures = Programs**
+* Too much on Algorithms - most modern languages, i.e. OOP, abstraction, template, ...
+* Too focused on Data Structures - APL, SQL, ...
 
-Having a 'shell' that can interactively and incrementally run 'compiled programs' from within GPU directly without dropping back to host system might be useful. Even though some might argue that the branch divergence in kernel could kill the GPU, but performance of the script itself is not really the point. So, here we are!
+*Numpy* kind of solves both. So, for AI projects today, we use *Python* mostly. However, when GPU got involved, to enable processing on CUDA device, say with *Numba* or the likes, mostly there will be a behind the scene 'just-in-time' transcoding to C/C++ followed by compilation then load and run. In a sense, your *Python* code behaves like a *Makefile* which requires compilers/linker available on the host box. Common practice for code analysis can only happen at the tail-end after execution. This is usually a long journey. After many coffee breaks, we tweek the *Python* code and restart again. To monitor progress or catch any anomaly, scanning the intermittent dump become a habit which probably reminisce the line-printer days for seasoned developers. So much for 70 years of software engineering progress.
+
+Forth language encourages incremental build and test. Having a 'shell', resides in GPU, that can interactively and incrementally develop/run each AI layer/node as a small 'subroutine' without dropping back to host system might better assist building a rapid and accurate system. The rationale is not unlike why the NASA probes sent into space are equipped with Forth chips. On the flipped side, with this kind of CUDA kernel code, some might argue that the branch divergence could kill the GPU. Well, the performance of the 'shell scripts' themselves are not really the point. So, here we are!
+
+> **tensor + Forth = tensorForth!**
 
 ### How?
-GPU, behaves like a co-processor. It has no OS, no string support, and runs its own memory. Most of the available libraries are built for host instead kernel mode i.e. to call from CPU instead of from within GPU. So, to be interactive, a memory manager, IO, and syncing with CPU are things to be had. It's pretty much like creating a Forth from scratch for a new processor as in the old days.
+GPU, behaves like a co-processor or a DSP chip. It has no OS, no string support, and runs its own memory. Most of the available libraries are built for host instead of device i.e. to initiate calls from CPU into GPU but not the other way around. So, to be interactive, a memory manager, IO, and syncing with CPU are things needed to be had. It's pretty much like creating a Forth from scratch for a new processor as in the old days.
 
-Since GPUs have good compiler support nowaday and I've ported the latest [eForth](https://github.com/chochain/eforth) to lambda-based in C++, pretty much all words can be straight copy except some attention to those are affected by CELL being float32 such as addressing, logic ops. i.e. BRANCH, 0=, MOD, XOR would not work as expected.
+Since GPUs have good compiler support nowadays and I've ported the latest [*eForth*](https://github.com/chochain/eforth) to lambda-based in C++, pretty much all words can be transferred straight forward. However, having *FP32* or *float32* as my basic data unit, so later I can morph them to *FP16*, or even fixed-point, there are things that require some attention. Words that are affected by *CELL* been a floating-point value such as addressing, logic ops. i.e. *BRANCH*, *0=*, *MOD*, *XOR* need some treatment before conversion. Not a big deal, though.
 
-Having an interactive Forth in GPU does not mean a lot by itself. However, by adding matrix ops, linear algebra support, and tensor with backprop, sort of taking the path of Numpy to PyTorch, combining the cleanness of Forth with the massively parallel nature of GPUs can be useful one day, hopefully!
+The codebase will be in C for my own understanding of the multi-trip data flows. In the future, the class/methods implementation can come back to Forth in the form of loadable blocks so maintainability and extensibility can be utilized as other self-hosting systems. It would be amusing to find someone brave enough to work the assembly (i.e. CUDA SASS) into a Forth that resides on GPU micro-cores in the fashion of [*GreenArray*](https://www.greenarraychips.com/), or to forge an FPGA doing similar kind of things.
+
+In the end, languages don't really matter. It's the problem they solve. Having an interactive Forth in GPU does not mean a lot by itself. However by adding vector, matrix, linear algebra support with a breath of **APL**'s massively parallel from GPUs, and tensor ops with backprop, following the path from Numpy to PyTorch, into the cleanness of **Forth**, it can be useful one day, hopefully! 
 
 ### Small Example
 <pre>
@@ -38,7 +46,7 @@ dup                                  \ duplicate i.e. create a view
 matrix[2,3] = {
 	{ +1.0000 +2.0000 +3.0000 }
 	{ +4.0000 +5.0000 +6.0000 } }
- <0 T2[2,3]> ok
+ <0 T2[2,3]> ok                      \ view was printed, so 2x3 matrix is TOS now
 3 2 matrix ones                      \ create a 3x2 matrix, fill it with ones
  <0 T2[2,3] T2[3,2]> ok
 @                                    \ multiply matrices [2,3] @ [3,2]
@@ -57,13 +65,13 @@ tensorForth 2.0 done.
 
 ### Larger Example - benchmark [1024,2048] x [2048,512] 1000 loops
 <pre>
-1024 2048 matrix rand                \ create a [1024,2048] matrix with uniform random values
+1024 2048 matrix rand                \ create a 1024x2048 matrix with uniform random values
  <0 T2[1024,2048]> ok                
-2048 512 matrix ones                 \ create another [2048,512] matrix filled with 1s
+2048 512 matrix ones                 \ create another 2048x512 matrix filled with 1s
  <0 T2[1024,2048] T2[2048,512]> ok
 @                                    \ multiply them and resultant matrix on TOS
  <0 T2[1024,2048] T2[2048,512] T2[1024,512]> ok
-2048 / .                             \ scale down and print the resutant [1024,512] matrix
+2048 / .                             \ scale down and print the resultant 1024x512 matrix
 matrix[1024,512] = {                 \ in PyTorch style (edgeitem=3)
 	{ +0.4873 +0.4873 +0.4873 ... +0.4873 +0.4873 +0.4873 }
 	{ +0.4274 +0.4274 +0.4274 ... +0.4274 +0.4274 +0.4274 }
@@ -72,7 +80,7 @@ matrix[1024,512] = {                 \ in PyTorch style (edgeitem=3)
 	{ +0.5041 +0.5041 +0.5041 ... +0.5041 +0.5041 +0.5041 }
 	{ +0.5007 +0.5007 +0.5007 ... +0.5007 +0.5007 +0.5007 }
 	{ +0.5269 +0.5269 +0.5269 ... +0.5269 +0.5269 +0.5269 } }
- <0 T2[1024,2048] T2[2048,512] T2[1024,512] 2048> ok  \ matrix and 2048 are untouched
+ <0 T2[1024,2048] T2[2048,512] T2[1024,512] 2048> ok  \ note that matrix and 2048 are untouched
 2drop                                       \ because tensor ops are by default non-destructive
  <0 T2[1024,2048] T2[2048,512]> ok          \ so we drop them from TOS
 
