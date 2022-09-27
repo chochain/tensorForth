@@ -14,7 +14,7 @@ typedef enum {
     T4_VIEW = 0,            ///< a view object
     T4_TENSOR,              ///< tensor object
     T4_MODEL,               ///< NN model
-    T4_DATA                 ///< NN dataset
+    T4_DATASET              ///< NN dataset
 } t4_obj;
 ///
 /// tensorForth base object class
@@ -53,10 +53,10 @@ struct T4Base : public Managed {
         if (!data) return;
         MM_FREE((void*)data);
     }
-    __BOTH__ __INLINE__ bool is_view()   { return ttype == T4_VIEW;   }
-    __BOTH__ __INLINE__ bool is_tensor() { return ttype <= T4_TENSOR; }
-    __BOTH__ __INLINE__ bool is_model()  { return ttype == T4_MODEL;  }
-    __BOTH__ __INLINE__ bool is_data()   { return ttype == T4_DATA;   }
+    __BOTH__ __INLINE__ bool is_view()    { return ttype == T4_VIEW;    }
+    __BOTH__ __INLINE__ bool is_tensor()  { return ttype <= T4_TENSOR;  }
+    __BOTH__ __INLINE__ bool is_model()   { return ttype == T4_MODEL;   }
+    __BOTH__ __INLINE__ boot is_dataset() { return ttype == T4_DATASET; }
 };
 #endif // TEN4_SRC_T4BASE_H_
 
