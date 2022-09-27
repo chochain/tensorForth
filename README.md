@@ -99,16 +99,17 @@ Note:
 
 ### To build
 * install CUDA 11.6 on your machine
-* clone repo to your local directory
+* download one of the releases from the list above to your local directory
 
 #### with Makefile, and test
-* cd to your ten4 repo directory
-* update root Makefile to your desired CUDA_ARCH, CUDA_CODE
-* type 'make all'
-* if all goes well, some warnings aside, cd to tests
-* type 'ten4 < lesson_1.txt' for Forth syntax check,
-*      'ten4 < lesson_2.txt' for matrix ops,
-*      'ten4 < lesson_3.txt' for linear algebra stuffs
+* cd to your ten4 repo directory,
+* update root Makefile to your desired CUDA_ARCH, CUDA_CODE,
+* type 'make all',
+* if all goes well, some warnings aside, cd to tests directory,
+* enter the following<br/>
+  ~/tests> 'ten4 < lesson_1.txt' for Forth syntax check,<br/>
+  ~/tests> 'ten4 < lesson_2.txt' for matrix ops,<br/>
+  ~/tests> 'ten4 < lesson_3.txt' for linear algebra stuffs
 
 #### with Eclipse
 * install Eclipse
