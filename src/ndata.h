@@ -1,23 +1,23 @@
 /**
  * @file
- * @brief tensorForth - Dataset class
+ * @brief tensorForth - NN dataset class (host-side interface object)
  *
  * <pre>Copyright (C) 2022- GreenII, this file is distributed under BSD 3-Clause License.</pre>
  */
-#ifndef T4_DATASET_H
-#define T4_DATASET_H
+#ifndef T4_NDATA_H
+#define T4_NDATA_H
 
-#define DS_ALLOC(p, sz) \
+#define ND_ALLOC(p, sz) \
     if (cudaMallocManaged(p, sz) != cudaSuccess) { \
-        fprintf(stderr, "ERROR: Dataset malloc %d\n", (int)(sz)); \
+        fprintf(stderr, "ERROR: Ndata malloc %d\n", (int)(sz)); \
         exit(-1); \
     }
 #define IO_ERROR(fn) \
-    fprintf(stderr, "Dataset: fail to open file %s\n", fn);
+    fprintf(stderr, "Ndata: fail to open file %s\n", fn);
 
 typedef uint8_t U8;
 
-struct Dataset {
+struct Ndata {
     const char *ds_name;      ///< data source name
     const char *tg_name;      ///< target label name
     
@@ -28,10 +28,10 @@ struct Dataset {
     U8    *data  = NULL;      ///< source data on host
     U8    *label = NULL;      ///< label data on host
 
-    Dataset(const char *data_name, const char *label_name, int batch=0)
+    Ndata(const char *data_name, const char *label_name, int batch=0)
         : ds_name(data_name), tg_name(label_name), batch_sz(batch) {}
     
-    ~Dataset() {
+    ~Ndata() {
         if (!data) return;
         
         cudaPointerAttributes attr;
@@ -47,7 +47,7 @@ struct Dataset {
             if (label) free(label);
         }
     }
-    Dataset *set_batch(int bsz, int idx=0) {
+    Ndata *set_batch(int bsz, int idx=0) {
         batch_sz = bsz;
         batch_id = idx;
         return this;
@@ -55,15 +55,15 @@ struct Dataset {
     int dsize() { return H * W * C; }
     int len()   { return N; }
     
-    virtual Dataset *load() {
+    virtual Ndata *load() {
         printf("load() implemented?\n");
         return this;
     }
-    virtual Dataset *get_batch(U8 *dst) {
+    virtual Ndata *get_batch(U8 *dst) {
         printf("batch(U8*) implemented?\n");
         return this;
     }
     virtual U8 *operator [](int idx){ return &data[idx * dsize()]; }
 };
-#endif // T4_DATASET_H
+#endif // T4_NDATA_H
 
