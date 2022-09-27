@@ -33,15 +33,15 @@ typedef struct {
     int      clrImportant;
 } BMPInfoHeader;
 
-class BmpLoader : public Dataset {
+class BmpLoader : public Ndata {
 public:
-    BmpLoader(const char *name) : Dataset(name, NULL) {}
+    BmpLoader(const char *name) : Ndata(name, NULL) {}
     virtual BmpLoader *load();
 };
 
 class BmpVu : public Vu {
 public:
-    BmpVu(Dataset &ds) : Vu(ds) {}
+    BmpVu(Ndata &nd) : Vu(nd) {}
     
     virtual void   keyboard(U8 k) { _vuop = (k == '0'); }
     virtual void   display(TColor *d_dst) {

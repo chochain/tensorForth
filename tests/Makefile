@@ -15,6 +15,8 @@ TSTS0 := \
 	t_mnist
 
 TSTS := \
+	t_bmpvu	\
+	t_imgvu \
 	t_mnist
 
 TOBJS := \
@@ -34,15 +36,15 @@ test: $(TSTS)
 
 # Each subdirectory must supply rules for building sources it contributes
 tests/%.o: tests/%.cu $(TOBJS) $(T4_INCS) $(DS_INCS)
-	@echo '<Test><Action>Compile></Action><Filename>$<</Filename>'
+	@echo '<Test><Action>Compile></Action><Filename>$<</Filename><Status>'
 	-$(NV_CC) --keep-dir ${APP_HOME}/tests -o "$@" "$<"
-	@echo '<Status>OK</Status></Test>'
+	@echo '</Status></Test>'
 	@echo ' '
 
 $(TSTS): $(TSTS:%=tests/%.o) 
-	@echo '<Test><Action>Link</Action><Filename>$@</Filename>'
+	@echo '<Test><Action>Link</Action><Filename>$@</Filename><Status>'
 	-$(NV_LNK) -lcusolver -o "./tests/$(@:.o=)" "./tests/$@.o" $(TOBJS)
-	@echo '<Status>OK</Status></Test>'
+	@echo '</Status></Test>'
 	@echo ' '
 
 clean-tst:

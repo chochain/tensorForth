@@ -12,13 +12,13 @@
 #include "t_imgvu.h"
 
 ImgLoader *ImgLoader::load() {
-    printf("Loading %s", d_fn);
+    printf("Loading %s", ds_name);
     
     stbi_set_flip_vertically_on_load(true);
     ///
     /// STB use host memory, (compare to t_bmpvm which uses CUDA managed mem)
     ///
-    data = stbi_load(d_fn, &W, &H, &C, STBI_rgb);
+    data = stbi_load(ds_name, &W, &H, &C, STBI_rgb);
 //    data = stbi_load(d_fn, &W, &H, &C, STBI_rgb_alpha);
 //    C = 4;           // plus alpha
     if (!data) {

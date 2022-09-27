@@ -13,21 +13,22 @@ BmpLoader *BmpLoader::load() {
     BMPHeader     hdr;
     BMPInfoHeader info;
     FILE          *fd;
+    size_t        sz;
 
-    printf("Loading %s", d_fn);
+    printf("Loading %s", ds_name);
     
-    if (!(fd = fopen(d_fn, "rb"))) {
+    if (!(fd = fopen(ds_name, "rb"))) {
         printf("***BMP load error: file access denied***\n");
         exit(EXIT_SUCCESS);
     }
     
-    fread(&hdr, sizeof(hdr), 1, fd);
+    sz = fread(&hdr, sizeof(hdr), 1, fd);
     if (hdr.type != 0x4D42) {
         printf("***BMP load error: bad file format***\n");
         exit(EXIT_SUCCESS);
     }
     
-    fread(&info, sizeof(info), 1, fd);
+    sz = fread(&info, sizeof(info), 1, fd);
     if (info.bitsPerPixel != 24) {
         printf("***BMP load error: invalid color depth***\n");
         exit(EXIT_SUCCESS);
@@ -43,7 +44,7 @@ BmpLoader *BmpLoader::load() {
     ///
     /// CUDA managed memory, (compare to t_imgvu which using host mem)
     ///
-    DS_ALLOC(&data, W * H * C);
+    ND_ALLOC(&data, W * H * C);
 
     fseek(fd, hdr.offset - sizeof(hdr) - sizeof(info), SEEK_CUR);
 
