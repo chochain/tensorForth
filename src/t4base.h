@@ -56,7 +56,7 @@ struct T4Base : public Managed {
     __BOTH__ __INLINE__ bool is_view()    { return ttype == T4_VIEW;    }
     __BOTH__ __INLINE__ bool is_tensor()  { return ttype <= T4_TENSOR;  }
     __BOTH__ __INLINE__ bool is_model()   { return ttype == T4_MODEL;   }
-    __BOTH__ __INLINE__ boot is_dataset() { return ttype == T4_DATASET; }
+    __BOTH__ __INLINE__ bool is_dataset() { return ttype == T4_DATASET; }
 };
 #endif // TEN4_SRC_T4BASE_H_
 
