@@ -6,11 +6,11 @@
  */
 #ifndef TEN4_SRC_LOADER_H
 #define TEN4_SRC_LOADER_H
-#include "../dataset.h"
+#include "../ndata.h"
 
 struct Loader {
     static void init();
-    static Dataset *get(const char *name, int batch_sz=0);
+    static Ndata *get(const char *ds_name, int batch_sz=0);
 };
 #endif  // TEN4_SRC_LOADER_H
 

@@ -6,7 +6,7 @@
  */
 #include "mnist.h"
 
-Dataset *Mnist::load() {
+Ndata *Mnist::load() {
     if (_open() || batch_id >= N) return NULL;
         
     int b0 = _load_labels();
@@ -23,7 +23,7 @@ Dataset *Mnist::load() {
     return this;
 }
 
-Dataset *Mnist::get_batch(U8 *dst) {
+Ndata *Mnist::get_batch(U8 *dst) {
     if (!this->load()) return NULL;
     
     int   bsz = batch_sz * dsize();
@@ -100,7 +100,7 @@ int Mnist::_load_labels() {
     int hdr = sizeof(U32) * 2;                     ///< header to skip over
     int bsz = batch_sz * sizeof(U8);               ///< block size
     
-    if (!label) DS_ALLOC(&label, bsz);
+    if (!label) ND_ALLOC(&label, bsz);
 
     t_in.seekg(hdr + batch_id * bsz);              /// * seek by batch
     t_in.read((char*)label, N);                    /// * fetch batch labels
@@ -115,7 +115,7 @@ int Mnist::_load_images() {
     int hdr = sizeof(U32) * 4;                     ///< header to skip over
     int bsz = batch_sz * H * W * C * sizeof(U8);   ///< block size
     
-    if (!data) DS_ALLOC(&data, bsz);
+    if (!data) ND_ALLOC(&data, bsz);
 
     d_in.seekg(hdr + batch_id * bsz);              /// * seek by batch 
     d_in.read((char*)data, bsz);                   /// * fetch batch images

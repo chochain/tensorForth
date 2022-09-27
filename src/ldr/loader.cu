@@ -8,29 +8,27 @@
 #include "mnist.h"
 #include "loader.h"
 
-typedef std::map<const char*, Dataset*> DatasetMap;
-DatasetMap ds_map;
+typedef std::map<const char*, Ndata*> NdataMap;
+NdataMap nd_map;
 ///
 /// TODO: to read from YAML config file
 ///
 void Loader::init() {
-    ds_map["mnist_train"] =
+    nd_map["mnist_train"] =
         new Mnist(
             "/u01/data/mnist/train-images-idx3-ubyte",
             "/u01/data/mnist/train-labels-idx1-ubyte");
-    ds_map["mnist_test"] =
+    nd_map["mnist_test"] =
         new Mnist(
             "/u01/data/mnist/t10k-images-idx3-ubyte",
             "/u01/data/mnist/t10k-labels-idx1-ubyte");
 }
 
-Dataset *Loader::get(const char *ds_name, int batch_sz) {
-    DatasetMap::iterator dsi = ds_map.find(ds_name);
-    if (dsi == ds_map.end()) {
-        printf("ERROR: Loader => %s not found\n", ds_name);
-        return NULL;
-    }
-    return dsi->second->set_batch(batch_sz);
+Ndata *Loader::get(const char *ds_name, int batch_sz) {
+    NdataMap::iterator itr = nd_map.find(ds_name);
+    return itr == nd_map.end()
+        ? NULL
+        : itr->second->set_batch(batch_sz);
 }
 
 
