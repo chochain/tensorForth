@@ -24,13 +24,13 @@ void Loader::init() {
             "/u01/data/mnist/t10k-labels-idx1-ubyte");
 }
 
-Dataset *Loader::get(const char *ds_name) {
-    DatasetMap::iterator it = ds_map.find(ds_name);
-    if (it == ds_map.end()) {
+Dataset *Loader::get(const char *ds_name, int batch_sz) {
+    DatasetMap::iterator dsi = ds_map.find(ds_name);
+    if (dsi == ds_map.end()) {
         printf("ERROR: Loader => %s not found\n", ds_name);
         return NULL;
     }
-    else return it->second->load();
+    return dsi->second->set_batch(batch_sz);
 }
 
 

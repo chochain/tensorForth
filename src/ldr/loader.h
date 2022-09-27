@@ -10,7 +10,7 @@
 
 struct Loader {
     static void init();
-    static Dataset *get(const char *ds_name);
+    static Dataset *get(const char *name, int batch_sz=0);
 };
 #endif  // TEN4_SRC_LOADER_H
 
