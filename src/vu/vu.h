@@ -8,7 +8,7 @@
 #define T4_VU_H
 #include <GL/gl.h>
 #include "../ten4_types.h"
-#include "../dataset.h"
+#include "../ndata.h"
 
 typedef U32                         TColor;
 typedef struct cudaGraphicsResource CuGfxPbo;
@@ -16,7 +16,7 @@ typedef cudaTextureObject_t         CuTexObj;
 
 class Vu {
 public:
-    Dataset   &dset;
+    Ndata     &ndata;           ///< NN data source
     int       X, Y;             ///< view port dimensions
     uchar4    *h_tex   = NULL;  ///< texture on host
     
@@ -24,7 +24,7 @@ public:
     CuGfxPbo  *pbo     = NULL;  ///< OpenGL-CUDA exchange
     CuTexObj  cu_tex   = 0;     ///< cuda Textrure object
     
-    __HOST__ Vu(Dataset &ds, int x=0, int y=0);
+    __HOST__ Vu(Ndata &nd, int x=0, int y=0);
     __HOST__ virtual int  init_host_tex();   ///< rebuild texture buffer
     
     __HOST__ virtual void mouse(int button, int state, int x, int y) {}
