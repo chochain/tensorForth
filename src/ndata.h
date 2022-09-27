@@ -1,6 +1,6 @@
 /**
  * @file
- * @brief tensorForth - NN dataset class (host-side interface object)
+ * @brief tensorForth - NN data class (host-side interface object)
  *
  * <pre>Copyright (C) 2022- GreenII, this file is distributed under BSD 3-Clause License.</pre>
  */
@@ -21,15 +21,13 @@ struct Ndata {
     const char *ds_name;      ///< data source name
     const char *tg_name;      ///< target label name
     
-    int   N, H, W, C;         ///< set dimensions and channel size
-    int   batch_sz = 0;       ///< batch size (unit of data)
-    int   batch_id = 0;       ///< current batch id
+    int   N = 0, H, W, C;     ///< set dimensions and channel size
     
-    U8    *data  = NULL;      ///< source data on host
-    U8    *label = NULL;      ///< label data on host
+    U8    *data  = NULL;      ///< source data pointer
+    U8    *label = NULL;      ///< label data pointer
 
-    Ndata(const char *data_name, const char *label_name, int batch=0)
-        : ds_name(data_name), tg_name(label_name), batch_sz(batch) {}
+    Ndata(const char *data_name, const char *label_name)
+        : ds_name(data_name), tg_name(label_name) {}
     
     ~Ndata() {
         if (!data) return;
@@ -47,19 +45,10 @@ struct Ndata {
             if (label) free(label);
         }
     }
-    Ndata *set_batch(int bsz, int idx=0) {
-        batch_sz = bsz;
-        batch_id = idx;
-        return this;
-    }
-    int dsize() { return H * W * C; }
-    int len()   { return N; }
-    
-    virtual Ndata *load() {
-        printf("load() implemented?\n");
-        return this;
-    }
-    virtual Ndata *get_batch(U8 *dst) {
+    int dsize()   { return H * W * C; }
+    int len()     { return N; }
+
+    virtual Ndata *load(int batch_sz=0, int batch_id=0) {
         printf("batch(U8*) implemented?\n");
         return this;
     }
