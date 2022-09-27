@@ -7,8 +7,10 @@
 #ifndef TEN4_SRC_LDR_MNIST_H
 #define TEN4_SRC_LDR_MNIST_H
 #include <iostream>
-#include <fstream>         // std::ifstream
+#include <fstream>            // std::ifstream
 #include "../dataset.h"
+
+using namespace std;
 
 typedef uint8_t   U8;
 typedef uint32_t  U32;
@@ -16,13 +18,23 @@ typedef uint32_t  U32;
 /// MNIST dataset
 ///
 class Mnist : public Dataset {
+    ifstream d_in;       ///< data file handle
+    ifstream t_in;       ///< target label file handle
+    
 public:
-    Mnist(const char *data, const char *label) : Dataset(data, label) {}
+    Mnist(const char *data_name, const char *label_name, int batch=0)
+        : Dataset(data_name, label_name, batch_sz) {}
+    ~Mnist() {
+        if (d_in.is_open()) d_in.close();
+        if (t_in.is_open()) t_in.close();
+    }
     
     virtual Dataset *load();
+    virtual Dataset *get_batch(U8 *dst);
 
 private:
     U32 _get_u32(std::ifstream &fs);
+    int _open();
     int _preview(U8 *img, int H, int W, int v);
     int _load_labels();
     int _load_images();
