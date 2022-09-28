@@ -14,10 +14,10 @@ int main(int argc, char **argv) {
     Loader::init();
     if (gui_init(&argc, argv)) return -1;
     
-    Ndata *nd = Loader::get("mnist_test");
+    Ndata *nd = Loader::get(0, "mnist_test");
     if (!nd) return 0;
 
-    MnistVu *vu = new MnistVu(*nd->load());
+    MnistVu *vu = new MnistVu(*nd->load(1200));
     gui_add(vu);
         
     return gui_loop();
