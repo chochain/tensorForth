@@ -21,13 +21,13 @@ struct Ndata {
     const char *ds_name;      ///< data source name
     const char *tg_name;      ///< target label name
     
-    int   N = 0, H, W, C;     ///< set dimensions and channel size
+    int   N, H, W, C;         ///< set dimensions and channel size
     
     U8    *data  = NULL;      ///< source data pointer
     U8    *label = NULL;      ///< label data pointer
 
     Ndata(const char *data_name, const char *label_name)
-        : ds_name(data_name), tg_name(label_name) {}
+        : ds_name(data_name), tg_name(label_name), N(0) {}
     
     ~Ndata() {
         if (!data) return;
