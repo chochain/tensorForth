@@ -9,7 +9,9 @@
 #include "loader.h"
 
 typedef std::map<const char*, Ndata*> NdataMap;
-NdataMap nd_map;
+typedef std::map<int, Ndata*> DsetMap;
+NdataMap nd_map;                             ///< string name, Ndata pair
+DsetMap  ds_map;                             ///< Dataset, Ndata pair (cache)
 ///
 /// TODO: to read from YAML config file
 ///
@@ -24,11 +26,16 @@ void Loader::init() {
             "/u01/data/mnist/t10k-labels-idx1-ubyte");
 }
 
-Ndata *Loader::get(const char *ds_name, int batch_sz) {
-    NdataMap::iterator itr = nd_map.find(ds_name);
-    return itr == nd_map.end()
-        ? NULL
-        : itr->second->set_batch(batch_sz);
+Ndata *Loader::get(int dset, const char *ds_name) {
+    DsetMap::iterator dsi = ds_map.find(dset);          /// * cache hit?
+    if (dsi != ds_map.end()) return dsi->second;
+
+    if (!ds_name) return NULL;                          /// * no name given
+
+    NdataMap::iterator ndi = nd_map.find(ds_name);      /// * create new entry
+    if (ndi == nd_map.end()) return NULL;
+
+    return ds_map[dset] = ndi->second;
 }
 
 
