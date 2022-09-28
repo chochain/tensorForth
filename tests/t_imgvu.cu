@@ -11,7 +11,7 @@
 #include <stb_image.h>
 #include "t_imgvu.h"
 
-ImgLoader *ImgLoader::load() {
+ImgLoader *ImgLoader::load(int, int) {
     printf("Loading %s", ds_name);
     
     stbi_set_flip_vertically_on_load(true);

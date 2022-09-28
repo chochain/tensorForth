@@ -36,7 +36,7 @@ typedef struct {
 class BmpLoader : public Ndata {
 public:
     BmpLoader(const char *name) : Ndata(name, NULL) {}
-    virtual BmpLoader *load();
+    virtual BmpLoader *load(int bsz=0, int bid=0);
 };
 
 class BmpVu : public Vu {

@@ -9,7 +9,7 @@
 #include <string.h>
 #include "t_bmpvu.h"
 
-BmpLoader *BmpLoader::load() {
+BmpLoader *BmpLoader::load(int, int) {
     BMPHeader     hdr;
     BMPInfoHeader info;
     FILE          *fd;

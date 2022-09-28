@@ -12,7 +12,7 @@
 class ImgLoader : public Ndata {
 public:
     ImgLoader(const char *name) : Ndata(name, NULL) {}
-    virtual ImgLoader *load();
+    virtual ImgLoader *load(int bsz=0, int bid=0);
 };
 
 class ImgVu : public Vu {
