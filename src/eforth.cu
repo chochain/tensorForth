@@ -386,7 +386,7 @@ ForthVM::number(char *str) {
         add_du(n);                       ///> store literal
     }
     else {                               ///> or, add value onto data stack
-        VLOG2("%%d| ss.push(%f)\n", vid, n);
+        VLOG2("%d| ss.push(%f)\n", vid, n);
         PUSH(n);
     }
     return 1;
