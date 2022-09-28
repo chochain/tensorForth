@@ -51,9 +51,12 @@ AIO::print_node(obuf_node *node) {
         case OP_SEE:   _mmu->see(cout, (IU)o->a);                       break;
         case OP_DUMP:  _mmu->mem_dump(cout, (IU)o->a, (IU)o->n);        break;
         case OP_SS:    _mmu->ss_dump(cout, (IU)node->id, o->a, _radix); break;
-        case OP_LOAD:
+        case OP_DATA:
             node = NEXTNODE(node);          ///< fetch file name
-            _mmu->load(cout, (IU)o->a, (char*)node->data, o->n);
+            _mmu->load(cout, (IU)o->a, o->n, (char*)node->data);
+            break;
+        case OP_LOAD:
+            _mmu->load(cout, (IU)o->a, o->n);
             break;
         }
     } break;
