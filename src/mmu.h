@@ -10,6 +10,7 @@
 #include "vector.h"
 #include "tensor.h"
 #include "tlsf.h"
+#include "dataset.h"
 ///
 /// CUDA functor (device only) implementation
 /// Note: nvstd::function is too heavy (at sizeof(Code)=56-byte)
@@ -167,6 +168,7 @@ public:
     __GPU__  Tensor &tensor(U16 n, U16 h, U16 w, U16 c);    ///< create a NHWC tensor
     __GPU__  Tensor &tensor(U16 c1, U16 n, U16 h, U16 w, U16 c); ///< create a 5D (C1NHWC) fully connected tensor
     __GPU__  Model  &model(U32 sz=T4_NET_SZ);               ///< create a NN model
+    __GPU__  Dataset&dataset(U16 batch_sz);                 ///< create a NN dataset
     __GPU__  void   resize(Tensor &t, U32 sz);              ///< resize the tensor storage
     __GPU__  void   free(Tensor &t);                        ///< free the tensor
     __GPU__  void   free(Model &m);
@@ -203,6 +205,6 @@ public:
     __HOST__ void see(std::ostream &fout, U16 w);               
     __HOST__ void ss_dump(std::ostream &fout, U16 vid, U16 n, int radix);
     __HOST__ void mem_dump(std::ostream &fout, U16 p0, U16 sz);   ///< dump a section of param memory
-    __HOST__ void load(std::ostream &fout, U16 vid, char *fname, DU top); ///< load a memory block
+    __HOST__ void load(std::ostream &fout, U16 vid, DU top, char *ds_name=NULL); ///< load a dataset
 };
 #endif // TEN4_SRC_MMU_H

@@ -5,6 +5,7 @@
  */
 #include <iomanip>          // setw, setbase
 #include "model.h"          // include mmu.h
+#include "ldr/loader.h"
 ///
 /// random number generator setup
 /// Note: kept here because curandStates stays in CUDA memory
@@ -189,9 +190,17 @@ MMU::model(U32 sz) {
     m->reset(this, t);
     return *m;
 }
-__GPU__ Tensor&                   ///< create a view of a Tensor
+__GPU__ Dataset&                   ///< create a Dataset holder
+MMU::dataset(U16 batch_sz) {
+    TRACE1("mmu#dataset batch_sz=%d", batch_sz);
+    Dataset *ds = (Dataset*)_ostore.malloc(sizeof(Dataset));
+    ds->N = batch_sz;              /// * other members filled in host mode
+    _ostore.status(_trace);
+    return *ds;
+}
+__GPU__ Tensor&                    ///< create a view of a Tensor
 MMU::view(Tensor &t0) {
-    if (t0.is_model()) return t0; ///> TODO: create model view
+    if (t0.is_model()) return t0;  ///> TODO: create model view
     Tensor *t = (Tensor*)_ostore.malloc(sizeof(Tensor));
     ///
     /// replicate A tensor
@@ -485,8 +494,23 @@ MMU::mem_dump(std::ostream &fout, U16 p0, U16 sz) {
 }
 
 __HOST__ void
-MMU::load(std::ostream &fout, U16 vid, char *fname, DU top) {
-    fout << "load[" << vid << "] " << fname;
-    // invoke data_provider
-    fout << " ss.push(top=" << top << ")\n";
- }
+MMU::load(std::ostream &fout, U16 vid, DU top, char *ds_name) {
+    Dataset &ds = (Dataset&)du2obj(top);
+    fout << vid << "|dataset '" << ds_name << "'";
+
+    int   dset = DU2X(top);
+    Ndata *nd  = Loader::get(dset, ds_name);
+    if (!nd) {
+        fout << " => data source '" << ds_name << "' not found\n"; 
+        return;
+    }
+    if (!nd->load(ds.N, 0)) { fout << " => load failed\n"; return; }
+    
+    ds.setup(nd->H, nd->W, nd->C);
+    
+    fout << " => dataset["
+         << ds.N << ","
+         << ds.H << ","
+         << ds.W << ","
+         << ds.C << "]\n";
+}
