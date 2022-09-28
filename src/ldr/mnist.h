@@ -22,22 +22,20 @@ class Mnist : public Ndata {
     ifstream t_in;       ///< target label file handle
     
 public:
-    Mnist(const char *data_name, const char *label_name, int batch=0)
-        : Ndata(data_name, label_name, batch_sz) {}
-    ~Mnist() {
-        if (d_in.is_open()) d_in.close();
-        if (t_in.is_open()) t_in.close();
-    }
+    Mnist(const char *data_name, const char *label_name)
+        : Ndata(data_name, label_name) {}
+    ~Mnist() { _close(); }
     
-    virtual Ndata *load();
-    virtual Ndata *get_batch(U8 *dst);
+    virtual Ndata *load(int batch_sz=0, int batch_id=0);
 
 private:
-    U32 _get_u32(std::ifstream &fs);
     int _open();
-    int _preview(U8 *img, int H, int W, int v);
-    int _load_labels();
-    int _load_images();
+    int _close();
+    int _setup();
+    int _preview(U8 *img, int lbl);
+    
+    int _load_labels(int bsz, int bid);
+    int _load_images(int bsz, int bid);
 };
 #endif // TEN4_SRC_LDR_MNIST_H
 
