@@ -194,7 +194,10 @@ __GPU__ Dataset&                   ///< create a Dataset holder
 MMU::dataset(U16 batch_sz) {
     TRACE1("mmu#dataset batch_sz=%d", batch_sz);
     Dataset *ds = (Dataset*)_ostore.malloc(sizeof(Dataset));
-    ds->N = batch_sz;              /// * other members filled in host mode
+    ds->rank     = 4;
+    ds->ttype    = T4_DATASET;
+    ds->shape[3] = batch_sz;       /// * other members filled in host mode
+    ds->batch_id = -1;             /// * setup control flag
     _ostore.status(_trace);
     return *ds;
 }
@@ -374,7 +377,7 @@ MMU::to_s(std::ostream &fout, IU w) {
 }
 __HOST__ int
 MMU::to_s(std::ostream &fout, Tensor &t) {
-    static const char tn[] = { 'V', 'T', 'N' };  /// sync with t4_obj
+    static const char tn[] = { 'V', 'T', 'N', 'D' };  /// sync with t4_obj
     auto t4 = [&fout, &t]() {
         fout << t.N() << "," << t.H() << "," << t.W() << "," << t.C() << "]";
     };
@@ -495,22 +498,25 @@ MMU::mem_dump(std::ostream &fout, U16 p0, U16 sz) {
 
 __HOST__ void
 MMU::load(std::ostream &fout, U16 vid, DU top, char *ds_name) {
-    Dataset &ds = (Dataset&)du2obj(top);
-    fout << vid << "|dataset '" << ds_name << "'";
-
-    int   dset = DU2X(top);
-    Ndata *nd  = Loader::get(dset, ds_name);
+    TRACE1("%d|dataset '%s'\n", vid, ds_name);
+    ///
+    /// search cache for top <=> dataset pair
+    ///
+    int     dset = DU2X(top);
+    Ndata   *nd  = Loader::get(dset, ds_name);
     if (!nd) {
-        fout << " => data source '" << ds_name << "' not found\n"; 
-        return;
+        ERROR(" => '%s' not found\n", ds_name); return;
     }
-    if (!nd->load(ds.N, 0)) { fout << " => load failed\n"; return; }
-    
-    ds.setup(nd->H, nd->W, nd->C);
-    
-    fout << " => dataset["
-         << ds.N << ","
-         << ds.H << ","
-         << ds.W << ","
-         << ds.C << "]\n";
+    ///
+    /// setup initial dataset parameters
+    ///
+    Dataset &ds  = (Dataset&)du2obj(top);
+    if (!nd->load(ds.N(), 0)) {
+        ERROR(" => '%s' load failed\n", ds_name); return;
+    }
+    if (ds.batch_id < 0) ds.alloc(ds.N(), nd->H, nd->W, nd->C);
+    ///
+    /// allocate Dataset device (managed) memory blocks
+    ///
+    ds.get_batch(nd->data, nd->label);
 }
