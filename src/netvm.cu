@@ -161,11 +161,11 @@ NetVM::init() {
     CODE("nn.next",   {}),
     CODE("autograd",  if (M1V) { bool on = POPi; MTOS.autograd = on; }),
     CODE("forward", 
-        if (TOS1T && IS_M(ss[-1])) {
+         if (IS_OBJ(top) && TTOS.is_dataset() && IS_M(ss[-1])) {
             Tensor &t = TTOS; POP();
             MTOS.forward(t);
         }
-        else ERROR("N set?\n")),
+        else ERROR("N dataset?\n")),
     CODE("backprop",
          if (TOS1T && IS_M(ss[-1])) {
              Tensor &t  = TTOS; POP();
@@ -179,13 +179,21 @@ NetVM::init() {
     CODE(">n",        if (M1V) { DU t = POP(); MTOS.npush(t); }),
     CODE("n@",        if (M1V) { I16 i = POPi; PUSH(mmu.view(MTOS[i])); }),
     CODE("network",   if (IS_M(top)) fout << top),
-    CODE("load",
-        char *fname = next_idiom();    /// retrieve file name
-        fout << opx(OP_LOAD, 0, top) << fname;
+    CODE("dataset",
+        char *dsn = next_idiom();           ///< retrieve dataset name
+        I16   bsz = POPi;                   ///< batch size
+        PUSH(mmu.dataset(bsz));             /// * create a dataset as TOS
+        fout << opx(OP_DATA, 0, top) << dsn;
         state = VM_WAIT),
+    CODE("load", 
+        if (TOS1T) {
+            fout << opx(OP_LOAD, 0, top);
+            state = VM_WAIT;
+        }
+        else ERROR("tensor?")),
     ///@}
     };
-    const Code over[] = {              ///< extended (overload) words
+    const Code over[] = {                  ///< extended (overload) words
     CODE("flatten",   nnop(L_FLATTEN)),
     CODE("boot",      mmu.clear(FIND("network") + 1))
     };
