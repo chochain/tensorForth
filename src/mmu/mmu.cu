@@ -3,10 +3,10 @@
  * @brief tensorForth - Memory Manager
  * <pre>Copyright (C) 2022- GreenII, this file is distributed under BSD 3-Clause License.</pre>
  */
-#include <iomanip>          // setw, setbase
-#include "nn/model.h"       // include mmu.h
-#include "nn/dataset.h"
-#include "ldr/loader.h"
+#include <iomanip>             // setw, setbase
+#include "../nn/model.h"       // include mmu.h
+#include "../nn/dataset.h"
+#include "../ldr/loader.h"
 ///
 /// random number generator setup
 /// Note: kept here because curandStates stays in CUDA memory

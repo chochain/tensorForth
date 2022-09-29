@@ -4,7 +4,7 @@
  *
  * <pre>Copyright (C) 2022 GreenII. This file is distributed under BSD 3-Clause License.</p>
 */
-#include "ten4_types.h"
+#include "../ten4_types.h"
 #include "util.h"
 #include "tlsf.h"
 

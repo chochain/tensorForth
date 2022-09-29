@@ -6,7 +6,7 @@
  */
 #ifndef TEN4_SRC_T4BASE_H_
 #define TEN4_SRC_T4BASE_H_
-#include "ten4_types.h"
+#include "../ten4_types.h"
 ///
 /// tensorForth object types
 ///
