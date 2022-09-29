@@ -6,6 +6,7 @@ T4_SRCS := \
 	./src/util.cu \
 	./src/aio.cu \
 	./src/tlsf.cu \
+	./src/model.cu \
 	./src/tensor.cu \
 	./src/mmu.cu 
 T4_INCS := \
@@ -19,6 +20,9 @@ T4_INCS := \
 	src/ostream.h \
 	src/tlsf.h \
 	src/tensor.h \
+	src/dataset.h \
+	src/model.h \
+	src/ndata.h \
 	src/mmu.h \
 	src/aio.h
 
@@ -26,7 +30,6 @@ VM_SRCS := \
 	./src/vm.cu \
 	./src/eforth.cu \
 	./src/tenvm.cu \
-	./src/model.cu \
 	./src/model_fwd.cu \
 	./src/model_back.cu \
 	./src/netvm.cu
@@ -34,9 +37,7 @@ VM_INCS := \
 	src/vm.h \
 	src/eforth.h \
 	src/tenvm.h \
-	src/model.h \
-	src/netvm.h \
-	src/dataset.h
+	src/netvm.h
 
 T4_OBJS := $(T4_SRCS:%.cu=%.o)
 VM_OBJS := $(VM_SRCS:%.cu=%.o)
