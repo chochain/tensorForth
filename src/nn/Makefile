@@ -5,12 +5,10 @@
 NN_SRCS := \
 	./src/nn/model.cu \
 	./src/nn/forward.cu \
-	./src/nn/backprop.cu \
-	./src/nn/netvm.cu
+	./src/nn/backprop.cu
 NN_INCS := \
 	src/nn/model.h \
-	src/nn/dataset.h \
-	src/nn/netvm.h
+	src/nn/dataset.h
 
 NN_OBJS := $(NN_SRCS:%.cu=%.o)
 
