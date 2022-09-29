@@ -18,9 +18,6 @@ CUDA_FLAGS:= -Xnvlink --suppress-stack-size-warning --cudart=static
 SRCS := src/ten4.cu
 OBJS := $(SRCS:%.cu=%.o)
 
-# Every subdirectory with source files must be described here
-SUBDIRS := src
-
 # Cutlass library in ${CUTLASS_HOME}/build/tools/library
 CL_LIB  := -L${CUTLASS_HOME}/build/tools/library -lcutlass
 CL_TOOL := ${CUTLASS_HOME}/tools
@@ -54,6 +51,8 @@ NV_LNK := \
 	$(CL_LIB) $(GL_LIB) \
 	-gencode arch=${CUDA_ARCH},code=${CUDA_CODE}
 
+NV_ERR := echo "NVCC_FAILED"
+
 # Add inputs and outputs from these tool invocations to the build variables
 -include src/Makefile
 -include tests/Makefile
@@ -77,7 +76,7 @@ tests: test
 # Tool invocations
 $(APP_NAME): $(OBJS) $(USER_OBJS) $(OPTIONAL_TOOL_DEPS)
 	@echo '<App><Action>Link</Action><Filename>$<</Filename><Status>'
-	-$(NV_LNK) -o "$(APP_TGT)" $^ || echo 'FAILED'
+	-$(NV_LNK) -o "$(APP_TGT)" $^ || echo $(NV_ERR)
 	@echo '</Status></App>'
 	@echo ' '
 

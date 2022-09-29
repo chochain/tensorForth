@@ -3,47 +3,33 @@
 #
 # Add inputs and outputs from these tool invocations to the build variables
 T4_SRCS := \
-	./src/util.cu \
-	./src/tlsf.cu \
-	./src/tensor.cu \
-	./src/mmu.cu 
-T4_INCS := \
-    src/ten4_config.h \
-    src/ten4_types.h \
-	src/opt.h \
-    src/util.h \
-	src/t4base.h \
-    src/vector.h \
-	src/tlsf.h \
-	src/tensor.h \
-	src/mmu.h
+	./src/ten4.cu
 
-VM_SRCS := \
-	./src/vm.cu \
-	./src/eforth.cu \
-	./src/tenvm.cu
-VM_INCS := \
-	src/vm.h \
-	src/eforth.h \
-	src/tenvm.h
+T4_INCS := \
+    ./src/ten4_config.h \
+    ./src/ten4_types.h \
+	./src/opt.h \
+	./src/ten4.h
 
 T4_OBJS := $(T4_SRCS:%.cu=%.o)
-VM_OBJS := $(VM_SRCS:%.cu=%.o)
 
-OBJS += $(T4_OBJS) $(VM_OBJS)
+# Every subdirectory with source files must be described here
+SUBDIRS := nn vm ldr vm io mmu
 
--include src/io/Makefile
--include src/ldr/Makefile
--include src/vu/Makefile
+OBJS += $(T4_OBJS)
+
 -include src/nn/Makefile
+-include src/vu/Makefile
+-include src/ldr/Makefile
+-include src/vm/Makefile
+-include src/io/Makefile
+-include src/mmu/Makefile
 
-.PHONY: src src-t4 src-vm src-ds clean clean-src
+.PHONY: src clean clean-src
 
-src: src-t4 src-vm src-ldr src-vu src-nn
+src: $(SUBDIR:%=src-%)
 
 src-t4: $(T4_OBJS) $(T4_INCS)
-
-src-vm: $(VM_OBJS) src-t4 $(VM_INCS)
 
 # Each subdirectory must supply rules for building sources it contributes
 src/%.o: src/%.cu
@@ -52,5 +38,5 @@ src/%.o: src/%.cu
 	@echo '</Source>'
 	@echo ' '
 
-clean-src: clean-src-io clean-src-ldr clean-src-vu clean-src-nn
-	-$(RM) $(OBJS)
+clean-src: $(SUBDIRS:%=clean-src-%)
+	-$(RM) $(T4_OBJS)
