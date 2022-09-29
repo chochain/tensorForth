@@ -6,7 +6,7 @@
  */
 #ifndef TEN4_SRC_LOADER_H
 #define TEN4_SRC_LOADER_H
-#include "../ndata.h"
+#include "ndata.h"
 
 struct Loader {
     static void init();

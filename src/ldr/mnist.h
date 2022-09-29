@@ -8,7 +8,7 @@
 #define TEN4_SRC_LDR_MNIST_H
 #include <iostream>
 #include <fstream>            // std::ifstream
-#include "../ndata.h"
+#include "ndata.h"
 
 using namespace std;
 
