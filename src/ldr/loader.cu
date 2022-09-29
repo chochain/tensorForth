@@ -7,11 +7,16 @@
 #include <map>
 #include "mnist.h"
 #include "loader.h"
-
-typedef std::map<const char*, Ndata*> NdataMap;
+///
+/// Note:
+///   const char* key in map will not work because ptr1 != ptr2
+///   but the string conversion slows it down by 3x.
+///   We have only a few, so not too bad. Also we cache top <=> dataset
+///
+typedef std::map<std::string, Ndata*> NdataMap;
 typedef std::map<int, Ndata*> DsetMap;
-NdataMap nd_map;                             ///< string name, Ndata pair
-DsetMap  ds_map;                             ///< Dataset, Ndata pair (cache)
+NdataMap nd_map;                          ///< string name, Ndata pair
+DsetMap  ds_map;                          ///< Dataset, Ndata pair (cache)
 ///
 /// TODO: to read from YAML config file
 ///

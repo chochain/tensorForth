@@ -58,7 +58,7 @@ int Mnist::_setup() {
     if (t_in) {
         X1 = _u32(t_in);    ///< label magic number 0x0801
         N1 = _u32(t_in);
-        printf("MNIST label: magic=%08x => [%d]\n", X1, N1);
+        printf("\tMNIST label: magic=%08x => [%d]\n", X1, N1);
     }
     if (d_in) {
         X0 = _u32(d_in);    ///< image magic number 0x0803
@@ -66,7 +66,7 @@ int Mnist::_setup() {
         H  = _u32(d_in);
         W  = _u32(d_in);
         C  = 1;
-        printf("MNIST image: magic=%08x => [%d][%d,%d,%d]\n",
+        printf("\tMNIST image: magic=%08x => [%d][%d,%d,%d]\n",
                X0, N, H, W, C);
     }
     if (N != N1) {
@@ -100,7 +100,7 @@ int Mnist::_load_labels(int bsz, int bid) {
     t_in.read((char*)label, N);                    /// * fetch batch labels
 
     int rst = t_in.eof() ? d_in.gcount() : bsz;
-    printf("Mnist.label batch[%d] sz=%d loaded\n", bid, rst);
+    printf("\tMnist.label batch[%d] sz=%d loaded\n", bid, rst);
     
     return rst;
 }
@@ -115,7 +115,7 @@ int Mnist::_load_images(int bsz, int bid) {
     d_in.read((char*)data, xsz);                   /// * fetch batch images
 
     int rst = d_in.eof() ? d_in.gcount() / dsize() : bsz;
-    printf("Mnist.image batch[%d] sz=%d loaded\n", bid, rst); 
+    printf("\tMnist.image batch[%d] sz=%d loaded\n", bid, rst); 
 
     return rst;
 }

@@ -9,7 +9,7 @@ LDR_SRCS := \
 LDR_OBJS := $(LDR_SRCS:%.cu=%.o)
 LDR_INCS := \
 	./src/ten4_types.h \
-	./src/dataset.h \
+	./src/ndata.h \
 	./src/ldr/mnist.h \
 	./src/ldr/loader.h
 
