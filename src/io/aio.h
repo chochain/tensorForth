@@ -9,7 +9,7 @@
 #define TEN4_SRC_AIO_H_
 #include "istream.h"
 #include "ostream.h"
-#include "../mmu.h"
+#include "../mmu/mmu.h"
 
 class AIO : public Managed {
 public:
