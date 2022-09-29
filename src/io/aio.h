@@ -7,8 +7,8 @@
  */
 #ifndef TEN4_SRC_AIO_H_
 #define TEN4_SRC_AIO_H_
-#include "istream.h"
-#include "ostream.h"
+#include "../io/istream.h"
+#include "../io/ostream.h"
 #include "../mmu/mmu.h"
 
 class AIO : public Managed {

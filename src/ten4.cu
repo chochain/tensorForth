@@ -15,7 +15,7 @@
 
 using namespace std;
 #include "ldr/loader.h"      // default dataset loader
-#include "nn/netvm.h"        // VM + ForthVM + TensorVM + NetVM
+#include "vm/netvm.h"        // VM + ForthVM + TensorVM + NetVM
 #include "ten4.h"            // wrapper
 
 #define MAJOR_VERSION        "3"

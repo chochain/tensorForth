@@ -4,7 +4,7 @@
 */
 #ifndef TEN4_SRC_TEN4_H_
 #define TEN4_SRC_TEN4_H_
-#include "vm.h"
+#include "vm/vm.h"
 
 #define WARP(t)  ((((t) + 32)>>5) << 5)   /** calculate warp thread count */
 #define VMST_SZ  (sizeof(vm_state) * VM_MIN_COUNT)
