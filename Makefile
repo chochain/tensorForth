@@ -38,7 +38,7 @@ NV_CC   := \
 	${CUDA_HOME}/bin/nvcc -ccbin g++ \
 	-D__CUDACC__ \
 	-D__CDPRT_SUPPRESS_SYNC_DEPRECATION_WARNING \
-	$(CL_INCS:%=-I%) $(GL_INCS:%=-I%) \
+	-Isrc $(CL_INCS:%=-I%) $(GL_INCS:%=-I%) \
 	-t=0 -c -std=c++14 -O3 \
 	--device-c --extended-lambda --expt-relaxed-constexpr \
 	--device-debug --debug \

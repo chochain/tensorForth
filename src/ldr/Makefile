@@ -23,7 +23,7 @@ src-ldr: $(LDR_OBJS)
 # Each subdirectory must supply rules for building sources it contributes
 src/ldr/%.o: src/ldr/%.cu $(LDR_INCS)
 	@echo '<Source><Action>Compile</Action><Filename>$<</Filename><Status>'
-	-$(NV_CC) -o "$@" "$<" --keep-dir $(APP_HOME)/src/ldr || $(NV_ERR)
+	-$(NV_CC) -o "$@" "$<" || $(NV_ERR)
 	@echo '</Status></Source>'
 	@echo ' '
 

@@ -33,7 +33,7 @@ src-vm: $(VM_OBJS)
 # Each subdirectory must supply rules for building sources it contributes
 src/vm/%.o: src/vm/%.cu $(VM_INCS)
 	@echo '<Source><Action>Compile</Action><Filename>$<</Filename><Status>'
-	-$(NV_CC) $(VM_LIBS) -o "$@" "$<" --keep-dir $(APP_HOME)/src/ldr || $(NV_ERR)
+	-$(NV_CC) $(VM_LIBS) -o "$@" "$<" || $(NV_ERR)
 	@echo '</Status></Source>'
 	@echo ' '
 

@@ -13,10 +13,12 @@ T4_INCS := \
 
 T4_OBJS := $(T4_SRCS:%.cu=%.o)
 
-# Every subdirectory with source files must be described here
-SUBDIRS := nn vm ldr vm io mmu
-
 OBJS += $(T4_OBJS)
+
+# Every subdirectory with source files must be described here
+SUBDIRS := nn vu ldr vm io mmu
+
+T4_LIBS := $(SUBDIRS:%=-Isrc/%)
 
 -include src/nn/Makefile
 -include src/vu/Makefile
@@ -34,7 +36,7 @@ src-t4: $(T4_OBJS) $(T4_INCS)
 # Each subdirectory must supply rules for building sources it contributes
 src/%.o: src/%.cu
 	@echo '<Source><Action>Compile</Action><Filename>$<</Filename><Status>'
-	-$(NV_CC) -o "$@" "$<" --keep-dir $(APP_HOME)/src || $(NV_ERR)
+	-$(NV_CC) $(T4_LIBS) -o "$@" "$<" || $(NV_ERR)
 	@echo '</Source>'
 	@echo ' '
 

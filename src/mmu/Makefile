@@ -33,7 +33,7 @@ src-mmu: $(MMU_OBJS)
 # Each subdirectory must supply rules for building sources it contributes
 src/mmu/%.o: src/mmu/%.cu $(MMU_INCS)
 	@echo '<Source><Action>Compile</Action><Filename>$<</Filename><Status>'
-	-$(NV_CC) $(MMU_LIBS) -o "$@" "$<" --keep-dir $(APP_HOME)/src/mmu || $(NV_ERR)
+	-$(NV_CC) $(MMU_LIBS) -o "$@" "$<" || $(NV_ERR)
 	@echo '</Status></Source>'
 	@echo ' '
 
