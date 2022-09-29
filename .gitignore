@@ -3,6 +3,10 @@ appengine-generated/
 /src/*.o
 /src/ldr/*.o
 /src/vu/*.o
+/src/nn/*.o
+/tests/*
+!/tests/**/
+!/tests/*.*
 /tests/*.o
 /Debug/
 /docs/html
