@@ -1,9 +1,7 @@
 # Google App Engine generated folder
 appengine-generated/
 /src/*.o
-/src/ldr/*.o
-/src/vu/*.o
-/src/nn/*.o
+/src/*/*.o
 /tests/*
 !/tests/**/
 !/tests/*.*
