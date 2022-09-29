@@ -161,7 +161,7 @@ NetVM::init() {
     CODE("nn.next",   {}),
     CODE("autograd",  if (M1V) { bool on = POPi; MTOS.autograd = on; }),
     CODE("forward", 
-         if (IS_OBJ(top) && TTOS.is_dataset() && IS_M(ss[-1])) {
+         if (DTOS && IS_M(ss[-1])) {
             Tensor &t = TTOS; POP();
             MTOS.forward(t);
         }

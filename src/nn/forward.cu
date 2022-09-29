@@ -147,14 +147,15 @@ Model::_fstep(Tensor &in, Tensor &out) {
     dim3 grd(TGRID(W0, H0, C0, blk));
 
     auto view = [](DU *v, int H, int W, int C) {
-        static const char *map = " .:-=+*#%@";
+        static const char *map = " .'`^\",:;Il!i><~+_-?][}{1)(|/tfjrxnuvczXYUJCLQ0OZmwqpdbkhao*#MW&8%B@$";
+        printf("%s\n",map);
         for (int k = 0; k < C; k++) {
             printf("\nC=%d ---", k);
             for (int i = 0; i < H; i++) {
                 printf("\n");
                 for (int j = 0; j < W; j++) {
                     DU x   = v[k + (j + i * W) * C];
-                    char c = map[(int)(x * 10.0f)];
+                    char c = map[(int)(x * 70.0f)];
                     printf("%c%c", c, c);                // double width
                 }
             }
