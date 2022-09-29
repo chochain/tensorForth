@@ -6,7 +6,7 @@
  */
 #ifndef TEN4_SRC_MODEL_H
 #define TEN4_SRC_MODEL_H
-#include "../mmu.h"
+#include "../mmu/mmu.h"
 
 typedef enum {
     LOSS_MSE = 0,        ///< mean square error
