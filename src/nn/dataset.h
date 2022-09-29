@@ -6,7 +6,7 @@
  */
 #ifndef TEN4_SRC_DATASET_H_
 #define TEN4_SRC_DATASET_H_
-#include "../mmu/tensor.h"
+#include "tensor.h"                  // in ../mmu
 
 struct Dataset : public Tensor {
     int   batch_id = 0;             ///< current batch id

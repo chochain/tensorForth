@@ -6,7 +6,7 @@
  */
 #ifndef TEN4_SRC_ISTREAM_H_
 #define TEN4_SRC_ISTREAM_H_
-#include "../mmu/tensor.h"      /// include util.h
+#include "tensor.h"             /// in ../mmu include util.h
 ///
 /// istream class
 ///

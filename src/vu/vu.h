@@ -7,8 +7,8 @@
 #ifndef T4_VU_H
 #define T4_VU_H
 #include <GL/gl.h>
-#include "../ten4_types.h"
-#include "../ldr/ndata.h"
+#include "ten4_types.h"
+#include "ndata.h"              // in ../nn
 
 typedef U32                         TColor;
 typedef struct cudaGraphicsResource CuGfxPbo;

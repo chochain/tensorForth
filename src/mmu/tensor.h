@@ -7,8 +7,8 @@
 #ifndef TEN4_SRC_TENSOR_H_
 #define TEN4_SRC_TENSOR_H_
 #include <ostream>
-#include "../mmu/t4base.h"
-#include "../mmu/util.h"
+#include "t4base.h"         // in ../mmu
+#include "util.h"           // in ../mmu
 //===============================================================================
 /// tensorForth tensor class
 /// @brief - Tensor at rank=4, row-major, F32 only storage

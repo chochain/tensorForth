@@ -6,9 +6,9 @@
  */
 #ifndef TEN4_SRC_NETVM_H
 #define TEN4_SRC_NETVM_H
-#include "../nn/model.h"
-#include "../nn/dataset.h"
-#include "../vm/tenvm.h"                /// extending TensorVM
+#include "model.h"                // in ../nn
+#include "dataset.h"              // in ../nn
+#include "tenvm.h"                // extending TensorVM
 
 #define MTOS     ((Model&)mmu.du2obj(top))                         /** Network Model on TOS   */
 #define MNOS     ((Model&)mmu.du2obj(ss[-1]))                      /** Network Model on NOS   */

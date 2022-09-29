@@ -3,18 +3,17 @@
 #
 # Add inputs and outputs from these tool invocations to the build variables
 LDR_SRCS := \
-	./src/ldr/mnist.cu \
-	./src/ldr/loader.cu
+	src/ldr/mnist.cu \
+	src/ldr/loader.cu
+
+LDR_INCS := \
+	src/ten4_types.h \
+	src/ldr/ndata.h \
+	src/ldr/mnist.h \
+	src/ldr/loader.h
 
 LDR_OBJS := $(LDR_SRCS:%.cu=%.o)
-LDR_INCS := \
-	./src/ten4_types.h \
-	./src/ldr/ndata.h \
-	./src/ldr/mnist.h \
-	./src/ldr/loader.h
 
-SRCS +=
-INCS +=
 OBJS += $(LDR_OBJS)
 
 .PHONY: src-ldr clean-src-ldr

@@ -6,7 +6,7 @@
  */
 #ifndef TEN4_SRC_VM_H
 #define TEN4_SRC_VM_H
-#include "../io/aio.h"            // async IO (includes Istream, Ostream)
+#include "aio.h"            // async IO (includes Istream, Ostream), in ../io
 ///
 ///@name Cross platform support
 ///@{

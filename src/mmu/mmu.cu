@@ -4,9 +4,9 @@
  * <pre>Copyright (C) 2022- GreenII, this file is distributed under BSD 3-Clause License.</pre>
  */
 #include <iomanip>             // setw, setbase
-#include "../nn/model.h"       // include mmu.h
-#include "../nn/dataset.h"
-#include "../ldr/loader.h"
+#include "model.h"             // in ../nn, include ../mmu/mmu.h
+#include "dataset.h"           // in ../nn
+#include "loader.h"            // in ../ldr
 ///
 /// random number generator setup
 /// Note: kept here because curandStates stays in CUDA memory

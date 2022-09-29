@@ -6,7 +6,7 @@
  */
 #ifndef TEN4_SRC_EFORTH_H
 #define TEN4_SRC_EFORTH_H
-#include "../vm/vm.h"             // VM base class
+#include "vm.h"             // VM base class in ../vm
 ///
 ///@name Data conversion
 ///@{

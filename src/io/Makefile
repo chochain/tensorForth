@@ -12,6 +12,14 @@ IO_INCS := \
 
 IO_OBJS := $(IO_SRCS:%.cu=%.o)
 
+# extra include from other directries
+IO_EXT:= \
+	src/mmu/util.h \
+	src/mmu/mmu.h \
+	src/mmu/tensor.h \
+	src/nn/model.h
+IO_LIBS := -Isrc/mmu -Isrc/nn
+
 OBJS += $(IO_OBJS)
 
 .PHONY: src-io clean-src-io
@@ -21,7 +29,7 @@ src-io: $(IO_OBJS)
 # Each subdirectory must supply rules for building sources it contributes
 src/io/%.o: src/io/%.cu $(IO_INCS)
 	@echo '<Source><Action>Compile</Action><Filename>$<</Filename><Status>'
-	-$(NV_CC) -o "$@" "$<" --keep-dir $(APP_HOME)/src/ldr || $(NV_ERR)
+	-$(NV_CC) $(IO_LIBS) -o "$@" "$<" --keep-dir $(APP_HOME)/src/io || $(NV_ERR)
 	@echo '</Status></Source>'
 	@echo ' '
 

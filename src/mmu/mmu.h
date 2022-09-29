@@ -7,9 +7,9 @@
 #ifndef TEN4_SRC_MMU_H
 #define TEN4_SRC_MMU_H
 #include <curand_kernel.h>
-#include "../mmu/vector.h"
-#include "../mmu/tensor.h"
-#include "../mmu/tlsf.h"
+#include "vector.h"
+#include "tensor.h"
+#include "tlsf.h"
 ///
 /// CUDA functor (device only) implementation
 /// Note: nvstd::function is too heavy (at sizeof(Code)=56-byte)
