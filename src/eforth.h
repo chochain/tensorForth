@@ -10,8 +10,6 @@
 ///
 ///@name Data conversion
 ///@{
-#define INT(f)       (static_cast<int>(floor((f)+0.5))) /**< cast float to int              */
-#define I2D(i)       (static_cast<DU>(i))          /**< cast int back to float         */
 #define POPi         (INT(POP()))                  /**< convert popped DU as an IU     */
 #define FIND(s)      (mmu.find(s, compile, ucase)) /**< find input idiom in dictionary */
 ///@}

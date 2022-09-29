@@ -46,7 +46,7 @@
 #define GPU_SYNC()          { cudaDeviceSynchronize(); }
 #define GPU_ERR(code) {          \
     if ((code) != cudaSuccess) { \
-        fprintf(stderr, "GPUassert: %s %s %d\n", cudaGetErrorString(code), __FILE__, __LINE__);                \
+        fprintf(stderr, "cudaERROR: %s %s %d\n", cudaGetErrorString(code), __FILE__, __LINE__);                \
         cudaDeviceReset();       \
     }}
 #define GPU_CHK() {              \
@@ -120,11 +120,13 @@ typedef F64         DU2;                    /**< double preciesion data */
 ///
 /// macros for object classification
 ///
-#define T4_OBJ_FLAG 1                                /**< obj flag       */
-#define DU2X(v)     (*(U32*)&(v))                    /**< to U32 ptr     */
-#define SCALAR(v)   ((DU2X(v) &= ~T4_OBJ_FLAG), (v)) /**< clear obj flag */
+#define T4_OBJ_FLAG 1                                  /**< obj flag       */
+#define DU2X(v)     (*(U32*)&(v))                      /**< to U32 ptr     */
+#define INT(f)      (static_cast<int>(floor((f)+0.5))) /**< float to int   */
+#define I2D(i)      (static_cast<DU>(i))               /**< int to float   */
+#define SCALAR(v)   ((DU2X(v) &= ~T4_OBJ_FLAG), (v))   /**< clear obj flag */
 #if     T4_ENABLE_OBJ
-#define IS_OBJ(v)   (DU2X(v) & T4_OBJ_FLAG)          /**< if is an obj   */
+#define IS_OBJ(v)   (DU2X(v) & T4_OBJ_FLAG)            /**< if is an obj   */
 #else  // T4_ENABLE_OBJ
 #define IS_OBJ(v)   (0)
 #endif // T4_ENABLE_OBJ
