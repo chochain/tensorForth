@@ -7,7 +7,7 @@
 #include <cstdio>        // printf
 #include <iostream>      // cin, cout
 #include <iomanip>       // setbase, setprecision
-#include "model.h"
+#include "nn/model.h"
 #include "aio.h"
 ///
 /// AIO takes managed memory blocks as input and output buffers

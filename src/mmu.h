@@ -10,7 +10,6 @@
 #include "vector.h"
 #include "tensor.h"
 #include "tlsf.h"
-#include "dataset.h"
 ///
 /// CUDA functor (device only) implementation
 /// Note: nvstd::function is too heavy (at sizeof(Code)=56-byte)
@@ -90,6 +89,7 @@ typedef enum {
 /// TODO: compare TLSF to RMM (Rapids Memory Manager)
 ///
 struct Model;
+struct Dataset;
 class MMU : public Managed {
     IU             _mutex = 0;      ///< lock (first so address aligned)
     IU             _didx  = 0;      ///< dictionary index
