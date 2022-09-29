@@ -83,8 +83,8 @@ int Mnist::_preview(U8 *img, int lbl) {
     for (int i = 0; i < H; i++) {
         printf("\n|");
         for (int j = 0; j < W; j++, img++) {
-            char c = map[*img / 26];
-            printf("%c%c", c, c);            // double width
+            char c  = map[*img / 26], c1 = map[*(img+1) / 26];
+            printf("%c%c", c, c1);                 // double width
         }
     }
     printf(" label=%d\n", lbl);
