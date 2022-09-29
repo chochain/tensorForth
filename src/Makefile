@@ -4,7 +4,6 @@
 # Add inputs and outputs from these tool invocations to the build variables
 T4_SRCS := \
 	./src/util.cu \
-	./src/aio.cu \
 	./src/tlsf.cu \
 	./src/tensor.cu \
 	./src/mmu.cu 
@@ -15,12 +14,9 @@ T4_INCS := \
     src/util.h \
 	src/t4base.h \
     src/vector.h \
-	src/istream.h \
-	src/ostream.h \
 	src/tlsf.h \
 	src/tensor.h \
-	src/mmu.h \
-	src/aio.h
+	src/mmu.h
 
 VM_SRCS := \
 	./src/vm.cu \
@@ -36,6 +32,7 @@ VM_OBJS := $(VM_SRCS:%.cu=%.o)
 
 OBJS += $(T4_OBJS) $(VM_OBJS)
 
+-include src/io/Makefile
 -include src/ldr/Makefile
 -include src/vu/Makefile
 -include src/nn/Makefile
@@ -51,9 +48,9 @@ src-vm: $(VM_OBJS) src-t4 $(VM_INCS)
 # Each subdirectory must supply rules for building sources it contributes
 src/%.o: src/%.cu
 	@echo '<Source><Action>Compile</Action><Filename>$<</Filename><Status>'
-	-$(NV_CC) -o "$@" "$<" --keep-dir $(APP_HOME)/src || echo 'FAILED'
+	-$(NV_CC) -o "$@" "$<" --keep-dir $(APP_HOME)/src || $(NV_ERR)
 	@echo '</Source>'
 	@echo ' '
 
-clean-src: clean-src-ldr clean-src-vu clean-src-nn
+clean-src: clean-src-io clean-src-ldr clean-src-vu clean-src-nn
 	-$(RM) $(OBJS)
