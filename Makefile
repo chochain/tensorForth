@@ -70,15 +70,15 @@ OPTIONAL_TOOL_DEPS := \
 .PHONY: all tests clean
 
 # All Target
-all: $(APP_NAME)
+all: src $(APP_NAME)
 
 tests: test
 
 # Tool invocations
 $(APP_NAME): $(OBJS) $(USER_OBJS) $(OPTIONAL_TOOL_DEPS)
-	@echo '<App><Action>Link</Action><Filename>$<</Filename>'
-	-$(NV_LNK) -o "$(APP_TGT)" $^
-	@echo '<Status>Finished</Status></App>'
+	@echo '<App><Action>Link</Action><Filename>$<</Filename><Status>'
+	-$(NV_LNK) -o "$(APP_TGT)" $^ || echo 'FAILED'
+	@echo '</Status></App>'
 	@echo ' '
 
 clean: clean-src clean-tst
