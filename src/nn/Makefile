@@ -23,7 +23,7 @@ src-nn: $(NN_OBJS) $(NN_INCS)
 # Each subdirectory must supply rules for building sources it contributes
 src/nn/%.o: src/nn/%.cu
 	@echo '<Source><Action>Compile</Action><Filename>$<</Filename><Status>'
-	-$(NV_CC) -o "$@" "$<" --keep-dir $(APP_HOME)/src || echo 'FAILED'
+	-$(NV_CC) -o "$@" "$<" --keep-dir $(APP_HOME)/src || $(NV_ERR)
 	@echo '</Source>'
 	@echo ' '
 
