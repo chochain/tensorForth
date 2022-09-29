@@ -145,7 +145,22 @@ Model::_fstep(Tensor &in, Tensor &out) {
     int  H0 = out.H(), W0 = out.W(), C0 = out.C();   ///< output HWC
     dim3 blk(T4_WARP_SZ, T4_WARP_SZ, 1);
     dim3 grd(TGRID(W0, H0, C0, blk));
-    
+
+    auto view = [](DU *v, int H, int W, int C) {
+        static const char *map = " .:-=+*#%@";
+        for (int k = 0; k < C; k++) {
+            printf("\nC=%d ---", k);
+            for (int i = 0; i < H; i++) {
+                printf("\n");
+                for (int j = 0; j < W; j++) {
+                    DU x   = v[k + (j + i * W) * C];
+                    char c = map[(int)(x * 10.0f)];
+                    printf("%c%c", c, c);                // double width
+                }
+            }
+        }
+        printf("\n");
+    };
     auto dump = [](DU *v, int H, int W, int C) {
         for (int k = 0; k < C; k++) {
             printf("\nC=%d ---", k);
@@ -192,6 +207,7 @@ Model::_fstep(Tensor &in, Tensor &out) {
     t4_layer fn = in.grad_fn;                 ///< layer function
     switch(fn) {
     case L_CONV:   {
+        view(in.data, in.H(), in.W(), in.C());
         Tensor &f = *in.grad[0];              ///< filter tensor
         Tensor &b = *in.grad[1];              ///< bias tensor
         U16 Nf = f.N(), Hf = f.H(), Wf = f.W(), Cf = f.C();
@@ -200,6 +216,7 @@ Model::_fstep(Tensor &in, Tensor &out) {
         if (conv(in.C(), Hf, f.data, b.data)) {
             ERROR("model_fwd#conv kernel_size=%d not supported\n", Hf);
         }
+        view(out.data, H0, W0, C0);
     } break;
     case L_LINEAR: {                          ///< out = w @ in + b
         Tensor &w = *in.grad[0];              ///< weight tensor
