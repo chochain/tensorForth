@@ -82,45 +82,47 @@ AIO::_print_obj(DU v) {
     T4Base &b = _mmu->du2obj(v);
     switch (b.ttype) {
     case T4_VIEW:
-    case T4_TENSOR: _print_tensor(v);
-    case T4_MODEL:  _print_model(v);
+    case T4_TENSOR:
+    case T4_DATASET: _print_tensor(v); break;
+    case T4_MODEL:   _print_model(v);  break;
     }
 }
 __HOST__ void
-AIO::_print_vec(DU *d, int mi, int ri, int ci) {
-    cout << "{";
-    for (int i=0; i<ri; i++) {
-        DU *dx = &d[i * ci];
-        for (int c=0; c < ci; c++) {
-            cout << (c>0 ? "_" : " ") << *dx++;
+AIO::_print_vec(DU *d, int mj, int rj, int c) {
+    cout << setprecision(_prec) << "{";                 /// set precision
+    for (int j=0; j<rj; j++) {
+        DU *dx = &d[j * c];
+        for (int k=0; k < c; k++) {
+            cout << (k>0 ? "_" : " ") << *dx++;
         }
     }
-    int x = mi - ri;
-    if (x > ri) cout << " ...";
-    for (int i=(x > ri ? x : ri); i<mi; i++) {
-        DU *dx = &d[i * ci];
-        for (int c=0; c < ci; c++) {
-            cout << (c>0 ? "_" : " ") << *dx++;
+    int x = mj - rj;
+    if (x > rj) cout << " ...";
+    for (int j=(x > rj ? x : rj); j<mj; j++) {
+        DU *dx = &d[j * c];
+        for (int k=0; k < c; k++) {
+            cout << (k>0 ? "_" : " ") << *dx++;
         }
     }
     cout << " }";
 }
 __HOST__ void
-AIO::_print_mat(DU *d, int mi, int mj, int ri, int rj, int ci) {
+AIO::_print_mat(DU *d, int mi, int mj, int ri, int rj, int c) {
+    cout.flags(ios::showpos | ios::right | ios::fixed); /// enforce +- sign
     bool full = (mi * mj) <= _thres;
-    int  xi   = full ? mi : ri;
+    int  x    = full ? mj : rj;
     DU   *d0  = d;
-    for (int j=0, j1=1; j<rj; j++, j1++, d0+=(mi * ci)) {
-        _print_vec(d0, mi, xi, ci);
-        cout << (j1==mj ? "" : "\n\t");
+    for (int i=0, i1=1; i<ri; i++, i1++, d0+=(mj * c)) {
+        _print_vec(d0, mj, x, c);
+        cout << (i1==mi ? "" : "\n\t");
     }
-    int y = full ? rj : mj - rj;
-    if (y > rj) cout << "...\n\t";
-    else y = rj;
-    DU *d1 = (d + y * mi * ci);
-    for (int j=y, j1=j+1; j<mj; j++, j1++, d1+=(mi * ci)) {
-        _print_vec(d1, mi, xi, ci);
-        cout << (j1==mj ? "" : "\n\t");
+    int y = full ? ri : mi - ri;
+    if (y > ri) cout << "...\n\t";
+    else y = ri;
+    DU *d1 = (d + y * mj * c);
+    for (int i=y, i1=i+1; i<mi; i++, i1++, d1+=(mj * c)) {
+        _print_vec(d1, mj, x, c);
+        cout << (i1==mi ? "" : "\n\t");
     }
 }
 __HOST__ void
@@ -132,8 +134,7 @@ AIO::_print_tensor(DU v) {
     WARN("aio#print_tensor::T[%x]=%p data=%p\n", DU2X(v), &t, d);
 
     ios::fmtflags fmt0 = cout.flags();
-    cout.flags(ios::showpos | ios::right | ios::fixed);
-    cout << setprecision(_prec);
+    cout << setprecision(-1);               /// * standard format
     switch (t.rank) {
     case 1: {
         cout << "vector[" << t.numel << "] = ";
@@ -141,17 +142,18 @@ AIO::_print_tensor(DU v) {
         _print_vec(d, t.numel, ri, 1);
     } break;
     case 2: {
-        cout << "matrix[" << t.H() << "," << t.W() << "] = {\n\t";
-        int mj = t.H(), mi = t.W(), rj = range(mj),  ri = range(mi);
+        int mi = t.H(), mj = t.W(), ri = range(mi),  rj = range(mj);
+        cout << "matrix[" << mi << "," << mj << "] = {\n\t";
         _print_mat(d, mi, mj, ri, rj, 1);
         cout << " }";
     } break;
     case 4: {
+        int n  = t.N(), mi = t.H(), mj = t.W(), mc = t.C();
+        int ri = range(mi), rj = range(mj);
         cout << "tensor["
-             << t.N() << "," << t.H() << "," << t.W() << "," << t.C()
+             << n << "," << mi << "," << mj << "," << mc
              << "] = {\n\t";
-        int mj = t.H(), mi = t.W(), rj = range(mj),  ri = range(mi);
-        _print_mat(d, mi, mj, ri, rj, t.C());
+        _print_mat(d, mi, mj, ri, rj, mc);
         cout << " }";
     } break;
     case 5: {
