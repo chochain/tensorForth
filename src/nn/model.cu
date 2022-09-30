@@ -73,6 +73,43 @@ Model::loss(t4_loss op, Tensor &tgt) {
     return err;
 }
 ///
+/// debug dumps
+///
+__GPU__ void
+Model::view(DU *v, int H, int W, int C) {
+//  static const char *map = " .'`^\",:;Il!i><~+_-?][}{1)(|/tfjrxnuvczXYUJCLQ0OZmwqpdbkhao*#MW&8%B@$";   // 69 shades
+    static const char *map = " .:-=+*#%@";
+    static const DU   X    = 10.0f;
+    for (int k = 0; k < C; k++) {
+        printf("\nC=%d ---", k);
+        for (int i = 0; i < H; i++) {
+            printf("\n");
+            for (int j = 0; j < W; j++) {
+                DU   x0 = (v[k + ((j>0 ? j-1 : j) + i * W) * C]) * X;
+                DU   x1 = (x0 + v[k + (j + i * W) * C] * X) * 0.5;
+                char c0 = map[x0 < X ? (x0 >= DU0 ? (int)x0 : 0) : 9];
+                char c1 = map[x1 < X ? (x1 >= DU0 ? (int)x1 : 0) : 9];
+                printf("%c%c", c0, c1);                // double width
+            }
+        }
+    }
+    printf("\n");
+}
+__GPU__ void
+Model::dump(DU *v, int H, int W, int C) {
+    for (int k = 0; k < C; k++) {
+        printf("\nC=%d ---", k);
+        for (int i = 0; i < H; i++) {
+            printf("\n");
+            for (int j = 0; j < W; j++) {
+                DU x = v[k + (j + i * W) * C];
+                printf("%5.2f", x);
+            }
+        }
+    }
+    printf("\n");
+}
+///
 /// Convolution and Linear ops
 ///
 __GPU__ void
