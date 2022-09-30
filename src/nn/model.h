@@ -71,6 +71,7 @@ public:
     ///
     __GPU__ void   view(DU *v, int H, int W, int C);
     __GPU__ void   dump(DU *v, int H, int W, int C);
+    __GPU__ void   dump_dbdf(DU *df, DU *db, int C0, int C1, int fsz);
 
 private:
     /// @name single step forward and backprop
