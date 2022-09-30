@@ -66,6 +66,11 @@ public:
     __GPU__ Model  &forward(Tensor &input);
     __GPU__ Model  &backprop(Tensor &tgt);
     __GPU__ DU     loss(t4_loss op, Tensor &tgt);
+    ///
+    /// debug dump
+    ///
+    __GPU__ void   view(DU *v, int H, int W, int C);
+    __GPU__ void   dump(DU *v, int H, int W, int C);
 
 private:
     /// @name single step forward and backprop
