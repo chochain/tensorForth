@@ -5,7 +5,8 @@
 NN_SRCS := \
 	src/nn/model.cu \
 	src/nn/forward.cu \
-	src/nn/backprop.cu
+	src/nn/backprop.cu \
+	src/nn/loss.cu
 
 NN_INCS := \
 	src/nn/model.h \
