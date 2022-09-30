@@ -1,25 +1,21 @@
 .( ## MNIST convolution tests ## ) cr
-1 28 28 1 tensor                  \ create tensor as input
->n
-
-.( ### inverse a matrix with GaussJordan ) cr
-1 autograd                        \ turn on autograd
+1 28 28 1 nn.model                \ create a model with NHWC tensor input
+network                           \ display it
 
 .( #### define seq1 ) cr
-0.5 10 conv2d                     \ 2d convolution with bias=0.5, 10 output channel
+0.5 2 conv2d                      \ 2d convolution with bias=0.5, 10 output channel
 2 maxpool                         \ 2x2 downsampling
 relu                              \ ReLU activation
 
 .( #### define seq2 ) cr
-0.5 20 conv2d                     \ second 2d convolution
+0.5 2 conv2d                      \ second 2d convolution
 0.5 dropout                       \ drop out 50% of channels
 2 maxpool                         \ 2x2 downsampling
 relu                              \ ReLU activation
 
 .( #### define lin1 ) cr
-flatten                           \ flatten for dense layer
-relu                              \ ReLU activation             
-0.0 50 linear                     \ linearize to 20 output with no bias
+flatten                           \ flatten for dense layer (no need)
+0.0 49 linear                     \ linearize to 50 output with no bias
 
 .( #### define lin2 ) cr
 0.5 dropout                       \ another 50% drop out
@@ -28,5 +24,23 @@ softmax                           \ translate to probability
 
 network                           \ display network model
 
-bye
+.( #### save model as a constant ) cr
+constant mnist                    \ save model as a constant
+mnist                             \ retrieve model
+network                           \ display the model
 
+.( #### model feed foward ) cr
+1 28 28 1 tensor ones 0.5 *=      \ create input image (random)
+forward                           \ execute forward pass
+
+.( #### fetch last layer i.e. output ) cr
+-1 n@ .                           \ fetch forward result from model
+
+.( #### calculate loss ) cr
+10 vector{ 0 0 1 0 0 0 0 0 0 0 }  \ expected (one-hot, labeled)
+loss.ce .                         \ calculate network loss
+
+.( #### model back propagation ) cr
+backprop
+
+bye
