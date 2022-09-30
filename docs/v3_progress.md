@@ -15,6 +15,7 @@ A Forth word can be seen as a nested function that process data flow, i.e. y = f
     + backprop
     + gradiant: sgd, adam
   * add OpenGL viewer (for dataset)
+  * models load/save - VM pause/resume
 
 ### CNN Application Example
 <pre>

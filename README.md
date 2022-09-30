@@ -31,7 +31,7 @@ Since GPUs have good compiler support nowadays and I've ported the latest [*eFor
 
 The codebase will be in C for my own understanding of the multi-trip data flows. In the future, the class/methods implementation can come back to Forth in the form of loadable blocks so maintainability and extensibility can be utilized as other self-hosting systems. It would be amusing to find someone brave enough to work the assembly (i.e. CUDA SASS) into a Forth that resides on GPU micro-cores in the fashion of [*GreenArray*](https://www.greenarraychips.com/), or to forge an FPGA doing similar kind of things.
 
-In the end, languages don't really matter. It's the problem they solve. Having an interactive Forth in GPU does not mean a lot by itself. However by adding vector, matrix, linear algebra support with a breath of **APL**'s massively parallel from GPUs, and tensor ops with backprop, following the path from Numpy to PyTorch, into the cleanness of **Forth**, it can be useful one day, hopefully! 
+In the end, languages don't really matter. It's the problem they solve. Having an interactive Forth in GPU does not mean a lot by itself. However by adding vector, matrix, linear algebra support with a breath of **APL**'s massively parallel from GPUs. Neural Network tensor ops with backprop following the path from Numpy to PyTorch, plus the cleanness of **Forth**, it can be useful one day, hopefully! 
 
 ### Small Example
 <pre>
@@ -107,9 +107,9 @@ Note:
 * type 'make all',
 * if all goes well, some warnings aside, cd to tests directory,
 * enter the following<br/>
-  ~/tests> 'ten4 < lesson_1.txt' for Forth syntax check,<br/>
-  ~/tests> 'ten4 < lesson_2.txt' for matrix ops,<br/>
-  ~/tests> 'ten4 < lesson_3.txt' for linear algebra stuffs
+  ~/tests> ten4 < lesson_1.txt for Forth syntax check,<br/>
+  ~/tests> ten4 < lesson_2.txt for matrix ops,<br/>
+  ~/tests> ten4 < lesson_3.txt for linear algebra stuffs
 
 #### with Eclipse
 * install Eclipse
@@ -235,7 +235,6 @@ Note:
 </pre>
 
 ### TODO
-* models load/save - (VGG-19, ResNet (i.e. skip-connect), compare to Keras)
 * benchmark (MNIST, CIFAR, Kaggle...)
 * sampling and distribution
 * refactor - add namespace, warp-level collectives (study libcu++, MordenGPU for kernel)
@@ -251,6 +250,7 @@ Note:
 * integrate ONNX
 * integrate CUB, CUTLASS (utilities.init, gemm_api) - slow, later
 * preprocessor (DALI) + GPUDirect - heavy, later
+* common models (VGG-19, ResNet (i.e. skip-connect), compare to Keras)
 
 ## History
 ### [Release 1.0](./docs/v1_progress.md) features
