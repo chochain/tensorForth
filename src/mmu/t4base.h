@@ -53,6 +53,14 @@ struct T4Base : public Managed {
         if (!data) return;
         MM_FREE((void*)data);
     }
+    __BOTH__ __INLINE__ void init(U32 n, U8 tt, U8 rnk) {
+        numel = n;
+        ttype = tt;
+        dsize = DSIZE;
+        rank  = rnk;
+        nref  = 1;
+        parm  = 0;
+    }
     __BOTH__ __INLINE__ int  ref_inc() {
         int r = ++nref;
         printf("nref=%d\n", r);
