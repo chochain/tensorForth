@@ -181,14 +181,13 @@ public:
     ///
     __BOTH__ T4Base &du2obj(DU d);
     __BOTH__ DU     obj2du(T4Base &t);
+    __BOTH__ int    ref_inc(DU d);
+    __BOTH__ int    ref_dec(DU d);
     
+    __GPU__  DU     dup(DU d);
+    __GPU__  DU     view(DU d);
+    __GPU__  DU     copy(DU d);
     __GPU__  void   drop(DU d);
-    __GPU__  __INLINE__ DU   dup(DU d)  {                  /// TODO: model
-        return IS_OBJ(d) ? obj2du(view((Tensor&)du2obj(d))) : d;
-    }
-    __GPU__  __INLINE__ DU   copy(DU d) {                  /// TODO: model
-        return IS_OBJ(d) ? obj2du(copy((Tensor&)du2obj(d))) : d;
-    }
     __GPU__  DU     rand(DU d, t4_rand_opt n);             ///< randomize a tensor
 #endif // T4_ENABLE_OBJ
     ///

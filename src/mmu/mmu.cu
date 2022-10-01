@@ -129,7 +129,9 @@ MMU::colon(const char *name) {
 __GPU__ void
 MMU::mark_free(DU v) {            ///< mark a tensor free for release
     T4Base &t = du2obj(v);
-    TRACE1("mark T[%x] as free[%d]\n", DU2X(v), _fidx);
+    if (t.ref_dec()) return;
+    
+    TRACE1("mmu#mark T=%x to free[%d]\n", DU2X(v), _fidx);
 //    lock();
     if (_fidx < T4_TFREE_SZ) _mark[_fidx++] = v;
     else ERROR("ERR: tfree store full, increase T4_TFREE_SZ!");
@@ -140,7 +142,7 @@ MMU::sweep() {
 //    lock();
     for (int i = 0; _fidx && i < _fidx; i++) {
         DU v = _mark[i];
-        TRACE1("release T[%x] from free[%d]\n", DU2X(v), i);
+        TRACE1("mmu#release T=%x from free[%d]\n", DU2X(v), i);
         drop(v);
     }
     _fidx = 0;
@@ -197,6 +199,7 @@ MMU::dataset(U16 batch_sz) {
     Dataset *ds = (Dataset*)_ostore.malloc(sizeof(Dataset));
     ds->rank     = 4;
     ds->ttype    = T4_DATASET;
+    ds->nref     = 1;
     ds->shape[3] = batch_sz;       /// * other members filled in host mode
     ds->batch_id = -1;             /// * setup control flag
     _ostore.status(_trace);
@@ -211,6 +214,7 @@ MMU::view(Tensor &t0) {
     ///
     memcpy(t, &t0, sizeof(Tensor));
     t->ttype = T4_VIEW;
+    t->nref  = 1;
 
     TRACE1("mmu#view => V%d numel=%d", t->rank, t->numel);
     _ostore.status(_trace);
@@ -233,6 +237,8 @@ MMU::resize(Tensor &t, U32 sz) {
 }
 __GPU__ void                     ///< release tensor memory blocks
 MMU::free(Tensor &t) {
+    if (t.ref_dec()) return;
+    
     TRACE1("mmu#free(T%d) numel=%d", t.rank, t.numel);
     if (!t.is_view()) {          /// * skip view
         _ostore.free(t.data);    /// * free physical data
@@ -249,6 +255,8 @@ MMU::free(Tensor &t) {
 }
 __GPU__ void                     ///< release tensor memory blocks
 MMU::free(Model &m) {
+    if (m.ref_dec()) return;
+
     TRACE1("mmu#free(N%d) [\n", m.numel);
     for (int i = m.numel-1; i >= 0; i--) {
         TRACE1("\t"); free(m[i]);
@@ -267,7 +275,7 @@ MMU::copy(Tensor &t0) {
 
     Tensor *t1  = (Tensor*)_ostore.malloc(sizeof(Tensor));
     memcpy(t1, &t0, sizeof(Tensor));   /// * copy attributes
-    t1->ttype = T4_TENSOR;             /// * physical copy, not a view
+    t1->nref = 1;                      /// * physical copy, not a view
     ///
     /// hard copy data block
     ///
@@ -307,12 +315,23 @@ MMU::obj2du(T4Base &t) {
     U32 o = ((U32)((U8*)&t - _obj)) | T4_OBJ_FLAG;
     return *(DU*)&o;
 }
+__BOTH__ int
+MMU::ref_inc(DU d) { return du2obj(d).ref_inc(); }
+__BOTH__ int
+MMU::ref_dec(DU d) { return du2obj(d).ref_dec(); }
+
+__GPU__  DU
+MMU::dup(DU d)  { if (IS_OBJ(d)) ref_inc(d); return d; }
+__GPU__  DU
+MMU::view(DU d) { return IS_OBJ(d) ? obj2du(view((Tensor&)du2obj(d))) : d; }
+__GPU__ DU
+MMU::copy(DU d) { return IS_OBJ(d) ? obj2du(copy((Tensor&)du2obj(d))) : d; }
 __GPU__  void
 MMU::drop(DU d) {
-    if (!IS_OBJ(d)) return;
-    T4Base &t = du2obj(d);
-    bool m = t.is_model();
-    if (t.is_model()) free((Model&)t);
+    if (!IS_OBJ(d)) return;                   /// non-object, just drop
+    
+    T4Base &t = du2obj(d);                    /// check reference count
+    if (t.is_model()) free((Model&)t);        /// release TLSF memory block
     else              free((Tensor&)t);
 }
 ///
