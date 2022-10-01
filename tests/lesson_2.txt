@@ -43,16 +43,16 @@ cr .( ## linear algebra - destructive ## ) cr
 2dup                         \ create 2 views (for next op)
 += .                         \ add matrices (destructive) and print
 
-.( ### matrix subtraction )
+cr .( ### matrix subtraction ) cr
 -= .                         \ subtract matrices (destructive) and print
 drop
 
-cr .( ### matrix multiplication )
+cr .( ### matrix multiplication ) cr
 2 3 matrix{ 1 2 3 0 4 5 }    \ create a 2x3 matrix
 3 2 matrix ones              \ create a 3x2 matrix filled with 1s
 @= dup .                     \ multiply (destructive) and print
 
-cr .( ### matrix element-wise multiplication )
+cr .( ### matrix element-wise multiplication ) cr
 2 2 matrix ones              \ create a matrix filled with 1s
 0.5 *=                       \ matrix-scalar multiply (scale up)
 *=                           \ matrix-matrix multiply (Hadamard)
