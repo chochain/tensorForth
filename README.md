@@ -134,27 +134,29 @@ Note:
    tensor    (n h w c -- T4)     - create a 4-D NHWC tensor on TOS
    vector{   (n       -- T1)     - create 1-D array from console stream
    matrix{   (h w     -- T2)     - create a 2-D matrix from console stream
+   view      (Ta      -- Ta Va)  - create a view (shallow copy) of a tensor
    copy      (Ta      -- Ta Ta') - duplicate (deep copy) a tensor on TOS
 </pre>
 
-### View creation
+### duplication ops (reference creation)
 <pre>
-   dup       (Ta    -- Ta Va)    - create a view of a tensor on TOS
-   over      (Ta Tb -- Ta Tb Va) - create a view from 2nd item on stack
-   2dup      (Ta Tb -- Ta Tb Va Vb)
-   2over     (Ta Tb Tc Td -- Ta Tb Tc Td Va Vb)
+   dup       (Ta    -- Ta Ta)    - create a reference of a tensor on TOS
+   over      (Ta Tb -- Ta Tb Ta) - create a reference of the 2nd item (NOS)
+   2dup      (Ta Tb -- Ta Tb Ta Tb)
+   2over     (Ta Tb Tc Td -- Ta Tb Tc Td Ta Tb)
 </pre>
 
 ### Tensor/View print
 <pre>
    . (dot)   (Ta -- )        - print a vector, matrix, or tensor
-   . (dot)   (Va -- )        - print a view (of vector, matrix, or tensor)
+   . (dot)   (Va -- )        - print a view of a tensor
 </pre>
-### Shape adjustment (change shape of origial tensor)
+
+### Shape adjustment (change shape of origial tensor or view)
 <pre>
-   flatten   (Ta -- T1a')    - reshap a tensor to 1-D array
-   reshape2  (Ta -- T2a')    - reshape a 2-D matrix
-   reshape4  (Ta -- T4a')    - reshape to a 4-D NHWC tensor
+   flatten   (Ta -- T1a')    - reshap a tensor or view to 1-D array
+   reshape2  (Ta -- T2a')    - reshape to a 2-D matrix view
+   reshape4  (Ta -- T4a')    - reshape to a 4-D NHWC tensor or view
 </pre>
 
 ### Fill tensor with init values (data updated to original tensor)

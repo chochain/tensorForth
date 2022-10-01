@@ -109,6 +109,8 @@ tensorForth 2.0 done.
 ||> `5`**`vector{`**`1 2 3 4 5 }`|`T1[5]`|
 |matrix{|(h w -- T2)|create a 2-D matrix as TOS|
 ||> `2 3`**`matrix{`**`1 2 3 4 5 6 }`<br/>> `3 2`**`matrix{`**`{ 1 2 } { 3 4 } { 5 6 } }`|`T2[2,3]`</br>`T2[2,3] T2[3,2]`|
+|view|(Ta -- Ta Va)|create a view (shallow copy) of a tensor on TOS|
+||> `2 3 matrix`<br/>> **`view`**|`T2[2,3]`<br/>`T2[2,3] V2[2,3]`|
 |copy|(Ta -- Ta Ta')|duplicate (deep copy) a tensor on TOS|
 ||> `2 3 matrix`<br/>> **`copy`**|`T2[2,3]`<br/>`T2[2,3] T2[2,3]`|
 
@@ -130,15 +132,17 @@ tensorForth 2.0 done.
 ||> `5 vector{ 1 2 3 4 5 }`<br/>> **`.`**|`T1[5]`<br/>`vector[5] = { +1.0000 +2.0000 +3.0000 +4.0000 +5.0000 }`|
 |. (dot)|(T2 -- )|print matrix|
 ||> `2 3 matrix{ 1 2 3 4 5 6 }`<br/>> **`.`**|`T2[2,3]`<br/>`matrix[2,3] = { { +1.0000 +2.0000 +3.0000 } { +4.0000 +5.0000 +6.0000 } }`|
+|. (dot)|(V2 -- )|print a view|
+||> `2 3 matrix{ 1 2 3 4 5 6 }`<br/>> view<br/>> **`.`**|`T2[2,3]`<br/>`T2[2,3] V2[2,3]`<br/>`matrix[2,3] = { { +1.0000 +2.0000 +3.0000 } { +4.0000 +5.0000 +6.0000 } }`|
 
 ### Shape adjustment ops
 |word|param/example|Shape adjusting ops|
 |---|---|---|
-|flatten|(Ta -- Ta')|reshap a tensor to 1-D array|
+|flatten|(Ta -- Ta')|reshap a tensor or view to 1-D array|
 ||> `2 3 matrix{ 1 2 3 4 5 6 }`<br/>> **`flatten`**<br/>> `.`|`T2[2,3]`</br>`T1[6]`<br/>`vector[6] = { +1.0000 +2.0000 +3.0000 +4.0000 +5.0000 +6.0000 }`|
-|reshape2|(h w Ta -- Ta')|reshape a 2-D matrix|
+|reshape2|(h w Ta -- Ta')|reshape to a 2-D matrix/view|
 ||> `2 3 matrix{ 1 2 3 4 5 6 }`<br/>> `dup .`<br/>> `3 2`**`reshape2`**</br>> `dup .`|`T2[2,3]`<br/>`matrix[2,3] = { { +1.0000 +2.0000 +3.0000 } { +4.0000 +5.0000 +6.0000 } }`<br/>`T2[3,2]`<br/>`matrix[3,2] = { { +1.0000 +2.0000 } { +3.0000 +4.0000 } { +5.0000 +6.0000 } }`|
-|reshape4|(n h w c Ta -- Ta')|reshape to a 4-D NHWC tensor|
+|reshape4|(n h w c Ta -- Ta')|reshape to a 4-D NHWC tensor or view|
 ||> `2 3 matrix{ 1 2 3 4 5 6 }`<br/>> `1 3 2 1`**`reshape4`**|`T2[2,3]`<br/>`T4[1,3,2,1]`|
 
 ### Tensor Fill ops
