@@ -12,11 +12,12 @@
 ///
 __GPU__ void
 TensorVM::tprint() {
-    if (TOS1T) {                            /// handle tensor
-        DU d = POP(); fout << d; mmu.mark_free(d);
+    if (TOS1T) {                             /// * handle objects
+        DU d = POP(); fout << d;
+        mmu.mark_free(d);
     }
-    else if (IS_OBJ(top)) fout << top;      /// other objects
-    else fout << " " << POP();              /// eForth has a space prefix
+    else if (IS_OBJ(top)) fout << top;       /// * view, model, dataset
+    else fout << " " << POP();               /// * eForth has a space prefix
 }
 ///
 /// Tensor-self ops
@@ -283,6 +284,7 @@ TensorVM::init() {
         IU w = POPi; IU h = POPi;
         PUSH(mmu.tensor(h, w));
         ten_off = 0; ten_lvl = 1),
+    CODE("view",   PUSH(mmu.view(top))), ///< create a view of a tensor
     CODE("copy",   PUSH(mmu.copy(top))), ///< create a hardcopy of a tensor
     ///@}
     ///@defgroup Tensor shape ops
@@ -362,26 +364,36 @@ TensorVM::init() {
     const Code ext[] = {                  ///< extended (overload) words
     ///@defgroup redefined tensor ops
     ///@{
-    CODE("abs",      xop1(O_ABS)),
-    CODE(".",        tprint()),
-    CODE("+",        xop2(O_ADD, KEEP)),
-    CODE("-",        xop2(O_SUB, KEEP)),
-    CODE("*",        xop2(O_MUL, KEEP)),
-    CODE("/",        xop2(O_DIV, KEEP)),
+    CODE("dolit",
+        DU v = mmu.rd(IP); IP += sizeof(DU);
+        if (IS_OBJ(v)) mmu.ref_inc(v);
+        PUSH(v)),
+    CODE("abs", xop1(O_ABS)),
+    CODE(".",   tprint()),
+    CODE("+",   xop2(O_ADD, KEEP)),
+    CODE("-",   xop2(O_SUB, KEEP)),
+    CODE("*",   xop2(O_MUL, KEEP)),
+    CODE("/",   xop2(O_DIV, KEEP)),
     CODE("@",
-         if (IS_OBJ(top)) xop2(O_DOT, KEEP);
-         else {
-             IU w = POPi; PUSH(mmu.rd((IU)w));
-         }),
-    CODE("max", 
-         if (IS_OBJ(top)) PUSH(TTOS.max());
-         else { DU n=ss.pop(); top = (top>n) ? top : n; }),
+        if (IS_OBJ(top)) xop2(O_DOT, KEEP);   ///< matrix @ product
+        else {
+            DU v = mmu.rd(POPi);
+            if (IS_OBJ(v)) mmu.ref_inc(v);
+            PUSH(v);
+        }),
+    CODE("+!",
+        IU w = POPi; DU v = mmu.rd(w);
+        if (IS_OBJ(v)) NA("obj +!");
+        else mmu.wd(w, v + POP())),
+    CODE("max",
+        if (IS_OBJ(top)) PUSH(TTOS.max());
+        else { DU n=ss.pop(); top = (top>n) ? top : n; }),
     CODE("min",
-         if (IS_OBJ(top)) PUSH(TTOS.min());
-         else { DU n=ss.pop(); top = (top<n) ? top : n; }),
+        if (IS_OBJ(top)) PUSH(TTOS.min());
+        else { DU n=ss.pop(); top = (top<n) ? top : n; }),
     CODE("negate",
-         if (IS_OBJ(top)) xop1(O_SCALE, -DU1);
-         else top *= -DU1),
+        if (IS_OBJ(top)) xop1(O_SCALE, -DU1);
+        else top *= -DU1),
     ///@}
     CODE("boot", mmu.clear(FIND("gemm") + 1))
     };
