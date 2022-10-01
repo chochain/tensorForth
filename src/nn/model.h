@@ -31,12 +31,9 @@ public:
     }
     __BOTH__ __INLINE__ int  slots() { return _store->numel; }
     __GPU__  __INLINE__ void reset(MMU *mmu, Tensor &store) {
+        init(0, T4_MODEL, 0);    // T4Base attributes
         _mmu   = mmu;
         _store = &store;
-        numel  = 0;
-        dsize  = DSIZE;
-        rank   = 0;
-        ttype  = T4_MODEL;
         data   = store.data;     // cached entries
         autograd = true;
         npush(store);            // keep store as root

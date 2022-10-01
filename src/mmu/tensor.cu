@@ -521,13 +521,11 @@ Tensor::tril() {
 __BOTH__ Tensor&
 Tensor::reset(void *mptr, U32 sz, t4_obj tt, t4_layer fn) {
     WARN("Tensor::reset(%p, %d)\n", mptr, sz);
+    init(sz, tt, 1);                     /// T4Base attributes
+    
     const U16 s[4] = { 1, 1, 1, 1 };
     const U16 t[4] = { (U16)sz, 1, 1, 1 };
     const DU  g[4] = { DU0, DU0, DU0, DU0 };
-    numel   = sz;
-    dsize   = DSIZE;
-    rank    = 1;
-    ttype   = tt;
     data    = (DU*)mptr;
     grad_fn = fn;
     memcpy(stride, s, sizeof(s));
