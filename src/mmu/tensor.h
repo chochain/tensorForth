@@ -1,6 +1,6 @@
 /**
  * @file
- * @brief tensorForth tensor class
+ * @brief Tensor class - ranked tensor object interface
  *
  * <pre>Copyright (C) 2022- GreenII, this file is distributed under BSD 3-Clause License.</pre>
  */

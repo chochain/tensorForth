@@ -1,6 +1,6 @@
 /** -*- c++ -*-
- * @file - ten4.cu
- * @brief - tensorForth value definitions non-optimized
+ * @file
+ * @brief TensorForth class - tensorForth main driver between CUDA and host
  *
  * <pre>Copyright (C) 2022- GreenII, this file is distributed under BSD 3-Clause License.</pre>
  *

@@ -1,6 +1,6 @@
 /**
  * @file
- * @brief tensorForth Utility functions
+ * @brief common utility functions interface
  *
  * <pre>Copyright (C) 2021- GreenII, this file is distributed under BSD 3-Clause License.</pre>
  */

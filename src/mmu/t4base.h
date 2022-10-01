@@ -1,6 +1,6 @@
 /**
  * @file
- * @brief tensorForth - base object class
+ * @brief T4Base class - device-side base object
  *
  * <pre>Copyright (C) 2022- GreenII, this file is distributed under BSD 3-Clause License.</pre>
  */

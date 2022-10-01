@@ -1,6 +1,6 @@
 /**
  * @file
- * @brief kernel input stream module.
+ * @brief Istream class - kernel input stream module
  *
  * <pre>Copyright (C) 2022- GreenII, this file is distributed under BSD 3-Clause License.</pre>
  */

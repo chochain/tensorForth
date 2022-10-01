@@ -1,6 +1,6 @@
 /** -*- c++ -*-
- * @File
- * @brief tensorForth tensor class implementation
+ * @file
+ * @brief Tensor class - ranked tensor impmementation i.e. vector, matrix, tensor, ...
  *
  * <pre>Copyright (C) 2022- GreenII, this file is distributed under BSD 3-Clause License.</pre>
  */

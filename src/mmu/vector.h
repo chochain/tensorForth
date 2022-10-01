@@ -1,6 +1,6 @@
 /**
  * @file
- * @brief tensorForth Vector class (device only ) implementation
+ * @brief Vector class - device-side vector container module
  *
  * <pre>Copyright (C) 2021 GreenII, this file is distributed under BSD 3-Clause License.</pre>
  */

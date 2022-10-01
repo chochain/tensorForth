@@ -1,6 +1,6 @@
 /** -*- c++ -*-
- * @File
- * @brief - eForth Vritual Machine implementation
+ * @file
+ * @brief ForthVM class - eForth Vritual Machine implementation
  *
  * <pre>Copyright (C) 2022- GreenII, this file is distributed under BSD 3-Clause License.</pre>
  */

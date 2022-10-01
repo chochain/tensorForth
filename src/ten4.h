@@ -1,6 +1,6 @@
-/*! @file
-  @brief
-  tensorForth macros and internal class definitions
+/*! 
+  @file
+  @brief TensorForth class - macros and internal class definitions
 */
 #ifndef TEN4_SRC_TEN4_H_
 #define TEN4_SRC_TEN4_H_

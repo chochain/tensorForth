@@ -1,6 +1,6 @@
 /**
  * @file
- * @brief tensorForth - NN data class (host-side interface object)
+ * @brief Ndata class - NN dataset host-side interface object 
  *
  * <pre>Copyright (C) 2022- GreenII, this file is distributed under BSD 3-Clause License.</pre>
  */

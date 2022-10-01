@@ -1,6 +1,6 @@
 /** 
  * @file
- * @brief tensorForth memory manager unit
+ * @brief MMU class - memory manager unit interface
  *
  * <pre>Copyright (C) 2022- GreenII, this file is distributed under BSD 3-Clause License.</pre>
  */

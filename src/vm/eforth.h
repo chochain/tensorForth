@@ -1,6 +1,6 @@
 /**
  * @file
- * @brief tensorForth - eForth core classes
+ * @brief ForthVM class - eForth VM classes interface
  *
  * <pre>Copyright (C) 2022- GreenII, this file is distributed under BSD 3-Clause License.</pre>
  */

@@ -1,6 +1,6 @@
 /** -*- c++ -*- 
- * @File
- * @brief - tensorForth GUI - static, OpenGL in freeglut
+ * @file
+ * @brief GUI helper - static, OpenGL in freeglut implementation
  *
  * <pre>Copyright (C) 2022- GreenII, this file is distributed under BSD 3-Clause License.</pre>
  */

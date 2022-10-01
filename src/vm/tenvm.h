@@ -1,6 +1,6 @@
 /**
  * @file
- * @brief tensorForth - TensorVM, extended ForthVM classes, to handle tensor ops
+ * @brief TensorVM class , extended ForthVM classes, tensor handler interface
  *
  * <pre>Copyright (C) 2022- GreenII, this file is distributed under BSD 3-Clause License.</pre>
  */

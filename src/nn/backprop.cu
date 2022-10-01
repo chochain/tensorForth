@@ -1,6 +1,6 @@
 /** -*- c++ -*-
- * @File
- * @brief - Neural Network Model Backward Propagation implementation
+ * @file
+ * @brief Model class - backward propagation implementation
  *
  * <pre>Copyright (C) 2022- GreenII, this file is distributed under BSD 3-Clause License.</pre>
  */

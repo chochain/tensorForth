@@ -1,6 +1,6 @@
 /** -*- c++ -*-
  * @file
- * @brief tensorForth Utilities functions
+ * @brief common utility functions implementation
  *  + Memory cpy/set/cmp
  *  + String hasher
  *

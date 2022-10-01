@@ -1,6 +1,7 @@
 /** -*- c++ -*-
  * @file
- * @brief tensorForth - Memory Manager
+ * @brief MMU class - memory manager implementation
+ *
  * <pre>Copyright (C) 2022- GreenII, this file is distributed under BSD 3-Clause License.</pre>
  */
 #include <iomanip>             // setw, setbase

@@ -1,6 +1,6 @@
 /** -*- c++ -*-
- * @File
- * @brief tensorForth tensor memory storage management.
+ * @file
+ * @brief TLSF class - tensor storage manager implementation
  *
  * <pre>Copyright (C) 2022 GreenII. This file is distributed under BSD 3-Clause License.</p>
 */

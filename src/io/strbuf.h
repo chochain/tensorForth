@@ -1,6 +1,6 @@
 /**
  * @file
- * @brief  tensorForth string buffer class
+ * @brief StrBuf class - kernel string buffer class
  *
  * <pre>Copyright (C) 2022- GreenII, this file is distributed under BSD 3-Clause License.</pre>
  */

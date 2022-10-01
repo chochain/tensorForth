@@ -1,6 +1,6 @@
 /**
  * @file
- * @brief tensorForth - NetVM, extended TensorVM classes, to handle Neural Network ops
+ * @brief NetVM class - extend TensorVM class, Neural Network VM interface
  *
  * <pre>Copyright (C) 2022- GreenII, this file is distributed under BSD 3-Clause License.</pre>
  */

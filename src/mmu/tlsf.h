@@ -1,5 +1,6 @@
-/*! @file
-  @brief - tensorForth tensor memory storage management.
+/*! 
+  @file
+  @brief TLSF class - tensor storage manager interface
 
   <pre>Copyright (C) 2019 GreenII. This file is distributed under BSD 3-Clause License.</pre>
 */

@@ -1,6 +1,6 @@
 /**
  * @file
- * @brief tensorForth - GUI helper funtions
+ * @brief GUI helper - OpenGL funtions interface
  *
  * <pre>Copyright (C) 2022- GreenII, this file is distributed under BSD 3-Clause License.</pre>
  */

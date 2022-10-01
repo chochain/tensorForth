@@ -1,6 +1,6 @@
 /** -*- c++ -*-
- * @File
- * @brief - tensorForth MNIST Dataset Provider (on host)
+ * @file
+ * @brief Mnist class - MNIST dataset provider interface
  *
  * <pre>Copyright (C) 2022- GreenII, this file is distributed under BSD 3-Clause License.</pre>
  */

@@ -1,6 +1,6 @@
 /** -*- c++ -*- 
- * @File
- * @brief - tensorForth GUI - Image Viewer base class
+ * @file
+ * @brief Vu class - CUDA Image Viewer base class implementation
  *
  * <pre>Copyright (C) 2022- GreenII, this file is distributed under BSD 3-Clause License.</pre>
  */

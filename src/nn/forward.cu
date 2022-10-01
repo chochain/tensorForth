@@ -1,6 +1,6 @@
 /** -*- c++ -*-
- * @File
- * @brief - Neural Network Model Feed Forward implementation
+ * @file
+ * @brief Model class - Neural Network feed forward implementation
  *
  * <pre>Copyright (C) 2022- GreenII, this file is distributed under BSD 3-Clause License.</pre>
  */

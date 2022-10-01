@@ -1,6 +1,6 @@
 /**
  * @file
- * @brief tensorForth Asyn IO module
+ * @brief AIO class - asyn IO module implementation
  *
  * <pre>Copyright (C) 2021 GreenII, this file is distributed under BSD 3-Clause License.</pre>
  *

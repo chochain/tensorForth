@@ -1,6 +1,6 @@
 /** -*- c++ -*-
- * @File
- * @brief - Neural Network Vritual Machine implementation
+ * @file
+ * @brief NetVM class - extend TensorVM class, Neural Network Vritual Machine implementation
  *
  * <pre>Copyright (C) 2022- GreenII, this file is distributed under BSD 3-Clause License.</pre>
  */

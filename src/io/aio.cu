@@ -1,6 +1,6 @@
 /** -*- c++ -*-
- * @File
- * @brief tensorForth Async IO module implementation
+ * @file
+ * @brief AIO class - async IO module implementation
  *
  * <pre>Copyright (C) 2021- GreenII, this file is distributed under BSD 3-Clause License.</pre>
  */

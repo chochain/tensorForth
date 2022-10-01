@@ -1,6 +1,6 @@
 /**
  * @file
- * @brief tensorForth Dataset class
+ * @brief Dataset class - host-side basic data object
  *
  * <pre>Copyright (C) 2022- GreenII, this file is distributed under BSD 3-Clause License.</pre>
  */

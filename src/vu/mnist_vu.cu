@@ -1,6 +1,6 @@
 /** -*- c++ -*-
- * @File
- * @brief - tensorForth MNIST NN Data Vu (Texture builder)
+ * @file
+ * @brief MnistVu class - MNIST NN Data Vu (Texture builder) implementation
  *
  * <pre>Copyright (C) 2022- GreenII, this file is distributed under BSD 3-Clause License.</pre>
  */
