@@ -7,24 +7,25 @@ MMU_SRCS := \
 	src/mmu/tlsf.cu \
 	src/mmu/tensor.cu \
 	src/mmu/mmu.cu
+
 MMU_INCS := \
 	src/mmu/util.h \
 	src/mmu/vector.h \
 	src/mmu/t4base.h \
 	src/mmu/tensor.h \
 	src/mmu/tlsf.h \
-	src/mmu/mmu.h
+	src/mmu/mmu.h \
+	src/mmu/model.h \
+	src/mmu/dataset.h
 
 MMU_OBJS := $(MMU_SRCS:%.cu=%.o)
 
 OBJS += $(MMU_OBJS)
 
 MMU_EXT := \
-	src/nn/model.h \
-	src/nn/dataset.h \
 	src/ldr/loader.h
 
-MMU_LIBS := -Isrc/ldr -Isrc/nn -Isrc/mmu
+MMU_LIBS := -Isrc/ldr
 
 .PHONY: src-mmu clean-src-mmu
 

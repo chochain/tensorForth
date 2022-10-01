@@ -8,17 +8,16 @@ NN_SRCS := \
 	src/nn/backprop.cu \
 	src/nn/loss.cu
 
-NN_INCS := \
-	src/nn/model.h \
-	src/nn/dataset.h
-
+NN_INCS :=
 NN_OBJS := $(NN_SRCS:%.cu=%.o)
 
 OBJS += $(NN_OBJS)
 
 NN_EXT := \
 	src/mmu/tensor.h \
-	src/mmu/mmu.h
+	src/mmu/mmu.h \
+	src/mmu/model.h \
+	src/mmu/dataset.h
 
 NN_LIBS := -Isrc/mmu
 

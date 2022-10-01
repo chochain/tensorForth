@@ -3,7 +3,7 @@
 #
 # Add inputs and outputs from these tool invocations to the build variables
 IO_SRCS := \
-	./src/io/aio.cu
+	src/io/aio.cu
 
 IO_INCS := \
 	src/io/istream.h \
@@ -17,7 +17,8 @@ IO_EXT:= \
 	src/mmu/util.h \
 	src/mmu/mmu.h \
 	src/mmu/tensor.h \
-	src/nn/model.h
+	src/mmu/model.h
+
 IO_LIBS := -Isrc/mmu -Isrc/nn
 
 OBJS += $(IO_OBJS)
