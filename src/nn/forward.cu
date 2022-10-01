@@ -122,12 +122,15 @@ Model::forward(Tensor &input) {
     /// cascade execution layer by layer forward
     /// TODO: model execution becomes a superscalar pipeline
     ///
-    for (U16 i = 1; i < numel - 1; i++) {
-        Tensor &in = (*this)[i], &out = (*this)[i + 1];
-        printf("%2d> %s Σ=%6.2f [%d,%d,%d]\tp=%d => out[%d,%d,%d]",
+    auto trace = [](int i, Tensor &in, Tensor &out) {
+        printf("%2d> %s Σ=%6.2f [%d,%d,%d]\tp=%-2d => out[%d,%d,%d]",
             i, d_nname(in.grad_fn), in.sum(),
             in.H(), in.W(), in.C(), in.parm,
             out.H(), out.W(), out.C());
+    };
+    for (U16 i = 1; i < numel - 1; i++) {
+        Tensor &in = (*this)[i], &out = (*this)[i + 1];
+        trace(i, in, out);
         _fstep(in, out);
         printf("\n");
     }
@@ -194,9 +197,8 @@ Model::_fstep(Tensor &in, Tensor &out) {
         int M = w.H(), N = w.W();             ///< fully connected dimensions
         printf(" w[%d,%d] @ in[%d] + b[%d]", M, N, in.numel, b.numel);
         linear(M, N, w.data, b.data);         ///< out = W @ in + B
-
-        if (out.numel < 20) dump(d0, 1, out.numel, 1);
         /*
+        if (out.numel < 20) dump(d0, 1, out.numel, 1);
         else {
             int k = SQRT(out.numel);
             dump(d0, k+1, k, 1);
