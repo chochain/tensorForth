@@ -197,9 +197,7 @@ __GPU__ Dataset&                   ///< create a Dataset holder
 MMU::dataset(U16 batch_sz) {
     TRACE1("mmu#dataset batch_sz=%d", batch_sz);
     Dataset *ds = (Dataset*)_ostore.malloc(sizeof(Dataset));
-    ds->rank     = 4;
-    ds->ttype    = T4_DATASET;
-    ds->nref     = 1;
+    ds->init(0, T4_DATASET, 4);
     ds->shape[3] = batch_sz;       /// * other members filled in host mode
     ds->batch_id = -1;             /// * setup control flag
     _ostore.status(_trace);
