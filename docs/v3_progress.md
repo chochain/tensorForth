@@ -19,31 +19,34 @@ A Forth word can be seen as a nested function that process data flow, i.e. y = f
 
 ### CNN Application Example
 <pre>
-: seq1 (N -- N') 0.5 10 conv2d 2 maxpool relu ;
-: seq2 (N -- N') 0.5 20 conv2d 0.5 dropout 2 maxpool relu ;
-: lin1 (N -- N') flatten 0.0 50 linear ;
-: lin2 (N -- N') 0.5 dropout 0.0 10 linear ;
-: md1  (N -- N') seq1 seq2 lin1 lin2 softmax loss.ce ;
-nn.model                               \ create a network model
-10 28 28 1 tensor >n                   \ add input tensor to model (dimensions)
-md1                                    \ feed layers to model
-constant mnist                         \ model can be stored as a constant
+10 28 28 1 nn.model                       \ create a network model (input dimensions)
+0.5 10 conv2d 2 maxpool relu              \ add a convolution block
+0.5 20 conv2d 0.5 dropout 2 maxpool relu  \ add another convolution block
+flatten 0.0 49 linear                     \ add reduction layer, and the
+0.5 dropout 0.0 10 linear softmax         \ final fully connected output
 
-dataset ds0 ." train_fpath" ." label_fpath"
-dataset ds1 ." test_fpath"  ." rst_fpath"
+constant md0                 \ we can store the model in a constant
+                             \ now, define our training and testing flows
+: my_train (N D -- N') nn.for forward loss.ce backprop 0.1 0.9 nn.sgd nn.next ;
+: my_test  (N D -- N') nn.for forward loss.mse . nn.next ;
 
-: train (N ds0 -- N') nn.for r@ forward backprop nn.next 0.1 0.9 nn.sgd ;
-: test  (N ds1 -- N') nn.for r@ forward avg predict . nn.next ;
+md0                          \ place the model on TOS
+network                      \ optionally, display our 13-layer NN model
+10 dataset mnist_train       \ create a dataset with batch_sz = 10 (from Loader repo)
+my_train                     \ start training session
+nn.save my_net               \ optinally, saving the trainned network
 
-mnist ds0 train nn.save net_1          \ training session (and save the network)
-mnist ds1 test                         \ predicting session, or
-nn.load net_1 ds1 test                 \ load trained network and test
+1 dataset mnist_test         \ create a test dataset batch_sz = 1
+constant ds1                 \ save in a constant (or just using stack is OK)
+
+md0 ds1 my_test              \ start test session directly, or
+nn.load my_net ds1 my_test   \ load from trained network and test
 </pre>
 
 ### Case Study - MNIST
 |word|forward|param|network DAG|grad_fn|param[grad]|
 |---|---|---|---|---|---|
-|    |nn.for  |(INs -- IN)        |IN                |        |                                  |
+     |nn.for  |(INs -- IN)        |IN                |        |                                  |
 |seq1|conv2d  |(IN b1 c1 -- C1)   |IN [f1 b1 df1 db1]|dconv2d |(IN [f1 b1] dC1 -- dIN [df1 db1]) |
 |    |relu    |(C1 -- R1)         |C1                |drelu   |(C1 dR1 -- dC1)                   |
 |seq2|conv2d  |(R1 b2 c2 -- C2)   |R1 [f2 b2 df2 db2]|dconv2d |(R1 [f2 b2] dC2 -- dR1 [df2 db2]) |
