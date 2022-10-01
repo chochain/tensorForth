@@ -140,13 +140,16 @@ Model::backprop(Tensor &tgt) {
     ///
     /// cascade execution layer by layer backward
     ///
-    Tensor::copy(tgt, nx);
-    for (U16 i = numel - 2; i > 0; i--) {
-        Tensor &in = (*this)[i], &out = (*this)[i + 1];
-        printf("%2d> %s [%d,%d,%d]\tp=%2d <= out'Σ=%6.2f [%d,%d,%d] ",
+    auto trace = [](int i, Tensor &in, Tensor &out) {
+        printf("%2d> %s [%d,%d,%d]\tp=%-2d <= out'Σ=%6.2f [%d,%d,%d] ",
             i, d_nname(in.grad_fn),
             in.H(), in.W(), in.C(), in.parm,
             out.sum(), out.H(), out.W(), out.C());
+    };
+    Tensor::copy(tgt, nx);
+    for (U16 i = numel - 2; i > 0; i--) {
+        Tensor &in = (*this)[i], &out = (*this)[i + 1];
+        trace(i, in, out);
         _bstep(in, out);
         printf("\n");
     }
@@ -165,41 +168,6 @@ Model::_bstep(Tensor &in, Tensor &out) {
     dim3 blk(T4_WARP_SZ, T4_WARP_SZ, 1);
     dim3 grd(TGRID(W1, H1, C1, blk));
 
-    auto dump = [](DU *v, int H, int W, int C) {
-        for (int k = 0; k < C; k++) {
-            printf("\nC=%d ---\n", k);
-            DU sum = DU0;
-            for (int i = 0; i < H; i++) {
-                DU isum = DU0;
-                for (int j = 0; j < W; j++) {
-                    DU x = v[k + (j + i * W) * C];
-                    isum += x;
-                    printf("%5.2f", x);
-                }
-                printf(" Σ=%6.3f\n", isum);
-                sum += isum;
-            }
-            printf(" ΣΣ=%6.3f\n", sum);
-        }
-    };
-    auto dump_dbdf = [C1](DU *df, DU *db, int C0, int fsz) {
-        DU sum = DU0;
-        printf("\n\tdb=");
-        for (int c0 = 0; c0 < C0; c0++) {
-            printf("%6.3f ", db[c0]);
-            sum += db[c0];
-        }
-        printf("Σ=%6.3f", sum);
-        for (int c1 = 0; c1 < C1; c1++) {
-            printf("\n\tdf[%d]=", c1);
-            sum = DU0;
-            for (int i=0; i<fsz; i++, df++) {
-                sum += *df;
-                printf("%6.3f", *df);
-            }
-            printf(" Σ=%6.3f", sum);
-        }
-    };
     auto conv = [d1, d0, H1, W1, C1, blk](int C0, int ks, DU *f, DU *df, DU *db) {
         dim3 g3((W1 + TILE3 - 1) / TILE3, (H1 + TILE3 - 1) / TILE3, C1);
         dim3 g5((W1 + TILE5 - 1) / TILE5, (H1 + TILE5 - 1) / TILE5, C1);
@@ -228,7 +196,7 @@ Model::_bstep(Tensor &in, Tensor &out) {
         if (conv(out.C(), Hf, f.data, df.data, db.data)) {
             ERROR("model_back#conv kernel_size %d not supported\n", Hf);
         }
-        dump_dbdf(df.data, db.data, out.C(), Nf * Hf * Wf * Cf);
+        dump_dbdf(df.data, db.data, out.C(), C1, Nf * Hf * Wf * Cf);
         printf("\nin[%d,%d,%d]=", H1, W1, C1); dump(d1, H1, W1, C1);
     } break;
     case L_LINEAR: {                          ///< out = w @ in + b
