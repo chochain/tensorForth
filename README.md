@@ -40,17 +40,17 @@ tensorForth 2.0
 \  GPU 0 initialized at 1800MHz, dict[1024], vmss[64*1], pmem=48K, tensor=1024M
 2 3 matrix{ 1 2 3 4 5 6 }            \ create a 2x3 matrix
  <0 T2[2,3]> ok                      \ 2-D tensor shown on top of stack (TOS)
-dup                                  \ duplicate i.e. create a view
- <0 T2[2,3] V2[2,3]> ok              \ the view sits on TOS
-.                                    \ print the view
+dup                                  \ duplicate
+ <0 T2[2,3] T2[2,3]> ok              \ two matrices now sit on stack
+.                                    \ print one
 matrix[2,3] = {
 	{ +1.0000 +2.0000 +3.0000 }
 	{ +4.0000 +5.0000 +6.0000 } }
- <0 T2[2,3]> ok                      \ view was printed, so 2x3 matrix is TOS now
+ <0 T2[2,3]> ok                      \ only one matrix now left on stack
 3 2 matrix ones                      \ create a 3x2 matrix, fill it with ones
  <0 T2[2,3] T2[3,2]> ok
-@                                    \ multiply matrices [2,3] @ [3,2]
- <0 T2[2,3] T2[3,2] T2[2,2]> ok      \ [2,2] resultant matrix shown on TOS
+@                                    \ multiply matrices 2x3 @ 3x2
+ <0 T2[2,3] T2[3,2] T2[2,2]> ok      \ 2x2 resultant matrix shown on TOS
 .                                    \ print the matrix
 matrix[2,2] = {
 	{ +6.0000 +6.0000 }
@@ -63,7 +63,7 @@ bye                                  \ exit tensorForth
 tensorForth 2.0 done.
 </pre>
 
-### Larger Example - benchmark [1024,2048] x [2048,512] 1000 loops
+### Larger Example - benchmark 1024x2048 x 2048x512 matrices - 1000 loops
 <pre>
 1024 2048 matrix rand                \ create a 1024x2048 matrix with uniform random values
  <0 T2[1024,2048]> ok                

@@ -7,7 +7,7 @@
 * matrix fill (i.e. zeros, ones, full, eye, random)
 * matrix console input (i.e. matrix{..., vector{..., and T!{)
 * matrix print (i.e PyTorch-style, adjustable edge elements)
-* tensor view instead of deep copy (i.e. dup, over, pick, r@)
+* tensor reference instead of deep copy (i.e. dup, over, pick, r@)
 * GEMM (i.e. a * A * B + b * C, use CUDA Dynamic Parallelism)
 * command line option: debug print level control (MMU_DEBUG)
 * command line option: list (all) device properties
@@ -62,30 +62,29 @@ tensorForth 2.0
 \  GPU 0 initialized at 1800MHz, dict[1024], pmem=48K, tensor=1024M
 \  VM[0] dict=0x7f56fe000a00, mem=0x7f56fe004a00, vss=0x7f56fe010a00
 
-2 3 matrix{ 1 2 3 4 5 6 }            \ create matrix
+2 3 matrix{ 1 2 3 4 5 6 }            \ create a 2x3 matrix filled with 1..6
 mmu#tensor(2,3) => numel=6           \ the optional debug traces
  <0 T2[2,3]> ok                      \ 2-D tensor shown on top of stack (TOS)
-dup                                  \ duplicate i.e. create a view
-mmu#view => V2 numel=6
- <0 T2[2,3] V2[2,3]> ok              \ view shown on TOS
-.                                    \ print the view
+dup                                  \ duplicate (create a reference)
+ <0 T2[2,3] T2[2,3]> ok              \ two tensors shown on stack now
+.                                    \ print the tensor
 matrix[2,3] = {
 	{ +1.0000 +2.0000 +3.0000 }
 	{ +4.0000 +5.0000 +6.0000 } }
  <0 T2[2,3]> ok
-mmu#free(T2) numel=6                 \ view released after print
- <0 T2[2,3]> ok
-3 2 matrix ones                      \ create a [3,2] matrix and fill with ones
+3 2 matrix ones                      \ create a 3x2 matrix and fill with ones
 mmu#tensor(3,2) => numel=6
- <0 T2[2,3] T2[3,2]> ok
-@                                    \ multiply matrices [2,3] x [3,x]
-mmu#tensor(2,2) => numel=4           \ a [2,x] resultant matrix created
+ <0 T2[2,3] T2[3,2]> ok              \ now we have two tensors
+@                                    \ multiply them i.e. 2x3 @ 3x2
+mmu#tensor(2,2) => numel=4           \ a 2x2 resultant tensor created
  <0 T2[2,3] T2[3,2] T2[2,2]> ok      \ shown on TOS
-.                                    \ print the matrix
+.                                    \ print it
+mmu#mark T=e9 to free[0]             \ MMU marks tensor for release
 matrix[2,2] = {
 	{ +6.0000 +6.0000 }
 	{ +15.0000 +15.0000 } }
  <0 T2[2,3] T2[3,2]> ok
+mmu#release T=e9 from free[0]        \ MMU release after printing
 mmu#free(T2) numel=4                 \ matrix release after print
 2drop                                \ free both matrics
 mmu#free(T2) numel=6
@@ -113,26 +112,24 @@ tensorForth 2.0 done.
 |copy|(Ta -- Ta Ta')|duplicate (deep copy) a tensor on TOS|
 ||> `2 3 matrix`<br/>> **`copy`**|`T2[2,3]`<br/>`T2[2,3] T2[2,3]`|
 
-### Views creation ops
-|word|param/example|view creation ops|
+### duplication (reference) ops
+|word|param/example|reference creation ops|
 |---|---|---|
-|dup|(Ta -- Ta Ta')|create a view of a tensor on TOS|
-||> `2 3 matrix{ 1 2 3 4 5 6 }`<br/>> **`dup`**|`T2[2,3]`<br/>`T2[2,3] V2[2,3]`|
+|dup|(Ta -- Ta Ta')|create a reference of a tensor on TOS|
+||> `2 3 matrix{ 1 2 3 4 5 6 }`<br/>> **`dup`**|`T2[2,3]`<br/>`T2[2,3] T2[2,3]`|
 |over|(Ta Tb -- Ta Tb Ta')||
-||> `2 3 matrix{ 1 2 3 4 5 6 }`<br/>> `3 2 matrix`<br/>> **`over`**|`T2[2,3]`<br/>`T2[2,3] T2[3,2]`<br/>`T2[2,3] T2[3,2] V2[2,3]`|
+||> `2 3 matrix{ 1 2 3 4 5 6 }`<br/>> `3 2 matrix`<br/>> **`over`**|`T2[2,3]`<br/>`T2[2,3] T2[3,2]`<br/>`T2[2,3] T2[3,2] T2[2,3]`|
 |2dup|(Ta Tb -- Ta Tb Ta' Tb')||
-||> `2 3 matrix{ 1 2 3 4 5 6 }`<br/>> `3 2 matrix`<br/>> **`2dup`**|`T2[2,3]`<br/>`T2[2,3] T2[3,2]`<br/>`T2[2,3] T2[3,2] V2[2,3] V2[3,2]`|
+||> `2 3 matrix{ 1 2 3 4 5 6 }`<br/>> `3 2 matrix`<br/>> **`2dup`**|`T2[2,3]`<br/>`T2[2,3] T2[3,2]`<br/>`T2[2,3] T2[3,2] T2[2,3] T2[3,2]`|
 |2over|(Ta Tb Tc Td -- Ta Tb Tc Td Ta' Tb')|`...`|
 
-### Tensor/View print
-|word|param/example|Tensor/View print|
+### Tensor print
+|word|param/example|Tensor print|
 |---|---|---|
 |. (dot)|(T1 -- )|print vector|
 ||> `5 vector{ 1 2 3 4 5 }`<br/>> **`.`**|`T1[5]`<br/>`vector[5] = { +1.0000 +2.0000 +3.0000 +4.0000 +5.0000 }`|
 |. (dot)|(T2 -- )|print matrix|
 ||> `2 3 matrix{ 1 2 3 4 5 6 }`<br/>> **`.`**|`T2[2,3]`<br/>`matrix[2,3] = { { +1.0000 +2.0000 +3.0000 } { +4.0000 +5.0000 +6.0000 } }`|
-|. (dot)|(V2 -- )|print view|
-||> `2 3 matrix{ 1 2 3 4 5 6 }`<br/>> `dup`<br/>> **`.`**|`T2[2,3]`<br/>`T2[2,3] V2[2,3]`<br/>`matrix[2,3] = { { +1.0000 +2.0000 +3.0000 } { +4.0000 +5.0000 +6.0000 } }`|
 
 ### Shape adjustment ops
 |word|param/example|Shape adjusting ops|
