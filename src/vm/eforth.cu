@@ -1,6 +1,6 @@
 /** -*- c++ -*-
  * @file
- * @brief ForthVM class - eForth Vritual Machine implementation
+ * @brief ForthVM class - eForth VM implementation
  *
  * <pre>Copyright (C) 2022- GreenII, this file is distributed under BSD 3-Clause License.</pre>
  */
@@ -324,7 +324,7 @@ ForthVM::init() {
     CODE("boot",  mmu.clear(FIND("boot") + 1))
     };
     VM::init();
-    
+
     mmu.append(prim, sizeof(prim)/sizeof(Code)); ///< append dictionary
     VLOG1("ForthVM::init ok\n");
 };
@@ -368,7 +368,7 @@ ForthVM::parse(char *str) {
         call((IU)w);                      /// * execute forth word
     }
     return 1;
-}    
+}
 ///
 /// parse input idiom as a number
 ///
