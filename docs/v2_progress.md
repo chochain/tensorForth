@@ -117,13 +117,13 @@ tensorForth 2.0 done.
 ### duplication (reference) ops
 |word|param/example|reference creation ops|
 |---|---|---|
-|dup|(Ta -- Ta Ta')|create a reference of a tensor on TOS|
+|dup|(Ta -- Ta Ta)|create a reference of a tensor on TOS|
 ||> `2 3 matrix{ 1 2 3 4 5 6 }`<br/>> **`dup`**|`T2[2,3]`<br/>`T2[2,3] T2[2,3]`|
-|over|(Ta Tb -- Ta Tb Ta')||
+|over|(Ta Tb -- Ta Tb Ta)||
 ||> `2 3 matrix{ 1 2 3 4 5 6 }`<br/>> `3 2 matrix`<br/>> **`over`**|`T2[2,3]`<br/>`T2[2,3] T2[3,2]`<br/>`T2[2,3] T2[3,2] T2[2,3]`|
-|2dup|(Ta Tb -- Ta Tb Ta' Tb')||
+|2dup|(Ta Tb -- Ta Tb Ta Tb)||
 ||> `2 3 matrix{ 1 2 3 4 5 6 }`<br/>> `3 2 matrix`<br/>> **`2dup`**|`T2[2,3]`<br/>`T2[2,3] T2[3,2]`<br/>`T2[2,3] T2[3,2] T2[2,3] T2[3,2]`|
-|2over|(Ta Tb Tc Td -- Ta Tb Tc Td Ta' Tb')|`...`|
+|2over|(Ta Tb Tc Td -- Ta Tb Tc Td Ta Tb)|`...`|
 
 ### Tensor print
 |word|param/example|Tensor print|
