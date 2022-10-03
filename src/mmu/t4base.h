@@ -61,14 +61,15 @@ struct T4Base : public Managed {
         nref  = 1;
         parm  = 0;
     }
+    __BOTH__ __INLINE__ DU   &operator[](int i) { return data[i]; }
     __BOTH__ __INLINE__ int  ref_inc() {
-        int r = ++nref;
+        int r = ++nref;                     /// TODO: atomicAdd
         printf("nref=%d\n", r);
         return r;
     }
     __BOTH__ __INLINE__ int  ref_dec() {
         if (nref > 1) {
-            int r = --nref;
+            int r = --nref;                 /// TODO: atomicSub
             printf("nref=%d\n", r);
             return r;
         }
