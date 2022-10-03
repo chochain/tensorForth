@@ -30,7 +30,7 @@ Model::d_nname(int i) {
 ///
 __GPU__ Model&
 Model::add(t4_layer fn, U16 n, DU bias, U16 *opt) {
-    Tensor &in = (Tensor&)_mmu->du2obj(data[numel - 1]);
+    Tensor &in = (*this)[-1];
     if (!autograd || in.grad_fn != L_NONE) return *this;
 
     switch(fn) {
@@ -146,7 +146,7 @@ Model::_idropout(Tensor &in, U16 f) {
     in.parm = f;                                 /// * keep fraction
     DU p = -0.01 * f;                            ///< dropout fraction
     _mmu->random(*msk, UNIFORM, p);              /// * randomize w, shift p
-    printf("dropout=%d\%\n", f);
+    printf("dropout=%d\n", f);
     
     npush(out);
 }
