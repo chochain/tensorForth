@@ -1,23 +1,23 @@
 /**
  * @file
- * @brief Ndata class - NN dataset host-side interface object 
+ * @brief Corpus class - NN corpus host-side interface object 
  *
  * <pre>Copyright (C) 2022- GreenII, this file is distributed under BSD 3-Clause License.</pre>
  */
-#ifndef T4_NDATA_H
-#define T4_NDATA_H
+#ifndef T4_CORPUS_H
+#define T4_CORPUS_H
 
-#define ND_ALLOC(p, sz) \
+#define DS_ALLOC(p, sz) \
     if (cudaMallocManaged(p, sz) != cudaSuccess) { \
-        fprintf(stderr, "ERROR: Ndata malloc %d\n", (int)(sz)); \
+        fprintf(stderr, "ERROR: Corpus malloc %d\n", (int)(sz)); \
         exit(-1); \
     }
 #define IO_ERROR(fn) \
-    fprintf(stderr, "Ndata: fail to open file %s\n", fn);
+    fprintf(stderr, "Corpus: fail to open file %s\n", fn);
 
 typedef uint8_t U8;
 
-struct Ndata {
+struct Corpus {
     const char *ds_name;      ///< data source name
     const char *tg_name;      ///< target label name
     
@@ -26,10 +26,10 @@ struct Ndata {
     U8    *data  = NULL;      ///< source data pointer
     U8    *label = NULL;      ///< label data pointer
 
-    Ndata(const char *data_name, const char *label_name)
+    Corpus(const char *data_name, const char *label_name)
         : ds_name(data_name), tg_name(label_name), N(0) {}
     
-    ~Ndata() {
+    ~Corpus() {
         if (!data) return;
         
         cudaPointerAttributes attr;
@@ -48,11 +48,11 @@ struct Ndata {
     int dsize()   { return H * W * C; }
     int len()     { return N; }
 
-    virtual Ndata *load(int batch_sz=0, int batch_id=0) {
+    virtual Corpus *load(int batch_sz=0, int batch_id=0) {
         printf("batch(U8*) implemented?\n");
         return this;
     }
     virtual U8 *operator [](int idx){ return &data[idx * dsize()]; }
 };
-#endif // T4_NDATA_H
+#endif // T4_CORPUS_H
 
