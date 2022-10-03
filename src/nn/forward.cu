@@ -240,11 +240,10 @@ Model::_fstep(Tensor &in, Tensor &out) {
         printf(" Σ=%5.3f", out.sum());       /// * verify sum
     } break;
     case L_LOGSMAX: {                        /// * feed to NLL
-        Tensor &t = *in.grad[0];             ///< tmp 
-        t   = in;                            /// * copy content for logsum
-        DU logsum = LOG(t.map(O_EXP).sum());
-        out = in;                            /// * copy in to output
-        out -= logsum;                       /// * Xi - logsum
+        out = in;                            /// * use out as tmp
+        DU sum = LOG(out.map(O_EXP).sum());  /// * calc logsum
+        out = in;                            /// * overwrite out again
+        out -= sum;                          /// * Xi - logsum
         printf(" Σ=%5.3f", out.sum());       /// * verify sum
     } break;
     case L_MAXPOOL:
