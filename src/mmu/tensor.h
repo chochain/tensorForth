@@ -93,31 +93,31 @@ struct Tensor : public T4Base {
     ///
     __HOST__ Tensor()       : T4Base() {}
     __HOST__ Tensor(U32 sz) : T4Base(sz) {
-        shape[0] = (U16)sz;
+        H() = (U16)sz;
         WARN("vector[%d] allocated\n", numel);
     }
     __HOST__ Tensor(U16 h, U16 w) : T4Base(h, w) {
-        shape[0] = h; shape[1] = w;
-        WARN("matrix(%d,%d) allocated\n", shape[0], shape[1]);
+        H() = h; W() = w;
+        WARN("matrix(%d,%d) allocated\n", h, w);
     }
     __HOST__ Tensor(U16 n, U16 h, U16 w, U16 c) : T4Base(n, h, w, c) {
-        shape[0] = h; shape[1] = w; shape[2] = n; shape[3] = c;
-        WARN("tensor(%d,%d,%d,%d) allocated\n", shape[3], shape[0], shape[1], shape[2]);
+        H() = h; W() = w; C() = c; N() = n;
+        WARN("tensor(%d,%d,%d,%d) allocated\n", n, h, w, c);
     }
     __HOST__ ~Tensor() {
         switch (rank) {
-        case 2: WARN("matrix(%d,%d) freed\n", shape[0], shape[1]); break;
-        case 4: WARN("tensor(%d,%d,%d,%d) freed\n", shape[3], shape[0], shape[1], shape[2]); break;
+        case 2: WARN("matrix(%d,%d) freed\n", H(), W()); break;
+        case 4: WARN("tensor(%d,%d,%d,%d) freed\n", N(), H(), W(), C()); break;
         default: WARN("~Tensor error: rank=%d\n", rank);
         }
     }
     ///
     /// attributes
     ///
-    __BOTH__ __INLINE__ U16  N() { return shape[3]; }
-    __BOTH__ __INLINE__ U16  H() { return shape[0]; }
-    __BOTH__ __INLINE__ U16  W() { return shape[1]; }
-    __BOTH__ __INLINE__ U16  C() { return shape[2]; }
+    __BOTH__ __INLINE__ U16  &N() { return shape[3]; }
+    __BOTH__ __INLINE__ U16  &H() { return shape[0]; }
+    __BOTH__ __INLINE__ U16  &W() { return shape[1]; }
+    __BOTH__ __INLINE__ U16  &C() { return shape[2]; }
     __BOTH__ __INLINE__ bool is_same_shape(Tensor &t) {
 #ifdef __CUDA_ARCH__
         return MEMCMP(shape, t.shape, sizeof(shape)) == 0;
