@@ -135,13 +135,17 @@ __KERN__ void k_dfilter(
 ///
 __GPU__ Model&
 Model::backprop() {
+    return backprop(*_hot);           /// * use default one-hot vector
+}
+__GPU__ Model&
+Model::backprop(Tensor &hot) {
     auto trace = [](int i, Tensor &in, Tensor &out) {
         printf("%2d> %s [%d,%d,%d]\tp=%-2d <= out'Σ=%6.2f [%d,%d,%d] ",
             i, d_nname(in.grad_fn),
             in.H(), in.W(), in.C(), in.parm,
             out.sum(), out.H(), out.W(), out.C());
     };
-    if (_hot) Tensor::copy(*_hot, (*this)[-1]);    /// copy one-hot vector
+    (*this)[-1] = hot;                /// copy one-hot vector to model output
     for (U16 i = numel - 2; i > 0; i--) {
         Tensor &in = (*this)[i], &out = (*this)[i + 1];
         trace(i, in, out);
@@ -210,10 +214,12 @@ Model::_bstep(Tensor &in, Tensor &out) {
     } break;
     case L_FLATTEN: Tensor::copy(out, in); break;  /// * pass dY to X
     case L_RELU:    k_dfilter<<<grd,blk>>>(d1, d1, d0, H1, W1); break;
-    case L_TANH:    break;
-    case L_SIGMOID: break;
-    case L_SOFTMAX:
-        in -= out; /* softmax,CE derivative, out = one-hot */
+    case L_TANH:    /* TODO: */ break;
+    case L_SIGMOID: /* TODO: */ break;
+    case L_SOFTMAX: /* softmax + CrossEntropy derivative, out = one-hot */
+    case L_LOGSMAX: /* log-softmax + NLL      derivative, out = one-hot */
+        in -= out;  /* softmax:    Xi = Yi - Li     */
+                    /* logsoftmax: Xi = Yi - Li * p */
         dump(in.data, W1, H1, C1);
         break;
     case L_MAXPOOL:
