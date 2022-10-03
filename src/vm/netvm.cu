@@ -74,8 +74,8 @@ NetVM::_conv() {
     if (TOS1T) {                     ///> if optional vector given
         Tensor &v = TTOS;
         if (v.rank == 1) {
-            POP();
             for (int i=0; i<5; i++) opt[i] = (U16)v.data[i];
+            POP();
         }
         else { ERROR("vec?"); return; }
     }
@@ -91,11 +91,15 @@ NetVM::_conv() {
 ///
 __GPU__ void
 NetVM::_loss(t4_loss op) {
-    if (!TOS1T || !IS_M(ss[-1])) { ERROR("target tensor?\n"); return; }
-    Tensor &t = TTOS;
-    DU      n = MNOS.loss(op, t);
-    printf("NetVM#loss => %.3f", n);
-    PUSH(n);
+    if (TOS1T && IS_M(ss[-1])) {
+        Tensor &t = TTOS;
+        DU     n  = MNOS.loss(op, t);
+        printf("NetVM#loss => %.3f", n);
+        mmu.free(t);
+        top = n;
+    }
+    else if (IS_M(top)) PUSH(MTOS.loss(op));
+    else ERROR("model?\n");
 }
 ///
 /// gradiant ops
@@ -161,17 +165,14 @@ NetVM::init() {
     CODE("nn.next",   {}),
     CODE("autograd",  if (M1V) { bool on = POPi; MTOS.autograd = on; }),
     CODE("forward", 
-         if (DTOS && IS_M(ss[-1])) {
-            Tensor &t = TTOS; POP();
-            MTOS.forward(t);
+         if (TOS1D && IS_M(ss[-1])) {
+            MNOS.forward(TTOS);
+            POP();                           /// * pop off dataset
         }
-        else ERROR("N dataset?\n")),
+        else ERROR("N tensor?\n")),
     CODE("backprop",
-         if (TOS1T && IS_M(ss[-1])) {
-             Tensor &t  = TTOS; POP();
-             MTOS.backprop(t);
-         }
-         else ERROR("N tgt?\n")),
+         if (IS_M(top)) MTOS.backprop();
+         else ERROR("model?\n")),
     CODE("predict",   {}),
     ///@}
     ///@defgroup Debugging ops
@@ -185,6 +186,7 @@ NetVM::init() {
         PUSH(mmu.dataset(bsz));             /// * create a dataset as TOS
         fout << opx(OP_DATA, 0, top) << dsn;
         state = VM_WAIT),
+    CODE("onehot",    if (IS_M(top)) PUSH(MTOS.onehot())),
     CODE("load", 
         if (TOS1T) {
             fout << opx(OP_LOAD, 0, top);
