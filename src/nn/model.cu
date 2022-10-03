@@ -40,8 +40,8 @@ Model::add(t4_layer fn, U16 n, DU bias, U16 *opt) {
     case L_RELU:
     case L_TANH:
     case L_SIGMOID:
-    case L_SOFTMAX: _icopy(in);                 break;
-    case L_LOGSMAX: _ilogsmax(in);              break;
+    case L_SOFTMAX:
+    case L_LOGSMAX: _icopy(in);                 break;
     case L_MAXPOOL:
     case L_AVGPOOL:
     case L_MINPOOL: _ipool(in, n);              break;
@@ -115,12 +115,6 @@ Model::_iflatten(Tensor &in) {
 __GPU__ void
 Model::_icopy(Tensor &in) {
     Tensor &out = _mmu->copy(in); ///> output tensor sizing
-    npush(out);                   /// * stage for next stage
-}
-__GPU__ void
-Model::_ilogsmax(Tensor &in) {
-    Tensor &out = _mmu->copy(in); ///> output tensor sizing
-    in.grad[0] = &_mmu->copy(in); ///> tmp for exponental 
     npush(out);                   /// * stage for next stage
 }
 ///

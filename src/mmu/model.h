@@ -85,19 +85,18 @@ private:
     /// @}
     /// @name Convolution and Linear initializer
     /// @{
-    __GPU__ void _iconv(Tensor &in, U16 c, DU bias, U16 *opt);
-    __GPU__ void _ilinear(Tensor &in, U16 n, DU bias);   ///< linearize (Dense) with n output
-    __GPU__ void _iflatten(Tensor &in);        ///< flatten (input 
+    __GPU__ void   _iconv(Tensor &in, U16 c, DU bias, U16 *opt);
+    __GPU__ void   _ilinear(Tensor &in, U16 n, DU bias);   ///< linearize (Dense) with n output
+    __GPU__ void   _iflatten(Tensor &in);        ///< flatten (input 
     /// @}
     /// @name Activation ops
     /// @{
-    __GPU__ void _icopy(Tensor &in);           ///< Relu, Tanh, Sigmoid
-    __GPU__ void _ilogsmax(Tensor &in);        ///< log-softmax Xi - log(sum(exp(x))
+    __GPU__ void   _icopy(Tensor &in);           ///< for relu, tanh, sigmoid, softmax, logsoftmax
     /// @}
     /// @name Pooling and Dropout ops
     /// @{
-    __GPU__ void _ipool(Tensor &in, U16 n);    ///< maximum pooling with nxn filter
-    __GPU__ void _idropout(Tensor &in, U16 p); ///< zero out p% of channel data (add noise between data points)
+    __GPU__ void   _ipool(Tensor &in, U16 n);    ///< maximum pooling with nxn filter
+    __GPU__ void   _idropout(Tensor &in, U16 p); ///< zero out p% of channel data (add noise between data points)
     /// @}
 };
 #endif // TEN4_SRC_MODEL_H
