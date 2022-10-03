@@ -526,8 +526,8 @@ MMU::load(std::ostream &fout, U16 vid, DU top, char *ds_name) {
     ///
     /// search cache for top <=> dataset pair
     ///
-    Ndata *nd = Loader::get(DU2X(top), ds_name);  ///< Ndata provider
-    if (!nd) {
+    Corpus *cp = Loader::get(DU2X(top), ds_name);  ///< Corpus/Dataset provider
+    if (!cp) {
         ERROR(" => '%s' not found\n", ds_name); return;
     }
     ///
@@ -536,19 +536,19 @@ MMU::load(std::ostream &fout, U16 vid, DU top, char *ds_name) {
     ///    netvm#dataset
     ///    -> mmu::dataset         - set N=batch_sz, batch_id = -1
     ///    -> mmu::load           
-    ///      -> ndata::load        - load host label/image blocks from files
+    ///      -> corpus::load       - load host label/image blocks from files
     ///      -> dataset::alloc     - alloc device memory blocks
     ///      -> dataset::get_batch - transfer host blocks to device
     ///
     int  bsz = ds.N();                     ///< batch size
-    if (!nd->load(bsz, 0)) {               /// * fetch a batch from Ndata
+    if (!cp->load(bsz, 0)) {               /// * fetch a batch from Ndata
         ERROR(" => '%s' load failed\n", ds_name); return;
     }
     if (ds.batch_id < 0) {                 /// * set dataset dimensions
-        ds.reshape(bsz, nd->H, nd->W, nd->C);
+        ds.reshape(bsz, cp->H, cp->W, cp->C);
     }
     ///
     /// allocate Dataset device (managed) memory blocks
     ///
-    ds.get_batch(nd->data, nd->label);
+    ds.get_batch(cp->data, cp->label);
 }
