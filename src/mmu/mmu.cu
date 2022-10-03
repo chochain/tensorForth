@@ -195,11 +195,11 @@ MMU::model(U32 sz) {
     return *m;
 }
 __GPU__ Dataset&                   ///< create a Dataset holder
-MMU::dataset(U16 batch_sz) {
+MMU::dataset(U16 batch_sz) {       /// * Note: data block is not allocated yet
     TRACE1("mmu#dataset batch_sz=%d", batch_sz);
     Dataset *ds = (Dataset*)_ostore.malloc(sizeof(Dataset));
     ds->init(0, T4_DATASET, 4);
-    ds->shape[3] = batch_sz;       /// * other members filled in host mode
+    ds->N()      = batch_sz;       /// * other members filled in host mode
     ds->batch_id = -1;             /// * setup control flag
     _ostore.status(_trace);
     return *ds;
@@ -229,7 +229,7 @@ MMU::resize(Tensor &t, U32 sz) {
     /// hardcopy tensor storage
     ///
     memcpy(t.data, d0, (t.numel < sz ? t.numel : sz) * sizeof(DU));
-    t.shape[0] = t.numel = sz;   /// * adjust tensor storage size
+    t.H() = t.numel = sz;        /// * adjust tensor storage size
     
     _ostore.free(d0);            /// * release 
     _ostore.status(_trace);
@@ -518,22 +518,35 @@ MMU::mem_dump(std::ostream &fout, U16 p0, U16 sz) {
 __HOST__ void
 MMU::load(std::ostream &fout, U16 vid, DU top, char *ds_name) {
     TRACE1("%d|dataset '%s'\n", vid, ds_name);
+    Dataset &ds = (Dataset&)du2obj(top);          ///< dataset ref
+    if (!ds.is_dataset()) {                       /// * indeed a dataset?
+        ERROR("mmu#load TOS is not a dataset\n");
+        return;
+    }
     ///
     /// search cache for top <=> dataset pair
     ///
-    int     dset = DU2X(top);
-    Ndata   *nd  = Loader::get(dset, ds_name);
+    Ndata *nd = Loader::get(DU2X(top), ds_name);  ///< Ndata provider
     if (!nd) {
         ERROR(" => '%s' not found\n", ds_name); return;
     }
     ///
     /// setup initial dataset parameters
+    /// init flow:
+    ///    netvm#dataset
+    ///    -> mmu::dataset         - set N=batch_sz, batch_id = -1
+    ///    -> mmu::load           
+    ///      -> ndata::load        - load host label/image blocks from files
+    ///      -> dataset::alloc     - alloc device memory blocks
+    ///      -> dataset::get_batch - transfer host blocks to device
     ///
-    Dataset &ds  = (Dataset&)du2obj(top);
-    if (!nd->load(ds.N(), 0)) {
+    int  bsz = ds.N();                     ///< batch size
+    if (!nd->load(bsz, 0)) {               /// * fetch a batch from Ndata
         ERROR(" => '%s' load failed\n", ds_name); return;
     }
-    if (ds.batch_id < 0) ds.alloc(ds.N(), nd->H, nd->W, nd->C);
+    if (ds.batch_id < 0) {                 /// * set dataset dimensions
+        ds.reshape(bsz, nd->H, nd->W, nd->C);
+    }
     ///
     /// allocate Dataset device (managed) memory blocks
     ///
