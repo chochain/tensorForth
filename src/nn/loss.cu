@@ -8,45 +8,38 @@
 
 #if T4_ENABLE_OBJ
 __GPU__ DU
-Model::loss(t4_loss op, Tensor &tgt) {
-    Tensor &nx = (Tensor&)_mmu->du2obj(data[numel - 1]);  ///< model output 
-    if (!nx.is_same_shape(tgt)) { ERROR("Model::loss dim?\n"); return; }
-
-    Tensor &out = _mmu->copy(nx);                  ///> tmp, hardcopy
-    DU     err  = DU0;                             ///> result loss value
-    switch (op) {
-    case LOSS_NLL: break;
-    case LOSS_MSE: {
-        out -= tgt;
-        err = 0.5 * NORM(out.numel, out.data) / out.numel;
-    } break;
-    case LOSS_CE:  {
-        out.map(O_LOG) *= tgt;
-        err = -out.avg();
-    } break;
-    default: ERROR("Model#loss op=%d not supported\n", op);
+Model::loss(t4_loss op) {
+    return loss(op, *_hot);
+}
+__GPU__ DU
+Model::loss(t4_loss op, Tensor &hot) {          ///< loss against one-hot
+    Tensor &out = (*this)[-1];                  ///< model output
+    if (!out.is_same_shape(hot)) {             /// * check dimensions
+        ERROR("Model#loss hot dim != out dim\n");
+        return;
     }
-    _mmu->free(out);                              /// * release the tmp
-    SCALAR(err);
+    Tensor &tmp = _mmu->copy(out);              ///< make a hard copy
+    DU err = _loss(op, tmp, hot);               /// * calculate loss
+    _mmu->free(tmp);                            /// * free memory
+
     return err;
 }
 ///
 /// debug dumps
 ///
 __GPU__ void
-Model::view(DU *v, int H, int W, int C) {
+Model::view(DU *v, int H, int W, int C, DU scale) {
 //  static const char *map = " .'`^\",:;Il!i><~+_-?][}{1)(|/tfjrxnuvczXYUJCLQ0OZmwqpdbkhao*#MW&8%B@$";   // 69 shades
     static const char *map = " .:-=+*#%@";
-    static const DU   X    = 10.0f;
     for (int k = 0; k < C; k++) {
         printf("\nC=%d ---", k);
         for (int i = 0; i < H; i++) {
             printf("\n");
             for (int j = 0; j < W; j++) {
-                DU   x0 = (v[k + ((j>0 ? j-1 : j) + i * W) * C]) * X;
-                DU   x1 = (x0 + v[k + (j + i * W) * C] * X) * 0.5;
-                char c0 = map[x0 < X ? (x0 >= DU0 ? (int)x0 : 0) : 9];
-                char c1 = map[x1 < X ? (x1 >= DU0 ? (int)x1 : 0) : 9];
+                DU   x0 = (v[k + ((j>0 ? j-1 : j) + i * W) * C]) * scale;
+                DU   x1 = (x0 + v[k + (j + i * W) * C] * scale) * 0.5;
+                char c0 = map[x0 < 10 ? (x0 >= DU0 ? (int)x0 : 0) : 9];
+                char c1 = map[x1 < 10 ? (x1 >= DU0 ? (int)x1 : 0) : 9];
                 printf("%c%c", c0, c1);                // double width
             }
         }
@@ -85,6 +78,24 @@ Model::dump_dbdf(DU *df, DU *db, int C0, int C1, int fsz) {
         }
         printf(" Σ=%6.3f", sum);
     }
+}
+__GPU__ DU
+Model::_loss(t4_loss op, Tensor &out, Tensor &hot) {
+    DU err = DU0;             ///> result loss value
+    switch (op) {
+    case LOSS_NLL: break;
+    case LOSS_MSE: {
+        out -= hot;
+        err = 0.5 * NORM(out.numel, out.data) / out.numel;
+    } break;
+    case LOSS_CE:  {
+        out.map(O_LOG) *= hot;
+        err = -out.avg();
+    } break;
+    default: ERROR("Model#loss op=%d not supported\n", op);
+    }
+    SCALAR(err);
+    return err;
 }
 #endif  // T4_ENABLE_OBJ
 //==========================================================================
