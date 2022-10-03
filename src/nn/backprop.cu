@@ -129,24 +129,19 @@ __KERN__ void k_dfilter(
     }
     g.sync();
 }
-
+///
+/// backprop: Neural Network back propegation
+/// Note: cascade execution layer by layer backward
+///
 __GPU__ Model&
-Model::backprop(Tensor &tgt) {
-    Tensor &nx = (*this)[numel - 1];
-    if (!nx.is_same_shape(tgt)) {
-        ERROR("Model#backprop target dim?\n");
-        return *this;
-    }
-    ///
-    /// cascade execution layer by layer backward
-    ///
+Model::backprop() {
     auto trace = [](int i, Tensor &in, Tensor &out) {
         printf("%2d> %s [%d,%d,%d]\tp=%-2d <= out'Σ=%6.2f [%d,%d,%d] ",
             i, d_nname(in.grad_fn),
             in.H(), in.W(), in.C(), in.parm,
             out.sum(), out.H(), out.W(), out.C());
     };
-    Tensor::copy(tgt, nx);
+    if (_hot) Tensor::copy(*_hot, (*this)[-1]);    /// copy one-hot vector
     for (U16 i = numel - 2; i > 0; i--) {
         Tensor &in = (*this)[i], &out = (*this)[i + 1];
         trace(i, in, out);
@@ -198,6 +193,7 @@ Model::_bstep(Tensor &in, Tensor &out) {
         }
         dump_dbdf(df.data, db.data, out.C(), C1, Nf * Hf * Wf * Cf);
         printf("\nin[%d,%d,%d]=", H1, W1, C1); dump(d1, H1, W1, C1);
+        view(d1, H1, W1, C1, 1000.0f);
     } break;
     case L_LINEAR: {                          ///< out = w @ in + b
         Tensor &w  = *in.grad[0];             ///< weight tensor
@@ -216,7 +212,10 @@ Model::_bstep(Tensor &in, Tensor &out) {
     case L_RELU:    k_dfilter<<<grd,blk>>>(d1, d1, d0, H1, W1); break;
     case L_TANH:    break;
     case L_SIGMOID: break;
-    case L_SOFTMAX: in -= out; /* delta */ break;
+    case L_SOFTMAX:
+        in -= out; /* softmax,CE derivative, out = one-hot */
+        dump(in.data, W1, H1, C1);
+        break;
     case L_MAXPOOL:
     case L_AVGPOOL: 
     case L_MINPOOL: {
