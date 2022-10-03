@@ -9,14 +9,16 @@
 #include "mmu.h"         // in ../mmu
 
 typedef enum {
-    LOSS_MSE = 0,        ///< mean square error
-    LOSS_NLL,            ///< negative likelihood
-    LOSS_CE              ///< cross entropy
+    LOSS_MSE = 0,            ///< mean square error
+    LOSS_NLL,                ///< negative likelihood
+    LOSS_CE                  ///< cross entropy
 } t4_loss;
 
 class Model : public T4Base {
-    MMU     *_mmu;       ///< tensor storage base
-    Tensor  *_store;     ///< model storage - Sequential, TODO: DAG
+    MMU     *_mmu;          ///< tensor storage base
+    Tensor  *_store;        ///< model storage - Sequential, TODO: DAG
+    Dataset *_dset = NULL;  ///< input dataset (set by forward)
+    Tensor  *_hot  = NULL;  ///< cached dataset one-hot vector
     
 public:
     bool    autograd = true;
@@ -59,22 +61,26 @@ public:
     __GPU__ __INLINE__ Tensor &tensor(U16 c1, U16 n, U16 h, U16 w, U16 c) {
         return _mmu->tensor(c1, n, h, w, c);
     }
+    
     __GPU__ Model  &add(t4_layer fn, U16 n=0, DU bias=DU0, U16 *opt=0);
-    __GPU__ Model  &forward(Tensor &input);
-    __GPU__ Model  &backprop(Tensor &tgt);
-    __GPU__ DU     loss(t4_loss op, Tensor &tgt);
+    __GPU__ Model  &forward(Tensor &input);             ///< network feed forward
+    __GPU__ Model  &backprop();                         ///< back propegation
+    __GPU__ DU     loss(t4_loss op);                    ///< calc loss with cached one-hot vector
+    __GPU__ DU     loss(t4_loss op, Tensor &hot);       ///< calc loss from one-hhot vector
     ///
     /// debug dump
     ///
-    __GPU__ void   view(DU *v, int H, int W, int C);
+    __GPU__ void   view(DU *v, int H, int W, int C, DU scale=10.0f);
     __GPU__ void   dump(DU *v, int H, int W, int C);
     __GPU__ void   dump_dbdf(DU *df, DU *db, int C0, int C1, int fsz);
 
 private:
     /// @name single step forward and backprop
     /// @{
-    __GPU__ void _fstep(Tensor &in, Tensor &out);
-    __GPU__ void _bstep(Tensor &in, Tensor &out);
+    __GPU__ Tensor &_onehot();
+    __GPU__ void   _fstep(Tensor &in, Tensor &out);
+    __GPU__ void   _bstep(Tensor &in, Tensor &out);
+    __GPU__ DU     _loss(t4_loss op, Tensor &out, Tensor &hot);  ///< calc loss from one-hot
     /// @}
     /// @name Convolution and Linear initializer
     /// @{
