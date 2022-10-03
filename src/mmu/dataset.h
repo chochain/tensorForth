@@ -24,33 +24,30 @@ struct Dataset : public Tensor {
         if (!label) return;
         MM_FREE((void*)label);
     }
-    __HOST__ Dataset &alloc(U16 n, U16 h, U16 w, U16 c) {
+    __HOST__ Dataset &reshape(U16 n, U16 h, U16 w, U16 c) {
         WARN("Dataset::setup(%d, %d, %d, %d)\n", n, h, w, c);
         ///
-        /// initialize
+        /// set dimensions
         ///
-        numel    = (U32)n * h * w * c;
-        dsize    = DSIZE;
-        ttype    = T4_DATASET;
-        batch_id = 0;
-        reshape(n, h, w, c);
-        ///
-        /// allocate managed memory (not TLSF)
-        ///
-        MM_ALLOC(&data,  numel * sizeof(DU));
-        MM_ALLOC(&label, N() * sizeof(DU));
-
+        numel = (U32)n * h * w * c;    /// * number of batch elements
+        Tensor::reshape(n, h, w, c);   /// * reshape to 4-D tensor
+        batch_id = 0;                  /// * signify batch dimension set now
+        
         return *this;
     }
     __HOST__ Dataset *get_batch(U8 *h_data, U8 *h_label) {
-        if (!data || !label) return NULL;
+        if (!data)  MM_ALLOC(&data,  numel * sizeof(DU));
+        if (!label) MM_ALLOC(&label, N() * sizeof(DU));
+        ///
+        /// allocate managed memory (not TLSF)
+        ///
         DU  *d = data;
-        for (int n = 0; n < numel; n++) {
+        for (int i = 0; i < numel; i++) {
             *d++ = I2D((int)*h_data++) / 256.0f;
         }
         DU  *t = label;
-        for (int n = 0; n < N(); n++) {
-            *t++ = I2D((int)*h_label++) / 256.0f;
+        for (int i = 0; i < N(); i++) {
+            *t++ = I2D((int)*h_label++);
         }
         return this;
     }
