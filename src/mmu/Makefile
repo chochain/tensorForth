@@ -32,7 +32,7 @@ MMU_LIBS := -Isrc/ldr
 src-mmu: $(MMU_OBJS)
 
 # Each subdirectory must supply rules for building sources it contributes
-src/mmu/%.o: src/mmu/%.cu $(MMU_INCS)
+src/mmu/%.o: src/mmu/%.cu $(MMU_INCS) $(MMU_EXT)
 	@echo '<Source><Action>Compile</Action><Filename>$<</Filename><Status>'
 	-$(NV_CC) $(MMU_LIBS) -o "$@" "$<" || $(NV_ERR)
 	@echo '</Status></Source>'

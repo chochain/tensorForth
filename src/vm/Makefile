@@ -21,17 +21,17 @@ OBJS += $(VM_OBJS)
 VM_EXT := \
 	src/io/aio.h \
 	src/mmu/tensor.h \
-	src/nn/model.h \
-	src/nn/dataset.h
+	src/mmu/model.h \
+	src/mmu/dataset.h
 
-VM_LIBS:= -Isrc/nn -Isrc/io -Isrc/mmu
+VM_LIBS:= -Isrc/io -Isrc/mmu
 
 .PHONY: src-vm clean-src-vm
 
 src-vm: $(VM_OBJS)
 
 # Each subdirectory must supply rules for building sources it contributes
-src/vm/%.o: src/vm/%.cu $(VM_INCS)
+src/vm/%.o: src/vm/%.cu $(VM_INCS) $(VM_EXT)
 	@echo '<Source><Action>Compile</Action><Filename>$<</Filename><Status>'
 	-$(NV_CC) $(VM_LIBS) -o "$@" "$<" || $(NV_ERR)
 	@echo '</Status></Source>'

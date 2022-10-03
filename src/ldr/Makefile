@@ -8,7 +8,7 @@ LDR_SRCS := \
 
 LDR_INCS := \
 	src/ten4_types.h \
-	src/ldr/ndata.h \
+	src/ldr/corpus.h \
 	src/ldr/mnist.h \
 	src/ldr/loader.h
 
