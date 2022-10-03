@@ -9,16 +9,16 @@
 #if T4_ENABLE_OBJ
 __GPU__ DU
 Model::loss(t4_loss op) {
-    return loss(op, *_hot);
+    return loss(op, *_hot);                     /// * use default one-hot vector
 }
 __GPU__ DU
 Model::loss(t4_loss op, Tensor &hot) {          ///< loss against one-hot
     Tensor &out = (*this)[-1];                  ///< model output
-    if (!out.is_same_shape(hot)) {             /// * check dimensions
+    if (!out.is_same_shape(hot)) {              /// * check dimensions
         ERROR("Model#loss hot dim != out dim\n");
         return;
     }
-    Tensor &tmp = _mmu->copy(out);              ///< make a hard copy
+    Tensor &tmp = _mmu->copy(out);              ///< non-destructive
     DU err = _loss(op, tmp, hot);               /// * calculate loss
     _mmu->free(tmp);                            /// * free memory
 
@@ -81,17 +81,19 @@ Model::dump_dbdf(DU *df, DU *db, int C0, int C1, int fsz) {
 }
 __GPU__ DU
 Model::_loss(t4_loss op, Tensor &out, Tensor &hot) {
-    DU err = DU0;             ///> result loss value
+    DU err = DU0;                    ///> result loss value
     switch (op) {
-    case LOSS_NLL: break;
-    case LOSS_MSE: {
+    case LOSS_MSE:
         out -= hot;
         err = 0.5 * NORM(out.numel, out.data) / out.numel;
-    } break;
-    case LOSS_CE:  {
-        out.map(O_LOG) *= hot;
-        err = -out.avg();
-    } break;
+        break;
+    case LOSS_CE:                    /// * cross_entropy, i.e. softmax input
+        out.map(O_LOG);              /// * log-softmax
+        /* no break */
+    case LOSS_NLL:                   /// * negative log-likelihood (log-softmax input)
+        out *= hot;                  /// * multiply probability of two systems
+        err = -out.sum() / out.N();  /// * negative average per sample
+        break;
     default: ERROR("Model#loss op=%d not supported\n", op);
     }
     SCALAR(err);
