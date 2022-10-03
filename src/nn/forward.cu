@@ -113,33 +113,35 @@ __KERN__ void k_filter(
 
 __GPU__ Tensor&
 Model::onehot() {
-    Tensor &out = (*this)[-1];                           ///< model output
-    Tensor &hot = _mmu->tensor(out.numel).fill(DU0);     ///< one-hot vector
+    Tensor &out = (*this)[-1];                             ///< model output
+    Tensor &hot = _mmu->tensor(out.numel).fill(DU0);       ///< one-hot vector
     if (!_dset) {
         ERROR("Model#loss dataset not set yet?\n");
         return hot;
     }
-    DU *v = &_dset->label[_dset->N() * _dset->batch_id]; ///< target labels
-    for (int n=0; n < out.N(); n++) {                    /// * setup one-hot
+    int dsz = hot.H() * hot.W() * hot.C();                 ///< layer size
+    DU *v   = &_dset->label[_dset->N() * _dset->batch_id]; ///< target labels
+    DU *h   = hot.data;
+    for (int n=0; n < out.N(); n++, h+=dsz) {              /// * setup one-hot
         U32 i = INT(v[n]);
-        hot.data[i < hot.numel ? i : 0] = DU1;
+        h[i < dsz ? i : 0] = DU1;
     }
     return hot;
 }
 
 __GPU__ Model&
 Model::forward(Tensor &input) {
-    Tensor &n1 = (*this)[1];
+    Tensor &n1 = (*this)[1];        ///< reference model input layer
     if (!n1.is_same_shape(input)) {
         ERROR("Model#forward dataset dim != model input dim?\n");
         return *this;
     }
-    Tensor::copy(input, n1);        /// * feed input into model
-    if (input.is_dataset()) {
+    if (input.is_dataset()) {       /// * if source is a dataset
         input.ref_inc();            /// * increase data
         _dset = (Dataset*)&input;   /// * set current dataset
         _hot  = &onehot();          /// * cache batch one-hot vectors
     }
+    n1 = input;                     /// * copy into model first layer input
     ///
     /// cascade execution layer by layer forward
     /// TODO: model execution becomes a superscalar pipeline
@@ -227,15 +229,22 @@ Model::_fstep(Tensor &in, Tensor &out) {
         }
         */
     } break;
-    case L_FLATTEN: Tensor::copy(in, out); break;
+    case L_FLATTEN: out = in; break;         /// * straight copy
     case L_RELU:    k_filter<<<grd, blk>>>(d1, d1, d0, H0, W0); break;
     case L_TANH:    break;
     case L_SIGMOID: break;
-    case L_SOFTMAX: {
-        Tensor &t = *in.grad[0];             ///< tmp tensor
-        Tensor::copy(in, t);                 /// * copy content for exp calc
-        DU sum = t.map(O_EXP).sum() + DU_EPS;/// * sum all probabilities
-        Tensor::matx(O_MUL, t, DU1/sum, out);/// * p / sum(p)
+    case L_SOFTMAX: {                        /// * feed to CrossEtropy
+        out = in;                            /// * copy content for exp calc
+        DU sum = out.map(O_EXP).sum();       /// * sum all log probabilities
+        out *= DU1/(sum + DU_EPS);           /// * divide by sum(exp)
+        printf(" Σ=%5.3f", out.sum());       /// * verify sum
+    } break;
+    case L_LOGSMAX: {                        /// * feed to NLL
+        Tensor &t = *in.grad[0];             ///< tmp 
+        t   = in;                            /// * copy content for logsum
+        DU logsum = LOG(t.map(O_EXP).sum());
+        out = in;                            /// * copy in to output
+        out -= logsum;                       /// * Xi - logsum
         printf(" Σ=%5.3f", out.sum());       /// * verify sum
     } break;
     case L_MAXPOOL:
