@@ -54,6 +54,7 @@ typedef enum {
     L_TANH,
     L_SIGMOID,
     L_SOFTMAX,
+    L_LOGSMAX,
     L_MAXPOOL,
     L_AVGPOOL,
     L_MINPOOL,
@@ -160,6 +161,11 @@ struct Tensor : public T4Base {
     ///
     /// TODO: tensor arithmetics
     ///
+    __GPU__ __INLINE__ Tensor &operator=(DU v)      { fill(v); return *this; }
+    __GPU__ __INLINE__ Tensor &operator+=(DU v)     { map(O_ADD, v); return *this; }
+    __GPU__ __INLINE__ Tensor &operator-=(DU v)     { map(O_SUB, v); return *this; }
+    __GPU__ __INLINE__ Tensor &operator*=(DU v)     { map(O_MUL, v); return *this; }
+    __GPU__ __INLINE__ Tensor &operator=(Tensor &t) { copy(t, *this); return *this; }
     __GPU__ __INLINE__ Tensor &operator+=(Tensor &t){ matx(O_ADD, *this, t, *this); return *this; }
     __GPU__ __INLINE__ Tensor &operator-=(Tensor &t){ matx(O_SUB, *this, t, *this); return *this; }
     __GPU__ __INLINE__ Tensor &operator*=(Tensor &t){ matx(O_MUL, *this, t, *this); return *this; }

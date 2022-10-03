@@ -17,6 +17,10 @@ k_ten_op(t4_ten_op op, float *t, int sz, float v=DU0) {
     const int k = threadIdx.x + blockIdx.x * blockDim.x;
     if (k < sz) {
         switch(op) {
+        case O_ADD:   t[k] += v;                        break;
+        case O_SUB:   t[k] -= v;                        break;
+        case O_MUL:   t[k] *= v;                        break;
+        case O_DIV:   t[k] /= v;                        break;
         case O_FILL:  t[k] = v;                         break;
         case O_SCALE: t[k] *= v;                        break;
         case O_POW:   t[k] = POW(t[k], v);              break;
@@ -26,6 +30,7 @@ k_ten_op(t4_ten_op op, float *t, int sz, float v=DU0) {
         case O_TANH:  t[k] = TANH(t[k]);                break;
         case O_RELU:  t[k] = t[k] > DU0 ? t[k] : DU0;   break;
         case O_SIGM:  t[k] = DU1 / (DU1 + EXP(-t[k]));  break;
+        default: ERROR("k_ten_op %d not supported\n", op);
         }
     }
 }
@@ -609,7 +614,7 @@ Tensor::identity() {
 
 __BOTH__ Tensor&
 Tensor::map(t4_ten_op op, DU v) {
-    OPN("+", "-", "*", "/", "@", "x", "fill", "scale","pow", "abs", "exp", "log", "tanh", "relu", "sigmoid");
+    OPN("+", "-", "*", "/", "@", "solv", "fill", "scale","pow", "abs", "exp", "log", "tanh", "relu", "sigmoid");
     WARN("Tensor#%s v=%f\n", opn[op], v);
     int n = (numel + T4_WARP_SQ - 1) / T4_WARP_SQ;
     
