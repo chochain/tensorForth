@@ -40,7 +40,8 @@ NetVM::nnop(t4_layer op) {     /// vtable dispatcher
     case L_RELU:
     case L_TANH:
     case L_SIGMOID:
-    case L_SOFTMAX: if (IS_M(top)) MTOS.add(op); break;
+    case L_SOFTMAX:
+    case L_LOGSMAX: if (IS_M(top)) MTOS.add(op); break;
     case L_MAXPOOL: 
     case L_AVGPOOL:
     case L_MINPOOL: if (M1V) { U16 n = POPi; MTOS.add(op, n); } break;
