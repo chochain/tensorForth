@@ -28,7 +28,7 @@ flatten 0.0 49 linear                     \ add reduction layer, and the
 constant md0                 \ we can store the model in a constant
                              \ now, define our training and testing flows
 : my_train (N D -- N') nn.for forward loss.ce backprop 0.1 0.9 nn.sgd nn.next ;
-: my_test  (N D -- N') nn.for forward loss.mse . nn.next ;
+: my_test  (N D -- N') nn.for forward loss.mse . batch nn.next ;
 
 md0                          \ place the model on TOS
 network                      \ optionally, display our 13-layer NN model
@@ -46,7 +46,7 @@ nn.load my_net ds1 my_test   \ load from trained network and test
 ### Case Study - MNIST
 |word|forward|param|network DAG|grad_fn|param[grad]|
 |---|---|---|---|---|---|
-     |nn.for  |(INs -- IN)        |IN                |        |                                  |
+|    |nn.for  |(INs -- IN)        |IN                |        |                                  |
 |seq1|conv2d  |(IN b1 c1 -- C1)   |IN [f1 b1 df1 db1]|dconv2d |(IN [f1 b1] dC1 -- dIN [df1 db1]) |
 |    |relu    |(C1 -- R1)         |C1                |drelu   |(C1 dR1 -- dC1)                   |
 |seq2|conv2d  |(R1 b2 c2 -- C2)   |R1 [f2 b2 df2 db2]|dconv2d |(R1 [f2 b2] dC2 -- dR1 [df2 db2]) |
@@ -110,7 +110,8 @@ nn.load my_net ds1 my_test   \ load from trained network and test
 |tanh|(N -- N')|add tanh layer to network model|
 |relu|(N -- N')|add Rectified Linear Unit to network model|
 |sigmoid|(N -- N')|add sigmoid 1/(1+exp^-z) activation to network model|
-|softmax|(N -- N')|add probability vector exp(x)/sum(exp(x)) to network model|
+|softmax|(N -- N')|add probability vector exp(x)/sum(exp(x)) to network model, feeds loss.ce|
+|logsoftmax|(N -- N')|add probability vector x - log(sum(exp(x))) to network model, feeds loss.nll|
     
 #### Pooling and Dropout (Downsampling)
 |word|param/example|tensor creation ops|
@@ -123,9 +124,10 @@ nn.load my_net ds1 my_test   \ load from trained network and test
 #### Loss
 |word|param/example|tensor creation ops|
 |---|---|---|
-|loss.nll|(N Ta -- N Ta')|negative likelihood|
 |loss.mse|(N Ta -- N Ta')|mean sqare error|
-|loss.ce|(N Ta -- N Ta')|cross-entropy|
+|loss.ce|(N Ta -- N Ta')|cross-entropy, takes output from softmax|
+|loss.nll|(N Ta -- N Ta')|negative likelihood, takes output from logsoftmax|
+|onehot|(N -- N Ta)|dataset one-hot vector|
 |predict|(N -- N n)|cost function (avg all losts)|
 
 #### Propagation controls
