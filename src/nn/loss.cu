@@ -88,7 +88,7 @@ Model::_loss(t4_loss op, Tensor &out, Tensor &hot) {
         err = 0.5 * NORM(out.numel, out.data) / out.numel;
         break;
     case LOSS_CE:                    /// * cross_entropy, i.e. softmax input
-        out.map(O_LOG);              /// * log-softmax
+        out.map(O_LOG);              /// * out = log-softmax now
         /* no break */
     case LOSS_NLL:                   /// * negative log-likelihood (log-softmax input)
         out *= hot;                  /// * multiply probability of two systems

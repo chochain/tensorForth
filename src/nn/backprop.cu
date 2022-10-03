@@ -145,7 +145,8 @@ Model::backprop(Tensor &hot) {
             in.H(), in.W(), in.C(), in.parm,
             out.sum(), out.H(), out.W(), out.C());
     };
-    (*this)[-1] = hot;                /// copy one-hot vector to model output
+    (*this)[-1] = hot;  /// softmax + CE : copy one-hot vector to model output
+                        /// TODO: logsoftmax + NLL
     for (U16 i = numel - 2; i > 0; i--) {
         Tensor &in = (*this)[i], &out = (*this)[i + 1];
         trace(i, in, out);
