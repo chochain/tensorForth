@@ -10,8 +10,8 @@
 
 typedef enum {
     LOSS_MSE = 0,            ///< mean square error
-    LOSS_NLL,                ///< negative likelihood
-    LOSS_CE                  ///< cross entropy
+    LOSS_CE,                 ///< cross entropy (softmax input)
+    LOSS_NLL                 ///< negative log-likelihood (logsoftmax input)
 } t4_loss;
 
 class Model : public T4Base {
@@ -66,6 +66,7 @@ public:
     __GPU__ Tensor &onehot();                           ///< calculate one-hot vector
     __GPU__ Model  &forward(Tensor &input);             ///< network feed forward
     __GPU__ Model  &backprop();                         ///< back propegation
+    __GPU__ Model  &backprop(Tensor &hot);              ///< back propegation
     __GPU__ DU     loss(t4_loss op);                    ///< calc loss with cached one-hot vector
     __GPU__ DU     loss(t4_loss op, Tensor &hot);       ///< calc loss from one-hhot vector
     ///
@@ -91,7 +92,7 @@ private:
     /// @name Activation ops
     /// @{
     __GPU__ void _icopy(Tensor &in);           ///< Relu, Tanh, Sigmoid
-    __GPU__ void _isoftmax(Tensor &in);        ///< probability vector exp(x)/sum(exp(x))
+    __GPU__ void _ilogsmax(Tensor &in);        ///< log-softmax Xi - log(sum(exp(x))
     /// @}
     /// @name Pooling and Dropout ops
     /// @{
