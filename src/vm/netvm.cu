@@ -140,6 +140,7 @@ NetVM::init() {
     CODE("tanh",      nnop(L_TANH)),          ///> (N -- N')
     CODE("sigmoid",   nnop(L_SIGMOID)),       ///> (N -- N')
     CODE("softmax",   nnop(L_SOFTMAX)),       ///> (N -- N')
+    CODE("logsoftmax",nnop(L_LOGSMAX)),       ///> (N -- N')
     ///@}
     ///@defgroup Pooling and Dropout ops
     ///@{
@@ -171,7 +172,11 @@ NetVM::init() {
         }
         else ERROR("N tensor?\n")),
     CODE("backprop",
-         if (IS_M(top)) MTOS.backprop();
+         if (TOS1T && IS_M(ss[-1])) {
+             MNOS.backprop(TTOS);
+             POP();
+         }
+         else if (IS_M(top)) MTOS.backprop();
          else ERROR("model?\n")),
     CODE("predict",   {}),
     ///@}
