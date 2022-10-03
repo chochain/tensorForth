@@ -11,8 +11,8 @@ __HOST__ const char*
 Model::nname(int i) {               ///< network layer name
     static const char *name[] = {   /// double check with t4_layer
     "output ", "conv2d ", "linear ", "flatten", "relu   ",
-    "tanh   ", "sigmoid", "softmax", "maxpool", "avgpool",
-    "minpool", "dropout"
+    "tanh   ", "sigmoid", "softmax", "logsmax", "maxpool",
+    "avgpool", "minpool", "dropout"
     };
     return name[i];
 }
@@ -20,8 +20,8 @@ __GPU__ const char*
 Model::d_nname(int i) {
     static const char* name[] = {   /// double check with t4_layer
     "output ", "conv2d ", "linear ", "flatten", "relu   ",
-    "tanh   ", "sigmoid", "softmax", "maxpool", "avgpool",
-    "minpool", "dropout"
+    "tanh   ", "sigmoid", "softmax", "logsmax", "maxpool",
+    "avgpool", "minpool", "dropout"
     };
     return name[i];
 }
@@ -39,12 +39,14 @@ Model::add(t4_layer fn, U16 n, DU bias, U16 *opt) {
     case L_FLATTEN: _iflatten(in);              break;
     case L_RELU:
     case L_TANH:
-    case L_SIGMOID: _icopy(in);                 break;
-    case L_SOFTMAX: _isoftmax(in);              break;
+    case L_SIGMOID:
+    case L_SOFTMAX: _icopy(in);                 break;
+    case L_LOGSMAX: _ilogsmax(in);              break;
     case L_MAXPOOL:
     case L_AVGPOOL:
     case L_MINPOOL: _ipool(in, n);              break;
     case L_DROPOUT: _idropout(in, n);           break;
+    default: ERROR("Model#add layer %d not supported\n", fn);
     }
     in.grad_fn = fn;
     return *this;
@@ -116,7 +118,7 @@ Model::_icopy(Tensor &in) {
     npush(out);                   /// * stage for next stage
 }
 __GPU__ void
-Model::_isoftmax(Tensor &in) {
+Model::_ilogsmax(Tensor &in) {
     Tensor &out = _mmu->copy(in); ///> output tensor sizing
     in.grad[0] = &_mmu->copy(in); ///> tmp for exponental 
     npush(out);                   /// * stage for next stage
