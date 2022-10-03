@@ -521,7 +521,7 @@ Tensor::tril() {
 __BOTH__ Tensor&
 Tensor::reset(void *mptr, U32 sz, t4_obj tt, t4_layer fn) {
     WARN("Tensor::reset(%p, %d)\n", mptr, sz);
-    init(sz, tt, 1);                     /// T4Base attributes
+    init(sz, tt, 1);                                   /// T4Base attributes
     
     const U16 s[4] = { 1, 1, 1, 1 };
     const U16 t[4] = { (U16)sz, 1, 1, 1 };
@@ -554,7 +554,7 @@ Tensor::reshape(U16 h, U16 w) {
         rank   = 2;
         memcpy(stride, s, sizeof(s));
         memcpy(shape,  t, sizeof(t));
-        WARN("Tensor::reshaped(%d,%d)\n", shape[0], shape[1]);
+        WARN("Tensor::reshaped(%d,%d)\n", H(), W());
     }
     else {
         ERROR("Tensor::reshape sz != numel (%d != %d)\n", sz, numel);
@@ -570,7 +570,7 @@ Tensor::reshape(U16 n, U16 h, U16 w, U16 c) {
         rank   = 4;
         memcpy(stride, s, sizeof(s));
         memcpy(shape,  t, sizeof(t));
-        WARN("Tensor::reshaped(%d,%d,%d,%d)\n", shape[3], shape[0], shape[1], shape[2]);
+        WARN("Tensor::reshaped(%d,%d,%d,%d)\n", N(), H(), W(), C());
     }
     else {
         ERROR("Tensor::reshape sz != numel (%d != %d)\n", sz, numel);
@@ -586,7 +586,7 @@ Tensor::reshape(U16 c1, U16 n, U16 h, U16 w, U16 c) {
         parm = c1;        /// use parm field, so we don't need s[5]
         memcpy(stride, s, sizeof(s));
         memcpy(shape,  t, sizeof(t));
-        WARN("Tensor::reshaped(%d,%d,%d,%d,%d)\n", c1, shape[3], shape[0], shape[1], shape[2]);
+        WARN("Tensor::reshaped(%d,%d,%d,%d,%d)\n", c1, N(), H(), W(), C());
     }
     else {
         ERROR("Tensor::reshape sz != numel (%d != %d)\n", sz, numel);
