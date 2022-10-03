@@ -13,8 +13,8 @@
 class MnistVu : public Vu {
     int NX, NY;
 public:
-    __HOST__ MnistVu(Ndata &nd, int nx=40, int ny=30) :
-        Vu(nd, nd.W * nx, nd.H * ny), NX(nx), NY(ny) {}
+    __HOST__ MnistVu(Corpus &cp, int nx=40, int ny=30) :
+        Vu(cp, cp.W * nx, cp.H * ny), NX(nx), NY(ny) {}
     
     __HOST__ virtual int init_host_tex();
 };

@@ -8,7 +8,7 @@
 #define TEN4_SRC_LDR_MNIST_H
 #include <iostream>
 #include <fstream>            // std::ifstream
-#include "ndata.h"
+#include "corpus.h"
 
 using namespace std;
 
@@ -17,16 +17,16 @@ typedef uint32_t  U32;
 ///
 /// MNIST NN data
 ///
-class Mnist : public Ndata {
+class Mnist : public Corpus {
     ifstream d_in;       ///< data file handle
     ifstream t_in;       ///< target label file handle
     
 public:
     Mnist(const char *data_name, const char *label_name)
-        : Ndata(data_name, label_name) {}
+        : Corpus(data_name, label_name) {}
     ~Mnist() { _close(); }
     
-    virtual Ndata *load(int batch_sz=0, int batch_id=0);
+    virtual Corpus *load(int batch_sz=0, int batch_id=0);
 
 private:
     int _open();

@@ -6,7 +6,7 @@
  */
 #include "mnist.h"
 
-Ndata *Mnist::load(int batch_sz, int batch_id) {
+Corpus *Mnist::load(int batch_sz, int batch_id) {
     if (N == 0 && _setup()) return NULL;        /// * setup once only
 
     int bsz = batch_sz ? batch_sz : N;
@@ -95,7 +95,7 @@ int Mnist::_preview(U8 *img, int lbl) {
 int Mnist::_load_labels(int bsz, int bid) {
     int hdr = sizeof(U32) * 2;                     ///< header to skip over
     
-    if (!label) ND_ALLOC(&label, bsz);
+    if (!label) DS_ALLOC(&label, bsz);
 
     t_in.seekg(hdr + bid * bsz);                   /// * seek by batch
     t_in.read((char*)label, N);                    /// * fetch batch labels
@@ -110,7 +110,7 @@ int Mnist::_load_images(int bsz, int bid) {
     int hdr = sizeof(U32) * 4;                     ///< header to skip over
     int xsz = bsz * dsize();                       ///< image block size
     
-    if (!data) ND_ALLOC(&data, xsz);
+    if (!data) DS_ALLOC(&data, xsz);
 
     d_in.seekg(hdr + bid * xsz);                   /// * seek by batch 
     d_in.read((char*)data, xsz);                   /// * fetch batch images

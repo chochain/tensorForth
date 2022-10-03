@@ -7,14 +7,14 @@
 #include "vu.h"
 
 __HOST__
-Vu::Vu(Ndata &nd, int x, int y) :
-    ndata(nd), X(x ? x : ndata.W), Y(y ? y : ndata.H) {
+Vu::Vu(Corpus &cp, int x, int y) :
+    corpus(cp), X(x ? x : corpus.W), Y(y ? y : corpus.H) {
     if (sizeof(uchar4) != 4) {
         fprintf(stderr, "ERR: Bad uchar4 size = %ld\n", sizeof(uchar4));
         exit(-1);
     }
-    if (X == ndata.W && Y == ndata.H && ndata.C == 4) {
-        h_tex = (uchar4*)ndata.data;       /// * pass thru, no buffer needed
+    if (X == corpus.W && Y == corpus.H && corpus.C == 4) {
+        h_tex = (uchar4*)corpus.data;      /// * pass thru, no buffer needed
         return;
     }
     ///
@@ -31,8 +31,8 @@ Vu::Vu(Ndata &nd, int x, int y) :
 
 __HOST__ int
 Vu::init_host_tex() {
-    int    C  = ndata.C;
-    U8     *s = ndata.data;
+    int    C  = corpus.C;
+    U8     *s = corpus.data;
     uchar4 *t = h_tex;
     for (int i = 0; i < Y; i++) {
         for (int j = 0; j < X; j++, t++, s+=C) {
