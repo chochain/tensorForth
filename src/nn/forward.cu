@@ -5,6 +5,7 @@
  * <pre>Copyright (C) 2022- GreenII, this file is distributed under BSD 3-Clause License.</pre>
  */
 #include "model.h"
+#include "dataset.h"
 
 #if T4_ENABLE_OBJ
 ///
@@ -110,14 +111,35 @@ __KERN__ void k_filter(
     g.sync();
 }
 
+__GPU__ Tensor&
+Model::onehot() {
+    Tensor &out = (*this)[-1];                           ///< model output
+    Tensor &hot = _mmu->tensor(out.numel).fill(DU0);     ///< one-hot vector
+    if (!_dset) {
+        ERROR("Model#loss dataset not set yet?\n");
+        return hot;
+    }
+    DU *v = &_dset->label[_dset->N() * _dset->batch_id]; ///< target labels
+    for (int n=0; n < out.N(); n++) {                    /// * setup one-hot
+        U32 i = INT(v[n]);
+        hot.data[i < hot.numel ? i : 0] = DU1;
+    }
+    return hot;
+}
+
 __GPU__ Model&
 Model::forward(Tensor &input) {
     Tensor &n1 = (*this)[1];
     if (!n1.is_same_shape(input)) {
-        ERROR("Model#forward input dim?\n");
+        ERROR("Model#forward dataset dim != model input dim?\n");
         return *this;
     }
-    Tensor::copy(input, n1);       /// * feed input into model
+    Tensor::copy(input, n1);        /// * feed input into model
+    if (input.is_dataset()) {
+        input.ref_inc();            /// * increase data
+        _dset = (Dataset*)&input;   /// * set current dataset
+        _hot  = &onehot();          /// * cache batch one-hot vectors
+    }
     ///
     /// cascade execution layer by layer forward
     /// TODO: model execution becomes a superscalar pipeline
@@ -230,7 +252,11 @@ Model::_fstep(Tensor &in, Tensor &out) {
         break;
     }
     if (W0 > 1) view(out.data, H0, W0, C0);
-    else        dump(out.data, W0, H0, C0);
+    else {
+        int sq = (int)sqrt(0.5f + H0);
+        view(out.data, sq, sq, C0, 10.0f);
+        dump(out.data, W0, H0, C0);
+    }
 }
 #endif  // T4_ENABLE_OBJ
 //==========================================================================

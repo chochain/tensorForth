@@ -63,6 +63,7 @@ public:
     }
     
     __GPU__ Model  &add(t4_layer fn, U16 n=0, DU bias=DU0, U16 *opt=0);
+    __GPU__ Tensor &onehot();                           ///< calculate one-hot vector
     __GPU__ Model  &forward(Tensor &input);             ///< network feed forward
     __GPU__ Model  &backprop();                         ///< back propegation
     __GPU__ DU     loss(t4_loss op);                    ///< calc loss with cached one-hot vector
@@ -77,7 +78,6 @@ public:
 private:
     /// @name single step forward and backprop
     /// @{
-    __GPU__ Tensor &_onehot();
     __GPU__ void   _fstep(Tensor &in, Tensor &out);
     __GPU__ void   _bstep(Tensor &in, Tensor &out);
     __GPU__ DU     _loss(t4_loss op, Tensor &out, Tensor &hot);  ///< calc loss from one-hot
