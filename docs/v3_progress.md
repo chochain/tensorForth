@@ -109,9 +109,9 @@ nn.load my_net ds1 my_test   \ load from trained network and test
 |sigmoid|(Ta -- Ta')|tensor element-wise Sigmoid Ta' = sigmoid(Ta)|
 |tanh|(N -- N')|add tanh layer to network model|
 |relu|(N -- N')|add Rectified Linear Unit to network model|
-|sigmoid|(N -- N')|add sigmoid 1/(1+exp^-z) activation to network model|
-|softmax|(N -- N')|add probability vector exp(x)/sum(exp(x)) to network model, feeds loss.ce|
-|logsoftmax|(N -- N')|add probability vector x - log(sum(exp(x))) to network model, feeds loss.nll|
+|sigmoid|(N -- N')|add sigmoid 1/(1+exp^-z) activation to network model, used in binary|
+|softmax|(N -- N')|add probability vector exp(x)/sum(exp(x)) to network model, feeds loss.ce, used in multi-class|
+|logsoftmax|(N -- N')|add probability vector x - log(sum(exp(x))) to network model, feeds loss.nll, used in multi-class|
     
 #### Pooling and Dropout (Downsampling)
 |word|param/example|tensor creation ops|
@@ -124,9 +124,9 @@ nn.load my_net ds1 my_test   \ load from trained network and test
 #### Loss
 |word|param/example|tensor creation ops|
 |---|---|---|
-|loss.mse|(N Ta -- N Ta')|mean sqare error|
-|loss.ce|(N Ta -- N Ta')|cross-entropy, takes output from softmax|
-|loss.nll|(N Ta -- N Ta')|negative likelihood, takes output from logsoftmax|
+|loss.mse|(N Ta -- N Ta')|mean squared error, take output from linear layer|
+|loss.ce|(N Ta -- N Ta')|cross-entropy, takes output from softmax activation|
+|loss.nll|(N Ta -- N Ta')|negative log likelihood, takes output from log-softmax activation|
 |onehot|(N -- N Ta)|dataset one-hot vector|
 |predict|(N -- N n)|cost function (avg all losts)|
 
