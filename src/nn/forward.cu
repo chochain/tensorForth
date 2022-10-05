@@ -147,10 +147,10 @@ Model::forward(Tensor &input) {
     /// TODO: model execution becomes a superscalar pipeline
     ///
     auto trace = [](int i, Tensor &in, Tensor &out) {
-        printf("%2d> %s Σ=%6.2f [%d,%d,%d]\tp=%-2d => out[%d,%d,%d]",
+        printf("%2d> %s Σ=%6.2f [%d,%d,%d,%d]\tp=%-2d => out[%d,%d,%d,%d]",
             i, d_nname(in.grad_fn), in.sum(),
-            in.H(), in.W(), in.C(), in.parm,
-            out.H(), out.W(), out.C());
+            in.N(), in.H(), in.W(), in.C(), in.parm,
+            out.N(), out.H(), out.W(), out.C());
     };
     for (U16 i = 1; i < numel - 1; i++) {
         Tensor &in = (*this)[i], &out = (*this)[i + 1];
@@ -163,80 +163,36 @@ Model::forward(Tensor &input) {
 /// ========================================================================
 /// private methods 
 ///
-#define TILE3    (T4_WARP_SZ - 3 + 1)      /** 14 */
-#define TILE5    (T4_WARP_SZ - 5 + 1)      /** 12 */
-
 __GPU__ void
 Model::_fstep(Tensor &in, Tensor &out) {
-    DU   *d1 = in.data, *d0 = out.data;              ///< input, output data
-    int  H0 = out.H(), W0 = out.W(), C0 = out.C();   ///< output HWC
-    dim3 blk(T4_WARP_SZ, T4_WARP_SZ, 1);
-    dim3 grd(TGRID(W0, H0, C0, blk));
-
-    auto conv = [d1, d0, H0, W0, C0, blk](U16 C1, U16 ks, DU *f, DU *b) {
-        dim3 g3((W0 + TILE3 - 1) / TILE3, (H0 + TILE3 - 1) / TILE3, C0);
-        dim3 g5((W0 + TILE5 - 1) / TILE5, (H0 + TILE5 - 1) / TILE5, C0);
-        switch(ks) {            /// * TODO: handles rectangular filters
-        case 3: k_conv2d<TILE3,3><<<g3,blk>>>(d1, f, b, d0, H0, W0, C1); break;
-        case 5: k_conv2d<TILE5,5><<<g5,blk>>>(d1, f, b, d0, H0, W0, C1); break;
-        default: return -1;
-        }
-        return 0;
-    };
-    auto linear = [d1, d0](int M, int N, DU *w, DU *b) {
-        for (int y = 0; y < M; y++) {        /// TODO: kernel version
-            d0[y] = b[y];                    /// init with bias
-            for (int x = 0; x < N; x++) {    /// dot product
-                d0[y] += w[x + y * N] * d1[x];
-            }
-        }
-    };
-    auto pool = [d1, d0, H0, W0, blk, grd](int ks, t4_layer fn) {
-        /// Note: H, W are output dimensions
-        switch(ks) {                         /// pooling kernel size
-        case 0x2: k_pool<2><<<grd,blk>>>(d1, d0, H0, W0, fn); break;
-        case 0x3: k_pool<3><<<grd,blk>>>(d1, d0, H0, W0, fn); break;
-        default: return -1;
-        }
-        return 0;
-    };
+    dim3 blk(T4_WARP_SZ, T4_WARP_SZ, 1);              ///< default blocks
+    dim3 grd(TGRID(out.W(), out.H(), out.C(), blk));  ///< default grids
     ///
     /// layer function dispatcher
     ///
     t4_layer fn = in.grad_fn;                 ///< layer function
     switch(fn) {
-    case L_CONV:   {
-        Tensor &f = *in.grad[0];              ///< filter tensor
-        Tensor &b = *in.grad[1];              ///< bias tensor
-        U16 Nf = f.N(), Hf = f.H(), Wf = f.W(), Cf = f.C();
-        printf(" f[%d][%d,%d,%d,%d], b[%d]", f.parm, Nf, Hf, Wf, Cf, b.numel);
-        
-        if (conv(in.C(), Hf, f.data, b.data)) {
-            ERROR("model_fwd#conv kernel_size=%d not supported\n", Hf);
+    case L_CONV:    _fconv(in, out);   break; ///< convolution
+    case L_LINEAR:  _flinear(in, out); break; ///< out = W @ in + B
+    case L_FLATTEN: out = in;          break; /// * straight copy
+    case L_RELU: {
+        const int N = out.N(), H0 = out.H(), W0 = out.W();
+        for (int n = 0; n < N; n++) {
+            DU *d1 = in.slice(n), *d0 = out.slice(n);
+            k_filter<<<grd, blk>>>(d1, d1, d0, H0, W0);
+            GPU_SYNC();
         }
     } break;
-    case L_LINEAR: {                          ///< out = w @ in + b
-        Tensor &w = *in.grad[0];              ///< weight tensor
-        Tensor &b = *in.grad[1];              ///< bias tensor
-        int M = w.H(), N = w.W();             ///< fully connected dimensions
-        printf(" w[%d,%d] @ in[%d] + b[%d]", M, N, in.numel, b.numel);
-        linear(M, N, w.data, b.data);         ///< out = W @ in + B
-        /*
-        if (out.numel < 20) dump(d0, 1, out.numel, 1);
-        else {
-            int k = SQRT(out.numel);
-            dump(d0, k+1, k, 1);
-        }
-        */
-    } break;
-    case L_FLATTEN: out = in; break;         /// * straight copy
-    case L_RELU:    k_filter<<<grd, blk>>>(d1, d1, d0, H0, W0); break;
     case L_TANH:    break;
     case L_SIGMOID: break;
     case L_SOFTMAX: {                        /// * feed to CrossEtropy
         out = in;                            /// * copy content for exp calc
-        DU sum = out.map(O_EXP).sum();       /// * sum all log probabilities
-        out *= DU1/(sum + DU_EPS);           /// * divide by sum(exp)
+        /// TODO: mini-batch, in[100,10] => sum[100]
+        out.map(O_EXP);
+        for (int n = 0; n < in.N(); n++) {
+            DU sum = out.data[n * in.HWC()];       /// * sum all log proba.
+            out *= DU1/(sum + DU_EPS);           /// * divide by sum(exp)
+        }
         printf(" Σ=%5.3f", out.sum());       /// * verify sum
     } break;
     case L_LOGSMAX: {                        /// * feed to NLL
@@ -248,23 +204,107 @@ Model::_fstep(Tensor &in, Tensor &out) {
     } break;
     case L_MAXPOOL:
     case L_AVGPOOL: 
-    case L_MINPOOL: {
-        U16 ks = in.parm;                    ///< kerneal_size
-        if (pool(ks, fn)) {
-            ERROR("model#pooling kernel_size=%d not supported\n", ks);
-        }
-    } break;
+    case L_MINPOOL: _fpool(in, out,fn); break;
     case L_DROPOUT:
-        Tensor &msk = *in.grad[0];
-        k_filter<<<grd, blk>>>(d1, msk.data, d0, H0, W0);
+        const int H0 = out.H(), W0 = out.W();
+        for (int n = 0; n < out.N(); n++) {
+            DU *m  = in.grad[0]->slice(n);   /// * mask data
+            DU *d1 = in.slice(n), *d0 = out.slice(n);
+            k_filter<<<grd, blk>>>(d1, m, d0, H0, W0);
+        }
+        GPU_SYNC();
         break;
     }
-    if (W0 > 1) view(out.data, H0, W0, C0);
-    else {
-        int sq = (int)sqrt(0.5f + H0);
-        view(out.data, sq, sq, C0, 10.0f);
-        dump(out.data, W0, H0, C0);
+    debug(out);
+}
+
+#define TILE3    (T4_WARP_SZ - 3 + 1)      /** 14 */
+#define TILE5    (T4_WARP_SZ - 5 + 1)      /** 12 */
+
+__GPU__ int
+Model::_fconv(Tensor &in, Tensor &out) {
+    Tensor &tf = *in.grad[0];              ///< filter tensor
+    Tensor &tb = *in.grad[1];              ///< bias tensor
+    int C5 = tf.parm;                      ///< 5th dimension C1
+    
+    printf(" f[%d][%d,%d,%d,%d], b[%d]", C5, tf.N(), tf.H(), tf.W(), tf.C(), tb.numel);
+        
+    const int H0 = out.H(), W0 = out.W(), C0 = out.C();  ///< outpt dimensions
+    const int C1 = in.C();
+                    
+    dim3 blk(T4_WARP_SZ, T4_WARP_SZ, 1);                 ///< default blocks
+    dim3 g3((W0 + TILE3 - 1) / TILE3, (H0 + TILE3 - 1) / TILE3, C0);
+    dim3 g5((W0 + TILE5 - 1) / TILE5, (H0 + TILE5 - 1) / TILE5, C0);
+
+    int ks = tf.H();
+    for (int n = 0; n < out.N(); n++) {
+        DU *d1 = in.slice(n), *d0 = out.slice(n);
+        DU *f  = tf.slice(n), *b  = tb.data;
+        switch(ks) {                       /// * TODO: handles rectangular filters
+        case 3: k_conv2d<TILE3,3><<<g3,blk>>>(d1, f, b, d0, H0, W0, C1); break;
+        case 5: k_conv2d<TILE5,5><<<g5,blk>>>(d1, f, b, d0, H0, W0, C1); break;
+        default:
+            ERROR("model_fwd#conv kernel_size=%d not supported\n", ks);
+            return -1;
+        }
     }
+    GPU_SYNC();
+    return 0;
+}
+
+__GPU__ int
+Model::_flinear(Tensor &in, Tensor &out) {
+    Tensor &tw = *in.grad[0];                         ///< weight tensor
+    Tensor &tb = *in.grad[1];                         ///< bias tensor
+    const int Hw = tw.H(), Ww = tw.W();               ///< dense layer dims
+    
+    printf(" w[%d,%d,%d,%d] @ in[%d,%d,%d,%d] + b[%d]",
+        tw.N(), tw.H(), tw.W(), tw.C(),
+        in.N(), in.H(), in.W(), in.C(), tb.numel);
+        
+    dim3 blk(T4_WARP_SZ, T4_WARP_SZ, 1);             ///< default blocks
+    dim3 grd(TGRID(out.W(), out.H(), out.C(), blk)); ///< default grids
+
+    DU *w = tw.data, *b = tb.data;
+    for (int n = 0; n < out.N(); n++, w += tw.HWC()) {
+        DU *d1 = in.slice(n), *d0 = out.slice(n);
+        for (int y = 0; y < Hw; y++) {               /// TODO: kernel version
+            d0[y] = b[y];                            /// init with bias
+            for (int x = 0; x < Ww; x++) {           /// dot product
+                d0[y] += w[x + y * Ww] * d1[x];
+            }
+        }
+    }
+    /*
+      if (out.numel < 20) dump(d0, 1, out.numel, 1);
+      else {
+      int k = SQRT(out.numel);
+      -dump(d0, k+1, k, 1);
+      }
+    */
+    return 0;
+}
+
+__GPU__ int
+Model::_fpool(Tensor &in, Tensor &out, t4_layer fn) {
+    dim3 blk(T4_WARP_SZ, T4_WARP_SZ, 1);                ///< default blocks
+    dim3 grd(TGRID(out.W(), out.H(), out.C(), blk));    ///< default grid
+    
+    const int N  = out.N(), H0 = out.H(), W0 = out.W(); ///< output dimensions
+    const int ks = in.parm;                             ///< kernel size
+    
+    for (int n = 0; n < N; n++) {
+        DU *d1 = in.slice(n), *d0 = out.slice(n);
+        switch(ks) {                         /// pooling kernel size
+        case 0x2: k_pool<2><<<grd,blk>>>(d1, d0, H0, W0, fn); break;
+        case 0x3: k_pool<3><<<grd,blk>>>(d1, d0, H0, W0, fn); break;
+        default:
+            ERROR("model#pooling kernel_size=%d not supported\n", ks);
+            return -1;
+        }
+    }
+    GPU_SYNC();
+    return 0;
 }
 #endif  // T4_ENABLE_OBJ
 //==========================================================================
