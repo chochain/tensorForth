@@ -172,8 +172,10 @@ AIO::_print_model(DU v) {
         cout << "[" << std::setw(3) << i << "] "
              << Model::nname(fn) << ":";
         _mmu->to_s(cout, t);
-        int sz = t.grad[0] ? t.grad[0]->numel : 0;
-        sz += t.grad[1] ? t.grad[1]->numel : 0;
+        int sz = 0;
+        for (int n = 0; n < 4; n++) {
+            sz += t.grad[n] ? t.grad[n]->numel : 0;
+        }
         cout << ", #param=" << sz;
     };
     auto finfo = [this](Tensor **g) {
