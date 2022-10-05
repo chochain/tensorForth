@@ -115,10 +115,12 @@ struct Tensor : public T4Base {
     ///
     /// attributes
     ///
-    __BOTH__ __INLINE__ U16  &N() { return shape[3]; }
-    __BOTH__ __INLINE__ U16  &H() { return shape[0]; }
-    __BOTH__ __INLINE__ U16  &W() { return shape[1]; }
-    __BOTH__ __INLINE__ U16  &C() { return shape[2]; }
+    __BOTH__ __INLINE__ U16  &N()  { return shape[3]; }
+    __BOTH__ __INLINE__ U16  &H()  { return shape[0]; }
+    __BOTH__ __INLINE__ U16  &W()  { return shape[1]; }
+    __BOTH__ __INLINE__ U16  &C()  { return shape[2]; }
+    __BOTH__ __INLINE__ U32  HWC() { return shape[0] * shape[1] * shape[2]; }
+    __BOTH__ __INLINE__ DU   *slice(int n) { return &data[ n * HWC() ]; }
     __BOTH__ __INLINE__ bool is_same_shape(Tensor &t) {
 #ifdef __CUDA_ARCH__
         return MEMCMP(shape, t.shape, sizeof(shape)) == 0;
@@ -131,7 +133,7 @@ struct Tensor : public T4Base {
     ///
     __GPU__  DU     sum();
     __GPU__  DU     avg();
-    __GPU__  DU     std();    // standard distribution
+    __GPU__  DU     std();         // standard distribution
     __GPU__  DU     max();
     __GPU__  DU     min();
     __GPU__  DU     dot(Tensor &B);
@@ -159,7 +161,7 @@ struct Tensor : public T4Base {
     ///
     __BOTH__ void to_s(std::ostream &fout);
     ///
-    /// TODO: tensor arithmetics
+    /// TODO: tensor operators
     ///
     __GPU__ __INLINE__ Tensor &operator=(DU v)      { fill(v); return *this; }
     __GPU__ __INLINE__ Tensor &operator+=(DU v)     { map(O_ADD, v); return *this; }
