@@ -280,11 +280,12 @@ MMU::copy(Tensor &t0) {
     ///
     U64 bsz = sizeof(DU) * t0.numel;
     t1->data = (DU*)_ostore.malloc(bsz);
+    *t1 = t0;                         /// * copy all tensor elements
     
-    Tensor::copy(t0, *t1);
-    DU off = obj2du(*t1);             /// * offset in object space
-    TRACE1("mmu#copy(T%d) numel=%d to T[%x]", t0.rank, t0.numel, DU2X(off));
+    DU d = obj2du(*t1);               /// * offset in object space
+    TRACE1("mmu#copy(T%d) numel=%d to T[%x]", t0.rank, t0.numel, DU2X(d));
     _ostore.status(_trace);
+    
     return *t1;
 }
 __GPU__ Tensor&
