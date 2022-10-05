@@ -55,6 +55,9 @@ public:
     __GPU__ __INLINE__ Tensor &vector(U16 sz) {
         return _mmu->tensor(sz);
     }
+    __GPU__ __INLINE__ Tensor &tensor(U16 n, U16 h) {
+        return _mmu->tensor(n, h);
+    }
     __GPU__ __INLINE__ Tensor &tensor(U16 n, U16 h, U16 w, U16 c) {
         return _mmu->tensor(n, h, w, c);
     }
@@ -69,20 +72,17 @@ public:
     __GPU__ Model  &backprop(Tensor &hot);              ///< back propegation
     __GPU__ DU     loss(t4_loss op);                    ///< calc loss with cached one-hot vector
     __GPU__ DU     loss(t4_loss op, Tensor &hot);       ///< calc loss from one-hhot vector
+    __GPU__ Model  &sgd();                              ///< stochastic gradiant decent
+    __GPU__ Model  &adam();                             ///< Adam gradiant decent
     ///
     /// debug dump
     ///
-    __GPU__ void   view(DU *v, int H, int W, int C, DU scale=10.0f);
-    __GPU__ void   dump(DU *v, int H, int W, int C);
-    __GPU__ void   dump_dbdf(DU *df, DU *db, int C0, int C1, int fsz);
+    __GPU__ void   debug(Tensor &t, DU scale=10.0f);
+    __GPU__ void   _view(DU *v, int H, int W, int C, DU scale=10.0f);
+    __GPU__ void   _dump(DU *v, int H, int W, int C);
+    __GPU__ void   _dump_dbdf(Tensor &df, Tensor &db);
 
 private:
-    /// @name single step forward and backprop
-    /// @{
-    __GPU__ void   _fstep(Tensor &in, Tensor &out);
-    __GPU__ void   _bstep(Tensor &in, Tensor &out);
-    __GPU__ DU     _loss(t4_loss op, Tensor &out, Tensor &hot);  ///< calc loss from one-hot
-    /// @}
     /// @name Convolution and Linear initializer
     /// @{
     __GPU__ void   _iconv(Tensor &in, U16 c, DU bias, U16 *opt);
@@ -91,12 +91,31 @@ private:
     /// @}
     /// @name Activation ops
     /// @{
-    __GPU__ void   _icopy(Tensor &in);           ///< for relu, tanh, sigmoid, softmax, logsoftmax
+    __GPU__ void   _icopy(Tensor &in);           ///< for relu, tanh, sigmoid
+    __GPU__ void   _isoftmax(Tensor &in);        ///< for softmax, logsoftmax
     /// @}
     /// @name Pooling and Dropout ops
     /// @{
     __GPU__ void   _ipool(Tensor &in, U16 n);    ///< maximum pooling with nxn filter
     __GPU__ void   _idropout(Tensor &in, U16 p); ///< zero out p% of channel data (add noise between data points)
+    /// @}
+    /// @name forward ops
+    /// @{
+    __GPU__ void   _fstep(Tensor &in, Tensor &out);
+    __GPU__ int    _fconv(Tensor &in, Tensor &out);
+    __GPU__ int    _flinear(Tensor &in, Tensor &out);
+    __GPU__ int    _fpool(Tensor &in, Tensor &out, t4_layer fn);
+    /// @}
+    /// @name backward ops
+    /// @{
+    __GPU__ void   _bstep(Tensor &in, Tensor &out);
+    __GPU__ int    _bconv(Tensor &in, Tensor &out);
+    __GPU__ int    _blinear(Tensor &in, Tensor &out);
+    __GPU__ int    _bpool(Tensor &in, Tensor &out, t4_layer fn);
+    /// @}
+    /// @name loss functions
+    /// @{
+    __GPU__ DU     _loss(t4_loss op, Tensor &out, Tensor &hot);  ///< calc loss from one-hot
     /// @}
 };
 #endif // TEN4_SRC_MODEL_H
