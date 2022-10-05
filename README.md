@@ -238,11 +238,11 @@ Note:
 
 ### TODO
 * benchmark (MNIST, CIFAR, Kaggle...)
-* sampling and distribution
+* mini-batch
 * refactor - add namespace, warp-level collectives (study libcu++, MordenGPU for kernel)
 * add RNN
 * add inter-VM communication (CUDA stream, review CUB again)
-* add batch loader (from VM->VM)
+* add inter-VM loader (from VM->VM)
 * .petastorm, .csv loader (available on github)
 * add GNN - dynamic graph with VMs
 
