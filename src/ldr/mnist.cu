@@ -78,17 +78,16 @@ int Mnist::_setup() {
 
 int Mnist::_preview(U8 *img, int lbl) {
     static const char *map = " .:-=+*#%@";
-    printf("\n+");
-    for (int j = 0; j < W; j++) printf("--");
+
     for (int i = 0; i < H; i++) {
-        printf("\n|");
         for (int j = 0; j < W; j++, img++) {
             char c  = map[*img / 26];
             char c1 = map[((int)*img + (int)*(img+1)) / 52];
             printf("%c%c", c, c1);                 // double width
         }
+        printf("|\n");
     }
-    printf(" label=%d\n", lbl);
+    printf("label=%d\n", lbl);
     return 0;
 }
 
