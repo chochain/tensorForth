@@ -27,7 +27,7 @@ Model::onehot() {
         return hot;
     }
     for (int n = 0; n < N; n++) {                      /// * loop through batch
-        DU *h = hot.slice(n);                          ///< 
+        DU *h = hot.slice(n);                          ///< take a sample
         U32 i = INT(_dset->label[n]);
         h[i < hwc ? i : 0] = DU1;
         show(h, n, hwc);
@@ -69,7 +69,31 @@ Model::debug(Tensor &t, DU scale) {
         if (sz > 36) _view(d, H, W, C, scale);
     }
 }
-
+///
+/// private methods
+///
+__GPU__ DU
+Model::_loss(t4_loss op, Tensor &out, Tensor &hot) {
+    const int N = out.N();
+    DU  err = DU0;                   ///> result loss value
+    switch (op) {
+    case LOSS_MSE:                   /// * mean squared error, input from linear
+        out -= hot;
+        err = 0.5 * NORM(out.numel, out.data) / N;
+        break;
+    case LOSS_CE:                    /// * cross_entropy, input from softmax
+        out.map(O_LOG);
+        /* no break */
+    case LOSS_NLL:                   /// * negative log likelihood, input from log-softmax
+        out *= hot;                  /// * hot_i * log(out_i)
+        err = -out.sum() / N;        /// * negative average per sample
+        break;
+    default: ERROR("Model#loss op=%d not supported\n", op);
+    }
+    // debug(out);
+    SCALAR(err);
+    return err;
+}
 __GPU__ void
 Model::_view(DU *v, int H, int W, int C, DU scale) {
 //  static const char *map = " .'`^\",:;Il!i><~+_-?][}{1)(|/tfjrxnuvczXYUJCLQ0OZmwqpdbkhao*#MW&8%B@$";   // 69 shades
@@ -116,48 +140,44 @@ Model::_dump(DU *v, int H, int W, int C) {
     }
 }
 __GPU__ void
-Model::_dump_dbdf(Tensor &db, Tensor &df) {
-    const int fsz = df.N() * df.H() * df.W() * df.C();
-    const int C5  = df.parm, C0 = db.H();
+Model::_dump_db(Tensor &db) {
     DU sum = DU0;
     printf("\n\tdb=");
-    for (int c0 = 0; c0 < C0; c0++) {
-        printf("%6.3f ", db.data[c0]);
-        sum += db.data[c0];
+    DU *v = db.data;
+    for (int i = 0; i < db.H(); i++) {
+        printf("%6.3f ", *v);
+        sum += *v++;
     }
     printf("Σ=%6.3f", sum);
-    DU *p = df.data;
-    for (int c5 = 0; c5 < C5; c5++) {
-        printf("\n\tdf[%d]=", c5);
-        sum = DU0;
-        for (int i=0; i<fsz; i++, p++) {
+}
+__GPU__ void
+Model::_dump_dw(Tensor &dw) {
+    const int H = dw.H(), W = dw.W();
+    DU *p = dw.data;
+    for (int j = 0; j < W; j++) {
+        printf("\n\tdw[%d]=", j);
+        DU sum = DU0;
+        for (int i = 0; i < H; i++, p++) {
             sum += *p;
             printf("%6.3f", *p);
         }
         printf(" Σ=%6.3f", sum);
     }
 }
-__GPU__ DU
-Model::_loss(t4_loss op, Tensor &out, Tensor &hot) {
-    const int N = out.N();
-    DU  err = DU0;                   ///> result loss value
-    switch (op) {
-    case LOSS_MSE:                   /// * mean squared error, input from linear
-        out -= hot;
-        err = 0.5 * NORM(out.numel, out.data) / N;
-        break;
-    case LOSS_CE:                    /// * cross_entropy, input from softmax
-        out.map(O_LOG);
-        /* no break */
-    case LOSS_NLL:                   /// * negative log likelihood, input from log-softmax
-        out *= hot;
-        err = -out.sum() / N;        /// * negative average per sample
-        break;
-    default: ERROR("Model#loss op=%d not supported\n", op);
+__GPU__ void
+Model::_dump_df(Tensor &df) {
+    const int fsz = df.N() * df.H() * df.W() * df.C();
+    const int C5  = df.parm;
+    DU *p = df.data;
+    for (int c5 = 0; c5 < C5; c5++) {
+        printf("\n\tdf[%d]=", c5);
+        DU sum = DU0;
+        for (int i=0; i<fsz; i++, p++) {
+            sum += *p;
+            printf("%6.3f", *p);
+        }
+        printf(" Σ=%6.3f", sum);
     }
-    debug(out);
-    SCALAR(err);
-    return err;
 }
 #endif  // T4_ENABLE_OBJ
 //==========================================================================
