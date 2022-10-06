@@ -169,7 +169,10 @@ $$
     <td>$$L =
       \begin{cases}
         MSE(Y_4, \hat Y) \\ \\
+        \begin{cases}
         CE(softmax(Y_4), \hat Y) \\
+        NLL(log(softmax(Y_4)), \hat Y) \\
+        \end{cases}
       \end{cases}$$</td>
     <td>$$\frac{\partial L}{\partial Y_4}$$</td>
     <td>$$
