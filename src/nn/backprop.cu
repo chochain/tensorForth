@@ -137,6 +137,7 @@ __GPU__ Model&
 Model::backprop() {
     return backprop(*_hot);           /// * use default one-hot vector
 }
+
 __GPU__ Model&
 Model::backprop(Tensor &hot) {
     auto trace = [](int i, Tensor &in, Tensor &out) {
@@ -158,88 +159,132 @@ Model::backprop(Tensor &hot) {
 /// ========================================================================
 /// private methods 
 ///
-#define TILE3    (T4_WARP_SZ - 3 + 1)      /** 14 */
-#define TILE5    (T4_WARP_SZ - 5 + 1)      /** 12 */
-
 __GPU__ void
 Model::_bstep(Tensor &in, Tensor &out) {
-    DU   *d1 = in.data, *d0 = out.data;              ///< input, output data
-    int  H1 = in.H(), W1 = in.W(), C1 = in.C();      ///< input HWC
     dim3 blk(T4_WARP_SZ, T4_WARP_SZ, 1);
-    dim3 grd(TGRID(W1, H1, C1, blk));
-
-    auto conv = [d1, d0, H1, W1, C1, blk](int C0, int ks, DU *f, DU *df, DU *db) {
-        dim3 g3((W1 + TILE3 - 1) / TILE3, (H1 + TILE3 - 1) / TILE3, C1);
-        dim3 g5((W1 + TILE5 - 1) / TILE5, (H1 + TILE5 - 1) / TILE5, C1);
-        switch (ks) {
-        case 3: k_dconv2d<TILE3,3><<<g3,blk>>>(d1, f, df, d0, H1, W1, C0); break;
-        case 5: k_dconv2d<TILE5,5><<<g5,blk>>>(d1, f, df, d0, H1, W1, C0); break;
-        default: return -1;
-        }
-        /// accumulate dB = sum(dY), TODO: CDP
-        for (int c0 = 0; c0 < C0; c0++, db++) {
-            DU *ox = d0 + c0;
-            for (int k = 0; k < H1 * W1; k++, ox+=C0) *db += *ox;
-        }
-        return 0;
-    };
+    dim3 grd(TGRID(in.W(), in.H(), in.C(), blk));
     ///
     /// layer function dispatcher
     ///
     t4_layer fn = in.grad_fn;                 ///< layer function
     switch(fn) {
-    case L_CONV:   {
-        Tensor &f = *in.grad[0], &df = *in.grad[2]; ///< filter tensor
-        Tensor &b = *in.grad[1], &db = *in.grad[3]; ///< bias tensor
-        const int C1 = f.parm, Nf = f.N(), Hf = f.H(), Wf = f.W(), Cf = f.C();
-        printf(" f[%d][%d,%d,%d,%d], b[%d]", C1, Nf, Hf, Wf, Cf, b.numel);
-        if (conv(out.C(), Hf, f.data, df.data, db.data)) {
-            ERROR("model_back#conv kernel_size %d not supported\n", Hf);
+    case L_CONV:    _bconv(in, out);   break; /// * convolution
+    case L_LINEAR:  _blinear(in, out); break; /// * out = w @ in + b
+    case L_FLATTEN: in = out;          break; /// * pass dY to X
+    case L_RELU:
+        for (int n = 0; n < in.N(); n++) {
+            DU *d1 = in.slice(n), *d0 = out.slice(n);
+            k_dfilter<<<grd,blk>>>(d1, d1, d0, in.H(), in.W());
+            GPU_SYNC();
         }
-        dump_dbdf(df.data, db.data, out.C(), C1, Nf * Hf * Wf * Cf);
-        printf("\nin[%d,%d,%d]=", H1, W1, C1); dump(d1, H1, W1, C1);
-        view(d1, H1, W1, C1, 1000.0f);
-    } break;
-    case L_LINEAR: {                          ///< out = w @ in + b
-        Tensor &w  = *in.grad[0];             ///< weight tensor
-        Tensor &dw = *in.grad[2];             ///< d_weight tensor
-        Tensor &db = *in.grad[3];             ///< d_bias tensor
-        int H0 = out.H(), M = w.H(), N = w.W();///< fully connected dimensions
-        /// dw += out[10,1] @ in^t[1,49]
-        /// in = w^t[49,10] @ out[10,1]
-        printf("\n\tdw[%d,%d] += out'[%d,1] @ in^t[1,%d]", M, N, H0, H1);
-        printf("\n\tin[%d, 1]  = w^t[%d,%d] @ out'[%d,1]", H1, N, M, H0);
-        db += out;
-        Tensor::mm(out, in, dw, (t4_mm_opt)(MM_INC | MM_B_TXP));
-        Tensor::mm(w, out, in, MM_A_TXP);
-    } break;
-    case L_FLATTEN: Tensor::copy(out, in); break;  /// * pass dY to X
-    case L_RELU:    k_dfilter<<<grd,blk>>>(d1, d1, d0, H1, W1); break;
+        break;
     case L_TANH:    /* TODO: */ break;
     case L_SIGMOID: /* TODO: */ break;
     case L_SOFTMAX: /* softmax + CrossEntropy derivative, out = one-hot */
     case L_LOGSMAX: /* log-softmax + NLL      derivative, out = one-hot */
         in -= out;  /* softmax:    Xi = Yi - Li     */
                     /* logsoftmax: Xi = Yi - Li * p */
-        dump(in.data, W1, H1, C1);
         break;
     case L_MAXPOOL:
     case L_AVGPOOL: 
-    case L_MINPOOL: {
-        U16 ks = in.parm;                              ///< pooling kernel size
-        U16 W0 = out.W(), H0 = out.H(), C0 = out.C();  ///< output dimensions
-        dim3 g(TGRID(W0, H0, C0, blk));
+    case L_MINPOOL: _bpool(in, out, fn); break;
+    case L_DROPOUT:
+        Tensor &msk = *in.grad[0];             ///< dropout mask
+        for (int n = 0; n < in.N(); n++) {
+            DU *d1 = in.slice(n), *d0 = out.slice(n);
+            k_dfilter<<<grd,blk>>>(d1, msk.data, d0, in.H(), in.W());
+            GPU_SYNC();
+        }
+        break;
+    }
+    debug(in, 300.0f);
+}
+
+#define TILE3    (T4_WARP_SZ - 3 + 1)      /** 14 */
+#define TILE5    (T4_WARP_SZ - 5 + 1)      /** 12 */
+
+__GPU__ int
+Model::_bconv(Tensor &in, Tensor &out) {
+    Tensor &tf = *in.grad[0], &tdf = *in.grad[2];    ///< filter tensor
+    Tensor &tb = *in.grad[1], &tdb = *in.grad[3];    ///< bias tensor
+    
+    const int ks = tf.H();                           ///< kernel size
+    const int C5 = tf.parm;                          ///< 5th dimension
+    
+    printf(" f[%d][%d,%d,%d], b[%d]", C5, tf.H(), tf.W(), tf.C(), tb.numel);
+    
+    const int H1 = in.H(), W1 = in.W(), C1 = in.C(); ///< input dimensions
+    const int C0 = out.C();
+    
+    dim3 blk(T4_WARP_SZ, T4_WARP_SZ, 1);
+    dim3 g3((W1 + TILE3 - 1) / TILE3, (H1 + TILE3 - 1) / TILE3, C1);
+    dim3 g5((W1 + TILE5 - 1) / TILE5, (H1 + TILE5 - 1) / TILE5, C1);
+    
+    for (int n = 0; n < in.N(); n++) {
+        DU *d1 = in.slice(n), *d0 = out.slice(n);
+        DU *f  = tf.slice(n), *df = tdf.slice(n);
+        switch (ks) {                                 /// * kernel size
+        case 3: k_dconv2d<TILE3,3><<<g3,blk>>>(d1, f, df, d0, H1, W1, C0); break;
+        case 5: k_dconv2d<TILE5,5><<<g5,blk>>>(d1, f, df, d0, H1, W1, C0); break;
+        default: 
+            ERROR("model_back#conv kernel_size %d not supported\n", ks);
+            return -1;
+        }
+        GPU_SYNC();
+        /// accumulate dB = sum(dY), TODO: CDP
+        DU *db = tdb.data;
+        for (int c = 0; c < C0; c++, db++) {
+            DU *ox = d0 + c;
+            for (int k = 0; k < H1 * W1; k++, ox+=C0) *db += *ox;
+        }
+    }
+    _dump_dbdf(tdb, tdf);
+    printf("\nin[%d,%d,%d]=", H1, W1, C1);
+    _view(in.data, H1, W1, C1, 1000.0f);
+    
+    return 0;
+}
+
+__GPU__ int
+Model::_blinear(Tensor &in, Tensor &out) {
+    Tensor &tw  = *in.grad[0];            ///< weight tensor
+    Tensor &tdw = *in.grad[2];            ///< d_weight tensor
+    Tensor &tdb = *in.grad[3];            ///< d_bias tensor
+    
+    const int H0 = out.H(), H1 = in.H();  ///< input, output dimensions
+    const int Hw = tw.H(),  Ww = tw.W();  ///< filter dimensions
+        
+    printf("\n\tdw[%d,%d] += out'[%d,1] @ in^t[1,%d]", Hw, Ww, H0, H1);
+    printf("\n\tin[%d, 1]  = w^t[%d,%d] @ out'[%d,1]", H1, Ww, Hw, H0);
+    
+    tdb += out;                           /// * db += dY
+    Tensor::mm(out, in, tdw,              /// * dw += dY @ X^t
+        (t4_mm_opt)(MM_INC | MM_B_TXP));  /// * in^t, inc dw
+    Tensor::mm(tw, out, in, MM_A_TXP);    /// * dX = w^t @ dY
+    
+    return 0;
+}    
+
+__GPU__ int
+Model::_bpool(Tensor &in, Tensor &out, t4_layer fn) {
+    const int W0 = out.W(), H0 = out.H(), C0 = out.C();  ///< output dimensions
+    dim3 blk(T4_WARP_SZ, T4_WARP_SZ, 1);
+    dim3 g(TGRID(W0, H0, C0, blk));
+
+    const int ks = in.parm;               ///< kernel size
+    for (int n = 0; n < in.N(); n++) {
+        DU *d1 = in.slice(n), *d0 = out.slice(n);
         switch(ks) {                           
         case 0x2: k_dpool<2><<<g,blk>>>(d1, d0, H0, W0, fn); break;
         case 0x3: k_dpool<3><<<g,blk>>>(d1, d0, H0, W0, fn); break;
+        default:
+            ERROR("model#pooling kernel_size=%d not supported\n", ks);
+            return -1;
         }
-        if (H1 < 10) dump(d1, W1, H1, C1);
-    } break;
-    case L_DROPOUT:
-        Tensor &msk = *in.grad[0];             ///< dropout mask
-        k_dfilter<<<grd,blk>>>(d1, msk.data, d0, H1, W1);
-        break;
+        GPU_SYNC();
+        if (in.H() < 10) _dump(d1, in.W(), in.H(), in.C());
     }
+    return 0;
 }
 #endif  // T4_ENABLE_OBJ
 //==========================================================================
