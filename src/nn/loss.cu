@@ -11,11 +11,13 @@
 __GPU__ Tensor&
 Model::onehot() {
     auto show = [](DU *h, int n, int sz) {
+/*                    
         printf("onehot[%d]=", n);
         for (int i = 0; i < sz; i++) {
             printf("%2.0f", h[i]);
         }
         printf("\n");
+*/
     };
     Tensor &out = (*this)[-1];                         ///< model output
     int    N    = out.N(), hwc = out.HWC();            ///< sample size
@@ -137,21 +139,23 @@ Model::_dump_dbdf(Tensor &db, Tensor &df) {
 }
 __GPU__ DU
 Model::_loss(t4_loss op, Tensor &out, Tensor &hot) {
-    DU err = DU0;                    ///> result loss value
+    const int N = out.N();
+    DU  err = DU0;                   ///> result loss value
     switch (op) {
     case LOSS_MSE:                   /// * mean squared error, input from linear
         out -= hot;
-        err = 0.5 * NORM(out.numel, out.data) / out.numel;
+        err = 0.5 * NORM(out.numel, out.data) / N;
         break;
     case LOSS_CE:                    /// * cross_entropy, input from softmax
-        out.map(O_LOG);              /// * out = log-softmax now
+        out.map(O_LOG);
         /* no break */
     case LOSS_NLL:                   /// * negative log likelihood, input from log-softmax
-        out *= hot;                  /// * multiply probability of two systems
-        err = -out.sum() / out.N();  /// * negative average per sample
+        out *= hot;
+        err = -out.sum() / N;        /// * negative average per sample
         break;
     default: ERROR("Model#loss op=%d not supported\n", op);
     }
+    debug(out);
     SCALAR(err);
     return err;
 }
