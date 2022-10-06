@@ -79,10 +79,10 @@ struct Tensor : public T4Base {
     ///   1. resultant tensor as last parameter
     ///   2. return the resultant tensor
     ///
+    static __GPU__  Tensor &ten_op(t4_ten_op op, Tensor &A, Tensor &B, Tensor &O);  ///> matrix-matrix element-wise ops (Hadamard)
+    static __GPU__  Tensor &ten_op(t4_ten_op op, Tensor &A, DU v, Tensor &O);       ///> matrix-scalar element-wise ops
     static __GPU__  Tensor &mm(Tensor &A, Tensor &B, Tensor &O, t4_mm_opt opt=MM_NONE);
     static __GPU__  Tensor &gemm(Tensor &A, Tensor &B, Tensor &O, DU alpha, DU beta);
-    static __GPU__  Tensor &matx(t4_ten_op op, Tensor &A, Tensor &B, Tensor &O);  ///> matrix-matrix element-wise ops (Hadamard)
-    static __GPU__  Tensor &matx(t4_ten_op op, Tensor &A, DU v, Tensor &O);       ///> matrix-scalar element-wise ops
     static __GPU__  Tensor &copy(Tensor &A, Tensor &O);
     static __GPU__  Tensor &transpose(Tensor &A, Tensor &T);
     static __GPU__  Tensor &inverse(Tensor &A, Tensor &I);  /// GaussJordan (with Pivot)
@@ -168,9 +168,9 @@ struct Tensor : public T4Base {
     __GPU__ __INLINE__ Tensor &operator-=(DU v)     { map(O_SUB, v); return *this; }
     __GPU__ __INLINE__ Tensor &operator*=(DU v)     { map(O_MUL, v); return *this; }
     __GPU__ __INLINE__ Tensor &operator=(Tensor &t) { copy(t, *this); return *this; }
-    __GPU__ __INLINE__ Tensor &operator+=(Tensor &t){ matx(O_ADD, *this, t, *this); return *this; }
-    __GPU__ __INLINE__ Tensor &operator-=(Tensor &t){ matx(O_SUB, *this, t, *this); return *this; }
-    __GPU__ __INLINE__ Tensor &operator*=(Tensor &t){ matx(O_MUL, *this, t, *this); return *this; }
+    __GPU__ __INLINE__ Tensor &operator+=(Tensor &t){ ten_op(O_ADD, *this, t, *this); return *this; }
+    __GPU__ __INLINE__ Tensor &operator-=(Tensor &t){ ten_op(O_SUB, *this, t, *this); return *this; }
+    __GPU__ __INLINE__ Tensor &operator*=(Tensor &t){ ten_op(O_MUL, *this, t, *this); return *this; }
     ///
     /// TODO: tensor logical ops
     ///
