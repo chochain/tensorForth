@@ -153,10 +153,11 @@ AIO::_print_tensor(DU v) {
         int pg = mi * mj * mc;
         cout << "tensor["
              << n << "," << mi << "," << mj << "," << mc
-             << "] = { {\n\t";
+             << "] = {\n\t";
         for (int i = 0; i < n; i++, d += pg) {
-            _print_mat(d, mi, mj, ri, rj, mc);
-            cout << " }" << ((i+1) < n ? " {\n\t" : "");
+            if (mj==1) _print_mat(d, mj, mi, rj, ri, mc);
+            else       _print_mat(d, mi, mj, ri, rj, mc);
+            cout << ((i+1) < n ? ",\n\t" : "");
         }
         cout << " }";
     } break;
