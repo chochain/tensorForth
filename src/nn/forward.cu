@@ -128,8 +128,8 @@ Model::forward(Tensor &input) {
     /// TODO: model execution becomes a superscalar pipeline
     ///
     auto trace = [](int i, Tensor &in, Tensor &out) {
-        printf("%2d> %s Σ=%6.2f [%d,%d,%d,%d]\tp=%-2d => out[%d,%d,%d,%d]",
-            i, d_nname(in.grad_fn), in.sum(),
+        printf("%2d> %s Σ/N=%6.2f [%d,%d,%d,%d]\tp=%-2d => out[%d,%d,%d,%d]",
+            i, d_nname(in.grad_fn), in.sum() / in.N(),
             in.N(), in.H(), in.W(), in.C(), in.parm,
             out.N(), out.H(), out.W(), out.C());
     };
@@ -168,7 +168,7 @@ Model::_fstep(Tensor &in, Tensor &out) {
     } break;
     default: ERROR("Model#forward layer=%d not supported\n", fn);
     }
-    debug(out);
+//    debug(out);
 }
 
 #define TILE3    (T4_WARP_SZ - 3 + 1)      /** 14 */
