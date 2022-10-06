@@ -5,7 +5,6 @@
  * <pre>Copyright (C) 2022- GreenII, this file is distributed under BSD 3-Clause License.</pre>
  */
 #include "model.h"
-#include "dataset.h"
 
 #if T4_ENABLE_OBJ
 ///
@@ -111,24 +110,6 @@ __KERN__ void k_filter(
     g.sync();
 }
 
-__GPU__ Tensor&
-Model::onehot() {
-    Tensor &out = (*this)[-1];                             ///< model output
-    Tensor &hot = _mmu->tensor(out.numel).fill(DU0);       ///< one-hot vector
-    if (!_dset) {
-        ERROR("Model#loss dataset not set yet?\n");
-        return hot;
-    }
-    int dsz = hot.H() * hot.W() * hot.C();                 ///< layer size
-    DU *v   = &_dset->label[_dset->N() * _dset->batch_id]; ///< target labels
-    DU *h   = hot.data;
-    for (int n=0; n < out.N(); n++, h+=dsz) {              /// * setup one-hot
-        U32 i = INT(v[n]);
-        h[i < dsz ? i : 0] = DU1;
-    }
-    return hot;
-}
-
 __GPU__ Model&
 Model::forward(Tensor &input) {
     Tensor &n1 = (*this)[1];        ///< reference model input layer
@@ -165,55 +146,27 @@ Model::forward(Tensor &input) {
 ///
 __GPU__ void
 Model::_fstep(Tensor &in, Tensor &out) {
-    dim3 blk(T4_WARP_SZ, T4_WARP_SZ, 1);              ///< default blocks
-    dim3 grd(TGRID(out.W(), out.H(), out.C(), blk));  ///< default grids
     ///
     /// layer function dispatcher
     ///
-    t4_layer fn = in.grad_fn;                 ///< layer function
+    t4_layer fn = in.grad_fn;                     ///< layer function
     switch(fn) {
-    case L_CONV:    _fconv(in, out);   break; ///< convolution
-    case L_LINEAR:  _flinear(in, out); break; ///< out = W @ in + B
-    case L_FLATTEN: out = in;          break; /// * straight copy
-    case L_RELU: {
-        const int N = out.N(), H0 = out.H(), W0 = out.W();
-        for (int n = 0; n < N; n++) {
-            DU *d1 = in.slice(n), *d0 = out.slice(n);
-            k_filter<<<grd, blk>>>(d1, d1, d0, H0, W0);
-            GPU_SYNC();
-        }
-    } break;
-    case L_TANH:    break;
-    case L_SIGMOID: break;
-    case L_SOFTMAX: {                        /// * feed to CrossEtropy
-        out = in;                            /// * copy content for exp calc
-        /// TODO: mini-batch, in[100,10] => sum[100]
-        out.map(O_EXP);
-        for (int n = 0; n < in.N(); n++) {
-            DU sum = out.data[n * in.HWC()];       /// * sum all log proba.
-            out *= DU1/(sum + DU_EPS);           /// * divide by sum(exp)
-        }
-        printf(" Σ=%5.3f", out.sum());       /// * verify sum
-    } break;
-    case L_LOGSMAX: {                        /// * feed to NLL
-        out = in;                            /// * use out as tmp
-        DU sum = LOG(out.map(O_EXP).sum());  /// * calc logsum
-        out = in;                            /// * overwrite out again
-        out -= sum;                          /// * Xi - logsum
-        printf(" Σ=%5.3f", out.sum());       /// * verify sum
-    } break;
+    case L_CONV:    _fconv(in, out);       break; ///< convolution
+    case L_LINEAR:  _flinear(in, out);     break; ///< out = W @ in + B
+    case L_FLATTEN: out = in;              break; ///< straight copy
+    case L_RELU:    _ffilter(in, in, out); break; ///< filter in < 0 
+    case L_TANH:    /* TODO */             break;
+    case L_SIGMOID: /* TODO */             break;
+    case L_SOFTMAX: _fsoftmax(in, out);    break; /// * feed to CrossEtropy
+    case L_LOGSMAX: _flogsoftmax(in, out); break; /// * feed to NLL
     case L_MAXPOOL:
     case L_AVGPOOL: 
-    case L_MINPOOL: _fpool(in, out,fn); break;
-    case L_DROPOUT:
-        const int H0 = out.H(), W0 = out.W();
-        for (int n = 0; n < out.N(); n++) {
-            DU *m  = in.grad[0]->slice(n);   /// * mask data
-            DU *d1 = in.slice(n), *d0 = out.slice(n);
-            k_filter<<<grd, blk>>>(d1, m, d0, H0, W0);
-        }
-        GPU_SYNC();
-        break;
+    case L_MINPOOL: _fpool(in, out, fn);   break;
+    case L_DROPOUT: {                             ///< dropout mask 
+        Tensor &msk = *in.grad[0];            
+        _ffilter(in, msk, out);
+    } break;
+    default: ERROR("Model#forward layer=%d not supported\n", fn);
     }
     debug(out);
 }
@@ -286,6 +239,20 @@ Model::_flinear(Tensor &in, Tensor &out) {
 }
 
 __GPU__ int
+Model::_ffilter(Tensor &in, Tensor &tm, Tensor &out) {
+    dim3 blk(T4_WARP_SZ, T4_WARP_SZ, 1);              ///< default blocks
+    dim3 grd(TGRID(out.W(), out.H(), out.C(), blk));  ///< default grids
+        
+    const int N = out.N(), H0 = out.H(), W0 = out.W();
+    for (int n = 0; n < N; n++) {
+        DU *d1 = in.slice(n), *m = tm.slice(n), *d0 = out.slice(n);
+        k_filter<<<grd, blk>>>(d1, m, d0, H0, W0);
+    }
+    GPU_SYNC();
+    return 0;
+}
+
+__GPU__ int
 Model::_fpool(Tensor &in, Tensor &out, t4_layer fn) {
     dim3 blk(T4_WARP_SZ, T4_WARP_SZ, 1);                ///< default blocks
     dim3 grd(TGRID(out.W(), out.H(), out.C(), blk));    ///< default grid
@@ -304,6 +271,49 @@ Model::_fpool(Tensor &in, Tensor &out, t4_layer fn) {
         }
     }
     GPU_SYNC();
+    return 0;
+}
+
+__GPU__ int
+Model::_fsoftmax(Tensor &in, Tensor &out) {   /// * TODO: DCP
+    out = in;                                 /// * copy content for exp calc
+    DU *sum = in.grad[0]->data;               /// * sum(exp(xi)), for DCP
+    int sz  = in.HWC();
+    for (int n = 0; n < in.N(); n++, sum++) { /// * loop throught batch
+        *sum = DU0;
+        DU *d = out.slice(n), *d1 = d;
+        for (int i = 0; i < sz; i++) {
+            *d   = EXP(*d);                   /// * softmax = exp(xi) / sum(exp(xi))
+            *sum += *d++;
+        }
+        DU r = DU1 / (*sum + DU_EPS);         /// * r = 1.0 / sum(exp(xi))
+        *sum = DU0;
+        for (int i = 0; i < sz; i++) {
+            *d1  *= r;
+            *sum += *d1++;
+        }
+        printf(" Σ%d=%5.3f", n, *sum);        /// * verify sum
+    }
+    return 0;
+}
+
+__GPU__ int
+Model::_flogsoftmax(Tensor &in, Tensor &out) {/// * TODO: DCP
+    out = in;                                 /// * copy in data to out
+    DU *sum = in.grad[0]->data;               /// * sum(exp(xi)), for DCP
+    int sz  = in.HWC();
+    for (int n = 0; n < in.N(); n++, sum++) { /// * loop throught batch
+        *sum = DU0;
+        DU *d = out.slice(n), *d1 = d;
+        for (int i = 0; i < sz; i++) {
+            *sum += EXP(*d++);
+        }
+        DU logsum = LOG(*sum);
+        for (int i = 0; i < sz; i++) {
+            *d1++ -= logsum;
+        }
+        printf(" lnΣ%d=%5.3f", n, logsum);   /// * verify sum
+    }
     return 0;
 }
 #endif  // T4_ENABLE_OBJ
