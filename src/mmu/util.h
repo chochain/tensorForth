@@ -62,8 +62,8 @@ __GPU__ int          d_hash(const char *s);
 ///@name Tensor ops (kernel mode)
 ///@{
 __KERN__ void        k_copy(float *src, float *dst, int sz);  ///< Note: (src, dst)
-__KERN__ void        k_transpose(float *src, float *dst, int m, int n); ///< Note: (src, dst), TODO: CDP
-__KERN__ void        k_identity(float *t, int m, int n, int c);
+__KERN__ void        k_transpose(float *src, float *dst, int n, int h, int w); ///< Note: (src, dst), TODO: CDP
+__KERN__ void        k_identity(float *t, int n, int h, int w, int c);
 ///@}
 ///==========================================================================
 ///@name Unified memory ops

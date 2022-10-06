@@ -392,24 +392,30 @@ k_copy(float *src, float *dst, int sz) {           ///< Note: (src, dst)
     if (k < sz) dst[k] = src[k];
 }
 __KERN__ void
-k_transpose(float *src, float *dst, int M, int N) { ///< Note: (src, dst), TODO: CDP
-    int i = threadIdx.y + blockIdx.y * blockDim.y;
-    int j = threadIdx.x + blockIdx.x * blockDim.x;
-    int c = blockIdx.z, C = gridDim.z;
+k_transpose(float *src, float *dst, int N, int H, int W) { ///< Note: (src, dst), TODO: CDP
+    const int i = threadIdx.y + blockIdx.y * blockDim.y;
+    const int j = threadIdx.x + blockIdx.x * blockDim.x;
+    const int c = blockIdx.z, C = gridDim.z;
 
-    if (i < M && j < N && c < C) {
-        dst[c + (i + j * M) * C] = src[c + (j + i * N) * C];
+    for (int n = 0; n < N; n++) {
+        const int ns = n * H * W * C;              ///< slice size
+        if (i < H && j < W && c < C) {
+            dst[c + (i + j * H) * C + ns] = src[c + (j + i * W) * C + ns];
+        }
     }
 }
 __KERN__ void
-k_identity(float *t, int M, int N, int sz) {
+k_identity(float *t, int N, int H, int W, int sz) {
     const float i01[2] = { 0.0f, 1.0f };
     
     int i = threadIdx.y + blockIdx.y * blockDim.y;
     int j = threadIdx.x + blockIdx.x * blockDim.x;
     int c = blockIdx.z, C = gridDim.z;
-    
-    if (i < M && j < N && c < C) {
-        t[c + (j + i * N) * C] = i01[i==j];
+
+    for (int n = 0; n < N; n++) {
+        const int ns = n * H * W * C;             ///< slice size
+        if (i < H && j < W && c < C) {
+            t[c + (j + i * W) * C + ns] = i01[i==j];
+        }
     }
 }
