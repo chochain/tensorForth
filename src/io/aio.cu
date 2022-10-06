@@ -150,10 +150,14 @@ AIO::_print_tensor(DU v) {
     case 4: {
         int n  = t.N(), mi = t.H(), mj = t.W(), mc = t.C();
         int ri = range(mi), rj = range(mj);
+        int pg = mi * mj * mc;
         cout << "tensor["
              << n << "," << mi << "," << mj << "," << mc
-             << "] = {\n\t";
-        _print_mat(d, mi, mj, ri, rj, mc);
+             << "] = { {\n\t";
+        for (int i = 0; i < n; i++, d += pg) {
+            _print_mat(d, mi, mj, ri, rj, mc);
+            cout << " }" << ((i+1) < n ? " {\n\t" : "");
+        }
         cout << " }";
     } break;
     case 5: {
