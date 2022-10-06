@@ -71,10 +71,10 @@ Model::_iconv(Tensor &in, U16 C0, DU bias, U16 *opt) {
     /// filter: C1 to C0 fully connected
     /// TODO: filters's 5th dimension is stored in parm field for now
     ///
-    Tensor *f  = in.grad[0] = &tensor(C1, N1, Hf, Wf, C0);                  ///> f
-    Tensor *df = in.grad[2] = &tensor(C1, N1, Hf, Wf, C0).map(O_FILL, DU0); ///> df
-    Tensor *b  = in.grad[1] = &vector(C0).map(O_FILL, bias);                ///> b
-    Tensor *db = in.grad[3] = &vector(C0).map(O_FILL, DU0);                 ///> db
+    Tensor *f  = in.grad[0] = &_t5(C1, N1, Hf, Wf, C0);                  ///> f
+    Tensor *df = in.grad[2] = &_t5(C1, N1, Hf, Wf, C0).map(O_FILL, DU0); ///> df
+    Tensor *b  = in.grad[1] = &_vec(C0).map(O_FILL, bias);               ///> b
+    Tensor *db = in.grad[3] = &_vec(C0).map(O_FILL, DU0);                ///> db
 
     DU k = DU1 / SQRT(Hf * Wf * C1);             /// * filter default range
     _mmu->random(*f, UNIFORM, -0.5, 2.0 * k);    /// * randomize f [-k ~ k)
@@ -85,22 +85,22 @@ Model::_iconv(Tensor &in, U16 C0, DU bias, U16 *opt) {
         printf("%6.3f", dx);
     }
     */
-    Tensor &out= tensor(N1, H0, W0, C0);         ///> output tensor
-    npush(out);                                  /// * stage for next stage
+    Tensor &out= _t4(N1, H0, W0, C0);           ///> output tensor
+    npush(out);                                 /// * stage for next stage
 }
 __GPU__ void
 Model::_ilinear(Tensor &in, U16 C0, DU bias) {
     U16 N1 = in.N(), C1 = in.HWC();
-    Tensor *w  = in.grad[0] = &tensor(N1, C0, C1, 1);                  ///> w
-    Tensor *dw = in.grad[2] = &tensor(N1, C0, C1, 1).map(O_FILL, DU0); ///> dw
-    Tensor *b  = in.grad[1] = &vector(C0).map(O_FILL, bias);           ///> b
-    Tensor *db = in.grad[3] = &vector(C0).map(O_FILL, DU0);            ///> db
+    Tensor *w  = in.grad[0] = &_t4(N1, C0, C1, 1);                  ///> w
+    Tensor *dw = in.grad[2] = &_t4(N1, C0, C1, 1).map(O_FILL, DU0); ///> dw
+    Tensor *b  = in.grad[1] = &_vec(C0).map(O_FILL, bias);          ///> b
+    Tensor *db = in.grad[3] = &_vec(C0).map(O_FILL, DU0);           ///> db
     
     DU k = DU1 / SQRT(C1);                       /// * default weight
     _mmu->random(*w, UNIFORM, -0.5, 2.0 * k);    /// * randomize w
     printf("bias=%4.2f,  k=%6.3f, w.std=%6.3f\n", bias, k, w->std());
     
-    Tensor &out = tensor(N1, C0);                ///> output tensor sizing
+    Tensor &out = _t4(N1, C0);                   ///> output tensor sizing
     printf(" out[%d,%d,%d,%d]", out.N(), out.H(), out.W(), out.C());
     npush(out);                                  /// * stage for next stage
 }
@@ -108,7 +108,7 @@ __GPU__ void
 Model::_iflatten(Tensor &in) {
     in.parm = in.HWC();                          /// * keep numel per sample
     printf("flatten parm=%d\n", in.parm);
-    Tensor &out = tensor(in.N(), in.parm);       /// * for backprop
+    Tensor &out = _t4(in.N(), in.parm);          /// * for backprop
     npush(out);
 }
 ///
@@ -122,7 +122,7 @@ Model::_icopy(Tensor &in) {
 
 __GPU__ void
 Model::_isoftmax(Tensor &in) {
-    Tensor *sum = in.grad[0] = &vector(in.N());  ///> for sum per sample
+    Tensor *sum = in.grad[0] = &_vec(in.N());    ///> for sum per sample
     Tensor &out = _mmu->copy(in);                ///> output tensor sizing
     npush(out);
 }
@@ -141,7 +141,7 @@ Model::_ipool(Tensor &in, U16 f) {
     U16 W0 = int((in.W() - f) / f) + 1;
     U16 s[4] = { f, f, 1, 1 }; memcpy(in.stride, s, sizeof(s));  // stride
     
-    Tensor &out = tensor(in.N(), H0, W0, in.C());
+    Tensor &out = _t4(in.N(), H0, W0, in.C());
     npush(out);                                  /// * stage for next stage
 }
 
