@@ -87,7 +87,7 @@ typedef float       F32;                    ///< single precision float
 ///@}
 ///@name CUDA specific macros
 ///@{
-#define TGRID(w,h,c,b)  ((w)+(b).x-1)/(b).x,((h)+(b).y-1)/(b).y,((c)+(b).z-1)/(b).z
+#define NGRID(w,h,n,b)  ((w)+(b).x-1)/(b).x,((h)+(b).y-1)/(b).y,(n)
 ///@}
 //===============================================================================
 /// tensorForth common data types
