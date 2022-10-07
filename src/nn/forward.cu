@@ -213,9 +213,6 @@ Model::_flinear(Tensor &in, Tensor &out) {
         tw.N(), tw.H(), tw.W(), tw.C(),
         in.N(), in.H(), in.W(), in.C(), tb.numel);
         
-    dim3 blk(T4_WARP_SZ, T4_WARP_SZ, 1);             ///< default blocks
-    dim3 grd(TGRID(out.W(), out.H(), out.C(), blk)); ///< default grids
-
     DU *w = tw.data, *b = tb.data;
     for (int n = 0; n < out.N(); n++) {              /// * walk through batch
         DU *d1 = in.slice(n), *d0 = out.slice(n);
@@ -228,8 +225,6 @@ Model::_flinear(Tensor &in, Tensor &out) {
     }
     return 0;
 }
-
-#define NGRID(w,h,n,b)  ((w)+(b).x-1)/(b).x,((h)+(b).y-1)/(b).y,(n)
 
 __GPU__ int
 Model::_ffilter(Tensor &in, Tensor &msk, Tensor &out) {
