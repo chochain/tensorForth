@@ -138,7 +138,7 @@ Model::forward(Tensor &input) {
         Tensor &in = (*this)[i], &out = (*this)[i + 1];
         trace(i, in, out);
         _fstep(in, out);
-        debug(out);
+//        debug(out);
         printf("\n");
     }
     return *this;
@@ -206,20 +206,20 @@ __GPU__ int
 Model::_flinear(Tensor &in, Tensor &out) {
     Tensor &tw = *in.grad[0];                         ///< weight tensor
     Tensor &tb = *in.grad[1];                         ///< bias tensor
+
+    const int N  = out.N();                           ///< batch size (N1 == N0)
+    const int C0 = tw.H(), C1 = tw.W();               ///< dense layer dims
     
-    const int Hw = tw.H(), Ww = tw.W();               ///< dense layer dims
-    
-    printf(" w[%d,%d,%d,%d] @ in[%d,%d,%d,%d] + b[%d]",
-        tw.N(), tw.H(), tw.W(), tw.C(),
-        in.N(), in.H(), in.W(), in.C(), tb.numel);
+    printf(" = w[%d,%d] @ in[%d,%d,%d,%d] + b[%d]",
+        C0, C1, in.N(), in.H(), in.W(), in.C(), tb.numel);
         
     DU *w = tw.data, *b = tb.data;
-    for (int n = 0; n < out.N(); n++) {              /// * walk through batch
-        DU *d1 = in.slice(n), *d0 = out.slice(n);
-        for (int y = 0; y < Hw; y++) {               /// TODO: kernel version
-            d0[y] = b[y];                            /// init with bias
-            for (int x = 0; x < Ww; x++) {           /// dot product
-                d0[y] += w[x + y * Ww] * d1[x];
+    for (int n = 0; n < N; n++) {                     /// * walk through batch
+        DU *x = in.slice(n), *y = out.slice(n);
+        for (int i = 0; i < C0; i++) {                /// TODO: kernel version
+            y[i] = b[i];                              /// init with bias
+            for (int j = 0; j < C1; j++) {            /// dot product
+                y[i] += w[j + i * C1] * x[j];         /// * Y += W @ X + B
             }
         }
     }
