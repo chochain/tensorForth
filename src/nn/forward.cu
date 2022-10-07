@@ -43,15 +43,15 @@ __KERN__ void k_conv2d(
         /// Y = sum(W * X)
         /// TODO: cache F
         ///
-        const int zf = (c1 + c0 * C1 + n) * KS * KS; ///< filter index
         if (tx < TS && ty < TS) {                    /// * each tile
+            const int zf = (c0 + c1 * C0) * KS * KS; ///< filter index
             DU sum = DU0;
             DU *fx = &F[zf];                         /// * filter[0] ptr
             DU *ix = &it[zt];                        /// * tile[tx,ty]
             for (int y = 0; y < KS; y++) {           /// * each filter
                 for (int x = 0; x < KS; x++) {
                     sum += (*fx) * ix[x];            /// Y += W * X
-                    fx += C1;                        /// * next filter cell
+                    fx += C0;                        /// * next filter cell
                 }
                 ix += T4_WARP_SZ;                    /// next row of tile
             }
@@ -179,9 +179,8 @@ __GPU__ int
 Model::_fconv(Tensor &in, Tensor &out) {
     Tensor &tf = *in.grad[0];                             ///< filter tensor
     Tensor &tb = *in.grad[1];                             ///< bias tensor
-    int C5 = tf.parm;                                     ///< 5th dimension C1
     
-    printf(" f[%d][%d,%d,%d,%d], b[%d]", C5, tf.N(), tf.H(), tf.W(), tf.C(), tb.numel);
+    printf(" f[%d,%d,%d,%d], b[%d]", tf.N(), tf.H(), tf.W(), tf.C(), tb.numel);
         
     const int N = out.N(), H = out.H(), W = out.W();      ///< outpt dimensions
     const int C0 = out.C(), C1 = in.C();                  ///< output, input channel deep
