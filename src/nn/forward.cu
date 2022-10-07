@@ -30,7 +30,6 @@ __KERN__ void k_conv2d(
     const int j1 = j0 - int(KS / 2);
 
     auto g = cg::this_thread_block();                ///< all threads of block
-
     for (int c1 = 0; c1 < C1; c1++) {                ///< each input channel
         it[zt] =                                     /// * cache input data
             (i1 >= 0 && i1 < H && j1 >= 0 && j1 < W) /// * with zero padding
@@ -57,25 +56,25 @@ __KERN__ void k_conv2d(
                 else       O[z0] += sum;
             }
         }
-        g.sync();                          /// * d read barrier
+        g.sync();
     }
 }
 
 template<int KS>                           /// kernel size
 __KERN__ void k_pool(
     DU *I, DU *O,                          ///< input, output buffers
-    int H0, int W0,                        ///< output HW (C0==C1)
+    int H, int W,                          ///< output HW (C0==C1)
     t4_layer op                            ///< pooling ops
     ) {
     const int j0 = threadIdx.x + blockIdx.x * blockDim.x;
     const int i0 = threadIdx.y + blockIdx.y * blockDim.y;
-    const int c  = blockIdx.z, C = gridDim.z;
-    const int z0 = j0 + i0 * W0;            ///< output array index
-    const int z1 = (j0 + i0 * W0 * KS) * KS;///< input array index
-    auto g = cg::this_thread_block();
+    const int c  = threadIdx.z, C = blockDim.z;      ///< channel deep
+    const int ns = blockIdx.z * H * W * C;           ///< batch slice idx
+    const int z0 = c + (j0 + i0 * W) * C + ns;       ///< output array index
+    const int z1 = c + ((j0 + (i0 * W) * KS) * KS) * C + ns * KS * KS;
     
-    if (i0 < H0 && j0 < W0 && c < C) {
-        DU *ix = &I[c + z1 * C];
+    if (i0 < H && j0 < W && c < C) {
+        DU *ix = &I[z1];
         DU2 v  = op==L_AVGPOOL ? DU0 : *ix;
         for (int y = 0; y < KS; y++) {
             for (int x = 0; x < KS; x++) {
@@ -87,11 +86,10 @@ __KERN__ void k_pool(
                 }
                 ix += C;
             }
-            ix += (W0 - 1) * KS * C;
+            ix += (W - 1) * KS * C;
         }
-        O[c + z0 * C] = op==L_AVGPOOL ? v / (KS * KS) : v;
+        O[z0] = op==L_AVGPOOL ? v / (KS * KS) : v;
     }
-    g.sync();
 }
 
 __KERN__ void k_filter(
@@ -100,14 +98,13 @@ __KERN__ void k_filter(
     ) {
     const int j0 = threadIdx.x + blockIdx.x * blockDim.x;
     const int i0 = threadIdx.y + blockIdx.y * blockDim.y;
-    const int c  = blockIdx.z, C = gridDim.z;
-    const int z0 = c + (i0 + j0 * W) * C;
-    auto g = cg::this_thread_block();
+    const int c  = threadIdx.z, C = blockDim.z;      ///< channel deep
+    const int ns = blockIdx.z * H * W * C;           ///< batch slice idx
+    const int z0 = c + (i0 + j0 * W) * C + ns;       ///< output tensor index
     
     if (i0 < H && j0 < W && c < C) {
         O[z0] = (F[z0] > DU0) ? I[z0] : DU0;
     }
-    g.sync();
 }
 
 __GPU__ Model&
@@ -128,8 +125,8 @@ Model::forward(Tensor &input) {
     /// TODO: model execution becomes a superscalar pipeline
     ///
     auto trace = [](int i, Tensor &in, Tensor &out) {
-        printf("%2d> %s Σ/N=%6.2f [%d,%d,%d,%d]\tp=%-2d => out[%d,%d,%d,%d]",
-            i, d_nname(in.grad_fn), in.sum() / in.N(),
+        printf("%2d> %s Σ=%6.2f [%d,%d,%d,%d]\tp=%-2d => out[%d,%d,%d,%d]",
+            i, d_nname(in.grad_fn), in.sum() / in.N() / in.C(),
             in.N(), in.H(), in.W(), in.C(), in.parm,
             out.N(), out.H(), out.W(), out.C());
     };
@@ -137,6 +134,7 @@ Model::forward(Tensor &input) {
         Tensor &in = (*this)[i], &out = (*this)[i + 1];
         trace(i, in, out);
         _fstep(in, out);
+        debug(out);
         printf("\n");
     }
     return *this;
@@ -163,12 +161,11 @@ Model::_fstep(Tensor &in, Tensor &out) {
     case L_AVGPOOL: 
     case L_MINPOOL: _fpool(in, out, fn);   break;
     case L_DROPOUT: {                             ///< dropout mask 
-        Tensor &msk = *in.grad[0];            
+        Tensor &msk = *in.grad[0];
         _ffilter(in, msk, out);
     } break;
     default: ERROR("Model#forward layer=%d not supported\n", fn);
     }
-//    debug(out);
 }
 
 #define TILE3    (T4_WARP_SZ - 3 + 1)      /** 14 */
@@ -209,6 +206,7 @@ __GPU__ int
 Model::_flinear(Tensor &in, Tensor &out) {
     Tensor &tw = *in.grad[0];                         ///< weight tensor
     Tensor &tb = *in.grad[1];                         ///< bias tensor
+    
     const int Hw = tw.H(), Ww = tw.W();               ///< dense layer dims
     
     printf(" w[%d,%d,%d,%d] @ in[%d,%d,%d,%d] + b[%d]",
@@ -219,7 +217,7 @@ Model::_flinear(Tensor &in, Tensor &out) {
     dim3 grd(TGRID(out.W(), out.H(), out.C(), blk)); ///< default grids
 
     DU *w = tw.data, *b = tb.data;
-    for (int n = 0; n < out.N(); n++, w += tw.HWC()) {
+    for (int n = 0; n < out.N(); n++) {              /// * walk through batch
         DU *d1 = in.slice(n), *d0 = out.slice(n);
         for (int y = 0; y < Hw; y++) {               /// TODO: kernel version
             d0[y] = b[y];                            /// init with bias
@@ -228,49 +226,41 @@ Model::_flinear(Tensor &in, Tensor &out) {
             }
         }
     }
-    /*
-      if (out.numel < 20) dump(d0, 1, out.numel, 1);
-      else {
-      int k = SQRT(out.numel);
-      -dump(d0, k+1, k, 1);
-      }
-    */
     return 0;
 }
 
+#define NGRID(w,h,n,b)  ((w)+(b).x-1)/(b).x,((h)+(b).y-1)/(b).y,(n)
+
 __GPU__ int
-Model::_ffilter(Tensor &in, Tensor &tm, Tensor &out) {
-    dim3 blk(T4_WARP_SZ, T4_WARP_SZ, 1);              ///< default blocks
-    dim3 grd(TGRID(out.W(), out.H(), out.C(), blk));  ///< default grids
+Model::_ffilter(Tensor &in, Tensor &msk, Tensor &out) {
+    const int N = out.N(), H = out.H(), W = out.W();
+    
+    dim3 blk(T4_WARP_SZ, T4_WARP_SZ, out.C());          ///< default blocks
+    dim3 grd(NGRID(W, H, out.N(), blk));                ///< default grids
         
-    const int N = out.N(), H0 = out.H(), W0 = out.W();
-    for (int n = 0; n < N; n++) {
-        DU *d1 = in.slice(n), *m = tm.slice(n), *d0 = out.slice(n);
-        k_filter<<<grd, blk>>>(d1, m, d0, H0, W0);
-    }
+    k_filter<<<grd, blk>>>(in.data, msk.data, out.data, H, W);
     GPU_SYNC();
+    
     return 0;
 }
 
 __GPU__ int
 Model::_fpool(Tensor &in, Tensor &out, t4_layer fn) {
-    dim3 blk(T4_WARP_SZ, T4_WARP_SZ, 1);                ///< default blocks
-    dim3 grd(TGRID(out.W(), out.H(), out.C(), blk));    ///< default grid
-    
-    const int N  = out.N(), H0 = out.H(), W0 = out.W(); ///< output dimensions
+    const int H = out.H(), W = out.W();                 ///< output dimensions
     const int ks = in.parm;                             ///< kernel size
     
-    for (int n = 0; n < N; n++) {
-        DU *d1 = in.slice(n), *d0 = out.slice(n);
-        switch(ks) {                         /// pooling kernel size
-        case 0x2: k_pool<2><<<grd,blk>>>(d1, d0, H0, W0, fn); break;
-        case 0x3: k_pool<3><<<grd,blk>>>(d1, d0, H0, W0, fn); break;
-        default:
-            ERROR("model#pooling kernel_size=%d not supported\n", ks);
-            return -1;
-        }
+    dim3 blk(T4_WARP_SZ, T4_WARP_SZ, out.C());          ///< default blocks
+    dim3 grd(NGRID(W, H, out.N(), blk));                ///< default grid
+    
+    switch(ks) {                                        /// pooling kernel size
+    case 0x2: k_pool<2><<<grd,blk>>>(in.data, out.data, H, W, fn); break;
+    case 0x3: k_pool<3><<<grd,blk>>>(in.data, out.data, H, W, fn); break;
+    default:
+        ERROR("model#pooling kernel_size=%d not supported\n", ks);
+        return -1;
     }
     GPU_SYNC();
+    
     return 0;
 }
 
