@@ -86,12 +86,12 @@ k_matmul(
             bx = &B[c + j * C + ns];     bi = W * C;
         }
         DU2 acc = DU0;                                     /// * TODO: suffle sum
-//          acc += ax[k * C] * bx[k * N * C];                  /// * 8.1 ms 1Kx1K
+//      acc += ax[k * C] * bx[k * N * C];                  /// * 8.1 ms 1Kx1K
         for (int k = 0; k < K; k++, ax += ai, bx += bi) {
             acc += (*ax) * (*bx);                          /// * 6.2 ms 1Kx1K
         }
-        if (opt & MM_INC) O[z]      += acc;                /// * increment O
-        else              O[z + ns] =  acc;
+        if (opt & MM_INC) O[z + ns] += acc;                /// * increment O
+        else              O[z + ns] =  acc;                /// * overwrite O
     }
 }
 ///
@@ -189,7 +189,7 @@ Tensor::mm(
     U16 Ka = opt & MM_A_TXP ? A.H() : A.W();
     U16 W  = opt & MM_B_TXP ? B.H() : B.W();
     U16 Kb = opt & MM_B_TXP ? B.W() : B.H();
-    U16 N  = A.N(), C = A.C();
+    U16 N  = A.N(), C = A.C();                     /// common dimensions
     if (Ka != Kb || C != B.C()) {
         ERROR("Tensor#mm Ka(%d)!=Kb(%d) or C diff\n", Ka, Kb);
         return O;
