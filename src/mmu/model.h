@@ -77,7 +77,6 @@ private:
     __GPU__ __INLINE__ Tensor &_vec(U16 sz)                            { return _mmu->tensor(sz); }
     __GPU__ __INLINE__ Tensor &_t4(U16 n, U16 h)                       { return _mmu->tensor(n, h, 1, 1); }
     __GPU__ __INLINE__ Tensor &_t4(U16 n, U16 h, U16 w, U16 c)         { return _mmu->tensor(n, h, w, c); }
-    __GPU__ __INLINE__ Tensor &_t5(U16 c1, U16 n, U16 h, U16 w, U16 c) { return _mmu->tensor(c1, n, h, w, c); }
     /// @}
     /// @name debug functions
     /// @{

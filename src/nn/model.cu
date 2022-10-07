@@ -76,10 +76,10 @@ Model::_iconv(Tensor &in, U16 C0, DU bias, U16 *opt) {
     /// filter: C1 to C0 fully connected
     /// TODO: filters's 5th dimension is stored in parm field for now
     ///
-    Tensor *f  = in.grad[0] = &_t5(C1, N1, Hf, Wf, C0);                  ///> f
-    Tensor *df = in.grad[2] = &_t5(C1, N1, Hf, Wf, C0).map(O_FILL, DU0); ///> df
-    Tensor *b  = in.grad[1] = &_vec(C0).map(O_FILL, bias);               ///> b
-    Tensor *db = in.grad[3] = &_vec(C0).map(O_FILL, DU0);                ///> db
+    Tensor *f  = in.grad[0] = &_t4(C1, Hf, Wf, C0);                  ///> f
+    Tensor *df = in.grad[2] = &_t4(C1, Hf, Wf, C0).map(O_FILL, DU0); ///> df
+    Tensor *b  = in.grad[1] = &_vec(C0).map(O_FILL, bias);           ///> b
+    Tensor *db = in.grad[3] = &_vec(C0).map(O_FILL, DU0);            ///> db
 
     DU k = DU1 / SQRT(Hf * Wf * C1);             /// * filter default range
     _mmu->random(*f, UNIFORM, -0.5, 2.0 * k);    /// * randomize f [-k ~ k)
