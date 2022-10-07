@@ -178,14 +178,6 @@ MMU::tensor(U16 n, U16 h, U16 w, U16 c) {
     t.reshape(n, h, w, c);
     return t;
 }
-__GPU__ Tensor&                    ///< create a C1NHWC tensor
-MMU::tensor(U16 c1, U16 n, U16 h, U16 w, U16 c) {
-    U32 sz = c1 * n * h * w * c;
-    TRACE1("mmu#tensor[%d](%d,%d,%d,%d) numel=%d", c1, n, h, w, c, sz);
-    Tensor &t = talloc(sz);
-    t.reshape(c1, n, h, w, c);
-    return t;
-}
 __GPU__ Model&                     ///< create a NN model with NHWC input
 MMU::model(U32 sz) {
     TRACE1("mmu#model layers=%d", sz);
