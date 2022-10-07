@@ -20,8 +20,11 @@ __KERN__ void k_conv2d(
     
     const int tx = threadIdx.x, j0 = tx + blockIdx.x * TS;
     const int ty = threadIdx.y, i0 = ty + blockIdx.y * TS;
-    const int C0 = gridDim.z,   c0 = blockIdx.z;     ///< output channels
-    const int z0 = c0 + (j0 + i0 * W) * C0;          ///< output array index
+    const int c0 = threadIdx.z, C0 = blockDim.z;     ///< channel deep
+    const int n  = blockIdx.z;                       ///< batch slice id
+    const int ns0= n * H * W * C0;                   ///< output slice index
+    const int ns1= n * H * W * C1;                   ///< input slice index
+    const int z0 = c0 + (j0 + i0 * W) * C0 + ns0;    ///< output array index
     const int zt = tx + ty * T4_WARP_SZ;             ///< tile index
     ///
     /// process z0, i.e. [TS, TS, C] cells per kernel call
@@ -31,15 +34,16 @@ __KERN__ void k_conv2d(
 
     auto g = cg::this_thread_block();                ///< all threads of block
     for (int c1 = 0; c1 < C1; c1++) {                ///< each input channel
+        const int z1 = c1 + (j1 + i1 * W) * C1 + ns1;
         it[zt] =                                     /// * cache input data
             (i1 >= 0 && i1 < H && j1 >= 0 && j1 < W) /// * with zero padding
-            ? I[c1 + (j1 + i1 * W) * C1] : DU0;      /// * by channel
+            ? I[z1] : DU0;                           /// * by channel
         g.sync();                                    /// * smem write barrier
         ///
         /// Y = sum(W * X)
         /// TODO: cache F
         ///
-        const int zf = (c1 + c0 * C1) * KS * KS;     ///< filter index
+        const int zf = (c1 + c0 * C1 + n) * KS * KS; ///< filter index
         if (tx < TS && ty < TS) {                    /// * each tile
             DU sum = DU0;
             DU *fx = &F[zf];                         /// * filter[0] ptr
@@ -173,30 +177,27 @@ Model::_fstep(Tensor &in, Tensor &out) {
 
 __GPU__ int
 Model::_fconv(Tensor &in, Tensor &out) {
-    Tensor &tf = *in.grad[0];              ///< filter tensor
-    Tensor &tb = *in.grad[1];              ///< bias tensor
-    int C5 = tf.parm;                      ///< 5th dimension C1
+    Tensor &tf = *in.grad[0];                             ///< filter tensor
+    Tensor &tb = *in.grad[1];                             ///< bias tensor
+    int C5 = tf.parm;                                     ///< 5th dimension C1
     
     printf(" f[%d][%d,%d,%d,%d], b[%d]", C5, tf.N(), tf.H(), tf.W(), tf.C(), tb.numel);
         
-    const int H0 = out.H(), W0 = out.W(), C0 = out.C();  ///< outpt dimensions
-    const int C1 = in.C();
+    const int N = out.N(), H = out.H(), W = out.W();      ///< outpt dimensions
+    const int C0 = out.C(), C1 = in.C();                  ///< output, input channel deep
                     
-    dim3 blk(T4_WARP_SZ, T4_WARP_SZ, 1);                 ///< default blocks
-    dim3 g3((W0 + TILE3 - 1) / TILE3, (H0 + TILE3 - 1) / TILE3, C0);
-    dim3 g5((W0 + TILE5 - 1) / TILE5, (H0 + TILE5 - 1) / TILE5, C0);
+    dim3 blk(T4_WARP_SZ, T4_WARP_SZ, C0);                 ///< default blocks
+    dim3 g3((W + TILE3 - 1) / TILE3, (H + TILE3 - 1) / TILE3, N);
+    dim3 g5((W + TILE5 - 1) / TILE5, (H + TILE5 - 1) / TILE5, N);
 
+    DU *d1 = in.data, *d0 = out.data, *f = tf.data, *b = tb.data;
     int ks = tf.H();
-    for (int n = 0; n < out.N(); n++) {
-        DU *d1 = in.slice(n), *d0 = out.slice(n);
-        DU *f  = tf.slice(n), *b  = tb.data;
-        switch(ks) {                       /// * TODO: handles rectangular filters
-        case 3: k_conv2d<TILE3,3><<<g3,blk>>>(d1, f, b, d0, H0, W0, C1); break;
-        case 5: k_conv2d<TILE5,5><<<g5,blk>>>(d1, f, b, d0, H0, W0, C1); break;
-        default:
-            ERROR("model_fwd#conv kernel_size=%d not supported\n", ks);
-            return -1;
-        }
+    switch(ks) {                       /// * TODO: handles rectangular filters
+    case 3: k_conv2d<TILE3,3><<<g3,blk>>>(d1, f, b, d0, H, W, C1); break;
+    case 5: k_conv2d<TILE5,5><<<g5,blk>>>(d1, f, b, d0, H, W, C1); break;
+    default:
+        ERROR("model_fwd#conv kernel_size=%d not supported\n", ks);
+        return -1;
     }
     GPU_SYNC();
     return 0;
