@@ -32,7 +32,7 @@ __GPU__ Model&
 Model::add(t4_layer fn, U16 n, DU bias, U16 *opt) {
     Tensor &in = (*this)[-1];
     if (!autograd || in.grad_fn != L_NONE) return *this;
-
+    
     switch(fn) {
     case L_CONV:    _iconv(in, n, bias, opt);   break;
     case L_LINEAR:  _ilinear(in, n, bias);      break;
@@ -49,6 +49,11 @@ Model::add(t4_layer fn, U16 n, DU bias, U16 *opt) {
     default: ERROR("Model#add layer %d not supported\n", fn);
     }
     in.grad_fn = fn;
+
+    int C0 = (*this)[-1].C();
+    if (C0 * T4_WARP_SQ > 1024) {
+        ERROR("Model#add out.C=%d => over CUDA 1024 thread per core\n", C0);
+    }
     return *this;
 }
 ///
