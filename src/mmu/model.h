@@ -119,6 +119,7 @@ private:
     __GPU__ void   _bstep(Tensor &in, Tensor &out);
     __GPU__ int    _bconv(Tensor &in, Tensor &out);
     __GPU__ int    _blinear(Tensor &in, Tensor &out);
+    __GPU__ int    _bfilter(Tensor &in, Tensor &msk, Tensor &out);
     __GPU__ int    _bpool(Tensor &in, Tensor &out, t4_layer fn);
     /// @}
     /// @name loss functions
