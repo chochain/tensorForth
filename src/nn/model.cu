@@ -91,8 +91,8 @@ Model::_iconv(Tensor &in, U16 C0, DU bias, U16 *opt) {
 __GPU__ void
 Model::_ilinear(Tensor &in, U16 C0, DU bias) {
     U16 N1 = in.N(), C1 = in.HWC();
-    Tensor *w  = in.grad[0] = &_t4(N1, C0, C1, 1);                  ///> w
-    Tensor *dw = in.grad[2] = &_t4(N1, C0, C1, 1).map(O_FILL, DU0); ///> dw
+    Tensor *w  = in.grad[0] = &_t4(1, C0, C1, 1);                   ///> w
+    Tensor *dw = in.grad[2] = &_t4(1, C0, C1, 1).map(O_FILL, DU0);  ///> dw
     Tensor *b  = in.grad[1] = &_vec(C0).map(O_FILL, bias);          ///> b
     Tensor *db = in.grad[3] = &_vec(C0).map(O_FILL, DU0);           ///> db
     
