@@ -127,17 +127,19 @@ nn.load my_net ds1 my_test   \ load from trained network and test
 |loss.mse|(N Ta -- N Ta')|mean squared error, take output from linear layer|
 |loss.ce|(N Ta -- N Ta')|cross-entropy, takes output from softmax activation|
 |loss.nll|(N Ta -- N Ta')|negative log likelihood, takes output from log-softmax activation|
-|onehot|(N -- N Ta)|dataset one-hot vector|
 |predict|(N -- N n)|cost function (avg all losts)|
 
 #### Propagation controls
 |word|param/example|tensor creation ops|
 |---|---|---|
+|nn.onehot|(N -- N Ta)|dataset one-hot vector|
 |nn.for|(N ds -- N')|loop through a data set|
 |nn.next|(N ds -- N')|loop if any subset left|
 |autograd|(N n -- N')|enable/disable model autograd|
 |forward|(N in -- N')|execute one forward propagation, layer-by-layer in given model|
 |backprop|(N out -- N')|execute one backward propagation, adding derivatives for all parameters|
+
+#### Gradiant ops
 |nn.sgd|(N Ta p m -- N')|apply SGD(learn_rate=p, momentum=m) backprop on DAG|
 |nn.adam|(N Ta -- N')|apply Adam backprop (alpha=0.001, beta1=0.1, beta2=0.999, eps=1e-6)|
 |nn.adam|(N Ta a b -- N')|apply Adam backprop with given alpha, beta1, (beta2=0.999, eps=1e-6)|
