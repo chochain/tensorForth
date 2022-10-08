@@ -154,10 +154,10 @@ __GPU__ void
 Model::_dump_dw(Tensor &dw) {
     const int H = dw.H(), W = dw.W();
     DU *p = dw.data;
-    for (int j = 0; j < W; j++) {
-        printf("\n\tdw[%d]=", j);
+    for (int i = 0; i < H; i++) {
+        printf("\n\tdw[%d]=", i);
         DU sum = DU0;
-        for (int i = 0; i < H; i++, p++) {
+        for (int j = 0; j < W; j++, p++) {
             sum += *p;
             printf("%6.3f", *p);
         }
