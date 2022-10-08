@@ -96,8 +96,8 @@ NetVM::_loss(t4_loss op) {
         Tensor &t = TTOS;
         DU     n  = MNOS.loss(op, t);
         printf("NetVM#loss => %.3f", n);
-        mmu.free(t);
-        top = n;
+        POP();                       /// * pop off t
+        PUSH(n);                     /// * loss on TOS
     }
     else if (IS_M(top)) PUSH(MTOS.loss(op));
     else ERROR("model?\n");
@@ -163,6 +163,7 @@ NetVM::init() {
     ///@}
     ///@defgroup Batch ops
     ///@{
+    CODE("nn.onehot", if (IS_M(top)) PUSH(MTOS.onehot())),
     CODE("nn.for",    {}),
     CODE("nn.next",   {}),
     CODE("autograd",  if (M1V) { bool on = POPi; MTOS.autograd = on; }),
@@ -192,7 +193,6 @@ NetVM::init() {
         PUSH(mmu.dataset(bsz));             /// * create a dataset as TOS
         fout << opx(OP_DATA, 0, top) << dsn;
         state = VM_WAIT),
-    CODE("onehot",    if (IS_M(top)) PUSH(MTOS.onehot())),
     CODE("load", 
         if (TOS1T) {
             fout << opx(OP_LOAD, 0, top);
