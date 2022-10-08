@@ -22,9 +22,12 @@ __KERN__ void k_dconv2d(
     
     const int tx = threadIdx.x, j1 = tx + blockIdx.x * TS;
     const int ty = threadIdx.y, i1 = ty + blockIdx.y * TS;
-    const int C1 = gridDim.z,   c1 = blockIdx.z;     ///< input channels
-    const int z1 = c1 + (j1 + i1 * W) * C1;          ///< input array index
-    const int zt = tx + ty * T4_WARP_SZ;             ///< tile index
+    const int c1 = threadIdx.z, C1 = blockDim.z;     ///< channel deep
+    const int n  = blockIdx.z;                       ///< slice id
+    const int t0 = tx + ty * T4_WARP_SZ;             ///< offset in tile
+    const int ns0= n * H * W * C0;                   ///< output slice index
+    const int ns1= n * H * W * C1;                   ///< input slice index
+    const int z1 = c1 + (j1 + i1 * W) * C1 + ns1;    ///< input array index
     ///
     /// process z1, i.e. [TS, TS, C1] cells per kernel call
     ///
@@ -33,32 +36,31 @@ __KERN__ void k_dconv2d(
 
     auto g = cg::this_thread_block();                ///< group all threads
 
-    it[zt] = (i1 < H && j1 < W) ? I[z1] : DU0;       ///< cached input tile
+    it[t0] = (i1 < H && j1 < W) ? I[z1] : DU0;       ///< cached X (input) tile
     g.sync();
     
     for (int c0 = 0; c0 < C0; c0++) {                ///< each dY channel
-        ot[zt] =                                     /// * cache dY tile
+        const int z0 = c0 + (j0 + i0 * W) * C0 + ns0;
+        ot[t0] =                                     /// * cache dY (output) tile
             (i0 >= 0 && i0 < H && j0 >= 0 && j0 < W) /// * with zero padding
-            ? O[c0 + (j0 + i0 * W) * C0] : DU0;      /// * by channel
+            ? O[z0] : DU0;                           /// * by channel
         g.sync();                                    /// * smem write barrier
-        ///
-        /// dX = sum(F * dY)
-        /// dF = sum(dY * X)
-        ///
-        DU sum = DU0;
-        const int zf = (c1 + c0 * C1) * KS * KS;     ///< filter index
+        
+        const int zf = c0 + c1 * C0 * KS * KS;       ///< filter index F[C1,KS,KS,C0]
         if (tx < TS && ty < TS) {                    /// * within tile [12x12]
-            DU *fx = &F[zf + C1 * (KS * KS - 1)];    ///< F[KS-1,KS-1] rot180
-            DU *dfx= &df[(tx + ty * TS) * KS * KS];  ///< df cache ptr
-            for (int y = 0; y < KS; y++) {           /// * process one cell
-                for (int x = 0; x < KS; x++, fx -= C1) {
-                    int k = zt + x + y * T4_WARP_SZ;
+            DU *fx = &F[zf + C0 * (KS * KS - 1)];    ///< F[KS-1,KS-1] rot180
+            DU *dfx= &df[(tx + ty * TS) * KS * KS];  ///< df cache pointer
+            DU sum = DU0;
+            for (int y = 0; y < KS; y++) {           /// * process one KS * KS cell
+                int k = y * T4_WARP_SZ + t0;         ///< k = filter.off + tile.off
+                for (int x = 0; x < KS; x++, k++) {
                     sum      += (*fx) * ot[k];       /// * dX += F * dY
                     *(dfx++) =  ot[k] * it[k];       /// * df = dY * X
+                    fx -= C0;                        /// * walk backward
                 }
             }
             if (i1 < H && j1 < W) {                  /// * update input matrix
-                if (c0==0) I[z1] = sum;              /// * no bias
+                if (c0==0) I[z1] = sum;              /// * first line (no bias0
                 else       I[z1] += sum;             /// * accumulate all c0
             }
         }
@@ -67,15 +69,17 @@ __KERN__ void k_dconv2d(
         /// collect dF (= dY * X), KS * KS threads
         ///
         if (tx < KS && ty < KS) {                    /// * TODO: CDP scan
-            DU *DFx = &DF[c1 + (tx + (ty + c0 * KS) * KS) * C1];
-            DU *dfx = &df[tx + ty * KS];
-            for (int i = 0; i < TS * TS; i++, dfx += KS * KS) {
+            DU *DFx = &DF[c0 + (tx + ty * KS) * C0 + (c1 * KS * KS) * C0];
+            DU *dfx = &df[tx + ty * TS];
+            for (int i = 0; i < TS * TS; i++) {
                 *DFx += *dfx;                        /// dF += df (= dY * X)
+                dfx  += KS * KS;
             }
         }
         g.sync();                           /// * d read barrier
     }
 }
+
 template<int KS>                            /// kernel size
 __KERN__ void k_dpool(
     DU *I, DU *O,                           ///< input, output buffers
@@ -85,7 +89,7 @@ __KERN__ void k_dpool(
     const int j0 = threadIdx.x + blockIdx.x * blockDim.x;
     const int i0 = threadIdx.y + blockIdx.y * blockDim.y;
     const int c  = threadIdx.z, C = blockDim.z;        ///< channel deep
-    const int n  = blockIdx.z;                         ///< batch slice id
+    const int n  = blockIdx.z;                         ///< batch slice id (N1==N0)
     const int ns = n * H * W * C;                      ///< slice size
     const int z0 = c + (j0 + i0 * W) * C + ns;         ///< output tensor index
     const int z1 = c + (j0 + i0 * W * KS) * KS * C + ns * KS * KS;
@@ -127,13 +131,17 @@ __KERN__ void k_dfilter(
         I[z1] = (F[z1] > DU0) ? O[z1] : DU0;
     }
 }
+
 ///
 /// backprop: Neural Network back propegation
 /// Note: cascade execution layer by layer backward
 ///
 __GPU__ Model&
 Model::backprop() {
-    return backprop(*_hot);           /// * use default one-hot vector
+    if (_dset) return backprop(*_hot);           /// * use default one-hot vector
+
+    ERROR("Model#backprop missing onehot vector?\n");
+    return *this;
 }
 
 __GPU__ Model&
@@ -197,41 +205,36 @@ Model::_bconv(Tensor &in, Tensor &out) {
     Tensor &tf = *in.grad[0], &tdf = *in.grad[2];    ///< filter tensor
     Tensor &tb = *in.grad[1], &tdb = *in.grad[3];    ///< bias tensor
     
+    printf(" f[%d,%d,%d,%d], b[%d]", tf.N(), tf.H(), tf.W(), tf.C(), tb.numel);
+    
+    const int N = in.N(), H = in.H(), W = in.W();    ///< input dimensions
+    const int C1 = in.C(), C0 = out.C();            
+    
+    dim3 blk(T4_WARP_SZ, T4_WARP_SZ, C1);
+    dim3 g3((W + TILE3 - 1) / TILE3, (H + TILE3 - 1) / TILE3, N);
+    dim3 g5((W + TILE5 - 1) / TILE5, (H + TILE5 - 1) / TILE5, N);
+
+    
+    DU *d1 = in.data, *d0 = out.data, *f = tf.data, *df = tdf.data;
     const int ks = tf.H();                           ///< kernel size
-    const int C5 = tf.parm;                          ///< 5th dimension
-    
-    printf(" f[%d][%d,%d,%d], b[%d]", C5, tf.H(), tf.W(), tf.C(), tb.numel);
-    
-    const int H1 = in.H(), W1 = in.W(), C1 = in.C(); ///< input dimensions
-    const int N  = in.N(), C0 = out.C();
-    
-    dim3 blk(T4_WARP_SZ, T4_WARP_SZ, 1);
-    dim3 g3((W1 + TILE3 - 1) / TILE3, (H1 + TILE3 - 1) / TILE3, C1);
-    dim3 g5((W1 + TILE5 - 1) / TILE5, (H1 + TILE5 - 1) / TILE5, C1);
-    
-    for (int n = 0; n < N; n++) {
-        DU *d1 = in.slice(n), *d0 = out.slice(n);
-        DU *f  = tf.slice(n), *df = tdf.slice(n);
-        switch (ks) {                                 /// * kernel size
-        case 3: k_dconv2d<TILE3,3><<<g3,blk>>>(d1, f, df, d0, H1, W1, C0); break;
-        case 5: k_dconv2d<TILE5,5><<<g5,blk>>>(d1, f, df, d0, H1, W1, C0); break;
-        default: 
-            ERROR("model_back#conv kernel_size %d not supported\n", ks);
-            return -1;
-        }
-        /// accumulate dB = sum(dY), TODO: CDP
-        DU *db = tdb.data;
-        for (int c = 0; c < C0; c++, db++) {
-            DU *ox = d0 + c;
-            for (int k = 0; k < H1 * W1; k++, ox+=C0) *db += *ox;
-        }
+    switch (ks) {                                 /// * kernel size
+    case 3: k_dconv2d<TILE3,3><<<g3,blk>>>(d1, f, df, d0, H, W, C0); break;
+    case 5: k_dconv2d<TILE5,5><<<g5,blk>>>(d1, f, df, d0, H, W, C0); break;
+    default: 
+        ERROR("model_back#conv kernel_size %d not supported\n", ks);
+        return -1;
     }
     GPU_SYNC();
     
+    /// accumulate dB = sum(dY), TODO: CDP
+    DU *db = tdb.data;
+    for (int c = 0; c < C0; c++, db++) {
+        DU *ox = d0 + c;
+        for (int k = 0; k < H * W; k++, ox+=C0) *db += *ox;
+    }
+    
     _dump_db(tdb);
-//    _dump_df(tdf);
-    printf("\nin[%d,%d,%d,%d]=", N, H1, W1, C1);
-//    _view(in.data, H1, W1, C1, 1000.0f);
+    debug(tdf);
     
     return 0;
 }
@@ -241,27 +244,34 @@ Model::_blinear(Tensor &in, Tensor &out) {
     Tensor &w  = *in.grad[0];             ///< weight tensor
     Tensor &dw = *in.grad[2];             ///< d_weight tensor
     Tensor &db = *in.grad[3];             ///< d_bias tensor
-    
-    const int H0 = out.H(), H1 = in.H();  ///< input, output dimensions
-    const int Hw = w.H(),   Ww = w.W();   ///< filter dimensions
-        
-    printf("\n\tdw[%d,%d] += out'[%d,1] @ in^t[1,%d]", Hw, Ww, H0, H1);
-    printf("\n\tin[%d, 1]  = w^t[%d,%d] @ out'[%d,1]", H1, Ww, Hw, H0);
 
-    DU *v = out.data;
-    for (int n = 0; n < out.N(); n++) {   /// * db += dY
-        for (int i = 0; i < db.H(); i++) {
-            db[i] += *v++;
+    const int N  = out.N();               ///< batch size (N1 == N0)
+    const int C0 = w.H(), C1 = w.W();     ///< filter dimensions
+        
+    printf("\n\tdw[%d,%d] += out'[%d,1] @ in^t[1,%d]", C0, C1, out.H(), in.H());
+    printf("\n\tin[%d, 1]  = w^t[%d,%d] @ out'[%d,1]", in.H(), C1, C0, out.H());
+
+    for (int n = 0; n < N; n++) {                                  ///* TODO: kernel version
+        DU *x = in.slice(n), *y = out.slice(n), *p = dw.data;      /// * dw[C0xC1]
+        for (int i = 0; i < C0; i++) {
+            DU yi = y[i];
+            db[i] += yi;                                           /// * db += dY
+            for (int j =0; j < C1; j++) {
+                *p++ += yi * x[j];                                 /// * dw += dY @ X^t
+            }
+        }
+        for (int j = 0; j < C1; j++) {                             /// * dX = w^t @ dY
+            DU xj = DU0;
+            for (int i = 0; i < C0; i++) {
+                xj += w.data[i + j * C0] * y[i];
+            }
+            x[j] = xj;
         }
     }
-    Tensor::mm(out, in, dw,               /// * dw += dY @ X^t
-        (t4_mm_opt)(MM_INC | MM_B_TXP));  /// *   in^t, inc dw
-    Tensor::mm(w, out, in, MM_A_TXP);     /// * dX = w^t @ dY
+    _dump_db(db);
     
     return 0;
 }
-
-#define NGRID(w,h,n,b)  ((w)+(b).x-1)/(b).x,((h)+(b).y-1)/(b).y,(n)
 
 __GPU__ int
 Model::_bfilter(Tensor &in, Tensor &tm, Tensor &out) {
