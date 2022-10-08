@@ -25,7 +25,7 @@ __KERN__ void k_conv2d(
     const int ns0= n * H * W * C0;                   ///< output slice index
     const int ns1= n * H * W * C1;                   ///< input slice index
     const int z0 = c0 + (j0 + i0 * W) * C0 + ns0;    ///< output array index
-    const int zt = tx + ty * T4_WARP_SZ;             ///< tile index
+    const int t0 = tx + ty * T4_WARP_SZ;             ///< tile index
     ///
     /// process z0, i.e. [TS, TS, C] cells per kernel call
     ///
@@ -35,7 +35,7 @@ __KERN__ void k_conv2d(
     auto g = cg::this_thread_block();                ///< all threads of block
     for (int c1 = 0; c1 < C1; c1++) {                ///< each input channel
         const int z1 = c1 + (j1 + i1 * W) * C1 + ns1;
-        it[zt] =                                     /// * cache input data
+        it[t0] =                                     /// * cache input data
             (i1 >= 0 && i1 < H && j1 >= 0 && j1 < W) /// * with zero padding
             ? I[z1] : DU0;                           /// * by channel
         g.sync();                                    /// * smem write barrier
@@ -43,15 +43,14 @@ __KERN__ void k_conv2d(
         /// Y = sum(W * X)
         /// TODO: cache F
         ///
+        const int zf = c0 + c1 * C0 * KS * KS;       ///< filter index [C1,KS,KS,C0]
         if (tx < TS && ty < TS) {                    /// * each tile
-            const int zf = (c0 + c1 * C0) * KS * KS; ///< filter index
             DU sum = DU0;
-            DU *fx = &F[zf];                         /// * filter[0] ptr
-            DU *ix = &it[zt];                        /// * tile[tx,ty]
+            DU *fx = &F[zf], *ix = &it[t0];          /// * filter[0], tile[tx,ty]
             for (int y = 0; y < KS; y++) {           /// * each filter
                 for (int x = 0; x < KS; x++) {
                     sum += (*fx) * ix[x];            /// Y += W * X
-                    fx += C0;                        /// * next filter cell
+                    fx  += C0;                       /// * next filter cell
                 }
                 ix += T4_WARP_SZ;                    /// next row of tile
             }
