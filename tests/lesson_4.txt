@@ -30,17 +30,21 @@ mnist                             \ retrieve model
 network                           \ display the model
 
 .( #### model feed foward ) cr
-1 28 28 1 tensor ones 0.5 *=      \ create input image (random)
+1 28 28 1 tensor eye 0.5 *=       \ create input image (random)
 forward                           \ execute forward pass
 
 .( #### fetch last layer i.e. output ) cr
 -1 n@ .                           \ fetch forward result from model
 
 .( #### calculate loss ) cr
-10 vector{ 0 0 1 0 0 0 0 0 0 0 }  \ expected (one-hot, labeled)
+10 vector{ 0 0 1 0 0 0 0 0 0 0 }  \ create onehot vector
+constant 1hot                     \ store in a constant
+
+1hot
 loss.ce .                         \ calculate network loss
 
 .( #### model back propagation ) cr
+1hot
 backprop
 
 bye
