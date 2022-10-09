@@ -16,15 +16,12 @@ __KERN__ void k_conv2d(
     DU *I, DU *F, DU *B, DU *O,  ///> input I[HxW], F[KxK] kernel, B[C] bias, output O[HxW]
     int H, int W, int C1         ///< (H0==H1, W0==W1), input channels
     ) {
-    __shared__ DU it[T4_WARP_SQ];                    ///< shared memory [16x16]
+    __shared__ DU _I[T4_WARP_SQ];                    ///< shared memory [16x16]
     
     const int tx = threadIdx.x, j0 = tx + blockIdx.x * TS;
     const int ty = threadIdx.y, i0 = ty + blockIdx.y * TS;
-    const int c0 = threadIdx.z, C0 = blockDim.z;     ///< channel deep
-    const int n  = blockIdx.z;                       ///< batch slice id
-    const int ns0= n * H * W * C0;                   ///< output slice index
-    const int ns1= n * H * W * C1;                   ///< input slice index
-    const int z0 = c0 + (j0 + i0 * W) * C0 + ns0;    ///< output array index
+    const int c0 = blockIdx.z,  C0 = gridDim.z;      ///< channel deep
+    const int z0 = c0 + (j0 + i0 * W) * C0;          ///< output array index
     const int t0 = tx + ty * T4_WARP_SZ;             ///< tile index
     ///
     /// process z0, i.e. [TS, TS, C] cells per kernel call
@@ -34,8 +31,8 @@ __KERN__ void k_conv2d(
 
     auto g = cg::this_thread_block();                ///< all threads of block
     for (int c1 = 0; c1 < C1; c1++) {                ///< each input channel
-        const int z1 = c1 + (j1 + i1 * W) * C1 + ns1;
-        it[t0] =                                     /// * cache input data
+        const int z1 = c1 + (j1 + i1 * W) * C1;      ///< one channel at a time
+        _I[t0] =                                     /// * cache input data
             (i1 >= 0 && i1 < H && j1 >= 0 && j1 < W) /// * with zero padding
             ? I[z1] : DU0;                           /// * by channel
         g.sync();                                    /// * smem write barrier
@@ -43,10 +40,10 @@ __KERN__ void k_conv2d(
         /// Y = sum(W * X)
         /// TODO: cache F
         ///
-        const int zf = c0 + c1 * C0 * KS * KS;       ///< filter index [C1,KS,KS,C0]
+        const int zf = c0 + c1 * KS * KS * C0;       ///< filter index [C1,KS,KS,C0]
         if (tx < TS && ty < TS) {                    /// * each tile
             DU sum = DU0;
-            DU *fx = &F[zf], *ix = &it[t0];          /// * filter[0], tile[tx,ty]
+            DU *fx = &F[zf], *ix = &_I[t0];          /// * filter[0], tile[tx,ty]
             for (int y = 0; y < KS; y++) {           /// * each filter
                 for (int x = 0; x < KS; x++) {
                     sum += (*fx) * ix[x];            /// Y += W * X
@@ -184,20 +181,23 @@ Model::_fconv(Tensor &in, Tensor &out) {
     const int N = out.N(), H = out.H(), W = out.W();      ///< outpt dimensions
     const int C0 = out.C(), C1 = in.C();                  ///< output, input channel deep
                     
-    dim3 blk(T4_WARP_SZ, T4_WARP_SZ, C0);                 ///< default blocks
-    dim3 g3((W + TILE3 - 1) / TILE3, (H + TILE3 - 1) / TILE3, N);
-    dim3 g5((W + TILE5 - 1) / TILE5, (H + TILE5 - 1) / TILE5, N);
+    dim3 blk(T4_WARP_SZ, T4_WARP_SZ, 1);                  ///< default blocks
+    dim3 g3((W + TILE3 - 1) / TILE3, (H + TILE3 - 1) / TILE3, C0);
+    dim3 g5((W + TILE5 - 1) / TILE5, (H + TILE5 - 1) / TILE5, C0);
 
-    DU *d1 = in.data, *d0 = out.data, *f = tf.data, *b = tb.data;
-    int ks = tf.H();
-    switch(ks) {                       /// * TODO: handles rectangular filters
-    case 3: k_conv2d<TILE3,3><<<g3,blk>>>(d1, f, b, d0, H, W, C1); break;
-    case 5: k_conv2d<TILE5,5><<<g5,blk>>>(d1, f, b, d0, H, W, C1); break;
-    default:
-        ERROR("model_fwd#conv kernel_size=%d not supported\n", ks);
-        return -1;
+    for (int n = 0; n < N; n++) {
+        DU *d1 = in.slice(n), *d0 = out.slice(n);
+        DU *f  = tf.data, *b = tb.data;
+        int ks = tf.H();
+        switch(ks) {                       /// * TODO: handles rectangular filters
+        case 3: k_conv2d<TILE3,3><<<g3,blk>>>(d1, f, b, d0, H, W, C1); break;
+        case 5: k_conv2d<TILE5,5><<<g5,blk>>>(d1, f, b, d0, H, W, C1); break;
+        default:
+            ERROR("model_fwd#conv kernel_size=%d not supported\n", ks);
+            return -1;
+        }
+        GPU_SYNC();
     }
-    GPU_SYNC();
     return 0;
 }
 
@@ -227,7 +227,7 @@ Model::_flinear(Tensor &in, Tensor &out) {
 
 __GPU__ int
 Model::_ffilter(Tensor &in, Tensor &msk, Tensor &out) {
-    const int N = out.N(), H = out.H(), W = out.W();
+    const int H = out.H(), W = out.W();
     
     dim3 blk(T4_WARP_SZ, T4_WARP_SZ, out.C());          ///< default blocks
     dim3 grd(NGRID(W, H, out.N(), blk));                ///< default grids
