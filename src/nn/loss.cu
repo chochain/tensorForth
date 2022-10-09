@@ -63,7 +63,7 @@ Model::debug(Tensor &t, DU scale) {
     for (int n = 0; n < N; n++) {
         DU *d = t.slice(n);
         if (sz < 100) {
-            printf("\nn=%d\n", n);
+            printf("\nn=%d", n);
             _dump(d, H, W, C);
         }
         if (sz > 36) _view(d, H, W, C, scale);
@@ -102,24 +102,36 @@ Model::_view(DU *v, int H, int W, int C, DU scale) {
     const int sh = (sz/sq) + ((sz - sq*sq) > 0 ? 1 : 0);
     const int h  = W > 1 ? H : (sz < 36 ? 1 : sh);
     const int w  = W > 1 ? W : (sz < 36 ? H : sq);
+    
+    DU *csum = new DU[C];
+    for (int k = 0; k < C; k++) csum[k] = DU0;
     for (int i = 0; i < h; i++) {
         printf("\n");
         for (int k = 0; k < C; k++) {
             for (int j = 0; j < w; j++) {
                 int n = j + i * w;
-                if (n < sz) { 
-                    DU x0 = (v[k + (j>0 ? n - 1 : n) * C]) * scale;
-                    DU x1 = (x0 + v[k + n * C] * scale) * 0.5;
+                if (n < sz) {
+                    DU r0 = v[k + (j>0 ? n - 1 : n) * C];
+                    DU r1 = v[k + n * C];
+                    DU x0 = r0 * scale;
+                    DU x1 = (r0 + r1) * scale * 0.5;
                     char c0 = map[x0 < 10.0f ? (x0 < DU0 ? 10 : (int)x0) : 9];
                     char c1 = map[x1 < 10.0f ? (x1 < DU0 ? 10 : (int)x1) : 9];
                     printf("%c%c", c0, c1);                           // double width
+                    csum[k] += r1;
                 }
                 else printf("  ");
             }
             printf("|");
         }
     }
+    if (h > 1) {
+        printf("\nΣΣ=");
+        for (int k = 0; k < C; k++) printf("%5.2f ", csum[k]);
+    }
     printf("\n");
+    
+    delete csum;
 }
 __GPU__ void
 Model::_dump(DU *v, int H, int W, int C) {
@@ -127,20 +139,34 @@ Model::_dump(DU *v, int H, int W, int C) {
     const int sh = (sz/sq) + ((sz - sq*sq) > 0 ? 1 : 0);
     const int h  = W > 1 ? H : (sz < 36 ? 1 : sh);
     const int w  = W > 1 ? W : (sz < 36 ? H : sq);
+    
+    DU *csum = new DU[C];
+    for (int k = 0; k < C; k++) csum[k] = DU0;
     for (int i = 0; i < h; i++) {
+        printf("\n");
+        DU sum = DU0;
         for (int k = 0; k < C; k++) {
             for (int j = 0; j < w; j++) {
                 int n = j + i * w;
-                if (n < sz) printf("%5.2f", v[k + n * C]);
+                DU  r = v[k + n * C];
+                if (n < sz) printf("%5.2f", r);
                 else        printf(" ....");
+                sum += r;
+                csum[k] += r;
             }
             printf("|");
         }
-        printf("\n");
+        printf("Σ=%5.2f", sum);
     }
+    if (h > 1) {
+        printf("\nΣΣ=");
+        for (int k = 0; k < C; k++) printf("%5.2f ", csum[k]);
+    }
+    printf("\n");
+    delete csum;
 }
 __GPU__ void
-Model::_dump_db(Tensor &db) {
+Model::_dump_dbdf(Tensor &db, Tensor &df) {
     DU sum = DU0;
     printf("\n\tdb=");
     DU *v = db.data;
@@ -148,10 +174,29 @@ Model::_dump_db(Tensor &db) {
         printf("%6.3f ", *v);
         sum += *v++;
     }
-    printf("Σ=%6.3f", sum);
+    sum = DU0;
+    for (int n = 0; n < df.N(); n++) {
+        DU *v = df.slice(n), fsum = DU0;
+        printf("\n\tdf[%d]=", n);
+        for (int i = 0; i < df.HWC(); i++) {
+            sum  += *v;
+            fsum += *v;
+            printf("%5.2f ", *v++);
+        }
+        printf("Σ=%6.3f", fsum);
+    }
+    printf("\n\tΣΣ=%6.3f", sum);
 }
 __GPU__ void
-Model::_dump_dw(Tensor &dw) {
+Model::_dump_dbdw(Tensor &db, Tensor &dw) {
+    DU sum = DU0;
+    printf("\n\tdb=");
+    DU *v = db.data;
+    for (int i = 0; i < db.H(); i++) {
+        printf("%6.3f ", *v);
+        sum += *v++;
+    }
+    /*
     const int H = dw.H(), W = dw.W();
     DU *p = dw.data;
     for (int i = 0; i < H; i++) {
@@ -163,21 +208,7 @@ Model::_dump_dw(Tensor &dw) {
         }
         printf(" Σ=%6.3f", sum);
     }
-}
-__GPU__ void
-Model::_dump_df(Tensor &df) {
-    const int fsz = df.N() * df.H() * df.W() * df.C();
-    const int C5  = df.parm;
-    DU *p = df.data;
-    for (int c5 = 0; c5 < C5; c5++) {
-        printf("\n\tdf[%d]=", c5);
-        DU sum = DU0;
-        for (int i=0; i<fsz; i++, p++) {
-            sum += *p;
-            printf("%6.3f", *p);
-        }
-        printf(" Σ=%6.3f", sum);
-    }
+    */
 }
 #endif  // T4_ENABLE_OBJ
 //==========================================================================

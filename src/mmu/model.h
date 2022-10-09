@@ -70,6 +70,10 @@ public:
     __GPU__ Model  &sgd();                              ///< stochastic gradiant decent
     __GPU__ Model  &adam();                             ///< Adam gradiant decent
     /// @}
+    /// @name debug functions
+    /// @{
+    __GPU__ void   debug(Tensor &t, DU scale=10.0f);
+    /// @}
 
 private:
     /// @name internal tensor constructors
@@ -77,15 +81,6 @@ private:
     __GPU__ __INLINE__ Tensor &_vec(U16 sz)                            { return _mmu->tensor(sz); }
     __GPU__ __INLINE__ Tensor &_t4(U16 n, U16 h)                       { return _mmu->tensor(n, h, 1, 1); }
     __GPU__ __INLINE__ Tensor &_t4(U16 n, U16 h, U16 w, U16 c)         { return _mmu->tensor(n, h, w, c); }
-    /// @}
-    /// @name debug functions
-    /// @{
-    __GPU__ void   debug(Tensor &t, DU scale=10.0f);
-    __GPU__ void   _view(DU *v, int H, int W, int C, DU scale=10.0f);
-    __GPU__ void   _dump(DU *v, int H, int W, int C);
-    __GPU__ void   _dump_db(Tensor &db);
-    __GPU__ void   _dump_dw(Tensor &dw);
-    __GPU__ void   _dump_df(Tensor &df);
     /// @}
     /// @name Convolution and Linear initializer
     /// @{
@@ -124,6 +119,13 @@ private:
     /// @name loss functions
     /// @{
     __GPU__ DU     _loss(t4_loss op, Tensor &out, Tensor &hot);  ///< calc loss from one-hot
+    /// @}
+    /// @name debug functions
+    /// @{
+    __GPU__ void   _view(DU *v, int H, int W, int C, DU scale=10.0f);
+    __GPU__ void   _dump(DU *v, int H, int W, int C);
+    __GPU__ void   _dump_dbdf(Tensor &db, Tensor &df);
+    __GPU__ void   _dump_dbdw(Tensor &db, Tensor &dw);
     /// @}
 };
 #endif // TEN4_SRC_MODEL_H
