@@ -7,8 +7,7 @@
 #include "vm.h"
 
 __GPU__
-VM::VM(int khz, Istream *istr, Ostream *ostr, MMU *mmu0)
-    : khz(khz), fin(*istr), fout(*ostr), mmu(*mmu0) {
+VM::VM(Istream *istr, Ostream *ostr, MMU *mmu0) : fin(*istr), fout(*ostr), mmu(*mmu0) {
     vid = threadIdx.x;
     VLOG1("\\  VM[%d](mem=%p, vmss=%p)\n", vid, mmu.pmem(0), mmu.vmss(vid));
 }

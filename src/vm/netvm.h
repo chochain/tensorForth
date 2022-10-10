@@ -20,16 +20,14 @@
 class NetVM : public TensorVM {
 public:
 #if   !T4_ENABLE_OBJ
-    __GPU__ NetVM(int khz, Istream *istr, Ostream *ostr, MMU *mmu0) :
-        TensorVM(khz, istr, ostr, mmu0) {}
+    __GPU__ NetVM(Istream *istr, Ostream *ostr, MMU *mmu0) : TensorVM(istr, ostr, mmu0) {}
     __GPU__ virtual void init() { TensorVM::init(); }
 
 #else // T4_ENABLE_OBJ
     ///
     /// @name Class Object Constructor
     /// @{
-    __GPU__ NetVM(int khz, Istream *istr, Ostream *ostr, MMU *mmu0) :
-        TensorVM(khz, istr, ostr, mmu0) {
+    __GPU__ NetVM(Istream *istr, Ostream *ostr, MMU *mmu0) : TensorVM(istr, ostr, mmu0) {
         VLOG1("\\  ::NetVM[%d](...) sizeof(Model)=%d\n", vid, (int)sizeof(Model));
     }
     __GPU__ virtual void init() final; ///< override TensorVM, TODO: does not work without 'final', why?

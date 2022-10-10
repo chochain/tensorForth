@@ -158,8 +158,19 @@ NetVM::init() {
     ///@}
     ///@defgroup Gradiant ops
     ///@{
-    CODE("nn.sgd",    {}),
-    CODE("nn.adam",   {}),
+    CODE("nn.sgd",
+         if (!M2V) ERROR("rate mtum nn.sgd?\n");
+         else {
+             DU m = POP(); DU lr = POP();
+             MTOS.sgd(lr, m);
+         }),
+    CODE("nn.adam",
+         if (!M2V) ERROR("rate beta nn.adam?\n");
+         else {
+             DU b0 = POP(); DU lr = POP();
+             DU b1 = M1V ? POP() : DU1 - POW(DU1 - b0, 3);
+             MTOS.adam(lr, b0, b1);
+         }),
     ///@}
     ///@defgroup Batch ops
     ///@{

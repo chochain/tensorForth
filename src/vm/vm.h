@@ -11,7 +11,7 @@
 ///@name Cross platform support
 ///@{
 #define ENDL         '\n'
-#define delay(ticks) { U64 t = clock64()+ (ticks * khz); while ((U64)clock64()<t) yield(); }
+#define delay(ticks) { U64 t = clock64() + (ticks * mmu.khz()); while ((U64)clock64()<t) yield(); }
 #define yield()                        /**< TODO: multi-VM  */
 ///@}
 #define VLOG1(...) { if (mmu.trace() > 0) INFO(__VA_ARGS__); }
@@ -27,7 +27,7 @@ public:
     DU        top    = DU0;            ///< cached top of stack
     Vector<DU, 0> ss;                  ///< parameter stack (setup in ten4.cu)
 
-   __GPU__ VM(int khz, Istream *istr, Ostream *ostr, MMU *mmu);
+   __GPU__ VM(Istream *istr, Ostream *ostr, MMU *mmu);
 
     __GPU__ virtual void init() { VLOG1("VM::init ok\n"); }
     __GPU__ virtual void outer();
@@ -37,7 +37,6 @@ protected:
     Ostream  &fout;                    ///< VM stream output
     MMU      &mmu;                     ///< memory managing unit
 
-    int   khz;                         ///< VM clock rate
     U32   *ptop   = (U32*)&top;        ///< 32-bit mask for top
     bool  compile = false;             ///< compiling flag
 

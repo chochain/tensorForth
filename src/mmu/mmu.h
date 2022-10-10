@@ -91,6 +91,8 @@ typedef enum {
 struct Model;
 struct Dataset;
 class MMU : public Managed {
+    int            _khz;            ///< GPU clock speed
+    int            _trace = 0;      ///< debug tracing verbosity level
     IU             _mutex = 0;      ///< lock (first so address aligned)
     IU             _didx  = 0;      ///< dictionary index
     IU             _midx  = 0;      ///< parameter memory index
@@ -102,10 +104,10 @@ class MMU : public Managed {
     DU             *_mark;          ///< list for tensors that marked free
     curandState    *_seed;          ///< for random number generator
     TLSF           _ostore;         ///< object storage manager
-    int            _trace = 0;      ///< debug tracing verbosity level
 
 public:
-    __HOST__ MMU(int verbose=0);
+    
+    __HOST__ MMU(int khz, int verbose=0);
     __HOST__ ~MMU();
     ///
     /// memory lock for multi-processing
@@ -192,6 +194,8 @@ public:
     ///
     /// debugging methods (implemented in .cu)
     ///
+    __GPU__  __INLINE__ DU   ms()           { return static_cast<double>(clock64()) / _khz; }
+    __BOTH__ __INLINE__ int  khz()          { return _khz;   }
     __BOTH__ __INLINE__ int  trace()        { return _trace; }
     __BOTH__ __INLINE__ void trace(int lvl) { _trace = lvl;  }
     

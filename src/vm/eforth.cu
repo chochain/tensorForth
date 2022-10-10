@@ -313,10 +313,7 @@ ForthVM::init() {
          mmu.trace(1);
          mmu.status();
          mmu.trace(t)),
-    CODE("clock",
-         DU t = (static_cast<double>(clock64()) / khz);
-         SCALAR(t);
-         PUSH(t)),
+    CODE("clock", DU t = mmu.ms(); SCALAR(t); PUSH(t)),
     CODE("delay", delay(POPi)),                  ///< TODO: change to VM_WAIT
     CODE("pause", state = VM_WAIT),              ///< yield to other VM
     CODE("bye",   state = VM_STOP),

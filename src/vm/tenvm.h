@@ -22,15 +22,12 @@ typedef enum {
 class TensorVM : public ForthVM {
 public:
 #if   !T4_ENABLE_OBJ
-    __GPU__ TensorVM(int khz, Istream *istr, Ostream *ostr, MMU *mmu0) :
-        ForthVM(khz, istr, ostr, mmu0) {}
+    __GPU__ TensorVM(Istream *istr, Ostream *ostr, MMU *mmu0) : ForthVM(istr, ostr, mmu0) {}
     __GPU__ virtual void init() { ForthVM::init(); }
     
 #else // T4_ENABLE_OBJ
-    __GPU__ TensorVM(int khz, Istream *istr, Ostream *ostr, MMU *mmu0) :
-        ForthVM(khz, istr, ostr, mmu0) {
-        VLOG1("\\  ::TensorVM[%d](...) sizeof(Tensor)=%ld\n",
-              threadIdx.x, sizeof(Tensor));
+    __GPU__ TensorVM(Istream *istr, Ostream *ostr, MMU *mmu0) : ForthVM(istr, ostr, mmu0) {
+        VLOG1("\\  ::TensorVM[%d](...) sizeof(Tensor)=%ld\n", threadIdx.x, sizeof(Tensor));
     }
     __GPU__ virtual void init();            ///< override ForthVM
     
