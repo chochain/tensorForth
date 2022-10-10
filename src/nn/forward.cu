@@ -116,7 +116,6 @@ Model::forward(Tensor &input) {
         return *this;
     }
     if (input.is_dataset()) {       /// * if source is a dataset
-        input.ref_inc();            /// * increase data
         _dset = (Dataset*)&input;   /// * set current dataset
         _hot  = &onehot();          /// * cache batch one-hot vectors
     }
