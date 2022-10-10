@@ -62,13 +62,16 @@ public:
     __GPU__ Model  &backprop();                         ///< back propegation
     __GPU__ Model  &backprop(Tensor &hot);              ///< back propegation
     /// @}
-    /// @name loss functions and gradiant decents
+    /// @name loss functions
     /// @{
     __GPU__ Tensor &onehot();                           ///< calculate one-hot vector
     __GPU__ DU     loss(t4_loss op);                    ///< calc loss with cached one-hot vector
     __GPU__ DU     loss(t4_loss op, Tensor &hot);       ///< calc loss from one-hhot vector
-    __GPU__ Model  &sgd();                              ///< stochastic gradiant decent
-    __GPU__ Model  &adam();                             ///< Adam gradiant decent
+    /// @}
+    /// @name gradiant decent functions
+    /// @{
+    __GPU__ Model  &sgd(DU lr, DU m, bool zero=true);            ///< stochastic gradiant decent
+    __GPU__ Model  &adam(DU lr, DU b0, DU b1, bool zero=true);   ///< Adam gradiant decent
     /// @}
     /// @name debug functions
     /// @{
