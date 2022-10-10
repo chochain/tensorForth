@@ -54,36 +54,37 @@ Model::loss(t4_loss op, Tensor &hot) {          ///< loss against one-hot
 }
 ///
 /// Stochastic Gradiant Decent
+/// Note: does not get affected by batch size
+///       because filters are fixed size
 ///
 __GPU__ Model&
 Model::sgd(DU lr, DU m, bool zero) {
-    Tensor &n1 = (*this)[1];                    ///< reference model input layer
+    Tensor &n1 = (*this)[1];                   ///< reference model input layer
+    DU     t0  = _mmu->ms();                   ///< performance measurement
     ///
     /// cascade execution layer by layer forward
     ///
-    auto trace = [](int i, Tensor &in) {
-        printf("%2d> %s Σ/n=%6.2f [%d,%d,%d,%d]\tp=%-2d",
-            i, d_nname(in.grad_fn), in.sum() / in.N() / in.C(),
-            in.N(), in.H(), in.W(), in.C(), in.parm
-            );
+    const int N = n1.N();                      ///< batch size
+    auto update = [this, N, lr, zero](const char nm, Tensor &f, Tensor &df) {
+        TRACE1(" %c[%d,%d,%d,%d]", nm, f.N(), f.H(), f.W(), f.C());
+        df *= lr / N;                          /// * learn rate / batch size
+        f  -= df;                              /// * w -= eta * df, TODO: momentum
+        if (zero) df.map(O_FILL, DU0);         /// * zap df, ready for next batch
+//        debug(f);
     };
-    auto update = [lr, zero](Tensor &f, Tensor &df) {
-        printf(" x[%d,%d,%d,%d]", f.N(), f.H(), f.W(), f.C());
-        df *= lr;
-        f  -= df;
-        if (zero) df.map(O_FILL, DU0);
-    };
+    TRACE1("\nModel#sgd batch_sz=%d, lr=%6.3f", N, lr);
     for (U16 i = 1; i < numel - 1; i++) {
         Tensor &in = (*this)[i];
-        trace(i, in);
+
+        TRACE1("\n%2d> %s ", i, d_nname(in.grad_fn));
         if (in.grad[0] && in.grad[2]) {
-            update(*in.grad[0], *in.grad[2]);
+            update('f', *in.grad[0], *in.grad[2]);
         }
         if (in.grad[1] && in.grad[3]) {
-            update(*in.grad[1], *in.grad[3]);
+            update('b', *in.grad[1], *in.grad[3]);
         }
-        printf("\n");
     }
+    TRACE1("\nModel#sgd %5.2f ms\n", _mmu->ms() - t0);
     return *this;
 }
 

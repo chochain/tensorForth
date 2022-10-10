@@ -110,6 +110,7 @@ __KERN__ void k_filter(
 __GPU__ Model&
 Model::forward(Tensor &input) {
     Tensor &n1 = (*this)[1];        ///< reference model input layer
+    DU     t0  = _mmu->ms();        ///< performance measurement
     if (!n1.is_same_shape(input)) {
         ERROR("Model#forward dataset dim != model input dim?\n");
         return *this;
@@ -125,18 +126,19 @@ Model::forward(Tensor &input) {
     /// TODO: model execution becomes a superscalar pipeline
     ///
     auto trace = [](int i, Tensor &in, Tensor &out) {
-        printf("%2d> %s Σ/n=%6.2f [%d,%d,%d,%d]\tp=%-2d => out[%d,%d,%d,%d]",
+        printf("\n%2d> %s Σ/n=%6.2f [%d,%d,%d,%d]\tp=%-2d => out[%d,%d,%d,%d]",
             i, d_nname(in.grad_fn), in.sum() / in.N() / in.C(),
             in.N(), in.H(), in.W(), in.C(), in.parm,
             out.N(), out.H(), out.W(), out.C());
     };
+    TRACE1("\nModel#forward starts");
     for (U16 i = 1; i < numel - 1; i++) {
         Tensor &in = (*this)[i], &out = (*this)[i + 1];
-        trace(i, in, out);
+        if (_trace > 0) trace(i, in, out);
         _fstep(in, out);
 //        debug(out);
-        printf("\n");
     }
+    TRACE1("\nModel#forward %5.2f ms\n", _mmu->ms() - t0);
     return *this;
 }
 /// ========================================================================
@@ -176,7 +178,7 @@ Model::_fconv(Tensor &in, Tensor &out) {
     Tensor &tf = *in.grad[0];                             ///< filter tensor
     Tensor &tb = *in.grad[1];                             ///< bias tensor
     
-    printf(" f[%d,%d,%d,%d], b[%d]", tf.N(), tf.H(), tf.W(), tf.C(), tb.numel);
+    TRACE1(" f[%d,%d,%d,%d], b[%d]", tf.N(), tf.H(), tf.W(), tf.C(), tb.numel);
         
     const int N = out.N(), H = out.H(), W = out.W();      ///< outpt dimensions
     const int C0 = out.C(), C1 = in.C();                  ///< output, input channel deep
@@ -209,7 +211,7 @@ Model::_flinear(Tensor &in, Tensor &out) {
     const int N  = out.N();                           ///< batch size (N1 == N0)
     const int C0 = tw.H(), C1 = tw.W();               ///< dense layer dims
     
-    printf(" = w[%d,%d] @ in[%d,%d,%d,%d] + b[%d]",
+    TRACE1(" = w[%d,%d] @ in[%d,%d,%d,%d] + b[%d]",
         C0, C1, in.N(), in.H(), in.W(), in.C(), tb.numel);
         
     DU *w = tw.data, *b = tb.data;
@@ -276,7 +278,7 @@ Model::_fsoftmax(Tensor &in, Tensor &out) {   /// * TODO: DCP
             *d1  *= r;
             *sum += *d1++;
         }
-        printf(" Σ%d=%5.3f", n, *sum);        /// * verify sum
+        TRACE2(" Σ%d=%5.3f", n, *sum);        /// * verify sum = 1.0
     }
     return 0;
 }
@@ -296,7 +298,7 @@ Model::_flogsoftmax(Tensor &in, Tensor &out) {/// * TODO: DCP
         for (int i = 0; i < sz; i++) {
             *d1++ -= logsum;
         }
-        printf(" lnΣ%d=%5.3f", n, logsum);   /// * verify sum
+        TRACE2(" lnΣ%d=%5.3f", n, logsum);   /// * verify sum
     }
     return 0;
 }

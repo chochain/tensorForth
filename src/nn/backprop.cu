@@ -138,8 +138,9 @@ Model::backprop() {
 
 __GPU__ Model&
 Model::backprop(Tensor &hot) {
+    DU t0 = _mmu->ms();                          ///< performance measurement
     auto trace = [](int i, Tensor &in, Tensor &out) {
-        printf("%2d> %s [%d,%d,%d,%d]\tp=%-2d <= out'Σ/n=%6.2f [%d,%d,%d,%d] ",
+        printf("\n%2d> %s [%d,%d,%d,%d]\tp=%-2d <= out'Σ/n=%6.2f [%d,%d,%d,%d] ",
             i, d_nname(in.grad_fn),
             in.N(), in.H(), in.W(), in.C(), in.parm,
             out.sum() / out.N() / out.C(),
@@ -147,15 +148,14 @@ Model::backprop(Tensor &hot) {
     };
     (*this)[-1] = hot;  /// softmax + CE : copy one-hot vector to model output
                         /// TODO: logsoftmax + NLL
-//    int x = 0;
+    TRACE1("\nModel#backprop starts");
     for (U16 i = numel - 2; i > 0; i--) {
         Tensor &in = (*this)[i], &out = (*this)[i + 1];
-        trace(i, in, out);
+        if (_trace > 0) trace(i, in, out);
         _bstep(in, out);
-        debug(in, 300.0f);
-        printf("\n");
-//        if (++x > 9) break;
+//        debug(in, 300.0f);
     }
+    TRACE1("\nModel::backprop %5.2f ms\n", _mmu->ms() - t0);
     return *this;
 }
 /// ========================================================================
@@ -198,7 +198,7 @@ Model::_bconv(Tensor &in, Tensor &out) {
     Tensor &tf = *in.grad[0], &tdf = *in.grad[2];    ///< filter tensor
     Tensor &tb = *in.grad[1], &tdb = *in.grad[3];    ///< bias tensor
     
-    printf(" f[%d,%d,%d,%d], b[%d]", tf.N(), tf.H(), tf.W(), tf.C(), tb.numel);
+    TRACE1(" f[%d,%d,%d,%d], b[%d]", tf.N(), tf.H(), tf.W(), tf.C(), tb.numel);
     
     const int N = in.N(), H = in.H(), W = in.W();    ///< input dimensions
     const int C1 = in.C(), C0 = out.C();            
@@ -227,7 +227,7 @@ Model::_bconv(Tensor &in, Tensor &out) {
         DU *ox = out.data + c0;
         for (int k = 0; k < H * W; k++, ox+=C0) *db += *ox;
     }
-    _dump_dbdf(tdb, tdf);
+    if (_trace > 1)  _dump_dbdf(tdb, tdf);
     
     return 0;
 }
@@ -241,8 +241,8 @@ Model::_blinear(Tensor &in, Tensor &out) {
     const int N  = out.N();               ///< batch size (N1 == N0)
     const int C0 = tw.H(), C1 = tw.W();   ///< filter dimensions
         
-    printf("\n\tdw[%d,%d] += out'[%d,1] @ in^t[1,%d]", C0, C1, out.H(), in.H());
-    printf("\n\tin[%d, 1]  = w^t[%d,%d] @ out'[%d,1]", in.H(), C1, C0, out.H());
+    TRACE1("\n\tdw[%d,%d] += out'[%d,1] @ in^t[1,%d]", C0, C1, out.H(), in.H());
+    TRACE1("\n\tin[%d, 1]  = w^t[%d,%d] @ out'[%d,1]", in.H(), C1, C0, out.H());
 
     for (int n = 0; n < N; n++) {                                  ///* TODO: kernel version
         DU *x = in.slice(n), *y = out.slice(n), *dw = tdw.data;    /// * dw[C0xC1]
@@ -262,9 +262,10 @@ Model::_blinear(Tensor &in, Tensor &out) {
             x[i] = sum;
         }
     }
-    _dump_db(tdb);
-    _dump_dw(tdw, false);
-    
+    if (_trace > 1) {
+        _dump_db(tdb);
+        _dump_dw(tdw, false);
+    }
     return 0;
 }
 
