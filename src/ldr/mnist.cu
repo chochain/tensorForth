@@ -6,20 +6,18 @@
  */
 #include "mnist.h"
 
-Corpus *Mnist::load(int batch_sz, int batch_id) {
+Corpus *Mnist::fetch(int batch_id, int batch_sz) {
     if (N == 0 && _setup()) return NULL;        /// * setup once only
 
     int bsz = batch_sz ? batch_sz : N;
-        
-    int b0 = _load_labels(bsz, batch_id);
-    int b1 = _load_images(bsz, batch_id);
+    int b0  = _get_labels(batch_id, bsz);
+    int b1  = _get_images(batch_id, bsz);
     if (b0 != b1) {
         fprintf(stderr, "ERROR: Mnist::load lable count != image count\n");
         return NULL;
     }
-    for (int n = 0; n < (bsz < 5 ? bsz : 5); n++) {
-        _preview((*this)[n], (int)label[n]);
-    }
+    _preview(bsz < 4 ? bsz : 4);               /// * debug print
+    
     return this;
 }
 
@@ -76,28 +74,37 @@ int Mnist::_setup() {
     return 0;
 }
 
-int Mnist::_preview(U8 *img, int lbl) {
+int Mnist::_preview(int N) {
     static const char *map = " .:-=+*#%@";
 
     for (int i = 0; i < H; i++) {
-        for (int j = 0; j < W; j++, img++) {
-            char c  = map[*img / 26];
-            char c1 = map[((int)*img + (int)*(img+1)) / 52];
-            printf("%c%c", c, c1);                 // double width
+        for (int n =0; n < N; n++) {
+            U8 *img = (*this)[n] + i * W;
+            for (int j = 0; j < W; j++, img++) {
+                char c  = map[*img / 26];
+                char c1 = map[((int)*img + (int)*(img+1)) / 52];
+                printf("%c%c", c, c1);                 // double width
+            }
+            printf("|");
         }
-        printf("|\n");
+        printf("\n");
     }
-    printf("label=%d\n", lbl);
+    for (int n = 0; n < N; n++) {
+        printf(" label=%-2d ", (int)label[n]);
+        for (int j = 0; j < W*2 - 10; j++) printf("-");
+        printf("+");
+    }
+    printf("\n");
     return 0;
 }
 
-int Mnist::_load_labels(int bsz, int bid) {
+int Mnist::_get_labels(int bid, int bsz) {
     int hdr = sizeof(U32) * 2;                     ///< header to skip over
     
     if (!label) DS_ALLOC(&label, bsz);
 
     t_in.seekg(hdr + bid * bsz);                   /// * seek by batch
-    t_in.read((char*)label, N);                    /// * fetch batch labels
+    t_in.read((char*)label, bsz);                  /// * fetch batch labels
 
     int rst = t_in.eof() ? d_in.gcount() : bsz;
     printf("\tMnist.label batch[%d] sz=%d loaded\n", bid, rst);
@@ -105,13 +112,13 @@ int Mnist::_load_labels(int bsz, int bid) {
     return rst;
 }
 
-int Mnist::_load_images(int bsz, int bid) {
+int Mnist::_get_images(int bid, int bsz) {
     int hdr = sizeof(U32) * 4;                     ///< header to skip over
     int xsz = bsz * dsize();                       ///< image block size
     
     if (!data) DS_ALLOC(&data, xsz);
 
-    d_in.seekg(hdr + bid * xsz);                   /// * seek by batch 
+    d_in.seekg(hdr + bid * xsz);                   /// * seek by batch id
     d_in.read((char*)data, xsz);                   /// * fetch batch images
 
     int rst = d_in.eof() ? d_in.gcount() / dsize() : bsz;
