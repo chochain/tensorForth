@@ -174,6 +174,8 @@ Model::_dump_dbdf(Tensor &db, Tensor &df) {
         printf("%6.3f ", *v);
         sum += *v++;
     }
+    printf("Σ=%6.3f", sum);
+    
     sum = DU0;
     for (int n = 0; n < df.N(); n++) {
         DU *v = df.slice(n), fsum = DU0;
@@ -187,8 +189,9 @@ Model::_dump_dbdf(Tensor &db, Tensor &df) {
     }
     printf("\n\tΣΣ=%6.3f", sum);
 }
+
 __GPU__ void
-Model::_dump_dbdw(Tensor &db, Tensor &dw) {
+Model::_dump_db(Tensor &db) {
     DU sum = DU0;
     printf("\n\tdb=");
     DU *v = db.data;
@@ -196,19 +199,26 @@ Model::_dump_dbdw(Tensor &db, Tensor &dw) {
         printf("%6.3f ", *v);
         sum += *v++;
     }
-    /*
+    printf(" Σ=%5.2f", sum);
+}
+
+__GPU__ void
+Model::_dump_dw(Tensor &dw, bool full) {
     const int H = dw.H(), W = dw.W();
-    DU *p = dw.data;
+    DU hsum = DU0, *p = dw.data;
+    if (!full) printf("\n\tdwΣ=");
     for (int i = 0; i < H; i++) {
-        printf("\n\tdw[%d]=", i);
+        if (full) printf("\n\tdw[%d]=", i);
         DU sum = DU0;
         for (int j = 0; j < W; j++, p++) {
-            sum += *p;
-            printf("%6.3f", *p);
+            sum  += *p;
+            hsum += *p;
+            if (full) printf("%6.2f", *p);
         }
-        printf(" Σ=%6.3f", sum);
+        if (full) printf(" Σ=%5.2f", sum);
+        else      printf("%5.2f ", sum);
     }
-    */
+    if (H > 1) printf("%sΣΣ=%6.3f", full ? "\n\t" : " ", hsum);
 }
 #endif  // T4_ENABLE_OBJ
 //==========================================================================
