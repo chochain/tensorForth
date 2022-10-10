@@ -4,6 +4,7 @@
 # Add inputs and outputs from these tool invocations to the build variables
 NN_SRCS := \
 	src/nn/model.cu \
+    src/nn/debug.cu \
 	src/nn/forward.cu \
 	src/nn/backprop.cu \
 	src/nn/loss.cu
