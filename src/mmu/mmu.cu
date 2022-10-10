@@ -36,7 +36,7 @@ k_rand(DU *mat, int sz, DU bias, DU scale, curandState *st, t4_rand_opt ntype) {
 /// Forth Virtual Machine operational macros to reduce verbosity
 ///
 __HOST__
-MMU::MMU(int verbose) : _trace(verbose) {
+MMU::MMU(int khz, int verbose) : _khz(khz), _trace(verbose) {
     MM_ALLOC(&_dict, sizeof(Code) * T4_DICT_SZ);
     MM_ALLOC(&_pmem, T4_PMEM_SZ);
     MM_ALLOC(&_obj,  T4_TENSOR_SZ);
@@ -183,7 +183,7 @@ MMU::model(U32 sz) {
     TRACE1("mmu#model layers=%d", sz);
     Model  *m = (Model*)_ostore.malloc(sizeof(Model));
     Tensor &t = talloc(sz);        /// * allocate tensor storage
-    m->reset(this, t);
+    m->reset(this, t, _trace);
     return *m;
 }
 __GPU__ Dataset&                   ///< create a Dataset holder

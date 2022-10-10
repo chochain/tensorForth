@@ -15,6 +15,7 @@ typedef enum {
 } t4_loss;
 
 class Model : public T4Base {
+    int     _trace = 0;     ///< cached debug/tracing level
     MMU     *_mmu;          ///< tensor storage base
     Tensor  *_store;        ///< model storage - Sequential, TODO: DAG
     Dataset *_dset = NULL;  ///< input dataset (set by forward)
@@ -34,8 +35,9 @@ public:
         return (Tensor&)_mmu->du2obj(data[(i < 0) ? numel + i : i]);
     }
     __BOTH__ __INLINE__ int  slots() { return _store->numel; }
-    __GPU__  __INLINE__ void reset(MMU *mmu, Tensor &store) {
+    __GPU__  __INLINE__ void reset(MMU *mmu, Tensor &store, int trace) {
         init(0, T4_MODEL, 0);                   /// * T4Base attributes
+        _trace = trace;
         _mmu   = mmu;
         _store = &store;
         data   = store.data;                    /// * cached entries
