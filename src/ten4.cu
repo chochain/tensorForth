@@ -26,12 +26,12 @@ __GPU__ NetVM *vm_pool[VM_MIN_COUNT]; /// TODO: CC - polymorphic does not work?
 /// instantiate VMs (threadIdx.x is vm_id)
 ///
 __KERN__ void
-k_ten4_init(int khz, Istream *istr, Ostream *ostr, MMU *mmu) {
+k_ten4_init(Istream *istr, Ostream *ostr, MMU *mmu) {
     auto  g   = cg::this_thread_block();
     int   vid = g.thread_rank();                ///< VM id
 
     if (vid < VM_MIN_COUNT) {
-        NetVM *vm = vm_pool[vid] = new NetVM(khz, istr, ostr, mmu);  /// * instantiate VM
+        NetVM *vm = vm_pool[vid] = new NetVM(istr, ostr, mmu);  /// * instantiate VM
         vm->ss.init(mmu->vmss(vid), T4_SS_SZ);  /// * point data stack to managed memory block
         vm->state = VM_STOP;                    /// * workers wait in queue
         
@@ -136,7 +136,7 @@ TensorForth::TensorForth(int device, int verbose) {
     ///
     /// allocate cuda memory blocks
     ///
-    mmu = new MMU(verbose);                     ///> instantiate memory manager
+    mmu = new MMU(khz, verbose);                ///> instantiate memory manager
     aio = new AIO(mmu, verbose);                ///> instantiate async IO manager
     MM_ALLOC(&vmst, VMST_SZ);                   ///> allocate for state of VMs
     MM_ALLOC(&vmst_cnt, sizeof(int)*4);
@@ -146,7 +146,7 @@ TensorForth::TensorForth(int device, int verbose) {
     /// instantiate virtual machines
     ///
     int t = WARP(VM_MIN_COUNT);                 ///> thread count = 32 modulo
-    k_ten4_init<<<1, t>>>(khz, aio->istream(), aio->ostream(), mmu); // create VMs
+    k_ten4_init<<<1, t>>>(aio->istream(), aio->ostream(), mmu); // create VMs
     GPU_CHK();
 }
 
