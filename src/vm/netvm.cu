@@ -76,7 +76,7 @@ NetVM::_conv() {
         Tensor &v = TTOS;
         if (v.rank == 1) {
             for (int i=0; i<5; i++) opt[i] = (U16)v.data[i];
-            POP();
+            POP(); mmu.free(v);
         }
         else { ERROR("vec?"); return; }
     }
@@ -93,11 +93,11 @@ NetVM::_conv() {
 __GPU__ void
 NetVM::_loss(t4_loss op) {
     if (TOS1T && IS_M(ss[-1])) {
-        Tensor &t = TTOS;
-        DU     n  = MNOS.loss(op, t);
-        printf("NetVM#loss => %.3f", n);
-        POP();                       /// * pop off t
+        Tensor &t = TTOS; POP();
+        DU     n  = MTOS.loss(op, t);
+        mmu.free(t);                 /// * pop off t
         PUSH(n);                     /// * loss on TOS
+        printf("NetVM#loss => %.3f", n);
     }
     else if (IS_M(top)) PUSH(MTOS.loss(op));
     else ERROR("model?\n");
@@ -180,14 +180,16 @@ NetVM::init() {
     CODE("autograd",  if (M1V) { bool on = POPi; MTOS.autograd = on; }),
     CODE("forward", 
          if (TOS1D && IS_M(ss[-1])) {
-            MNOS.forward(TTOS);
-            POP();                           /// * pop off dataset
+            Tensor &t = TTOS; POP();
+            MTOS.forward(t);
+            mmu.free(t);                    /// * release dataset
         }
         else ERROR("N tensor?\n")),
     CODE("backprop",
          if (TOS1T && IS_M(ss[-1])) {
-             MNOS.backprop(TTOS);
-             POP();
+             Tensor &t = TTOS; POP();
+             MTOS.backprop(t);
+             mmu.free(t);
          }
          else if (IS_M(top)) MTOS.backprop();
          else ERROR("model?\n")),
@@ -204,12 +206,12 @@ NetVM::init() {
         PUSH(mmu.dataset(bsz));             /// * create a dataset as TOS
         fout << opx(OP_DATA, 0, top) << dsn;
         state = VM_WAIT),
-    CODE("load", 
-        if (TOS1T) {
+    CODE("fetch",
+        if (IS_OBJ(top) && TTOS.is_dataset()) {
             fout << opx(OP_LOAD, 0, top);
             state = VM_WAIT;
         }
-        else ERROR("tensor?")),
+        else ERROR("dataset?")),
     ///@}
     };
     const Code over[] = {                  ///< extended (overload) words
