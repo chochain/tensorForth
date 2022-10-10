@@ -16,18 +16,15 @@ __KERN__ void k_dconv2d(
     DU *I, DU *F, DU *DF, DU *O, ///> input I[HxW], F,DF[KSxKS], output O[HxW]
     int H, int W, int C0         ///< H1==H0, W1==W0, output Channels
     ) {
-    __shared__ DU it[T4_WARP_SQ];                    ///< input cache [16x16]
-    __shared__ DU ot[T4_WARP_SQ];                    ///< output cache [16x16]
-    __shared__ DU df[TS * TS * KS * KS];             ///< df cache [12x12x3x3]
+    __shared__ DU _I[T4_WARP_SQ];                    ///< input cache [16x16]
+    __shared__ DU _O[T4_WARP_SQ];                    ///< output cache [16x16]
+    __shared__ DU _D[TS * TS * KS * KS];             ///< df cache 
     
     const int tx = threadIdx.x, j1 = tx + blockIdx.x * TS;
     const int ty = threadIdx.y, i1 = ty + blockIdx.y * TS;
-    const int c1 = threadIdx.z, C1 = blockDim.z;     ///< channel deep
-    const int n  = blockIdx.z;                       ///< slice id
-    const int t0 = tx + ty * T4_WARP_SZ;             ///< offset in tile
-    const int ns0= n * H * W * C0;                   ///< output slice index
-    const int ns1= n * H * W * C1;                   ///< input slice index
-    const int z1 = c1 + (j1 + i1 * W) * C1 + ns1;    ///< input array index
+    const int c1 = blockIdx.z,  C1 = gridDim.z;      ///< channel deep
+    const int t0 = tx + ty * T4_WARP_SZ;             ///< offset in cache window
+    const int z1 = c1 + (j1 + i1 * W) * C1;          ///< input array index
     ///
     /// process z1, i.e. [TS, TS, C1] cells per kernel call
     ///
@@ -35,48 +32,43 @@ __KERN__ void k_dconv2d(
     const int j0 = j1 - int(KS / 2);
 
     auto g = cg::this_thread_block();                ///< group all threads
-
-    it[t0] = (i1 < H && j1 < W) ? I[z1] : DU0;       ///< cached X (input) tile
+    _I[t0] = (i1 < H && j1 < W) ? I[z1] : DU0;       ///< cached X (input) tile
     g.sync();
-    
+
     for (int c0 = 0; c0 < C0; c0++) {                ///< each dY channel
-        const int z0 = c0 + (j0 + i0 * W) * C0 + ns0;
-        ot[t0] =                                     /// * cache dY (output) tile
+        const int z0 = c0 + (j0 + i0 * W) * C0;
+        _O[t0] =                                     /// * cache dY (output) tile
             (i0 >= 0 && i0 < H && j0 >= 0 && j0 < W) /// * with zero padding
             ? O[z0] : DU0;                           /// * by channel
         g.sync();                                    /// * smem write barrier
-        
-        const int zf = c0 + c1 * C0 * KS * KS;       ///< filter index F[C1,KS,KS,C0]
+
+        const int zf = c0 + c1 * KS * KS * C0;       ///< filter index F[C1,KS,KS,C0]
         if (tx < TS && ty < TS) {                    /// * within tile [12x12]
-            DU *fx = &F[zf + C0 * (KS * KS - 1)];    ///< F[KS-1,KS-1] rot180
-            DU *dfx= &df[(tx + ty * TS) * KS * KS];  ///< df cache pointer
+            DU *fx = &F[zf + (KS * KS - 1) * C0];    ///< F[KS-1,KS-1] i.e. rot180
+            DU *dx = &_D[(tx + ty * TS) * KS * KS];  ///< df cache index
             DU sum = DU0;
             for (int y = 0; y < KS; y++) {           /// * process one KS * KS cell
                 int k = y * T4_WARP_SZ + t0;         ///< k = filter.off + tile.off
                 for (int x = 0; x < KS; x++, k++) {
-                    sum      += (*fx) * ot[k];       /// * dX += F * dY
-                    *(dfx++) =  ot[k] * it[k];       /// * df = dY * X
-                    fx -= C0;                        /// * walk backward
+                    sum     += (*fx) * _O[k];        /// * dX += F @ dY
+                    *(dx++)  = _O[k] * _I[k];        /// * collect dY * X in tile
+                    fx      -= C0;                   /// * walk F backward
                 }
             }
             if (i1 < H && j1 < W) {                  /// * update input matrix
-                if (c0==0) I[z1] = sum;              /// * first line (no bias0
-                else       I[z1] += sum;             /// * accumulate all c0
+                if (c0 == 0) I[z1] = sum;
+                else         I[z1] += sum;
             }
         }
         g.sync();                                    /// * d read barrier
-        ///
-        /// collect dF (= dY * X), KS * KS threads
-        ///
-        if (tx < KS && ty < KS) {                    /// * TODO: CDP scan
-            DU *DFx = &DF[c0 + (tx + ty * KS) * C0 + (c1 * KS * KS) * C0];
-            DU *dfx = &df[tx + ty * TS];
+
+        if (tx < KS && ty < KS) {
+            int k = tx + ty * KS;
             for (int i = 0; i < TS * TS; i++) {
-                *DFx += *dfx;                        /// dF += df (= dY * X)
-                dfx  += KS * KS;
+                DF[zf + k * C0] += _D[i * KS * KS + k];
             }
         }
-        g.sync();                           /// * d read barrier
+        g.sync();
     }
 }
 
@@ -147,10 +139,11 @@ Model::backprop() {
 __GPU__ Model&
 Model::backprop(Tensor &hot) {
     auto trace = [](int i, Tensor &in, Tensor &out) {
-        printf("%2d> %s [%d,%d,%d,%d]\tp=%-2d <= out'Σ=%6.2f [%d,%d,%d,%d] ",
+        printf("%2d> %s [%d,%d,%d,%d]\tp=%-2d <= out'Σ/n=%6.2f [%d,%d,%d,%d] ",
             i, d_nname(in.grad_fn),
             in.N(), in.H(), in.W(), in.C(), in.parm,
-            out.sum() / out.N() / out.C(), out.N(), out.H(), out.W(), out.C());
+            out.sum() / out.N() / out.C(),
+            out.N(), out.H(), out.W(), out.C());
     };
     (*this)[-1] = hot;  /// softmax + CE : copy one-hot vector to model output
                         /// TODO: logsoftmax + NLL
@@ -210,65 +203,67 @@ Model::_bconv(Tensor &in, Tensor &out) {
     const int N = in.N(), H = in.H(), W = in.W();    ///< input dimensions
     const int C1 = in.C(), C0 = out.C();            
     
-    dim3 blk(T4_WARP_SZ, T4_WARP_SZ, C1);
-    dim3 g3((W + TILE3 - 1) / TILE3, (H + TILE3 - 1) / TILE3, N);
-    dim3 g5((W + TILE5 - 1) / TILE5, (H + TILE5 - 1) / TILE5, N);
+    dim3 blk(T4_WARP_SZ, T4_WARP_SZ, 1);
+    dim3 g3((W + TILE3 - 1) / TILE3, (H + TILE3 - 1) / TILE3, C1);
+    dim3 g5((W + TILE5 - 1) / TILE5, (H + TILE5 - 1) / TILE5, C1);
 
-    
-    DU *d1 = in.data, *d0 = out.data, *f = tf.data, *df = tdf.data;
-    const int ks = tf.H();                           ///< kernel size
-    switch (ks) {                                 /// * kernel size
-    case 3: k_dconv2d<TILE3,3><<<g3,blk>>>(d1, f, df, d0, H, W, C0); break;
-    case 5: k_dconv2d<TILE5,5><<<g5,blk>>>(d1, f, df, d0, H, W, C0); break;
-    default: 
-        ERROR("model_back#conv kernel_size %d not supported\n", ks);
-        return -1;
+    for (int n = 0; n < N; n++) {
+        DU *d1 = in.slice(n), *d0 = out.slice(n);
+        DU *f  = tf.data,     *df = tdf.data;
+        const int ks = tf.H();                       ///< kernel size
+        switch (ks) {
+        case 3: k_dconv2d<TILE3,3><<<g3,blk>>>(d1, f, df, d0, H, W, C0); break;
+        case 5: k_dconv2d<TILE5,5><<<g5,blk>>>(d1, f, df, d0, H, W, C0); break;
+        default: 
+            ERROR("model_back#conv kernel_size %d not supported\n", ks);
+            return -1;
+        }
     }
     GPU_SYNC();
     
     /// accumulate dB = sum(dY), TODO: CDP
     DU *db = tdb.data;
-    for (int c = 0; c < C0; c++, db++) {
-        DU *ox = d0 + c;
+    for (int c0 = 0; c0 < C0; c0++, db++) {
+        DU *ox = out.data + c0;
         for (int k = 0; k < H * W; k++, ox+=C0) *db += *ox;
     }
-    
-    _dump_db(tdb);
-    debug(tdf);
+    _dump_dbdf(tdb, tdf);
     
     return 0;
 }
 
 __GPU__ int
 Model::_blinear(Tensor &in, Tensor &out) {
-    Tensor &w  = *in.grad[0];             ///< weight tensor
-    Tensor &dw = *in.grad[2];             ///< d_weight tensor
-    Tensor &db = *in.grad[3];             ///< d_bias tensor
+    Tensor &tw  = *in.grad[0];            ///< weight tensor
+    Tensor &tdw = *in.grad[2];            ///< d_weight tensor
+    Tensor &tdb = *in.grad[3];            ///< d_bias tensor
 
     const int N  = out.N();               ///< batch size (N1 == N0)
-    const int C0 = w.H(), C1 = w.W();     ///< filter dimensions
+    const int C0 = tw.H(), C1 = tw.W();   ///< filter dimensions
         
     printf("\n\tdw[%d,%d] += out'[%d,1] @ in^t[1,%d]", C0, C1, out.H(), in.H());
     printf("\n\tin[%d, 1]  = w^t[%d,%d] @ out'[%d,1]", in.H(), C1, C0, out.H());
 
     for (int n = 0; n < N; n++) {                                  ///* TODO: kernel version
-        DU *x = in.slice(n), *y = out.slice(n), *p = dw.data;      /// * dw[C0xC1]
+        DU *x = in.slice(n), *y = out.slice(n), *dw = tdw.data;    /// * dw[C0xC1]
         for (int i = 0; i < C0; i++) {
             DU yi = y[i];
-            db[i] += yi;                                           /// * db += dY
+            tdb[i] += yi;                                          /// * db += dY
             for (int j =0; j < C1; j++) {
-                *p++ += yi * x[j];                                 /// * dw += dY @ X^t
+                *dw++ += yi * x[j];                                /// * dw += dY @ X^t
             }
         }
-        for (int j = 0; j < C1; j++) {                             /// * dX = w^t @ dY
-            DU xj = DU0;
-            for (int i = 0; i < C0; i++) {
-                xj += w.data[i + j * C0] * y[i];
+        for (int i = 0; i < C1; i++) {                             /// * dX = w^t @ dY
+            DU *w =&tw.data[i], sum = DU0;
+            for (int j = 0; j < C0; j++) {
+                sum += *w * y[j];
+                w   += C1;
             }
-            x[j] = xj;
+            x[i] = sum;
         }
     }
-    _dump_db(db);
+    _dump_db(tdb);
+    _dump_dw(tdw, false);
     
     return 0;
 }

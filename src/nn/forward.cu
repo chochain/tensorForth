@@ -125,7 +125,7 @@ Model::forward(Tensor &input) {
     /// TODO: model execution becomes a superscalar pipeline
     ///
     auto trace = [](int i, Tensor &in, Tensor &out) {
-        printf("%2d> %s Σ=%6.2f [%d,%d,%d,%d]\tp=%-2d => out[%d,%d,%d,%d]",
+        printf("%2d> %s Σ/n=%6.2f [%d,%d,%d,%d]\tp=%-2d => out[%d,%d,%d,%d]",
             i, d_nname(in.grad_fn), in.sum() / in.N() / in.C(),
             in.N(), in.H(), in.W(), in.C(), in.parm,
             out.N(), out.H(), out.W(), out.C());
