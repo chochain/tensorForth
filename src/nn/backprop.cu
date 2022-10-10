@@ -147,14 +147,14 @@ Model::backprop(Tensor &hot) {
     };
     (*this)[-1] = hot;  /// softmax + CE : copy one-hot vector to model output
                         /// TODO: logsoftmax + NLL
-    int x = 0;
+//    int x = 0;
     for (U16 i = numel - 2; i > 0; i--) {
         Tensor &in = (*this)[i], &out = (*this)[i + 1];
         trace(i, in, out);
         _bstep(in, out);
         debug(in, 300.0f);
         printf("\n");
-        if (++x > 9) break;
+//        if (++x > 9) break;
     }
     return *this;
 }
