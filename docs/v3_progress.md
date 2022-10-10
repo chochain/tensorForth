@@ -28,7 +28,7 @@ flatten 0.0 49 linear                     \ add reduction layer, and the
 constant md0                 \ we can store the model in a constant
                              \ now, define our training and testing flows
 : my_train (N D -- N') nn.for forward loss.ce backprop 0.1 0.9 nn.sgd nn.next ;
-: my_test  (N D -- N') nn.for forward loss.mse . batch nn.next ;
+: my_test  (N D -- N') nn.for forward loss.mse . nn.next ;
 
 md0                          \ place the model on TOS
 network                      \ optionally, display our 13-layer NN model
@@ -83,6 +83,12 @@ nn.load my_net ds1 my_test   \ load from trained network and test
 |---|---|---|
 |stack|(Aa Ab i - Aa Ab Tc)|stack arrays on given axis|
 |split|(Ta i - Ta Aa Ab Ac)|split matrix into matrix on a given axis|
+
+#### Dataset ops
+|word|param/example|tensor creation ops|
+|---|---|---|
+|dataset|(n -- D)|create a dataset with batch size = n, and given name i.e. 10 dataset abc|
+|fetch|(D -- D')|fetch dataset for another batch|
 
 #### Load/Save - .npy
 |word|param/example|tensor creation ops|
