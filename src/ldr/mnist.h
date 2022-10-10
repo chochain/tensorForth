@@ -26,16 +26,16 @@ public:
         : Corpus(data_name, label_name) {}
     ~Mnist() { _close(); }
     
-    virtual Corpus *load(int batch_sz=0, int batch_id=0);
+    virtual Corpus *fetch(int batch_id=0, int batch_sz=0);  /// * bid=bsz=0 => load entire set
 
 private:
     int _open();
     int _close();
     int _setup();
-    int _preview(U8 *img, int lbl);
+    int _preview(int N);
     
-    int _load_labels(int bsz, int bid);
-    int _load_images(int bsz, int bid);
+    int _get_labels(int bid, int bsz);
+    int _get_images(int bid, int bsz);
 };
 #endif // TEN4_SRC_LDR_MNIST_H
 
