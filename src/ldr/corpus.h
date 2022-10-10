@@ -45,14 +45,14 @@ struct Corpus {
             if (label) free(label);
         }
     }
-    int dsize()   { return H * W * C; }
-    int len()     { return N; }
+    int dsize()   { return H * W * C; }                      ///< size of each point of data
+    int len()     { return N; }                              ///< number of data point
 
-    virtual Corpus *load(int batch_sz=0, int batch_id=0) {
+    virtual Corpus *fetch(int batch_id=0, int batch_sz=0) {  /// * bid=bsz=0 => load entire set
         printf("batch(U8*) implemented?\n");
         return this;
     }
-    virtual U8 *operator [](int idx){ return &data[idx * dsize()]; }
+    virtual U8 *operator [](int idx){ return &data[idx * dsize()]; }  ///< data point
 };
 #endif // T4_CORPUS_H
 
