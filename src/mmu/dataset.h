@@ -35,7 +35,7 @@ struct Dataset : public Tensor {
         
         return *this;
     }
-    __HOST__ Dataset *get_batch(U8 *h_data, U8 *h_label) {
+    __HOST__ Dataset *load_batch(U8 *h_data, U8 *h_label) {
         if (!data)  MM_ALLOC(&data,  numel * sizeof(DU));
         if (!label) MM_ALLOC(&label, N() * sizeof(DU));
         ///
