@@ -55,7 +55,7 @@ public:
     }
     __GPU__ __INLINE__ Model  &npush(Tensor &t) { return npush(_mmu->obj2du(t)); }
     __GPU__ __INLINE__ DU     npop() { return data[--numel]; }
-    __GPU__ __INLINE__ Tensor &output() { return (*this)[numel-1]; }
+    __GPU__ __INLINE__ int    batch_size() { return (*this)[1].N(); }
     /// @}
     /// @name main NN methods
     /// @{
