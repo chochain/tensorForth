@@ -534,7 +534,7 @@ MMU::load(std::ostream &fout, U16 vid, DU top, char *ds_name) {
     ///
     /// search cache for top <=> dataset pair
     ///
-    printf("\n%d|%s dataset (id=%x)", vid, ds_name ? ds_name : "reload", dsx);
+    TRACE1("\n%d|%s dataset (id=%x)", vid, ds_name ? ds_name : "reload", dsx);
     Corpus *cp = Loader::get(dsx, ds_name);      ///< Corpus/Dataset provider
     if (!cp) {
         ERROR(" => dataset not found\n"); return -1;

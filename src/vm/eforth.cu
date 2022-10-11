@@ -344,7 +344,7 @@ ForthVM::resume() {
     ///
     /// resume suspended task
     ///
-    printf("VM[%d] resumed at WP=%d, IP=%d, RS=%d\n", vid, WP, IP, RS);
+    VLOG1("VM[%d] resumed at WP=%d, IP=%d, RS=%d\n", vid, WP, IP, RS);
     nest();                               /// * should set state to VM_READY
     return 1;                             /// * skip outer loop
 }
