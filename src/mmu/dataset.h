@@ -9,15 +9,16 @@
 #include "tensor.h"                  // in ../mmu
 
 struct Dataset : public Tensor {
-    int   batch_id = 0;             ///< current batch id
+    int   batch_id = -1;            ///< current batch id
+    int   done     = -1;            ///< completed
     DU    *label = NULL;            ///< label data on host
     ///
     /// constructors (for host testing mostly)
     ///
     __HOST__ Dataset(U16 n, U16 h, U16 w, U16 c)
         : Tensor(n, h, w, c) {
-        batch_id = 0;
         MM_ALLOC((void**)&label, (size_t)n * sizeof(DU));
+        batch_id = 0;
         WARN("Dataset[%d,%d,%d,%d] created\n", n, h, w, c);
     }
     __HOST__ ~Dataset() {
@@ -31,16 +32,19 @@ struct Dataset : public Tensor {
         ///
         numel = (U32)n * h * w * c;    /// * number of batch elements
         Tensor::reshape(n, h, w, c);   /// * reshape to 4-D tensor
+        
         batch_id = 0;                  /// * signify batch dimension set now
         
         return *this;
     }
     __HOST__ Dataset *load_batch(U8 *h_data, U8 *h_label) {
+        ///
+        /// allocate managed memory if needed
+        /// Note: from Managed memory instead of TLSF
+        ///
         if (!data)  MM_ALLOC(&data,  numel * sizeof(DU));
         if (!label) MM_ALLOC(&label, N() * sizeof(DU));
-        ///
-        /// allocate managed memory (not TLSF)
-        ///
+        
         DU  *d = data;
         for (int i = 0; i < numel; i++) {
             *d++ = I2D((int)*h_data++) / 256.0f;

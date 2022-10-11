@@ -507,10 +507,26 @@ MMU::mem_dump(std::ostream &fout, U16 p0, U16 sz) {
     }
     fout << std::endl;
 }
-
+///
+/// setup initial dataset parameters
+/// init flow:
+///    netvm#dataset
+///    -> aio::process_node
+///    -> mmu::dataset          - set N=batch_sz, batch_id = -1
+///
+/// reload flow:
+///    netvm#fetch
+///    -> aio::process_node
+///    -> mmu::load
+///      -> corpus::fetch       - fetch host label/image blocks from files
+///      -> dataset::reshape    - set dimensions for the first batch (no alloc yet) 
+///      -> dataset::load_batch - transfer host blocks to device
+///         -> dataset::alloc   - alloc device memory blocks if needed
+///
 __HOST__ int
 MMU::load(std::ostream &fout, U16 vid, DU top, char *ds_name) {
     Dataset &ds = (Dataset&)du2obj(top);          ///< dataset ref
+    U32     dsx = DU2X(top);                      ///< dataset mnemonic
     if (!ds.is_dataset()) {                       /// * indeed a dataset?
         ERROR("mmu#load TOS is not a dataset\n");
         return -1;
@@ -518,36 +534,33 @@ MMU::load(std::ostream &fout, U16 vid, DU top, char *ds_name) {
     ///
     /// search cache for top <=> dataset pair
     ///
-    TRACE1("%d|dataset '%s'\n", vid, ds_name);
-    Corpus *cp = Loader::get(DU2X(top), ds_name);  ///< Corpus/Dataset provider
+    printf("\n%d|%s dataset (id=%x)", vid, ds_name ? ds_name : "reload", dsx);
+    Corpus *cp = Loader::get(dsx, ds_name);      ///< Corpus/Dataset provider
     if (!cp) {
-        ERROR(" => '%s' not found\n", ds_name); return -1;
+        ERROR(" => dataset not found\n"); return -1;
+    }
+    if ((ds.done=cp->eof)) {                     /// * dataset exhausted?
+        printf(" => completed, no more data.\n"); return 0;
     }
     ///
-    /// setup initial dataset parameters
-    /// init flow:
-    ///    netvm#dataset
-    ///    -> mmu::dataset         - set N=batch_sz, batch_id = -1
-    ///    -> mmu::load           
-    ///      -> corpus::load       - load host label/image blocks from files
-    ///      -> dataset::alloc     - alloc device memory blocks
-    ///      -> dataset::get_batch - transfer host blocks to device
+    /// init and load a batch of data points
     ///
-    int batch_sz = ds.N();                 /// * dataset batch size
-    if (ds.batch_id < 0) {                 /// * set dataset dimensions
-        if (!cp->fetch(0, batch_sz)) {     /// * fetch a batch from Corpus
-            ERROR(" => '%s' load failed\n", ds_name);
+    int batch_sz = ds.N();                        ///< dataset batch size
+    if (ds.batch_id < 0) {                        /// * set dataset dimensions
+        if (!cp->fetch(0, batch_sz)) {            /// * fetch first batch from Corpus
+            ERROR(" => '%s' fetch failed\n", ds_name);
             return -2;
         }
         ds.reshape(batch_sz, cp->H, cp->W, cp->C);
-        ds.batch_id = 1;                   /// * initialize batch id
+        ds.batch_id = 1;                          /// * ready for next batch
     }
     else if (!cp->fetch(ds.batch_id++, batch_sz)) {
-        ERROR(" => dataset reload failed\n");
+        ERROR(" => fetch failed\n");
         return -2;
     }
     ///
-    /// allocate Dataset device (managed) memory blocks
+    /// transfer host into device memory
+    /// if needed, allocate Dataset device (managed) memory blocks
     ///
     ds.load_batch(cp->data, cp->label);
     
