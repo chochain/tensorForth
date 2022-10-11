@@ -15,7 +15,8 @@ A Forth word can be seen as a nested function that process data flow, i.e. y = f
     + backprop
     + gradiant: sgd, adam
   * add OpenGL viewer (for dataset)
-  * models load/save - VM pause/resume
+  * dataset load - VM pause/resume
+  * mini-batches through for loops
 
 ### CNN Application Example
 <pre>
@@ -25,28 +26,28 @@ A Forth word can be seen as a nested function that process data flow, i.e. y = f
 flatten 0.0 49 linear                     \ add reduction layer, and the
 0.5 dropout 0.0 10 linear softmax         \ final fully connected output
 
-constant md0                 \ we can store the model in a constant
-                             \ now, define our training and testing flows
-: my_train (N D -- N') nn.for forward loss.ce backprop 0.1 0.9 nn.sgd nn.next ;
-: my_test  (N D -- N') nn.for forward loss.mse . nn.next ;
+constant md0                    \ we can store the model in a constant
+                                \ now, define our training and testing flows
+: my_train (N D -- N') for forward loss.ce backprop 0.1 0.9 nn.sgd next ;
+: my_test  (N D -- N') for forward loss.mse . next ;
 
-md0                          \ place the model on TOS
-network                      \ optionally, display our 13-layer NN model
-10 dataset mnist_train       \ create a dataset with batch_sz = 10 (from Loader repo)
-my_train                     \ start training session
-nn.save my_net               \ optinally, saving the trainned network
+md0                             \ place the model on TOS
+network                         \ optionally, display our 13-layer NN model
+batchsize dataset mnist_train   \ create a dataset with batch size the same as NN model
+my_train                        \ start training session
+nn.save my_net                  \ optinally, saving the trainned network
 
-1 dataset mnist_test         \ create a test dataset batch_sz = 1
-constant ds1                 \ save in a constant (or just using stack is OK)
+1 dataset mnist_test            \ create a test dataset batch_sz = 1
+constant ds1                    \ save in a constant (or just using stack is OK)
 
-md0 ds1 my_test              \ start test session directly, or
-nn.load my_net ds1 my_test   \ load from trained network and test
+md0 ds1 my_test                 \ start test session directly, or
+nn.load my_net ds1 my_test      \ load from trained network and test
 </pre>
 
 ### Case Study - MNIST
 |word|forward|param|network DAG|grad_fn|param[grad]|
 |---|---|---|---|---|---|
-|    |nn.for  |(INs -- IN)        |IN                |        |                                  |
+|    |for     |(INs -- IN)        |IN                |        |                                  |
 |seq1|conv2d  |(IN b1 c1 -- C1)   |IN [f1 b1 df1 db1]|dconv2d |(IN [f1 b1] dC1 -- dIN [df1 db1]) |
 |    |relu    |(C1 -- R1)         |C1                |drelu   |(C1 dR1 -- dC1)                   |
 |seq2|conv2d  |(R1 b2 c2 -- C2)   |R1 [f2 b2 df2 db2]|dconv2d |(R1 [f2 b2] dC2 -- dR1 [df2 db2]) |
@@ -138,16 +139,17 @@ nn.load my_net ds1 my_test   \ load from trained network and test
 #### Propagation controls
 |word|param/example|tensor creation ops|
 |---|---|---|
-|nn.onehot|(N -- N Ta)|dataset one-hot vector|
-|nn.for|(N ds -- N')|loop through a data set|
-|nn.next|(N ds -- N')|loop if any subset left|
+|batchsize|(N -- N b)|get input batch size of a model|
 |autograd|(N n -- N')|enable/disable model autograd|
 |forward|(N in -- N')|execute one forward propagation, layer-by-layer in given model|
-|backprop|(N out -- N')|execute one backward propagation, adding derivatives for all parameters|
+|backprop|(N -- N')|execute one backward propagation, adding derivatives for all parameters|
+|for|(N ds -- N')|loop through a dataset, ds will be pushed onto return stack|
+|next|(N -- N' ds)|loop if any subset of dataset left, or ds is pop off return stack|
 
 #### Gradiant ops
-|nn.sgd|(N Ta p m -- N')|apply SGD(learn_rate=p, momentum=m) backprop on DAG|
-|nn.adam|(N Ta -- N')|apply Adam backprop (alpha=0.001, beta1=0.1, beta2=0.999, eps=1e-6)|
-|nn.adam|(N Ta a b -- N')|apply Adam backprop with given alpha, beta1, (beta2=0.999, eps=1e-6)|
+|nn.onehot|(N -- N Ta)|dataset one-hot vector|
+|nn.sgd|(N p m -- N')|apply SGD(learn_rate=p, momentum=m) model back propagation|
+|nn.adam|(N a b1 -- N')|apply Adam backprop alpha, beta1, default beta2=1-(1-b1)^3|
+|nn.adam|(N a b1 b2 -- N')|apply Adam backprop with given alpha, beta1, beta2|
     
 
