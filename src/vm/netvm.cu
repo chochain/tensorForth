@@ -132,6 +132,7 @@ NetVM::init() {
          Tensor &t = mmu.tensor(n,h,w,c);     /// * create input tensor
          m.npush(t);                          /// * serves as the 1st layer
          PUSH(m)),
+    CODE("batchsize", if (IS_M(top)) PUSH(MTOS.batch_size())),
     CODE("conv2d",    nnop(L_CONV)),          ///> (N b c [A] -- N')
     CODE("linear",    nnop(L_LINEAR)),        ///> (N b n -- N')
     ///@}
@@ -175,16 +176,19 @@ NetVM::init() {
     ///@defgroup Batch ops
     ///@{
     CODE("nn.onehot", if (IS_M(top)) PUSH(MTOS.onehot())),
-    CODE("nn.for",    {}),
-    CODE("nn.next",   {}),
     CODE("autograd",  if (M1V) { bool on = POPi; MTOS.autograd = on; }),
-    CODE("forward", 
-         if (TOS1D && IS_M(ss[-1])) {
+    CODE("forward",
+         if (TOS1D && IS_M(ss[-1])) {           /// dataset on TOS
             Tensor &t = TTOS; POP();
             MTOS.forward(t);
-            mmu.free(t);                    /// * release dataset
+            mmu.free(t);                        /// * release dataset
         }
-        else ERROR("N tensor?\n")),
+        else if (IS_M(top) && IS_OBJ(rs[-1])) { /// data set on rs[-1]
+            Tensor &t = (Tensor&)mmu.du2obj(rs[-1]);
+            if (t.is_dataset()) MTOS.forward(t);
+            else ERROR("no dataset on RS?\n");
+        }
+        else ERROR("no dataset or tensor?\n")),
     CODE("backprop",
          if (TOS1T && IS_M(ss[-1])) {
              Tensor &t = TTOS; POP();
@@ -214,14 +218,34 @@ NetVM::init() {
         else ERROR("dataset?")),
     ///@}
     };
-    const Code over[] = {                  ///< extended (overload) words
+    const Code over[] = {                           ///< extended (overload) words
+    CODE("donext",                                  /// * overwrite "donext" in eforth.cu
+         if (IS_M(top) && IS_OBJ(rs[-1])) {         /// * handle dataset for loop
+             Model   &m = (Model&)mmu.du2obj(top);
+             Dataset &d = (Dataset&)mmu.du2obj(rs[-1]);
+             if (!d.is_dataset()) {
+                 ERROR("not a dataset on RS?\n"); return;
+             }
+             if (d.done) {                          /// * check if dataset completed
+                 rs.pop();                          /// * pop off dataset from return stack
+                 mmu.free(d);                       /// * free the dataset
+                 IP += sizeof(IU);                  /// * skip over to next word
+             }
+             else {
+                 fout << opx(OP_LOAD, 0, rs[-1]);   /// * issue an reload
+                 state = VM_WAIT;                   /// * return to CPU
+                 IP = mmu.ri(IP);                   /// * loop branch target address
+             }
+         }
+         else if ((rs[-1] -= 1) >= -DU_EPS) IP = mmu.ri(IP);  /// * handle numeric for loop
+         else { IP += sizeof(IU); rs.pop(); }),
     CODE("flatten",   nnop(L_FLATTEN)),
-    CODE("boot",      mmu.clear(FIND("network") + 1))
+    CODE("boot",      mmu.clear(FIND("fetch") + 1))
     };
     TensorVM::init();
 
-    mmu.append(prim, sizeof(prim)/sizeof(Code)); /// * append tensor words
-    mmu.merge(over,  sizeof(over)/sizeof(Code)); /// * overload existed words
+    mmu.append(prim, sizeof(prim)/sizeof(Code));    /// * append tensor words
+    mmu.merge(over,  sizeof(over)/sizeof(Code));    /// * overload existed words
     
     VLOG1("NetVM::init ok\n");
 };
