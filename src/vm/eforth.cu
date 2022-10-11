@@ -41,7 +41,7 @@ ForthVM::nest() {
                 IP = PFA(w);                         ///< jump to pfa of given colon word
                 RS++;                                ///< go one level deeper
             }
-            else if (w == DONEXT) {                  ///< DONEXT handler (save 600ms / 100M cycles on Intel)
+            else if (w==DONEXT && !IS_OBJ(rs[-1])) {        ///< DONEXT handler (save 600ms / 100M cycles on Intel)
                 if ((rs[-1] -= 1) >= -DU_EPS) IP = LDi(IP); ///< decrement loop counter, and fetch target addr
                 else { IP += sizeof(IU); rs.pop(); } ///< done loop, pop off loop counter
             }
@@ -93,9 +93,9 @@ ForthVM::init() {
     ///@brief - DO NOT change the sequence here (see forth_opcode enum)
     ///@{
     CODE("exit",    WP = INT(rs.pop()); IP = INT(rs.pop())),        // quit current word execution
-    CODE("donext",
-         if ((rs[-1] -= 1) >= -DU_EPS) IP = LDi(IP);
-         else { IP += sizeof(IU); rs.pop(); }),
+    CODE("donext",  {}),                                  /// * handled in nest(),
+//         if ((rs[-1] -= 1) >= -DU_EPS) IP = LDi(IP);    /// * also overwritten in netvm later
+//         else { IP += sizeof(IU); rs.pop(); }),
     CODE("dovar",   PUSH(IP); IP += sizeof(DU)),
     CODE("dolit",   PUSH(LDd(IP)); IP += sizeof(DU)),
     CODE("dostr",
