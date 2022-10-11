@@ -6,18 +6,26 @@
  */
 #include "mnist.h"
 
-Corpus *Mnist::fetch(int batch_id, int batch_sz) {
-    if (N == 0 && _setup()) return NULL;        /// * setup once only
+#define DEBUG(...) printf(__VA_ARGS__)
 
-    int bsz = batch_sz ? batch_sz : N;
-    int b0  = _get_labels(batch_id, bsz);
-    int b1  = _get_images(batch_id, bsz);
+Corpus *Mnist::fetch(int batch_id, int batch_sz) {
+    static int cnt = 0;
+    
+    if (N == 0 && _setup()) return NULL;           /// * setup once only
+    eof = 0;
+    
+    int bsz = batch_sz ? batch_sz : N;             ///< batch size
+    int b0  = _get_labels(batch_id, bsz);          ///< load batch labels
+    int b1  = _get_images(batch_id, bsz);          ///< load batch images
     if (b0 != b1) {
-        fprintf(stderr, "ERROR: Mnist::load lable count != image count\n");
+        fprintf(stderr, "ERROR: Mnist::fetch #label=%d != #image=%d\n", b0, b1);
         return NULL;
     }
-    _preview(bsz < 4 ? bsz : 4);               /// * debug print
-    
+    DEBUG("\tMnist batch[%d] loaded (size=%d)\n", batch_id, b0);
+    if (++cnt == 3) eof = 1;
+//    if ((cnt++ % 10) == 0) {
+        _preview(bsz < 3 ? bsz : 3);               /// * debug print
+//  }
     return this;
 }
 
@@ -56,7 +64,7 @@ int Mnist::_setup() {
     if (t_in) {
         X1 = _u32(t_in);    ///< label magic number 0x0801
         N1 = _u32(t_in);
-        printf("\tMNIST label: magic=%08x => [%d]\n", X1, N1);
+        DEBUG("\tMNIST label: magic=%08x => [%d]\n", X1, N1);
     }
     if (d_in) {
         X0 = _u32(d_in);    ///< image magic number 0x0803
@@ -64,7 +72,7 @@ int Mnist::_setup() {
         H  = _u32(d_in);
         W  = _u32(d_in);
         C  = 1;
-        printf("\tMNIST image: magic=%08x => [%d][%d,%d,%d]\n",
+        DEBUG("\tMNIST image: magic=%08x => [%d][%d,%d,%d]\n",
                X0, N, H, W, C);
     }
     if (N != N1) {
@@ -83,18 +91,19 @@ int Mnist::_preview(int N) {
             for (int j = 0; j < W; j++, img++) {
                 char c  = map[*img / 26];
                 char c1 = map[((int)*img + (int)*(img+1)) / 52];
-                printf("%c%c", c, c1);                 // double width
+                DEBUG("%c%c", c, c1);                 // double width
             }
-            printf("|");
+            DEBUG("|");
         }
-        printf("\n");
+        DEBUG("\n");
     }
     for (int n = 0; n < N; n++) {
-        printf(" label=%-2d ", (int)label[n]);
-        for (int j = 0; j < W*2 - 10; j++) printf("-");
-        printf("+");
+        DEBUG(" label=%-2d ", (int)label[n]);
+        for (int j = 0; j < W*2 - 10; j++) DEBUG("-");
+        DEBUG("+");
     }
-    printf("\n");
+    DEBUG("\n");
+    
     return 0;
 }
 
@@ -105,11 +114,11 @@ int Mnist::_get_labels(int bid, int bsz) {
 
     t_in.seekg(hdr + bid * bsz);                   /// * seek by batch
     t_in.read((char*)label, bsz);                  /// * fetch batch labels
-
-    int rst = t_in.eof() ? d_in.gcount() : bsz;
-    printf("\tMnist.label batch[%d] sz=%d loaded\n", bid, rst);
+    eof |= t_in.eof();                             /// * set EOF flag
     
-    return rst;
+    int cnt = eof ? d_in.gcount() : bsz;
+    
+    return cnt;
 }
 
 int Mnist::_get_images(int bid, int bsz) {
@@ -120,11 +129,11 @@ int Mnist::_get_images(int bid, int bsz) {
 
     d_in.seekg(hdr + bid * xsz);                   /// * seek by batch id
     d_in.read((char*)data, xsz);                   /// * fetch batch images
+    eof |= d_in.eof();                             /// * set EOF flag
+    
+    int cnt = eof ? d_in.gcount() / dsize() : bsz;
 
-    int rst = d_in.eof() ? d_in.gcount() / dsize() : bsz;
-    printf("\tMnist.image batch[%d] sz=%d loaded\n", bid, rst); 
-
-    return rst;
+    return cnt;
 }
 
 

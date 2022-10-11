@@ -22,6 +22,7 @@ struct Corpus {
     const char *tg_name;      ///< target label name
     
     int   N, H, W, C;         ///< set dimensions and channel size
+    int   eof = 0;
     
     U8    *data  = NULL;      ///< source data pointer
     U8    *label = NULL;      ///< label data pointer
