@@ -238,7 +238,7 @@ Note:
 
 ### TODO
 * benchmark (MNIST, CIFAR, Kaggle...)
-* mini-batch
+* trained network load/save
 * refactor - add namespace, warp-level collectives (study libcu++, MordenGPU for kernel)
 * add RNN
 * add inter-VM communication (CUDA stream, review CUB again)
