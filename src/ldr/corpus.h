@@ -7,13 +7,15 @@
 #ifndef T4_CORPUS_H
 #define T4_CORPUS_H
 
+#define DS_LOG1(...)         printf(__VA_ARGS__)
+#define DS_ERROR(...)        fprintf(stderr, __VA_ARGS__)
+#define IO_ERROR(fn)         fprintf(stderr, "ERROR: open file %s failed\n", fn)
+
 #define DS_ALLOC(p, sz) \
     if (cudaMallocManaged(p, sz) != cudaSuccess) { \
         fprintf(stderr, "ERROR: Corpus malloc %d\n", (int)(sz)); \
         exit(-1); \
     }
-#define IO_ERROR(fn) \
-    fprintf(stderr, "Corpus: fail to open file %s\n", fn);
 
 typedef uint8_t U8;
 
@@ -36,12 +38,12 @@ struct Corpus {
         cudaPointerAttributes attr;
         cudaPointerGetAttributes(&attr, data);
         if (attr.devicePointer != NULL) {
-            printf("free CUDA managed memory\n");
+            DS_LOG1("free CUDA managed memory\n");
             cudaFree(data);
             if (label) cudaFree(label);
         }
         else {
-            printf("free HOST memory\n");
+            DS_LOG1("free HOST memory\n");
             free(data);
             if (label) free(label);
         }
@@ -50,7 +52,7 @@ struct Corpus {
     int len()     { return N; }                              ///< number of data point
 
     virtual Corpus *fetch(int batch_id=0, int batch_sz=0) {  /// * bid=bsz=0 => load entire set
-        printf("batch(U8*) implemented?\n");
+        DS_LOG1("batch(U8*) implemented?\n");
         return this;
     }
     virtual U8 *operator [](int idx){ return &data[idx * dsize()]; }  ///< data point
