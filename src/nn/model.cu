@@ -103,16 +103,16 @@ Model::_ilinear(Tensor &in, U16 C0, DU bias) {
     
     DU k = DU1 / SQRT(C1);                       /// * default weight
     _mmu->random(*w, UNIFORM, -0.5, 2.0 * k);    /// * randomize w
-    printf("bias=%4.2f,  k=%6.3f, w.std=%6.3f\n", bias, k, w->std());
+    TRACE1("bias=%4.2f,  k=%6.3f, w.std=%6.3f\n", bias, k, w->std());
     
     Tensor &out = _t4(N1, C0);                   ///> output tensor sizing
-    printf(" out[%d,%d,%d,%d]", out.N(), out.H(), out.W(), out.C());
+    TRACE1(" out[%d,%d,%d,%d]", out.N(), out.H(), out.W(), out.C());
     npush(out);                                  /// * stage for next stage
 }
 __GPU__ void
 Model::_iflatten(Tensor &in) {
     in.parm = in.HWC();                          /// * keep numel per sample
-    printf("flatten parm=%d\n", in.parm);
+    TRACE1("flatten parm=%d\n", in.parm);
     Tensor &out = _t4(in.N(), in.parm);          /// * for backprop
     npush(out);
 }
@@ -158,7 +158,7 @@ Model::_idropout(Tensor &in, U16 f) {
     in.parm = f;                                 /// * keep fraction
     DU p = -0.01 * f;                            ///< dropout fraction
     _mmu->random(*msk, UNIFORM, p);              /// * randomize w, shift p
-    printf("dropout=%d\n", f);
+    TRACE1("dropout=%d\n", f);
     
     npush(out);
 }
