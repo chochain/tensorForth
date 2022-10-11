@@ -29,7 +29,7 @@ public:
     __HOST__ Ostream *ostream() { return _ostr; }
 
     __HOST__ int       readline();
-    __HOST__ obuf_node *print_node(obuf_node *node);
+    __HOST__ obuf_node *process_node(obuf_node *node);
     __HOST__ void      flush();
 
 private:

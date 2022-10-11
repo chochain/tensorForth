@@ -26,7 +26,7 @@ AIO::readline() {
 }
 
 __HOST__ obuf_node*
-AIO::print_node(obuf_node *node) {
+AIO::process_node(obuf_node *node) {
     cudaDeviceSynchronize();        /// * make sure data is completely written
     
     char *v = (char*)node->data;    ///< fetch payload in buffered print node
@@ -69,7 +69,7 @@ __HOST__ void
 AIO::flush() {
     obuf_node *node = (obuf_node*)_ostr->rdbuf();
     while (node->gt != GT_EMPTY) {          // 0
-        node = print_node(node);
+        node = process_node(node);
     }
     _ostr->clear();
 }
