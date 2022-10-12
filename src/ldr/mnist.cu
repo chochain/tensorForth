@@ -6,10 +6,11 @@
  */
 #include "mnist.h"
 
-#define DEBUG(...) printf(__VA_ARGS__)
+#define LOG_COUNT 1024
+#define LOG_MAX   300
 
 Corpus *Mnist::fetch(int batch_id, int batch_sz) {
-    static int cnt = 0;
+    static int bound = LOG_COUNT / batch_sz, tick = 0;
     
     if (N == 0 && _setup()) return NULL;           /// * setup once only
     eof = 0;
@@ -18,14 +19,14 @@ Corpus *Mnist::fetch(int batch_id, int batch_sz) {
     int b0  = _get_labels(batch_id, bsz);          ///< load batch labels
     int b1  = _get_images(batch_id, bsz);          ///< load batch images
     if (b0 != b1) {
-        fprintf(stderr, "ERROR: Mnist::fetch #label=%d != #image=%d\n", b0, b1);
+        DS_ERROR("ERROR: Mnist::fetch #label=%d != #image=%d\n", b0, b1);
         return NULL;
     }
-    DEBUG("\tMnist batch[%d] loaded (size=%d)\n", batch_id, b0);
-    if (++cnt == 3) eof = 1;
-//    if ((cnt++ % 10) == 0) {
+    if ((tick % bound) == 0) {
+        DS_LOG1("\n\tMnist batch[%d] loaded (size=%d)\n", batch_id, b0);
         _preview(bsz < 3 ? bsz : 3);               /// * debug print
-//  }
+    }
+    if ((++tick * batch_sz) > LOG_MAX) eof = 1;
     return this;
 }
 
@@ -64,7 +65,7 @@ int Mnist::_setup() {
     if (t_in) {
         X1 = _u32(t_in);    ///< label magic number 0x0801
         N1 = _u32(t_in);
-        DEBUG("\tMNIST label: magic=%08x => [%d]\n", X1, N1);
+        DS_LOG1("\n\tMNIST label: magic=%08x => [%d]", X1, N1);
     }
     if (d_in) {
         X0 = _u32(d_in);    ///< image magic number 0x0803
@@ -72,11 +73,11 @@ int Mnist::_setup() {
         H  = _u32(d_in);
         W  = _u32(d_in);
         C  = 1;
-        DEBUG("\tMNIST image: magic=%08x => [%d][%d,%d,%d]\n",
+        DS_LOG1("\n\tMNIST image: magic=%08x => [%d][%d,%d,%d]",
                X0, N, H, W, C);
     }
     if (N != N1) {
-        fprintf(stderr, "ERROR: Mnist lable count != image count\n");
+        DS_ERROR("ERROR: Mnist label count %d != image count %d\n", N1, N);
         return -2;
     }
     return 0;
@@ -91,18 +92,18 @@ int Mnist::_preview(int N) {
             for (int j = 0; j < W; j++, img++) {
                 char c  = map[*img / 26];
                 char c1 = map[((int)*img + (int)*(img+1)) / 52];
-                DEBUG("%c%c", c, c1);                 // double width
+                DS_LOG1("%c%c", c, c1);                 // double width
             }
-            DEBUG("|");
+            DS_LOG1("|");
         }
-        DEBUG("\n");
+        DS_LOG1("\n");
     }
     for (int n = 0; n < N; n++) {
-        DEBUG(" label=%-2d ", (int)label[n]);
-        for (int j = 0; j < W*2 - 10; j++) DEBUG("-");
-        DEBUG("+");
+        DS_LOG1(" label=%-2d ", (int)label[n]);
+        for (int j = 0; j < W*2 - 10; j++) DS_LOG1("-");
+        DS_LOG1("+");
     }
-    DEBUG("\n");
+    DS_LOG1("\n");
     
     return 0;
 }
