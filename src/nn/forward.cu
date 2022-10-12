@@ -60,6 +60,34 @@ __KERN__ void k_conv2d(
     }
 }
 
+__KERN__ void k_linear(
+    DU *I, DU *O, DU *W, DU *B,
+    int C1, int C0, int HWC1, int HWC0
+    ) {    
+    const int c1 = threadIdx.x + blockIdx.x * blockDim.x;
+    const int c0 = threadIdx.y + blockIdx.y * blockDim.y;
+    const int n  = blockIdx.z;
+    ///
+    /// prefix sum every 32-threaded tile
+    ///
+    auto shfl_sum = [](cg::thread_block_tile<32> t, DU v) {
+        for (int k = 16; k > 0; k >>= 1) {
+            v += t.shfl_down(v, k);
+        }
+        return v;
+    };
+    auto t = cg::tiled_partition<32>(cg::this_thread_block());
+    
+    DU wx  = (c0 < C0 && c1 < C1)
+            ? W[c1 + c0 * C1] * I[c1 + n * HWC1] : DU0;
+    DU sum = shfl_sum(t, wx);              /// * get prefix sum
+    if (c0 < C0) {
+        DU *y  = &O[c0 + n * HWC0];
+        if (c1 == 0) *y = B[c0];           /// * Y + W @ X + B
+        if (t.thread_rank()==0) atomicAdd(y, sum);
+    }
+}
+
 template<int KS>                           /// kernel size
 __KERN__ void k_pool(
     DU *I, DU *O,                          ///< input, output buffers
@@ -212,17 +240,28 @@ Model::_flinear(Tensor &in, Tensor &out) {
     
     TRACE1(" = w[%d,%d] @ in[%d,%d,%d,%d] + b[%d]",
         C0, C1, in.N(), in.H(), in.W(), in.C(), tb.numel);
-        
+    
     DU *w = tw.data, *b = tb.data;
     for (int n = 0; n < N; n++) {                     /// * walk through batch
         DU *x = in.slice(n), *y = out.slice(n);
-        for (int i = 0; i < C0; i++) {                /// TODO: kernel version
-            y[i] = b[i];                              /// init with bias
-            for (int j = 0; j < C1; j++) {            /// dot product
-                y[i] += w[j + i * C1] * x[j];         /// * Y += W @ X + B
+        for (int c0 = 0; c0 < C0; c0++) {
+            y[c0] = b[c0];                            /// init with bias
+            for (int c1 = 0; c1 < C1; c1++) {         /// dot product
+                y[c0] += w[c1 + c0 * C1] * x[c1];     /// Y = W @ X + B
             }
         }
     }
+    return 0;
+/*    
+    TODO: fix, CDP is slower
+
+    dim3 blk(T4_WARP_SZ, T4_WARP_SZ, 1);              ///< default blocks
+    dim3 grd(NGRID(C1, C0, N, blk));                  ///< default grids
+
+    k_linear<<<grd,blk>>>(
+        in.data, out.data, tw.data, tb.data, C1, C0, in.HWC(), out.HWC());
+    GPU_SYNC();
+*/    
     return 0;
 }
 
