@@ -13,22 +13,19 @@
 /// Note: kept here because curandStates stays in CUDA memory
 ///
 __KERN__ void
-k_rand_init(curandState *st, U64 seed=0) {
-    ///
-    /// serialize to make sure states are randomized properly
-    ///
-    for (U64 k = 0; k < T4_RAND_SZ; k++) {
-        curand_init(seed != 0L ? seed : clock64(), k, k, &st[k]);
-    }
+k_rand_init(curandState *st, U64 seed) {
+    int x = threadIdx.x + blockIdx.x * blockDim.x;
+    curand_init(seed, x, 0, &st[x]);
 }
+
 __KERN__ void
 k_rand(DU *mat, int sz, DU bias, DU scale, curandState *st, t4_rand_opt ntype) {
     int k = threadIdx.x + blockIdx.x * blockDim.x;
-    curandState *s = &st[threadIdx.x];
+    curandState s = st[threadIdx.x];
 
     if (k < sz) {
         mat[k] = scale * (
-            bias + (ntype==NORMAL ? curand_normal(s) : curand_uniform(s))
+            bias + (ntype==NORMAL ? curand_normal(&s) : curand_uniform(&s))
         );
     }
 }
@@ -45,7 +42,7 @@ MMU::MMU(int khz, int verbose) : _khz(khz), _trace(verbose) {
     MM_ALLOC(&_seed, sizeof(curandState) * T4_RAND_SZ);
 
     _ostore.init(_obj, T4_TENSOR_SZ);
-    k_rand_init<<<1, 1>>>(_seed);       /// serialized
+    k_rand_init<<<1, T4_RAND_SZ>>>(_seed, time(NULL));       /// serialized
     GPU_CHK();
     
     TRACE1("\\  MMU dict=%p, mem=%p, vmss=%p, obj=%p\n", _dict, _pmem, _vmss, _obj);
