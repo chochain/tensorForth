@@ -36,12 +36,6 @@ public:
     __GPU__ void predict(Tensor &I, Tensor &P);   ///< predict result
 
 private:
-    ///
-    /// @name Batch ops
-    /// @{
-    __GPU__ void nn_for();
-    __GPU__ void nn_next();
-    /// @}
     /// @name static Loss functions
     /// @{
     /// @}

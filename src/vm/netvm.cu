@@ -56,15 +56,7 @@ __GPU__ void
 NetVM::predict(Tensor &I, Tensor &P) {
 }
 ///===================================================================
-/// private functions
-///
-/// Batch ops
-///
-__GPU__ void
-NetVM::nn_for() {}
-
-__GPU__ void
-NetVM::nn_next() {}
+/// private methods
 ///
 /// Convolution ops
 /// @default: 3x3 filter, padding=1, stride=1, dilation=1
