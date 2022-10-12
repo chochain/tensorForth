@@ -1,0 +1,22 @@
+.( ## MNIST convolution tests ## ) cr
+32 28 28 1 nn.model                       \ create a network model
+0.5 10 conv2d 2 maxpool relu               \ add a convolution block
+0.5 20 conv2d 0.5 dropout 2 maxpool relu   \ add another convolution block
+flatten 0.0 49 linear                      \ add reduction layer, and the
+0.5 dropout 0.0 10 linear softmax          \ final fully connected output
+constant md0                               \ keep as a constant
+
+md0                                        \ put model on TOS
+network                                    \ show model
+
+: xx for forward loss.ce . backprop 0.1 0.9 nn.sgd next ;
+see xx
+
+.( #### loading MNIST dataset )
+batchsize dataset mnist_test               \ create MNIST dataset with model batch size
+constant ds0
+
+ds0 xx
+clock
+
+bye
