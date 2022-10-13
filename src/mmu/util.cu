@@ -387,7 +387,7 @@ d_hash(const char *s) {
   Tensor basic ops
 */
 __KERN__ void
-k_copy(float *src, float *dst, int sz) {           ///< Note: (src, dst)
+k_copy(float *src, float *dst, int sz) {                   ///< Note: (src, dst)
     int k = threadIdx.x + blockIdx.x * blockDim.x;
     if (k < sz) dst[k] = src[k];
 }
@@ -395,11 +395,10 @@ __KERN__ void
 k_transpose(float *src, float *dst, int H, int W) {        ///< Note: (src, dst)
     const int i = threadIdx.y + blockIdx.y * blockDim.y;
     const int j = threadIdx.x + blockIdx.x * blockDim.x;
-    const int c  = threadIdx.z, C = blockDim.z;            ///< channel deep
-    const int ns = blockIdx.z * H * W * C;                 ///< batch slice idx
+    const int c = blockIdx.z, C = gridDim.z;               ///< channel deep
 
     if (i < H && j < W && c < C) {
-        dst[c + (i + j * H) * C + ns] = src[c + (j + i * W) * C + ns];
+        dst[c + (i + j * H) * C] = src[c + (j + i * W) * C];
     }
 }
 __KERN__ void
@@ -408,10 +407,9 @@ k_identity(float *t, int H, int W, int sz) {
     
     const int i = threadIdx.y + blockIdx.y * blockDim.y;
     const int j = threadIdx.x + blockIdx.x * blockDim.x;
-    const int c  = threadIdx.z, C = blockDim.z;           ///< channel deep
-    const int ns = blockIdx.z * H * W * C;                ///< batch slice idx
+    const int c = blockIdx.z, C = gridDim.z;               ///< channel deep
 
     if (i < H && j < W && c < C) {
-        t[c + (j + i * W) * C + ns] = i01[i==j];
+        t[c + (j + i * W) * C] = i01[i==j];
     }
 }
