@@ -67,24 +67,12 @@ __KERN__ void k_linear(
     const int c1 = threadIdx.x + blockIdx.x * blockDim.x;
     const int c0 = threadIdx.y + blockIdx.y * blockDim.y;
     const int n  = blockIdx.z;
-    ///
-    /// prefix sum every 32-threaded tile
-    ///
-    auto shfl_sum = [](cg::thread_block_tile<32> t, DU v) {
-        for (int k = 16; k > 0; k >>= 1) {
-            v += t.shfl_down(v, k);
-        }
-        return v;
-    };
-    auto t = cg::tiled_partition<32>(cg::this_thread_block());
-    
-    DU wx  = (c0 < C0 && c1 < C1)
-            ? W[c1 + c0 * C1] * I[c1 + n * HWC1] : DU0;
-    DU sum = shfl_sum(t, wx);              /// * get prefix sum
-    if (c0 < C0) {
-        DU *y  = &O[c0 + n * HWC0];
-        if (c1 == 0) *y = B[c0];           /// * Y + W @ X + B
-        if (t.thread_rank()==0) atomicAdd(y, sum);
+
+    if (c0 < C0 && c1 < C1) {
+        DU wx = W[c1 + c0 * C1] * I[c1 + n * HWC1];
+        DU *y = &O[c0 + n * HWC0];
+        if (c1 == 0) *y = B[c0];
+        atomicAdd(y, wx);                  /// * TODO: prefix sum
     }
 }
 
@@ -162,7 +150,7 @@ Model::forward(Tensor &input) {
         Tensor &in = (*this)[i], &out = (*this)[i + 1];
         if (_trace > 0) trace(i, in, out);
         _fstep(in, out);
-        debug(out);
+//        debug(out);
     }
     TRACE1("\nModel#forward %5.2f ms\n", _mmu->ms() - t0);
     return *this;
@@ -240,7 +228,7 @@ Model::_flinear(Tensor &in, Tensor &out) {
     TRACE1(" = w[%d,%d] @ in[%d,%d,%d,%d] + b[%d]",
         C0, C1, in.N(), in.H(), in.W(), in.C(), tb.numel);
 
-    if (N * C0 * C1 > T4_WARP_SQ * 16) {              /// * threadhold control
+    if (tw.numel > T4_WARP_SQ * 8) {                  /// * threadhold control
         dim3 blk(T4_WARP_SZ, T4_WARP_SZ, 1);          ///< default blocks
         dim3 grd(NGRID(C1, C0, N, blk));              ///< default grids
         
