@@ -90,21 +90,21 @@ __KERN__ void k_linear(
 
 template<int KS>                           /// kernel size
 __KERN__ void k_pool(
+    t4_layer op,                           ///< pooling ops
     DU *I, DU *O,                          ///< input, output buffers
-    int H, int W,                          ///< output HW (C0==C1)
-    t4_layer op                            ///< pooling ops
+    int HW, int W                          ///< output HW (C0==C1)
     ) {
-    const int j0 = threadIdx.x + blockIdx.x * blockDim.x;
-    const int i0 = threadIdx.y + blockIdx.y * blockDim.y;
-    const int c  = threadIdx.z, C = blockDim.z;      ///< channel deep
-    const int ns = blockIdx.z * H * W * C;           ///< batch slice idx
-    const int z0 = c + (j0 + i0 * W) * C + ns;       ///< output array index
-    const int z1 = c + ((j0 + (i0 * W) * KS) * KS) * C + ns * KS * KS;
+    const int k0 = threadIdx.x + blockIdx.x * blockDim.x;
+    const int j0 = k0 % W;                            ///< output x dim
+    const int c  = blockIdx.y, C = gridDim.y;         ///< channel deep
+    const int ns = blockIdx.z * HW * C;               ///< batch slice idx
+    const int z0 = c + k0 * C + ns;                   ///< output array index
+    const int z1 = c + j0 * KS * C + ((k0 - j0) * C + ns) * KS * KS;
     
-    if (i0 < H && j0 < W && c < C) {
+    if (k0 < HW && c < C) {
         DU *ix = &I[z1];
         DU2 v  = op==L_AVGPOOL ? DU0 : *ix;
-        for (int y = 0; y < KS; y++) {
+        for (int y = 0; y < KS; y++) {     /// * unroll automatically, hopefully
             for (int x = 0; x < KS; x++) {
                 DU dx = *ix;
                 switch (op) {
@@ -122,23 +122,21 @@ __KERN__ void k_pool(
 
 __KERN__ void k_filter(
     DU *I, DU *F, DU *O,                   ///< input, filter, output tensors
-    int H, int W                           ///< H0=H1, W0==W1 (C0==C1)
+    int HW                                 ///< H0=H1, W0==W1 (C0==C1)
     ) {
-    const int j0 = threadIdx.x + blockIdx.x * blockDim.x;
-    const int i0 = threadIdx.y + blockIdx.y * blockDim.y;
-    const int c  = threadIdx.z, C = blockDim.z;      ///< channel deep
-    const int ns = blockIdx.z * H * W * C;           ///< batch slice idx
-    const int z0 = c + (i0 + j0 * W) * C + ns;       ///< output tensor index
+    const int i  = threadIdx.x + blockIdx.x * blockDim.x;  ///< element index
+    const int c  = blockIdx.y, C = gridDim.y;              ///< channel deep
+    const int ns = blockIdx.z * HW * C;                    ///< batch slice index
+    const int k  = c + i * C + ns;                         ///< output tensor index
     
-    if (i0 < H && j0 < W && c < C) {
-        O[z0] = (F[z0] > DU0) ? I[z0] : DU0;
+    if (i < HW) {
+        O[k] = (F[k] > DU0) ? I[k] : DU0;
     }
 }
 
 __GPU__ Model&
 Model::forward(Tensor &input) {
     Tensor &n1 = (*this)[1];        ///< reference model input layer
-    DU     t0  = _mmu->ms();        ///< performance measurement
     if (!n1.is_same_shape(input)) {
         ERROR("Model#forward dataset dim != model input dim?\n");
         return *this;
@@ -159,11 +157,12 @@ Model::forward(Tensor &input) {
             out.N(), out.H(), out.W(), out.C());
     };
     TRACE1("\nModel#forward starts");
+    DU t0 = _mmu->ms();             ///< performance measurement
     for (U16 i = 1; i < numel - 1; i++) {
         Tensor &in = (*this)[i], &out = (*this)[i + 1];
         if (_trace > 0) trace(i, in, out);
         _fstep(in, out);
-//        debug(out);
+        debug(out);
     }
     TRACE1("\nModel#forward %5.2f ms\n", _mmu->ms() - t0);
     return *this;
@@ -240,39 +239,39 @@ Model::_flinear(Tensor &in, Tensor &out) {
     
     TRACE1(" = w[%d,%d] @ in[%d,%d,%d,%d] + b[%d]",
         C0, C1, in.N(), in.H(), in.W(), in.C(), tb.numel);
-    
-    DU *w = tw.data, *b = tb.data;
-    for (int n = 0; n < N; n++) {                     /// * walk through batch
-        DU *x = in.slice(n), *y = out.slice(n);
-        for (int c0 = 0; c0 < C0; c0++) {
-            y[c0] = b[c0];                            /// init with bias
-            for (int c1 = 0; c1 < C1; c1++) {         /// dot product
-                y[c0] += w[c1 + c0 * C1] * x[c1];     /// Y = W @ X + B
+
+    if (N * C0 * C1 > T4_WARP_SQ * 16) {              /// * threadhold control
+        dim3 blk(T4_WARP_SZ, T4_WARP_SZ, 1);          ///< default blocks
+        dim3 grd(NGRID(C1, C0, N, blk));              ///< default grids
+        
+        k_linear<<<grd,blk>>>(
+            in.data, out.data, tw.data, tb.data, C1, C0, in.HWC(), out.HWC());
+        GPU_SYNC();                                   /// * this makes it slow
+    }
+    else {                                            /// * serial code
+        printf(" serial");
+        DU *w = tw.data, *b = tb.data;
+        for (int n = 0; n < N; n++) {                 /// * walk through batch
+            DU *x = in.slice(n), *y = out.slice(n);
+            for (int c0 = 0; c0 < C0; c0++) {
+                y[c0] = b[c0];                        /// init with bias
+                for (int c1 = 0; c1 < C1; c1++) {     /// dot product
+                    y[c0] += w[c1 + c0 * C1] * x[c1]; /// Y = W @ X + B
+                }
             }
         }
     }
-    return 0;
-/*    
-    TODO: fix, CDP is slower
-
-    dim3 blk(T4_WARP_SZ, T4_WARP_SZ, 1);              ///< default blocks
-    dim3 grd(NGRID(C1, C0, N, blk));                  ///< default grids
-
-    k_linear<<<grd,blk>>>(
-        in.data, out.data, tw.data, tb.data, C1, C0, in.HWC(), out.HWC());
-    GPU_SYNC();
-*/    
     return 0;
 }
 
 __GPU__ int
 Model::_ffilter(Tensor &in, Tensor &msk, Tensor &out) {
-    const int H = out.H(), W = out.W();
+    const int W = out.W(), HW = out.H() * W;
     
-    dim3 blk(T4_WARP_SZ, T4_WARP_SZ, out.C());          ///< default blocks
-    dim3 grd(NGRID(W, H, out.N(), blk));                ///< default grids
-        
-    k_filter<<<grd, blk>>>(in.data, msk.data, out.data, H, W);
+    dim3 blk(T4_WARP_SQ, 1, 1);                        ///< default blocks
+    dim3 grd((HW + blk.x - 1)/blk.x, out.C(), out.N());
+    
+    k_filter<<<grd, blk>>>(in.data, msk.data, out.data, HW);
     GPU_SYNC();
     
     return 0;
@@ -280,15 +279,15 @@ Model::_ffilter(Tensor &in, Tensor &msk, Tensor &out) {
 
 __GPU__ int
 Model::_fpool(Tensor &in, Tensor &out, t4_layer fn) {
-    const int H = out.H(), W = out.W();                 ///< output dimensions
+    const int W  = out.W(), HW = out.H() * W;           ///< output dimensions
     const int ks = in.parm;                             ///< kernel size
     
-    dim3 blk(T4_WARP_SZ, T4_WARP_SZ, out.C());          ///< default blocks
-    dim3 grd(NGRID(W, H, out.N(), blk));                ///< default grid
+    dim3 blk(T4_WARP_SQ, 1, 1);                         ///< default blocks
+    dim3 grd((HW + blk.x - 1) / blk.x, out.C(), out.N());
     
     switch(ks) {                                        /// pooling kernel size
-    case 0x2: k_pool<2><<<grd,blk>>>(in.data, out.data, H, W, fn); break;
-    case 0x3: k_pool<3><<<grd,blk>>>(in.data, out.data, H, W, fn); break;
+    case 0x2: k_pool<2><<<grd,blk>>>(fn, in.data, out.data, HW, W); break;
+    case 0x3: k_pool<3><<<grd,blk>>>(fn, in.data, out.data, HW, W); break;
     default:
         ERROR("model#pooling kernel_size=%d not supported\n", ks);
         return -1;
@@ -302,17 +301,17 @@ __GPU__ int
 Model::_fsoftmax(Tensor &in, Tensor &out) {   /// * TODO: DCP
     out = in;                                 /// * copy content for exp calc
     DU *sum = in.grad[0]->data;               /// * sum(exp(xi)), for DCP
-    int sz  = in.HWC();
+    int hwc = in.HWC();
     for (int n = 0; n < in.N(); n++, sum++) { /// * loop throught batch
         *sum = DU0;
         DU *d = out.slice(n), *d1 = d;
-        for (int i = 0; i < sz; i++) {
+        for (int i = 0; i < hwc; i++) {
             *d   = EXP(*d);                   /// * softmax = exp(xi) / sum(exp(xi))
             *sum += *d++;
         }
         DU r = DU1 / (*sum + DU_EPS);         /// * r = 1.0 / sum(exp(xi))
         *sum = DU0;
-        for (int i = 0; i < sz; i++) {
+        for (int i = 0; i < hwc; i++) {
             *d1  *= r;
             *sum += *d1++;
         }
@@ -325,15 +324,15 @@ __GPU__ int
 Model::_flogsoftmax(Tensor &in, Tensor &out) {/// * TODO: DCP
     out = in;                                 /// * copy in data to out
     DU *sum = in.grad[0]->data;               /// * sum(exp(xi)), for DCP
-    int sz  = in.HWC();
+    int hwc = in.HWC();
     for (int n = 0; n < in.N(); n++, sum++) { /// * loop throught batch
         *sum = DU0;
         DU *d = out.slice(n), *d1 = d;
-        for (int i = 0; i < sz; i++) {
+        for (int i = 0; i < hwc; i++) {
             *sum += EXP(*d++);
         }
         DU logsum = LOG(*sum);
-        for (int i = 0; i < sz; i++) {
+        for (int i = 0; i < hwc; i++) {
             *d1++ -= logsum;
         }
         TRACE2(" lnΣ%d=%5.3f", n, logsum);   /// * verify sum
