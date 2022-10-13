@@ -60,66 +60,64 @@ k_sum(DU *A, DU *sum, int sz) {
 }
 __KERN__ void
 k_matmul(
-    DU *A, DU *B, DU *O,   /* O[HxW] = A[HxK] @ B[KxW] */
+    DU *A, DU *B, DU *O,   /* O[NxHxWxC] = A[NxHxKxC] @ B[NxKxWxC] */
     int H, int W, int K,
     t4_mm_opt opt)
 {
-    const int tx = threadIdx.x, i = tx + blockIdx.y * blockDim.y;
-    const int ty = threadIdx.y, j = ty + blockIdx.x * blockDim.x;
-    const int c  = threadIdx.z, C = blockDim.z;            ///< channel deep
-    const int ns = blockIdx.z * H * W * C;                 ///< batch slice idx
-    const int z  = c + (j + i * W) * C;                    ///< output matrix index
+    const int i  = threadIdx.y + blockIdx.y * blockDim.y;  ///< H
+    const int j  = threadIdx.x + blockIdx.x * blockDim.x;  ///< W
+    const int c  = blockIdx.z,  C = gridDim.z;             ///< C
+    const int z0 = c + (j + i * W) * C;                    ///< output matrix index
     
     if (i < H && j < W && c < C) {                         /// * TODO: tiled
         DU  *ax, *bx;
         int ai, bi;
         if (opt & MM_A_TXP) {                              /// * transpose A
-            ax = &A[c + i * C + ns];     ai = H * C;
-            bx = &B[c + j * C + ns];     bi = W * C;
+            ax = &A[c + i * C];     ai = H * C;
+            bx = &B[c + j * C];     bi = W * C;
         }
         else if (opt & MM_B_TXP) {                         /// * transpose B
-            ax = &A[c + i * K * C + ns]; ai = C;
-            bx = &B[c + j * K * C + ns]; bi = C;
+            ax = &A[c + i * K * C]; ai = C;
+            bx = &B[c + j * K * C]; bi = C;
         }
         else {                                             /// * no tranposition
-            ax = &A[c + i * K * C + ns]; ai = C;
-            bx = &B[c + j * C + ns];     bi = W * C;
+            ax = &A[c + i * K * C]; ai = C;
+            bx = &B[c + j * C];     bi = W * C;
         }
         DU2 acc = DU0;                                     /// * TODO: suffle sum
 //      acc += ax[k * C] * bx[k * N * C];                  /// * 8.1 ms 1Kx1K
         for (int k = 0; k < K; k++, ax += ai, bx += bi) {
             acc += (*ax) * (*bx);                          /// * 6.2 ms 1Kx1K
         }
-        if (opt & MM_INC) O[z + ns] += acc;                /// * increment O
-        else              O[z + ns] =  acc;                /// * overwrite O
+        if (opt & MM_INC) O[z0] += acc;                    /// * increment O
+        else              O[z0] =  acc;                    /// * overwrite O
     }
 }
 ///
 /// GEMM kernel (used CUDA dynamic parallelism)
 ///     O = alpha * A x B + beta * O
-///     where A = MxK, B = KxN, O = MxN
+///     where A = HxKxC, B = KxWxC, O = HxWxC
 ///
 __KERN__ void
 k_gemm(
-    DU *A, DU *B, DU *O,      /* O[HxW] = a * A[HxK] @ B[KxW] + b * O[HxW] */
+    DU *A, DU *B, DU *O,  /* O[HxWxC] = a * A[HxKxC] @ B[KxWxC] + b * O[HxWxC] */
     int H, int W, int K,
     DU alpha, DU beta)
 {
-    const int i = threadIdx.y + blockIdx.y * blockDim.y;
-    const int j = threadIdx.x + blockIdx.x * blockDim.x;
-    const int c = threadIdx.z, C = blockDim.z;             ///< channel deep
-    const int ns= blockIdx.z * H * W * C;                  ///< batch slice idx
+    const int i = threadIdx.y + blockIdx.y * blockDim.y;   ///< H
+    const int j = threadIdx.x + blockIdx.x * blockDim.x;   ///< W
+    const int c = blockIdx.z, C = gridDim.z;               ///< channel deep
     const int WC= W * C;
-    const int z = c + j * C + i * WC + ns;                 ///< output index
+    const int z0= c + (j + i * W) * C;                     ///< output index
 
     if (i < H && j < W && c < C) {                         /// * TODO: tiled
-        DU *ax = &A[c + i * K * C + ns];
-        DU *bx = &B[c + j * C + ns];
+        DU *ax = &A[c + i * K * C];
+        DU *bx = &B[c + j * C];
         DU2 acc = DU0;                                     /// * TODO: suffle sum
         for (int k = 0; k < K; k++, ax += C, bx += WC) {
             acc += (*ax) * (*bx);
         }
-        O[z] = alpha * acc + beta * O[z];                  /// * scaling
+        O[z0] = alpha * acc + beta * O[z0];                /// * scaling
     }
 }
 ///
@@ -206,16 +204,20 @@ Tensor::mm(
     U16 Ka = opt & MM_A_TXP ? A.H() : A.W();
     U16 W  = opt & MM_B_TXP ? B.H() : B.W();
     U16 Kb = opt & MM_B_TXP ? B.W() : B.H();
-    U16 N  = A.N(), C = A.C();                     /// common dimensions
-    if (Ka != Kb || C != B.C()) {
-        ERROR("Tensor#mm Ka(%d)!=Kb(%d) or C diff\n", Ka, Kb);
+    U16 N  = B.N(), C = B.C();                     /// B, O common dimensions
+    if (Ka != Kb || N != O.N() || C != O.C()) {
+        ERROR("Tensor#mm Ka(%d)!=Kb(%d) or N, C diff\n", Ka, Kb);
         return O;
     }
     WARN("Tensor#matmul N=%d, C=%d, H=%d, W=%d, K=%d\n", N, C, H, W, Ka);
-    dim3 blk(T4_WARP_SZ, T4_WARP_SZ, C);
-    dim3 grd(NGRID(W, H, N, blk));
+    
+    dim3 blk(T4_WARP_SZ, T4_WARP_SZ, 1);
+    dim3 grd(NGRID(W, H, C, blk));
 
-    k_matmul<<<grd,blk>>>(A.data, B.data, O.data, H, W, Ka, opt);
+    for (int n = 0; n < N; n++) {
+        DU *da = A.data, *db = B.slice(n), *dx = O.slice(n);
+        k_matmul<<<grd,blk>>>(da, db, dx, H, W, Ka, opt);
+    }
     GPU_SYNC();
     
     return O;
@@ -226,16 +228,19 @@ Tensor::mm(
 __GPU__ Tensor&
 Tensor::gemm(Tensor &A, Tensor &B, Tensor &O, DU alpha, DU beta) {
     U16 H = A.H(), W = B.W(), Ka = A.W(), Kb = B.H();
-    U16 N = O.N(), C = A.C();
-    if (Ka != Kb || C != B.C()) {
-        ERROR("Tensor#gemm ka(%d)!=kb(%d) or C diff\n", Ka, Kb);
+    U16 N = B.N(), C = B.C();
+    if (Ka != Kb || N != O.N() || C != O.C()) {
+        ERROR("Tensor#gemm ka(%d)!=kb(%d) or N, C diff\n", Ka, Kb);
         return O;
     }
     WARN("GEMM N=%d, C=%d, H=%d, W=%d, K=%d a=%f, b=%f\n", N, C, H, W, Ka, alpha, beta);
-    dim3 blk(T4_WARP_SZ, T4_WARP_SZ, C);
-    dim3 grd(NGRID(W, H, N, blk));
+    dim3 blk(T4_WARP_SZ, T4_WARP_SZ, 1);
+    dim3 grd(NGRID(W, H, C, blk));
 
-    k_gemm<<<grd, blk>>>(A.data, B.data, O.data, H, W, Ka, alpha, beta);
+    for (int n = 0; n < N; n++) {
+        DU *da = A.data, *db = B.slice(n), *dx = O.slice(n);
+        k_gemm<<<grd, blk>>>(da, db, dx, H, W, Ka, alpha, beta);
+    }
     GPU_SYNC();
     
     return O;
@@ -255,10 +260,13 @@ Tensor::transpose(Tensor &A, Tensor &T) {
     U16 N = A.N(), H = A.H(), W = A.W(), C = A.C();
     WARN("Tensor::transpose A[%d,%d,%d,%d]\n", N, H, W, C);
     
-    dim3 blk(T4_WARP_SZ, T4_WARP_SZ, C);
-    dim3 grd(NGRID(W, H, N, blk));
+    dim3 blk(T4_WARP_SZ, T4_WARP_SZ, 1);
+    dim3 grd(NGRID(W, H, C, blk));
 
-    k_transpose<<<grd, blk>>>(A.data, T.data, H, W);
+    for (int n = 0; n < N; n++) {
+        DU *da = A.slice(n), *dt = T.slice(n);
+        k_transpose<<<grd, blk>>>(da, dt, H, W);
+    }
     GPU_SYNC();
     
     return T;
@@ -625,10 +633,12 @@ Tensor::reshape(U16 c1, U16 n, U16 h, U16 w, U16 c) {
 
 __BOTH__ Tensor&
 Tensor::identity() {
-    dim3 blk(T4_WARP_SZ, T4_WARP_SZ, C());
-    dim3 grd(NGRID(W(), H(), N(), blk));
-    
-    k_identity<<<grd, blk>>>(data, H(), W(), sizeof(DU));
+    dim3 blk(T4_WARP_SZ, T4_WARP_SZ, 1);
+    dim3 grd(NGRID(W(), H(), C(), blk));
+
+    for (int n = 0; n < N(); n++) {
+        k_identity<<<grd, blk>>>(slice(n), H(), W(), sizeof(DU));
+    }
     GPU_SYNC();
     
     return *this;
