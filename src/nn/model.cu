@@ -50,10 +50,6 @@ Model::add(t4_layer fn, U16 n, DU bias, U16 *opt) {
     }
     in.grad_fn = fn;
 
-    int C0 = (*this)[-1].C();
-    if (C0 * T4_WARP_SQ > 1024) {
-        ERROR("Model#add out.C=%d => over CUDA 1024 thread per core\n", C0);
-    }
     return *this;
 }
 ///
