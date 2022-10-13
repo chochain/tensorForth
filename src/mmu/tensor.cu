@@ -128,15 +128,14 @@ k_gemm(
 __KERN__ void k_tt_op(
     t4_ten_op op,
     DU *A, DU *B, DU *O,
-    int H, int W)
+    int HW)
 {
-    const int i = threadIdx.y + blockIdx.y * blockDim.y;
-    const int j = threadIdx.x + blockIdx.x * blockDim.x;
-    const int c = threadIdx.z, C = blockDim.z;            ///< channel deep
-    const int ns= blockIdx.z * H * W * C;                 ///< batch slice idx
-    const int k = c + (j + i * W) * C + ns;
+    const int i  = threadIdx.x + blockIdx.x * blockDim.x;  ///< element index
+    const int c  = blockIdx.y, C = gridDim.y;              ///< channel deep
+    const int ns = blockIdx.z * HW * C;                    ///< batch slice index
+    const int k  = c + i * C + ns;                         ///< output tensor index
 
-    if (i < H && j < W && c < C) {
+    if (i < HW && c < C) {
         switch (op) {                                     /// no divergence
         case O_ADD: O[k] = A[k] + B[k]; break;
         case O_SUB: O[k] = A[k] - B[k]; break;
@@ -145,20 +144,39 @@ __KERN__ void k_tt_op(
         }
     }
 }
+__KERN__ void k_ts_op(
+    t4_ten_op op,
+    DU *A, DU v, DU *O,
+    int HW)
+{
+    const int i  = threadIdx.x + blockIdx.x * blockDim.x;  ///< element index
+    const int c  = blockIdx.y, C = gridDim.y;              ///< channel deep
+    const int ns = blockIdx.z * HW * C;                    ///< batch slice index
+    const int k  = c + i * C + ns;                         ///< output tensor index
+
+    if (i < HW && c < C) {
+        switch (op) {                                      /// no divergence
+        case O_ADD: O[k] = A[k] + v; break;
+        case O_SUB: O[k] = A[k] - v; break;
+        case O_MUL: O[k] = A[k] * v; break;                /// * convolution
+        case O_DIV: O[k] = A[k] / v; break;
+        }
+    }
+}
 ///
 /// tensor-tensor element-wise C = A op B where op=ADD|SUB|MUL|DIV (Hadamard)
 ///
 __GPU__ Tensor&
 Tensor::ten_op(t4_ten_op op, Tensor &A, Tensor &B, Tensor &O) {
-    U16 N = A.N(), H = A.H(), W = A.W(), C = A.C();
+    U16 N = A.N(), H = A.H(), W = A.W(), C = A.C(), HW = H * W;
     
     OPN("add", "sub", "mul", "div");
     WARN("Tensor::mat%s[%d,%d,%d,%d]\n", opn[op], N, H, W, C);
     
-    dim3 blk(T4_WARP_SZ, T4_WARP_SZ, C);
-    dim3 grd(NGRID(W, H, N, blk));
+    dim3 blk(T4_WARP_SQ, 1, 1);
+    dim3 grd((HW + blk.x - 1) / blk.x, C, N);
     
-    k_tt_op<<<grd, blk>>>(op, A.data, B.data, O.data, H, W);
+    k_tt_op<<<grd, blk>>>(op, A.data, B.data, O.data, HW);
     GPU_SYNC();
     
     return O;
@@ -168,18 +186,17 @@ Tensor::ten_op(t4_ten_op op, Tensor &A, Tensor &B, Tensor &O) {
 ///
 __GPU__ Tensor&
 Tensor::ten_op(t4_ten_op op, Tensor &A, DU v, Tensor &O) {
-    const int sz = A.numel;
+    U16 N = A.N(), H = A.H(), W = A.W(), C = A.C(), HW = H * W;
+
     OPN("add", "sub", "mul", "div");
-    WARN("Tensor::mat%s(%6.2f) numel=%d\n", opn[op], v, sz);
-    DU *d0 = O.data, *da = A.data;
-    for (int k = 0; k < sz; k++) {
-        switch (op) {
-        case O_ADD: *d0++ = *da++ + v; break;
-        case O_SUB: *d0++ = *da++ - v; break;
-        case O_MUL: *d0++ = *da++ * v; break;
-        case O_DIV: *d0++ = *da++ / v; break;
-        }
-    }
+    WARN("Tensor::mat[%d,%d,%d,%d] %s %6.2f\n", N, H, W, C, opn[op], v);
+
+    dim3 blk(T4_WARP_SQ, 1, 1);
+    dim3 grd((HW + blk.x - 1) / blk.x, C, N);
+    
+    k_ts_op<<<grd, blk>>>(op, A.data, v, O.data, HW);
+    GPU_SYNC();
+    
     return O;
 }
 __GPU__ Tensor&
