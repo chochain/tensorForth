@@ -72,21 +72,43 @@ __KERN__ void k_dconv2d(
     }
 }
 
+__KERN__ void k_dlinear(
+    DU *I, DU *O, DU *W, DU *DW, DU *DB,
+    int C1, int C0, int HWC1, int HWC0
+    ) {    
+    const int c1 = threadIdx.x + blockIdx.x * blockDim.x;
+    const int c0 = threadIdx.y + blockIdx.y * blockDim.y;
+    const int n  = blockIdx.z;
+    const int z0 = c0 + n * HWC0;
+    const int z1 = c1 + n * HWC1;
+
+    if (c0 < C0 && c1 < C1) {
+        DU x = I[z1], *dx = &I[z1], dy = O[z0];
+        DW[c1 + c0 * C1] = dy * x;                 /// * dw += dY * X^t
+        
+        *dx = DU0;
+        atomicAdd(dx, W[c0 + c1 * C0] * dy);       /// * dX = w^t @ dY
+        
+        if (c1 == 0) {
+            atomicAdd(&DB[c0], dy);                /// * db += dY
+        }
+    }
+}
+
 template<int KS>                            /// kernel size
 __KERN__ void k_dpool(
+    t4_layer op,
     DU *I, DU *O,                           ///< input, output buffers
-    int H, int W,                           ///< output HW (C1==C0)
-    t4_layer op
+    int HW, int W                           ///< output HW (C1==C0)
     ) {
-    const int j0 = threadIdx.x + blockIdx.x * blockDim.x;
-    const int i0 = threadIdx.y + blockIdx.y * blockDim.y;
-    const int c  = threadIdx.z, C = blockDim.z;        ///< channel deep
-    const int n  = blockIdx.z;                         ///< batch slice id (N1==N0)
-    const int ns = n * H * W * C;                      ///< slice size
-    const int z0 = c + (j0 + i0 * W) * C + ns;         ///< output tensor index
-    const int z1 = c + (j0 + i0 * W * KS) * KS * C + ns * KS * KS;
+    const int k0 = threadIdx.x + blockIdx.x * blockDim.x;
+    const int j0 = k0 % W;                            ///< output x dim
+    const int c  = blockIdx.y, C = gridDim.y;         ///< channel deep
+    const int ns = blockIdx.z * HW * C;               ///< batch slice idx
+    const int z0 = c + k0 * C + ns;                   ///< output array index
+    const int z1 = c + j0 * KS * C + ((k0 - j0) * C + ns) * KS * KS;
     
-    if (i0 < H && j0 < W && c < C) {
+    if (k0 < HW && c < C) {
         DU *ix = &I[z1], *t = ix;
         DU2 v  = (op != L_AVGPOOL) ? *ix : O[z0] / (KS * KS);
         for (int y = 0; y < KS; y++) {      /// * handle one kernel
@@ -111,16 +133,15 @@ __KERN__ void k_dpool(
 
 __KERN__ void k_dfilter(
     DU *I, DU *F, DU *O,                   ///< input, filter, output
-    int H, int W                           ///< H1==H0, W1==W0 (C1==C0)
+    int HW                                 ///< H1==H0, W1==W0 (C1==C0)
     ) {
-    const int j1 = threadIdx.x + blockIdx.x * blockDim.x;
-    const int i1 = threadIdx.y + blockIdx.y * blockDim.y;
-    const int c  = threadIdx.z, C = blockDim.z;        ///< channel deep
-    const int ns = blockIdx.z * H * W * C;             ///< batch slice idx
-    const int z1 = c + (i1 + j1 * W) * C + ns;
+    const int i  = threadIdx.x + blockIdx.x * blockDim.x;  ///< element index
+    const int c  = blockIdx.y, C = gridDim.y;              ///< channel deep
+    const int ns = blockIdx.z * HW * C;                    ///< batch slice index
+    const int k  = c + i * C + ns;                         ///< output tensor index
     
-    if (i1 < H && j1 < W && c < C) {
-        I[z1] = (F[z1] > DU0) ? O[z1] : DU0;
+    if (i < HW && c < C) {
+        I[k] = (F[k] > DU0) ? O[k] : DU0;
     }
 }
 
@@ -173,7 +194,7 @@ Model::_bstep(Tensor &in, Tensor &out) {
     case L_FLATTEN: in = out;              break; /// * pass dY to X
     case L_RELU:    _bfilter(in, in, out); break;
     case L_TANH:    /* TODO: */ break;
-    case L_SIGMOID: /* TODO: */ break;
+    case L_SIGMOID: /* TODO: */ break; /// dX = dY * sigmod(X) * (1 - sigmod(X))
     case L_SOFTMAX: /* softmax + CrossEntropy derivative, out = one-hot */
     case L_LOGSMAX: /* log-softmax + NLL      derivative, out = one-hot */
         in -= out;  /* softmax:    Xi = Yi - Li     */
@@ -244,22 +265,33 @@ Model::_blinear(Tensor &in, Tensor &out) {
     TRACE1("\n\tdw[%d,%d] += out'[%d,1] @ in^t[1,%d]", C0, C1, out.H(), in.H());
     TRACE1("\n\tin[%d, 1]  = w^t[%d,%d] @ out'[%d,1]", in.H(), C1, C0, out.H());
 
-    for (int n = 0; n < N; n++) {                                  ///* TODO: kernel version
-        DU *x = in.slice(n), *y = out.slice(n), *dw = tdw.data;    /// * dw[C0xC1]
-        for (int i = 0; i < C0; i++) {
-            DU yi = y[i];
-            tdb[i] += yi;                                          /// * db += dY
-            for (int j =0; j < C1; j++) {
-                *dw++ += yi * x[j];                                /// * dw += dY @ X^t
+    if (tw.numel > T4_WARP_SQ * 4) {
+        dim3 blk(T4_WARP_SZ, T4_WARP_SZ, 1);
+        dim3 grd(NGRID(C1, C0, N, blk));
+
+        k_dlinear<<<grd, blk>>>(
+            in.data, out.data, tw.data, tdw.data, tdb.data,
+            C1, C0, in.HWC(), out.HWC());
+        GPU_SYNC();
+    }
+    else {
+        for (int n = 0; n < N; n++) {
+            DU *x = in.slice(n), *y = out.slice(n), *dw = tdw.data;
+            for (int i = 0; i < C0; i++) {
+                DU yi = y[i];
+                tdb[i] += yi;                       /// * db += dY
+                for (int j =0; j < C1; j++) {
+                    *dw++ += yi * x[j];             /// * dw += dY @ X^t
+                }
             }
-        }
-        for (int i = 0; i < C1; i++) {                             /// * dX = w^t @ dY
-            DU *w =&tw.data[i], sum = DU0;
-            for (int j = 0; j < C0; j++) {
-                sum += *w * y[j];
-                w   += C1;
+            for (int i = 0; i < C1; i++) {          /// * dX = w^t @ dY
+                DU *w =&tw.data[i], sum = DU0;
+                for (int j = 0; j < C0; j++) {
+                    sum += *w * y[j];
+                    w   += C1;
+                }
+                x[i] = sum;
             }
-            x[i] = sum;
         }
     }
     if (_trace > 1) {
@@ -270,13 +302,13 @@ Model::_blinear(Tensor &in, Tensor &out) {
 }
 
 __GPU__ int
-Model::_bfilter(Tensor &in, Tensor &tm, Tensor &out) {
-    const int H = in.H(), W = in.W();
+Model::_bfilter(Tensor &in, Tensor &msk, Tensor &out) {
+    const int W = out.W(), HW = out.H() * W;
     
-    dim3 blk(T4_WARP_SZ, T4_WARP_SZ, in.C());
-    dim3 grd(NGRID(W, H, in.N(), blk));
+    dim3 blk(T4_WARP_SQ, 1, 1);
+    dim3 grd((HW + blk.x -1) / blk.x, out.C(), out.N());
 
-    k_dfilter<<<grd,blk>>>(in.data, tm.data, out.data, H, W);
+    k_dfilter<<<grd,blk>>>(in.data, msk.data, out.data, HW);
     GPU_SYNC();
 
     return 0;
@@ -284,16 +316,15 @@ Model::_bfilter(Tensor &in, Tensor &tm, Tensor &out) {
 
 __GPU__ int
 Model::_bpool(Tensor &in, Tensor &out, t4_layer fn) {
-    const int W = out.W(), H = out.H(); ///< output dimensions
-    const int N = out.N(), C0 = out.C(); ///< batch and channel size
+    const int W = out.W(), HW = out.H() * W; ///< output dimensions
     
-    dim3 blk(T4_WARP_SZ, T4_WARP_SZ, C0);
-    dim3 grd(NGRID(W, H, N, blk));
+    dim3 blk(T4_WARP_SQ, 1, 1);
+    dim3 grd((HW + blk.x - 1) / blk.x, out.C(), out.N());
 
     const int ks = in.parm;               ///< kernel size
     switch(ks) {                           
-    case 0x2: k_dpool<2><<<grd,blk>>>(in.data, out.data, H, W, fn); break;
-    case 0x3: k_dpool<3><<<grd,blk>>>(in.data, out.data, H, W, fn); break;
+    case 0x2: k_dpool<2><<<grd,blk>>>(fn, in.data, out.data, HW, W); break;
+    case 0x3: k_dpool<3><<<grd,blk>>>(fn, in.data, out.data, HW, W); break;
     default:
         ERROR("model#pooling kernel_size=%d not supported\n", ks);
         return -1;
