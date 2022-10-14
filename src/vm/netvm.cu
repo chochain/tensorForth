@@ -94,6 +94,12 @@ NetVM::_loss(t4_loss op) {
     else if (IS_M(top)) PUSH(MTOS.loss(op));
     else ERROR("model?\n");
 }
+
+__GPU__ int
+NetVM::_fetch() {
+    
+    return 1;
+}
 ///
 /// gradiant ops
 ///
@@ -203,41 +209,49 @@ NetVM::init() {
         fout << opx(OP_DATA, 0, top) << dsn;
         state = VM_WAIT),
     CODE("fetch",
-        if (IS_OBJ(top) && TTOS.is_dataset()) {
-            fout << opx(OP_LOAD, 0, top);
-            state = VM_WAIT;
+        if (IS_OBJ(rs[-1])) {
+            Dataset &d = (Dataset&)mmu.du2obj(rs[-1]);
+            if (!d.is_dataset()) {
+                ERROR("not a dataset on RS?\n"); return;
+            }
+            if (d.done) return;
+            
+            fout << opx(OP_LOAD, 0, rs[-1]);       /// * issue an reload
+            state = VM_WAIT;                       /// * return to CPU
         }
-        else ERROR("dataset?")),
+        else ERROR("dataset?"))
     ///@}
     };
-    const Code over[] = {                           ///< extended (overload) words
-    CODE("donext",                                  /// * overwrite "donext" in eforth.cu
-         if (IS_M(top) && IS_OBJ(rs[-1])) {         /// * handle dataset for loop
-             Model   &m = (Model&)mmu.du2obj(top);
-             Dataset &d = (Dataset&)mmu.du2obj(rs[-1]);
-             if (!d.is_dataset()) {
-                 ERROR("not a dataset on RS?\n"); return;
-             }
-             if (d.done) {                          /// * check if dataset completed
-                 rs.pop();                          /// * pop off dataset from return stack
-                 mmu.free(d);                       /// * free the dataset
-                 IP += sizeof(IU);                  /// * skip over to next word
-             }
-             else {
-                 fout << opx(OP_LOAD, 0, rs[-1]);   /// * issue an reload
-                 state = VM_WAIT;                   /// * return to CPU
-                 IP = mmu.ri(IP);                   /// * loop branch target address
-             }
-         }
-         else if ((rs[-1] -= 1) >= -DU_EPS) IP = mmu.ri(IP);  /// * handle numeric for loop
-         else { IP += sizeof(IU); rs.pop(); }),
+    const Code over[] = {                          ///< extended (overload) words
+    CODE("donext",                                 /// * overwrite "donext" in eforth.cu
+        if (IS_M(top) && IS_OBJ(rs[-1])) {
+            Model   &m = (Model&)mmu.du2obj(top);
+            Dataset &d = (Dataset&)mmu.du2obj(rs[-1]);
+            if (!d.is_dataset()) {
+                ERROR("not a dataset on RS?\n"); return;
+            }
+            if (d.done) {
+                rs.pop();                          /// * pop off dataset
+                mmu.free(d);                       /// * free the dataset
+                IP += sizeof(IU);                  /// * skip over to next word
+            }
+            else {
+                fout << opx(OP_LOAD, 0, rs[-1]);   /// * issue an reload
+                state = VM_WAIT;                   /// * return to CPU
+                IP    = mmu.ri(IP);                /// * loop branch target address
+            }
+        }
+        else if ((rs[-1] -= 1) >= -DU_EPS) {
+            IP = mmu.ri(IP);                      /// * handle numeric for loop
+        }
+        else { rs.pop(); IP += sizeof(IU); }),
     CODE("flatten",   nnop(L_FLATTEN)),
     CODE("boot",      mmu.clear(FIND("fetch") + 1))
     };
     TensorVM::init();
 
-    mmu.append(prim, sizeof(prim)/sizeof(Code));    /// * append tensor words
-    mmu.merge(over,  sizeof(over)/sizeof(Code));    /// * overload existed words
+    mmu.append(prim, sizeof(prim)/sizeof(Code));   /// * append tensor words
+    mmu.merge(over,  sizeof(over)/sizeof(Code));   /// * overload existed words
     
     VLOG1("NetVM::init ok\n");
 };
