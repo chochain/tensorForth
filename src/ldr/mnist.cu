@@ -6,8 +6,8 @@
  */
 #include "mnist.h"
 
-#define LOG_COUNT 1024
-#define LOG_MAX   300
+#define LOG_COUNT 1000
+#define LOG_MAX   200
 
 Corpus *Mnist::fetch(int batch_id, int batch_sz) {
     static int bound = LOG_COUNT / batch_sz, tick = 0;
@@ -27,6 +27,7 @@ Corpus *Mnist::fetch(int batch_id, int batch_sz) {
         _preview(bsz < 3 ? bsz : 3);               /// * debug print
     }
     if ((++tick * batch_sz) > LOG_MAX) eof = 1;
+    
     return this;
 }
 
