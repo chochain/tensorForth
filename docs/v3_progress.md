@@ -72,6 +72,7 @@ nn.load my_net ds1 my_test      \ load from trained network and test
 * https://github.com/dnouri/cuda-convnet
 * https://en.wikipedia.org/wiki/Automatic_differentiation
 * https://en.wikipedia.org/wiki/Adept_(C%2B%2B_library) and Stan
+* https://luniak.io/cuda-neural-network-implementation-part-1/
 * for 1D nn   https://machinelearningmastery.com/implement-backpropagation-algorithm-scratch-python/
 * for 2D conv https://datascience-enthusiast.com/DL/Convolution_model_Step_by_Stepv2.html
 * backprop    https://medium.com/@ngocson2vn/a-gentle-explanation-of-backpropagation-in-convolutional-neural-network-cnn-1a70abff508b
@@ -89,7 +90,7 @@ nn.load my_net ds1 my_test      \ load from trained network and test
 |word|param/example|tensor creation ops|
 |---|---|---|
 |dataset|(n -- D)|create a dataset with batch size = n, and given name i.e. 10 dataset abc|
-|fetch|(D -- D')|fetch dataset for another batch|
+|fetch|( -- )|fetch dataset on return stack for another batch|
 
 #### Load/Save - .npy
 |word|param/example|tensor creation ops|
