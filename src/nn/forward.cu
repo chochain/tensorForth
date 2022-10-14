@@ -44,7 +44,8 @@ __KERN__ void k_conv2d(
         if (tx < TS && ty < TS) {                    /// * each tile
             DU sum = DU0;
             DU *fx = &F[zf], *ix = &_I[t0];          /// * filter[0], tile[tx,ty]
-            for (int y = 0; y < KS; y++) {           /// * each filter
+            #pragma unroll
+            for (int y = 0; y < KS; y++) {           /// * process one KS * KS cell
                 for (int x = 0; x < KS; x++) {
                     sum += (*fx) * ix[x];            /// Y += W * X
                     fx  += C0;                       /// * next filter cell
@@ -92,7 +93,8 @@ __KERN__ void k_pool(
     if (k0 < HW && c < C) {
         DU *ix = &I[z1];
         DU2 v  = op==L_AVGPOOL ? DU0 : *ix;
-        for (int y = 0; y < KS; y++) {     /// * unroll automatically, hopefully
+        #pragma unroll
+        for (int y = 0; y < KS; y++) {
             for (int x = 0; x < KS; x++) {
                 DU dx = *ix;
                 switch (op) {
@@ -138,21 +140,25 @@ Model::forward(Tensor &input) {
     /// cascade execution layer by layer forward
     /// TODO: model execution becomes a superscalar pipeline
     ///
-    auto trace = [](int i, Tensor &in, Tensor &out) {
-        printf("\n%2d> %s Σ/n=%6.2f [%d,%d,%d,%d]\tp=%-2d => out[%d,%d,%d,%d]",
-            i, d_nname(in.grad_fn), in.sum() / in.N() / in.C(),
+    auto trace = [](DU t, int i, Tensor &in, Tensor &out) {
+        printf("\n%6.2f:%2d> %s Σ/n=%6.2f [%d,%d,%d,%d]\tp=%-2d => out[%d,%d,%d,%d]",
+            t, i, d_nname(in.grad_fn), in.sum() / in.N() / in.C(),
             in.N(), in.H(), in.W(), in.C(), in.parm,
             out.N(), out.H(), out.W(), out.C());
     };
     TRACE1("\nModel#forward starts");
-    DU t0 = _mmu->ms();             ///< performance measurement
+    DU t0 = _mmu->ms(), t1 = t0, tt;             ///< performance measurement
     for (U16 i = 1; i < numel - 1; i++) {
         Tensor &in = (*this)[i], &out = (*this)[i + 1];
-        if (_trace > 0) trace(i, in, out);
+        if (_trace > 0) {
+            trace((tt=_mmu->ms()) - t1, i, in, out);
+            t1 = tt;
+        }
         _fstep(in, out);
-//        debug(out);
+        // debug(out);
     }
     TRACE1("\nModel#forward %5.2f ms\n", _mmu->ms() - t0);
+    
     return *this;
 }
 /// ========================================================================
@@ -237,7 +243,7 @@ Model::_flinear(Tensor &in, Tensor &out) {
         GPU_SYNC();                                   /// * this makes it slow
     }
     else {                                            /// * serial code
-        printf(" serial");
+        TRACE1("*"); 
         DU *w = tw.data, *b = tb.data;
         for (int n = 0; n < N; n++) {                 /// * walk through batch
             DU *x = in.slice(n), *y = out.slice(n);
