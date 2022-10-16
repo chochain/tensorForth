@@ -17,22 +17,22 @@ __KERN__ void k_conv2d(
     int H, int W, int C1         ///< (H0==H1, W0==W1), input channels
     ) {
     __shared__ DU _I[T4_WARP_SQ];                    ///< shared memory [16x16]
-    
-    const int tx = threadIdx.x, j0 = tx + blockIdx.x * TS;
-    const int ty = threadIdx.y, i0 = ty + blockIdx.y * TS;
+
+    const int tx = threadIdx.x, j0 = tx + blockIdx.x * TS;   ///< output coordinates
+    const int ty = threadIdx.y, i0 = ty + blockIdx.y * TS;   /// * i0,j0=0:29
     const int c0 = blockIdx.z,  C0 = gridDim.z;      ///< channel deep
     const int z0 = c0 + (j0 + i0 * W) * C0;          ///< output array index
-    const int t0 = tx + ty * T4_WARP_SZ;             ///< tile index
+    const int xy = tx + ty * T4_WARP_SZ;             ///< tile index
     ///
     /// process z0, i.e. [TS, TS, C] cells per kernel call
     ///
     const int i1 = i0 - int(KS / 2);                 ///< input coordinates
-    const int j1 = j0 - int(KS / 2);
+    const int j1 = j0 - int(KS / 2);                 /// * i1,j1=-1:28
 
     auto g = cg::this_thread_block();                ///< all threads of block
     for (int c1 = 0; c1 < C1; c1++) {                ///< each input channel
         const int z1 = c1 + (j1 + i1 * W) * C1;      ///< one channel at a time
-        _I[t0] =                                     /// * cache input data
+        _I[xy] =                                     /// * cache input data
             (i1 >= 0 && i1 < H && j1 >= 0 && j1 < W) /// * with zero padding
             ? I[z1] : DU0;                           /// * by channel
         g.sync();                                    /// * smem write barrier
@@ -43,7 +43,7 @@ __KERN__ void k_conv2d(
         const int zf = c0 + c1 * KS * KS * C0;       ///< filter index [C1,KS,KS,C0]
         if (tx < TS && ty < TS) {                    /// * each tile
             DU sum = DU0;
-            DU *fx = &F[zf], *ix = &_I[t0];          /// * filter[0], tile[tx,ty]
+            DU *fx = &F[zf], *ix = &_I[xy];          /// * filter[0], tile[tx,ty]
             #pragma unroll
             for (int y = 0; y < KS; y++) {           /// * process one KS * KS cell
                 for (int x = 0; x < KS; x++) {
@@ -155,7 +155,7 @@ Model::forward(Tensor &input) {
             t1 = tt;
         }
         _fstep(in, out);
-        // debug(out);
+//        debug(out);
     }
     TRACE1("\nModel#forward %5.2f ms\n", _mmu->ms() - t0);
     
