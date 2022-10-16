@@ -559,7 +559,7 @@ MMU::load(std::ostream &fout, U16 vid, DU top, char *ds_name) {
     /// transfer host into device memory
     /// if needed, allocate Dataset device (managed) memory blocks
     ///
-    ds.load_batch(cp->data, cp->label);
+    if (!cp->eof) ds.load_batch(cp->data, cp->label);
     
     return 0;
 }
