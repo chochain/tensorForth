@@ -65,23 +65,37 @@ Model::sgd(DU lr, DU m, bool zero) {
     /// cascade execution layer by layer forward
     ///
     const int N = n1.N();                      ///< batch size
-    auto update = [this, N, lr, zero](const char nm, Tensor &f, Tensor &df) {
+    auto update = [this, N, lr, m, zero](const char nm, Tensor &f, Tensor &df) {
         TRACE1(" %c[%d,%d,%d,%d]", nm, f.N(), f.H(), f.W(), f.C());
-        df *= lr / N;                          /// * learn rate / batch size
-        f  -= df;                              /// * w -= eta * df, TODO: momentum
+        if (m < DU_EPS) {
+            df *= lr / N;                          /// * learn rate / batch size
+            f  -= df;                              /// * w -= eta * df
+        }
+        else {                                     /// * with momentum (exp moving avg)
+            df *= (1 - m) * lr / N;                /// * w' = m * w - (1 - m) * eta * df
+            f  *= m;
+            f  -= df;
+        }
         if (zero) df.map(O_FILL, DU0);         /// * zap df, ready for next batch
-//        debug(f);
     };
-    TRACE1("\nModel#sgd batch_sz=%d, lr=%6.3f", N, lr);
+    TRACE1("\nModel#sgd batch_sz=%d, lr=%6.3f, mtum=%6.3f", N, lr, m);
     for (U16 i = 1; i < numel - 1; i++) {
         Tensor &in = (*this)[i];
 
         TRACE1("\n%2d> %s ", i, d_nname(in.grad_fn));
+        if (in.grad[2] && in.grad[3]) {
+            TRACE1(" dfΣ=%6.3f", in.grad[2]->sum());
+            TRACE1(" dbΣ=%6.3f", in.grad[3]->sum());
+        }
         if (in.grad[0] && in.grad[2]) {
             update('f', *in.grad[0], *in.grad[2]);
         }
         if (in.grad[1] && in.grad[3]) {
             update('b', *in.grad[1], *in.grad[3]);
+        }
+        if (in.grad[0] && in.grad[1]) {
+            TRACE1(" => fΣ=%6.3f", in.grad[0]->sum());
+            TRACE1(" bΣ=%6.3f", in.grad[1]->sum());
         }
     }
     TRACE1("\nModel#sgd %5.2f ms\n", _mmu->ms() - t0);
