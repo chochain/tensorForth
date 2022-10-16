@@ -13,62 +13,58 @@
 ///
 template<int TS, int KS>         ///> tile size, kernel size
 __KERN__ void k_dconv2d(
-    DU *I, DU *F, DU *DF, DU *O, ///> input I[HxW], F,DF[KSxKS], output O[HxW]
-    int H, int W, int C0         ///< H1==H0, W1==W0, output Channels
+    DU *I, DU *F, DU *DF, DU *DB, DU *O,   ///< input I[HxW], F,DF[KSxKS], output O[HxW]
+    int H, int W, int C0                   ///< H1==H0, W1==W0, output Channels
     ) {
     __shared__ DU _I[T4_WARP_SQ];                    ///< input cache [16x16]
     __shared__ DU _O[T4_WARP_SQ];                    ///< output cache [16x16]
-    __shared__ DU _D[TS * TS * KS * KS];             ///< df cache 
     
+    const int KSQ= KS * KS;                          ///< save some muliplications
     const int tx = threadIdx.x, j1 = tx + blockIdx.x * TS;
     const int ty = threadIdx.y, i1 = ty + blockIdx.y * TS;
     const int c1 = blockIdx.z,  C1 = gridDim.z;      ///< channel deep
-    const int t0 = tx + ty * T4_WARP_SZ;             ///< offset in cache window
+    const int xy = tx + ty * T4_WARP_SZ;             ///< offset in cache window
     const int z1 = c1 + (j1 + i1 * W) * C1;          ///< input array index
     ///
     /// process z1, i.e. [TS, TS, C1] cells per kernel call
     ///
     const int i0 = i1 - int(KS / 2);                 ///< dY coordinates
     const int j0 = j1 - int(KS / 2);
-
+    
     auto g = cg::this_thread_block();                ///< group all threads
-    _I[t0] = (i1 < H && j1 < W) ? I[z1] : DU0;       ///< cached X (input) tile
+    
+    _I[xy] = (i1 < H && j1 < W) ? I[z1] : DU0;       ///< cached X (input) tile
     g.sync();
 
     for (int c0 = 0; c0 < C0; c0++) {                ///< each dY channel
-        const int z0 = c0 + (j0 + i0 * W) * C0;
-        _O[t0] =                                     /// * cache dY (output) tile
+        const int z0 = c0 + (j0 + i0 * W) * C0;      ///< output array index
+        _O[xy] =                                     /// * cache dY (output) tile
             (i0 >= 0 && i0 < H && j0 >= 0 && j0 < W) /// * with zero padding
             ? O[z0] : DU0;                           /// * by channel
         g.sync();                                    /// * smem write barrier
 
-        const int zf = c0 + c1 * KS * KS * C0;       ///< filter index F[C1,KS,KS,C0]
+        const int zf = c0 + c1 * KSQ * C0;           ///< filter index F[C1,KS,KS,C0]
         if (tx < TS && ty < TS) {                    /// * within tile [12x12]
-            DU *fx = &F[zf + (KS * KS - 1) * C0];    ///< F[KS-1,KS-1] i.e. rot180
-            DU *dx = &_D[(tx + ty * TS) * KS * KS];  ///< df cache index
-            DU sum = DU0;
+            DU *fx = &F[zf + (KSQ - 1) * C0];        ///< F[c1,KS-1,KS-1,c0] i.e. rot180
+            DU *dx = &DF[zf], *ox = &_O[xy];         ///< DF[c1,0,0,c0], dY
+            DU sum = DU0;                            ///< dX sum
+            #pragma unroll
             for (int y = 0; y < KS; y++) {           /// * process one KS * KS cell
-                int k = y * T4_WARP_SZ + t0;         ///< k = filter.off + tile.off
-                for (int x = 0; x < KS; x++, k++) {
-                    sum     += (*fx) * _O[k];        /// * dX += F @ dY
-                    *(dx++)  = _O[k] * _I[k];        /// * collect dY * X in tile
+                for (int x = 0; x < KS; x++) {
+                    sum     += (*fx) * ox[x];        /// * dX += F' @ dY
                     fx      -= C0;                   /// * walk F backward
+                    atomicAdd(dx, ox[x] * _I[xy]);   /// * dF += dY * X (TSxTS threads)
+                    dx      += C0;                   /// * DF[c1,0,1,c0]
                 }
+                ox += T4_WARP_SZ;
             }
             if (i1 < H && j1 < W) {                  /// * update input matrix
-                if (c0 == 0) I[z1] = sum;
+                if (c0 == 0) I[z1] = sum;            /// * update I (per C1)
                 else         I[z1] += sum;
             }
         }
+        if (c1 == 0) atomicAdd(&DB[c0], _O[xy]);     /// * dB += dY
         g.sync();                                    /// * d read barrier
-
-        if (tx < KS && ty < KS) {
-            int k = tx + ty * KS;
-            for (int i = 0; i < TS * TS; i++) {
-                DF[zf + k * C0] += _D[i * KS * KS + k];
-            }
-        }
-        g.sync();
     }
 }
 
@@ -84,7 +80,7 @@ __KERN__ void k_dlinear(
 
     if (c0 < C0 && c1 < C1) {
         DU x = I[z1], *dx = &I[z1], dy = O[z0];
-        DW[c1 + c0 * C1] = dy * x;                 /// * dw += dY * X^t
+        atomicAdd(&DW[c1 + c0 * C1], dy * x);      /// * dw += dY * X^t
         
         *dx = DU0;
         atomicAdd(dx, W[c0 + c1 * C0] * dy);       /// * dX = w^t @ dY
@@ -111,6 +107,7 @@ __KERN__ void k_dpool(
     if (k0 < HW && c < C) {
         DU *ix = &I[z1], *t = ix;
         DU2 v  = (op != L_AVGPOOL) ? *ix : O[z0] / (KS * KS);
+        #pragma unroll
         for (int y = 0; y < KS; y++) {      /// * handle one kernel
             for (int x = 0; x < KS; x++) {
                 DU dx = *ix;
@@ -159,10 +156,9 @@ Model::backprop() {
 
 __GPU__ Model&
 Model::backprop(Tensor &hot) {
-    DU t0 = _mmu->ms();                          ///< performance measurement
-    auto trace = [](int i, Tensor &in, Tensor &out) {
-        printf("\n%2d> %s [%d,%d,%d,%d]\tp=%-2d <= out'Σ/n=%6.2f [%d,%d,%d,%d] ",
-            i, d_nname(in.grad_fn),
+    auto trace = [](DU t, int i, Tensor &in, Tensor &out) {
+        printf("\n%6.2f:%2d> %s [%d,%d,%d,%d]\tp=%-2d <= out'Σ/n=%6.2f [%d,%d,%d,%d] ",
+            t, i, d_nname(in.grad_fn),
             in.N(), in.H(), in.W(), in.C(), in.parm,
             out.sum() / out.N() / out.C(),
             out.N(), out.H(), out.W(), out.C());
@@ -170,11 +166,17 @@ Model::backprop(Tensor &hot) {
     (*this)[-1] = hot;  /// softmax + CE : copy one-hot vector to model output
                         /// TODO: logsoftmax + NLL
     TRACE1("\nModel#backprop starts");
+    int x = 0;
+    DU t0 = _mmu->ms(), t1 = t0, tt;            ///< performance measurement
     for (U16 i = numel - 2; i > 0; i--) {
         Tensor &in = (*this)[i], &out = (*this)[i + 1];
-        if (_trace > 0) trace(i, in, out);
+        if (_trace > 0) {
+            trace((tt=_mmu->ms()) - t1, i, in, out);
+            t1 = tt;
+        }
         _bstep(in, out);
-//        debug(in, 300.0f);
+        debug(in, 300.0f);
+        if (++x > 8) break;
     }
     TRACE1("\nModel::backprop %5.2f ms\n", _mmu->ms() - t0);
     return *this;
@@ -228,27 +230,28 @@ Model::_bconv(Tensor &in, Tensor &out) {
     dim3 g3((W + TILE3 - 1) / TILE3, (H + TILE3 - 1) / TILE3, C1);
     dim3 g5((W + TILE5 - 1) / TILE5, (H + TILE5 - 1) / TILE5, C1);
 
+    out.map(O_FILL, 0.1);
+    tf.map(O_FILL, 0.2);
+    for (int i=0; i<18; i++) tf.data[i] = 0.1;
+    in.map(O_FILL, DU0);
+
     for (int n = 0; n < N; n++) {
         DU *d1 = in.slice(n), *d0 = out.slice(n);
-        DU *f  = tf.data,     *df = tdf.data;
+        DU *f  = tf.data,     *df = tdf.data, *db = tdb.data;
         const int ks = tf.H();                       ///< kernel size
         switch (ks) {
-        case 3: k_dconv2d<TILE3,3><<<g3,blk>>>(d1, f, df, d0, H, W, C0); break;
-        case 5: k_dconv2d<TILE5,5><<<g5,blk>>>(d1, f, df, d0, H, W, C0); break;
+        case 3: k_dconv2d<TILE3,3><<<g3,blk>>>(d1, f, df, db, d0, H, W, C0); break;
+        case 5: k_dconv2d<TILE5,5><<<g5,blk>>>(d1, f, df, db, d0, H, W, C0); break;
         default: 
             ERROR("model_back#conv kernel_size %d not supported\n", ks);
             return -1;
         }
+        GPU_SYNC();
     }
-    GPU_SYNC();
-    
-    /// accumulate dB = sum(dY), TODO: CDP
-    DU *db = tdb.data;
-    for (int c0 = 0; c0 < C0; c0++, db++) {
-        DU *ox = out.data + c0;
-        for (int k = 0; k < H * W; k++, ox+=C0) *db += *ox;
-    }
-    if (_trace > 1)  _dump_dbdf(tdb, tdf);
+//    if (_trace > 1) {
+        _dump_dbdf(tdb, tdf);
+//    }
+        _dump(in.slice(0), in.H(), in.W(), in.C());
     
     return 0;
 }
@@ -260,10 +263,11 @@ Model::_blinear(Tensor &in, Tensor &out) {
     Tensor &tdb = *in.grad[3];            ///< d_bias tensor
 
     const int N  = out.N();               ///< batch size (N1 == N0)
+    const int H1 = in.H(), H0 = out.H();  ///< input output H
     const int C0 = tw.H(), C1 = tw.W();   ///< filter dimensions
         
-    TRACE1("\n\tdw[%d,%d] += out'[%d,1] @ in^t[1,%d]", C0, C1, out.H(), in.H());
-    TRACE1("\n\tin[%d, 1]  = w^t[%d,%d] @ out'[%d,1]", in.H(), C1, C0, out.H());
+    TRACE1("\n\tdw[%d,%d] += out'[%d,1] @ in^t[1,%d]", C0, C1, H0, H1);
+    TRACE1("\n\tin[%d, 1]  = w^t[%d,%d] @ out'[%d,1]", H1, C1, C0, H0);
 
     if (tw.numel > T4_WARP_SQ * 4) {
         dim3 blk(T4_WARP_SZ, T4_WARP_SZ, 1);
@@ -275,28 +279,29 @@ Model::_blinear(Tensor &in, Tensor &out) {
         GPU_SYNC();
     }
     else {
+        TRACE1("*");
         for (int n = 0; n < N; n++) {
             DU *x = in.slice(n), *y = out.slice(n), *dw = tdw.data;
-            for (int i = 0; i < C0; i++) {
-                DU yi = y[i];
-                tdb[i] += yi;                       /// * db += dY
-                for (int j =0; j < C1; j++) {
-                    *dw++ += yi * x[j];             /// * dw += dY @ X^t
+            for (int c0 = 0; c0 < C0; c0++) {       /// W[C0,C1]
+                DU yi = y[c0];
+                tdb[c0] += yi;                      /// * db += dY
+                for (int c1 =0; c1 < C1; c1++) {
+                    *dw++ += yi * x[c1];            /// * dw += dY @ X^t
                 }
             }
-            for (int i = 0; i < C1; i++) {          /// * dX = w^t @ dY
-                DU *w =&tw.data[i], sum = DU0;
-                for (int j = 0; j < C0; j++) {
-                    sum += *w * y[j];
-                    w   += C1;
+            DU *w = tw.data;
+            for (int c1 = 0; c1 < C1; c1++) {       /// * dX = w^t @ dY
+                DU sum = DU0;
+                for (int c0 = 0; c0 < C0; c0++) {
+                    sum += *w++ * y[c0];
                 }
-                x[i] = sum;
+                x[c1] = sum;
             }
         }
     }
     if (_trace > 1) {
-        _dump_db(tdb);
-        _dump_dw(tdw, false);
+         _dump_db(tdb);
+         _dump_dw(tdw, false);
     }
     return 0;
 }
