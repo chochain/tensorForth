@@ -7,26 +7,29 @@
 #include "mnist.h"
 
 #define LOG_COUNT 1000
-#define LOG_MAX   200
+#define LOG_MAX   0
 
 Corpus *Mnist::fetch(int batch_id, int batch_sz) {
     static int bound = LOG_COUNT / batch_sz, tick = 0;
     
     if (N == 0 && _setup()) return NULL;           /// * setup once only
     eof = 0;
-    
+
     int bsz = batch_sz ? batch_sz : N;             ///< batch size
+    
+    if (bsz * batch_id >= N) { eof = 1; return this; }
+    
     int b0  = _get_labels(batch_id, bsz);          ///< load batch labels
     int b1  = _get_images(batch_id, bsz);          ///< load batch images
     if (b0 != b1) {
         DS_ERROR("ERROR: Mnist::fetch #label=%d != #image=%d\n", b0, b1);
         return NULL;
     }
-    if ((tick % bound) == 0) {
+    if ((tick++ % bound) == 0) {
         DS_LOG1("\n\tMnist batch[%d] loaded (size=%d)\n", batch_id, b0);
         _preview(bsz < 3 ? bsz : 3);               /// * debug print
     }
-    if ((++tick * batch_sz) > LOG_MAX) eof = 1;
+    if (LOG_MAX && (tick * batch_sz > LOG_MAX)) eof = 1;
     
     return this;
 }
