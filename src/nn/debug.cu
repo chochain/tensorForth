@@ -66,17 +66,17 @@ Model::_view(DU *v, int H, int W, int C, DU scale) {
         for (int k = 0; k < C; k++) {
             for (int j = 0; j < w; j++) {
                 int n = j + i * w;
-                if (n < sz) {
-                    DU r0 = v[k + (j>0 ? n - 1 : n) * C];
-                    DU r1 = v[k + n * C];
-                    DU x0 = r0 * scale;
-                    DU x1 = (r0 + r1) * scale * 0.5;
-                    char c0 = map[x0 < 10.0f ? (x0 < DU0 ? 10 : (int)x0) : 9];
-                    char c1 = map[x1 < 10.0f ? (x1 < DU0 ? 10 : (int)x1) : 9];
-                    printf("%c%c", c0, c1);                           // double width
-                    csum[k] += r1;
-                }
-                else printf("  ");
+                if (n >= sz) { printf("  "); continue; }
+                
+                DU r0 = v[k + (j>0 ? n - 1 : n) * C];
+                DU r1 = v[k + n * C];
+                DU x0 = r0 * scale;
+                DU x1 = (r0 + r1) * scale * 0.5;
+                char c0 = map[x0 < 10.0f ? (x0 < DU0 ? 10 : (int)x0) : 9];
+                char c1 = map[x1 < 10.0f ? (x1 < DU0 ? 10 : (int)x1) : 9];
+                
+                printf("%c%c", c0, c1);                           // double width
+                csum[k] += r1;
             }
             printf("|");
         }
@@ -104,9 +104,10 @@ Model::_dump(DU *v, int H, int W, int C) {
         for (int k = 0; k < C; k++) {
             for (int j = 0; j < w; j++) {
                 int n = j + i * w;
+                if (n >= sz) { printf(" ...."); continue; }
+                
                 DU  r = v[k + n * C];
-                if (n < sz) printf("%5.2f", r);
-                else        printf(" ....");
+                printf("%5.2f", r);
                 sum += r;
                 csum[k] += r;
             }
@@ -123,16 +124,9 @@ Model::_dump(DU *v, int H, int W, int C) {
 }
 __GPU__ void
 Model::_dump_dbdf(Tensor &db, Tensor &df) {
-    DU sum = DU0;
-    printf("\n\tdb=");
-    DU *v = db.data;
-    for (int i = 0; i < db.H(); i++) {
-        printf("%6.3f ", *v);
-        sum += *v++;
-    }
-    printf("Σ=%6.3f", sum);
+    _dump_db(db);
     
-    sum = DU0;
+    DU sum = DU0;
     for (int n = 0; n < df.N(); n++) {
         DU *v = df.slice(n), fsum = DU0;
         printf("\n\tdf[%d]=", n);
