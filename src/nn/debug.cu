@@ -113,7 +113,7 @@ Model::_dump(DU *v, int H, int W, int C) {
             }
             printf("|");
         }
-        printf("Σ=%5.2f", sum);
+        printf("Σ=%6.3f", sum);
     }
     if (h > 1) {
         printf("\nΣΣ=");
@@ -135,7 +135,7 @@ Model::_dump_dbdf(Tensor &db, Tensor &df) {
             fsum += *v;
             printf("%5.2f ", *v++);
         }
-        printf("Σ=%6.3f", fsum);
+        printf("Σ=%5.2f", fsum);
     }
     printf("\n\tΣΣ=%6.3f", sum);
 }
@@ -149,7 +149,7 @@ Model::_dump_db(Tensor &db) {
         printf("%6.3f ", *v);
         sum += *v++;
     }
-    printf(" Σ=%5.2f", sum);
+    printf(" Σ=%6.3f", sum);
 }
 
 __GPU__ void
