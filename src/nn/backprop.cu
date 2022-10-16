@@ -16,8 +16,8 @@ __KERN__ void k_dconv2d(
     DU *I, DU *F, DU *DF, DU *DB, DU *O,   ///< input I[HxW], F,DF[KSxKS], output O[HxW]
     int H, int W, int C0                   ///< H1==H0, W1==W0, output Channels
     ) {
-    __shared__ DU _I[T4_WARP_SQ];                    ///< input cache [16x16]
-    __shared__ DU _O[T4_WARP_SQ];                    ///< output cache [16x16]
+    __shared__ DU _I[T4_WARP_SQ];                    ///< input cache tile [16x16]
+    __shared__ DU _O[T4_WARP_SQ];                    ///< output cache tile [16x16]
     
     const int KSQ= KS * KS;                          ///< save some muliplications
     const int tx = threadIdx.x, j1 = tx + blockIdx.x * TS;
@@ -47,11 +47,11 @@ __KERN__ void k_dconv2d(
         if (tx < TS && ty < TS) {                    /// * within tile [12x12]
             DU *fx = &F[zf + (KSQ - 1) * C0];        ///< F[c1,KS-1,KS-1,c0] i.e. rot180
             DU *dx = &DF[zf], *ox = &_O[xy];         ///< DF[c1,0,0,c0], dY
-            DU sum = DU0;                            ///< dX sum
+            DU sum = DU0;                            ///< dX sum (TSxTS threads)
             #pragma unroll
             for (int y = 0; y < KS; y++) {           /// * process one KS * KS cell
                 for (int x = 0; x < KS; x++) {
-                    sum     += (*fx) * ox[x];        /// * dX += F' @ dY
+                    sum     += (*fx) * ox[x];        /// * dX += F' @ dY (for each C1)
                     fx      -= C0;                   /// * walk F backward
                     atomicAdd(dx, ox[x] * _I[xy]);   /// * dF += dY * X (TSxTS threads)
                     dx      += C0;                   /// * DF[c1,0,1,c0]
@@ -166,7 +166,6 @@ Model::backprop(Tensor &hot) {
     (*this)[-1] = hot;  /// softmax + CE : copy one-hot vector to model output
                         /// TODO: logsoftmax + NLL
     TRACE1("\nModel#backprop starts");
-    int x = 0;
     DU t0 = _mmu->ms(), t1 = t0, tt;            ///< performance measurement
     for (U16 i = numel - 2; i > 0; i--) {
         Tensor &in = (*this)[i], &out = (*this)[i + 1];
@@ -175,8 +174,9 @@ Model::backprop(Tensor &hot) {
             t1 = tt;
         }
         _bstep(in, out);
-        debug(in, 300.0f);
-        if (++x > 8) break;
+        if (_trace > 1) {
+            debug(in, 300.0f);
+        }
     }
     TRACE1("\nModel::backprop %5.2f ms\n", _mmu->ms() - t0);
     return *this;
@@ -230,11 +230,6 @@ Model::_bconv(Tensor &in, Tensor &out) {
     dim3 g3((W + TILE3 - 1) / TILE3, (H + TILE3 - 1) / TILE3, C1);
     dim3 g5((W + TILE5 - 1) / TILE5, (H + TILE5 - 1) / TILE5, C1);
 
-    out.map(O_FILL, 0.1);
-    tf.map(O_FILL, 0.2);
-    for (int i=0; i<18; i++) tf.data[i] = 0.1;
-    in.map(O_FILL, DU0);
-
     for (int n = 0; n < N; n++) {
         DU *d1 = in.slice(n), *d0 = out.slice(n);
         DU *f  = tf.data,     *df = tdf.data, *db = tdb.data;
@@ -248,11 +243,9 @@ Model::_bconv(Tensor &in, Tensor &out) {
         }
         GPU_SYNC();
     }
-//    if (_trace > 1) {
+    if (_trace > 1) {
         _dump_dbdf(tdb, tdf);
-//    }
-        _dump(in.slice(0), in.H(), in.W(), in.C());
-    
+    }
     return 0;
 }
 
