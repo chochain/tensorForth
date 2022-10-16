@@ -43,8 +43,6 @@ private:
     /// @{
     __GPU__ void _conv();                   ///< init convolution layer
     __GPU__ void _loss(t4_loss op);         ///< calculate loss
-    __GPU__ void _sgd();
-    __GPU__ void _adam();
     /// @}
 #endif // T4_ENABLE_OBJ
 };

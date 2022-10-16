@@ -94,21 +94,6 @@ NetVM::_loss(t4_loss op) {
     else if (IS_M(top)) PUSH(MTOS.loss(op));
     else ERROR("model?\n");
 }
-
-__GPU__ int
-NetVM::_fetch() {
-    
-    return 1;
-}
-///
-/// gradiant ops
-///
-__GPU__ void
-NetVM::_sgd() {}
-
-__GPU__ void
-NetVM::_adam() {}
-
 ///===================================================================
 /// class methods
 ///
@@ -232,7 +217,6 @@ NetVM::init() {
             }
             if (d.done) {
                 rs.pop();                          /// * pop off dataset
-                mmu.free(d);                       /// * free the dataset
                 IP += sizeof(IU);                  /// * skip over to next word
             }
             else {
