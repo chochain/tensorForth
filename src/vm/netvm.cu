@@ -194,17 +194,11 @@ NetVM::init() {
         fout << opx(OP_DATA, 0, top) << dsn;
         state = VM_WAIT),
     CODE("fetch",
-        if (IS_OBJ(rs[-1])) {
-            Dataset &d = (Dataset&)mmu.du2obj(rs[-1]);
-            if (!d.is_dataset()) {
-                ERROR("not a dataset on RS?\n"); return;
-            }
-            if (d.done) return;
-            
-            fout << opx(OP_LOAD, 0, rs[-1]);       /// * issue an reload
-            state = VM_WAIT;                       /// * return to CPU
+         if (RS1D) {
+            fout << opx(OP_LOAD, 0, rs[-1]);          /// * issue a reload
+            state = VM_WAIT;                          /// * return to CPU
         }
-        else ERROR("dataset?"))
+        else ERROR("not a dataset on RS?\n")),
     ///@}
     };
     const Code over[] = {                          ///< extended (overload) words
