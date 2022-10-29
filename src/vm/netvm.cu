@@ -158,28 +158,27 @@ NetVM::init() {
     ///@}
     ///@defgroup Batch ops
     ///@{
-    CODE("nn.onehot", if (IS_M(top)) PUSH(MTOS.onehot())),
     CODE("autograd",  if (M1V) { bool on = POPi; MTOS.autograd = on; }),
+    CODE("nn.onehot", if (IS_M(top)) PUSH(MTOS.onehot())),
     CODE("forward",
-         if (TOS1D && IS_M(ss[-1])) {           /// dataset on TOS
+        if (IS_M(ss[-1]) && TOS1D) {            /// * TOS is a dataset
             Tensor &t = TTOS; POP();
-            MTOS.forward(t);
-            mmu.free(t);                        /// * release dataset
+            MTOS.forward(t);                    /// * model keeps the dataset ptr
         }
-        else if (IS_M(top) && IS_OBJ(rs[-1])) { /// data set on rs[-1]
-            Tensor &t = (Tensor&)mmu.du2obj(rs[-1]);
+        else if (IS_M(top) && IS_OBJ(rs[-1])) { /// * TOS is a Model and rs[-1]
+            Tensor &t = (Tensor&)mmu.du2obj(rs[-1]);  /// * is a dataset
             if (t.is_dataset()) MTOS.forward(t);
-            else ERROR("no dataset on RS?\n");
+            else ERROR("rs[-1] is not a dataset?\n");
         }
         else ERROR("no dataset or tensor?\n")),
     CODE("backprop",
-         if (TOS1T && IS_M(ss[-1])) {
+         if (IS_M(ss[-1]) && TOS1T) {          /// * TOS is a onehot vector
              Tensor &t = TTOS; POP();
              MTOS.backprop(t);
              mmu.free(t);
          }
-         else if (IS_M(top)) MTOS.backprop();
-         else ERROR("model?\n")),
+         else if (IS_M(top)) MTOS.backprop();  /// use default output
+         else ERROR("TOS not a model?\n")),
     CODE("predict",   {}),
     ///@}
     ///@defgroup Debugging ops
@@ -194,9 +193,9 @@ NetVM::init() {
         fout << opx(OP_DATA, 0, top) << dsn;
         state = VM_WAIT),
     CODE("fetch",
-         if (RS1D) {
-            fout << opx(OP_LOAD, 0, rs[-1]);          /// * issue a reload
-            state = VM_WAIT;                          /// * return to CPU
+        if (IS_M(top) && IS_OBJ(rs[-1])) {
+            fout << opx(OP_LOAD, 0, rs[-1]);       /// * issue a reload
+            state = VM_WAIT;                       /// * return to CPU
         }
         else ERROR("not a dataset on RS?\n")),
     ///@}
