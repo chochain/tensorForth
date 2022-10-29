@@ -126,16 +126,14 @@ __KERN__ void k_filter(
 
 __GPU__ Model&
 Model::forward(Tensor &input) {
-    Tensor &n1 = (*this)[1];        ///< reference model input layer
-    if (!n1.is_same_shape(input)) {
-        ERROR("Model#forward dataset dim != model input dim?\n");
-        return *this;
+    Tensor &n1 = (*this)[1];  ///< reference model input layer
+    
+    if (input.is_dataset() && input.is_same_shape(n1)) {
+        _hot = &onehot((Dataset&)input);     /// * cache batch one-hot vectors
     }
-    if (input.is_dataset()) {       /// * if source is a dataset
-        _dset = (Dataset*)&input;   /// * set current dataset
-        _hot  = &onehot();          /// * cache batch one-hot vectors
-    }
-    n1 = input;                     /// * copy into model first layer input
+    else ERROR("Model#forward dataset dim != model input dim?\n");
+    
+    n1 = input;               /// * copy dataset batch into the first layer
     ///
     /// cascade execution layer by layer forward
     /// TODO: model execution becomes a superscalar pipeline
