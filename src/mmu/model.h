@@ -18,7 +18,6 @@ class Model : public T4Base {
     int     _trace = 0;     ///< cached debug/tracing level
     MMU     *_mmu;          ///< tensor storage base
     Tensor  *_store;        ///< model storage - Sequential, TODO: DAG
-    Dataset *_dset = NULL;  ///< input dataset (set by forward)
     Tensor  *_hot  = NULL;  ///< cached dataset one-hot vector
     
 public:
@@ -61,12 +60,13 @@ public:
     /// @{
     __GPU__ Model  &add(t4_layer fn, U16 n=0, DU bias=DU0, U16 *opt=0);
     __GPU__ Model  &forward(Tensor &input);             ///< network feed forward
-    __GPU__ Model  &backprop();                         ///< back propegation
+    __GPU__ Model  &backprop();                         ///< back propegation with default onehot vector
     __GPU__ Model  &backprop(Tensor &hot);              ///< back propegation
     /// @}
     /// @name loss functions
     /// @{
-    __GPU__ Tensor &onehot();                           ///< calculate one-hot vector
+    __GPU__ Tensor &onehot();                           ///< get default onehot vector
+    __GPU__ Tensor &onehot(Dataset &dset);              ///< calculate one-hot vector
     __GPU__ DU     loss(t4_loss op);                    ///< calc loss with cached one-hot vector
     __GPU__ DU     loss(t4_loss op, Tensor &hot);       ///< calc loss from one-hhot vector
     /// @}
