@@ -8,29 +8,49 @@
 #include "dataset.h"
 
 #if T4_ENABLE_OBJ
+__GPU__ DU
+Model::_loss(t4_loss op, Tensor &out, Tensor &hot) {
+    const int N = out.N();
+    DU  err = DU0;                   ///> result loss value
+    switch (op) {
+    case LOSS_MSE:                   /// * mean squared error, input from linear
+        out -= hot;
+        err = 0.5 * NORM(out.numel, out.data) / N;
+        break;
+    case LOSS_CE:                    /// * cross_entropy, input from softmax
+        out.map(O_LOG);
+        /* no break */
+    case LOSS_NLL:                   /// * negative log likelihood, input from log-softmax
+        out *= hot;                  /// * hot_i * log(out_i)
+        err = -out.sum() / N;        /// * negative average per sample
+        break;
+    default: ERROR("Model#loss op=%d not supported\n", op);
+    }
+    // debug(out);
+    SCALAR(err);
+    return err;
+}
+
 __GPU__ Tensor&
-Model::onehot() {
+Model::onehot() { return *_hot; }
+
+__GPU__ Tensor&
+Model::onehot(Dataset &dset) {
     auto show = [](DU *h, int n, int sz) {
-/*                    
-        printf("onehot[%d]=", n);
+        printf("onehot[%d]={", n);
         for (int i = 0; i < sz; i++) {
             printf("%2.0f", h[i]);
         }
-        printf("\n");
-*/
+        printf("}\n");
     };
     Tensor &out = (*this)[-1];                         ///< model output
     int    N    = out.N(), hwc = out.HWC();            ///< sample size
     Tensor &hot = _t4(N, hwc).fill(DU0);               ///< one-hot vector
-    if (!_dset) {
-        ERROR("Model#loss dataset not set yet?\n");
-        return hot;
-    }
     for (int n = 0; n < N; n++) {                      /// * loop through batch
         DU *h = hot.slice(n);                          ///< take a sample
-        U32 i = INT(_dset->label[n]);
+        U32 i = INT(dset.label[n]);
         h[i < hwc ? i : 0] = DU1;
-        show(h, n, hwc);
+        if (_trace > 0) show(h, n, hwc);
     }
     return hot;
 }
@@ -48,6 +68,7 @@ Model::loss(t4_loss op, Tensor &hot) {          ///< loss against one-hot
     }
     Tensor &tmp = _mmu->copy(out);              ///< non-destructive
     DU err = _loss(op, tmp, hot);               /// * calculate loss
+    _dump(tmp.data, tmp.W(), tmp.H(), 1);
     _mmu->free(tmp);                            /// * free memory
 
     return err;
@@ -83,20 +104,16 @@ Model::sgd(DU lr, DU m, bool zero) {
         Tensor &in = (*this)[i];
 
         TRACE1("\n%2d> %s ", i, d_nname(in.grad_fn));
-        if (in.grad[2] && in.grad[3]) {
+        if (in.grad[2]) {
             TRACE1(" dfΣ=%6.3f", in.grad[2]->sum());
-            TRACE1(" dbΣ=%6.3f", in.grad[3]->sum());
-        }
-        if (in.grad[0] && in.grad[2]) {
             update('f', *in.grad[0], *in.grad[2]);
         }
-        if (in.grad[1] && in.grad[3]) {
+        if (in.grad[3]) {
+            TRACE1(" dbΣ=%6.3f", in.grad[3]->sum());
             update('b', *in.grad[1], *in.grad[3]);
         }
-        if (in.grad[0] && in.grad[1]) {
-            TRACE1(" => fΣ=%6.3f", in.grad[0]->sum());
-            TRACE1(" bΣ=%6.3f", in.grad[1]->sum());
-        }
+        if (in.grad[0]) TRACE1(" => fΣ=%6.3f", in.grad[0]->sum());
+        if (in.grad[1]) TRACE1(" bΣ=%6.3f",    in.grad[1]->sum());
     }
     TRACE1("\nModel#sgd %5.2f ms\n", _mmu->ms() - t0);
     return *this;
