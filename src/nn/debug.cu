@@ -28,28 +28,6 @@ Model::debug(Tensor &t, DU scale) {
 ///
 /// private methods
 ///
-__GPU__ DU
-Model::_loss(t4_loss op, Tensor &out, Tensor &hot) {
-    const int N = out.N();
-    DU  err = DU0;                   ///> result loss value
-    switch (op) {
-    case LOSS_MSE:                   /// * mean squared error, input from linear
-        out -= hot;
-        err = 0.5 * NORM(out.numel, out.data) / N;
-        break;
-    case LOSS_CE:                    /// * cross_entropy, input from softmax
-        out.map(O_LOG);
-        /* no break */
-    case LOSS_NLL:                   /// * negative log likelihood, input from log-softmax
-        out *= hot;                  /// * hot_i * log(out_i)
-        err = -out.sum() / N;        /// * negative average per sample
-        break;
-    default: ERROR("Model#loss op=%d not supported\n", op);
-    }
-    // debug(out);
-    SCALAR(err);
-    return err;
-}
 __GPU__ void
 Model::_view(DU *v, int H, int W, int C, DU scale) {
 //  static const char *map = " .'`^\",:;Il!i><~+_-?][}{1)(|/tfjrxnuvczXYUJCLQ0OZmwqpdbkhao*#MW&8%B@$";   // 69 shades
