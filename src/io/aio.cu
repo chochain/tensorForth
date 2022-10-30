@@ -53,10 +53,10 @@ AIO::process_node(obuf_node *node) {
         case OP_SS:    _mmu->ss_dump(cout, (IU)node->id, o->a, _radix); break;
         case OP_DATA:
             node = NEXTNODE(node);          ///< fetch file name
-            _mmu->load(cout, (IU)o->a, o->n, (char*)node->data);
+            _mmu->load(cout, (U16)o->a, o->n, (char*)node->data);
             break;
         case OP_LOAD:
-            _mmu->load(cout, (IU)o->a, o->n);
+            _mmu->load(cout, (U16)o->a, o->n);
             break;
         }
     } break;
