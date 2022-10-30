@@ -156,28 +156,47 @@ NetVM::init() {
              MTOS.adam(lr, b0, b1);
          }),
     ///@}
-    ///@defgroup Batch ops
+    ///@defgroup Batch Control ops
     ///@{
     CODE("autograd",  if (M1V) { bool on = POPi; MTOS.autograd = on; }),
-    CODE("nn.onehot", if (IS_M(top)) PUSH(MTOS.onehot())),
-    CODE("forward",
-        if (IS_M(ss[-1]) && TOS1D) {            /// * TOS is a dataset
-            Tensor &t = TTOS; POP();
-            MTOS.forward(t);                    /// * model keeps the dataset ptr
+    CODE("nn.onehot",                           /// * current onehot vector
+        if (IS_M(top)) {
+            Tensor &hot = MTOS.onehot();
+            PUSH(hot); hot.ref_inc();
         }
-        else if (IS_M(top) && IS_OBJ(rs[-1])) { /// * TOS is a Model and rs[-1]
-            Tensor &t = (Tensor&)mmu.du2obj(rs[-1]);  /// * is a dataset
+        else ERROR("TOS is not a model!\n")),
+    CODE("dataset",                             /// * create a dataset
+        char *dsn = next_idiom();               ///< retrieve dataset name
+        I16   bsz = POPi;                       ///< batch size
+        PUSH(mmu.dataset(bsz));                 /// * create a dataset as TOS
+        fout << opx(OP_DATA, 0, top) << dsn;
+        state = VM_WAIT),
+    CODE("fetch",                               /// * fetch a dataset batch
+         if (IS_M(ss[-1]) && TOS1D) {
+            fout << opx(OP_LOAD, 0, top);       /// * issue a reload
+            state = VM_WAIT;                    /// * return to CPU
+        }
+        else ERROR("no model, or a dataset?\n")),
+    ///@}
+    CODE("forward",                             /// * forward process
+        if (IS_M(ss[-1]) && TOS1D) {            /// * TOS is a dataset
+            Tensor &t = TTOS; POP();            /// * NOS is the model
+            MTOS.forward(t);                    /// * exec forward path
+            mmu.free(t);                        /// * release reference
+        }
+        else if (IS_M(top) && IS_OBJ(rs[-1])) {       /// * in a for/next loop
+            Tensor &t = (Tensor&)mmu.du2obj(rs[-1]);  /// * rs[-1] is a dataset
             if (t.is_dataset()) MTOS.forward(t);
             else ERROR("rs[-1] is not a dataset?\n");
         }
-        else ERROR("no dataset or tensor?\n")),
+        else ERROR("no model or a dataset?\n")),
     CODE("backprop",
          if (IS_M(ss[-1]) && TOS1T) {          /// * TOS is a onehot vector
              Tensor &t = TTOS; POP();
              MTOS.backprop(t);
              mmu.free(t);
          }
-         else if (IS_M(top)) MTOS.backprop();  /// use default output
+         else if (IS_M(top)) MTOS.backprop();  /// * use default output
          else ERROR("TOS not a model?\n")),
     CODE("predict",   {}),
     ///@}
@@ -186,19 +205,6 @@ NetVM::init() {
     CODE(">n",        if (M1V) { DU t = POP(); MTOS.npush(t); }),
     CODE("n@",        if (M1V) { I16 i = POPi; PUSH(mmu.view(MTOS[i])); }),
     CODE("network",   if (IS_M(top)) fout << top),
-    CODE("dataset",
-        char *dsn = next_idiom();           ///< retrieve dataset name
-        I16   bsz = POPi;                   ///< batch size
-        PUSH(mmu.dataset(bsz));             /// * create a dataset as TOS
-        fout << opx(OP_DATA, 0, top) << dsn;
-        state = VM_WAIT),
-    CODE("fetch",
-        if (IS_M(top) && IS_OBJ(rs[-1])) {
-            fout << opx(OP_LOAD, 0, rs[-1]);       /// * issue a reload
-            state = VM_WAIT;                       /// * return to CPU
-        }
-        else ERROR("not a dataset on RS?\n")),
-    ///@}
     };
     const Code over[] = {                          ///< extended (overload) words
     CODE("donext",                                 /// * overwrite "donext" in eforth.cu
@@ -223,7 +229,7 @@ NetVM::init() {
         }
         else { rs.pop(); IP += sizeof(IU); }),
     CODE("flatten",   nnop(L_FLATTEN)),
-    CODE("boot",      mmu.clear(FIND("fetch") + 1))
+    CODE("boot",      mmu.clear(FIND("network") + 1))
     };
     TensorVM::init();
 
