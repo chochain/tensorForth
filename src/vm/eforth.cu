@@ -13,7 +13,6 @@
 #define PFA(w)    (dict[(IU)(w)].pfa)           /**< PFA of given word id                    */
 #define HERE      (mmu.here())                  /**< current context                         */
 #define SETJMP(a) (mmu.setjmp(a))               /**< address offset for branching opcodes    */
-#define EXEC(w)   ((*(dict[(IU)(w)].xt))())     /**< execute primitive word                  */
 ///@}
 ///@name Heap memory load/store macros
 ///@{
@@ -23,50 +22,72 @@
 #define LDs(ip)   (mmu.pmem((IU)(ip)))          /**< pointer to IP address fetched from pmem */
 ///@}
 ///
+/// resume suspended task
+///
+__GPU__ int
+ForthVM::resume() {
+    VLOG1("VM[%d] resumed at WP=%d, IP=%d\n", vid, WP, IP);
+    nest();           /// * will set state to VM_READY
+    return 1;         /// * OK, continue to outer loop
+}
+///
 /// Forth inner interpreter (colon word handler)
 /// Note: nest is also used for resume where RS != 0
 ///
+#if 1
+#define _log(hdr)  printf("%03d: %s.rs=%d\n", IP, hdr, rs.idx)
+#define _dlog(w) printf("\t%03d: %s %d\n", IP, dict[w].name, w)
+#else
+#define _log(hdr)
+#define _dlog(w)
+#endif
 __GPU__ void
 ForthVM::nest() {
     ///
-    /// when RS != 0, it resumes paused VM
+    /// when IP != 0, it resumes paused VM
     ///
-    while (state == VM_RUN && RS > 0) {              /// * try no recursion
+    _log("IN");
+    while (state == VM_RUN && IP) {                  /// * try no recursion
         IU w = LDi(IP);                              ///< fetch opcode, and cache dataline hopefully
-        while (state == VM_RUN && w != EXIT) {       ///< loop till EXIT
-            IP += sizeof(IU);                        ///< ready IP for next opcode
-            if (dict[w].def) {                       ///< is it a colon word?
-                rs.push(WP);                         ///< * setup callframe (ENTER)
-                rs.push(IP);
-                IP = PFA(w);                         ///< jump to pfa of given colon word
-                RS++;                                ///< go one level deeper
-            }
-            else if (w==DONEXT && !IS_OBJ(rs[-1])) {        ///< DONEXT handler (save 600ms / 100M cycles on Intel)
-                if ((rs[-1] -= 1) >= -DU_EPS) IP = LDi(IP); ///< decrement loop counter, and fetch target addr
-                else { IP += sizeof(IU); rs.pop(); } ///< done loop, pop off loop counter
-            }
-            else EXEC(w);                            ///< execute primitive word
-            w = LDi(IP);                             ///< fetch next opcode
+        IP += sizeof(IU);
+        _dlog(w);
+        if (dict[w].def) {                           ///< is it a colon word?
+            rs.push(WP);                             /// * ENTER
+            rs.push(IP);                             /// * setup call frame 
+            IP = dict[w].pfa;                        ///< jump to pfa of given colon word
+            _log("ENTER");
         }
-        if (state == VM_RUN && RS-- > 0) {           ///< pop off a level
-            IP = INT(rs.pop());                      ///< * restore call frame (EXIT)
+        else if (w==EXIT) {                          /// * EXIT
+            IP = INT(rs.pop());                      /// * restore call frame
             WP = INT(rs.pop());
-            yield();                                 ///< give other tasks some time
+            yield();                                 /// * for multi-tasking
+            _log("EXIT");
         }
+        else if (w==DONEXT && !IS_OBJ(rs[-1])) {     ///< DONEXT handler
+            /// save 600ms / 100M cycles on Intel
+            if ((rs[-1] -= 1) >= -DU_EPS) IP = LDi(IP); ///< decrement loop counter, and fetch target addr
+            else { IP += sizeof(IU); rs.pop(); }        ///< done loop, pop off loop counter
+            _log("DONEXT");
+        }
+        else (*dict[w].xt)();                        ///< execute primitive word
     }
+    _log("OUT");
     if (state == VM_RUN) state = VM_READY;           /// * READY for next input
 }
 __GPU__ __INLINE__ void ForthVM::call(IU w) {
-    if (dict[w].def) {                               /// * userd defined word
-        WP    = w;                                   /// * setup call frame
-        IP    = dict[w].pfa;
-        RS    = 1;
+    Code &c = dict[w];                               /// * code reference
+    if (c.def) {                                     /// * userd defined word
+//        printf("%03d WP=%d CALL[%d] %s\n", IP, WP, w, c.name);
+        rs.push(WP);                                 /// * setup call frame
+        rs.push(IP=0);
+        WP    = w;                                   /// * frame for new word
+        IP    = c.pfa;
         state = VM_RUN;
         nest();                                      /// * Forth inner loop
     }
     else {
-        UFP xt = (UFP)dict[w].xt & ~CODE_ATTR_FLAG;  /// * strip off immediate bit
-        (*(FPTR)xt)();                               /// * execute function pointer
+        UFP xt = (UFP)c.xt & ~CODE_ATTR_FLAG;        /// * strip off immediate bit
+        (*(FPTR)xt)();                               /// * execute function
     }
 }
 ///
@@ -79,7 +100,7 @@ __GPU__ void ForthVM::add_w(IU w)  {
 __GPU__ void ForthVM::add_iu(IU i) { mmu.add((U8*)&i, sizeof(IU)); }
 __GPU__ void ForthVM::add_du(DU d) { mmu.add((U8*)&d, sizeof(DU)); }
 __GPU__ void ForthVM::add_str(const char *s) {
-    int sz = STRLENB(s)+1; sz = ALIGN2(sz);             ///> calculate string length, then adjust alignment (combine?)
+    int sz = STRLENB(s)+1; sz = ALIGN2(sz);           ///> calculate string length, then adjust alignment (combine?)
     mmu.add((U8*)s, sz);
 }
 ///
@@ -92,7 +113,7 @@ ForthVM::init() {
     ///@defgroup Execution flow ops
     ///@brief - DO NOT change the sequence here (see forth_opcode enum)
     ///@{
-    CODE("exit",    WP = INT(rs.pop()); IP = INT(rs.pop())),        // quit current word execution
+    CODE("exit",    {}),                                  /// * quit word, handled in nest()
     CODE("donext",  {}),                                  /// * handled in nest(),
 //         if ((rs[-1] -= 1) >= -DU_EPS) IP = LDi(IP);    /// * also overwritten in netvm later
 //         else { IP += sizeof(IU); rs.pop(); }),
@@ -250,16 +271,16 @@ ForthVM::init() {
     ///@defgrouop Compiler ops
     ///@{
     CODE(":", mmu.colon(next_idiom()); compile=true),
-    IMMD(";", add_w(EXIT); compile = false),
+    IMMD(";", add_w(EXIT); compile = false),                // terminate a word
     CODE("variable",                                        // create a variable
         mmu.colon(next_idiom());                            // create a new word on dictionary
         add_w(DOVAR);                                       // dovar (+parameter field)
-        add_du(0);                                          // data storage (32-bit integer now)
+        add_du(0);                                          // data storage (32-bit float now)
         add_w(EXIT)),
     CODE("constant",                                        // create a constant
         mmu.colon(next_idiom());                            // create a new word on dictionary
         add_w(DOLIT);                                       // dovar (+parameter field)
-        add_du(POP());                                      // data storage (32-bit integer now)
+        add_du(POP());
         add_w(EXIT)),
     ///@}
     ///@defgroup word defining words (DSL)
@@ -339,15 +360,6 @@ ForthVM::init() {
 ///
 /// parse input idiom as a word
 ///
-__GPU__ int
-ForthVM::resume() {
-    ///
-    /// resume suspended task
-    ///
-    VLOG1("VM[%d] resumed at WP=%d, IP=%d, RS=%d\n", vid, WP, IP, RS);
-    nest();                               /// * should set state to VM_READY
-    return 1;                             /// * skip outer loop
-}
 __GPU__ int
 ForthVM::parse(char *str) {
     int w = FIND(str);                    /// * search through dictionary

@@ -32,7 +32,6 @@ protected:
     bool  ucase   = true;                   ///< case insensitive
     IU    WP      = 0;                      ///< word and parameter pointers
     IU    IP      = 0;                      ///< instruction pointer
-    IU    RS      = 0;                      ///< call stack depth
     ///
     /// stack short hands
     ///
