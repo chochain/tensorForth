@@ -24,7 +24,7 @@ Model::_loss(t4_loss op, Tensor &out, Tensor &hot) {
         out *= hot;                  /// * hot_i * log(out_i)
         err = -out.sum() / N;        /// * negative average per sample
         break;
-    default: ERROR("Model#loss op=%d not supported\n", op);
+    default: ERROR("Model#loss op=%d not supported!\n", op);
     }
     // debug(out);
     SCALAR(err);
@@ -32,7 +32,12 @@ Model::_loss(t4_loss op, Tensor &out, Tensor &hot) {
 }
 
 __GPU__ Tensor&
-Model::onehot() { return *_hot; }
+Model::onehot() {
+    if (_hot) return *_hot;
+    
+    ERROR("Model.onehot not initialized, run forward first!\n");
+    return (*this)[-1];
+}
 
 __GPU__ Tensor&
 Model::onehot(Dataset &dset) {
