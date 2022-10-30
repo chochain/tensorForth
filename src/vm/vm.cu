@@ -26,9 +26,8 @@ VM::VM(Istream *istr, Ostream *ostr, MMU *mmu0) : fin(*istr), fout(*ostr), mmu(*
 __GPU__ void
 VM::outer() {
     VLOG1("%d%c %s\n", vid, compile ? ':' : '{', fin.rdbuf()); /// * display input buffer
-    while (state == VM_RUN ||                      /// * resume work, or
-           (state == VM_READY && fin >> idiom)) {  /// * loop throught tib
-        if (state == VM_RUN && resume()) break;    /// * resume suspended VM
+    if (state == VM_RUN) resume();                 /// * resume suspended VM
+    while (state == VM_READY && fin >> idiom) {    /// * loop throught tib
         if (pre(idiom)) continue;                  /// * pre process
         VLOG2("%d| >> %-10s => ", vid, idiom);
         if (!parse(idiom) && !number(idiom)) {
