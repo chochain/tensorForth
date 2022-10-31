@@ -521,7 +521,7 @@ MMU::mem_dump(std::ostream &fout, U16 p0, U16 sz) {
 ///         -> dataset::alloc   - alloc device memory blocks if needed
 ///
 __HOST__ int
-MMU::load(std::ostream &fout, U16 vid, DU top, char *ds_name) {
+MMU::load(std::ostream &fout, U16 bop, DU top, char *ds_name) {
     Dataset &ds = (Dataset&)du2obj(top);          ///< dataset ref
     U32     dsx = DU2X(top);                      ///< dataset mnemonic
     if (!ds.is_dataset()) {                       /// * indeed a dataset?
@@ -531,30 +531,32 @@ MMU::load(std::ostream &fout, U16 vid, DU top, char *ds_name) {
     ///
     /// search cache for top <=> dataset pair
     ///
-    TRACE1("\n%d|%s dataset (id=%x)", vid, ds_name ? ds_name : "reload", dsx);
+    TRACE1("\n%s dataset (id=%x)", ds_name ? ds_name : (bop ? "fetch" : "rewind"), dsx);
     Corpus *cp = Loader::get(dsx, ds_name);      ///< Corpus/Dataset provider
     if (!cp) {
         ERROR(" => dataset not found\n"); return -1;
     }
-    if ((ds.done=cp->eof)) {                     /// * dataset exhausted?
+    if (bop==0 && ds.batch_id >= 0) {            /// rewind dataset
+        cp->rewind();
+        ds.batch_id = 0;
+    }
+    else if ((ds.done=cp->eof)) {                /// * dataset exhausted?
         printf(" => completed, no more data.\n"); return 0;
     }
     ///
     /// init and load a batch of data points
     ///
     int batch_sz = ds.N();                        ///< dataset batch size
-    if (ds.batch_id < 0) {                        /// * set dataset dimensions
-        if (!cp->fetch(0, batch_sz)) {            /// * fetch first batch from Corpus
-            ERROR(" => '%s' fetch failed\n", ds_name);
-            return -2;
-        }
+    int bid = ds.batch_id < 0 ? 0 : ds.batch_id;  ///< batch_id to fetch
+    if (!cp->fetch(bid, batch_sz)) {              /// * fetch a batch from Corpus
+        ERROR(" => '%s' fetch failed\n", ds_name);
+        return -2;
+    }
+    if (ds.batch_id < 0) {
         ds.reshape(batch_sz, cp->H, cp->W, cp->C);
         ds.batch_id = 1;                          /// * ready for next batch
     }
-    else if (!cp->fetch(ds.batch_id++, batch_sz)) {
-        ERROR(" => fetch failed\n");
-        return -2;
-    }
+    else ds.batch_id++;
     ///
     /// transfer host into device memory
     /// if needed, allocate Dataset device (managed) memory blocks
