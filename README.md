@@ -236,23 +236,39 @@ Note:
    gemm      (a b Ma Mb Mc -- a b Ma Mb Mc') - GEMM Mc' = a * Ma * Mb + b * Mc
 </pre>
 
-### TODO
-* benchmark (MNIST, CIFAR, Kaggle...)
-* trained network load/save
-* refactor - add namespace, warp-level collectives (study libcu++, MordenGPU for kernel)
-* add RNN
-* add inter-VM communication (CUDA stream, review CUB again)
-* add inter-VM loader (from VM->VM)
-* .petastorm, .csv loader (available on github)
-* add GNN - dynamic graph with VMs
+### TODO - by priorities
+* benchmark
+  + MNIST, CIFAR, Kaggle...
+* model
+  + trained network load/save
+* data
+  + loader plug-in API
+  + add K-fold sampler
+* VM
+  + inter-VM communication (CUDA stream, review CUB again)
+  + inter-VM loader (from VM->VM)
+* refactor
+  + add namespace
+  + warp-level collectives (study libcu++, MordenGPU for kernel)
+* model
+  + add layer - Sigmoid, Tanh, BatchNorm
+  + add gradiant - Adam, AGC
+  + add RNN
+* data
+  + .petastorm, .csv loader (available on github)
+* model
+  + add GNN - dynamic graph with VMs
 
 ### LATER
-* NCHW tensor format support (as in PyTorch)
-* integrate plots (matplotlib, tensorboard)
-* integrate ONNX
-* integrate CUB, CUTLASS (utilities.init, gemm_api) - slow, later
-* preprocessor (DALI) + GPUDirect - heavy, later
-* common models (VGG-19, ResNet (i.e. skip-connect), compare to Keras)
+* data
+  + NCHW tensor format support (as in PyTorch)
+  + integrate ONNX
+  + common models (VGG-19, ResNet (i.e. skip-connect), compare to Keras)
+* plot
+  + integrate plots (matplotlib, tensorboard)
+* code
+  + integrate CUB, CUTLASS (utilities.init, gemm_api) - slow, later
+  + preprocessor (DALI) + GPUDirect - heavy, later
 
 ## History
 ### [Release 1.0](./docs/v1_progress.md) features
