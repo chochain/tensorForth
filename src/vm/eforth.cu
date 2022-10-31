@@ -34,7 +34,7 @@ ForthVM::resume() {
 /// Forth inner interpreter (colon word handler)
 /// Note: nest is also used for resume where RS != 0
 ///
-#if 1
+#if 0
 #define _log(hdr)  printf("%03d: %s.rs=%d\n", IP, hdr, rs.idx)
 #define _dlog(w) printf("\t%03d: %s %d\n", IP, dict[w].name, w)
 #else
