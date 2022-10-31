@@ -37,8 +37,9 @@ public:
     __GPU__ void predict(Tensor &I, Tensor &P);   ///< predict result
 
 private:
-    /// @name static Loss functions
+    /// @name dataset ops
     /// @{
+    __GPU__ void _fetch(U16 bop);              ///< calculate loss
     /// @}
     /// @name Convolution, loss and Gradiant ops
     /// @{

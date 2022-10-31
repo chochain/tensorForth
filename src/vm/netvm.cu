@@ -58,6 +58,17 @@ NetVM::predict(Tensor &I, Tensor &P) {
 ///===================================================================
 /// private methods
 ///
+///
+/// dataset ops
+///
+__GPU__ void
+NetVM::_fetch(U16 bop) {
+    if (IS_M(ss[-1]) && TOS1D) {
+        fout << opx(OP_LOAD, bop, top);     /// * issue a reload
+        state = VM_WAIT;                    /// * return to CPU
+    }
+    else ERROR("no model, or a dataset?\n");
+}
 /// Convolution ops
 /// @default: 3x3 filter, padding=1, stride=1, dilation=1
 ///
@@ -115,7 +126,9 @@ NetVM::init() {
          Tensor &t = mmu.tensor(n,h,w,c);     /// * create input tensor
          m.npush(t);                          /// * serves as the 1st layer
          PUSH(m)),
-    CODE("batchsize", if (IS_M(top)) PUSH(MTOS.batch_size())),
+    CODE("batchsize",
+         if (IS_M(top)) PUSH(MTOS.batch_size());
+         else ERROR("TOS is not a model?\n")),
     CODE("conv2d",    nnop(L_CONV)),          ///> (N b c [A] -- N')
     CODE("linear",    nnop(L_LINEAR)),        ///> (N b n -- N')
     ///@}
@@ -169,15 +182,10 @@ NetVM::init() {
         char *dsn = next_idiom();               ///< retrieve dataset name
         I16   bsz = POPi;                       ///< batch size
         PUSH(mmu.dataset(bsz));                 /// * create a dataset as TOS
-        fout << opx(OP_DATA, 0, top) << dsn;
+        fout << opx(OP_DATA, 1, top) << dsn;
         state = VM_WAIT),
-    CODE("fetch",                               /// * fetch a dataset batch
-         if (IS_M(ss[-1]) && TOS1D) {
-            fout << opx(OP_LOAD, 0, top);       /// * issue a reload
-            state = VM_WAIT;                    /// * return to CPU
-        }
-        else ERROR("no model, or a dataset?\n")),
-    ///@}
+    CODE("fetch",   _fetch(1)),                 /// * fetch a dataset batch
+    CODE("rewind",  _fetch(0)),                 /// * rewind a dataset (batch_id=0)
     CODE("forward",                             /// * forward process
         if (IS_M(ss[-1]) && TOS1D) {            /// * TOS is a dataset
             Tensor &t = TTOS; POP();            /// * NOS is the model
