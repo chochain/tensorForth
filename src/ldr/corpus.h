@@ -55,6 +55,7 @@ struct Corpus {
         DS_LOG1("batch(U8*) implemented?\n");
         return this;
     }
+    virtual Corpus *rewind() { return this; }
     virtual U8 *operator [](int idx){ return &data[idx * dsize()]; }  ///< data point
 };
 #endif // T4_CORPUS_H
