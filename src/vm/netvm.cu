@@ -63,11 +63,11 @@ NetVM::predict(Tensor &I, Tensor &P) {
 ///
 __GPU__ void
 NetVM::_fetch(U16 bop) {
-    if (IS_M(ss[-1]) && TOS1D) {
+    if (TOS1D) {
         fout << opx(OP_LOAD, bop, top);     /// * issue a reload
         state = VM_WAIT;                    /// * return to CPU
     }
-    else ERROR("no model, or a dataset?\n");
+    else ERROR("TOS not dataset?\n");
 }
 /// Convolution ops
 /// @default: 3x3 filter, padding=1, stride=1, dilation=1
