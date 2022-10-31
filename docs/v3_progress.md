@@ -90,7 +90,7 @@ nn.load my_net ds1 my_test      \ load from trained network and test
 |word|param/example|tensor creation ops|
 |---|---|---|
 |dataset|(n -- D)|create a dataset with batch size = n, and given name i.e. 10 dataset abc|
-|fetch|( -- )|fetch dataset on return stack for another batch|
+|fetch|(D -- D')|fetch dataset on return stack for another batch|
 
 #### Load/Save - .npy
 |word|param/example|tensor creation ops|
@@ -140,12 +140,13 @@ nn.load my_net ds1 my_test      \ load from trained network and test
 #### Propagation controls
 |word|param/example|tensor creation ops|
 |---|---|---|
-|batchsize|(N -- N b)|get input batch size of a model|
+|batchsize|(D -- D b)|get input batch size of a model|
 |autograd|(N n -- N')|enable/disable model autograd|
-|forward|(N in -- N')|execute one forward propagation, layer-by-layer in given model|
+|forward|(N ds -- N')|execute one forward propagation with TOS dataset, layer-by-layer in given model|
+|forward|(N -- N')|execute one forward path with rs[-1] dataset, layer-by-layer in given model|
 |backprop|(N -- N')|execute one backward propagation, adding derivatives for all parameters|
 |for|(N ds -- N')|loop through a dataset, ds will be pushed onto return stack|
-|next|(N -- N' ds)|loop if any subset of dataset left, or ds is pop off return stack|
+|next|(N -- N')|loop if any subset of dataset left, or ds is pop off return stack|
 
 #### Gradiant ops
 |nn.onehot|(N -- N Ta)|dataset one-hot vector|
