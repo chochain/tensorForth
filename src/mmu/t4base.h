@@ -64,13 +64,13 @@ struct T4Base : public Managed {
     __BOTH__ __INLINE__ DU   &operator[](int i) { return data[i]; }
     __BOTH__ __INLINE__ int  ref_inc() {
         int r = ++nref;                     /// TODO: atomicAdd
-        printf("nref=%d\n", r);
+//        printf("nref=%d\n", r);
         return r;
     }
     __BOTH__ __INLINE__ int  ref_dec() {
         if (nref > 1) {
             int r = --nref;                 /// TODO: atomicSub
-            printf("nref=%d\n", r);
+//            printf("nref=%d\n", r);
             return r;
         }
         return 0;
