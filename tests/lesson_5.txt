@@ -9,10 +9,14 @@ constant md0                               \ keep as a constant
 md0                                        \ put model on TOS
 network                                    \ show model
 
-: cnn for forward loss.ce . backprop 0.01 0.0 nn.sgd next ;
-see cnn
-
 batchsize dataset mnist_test               \ create MNIST dataset with model batch size
-cnn                                        \ execute CNN 
+constant ds0                               \ save dataset in a constant
+
+: cnn for forward backprop 0.01 0.0 nn.sgd next ;
+: epoch for cnn loss.ce . ds0 rewind next ;
+see epoch
+
+ds0
+6 epoch                                    \ execute CNN 
 
 bye
