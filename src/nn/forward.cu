@@ -70,10 +70,18 @@ __KERN__ void k_linear(
     const int n  = blockIdx.z;
 
     if (c0 < C0 && c1 < C1) {
-        DU wx = W[c1 + c0 * C1] * I[c1 + n * HWC1];
         DU *y = &O[c0 + n * HWC0];
         if (c1 == 0) *y = B[c0];
-        atomicAdd(y, wx);                  /// * TODO: prefix sum
+        atomicAdd(y, W[c1 + c0 * C1] * I[c1 + n * HWC1]);
+        
+        /* grd.C1=1 ~10% faster
+        DU *w  = &W[c0 * C1], *x = &I[n * HWC1];
+        DU acc = B[c0];
+        for (int k = 0; k < C1; k++) {
+            acc += (*w++) * (*x++);
+        }
+        O[c0 + n * HWC0] = acc;
+        */
     }
 }
 
