@@ -73,7 +73,6 @@ Model::loss(t4_loss op, Tensor &hot) {          ///< loss against one-hot
     }
     Tensor &tmp = _mmu->copy(out);              ///< non-destructive
     DU err = _loss(op, tmp, hot);               /// * calculate loss
-    _dump(tmp.data, tmp.W(), tmp.H(), 1);
     _mmu->free(tmp);                            /// * free memory
 
     return err;
@@ -110,11 +109,11 @@ Model::sgd(DU lr, DU m, bool zero) {
 
         TRACE1("\n%2d> %s ", i, d_nname(in.grad_fn));
         if (in.grad[2]) {
-            TRACE1(" dfΣ=%6.3f", in.grad[2]->sum());
+            TRACE1(" f-dfΣ=%6.3f-%6.3f", in.grad[0]->sum(), in.grad[2]->sum());
             update('f', *in.grad[0], *in.grad[2]);
         }
         if (in.grad[3]) {
-            TRACE1(" dbΣ=%6.3f", in.grad[3]->sum());
+            TRACE1(" b-dbΣ=%6.3f-%6.3f", in.grad[1]->sum(), in.grad[3]->sum());
             update('b', *in.grad[1], *in.grad[3]);
         }
         if (in.grad[0]) TRACE1(" => fΣ=%6.3f", in.grad[0]->sum());
