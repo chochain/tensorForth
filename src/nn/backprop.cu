@@ -75,18 +75,19 @@ __KERN__ void k_dlinear(
     const int c1 = threadIdx.x + blockIdx.x * blockDim.x;
     const int c0 = threadIdx.y + blockIdx.y * blockDim.y;
     const int n  = blockIdx.z;
+    const int cx = c1 + c0 * C1;
     const int z0 = c0 + n * HWC0;
     const int z1 = c1 + n * HWC1;
 
     if (c0 < C0 && c1 < C1) {
-        DU x = I[z1], *dx = &I[z1], dy = O[z0];
-        atomicAdd(&DW[c1 + c0 * C1], dy * x);      /// * dw += dY * X^t
+        DU x = I[z1], dy = O[z0], *dx = &I[z1];
+        atomicAdd(&DW[cx], dy * x);        /// * dw += dY * X^t
         
         *dx = DU0;
-        atomicAdd(dx, W[c0 + c1 * C0] * dy);       /// * dX = w^t @ dY
+        atomicAdd(dx, W[cx] * dy);         /// * dX = w^t @ dY
         
         if (c1 == 0) {
-            atomicAdd(&DB[c0], dy);                /// * db += dY
+            atomicAdd(&DB[c0], dy);        /// * db += dY
         }
     }
 }
@@ -148,7 +149,7 @@ __KERN__ void k_dfilter(
 ///
 __GPU__ Model&
 Model::backprop() {
-    if (_dset) return backprop(*_hot);           /// * use default one-hot vector
+    if (_hot) return backprop(*_hot);    /// * use default one-hot vector
 
     ERROR("Model#backprop missing onehot vector?\n");
     return *this;
@@ -163,20 +164,20 @@ Model::backprop(Tensor &hot) {
             out.sum() / out.N() / out.C(),
             out.N(), out.H(), out.W(), out.C());
     };
-    (*this)[-1] = hot;  /// softmax + CE : copy one-hot vector to model output
-                        /// TODO: logsoftmax + NLL
     TRACE1("\nModel#backprop starts");
     DU t0 = _mmu->ms(), t1 = t0, tt;            ///< performance measurement
-    for (U16 i = numel - 2; i > 0; i--) {
+    int x = 0;
+    for (U16 i = numel - 2, j = 0; i > 0; i--, j++) {
         Tensor &in = (*this)[i], &out = (*this)[i + 1];
         if (_trace > 0) {
             trace((tt=_mmu->ms()) - t1, i, in, out);
             t1 = tt;
         }
-        _bstep(in, out);
+        _bstep(in, j ? out : hot);
         if (_trace > 1) {
             debug(in, 300.0f);
         }
+//        if (++x > 2) break;
     }
     TRACE1("\nModel::backprop %5.2f ms\n", _mmu->ms() - t0);
     return *this;
@@ -243,6 +244,8 @@ Model::_bconv(Tensor &in, Tensor &out) {
         }
         GPU_SYNC();
     }
+//    _dump_db(tdb);
+//    _dump(tdf.data, tdf.H(), tdf.W(), tdf.C());
     if (_trace > 1) {
         _dump_dbdf(tdb, tdf);
     }
@@ -286,7 +289,7 @@ Model::_blinear(Tensor &in, Tensor &out) {
             for (int c1 = 0; c1 < C1; c1++) {       /// * dX = w^t @ dY
                 DU sum = DU0;
                 for (int c0 = 0; c0 < C0; c0++) {
-                    sum += *w++ * y[c0];
+                    sum += w[c1 + c0 * C1] * y[c0];
                 }
                 x[c1] = sum;
             }
