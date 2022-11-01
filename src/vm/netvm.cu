@@ -227,7 +227,7 @@ NetVM::init() {
                 IP += sizeof(IU);                  /// * skip over to next word
             }
             else {
-                fout << opx(OP_LOAD, 0, rs[-1]);   /// * issue an reload
+                fout << opx(OP_LOAD, 1, rs[-1]);   /// * issue an reload
                 state = VM_WAIT;                   /// * return to CPU
                 IP    = mmu.ri(IP);                /// * loop branch target address
             }
