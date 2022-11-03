@@ -68,35 +68,45 @@ __KERN__ void k_dconv2d(
     }
 }
 
-__KERN__ void k_dlinear(
-    DU *I, DU *O, DU *W, DU *DW, DU *DB,
+__KERN__ void k_dlinear_dwdb(
+    DU *I, DU *O, DU *DW, DU *DB,
     int C1, int C0, int HWC1, int HWC0
     ) {    
-    const int c1 = threadIdx.x + blockIdx.x * blockDim.x;
-    const int c0 = threadIdx.y + blockIdx.y * blockDim.y;
+    const int c0 = threadIdx.x + blockIdx.x * blockDim.x;
+    const int c1 = threadIdx.y + blockIdx.y * blockDim.y;
     const int n  = blockIdx.z;
     const int cx = c1 + c0 * C1;
-    const int z0 = c0 + n * HWC0;
-    const int z1 = c1 + n * HWC1;
 
     if (c0 < C0 && c1 < C1) {
-        DU x = I[z1], dy = O[z0], *dx = &I[z1];
-        atomicAdd(&DW[cx], dy * x);        /// * dw += dY * X^t
-        
-        *dx = DU0;
-        atomicAdd(dx, W[cx] * dy);         /// * dX = w^t @ dY
-        
+        DU x = I[c1 + n * HWC1], dy = O[c0 + n * HWC0];
+        atomicAdd(&DW[cx], dy * x);                 /// * dw += dY * X^t
         if (c1 == 0) {
-            atomicAdd(&DB[c0], dy);        /// * db += dY
+            atomicAdd(&DB[c0], dy);                 /// * db += dY
         }
     }
 }
 
-template<int KS>                            /// kernel size
+__KERN__ void k_dlinear_dx(
+    DU *I, DU *O, DU *W,
+    int C1, int C0, int HWC1, int HWC0
+    ) {    
+    const int c1 = threadIdx.x + blockIdx.x * blockDim.x;
+    const int n  = blockIdx.z;
+
+    if (c1 < C1) {
+        DU acc = DU0, *w = &W[c1], *y = &O[n * HWC0];
+        for (int c0 = 0; c0 < C0; c0++, w+=C0) {      /// * TODO: shuffle-sum
+            acc += (*w) * (*y++);                     /// * dX = w^t @ dY
+        }
+        I[c1 + n * HWC1] = acc;
+    }
+}
+
+template<int KS>                                      /// kernel size
 __KERN__ void k_dpool(
     t4_layer op,
-    DU *I, DU *O,                           ///< input, output buffers
-    int HW, int W                           ///< output HW (C1==C0)
+    DU *I, DU *O,                                     ///< input, output buffers
+    int HW, int W                                     ///< output HW (C1==C0)
     ) {
     const int k0 = threadIdx.x + blockIdx.x * blockDim.x;
     const int j0 = k0 % W;                            ///< output x dim
@@ -244,6 +254,7 @@ Model::_bconv(Tensor &in, Tensor &out) {
         }
         GPU_SYNC();
     }
+//    _dump(in.data, in.H(), in.W(), in.C());
 //    _dump_db(tdb);
 //    _dump(tdf.data, tdf.H(), tdf.W(), tdf.C());
     if (_trace > 1) {
@@ -254,27 +265,31 @@ Model::_bconv(Tensor &in, Tensor &out) {
 
 __GPU__ int
 Model::_blinear(Tensor &in, Tensor &out) {
-    Tensor &tw  = *in.grad[0];            ///< weight tensor
-    Tensor &tdw = *in.grad[2];            ///< d_weight tensor
-    Tensor &tdb = *in.grad[3];            ///< d_bias tensor
+    Tensor &tw  = *in.grad[0];                      ///< weight tensor
+    Tensor &tdw = *in.grad[2];                      ///< d_weight tensor
+    Tensor &tdb = *in.grad[3];                      ///< d_bias tensor
 
-    const int N  = out.N();               ///< batch size (N1 == N0)
-    const int H1 = in.H(), H0 = out.H();  ///< input output H
-    const int C0 = tw.H(), C1 = tw.W();   ///< filter dimensions
+    const int N  = out.N();                         ///< batch size (N1 == N0)
+    const int H1 = in.H(), H0 = out.H();            ///< input output H
+    const int C0 = tw.H(), C1 = tw.W();             ///< filter dimensions
         
     TRACE1("\n\tdw[%d,%d] += out'[%d,1] @ in^t[1,%d]", C0, C1, H0, H1);
     TRACE1("\n\tin[%d, 1]  = w^t[%d,%d] @ out'[%d,1]", H1, C1, C0, H0);
 
-    if (tw.numel > T4_WARP_SQ * 4) {
+    if (tw.numel > T4_WARP_SQ) {                    /// * parallel mode
         dim3 blk(T4_WARP_SZ, T4_WARP_SZ, 1);
-        dim3 grd(NGRID(C1, C0, N, blk));
+        dim3 grd(NGRID(C0, C1, N, blk));
+        dim3 grx(NGRID(C1, 1, N, blk));
 
-        k_dlinear<<<grd, blk>>>(
-            in.data, out.data, tw.data, tdw.data, tdb.data,
+        k_dlinear_dwdb<<<grd, blk>>>(               /// * update dB, dW
+            in.data, out.data, tdw.data, tdb.data,
+            C1, C0, in.HWC(), out.HWC());
+        k_dlinear_dx<<<grx, blk>>>(                 /// * update dX (in parallel)
+            in.data, out.data, tw.data,
             C1, C0, in.HWC(), out.HWC());
         GPU_SYNC();
     }
-    else {
+    else {                                          /// * serial mode (for validation)
         TRACE1("*");
         for (int n = 0; n < N; n++) {
             DU *x = in.slice(n), *y = out.slice(n), *dw = tdw.data;
