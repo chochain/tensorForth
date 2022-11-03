@@ -22,12 +22,12 @@ class Mnist : public Corpus {
     ifstream t_in;       ///< target label file handle
     
 public:
-    Mnist(const char *data_name, const char *label_name)
-        : Corpus(data_name, label_name) {}
+    Mnist(const char *data_name, const char *label_name, bool trace)
+        : Corpus(data_name, label_name, trace) {}
     ~Mnist() { _close(); }
     
     virtual Corpus *fetch(int batch_id=0, int batch_sz=0);  /// * bid=bsz=0 => load entire set
-    virtual Corpus *rewind() { d_in.clear(); t_in.clear(); eof = 0; return this; }
+    virtual Corpus *rewind() { d_in.clear(); t_in.clear(); return Corpus::rewind(); }
 
 private:
     int _open();
