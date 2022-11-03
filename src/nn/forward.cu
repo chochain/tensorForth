@@ -136,10 +136,9 @@ __GPU__ Model&
 Model::forward(Tensor &input) {
     Tensor &n1 = (*this)[1];  ///< reference model input layer
     
-    if (input.is_dataset() && input.is_same_shape(n1)) {
-        _hot = &onehot((Dataset&)input);     /// * cache batch one-hot vectors
+    if (!input.is_dataset() || !input.is_same_shape(n1)) {
+        ERROR("Model#forward dataset dim != model input dim?\n");
     }
-    else ERROR("Model#forward dataset dim != model input dim?\n");
     
     n1 = input;               /// * copy dataset batch into the first layer
     ///
@@ -163,6 +162,12 @@ Model::forward(Tensor &input) {
         _fstep(in, out);
 //        debug(out);
     }
+    ///
+    /// collect onehot vector and hit count
+    ///
+    _hot = &onehot((Dataset&)input);            /// * cache batch one-hot vectors
+    _hit = hit(true);                           /// * recalc hit count
+    
     TRACE1("\nModel#forward %5.2f ms\n", _mmu->ms() - t0);
     
     return *this;

@@ -42,17 +42,17 @@ Model::onehot() {
 __GPU__ Tensor&
 Model::onehot(Dataset &dset) {
     auto show = [](DU *h, int n, int sz) {
-        printf("onehot[%d]={", n);
+        printf("Model::onehot[%d]={", n);
         for (int i = 0; i < sz; i++) {
             printf("%2.0f", h[i]);
         }
         printf("}\n");
     };
-    Tensor &out = (*this)[-1];                         ///< model output
-    int    N    = out.N(), hwc = out.HWC();            ///< sample size
-    Tensor &hot = _t4(N, hwc).fill(DU0);               ///< one-hot vector
-    for (int n = 0; n < N; n++) {                      /// * loop through batch
-        DU *h = hot.slice(n);                          ///< take a sample
+    Tensor &out = (*this)[-1];                      ///< model output
+    int    N    = out.N(), hwc = out.HWC();         ///< sample size
+    Tensor &hot = _t4(N, hwc).fill(DU0);            ///< one-hot vector
+    for (int n = 0; n < N; n++) {                   /// * loop through batch
+        DU *h = hot.slice(n);                       ///< take a sample
         U32 i = INT(dset.label[n]);
         h[i < hwc ? i : 0] = DU1;
         if (_trace > 0) show(h, n, hwc);
@@ -60,20 +60,43 @@ Model::onehot(Dataset &dset) {
     return hot;
 }
 
+__GPU__ int
+Model::hit(bool recalc) {
+    if (!recalc) { return _hit; }                   /// * return current hit count
+    
+    auto argmax = [](DU *h, int sz) {
+        DU  mx = *h;
+        int m  = 0;
+        for (int i = 1; i < sz; i++) {              /// * CDP 
+            if (h[i] > mx) { mx = h[i]; m = i; }
+        }
+        return m;
+    };
+    Tensor &out = (*this)[-1];                      ///< model output
+    int cnt = 0;
+    for (int n = 0; n < out.N(); n++) {             ///< loop through batch
+        int  m = argmax(out.slice(n), out.HWC());
+        cnt += INT(_hot->slice(n)[m]);              /// * compare to onehot vector
+    }
+    TRACE1("Model::hit=%d\n", cnt);
+    return cnt;
+}
+
 __GPU__ DU
 Model::loss(t4_loss op) {
-    return loss(op, *_hot);                     /// * use default one-hot vector
+    return loss(op, *_hot);                         /// * use default one-hot vector
 }
+
 __GPU__ DU
-Model::loss(t4_loss op, Tensor &hot) {          ///< loss against one-hot
-    Tensor &out = (*this)[-1];                  ///< model output
-    if (!out.is_same_shape(hot)) {              /// * check dimensions
+Model::loss(t4_loss op, Tensor &hot) {              ///< loss against one-hot
+    Tensor &out = (*this)[-1];                      ///< model output
+    if (!out.is_same_shape(hot)) {                  /// * check dimensions
         ERROR("Model#loss hot dim != out dim\n");
         return;
     }
-    Tensor &tmp = _mmu->copy(out);              ///< non-destructive
-    DU err = _loss(op, tmp, hot);               /// * calculate loss
-    _mmu->free(tmp);                            /// * free memory
+    Tensor &tmp = _mmu->copy(out);                  ///< non-destructive
+    DU err = _loss(op, tmp, hot);                   /// * calculate loss
+    _mmu->free(tmp);                                /// * free memory
 
     return err;
 }
@@ -84,12 +107,12 @@ Model::loss(t4_loss op, Tensor &hot) {          ///< loss against one-hot
 ///
 __GPU__ Model&
 Model::sgd(DU lr, DU m, bool zero) {
-    Tensor &n1 = (*this)[1];                   ///< reference model input layer
-    DU     t0  = _mmu->ms();                   ///< performance measurement
+    Tensor &n1 = (*this)[1];                       ///< reference model input layer
+    DU     t0  = _mmu->ms();                       ///< performance measurement
     ///
     /// cascade execution layer by layer forward
     ///
-    const int N = n1.N();                      ///< batch size
+    const int N = n1.N();                          ///< batch size
     auto update = [this, N, lr, m, zero](const char nm, Tensor &f, Tensor &df) {
         TRACE1(" %c[%d,%d,%d,%d]", nm, f.N(), f.H(), f.W(), f.C());
         if (m < DU_EPS) {
