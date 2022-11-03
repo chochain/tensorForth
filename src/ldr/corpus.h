@@ -7,7 +7,7 @@
 #ifndef T4_CORPUS_H
 #define T4_CORPUS_H
 
-#define DS_LOG1(...)         printf(__VA_ARGS__)
+#define DS_LOG1(...)         if (trace > 0) printf(__VA_ARGS__)
 #define DS_ERROR(...)        fprintf(stderr, __VA_ARGS__)
 #define IO_ERROR(fn)         fprintf(stderr, "ERROR: open file %s failed\n", fn)
 
@@ -22,15 +22,15 @@ typedef uint8_t U8;
 struct Corpus {
     const char *ds_name;      ///< data source name
     const char *tg_name;      ///< target label name
-    
+
     int   N, H, W, C;         ///< set dimensions and channel size
-    int   eof = 0;
-    
+    int   eof    = 0;
+    bool  trace  = false;
     U8    *data  = NULL;      ///< source data pointer
     U8    *label = NULL;      ///< label data pointer
 
-    Corpus(const char *data_name, const char *label_name)
-        : ds_name(data_name), tg_name(label_name), N(0) {}
+   Corpus(const char *data_name, const char *label_name, bool trace)
+       : ds_name(data_name), tg_name(label_name), trace(trace), N(0) {}
     
     ~Corpus() {
         if (!data) return;
@@ -55,7 +55,7 @@ struct Corpus {
         DS_LOG1("batch(U8*) implemented?\n");
         return this;
     }
-    virtual Corpus *rewind() { return this; }
+    virtual Corpus *rewind() { eof = 0; return this; }
     virtual U8 *operator [](int idx){ return &data[idx * dsize()]; }  ///< data point
 };
 #endif // T4_CORPUS_H
