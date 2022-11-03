@@ -19,6 +19,7 @@ class Model : public T4Base {
     MMU     *_mmu;          ///< tensor storage base
     Tensor  *_store;        ///< model storage - Sequential, TODO: DAG
     Tensor  *_hot  = NULL;  ///< cached dataset one-hot vector
+    int     _hit   = 0;
     
 public:
     bool    autograd = true;
@@ -67,6 +68,7 @@ public:
     /// @{
     __GPU__ Tensor &onehot();                           ///< get default onehot vector
     __GPU__ Tensor &onehot(Dataset &dset);              ///< calculate one-hot vector
+    __GPU__ int    hit(bool recalc=false);              ///< calculate hit count
     __GPU__ DU     loss(t4_loss op);                    ///< calc loss with cached one-hot vector
     __GPU__ DU     loss(t4_loss op, Tensor &hot);       ///< calc loss from one-hhot vector
     /// @}
