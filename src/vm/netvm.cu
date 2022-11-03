@@ -178,6 +178,9 @@ NetVM::init() {
             PUSH(hot); hot.ref_inc();
         }
         else ERROR("TOS is not a model!\n")),
+    CODE("nn.hit", 
+        if (IS_M(top)) PUSH(I2D(MTOS.hit()));
+        else ERROR("TOS is not a model!\n")),
     CODE("dataset",                             /// * create a dataset
         char *dsn = next_idiom();               ///< retrieve dataset name
         I16   bsz = POPi;                       ///< batch size
