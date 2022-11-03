@@ -55,7 +55,7 @@ Model::onehot(Dataset &dset) {
         DU *h = hot.slice(n);                       ///< take a sample
         U32 i = INT(dset.label[n]);
         h[i < hwc ? i : 0] = DU1;
-        if (_trace > 0) show(h, n, hwc);
+        if (_trace > 1) show(h, n, hwc);
     }
     return hot;
 }
