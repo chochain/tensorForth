@@ -538,10 +538,10 @@ MMU::load(std::ostream &fout, U16 bop, DU top, char *ds_name) {
     }
     if (bop==0 && ds.batch_id >= 0) {            /// rewind dataset
         cp->rewind();
-        ds.batch_id = 0;
+        ds.batch_id = ds.done = 0;
     }
     else if ((ds.done=cp->eof)) {                /// * dataset exhausted?
-        printf(" => completed, no more data.\n"); return 0;
+        TRACE1(" => completed, no more data.\n"); return 0;
     }
     ///
     /// init and load a batch of data points
