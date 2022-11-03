@@ -141,7 +141,7 @@ TensorForth::TensorForth(int device, int verbose) {
     MM_ALLOC(&vmst, VMST_SZ);                   ///> allocate for state of VMs
     MM_ALLOC(&vmst_cnt, sizeof(int)*4);
     
-    Loader::init();
+    Loader::init(verbose);
     ///
     /// instantiate virtual machines
     ///
