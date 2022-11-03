@@ -65,31 +65,31 @@ __KERN__ void k_linear(
     DU *I, DU *O, DU *W, DU *B,
     int C1, int C0, int HWC1, int HWC0
     ) {    
-    const int c1 = threadIdx.x + blockIdx.x * blockDim.x;
-    const int c0 = threadIdx.y + blockIdx.y * blockDim.y;
+    const int c0 = threadIdx.x + blockIdx.x * blockDim.x;
+    const int c1 = threadIdx.y + blockIdx.y * blockDim.y;
     const int n  = blockIdx.z;
 
     if (c0 < C0 && c1 < C1) {
+        /*
         DU *y = &O[c0 + n * HWC0];
         if (c1 == 0) *y = B[c0];
         atomicAdd(y, W[c1 + c0 * C1] * I[c1 + n * HWC1]);
-        
-        /* grd.C1=1 ~10% faster
+        */
+        ///* blk.C1=1 ~15% faster
         DU *w  = &W[c0 * C1], *x = &I[n * HWC1];
         DU acc = B[c0];
-        for (int k = 0; k < C1; k++) {
+        for (int k = 0; k < C1; k++) {                 /// * TODO: shuffle-sum
             acc += (*w++) * (*x++);
         }
         O[c0 + n * HWC0] = acc;
-        */
     }
 }
 
-template<int KS>                           /// kernel size
+template<int KS>                                      /// kernel size
 __KERN__ void k_pool(
-    t4_layer op,                           ///< pooling ops
-    DU *I, DU *O,                          ///< input, output buffers
-    int HW, int W                          ///< output HW (C0==C1)
+    t4_layer op,                                      ///< pooling ops
+    DU *I, DU *O,                                     ///< input, output buffers
+    int HW, int W                                     ///< output HW (C0==C1)
     ) {
     const int k0 = threadIdx.x + blockIdx.x * blockDim.x;
     const int j0 = k0 % W;                            ///< output x dim
@@ -245,15 +245,15 @@ Model::_flinear(Tensor &in, Tensor &out) {
     TRACE1(" = w[%d,%d] @ in[%d,%d,%d,%d] + b[%d]",
         C0, C1, in.N(), in.H(), in.W(), in.C(), tb.numel);
 
-    if (tw.numel > T4_WARP_SQ * 8) {                  /// * threadhold control
+    if (tw.numel > T4_WARP_SQ) {                      /// * threadhold control
         dim3 blk(T4_WARP_SZ, T4_WARP_SZ, 1);          ///< default blocks
-        dim3 grd(NGRID(C1, C0, N, blk));              ///< default grids
+        dim3 grd(NGRID(C0, 1, N, blk));               ///< default grids
         
         k_linear<<<grd,blk>>>(
             in.data, out.data, tw.data, tb.data, C1, C0, in.HWC(), out.HWC());
         GPU_SYNC();                                   /// * this makes it slow
     }
-    else {                                            /// * serial code
+    else {                                            /// * serial code (for validation)
         TRACE1("*"); 
         DU *w = tw.data, *b = tb.data;
         for (int n = 0; n < N; n++) {                 /// * walk through batch
