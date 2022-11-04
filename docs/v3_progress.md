@@ -136,6 +136,7 @@ nn.load my_net ds1 my_test      \ load from trained network and test
 |loss.ce|(N Ta -- N Ta')|cross-entropy, takes output from softmax activation|
 |loss.nll|(N Ta -- N Ta')|negative log likelihood, takes output from log-softmax activation|
 |predict|(N -- N n)|cost function (avg all losts)|
+|nn.hit|(N -- N n)|get number of hit (per mini-batch)|
 
 #### Propagation controls
 |word|param/example|tensor creation ops|
