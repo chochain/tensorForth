@@ -56,7 +56,7 @@ k_sum(DU *A, DU *sum, int sz) {
     ///
     /// sum up atomic
     ///
-    if (t.thread_rank() == 0) atomicAdd(sum, tt);
+    if (t.thread_rank() == 0) atomicAdd_block(sum, tt);
 }
 __KERN__ void
 k_matmul(
