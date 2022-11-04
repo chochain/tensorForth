@@ -42,19 +42,19 @@ __KERN__ void k_dconv2d(
             (i0 >= 0 && i0 < H && j0 >= 0 && j0 < W) /// * with zero padding
             ? O[z0] : DU0;                           /// * by channel
         g.sync();                                    /// * smem write barrier
-
+        if (c1 == 0) atomicAdd_block(&DB[c0], _O[xy]); /// * dB += dY
+        
         const int zf = c0 + c1 * KSQ * C0;           ///< filter index F[C1,KS,KS,C0]
         if (tx < TS && ty < TS) {                    /// * within tile [12x12]
             DU *fx = &F[zf + (KSQ - 1) * C0];        ///< F[c1,KS-1,KS-1,c0] i.e. rot180
-            DU *dx = &DF[zf], *ox = &_O[xy];         ///< DF[c1,0,0,c0], dY
+            DU *dfx= &DF[zf], *ox = &_O[xy];         ///< DF[c1,0,0,c0], dY
             DU sum = DU0;                            ///< dX sum (TSxTS threads)
-            #pragma unroll
             for (int y = 0; y < KS; y++) {           /// * process one KS * KS cell
                 for (int x = 0; x < KS; x++) {
                     sum     += (*fx) * ox[x];        /// * dX += F' @ dY (for each C1)
                     fx      -= C0;                   /// * walk F backward
-                    atomicAdd(dx, ox[x] * _I[xy]);   /// * dF += dY * X (TSxTS threads)
-                    dx      += C0;                   /// * DF[c1,0,1,c0]
+                    atomicAdd_block(dfx, ox[x] * _I[xy]);  /// * dF += dY * X (TSxTS threads)
+                    dfx     += C0;                   /// * DF[c1,0,1,c0]
                 }
                 ox += T4_WARP_SZ;
             }
@@ -63,7 +63,6 @@ __KERN__ void k_dconv2d(
                 else         I[z1] += sum;
             }
         }
-        if (c1 == 0) atomicAdd(&DB[c0], _O[xy]);     /// * dB += dY
         g.sync();                                    /// * d read barrier
     }
 }
@@ -79,9 +78,9 @@ __KERN__ void k_dlinear_dwdb(
 
     if (c0 < C0 && c1 < C1) {
         DU x = I[c1 + n * HWC1], dy = O[c0 + n * HWC0];
-        atomicAdd(&DW[cx], dy * x);                 /// * dw += dY * X^t
+        atomicAdd_block(&DW[cx], dy * x);           /// * dw += dY * X^t
         if (c1 == 0) {
-            atomicAdd(&DB[c0], dy);                 /// * db += dY
+            atomicAdd_block(&DB[c0], dy);           /// * db += dY
         }
     }
 }
@@ -89,14 +88,15 @@ __KERN__ void k_dlinear_dwdb(
 __KERN__ void k_dlinear_dx(
     DU *I, DU *O, DU *W,
     int C1, int C0, int HWC1, int HWC0
-    ) {    
+    ) {
     const int c1 = threadIdx.x + blockIdx.x * blockDim.x;
     const int n  = blockIdx.z;
 
     if (c1 < C1) {
-        DU acc = DU0, *w = &W[c1], *y = &O[n * HWC0];
-        for (int c0 = 0; c0 < C0; c0++, w+=C0) {      /// * TODO: shuffle-sum
-            acc += (*w) * (*y++);                     /// * dX = w^t @ dY
+        DU *w = &W[c1], *y = &O[n * HWC0];          /// * dX = W^t @ dY
+        DU acc = DU0;
+        for (int c0 = 0; c0 < C0; c0++, w+=C1) {
+            acc += (*w) * (*y++);
         }
         I[c1 + n * HWC1] = acc;
     }
@@ -254,9 +254,8 @@ Model::_bconv(Tensor &in, Tensor &out) {
         }
         GPU_SYNC();
     }
-//    _dump(in.data, in.H(), in.W(), in.C());
-//    _dump_db(tdb);
-//    _dump(tdf.data, tdf.H(), tdf.W(), tdf.C());
+    _dump_db(tdb);
+    _dump(tdf.data, tdf.H(), tdf.W(), tdf.C());
     if (_trace > 1) {
         _dump_dbdf(tdb, tdf);
     }
@@ -310,6 +309,7 @@ Model::_blinear(Tensor &in, Tensor &out) {
             }
         }
     }
+    _dump(in.data, in.H(), in.W(), in.C());
     if (_trace > 1) {
          _dump_db(tdb);
          _dump_dw(tdw, false);
