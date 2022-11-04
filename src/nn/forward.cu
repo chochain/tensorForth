@@ -71,17 +71,16 @@ __KERN__ void k_linear(
 
     if (c0 < C0 && c1 < C1) {
         /*
-        DU *y = &O[c0 + n * HWC0];
-        if (c1 == 0) *y = B[c0];
-        atomicAdd(y, W[c1 + c0 * C1] * I[c1 + n * HWC1]);
-        */
-        ///* blk.C1=1 ~15% faster
-        DU *w  = &W[c0 * C1], *x = &I[n * HWC1];
-        DU acc = B[c0];
-        for (int k = 0; k < C1; k++) {                 /// * TODO: shuffle-sum
+        ///* blk.C1=1 ~25% slower but shuffle-sum might get better
+        DU *w  = &W[c0 * C1], *x = &I[n * HWC1], acc = B[c0];
+        for (int k = 0; k < C1; k++) {
             acc += (*w++) * (*x++);
         }
         O[c0 + n * HWC0] = acc;
+        */
+        DU *y = &O[c0 + n * HWC0];
+        if (c1 == 0) *y = B[c0];                      /// Y = WX + B
+        atomicAdd_block(y, W[c1 + c0 * C1] * I[c1 + n * HWC1]);
     }
 }
 
@@ -247,7 +246,7 @@ Model::_flinear(Tensor &in, Tensor &out) {
 
     if (tw.numel > T4_WARP_SQ) {                      /// * threadhold control
         dim3 blk(T4_WARP_SZ, T4_WARP_SZ, 1);          ///< default blocks
-        dim3 grd(NGRID(C0, 1, N, blk));               ///< default grids
+        dim3 grd(NGRID(C0, C1, N, blk));              ///< default grids
         
         k_linear<<<grd,blk>>>(
             in.data, out.data, tw.data, tb.data, C1, C0, in.HWC(), out.HWC());
@@ -266,6 +265,7 @@ Model::_flinear(Tensor &in, Tensor &out) {
             }
         }
     }
+    // _dump(out.data, out.H(), out.W(), out.C());
     return 0;
 }
 
