@@ -42,7 +42,7 @@ __KERN__ void k_dconv2d(
             (i0 >= 0 && i0 < H && j0 >= 0 && j0 < W) /// * with zero padding
             ? O[z0] : DU0;                           /// * by channel
         g.sync();                                    /// * smem write barrier
-        if (c1 == 0) atomicAdd_block(&DB[c0], _O[xy]); /// * dB += dY
+        if (c1 == 0) atomicAdd(&DB[c0], _O[xy]);     /// * dB += dY
         
         const int zf = c0 + c1 * KSQ * C0;           ///< filter index F[C1,KS,KS,C0]
         if (tx < TS && ty < TS) {                    /// * within tile [12x12]
@@ -53,7 +53,7 @@ __KERN__ void k_dconv2d(
                 for (int x = 0; x < KS; x++) {
                     sum     += (*fx) * ox[x];        /// * dX += F' @ dY (for each C1)
                     fx      -= C0;                   /// * walk F backward
-                    atomicAdd_block(dfx, ox[x] * _I[xy]);  /// * dF += dY * X (TSxTS threads)
+                    atomicAdd(dfx, ox[x] * _I[xy]);  /// * dF += dY * X (TSxTS threads)
                     dfx     += C0;                   /// * DF[c1,0,1,c0]
                 }
                 ox += T4_WARP_SZ;
@@ -254,8 +254,8 @@ Model::_bconv(Tensor &in, Tensor &out) {
         }
         GPU_SYNC();
     }
-    _dump_db(tdb);
-    _dump(tdf.data, tdf.H(), tdf.W(), tdf.C());
+//     _dump_db(tdb);
+//     _dump(tdf.data, tdf.H(), tdf.W(), tdf.C());
     if (_trace > 1) {
         _dump_dbdf(tdb, tdf);
     }
@@ -309,7 +309,7 @@ Model::_blinear(Tensor &in, Tensor &out) {
             }
         }
     }
-    _dump(in.data, in.H(), in.W(), in.C());
+    // _dump(in.data, in.H(), in.W(), in.C());
     if (_trace > 1) {
          _dump_db(tdb);
          _dump_dw(tdw, false);
