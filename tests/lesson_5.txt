@@ -1,26 +1,40 @@
-.( ## MNIST convolution tests ## ) cr
-50 28 28 1 nn.model                        \ create a network model
-0.5 10 conv2d 2 maxpool relu               \ add a convolution block
-0.5 20 conv2d 0.5 dropout 2 maxpool relu   \ add another convolution block
-flatten 0.0 49 linear                      \ add reduction layer, and the
-0.5 dropout 0.0 10 linear softmax          \ final fully connected output
+.( ## MNIST convolution model comparison ## ) cr
+: nn_a ( N -- N' )                         \ simple model with 2 hidden layers
+  flatten 0.0 100 linear relu                 \ 1st hidden layer with relu activation
+  0.0 10 linear softmax ;                     \ 2nd hidden layer with softmax output
+: nn_b
+  0.5 2 conv2d                             \ add a convolution filter
+  flatten 0.0 100 linear relu
+  0.0 10 linear softmax ;
+: nn_c
+  0.5 10 conv2d 2 maxpool relu             \ add maxpool and relu activation
+  flatten 0.0 100 linear relu
+  0.0 10 linear softmax ;
+: nn_d
+  0.5 10 conv2d 2 maxpool relu
+  0.5 20 conv2d 0.5 dropout 2 maxpool relu \ add a second conv layer and dropout
+  flatten 0.0 100 linear
+  0.0 10 linear softmax ;
+: nn_e
+  0.5 10 conv2d 2 maxpool relu
+  0.5 20 conv2d 0.5 dropout 2 maxpool relu
+  flatten 0.0 100 linear 0.5 dropout       \ add dropout reduce overfitting
+  0.0 10 linear softmax ;
+
+50 28 28 1 nn.model                        \ create a model (50 per batch of 28x28x1 img)
+nn_d                                       \ use neural network model d
 constant md0                               \ keep as a constant
 
-md0                                        \ put model on TOS
-network                                    \ show model
-
-batchsize dataset mnist_train              \ create MNIST dataset with model batch size
+md0 batchsize dataset mnist_train          \ create MNIST dataset with model batch size
 constant ds0                               \ save dataset in a constant
 
-variable acc
-0 acc !
+variable acc 0 acc !                       \ create an accuracy counter, and zero it
 
-: cnn for forward backprop nn.hit acc +! 0.01 0.0 nn.sgd next 46 emit ;
-: stat cr clock . ." :hit=" acc @ . 0 acc ! ." , loss=" loss.ce . cr ;
-: epoch for cnn stat ds0 rewind next ;
-see epoch
+: cnn for forward backprop nn.hit acc +! 0.01 0.0 nn.sgd 46 emit next ;
+: stat cr . ." >" clock . ." : hit=" acc @ . 0 acc ! ." , loss=" loss.ce . cr ;
+: epoch for cnn r@ stat ds0 rewind next ;
 
-ds0
-19 epoch                                    \ execute CNN 
+ds0                                        \ push dataset as TOS
+19 epoch                                   \ execute multiple epoches
 
 bye
