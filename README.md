@@ -237,13 +237,14 @@ Note:
 </pre>
 
 ### TODO - by priorities
-* benchmark
-  + MNIST, CIFAR, Kaggle...
 * model
   + trained network load/save
+* benchmark
+  + CIFAR, Kaggle...
 * data
   + loader plug-in API
   + add K-fold sampler
+  + .petastorm, .csv loader (available on github)
 * VM
   + inter-VM communication (CUDA stream, review CUB again)
   + inter-VM loader (from VM->VM)
@@ -254,9 +255,7 @@ Note:
   + add layer - Sigmoid, Tanh, BatchNorm
   + add gradiant - Adam, AGC
   + add RNN
-* data
-  + .petastorm, .csv loader (available on github)
-* model
+  + consider Transformer
   + add GNN - dynamic graph with VMs
 
 ### LATER

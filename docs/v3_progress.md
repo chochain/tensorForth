@@ -17,6 +17,7 @@ A Forth word can be seen as a nested function that process data flow, i.e. y = f
   * add OpenGL viewer (for dataset)
   * dataset load - VM pause/resume
   * mini-batches through for loops
+  * benchmark - MNIST
 
 ### CNN Application Example
 <pre>
