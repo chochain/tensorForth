@@ -178,6 +178,7 @@ struct Tensor : public T4Base {
     __GPU__ __INLINE__ bool   operator>(Tensor &t)  { return 0; }
     __GPU__ __INLINE__ bool   operator<=(Tensor &t) { return 0; }
     __GPU__ __INLINE__ bool   operator>=(Tensor &t) { return 0; }
-    __GPU__ __INLINE__ bool   operator==(Tensor &t) { return 0; }
+    __GPU__ __INLINE__ bool   operator!=(Tensor &t) { return (intptr_t)this!=(intptr_t)&t; }
+    __GPU__ __INLINE__ bool   operator==(Tensor &t) { return (intptr_t)this==(intptr_t)&t; }
 };
 #endif // TEN4_SRC_TENSOR_H_
