@@ -50,9 +50,10 @@ private:
     ///
     /// tensor ops based on data types
     ///
-    __GPU__ void _ss_op(t4_ten_op op);                           ///< scalar-scalar (Forth) ops
-    __GPU__ void _ts_op(t4_ten_op op, t4_drop_opt x, bool swap); ///< tensor-scalar broadcast op
-    __GPU__ void _tt_op(t4_ten_op op, t4_drop_opt x);            ///< tensor-tensor ops
+    __GPU__ void _ss_op(t4_ten_op op);                           ///< scalar-scalar (eForth) ops
+    __GPU__ void _st_op(t4_ten_op op, t4_drop_opt x);            ///< scalar tensor op (broadcast)
+    __GPU__ void _ts_op(t4_ten_op op, t4_drop_opt x);            ///< tensor scalar op (broadcast)
+    __GPU__ void _tt_op(t4_ten_op op, t4_drop_opt x);            ///< tensor tensor op
     ///
     /// tensor-tensor ops
     ///

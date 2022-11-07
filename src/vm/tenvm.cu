@@ -102,15 +102,17 @@ TensorVM::xop1x(t4_ten_op op) {
     }
     if (tos) PUSH(t);
 }
+
 __GPU__ void
 TensorVM::xop2(t4_ten_op op, t4_drop_opt x) {
     ///
     /// 2-operand operator
     ///
     bool s0 = !IS_OBJ(top), s1 = !IS_OBJ(ss[-1]); /// * scalar flags
-    if (s0 && s1) return _ss_op(op);              /// * op(scalar, scalar)
-    if (s0 || s1) return _ts_op(op, x, s1);       /// * op(tensor, scalar)
-    _tt_op(op, x);                                /// * op(tensor, tensor)
+    if (s0 && s1) return _ss_op(op);              /// * scalar scalar op
+    if (s0)       return _ts_op(op, x);           /// * tensor scalar op
+    if (s1)       return _st_op(op, x);           /// * scalar tensor op
+    _tt_op(op, x);                                /// * tensor tensor op
 }
 /**
   TODO: Matrix product of two Tensors.
@@ -137,17 +139,19 @@ TensorVM::_ss_op(t4_ten_op op) {               ///< scalar-scalar ops
     case O_ADD: top += ss.pop();      break;
     case O_SUB: top = ss.pop() - top; break;
     case O_MUL: top *= ss.pop();      break;
-    case O_DIV: top = DIV(ss.pop(), top); SCALAR(top); break;
+    case O_DIV: top = DIV(ss.pop(), top); break;
     }
+    SCALAR(top);                               /// * even +- can set LSB
 }
-__GPU__ void
-TensorVM::_ts_op(t4_ten_op op, t4_drop_opt x, bool swap) { ///< tensor-scalar ops
-    auto drop = [this](Tensor &t) { POP(); mmu.free(t); };
 
-    Tensor &A = swap ? TTOS : TNOS;
-    DU     v  = swap ? ss[-1] : top;
+__GPU__ void
+TensorVM::_st_op(t4_ten_op op, t4_drop_opt x) { ///< scalar tensor op
+    auto drop = [this](Tensor &t) { POP(); mmu.free(t); POP(); };
+
+    Tensor &A = TTOS;                         /// * Tensor on TOS
+    DU     v  = ss[-1];                       /// * scalar as NOS
     Tensor &O = mmu.tensor(A.H(), A.W());
-    if (swap && (op==O_DIV || op==O_SUB)) {   /// * op(scaler, tensor)
+    if (op==O_DIV || op==O_SUB) {             /// * op(scaler, tensor)
         Tensor &B = mmu.tensor(A.numel);      /// * working tensor
         B.map(O_FILL, v);                     /// * broadcast
         Tensor::ten_op(op, B, A, O);          /// * Hadamard ops
@@ -156,8 +160,25 @@ TensorVM::_ts_op(t4_ten_op op, t4_drop_opt x, bool swap) { ///< tensor-scalar op
     else Tensor::ten_op(op, A, v, O);         /// * broadcast_op(tensor, scalar)
 
     static const char *opn[] = { "+", "-", "*", "/", "@", "x" };
+    VLOG1("%f %s A[%d,%d] => O[%d,%d]\n", v, opn[op], A.H(), A.W(), O.H(), O.W());
+    
+    if (x==DROP) drop(A);                     /// TODO: in-place
+    PUSH(O);
+}
+
+__GPU__ void
+TensorVM::_ts_op(t4_ten_op op, t4_drop_opt x) { ///< tensor scalar op
+    auto drop = [this](Tensor &t) { POP(); mmu.free(t); POP(); };
+
+    Tensor &A = TNOS;
+    DU     v  = top;
+    Tensor &O = mmu.tensor(A.H(), A.W());
+    Tensor::ten_op(op, A, v, O);              /// * broadcast_op(tensor, scalar)
+
+    static const char *opn[] = { "+", "-", "*", "/", "@", "x" };
     VLOG1("A[%d,%d] %s %f => O[%d,%d]\n", A.H(), A.W(), opn[op], v, O.H(), O.W());
-    if (x==DROP) { drop(A); POP(); }          /// TODO: in-place
+    
+    if (x==DROP) drop(A);                     /// TODO: in-place
     PUSH(O);
 }
 ///
