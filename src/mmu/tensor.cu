@@ -477,7 +477,8 @@ Tensor::std() {
         DU v = *d - avg;
         sum += v * v;
     }
-    return numel ? SQRT(sum / numel) : DU0;
+    sum = numel ? SQRT(sum / numel) : DU0;
+    return SCALAR(sum);
 }
 __GPU__ DU
 Tensor::max() {
@@ -504,7 +505,7 @@ Tensor::dot(Tensor &B) {
         }
     }
     else ERROR("A.dot(B) dim? %d != %d)\n", numel, B.numel);
-    return acc;
+    return SCALAR(acc);
 }
 ///=======================================================================
 /// linear algebra methods
@@ -519,7 +520,7 @@ Tensor::det() {
     DU v = DU1;
     for (U16 z = 0; z < m; z++) v *= data[z + z * n];
 
-    return v;
+    return SCALAR(v);
 }
 ///
 /// matrix upper triangle
