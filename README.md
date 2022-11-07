@@ -237,14 +237,17 @@ Note:
 </pre>
 
 ### TODO - by priorities
-* model
-  + trained network load/save
-* benchmark
-  + CIFAR, Kaggle...
+* model persistence
+  + .pt/.pkl PyTorch (cross validate)
+  <pre>
+    def load_model(self, model_path):
+       states = torch.load(model_path)
+       shared_layers = states['shared_layers']
+       self.layers.load_state_dict(shared_layers)
+  </pre>
 * data
-  + loader plug-in API
+  + add loader plug-in API - CIFAR
   + add K-fold sampler
-  + .petastorm, .csv loader (available on github)
 * VM
   + inter-VM communication (CUDA stream, review CUB again)
   + inter-VM loader (from VM->VM)
@@ -254,15 +257,21 @@ Note:
 * model
   + add layer - Sigmoid, Tanh, BatchNorm
   + add gradiant - Adam, AGC
-  + add RNN
-  + consider Transformer
-  + add GNN - dynamic graph with VMs
+  + add Transformer
+    - https://towardsdatascience.com/neural-machine-translation-inner-workings-seq2seq-and-transformers-229faff5895b
+    - https://towardsdatascience.com/a-detailed-guide-to-pytorchs-nn-transformer-module-c80afbc9ffb1
+    - https://nlp.seas.harvard.edu/2018/04/03/attention.html
+  + consider multi-domain (i.e. MDNet)
+  + consider RNN
+  + consider GNN - dynamic graph with VMs
 
 ### LATER
 * data
   + NCHW tensor format support (as in PyTorch)
-  + integrate ONNX
+  + loader - .petastorm, .csv (available on github)
+  + model persistance - .npy, .petastorm, hdf5
   + common models (VGG-19, ResNet (i.e. skip-connect), compare to Keras)
+  + integrate ONNX
 * plot
   + integrate plots (matplotlib, tensorboard)
 * code
