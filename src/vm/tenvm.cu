@@ -105,14 +105,36 @@ TensorVM::xop1x(t4_ten_op op) {
 
 __GPU__ void
 TensorVM::xop2(t4_ten_op op, t4_drop_opt x) {
+    static const char *opn[] = { "+", "-", "*", "/", "@", "x" };
     ///
     /// 2-operand operator
     ///
     bool s0 = !IS_OBJ(top), s1 = !IS_OBJ(ss[-1]); /// * scalar flags
     if (s0 && s1) return _ss_op(op);              /// * scalar scalar op
-    if (s0)       return _ts_op(op, x);           /// * tensor scalar op
-    if (s1)       return _st_op(op, x);           /// * scalar tensor op
-    _tt_op(op, x);                                /// * tensor tensor op
+    if (s0) {                                     /// * tensor scaler op
+        Tensor &O = _ts_op(op);
+        VLOG1("A[%d,%d] %s %f => O[%d,%d]\n",
+              TNOS.H(), TNOS.W(), opn[op], top, O.H(), O.W());
+        if (x==DROP) { POP(); mmu.free(TTOS); POP(); }
+        PUSH(O);
+        return;
+    }
+    if (s1) {                                     /// * scalar tensor op
+        Tensor &O = _st_op(op);
+        VLOG1("%f %s A[%d,%d] => O[%d,%d]\n",
+              ss[-1], opn[op], TTOS.H(), TTOS.W(), O.H(), O.W());
+        if (x==DROP) { mmu.free(TTOS); POP(); POP(); }
+        PUSH(O);
+        return;
+    }
+    
+    Tensor &O = _tt_op(op);                       /// * tensor tensor op
+    if (O != TTOS) {
+        VLOG1("TensorVM# A[%d,%d] %s B[%d,%d] => O[%d,%d]\n",
+             TNOS.H(), TNOS.W(), opn[op], TTOS.H(), TTOS.W(), O.H(), O.W());
+        if (x==DROP) { mmu.free(TTOS); POP(); mmu.free(TTOS); POP(); }
+        PUSH(O);
+    }
 }
 /**
   TODO: Matrix product of two Tensors.
@@ -144,10 +166,8 @@ TensorVM::_ss_op(t4_ten_op op) {               ///< scalar-scalar ops
     SCALAR(top);                               /// * even +- can set LSB
 }
 
-__GPU__ void
-TensorVM::_st_op(t4_ten_op op, t4_drop_opt x) { ///< scalar tensor op
-    auto drop = [this](Tensor &t) { POP(); mmu.free(t); POP(); };
-
+__GPU__ Tensor&
+TensorVM::_st_op(t4_ten_op op) {              ///< scalar tensor op
     Tensor &A = TTOS;                         /// * Tensor on TOS
     DU     v  = ss[-1];                       /// * scalar as NOS
     Tensor &O = mmu.tensor(A.H(), A.W());
@@ -158,61 +178,45 @@ TensorVM::_st_op(t4_ten_op op, t4_drop_opt x) { ///< scalar tensor op
         mmu.free(B);                          /// * free working tensor
     }
     else Tensor::ten_op(op, A, v, O);         /// * broadcast_op(tensor, scalar)
-
-    static const char *opn[] = { "+", "-", "*", "/", "@", "x" };
-    VLOG1("%f %s A[%d,%d] => O[%d,%d]\n", v, opn[op], A.H(), A.W(), O.H(), O.W());
     
-    if (x==DROP) drop(A);                     /// TODO: in-place
-    PUSH(O);
+    return O;
 }
 
-__GPU__ void
-TensorVM::_ts_op(t4_ten_op op, t4_drop_opt x) { ///< tensor scalar op
-    auto drop = [this](Tensor &t) { POP(); mmu.free(t); POP(); };
-
+__GPU__ Tensor&
+TensorVM::_ts_op(t4_ten_op op) {              ///< tensor scalar op
     Tensor &A = TNOS;
-    DU     v  = top;
     Tensor &O = mmu.tensor(A.H(), A.W());
-    Tensor::ten_op(op, A, v, O);              /// * broadcast_op(tensor, scalar)
-
-    static const char *opn[] = { "+", "-", "*", "/", "@", "x" };
-    VLOG1("A[%d,%d] %s %f => O[%d,%d]\n", A.H(), A.W(), opn[op], v, O.H(), O.W());
+    Tensor::ten_op(op, A, top, O);            /// * broadcast_op(tensor, scalar)
     
-    if (x==DROP) drop(A);                     /// TODO: in-place
-    PUSH(O);
+    return O;
 }
+
 ///
 /// op(tensor, tensor)
 ///
-__GPU__ void
-TensorVM::_tt_op(t4_ten_op op, t4_drop_opt x) {///< tensor-tensor ops
+__GPU__ Tensor&
+TensorVM::_tt_op(t4_ten_op op) {              ///< tensor-tensor ops
     Tensor &A = TNOS, &B = TTOS;
     ///
     /// broadcast_op(tensor, tensor)
     ///
-    Tensor *O = NULL;
-    bool   tt = true;                        ///< tensor-tensor flag
-    switch (op) {                            ///> op(tensor, tensor)
-    case O_DOT:  O = _tdot(A, B, &tt); break;
-    case O_SOLV: O = _solv(A, B);      break;
-    default:                                 ///> op(tensor, tensor) Hadamard
-        if (A.is_same_shape(B)) {            /// * match sizes
-            O = (A.rank==1 && B.rank==1)
-                ? &mmu.tensor(A.H())
-                : &mmu.tensor(A.H(), A.W());
-            Tensor::ten_op(op, A, B, *O);    /// * Hadamard ops
-            if (A.rank==1 && B.rank==1) O->reshape(O->numel);
-        }
+    if (op == O_DOT) return _tdot(A, B);
+    if (op == O_SOLV) {
+        U16 m = A.H(), k = A.W(), n = B.H();
+        return (B.rank!=1 || m!=k || k!=n)
+            ? (ERROR("dim?\n"), B) : _solv(A, B);
     }
-    if (tt && O) {
-        static const char *opn[] = { "+", "-", "*", "/", "@", "x" };
-        VLOG1("TensorVM# A[%d,%d] %s B[%d,%d] => O[%d,%d]\n",
-              A.H(), A.W(), opn[op], B.H(), B.W(), O->H(), O->W());
-        if (x==DROP) { POP(); mmu.free(B); POP(); mmu.free(A); }
-        PUSH(*O);
-    }
-    else if (tt) ERROR("dim?");
+    if (!A.is_same_shape(B)) return (ERROR("dim?\n"), B);
+    
+    Tensor &O = (A.rank==1 && B.rank==1)
+        ? mmu.tensor(A.H())
+        : mmu.tensor(A.H(), A.W());
+    Tensor::ten_op(op, A, B, O);              /// * Hadamard ops
+    if (A.rank==1 && B.rank==1) O.reshape(O.numel);
+    
+    return O;
 }
+
 __GPU__ Tensor&
 TensorVM::_tinv(Tensor &A) {                 ///< matrix inverse
     Tensor &I = mmu.tensor(A.H(), A.W()).identity();
@@ -221,49 +225,56 @@ TensorVM::_tinv(Tensor &A) {                 ///< matrix inverse
     mmu.free(X);                             /// * release temp 
     return I;
 }
-__GPU__ Tensor*
+
+__GPU__ Tensor&
 TensorVM::_tdiv(Tensor &A, Tensor &B) {      ///< tensor division
     U16 m = A.H(), ka = A.W(), kb = B.H(), n = B.W();
-    if (kb != n || ka != kb) return NULL;    /// * B square?
+    if (kb != n || ka != kb) return B;       /// * B square?
 
     Tensor &I = _tinv(B);
     Tensor &O = mmu.tensor(m, n);
     Tensor::mm(A, I, O);                     /// A * B^-1
     mmu.free(I);
-    return &O;
+    
+    return O;
 }
-__GPU__ Tensor*
-TensorVM::_tdot(Tensor &A, Tensor &B, bool *tt) {///< tensor dot product
-    Tensor *O = NULL;
+
+__GPU__ Tensor&
+TensorVM::_tdot(Tensor &A, Tensor &B) {      ///< tensor dot product
     if (B.rank==1 &&                         ///> dot(vector, vector)
         A.rank==1 && A.numel==B.numel) {
         DU v = A.dot(B);
         PUSH(v);
-        *tt = false;
-        VLOG1("A[%d] @ B[%d] => %f\n", A.H(), B.H(), v);
+        VLOG1("A[%d] · B[%d] => %f\n", A.H(), B.H(), v);
+        return B;                            /// * non-tensor
     }
-    else if (B.rank==1 && A.W()==B.numel) {  ///> inner(tensor, vector)
-        O = &mmu.tensor(A.H());
-        Tensor::mm(A, B, *O);
+    if (B.rank==1 && A.W()==B.numel) {       ///> inner(tensor, vector)
+        Tensor &O = mmu.tensor(A.H());
+        Tensor::mm(A, B, O);
+        return O;
     }
-    else if (A.W()==B.H()) {                 /// * tensor @ tensor
-        O = &mmu.tensor(A.H(), B.W());
-        Tensor::mm(A, B, *O);
+    if (A.W()==B.H()) {                      /// * tensor @ tensor
+        Tensor &O = mmu.tensor(A.H(), B.W());
+        Tensor::mm(A, B, O);
+        return O;
     }
-    return O;
 }
-__GPU__ Tensor*
+
+__GPU__ Tensor&
 TensorVM::_solv(Tensor &B, Tensor &A) {      /// Note: A B flipped [3,3]x[3,1]
-    printf("solv[%d,%d]x[%d,%d]\n", A.H(), A.W(), B.H(), B.W());
     U16 m = A.H(), k = A.W(), n = B.H();
-    if (B.rank!=1 || m!=k || k!=n) return NULL;
+    VLOG1("solv[%d,%d] x [%d,%d]\n", m, k, k, n);
+    
+    if (B.rank!=1 || m!=k || k!=n) return B;
     
     Tensor &I = _tinv(A);
     Tensor &O = mmu.tensor(k);               /// resultant vector
     Tensor::mm(I, B, O);                     /// O = A^-1 x B
     mmu.free(I);
-    return &O;
+    
+    return O;
 }
+
 __GPU__ void
 TensorVM::_gemm() {                          ///< blas GEMM
     if (!TOS3T) { ERROR("tensors?"); return; }
@@ -376,8 +387,8 @@ TensorVM::init() {
     CODE("matdiv",                        ///< (A B -- A B C) matrix divide
         if (TOS2T) return;
         Tensor &A = TNOS; Tensor &B = TTOS;
-        Tensor *C = _tdiv(A, B);
-        PUSH(*C)),
+        Tensor &C = _tdiv(A, B);
+        if (C != B) PUSH(C)),
     CODE("solve",     xop2(O_SOLV,KEEP)), ///< (B A -- B A X) solve linear equations AX = B
     CODE("gemm",      _gemm()),           ///< (a b A B C -- a b A B C') GEMM (C updated)
     ///@}
