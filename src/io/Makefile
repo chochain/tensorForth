@@ -17,9 +17,10 @@ IO_EXT:= \
 	src/mmu/util.h \
 	src/mmu/mmu.h \
 	src/mmu/tensor.h \
-	src/mmu/model.h
+	src/mmu/model.h \
+    src/ldr/loader.h
 
-IO_LIBS := -Isrc/mmu
+IO_LIBS := -Isrc/mmu -Isrc/ldr
 
 OBJS += $(IO_OBJS)
 
