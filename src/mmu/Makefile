@@ -25,7 +25,7 @@ OBJS += $(MMU_OBJS)
 MMU_EXT := \
 	src/ldr/loader.h
 
-MMU_LIBS := -Isrc/ldr
+MMU_LIBS :=
 
 .PHONY: src-mmu clean-src-mmu
 
