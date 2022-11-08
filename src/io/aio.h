@@ -39,6 +39,10 @@ private:
     __HOST__ void _print_mat(DU *d, int mi, int mj, int ri, int rj, int ci);
     __HOST__ void _print_tensor(DU v);
     __HOST__ void _print_model(DU v);
+    ///
+    /// dataset IO
+    ///
+    __HOST__ int  _fetch(DU top, bool more, char *ds_name=NULL); ///< fetch a dataset batch (bop=1 load batch, bop=0 rewind)
 #endif // T4_ENABLE_OBJ
 };
 #endif // TEN4_SRC_AIO_H_

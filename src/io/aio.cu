@@ -7,7 +7,9 @@
 #include <cstdio>        // printf
 #include <iostream>      // cin, cout
 #include <iomanip>       // setbase, setprecision
-#include "model.h"       // in ../nn
+#include "dataset.h"     // in ../mmu
+#include "model.h"       // in ../mmu
+#include "loader.h"      // in ../ldr (include corpus.h)
 #include "aio.h"
 ///
 /// AIO takes managed memory blocks as input and output buffers
@@ -52,12 +54,10 @@ AIO::process_node(obuf_node *node) {
         case OP_DUMP:  _mmu->mem_dump(cout, (IU)o->a, (IU)o->n);        break;
         case OP_SS:    _mmu->ss_dump(cout, (IU)node->id, o->a, _radix); break;
         case OP_DATA:
-            node = NEXTNODE(node);                ///< fetch file name
-            _mmu->load(cout, (U16)o->a, o->n, (char*)node->data);
+            node = NEXTNODE(node);                          ///< get dataset repo name
+            _fetch(o->n, (bool)o->a, (char*)node->data);    /// * fetch first batch
             break;
-        case OP_LOAD:
-            _mmu->load(cout, (U16)o->a, o->n);    ///< reload (file name=NULL)
-            break;
+        case OP_FETCH: _fetch(o->n, (bool)o->a); break;     /// * fetch/rewind dataset batch
         }
     } break;
     default: cout << "print type not supported: " << (int)node->gt; break;
@@ -199,5 +199,67 @@ AIO::_print_model(DU v) {
         if (_trace && t.grad_fn != L_NONE) finfo(t.grad);
         cout << endl;
     }
+}
+///
+/// initial dataset setup
+/// init flow:
+///    netvm#dataset
+///    -> aio::process_node
+///    -> mmu::dataset          - set N=batch_sz, batch_id = -1
+///
+/// fetch flow:
+///    netvm#fetch
+///    -> aio::process_node
+///    -> aio::fetch
+///      -> corpus::fetch       - fetch host label/image blocks from files
+///      -> dataset::reshape    - set dimensions for the first batch (no alloc yet) 
+///      -> dataset::load_batch - transfer host blocks to device
+///         -> dataset::alloc   - alloc device memory blocks if needed
+///
+__HOST__ int
+AIO::_fetch(DU top, bool more, char *ds_name) {
+    Dataset &ds = (Dataset&)_mmu->du2obj(top);    ///< dataset ref
+    U32     dsx = DU2X(top);                      ///< dataset mnemonic
+    if (!ds.is_dataset()) {                       /// * indeed a dataset?
+        ERROR("mmu#load TOS is not a dataset\n");
+        return -1;
+    }
+    ///
+    /// search cache for top <=> dataset pair
+    ///
+    TRACE1("\nAIO::%s dataset (id=%x) => ",
+           ds_name ? ds_name : (more ? "fetch" : "rewind"), dsx);
+    Corpus *cp = Loader::get(dsx, ds_name);      ///< Corpus/Dataset provider
+    if (!cp) {
+        ERROR("dataset not found\n"); return -1;
+    }
+    if (more==0 && ds.batch_id >= 0) {            /// rewind dataset
+        cp->rewind();
+        ds.batch_id = ds.done = 0;
+    }
+    else if ((ds.done=cp->eof)) {                /// * dataset exhausted?
+        TRACE1("completed, no more data.\n"); return 0;
+    }
+    ///
+    /// init and load a batch of data points
+    ///
+    int batch_sz = ds.N();                        ///< dataset batch size
+    int bid = ds.batch_id < 0 ? 0 : ds.batch_id;  ///< batch_id to fetch
+    if (!cp->fetch(bid, batch_sz)) {              /// * fetch a batch from Corpus
+        ERROR("fetch failed\n");  return -2;
+    }
+    if (ds.batch_id < 0) {
+        ds.reshape(batch_sz, cp->H, cp->W, cp->C);
+        ds.batch_id = 1;                          /// * ready for next batch
+    }
+    else ds.batch_id++;
+    ///
+    /// transfer host into device memory
+    /// if needed, allocate Dataset device (managed) memory blocks
+    ///
+    if (!cp->eof) ds.load_batch(cp->data, cp->label);
+    TRACE1("batch[%d] %d record(s) loaded\n", ds.batch_id - 1, batch_sz);
+    
+    return 0;
 }
 #endif // T4_ENABLE_OBJ
