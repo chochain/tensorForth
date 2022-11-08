@@ -7,7 +7,6 @@
 #include <iomanip>             // setw, setbase
 #include "model.h"             // in ../nn, include ../mmu/mmu.h
 #include "dataset.h"           // in ../nn
-#include "loader.h"            // in ../ldr
 ///
 /// random number generator setup
 /// Note: kept here because curandStates stays in CUDA memory
@@ -503,65 +502,4 @@ MMU::mem_dump(std::ostream &fout, U16 p0, U16 sz) {
         fout << buf;
     }
     fout << std::endl;
-}
-///
-/// setup initial dataset parameters
-/// init flow:
-///    netvm#dataset
-///    -> aio::process_node
-///    -> mmu::dataset          - set N=batch_sz, batch_id = -1
-///
-/// reload flow:
-///    netvm#fetch
-///    -> aio::process_node
-///    -> mmu::load
-///      -> corpus::fetch       - fetch host label/image blocks from files
-///      -> dataset::reshape    - set dimensions for the first batch (no alloc yet) 
-///      -> dataset::load_batch - transfer host blocks to device
-///         -> dataset::alloc   - alloc device memory blocks if needed
-///
-__HOST__ int
-MMU::load(std::ostream &fout, U16 bop, DU top, char *ds_name) {
-    Dataset &ds = (Dataset&)du2obj(top);          ///< dataset ref
-    U32     dsx = DU2X(top);                      ///< dataset mnemonic
-    if (!ds.is_dataset()) {                       /// * indeed a dataset?
-        ERROR("mmu#load TOS is not a dataset\n");
-        return -1;
-    }
-    ///
-    /// search cache for top <=> dataset pair
-    ///
-    TRACE1("\n%s dataset (id=%x)", ds_name ? ds_name : (bop ? "fetch" : "rewind"), dsx);
-    Corpus *cp = Loader::get(dsx, ds_name);      ///< Corpus/Dataset provider
-    if (!cp) {
-        ERROR(" => dataset not found\n"); return -1;
-    }
-    if (bop==0 && ds.batch_id >= 0) {            /// rewind dataset
-        cp->rewind();
-        ds.batch_id = ds.done = 0;
-    }
-    else if ((ds.done=cp->eof)) {                /// * dataset exhausted?
-        TRACE1(" => completed, no more data.\n"); return 0;
-    }
-    ///
-    /// init and load a batch of data points
-    ///
-    int batch_sz = ds.N();                        ///< dataset batch size
-    int bid = ds.batch_id < 0 ? 0 : ds.batch_id;  ///< batch_id to fetch
-    if (!cp->fetch(bid, batch_sz)) {              /// * fetch a batch from Corpus
-        ERROR(" => '%s' fetch failed\n", ds_name);
-        return -2;
-    }
-    if (ds.batch_id < 0) {
-        ds.reshape(batch_sz, cp->H, cp->W, cp->C);
-        ds.batch_id = 1;                          /// * ready for next batch
-    }
-    else ds.batch_id++;
-    ///
-    /// transfer host into device memory
-    /// if needed, allocate Dataset device (managed) memory blocks
-    ///
-    if (!cp->eof) ds.load_batch(cp->data, cp->label);
-    
-    return 0;
 }
