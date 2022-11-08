@@ -200,12 +200,9 @@ TensorVM::_tt_op(t4_ten_op op) {              ///< tensor-tensor ops
     ///
     /// broadcast_op(tensor, tensor)
     ///
-    if (op == O_DOT) return _tdot(A, B);
-    if (op == O_SOLV) {
-        U16 m = A.H(), k = A.W(), n = B.H();
-        return (B.rank!=1 || m!=k || k!=n)
-            ? (ERROR("dim?\n"), B) : _solv(A, B);
-    }
+    if (op == O_DOT)  return _tdot(A, B);    /// * O = A · B
+    if (op == O_SOLV) return _solv(B, A);    /// * solve B = A @ X (notation flipped)
+    
     if (!A.is_same_shape(B)) return (ERROR("dim?\n"), B);
     
     Tensor &O = (A.rank==1 && B.rank==1)
@@ -261,11 +258,11 @@ TensorVM::_tdot(Tensor &A, Tensor &B) {      ///< tensor dot product
 }
 
 __GPU__ Tensor&
-TensorVM::_solv(Tensor &B, Tensor &A) {      /// Note: A B flipped [3,3]x[3,1]
+TensorVM::_solv(Tensor &A, Tensor &B) {      /// Note: A B flipped [3,3]x[3,1]
     U16 m = A.H(), k = A.W(), n = B.H();
-    VLOG1("solv[%d,%d] x [%d,%d]\n", m, k, k, n);
+    VLOG1("solv[%d,%d] x [%d]\n", m, k, n);
     
-    if (B.rank!=1 || m!=k || k!=n) return B;
+    if (B.rank!=1 || m!=k || k!=n) return A;
     
     Tensor &I = _tinv(A);
     Tensor &O = mmu.tensor(k);               /// resultant vector

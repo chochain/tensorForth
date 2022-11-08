@@ -42,26 +42,26 @@ protected:
     ///
     /// tensor ops based on number of operands
     ///
-    __GPU__ void xop1(t4_ten_op op, DU v=DU0);                   /// 1-operand ops in-place
-    __GPU__ void xop1x(t4_ten_op op);                            /// 1-operand ops with new tensor
-    __GPU__ void xop2(t4_ten_op op, t4_drop_opt x=KEEP);         /// 2-operand ops
+    __GPU__ void xop1(t4_ten_op op, DU v=DU0);            /// 1-operand ops in-place
+    __GPU__ void xop1x(t4_ten_op op);                     /// 1-operand ops with new tensor
+    __GPU__ void xop2(t4_ten_op op, t4_drop_opt x=KEEP);  /// 2-operand ops
     
 private:
     ///
     /// tensor ops based on data types
     ///
-    __GPU__ void _ss_op(t4_ten_op op);                           ///< scalar-scalar (eForth) ops
-    __GPU__ Tensor &_st_op(t4_ten_op op);                        ///< scalar tensor op (broadcast)
-    __GPU__ Tensor &_ts_op(t4_ten_op op);                        ///< tensor scalar op (broadcast)
-    __GPU__ Tensor &_tt_op(t4_ten_op op);                        ///< tensor tensor op
+    __GPU__ void _ss_op(t4_ten_op op);      ///< scalar-scalar (eForth) ops
+    __GPU__ Tensor &_st_op(t4_ten_op op);   ///< scalar tensor op (broadcast)
+    __GPU__ Tensor &_ts_op(t4_ten_op op);   ///< tensor scalar op (broadcast)
+    __GPU__ Tensor &_tt_op(t4_ten_op op);   ///< tensor tensor op
     ///
     /// tensor-tensor ops
     ///
-    __GPU__ Tensor &_tinv(Tensor &A);                            ///< matrix inversion
-    __GPU__ Tensor &_tdot(Tensor &A, Tensor &B);                 ///< matrix-matrix multiplication @
-    __GPU__ Tensor &_tdiv(Tensor &A, Tensor &B);                 ///< matrix-matrix division (no broadcast)
-    __GPU__ Tensor &_solv(Tensor &A, Tensor &B);                 ///< solve linear equation Ax = b
-    __GPU__ void   _gemm();                                      ///< GEMM C' = alpha * A x B + beta * C
+    __GPU__ Tensor &_tinv(Tensor &A);                     ///< matrix inversion
+    __GPU__ Tensor &_tdot(Tensor &A, Tensor &B);          ///< matrix-matrix multiplication @
+    __GPU__ Tensor &_tdiv(Tensor &A, Tensor &B);          ///< matrix-matrix division (no broadcast)
+    __GPU__ Tensor &_solv(Tensor &A, Tensor &B);          ///< solve linear equation Ax = b
+    __GPU__ void   _gemm();                               ///< GEMM C' = alpha * A x B + beta * C
 #endif // T4_ENABLE_OBJ
 };
 #endif // TEN4_SRC_TENVM_H
