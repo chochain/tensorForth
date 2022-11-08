@@ -33,17 +33,17 @@ public:
     __GPU__ virtual void init() final; ///< override TensorVM, TODO: does not work without 'final', why?
     
     __GPU__ void nnop(t4_layer op);
-    __GPU__ void predict(Tensor &I, Tensor &P);   ///< predict result
+    __GPU__ void predict(Tensor &I, Tensor &P);  ///< predict result
 
 private:
     /// @name dataset ops
     /// @{
-    __GPU__ void _fetch(U16 bop);              ///< calculate loss
+    __GPU__ void _fetch(DU d, bool more);        ///< fetch or rewind dataset
     /// @}
     /// @name Convolution, loss and Gradiant ops
     /// @{
-    __GPU__ void _conv();                      ///< init convolution layer
-    __GPU__ void _loss(t4_loss op);            ///< calculate loss
+    __GPU__ void _conv();                        ///< init convolution layer
+    __GPU__ void _loss(t4_loss op);              ///< calculate loss
     /// @}
 #endif // T4_ENABLE_OBJ
 };
