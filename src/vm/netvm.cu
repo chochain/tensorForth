@@ -64,7 +64,7 @@ NetVM::predict(Tensor &I, Tensor &P) {
 __GPU__ void
 NetVM::_fetch(U16 bop) {
     if (TOS1D) {
-        fout << opx(OP_LOAD, bop, top);     /// * issue a reload
+        fout << opx(OP_FETCH, bop, top);    /// * issue a fetch or rewind
         state = VM_WAIT;                    /// * return to CPU
     }
     else ERROR("TOS not dataset?\n");
@@ -230,7 +230,7 @@ NetVM::init() {
                 IP += sizeof(IU);                  /// * skip over to next word
             }
             else {
-                fout << opx(OP_LOAD, 1, rs[-1]);   /// * issue an reload
+                fout << opx(OP_FETCH, 1, rs[-1]);  /// * issue a dataset fetch
                 state = VM_WAIT;                   /// * return to CPU
                 IP    = mmu.ri(IP);                /// * loop branch target address
             }
