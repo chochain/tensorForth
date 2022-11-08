@@ -7,9 +7,8 @@
 |[release 1.0](https://github.com/chochain/tensorForth/releases/tag/v1.0.2)|**float**|beta|extended eForth with F32 float|Python|
 |[release 2.0](https://github.com/chochain/tensorForth/releases/tag/v2.0.2)|**matrix**|alpha|added vector and matrix objects|NumPy|
 |[release 2.2](https://github.com/chochain/tensorForth/releases/tag/v2.2.2)|**lapack**|alpha|added linear algebra methods|SciPy|
-|next|**CNN**|planning|add tensor NN ops with autograd|PyTorch|
-|-|**RNN**|later|-|-|
-|-|**Adaptive**|long|-|-|
+|next|**CNN**|in dev|add tensor NN ops with autograd|PyTorch|
+|-|**Transformer**|planning|-|-|
 
 ### Why?
 Compiled programs run fast on Linux. On the other hand, command-line interface and shell scripting tie them together in operation. With interactive development, small tools are built along the way, productivity usually grows with time, especially in the hands of researchers.
