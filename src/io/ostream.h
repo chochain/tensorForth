@@ -31,6 +31,8 @@ typedef enum {
     OP_DUMP,
     OP_SS,
     OP_DATA,
+    OP_FETCH,
+    OP_SAVE,
     OP_LOAD
 } OP;
 
@@ -107,7 +109,7 @@ class Ostream : public Managed {
             case OP_DUMP:  printf("dump(%d, %d)\n", o->a, (U16)o->n); break;
             case OP_SS:    printf("ss_dump(%d)\n", o->a);             break;
             case OP_DATA:  printf("data(%d)\n", o->a);                break;
-            case OP_LOAD:  printf("load(%d)\n", o->a);                break;
+            case OP_FETCH: printf("fetch(%d)\n", o->a);               break;
             }
         } break;
         default: printf("unknown type %d\n", gt);
