@@ -42,7 +42,7 @@ private:
     ///
     /// dataset IO
     ///
-    __HOST__ int  _fetch(DU top, bool more, char *ds_name=NULL); ///< fetch a dataset batch (bop=1 load batch, bop=0 rewind)
+    __HOST__ int  _fetch(DU top, bool more, char *ds_name=NULL); ///< fetch a dataset batch (more=true load batch, more=false rewind)
 #endif // T4_ENABLE_OBJ
 };
 #endif // TEN4_SRC_AIO_H_
