@@ -36,8 +36,9 @@ public:
     __GPU__ void predict(Tensor &I, Tensor &P);  ///< predict result
 
 private:
-    /// @name dataset ops
+    /// @name model and dataset ops
     /// @{
+    __GPU__ void _pickle(bool save);             ///<
     __GPU__ void _fetch(DU d, bool more);        ///< fetch or rewind dataset
     /// @}
     /// @name Convolution, loss and Gradiant ops

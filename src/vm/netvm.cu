@@ -45,10 +45,8 @@ NetVM::nnop(t4_layer op) {     /// vtable dispatcher
     case L_LOGSMAX: if (IS_M(top)) MTOS.add(op); break;
     case L_MAXPOOL: 
     case L_AVGPOOL:
-    case L_MINPOOL: if (M1V) { U16 n = POPi; MTOS.add(op, n); } break;
-    case L_DROPOUT: if (M1V) {
-            U16 p = int(100.0 * POP() + 0.5); MTOS.add(op, p);
-        } break;
+    case L_MINPOOL: if (M1V) { U16 n = POPi;  MTOS.add(op, n); }    break;
+    case L_DROPOUT: if (M1V) { DU  p = POP(); MTOS.add(op, 0, p); } break;
     default: ERROR("NetVM::nnop(%d) not supported\n", op);
     }
 }
@@ -63,13 +61,23 @@ NetVM::predict(Tensor &I, Tensor &P) {
 /// dataset ops
 ///
 __GPU__ void
-NetVM::_fetch(DU d, bool more) {
-    Dataset &ds = (Dataset&)mmu.du2obj(ds);
-    if (ds.is_dataset()) {
-        fout << opx(OP_FETCH, (U16)more, d);    /// * issue a fetch or rewind
-        state = VM_WAIT;                        /// * return to CPU
+NetVM::_pickle(bool save) {
+    if (!IS_M(top)) {
+        ERROR("TOS is not a model?\n"); return;
     }
-    else ERROR("TOS=%08x not dataset?\n", DU2X(d));
+    char *fn = next_idiom();                               ///< get saved model filename
+    fout << opx(save ? OP_SAVE : OP_LOAD, vid, top) << fn; /// * issue pickle command
+    state = VM_WAIT;                                       /// * return to CPU
+}
+
+__GPU__ void
+NetVM::_fetch(DU d, bool more) {
+    if (!((Dataset&)mmu.du2obj(d)).is_dataset()) {
+        ERROR("TOS=%08x not dataset?\n", DU2X(d));
+        return;
+    }
+    fout << opx(OP_FETCH, (U16)more, d);                   /// * issue a fetch or rewind
+    state = VM_WAIT;                                       /// * return to CPU
 }
 /// Convolution ops
 /// @default: 3x3 filter, padding=1, stride=1, dilation=1
@@ -115,7 +123,7 @@ NetVM::_loss(t4_loss op) {
 __GPU__ void
 NetVM::init() {
     const Code prim[] = {                   ///> singleton, build once only
-    ///@defgroup Convolution and Linear ops
+    ///@defgroup Model creation and persistence
     ///@{
     CODE("nn.model",                          ///> (n h w c -- N)
          if (ss.idx < 4 ||                    /// * param check
@@ -128,6 +136,11 @@ NetVM::init() {
          Tensor &t = mmu.tensor(n,h,w,c);     /// * create input tensor
          m.npush(t);                          /// * serves as the 1st layer
          PUSH(m)),
+    CODE("nn.save", _pickle(true)),           /// * save trainned model
+    CODE("nn.load", _pickle(false)),          /// * load trainned model
+    ///@}
+    ///@defgroup Convolution and Linear ops
+    ///@{
     CODE("batchsize",
          if (IS_M(top)) PUSH(MTOS.batch_size());
          else ERROR("TOS is not a model?\n")),
