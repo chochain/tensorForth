@@ -25,29 +25,34 @@ public:
     AIO(MMU *mmu, int verbose=0) :
         _istr(new Istream()), _ostr(new Ostream()), _mmu(mmu), _trace(verbose) {}
 
-    __HOST__ Istream *istream() { return _istr; }
-    __HOST__ Ostream *ostream() { return _ostr; }
-
     __HOST__ int       readline(std::istream &fin);
     __HOST__ obuf_node *process_node(std::ostream &fout, obuf_node *node);
     __HOST__ void      flush(std::ostream &fout);
 
 private:
 #if T4_ENABLE_OBJ
+    ///
+    /// object print methods
+    ///
     __HOST__ void _print_obj(std::ostream &fout, DU v);
     __HOST__ void _print_vec(std::ostream &fout, DU *d, int mi, int ri, int ci);
     __HOST__ void _print_mat(std::ostream &fout, DU *d, int mi, int mj, int ri, int rj, int ci);
     __HOST__ void _print_tensor(std::ostream &fout, DU v);
     __HOST__ void _print_model(std::ostream &fout, DU v);
     ///
-    /// dataset IO
+    /// dataset IO methods
     ///
     __HOST__ int  _fetch(DU top, bool more, char *ds_name=NULL); ///< fetch a dataset batch (more=true load batch, more=false rewind)
+    ///
+    /// NN model persistence (i.e. serialization) methods
+    ///
     __HOST__ int  _save(DU top, U16 vid, char *fname);
     __HOST__ int  _load(DU top, U16 vid, char *fname);
 
     __HOST__ int  _save_model(std::ostream &fout, Model &m);
     __HOST__ int  _save_param(std::ostream &fout, Model &m);
+    __HOST__ int  _load_model(std::istream &fin,  Model &m, char *fname);
+    __HOST__ int  _load_param(std::istream &fin,  Model &m);
 #endif // T4_ENABLE_OBJ
 };
 #endif // TEN4_SRC_AIO_H_
