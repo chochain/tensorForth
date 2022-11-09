@@ -251,12 +251,17 @@ Note:
   + inter-VM communication (CUDA stream, review CUB again)
   + inter-VM loader (from VM->VM)
 * refactor
+  + study JAX
+    - JIT (XLA)
+    - auto parallelization (pmap)
+    - auto vectorization (vmap)
+    - auto diff (grad), diffrax (RK4, Dormand-Prince)
   + add namespace
   + warp-level collectives (study libcu++, MordenGPU for kernel)
 * model
-  + add layer - Sigmoid, Tanh, BatchNorm
+  + add layer - Gelu, Sigmoid, Tanh, BatchNorm
   + add gradiant - Adam, AGC
-  + add Transformer
+  + add Transformer (BLOOM)
     - https://towardsdatascience.com/neural-machine-translation-inner-workings-seq2seq-and-transformers-229faff5895b
     - https://towardsdatascience.com/a-detailed-guide-to-pytorchs-nn-transformer-module-c80afbc9ffb1
     - https://nlp.seas.harvard.edu/2018/04/03/attention.html
