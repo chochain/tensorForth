@@ -155,8 +155,6 @@ Model::_idropout(Tensor &in, DU pct) {
     Tensor *msk = in.grad[0] = &_mmu->copy(in);  ///> dropout mask
     
     in.parm = int(1000.0 * pct + 0.5);           /// * keep pct * 1000
-
-    _mmu->random(*msk, UNIFORM, -pct);           /// * randomize w, shift p
     TRACE1("dropout=%6.3f\n", pct);
     
     npush(out);
