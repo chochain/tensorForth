@@ -177,15 +177,15 @@ TensorForth::vm_tally() {
 __HOST__ int
 TensorForth::run() {
     while (vm_tally() && HAS_BUSY) {
-        if (HAS_RUN || aio->readline()) { /// * feed from host console to managed input buffer
+        if (HAS_RUN || aio->readline(cin)) {  /// * feed from host console to managed buffer
             ///
             /// CUDA 11.6, dynamic parallelism does not work with coop-launch
             ///
             k_ten4_exec<<<VM_MIN_COUNT, 1, VMSS_SZ>>>();
             GPU_CHK();
             
-            aio->flush();                 /// * flush output buffer
-            k_ten4_sweep<<<1, 1>>>(mmu);  /// * release buffered memory
+            aio->flush(cout);                 /// * flush output buffer
+            k_ten4_sweep<<<1, 1>>>(mmu);      /// * release buffered memory
             GPU_CHK();
         }
         yield();
