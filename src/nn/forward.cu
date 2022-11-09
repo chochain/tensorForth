@@ -193,7 +193,9 @@ Model::_fstep(Tensor &in, Tensor &out) {
     case L_AVGPOOL: 
     case L_MINPOOL: _fpool(in, out, fn);   break;
     case L_DROPOUT: {                             ///< dropout mask 
-        Tensor &msk = *in.grad[0];
+        DU     pct  = 0.001 * in.parm;            ///< percentage dropout
+        Tensor &msk = *in.grad[0];                ///< dropout mask
+        _mmu->random(msk, UNIFORM, -pct);         /// * randomize w, shift pct
         _ffilter(in, msk, out);
     } break;
     default: ERROR("Model#forward layer=%d not supported\n", fn);
