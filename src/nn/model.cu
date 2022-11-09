@@ -45,7 +45,7 @@ Model::add(t4_layer fn, U16 n, DU bias, U16 *opt) {
     case L_MAXPOOL:
     case L_AVGPOOL:
     case L_MINPOOL: _ipool(in, n);              break;
-    case L_DROPOUT: _idropout(in, n);           break;
+    case L_DROPOUT: _idropout(in, bias);        break;
     default: ERROR("Model#add layer %d not supported\n", fn);
     }
     in.grad_fn = fn;
@@ -68,6 +68,7 @@ Model::_iconv(Tensor &in, U16 C0, DU bias, U16 *opt) {
         return;
     }
     in.stride[0] = in.stride[1] = s;
+    in.parm = int(bias * 1000.0 + 0.5);
     ///
     /// filter: C1 to C0 fully connected
     /// TODO: filters's 5th dimension is stored in parm field for now
@@ -96,6 +97,8 @@ Model::_ilinear(Tensor &in, U16 C0, DU bias) {
     Tensor *dw = in.grad[2] = &_t4(1, C0, C1, 1).map(O_FILL, DU0);  ///> dw
     Tensor *b  = in.grad[1] = &_vec(C0).map(O_FILL, bias);          ///> b
     Tensor *db = in.grad[3] = &_vec(C0).map(O_FILL, DU0);           ///> db
+    
+    in.parm = int(bias * 1000.0 + 0.5);          /// * keep for persistence
     
     DU k = DU1 / SQRT(C1);                       /// * default weight
     _mmu->random(*w, UNIFORM, -0.5, 2.0 * k);    /// * randomize w
@@ -147,14 +150,14 @@ Model::_ipool(Tensor &in, U16 f) {
 }
 
 __GPU__ void
-Model::_idropout(Tensor &in, U16 f) {
+Model::_idropout(Tensor &in, DU pct) {
     Tensor &out = _mmu->copy(in);
     Tensor *msk = in.grad[0] = &_mmu->copy(in);  ///> dropout mask
     
-    in.parm = f;                                 /// * keep fraction
-    DU p = -0.01 * f;                            ///< dropout fraction
-    _mmu->random(*msk, UNIFORM, p);              /// * randomize w, shift p
-    TRACE1("dropout=%d\n", f);
+    in.parm = int(1000.0 * pct + 0.5);           /// * keep pct * 1000
+
+    _mmu->random(*msk, UNIFORM, -pct);           /// * randomize w, shift p
+    TRACE1("dropout=%6.3f\n", pct);
     
     npush(out);
 }
