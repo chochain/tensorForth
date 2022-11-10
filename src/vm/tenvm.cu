@@ -170,7 +170,7 @@ __GPU__ Tensor&
 TensorVM::_st_op(t4_ten_op op) {              ///< scalar tensor op
     Tensor &A = TTOS;                         /// * Tensor on TOS
     DU     v  = ss[-1];                       /// * scalar as NOS
-    Tensor &O = mmu.tensor(A.H(), A.W());
+    Tensor &O = mmu.copy(A);                  /// * make a hard copy (and parameters)
     if (op==O_DIV || op==O_SUB) {             /// * op(scaler, tensor)
         Tensor &B = mmu.tensor(A.numel);      /// * working tensor
         B.map(O_FILL, v);                     /// * broadcast
@@ -184,8 +184,8 @@ TensorVM::_st_op(t4_ten_op op) {              ///< scalar tensor op
 
 __GPU__ Tensor&
 TensorVM::_ts_op(t4_ten_op op) {              ///< tensor scalar op
-    Tensor &A = TNOS;
-    Tensor &O = mmu.tensor(A.H(), A.W());
+    Tensor &A = TNOS;                         ///< tensor on NOS
+    Tensor &O = mmu.copy(A);                  ///< make a hard copy of A
     Tensor::ten_op(op, A, top, O);            /// * broadcast_op(tensor, scalar)
     
     return O;
@@ -205,11 +205,9 @@ TensorVM::_tt_op(t4_ten_op op) {              ///< tensor-tensor ops
     
     if (!A.is_same_shape(B)) return (ERROR("dim?\n"), B);
     
-    Tensor &O = (A.rank==1 && B.rank==1)
-        ? mmu.tensor(A.H())
-        : mmu.tensor(A.H(), A.W());
+    Tensor &O = mmu.copy(A);                  ///< make a hard copy
     Tensor::ten_op(op, A, B, O);              /// * Hadamard ops
-    if (A.rank==1 && B.rank==1) O.reshape(O.numel);
+    if (A.rank==1) O.reshape(O.numel);
     
     return O;
 }
