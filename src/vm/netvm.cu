@@ -65,9 +65,9 @@ NetVM::_pickle(bool save) {
     if (!IS_M(top)) {
         ERROR("TOS is not a model?\n"); return;
     }
-    char *fn = next_idiom();                               ///< get saved model filename
-    fout << opx(save ? OP_SAVE : OP_LOAD, vid, top) << fn; /// * issue pickle command
-    state = VM_WAIT;                                       /// * return to CPU
+    char *fn = next_idiom();                                 ///< get saved model filename
+    fout << opx(save ? OP_NSAVE : OP_NLOAD, vid, top) << fn; /// * issue pickle command
+    state = VM_WAIT;                                         /// * return to CPU
 }
 
 __GPU__ void
