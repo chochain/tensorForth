@@ -1,4 +1,4 @@
-## tensorForth - eForth does tensor calculus, implemented in CUDA.
+## tensorForth - Forth does matrices and machine learning, implemented in CUDA.
 * Forth VM that supports tensor calculus and dynamic parallelism
 
 ### Status
@@ -7,8 +7,8 @@
 |[release 1.0](https://github.com/chochain/tensorForth/releases/tag/v1.0.2)|**float**|beta|extended eForth with F32 float|Python|
 |[release 2.0](https://github.com/chochain/tensorForth/releases/tag/v2.0.2)|**matrix**|alpha|added vector and matrix objects|NumPy|
 |[release 2.2](https://github.com/chochain/tensorForth/releases/tag/v2.2.2)|**lapack**|alpha|added linear algebra methods|SciPy|
-|next|**CNN**|in dev|add tensor NN ops with autograd|PyTorch|
-|-|**Transformer**|planning|-|-|
+|[release 3.0](https://github.com/chochain/tensorForth/releases/tag/v3.0.0)|**CNN**|alpha|added ML propegation with autograd|Torch|
+|next|**Transformer**|planning|add Transformer ops|PyTorch|
 
 ### Why?
 Compiled programs run fast on Linux. On the other hand, command-line interface and shell scripting tie them together in operation. With interactive development, small tools are built along the way, productivity usually grows with time, especially in the hands of researchers.
@@ -32,7 +32,7 @@ The codebase will be in C for my own understanding of the multi-trip data flows.
 
 In the end, languages don't really matter. It's the problem they solve. Having an interactive Forth in GPU does not mean a lot by itself. However by adding vector, matrix, linear algebra support with a breath of **APL**'s massively parallel from GPUs. Neural Network tensor ops with backprop following the path from Numpy to PyTorch, plus the cleanness of **Forth**, it can be useful one day, hopefully! 
 
-### Small Example
+### Example - Small Matrix ops
 <pre>
 > ten4                # enter tensorForth
 tensorForth 2.0
@@ -62,7 +62,7 @@ bye                                  \ exit tensorForth
 tensorForth 2.0 done.
 </pre>
 
-### Larger Example - benchmark 1024x2048 x 2048x512 matrices - 1000 loops
+### Example - Larger Matrix ops - benchmark 1024x2048 x 2048x512 matrices - 1000 loops
 <pre>
 1024 2048 matrix rand                \ create a 1024x2048 matrix with uniform random values
  <0 T2[1024,2048]> ok                
@@ -92,9 +92,30 @@ drop                                        \ drop the value
  <0 T2[1024,2048] T2[2048,512] 3.938+04> ok \ that is 39.38 sec (i.e. ~40ms / loop)
 </pre>
 
-Note:
-* cuRAND uniform distribution averaged 0.5 is doing OK.
-* 39.4 ms per 1Kx1K matmul on GTX 1660 with my laptop. PyTorch average 0.850 ms which is 50x faster. Luckily, CUDA matmul tuning methods are well known. TODO!
+### Example - CNN Training on MNIST dataset
+<pre>
+10 28 28 1 nn.model                         \ create a network model (input dimensions)
+0.5 10 conv2d 2 maxpool relu                \ add a convolution block
+0.5 20 conv2d 0.5 dropout 2 maxpool relu    \ add another convolution block
+flatten 0.0 49 linear                       \ add reduction layer, and the
+0.5 dropout 0.0 10 linear softmax           \ final fully connected output
+constant md0                                \ we can store the model in a constant
+                                
+md0 batchsize dataset mnist_train           \ create a MNIST dataset with model batch size
+constant ds0                                \ save dataset in a constant
+
+variable acc 0 acc !                        \ create an accuracy counter, and zero it
+
+: cnn (N D -- N') for forward backprop nn.hit acc +! 0.01 0.0 nn.sgd 46 emit next ;
+: stat cr . ." >" clock . ." : hit=" acc @ . 0 acc ! ." , loss=" loss.ce . cr ;
+: epoch for cnn r@ stat ds0 rewind next ;
+
+ds0                                         \ put dataset as TOS
+19 epoch                                    \ execute multiple epoches
+drop                                        \ drop dataset from TOS
+
+nn.save tests/my_net.t4                     \ persist the trained network
+</pre>
 
 ### To build
 * install CUDA 11.6 on your machine
@@ -235,15 +256,69 @@ Note:
    gemm      (a b Ma Mb Mc -- a b Ma Mb Mc') - GEMM Mc' = a * Ma * Mb + b * Mc
 </pre>
 
+## Machine Learning volcabularies (see [doc](./docs/v3_progress.md) for detail and examples)
+### Model creation and persistence
+<pre>
+  nn.model   (n h w c -- N)      - create a Neural Network model with (n,h,w,c) input
+  nn.load    (N -- N')           - load trained network from a given file name
+  nn.save    (N -- N)            - export network as a file
+  >n         (N T -- N')         - manually add tensor to model
+  n@         (N n -- N T)        - fetch layered tensor from model, -1 is the latest layer
+  network    (N -- N)            - display network model
+</pre>
+    
+### Batch and Dataset controls
+<pre>
+  batchsize  (D -- D b)          - get input batch size of a model
+  forward    (N -- N')           - execute one forward path with rs[-1] dataset, layer-by-layer in given model
+  forward    (N ds -- N')        - execute one forward propagation with TOS dataset, layer-by-layer in given model
+  backprop   (N -- N')           - execute one backward propagation, adding derivatives for all parameters
+  backprop   (N T -- N')         - execute one backward propagation with given onehot vector
+  for        (N ds -- N')        - loop through a dataset, ds will be pushed onto return stack
+  next       (N -- N')           - loop if any subset of dataset left, or ds is pop off return stack
+  dataset    (n -- D)            - create a dataset with batch size = n, and given name i.e. 10 dataset abc
+  fetch      (D -- D')           - fetch a mini-batch from dataset on return stack
+  rewind     (D -- D')           - rewind dataset internal counters (for another epoch)
+</pre>
+
+### CNN Layers (destructive by default)
+<pre>
+  conv2d     (N -- N')           - create a 2D convolution 3x3 filter, stride=1, padding=same, dilation=0, bias=0.5
+  conv2d     (N b c -- N')       - create a 2D convolution, bias=b, c channels output, with default 3x3 filter
+  conv2d     (N b c A -- N')     - create a 2D convolution, bias=b, c channels output, with config i.g. Vector[5, 5, 3, 2, 1] for (5x5, padding=3, stride=2, dilation=1, bais=0.3)
+  flatten    (N -- N')           - flatten a tensor (usually input to linear)
+  linear     (N b n -- N')       - linearize (y = Wx + b) from Ta input to n out_features
+  maxpool    (N n -- N')         - nxn cells maximum pooling
+  avgpool    (N n -- N')         - nxn cells average pooling
+  minpool    (N n -- N')         - nxn cell minimum pooling
+  dropout    (N p -- N')         - zero out p% of channel data (add noise between data points)
+</pre>
+
+### Activation and Loss (non-linear)
+<pre>
+  tanh       (Ta -- Ta')         - tensor element-wise tanh Ta' = tanh(Ta)
+  relu       (Ta -- Ta')         - tensor element-wise ReLU Ta' = max(0, Ta)
+  sigmoid    (Ta -- Ta')         - tensor element-wise Sigmoid Ta' = sigmoid(Ta)
+  tanh       (N -- N')           - add tanh layer to network model
+  relu       (N -- N')           - add Rectified Linear Unit to network model
+  sigmoid    (N -- N')           - add sigmoid 1/(1+exp^-z) activation to network model, used in binary
+  softmax    (N -- N')           - add probability vector exp(x)/sum(exp(x)) to network model, feeds loss.ce, used in multi-class
+  logsoftmax (N -- N')           - add probability vector x - log(sum(exp(x))) to network model, feeds loss.nll, used in multi-class
+</pre>
+
+### Loss and Gradiant ops
+<pre>
+  loss.mse   (N Ta -- N Ta')     - mean squared error, take output from linear layer
+  loss.ce    (N Ta -- N Ta')     - cross-entropy, takes output from softmax activation
+  loss.nll   (N Ta -- N Ta')     - negative log likelihood, takes output from log-softmax activation
+  nn.sgd     (N p m -- N')       - apply SGD(learn_rate=p, momentum=m) model back propagation
+  nn.adam    (N a b1 -- N')      - apply Adam backprop alpha, beta1, default beta2=1-(1-b1)^3
+  nn.adam    (N a b1 b2 -- N')   - apply Adam backprop with given alpha, beta1, beta2
+  nn.onehot  (N -- N T)          - get cached onehot vector from a model
+  nn.hit     (N -- N n)          - get number of hit (per mini-batch) of a model
+</pre>
+
 ### TODO - by priorities
-* model persistence
-  + .pt/.pkl PyTorch (cross validate)
-  <pre>
-    def load_model(self, model_path):
-       states = torch.load(model_path)
-       shared_layers = states['shared_layers']
-       self.layers.load_state_dict(shared_layers)
-  </pre>
 * data
   + add loader plug-in API - CIFAR
   + add K-fold sampler
@@ -306,4 +381,16 @@ Note:
 * command line option: list (all) device properties
 * use cuRAND kernel randomizer for uniform and standard normal distribution
 
-### [Release 2.2](./docs/v2_2_progress.md) features
+### [Release 3.0](./docs/v3_progress.md) features
+* NN model creation and persistence
+* NN model batch control (feed forward, backprop w/ autograd)
+* NN model optimization - sgd
+* layers - conv2d, linear, flatten
+* pooling - maxpool, minpool, avgpool, dropout
+* activation-  relu, sigmoid, softmax, log_softmax
+* loss - ce, mse, nll
+* formated data - NHWC (as in TensorFlow)
+* dataset rewind
+* mini-batch fetch
+* dataset loader - MNIST
+* OpenGL dataset Viewer
