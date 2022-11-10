@@ -58,13 +58,13 @@ AIO::process_node(std::ostream &fout, obuf_node *node) {
             _fetch(o->n, (bool)o->a, (char*)node->data);    /// * fetch first batch
             break;
         case OP_FETCH: _fetch(o->n, (bool)o->a); break;     /// * fetch/rewind dataset batch
-        case OP_SAVE:
+        case OP_NSAVE:
             node = NEXTNODE(node);                          ///< get dataset repo name
-            _save(o->n, (bool)o->a, (char*)node->data);
+            _nsave(o->n, (bool)o->a, (char*)node->data);
             break;
-        case OP_LOAD:
+        case OP_NLOAD:
             node = NEXTNODE(node);
-            _load(o->n, (bool)o->a, (char*)node->data);
+            _nload(o->n, (bool)o->a, (char*)node->data);
             break;
         }
     } break;
@@ -275,7 +275,7 @@ AIO::_fetch(DU top, bool more, char *ds_name) {
 ///
 #include <fstream>
 __HOST__ int
-AIO::_save(DU top, U16 vid, char* fname) {
+AIO::_nsave(DU top, U16 vid, char* fname) {
     printf("\n%d|AIO::save model to '%s' =>", vid, fname);
     Model &m = (Model&)_mmu->du2obj(top);
     ofstream fout(fname, ios_base::binary);     ///< open an output file
@@ -284,8 +284,8 @@ AIO::_save(DU top, U16 vid, char* fname) {
         return 1;
     }
     fout << "\\ tensorForth model\n\\ version v3.0\n";
-    _save_model(fout, m);                       /// * blank line as section break
-    _save_param(fout, m);
+    _nsave_model(fout, m);                       /// * blank line as section break
+    _nsave_param(fout, m);
     fout << "\n---" << endl;
     fout.close();
     printf(" completed\n");
@@ -293,30 +293,32 @@ AIO::_save(DU top, U16 vid, char* fname) {
 }
 
 __HOST__ int
-AIO::_load(DU top, U16 vid, char* fname) {
-    printf("\n%d|AIO::load model from '%s' =>", vid, fname);
+AIO::_nload(DU top, U16 vid, char* fname) {
+    printf("\n%d|AIO::load '%s' ", vid, fname);
     Model &m = (Model&)_mmu->du2obj(top);
     ifstream fin(fname, ios_base::binary);           ///< open an input file
     if (!fin.is_open()) {
-        ERROR(" failed to open for input\n");
+        ERROR("=> failed to open for input\n");
         return 1;
     }
+    int err = 0;
     if (m.numel <= 2) {
-        _load_model(fin, m, fname);                  /// * load model layers
-        printf(" model loaded\n");
+        printf("NN model");
+        err = _nload_model(fin, m, fname);            /// * load model layers
     }
     else {
         std::string tmp;
         while (getline(fin, tmp) && tmp.length());   /// * skip model section
-        _load_param(fin, m);           /// * load model layer tensors
-        printf(" parameter tensors (i.e. state_dict) loaded\n");
+        printf("parameter tensors (i.e. state_dict)");
+        err = _nload_param(fin, m);           /// * load model layer tensors
     }
     fin.close();
-    return 0;
+    printf(" => %s\n", err ? "error" : "completed");
+    return err;
 }
 
 __HOST__ int
-AIO::_save_model(std::ostream &fout, Model &m) {
+AIO::_nsave_model(std::ostream &fout, Model &m) {
     for (U16 i = 1; i < m.numel - 1; i++) {
         Tensor &in = m[i], &out = m[i+1];
         t4_layer fn = in.grad_fn;              ///< layer function
@@ -342,7 +344,7 @@ AIO::_save_model(std::ostream &fout, Model &m) {
 }
 
 __HOST__ int
-AIO::_save_param(std::ostream &fout, Model &m) {
+AIO::_nsave_param(std::ostream &fout, Model &m) {
     auto _dump = [&fout](const char pn, const char *nm, Tensor &t) {
         fout << "\n--- " << pn << "." << nm << endl;     /// * section marker
         fout.write((char*)t.data, t.numel * sizeof(DU));
@@ -363,14 +365,14 @@ AIO::_save_param(std::ostream &fout, Model &m) {
 }
 
 __HOST__ int
-AIO::_load_model(std::istream &fin, Model &m, char *fname) {
+AIO::_nload_model(std::istream &fin, Model &m, char *fname) {
     std::string line;
     while (getline(fin, line) && line[0] == '\\') {    /// * TODO: check version
         cout << endl << line;
     }
     if (m.numel > 2) return 0;                         /// * model already loaded
-    
-    string cmd = line;                                 ///< input command
+
+    std::string cmd = line;                            ///< input command
     while (getline(fin, line) && line.length()) {      /// * append layer-by-layer
         cout << endl << line;                          /// * til blank line as break
         cmd.append(" " + line);
@@ -389,10 +391,10 @@ AIO::_load_model(std::istream &fin, Model &m, char *fname) {
 }
 
 __HOST__ int
-AIO::_load_param(std::istream &fin, Model &m) {
-    auto _read = [&fin](Tensor &t) {
+AIO::_nload_param(std::istream &fin, Model &m) {
+    auto _read = [&fin](const char *pn, const char *nm, Tensor &t) {
         std::string line;                              ///< input string
-        printf("\n[%d,%d,%d,%d] ", t.N(), t.H(), t.W(), t.C());
+        printf("\n%s %s[%d,%d,%d,%d] ", nm, pn, t.N(), t.H(), t.W(), t.C());
         while (getline(fin, line) && !line.length());  /// * skip blank lines
         if (line[0]!='-' || line[1]!='-' || line[2]!='-') {
             printf(" model format error");
@@ -405,9 +407,12 @@ AIO::_load_param(std::istream &fin, Model &m) {
     for (int i = 1; i < m.numel - 1; i++) {
         Tensor  &in = m[i];                            ///< layer tensor
         t4_layer fn = in.grad_fn;                      ///< layer function
+        const char *nm = Model::nname(fn);
         switch(fn) {
         case L_CONV:
-        case L_LINEAR: _read(*in.grad[0]); _read(*in.grad[1]); break;
+        case L_LINEAR:
+            _read("W", nm, *in.grad[0]);
+            _read("B", nm, *in.grad[1]); break;
         default: break;
         }
     }

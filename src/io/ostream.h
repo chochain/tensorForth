@@ -32,8 +32,8 @@ typedef enum {
     OP_SS,
     OP_DATA,
     OP_FETCH,
-    OP_SAVE,
-    OP_LOAD
+    OP_NSAVE,
+    OP_NLOAD
 } OP;
 
 //================================================================

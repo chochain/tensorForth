@@ -46,13 +46,13 @@ private:
     ///
     /// NN model persistence (i.e. serialization) methods
     ///
-    __HOST__ int  _save(DU top, U16 vid, char *fname);
-    __HOST__ int  _load(DU top, U16 vid, char *fname);
+    __HOST__ int  _nsave(DU top, U16 vid, char *fname);
+    __HOST__ int  _nload(DU top, U16 vid, char *fname);
 
-    __HOST__ int  _save_model(std::ostream &fout, Model &m);
-    __HOST__ int  _save_param(std::ostream &fout, Model &m);
-    __HOST__ int  _load_model(std::istream &fin,  Model &m, char *fname);
-    __HOST__ int  _load_param(std::istream &fin,  Model &m);
+    __HOST__ int  _nsave_model(std::ostream &fout, Model &m);
+    __HOST__ int  _nsave_param(std::ostream &fout, Model &m);
+    __HOST__ int  _nload_model(std::istream &fin,  Model &m, char *fname);
+    __HOST__ int  _nload_param(std::istream &fin,  Model &m);
 #endif // T4_ENABLE_OBJ
 };
 #endif // TEN4_SRC_AIO_H_
