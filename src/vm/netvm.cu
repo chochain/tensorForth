@@ -141,9 +141,6 @@ NetVM::init() {
     ///@}
     ///@defgroup Convolution and Linear ops
     ///@{
-    CODE("batchsize",
-         if (IS_M(top)) PUSH(MTOS.batch_size());
-         else ERROR("TOS is not a model?\n")),
     CODE("conv2d",    nnop(L_CONV)),          ///> (N b c [A] -- N')
     CODE("linear",    nnop(L_LINEAR)),        ///> (N b n -- N')
     ///@}
@@ -183,11 +180,7 @@ NetVM::init() {
              DU b1 = M1V ? POP() : DU1 - POW(DU1 - b0, 3);
              MTOS.adam(lr, b0, b1);
          }),
-    ///@}
-    ///@defgroup Batch Control ops
-    ///@{
-    CODE("autograd",  if (M1V) { bool on = POPi; MTOS.autograd = on; }),
-    CODE("nn.onehot",                           /// * current onehot vector
+    CODE("nn.onehot",                         /// * current onehot vector
         if (IS_M(top)) {
             Tensor &hot = MTOS.onehot();
             PUSH(hot); hot.ref_inc();
@@ -196,6 +189,13 @@ NetVM::init() {
     CODE("nn.hit", 
         if (IS_M(top)) PUSH(I2D(MTOS.hit()));
         else ERROR("TOS is not a model!\n")),
+    ///@}
+    ///@defgroup Batch Control ops
+    ///@{
+    CODE("autograd",  if (M1V) { bool on = POPi; MTOS.autograd = on; }),
+    CODE("batchsize",
+         if (IS_M(top)) PUSH(MTOS.batch_size());
+         else ERROR("TOS is not a model?\n")),
     CODE("dataset",                             /// * create a dataset
         char *dsn = next_idiom();               ///< retrieve dataset name
         I16   bsz = POPi;                       ///< batch size
@@ -224,7 +224,6 @@ NetVM::init() {
          }
          else if (IS_M(top)) MTOS.backprop();  /// * use default output
          else ERROR("TOS not a model?\n")),
-    CODE("predict",   {}),
     ///@}
     ///@defgroup Debugging ops
     ///@{
