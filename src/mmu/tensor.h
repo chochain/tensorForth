@@ -125,7 +125,7 @@ struct Tensor : public T4Base {
 #ifdef __CUDA_ARCH__
         return MEMCMP(shape, t.shape, sizeof(shape)) == 0;
 #else  // __CUDA_ARCH
-        return memcpy(shape, t.shape, sizeof(shape)) == 0;
+        return memcmp(shape, t.shape, sizeof(shape)) == 0;
 #endif // __CUDA_ARCH__
     }
     ///
