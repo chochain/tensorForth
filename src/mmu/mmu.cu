@@ -19,14 +19,14 @@ k_rand_init(curandState *st, U64 seed) {
 
 __KERN__ void
 k_rand(DU *mat, int sz, DU bias, DU scale, curandState *st, t4_rand_opt ntype) {
-    int k = threadIdx.x + blockIdx.x * blockDim.x;
-    curandState s = st[threadIdx.x];
-
+    int tx = threadIdx.x, k = tx + blockIdx.x * blockDim.x;
+    curandState s = st[tx];       /// * copy state into local register
     if (k < sz) {
         mat[k] = scale * (
             bias + (ntype==NORMAL ? curand_normal(&s) : curand_uniform(&s))
         );
     }
+    st[tx] = s;                   /// * copy state back to global memory
 }
 ///
 /// Forth Virtual Machine operational macros to reduce verbosity
@@ -278,7 +278,7 @@ MMU::copy(Tensor &t0) {
 }
 __GPU__ Tensor&
 MMU::random(Tensor &t, t4_rand_opt ntype, DU bias, DU scale) {
-    TRACE1("mmu#random(T%d) numel=%d bias=%.2f, scale=%.2f\n",
+    TRACE2("mmu#random(T%d) numel=%d bias=%.2f, scale=%.2f\n",
            t.rank, t.numel, bias, scale);
     dim3 blk(T4_RAND_SZ);
     dim3 grd((t.numel + blk.x - 1) / blk.x);
