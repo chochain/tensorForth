@@ -1,5 +1,5 @@
 ## tensorForth - Forth does matrices and machine learning, implemented in CUDA.
-* Forth VM that supports tensor calculus and dynamic parallelism
+* Forth VM that supports tensor calculus and Convolution Neural Network with dynamic parallelism
 
 ### Status
 |version|feature|stage|description|conceptual comparable|
@@ -26,11 +26,37 @@ Forth language encourages incremental build and test. Having a 'shell', resides 
 ### How?
 GPU, behaves like a co-processor or a DSP chip. It has no OS, no string support, and runs its own memory. Most of the available libraries are built for host instead of device i.e. to initiate calls from CPU into GPU but not the other way around. So, to be interactive, a memory manager, IO, and syncing with CPU are things needed to be had. It's pretty much like creating a Forth from scratch for a new processor as in the old days.
 
-Since GPUs have good compiler support nowadays and I've ported the latest [*eForth*](https://github.com/chochain/eforth) to lambda-based in C++, pretty much all words can be transferred straight forward. However, having *FP32* or *float32* as my basic data unit, so later I can morph them to *FP16*, or even fixed-point, there are things that require some attention. Words that are affected by *CELL* been a floating-point value such as addressing, logic ops. i.e. *BRANCH*, *0=*, *MOD*, *XOR* need some treatment before conversion. Not a big deal, though.
+Since GPUs have good compiler support nowadays and I've ported the latest [*eForth*](https://github.com/chochain/eforth) to lambda-based in C++, pretty much all words can be transferred straight forward. However, having *FP32* or *float32* as my basic data unit, so later I can morph them to *FP16*, or even fixed-point, there are some small stuffs such as addressing and logic ops that require some attention.
 
 The codebase will be in C for my own understanding of the multi-trip data flows. In the future, the class/methods implementation can come back to Forth in the form of loadable blocks so maintainability and extensibility can be utilized as other self-hosting systems. It would be amusing to find someone brave enough to work the assembly (i.e. CUDA SASS) into a Forth that resides on GPU micro-cores in the fashion of [*GreenArray*](https://www.greenarraychips.com/), or to forge an FPGA doing similar kind of things.
 
 In the end, languages don't really matter. It's the problem they solve. Having an interactive Forth in GPU does not mean a lot by itself. However by adding vector, matrix, linear algebra support with a breath of **APL**'s massively parallel from GPUs. Neural Network tensor ops with backprop following the path from Numpy to PyTorch, plus the cleanness of **Forth**, it can be useful one day, hopefully! 
+
+### Example - CNN Training on MNIST dataset
+<pre>
+10 28 28 1 nn.model                         \ create a network model (input dimensions)
+0.5 10 conv2d 2 maxpool relu                \ add a convolution block
+0.5 20 conv2d 0.5 dropout 2 maxpool relu    \ add another convolution block
+flatten 0.0 49 linear                       \ add reduction layer, and
+0.5 dropout 0.0 10 linear softmax           \ final fully connected output
+constant md0                                \ we can store the model in a constant
+                                
+md0 batchsize dataset mnist_train           \ create a MNIST dataset with model batch size
+constant ds0                                \ save dataset in a constant
+
+variable acc 0 acc !                        \ create an accuracy counter, and zero it
+
+\ here's the entire training framework in 3 lines
+: cnn (N D -- N') for forward backprop nn.hit acc +! 0.01 0.0 nn.sgd 46 emit next ;
+: stat cr . ." >" clock . ." : hit=" acc @ . 0 acc ! ." , loss=" loss.ce . cr ;
+: epoch for cnn r@ stat ds0 rewind next ;
+
+ds0                                         \ put dataset as TOS
+19 epoch                                    \ execute multiple epoches
+drop                                        \ drop dataset from TOS
+
+nn.save tests/my_net.t4                     \ persist the trained network
+</pre>
 
 ### Example - Small Matrix ops
 <pre>
@@ -92,31 +118,6 @@ drop                                        \ drop the value
  <0 T2[1024,2048] T2[2048,512] 3.938+04> ok \ that is 39.38 sec (i.e. ~40ms / loop)
 </pre>
 
-### Example - CNN Training on MNIST dataset
-<pre>
-10 28 28 1 nn.model                         \ create a network model (input dimensions)
-0.5 10 conv2d 2 maxpool relu                \ add a convolution block
-0.5 20 conv2d 0.5 dropout 2 maxpool relu    \ add another convolution block
-flatten 0.0 49 linear                       \ add reduction layer, and the
-0.5 dropout 0.0 10 linear softmax           \ final fully connected output
-constant md0                                \ we can store the model in a constant
-                                
-md0 batchsize dataset mnist_train           \ create a MNIST dataset with model batch size
-constant ds0                                \ save dataset in a constant
-
-variable acc 0 acc !                        \ create an accuracy counter, and zero it
-
-: cnn (N D -- N') for forward backprop nn.hit acc +! 0.01 0.0 nn.sgd 46 emit next ;
-: stat cr . ." >" clock . ." : hit=" acc @ . 0 acc ! ." , loss=" loss.ce . cr ;
-: epoch for cnn r@ stat ds0 rewind next ;
-
-ds0                                         \ put dataset as TOS
-19 epoch                                    \ execute multiple epoches
-drop                                        \ drop dataset from TOS
-
-nn.save tests/my_net.t4                     \ persist the trained network
-</pre>
-
 ### To build
 * install CUDA 11.6 on your machine
 * download one of the releases from the list above to your local directory
@@ -126,10 +127,14 @@ nn.save tests/my_net.t4                     \ persist the trained network
 * update root Makefile to your desired CUDA_ARCH, CUDA_CODE,
 * type 'make all',
 * if all goes well, some warnings aside, cd to tests directory,
-* enter the following<br/>
-  ~/tests> ten4 < lesson_1.txt for Forth syntax check,<br/>
-  ~/tests> ten4 < lesson_2.txt for matrix ops,<br/>
-  ~/tests> ten4 < lesson_3.txt for linear algebra stuffs
+* enter the following for Forth ops<br/>
+  > ~/tests> ten4 < lesson_1.txt - for basic syntax checks
+* enter the following for testing matrix ops<br/>
+  > ~/tests> ten4 < lesson_2.txt - for matrix ops,<br/>
+  > ~/tests> ten4 < lesson_3.txt - for linear algebra stuffs
+* enter the following for testsing machine learning ops<br/>
+  > ~/tests> ten4 < lesson_4.txt - for single pass of forward, loss, and backprop<br/>
+  > ~/tests> ten4 < lesson_5.txt - for full blown 20 epoches of MNIST training<br/>
 
 #### with Eclipse
 * install Eclipse
@@ -146,7 +151,69 @@ nn.save tests/my_net.t4                     \ persist the trained network
 * \-d device_id   - select GPU device id
 * \-v verbo_level - set verbosity level 0: off (default), 1: mmu tracing on, 2: detailed trace
 
-## Forth Tensor operations (see [doc](./docs/v2_progress.md) for detail and examples)
+## Machine Learning volcabularies (see [doc3](./docs/v3_progress.md) for detail and examples)
+### Model creation and persistence
+<pre>
+  nn.model   (n h w c -- N)      - create a Neural Network model with (n,h,w,c) input
+  nn.load    (N -- N')           - load trained network from a given file name
+  nn.save    (N -- N)            - export network as a file
+  >n         (N T -- N')         - manually add tensor to model
+  n@         (N n -- N T)        - fetch layered tensor from model, -1 is the latest layer
+  network    (N -- N)            - display network model
+</pre>
+    
+### Batch and Dataset controls
+<pre>
+  batchsize  (D -- D b)          - get input batch size of a model
+  forward    (N -- N')           - execute one forward path with rs[-1] dataset, layer-by-layer in given model
+  forward    (N ds -- N')        - execute one forward propagation with TOS dataset, layer-by-layer in given model
+  backprop   (N -- N')           - execute one backward propagation, adding derivatives for all parameters
+  backprop   (N T -- N')         - execute one backward propagation with given onehot vector
+  for        (N ds -- N')        - loop through a dataset, ds will be pushed onto return stack
+  next       (N -- N')           - loop if any subset of dataset left, or ds is pop off return stack
+  dataset    (n -- D)            - create a dataset with batch size = n, and given name i.e. 10 dataset abc
+  fetch      (D -- D')           - fetch a mini-batch from dataset on return stack
+  rewind     (D -- D')           - rewind dataset internal counters (for another epoch)
+</pre>
+
+### CNN Layers (destructive by default)
+<pre>
+  conv2d     (N -- N')           - create a 2D convolution 3x3 filter, stride=1, padding=same, dilation=0, bias=0.5
+  conv2d     (N b c -- N')       - create a 2D convolution, bias=b, c channels output, with default 3x3 filter
+  conv2d     (N b c A -- N')     - create a 2D convolution, bias=b, c channels output, with config i.g. Vector[5, 5, 3, 2, 1] for (5x5, padding=3, stride=2, dilation=1, bais=0.3)
+  flatten    (N -- N')           - flatten a tensor (usually input to linear)
+  linear     (N b n -- N')       - linearize (y = Wx + b) from Ta input to n out_features
+  maxpool    (N n -- N')         - nxn cells maximum pooling
+  avgpool    (N n -- N')         - nxn cells average pooling
+  minpool    (N n -- N')         - nxn cell minimum pooling
+  dropout    (N p -- N')         - zero out p% of channel data (add noise between data points)
+</pre>
+
+### Activation and Loss (non-linear)
+<pre>
+  tanh       (Ta -- Ta')         - tensor element-wise tanh Ta' = tanh(Ta)
+  relu       (Ta -- Ta')         - tensor element-wise ReLU Ta' = max(0, Ta)
+  sigmoid    (Ta -- Ta')         - tensor element-wise Sigmoid Ta' = sigmoid(Ta)
+  tanh       (N -- N')           - add tanh layer to network model
+  relu       (N -- N')           - add Rectified Linear Unit to network model
+  sigmoid    (N -- N')           - add sigmoid 1/(1+exp^-z) activation to network model, used in binary
+  softmax    (N -- N')           - add probability vector exp(x)/sum(exp(x)) to network model, feeds loss.ce, used in multi-class
+  logsoftmax (N -- N')           - add probability vector x - log(sum(exp(x))) to network model, feeds loss.nll, used in multi-class
+</pre>
+
+* Loss and Gradiant ops
+<pre>
+  loss.mse   (N Ta -- N Ta')     - mean squared error, take output from linear layer
+  loss.ce    (N Ta -- N Ta')     - cross-entropy, takes output from softmax activation
+  loss.nll   (N Ta -- N Ta')     - negative log likelihood, takes output from log-softmax activation
+  nn.sgd     (N p m -- N')       - apply SGD(learn_rate=p, momentum=m) model back propagation
+  nn.adam    (N a b1 -- N')      - apply Adam backprop alpha, beta1, default beta2=1-(1-b1)^3
+  nn.adam    (N a b1 b2 -- N')   - apply Adam backprop with given alpha, beta1, beta2
+  nn.onehot  (N -- N T)          - get cached onehot vector from a model
+  nn.hit     (N -- N n)          - get number of hit (per mini-batch) of a model
+</pre>
+
+## Tensor Calculus volcabularies (see [doc2](./docs/v2_progress.md) for detail and examples)
 ### Tensor creation
 <pre>
    vector    (n       -- T1)     - create a 1-D array and place on top of stack (TOS)
@@ -158,7 +225,7 @@ nn.save tests/my_net.t4                     \ persist the trained network
    copy      (Ta      -- Ta Ta') - duplicate (deep copy) a tensor on TOS
 </pre>
 
-### duplication ops (reference creation)
+### Duplication ops (reference creation)
 <pre>
    dup       (Ta    -- Ta Ta)    - create a reference of a tensor on TOS
    over      (Ta Tb -- Ta Tb Ta) - create a reference of the 2nd item (NOS)
@@ -256,67 +323,6 @@ nn.save tests/my_net.t4                     \ persist the trained network
    gemm      (a b Ma Mb Mc -- a b Ma Mb Mc') - GEMM Mc' = a * Ma * Mb + b * Mc
 </pre>
 
-## Machine Learning volcabularies (see [doc](./docs/v3_progress.md) for detail and examples)
-### Model creation and persistence
-<pre>
-  nn.model   (n h w c -- N)      - create a Neural Network model with (n,h,w,c) input
-  nn.load    (N -- N')           - load trained network from a given file name
-  nn.save    (N -- N)            - export network as a file
-  >n         (N T -- N')         - manually add tensor to model
-  n@         (N n -- N T)        - fetch layered tensor from model, -1 is the latest layer
-  network    (N -- N)            - display network model
-</pre>
-    
-### Batch and Dataset controls
-<pre>
-  batchsize  (D -- D b)          - get input batch size of a model
-  forward    (N -- N')           - execute one forward path with rs[-1] dataset, layer-by-layer in given model
-  forward    (N ds -- N')        - execute one forward propagation with TOS dataset, layer-by-layer in given model
-  backprop   (N -- N')           - execute one backward propagation, adding derivatives for all parameters
-  backprop   (N T -- N')         - execute one backward propagation with given onehot vector
-  for        (N ds -- N')        - loop through a dataset, ds will be pushed onto return stack
-  next       (N -- N')           - loop if any subset of dataset left, or ds is pop off return stack
-  dataset    (n -- D)            - create a dataset with batch size = n, and given name i.e. 10 dataset abc
-  fetch      (D -- D')           - fetch a mini-batch from dataset on return stack
-  rewind     (D -- D')           - rewind dataset internal counters (for another epoch)
-</pre>
-
-### CNN Layers (destructive by default)
-<pre>
-  conv2d     (N -- N')           - create a 2D convolution 3x3 filter, stride=1, padding=same, dilation=0, bias=0.5
-  conv2d     (N b c -- N')       - create a 2D convolution, bias=b, c channels output, with default 3x3 filter
-  conv2d     (N b c A -- N')     - create a 2D convolution, bias=b, c channels output, with config i.g. Vector[5, 5, 3, 2, 1] for (5x5, padding=3, stride=2, dilation=1, bais=0.3)
-  flatten    (N -- N')           - flatten a tensor (usually input to linear)
-  linear     (N b n -- N')       - linearize (y = Wx + b) from Ta input to n out_features
-  maxpool    (N n -- N')         - nxn cells maximum pooling
-  avgpool    (N n -- N')         - nxn cells average pooling
-  minpool    (N n -- N')         - nxn cell minimum pooling
-  dropout    (N p -- N')         - zero out p% of channel data (add noise between data points)
-</pre>
-
-### Activation and Loss (non-linear)
-<pre>
-  tanh       (Ta -- Ta')         - tensor element-wise tanh Ta' = tanh(Ta)
-  relu       (Ta -- Ta')         - tensor element-wise ReLU Ta' = max(0, Ta)
-  sigmoid    (Ta -- Ta')         - tensor element-wise Sigmoid Ta' = sigmoid(Ta)
-  tanh       (N -- N')           - add tanh layer to network model
-  relu       (N -- N')           - add Rectified Linear Unit to network model
-  sigmoid    (N -- N')           - add sigmoid 1/(1+exp^-z) activation to network model, used in binary
-  softmax    (N -- N')           - add probability vector exp(x)/sum(exp(x)) to network model, feeds loss.ce, used in multi-class
-  logsoftmax (N -- N')           - add probability vector x - log(sum(exp(x))) to network model, feeds loss.nll, used in multi-class
-</pre>
-
-### Loss and Gradiant ops
-<pre>
-  loss.mse   (N Ta -- N Ta')     - mean squared error, take output from linear layer
-  loss.ce    (N Ta -- N Ta')     - cross-entropy, takes output from softmax activation
-  loss.nll   (N Ta -- N Ta')     - negative log likelihood, takes output from log-softmax activation
-  nn.sgd     (N p m -- N')       - apply SGD(learn_rate=p, momentum=m) model back propagation
-  nn.adam    (N a b1 -- N')      - apply Adam backprop alpha, beta1, default beta2=1-(1-b1)^3
-  nn.adam    (N a b1 b2 -- N')   - apply Adam backprop with given alpha, beta1, beta2
-  nn.onehot  (N -- N T)          - get cached onehot vector from a model
-  nn.hit     (N -- N n)          - get number of hit (per mini-batch) of a model
-</pre>
 
 ### TODO - by priorities
 * data
