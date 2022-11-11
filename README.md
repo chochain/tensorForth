@@ -1,5 +1,5 @@
-## tensorForth - Forth does matrices and machine learning, implemented in CUDA.
-* Forth VM that supports tensor calculus and Convolution Neural Network with dynamic parallelism
+## tensorForth - Forth does matrices and machine learning
+* Forth VM that supports tensor calculus and Convolution Neural Network with dynamic parallelism in CUDA
 
 ### Status
 |version|feature|stage|description|conceptual comparable|
@@ -157,23 +157,26 @@ drop                                        \ drop the value
   nn.model   (n h w c -- N)      - create a Neural Network model with (n,h,w,c) input
   nn.load    (N -- N')           - load trained network from a given file name
   nn.save    (N -- N)            - export network as a file
+  
   >n         (N T -- N')         - manually add tensor to model
   n@         (N n -- N T)        - fetch layered tensor from model, -1 is the latest layer
   network    (N -- N)            - display network model
 </pre>
     
-### Batch and Dataset controls
+### Dataset and Batch controls
 <pre>
+  dataset    (n -- D)            - create a dataset with batch size = n, and given name i.e. 10 dataset abc
+  fetch      (D -- D')           - fetch a mini-batch from dataset on return stack
+  rewind     (D -- D')           - rewind dataset internal counters (for another epoch)
   batchsize  (D -- D b)          - get input batch size of a model
+  
   forward    (N -- N')           - execute one forward path with rs[-1] dataset, layer-by-layer in given model
   forward    (N ds -- N')        - execute one forward propagation with TOS dataset, layer-by-layer in given model
   backprop   (N -- N')           - execute one backward propagation, adding derivatives for all parameters
   backprop   (N T -- N')         - execute one backward propagation with given onehot vector
+  
   for        (N ds -- N')        - loop through a dataset, ds will be pushed onto return stack
   next       (N -- N')           - loop if any subset of dataset left, or ds is pop off return stack
-  dataset    (n -- D)            - create a dataset with batch size = n, and given name i.e. 10 dataset abc
-  fetch      (D -- D')           - fetch a mini-batch from dataset on return stack
-  rewind     (D -- D')           - rewind dataset internal counters (for another epoch)
 </pre>
 
 ### CNN Layers (destructive by default)
@@ -183,6 +186,7 @@ drop                                        \ drop the value
   conv2d     (N b c A -- N')     - create a 2D convolution, bias=b, c channels output, with config i.g. Vector[5, 5, 3, 2, 1] for (5x5, padding=3, stride=2, dilation=1, bais=0.3)
   flatten    (N -- N')           - flatten a tensor (usually input to linear)
   linear     (N b n -- N')       - linearize (y = Wx + b) from Ta input to n out_features
+  
   maxpool    (N n -- N')         - nxn cells maximum pooling
   avgpool    (N n -- N')         - nxn cells average pooling
   minpool    (N n -- N')         - nxn cell minimum pooling
@@ -206,6 +210,7 @@ drop                                        \ drop the value
   loss.mse   (N Ta -- N Ta')     - mean squared error, take output from linear layer
   loss.ce    (N Ta -- N Ta')     - cross-entropy, takes output from softmax activation
   loss.nll   (N Ta -- N Ta')     - negative log likelihood, takes output from log-softmax activation
+  
   nn.sgd     (N p m -- N')       - apply SGD(learn_rate=p, momentum=m) model back propagation
   nn.adam    (N a b1 -- N')      - apply Adam backprop alpha, beta1, default beta2=1-(1-b1)^3
   nn.adam    (N a b1 b2 -- N')   - apply Adam backprop with given alpha, beta1, beta2

@@ -68,6 +68,14 @@ ds1                                       \ put dataset on TOS
 |nn.load|(N -- N')|load trained network from a given file name|
 |nn.save|(N -- N)|export network as a file|
     
+#### Dataset ops
+|word|param/example|tensor creation ops|
+|---|---|---|
+|dataset|(n -- D)|create a dataset with batch size = n, and given name i.e. 10 dataset abc|
+|fetch|(D -- D')|fetch a mini-batch from dataset on return stack|
+|rewind|(D -- D')|rewind dataset internal counters (for another epoch)|
+|batchsize|(D -- D b)|get input batch size of a model|
+
 #### Model Debug ops
 |word|param/example|tensor creation ops|
 |---|---|---|
@@ -78,20 +86,12 @@ ds1                                       \ put dataset on TOS
 #### Batch controls
 |word|param/example|tensor creation ops|
 |---|---|---|
-|batchsize|(D -- D b)|get input batch size of a model|
 |forward|(N -- N')|execute one forward path with rs[-1] dataset, layer-by-layer in given model|
 |forward|(N ds -- N')|execute one forward propagation with TOS dataset, layer-by-layer in given model|
 |backprop|(N -- N')|execute one backward propagation, adding derivatives for all parameters|
 |backprop|(N T -- N')|execute one backward propagation with given onehot vector|
 |for|(N ds -- N')|loop through a dataset, ds will be pushed onto return stack|
 |next|(N -- N')|loop if any subset of dataset left, or ds is pop off return stack|
-
-#### Dataset ops
-|word|param/example|tensor creation ops|
-|---|---|---|
-|dataset|(n -- D)|create a dataset with batch size = n, and given name i.e. 10 dataset abc|
-|fetch|(D -- D')|fetch a mini-batch from dataset on return stack|
-|rewind|(D -- D')|rewind dataset internal counters (for another epoch)|
 
 #### Convolution and Linear funtions (destructive by default)
 |word|param/example|tensor creation ops|
