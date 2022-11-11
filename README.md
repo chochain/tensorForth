@@ -127,12 +127,12 @@ drop                                        \ drop the value
 * update root Makefile to your desired CUDA_ARCH, CUDA_CODE,
 * type 'make all',
 * if all goes well, some warnings aside, cd to tests directory,
-* enter the following for Forth ops<br/>
+* enter the following for Forth ops (v1)<br/>
   > ~/tests> ten4 < lesson_1.txt - for basic syntax checks
-* enter the following for testing matrix ops<br/>
+* enter the following for testing matrix ops (v2)<br/>
   > ~/tests> ten4 < lesson_2.txt - for matrix ops,<br/>
   > ~/tests> ten4 < lesson_3.txt - for linear algebra stuffs
-* enter the following for testsing machine learning ops<br/>
+* enter the following for testsing machine learning ops (v3)<br/>
   > ~/tests> ten4 < lesson_4.txt - for single pass of forward, loss, and backprop<br/>
   > ~/tests> ten4 < lesson_5.txt - for full blown 20 epoches of MNIST training<br/>
 
@@ -179,7 +179,7 @@ drop                                        \ drop the value
   next       (N -- N')           - loop if any subset of dataset left, or ds is pop off return stack
 </pre>
 
-### CNN Layers (destructive by default)
+### CNN Layers
 <pre>
   conv2d     (N -- N')           - create a 2D convolution 3x3 filter, stride=1, padding=same, dilation=0, bias=0.5
   conv2d     (N b c -- N')       - create a 2D convolution, bias=b, c channels output, with default 3x3 filter
@@ -193,7 +193,7 @@ drop                                        \ drop the value
   dropout    (N p -- N')         - zero out p% of channel data (add noise between data points)
 </pre>
 
-### Activation and Loss (non-linear)
+### Activation (non-linear)
 <pre>
   tanh       (Ta -- Ta')         - tensor element-wise tanh Ta' = tanh(Ta)
   relu       (Ta -- Ta')         - tensor element-wise ReLU Ta' = max(0, Ta)
@@ -205,7 +205,7 @@ drop                                        \ drop the value
   logsoftmax (N -- N')           - add probability vector x - log(sum(exp(x))) to network model, feeds loss.nll, used in multi-class
 </pre>
 
-* Loss and Gradiant ops
+### Loss and Gradiant ops
 <pre>
   loss.mse   (N Ta -- N Ta')     - mean squared error, take output from linear layer
   loss.ce    (N Ta -- N Ta')     - cross-entropy, takes output from softmax activation
