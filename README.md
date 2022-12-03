@@ -333,6 +333,7 @@ drop                                        \ drop the value
 * data
   + add loader plug-in API - CIFAR
   + add K-fold sampler
+  + data API - Python(cffi), Ruby(FFI)
 * VM
   + inter-VM communication (CUDA stream, review CUB again)
   + inter-VM loader (from VM->VM)
@@ -367,6 +368,7 @@ drop                                        \ drop the value
 * code
   + integrate CUB, CUTLASS (utilities.init, gemm_api) - slow, later
   + preprocessor (DALI) + GPUDirect - heavy, later
+  + calling API - Python(cffi), Ruby(FFI)
 
 ## History
 ### [Release 1.0](./docs/v1_progress.md) features
