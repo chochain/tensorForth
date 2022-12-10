@@ -68,6 +68,7 @@ struct Code : public Managed {
         name = c.name;
         xt   = c.xt;
         WARN("Code()= %p %s\n", xt, name);
+        return *this;
     }
 };
 ///
