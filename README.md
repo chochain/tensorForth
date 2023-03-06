@@ -353,13 +353,14 @@ drop                                        \ drop the value
 * model
   + add layer - Gelu, Sigmoid, Tanh, BatchNorm
   + add gradiant - Adam, AGC
-  + add Transformer (BLOOM)
+  + add Transformer
+    - https://stats.stackexchange.com/questions/421935/what-exactly-are-keys-queries-and-values-in-attention-mechanisms
     - https://towardsdatascience.com/neural-machine-translation-inner-workings-seq2seq-and-transformers-229faff5895b
     - https://towardsdatascience.com/a-detailed-guide-to-pytorchs-nn-transformer-module-c80afbc9ffb1
     - https://nlp.seas.harvard.edu/2018/04/03/attention.html
   + consider multi-domain (i.e. MDNet)
-  + consider RNN
   + consider GNN - dynamic graph with VMs
+  + consider RNN - maybe not! lost to Transformer.
 
 ### LATER
 * data
