@@ -92,7 +92,7 @@ Model::loss(t4_loss op, Tensor &hot) {              ///< loss against one-hot
     Tensor &out = (*this)[-1];                      ///< model output
     if (!out.is_same_shape(hot)) {                  /// * check dimensions
         ERROR("Model#loss hot dim != out dim\n");
-        return;
+        return DU0;
     }
     Tensor &tmp = _mmu->copy(out);                  ///< non-destructive
     DU err = _loss(op, tmp, hot);                   /// * calculate loss

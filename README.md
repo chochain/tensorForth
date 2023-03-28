@@ -24,6 +24,11 @@ Forth language encourages incremental build and test. Having a 'shell', resides 
 
 > **tensor + Forth = tensorForth!**
 
+### What?
+More details to come but here's a sample of tensorForth in action
+* Comparison of 5 Convolution Neural Network Models
+  > <img src="./docs/ten4_model_cmp.png" width="600px" height="400px">
+
 ### How?
 GPU, behaves like a co-processor or a DSP chip. It has no OS, no string support, and runs its own memory. Most of the available libraries are built for host instead of device i.e. to initiate calls from CPU into GPU but not the other way around. So, to be interactive, a memory manager, IO, and syncing with CPU are things needed to be had. It's pretty much like creating a Forth from scratch for a new processor as in the old days.
 
@@ -334,6 +339,7 @@ drop                                        \ drop the value
 * data
   + add loader plug-in API - CIFAR
   + add K-fold sampler
+  + data API - Python(cffi), Ruby(FFI)
 * VM
   + inter-VM communication (CUDA stream, review CUB again)
   + inter-VM loader (from VM->VM)
@@ -352,12 +358,14 @@ drop                                        \ drop the value
     - convolutional-transpose layer (https://arxiv.org/pdf/1511.06434.pdf)
     - see examples https://github.com/nashory/gans-awesome-applications
   + add Transformer (BLOOM)
+  + add Transformer
+    - https://stats.stackexchange.com/questions/421935/what-exactly-are-keys-queries-and-values-in-attention-mechanisms
     - https://towardsdatascience.com/neural-machine-translation-inner-workings-seq2seq-and-transformers-229faff5895b
     - https://towardsdatascience.com/a-detailed-guide-to-pytorchs-nn-transformer-module-c80afbc9ffb1
     - https://nlp.seas.harvard.edu/2018/04/03/attention.html
   + consider multi-domain (i.e. MDNet)
-  + consider RNN
   + consider GNN - dynamic graph with VMs
+  + consider RNN - maybe not! lost to Transformer.
 
 ### LATER
 * data
@@ -371,6 +379,7 @@ drop                                        \ drop the value
 * code
   + integrate CUB, CUTLASS (utilities.init, gemm_api) - slow, later
   + preprocessor (DALI) + GPUDirect - heavy, later
+  + calling API - Python(cffi), Ruby(FFI)
 
 ## History
 ### [Release 1.0](./docs/v1_progress.md) features

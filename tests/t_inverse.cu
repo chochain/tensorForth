@@ -155,14 +155,14 @@ int lu_inv(DU A[3][3], DU I[3][3], DU P[3], int sz) {
 }
 int main(int argc, char **argv) {
 //    DU A[3][3] = {{1,1,2},{2,1,1},{1,2,1}};
-    DU A[3][3] = {{2,2,5},{1,1,1},{4,6,8}};
-//    DU A[3][3] = {{1, 2, 4},{3, 8, 14},{2, 6, 13}};
+//    DU A[3][3] = {{2,2,5},{1,1,1},{4,6,8}};
+    DU A[3][3] = {{1, 2, 4},{3, 8, 14},{2, 6, 13}};
     DU I[3][3] = {{1,0,0},{0,1,0},{0,0,1}};
     DU P[3]    = { 0, 1, 2 };               // compressed sparse matrix
 
 //    gj(A, I, 3);
-    lu(A, I, P, 3);
-    lu_inv(A, I, P, 3);
+    lu(A, I, P, 3);                         // I is not functional,
+    lu_inv(A, I, P, 3);                     // just show effect of P
 
     return 0;
 }
