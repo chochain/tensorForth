@@ -8,7 +8,8 @@
 |[release 2.0](https://github.com/chochain/tensorForth/releases/tag/v2.0.2)|**matrix**|alpha|added vector and matrix objects|NumPy|
 |[release 2.2](https://github.com/chochain/tensorForth/releases/tag/v2.2.2)|**lapack**|alpha|added linear algebra methods|SciPy|
 |[release 3.0](https://github.com/chochain/tensorForth/releases/tag/v3.0.0)|**CNN**|alpha|added ML propegation with autograd|Torch|
-|next|**Transformer**|planning|add Transformer ops|PyTorch|
+|next|**GAN**|planning|add Generative Adversarial Net|Torch/DCGAN|
+|future|**Transformer**|study|add Transformer ops|PyTorch|
 
 ### Why?
 Compiled programs run fast on Linux. On the other hand, command-line interface and shell scripting tie them together in operation. With interactive development, small tools are built along the way, productivity usually grows with time, especially in the hands of researchers.
@@ -127,12 +128,12 @@ drop                                        \ drop the value
 * update root Makefile to your desired CUDA_ARCH, CUDA_CODE,
 * type 'make all',
 * if all goes well, some warnings aside, cd to tests directory,
-* enter the following for Forth ops (v1)<br/>
+* enter the following for Forth (v1) ops<br/>
   > ~/tests> ten4 < lesson_1.txt - for basic syntax checks
-* enter the following for testing matrix ops (v2)<br/>
+* enter the following for testing matrix (v2) ops<br/>
   > ~/tests> ten4 < lesson_2.txt - for matrix ops,<br/>
   > ~/tests> ten4 < lesson_3.txt - for linear algebra stuffs
-* enter the following for testsing machine learning ops (v3)<br/>
+* enter the following for testsing machine learning (v3) ops<br/>
   > ~/tests> ten4 < lesson_4.txt - for single pass of forward, loss, and backprop<br/>
   > ~/tests> ten4 < lesson_5.txt - for full blown 20 epoches of MNIST training<br/>
 
@@ -345,8 +346,11 @@ drop                                        \ drop the value
   + add namespace
   + warp-level collectives (study libcu++, MordenGPU for kernel)
 * model
-  + add layer - Gelu, Sigmoid, Tanh, BatchNorm
+  + add layer - LeakyReLU, BatchNorm, Sigmoid, Gelu, Tanh
   + add gradiant - Adam, AGC
+  + add GAN
+    - convolutional-transpose layer (https://arxiv.org/pdf/1511.06434.pdf)
+    - see examples https://github.com/nashory/gans-awesome-applications
   + add Transformer (BLOOM)
     - https://towardsdatascience.com/neural-machine-translation-inner-workings-seq2seq-and-transformers-229faff5895b
     - https://towardsdatascience.com/a-detailed-guide-to-pytorchs-nn-transformer-module-c80afbc9ffb1
