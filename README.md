@@ -356,9 +356,11 @@ drop                                        \ drop the value
   + add gradiant - Adam, AGC
   + add GAN
     - convolutional-transpose layer (https://arxiv.org/pdf/1511.06434.pdf)
+    - GAN (https://www.analyticsvidhya.com/blog/2021/10/an-end-to-end-introduction-to-generative-adversarial-networksgans/)
+    - cGAN (https://towardsdatascience.com/cgan-conditional-generative-adversarial-network-how-to-gain-control-over-gan-outputs-b30620bd0cc8), with MNIST
     - see examples https://github.com/nashory/gans-awesome-applications
-  + add Transformer (BLOOM)
   + add Transformer
+    - study BLOOM
     - https://stats.stackexchange.com/questions/421935/what-exactly-are-keys-queries-and-values-in-attention-mechanisms
     - https://towardsdatascience.com/neural-machine-translation-inner-workings-seq2seq-and-transformers-229faff5895b
     - https://towardsdatascience.com/a-detailed-guide-to-pytorchs-nn-transformer-module-c80afbc9ffb1
