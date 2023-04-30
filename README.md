@@ -338,7 +338,7 @@ drop                                        \ drop the value
 ### TODO - by priorities
 * model
   + add layer - LeakyReLU, Sigmoid, Tanh
-  + add func - BatchNorm (https://towardsdatascience.com/batch-normalization-in-3-levels-of-understanding-14c2da90a338)
+  + add func - BatchNorm (https://towardsdatascience.com/batch-normalization-in-3-levels-of-understanding-14c2da90a338), also alternatives such as GHN and AN (https://analyticsindiamag.com/alternatives-batch-normalization-deep-learning/)
   + add struct - multi-output, concatenate
   + add gradiant - Adam
     - https://machinelearningmastery.com/adam-optimization-from-scratch/
