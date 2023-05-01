@@ -337,19 +337,18 @@ drop                                        \ drop the value
 
 ### TODO - by priorities
 * model
+  + add layer - UpSampling (reversed Pooling)
   + add layer - LeakyReLU, Sigmoid, Tanh
-  + add func - BatchNorm (https://towardsdatascience.com/batch-normalization-in-3-levels-of-understanding-14c2da90a338), also alternatives such as GHN and AN (https://analyticsindiamag.com/alternatives-batch-normalization-deep-learning/)
+  + add func - BatchNorm (https://towardsdatascience.com/batch-normalization-in-3-levels-of-understanding-14c2da90a338), also alternatives such as GHN and AN (https://analyticsindiamag.com/alternatives-batch-normalization-deep-learning/), 
   + add struct - multi-output, concatenate
   + add gradiant - Adam
     - https://machinelearningmastery.com/adam-optimization-from-scratch/
-  + add GAN
-    - convolutional-transpose layer (https://arxiv.org/pdf/1511.06434.pdf)
-    - GAN (https://www.analyticsvidhya.com/blog/2021/10/an-end-to-end-introduction-to-generative-adversarial-networksgans/)
+  + GAN ((https://arxiv.org/pdf/1511.06434.pdf, https://www.analyticsvidhya.com/blog/2021/10/an-end-to-end-introduction-to-generative-adversarial-networksgans/)
     - cGAN (https://towardsdatascience.com/cgan-conditional-generative-adversarial-network-how-to-gain-control-over-gan-outputs-b30620bd0cc8), with MNIST
-      * AC-GAN (https://machinelearningmastery.com/how-to-develop-an-auxiliary-classifier-gan-ac-gan-from-scratch-with-keras/)
-      * AC-GAN (https://towardsdatascience.com/understanding-acgans-with-code-pytorch-2de35e05d3e4)
+      * AC-GAN (https://machinelearningmastery.com/how-to-develop-an-auxiliary-classifier-gan-ac-gan-from-scratch-with-keras/, https://towardsdatascience.com/understanding-acgans-with-code-pytorch-2de35e05d3e4)
     - see examples https://github.com/nashory/gans-awesome-applications
     - use pre-trained model, i.e. transfer learning (https://openaccess.thecvf.com/content_ECCV_2018/papers/yaxing_wang_Transferring_GANs_generating_ECCV_2018_paper.pdf)
+  + add layer - Transposed Convolution (https://d2l.ai/chapter_computer-vision/transposed-conv.html). Less used now b/c it creates checkerboard pattern, see https://distill.pub/2016/deconv-checkerboard/)
 * data
   + add loader plug-in API - CIFAR
   + add K-fold sampler
