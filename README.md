@@ -337,10 +337,12 @@ drop                                        \ drop the value
 
 ### TODO - by priorities
 * model
+  + check 1x1 conv2d (i.e. NiN Network-in-network, to skip FC) which is used to adjust size or Channels
   + add layer - UpSampling (reversed Pooling)
   + add layer - LeakyReLU, Sigmoid, Tanh
-  + add func - BatchNorm (https://towardsdatascience.com/batch-normalization-in-3-levels-of-understanding-14c2da90a338), also alternatives such as GHN and AN (https://analyticsindiamag.com/alternatives-batch-normalization-deep-learning/), 
-  + add struct - multi-output, concatenate
+  + add layer - BatchNorm (https://towardsdatascience.com/batch-normalization-in-3-levels-of-understanding-14c2da90a338), also study alternatives such as GHN and AN (https://analyticsindiamag.com/alternatives-batch-normalization-deep-learning/), 
+  + add block - residual map (i.e. ResNet, https://d2l.ai/chapter_convolutional-modern/resnet.html)
+  + add block - branch & concatenate (i.e Inception in GoogLeNet)
   + add gradiant - Adam
     - https://machinelearningmastery.com/adam-optimization-from-scratch/
   + GAN ((https://arxiv.org/pdf/1511.06434.pdf, https://www.analyticsvidhya.com/blog/2021/10/an-end-to-end-introduction-to-generative-adversarial-networksgans/)
@@ -379,7 +381,6 @@ drop                                        \ drop the value
   + NCHW tensor format support (as in PyTorch)
   + loader - .petastorm, .csv (available on github)
   + model persistance - .npy, .petastorm, hdf5
-  + common models (VGG-19, ResNet (i.e. skip-connect), compare to Keras)
   + integrate ONNX
 * plot
   + integrate plots (matplotlib, tensorboard)
