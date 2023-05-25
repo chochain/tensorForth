@@ -50,6 +50,7 @@ ds1                                       \ put dataset on TOS
   * Layers
     > + layers: conv2d, conv1x1, linear, flatten
     > + pooling: maxpool, minpool, avgpool, dropout
+    > + upsample: up.near, up.lin, up.blin
     > + activation: relu, sigmoid, softmax, log_softmax
     > + loss: ce, mse, nll
   * Dataset

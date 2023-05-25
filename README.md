@@ -198,6 +198,9 @@ drop                                        \ drop the value
   avgpool    (N n -- N')         - nxn cells average pooling
   minpool    (N n -- N')         - nxn cell minimum pooling
   dropout    (N p -- N')         - zero out p% of channel data (add noise between data points)
+  up.near    (N n -- N')         - upsample to nearest size=n, 2x2 and 3x3 supported
+  up.lin     (N n -- N')         - upsample linearly size=n, TODO
+  up.blin    (N n -- N')         - upsample bilinearly size=n, TODO
 </pre>
 
 ### Activation (non-linear)
@@ -338,12 +341,10 @@ drop                                        \ drop the value
 
 ### TODO - by priorities
 * model
-  + check 1x1 conv2d (i.e. NiN Network-in-network, to skip FC) which is used to adjust size or Channels
-  + add layer - UpSampling (reversed Pooling)
-  + add layer - LeakyReLU, Sigmoid, Tanh
+  + add layer - LeakyReLU, Sigmoid, Tanh, ELU
   + add layer - BatchNorm (https://towardsdatascience.com/batch-normalization-in-3-levels-of-understanding-14c2da90a338), also study alternatives such as GHN and AN (https://analyticsindiamag.com/alternatives-batch-normalization-deep-learning/), 
-  + add block - residual map (i.e. ResNet, https://d2l.ai/chapter_convolutional-modern/resnet.html)
   + add block - branch & concatenate (i.e Inception in GoogLeNet)
+  + add block - residual map (i.e. ResNet, https://d2l.ai/chapter_convolutional-modern/resnet.html)
   + add gradiant - Adam
     - https://machinelearningmastery.com/adam-optimization-from-scratch/
   + GAN ((https://arxiv.org/pdf/1511.06434.pdf, https://www.analyticsvidhya.com/blog/2021/10/an-end-to-end-introduction-to-generative-adversarial-networksgans/)
