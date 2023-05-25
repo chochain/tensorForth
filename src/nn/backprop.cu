@@ -224,8 +224,9 @@ Model::_bstep(Tensor &in, Tensor &out) {
     }
 }
 
-#define TILE3    (T4_WARP_SZ - 3 + 1)      /** 14 */
-#define TILE5    (T4_WARP_SZ - 5 + 1)      /** 12 */
+#define TILE1    (T4_WARP_SZ)              /** 16, 1x1 conv */
+#define TILE3    (T4_WARP_SZ - 3 + 1)      /** 14, 3x3 conv */
+#define TILE5    (T4_WARP_SZ - 5 + 1)      /** 12, 5x5 conv */
 
 __GPU__ int
 Model::_bconv(Tensor &in, Tensor &out) {
@@ -238,6 +239,7 @@ Model::_bconv(Tensor &in, Tensor &out) {
     const int C1 = in.C(), C0 = out.C();            
     
     dim3 blk(T4_WARP_SZ, T4_WARP_SZ, 1);
+    dim3 g1((W + TILE1 - 1) / TILE1, (H + TILE1 - 1) / TILE1, C1);
     dim3 g3((W + TILE3 - 1) / TILE3, (H + TILE3 - 1) / TILE3, C1);
     dim3 g5((W + TILE5 - 1) / TILE5, (H + TILE5 - 1) / TILE5, C1);
 
@@ -246,6 +248,7 @@ Model::_bconv(Tensor &in, Tensor &out) {
         DU *f  = tf.data,     *df = tdf.data, *db = tdb.data;
         const int ks = tf.H();                       ///< kernel size
         switch (ks) {
+        case 1: k_dconv2d<TILE1,1><<<g1,blk>>>(d1, f, df, db, d0, H, W, C0); break;
         case 3: k_dconv2d<TILE3,3><<<g3,blk>>>(d1, f, df, db, d0, H, W, C0); break;
         case 5: k_dconv2d<TILE5,5><<<g5,blk>>>(d1, f, df, db, d0, H, W, C0); break;
         default: 

@@ -203,8 +203,9 @@ Model::_fstep(Tensor &in, Tensor &out) {
     }
 }
 
-#define TILE3    (T4_WARP_SZ - 3 + 1)      /** 14 */
-#define TILE5    (T4_WARP_SZ - 5 + 1)      /** 12 */
+#define TILE1    (T4_WARP_SZ)              /** 16, 1x1 conv */
+#define TILE3    (T4_WARP_SZ - 3 + 1)      /** 14, 3x3 conv */
+#define TILE5    (T4_WARP_SZ - 5 + 1)      /** 12, 5x5 conv */
 
 __GPU__ int
 Model::_fconv(Tensor &in, Tensor &out) {
@@ -217,6 +218,7 @@ Model::_fconv(Tensor &in, Tensor &out) {
     const int C0 = out.C(), C1 = in.C();                  ///< output, input channel deep
                     
     dim3 blk(T4_WARP_SZ, T4_WARP_SZ, 1);                  ///< default blocks
+    dim3 g1((W + TILE1 - 1) / TILE1, (H + TILE1 - 1) / TILE1, C0);
     dim3 g3((W + TILE3 - 1) / TILE3, (H + TILE3 - 1) / TILE3, C0);
     dim3 g5((W + TILE5 - 1) / TILE5, (H + TILE5 - 1) / TILE5, C0);
 
@@ -225,6 +227,7 @@ Model::_fconv(Tensor &in, Tensor &out) {
         DU *f  = tf.data, *b = tb.data;
         int ks = tf.H();
         switch(ks) {                       /// * TODO: handles rectangular filters
+        case 1: k_conv2d<TILE1,1><<<g1,blk>>>(d1, f, b, d0, H, W, C1); break;
         case 3: k_conv2d<TILE3,3><<<g3,blk>>>(d1, f, b, d0, H, W, C1); break;
         case 5: k_conv2d<TILE5,5><<<g5,blk>>>(d1, f, b, d0, H, W, C1); break;
         default:
