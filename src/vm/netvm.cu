@@ -28,7 +28,7 @@ NetVM::nnop(t4_layer op) {     /// vtable dispatcher
     /// model layer ops
     ///
     switch (op) {
-    case L_CONV:  _conv(); break;
+    case L_CONV:  break;                           ///> conv handled at VM level
     case L_LINEAR:
         if (M2V) {                                 ///> param checking
             U16   n    = POPi;                     ///> number of output channels
@@ -80,12 +80,14 @@ NetVM::_fetch(DU d, bool more) {
     state = VM_WAIT;                                       /// * return to CPU
 }
 /// Convolution ops
-/// @default: 3x3 filter, padding=1, stride=1, dilation=1
+/// @default: kxk filter, padding=1, stride=1, dilation=1
+/// @parameters
+///    k: kernel size
 ///
 __GPU__ void
-NetVM::_conv() {
-    U16 opt[] = { 3, 3, 1, 1, 1 };   ///> default config vector
-    if (TOS1T) {                     ///> if optional vector given
+NetVM::_conv(U16 k) {
+    U16 opt[] = { k, k, 1, 1, 1 };       ///> default config vector
+    if (TOS1T) {                         ///> if optional vector given
         Tensor &v = TTOS;
         if (v.rank == 1) {
             for (int i=0; i<5; i++) opt[i] = (U16)v.data[i];
@@ -93,11 +95,9 @@ NetVM::_conv() {
         }
         else { ERROR("vec?"); return; }
     }
-    if (!M2V) {
-        ERROR("conv2d bias c required!"); return;
-    }
-    U16 c    = POPi;                 ///> number of output channels
-    DU  bias = POP();                ///> convolution bias
+    if (!M2V) { ERROR("conv2d bias c required!"); return; }
+    U16 c    = POPi;                    ///> number of output channels
+    DU  bias = POP();                   ///> convolution bias
     MTOS.add(L_CONV, c, bias, opt);
 }
 ///
@@ -136,13 +136,14 @@ NetVM::init() {
          Tensor &t = mmu.tensor(n,h,w,c);     /// * create input tensor
          m.npush(t);                          /// * serves as the 1st layer
          PUSH(m)),
-    CODE("nn.save", _pickle(true)),           /// * save trainned model
-    CODE("nn.load", _pickle(false)),          /// * load trainned model
+    CODE("nn.save",   _pickle(true)),         /// * save trainned model
+    CODE("nn.load",   _pickle(false)),        /// * load trainned model
     ///@}
     ///@defgroup Convolution and Linear ops
     ///@{
-    CODE("conv2d",    nnop(L_CONV)),          ///> (N b c [A] -- N')
-    CODE("linear",    nnop(L_LINEAR)),        ///> (N b n -- N')
+    CODE("conv1x1",   _conv(1)),               ///> (N b c -- N')
+    CODE("conv2d",    _conv(3)),               ///> (N b c [A] -- N')
+    CODE("linear",    nnop(L_LINEAR)),         ///> (N b n -- N')
     ///@}
     ///@defgroup Activation ops
     ///@{

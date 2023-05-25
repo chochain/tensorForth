@@ -43,7 +43,7 @@ private:
     /// @}
     /// @name Convolution, loss and Gradiant ops
     /// @{
-    __GPU__ void _conv();                        ///< init convolution layer
+    __GPU__ void _conv(U16 ksz=3);               ///< init convolution layer
     __GPU__ void _loss(t4_loss op);              ///< calculate loss
     /// @}
 #endif // T4_ENABLE_OBJ
