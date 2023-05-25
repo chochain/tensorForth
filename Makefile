@@ -12,8 +12,8 @@ APP_TGT   := $(APP_HOME)/tests/$(APP_NAME)
 CUDA_LIB  := ${CUDA_HOME}/targets/x86_64-linux/lib
 CUDA_ARCH := compute_75
 CUDA_CODE := sm_75
-CUDA_ARCH1:= compute_61
-CUDA_CODE1:= sm_61
+CUDA_ARCH1:= compute_52
+CUDA_CODE1:= sm_52
 CUDA_FLAGS:= -Xnvlink --suppress-stack-size-warning --cudart=static
 
 # All of the sources participating in the build are defined here
@@ -44,16 +44,14 @@ NV_CC   := \
 	-t=0 -c -std=c++14 -O3 \
 	--device-c --extended-lambda --expt-relaxed-constexpr \
 	--device-debug --debug \
-	-gencode arch=${CUDA_ARCH},code=${CUDA_CODE} \
-	-gencode arch=${CUDA_ARCH1},code=${CUDA_CODE1}
+	-gencode arch=${CUDA_ARCH},code=${CUDA_CODE}
 
 NV_LNK := \
 	${CUDA_HOME}/bin/nvcc -ccbin g++ \
 	$(CUDA_FLAGS) \
 	-L$(CUDA_LIB) \
 	$(GL_LIB) \
-	-gencode arch=${CUDA_ARCH},code=${CUDA_CODE} \
-	-gencode arch=${CUDA_ARCH1},code=${CUDA_CODE1}
+	-gencode arch=${CUDA_ARCH},code=${CUDA_CODE}
 
 NV_ERR := echo "NVCC_FAILED"
 
