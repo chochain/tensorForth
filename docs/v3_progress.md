@@ -48,7 +48,7 @@ ds1                                       \ put dataset on TOS
     > + optimization
     > + persistence
   * Layers
-    > + layers: conv2d, linear, flatten
+    > + layers: conv2d, conv1x1, linear, flatten
     > + pooling: maxpool, minpool, avgpool, dropout
     > + activation: relu, sigmoid, softmax, log_softmax
     > + loss: ce, mse, nll
@@ -96,6 +96,7 @@ ds1                                       \ put dataset on TOS
 #### Convolution and Linear funtions (destructive by default)
 |word|param/example|tensor creation ops|
 |---|---|---|
+|conv1x1|(N b c -- N')|create a 1x1 convolution, bias=b, c channels output|
 |conv2d|(N -- N')|create a 2D convolution 3x3 filter, stride=1, padding=same, dilation=0, bias=0.5|
 |conv2d|(N b c -- N')|create a 2D convolution, bias=b, c channels output, with default 3x3 filter|
 |conv2d|(N b c A -- N')|create a 2D convolution, bias=b, c channels output, with config i.g. Vector[5, 5, 3, 2, 1] for (5x5, padding=3, stride=2, dilation=1, bais=0.3)|

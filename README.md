@@ -8,8 +8,8 @@
 |[release 2.0](https://github.com/chochain/tensorForth/releases/tag/v2.0.2)|**matrix**|alpha|added vector and matrix objects|NumPy|
 |[release 2.2](https://github.com/chochain/tensorForth/releases/tag/v2.2.2)|**lapack**|alpha|added linear algebra methods|SciPy|
 |[release 3.0](https://github.com/chochain/tensorForth/releases/tag/v3.0.0)|**CNN**|alpha|added ML propegation with autograd|Torch|
-|next|**GAN**|planning|add Generative Adversarial Net|Torch/DCGAN|
-|future|**Transformer**|study|add Transformer ops|PyTorch|
+|[release 3.2]|**GAN**|under development|adding Generative Adversarial Net|Torch/DCGAN|
+|future|**Transformer**|planning|to add Transformer ops|PyTorch|
 
 ### Why?
 Compiled programs run fast on Linux. On the other hand, command-line interface and shell scripting tie them together in operation. With interactive development, small tools are built along the way, productivity usually grows with time, especially in the hands of researchers.
@@ -190,6 +190,7 @@ drop                                        \ drop the value
   conv2d     (N -- N')           - create a 2D convolution 3x3 filter, stride=1, padding=same, dilation=0, bias=0.5
   conv2d     (N b c -- N')       - create a 2D convolution, bias=b, c channels output, with default 3x3 filter
   conv2d     (N b c A -- N')     - create a 2D convolution, bias=b, c channels output, with config i.g. Vector[5, 5, 3, 2, 1] for (5x5, padding=3, stride=2, dilation=1, bais=0.3)
+  conv1x1    (N b c -- N')       - create a 1x1 convolution, bias=b, c channels output, stide=1, padding=same, dilation=0
   flatten    (N -- N')           - flatten a tensor (usually input to linear)
   linear     (N b n -- N')       - linearize (y = Wx + b) from Ta input to n out_features
   
