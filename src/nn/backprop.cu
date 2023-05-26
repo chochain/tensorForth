@@ -106,30 +106,34 @@ template<int KS>                                      /// kernel size
 __KERN__ void k_dpool(
     t4_layer op,
     DU *I, DU *O,                                     ///< input, output buffers
-    int HW, int W                                     ///< output HW (C1==C0)
+    int H, int W                                      ///< output HW (C1==C0)
     ) {
     const int k0 = threadIdx.x + blockIdx.x * blockDim.x;
     const int j0 = k0 % W;                            ///< output x dim
     const int c  = blockIdx.y, C = gridDim.y;         ///< channel deep
-    const int ns = blockIdx.z * HW * C;               ///< batch slice idx
+    const int hw = H * W;                             ///< HxW
+    const int ns = blockIdx.z * hw * C;               ///< batch slice idx
     const int z0 = c + k0 * C + ns;                   ///< output array index
     const int z1 = c + j0 * KS * C + ((k0 - j0) * C + ns) * KS * KS;
     
-    if (k0 < HW && c < C) {
-        DU *ix = &I[z1], *t = ix;
+    if (k0 < hw && c < C) {
+        DU *ix = &I[z1], *t = ix;           /// *ix input tensor cell
         DU2 v  = (op != L_AVGPOOL) ? *ix : O[z0] / (KS * KS);
         #pragma unroll
         for (int y = 0; y < KS; y++) {      /// * handle one kernel
             for (int x = 0; x < KS; x++) {
                 DU dx = *ix;
                 switch (op) {
+                case L_AVGPOOL: *ix = v;             break;
                 case L_MAXPOOL:
                     *ix = DU0;              /// * zero out all elements
                     if (dx > v) { v = dx; t = ix; }  break;
-                case L_AVGPOOL: *ix = v;             break;
                 case L_MINPOOL:
                     *ix = DU0;
                     if (dx < v) { v = dx; t = ix; }  break;
+                case L_UP_NEAR: *ix = O[z0];
+                case L_UP_LIN:  /* TODO */
+                case L_UP_BLIN: /* TODO */           break;
                 }
                 ix += C;
             }
@@ -335,17 +339,39 @@ Model::_bfilter(Tensor &in, Tensor &msk, Tensor &out) {
 
 __GPU__ int
 Model::_bpool(Tensor &in, Tensor &out, t4_layer fn) {
-    const int W = out.W(), HW = out.H() * W; ///< output dimensions
+    const int W = out.W(), H = out.H();   ///< output dimensions
     
     dim3 blk(T4_WARP_SQ, 1, 1);
-    dim3 grd((HW + blk.x - 1) / blk.x, out.C(), out.N());
+    dim3 grd((H * W + blk.x - 1) / blk.x, out.C(), out.N());
 
     const int ks = in.parm;               ///< kernel size
     switch(ks) {                           
-    case 0x2: k_dpool<2><<<grd,blk>>>(fn, in.data, out.data, HW, W); break;
-    case 0x3: k_dpool<3><<<grd,blk>>>(fn, in.data, out.data, HW, W); break;
+    case 2: k_dpool<2><<<grd,blk>>>(fn, in.data, out.data, H, W); break;
+    case 3: k_dpool<3><<<grd,blk>>>(fn, in.data, out.data, H, W); break;
     default:
         ERROR("model#pooling kernel_size=%d not supported\n", ks);
+        return -1;
+    }
+    GPU_SYNC();
+    
+    return 0;
+}
+
+template<int KS>                                        /// forward declare (in forward.cu)
+__KERN__ void  k_pool(t4_layer op, DU *I, DU *O, int H, int W);
+__GPU__ int
+Model::_bupsample(Tensor &in, Tensor &out, t4_layer fn) {
+    const int W  = out.W(), H = out.H();                ///< output dimensions
+    const int ks = in.parm;                             ///< kernel size
+    
+    dim3 blk(T4_WARP_SQ, 1, 1);                         ///< default blocks
+    dim3 grd((H * W + blk.x - 1) / blk.x, out.C(), out.N());
+    
+    switch(ks) {                                        /// pooling kernel size
+    case 2: k_pool<2><<<grd,blk>>>(fn, out.data, in.data, H, W); break;
+    case 3: k_pool<3><<<grd,blk>>>(fn, out.data, in.data, H, W); break;
+    default:
+        ERROR("model#upsample size=%d not supported\n", ks);
         return -1;
     }
     GPU_SYNC();
