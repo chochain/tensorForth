@@ -7,22 +7,20 @@
 #include "model.h"
 
 #if T4_ENABLE_OBJ
-__HOST__ const char*
-Model::nname(int i) {               ///< network layer name
-    static const char *name[] = {   /// double check with t4_layer
-    "output ", "conv2d ", "linear ", "flatten", "relu   ",
-    "tanh   ", "sigmoid", "softmax", "logsmax", "maxpool",
-    "avgpool", "minpool", "dropout"
-    };
+#define NAME_LIST {                                        \
+    "output ", "conv2d ", "linear ", "flatten", "relu   ", \
+    "tanh   ", "sigmoid", "softmax", "logsmax", "avgpool", \
+    "maxpool", "minpool", "dropout", "up.near", "up.lin ", \
+    "up.blin" }
+    
+__HOST__ const char*                ///< host network layer name 
+Model::nname(int i) {
+    static const char *name[] = NAME_LIST;
     return name[i];
 }
-__GPU__ const char*
+__GPU__ const char*                ///< device network layer name 
 Model::d_nname(int i) {
-    static const char* name[] = {   /// double check with t4_layer
-    "output ", "conv2d ", "linear ", "flatten", "relu   ",
-    "tanh   ", "sigmoid", "softmax", "logsmax", "maxpool",
-    "avgpool", "minpool", "dropout"
-    };
+    static const char* name[] = NAME_LIST;
     return name[i];
 }
 ///
@@ -42,10 +40,13 @@ Model::add(t4_layer fn, U16 n, DU bias, U16 *opt) {
     case L_SIGMOID: _icopy(in);                 break;
     case L_SOFTMAX:
     case L_LOGSMAX: _isoftmax(in);              break;
-    case L_MAXPOOL:
     case L_AVGPOOL:
+    case L_MAXPOOL:
     case L_MINPOOL: _ipool(in, n);              break;
     case L_DROPOUT: _idropout(in, bias);        break;
+    case L_UP_NEAR:
+    case L_UP_LIN:
+    case L_UP_BLIN: _iup(in, n);                break;
     default: ERROR("Model#add layer %d not supported\n", fn);
     }
     in.grad_fn = fn;
@@ -63,8 +64,8 @@ Model::_iconv(Tensor &in, U16 C0, DU bias, U16 *opt) {
     U16 s  = opt[3], d = opt[4];                  ///> stride, dilation
     U16 H0 = (in.H() - Hf + p*2) / s + 1;         ///> output height
     U16 W0 = (in.W() - Wf + p*2) / s + 1;         ///> output width
-    if (Hf != Wf || (Hf != 3 && Hf != 5)) {
-        ERROR("Model#conv2d f=[%d,%d]? 3x3 and 5x5 supported only.\n", Hf, Wf);
+    if (Hf != Wf || (Hf != 1 && Hf != 3 && Hf != 5)) {
+        ERROR("Model#conv2d f=[%d,%d]? 1x1, 3x3, and 5x5 supported only.\n", Hf, Wf);
         return;
     }
     in.stride[0] = in.stride[1] = s;
@@ -131,7 +132,7 @@ Model::_isoftmax(Tensor &in) {
     npush(out);
 }
 ///
-/// Pooling and Dropout ops
+/// Pooling, Dropout, and UpSample ops
 ///
 __GPU__ void
 Model::_ipool(Tensor &in, U16 f) {
@@ -158,6 +159,22 @@ Model::_idropout(Tensor &in, DU pct) {
     TRACE1("dropout=%6.3f\n", pct);
     
     npush(out);
+}
+
+__GPU__ void
+Model::_iup(Tensor &in, U16 f) {
+    if (f != 2 && f != 3) {
+        ERROR("Model#upsample f=[%d,%d]? 2x2 and 3x3 supported only\n", f, f);
+        return;
+    }
+    in.parm = f;                                 /// * keep kernel size
+                                                 /// * used by backprop
+    U16 H0 = in.H() * f;
+    U16 W0 = in.W() * f;
+    U16 s[4] = { f, f, 1, 1 }; memcpy(in.stride, s, sizeof(s));  // stride
+    
+    Tensor &out = _t4(in.N(), H0, W0, in.C());
+    npush(out);                                  /// * stage for next stage
 }
 #endif  // T4_ENABLE_OBJ
 //==========================================================================
