@@ -58,12 +58,12 @@ Model::add(t4_layer fn, U16 n, DU bias, U16 *opt) {
 ///
 __GPU__ void
 Model::_iconv(Tensor &in, U16 C0, DU bias, U16 *opt) {
-    U16 N1 = in.N(), C1 = in.C();                 ///> batch_sz, channels
-    U16 Hf = opt[0], Wf = opt[1];                 ///> filter sizing
-    U16 p  = opt[2] ? opt[2] : int((Hf-1)/2);     ///> padding
-    U16 s  = opt[3], d = opt[4];                  ///> stride, dilation
-    U16 H0 = (in.H() - Hf + p*2) / s + 1;         ///> output height
-    U16 W0 = (in.W() - Wf + p*2) / s + 1;         ///> output width
+    U16 N1 = in.N(), C1 = in.C();                     ///> batch_sz, channels
+    U16 Hf = opt[0], Wf = opt[1];                     ///> filter sizing
+    U16 p  = (Hf>1&&opt[2]) ? opt[2] : int((Hf-1)/2); ///> padding
+    U16 s  = opt[3], d = opt[4];                      ///> stride, dilation
+    U16 H0 = (in.H() - Hf + p*2) / s + 1;             ///> output height
+    U16 W0 = (in.W() - Wf + p*2) / s + 1;             ///> output width
     if (Hf != Wf || (Hf != 1 && Hf != 3 && Hf != 5)) {
         ERROR("Model#conv2d f=[%d,%d]? 1x1, 3x3, and 5x5 supported only.\n", Hf, Wf);
         return;
