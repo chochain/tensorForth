@@ -114,6 +114,7 @@ private:
     __GPU__ int    _fpool(Tensor &in, Tensor &out, t4_layer fn);
     __GPU__ int    _fsoftmax(Tensor &in, Tensor &out);
     __GPU__ int    _flogsoftmax(Tensor &in, Tensor &out);
+    __GPU__ int    _fupsample(Tensor &in, Tensor &out, t4_layer fn);
     /// @}
     /// @name backward ops
     /// @{
@@ -122,6 +123,7 @@ private:
     __GPU__ int    _blinear(Tensor &in, Tensor &out);
     __GPU__ int    _bfilter(Tensor &in, Tensor &msk, Tensor &out);
     __GPU__ int    _bpool(Tensor &in, Tensor &out, t4_layer fn);
+    __GPU__ int    _bupsample(Tensor &in, Tensor &out, t4_layer fn);
     /// @}
     /// @name loss functions
     /// @{
