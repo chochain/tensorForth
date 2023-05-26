@@ -14,28 +14,28 @@
 __GPU__ void
 Model::debug(Tensor &t, DU scale) {
     const int N  = t.N(), H = t.H(), W = t.W(), C = t.C();
-    const int sz = H * W;
+    const int hw = H * W;
     
     for (int n = 0; n < N; n++) {
         DU *d = t.slice(n);
-        if (sz < 100) {
+        if (hw < 100) {
             printf("\nn=%d", n);
             _dump(d, H, W, C);
         }
-        if (sz > 36) _view(d, H, W, C, scale);
+        if (hw > 36) _view(d, H, W, C, scale);
     }
 }
 ///
-/// private methods
+///> _view - in ASCII art
 ///
 __GPU__ void
 Model::_view(DU *v, int H, int W, int C, DU scale) {
 //  static const char *map = " .'`^\",:;Il!i><~+_-?][}{1)(|/tfjrxnuvczXYUJCLQ0OZmwqpdbkhao*#MW&8%B@$";   // 69 shades
     static const char *map = " .:-=+*#%@X";
-    const int sz = H * W, sq = (int)sqrt(sz);
-    const int sh = (sz/sq) + ((sz - sq*sq) > 0 ? 1 : 0);
-    const int h  = W > 1 ? H : (sz < 36 ? 1 : sh);
-    const int w  = W > 1 ? W : (sz < 36 ? H : sq);
+    const int hw = H * W, sq = (int)sqrt(hw);
+    const int sh = (hw/sq) + ((hw - sq*sq) > 0 ? 1 : 0);
+    const int h  = W > 1 ? H : (hw < 36 ? 1 : sh);
+    const int w  = W > 1 ? W : (hw < 36 ? H : sq);
     
     DU *csum = new DU[C];
     for (int k = 0; k < C; k++) csum[k] = DU0;
@@ -44,7 +44,7 @@ Model::_view(DU *v, int H, int W, int C, DU scale) {
         for (int k = 0; k < C; k++) {
             for (int j = 0; j < w; j++) {
                 int n = j + i * w;
-                if (n >= sz) { printf("  "); continue; }
+                if (n >= hw) { printf("  "); continue; }
                 
                 DU r0 = v[k + (j>0 ? n - 1 : n) * C];
                 DU r1 = v[k + n * C];
@@ -69,10 +69,10 @@ Model::_view(DU *v, int H, int W, int C, DU scale) {
 }
 __GPU__ void
 Model::_dump(DU *v, int H, int W, int C) {
-    const int sz = H * W, sq = (int)sqrt(sz);
-    const int sh = (sz/sq) + ((sz - sq*sq) > 0 ? 1 : 0);
-    const int h  = W > 1 ? H : (sz < 36 ? 1 : sh);
-    const int w  = W > 1 ? W : (sz < 36 ? H : sq);
+    const int hw = H * W, sq = (int)sqrt(hw);
+    const int sh = (hw/sq) + ((hw - sq*sq) > 0 ? 1 : 0);
+    const int h  = W > 1 ? H : (hw < 36 ? 1 : sh);
+    const int w  = W > 1 ? W : (hw < 36 ? H : sq);
     
     DU *csum = new DU[C];
     for (int k = 0; k < C; k++) csum[k] = DU0;
@@ -82,7 +82,7 @@ Model::_dump(DU *v, int H, int W, int C) {
         for (int k = 0; k < C; k++) {
             for (int j = 0; j < w; j++) {
                 int n = j + i * w;
-                if (n >= sz) { printf(" ...."); continue; }
+                if (n >= hw) { printf(" ...."); continue; }
                 
                 DU  r = v[k + n * C];
                 printf("%5.2f", r);
