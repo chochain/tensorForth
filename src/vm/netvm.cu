@@ -47,6 +47,9 @@ NetVM::nnop(t4_layer op) {     /// vtable dispatcher
     case L_AVGPOOL:
     case L_MINPOOL: if (M1V) { U16 n = POPi;  MTOS.add(op, n); }    break;
     case L_DROPOUT: if (M1V) { DU  p = POP(); MTOS.add(op, 0, p); } break;
+    case L_UP_NEAR:
+    case L_UP_LIN:
+    case L_UP_BLIN: if (M1V) { U16 n = POPi;  MTOS.add(op, n); }    break;
     default: ERROR("NetVM::nnop(%d) not supported\n", op);
     }
 }
@@ -153,12 +156,15 @@ NetVM::init() {
     CODE("softmax",   nnop(L_SOFTMAX)),       ///> (N -- N')
     CODE("logsoftmax",nnop(L_LOGSMAX)),       ///> (N -- N')
     ///@}
-    ///@defgroup Pooling and Dropout ops
+    ///@defgroup Pooling, Dropout, and Upsample ops
     ///@{
     CODE("maxpool",   nnop(L_MAXPOOL)),       ///> (N n -- N')
     CODE("avgpool",   nnop(L_AVGPOOL)),       ///> (N n -- N')
     CODE("minpool",   nnop(L_MINPOOL)),       ///> (N n -- N')
     CODE("dropout",   nnop(L_DROPOUT)),       ///> (N p -- N')
+    CODE("up.near",   nnop(L_UP_NEAR)),       ///> (N n -- N')
+    CODE("up.lin",    nnop(L_UP_LIN)),        ///> (N n -- N')
+    CODE("up.blin",   nnop(L_UP_BLIN)),       ///> (N n -- N')
     ///@}
     ///@defgroup Loss functions
     ///@{
