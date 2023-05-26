@@ -59,9 +59,7 @@ typedef enum {
     L_MAXPOOL,
     L_MINPOOL,
     L_DROPOUT,
-    L_UP_NEAR,
-    L_UP_LIN,
-    L_UP_BLIN
+    L_USAMPLE
 } t4_layer;
 
 typedef enum {

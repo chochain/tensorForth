@@ -14,6 +14,13 @@ typedef enum {
     LOSS_NLL                 ///< negative log-likelihood (logsoftmax input)
 } t4_loss;
 
+typedef enum {
+    UP_NEAREST = 0,
+    UP_LINEAR,
+    UP_BILINEAR,
+    UP_CUBIC
+} t4_upsample;
+
 class Model : public T4Base {
     int     _trace = 0;     ///< cached debug/tracing level
     MMU     *_mmu;          ///< tensor storage base
@@ -93,18 +100,18 @@ private:
     /// @{
     __GPU__ void   _iconv(Tensor &in, U16 c, DU bias, U16 *opt);
     __GPU__ void   _ilinear(Tensor &in, U16 n, DU bias);   ///< linearize (Dense) with n output
-    __GPU__ void   _iflatten(Tensor &in);        ///< flatten (input 
+    __GPU__ void   _iflatten(Tensor &in);          ///< flatten (input 
     /// @}
     /// @name Activation ops
     /// @{
-    __GPU__ void   _icopy(Tensor &in);           ///< for relu, tanh, sigmoid
-    __GPU__ void   _isoftmax(Tensor &in);        ///< for softmax, logsoftmax
+    __GPU__ void   _icopy(Tensor &in);             ///< for relu, tanh, sigmoid
+    __GPU__ void   _isoftmax(Tensor &in);          ///< for softmax, logsoftmax
     /// @}
     /// @name Pooling and Dropout ops
     /// @{
-    __GPU__ void   _ipool(Tensor &in, U16 n);    ///< pooling with nxn filter
-    __GPU__ void   _idropout(Tensor &in, DU pct);///< zero out p% of channel data (add noise between data points)
-    __GPU__ void   _iup(Tensor &in, U16 n);      ///< upsample with nxn filter
+    __GPU__ void   _ipool(Tensor &in, U16 n);      ///< pooling with nxn filter
+    __GPU__ void   _idropout(Tensor &in, DU pct);  ///< zero out p% of channel data (add noise between data points)
+    __GPU__ void   _iup(Tensor &in, U16 n, DU m);  ///< upsample with nxn filter
     /// @}
     /// @name forward ops
     /// @{
