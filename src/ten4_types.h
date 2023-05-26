@@ -94,10 +94,10 @@ typedef float       F32;                    ///< single precision float
 ///
 ///@name Forth instruction and data types
 ///@{
-#define DSIZE       5                       /**< most significan bit    */
 typedef U16         IU;                     /**< instruction unit       */
 typedef F32         DU;                     /**< data unit              */
 typedef F64         DU2;                    /**< double preciesion data */
+#define DSIZE       5                       /**< data size 5=F32, 6=F64 */
 #define DU0         0.0                     /**< default data value 0   */
 #define DU1         1.0                     /**< default data value 1   */
 #define DU_EPS      1.0e-6                  /**< floating point epsilon */
