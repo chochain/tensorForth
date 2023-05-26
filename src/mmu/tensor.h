@@ -55,10 +55,13 @@ typedef enum {
     L_SIGMOID,
     L_SOFTMAX,
     L_LOGSMAX,
-    L_MAXPOOL,
     L_AVGPOOL,
+    L_MAXPOOL,
     L_MINPOOL,
-    L_DROPOUT
+    L_DROPOUT,
+    L_UP_NEAR,
+    L_UP_LIN,
+    L_UP_BLIN
 } t4_layer;
 
 typedef enum {
