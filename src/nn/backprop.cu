@@ -28,8 +28,8 @@ __KERN__ void k_dconv2d(
     ///
     /// process z1, i.e. [TS, TS, C1] cells per kernel call
     ///
-    const int i0 = i1 - int(KS / 2);                 ///< dY coordinates
-    const int j0 = j1 - int(KS / 2);
+    const int i0 = i1 - INT(KS / 2);                 ///< dY coordinates
+    const int j0 = j1 - INT(KS / 2);
     
     auto g = cg::this_thread_block();                ///< group all threads
     
@@ -117,17 +117,17 @@ __KERN__ void k_dpool(
     const int z1 = c + j0 * KS * C + ((k0 - j0) * C + ns) * KS * KS;
     
     if (k0 < HW && c < C) {
-        const int RI = (W - 1) * KS * C;    ///< input cell row increment
-        DU *ix = &I[z1], *t = ix;           /// *ix input tensor cell
+        const int RI = (W - 1) * KS * C;     ///< input cell row increment
+        DU *ix = &I[z1], *t = ix;            /// *ix input tensor cell
         DU2 v  = (op != L_AVGPOOL) ? *ix : O[z0] / (KS * KS);
         #pragma unroll
-        for (int y = 0; y < KS; y++) {      /// * handle one kernel
+        for (int y = 0; y < KS; y++) {       /// * handle one kernel
             for (int x = 0; x < KS; x++) {
                 DU dx = *ix;
                 switch (op) {
                 case L_AVGPOOL: *ix = v;             break;
                 case L_MAXPOOL:
-                    *ix = DU0;              /// * zero out all elements
+                    *ix = DU0;               /// * zero out all elements
                     if (dx > v) { v = dx; t = ix; }  break;
                 case L_MINPOOL:
                     *ix = DU0;
@@ -138,7 +138,7 @@ __KERN__ void k_dpool(
             }
             ix += RI;                       /// * next input row
         }
-        if (op != L_AVGPOOL) *t = O[z0];    /// * update arg cell
+        if (op==L_MAXPOOL || op==L_MINPOOL) *t = O[z0];    /// * update arg cell
     }
 }
 
@@ -182,7 +182,7 @@ Model::backprop(Tensor &hot) {
     int x = 0;
     for (U16 i = numel - 2, j = 0; i > 0; i--, j++) {
         Tensor &in = (*this)[i], &out = (*this)[i + 1];
-        if (_trace > 0) {
+        if (_trace) {
             trace((tt=_mmu->ms()) - t1, i, in, out);
             t1 = tt;
         }
@@ -223,6 +223,7 @@ Model::_bstep(Tensor &in, Tensor &out) {
         Tensor &msk = *in.grad[0];             ///< dropout mask
         _bfilter(in, msk, out);
     } break;
+    case L_USAMPLE: _bupsample(in, out, fn); break;
     default: ERROR("Model#backprop layer=%d not supported\n", fn);
     }
 }
@@ -362,12 +363,12 @@ template<int KS>                                        /// forward declare (in 
 __KERN__ void  k_pool(t4_layer op, DU *I, DU *O, int H, int W);
 __GPU__ int
 Model::_bupsample(Tensor &in, Tensor &out, t4_layer fn) {
-    const int W  = out.W(), H = out.H();                ///< output dimensions
+    const int W  = in.W(), H = in.H();                  ///< input dimensions (reversed pool)
     const int me = (in.parm >> 8);                      ///< upsample method, TODO
     const int ks = (in.parm & 0xff);                    ///< kernel size
     
     dim3 blk(T4_WARP_SQ, 1, 1);                         ///< default blocks
-    dim3 grd((H * W + blk.x - 1) / blk.x, out.C(), out.N());
+    dim3 grd((H * W + blk.x - 1) / blk.x, in.C(), in.N());
     
     switch(ks) {                                        /// by kernel size
     case 2: k_pool<2><<<grd,blk>>>(fn, out.data, in.data, H, W); break;
@@ -378,6 +379,8 @@ Model::_bupsample(Tensor &in, Tensor &out, t4_layer fn) {
     }
     GPU_SYNC();
     
+    _dump(out.data, out.H(), out.W(), out.C());
+    _dump(in.data, in.H(), in.W(), in.C());
     return 0;
 }
 #endif  // T4_ENABLE_OBJ

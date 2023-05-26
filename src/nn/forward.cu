@@ -26,8 +26,8 @@ __KERN__ void k_conv2d(
     ///
     /// process z0, i.e. [TS, TS, C] cells per kernel call
     ///
-    const int i1 = i0 - int(KS / 2);                 ///< input coordinates
-    const int j1 = j0 - int(KS / 2);                 /// * i1,j1=-1:28
+    const int i1 = i0 - INT(KS / 2);                 ///< input coordinates
+    const int j1 = j0 - INT(KS / 2);                 /// * i1,j1=-1:28
 
     auto g = cg::this_thread_block();                ///< all threads of block
     for (int c1 = 0; c1 < C1; c1++) {                ///< each input channel
@@ -158,12 +158,12 @@ Model::forward(Tensor &input) {
     DU t0 = _mmu->ms(), t1 = t0, tt;             ///< performance measurement
     for (U16 i = 1; i < numel - 1; i++) {
         Tensor &in = (*this)[i], &out = (*this)[i + 1];
-        if (_trace > 0) {
+        if (_trace) {
             trace((tt=_mmu->ms()) - t1, i, in, out);
             t1 = tt;
         }
         _fstep(in, out);
-//        debug(out);
+        if (_trace) debug(out);
     }
     ///
     /// collect onehot vector and hit count
@@ -362,12 +362,12 @@ template<int KS>                                        /// forward declare (in 
 __KERN__ void k_dpool(t4_layer op, DU *I, DU *O, int H, int W);
 __GPU__ int
 Model::_fupsample(Tensor &in, Tensor &out, t4_layer fn) {
-    const int W  = out.W(), H = out.H();                ///< output dimensions
+    const int W  = in.W(), H = in.H();                  ///< input dimensions (reversed pool)
     const int me = (in.parm >> 8);                      ///< upsample method, TODO
     const int ks = in.parm & 0xff;                      ///< upsampling size
     
     dim3 blk(T4_WARP_SQ, 1, 1);
-    dim3 grd((H * W + blk.x - 1) / blk.x, out.C(), out.N());
+    dim3 grd((H * W + blk.x - 1) / blk.x, in.C(), in.N());
 
     switch(ks) {                           
     case 2: k_dpool<2><<<grd,blk>>>(fn, out.data, in.data, H, W); break;
@@ -378,6 +378,8 @@ Model::_fupsample(Tensor &in, Tensor &out, t4_layer fn) {
     }
     GPU_SYNC();
     
+    _dump(in.data,  in.H(), in.W(), in.C());
+    _dump(out.data, out.H(), out.W(), out.C());
     return 0;
 }
 
