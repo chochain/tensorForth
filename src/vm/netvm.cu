@@ -47,9 +47,11 @@ NetVM::nnop(t4_layer op) {     /// vtable dispatcher
     case L_AVGPOOL:
     case L_MINPOOL: if (M1V) { U16 n = POPi;  MTOS.add(op, n); }    break;
     case L_DROPOUT: if (M1V) { DU  p = POP(); MTOS.add(op, 0, p); } break;
-    case L_UP_NEAR:
-    case L_UP_LIN:
-    case L_UP_BLIN: if (M1V) { U16 n = POPi;  MTOS.add(op, n); }    break;
+    case L_USAMPLE: {
+        U16 n = POPi;
+        U16 m = (M1V) ? POPi : UP_NEAREST;
+        MTOS.add(op, n, m);
+    } break;
     default: ERROR("NetVM::nnop(%d) not supported\n", op);
     }
 }
@@ -119,9 +121,8 @@ NetVM::_loss(t4_loss op) {
     else ERROR("model?\n");
 }
 ///===================================================================
-/// class methods
 ///
-/// Neural Network specific dictionary constructor
+/// Neural Network Vocabulary
 ///
 __GPU__ void
 NetVM::init() {
@@ -162,9 +163,7 @@ NetVM::init() {
     CODE("avgpool",   nnop(L_AVGPOOL)),       ///> (N n -- N')
     CODE("minpool",   nnop(L_MINPOOL)),       ///> (N n -- N')
     CODE("dropout",   nnop(L_DROPOUT)),       ///> (N p -- N')
-    CODE("up.near",   nnop(L_UP_NEAR)),       ///> (N n -- N')
-    CODE("up.lin",    nnop(L_UP_LIN)),        ///> (N n -- N')
-    CODE("up.blin",   nnop(L_UP_BLIN)),       ///> (N n -- N')
+    CODE("upsample",  nnop(L_USAMPLE)),       ///> (N [m] n -- N')
     ///@}
     ///@defgroup Loss functions
     ///@{
