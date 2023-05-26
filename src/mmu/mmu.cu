@@ -413,7 +413,7 @@ MMU::words(std::ostream &fout) {
         sz += to_s(fout, (IU)i);
         if (_trace || sz > 54) { fout << std::endl; sz = 0; } /// TODO: width configuable
     }
-    if (_trace < 1) fout << std::endl;
+    if (!_trace) fout << std::endl;
 }
 ///
 /// recursively disassemble colon word
@@ -466,7 +466,7 @@ MMU::ss_dump(std::ostream &fout, U16 vid, U16 n, int radix) {
         else           fout << s;
     };
     DU *ss = &_vmss[vid * T4_SS_SZ];
-    if (_trace > 0) fout << vid << "}";
+    if (_trace) fout << vid << "}";
     fout << std::setprecision(-1) << " <";
     if (x) fout << std::setbase(radix);
     for (U16 i=0; i<n; i++) {
