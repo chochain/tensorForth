@@ -102,8 +102,9 @@ private:
     /// @}
     /// @name Pooling and Dropout ops
     /// @{
-    __GPU__ void   _ipool(Tensor &in, U16 n);    ///< maximum pooling with nxn filter
+    __GPU__ void   _ipool(Tensor &in, U16 n);    ///< pooling with nxn filter
     __GPU__ void   _idropout(Tensor &in, DU pct);///< zero out p% of channel data (add noise between data points)
+    __GPU__ void   _iup(Tensor &in, U16 n);      ///< upsample with nxn filter
     /// @}
     /// @name forward ops
     /// @{
