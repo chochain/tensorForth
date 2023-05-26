@@ -198,9 +198,8 @@ drop                                        \ drop the value
   avgpool    (N n -- N')         - nxn cells average pooling
   minpool    (N n -- N')         - nxn cell minimum pooling
   dropout    (N p -- N')         - zero out p% of channel data (add noise between data points)
-  up.near    (N n -- N')         - upsample to nearest size=n, 2x2 and 3x3 supported
-  up.lin     (N n -- N')         - upsample linearly size=n, TODO
-  up.blin    (N n -- N')         - upsample bilinearly size=n, TODO
+  upsample   (N n -- N')         - upsample to nearest size=n, 2x2 and 3x3 supported
+  upsample   (N m n -- N')       - upsample with method=m, size=n, 2x2 and 3x3 supported
 </pre>
 
 ### Activation (non-linear)
