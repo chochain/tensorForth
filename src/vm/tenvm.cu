@@ -286,7 +286,7 @@ TensorVM::_gemm() {                          ///< blas GEMM
     else ERROR("dim?");
 }
 ///
-/// Tensor specific dictionary constructor
+/// Tensor Vocabulary
 ///
 __GPU__ void
 TensorVM::init() {

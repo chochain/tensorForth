@@ -100,7 +100,7 @@ NetVM::_conv(U16 k) {
         }
         else { ERROR("vec?"); return; }
     }
-    if (!M2V) { ERROR("bias c required for convolution!"); return; }
+    if (!M2V) { ERROR("convolution: bias c required!"); return; }
     U16 c    = POPi;                    ///> number of output channels
     DU  bias = POP();                   ///> convolution bias
     MTOS.add(L_CONV, c, bias, opt);
