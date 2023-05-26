@@ -89,8 +89,8 @@ NetVM::_fetch(DU d, bool more) {
 ///
 __GPU__ void
 NetVM::_conv(U16 k) {
-    U16 opt[] = { k, k, 1, 1, 1 };       ///> default config vector
-    if (TOS1T) {                         ///> if optional vector given
+    U16 opt[] = { k, k, 1, 1, 1 };      ///> default config vector
+    if (TOS1T) {                        ///> if optional vector given
         Tensor &v = TTOS;
         if (v.rank == 1) {
             for (int i=0; i<5; i++) opt[i] = (U16)v.data[i];
@@ -98,7 +98,7 @@ NetVM::_conv(U16 k) {
         }
         else { ERROR("vec?"); return; }
     }
-    if (!M2V) { ERROR("conv2d bias c required!"); return; }
+    if (!M2V) { ERROR("bias c required for convolution!"); return; }
     U16 c    = POPi;                    ///> number of output channels
     DU  bias = POP();                   ///> convolution bias
     MTOS.add(L_CONV, c, bias, opt);
@@ -144,9 +144,9 @@ NetVM::init() {
     ///@}
     ///@defgroup Convolution and Linear ops
     ///@{
-    CODE("conv1x1",   _conv(1)),               ///> (N b c -- N')
-    CODE("conv2d",    _conv(3)),               ///> (N b c [A] -- N')
-    CODE("linear",    nnop(L_LINEAR)),         ///> (N b n -- N')
+    CODE("conv1x1",   _conv(1)),              ///> (N b c -- N')
+    CODE("conv2d",    _conv(3)),              ///> (N b c [A] -- N')
+    CODE("linear",    nnop(L_LINEAR)),        ///> (N b n -- N')
     ///@}
     ///@defgroup Activation ops
     ///@{
