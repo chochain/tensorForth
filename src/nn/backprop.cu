@@ -108,15 +108,16 @@ __KERN__ void k_dpool(
     DU *I, DU *O,                                     ///< input, output buffers
     int H, int W                                      ///< output HW (C1==C0)
     ) {
+    const int HW = H * W;                             ///< HxW
     const int k0 = threadIdx.x + blockIdx.x * blockDim.x;
     const int j0 = k0 % W;                            ///< output x dim
     const int c  = blockIdx.y, C = gridDim.y;         ///< channel deep
-    const int hw = H * W;                             ///< HxW
-    const int ns = blockIdx.z * hw * C;               ///< batch slice idx
+    const int ns = blockIdx.z * HW * C;               ///< batch slice idx
     const int z0 = c + k0 * C + ns;                   ///< output array index
     const int z1 = c + j0 * KS * C + ((k0 - j0) * C + ns) * KS * KS;
     
-    if (k0 < hw && c < C) {
+    if (k0 < HW && c < C) {
+        const int RI = (W - 1) * KS * C;    ///< input cell row increment
         DU *ix = &I[z1], *t = ix;           /// *ix input tensor cell
         DU2 v  = (op != L_AVGPOOL) ? *ix : O[z0] / (KS * KS);
         #pragma unroll
@@ -131,21 +132,19 @@ __KERN__ void k_dpool(
                 case L_MINPOOL:
                     *ix = DU0;
                     if (dx < v) { v = dx; t = ix; }  break;
-                case L_UP_NEAR: *ix = O[z0];
-                case L_UP_LIN:  /* TODO */
-                case L_UP_BLIN: /* TODO */           break;
+                case L_USAMPLE: *ix = O[z0];         break;
                 }
-                ix += C;
+                ix += C;                    /// * next cell
             }
-            ix += (W - 1) * KS * C;
+            ix += RI;                       /// * next input row
         }
-        if (op != L_AVGPOOL) *t = O[z0];   /// * update arg cell
+        if (op != L_AVGPOOL) *t = O[z0];    /// * update arg cell
     }
 }
 
 __KERN__ void k_dfilter(
-    DU *I, DU *F, DU *O,                   ///< input, filter, output
-    int HW                                 ///< H1==H0, W1==W0 (C1==C0)
+    DU *I, DU *F, DU *O,                    ///< input, filter, output
+    int HW                                  ///< H1==H0, W1==W0 (C1==C0)
     ) {
     const int i  = threadIdx.x + blockIdx.x * blockDim.x;  ///< element index
     const int c  = blockIdx.y, C = gridDim.y;              ///< channel deep
@@ -356,18 +355,21 @@ Model::_bpool(Tensor &in, Tensor &out, t4_layer fn) {
     
     return 0;
 }
-
+///
+///> upsampling =~ reverse pooling (calls forward k_pool)
+///
 template<int KS>                                        /// forward declare (in forward.cu)
 __KERN__ void  k_pool(t4_layer op, DU *I, DU *O, int H, int W);
 __GPU__ int
 Model::_bupsample(Tensor &in, Tensor &out, t4_layer fn) {
     const int W  = out.W(), H = out.H();                ///< output dimensions
-    const int ks = in.parm;                             ///< kernel size
+    const int me = (in.parm >> 8);                      ///< upsample method, TODO
+    const int ks = (in.parm & 0xff);                    ///< kernel size
     
     dim3 blk(T4_WARP_SQ, 1, 1);                         ///< default blocks
     dim3 grd((H * W + blk.x - 1) / blk.x, out.C(), out.N());
     
-    switch(ks) {                                        /// pooling kernel size
+    switch(ks) {                                        /// by kernel size
     case 2: k_pool<2><<<grd,blk>>>(fn, out.data, in.data, H, W); break;
     case 3: k_pool<3><<<grd,blk>>>(fn, out.data, in.data, H, W); break;
     default:

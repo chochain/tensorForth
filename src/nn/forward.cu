@@ -100,6 +100,7 @@ __KERN__ void k_pool(
     const bool avg = (op != L_MAXPOOL && op != L_MINPOOL);
     
     if (k0 < hw && c < C) {
+        const int RI = (W - 1) * KS * C;              ///< input cell row increment
         DU *ix = &I[z1];
         DU2 v  = avg ? DU0 : *ix;
         #pragma unroll
@@ -107,16 +108,14 @@ __KERN__ void k_pool(
             for (int x = 0; x < KS; x++) {
                 DU dx = *ix;
                 switch (op) {
-                case L_UP_NEAR:
-                case L_UP_LIN:
-                case L_UP_BLIN:
+                case L_USAMPLE:
                 case L_AVGPOOL: v += dx;        break;
                 case L_MAXPOOL: v = MAX(dx, v); break;
                 case L_MINPOOL: v = MIN(dx, v); break;
                 }
-                ix += C;
+                ix += C;                             /// * next cell
             }
-            ix += (W - 1) * KS * C;
+            ix += RI;                                /// * next row
         }
         O[z0] = avg ? v / (KS * KS) : v;
     }
@@ -204,9 +203,7 @@ Model::_fstep(Tensor &in, Tensor &out) {
         _mmu->random(msk, UNIFORM, -pct);         /// * randomize w, shift pct
         _ffilter(in, msk, out);
     } break;
-    case L_UP_NEAR:
-    case L_UP_LIN:
-    case L_UP_BLIN: _fupsample(in, out, fn); break;
+    case L_USAMPLE: _fupsample(in, out, fn); break;
     default: ERROR("Model#forward layer=%d not supported\n", fn);
     }
 }
@@ -358,13 +355,16 @@ Model::_flogsoftmax(Tensor &in, Tensor &out) {/// * TODO: DCP
     }
     return 0;
 }
-
+///
+///> upsampling =~ reverse pooling (calls backprop k_dpool)
+///
 template<int KS>                                        /// forward declare (in backprop.cu)
 __KERN__ void k_dpool(t4_layer op, DU *I, DU *O, int H, int W);
 __GPU__ int
 Model::_fupsample(Tensor &in, Tensor &out, t4_layer fn) {
     const int W  = out.W(), H = out.H();                ///< output dimensions
-    const int ks = in.parm;                             ///< upsampling size
+    const int me = (in.parm >> 8);                      ///< upsample method, TODO
+    const int ks = in.parm & 0xff;                      ///< upsampling size
     
     dim3 blk(T4_WARP_SQ, 1, 1);
     dim3 grd((H * W + blk.x - 1) / blk.x, out.C(), out.N());

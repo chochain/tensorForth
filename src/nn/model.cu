@@ -10,8 +10,7 @@
 #define NAME_LIST {                                        \
     "output ", "conv2d ", "linear ", "flatten", "relu   ", \
     "tanh   ", "sigmoid", "softmax", "logsmax", "avgpool", \
-    "maxpool", "minpool", "dropout", "up.near", "up.lin ", \
-    "up.blin" }
+    "maxpool", "minpool", "dropout", "upsampl" }
     
 __HOST__ const char*                ///< host network layer name 
 Model::nname(int i) {
@@ -44,9 +43,7 @@ Model::add(t4_layer fn, U16 n, DU bias, U16 *opt) {
     case L_MAXPOOL:
     case L_MINPOOL: _ipool(in, n);              break;
     case L_DROPOUT: _idropout(in, bias);        break;
-    case L_UP_NEAR:
-    case L_UP_LIN:
-    case L_UP_BLIN: _iup(in, n);                break;
+    case L_USAMPLE: _iup(in, n, bias);          break;
     default: ERROR("Model#add layer %d not supported\n", fn);
     }
     in.grad_fn = fn;
@@ -81,13 +78,11 @@ Model::_iconv(Tensor &in, U16 C0, DU bias, U16 *opt) {
 
     DU k = DU1 / SQRT(Hf * Wf * C1);             /// * filter default range
     _mmu->random(*f, UNIFORM, -0.5, 2.0 * k);    /// * randomize f [-k ~ k)
-    /*
     printf("bias=%4.2f,  k=%6.4f, f.std=%6.4f\n", bias, k, f->std());
     for (int i=0; i<f->numel; i++) {
         DU dx = f->data[i];
         printf("%6.3f", dx);
     }
-    */
     Tensor &out= _t4(N1, H0, W0, C0);           ///> output tensor
     npush(out);                                 /// * stage for next stage
 }
@@ -162,12 +157,12 @@ Model::_idropout(Tensor &in, DU pct) {
 }
 
 __GPU__ void
-Model::_iup(Tensor &in, U16 f) {
+Model::_iup(Tensor &in, U16 f, DU method) {
     if (f != 2 && f != 3) {
         ERROR("Model#upsample f=[%d,%d]? 2x2 and 3x3 supported only\n", f, f);
         return;
     }
-    in.parm = f;                                 /// * keep kernel size
+    in.parm = (int(method)<<8) | f;              /// * keep (method<<8) | kernel size
                                                  /// * used by backprop
     U16 H0 = in.H() * f;
     U16 W0 = in.W() * f;
