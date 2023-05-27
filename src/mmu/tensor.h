@@ -53,6 +53,8 @@ typedef enum {
     L_RELU,
     L_TANH,
     L_SIGMOID,
+    L_LEAKYRL,
+    L_ELU,
     L_SOFTMAX,
     L_LOGSMAX,
     L_AVGPOOL,
