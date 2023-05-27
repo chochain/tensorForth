@@ -100,18 +100,19 @@ private:
     /// @{
     __GPU__ void   _iconv(Tensor &in, U16 c, DU bias, U16 *opt);
     __GPU__ void   _ilinear(Tensor &in, U16 n, DU bias);   ///< linearize (Dense) with n output
-    __GPU__ void   _iflatten(Tensor &in);          ///< flatten (input 
+    __GPU__ void   _iflatten(Tensor &in);           ///< flatten (input 
     /// @}
     /// @name Activation ops
     /// @{
-    __GPU__ void   _icopy(Tensor &in);             ///< for relu, tanh, sigmoid
-    __GPU__ void   _isoftmax(Tensor &in);          ///< for softmax, logsoftmax
+    __GPU__ void   _icopy(Tensor &in);              ///< for relu, tanh, sigmoid
+    __GPU__ void   _iactivate(Tensor &in, DU alpha);///< zero out p% of channel data (add noise between data points)
+    __GPU__ void   _isoftmax(Tensor &in);           ///< for softmax, logsoftmax
     /// @}
     /// @name Pooling and Dropout ops
     /// @{
-    __GPU__ void   _ipool(Tensor &in, U16 n);      ///< pooling with nxn filter
-    __GPU__ void   _idropout(Tensor &in, DU pct);  ///< zero out p% of channel data (add noise between data points)
-    __GPU__ void   _iup(Tensor &in, U16 n, DU m);  ///< upsample with nxn filter
+    __GPU__ void   _ipool(Tensor &in, U16 n);       ///< pooling with nxn filter
+    __GPU__ void   _idropout(Tensor &in, DU pct);   ///< zero out p% of channel data (add noise between data points)
+    __GPU__ void   _iup(Tensor &in, U16 n, DU m);   ///< upsample with nxn filter
     /// @}
     /// @name forward ops
     /// @{
@@ -119,6 +120,7 @@ private:
     __GPU__ int    _fconv(Tensor &in, Tensor &out);
     __GPU__ int    _flinear(Tensor &in, Tensor &out);
     __GPU__ int    _ffilter(Tensor &in, Tensor &m, Tensor &out);
+    __GPU__ int    _factivate(Tensor &in, Tensor &out, t4_layer fn);
     __GPU__ int    _fpool(Tensor &in, Tensor &out, t4_layer fn);
     __GPU__ int    _fsoftmax(Tensor &in, Tensor &out);
     __GPU__ int    _flogsoftmax(Tensor &in, Tensor &out);
@@ -130,6 +132,7 @@ private:
     __GPU__ int    _bconv(Tensor &in, Tensor &out);
     __GPU__ int    _blinear(Tensor &in, Tensor &out);
     __GPU__ int    _bfilter(Tensor &in, Tensor &msk, Tensor &out);
+    __GPU__ int    _bactivate(Tensor &in, Tensor &out, t4_layer fn);
     __GPU__ int    _bpool(Tensor &in, Tensor &out, t4_layer fn);
     __GPU__ int    _bupsample(Tensor &in, Tensor &out, t4_layer fn);
     /// @}
