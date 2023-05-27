@@ -37,6 +37,8 @@ Model::add(t4_layer fn, U16 n, DU bias, U16 *opt) {
     case L_RELU:
     case L_TANH:
     case L_SIGMOID: _icopy(in);                 break;
+    case L_LEAKYRL:
+    case L_ELU:     _iactivate(in, bias);       break;
     case L_SOFTMAX:
     case L_LOGSMAX: _isoftmax(in);              break;
     case L_AVGPOOL:
@@ -120,6 +122,16 @@ __GPU__ void
 Model::_icopy(Tensor &in) {
     Tensor &out = _mmu->copy(in);                ///> output tensor sizing
     npush(out);                                  /// * stage for next stage
+}
+
+__GPU__ void
+Model::_iactivate(Tensor &in, DU alpha) {
+    Tensor &out = _mmu->copy(in);
+    
+    in.parm = INT(1000.0 * alpha);               /// * alpha * 1000
+    TRACE1("alpha=%6.3f\n", alpha);
+    
+    npush(out);
 }
 
 __GPU__ void
