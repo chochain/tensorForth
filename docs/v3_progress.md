@@ -112,6 +112,8 @@ ds1                                       \ put dataset on TOS
 |tanh|(N -- N')|add tanh layer to network model|
 |relu|(N -- N')|add Rectified Linear Unit to network model|
 |sigmoid|(N -- N')|add sigmoid 1/(1+exp^-z) activation to network model, used in binary|
+|leakyrelu|(N a -- N')|add leaky ReLU activation with slope=a to network model|
+|elu|(N a -- N')|add exponential linear unit activation with alpha=a to network model|
 |softmax|(N -- N')|add probability vector exp(x)/sum(exp(x)) to network model, feeds loss.ce, used in multi-class|
 |logsoftmax|(N -- N')|add probability vector x - log(sum(exp(x))) to network model, feeds loss.nll, used in multi-class|
     

@@ -8,7 +8,7 @@
 |[release 2.0](https://github.com/chochain/tensorForth/releases/tag/v2.0.2)|**matrix**|alpha|added vector and matrix objects|NumPy|
 |[release 2.2](https://github.com/chochain/tensorForth/releases/tag/v2.2.2)|**lapack**|alpha|added linear algebra methods|SciPy|
 |[release 3.0](https://github.com/chochain/tensorForth/releases/tag/v3.0.0)|**CNN**|alpha|added ML propegation with autograd|Torch|
-|[release 3.2]|**GAN**|under development|adding Generative Adversarial Net|Torch/DCGAN|
+|release 3.2|**GAN**|under development|adding Generative Adversarial Net|Torch/DCGAN|
 |future|**Transformer**|planning|to add Transformer ops|PyTorch|
 
 ### Why?
@@ -210,6 +210,8 @@ drop                                        \ drop the value
   tanh       (N -- N')           - add tanh layer to network model
   relu       (N -- N')           - add Rectified Linear Unit to network model
   sigmoid    (N -- N')           - add sigmoid 1/(1+exp^-z) activation to network model, used in binary
+  leakyrelu  (N a -- N')         - add leaky ReLU with slope=a
+  leu        (N a -- N')         - add exponential linear unit alpha=a
   softmax    (N -- N')           - add probability vector exp(x)/sum(exp(x)) to network model, feeds loss.ce, used in multi-class
   logsoftmax (N -- N')           - add probability vector x - log(sum(exp(x))) to network model, feeds loss.nll, used in multi-class
 </pre>
@@ -340,7 +342,6 @@ drop                                        \ drop the value
 
 ### TODO - by priorities
 * model
-  + add layer - LeakyReLU, Sigmoid, Tanh, ELU
   + add layer - BatchNorm (https://towardsdatascience.com/batch-normalization-in-3-levels-of-understanding-14c2da90a338), also study alternatives such as GHN and AN (https://analyticsindiamag.com/alternatives-batch-normalization-deep-learning/), 
   + add block - branch & concatenate (i.e Inception in GoogLeNet)
   + add block - residual map (i.e. ResNet, https://d2l.ai/chapter_convolutional-modern/resnet.html)
