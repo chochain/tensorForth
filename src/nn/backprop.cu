@@ -156,6 +156,27 @@ __KERN__ void k_dfilter(
     }
 }
 
+__KERN__ void k_dactivate(
+    t4_layer op,
+    DU *I, DU *O,                           ///< input, filter, output
+    int HW, DU alpha                        ///< H1==H0, W1==W0 (C1==C0)
+    ) {
+    const int i  = threadIdx.x + blockIdx.x * blockDim.x;  ///< element index
+    const int c  = blockIdx.y, C = gridDim.y;              ///< channel deep
+    const int ns = blockIdx.z * HW * C;                    ///< batch slice index
+    const int k  = c + i * C + ns;                         ///< output tensor index
+
+    if (i < HW && c < C) {
+        DU ik = I[k];                       ///< cached in register
+        switch (op) {
+        case L_TANH:    I[k] = O[k] * (DU1 - ik*ik);   break;  /// * 1 - tanh^2
+        case L_SIGMOID: I[k] = O[k] * ik * (DU1 - ik); break;  /// * sig(1 - sig)
+        case L_LEAKYRL: I[k] = ik > DU0 ? O[k] : alpha * O[k]; break;
+        case L_ELU:     I[k] = ik > DU0 ? O[k] : ik * O[k];    break;
+        }
+    }
+}
+
 ///
 /// backprop: Neural Network back propegation
 /// Note: cascade execution layer by layer backward
@@ -203,14 +224,16 @@ Model::_bstep(Tensor &in, Tensor &out) {
     ///
     /// layer function dispatcher
     ///
-    t4_layer fn = in.grad_fn;                     ///< layer function
+    t4_layer fn = in.grad_fn;                       ///< layer function
     switch(fn) {
-    case L_CONV:    _bconv(in, out);       break; /// * convolution
-    case L_LINEAR:  _blinear(in, out);     break; /// * out = w @ in + b
-    case L_FLATTEN: in = out;              break; /// * pass dY to X
-    case L_RELU:    _bfilter(in, in, out); break;
-    case L_TANH:    /* TODO: */ break;
-    case L_SIGMOID: /* TODO: */ break; /// dX = dY * sigmod(X) * (1 - sigmod(X))
+    case L_CONV:    _bconv(in, out);         break; /// * convolution
+    case L_LINEAR:  _blinear(in, out);       break; /// * out = w @ in + b
+    case L_FLATTEN: in = out;                break; /// * pass dY to X
+    case L_RELU:    _bfilter(in, in, out);   break; /// * filter (in > 0)
+    case L_TANH:
+    case L_SIGMOID:
+    case L_LEAKYRL:
+    case L_ELU:     _bactivate(in, out, fn); break;
     case L_SOFTMAX: /* softmax + CrossEntropy derivative, out = one-hot */
     case L_LOGSMAX: /* log-softmax + NLL      derivative, out = one-hot */
         in -= out;  /* softmax:    Xi = Yi - Li     */
@@ -218,7 +241,7 @@ Model::_bstep(Tensor &in, Tensor &out) {
         break;
     case L_MAXPOOL:
     case L_AVGPOOL: 
-    case L_MINPOOL: _bpool(in, out, fn); break;
+    case L_MINPOOL: _bpool(in, out, fn);     break;
     case L_DROPOUT: {
         Tensor &msk = *in.grad[0];             ///< dropout mask
         _bfilter(in, msk, out);
@@ -338,6 +361,21 @@ Model::_bfilter(Tensor &in, Tensor &msk, Tensor &out) {
 }
 
 __GPU__ int
+Model::_bactivate(Tensor &in, Tensor &out, t4_layer fn) {
+    const int W = out.W(), HW = out.H() * W;
+    
+    dim3 blk(T4_WARP_SQ, 1, 1);
+    dim3 grd((HW + blk.x -1) / blk.x, out.C(), out.N());
+
+    DU alpha = 0.001 * in.parm;
+
+    k_dactivate<<<grd,blk>>>(fn, in.data, out.data, HW, alpha);
+    GPU_SYNC();
+
+    return 0;
+}
+
+__GPU__ int
 Model::_bpool(Tensor &in, Tensor &out, t4_layer fn) {
     const int W = out.W(), H = out.H();   ///< output dimensions
     
@@ -379,8 +417,8 @@ Model::_bupsample(Tensor &in, Tensor &out, t4_layer fn) {
     }
     GPU_SYNC();
     
-    _dump(out.data, out.H(), out.W(), out.C());
-    _dump(in.data, in.H(), in.W(), in.C());
+    //_dump(out.data, out.H(), out.W(), out.C());
+    //_dump(in.data, in.H(), in.W(), in.C());
     return 0;
 }
 #endif  // T4_ENABLE_OBJ

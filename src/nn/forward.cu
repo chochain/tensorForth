@@ -135,6 +135,28 @@ __KERN__ void k_filter(
     }
 }
 
+__KERN__ void k_activate(
+    t4_layer op, DU *I, DU *O,             ///< func, input, output tensors
+    int HW, DU alpha                       ///< H0=H1, W0==W1 (C0==C1)
+    ) {
+    const int i  = threadIdx.x + blockIdx.x * blockDim.x;  ///< element index
+    const int c  = blockIdx.y, C = gridDim.y;              ///< channel deep
+    const int ns = blockIdx.z * HW * C;                    ///< batch slice index
+    const int k  = c + i * C + ns;                         ///< output tensor index
+    
+    if (i < HW) {
+        DU ik = I[k];                                      ///< use register
+        switch (op) {
+        case L_TANH:    O[k] = I[k] = TANH(ik);     break; /// * cache tanh(x)
+        case L_SIGMOID: O[k] = I[k] = SIGMOID(ik);  break; /// * cache sigmoid(x)
+        case L_LEAKYRL: O[k] = ik > DU0
+             ? ik : alpha * ik;                     break;
+        case L_ELU:     O[k] = ik > DU0
+             ? ik : (I[k]=alpha * EXP(ik)) - alpha; break; /// * cache alpha*exp(x)
+        }
+    }
+}
+
 __GPU__ Model&
 Model::forward(Tensor &input) {
     Tensor &n1 = (*this)[1];  ///< reference model input layer
@@ -184,23 +206,25 @@ Model::_fstep(Tensor &in, Tensor &out) {
     ///
     /// layer function dispatcher
     ///
-    t4_layer fn = in.grad_fn;                     ///< layer function
+    t4_layer fn = in.grad_fn;                       ///< layer function
     switch(fn) {
-    case L_CONV:    _fconv(in, out);       break; ///< convolution
-    case L_LINEAR:  _flinear(in, out);     break; ///< out = W @ in + B
-    case L_FLATTEN: out = in;              break; ///< straight copy
-    case L_RELU:    _ffilter(in, in, out); break; ///< filter in < 0 
-    case L_TANH:    /* TODO */             break;
-    case L_SIGMOID: /* TODO */             break;
-    case L_SOFTMAX: _fsoftmax(in, out);    break; /// * feed to CrossEtropy
-    case L_LOGSMAX: _flogsoftmax(in, out); break; /// * feed to NLL
+    case L_CONV:    _fconv(in, out);         break; ///< convolution
+    case L_LINEAR:  _flinear(in, out);       break; ///< out = W @ in + B
+    case L_FLATTEN: out = in;                break; ///< straight copy
+    case L_RELU:    _ffilter(in, in, out);   break; ///< filter in < 0 
+    case L_TANH:
+    case L_SIGMOID: 
+    case L_LEAKYRL:
+    case L_ELU:     _factivate(in, out, fn); break;
+    case L_SOFTMAX: _fsoftmax(in, out);      break; /// * feed to CrossEtropy
+    case L_LOGSMAX: _flogsoftmax(in, out);   break; /// * feed to NLL
     case L_AVGPOOL: 
     case L_MAXPOOL:
-    case L_MINPOOL: _fpool(in, out, fn);   break;
-    case L_DROPOUT: {                             ///< dropout mask 
-        DU     pct  = 0.001 * in.parm;            ///< percentage dropout
-        Tensor &msk = *in.grad[0];                ///< dropout mask
-        _mmu->random(msk, UNIFORM, -pct);         /// * randomize w, shift pct
+    case L_MINPOOL: _fpool(in, out, fn);     break;
+    case L_DROPOUT: {                               ///< dropout mask 
+        DU     pct  = 0.001 * in.parm;              ///< percentage dropout
+        Tensor &msk = *in.grad[0];                  ///< dropout mask
+        _mmu->random(msk, UNIFORM, -pct);           /// * randomize w, shift pct
         _ffilter(in, msk, out);
     } break;
     case L_USAMPLE: _fupsample(in, out, fn); break;
@@ -294,6 +318,21 @@ Model::_ffilter(Tensor &in, Tensor &msk, Tensor &out) {
 }
 
 __GPU__ int
+Model::_factivate(Tensor &in, Tensor &out, t4_layer fn) {
+    const int W = out.W(), HW = out.H() * W;
+    
+    dim3 blk(T4_WARP_SQ, 1, 1);                        ///< default blocks
+    dim3 grd((HW + blk.x - 1)/blk.x, out.C(), out.N());
+
+    DU alpha = 0.001 * in.parm;
+
+    k_activate<<<grd, blk>>>(fn, in.data, out.data, HW, alpha);
+    GPU_SYNC();
+    
+    return 0;
+}
+
+__GPU__ int
 Model::_fpool(Tensor &in, Tensor &out, t4_layer fn) {
     const int W  = out.W(), H = out.H();                ///< output dimensions
     const int ks = in.parm;                             ///< kernel size
@@ -378,8 +417,8 @@ Model::_fupsample(Tensor &in, Tensor &out, t4_layer fn) {
     }
     GPU_SYNC();
     
-    _dump(in.data,  in.H(), in.W(), in.C());
-    _dump(out.data, out.H(), out.W(), out.C());
+    //_dump(in.data,  in.H(), in.W(), in.C());
+    //_dump(out.data, out.H(), out.W(), out.C());
     return 0;
 }
 
