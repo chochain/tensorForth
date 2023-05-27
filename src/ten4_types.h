@@ -112,6 +112,7 @@ typedef F64         DU2;                    /**< double preciesion data */
 #define POW(d,e)    (powf(d,e))             /**< power d^(e)            */
 #define SQRT(d)     (sqrtf(d))              /**< square root            */
 #define TANH(d)     (tanhf(d))              /**< tanh(float)            */
+#define SIGMOID(d)  (DU1/(DU1+EXP(-(d))))   /**< sigmoid(float)         */
 #define MOD(t,n)    (fmodf(t, n))           /**< fmod two floats        */
 #define DIV(x,y)    (fdividef(x,y))         /**< fast math devide       */
 #define MAX(x,y)    (fmaxf(x,y))            /**< maximum of the two     */
