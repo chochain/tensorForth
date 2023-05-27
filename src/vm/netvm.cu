@@ -40,7 +40,9 @@ NetVM::nnop(t4_layer op) {     /// vtable dispatcher
     case L_FLATTEN:
     case L_RELU:
     case L_TANH:
-    case L_SIGMOID:
+    case L_SIGMOID: if (IS_M(top)) MTOS.add(op); break;
+    case L_LEAKYRL:
+    case L_ELU:     if (M1V) { DU  a = POP(); MTOS.add(op, 0, a); } break;
     case L_SOFTMAX:
     case L_LOGSMAX: if (IS_M(top)) MTOS.add(op); break;
     case L_MAXPOOL: 
@@ -154,6 +156,8 @@ NetVM::init() {
     CODE("relu",      nnop(L_RELU)),          ///> (N -- N')
     CODE("tanh",      nnop(L_TANH)),          ///> (N -- N')
     CODE("sigmoid",   nnop(L_SIGMOID)),       ///> (N -- N')
+    CODE("leakyrelu", nnop(L_LEAKYRL)),       ///> (N a -- N')
+    CODE("elu",       nnop(L_ELU)),           ///> (N a -- N')
     CODE("softmax",   nnop(L_SOFTMAX)),       ///> (N -- N')
     CODE("logsoftmax",nnop(L_LOGSMAX)),       ///> (N -- N')
     ///@}
