@@ -157,6 +157,66 @@ __KERN__ void k_activate(
     }
 }
 
+__KERN__ void k_bn_sum(DU *I, DU *sum, int HW) {
+    const int i  = threadIdx.x + blockIdx.x * blockDim.x;  ///< element index
+    const int c  = blockIdx.y, C = gridDim.y;              ///< channel
+    const int ns = blockIdx.z * HW * C;                    ///< batch slice index
+    DU vi = i < HW ? I[c + i * C + ns] : DU0;              ///< keep v for shuffle
+    ///
+    /// prefix sum every 32-threaded tile
+    ///
+    auto t = cg::tiled_partition<32>(cg::this_thread_block());
+    auto shfl_sum = [](cg::thread_block_tile<32> t, DU v) {
+        for (int k = 16; k > 0; k >>= 1) {
+            v += t.shfl_down(v, k);
+        }
+        return v;
+    };
+    DU tt = shfl_sum(t, vi);
+    ///
+    /// sum up atomically
+    ///
+    if (t.thread_rank() == 0) atomicAdd_block(&sum[c], tt);
+}
+
+__KERN__ void k_bn_var(DU *I, DU *avg, DU *var, int HW) {
+    const int i  = threadIdx.x + blockIdx.x * blockDim.x;  ///< element index
+    const int c  = blockIdx.y, C = gridDim.y;              ///< channel
+    const int ns = blockIdx.z * HW * C;                    ///< batch slice index
+    DU vi = i < HW ? POW(I[c + i * C + ns] - avg[c], 2) : DU0;
+    ///
+    /// prefix sum every 32-threaded tile
+    ///
+    auto t = cg::tiled_partition<32>(cg::this_thread_block());
+    auto shfl_sum = [](cg::thread_block_tile<32> t, DU v) {
+        for (int k = 16; k > 0; k >>= 1) {
+            v += t.shfl_down(v, k);
+        }
+        return v;
+    };
+    DU tt = shfl_sum(t, vi);
+    ///
+    /// sum up atomically
+    ///
+    if (t.thread_rank() == 0) atomicAdd_block(&var[c], tt);
+}
+
+__KERN__ void k_batchnorm(
+    DU *I, DU *O,                          ///< input, filter, output tensors
+    DU *avg, DU *gavar,                    ///< mean, gamma*1.0/(stdvar - e)
+    DU *beta,                              ///< shift
+    int HW                                 ///< H0=H1, W0==W1 (C0==C1)
+    ) {
+    const int i  = threadIdx.x + blockIdx.x * blockDim.x;  ///< element index
+    const int c  = blockIdx.y, C = gridDim.y;              ///< channel deep
+    const int ns = blockIdx.z * HW * C;                    ///< batch slice index
+    const int k  = c + i * C + ns;                         ///< output tensor index
+
+    if (i < HW) {
+        O[k] = (I[k] - avg[c]) * gavar[c] + beta[c];
+    }    
+}
+
 __GPU__ Model&
 Model::forward(Tensor &input) {
     Tensor &n1 = (*this)[1];  ///< reference model input layer
@@ -228,6 +288,7 @@ Model::_fstep(Tensor &in, Tensor &out) {
         _ffilter(in, msk, out);
     } break;
     case L_USAMPLE: _fupsample(in, out, fn); break;
+    case L_BNORMAL: _fbatchnorm(in, out);    break;
     default: ERROR("Model#forward layer=%d not supported\n", fn);
     }
 }
@@ -422,5 +483,36 @@ Model::_fupsample(Tensor &in, Tensor &out, t4_layer fn) {
     return 0;
 }
 
+///
+///> batch norm
+///
+__GPU__ int
+Model::_fbatchnorm(Tensor &in, Tensor &out) {
+    const int W = out.W(), HW = out.H() * W;
+    const int NHW = HW * out.C();
+    dim3 blk(T4_WARP_SQ, 1, 1);                        ///< default blocks
+    dim3 grd((HW + blk.x - 1)/blk.x, out.C(), out.N());
+
+    DU *gamma = in.grad[0]->data;                      ///< gamma*X' + beta
+    DU *beta  = in.grad[1]->data;                      ///< 
+    DU *avg   = in.grad[2]->data;                      ///< batch mean
+    DU *var   = in.grad[3]->data;                      ///< batch stdvar
+
+    for (int c=0; c<in.C(); c++) avg[c] = var[c] = DU0;/// * zero
+    
+    k_bn_sum<<<grd, blk>>>(in.data, avg, HW);           /// * capture sum
+    GPU_SYNC();
+    for (int c=0; c<in.C(); c++) avg[c] /= NHW;        /// * get mean
+    
+    k_bn_var<<<grd, blk>>>(in.data, avg, var, HW);       /// * capture (x - mean)^2
+    GPU_SYNC();
+    for (int c=0; c<in.C(); c++) {
+        var[c] = gamma[c] / (SQRT(var[c]/NHW) - DU_EPS);  /// gamma/(stdvar-e)
+    }
+    k_batchnorm<<<grd, blk>>>(in.data, out.data, avg, var, beta, HW);
+    GPU_SYNC();
+    
+    return 0;
+}
 #endif  // T4_ENABLE_OBJ
 //==========================================================================
