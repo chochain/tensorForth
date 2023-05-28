@@ -25,6 +25,8 @@ public:
     AIO(MMU *mmu, int verbose=0) :
         _istr(new Istream()), _ostr(new Ostream()), _mmu(mmu), _trace(verbose) {}
 
+    __HOST__ Istream   *istream() { return _istr; }
+    __HOST__ Ostream   *ostream() { return _ostr; }
     __HOST__ int       readline(std::istream &fin);
     __HOST__ obuf_node *process_node(std::ostream &fout, obuf_node *node);
     __HOST__ void      flush(std::ostream &fout);
