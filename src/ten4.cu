@@ -18,9 +18,6 @@ using namespace std;
 #include "vm/netvm.h"        // VM + ForthVM + TensorVM + NetVM
 #include "ten4.h"            // wrapper
 
-#define MAJOR_VERSION        "3"
-#define MINOR_VERSION        "0"
-
 __GPU__ NetVM *vm_pool[VM_MIN_COUNT]; /// TODO: CC - polymorphic does not work?
 ///
 /// instantiate VMs (threadIdx.x is vm_id)
@@ -221,7 +218,7 @@ void sigtrap() {
 int main(int argc, char**argv) {
     sigtrap();
     
-    const string APP = string(T4_APP_NAME) + " " + MAJOR_VERSION + "." + MINOR_VERSION;
+    const string APP = string(T4_APP_NAME) + " " + T4_MAJOR_VER + "." + T4_MINOR_VER;
     Options opt;
     opt.parse(argc, argv);
     
