@@ -192,12 +192,12 @@ Model::_ibatchnorm(Tensor &in) {
     const int C1 = in.C();                       /// C0==C1
     Tensor &out = _mmu->copy(in);                /// * retain dimensions
     
-    in.grad[0] = &_vec(C1).map(O_FILL, DU1);     ///> gamma
-    in.grad[1] = &_vec(C1).map(O_FILL, DU0);     ///> beta
+    in.grad[0] = &_vec(C1).map(O_FILL, DU1);     ///> gamma (scale)
+    in.grad[1] = &_vec(C1).map(O_FILL, DU0);     ///> beta (shift)
     in.grad[2] = &_vec(C1);                      ///> batch mean
     in.grad[3] = &_vec(C1);                      ///> batch stdvar
 
-    in.parm = INT(1000.0 * 0.1);
+    in.parm = INT(1000.0 * 0.1);                 ///> EMA momentum
     
     npush(out);
 }
