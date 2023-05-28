@@ -35,6 +35,7 @@ TensorVM::xop1(t4_ten_op op, DU v) {
         case O_LOG:  top = LOG(top);          break;
         case O_TANH: top = TANH(top);         break;
         case O_RELU: top = top > v ? top : v; break;
+        case O_SIGM: top = SIGMOID(top);      break;
         }
         SCALAR(top);
         return;
@@ -344,6 +345,7 @@ TensorVM::init() {
     ///@{
     CODE("sum", if (TOS1T) PUSH(TTOS.sum())),
     CODE("avg", if (TOS1T) PUSH(TTOS.avg())),
+    CODE("std", if (TOS1T) PUSH(TTOS.std())),
     CODE("{",   if (TOS1T && ten_lvl > 0) ++ten_lvl),
     CODE("}",   if (TOS1T && ten_lvl > 0) --ten_lvl),
     CODE("slice",
