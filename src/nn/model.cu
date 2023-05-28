@@ -10,7 +10,7 @@
 #define NAME_LIST {                                        \
     "output ", "conv2d ", "linear ", "flatten", "relu   ", \
     "tanh   ", "sigmoid", "softmax", "logsmax", "avgpool", \
-    "maxpool", "minpool", "dropout", "upsampl" }
+    "maxpool", "minpool", "dropout", "upsampl", "bnormal" }
     
 __HOST__ const char*                ///< host network layer name 
 Model::nname(int i) {
@@ -46,6 +46,7 @@ Model::add(t4_layer fn, U16 n, DU bias, U16 *opt) {
     case L_MINPOOL: _ipool(in, n);              break;
     case L_DROPOUT: _idropout(in, bias);        break;
     case L_USAMPLE: _iup(in, n, bias);          break;
+    case L_BNORMAL: _ibatchnorm(in);            break;
     default: ERROR("Model#add layer %d not supported\n", fn);
     }
     in.grad_fn = fn;
@@ -185,5 +186,21 @@ Model::_iup(Tensor &in, U16 f, DU method) {
     Tensor &out = _t4(in.N(), H0, W0, in.C());
     npush(out);                                  /// * stage for next stage
 }
+
+__GPU__ void
+Model::_ibatchnorm(Tensor &in) {
+    const int C1 = in.C();                       /// C0==C1
+    Tensor &out = _mmu->copy(in);                /// * retain dimensions
+    
+    in.grad[0] = &_vec(C1).map(O_FILL, DU1);     ///> gamma
+    in.grad[1] = &_vec(C1).map(O_FILL, DU0);     ///> beta
+    in.grad[2] = &_vec(C1);                      ///> batch mean
+    in.grad[3] = &_vec(C1);                      ///> batch stdvar
+
+    in.parm = INT(1000.0 * 0.1);
+    
+    npush(out);
+}
+
 #endif  // T4_ENABLE_OBJ
 //==========================================================================
