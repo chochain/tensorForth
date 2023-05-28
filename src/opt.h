@@ -58,7 +58,7 @@ struct Options {
     //
     int gpu_check(cudaError_t e) {
         if (e != cudaSuccess) {
-            std::cerr << "cudaGetDeviceCount() returned an error: " << cudaGetErrorString(e) << std::endl;
+            std::cerr << "cudaGetDeviceCount() returned an error: " << e << " " << cudaGetErrorString(e) << std::endl;
             return 1;
         }
         return 0;
@@ -157,10 +157,10 @@ struct Options {
      
     int check_devices(std::ostream &out, int show=true) {
         int perf_max = 0;
-        int N;
-        if (gpu_check(cudaGetDeviceCount(&N))) return -1;
+        int n;              ///> number of GPU devices
+        if (gpu_check(cudaGetDeviceCount(&n))) return -1;
 
-        for (int id = 0; id < N; id++) {
+        for (int id = 0; id < n; id++) {
             cudaDeviceProp props;
             if (gpu_check(cudaGetDeviceProperties(&props, id))) continue;
             if (check_versions(props)) continue;
