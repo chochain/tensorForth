@@ -283,7 +283,7 @@ AIO::_nsave(DU top, U16 vid, char* fname) {
         ERROR(" failed to open for output\n");
         return 1;
     }
-    fout << "\\ tensorForth model\n\\ version v3.0\n";
+    fout << "\\ " << T4_APP_NAME << " model\n\\ version v" << T4_MAJOR_VER << "." << T4_MINOR_VER << "\n";
     _nsave_model(fout, m);                       /// * blank line as section break
     _nsave_param(fout, m);
     fout << "\n---" << endl;
