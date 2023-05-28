@@ -50,18 +50,19 @@ typedef enum {
     L_CONV,
     L_LINEAR,
     L_FLATTEN,
-    L_RELU,
+    L_RELU,         //> Rectified Linear Unit
     L_TANH,
     L_SIGMOID,
-    L_LEAKYRL,
-    L_ELU,
+    L_LEAKYRL,      //> Leaky ReLU
+    L_ELU,          //> Exponential Linear Unit
     L_SOFTMAX,
     L_LOGSMAX,
     L_AVGPOOL,
     L_MAXPOOL,
     L_MINPOOL,
     L_DROPOUT,
-    L_USAMPLE
+    L_USAMPLE,      //> UpSample
+    L_BNORMAL       //> Batch Norm
 } t4_layer;
 
 typedef enum {
@@ -135,8 +136,8 @@ struct Tensor : public T4Base {
     /// tensor arithmetics
     ///
     __GPU__  DU     sum();
-    __GPU__  DU     avg();
-    __GPU__  DU     std();         // standard distribution
+    __GPU__  DU     avg();                    ///< mean
+    __GPU__  DU     std();                    ///< population standard deviation
     __GPU__  DU     max();
     __GPU__  DU     min();
     __GPU__  DU     dot(Tensor &B);

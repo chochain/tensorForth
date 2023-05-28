@@ -113,6 +113,7 @@ private:
     __GPU__ void   _ipool(Tensor &in, U16 n);       ///< pooling with nxn filter
     __GPU__ void   _idropout(Tensor &in, DU pct);   ///< zero out p% of channel data (add noise between data points)
     __GPU__ void   _iup(Tensor &in, U16 n, DU m);   ///< upsample with nxn filter
+    __GPU__ void   _ibatchnorm(Tensor &in);         ///< batch norm
     /// @}
     /// @name forward ops
     /// @{
@@ -125,6 +126,7 @@ private:
     __GPU__ int    _fsoftmax(Tensor &in, Tensor &out);
     __GPU__ int    _flogsoftmax(Tensor &in, Tensor &out);
     __GPU__ int    _fupsample(Tensor &in, Tensor &out, t4_layer fn);
+    __GPU__ int    _fbatchnorm(Tensor &in, Tensor &out);
     /// @}
     /// @name backward ops
     /// @{
@@ -135,6 +137,7 @@ private:
     __GPU__ int    _bactivate(Tensor &in, Tensor &out, t4_layer fn);
     __GPU__ int    _bpool(Tensor &in, Tensor &out, t4_layer fn);
     __GPU__ int    _bupsample(Tensor &in, Tensor &out, t4_layer fn);
+    __GPU__ int    _bbatchnorm(Tensor &in, Tensor &out);
     /// @}
     /// @name loss functions
     /// @{
