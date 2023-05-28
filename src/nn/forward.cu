@@ -157,50 +157,6 @@ __KERN__ void k_activate(
     }
 }
 
-__KERN__ void k_bn_sum(DU *I, DU *sum, int HW) {
-    const int i  = threadIdx.x + blockIdx.x * blockDim.x;  ///< element index
-    const int c  = blockIdx.y, C = gridDim.y;              ///< channel
-    const int ns = blockIdx.z * HW * C;                    ///< batch slice index
-    DU vi = i < HW ? I[c + i * C + ns] : DU0;              ///< keep v for shuffle
-    ///
-    /// prefix sum every 32-threaded tile
-    ///
-    auto t = cg::tiled_partition<32>(cg::this_thread_block());
-    auto shfl_sum = [](cg::thread_block_tile<32> t, DU v) {
-        for (int k = 16; k > 0; k >>= 1) {
-            v += t.shfl_down(v, k);
-        }
-        return v;
-    };
-    DU tt = shfl_sum(t, vi);
-    ///
-    /// sum up atomically
-    ///
-    if (t.thread_rank() == 0) atomicAdd_block(&sum[c], tt);
-}
-
-__KERN__ void k_bn_var(DU *I, DU *avg, DU *var, int HW) {
-    const int i  = threadIdx.x + blockIdx.x * blockDim.x;  ///< element index
-    const int c  = blockIdx.y, C = gridDim.y;              ///< channel
-    const int ns = blockIdx.z * HW * C;                    ///< batch slice index
-    DU vi = i < HW ? POW(I[c + i * C + ns] - avg[c], 2) : DU0;
-    ///
-    /// prefix sum every 32-threaded tile
-    ///
-    auto t = cg::tiled_partition<32>(cg::this_thread_block());
-    auto shfl_sum = [](cg::thread_block_tile<32> t, DU v) {
-        for (int k = 16; k > 0; k >>= 1) {
-            v += t.shfl_down(v, k);
-        }
-        return v;
-    };
-    DU tt = shfl_sum(t, vi);
-    ///
-    /// sum up atomically
-    ///
-    if (t.thread_rank() == 0) atomicAdd_block(&var[c], tt);
-}
-
 __KERN__ void k_batchnorm(
     DU *I, DU *O,                          ///< input, filter, output tensors
     DU *avg, DU *gavar,                    ///< mean, gamma*1.0/(stdvar - e)
@@ -485,7 +441,10 @@ Model::_fupsample(Tensor &in, Tensor &out, t4_layer fn) {
 
 ///
 ///> batch norm
+///  Note: borrow k_sum, k_var from ~/mmu/tensor.cu
 ///
+extern __KERN__ void k_sum(DU *I, DU *sum, int HW);
+extern __KERN__ void k_var(DU *I, DU *avg, DU *var, int HW);
 __GPU__ int
 Model::_fbatchnorm(Tensor &in, Tensor &out) {
     const int W = out.W(), HW = out.H() * W;
@@ -500,14 +459,20 @@ Model::_fbatchnorm(Tensor &in, Tensor &out) {
 
     for (int c=0; c<in.C(); c++) avg[c] = var[c] = DU0;/// * zero
     
-    k_bn_sum<<<grd, blk>>>(in.data, avg, HW);           /// * capture sum
+    k_sum<<<grd, blk>>>(in.data, avg, HW);             /// * capture sum
     GPU_SYNC();
-    for (int c=0; c<in.C(); c++) avg[c] /= NHW;        /// * get mean
+    for (int c=0; c<in.C(); c++) avg[c] /= NHW;        /// * calc mean per channel
     
-    k_bn_var<<<grd, blk>>>(in.data, avg, var, HW);       /// * capture (x - mean)^2
+    k_var<<<grd, blk>>>(in.data, avg, var, HW);        /// * capture variance
     GPU_SYNC();
+
+    const DU m = 0.001 * in.parm;                      ///< ETA momentum
+    
     for (int c=0; c<in.C(); c++) {
-        var[c] = gamma[c] / (SQRT(var[c]/NHW) - DU_EPS);  /// gamma/(stdvar-e)
+        DU sv = SQRT(var[c] / NHW);                    ///< calc population stdvar
+        gamma[c] = gamma[c] * (1 - m) + m * avg[c];    /// * calc EMA gamma
+        beta[c]  = beta[c]  * (1 - m) + m * sv;        /// * calc EMA beta
+        var[c]   = gamma[c] / (sv - DU_EPS);           /// * gamma / (stdvar - E)
     }
     k_batchnorm<<<grd, blk>>>(in.data, out.data, avg, var, beta, HW);
     GPU_SYNC();
