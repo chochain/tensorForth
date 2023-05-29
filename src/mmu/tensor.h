@@ -62,8 +62,14 @@ typedef enum {
     L_MINPOOL,
     L_DROPOUT,
     L_USAMPLE,      //> UpSample
-    L_BNORMAL       //> Batch Norm
+    L_BATCHNM       //> Batch Norm
 } t4_layer;
+
+#define T4_LAYER_LIST \
+    "output ", "conv2d ", "linear ", "flatten", "relu   ", \
+    "tanh   ", "sigmoid", "leakyrl", "elu    ", "softmax", \
+    "logsmax", "avgpool", "maxpool", "minpool", "dropout", \
+    "upsampl", "batchnm"
 
 typedef enum {
     MM_NONE  = 0,

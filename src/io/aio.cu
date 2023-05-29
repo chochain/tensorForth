@@ -331,6 +331,7 @@ AIO::_nsave_model(std::ostream &fout, Model &m) {
         case L_MINPOOL: fout << in.parm << " ";            break;
         case L_DROPOUT: fout << p << " ";                  break;
         case L_USAMPLE: fout << (in.parm&0xff) << "[" << (in.parm>>8) << "] "; break;
+        case L_BATCHNM: fout << p << " ";                  break;
         default: break;
         }
         const char *nm = Model::nname(fn);
