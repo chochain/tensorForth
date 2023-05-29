@@ -35,7 +35,7 @@ k_ten_op(t4_ten_op op, float *t, int sz, float v=DU0) {
     }
 }
 ///
-/// array sum
+///> array sum
 /// Note: tiled_partition<32> used
 ///
 __KERN__ void k_sum(DU *I, DU *sum, int HW) {
@@ -479,7 +479,8 @@ Tensor::plu(Tensor &A, Tensor &P, int *ns) {
 ///
 __GPU__ DU
 Tensor::sum() {
-    DU *sum = new DU;
+    Tensor *tmp = grad[0];    ///< borrow grad[0] for mem storage
+    DU     *sum = (DU*)&grad[0];
     *sum = DU0;
 
     dim3 blk(T4_WARP_SQ, 1, 1);
@@ -489,7 +490,7 @@ Tensor::sum() {
     GPU_SYNC();               /// * cooperative_groups.sync() does not work!
     
     DU v = *sum;
-    delete sum;
+    grad[0] = tmp;            /// * restore grad[0]
     
     return SCALAR(v);
 }
@@ -500,18 +501,19 @@ Tensor::avg() {
 }
 __GPU__ DU
 Tensor::std() {
-    DU *p = new DU[2];       /// p[0] = avg, p[1] = variance
-    p[0] = this->avg();
-    p[1] = DU0;
+    Tensor *tmp[2] = { grad[0], grad[1] };  ///< borrow grad for mem storage
+    DU     *sum[2] = { (DU*)&grad[0], (DU*)&grad[1] };
+    *sum[0] = DU0, *sum[1] = this->avg();
     
     dim3 blk(T4_WARP_SQ, 1, 1);
     dim3 grd((numel + blk.x - 1)/blk.x, 1, 1);
 
-    k_var<<<grd, blk>>>(data, &p[0], &p[1], numel);  /// * 8x straight loop
-    GPU_SYNC();               /// * cooperative_groups.sync() does not work!
+    k_var<<<grd, blk>>>(data, sum[1], sum[0], numel);  /// * 8x straight loop
+    GPU_SYNC();           /// * cooperative_groups.sync() does not work!
 
-    DU v = numel ? SQRT(p[1] / numel) : DU0;
-    delete[] p;
+    DU v = numel ? SQRT(*sum[0] / numel) : DU0;
+    grad[0] = tmp[0];     /// * restore grad pointers
+    grad[1] = tmp[1];
     
     return SCALAR(v);
 }
