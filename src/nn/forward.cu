@@ -244,7 +244,7 @@ Model::_fstep(Tensor &in, Tensor &out) {
         _ffilter(in, msk, out);
     } break;
     case L_USAMPLE: _fupsample(in, out, fn); break;
-    case L_BNORMAL: _fbatchnorm(in, out);    break;
+    case L_BATCHNM: _fbatchnorm(in, out);    break;
     default: ERROR("Model#forward layer=%d not supported\n", fn);
     }
 }
@@ -463,26 +463,20 @@ Model::_fbatchnorm(Tensor &in, Tensor &out) {
     
     k_sum<<<grd, blk>>>(in.data, avg, HW);             /// * capture sum
     GPU_SYNC();
+
     for (int c=0; c < C; c++) avg[c] /= NHW;           /// * calc mean per channel
     
     k_var<<<grd, blk>>>(in.data, avg, ivar, HW);       /// * capture variance
     GPU_SYNC();
-
-    const DU m = 0.001 * in.parm;                      ///< ETA momentum
     
+    const DU m = 0.001 * in.parm;                      ///< ETA momentum
     for (int c=0; c < C; c++) {
-        DU sv = SQRT(ivar[c] / NHW);                   ///< calc population stdvar
-        ivar[c]  = 1.0 / (sv + DU_EPS);                /// * 1.0 / (stdvar + EPS)
-        gamma[c] = gamma[c] * (1 - m) + m * avg[c];    /// * calc EMA gamma
-        beta[c]  = beta[c]  * (1 - m) + m * sv;        /// * calc EMA beta
+        ivar[c] = 1.0 / SQRT(ivar[c] / NHW + DU_EPS);  ///< calc population stdvar
     }
-    k_batchnorm<<<grd, blk>>>(                         /// * O = xhat*gamma + beta
+    k_batchnorm<<<grd, blk>>>(                         /// * O = x_hat*gamma + beta
         in.data, out.data, xhat, avg, ivar, gamma, beta, HW
     );
     GPU_SYNC();
-    
-    _dump(in.data, in.H(), in.W(), in.C());
-    _dump(out.data, out.H(), out.W(), out.C());
     
     return 0;
 }
