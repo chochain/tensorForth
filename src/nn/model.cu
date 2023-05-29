@@ -7,19 +7,14 @@
 #include "model.h"
 
 #if T4_ENABLE_OBJ
-#define NAME_LIST {                                        \
-    "output ", "conv2d ", "linear ", "flatten", "relu   ", \
-    "tanh   ", "sigmoid", "softmax", "logsmax", "avgpool", \
-    "maxpool", "minpool", "dropout", "upsampl", "bnormal" }
-    
 __HOST__ const char*                ///< host network layer name 
 Model::nname(int i) {
-    static const char *name[] = NAME_LIST;
+    static const char *name[] = { T4_LAYER_LIST };
     return name[i];
 }
 __GPU__ const char*                ///< device network layer name 
 Model::d_nname(int i) {
-    static const char* name[] = NAME_LIST;
+    static const char* name[] = { T4_LAYER_LIST };
     return name[i];
 }
 ///
@@ -46,7 +41,7 @@ Model::add(t4_layer fn, U16 n, DU bias, U16 *opt) {
     case L_MINPOOL: _ipool(in, n);              break;
     case L_DROPOUT: _idropout(in, bias);        break;
     case L_USAMPLE: _iup(in, n, bias);          break;
-    case L_BNORMAL: _ibatchnorm(in);            break;
+    case L_BATCHNM: _ibatchnorm(in);            break;
     default: ERROR("Model#add layer %d not supported\n", fn);
     }
     in.grad_fn = fn;
@@ -189,16 +184,15 @@ Model::_iup(Tensor &in, U16 f, DU method) {
 
 __GPU__ void
 Model::_ibatchnorm(Tensor &in) {
-    const int C1 = in.C();                       /// C0==C1
-    Tensor &out = _mmu->copy(in);                /// * retain dimensions
-
-    in.grad[0] = &_mmu->copy(in);                ///> gamma * x_hat
-    in.grad[1] = &_vec(C1).map(O_FILL, DU1);     ///> gamma (scale)
-    in.grad[2] = &_vec(C1).map(O_FILL, DU0);     ///> beta (shift)
-    in.grad[3] = &_vec(C1*2);                    ///> batch mean, stdvar
+    const int C = in.C();                        /// C0==C1
+    in.grad[0] = &_mmu->copy(in);                ///> x_hat (same dimension as in)
+    in.grad[1] = &_vec(C).map(O_FILL, DU1);      ///> gamma (scale)
+    in.grad[2] = &_vec(C).map(O_FILL, DU0);      ///> beta (shift)
+    in.grad[3] = &_vec(C*2);                     ///> batch mean, stdvar
 
     in.parm = INT(1000.0 * 0.1);                 ///> EMA momentum
     
+    Tensor &out = _mmu->copy(in);                /// * retain dimensions
     npush(out);
 }
 

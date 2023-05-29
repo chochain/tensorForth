@@ -54,7 +54,7 @@ NetVM::nnop(t4_layer op) {     /// vtable dispatcher
         U16 m = (M1V) ? POPi : UP_NEAREST;
         MTOS.add(op, n, m);
     } break;
-    case L_BNORMAL: if (IS_M(top)) MTOS.add(op); break;
+    case L_BATCHNM: if (IS_M(top)) MTOS.add(op); break;
     default: ERROR("NetVM::nnop(%d) not supported\n", op);
     }
 }
@@ -161,7 +161,7 @@ NetVM::init() {
     CODE("elu",       nnop(L_ELU)),           ///> (N a -- N')
     CODE("softmax",   nnop(L_SOFTMAX)),       ///> (N -- N')
     CODE("logsoftmax",nnop(L_LOGSMAX)),       ///> (N -- N')
-    CODE("batchnorm", nnop(L_BNORMAL)),       ///> (N -- N')
+    CODE("batchnorm", nnop(L_BATCHNM)),       ///> (N -- N')
     ///@}
     ///@defgroup Pooling, Dropout, and Upsample ops
     ///@{
