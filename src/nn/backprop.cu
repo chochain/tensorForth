@@ -178,7 +178,7 @@ __KERN__ void k_dactivate(
 }
 
 __KERN__ void k_dbatchnorm_1(
-    DU *I, DU *O,                          ///< input, output tensors
+    DU *I, DU *O, DU *X,                   ///< input, output, x_hat tensors
     DU *sum, DU *g_var,                    ///< sum(x_hat), gamma/(stdvar+e)
     int HW                                 ///< H0=H1, W0==W1 (C0==C1)
     ) {
@@ -190,6 +190,7 @@ __KERN__ void k_dbatchnorm_1(
 
     if (i < HW) {
         I[k] -= (O[k] - sum[c] * _N) * g_var[c];
+        O[k] *= X[k];                      /// dout * x_hat
     }    
 }
 __KERN__ void k_dbatchnorm_2(
@@ -446,7 +447,11 @@ Model::_bupsample(Tensor &in, Tensor &out, t4_layer fn) {
     
     return 0;
 }
-
+///
+///> batchnorm
+///  @brief:
+///    see https://kevinzakka.github.io/2016/09/14/batch_normalization/
+///
 extern __KERN__ void k_sum(DU *I, DU *sum, int HW);
 __GPU__ int
 Model::_bbatchnorm(Tensor &in, Tensor &out) {
@@ -471,17 +476,15 @@ Model::_bbatchnorm(Tensor &in, Tensor &out) {
         g_var[c] *= gamma[c];                          /// * g_var <= gamma * ivar
     }
     k_dbatchnorm_1<<<grd, blk>>>(                      /// * X -= dout - sum(dout)/N
-        xhat, out.data, sum, g_var, HW); 
+        in.data, out.data, xhat, sum, g_var, HW);      /// * also, dout *= xhat
     GPU_SYNC();
     
-    Tensor::ten_op(O_MUL, *in.grad[0], out, out);      /// dout * x_hat
-
     for (int c=0; c < C; c++) sum[c] = DU0;            /// * zero
     k_sum<<<grd, blk>>>(out.data, sum, HW);            /// * collect dgamma
     GPU_SYNC();
 
     for (int c=0; c < C; c++) {
-        gamma[c] += gamma[c] * sum[c];                 /// * train gamma
+        gamma[c] += sum[c];                            /// * train gamma
         sum[c]   *= g_var[c] / in.N();                 /// * scale sum
     }
     k_dbatchnorm_2<<<grd, blk>>>(                      /// * X += x_hat*sum(dout*x_hat

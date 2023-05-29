@@ -476,7 +476,7 @@ Model::_fbatchnorm(Tensor &in, Tensor &out) {
         gamma[c] = gamma[c] * (1 - m) + m * avg[c];    /// * calc EMA gamma
         beta[c]  = beta[c]  * (1 - m) + m * sv;        /// * calc EMA beta
     }
-    k_batchnorm<<<grd, blk>>>(
+    k_batchnorm<<<grd, blk>>>(                         /// * O = xhat*gamma + beta
         in.data, out.data, xhat, avg, ivar, gamma, beta, HW
     );
     GPU_SYNC();
