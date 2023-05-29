@@ -177,6 +177,32 @@ __KERN__ void k_dactivate(
     }
 }
 
+__KERN__ void k_dbatchnorm_1(
+    DU *I, DU *O,                          ///< input, output tensors
+    DU *sum, DU *g_var,                    ///< sum(x_hat), gamma/(stdvar+e)
+    int HW                                 ///< H0=H1, W0==W1 (C0==C1)
+    ) {
+    const int i  = threadIdx.x + blockIdx.x * blockDim.x;  ///< element index
+    const int c  = blockIdx.y, C = gridDim.y;              ///< channel deep
+    const int ns = blockIdx.z * HW * C;                    ///< batch slice index
+    const int k  = c + i * C + ns;                         ///< output tensor index
+    const DU  _N = 1.0 / gridDim.z;                        ///< 1.0/N
+
+    if (i < HW) {
+        I[k] -= (O[k] - sum[c] * _N) * g_var[c];
+    }    
+}
+__KERN__ void k_dbatchnorm_2(
+    DU *I, DU *X, DU *sum,                 ///< input, x_hat
+    int HW                                 ///< H0=H1, W0==W1 (C0==C1)
+    ) {
+    const int i  = threadIdx.x + blockIdx.x * blockDim.x;  ///< element index
+    const int c  = blockIdx.y, C = gridDim.y;              ///< channel deep
+    const int ns = blockIdx.z * HW * C;                    ///< batch slice index
+    const int k  = c + i * C + ns;                         ///< output tensor index
+
+    if (i < HW) I[k] += X[k] * sum[c];
+}
 ///
 /// backprop: Neural Network back propegation
 /// Note: cascade execution layer by layer backward
@@ -247,6 +273,7 @@ Model::_bstep(Tensor &in, Tensor &out) {
         _bfilter(in, msk, out);
     } break;
     case L_USAMPLE: _bupsample(in, out, fn); break;
+    case L_BNORMAL: _bbatchnorm(in, out);    break;
     default: ERROR("Model#backprop layer=%d not supported\n", fn);
     }
 }
@@ -417,9 +444,52 @@ Model::_bupsample(Tensor &in, Tensor &out, t4_layer fn) {
     }
     GPU_SYNC();
     
-    //_dump(out.data, out.H(), out.W(), out.C());
-    //_dump(in.data, in.H(), in.W(), in.C());
     return 0;
 }
+
+extern __KERN__ void k_sum(DU *I, DU *sum, int HW);
+__GPU__ int
+Model::_bbatchnorm(Tensor &in, Tensor &out) {
+    const int W = out.W(), HW = out.H() * W;
+    const int C = out.C();                             ///< C0==C1
+    
+    dim3 blk(T4_WARP_SQ, 1, 1);
+    dim3 grd((HW + blk.x -1) / blk.x, C, out.N());
+
+    DU *xhat  = in.grad[0]->data;                      ///< gamma * x_hat
+    DU *gamma = in.grad[1]->data;                      ///< gamma (scale)
+    DU *beta  = in.grad[2]->data;                      ///< beta (shift)
+    DU *sum   = &in.grad[3]->data[0];                  ///< batch sum
+    DU *g_var = &in.grad[3]->data[C];                  ///< batch 1.0 / (stdvar+e)
+    
+    for (int c=0; c < C; c++) sum[c] = DU0;            /// * zero
+    k_sum<<<grd, blk>>>(out.data, sum, HW);            /// * capture out sum
+    GPU_SYNC();
+
+    for (int c=0; c < C; c++) {
+        beta[c]  += sum[c];                            /// * collect beta
+        g_var[c] *= gamma[c];                          /// * g_var <= gamma * ivar
+    }
+    k_dbatchnorm_1<<<grd, blk>>>(                      /// * X -= dout - sum(dout)/N
+        xhat, out.data, sum, g_var, HW); 
+    GPU_SYNC();
+    
+    Tensor::ten_op(O_MUL, *in.grad[0], out, out);      /// dout * x_hat
+
+    for (int c=0; c < C; c++) sum[c] = DU0;            /// * zero
+    k_sum<<<grd, blk>>>(out.data, sum, HW);            /// * collect dgamma
+    GPU_SYNC();
+
+    for (int c=0; c < C; c++) {
+        gamma[c] += gamma[c] * sum[c];                 /// * train gamma
+        sum[c]   *= g_var[c] / in.N();                 /// * scale sum
+    }
+    k_dbatchnorm_2<<<grd, blk>>>(                      /// * X += x_hat*sum(dout*x_hat
+        in.data, xhat, sum, HW); 
+    GPU_SYNC();
+
+    return 0;
+}
+
 #endif  // T4_ENABLE_OBJ
 //==========================================================================
