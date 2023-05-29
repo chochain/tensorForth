@@ -158,9 +158,9 @@ __KERN__ void k_activate(
 }
 
 __KERN__ void k_batchnorm(
-    DU *I, DU *O,                          ///< input, filter, output tensors
-    DU *avg, DU *gavar,                    ///< mean, gamma*1.0/(stdvar - e)
-    DU *beta,                              ///< shift
+    DU *I, DU *O,  DU *X,                  ///< input, filter, output tensors
+    DU *avg, DU *ivar,                     ///< mean, gamma/(stdvar - e)
+    DU *gamma, DU *beta,
     int HW                                 ///< H0=H1, W0==W1 (C0==C1)
     ) {
     const int i  = threadIdx.x + blockIdx.x * blockDim.x;  ///< element index
@@ -169,7 +169,7 @@ __KERN__ void k_batchnorm(
     const int k  = c + i * C + ns;                         ///< output tensor index
 
     if (i < HW) {
-        O[k] = (I[k] - avg[c]) * gavar[c] + beta[c];
+        O[k] = (X[k] = (I[k] - avg[c]) * ivar[c]) * gamma[c] + beta[c];
     }    
 }
 
@@ -448,34 +448,41 @@ extern __KERN__ void k_var(DU *I, DU *avg, DU *var, int HW);
 __GPU__ int
 Model::_fbatchnorm(Tensor &in, Tensor &out) {
     const int W = out.W(), HW = out.H() * W;
-    const int NHW = HW * out.C();
+    const int C = out.C(), NHW = HW * out.N();         ///< C0==C1
+    
     dim3 blk(T4_WARP_SQ, 1, 1);                        ///< default blocks
-    dim3 grd((HW + blk.x - 1)/blk.x, out.C(), out.N());
+    dim3 grd((HW + blk.x - 1)/blk.x, C, out.N());
 
-    DU *gamma = in.grad[0]->data;                      ///< gamma*X' + beta
-    DU *beta  = in.grad[1]->data;                      ///< 
-    DU *avg   = in.grad[2]->data;                      ///< batch mean
-    DU *var   = in.grad[3]->data;                      ///< batch stdvar
+    DU *xhat  = in.grad[0]->data;                      ///< x_hat
+    DU *gamma = in.grad[1]->data;                      ///< scale parameter
+    DU *beta  = in.grad[2]->data;                      ///< shift parameter
+    DU *avg   = &in.grad[3]->data[0];                  ///< batch mean
+    DU *ivar  = &in.grad[3]->data[C];                  ///< batch 1.0/(stdvar+e)
 
-    for (int c=0; c<in.C(); c++) avg[c] = var[c] = DU0;/// * zero
+    for (int c=0; c < C; c++) avg[c] = ivar[c] = DU0;  /// * zero
     
     k_sum<<<grd, blk>>>(in.data, avg, HW);             /// * capture sum
     GPU_SYNC();
-    for (int c=0; c<in.C(); c++) avg[c] /= NHW;        /// * calc mean per channel
+    for (int c=0; c < C; c++) avg[c] /= NHW;           /// * calc mean per channel
     
-    k_var<<<grd, blk>>>(in.data, avg, var, HW);        /// * capture variance
+    k_var<<<grd, blk>>>(in.data, avg, ivar, HW);       /// * capture variance
     GPU_SYNC();
 
     const DU m = 0.001 * in.parm;                      ///< ETA momentum
     
-    for (int c=0; c<in.C(); c++) {
-        DU sv = SQRT(var[c] / NHW);                    ///< calc population stdvar
+    for (int c=0; c < C; c++) {
+        DU sv = SQRT(ivar[c] / NHW);                   ///< calc population stdvar
+        ivar[c]  = 1.0 / (sv + DU_EPS);                /// * 1.0 / (stdvar + EPS)
         gamma[c] = gamma[c] * (1 - m) + m * avg[c];    /// * calc EMA gamma
         beta[c]  = beta[c]  * (1 - m) + m * sv;        /// * calc EMA beta
-        var[c]   = gamma[c] / (sv - DU_EPS);           /// * gamma / (stdvar - E)
     }
-    k_batchnorm<<<grd, blk>>>(in.data, out.data, avg, var, beta, HW);
+    k_batchnorm<<<grd, blk>>>(
+        in.data, out.data, xhat, avg, ivar, gamma, beta, HW
+    );
     GPU_SYNC();
+    
+    _dump(in.data, in.H(), in.W(), in.C());
+    _dump(out.data, out.H(), out.W(), out.C());
     
     return 0;
 }
