@@ -189,8 +189,8 @@ __KERN__ void k_dbatchnorm_1(
     const DU  _N = 1.0 / gridDim.z;                        ///< 1.0/N
 
     if (i < HW) {
-        I[k] -= (O[k] - sum[c] * _N) * g_var[c];
-        O[k] *= X[k];                      /// dout * x_hat
+        I[k] = (O[k] - sum[c] * _N) * g_var[c];            /// * dX = g_var * (dout - sum(dout) / N)
+        O[k] *= X[k];                                      /// * dout * x_hat
     }    
 }
 __KERN__ void k_dbatchnorm_2(
@@ -202,7 +202,7 @@ __KERN__ void k_dbatchnorm_2(
     const int ns = blockIdx.z * HW * C;                    ///< batch slice index
     const int k  = c + i * C + ns;                         ///< output tensor index
 
-    if (i < HW) I[k] += X[k] * sum[c];
+    if (i < HW) I[k] -= X[k] * sum[c];
 }
 ///
 /// backprop: Neural Network back propegation
@@ -225,19 +225,26 @@ Model::backprop(Tensor &hot) {
             out.sum() / out.N() / out.C(),
             out.N(), out.H(), out.W(), out.C());
     };
+    Tensor &tail = (*this)[numel - 1];           /// * final layer i.e. output
+    if (!hot.is_same_shape(tail)) {              /// * check shape of onehot
+        ERROR("\nERROR: Onehot wrong shape[%d,%d,%d,%d] != [%d,%d,%d,%d]\n",
+              hot.N(),  hot.H(),  hot.W(), hot.C(),
+              tail.N(), tail.H(), tail.W(), tail.C());
+        return *this;
+    }
     TRACE1("\nModel#backprop starts");
-    DU t0 = _mmu->ms(), t1 = t0, tt;            ///< performance measurement
-    int x = 0;
+    DU  t0 = _mmu->ms(), t1 = t0, tt;            ///< performance measurement
+    int x  = 0;
     for (U16 i = numel - 2, j = 0; i > 0; i--, j++) {
-        Tensor &in = (*this)[i], &out = (*this)[i + 1];
+        Tensor &in = (*this)[i], &out = j ? (*this)[i + 1] : hot;
         if (_trace) {
             trace((tt=_mmu->ms()) - t1, i, in, out);
             t1 = tt;
         }
-        _bstep(in, j ? out : hot);
-        if (_trace > 1) {
+        _bstep(in, out);
+//        if (_trace > 1) {
             debug(in, 300.0f);
-        }
+//        }
 //        if (++x > 2) break;
     }
     TRACE1("\nModel::backprop %5.2f ms\n", _mmu->ms() - t0);
@@ -274,7 +281,7 @@ Model::_bstep(Tensor &in, Tensor &out) {
         _bfilter(in, msk, out);
     } break;
     case L_USAMPLE: _bupsample(in, out, fn); break;
-    case L_BNORMAL: _bbatchnorm(in, out);    break;
+    case L_BATCHNM: _bbatchnorm(in, out);    break;
     default: ERROR("Model#backprop layer=%d not supported\n", fn);
     }
 }
@@ -466,28 +473,38 @@ Model::_bbatchnorm(Tensor &in, Tensor &out) {
     DU *beta  = in.grad[2]->data;                      ///< beta (shift)
     DU *sum   = &in.grad[3]->data[0];                  ///< batch sum
     DU *g_var = &in.grad[3]->data[C];                  ///< batch 1.0 / (stdvar+e)
-    
+
     for (int c=0; c < C; c++) sum[c] = DU0;            /// * zero
     k_sum<<<grd, blk>>>(out.data, sum, HW);            /// * capture out sum
     GPU_SYNC();
 
+    _dump(sum, 1, 1, C);
     for (int c=0; c < C; c++) {
         beta[c]  += sum[c];                            /// * collect beta
         g_var[c] *= gamma[c];                          /// * g_var <= gamma * ivar
     }
-    k_dbatchnorm_1<<<grd, blk>>>(                      /// * X -= dout - sum(dout)/N
-        in.data, out.data, xhat, sum, g_var, HW);      /// * also, dout *= xhat
+    debug(*in.grad[0]);
+
+    k_dbatchnorm_1<<<grd, blk>>>(                      /// * dX = g_var * (dout - sum(dout)/N)
+        in.data, out.data, xhat, sum, g_var, HW);      /// * also, dout *= x_hat
     GPU_SYNC();
+    
+    debug(in);
+    debug(out);
     
     for (int c=0; c < C; c++) sum[c] = DU0;            /// * zero
     k_sum<<<grd, blk>>>(out.data, sum, HW);            /// * collect dgamma
     GPU_SYNC();
-
+    _dump(sum, 1, 1, C);
+    
     for (int c=0; c < C; c++) {
         gamma[c] += sum[c];                            /// * train gamma
         sum[c]   *= g_var[c] / in.N();                 /// * scale sum
     }
-    k_dbatchnorm_2<<<grd, blk>>>(                      /// * X += x_hat*sum(dout*x_hat
+    _dump(gamma, 1, 1, C);
+    _dump(sum, 1, 1, C);
+    
+    k_dbatchnorm_2<<<grd, blk>>>(                      /// * dX -= g_var * x_hat * sum(dout * x_hat) / N
         in.data, xhat, sum, HW); 
     GPU_SYNC();
 
