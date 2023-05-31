@@ -185,12 +185,15 @@ Model::_iup(Tensor &in, U16 f, DU method) {
 __GPU__ void
 Model::_ibatchnorm(Tensor &in) {
     const int C = in.C();                        /// C0==C1
-    in.grad[0] = &_mmu->copy(in);                ///> x_hat (same dimension as in)
-    in.grad[1] = &_vec(C).map(O_FILL, DU1);      ///> gamma (scale)
-    in.grad[2] = &_vec(C).map(O_FILL, DU0);      ///> beta (shift)
-    in.grad[3] = &_vec(C*2);                     ///> batch mean, stdvar
+    in.grad[0] = &_vec(C*2).map(O_FILL, DU0);    ///> weight/gamma, bias/beta
+    in.grad[1] = &_vec(C*2);                     ///> tmp storage
+    in.grad[2] = &_vec(C*2).map(O_FILL, DU0);    ///> d_gamma, d_beta
+    in.grad[3] = &_mmu->copy(in);                ///> x_hat (same as in)
 
-    in.parm = INT(1000.0 * 0.1);                 ///> EMA momentum
+    for (int c=0; c < C; c++) {                  /// * default gamma=1.0, beta=0.0
+        in.grad[0]->data[c] = DU1;
+    }
+    in.parm = INT(1000.0 * 0.1);                 ///> default EMA momentum = 0.1
     
     Tensor &out = _mmu->copy(in);                /// * retain dimensions
     npush(out);
