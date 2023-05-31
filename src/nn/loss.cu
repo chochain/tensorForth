@@ -135,7 +135,7 @@ Model::sgd(DU lr, DU m, bool zero) {
             TRACE1(" f-dfΣ=%6.3f-%6.3f", in.grad[0]->sum(), in.grad[2]->sum());
             update('f', *in.grad[0], *in.grad[2]);
         }
-        if (in.grad[3]) {
+        if (in.grad[3] && in.grad[3]->is_same_shape(*in.grad[1])) {
             TRACE1(" b-dbΣ=%6.3f-%6.3f", in.grad[1]->sum(), in.grad[3]->sum());
             update('b', *in.grad[1], *in.grad[3]);
         }
