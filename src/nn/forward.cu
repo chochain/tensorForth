@@ -453,31 +453,30 @@ Model::_fbatchnorm(Tensor &in, Tensor &out) {
     dim3 blk(T4_WARP_SQ, 1, 1);                        ///< default blocks
     dim3 grd((HW + blk.x - 1)/blk.x, C, out.N());
 
-    DU *xhat  = in.grad[0]->data;                      ///< x_hat
-    DU *gamma = in.grad[1]->data;                      ///< scale parameter
-    DU *beta  = in.grad[2]->data;                      ///< shift parameter
-    DU *avg   = &in.grad[3]->data[0];                  ///< batch mean
-    DU *ivar  = &in.grad[3]->data[C];                  ///< batch 1.0/(stdvar+e)
+    DU *w   = &in.grad[0]->data[0];                    ///< weight/gamma
+    DU *b   = &in.grad[0]->data[C];                    ///< bias/beta 
+    DU *avg = &in.grad[1]->data[0];                    ///< mean
+    DU *var = &in.grad[1]->data[C];                    ///< 1.0/(var+e)^0.5
+    DU *xht = in.grad[3]->data;                        ///< x_hat
 
-    for (int c=0; c < C; c++) avg[c] = ivar[c] = DU0;  /// * zero
-    
+    for (int c=0; c < C; c++) avg[c] = var[c] = DU0;   /// * zero
     k_sum<<<grd, blk>>>(in.data, avg, HW);             /// * capture sum
     GPU_SYNC();
 
     for (int c=0; c < C; c++) avg[c] /= NHW;           /// * calc mean per channel
-    
-    k_var<<<grd, blk>>>(in.data, avg, ivar, HW);       /// * capture variance
+    k_var<<<grd, blk>>>(in.data, avg, var, HW);        /// * capture variance
     GPU_SYNC();
-    
-    const DU m = 0.001 * in.parm;                      ///< ETA momentum
+
+    const DU m = 0.001 * in.parm;                      ///< ETA momentum, TODO:
     for (int c=0; c < C; c++) {
-        ivar[c] = 1.0 / SQRT(ivar[c] / NHW + DU_EPS);  ///< calc population stdvar
+        var[c] = 1.0 / SQRT(var[c] / NHW + DU_EPS);    ///< calc population stdvar
     }
+    
     k_batchnorm<<<grd, blk>>>(                         /// * O = x_hat*gamma + beta
-        in.data, out.data, xhat, avg, ivar, gamma, beta, HW
+        in.data, out.data, xht, avg, var, w, b, HW
     );
     GPU_SYNC();
-    
+
     return 0;
 }
 #endif  // T4_ENABLE_OBJ
