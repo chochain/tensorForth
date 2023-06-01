@@ -1,32 +1,50 @@
 .( ## MNIST convolution model comparison ## ) cr
 : nn_a ( N -- N' )                          \ simple model with 2 hidden layers
-  flatten 0.0 100 linear relu                  \ 1st hidden layer with relu activation
-  0.0 10 linear softmax ;                      \ 2nd hidden layer with softmax output
+  flatten 100 linear relu                   \ 1st hidden layer with relu activation
+  10 linear softmax ;                       \ 2nd hidden layer with softmax output
 : nn_b
   0.5 2 conv2d                              \ add a convolution filter
-  flatten 0.0 100 linear relu
-  0.0 10 linear softmax ;
+  flatten 100 linear relu
+  10 linear softmax ;
 : nn_c
   0.5 10 conv2d 2 maxpool relu              \ add maxpool and relu activation
-  flatten 0.0 100 linear relu
-  0.0 10 linear softmax ;
+  flatten 100 linear relu
+  10 linear softmax ;
 : nn_d
   0.5 10 conv2d 0.5 dropout 2 maxpool relu  \ add dropout
-  flatten 0.0 100 linear relu
-  0.0 10 linear softmax ;
+  flatten 100 linear relu
+  10 linear softmax ;
 : nn_e
   0.5 10 conv2d 2 maxpool relu
   0.5 20 conv2d 2 maxpool relu              \ add second convolution but no dropout
-  flatten 0.0 100 linear
-  0.0 10 linear softmax ;
+  flatten 100 linear
+  10 linear softmax ;
 : nn_f
   0.5 10 conv2d 2 maxpool relu
   0.5 20 conv2d 0.5 dropout 2 maxpool relu  \ add dropouts
-  flatten 0.0 100 linear 0.5 dropout
-  0.0 10 linear softmax ;
+  flatten 100 linear 0.5 dropout
+  10 linear softmax ;
+: nn_g
+  0.5 10 conv2d batchnorm relu
+  flatten 100 linear batchnorm relu
+  10 linear softmax ;
+: nn_h
+  0.5 10 conv2d batchnorm relu
+  flatten 100 linear batchnorm relu
+  0.3 10 linear softmax ;
+\ hit=
+: nn_x
+  48 linear relu
+  24 linear relu
+  10 linear softmax ;
+\ hit=58288
+: nn_x_bn
+  48 linear batchnorm relu
+  24 linear batchnorm relu
+  10 linear softmax ;
 
 50 28 28 1 nn.model                         \ create a model (50 per batch of 28x28x1 img)
-nn_c                                        \ use neural network model
+nn_x                                        \ use neural network model
 constant md0                                \ keep as a constant
 
 md0 batchsize dataset mnist_train           \ create MNIST dataset with model batch size
@@ -35,7 +53,10 @@ constant ds0                                \ save dataset in a constant
 variable acc 0 acc !                        \ create an accuracy counter, and zero it
 
 : cnn for forward backprop nn.hit acc +! 0.01 0.0 nn.sgd 46 emit next ;
-: stat cr . ." ," clock . ." , hit=," acc @ . 0 acc ! ." , loss=," loss.ce . cr ;
+: stat cr .
+  ." , t="  clock 1000 / int .
+  ." , hit="  acc @ . 0 acc !
+  ." , loss=" loss.ce . cr ;
 : epoch for cnn r@ stat ds0 rewind next ;
 
 ds0                                         \ push dataset as TOS
