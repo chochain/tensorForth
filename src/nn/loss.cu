@@ -142,8 +142,6 @@ Model::sgd(DU lr, DU m, bool zero) {
         }
         if (do_w) TRACE1(" => wΣ=%6.3f", in.grad[0]->sum());
         if (do_b) TRACE1(" bΣ=%6.3f",    in.grad[1]->sum());
-        
-        debug(*in.grad[0]);
     }
     TRACE1("\nModel#sgd %5.2f ms\n", _mmu->ms() - t0);
     return *this;
