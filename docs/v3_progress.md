@@ -6,8 +6,8 @@ A Forth word can be seen as a nested function in processing data flow, i.e. y = 
 10 28 28 1 nn.model                       \ create a network model (input dimensions)
 0.5 10 conv2d 2 maxpool relu              \ add a convolution block
 0.5 20 conv2d 0.5 dropout 2 maxpool relu  \ add another convolution block
-flatten 0.0 49 linear                     \ add reduction layer, and the
-0.5 dropout 0.0 10 linear softmax         \ final fully connected output
+flatten 49 linear                         \ add reduction layer to 49 features, and the
+0.5 dropout 10 linear softmax             \ final fully connected 10-feature output
 constant md0                              \ we can store the model in a constant
                                 
 md0 batchsize dataset mnist_train         \ create a MNIST dataset with model batch size
@@ -48,9 +48,9 @@ ds1                                       \ put dataset on TOS
     > + optimization
     > + persistence
   * Layers
-    > + layers: conv2d, conv1x1, linear, flatten, upsample
+    > + layers: conv2d, conv1x1, linear, flatten, upsample, batchnorm
     > + pooling: maxpool, minpool, avgpool, dropout
-    > + activation: relu, sigmoid, softmax, log_softmax
+    > + activation: relu, sigmoid, softmax, log_softmax, tanh, elu
     > + loss: ce, mse, nll
   * Dataset
     > + format - NHWC (as in TensorFlow)
@@ -102,6 +102,7 @@ ds1                                       \ put dataset on TOS
 |conv2d|(N b c A -- N')|create a 2D convolution, bias=b, c channels output, with config i.g. Vector[5, 5, 3, 2, 1] for (5x5, padding=3, stride=2, dilation=1, bais=0.3)|
 |flatten|(N -- N')|flatten a tensor (usually input to linear)|
 |linear|(N b n -- N')|linearize (y = Wx + b) from Ta input to n out_features|
+|linear|(N n -- N')|linearize (y = Wx) bias=0.0 from Ta input to n out_features|
 
 #### Activation (non-linear)
 |word|param/example|tensor creation ops|
@@ -178,5 +179,7 @@ ds1                                       \ put dataset on TOS
 * for 2D conv https://datascience-enthusiast.com/DL/Convolution_model_Step_by_Stepv2.html
 * backprop    https://medium.com/@ngocson2vn/a-gentle-explanation-of-backpropagation-in-convolutional-neural-network-cnn-1a70abff508b
 * backprop    https://www.google.com/search?channel=fs&client=ubuntu&q=forward+backward+propagation
++ batchnorm backprop https://www.adityaagrawal.net/blog/deep_learning/bprop_batch_norm
 * code ref    https://github.com/rasmusbergpalm/DeepLearnToolbox
+
 

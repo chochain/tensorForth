@@ -4,9 +4,9 @@
 ### Status
 |version|feature|stage|description|conceptual comparable|
 |---|---|---|---|---|
-|[release 1.0](https://github.com/chochain/tensorForth/releases/tag/v1.0.2)|**float**|beta|extended eForth with F32 float|Python|
-|[release 2.0](https://github.com/chochain/tensorForth/releases/tag/v2.0.2)|**matrix**|alpha|added vector and matrix objects|NumPy|
-|[release 2.2](https://github.com/chochain/tensorForth/releases/tag/v2.2.2)|**lapack**|alpha|added linear algebra methods|SciPy|
+|[release 1.0](https://github.com/chochain/tensorForth/releases/tag/v1.0.2)|**float**|production|extended eForth with F32 float|Python|
+|[release 2.0](https://github.com/chochain/tensorForth/releases/tag/v2.0.2)|**matrix**|production|added vector and matrix objects|NumPy|
+|[release 2.2](https://github.com/chochain/tensorForth/releases/tag/v2.2.2)|**lapack**|beta|added linear algebra methods|SciPy|
 |[release 3.0](https://github.com/chochain/tensorForth/releases/tag/v3.0.0)|**CNN**|alpha|added ML propegation with autograd|Torch|
 |release 3.2|**GAN**|under development|adding Generative Adversarial Net|Torch/DCGAN|
 |future|**Transformer**|planning|to add Transformer ops|PyTorch|
@@ -43,8 +43,8 @@ In the end, languages don't really matter. It's the problem they solve. Having a
 10 28 28 1 nn.model                         \ create a network model (input dimensions)
 0.5 10 conv2d 2 maxpool relu                \ add a convolution block
 0.5 20 conv2d 0.5 dropout 2 maxpool relu    \ add another convolution block
-flatten 0.0 49 linear                       \ add reduction layer, and
-0.5 dropout 0.0 10 linear softmax           \ final fully connected output
+flatten 49 linear                           \ add reduction layer to 49-feature, and
+0.5 dropout 10 linear softmax               \ final 10-feature fully connected output
 constant md0                                \ we can store the model in a constant
                                 
 md0 batchsize dataset mnist_train           \ create a MNIST dataset with model batch size
@@ -193,6 +193,7 @@ drop                                        \ drop the value
   conv1x1    (N b c -- N')       - create a 1x1 convolution, bias=b, c channels output, stide=1, padding=same, dilation=0
   flatten    (N -- N')           - flatten a tensor (usually input to linear)
   linear     (N b n -- N')       - linearize (y = Wx + b) from Ta input to n out_features
+  linear     (N n -- N')         - linearize (y = Wx), bias=0.0 from Ta input to n out_features
   
   maxpool    (N n -- N')         - nxn cells maximum pooling
   avgpool    (N n -- N')         - nxn cells average pooling
@@ -206,7 +207,7 @@ drop                                        \ drop the value
 <pre>
   tanh       (Ta -- Ta')         - tensor element-wise tanh Ta' = tanh(Ta)
   relu       (Ta -- Ta')         - tensor element-wise ReLU Ta' = max(0, Ta)
-  sigmoid    (Ta -- Ta')         - tensor element-wise Sigmoid Ta' = sigmoid(Ta)
+  sigmoid    (Ta -- Ta')         - tensor element-wise Sigmoid Ta' = 1/(1+exp(-Ta))
   tanh       (N -- N')           - add tanh layer to network model
   relu       (N -- N')           - add Rectified Linear Unit to network model
   sigmoid    (N -- N')           - add sigmoid 1/(1+exp^-z) activation to network model, used in binary
@@ -342,11 +343,12 @@ drop                                        \ drop the value
 
 ### TODO - by priorities
 * model
-  + add layer - BatchNorm (https://towardsdatascience.com/batch-normalization-in-3-levels-of-understanding-14c2da90a338), also study alternatives such as GHN and AN (https://analyticsindiamag.com/alternatives-batch-normalization-deep-learning/), 
+  + study GHN and AN (https://analyticsindiamag.com/alternatives-batch-normalization-deep-learning/)
   + add block - branch & concatenate (i.e Inception in GoogLeNet)
   + add block - residual map (i.e. ResNet, https://d2l.ai/chapter_convolutional-modern/resnet.html)
   + add gradiant - Adam
     - https://machinelearningmastery.com/adam-optimization-from-scratch/
+  + torch.eval() i.e. normalize using running stat, disable dropout (vs torch.train())
   + GAN ((https://arxiv.org/pdf/1511.06434.pdf, https://www.analyticsvidhya.com/blog/2021/10/an-end-to-end-introduction-to-generative-adversarial-networksgans/)
     - cGAN (https://towardsdatascience.com/cgan-conditional-generative-adversarial-network-how-to-gain-control-over-gan-outputs-b30620bd0cc8), with MNIST
       * AC-GAN (https://machinelearningmastery.com/how-to-develop-an-auxiliary-classifier-gan-ac-gan-from-scratch-with-keras/, https://towardsdatascience.com/understanding-acgans-with-code-pytorch-2de35e05d3e4)
