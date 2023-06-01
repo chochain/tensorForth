@@ -32,10 +32,15 @@ NetVM::nnop(t4_layer op) {     /// vtable dispatcher
     case L_LINEAR:
         if (M2V) {                                 ///> param checking
             U16   n    = POPi;                     ///> number of output channels
-            DU    bias = POP();                    ///> convolution bias
+            DU    bias = POP();                    ///> linear bias
             MTOS.add(L_LINEAR, n, bias);           ///> (N b c -- N')
         }
-        else ERROR("linear: bias n required!");
+        else if (M1V) {
+            U16   n    = POPi;                     ///> number of output channels
+            DU    bias = DU0;                      ///> linear bias=0.0
+            MTOS.add(L_LINEAR, n, bias);           ///> (N c -- N')
+        }
+        else ERROR("linear: [bias] n required!");
         break;
     case L_FLATTEN:
     case L_RELU:
