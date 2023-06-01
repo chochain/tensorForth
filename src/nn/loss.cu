@@ -113,34 +113,37 @@ Model::sgd(DU lr, DU m, bool zero) {
     /// cascade execution layer by layer forward
     ///
     const int N = n1.N();                          ///< batch size
-    auto update = [this, N, lr, m, zero](const char nm, Tensor &f, Tensor &df) {
-        TRACE1(" %c[%d,%d,%d,%d]", nm, f.N(), f.H(), f.W(), f.C());
+    auto update = [this, N, lr, m, zero](const char nm, Tensor &w, Tensor &dw) {
+        TRACE1(" %c[%d,%d,%d,%d]", nm, w.N(), w.H(), w.W(), w.C());
         if (m < DU_EPS) {
-            df *= lr / N;                          /// * learn rate / batch size
-            f  -= df;                              /// * w -= eta * df
+            dw *= lr / N;                          /// * learn rate / batch size
+            w  -= dw;                              /// * w -= eta * dw
         }
         else {                                     /// * with momentum (exp moving avg)
-            df *= (1 - m) * lr / N;                /// * w' = m * w - (1 - m) * eta * df
-            f  *= m;
-            f  -= df;
+            dw *= (1 - m) * lr / N;                /// * w' = m * w - (1 - m) * eta * dw
+            w  *= m;
+            w  -= dw;
         }
-        if (zero) df.map(O_FILL, DU0);         /// * zap df, ready for next batch
+        if (zero) dw.map(O_FILL, DU0);         /// * zap dw, ready for next batch
     };
     TRACE1("\nModel#sgd batch_sz=%d, lr=%6.3f, mtum=%6.3f", N, lr, m);
     for (U16 i = 1; i < numel - 1; i++) {
-        Tensor &in = (*this)[i];
-
+        Tensor &in  = (*this)[i];
+        int    do_w = in.grad[2] && in.grad[2]->is_same_shape(*in.grad[0]);
+        int    do_b = in.grad[3] && in.grad[3]->is_same_shape(*in.grad[1]);
         TRACE1("\n%2d> %s ", i, d_nname(in.grad_fn));
-        if (in.grad[2]) {
-            TRACE1(" f-dfΣ=%6.3f-%6.3f", in.grad[0]->sum(), in.grad[2]->sum());
-            update('f', *in.grad[0], *in.grad[2]);
+        if (do_w) {
+            TRACE1(" w-dwΣ=%6.3f-%6.3f", in.grad[0]->sum(), in.grad[2]->sum());
+            update('w', *in.grad[0], *in.grad[2]);
         }
-        if (in.grad[3] && in.grad[3]->is_same_shape(*in.grad[1])) {
+        if (do_b) {
             TRACE1(" b-dbΣ=%6.3f-%6.3f", in.grad[1]->sum(), in.grad[3]->sum());
             update('b', *in.grad[1], *in.grad[3]);
         }
-        if (in.grad[0]) TRACE1(" => fΣ=%6.3f", in.grad[0]->sum());
-        if (in.grad[1]) TRACE1(" bΣ=%6.3f",    in.grad[1]->sum());
+        if (do_w) TRACE1(" => wΣ=%6.3f", in.grad[0]->sum());
+        if (do_b) TRACE1(" bΣ=%6.3f",    in.grad[1]->sum());
+        
+        debug(*in.grad[0]);
     }
     TRACE1("\nModel#sgd %5.2f ms\n", _mmu->ms() - t0);
     return *this;
