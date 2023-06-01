@@ -4,11 +4,11 @@
 ### Status
 |version|feature|stage|description|conceptual comparable|
 |---|---|---|---|---|
-|[release 1.0](https://github.com/chochain/tensorForth/releases/tag/v1.0.2)|**float**|production|extended eForth with F32 float|Python|
-|[release 2.0](https://github.com/chochain/tensorForth/releases/tag/v2.0.2)|**matrix**|production|added vector and matrix objects|NumPy|
-|[release 2.2](https://github.com/chochain/tensorForth/releases/tag/v2.2.2)|**lapack**|beta|added linear algebra methods|SciPy|
-|[release 3.0](https://github.com/chochain/tensorForth/releases/tag/v3.0.0)|**CNN**|alpha|added ML propegation with autograd|Torch|
-|release 3.2|**GAN**|under development|adding Generative Adversarial Net|Torch/DCGAN|
+|[1.0](https://github.com/chochain/tensorForth/releases/tag/v1.0.2)|**float**|production|extended eForth with F32 float|Python|
+|[2.0](https://github.com/chochain/tensorForth/releases/tag/v2.0.2)|**matrix**|production|+ vector and matrix objects|NumPy|
+|[2.2](https://github.com/chochain/tensorForth/releases/tag/v2.2.2)|**lapack**|beta|+ linear algebra methods|SciPy|
+|[3.0](https://github.com/chochain/tensorForth/releases/tag/v3.0.0)|**CNN**|alpha|+ Machine Learning with autograd|Torch|
+|3.2|**GAN**|developing|adding Generative Adversarial Net|Torch/DCGAN|
 |future|**Transformer**|planning|to add Transformer ops|PyTorch|
 
 ### Why?
