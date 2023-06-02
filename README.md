@@ -25,9 +25,11 @@ Forth language encourages incremental build and test. Having a 'shell', resides 
 > **tensor + Forth = tensorForth!**
 
 ### What?
-More details to come but here's a sample of tensorForth in action
-* Comparison of 5 Convolution Neural Network Models
-  > <img src="./docs/ten4_model_cmp.png" width="600px" height="400px">
+More details to come but here're samples of tensorForth in action
+* Benchmarks
+  > |Different Neural Network Models|Activation Layers on linear MNIST|
+  > |---|---|
+  > |<img src="./docs/img/ten4_model_cmp.png" width="600px" height="400px">|<img src="./docs/img/ten4_act_cmp.png" width="600px" height="400px">|
 
 ### How?
 GPU, behaves like a co-processor or a DSP chip. It has no OS, no string support, and runs its own memory. Most of the available libraries are built for host instead of device i.e. to initiate calls from CPU into GPU but not the other way around. So, to be interactive, a memory manager, IO, and syncing with CPU are things needed to be had. It's pretty much like creating a Forth from scratch for a new processor as in the old days.
