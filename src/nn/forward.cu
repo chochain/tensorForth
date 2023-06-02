@@ -238,6 +238,7 @@ Model::_fstep(Tensor &in, Tensor &out) {
     case L_RELU:    _ffilter(in, in, out);   break; ///< filter in < 0
     case L_TANH:
     case L_SIGMOID:
+    case L_SELU:
     case L_LEAKYRL:
     case L_ELU:     _factivate(in, out, fn); break;
     case L_SOFTMAX: _fsoftmax(in, out);      break; /// * feed to CrossEtropy
