@@ -64,7 +64,7 @@ __KERN__ void k_conv2d(
 __KERN__ void k_linear(
     DU *I, DU *O, DU *W, DU *B,
     int C1, int C0, int HWC1, int HWC0
-    ) {    
+    ) {
     const int c0 = threadIdx.x + blockIdx.x * blockDim.x;
     const int c1 = threadIdx.y + blockIdx.y * blockDim.y;
     const int n  = blockIdx.z;
@@ -98,7 +98,7 @@ __KERN__ void k_pool(
     const int z0 = c + k0 * C + ns;                   ///< output array index
     const int z1 = c + j0 * KS * C + ((k0 - j0) * C + ns) * KS * KS;
     const bool avg = (op != L_MAXPOOL && op != L_MINPOOL);
-    
+
     if (k0 < hw && c < C) {
         const int RI = (W - 1) * KS * C;              ///< input cell row increment
         DU *ix = &I[z1];
@@ -129,11 +129,14 @@ __KERN__ void k_filter(
     const int c  = blockIdx.y, C = gridDim.y;              ///< channel deep
     const int ns = blockIdx.z * HW * C;                    ///< batch slice index
     const int k  = c + i * C + ns;                         ///< output tensor index
-    
+
     if (i < HW) {
         O[k] = (F[k] > DU0) ? I[k] : DU0;
     }
 }
+
+#define SELU_L  1.0507                     /** Selu lambda */
+#define SELU_LA 1.7581                     /** Selu alpha  */
 
 __KERN__ void k_activate(
     t4_layer op, DU *I, DU *O,             ///< func, input, output tensors
@@ -143,16 +146,21 @@ __KERN__ void k_activate(
     const int c  = blockIdx.y, C = gridDim.y;              ///< channel deep
     const int ns = blockIdx.z * HW * C;                    ///< batch slice index
     const int k  = c + i * C + ns;                         ///< output tensor index
-    
+
     if (i < HW) {
         DU ik = I[k];                                      ///< use register
         switch (op) {
-        case L_TANH:    O[k] = I[k] = TANH(ik);     break; /// * cache tanh(x)
-        case L_SIGMOID: O[k] = I[k] = SIGMOID(ik);  break; /// * cache sigmoid(x)
+        case L_TANH:    O[k] = I[k] = TANH(ik);      break;/// * cache tanh(x)
+        case L_SIGMOID: O[k] = I[k] = SIGMOID(ik);   break;/// * cache sigmoid(x)
+        case L_SELU:    O[k] = ik > DU0                    /// * cache I[k]
+             ? (I[k] = SELU_L, ik)
+             : (I[k] = SELU_LA * EXP(ik)) - SELU_LA; break;
         case L_LEAKYRL: O[k] = ik > DU0
-             ? ik : alpha * ik;                     break;
+             ? (I[k] = DU1, ik)
+             : (I[k] = alpha) * ik;                  break;
         case L_ELU:     O[k] = ik > DU0
-             ? ik : (I[k]=alpha * EXP(ik)) - alpha; break; /// * cache alpha*exp(x)
+             ? (I[k] = DU1, ik)
+             : (I[k] = alpha * EXP(ik)) - alpha;     break;
         }
     }
 }
@@ -170,13 +178,13 @@ __KERN__ void k_batchnorm(
 
     if (i < HW) {
         O[k] = (X[k] = (I[k] - avg[c]) * ivar[c]) * gamma[c] + beta[c];
-    }    
+    }
 }
 
 __GPU__ Model&
 Model::forward(Tensor &input) {
     Tensor &n1 = (*this)[1];  ///< reference model input layer
-    
+
     if (!input.is_same_shape(n1)) {
         ERROR("Model#forward dataset dim != model input dim?\n");
         return *this;
@@ -211,11 +219,11 @@ Model::forward(Tensor &input) {
         _hit = hit(true);                        /// * recalc hit count
     }
     TRACE1("\nModel#forward %5.2f ms\n", _mmu->ms() - t0);
-    
+
     return *this;
 }
 /// ========================================================================
-/// private methods 
+/// private methods
 ///
 __GPU__ void
 Model::_fstep(Tensor &in, Tensor &out) {
@@ -227,17 +235,17 @@ Model::_fstep(Tensor &in, Tensor &out) {
     case L_CONV:    _fconv(in, out);         break; ///< convolution
     case L_LINEAR:  _flinear(in, out);       break; ///< out = W @ in + B
     case L_FLATTEN: out = in;                break; ///< straight copy
-    case L_RELU:    _ffilter(in, in, out);   break; ///< filter in < 0 
+    case L_RELU:    _ffilter(in, in, out);   break; ///< filter in < 0
     case L_TANH:
-    case L_SIGMOID: 
+    case L_SIGMOID:
     case L_LEAKYRL:
     case L_ELU:     _factivate(in, out, fn); break;
     case L_SOFTMAX: _fsoftmax(in, out);      break; /// * feed to CrossEtropy
     case L_LOGSMAX: _flogsoftmax(in, out);   break; /// * feed to NLL
-    case L_AVGPOOL: 
+    case L_AVGPOOL:
     case L_MAXPOOL:
     case L_MINPOOL: _fpool(in, out, fn);     break;
-    case L_DROPOUT: {                               ///< dropout mask 
+    case L_DROPOUT: {                               ///< dropout mask
         DU     pct  = 0.001 * in.parm;              ///< percentage dropout
         Tensor &msk = *in.grad[0];                  ///< dropout mask
         _mmu->random(msk, UNIFORM, -pct);           /// * randomize w, shift pct
@@ -257,12 +265,12 @@ __GPU__ int
 Model::_fconv(Tensor &in, Tensor &out) {
     Tensor &tf = *in.grad[0];                             ///< filter tensor
     Tensor &tb = *in.grad[1];                             ///< bias tensor
-    
+
     TRACE1(" f[%d,%d,%d,%d], b[%d]", tf.N(), tf.H(), tf.W(), tf.C(), tb.numel);
-        
+
     const int N = out.N(), H = out.H(), W = out.W();      ///< outpt dimensions
     const int C0 = out.C(), C1 = in.C();                  ///< output, input channel deep
-                    
+
     dim3 blk(T4_WARP_SZ, T4_WARP_SZ, 1);                  ///< default blocks
     dim3 g1((W + TILE1 - 1) / TILE1, (H + TILE1 - 1) / TILE1, C0);
     dim3 g3((W + TILE3 - 1) / TILE3, (H + TILE3 - 1) / TILE3, C0);
@@ -292,20 +300,20 @@ Model::_flinear(Tensor &in, Tensor &out) {
 
     const int N  = out.N();                           ///< batch size (N1 == N0)
     const int C0 = tw.H(), C1 = tw.W();               ///< dense layer dims
-    
+
     TRACE1(" = w[%d,%d] @ in[%d,%d,%d,%d] + b[%d]",
         C0, C1, in.N(), in.H(), in.W(), in.C(), tb.numel);
 
     if (tw.numel > T4_WARP_SQ) {                      /// * threadhold control
         dim3 blk(T4_WARP_SZ, T4_WARP_SZ, 1);          ///< default blocks
         dim3 grd(NGRID(C0, C1, N, blk));              ///< default grids
-        
+
         k_linear<<<grd,blk>>>(
             in.data, out.data, tw.data, tb.data, C1, C0, in.HWC(), out.HWC());
         GPU_SYNC();                                   /// * this makes it slow
     }
     else {                                            /// * serial code (for validation)
-        TRACE1("*"); 
+        TRACE1("*");
         DU *w = tw.data, *b = tb.data;
         for (int n = 0; n < N; n++) {                 /// * walk through batch
             DU *x = in.slice(n), *y = out.slice(n);
@@ -324,20 +332,20 @@ Model::_flinear(Tensor &in, Tensor &out) {
 __GPU__ int
 Model::_ffilter(Tensor &in, Tensor &msk, Tensor &out) {
     const int W = out.W(), HW = out.H() * W;
-    
+
     dim3 blk(T4_WARP_SQ, 1, 1);                        ///< default blocks
     dim3 grd((HW + blk.x - 1)/blk.x, out.C(), out.N());
-    
+
     k_filter<<<grd, blk>>>(in.data, msk.data, out.data, HW);
     GPU_SYNC();
-    
+
     return 0;
 }
 
 __GPU__ int
 Model::_factivate(Tensor &in, Tensor &out, t4_layer fn) {
     const int W = out.W(), HW = out.H() * W;
-    
+
     dim3 blk(T4_WARP_SQ, 1, 1);                        ///< default blocks
     dim3 grd((HW + blk.x - 1)/blk.x, out.C(), out.N());
 
@@ -345,7 +353,7 @@ Model::_factivate(Tensor &in, Tensor &out, t4_layer fn) {
 
     k_activate<<<grd, blk>>>(fn, in.data, out.data, HW, alpha);
     GPU_SYNC();
-    
+
     return 0;
 }
 
@@ -353,10 +361,10 @@ __GPU__ int
 Model::_fpool(Tensor &in, Tensor &out, t4_layer fn) {
     const int W  = out.W(), H = out.H();                ///< output dimensions
     const int ks = in.parm;                             ///< kernel size
-    
+
     dim3 blk(T4_WARP_SQ, 1, 1);                         ///< default blocks
     dim3 grd((H * W + blk.x - 1) / blk.x, out.C(), out.N());
-    
+
     switch(ks) {                                        /// pooling kernel size
     case 2: k_pool<2><<<grd,blk>>>(fn, in.data, out.data, H, W); break;
     case 3: k_pool<3><<<grd,blk>>>(fn, in.data, out.data, H, W); break;
@@ -365,7 +373,7 @@ Model::_fpool(Tensor &in, Tensor &out, t4_layer fn) {
         return -1;
     }
     GPU_SYNC();
-    
+
     return 0;
 }
 
@@ -421,11 +429,11 @@ Model::_fupsample(Tensor &in, Tensor &out, t4_layer fn) {
     const int W  = in.W(), H = in.H();                  ///< input dimensions (reversed pool)
     const int me = (in.parm >> 8);                      ///< upsample method, TODO
     const int ks = in.parm & 0xff;                      ///< upsampling size
-    
+
     dim3 blk(T4_WARP_SQ, 1, 1);
     dim3 grd((H * W + blk.x - 1) / blk.x, in.C(), in.N());
 
-    switch(ks) {                           
+    switch(ks) {
     case 2: k_dpool<2><<<grd,blk>>>(fn, out.data, in.data, H, W); break;
     case 3: k_dpool<3><<<grd,blk>>>(fn, out.data, in.data, H, W); break;
     default:
@@ -433,7 +441,7 @@ Model::_fupsample(Tensor &in, Tensor &out, t4_layer fn) {
         return -1;
     }
     GPU_SYNC();
-    
+
     //_dump(in.data,  in.H(), in.W(), in.C());
     //_dump(out.data, out.H(), out.W(), out.C());
     return 0;
@@ -449,12 +457,12 @@ __GPU__ int
 Model::_fbatchnorm(Tensor &in, Tensor &out) {
     const int W = out.W(), HW = out.H() * W;
     const int C = out.C(), NHW = HW * out.N();         ///< C0==C1
-    
+
     dim3 blk(T4_WARP_SQ, 1, 1);                        ///< default blocks
     dim3 grd((HW + blk.x - 1)/blk.x, C, out.N());
 
     DU *w   = &in.grad[0]->data[0];                    ///< weight/gamma
-    DU *b   = &in.grad[0]->data[C];                    ///< bias/beta 
+    DU *b   = &in.grad[0]->data[C];                    ///< bias/beta
     DU *avg = &in.grad[1]->data[0];                    ///< mean
     DU *var = &in.grad[1]->data[C];                    ///< 1.0/(var+e)^0.5
     DU *xht = in.grad[3]->data;                        ///< x_hat
@@ -471,7 +479,7 @@ Model::_fbatchnorm(Tensor &in, Tensor &out) {
     for (int c=0; c < C; c++) {
         var[c] = 1.0 / SQRT(var[c] / NHW + DU_EPS);    ///< calc population stdvar
     }
-    
+
     k_batchnorm<<<grd, blk>>>(                         /// * O = x_hat*gamma + beta
         in.data, out.data, xht, avg, var, w, b, HW
     );
