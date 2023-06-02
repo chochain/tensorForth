@@ -32,6 +32,7 @@ Model::add(t4_layer fn, U16 n, DU bias, U16 *opt) {
     case L_RELU:
     case L_TANH:
     case L_SIGMOID: _icopy(in);                 break;
+    case L_SELU:
     case L_LEAKYRL:
     case L_ELU:     _iactivate(in, bias);       break;
     case L_SOFTMAX:

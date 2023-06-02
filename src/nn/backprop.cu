@@ -18,7 +18,7 @@ __KERN__ void k_dconv2d(
     ) {
     __shared__ DU _I[T4_WARP_SQ];                    ///< input cache tile [16x16]
     __shared__ DU _O[T4_WARP_SQ];                    ///< output cache tile [16x16]
-    
+
     const int KSQ= KS * KS;                          ///< save some muliplications
     const int tx = threadIdx.x, j1 = tx + blockIdx.x * TS;
     const int ty = threadIdx.y, i1 = ty + blockIdx.y * TS;
@@ -30,9 +30,9 @@ __KERN__ void k_dconv2d(
     ///
     const int i0 = i1 - INT(KS / 2);                 ///< dY coordinates
     const int j0 = j1 - INT(KS / 2);
-    
+
     auto g = cg::this_thread_block();                ///< group all threads
-    
+
     _I[xy] = (i1 < H && j1 < W) ? I[z1] : DU0;       ///< cached X (input) tile
     g.sync();
 
@@ -43,7 +43,7 @@ __KERN__ void k_dconv2d(
             ? O[z0] : DU0;                           /// * by channel
         g.sync();                                    /// * smem write barrier
         if (c1 == 0) atomicAdd(&DB[c0], _O[xy]);     /// * dB += dY
-        
+
         const int zf = c0 + c1 * KSQ * C0;           ///< filter index F[C1,KS,KS,C0]
         if (tx < TS && ty < TS) {                    /// * within tile [12x12]
             DU *fx = &F[zf + (KSQ - 1) * C0];        ///< F[c1,KS-1,KS-1,c0] i.e. rot180
@@ -70,7 +70,7 @@ __KERN__ void k_dconv2d(
 __KERN__ void k_dlinear_dwdb(
     DU *I, DU *O, DU *DW, DU *DB,
     int C1, int C0, int HWC1, int HWC0
-    ) {    
+    ) {
     const int c0 = threadIdx.x + blockIdx.x * blockDim.x;
     const int c1 = threadIdx.y + blockIdx.y * blockDim.y;
     const int n  = blockIdx.z;
@@ -115,7 +115,7 @@ __KERN__ void k_dpool(
     const int ns = blockIdx.z * HW * C;               ///< batch slice idx
     const int z0 = c + k0 * C + ns;                   ///< output array index
     const int z1 = c + j0 * KS * C + ((k0 - j0) * C + ns) * KS * KS;
-    
+
     if (k0 < HW && c < C) {
         const int RI = (W - 1) * KS * C;     ///< input cell row increment
         DU *ix = &I[z1], *t = ix;            /// *ix input tensor cell
@@ -150,7 +150,7 @@ __KERN__ void k_dfilter(
     const int c  = blockIdx.y, C = gridDim.y;              ///< channel deep
     const int ns = blockIdx.z * HW * C;                    ///< batch slice index
     const int k  = c + i * C + ns;                         ///< output tensor index
-    
+
     if (i < HW && c < C) {
         I[k] = (F[k] > DU0) ? O[k] : DU0;
     }
@@ -159,7 +159,7 @@ __KERN__ void k_dfilter(
 __KERN__ void k_dactivate(
     t4_layer op,
     DU *I, DU *O,                           ///< input, filter, output
-    int HW, DU alpha                        ///< H1==H0, W1==W0 (C1==C0)
+    int HW                                  ///< H1==H0, W1==W0 (C1==C0)
     ) {
     const int i  = threadIdx.x + blockIdx.x * blockDim.x;  ///< element index
     const int c  = blockIdx.y, C = gridDim.y;              ///< channel deep
@@ -171,8 +171,9 @@ __KERN__ void k_dactivate(
         switch (op) {
         case L_TANH:    I[k] = O[k] * (DU1 - ik*ik);   break;  /// * 1 - tanh^2
         case L_SIGMOID: I[k] = O[k] * ik * (DU1 - ik); break;  /// * sig(1 - sig)
-        case L_LEAKYRL: I[k] = ik > DU0 ? O[k] : alpha * O[k]; break;
-        case L_ELU:     I[k] = ik > DU0 ? O[k] : ik * O[k];    break;
+        case L_SELU:
+        case L_LEAKYRL:
+        case L_ELU:     I[k] = O[k] * ik;              break;  /// * cached I[k]
         }
     }
 }
@@ -191,7 +192,7 @@ __KERN__ void k_dbatchnorm_1(
     if (i < HW) {
         I[k] = (O[k] - sum[c] * _N) * g_var[c];            /// * dX = g_var * (dout - sum(dout) / N)
         O[k] *= X[k];                                     /// * dout * x_hat
-    }    
+    }
 }
 __KERN__ void k_dbatchnorm_2(
     DU *I, DU *X, DU *sum,                 ///< input, x_hat
@@ -251,7 +252,7 @@ Model::backprop(Tensor &hot) {
     return *this;
 }
 /// ========================================================================
-/// private methods 
+/// private methods
 ///
 __GPU__ void
 Model::_bstep(Tensor &in, Tensor &out) {
@@ -266,6 +267,7 @@ Model::_bstep(Tensor &in, Tensor &out) {
     case L_RELU:    _bfilter(in, in, out);   break; /// * filter (in > 0)
     case L_TANH:
     case L_SIGMOID:
+    case L_SELU:
     case L_LEAKYRL:
     case L_ELU:     _bactivate(in, out, fn); break;
     case L_SOFTMAX: /* softmax + CrossEntropy derivative, out = one-hot */
@@ -274,7 +276,7 @@ Model::_bstep(Tensor &in, Tensor &out) {
                     /* logsoftmax: Xi = Yi - Li * p */
         break;
     case L_MAXPOOL:
-    case L_AVGPOOL: 
+    case L_AVGPOOL:
     case L_MINPOOL: _bpool(in, out, fn);     break;
     case L_DROPOUT: {
         Tensor &msk = *in.grad[0];             ///< dropout mask
@@ -294,12 +296,12 @@ __GPU__ int
 Model::_bconv(Tensor &in, Tensor &out) {
     Tensor &tf = *in.grad[0], &tdf = *in.grad[2];    ///< filter tensor
     Tensor &tb = *in.grad[1], &tdb = *in.grad[3];    ///< bias tensor
-    
+
     TRACE1(" f[%d,%d,%d,%d], b[%d]", tf.N(), tf.H(), tf.W(), tf.C(), tb.numel);
-    
+
     const int N = in.N(), H = in.H(), W = in.W();    ///< input dimensions
-    const int C1 = in.C(), C0 = out.C();            
-    
+    const int C1 = in.C(), C0 = out.C();
+
     dim3 blk(T4_WARP_SZ, T4_WARP_SZ, 1);
     dim3 g1((W + TILE1 - 1) / TILE1, (H + TILE1 - 1) / TILE1, C1);
     dim3 g3((W + TILE3 - 1) / TILE3, (H + TILE3 - 1) / TILE3, C1);
@@ -313,7 +315,7 @@ Model::_bconv(Tensor &in, Tensor &out) {
         case 1: k_dconv2d<TILE1,1><<<g1,blk>>>(d1, f, df, db, d0, H, W, C0); break;
         case 3: k_dconv2d<TILE3,3><<<g3,blk>>>(d1, f, df, db, d0, H, W, C0); break;
         case 5: k_dconv2d<TILE5,5><<<g5,blk>>>(d1, f, df, db, d0, H, W, C0); break;
-        default: 
+        default:
             ERROR("model_back#conv kernel_size %d not supported\n", ks);
             return -1;
         }
@@ -336,7 +338,7 @@ Model::_blinear(Tensor &in, Tensor &out) {
     const int N  = out.N();                         ///< batch size (N1 == N0)
     const int H1 = in.H(), H0 = out.H();            ///< input output H
     const int C0 = tw.H(), C1 = tw.W();             ///< filter dimensions
-        
+
     TRACE1("\n\tdw[%d,%d] += out'[%d,1] @ in^t[1,%d]", C0, C1, H0, H1);
     TRACE1("\n\tin[%d, 1]  = w^t[%d,%d] @ out'[%d,1]", H1, C1, C0, H0);
 
@@ -385,7 +387,7 @@ Model::_blinear(Tensor &in, Tensor &out) {
 __GPU__ int
 Model::_bfilter(Tensor &in, Tensor &msk, Tensor &out) {
     const int W = out.W(), HW = out.H() * W;
-    
+
     dim3 blk(T4_WARP_SQ, 1, 1);
     dim3 grd((HW + blk.x -1) / blk.x, out.C(), out.N());
 
@@ -398,13 +400,11 @@ Model::_bfilter(Tensor &in, Tensor &msk, Tensor &out) {
 __GPU__ int
 Model::_bactivate(Tensor &in, Tensor &out, t4_layer fn) {
     const int W = out.W(), HW = out.H() * W;
-    
+
     dim3 blk(T4_WARP_SQ, 1, 1);
     dim3 grd((HW + blk.x -1) / blk.x, out.C(), out.N());
 
-    DU alpha = 0.001 * in.parm;
-
-    k_dactivate<<<grd,blk>>>(fn, in.data, out.data, HW, alpha);
+    k_dactivate<<<grd,blk>>>(fn, in.data, out.data, HW);
     GPU_SYNC();
 
     return 0;
@@ -413,12 +413,12 @@ Model::_bactivate(Tensor &in, Tensor &out, t4_layer fn) {
 __GPU__ int
 Model::_bpool(Tensor &in, Tensor &out, t4_layer fn) {
     const int W = out.W(), H = out.H();   ///< output dimensions
-    
+
     dim3 blk(T4_WARP_SQ, 1, 1);
     dim3 grd((H * W + blk.x - 1) / blk.x, out.C(), out.N());
 
     const int ks = in.parm;               ///< kernel size
-    switch(ks) {                           
+    switch(ks) {
     case 2: k_dpool<2><<<grd,blk>>>(fn, in.data, out.data, H, W); break;
     case 3: k_dpool<3><<<grd,blk>>>(fn, in.data, out.data, H, W); break;
     default:
@@ -426,7 +426,7 @@ Model::_bpool(Tensor &in, Tensor &out, t4_layer fn) {
         return -1;
     }
     GPU_SYNC();
-    
+
     return 0;
 }
 ///
@@ -439,10 +439,10 @@ Model::_bupsample(Tensor &in, Tensor &out, t4_layer fn) {
     const int W  = in.W(), H = in.H();                  ///< input dimensions (reversed pool)
     const int me = (in.parm >> 8);                      ///< upsample method, TODO
     const int ks = (in.parm & 0xff);                    ///< kernel size
-    
+
     dim3 blk(T4_WARP_SQ, 1, 1);                         ///< default blocks
     dim3 grd((H * W + blk.x - 1) / blk.x, in.C(), in.N());
-    
+
     switch(ks) {                                        /// by kernel size
     case 2: k_pool<2><<<grd,blk>>>(fn, out.data, in.data, H, W); break;
     case 3: k_pool<3><<<grd,blk>>>(fn, out.data, in.data, H, W); break;
@@ -451,7 +451,7 @@ Model::_bupsample(Tensor &in, Tensor &out, t4_layer fn) {
         return -1;
     }
     GPU_SYNC();
-    
+
     return 0;
 }
 ///
@@ -468,7 +468,7 @@ __GPU__ int
 Model::_bbatchnorm(Tensor &in, Tensor &out) {
     const int W = out.W(), HW = out.H() * W;
     const int C = out.C(), N  = out.N();               ///< C0==C1, N1=N0
-    
+
     dim3 blk(T4_WARP_SQ, 1, 1);
     dim3 grd((HW + blk.x -1) / blk.x, C, N);
 
@@ -494,7 +494,7 @@ Model::_bbatchnorm(Tensor &in, Tensor &out) {
     for (int c=0; c < C; c++) sum[c] = DU0;            /// * zero
     k_sum<<<grd, blk>>>(out.data, sum, HW);            /// * capture sum(dout * x_hat)
     GPU_SYNC();
-    
+
     for (int c=0; c < C; c++) {
         dw[c]  += (sum[c] /= HW);                      /// * collect dgamma = sum(dout * x_hat)( / HW?)
         sum[c] *= var[c] / N;                          /// * scale sum
