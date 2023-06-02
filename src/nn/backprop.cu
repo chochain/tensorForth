@@ -186,11 +186,11 @@ __KERN__ void k_dbatchnorm_1(
     const int c  = blockIdx.y, C = gridDim.y;              ///< channel deep
     const int ns = blockIdx.z * HW * C;                    ///< batch slice index
     const int k  = c + i * C + ns;                         ///< output tensor index
-    const DU  _N = 1.0 / HW / gridDim.z;                   ///< 1.0/HWN
+    const DU  _N = 1.0 / gridDim.z;                        ///< 1.0/HWN
 
     if (i < HW) {
         I[k] = (O[k] - sum[c] * _N) * g_var[c];            /// * dX = g_var * (dout - sum(dout) / N)
-        O[k] *= X[k];                                      /// * dout * x_hat
+        O[k] *= X[k];                                     /// * dout * x_hat
     }    
 }
 __KERN__ void k_dbatchnorm_2(
@@ -467,7 +467,7 @@ extern __KERN__ void k_sum(DU *I, DU *sum, int HW);
 __GPU__ int
 Model::_bbatchnorm(Tensor &in, Tensor &out) {
     const int W = out.W(), HW = out.H() * W;
-    const int C = out.C(), N  = out.N();                ///< C0==C1, N1=N0
+    const int C = out.C(), N  = out.N();               ///< C0==C1, N1=N0
     
     dim3 blk(T4_WARP_SQ, 1, 1);
     dim3 grd((HW + blk.x -1) / blk.x, C, N);
@@ -484,10 +484,9 @@ Model::_bbatchnorm(Tensor &in, Tensor &out) {
     GPU_SYNC();
 
     for (int c=0; c < C; c++) {
-        db[c] += sum[c] / HW;                          /// * collect dbeta = sum(dout) (/ HW ?)
+        db[c] += (sum[c] /= HW);                       /// * collect dbeta = sum(dout) (/ HW?)
         var[c] *= w[c];                                /// * var <= gamma * ivar
     }
-
     k_dbatchnorm_1<<<grd, blk>>>(                      /// * dX = gamma * ivar * (dout - sum(dout)/N)
         in.data, out.data, xht, sum, var, HW);         /// * also, dout *= x_hat
     GPU_SYNC();
@@ -497,10 +496,9 @@ Model::_bbatchnorm(Tensor &in, Tensor &out) {
     GPU_SYNC();
     
     for (int c=0; c < C; c++) {
-        dw[c]  += sum[c] / HW;                         /// * collect dgamma = sum(dout * x_hat) (/ HW ?)
-        sum[c] *= var[c] / N / HW;                     /// * scale sum (/ HW ?)
+        dw[c]  += (sum[c] /= HW);                      /// * collect dgamma = sum(dout * x_hat)( / HW?)
+        sum[c] *= var[c] / N;                          /// * scale sum
     }
-    
     k_dbatchnorm_2<<<grd, blk>>>(in.data, xht, sum, HW);/// * dX -= gamma * ivar * x_hat * sum(dout * x_hat) / N
     GPU_SYNC();
 
