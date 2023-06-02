@@ -50,7 +50,7 @@ ds1                                       \ put dataset on TOS
   * Layers
     > + layers: conv2d, conv1x1, linear, flatten, upsample, batchnorm
     > + pooling: maxpool, minpool, avgpool, dropout
-    > + activation: relu, sigmoid, softmax, log_softmax, tanh, elu
+    > + activation: relu, tanh, sigmoid, selu, leakyrelu, elu, softmax, log_softmax
     > + loss: ce, mse, nll
   * Dataset
     > + format - NHWC (as in TensorFlow)
@@ -110,9 +110,10 @@ ds1                                       \ put dataset on TOS
 |tanh|(Ta -- Ta')|tensor element-wise tanh Ta' = tanh(Ta)|
 |relu|(Ta -- Ta')|tensor element-wise ReLU Ta' = max(0, Ta)|
 |sigmoid|(Ta -- Ta')|tensor element-wise Sigmoid Ta' = sigmoid(Ta)|
-|tanh|(N -- N')|add tanh layer to network model|
 |relu|(N -- N')|add Rectified Linear Unit to network model|
+|tanh|(N -- N')|add tanh layer to network model|
 |sigmoid|(N -- N')|add sigmoid 1/(1+exp^-z) activation to network model, used in binary|
+|selu|(N -- N')|add Selu layer to network model|
 |leakyrelu|(N a -- N')|add leaky ReLU activation with slope=a to network model|
 |elu|(N a -- N')|add exponential linear unit activation with alpha=a to network model|
 |softmax|(N -- N')|add probability vector exp(x)/sum(exp(x)) to network model, feeds loss.ce, used in multi-class|

@@ -34,7 +34,7 @@ GPU, behaves like a co-processor or a DSP chip. It has no OS, no string support,
 
 Since GPUs have good compiler support nowadays and I've ported the latest [*eForth*](https://github.com/chochain/eforth) to lambda-based in C++, pretty much all words can be transferred straight forward. However, having *FP32* or *float32* as my basic data unit, so later I can morph them to *FP16*, or even fixed-point, there are some small stuffs such as addressing and logic ops that require some attention.
 
-The codebase will be in C for my own understanding of the multi-trip data flows. In the future, the class/methods implementation can come back to Forth in the form of loadable blocks so maintainability and extensibility can be utilized as other self-hosting systems. It would be amusing to find someone brave enough to work the assembly (i.e. CUDA SASS) into a Forth that resides on GPU micro-cores in the fashion of [*GreenArray*](https://www.greenarraychips.com/), or to forge an FPGA doing similar kind of things.
+The codebase will be in C for my own understanding of the multi-trip data flows. In the future, the class/methods implementation can come back to Forth in the form of loadable blocks so maintainability and extensibility can be utilized as other self-hosting systems. It would be amusing to find someone brave enough to work the NVVM IR or even PTX assembly into a Forth that resides on GPU micro-cores in the fashion of [*GreenArray*](https://www.greenarraychips.com/), or to forge an FPGA doing similar kind of things.
 
 In the end, languages don't really matter. It's the problem they solve. Having an interactive Forth in GPU does not mean a lot by itself. However by adding vector, matrix, linear algebra support with a breath of **APL**'s massively parallel from GPUs. Neural Network tensor ops with backprop following the path from Numpy to PyTorch, plus the cleanness of **Forth**, it can be useful one day, hopefully! 
 
@@ -211,6 +211,7 @@ drop                                        \ drop the value
   tanh       (N -- N')           - add tanh layer to network model
   relu       (N -- N')           - add Rectified Linear Unit to network model
   sigmoid    (N -- N')           - add sigmoid 1/(1+exp^-z) activation to network model, used in binary
+  selu       (N -- N')           - add Selu alpha(exp-1) activation to network model
   leakyrelu  (N a -- N')         - add leaky ReLU with slope=a
   leu        (N a -- N')         - add exponential linear unit alpha=a
   softmax    (N -- N')           - add probability vector exp(x)/sum(exp(x)) to network model, feeds loss.ce, used in multi-class
@@ -354,6 +355,7 @@ drop                                        \ drop the value
       * AC-GAN (https://machinelearningmastery.com/how-to-develop-an-auxiliary-classifier-gan-ac-gan-from-scratch-with-keras/, https://towardsdatascience.com/understanding-acgans-with-code-pytorch-2de35e05d3e4)
     - see examples https://github.com/nashory/gans-awesome-applications
     - use pre-trained model, i.e. transfer learning (https://openaccess.thecvf.com/content_ECCV_2018/papers/yaxing_wang_Transferring_GANs_generating_ECCV_2018_paper.pdf)
+  + add layer - Swish, Mish
   + add layer - Transposed Convolution (https://d2l.ai/chapter_computer-vision/transposed-conv.html). Less used now b/c it creates checkerboard pattern, see https://distill.pub/2016/deconv-checkerboard/)
 * data
   + add loader plug-in API - CIFAR

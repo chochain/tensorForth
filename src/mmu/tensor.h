@@ -53,6 +53,7 @@ typedef enum {
     L_RELU,         //> Rectified Linear Unit
     L_TANH,
     L_SIGMOID,
+    L_SELU,         //> Scaled Exponential Linear Unit
     L_LEAKYRL,      //> Leaky ReLU
     L_ELU,          //> Exponential Linear Unit
     L_SOFTMAX,
