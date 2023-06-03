@@ -100,56 +100,5 @@ Model::loss(t4_loss op, Tensor &hot) {              ///< loss against one-hot
 
     return err;
 }
-///
-/// Stochastic Gradiant Decent
-/// Note: does not get affected by batch size
-///       because filters are fixed size
-///
-__GPU__ Model&
-Model::sgd(DU lr, DU m, bool zero) {
-    Tensor &n1 = (*this)[1];                       ///< reference model input layer
-    DU     t0  = _mmu->ms();                       ///< performance measurement
-    ///
-    /// cascade execution layer by layer forward
-    ///
-    const int N = n1.N();                          ///< batch size
-    auto update = [this, N, lr, m, zero](const char nm, Tensor &w, Tensor &dw) {
-        TRACE1(" %c[%d,%d,%d,%d]", nm, w.N(), w.H(), w.W(), w.C());
-        if (m < DU_EPS) {
-            dw *= lr / N;                          /// * learn rate / batch size
-            w  -= dw;                              /// * w -= eta * dw
-        }
-        else {                                     /// * with momentum (exp moving avg)
-            dw *= (1 - m) * lr / N;                /// * w' = m * w - (1 - m) * eta * dw
-            w  *= m;
-            w  -= dw;
-        }
-        if (zero) dw.map(O_FILL, DU0);         /// * zap dw, ready for next batch
-    };
-    TRACE1("\nModel#sgd batch_sz=%d, lr=%6.3f, mtum=%6.3f", N, lr, m);
-    for (U16 i = 1; i < numel - 1; i++) {
-        Tensor &in  = (*this)[i];
-        int    do_w = in.grad[2] && in.grad[2]->is_same_shape(*in.grad[0]);
-        int    do_b = in.grad[3] && in.grad[3]->is_same_shape(*in.grad[1]);
-        TRACE1("\n%2d> %s ", i, d_nname(in.grad_fn));
-        if (do_w) {
-            TRACE1(" w-dwΣ=%6.3f-%6.3f", in.grad[0]->sum(), in.grad[2]->sum());
-            update('w', *in.grad[0], *in.grad[2]);
-        }
-        if (do_b) {
-            TRACE1(" b-dbΣ=%6.3f-%6.3f", in.grad[1]->sum(), in.grad[3]->sum());
-            update('b', *in.grad[1], *in.grad[3]);
-        }
-        if (do_w) TRACE1(" => wΣ=%6.3f", in.grad[0]->sum());
-        if (do_b) TRACE1(" bΣ=%6.3f",    in.grad[1]->sum());
-    }
-    TRACE1("\nModel#sgd %5.2f ms\n", _mmu->ms() - t0);
-    return *this;
-}
-
-__GPU__ Model&
-Model::adam(DU lr, DU b0, DU b1, bool zero) {
-    return *this;
-}
 #endif  // T4_ENABLE_OBJ
 //==========================================================================
