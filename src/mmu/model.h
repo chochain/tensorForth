@@ -20,13 +20,21 @@ typedef enum {
     UP_BILINEAR,
     UP_CUBIC
 } t4_upsample;
-
+///
+///< gradiant function pointer
+///
+typedef void (*GdFunc)(Tensor &w, Tensor &dw, DU *parm, bool zero);
+///
+///< Neural Network Model class
+///
 class Model : public T4Base {
     int     _trace = 0;     ///< cached debug/tracing level
     MMU     *_mmu;          ///< tensor storage base
     Tensor  *_store;        ///< model storage - Sequential, TODO: DAG
     Tensor  *_hot  = NULL;  ///< cached dataset one-hot vector
     int     _hit   = 0;
+    bool    _gzero = true;                       ///> gradiant zero per step
+    DU      _gparm[3] = { DU1, DU0, DU0 };       ///> gradiant parameters
     
 public:
     bool    autograd = true;
@@ -81,8 +89,9 @@ public:
     /// @}
     /// @name gradiant decent functions
     /// @{
-    __GPU__ Model  &sgd(DU lr, DU m, bool zero=true);            ///< stochastic gradiant decent
-    __GPU__ Model  &adam(DU lr, DU b0, DU b1, bool zero=true);   ///< Adam gradiant decent
+    __GPU__ Model  &gradiant(const char *nm, GdFunc fn);///< gradiant descent functor
+    __GPU__ Model  &sgd(DU lr, DU m, bool zero=true);   ///< stochastic gradiant descent
+    __GPU__ Model  &adam(DU lr, DU b1, DU b2, bool zero=false);///< Adam gradiant descent
     /// @}
     /// @name debug functions
     /// @{
