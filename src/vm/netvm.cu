@@ -195,8 +195,8 @@ NetVM::init() {
     CODE("nn.adam",
          if (!M2V) ERROR("rate beta1 nn.adam?\n");
          else {
-             DU b1 = POP(); DU lr = POP();
-             DU b2 = M1V ? POP() : DU1 - POW(DU1 - b1, 3);
+             DU b1 = POP(); DU b2 = DU1 - POW(DU1 - b1, 3);
+             DU lr = POP();
              MTOS.adam(lr, b1, b2);
          }),
     CODE("nn.onehot",                         /// * current onehot vector
