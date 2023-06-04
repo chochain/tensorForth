@@ -7,7 +7,8 @@ NN_SRCS := \
     src/nn/debug.cu \
 	src/nn/forward.cu \
 	src/nn/backprop.cu \
-	src/nn/loss.cu
+	src/nn/loss.cu \
+    src/nn/gradiant.cu
 
 NN_INCS :=
 NN_OBJS := $(NN_SRCS:%.cu=%.o)
