@@ -156,7 +156,7 @@ NetVM::init() {
     ///@{
     CODE("conv1x1",   _conv(1)),              ///> (N b c -- N')
     CODE("conv2d",    _conv(3)),              ///> (N b c [A] -- N')
-    CODE("linear",    nnop(L_LINEAR)),        ///> (N b n -- N')
+    CODE("linear",    nnop(L_LINEAR)),        ///> (N b c -- N')
     ///@}
     ///@defgroup BatchNorm and Activation ops
     ///@{
@@ -193,11 +193,11 @@ NetVM::init() {
              MTOS.sgd(lr, m);
          }),
     CODE("nn.adam",
-         if (!M2V) ERROR("rate beta nn.adam?\n");
+         if (!M2V) ERROR("rate beta1 nn.adam?\n");
          else {
-             DU b0 = POP(); DU lr = POP();
-             DU b1 = M1V ? POP() : DU1 - POW(DU1 - b0, 3);
-             MTOS.adam(lr, b0, b1);
+             DU b1 = POP(); DU lr = POP();
+             DU b2 = M1V ? POP() : DU1 - POW(DU1 - b1, 3);
+             MTOS.adam(lr, b1, b2);
          }),
     CODE("nn.onehot",                         /// * current onehot vector
         if (IS_M(top)) {
