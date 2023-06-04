@@ -32,9 +32,9 @@ class Model : public T4Base {
     MMU     *_mmu;          ///< tensor storage base
     Tensor  *_store;        ///< model storage - Sequential, TODO: DAG
     Tensor  *_hot  = NULL;  ///< cached dataset one-hot vector
-    int     _hit   = 0;
-    bool    _gzero = true;                       ///> gradiant zero per step
-    DU      _gparm[3] = { DU1, DU0, DU0 };       ///> gradiant parameters
+    int     _hit   = 0;     ///< hit counter
+    DU      _gparm[3];      ///> gradiant parameters
+    bool    _gzero;         ///> gradiant zero per step
     
 public:
     bool    autograd = true;
