@@ -20,10 +20,16 @@ typedef enum {
     UP_BILINEAR,
     UP_CUBIC
 } t4_upsample;
+
+typedef enum {
+    OPTI_SGD = 0,
+    OPTI_ADAM
+} t4_optimizer;
 ///
 ///< gradiant function pointer
 ///
-typedef void (*GdFunc)(Tensor &w, Tensor &dw, DU *parm, bool zero);
+typedef void (*GdFunc)(DU *parm, bool zero,
+                       Tensor &w, Tensor &dw, Tensor &m, Tensor &v);
 ///
 ///< Neural Network Model class
 ///
@@ -89,7 +95,7 @@ public:
     /// @}
     /// @name gradiant decent functions
     /// @{
-    __GPU__ Model  &gradiant(const char *nm, GdFunc fn);///< gradiant descent functor
+    __GPU__ Model  &gradiant(const char *nm, GdFunc fn, t4_optimizer opti);///< gradiant descent functor
     __GPU__ Model  &sgd(DU lr, DU m, bool zero=true);   ///< stochastic gradiant descent
     __GPU__ Model  &adam(DU lr, DU b1, DU b2, bool zero=false);///< Adam gradiant descent
     /// @}
