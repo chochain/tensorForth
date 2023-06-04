@@ -11,7 +11,7 @@
 __GPU__ Model&
 Model::gradiant(const char *nm, GdFunc fn) {
     auto step = [this, fn](const char n, Tensor &g, Tensor &dg) {
-            TRACE1("%c[%d,%d,%d,%d] Σ=%6.3f - %6.3f",
+            TRACE1("\n    %c[%d,%d,%d,%d] Σ=%6.3f - %6.3f",
                    n, g.N(), g.H(), g.W(), g.C(), g.sum(), dg.sum());
             fn(g, dg, _gparm, _gzero);
             TRACE1(" => %cΣ=%6.3f", n, g.sum());
@@ -21,14 +21,14 @@ Model::gradiant(const char *nm, GdFunc fn) {
     ///
     /// cascade execution layer by layer forward
     ///
-    const int N = n1.N();                          ///< batch size
     TRACE1("\nModel#%s batch_sz=%d, lr=%6.3f, mtum/b1=%6.3f b2=%6.3f",
-           nm, N, _gparm[0], _gparm[1], _gparm[2]);
+           nm, n1.N(), _gparm[0], _gparm[1], _gparm[2]);
     for (U16 i = 1; i < numel - 1; i++) {
         Tensor &in = (*this)[i];
         Tensor *w  = in.grad[0], *dw = in.grad[2];
         Tensor *b  = in.grad[1], *db = in.grad[3];
         
+        if (_trace) printf("\n  %2d> %s", i, d_nname(in.grad_fn));
         if (dw && dw->is_same_shape(*w)) step('w', *w, *dw);
         if (db && db->is_same_shape(*b)) step('b', *b, *db);
     }
@@ -43,48 +43,38 @@ Model::gradiant(const char *nm, GdFunc fn) {
 __GPU__ Model&
 Model::sgd(DU lr, DU m, bool zero) {
     auto update = [](Tensor &g, Tensor &dg, DU *parm, bool zero) {
-        const int N  = g.N();
-        const DU  lr = parm[0];
-        const DU  m  = parm[1];
+        const DU m = parm[1];                      ///< momentum
         if (m < DU_EPS) {
-            dg *= lr / N;                          /// * learn rate / batch size
+            dg *= parm[0];                         /// * eta / batch size
             g  -= dg;                              /// * g -= eta * dg
         }
         else {                                     /// * with momentum (exp moving avg)
-            dg *= (1 - m) * lr / N;                /// * w' = m * w - (1 - m) * eta * dw
+            dg *= (1 - m) * parm[0];               /// * w' = m * w - (1 - m) * eta * dw / N
             g  *= m;
             g  -= dg;
         }
         if (zero) dg.map(O_FILL, DU0);             /// * zap dw, ready for next batch
     };
-    _gparm[0] = zero ? DU1 : DU0;
-    _gparm[1] = lr;
-    _gparm[2] = m;
-    _gparm[3] = DU0;
+    _gparm[0] = lr / batch_size();                 /// eta / batch_size
+    _gparm[1] = m;
+    _gparm[2] = DU0;
+    _gzero    = zero;
     gradiant("sgd", update);
     return *this;
 }
 
 __GPU__ Model&
 Model::adam(DU lr, DU b1, DU b2, bool zero) {
+    static DU t = 1;
     auto update = [](Tensor &g, Tensor &dg, DU *parm, bool zero) {
-        const int N  = g.N();
-        const DU  lr = parm[0];
+        const DU  lr = parm[0];                   /// * eta / batch_size
         const DU  b1 = parm[1];
         const DU  b2 = parm[2];
-        Tensor &v = Tensor::copy(dg);
-        Tensor::matmul(dg, v, v);      /// * v = dw^2
-        /*
-        dw *= (1 - m) * lr / N;                /// * w' = m * w - (1 - m) * eta * dw
-        w  *= m;
-        w  -= dw;
-        */
-        _mmu.free(v);
     };
-    _zero     = zero;
-    _gparm[0] = lr;
+    _gparm[0] = lr * SQRT(1 - POW(b2, t)) / (1 - POW(b1, t)) / batch_size();
     _gparm[1] = b1;
     _gparm[2] = b2;
+    _gzero    = zero;
     gradiant("adam", update);
     return *this;
 }
