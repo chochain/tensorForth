@@ -30,6 +30,7 @@ k_ten_op(t4_ten_op op, float *t, int sz, float v=DU0) {
         case O_TANH:  t[k] = TANH(t[k]);                break;
         case O_RELU:  t[k] = t[k] > DU0 ? t[k] : DU0;   break;
         case O_SIGM:  t[k] = SIGMOID(t[k]);             break;
+        case O_SQRT:  t[k] = SQRT(t[k]);                break;
         default: ERROR("k_ten_op %d not supported\n", op);
         }
     }
@@ -685,7 +686,7 @@ Tensor::identity() {
 
 __BOTH__ Tensor&
 Tensor::map(t4_ten_op op, DU v) {
-    OPN("+", "-", "*", "/", "@", "solv", "fill", "scale","pow", "abs", "exp", "log", "tanh", "relu", "sigmoid");
+    OPN("+", "-", "*", "/", "@", "solv", "fill", "scale","pow", "abs", "exp", "log", "tanh", "relu", "sigmoid", "sqrt");
     WARN("Tensor#%s v=%f\n", opn[op], v);
     int n = (numel + T4_WARP_SQ - 1) / T4_WARP_SQ;
     

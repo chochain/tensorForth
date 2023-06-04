@@ -34,6 +34,7 @@ typedef enum {
     O_TANH,
     O_RELU,
     O_SIGM,
+    O_SQRT,
     /// 1-operand matrix ops
     O_IDEN,
     O_INV,
