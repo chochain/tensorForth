@@ -85,7 +85,7 @@ struct Tensor : public T4Base {
     U16      shape[4]  = {1,1,1,1}; ///< shape=HWCN, matrix C=N=1, vector W=C=N=1
     t4_layer grad_fn   = L_NONE;    ///< grandiant funtion type
     Tensor   *grad[4];              ///< gradiant and jacobian tensors
-    Tensor   *adam[4];              ///< holders for Adam m_w, v_w, m_b, v_b
+    Tensor   *mtum[4];              ///< momentum and delta tensors
     ///
     /// static ops
     /// Note:

@@ -607,7 +607,7 @@ Tensor::reset(void *mptr, U32 sz, t4_obj tt, t4_layer fn) {
     memcpy(stride, s, sizeof(s));
     memcpy(shape,  h, sizeof(h));
     memcpy(grad,   t, sizeof(t));
-    memcpy(adam,   t, sizeof(t));
+    memcpy(mtum,   t, sizeof(t));
     return *this;
 }
 
