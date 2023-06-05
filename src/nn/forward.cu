@@ -90,16 +90,16 @@ __KERN__ void k_pool(
     DU *I, DU *O,                                     ///< input, output buffers
     int H, int W                                      ///< output HW (C0==C1)
     ) {
+    const int HW = H * W;                             ///< output dimension
     const int k0 = threadIdx.x + blockIdx.x * blockDim.x;
     const int j0 = k0 % W;                            ///< output x dim
     const int c  = blockIdx.y, C = gridDim.y;         ///< channel deep
-    const int hw = H * W;                             ///< output dimension
-    const int ns = blockIdx.z * hw * C;               ///< batch slice idx
+    const int ns = blockIdx.z * HW * C;               ///< batch slice idx
     const int z0 = c + k0 * C + ns;                   ///< output array index
     const int z1 = c + j0 * KS * C + ((k0 - j0) * C + ns) * KS * KS;
     const bool avg = (op != L_MAXPOOL && op != L_MINPOOL);
 
-    if (k0 < hw && c < C) {
+    if (k0 < HW && c < C) {
         const int RI = (W - 1) * KS * C;              ///< input cell row increment
         DU *ix = &I[z1];
         DU2 v  = avg ? DU0 : *ix;
@@ -140,7 +140,7 @@ __KERN__ void k_filter(
 
 __KERN__ void k_activate(
     t4_layer op, DU *I, DU *O,             ///< func, input, output tensors
-    int HW, DU alpha                       ///< H0=H1, W0==W1 (C0==C1)
+    DU alpha, int HW                       ///< H0=H1, W0==W1 (C0==C1)
     ) {
     const int i  = threadIdx.x + blockIdx.x * blockDim.x;  ///< element index
     const int c  = blockIdx.y, C = gridDim.y;              ///< channel deep
@@ -201,6 +201,7 @@ Model::forward(Tensor &input) {
             out.N(), out.H(), out.W(), out.C());
     };
     TRACE1("\nModel#forward starts");
+    _iter++;                                     ///< advance iteration counter
     DU t0 = _mmu->ms(), t1 = t0, tt;             ///< performance measurement
     for (U16 i = 1; i < numel - 1; i++) {
         Tensor &in = (*this)[i], &out = (*this)[i + 1];
@@ -352,7 +353,7 @@ Model::_factivate(Tensor &in, Tensor &out, t4_layer fn) {
 
     DU alpha = 0.001 * in.parm;
 
-    k_activate<<<grd, blk>>>(fn, in.data, out.data, HW, alpha);
+    k_activate<<<grd, blk>>>(fn, in.data, out.data, alpha, HW);
     GPU_SYNC();
 
     return 0;

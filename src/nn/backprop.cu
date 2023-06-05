@@ -321,11 +321,9 @@ Model::_bconv(Tensor &in, Tensor &out) {
         }
         GPU_SYNC();
     }
-//     _dump_db(tdb);
-//     _dump(tdf.data, tdf.H(), tdf.W(), tdf.C());
-    if (_trace > 1) {
-        _dump_dbdf(tdb, tdf);
-    }
+//  _dump_db(tdb);
+//  _dump(tdf.data, tdf.H(), tdf.W(), tdf.C());
+    if (_trace > 1) _dump_dbdf(tdb, tdf);
     return 0;
 }
 
