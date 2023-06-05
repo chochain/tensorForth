@@ -22,28 +22,30 @@ typedef enum {
 } t4_upsample;
 
 typedef enum {
-    OPTI_SGD = 0,
-    OPTI_ADAM
+    OPTI_SGD = 0,            ///< Stochastic Gradient Descent
+    OPTI_SGDM,               ///< SGD with momemtum
+    OPTI_ADAM                ///< 
 } t4_optimizer;
 ///
 ///< gradiant function pointer
 ///
-typedef void (*GdFunc)(DU *parm, bool zero,
-                       Tensor &w, Tensor &dw, Tensor &m, Tensor &v);
+typedef void (*GdFunc)(
+    DU *parm, Tensor &w, Tensor &dw, Tensor &m, Tensor &v);
 ///
 ///< Neural Network Model class
 ///
 class Model : public T4Base {
-    int     _trace = 0;     ///< cached debug/tracing level
-    MMU     *_mmu;          ///< tensor storage base
-    Tensor  *_store;        ///< model storage - Sequential, TODO: DAG
-    Tensor  *_hot  = NULL;  ///< cached dataset one-hot vector
-    int     _hit   = 0;     ///< hit counter
-    DU      _gparm[3];      ///> gradiant parameters
-    bool    _gzero;         ///> gradiant zero per step
+    MMU          *_mmu;              ///< tensor storage base
+    Tensor       *_store;            ///< model storage - Sequential, TODO: DAG
+    Tensor       *_hot  = NULL;      ///< cached dataset one-hot vector
+    int          _trace = 0;         ///< cached debug/tracing level
+    int          _iter  = 0;         ///< iteration counter
+    int          _hit   = 0;         ///< hit counter
+    t4_optimizer _opti  = OPTI_SGD;  ///< optimizer selection
+    DU           _gparm[3];          ///< gradiant parameters
     
 public:
-    bool    autograd = true;
+    bool autograd = true;
     ///
     /// @name Derivertive ops
     /// @{
@@ -95,9 +97,11 @@ public:
     /// @}
     /// @name gradiant decent functions
     /// @{
-    __GPU__ Model  &gradiant(const char *nm, GdFunc fn, t4_optimizer opti);///< gradiant descent functor
-    __GPU__ Model  &sgd(DU lr, DU m, bool zero=true);   ///< stochastic gradiant descent
-    __GPU__ Model  &adam(DU lr, DU b1, DU b2, bool zero=false);///< Adam gradiant descent
+    __GPU__ Model  &grad_alloc(Tensor &in, bool do_w, bool do_b);
+    __GPU__ Model  &grad_zero() { _iter = 0; }          ///< manual zero momentum tensors
+    __GPU__ Model  &gradiant(const char *nm, GdFunc fn);///< gradiant descent functor
+    __GPU__ Model  &sgd(DU lr, DU b);                   ///< stochastic gradiant descent
+    __GPU__ Model  &adam(DU lr, DU b1, DU b2);          ///< Adam gradiant descent
     /// @}
     /// @name debug functions
     /// @{
