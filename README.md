@@ -187,13 +187,14 @@ drop                                        \ drop the value
   next       (N -- N')           - loop if any subset of dataset left, or ds is pop off return stack
 </pre>
 
-### CNN Layers
+### Convolution, Dense, and Pooling Layers
 <pre>
   conv2d     (N -- N')           - create a 2D convolution 3x3 filter, stride=1, padding=same, dilation=0, bias=0.5
   conv2d     (N b c -- N')       - create a 2D convolution, bias=b, c channels output, with default 3x3 filter
   conv2d     (N b c A -- N')     - create a 2D convolution, bias=b, c channels output, with config i.g. Vector[5, 5, 3, 2, 1] for (5x5, padding=3, stride=2, dilation=1, bais=0.3)
   conv1x1    (N b c -- N')       - create a 1x1 convolution, bias=b, c channels output, stide=1, padding=same, dilation=0
   flatten    (N -- N')           - flatten a tensor (usually input to linear)
+  
   linear     (N b n -- N')       - linearize (y = Wx + b) from Ta input to n out_features
   linear     (N n -- N')         - linearize (y = Wx), bias=0.0 from Ta input to n out_features
   
@@ -205,17 +206,19 @@ drop                                        \ drop the value
   upsample   (N m n -- N')       - upsample with method=m, size=n, 2x2 and 3x3 supported
 </pre>
 
-### Activation (non-linear)
+### Activation (non-linear) and Classifier
 <pre>
   tanh       (Ta -- Ta')         - tensor element-wise tanh Ta' = tanh(Ta)
   relu       (Ta -- Ta')         - tensor element-wise ReLU Ta' = max(0, Ta)
   sigmoid    (Ta -- Ta')         - tensor element-wise Sigmoid Ta' = 1/(1+exp(-Ta))
+  sqrt       (Ta -- Ta')         - tensor element-wise Sqrt Ta' = sqrt(Ta)
   tanh       (N -- N')           - add tanh layer to network model
   relu       (N -- N')           - add Rectified Linear Unit to network model
   sigmoid    (N -- N')           - add sigmoid 1/(1+exp^-z) activation to network model, used in binary
   selu       (N -- N')           - add Selu alpha(exp-1) activation to network model
   leakyrelu  (N a -- N')         - add leaky ReLU with slope=a
   leu        (N a -- N')         - add exponential linear unit alpha=a
+  
   softmax    (N -- N')           - add probability vector exp(x)/sum(exp(x)) to network model, feeds loss.ce, used in multi-class
   logsoftmax (N -- N')           - add probability vector x - log(sum(exp(x))) to network model, feeds loss.nll, used in multi-class
 </pre>
@@ -225,10 +228,12 @@ drop                                        \ drop the value
   loss.mse   (N Ta -- N Ta')     - mean squared error, take output from linear layer
   loss.ce    (N Ta -- N Ta')     - cross-entropy, takes output from softmax activation
   loss.nll   (N Ta -- N Ta')     - negative log likelihood, takes output from log-softmax activation
-  
+
+  nn.zero    (N -- N')           - manually zero gradiant tensors
+  nn.sgd     (N p -- N')         - apply SGD(learn_rate=p, momentum=0.0) model back propagation
   nn.sgd     (N p m -- N')       - apply SGD(learn_rate=p, momentum=m) model back propagation
   nn.adam    (N a b1 -- N')      - apply Adam backprop alpha, beta1, default beta2=1-(1-b1)^3
-  nn.adam    (N a b1 b2 -- N')   - apply Adam backprop with given alpha, beta1, beta2
+  nn.zero    (N -- N')           - reset momentum tensors
   nn.onehot  (N -- N T)          - get cached onehot vector from a model
   nn.hit     (N -- N n)          - get number of hit (per mini-batch) of a model
 </pre>
@@ -346,17 +351,14 @@ drop                                        \ drop the value
 
 ### TODO - by priorities
 * model
-  + study GHN and AN (https://analyticsindiamag.com/alternatives-batch-normalization-deep-learning/)
-  + add block - branch & concatenate (i.e Inception in GoogLeNet)
-  + add block - residual map (i.e. ResNet, https://d2l.ai/chapter_convolutional-modern/resnet.html)
-  + add gradiant - Adam
-    - https://machinelearningmastery.com/adam-optimization-from-scratch/
-  + torch.eval() i.e. normalize using running stat, disable dropout (vs torch.train())
   + GAN ((https://arxiv.org/pdf/1511.06434.pdf, https://www.analyticsvidhya.com/blog/2021/10/an-end-to-end-introduction-to-generative-adversarial-networksgans/)
     - cGAN (https://towardsdatascience.com/cgan-conditional-generative-adversarial-network-how-to-gain-control-over-gan-outputs-b30620bd0cc8), with MNIST
       * AC-GAN (https://machinelearningmastery.com/how-to-develop-an-auxiliary-classifier-gan-ac-gan-from-scratch-with-keras/, https://towardsdatascience.com/understanding-acgans-with-code-pytorch-2de35e05d3e4)
     - see examples https://github.com/nashory/gans-awesome-applications
     - use pre-trained model, i.e. transfer learning (https://openaccess.thecvf.com/content_ECCV_2018/papers/yaxing_wang_Transferring_GANs_generating_ECCV_2018_paper.pdf)
+  + add block - branch & concatenate (i.e Inception in GoogLeNet)
+  + add block - residual map (i.e. ResNet, https://d2l.ai/chapter_convolutional-modern/resnet.html)
+  + torch.eval() i.e. normalize using running stat, disable dropout (vs torch.train())
   + add layer - Swish, Mish
   + add layer - Transposed Convolution (https://d2l.ai/chapter_computer-vision/transposed-conv.html). Less used now b/c it creates checkerboard pattern, see https://distill.pub/2016/deconv-checkerboard/)
 * data

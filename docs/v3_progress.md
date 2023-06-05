@@ -110,23 +110,30 @@ ds1                                       \ put dataset on TOS
 |tanh|(Ta -- Ta')|tensor element-wise tanh Ta' = tanh(Ta)|
 |relu|(Ta -- Ta')|tensor element-wise ReLU Ta' = max(0, Ta)|
 |sigmoid|(Ta -- Ta')|tensor element-wise Sigmoid Ta' = sigmoid(Ta)|
+|sqrt|(Ta -- Ta')|tensor element-wise Sqrt Ta' = sqrt(Ta)|
 |relu|(N -- N')|add Rectified Linear Unit to network model|
 |tanh|(N -- N')|add tanh layer to network model|
 |sigmoid|(N -- N')|add sigmoid 1/(1+exp^-z) activation to network model, used in binary|
 |selu|(N -- N')|add Selu layer to network model|
 |leakyrelu|(N a -- N')|add leaky ReLU activation with slope=a to network model|
 |elu|(N a -- N')|add exponential linear unit activation with alpha=a to network model|
-|softmax|(N -- N')|add probability vector exp(x)/sum(exp(x)) to network model, feeds loss.ce, used in multi-class|
-|logsoftmax|(N -- N')|add probability vector x - log(sum(exp(x))) to network model, feeds loss.nll, used in multi-class|
-    
-#### Pooling and Dropout (Downsampling)
+
+#### Pooling, Dropout, and UpSampling
 |word|param/example|tensor creation ops|
 |---|---|---|
 |maxpool|(N n -- N')|nxn cells maximum pooling|
 |avgpool|(N n -- N')|nxn cells average pooling|
 |minpool|(N n -- N')|nxn cell minimum pooling|
 |dropout|(N p -- N')|zero out p% of channel data (add noise between data points)|
-  
+|upsample|(N n -- N')|upsample to nearest size=n, 2x2 and 3x3 supported|
+|upsample|(N m n -- N')|upsample with method=m, size=n, 2x2 and 3x3 suppor|
+
+#### Classifier
+|word|param/example|tensor creation ops|
+|---|---|---|
+|softmax|(N -- N')|add probability vector exp(x)/sum(exp(x)) to network model, feeds loss.ce, used in multi-class|
+|logsoftmax|(N -- N')|add probability vector x - log(sum(exp(x))) to network model, feeds loss.nll, used in multi-class|
+    
 #### Loss and hit count
 |word|param/example|tensor creation ops|
 |---|---|---|
@@ -137,9 +144,10 @@ ds1                                       \ put dataset on TOS
 #### Gradiant ops
 |word|param/example|tensor creation ops|
 |---|---|---|
+|nn.sgd|(N p -- N')|apply SGD(learn_rate=p, momentum=0.0) model back propagation|
 |nn.sgd|(N p m -- N')|apply SGD(learn_rate=p, momentum=m) model back propagation|
 |nn.adam|(N a b1 -- N')|apply Adam backprop alpha, beta1, default beta2=1-(1-b1)^3|
-|nn.adam|(N a b1 b2 -- N')|apply Adam backprop with given alpha, beta1, beta2|
+|nn.zero|(N -- N')|reset momentum tensors|
 |nn.onehot|(N -- N T)|get cached onehot vector from a model|
 |nn.hit|(N -- N n)|get number of hit (per mini-batch) of a model|
 
@@ -176,11 +184,17 @@ ds1                                       \ put dataset on TOS
 * https://en.wikipedia.org/wiki/Automatic_differentiation
 * https://en.wikipedia.org/wiki/Adept_(C%2B%2B_library) and Stan
 * https://luniak.io/cuda-neural-network-implementation-part-1/
-* for 1D nn   https://machinelearningmastery.com/implement-backpropagation-algorithm-scratch-python/
-* for 2D conv https://datascience-enthusiast.com/DL/Convolution_model_Step_by_Stepv2.html
-* backprop    https://medium.com/@ngocson2vn/a-gentle-explanation-of-backpropagation-in-convolutional-neural-network-cnn-1a70abff508b
-* backprop    https://www.google.com/search?channel=fs&client=ubuntu&q=forward+backward+propagation
-+ batchnorm backprop https://www.adityaagrawal.net/blog/deep_learning/bprop_batch_norm
-* code ref    https://github.com/rasmusbergpalm/DeepLearnToolbox
+
+* 1D nn   https://machinelearningmastery.com/implement-backpropagation-algorithm-scratch-python/
+* 2D conv https://datascience-enthusiast.com/DL/Convolution_model_Step_by_Stepv2.html
+* Backprop https://medium.com/@ngocson2vn/a-gentle-explanation-of-backpropagation-in-convolutional-neural-network-cnn-1a70abff508b
+* Backprop https://www.google.com/search?channel=fs&client=ubuntu&q=forward+backward+propagation
++ Batchnorm Backprop https://www.adityaagrawal.net/blog/deep_learning/bprop_batch_norm
+* BatchNorm Alternatives https://analyticsindiamag.com/alternatives-batch-normalization-deep-learning/
+
++ Inception https://towardsdatascience.com/a-simple-guide-to-the-versions-of-the-inception-network-7fc52b863202
++ ResNet https://d2l.ai/chapter_convolutional-modern/resnet.html
+
+* code ref https://github.com/rasmusbergpalm/DeepLearnToolbox
 
 
