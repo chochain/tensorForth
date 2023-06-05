@@ -186,19 +186,28 @@ NetVM::init() {
     ///@}
     ///@defgroup Gradiant ops
     ///@{
-    CODE("nn.sgd",
-         if (!M2V) ERROR("rate mtum nn.sgd?\n");
-         else {
-             DU m = POP(); DU lr = POP();
+    CODE("nn.zero",
+         if (IS_M(top)) MTOS.grad_zero();
+         else ERROR("TOS is not a model!\n")),
+    CODE("nn.sgd",                            
+         if (M2V) {                           ///> (N p m -- N')
+             DU m  = POP();                   ///< momentum
+             DU lr = POP();                   ///< learn rate
              MTOS.sgd(lr, m);
-         }),
+         }
+         else if (M1V) {                      ///> (N p -- N')
+             DU lr = POP();                   ///< learn rate
+             MTOS.sgd(lr, 0.0);               ///< default momentum = 0.0
+         }
+         else ERROR("rate mtum nn.sgd?\n")),
     CODE("nn.adam",
-         if (!M2V) ERROR("rate beta1 nn.adam?\n");
-         else {
-             DU b1 = POP(); DU b2 = DU1 - POW(DU1 - b1, 3);
-             DU lr = POP();
+         if (M2V) {                           ///> (N lr b1 -- N')
+             DU b1 = POP();                   ///< beta1
+             DU b2 = DU1 - POW(DU1 - b1, 3);  ///< default beta2
+             DU lr = POP();                   ///< learn rate
              MTOS.adam(lr, b1, b2);
-         }),
+         }
+         else ERROR("rate beta1 nn.adam?\n")),
     CODE("nn.onehot",                         /// * current onehot vector
         if (IS_M(top)) {
             Tensor &hot = MTOS.onehot();
@@ -259,6 +268,7 @@ NetVM::init() {
                 ERROR("not a dataset on RS?\n"); return;
             }
             if (d.done) {
+                m.grad_zero();                     /// * reset momentum tensors
                 rs.pop();                          /// * pop off dataset
                 IP += sizeof(IU);                  /// * skip over to next word
             }
