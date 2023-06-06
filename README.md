@@ -204,6 +204,8 @@ drop                                        \ drop the value
   dropout    (N p -- N')         - zero out p% of channel data (add noise between data points)
   upsample   (N n -- N')         - upsample to nearest size=n, 2x2 and 3x3 supported
   upsample   (N m n -- N')       - upsample with method=m, size=n, 2x2 and 3x3 supported
+  batchnorm  (N -- N')           - batch normal layer with default momentum=0.1
+  batchnorm  (N m -- N')         - batch normal with momentum=m
 </pre>
 
 ### Activation (non-linear) and Classifier
@@ -350,51 +352,54 @@ drop                                        \ drop the value
 
 
 ### TODO - by priorities
-* model
-  + GAN ((https://arxiv.org/pdf/1511.06434.pdf, https://www.analyticsvidhya.com/blog/2021/10/an-end-to-end-introduction-to-generative-adversarial-networksgans/)
-    - cGAN (https://towardsdatascience.com/cgan-conditional-generative-adversarial-network-how-to-gain-control-over-gan-outputs-b30620bd0cc8), with MNIST
-      * AC-GAN (https://machinelearningmastery.com/how-to-develop-an-auxiliary-classifier-gan-ac-gan-from-scratch-with-keras/, https://towardsdatascience.com/understanding-acgans-with-code-pytorch-2de35e05d3e4)
-    - see examples https://github.com/nashory/gans-awesome-applications
+* Model
+  + GAN
+    - Mnist Keras https://machinelearningmastery.com/how-to-develop-a-generative-adversarial-network-for-an-mnist-handwritten-digits-from-scratch-in-keras/
+    - Mnist Pytorch https://debuggercafe.com/vanilla-gan-pytorch/
+    - AC-GAN Keras (https://machinelearningmastery.com/how-to-develop-an-auxiliary-classifier-gan-ac-gan-from-scratch-with-keras/
     - use pre-trained model, i.e. transfer learning (https://openaccess.thecvf.com/content_ECCV_2018/papers/yaxing_wang_Transferring_GANs_generating_ECCV_2018_paper.pdf)
   + add block - branch & concatenate (i.e Inception in GoogLeNet)
   + add block - residual map (i.e. ResNet, https://d2l.ai/chapter_convolutional-modern/resnet.html)
   + torch.eval() i.e. normalize using running stat, disable dropout (vs torch.train())
   + add layer - Swish, Mish
-  + add layer - Transposed Convolution (https://d2l.ai/chapter_computer-vision/transposed-conv.html). Less used now b/c it creates checkerboard pattern, see https://distill.pub/2016/deconv-checkerboard/)
-* data
-  + add loader plug-in API - CIFAR
-  + add K-fold sampler
-  + data API - Python(cffi), Ruby(FFI)
-* VM
-  + inter-VM communication (CUDA stream, review CUB again)
-  + inter-VM loader (from VM->VM)
-* refactor
-  + study JAX
-    - JIT (XLA)
-    - auto parallelization (pmap)
-    - auto vectorization (vmap)
-    - auto diff (grad), diffrax (RK4, Dormand-Prince)
-  + add namespace
-  + warp-level collectives (study libcu++, MordenGPU for kernel)
+  + add layer - Transposed Convolution (https://d2l.ai/chapter_computer-vision/transposed-conv.html).
+    * Less used now b/c it creates checkerboard pattern, see https://distill.pub/2016/deconv-checkerboard/)
   + add Transformer
     - study ChatGPT vs BLOOM (from Hugging Face, model with 176B params, =~ 700GB)
     - https://stats.stackexchange.com/questions/421935/what-exactly-are-keys-queries-and-values-in-attention-mechanisms
     - https://towardsdatascience.com/neural-machine-translation-inner-workings-seq2seq-and-transformers-229faff5895b
     - https://towardsdatascience.com/a-detailed-guide-to-pytorchs-nn-transformer-module-c80afbc9ffb1
     - https://nlp.seas.harvard.edu/2018/04/03/attention.html
+* Data + Visualization
+  + output image in CHW format
+    * create Pytorch Dataset, CustomDataLoader => matplotlib
+  + add loader plug-in API - CIFAR
+  + add K-fold sampler
+  + data API - Python(cffi), Ruby(FFI)
+* VM
+  + inter-VM communication (CUDA stream, review CUB again)
+  + inter-VM loader (from VM->VM)
+* Refactor
+  + study JAX
+    - JIT (XLA)
+    - auto parallelization (pmap)
+    - auto vectorization (vmap)
+    - auto diff (grad), diffrax (RK4, Dormand-Prince)
+  + check namespace
+  + warp-level collectives (study libcu++, MordenGPU for kernel)
   + consider multi-domain (i.e. MDNet)
   + consider GNN - dynamic graph with VMs
   + consider RNN - maybe not! lost to Transformer.
 
 ### LATER
-* data
+* Data
   + NCHW tensor format support (as in PyTorch)
   + loader - .petastorm, .csv (available on github)
   + model persistance - .npy, .petastorm, hdf5
   + integrate ONNX
-* plot
-  + integrate plots (matplotlib, tensorboard)
-* code
+* Visualization
+  + integrate plots (matplotlib, tensorboard/graphviz)
+* 3rd-party lib Integration
   + integrate CUB, CUTLASS (utilities.init, gemm_api) - slow, later
   + preprocessor (DALI) + GPUDirect - heavy, later
   + calling API - Python(cffi), Ruby(FFI)
@@ -426,13 +431,21 @@ drop                                        \ drop the value
 ### [Release 3.0](./docs/v3_progress.md) features
 * NN model creation and persistence
 * NN model batch control (feed forward, backprop w/ autograd)
-* NN model optimization - sgd
+* optimization - sgd
 * layers - conv2d, linear, flatten
 * pooling - maxpool, minpool, avgpool, dropout
-* activation-  relu, sigmoid, softmax, log_softmax
+* activation - relu, sigmoid, softmax, log_softmax
 * loss - ce, mse, nll
 * formated data - NHWC (as in TensorFlow)
 * dataset rewind
 * mini-batch fetch
 * dataset loader - MNIST
 * OpenGL dataset Viewer
+
+### [Release 3.2](./docs/v3_progress.md)
+* NN model - supports GAN
+* optimization - adam, sgd with momentum, grad_zero
+* layers - conv1x1, upsample, batchnorm
+* activation - tanh, selu, leakyrelu, elu
+* tensor op - std (stdvar), sqrt
+

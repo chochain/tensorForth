@@ -127,6 +127,8 @@ ds1                                       \ put dataset on TOS
 |dropout|(N p -- N')|zero out p% of channel data (add noise between data points)|
 |upsample|(N n -- N')|upsample to nearest size=n, 2x2 and 3x3 supported|
 |upsample|(N m n -- N')|upsample with method=m, size=n, 2x2 and 3x3 suppor|
+|batchnorm|(N -- N')|add batchnorm layer with default momentum=0.1|
+|batchnorm|(N m -- N')|add batchnorm layer with momentum=m|
 
 #### Classifier
 |word|param/example|tensor creation ops|
@@ -192,8 +194,13 @@ ds1                                       \ put dataset on TOS
 + Batchnorm Backprop https://www.adityaagrawal.net/blog/deep_learning/bprop_batch_norm
 * BatchNorm Alternatives https://analyticsindiamag.com/alternatives-batch-normalization-deep-learning/
 
+* GAN https://machinelearningmastery.com/how-to-develop-a-generative-adversarial-network-for-an-mnist-handwritten-digits-from-scratch-in-keras/
+* GAN applications https://github.com/nashory/gans-awesome-applications
+
 + Inception https://towardsdatascience.com/a-simple-guide-to-the-versions-of-the-inception-network-7fc52b863202
 + ResNet https://d2l.ai/chapter_convolutional-modern/resnet.html
+
+
 
 * code ref https://github.com/rasmusbergpalm/DeepLearnToolbox
 
