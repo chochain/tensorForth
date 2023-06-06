@@ -60,7 +60,12 @@ NetVM::nnop(t4_layer op) {     /// vtable dispatcher
         U16 m = (M1V) ? POPi : UP_NEAREST;
         MTOS.add(op, n, m);
     } break;
-    case L_BATCHNM: if (IS_M(top)) MTOS.add(op); break;
+    case L_BATCHNM:
+        if (IS_M(top)) MTOS.add(op, 0, 0.1);   /// * default momentum=0.1
+        else if (M1V) {
+            DU m = POP(); MTOS.add(op, 0, m);
+        }
+        break;
     default: ERROR("NetVM::nnop(%d) not supported\n", op);
     }
 }

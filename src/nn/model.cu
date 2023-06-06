@@ -42,7 +42,7 @@ Model::add(t4_layer fn, U16 n, DU bias, U16 *opt) {
     case L_MINPOOL: _ipool(in, n);              break;
     case L_DROPOUT: _idropout(in, bias);        break;
     case L_USAMPLE: _iup(in, n, bias);          break;
-    case L_BATCHNM: _ibatchnorm(in);            break;
+    case L_BATCHNM: _ibatchnorm(in, bias);      break;
     default: ERROR("Model#add layer %d not supported\n", fn);
     }
     in.grad_fn = fn;
@@ -184,7 +184,7 @@ Model::_iup(Tensor &in, U16 f, DU method) {
 }
 
 __GPU__ void
-Model::_ibatchnorm(Tensor &in) {
+Model::_ibatchnorm(Tensor &in, DU m) {
     const int C = in.C();                        /// C0==C1
     in.grad[0] = &_vec(C*2).map(O_FILL, DU0);    ///> weight/gamma, bias/beta
     in.grad[1] = &_vec(C*2);                     ///> tmp storage
@@ -194,7 +194,7 @@ Model::_ibatchnorm(Tensor &in) {
     for (int c=0; c < C; c++) {                  /// * default gamma=1.0, beta=0.0
         in.grad[0]->data[c] = DU1;
     }
-    in.parm = INT(1000.0 * 0.1);                 ///> default EMA momentum = 0.1
+    in.parm = INT(1000.0 * m);                   ///> default EMA momentum = 0.1
     
     Tensor &out = _mmu->copy(in);                /// * retain dimensions
     npush(out);

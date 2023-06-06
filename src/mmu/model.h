@@ -132,7 +132,7 @@ private:
     __GPU__ void   _ipool(Tensor &in, U16 n);       ///< pooling with nxn filter
     __GPU__ void   _idropout(Tensor &in, DU pct);   ///< zero out p% of channel data (add noise between data points)
     __GPU__ void   _iup(Tensor &in, U16 n, DU m);   ///< upsample with nxn filter
-    __GPU__ void   _ibatchnorm(Tensor &in);         ///< batch norm
+    __GPU__ void   _ibatchnorm(Tensor &in, DU m);   ///< batch norm with momentum=m
     /// @}
     /// @name forward ops
     /// @{
