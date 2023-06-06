@@ -187,10 +187,14 @@ ds1                                       \ put dataset on TOS
 * https://en.wikipedia.org/wiki/Adept_(C%2B%2B_library) and Stan
 * https://luniak.io/cuda-neural-network-implementation-part-1/
 
+* Loss https://towardsdatascience.com/cross-entropy-for-classification-d98e7f974451
+
 * 1D nn   https://machinelearningmastery.com/implement-backpropagation-algorithm-scratch-python/
 * 2D conv https://datascience-enthusiast.com/DL/Convolution_model_Step_by_Stepv2.html
+
 * Backprop https://medium.com/@ngocson2vn/a-gentle-explanation-of-backpropagation-in-convolutional-neural-network-cnn-1a70abff508b
 * Backprop https://www.google.com/search?channel=fs&client=ubuntu&q=forward+backward+propagation
+
 + Batchnorm Backprop https://www.adityaagrawal.net/blog/deep_learning/bprop_batch_norm
 * BatchNorm Alternatives https://analyticsindiamag.com/alternatives-batch-normalization-deep-learning/
 
