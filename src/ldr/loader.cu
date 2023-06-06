@@ -23,12 +23,12 @@ DsetMap   ds_map;                          ///< Dataset, Corpus pair (cache)
 void Loader::init(bool trace) {
     cp_map["mnist_train"] =
         new Mnist(
-            "../tests/data/mnist/train-images-idx3-ubyte",
-            "../tests/data/mnist/train-labels-idx1-ubyte", trace);
+            "../data/MNIST/raw/train-images-idx3-ubyte",
+            "../data/MNIST/raw/train-labels-idx1-ubyte", trace);
     cp_map["mnist_test"] =
         new Mnist(
-            "../tests/data/mnist/t10k-images-idx3-ubyte",
-            "../tests/data/mnist/t10k-labels-idx1-ubyte", trace);
+            "../data/MNIST/raw/t10k-images-idx3-ubyte",
+            "../data/MNIST/raw/t10k-labels-idx1-ubyte", trace);
 }
 
 Corpus *Loader::get(int dset, const char *ds_name) {
