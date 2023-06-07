@@ -10,6 +10,7 @@
 
 typedef enum {
     LOSS_MSE = 0,            ///< mean square error
+    LOSS_BCE,                ///< binary cross entropy (sigmoid input)
     LOSS_CE,                 ///< cross entropy (softmax input)
     LOSS_NLL                 ///< negative log-likelihood (logsoftmax input)
 } t4_loss;
@@ -24,7 +25,7 @@ typedef enum {
 typedef enum {
     OPTI_SGD = 0,            ///< Stochastic Gradient Descent
     OPTI_SGDM,               ///< SGD with momemtum
-    OPTI_ADAM                ///< 
+    OPTI_ADAM                ///< Adam gradiant
 } t4_optimizer;
 ///
 ///< gradiant function pointer
