@@ -139,9 +139,11 @@ ds1                                       \ put dataset on TOS
 #### Loss and hit count
 |word|param/example|tensor creation ops|
 |---|---|---|
-|loss.mse|(N Ta -- N Ta')|mean squared error, take output from linear layer|
-|loss.ce|(N Ta -- N Ta')|cross-entropy, takes output from softmax activation|
-|loss.nll|(N Ta -- N Ta')|negative log likelihood, takes output from log-softmax activation|
+|loss.mse|(N Ta -- N Ta n)|mean squared error, take output from linear layer|
+|loss.bce|(N Ta -- N Ta n)|binary cross-entropy, takes output from sigmoid layer|
+|loss.ce|(N Ta -- N Ta n)|cross-entropy, takes output from softmax activation|
+|loss.nll|(N Ta -- N Ta n)|negative log likelihood, takes output from log-softmax activation|
+|loss|(N Ta -- N Ta n)|auto select loss function from last output layer|
 
 #### Gradiant ops
 |word|param/example|tensor creation ops|

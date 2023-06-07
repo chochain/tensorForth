@@ -216,7 +216,7 @@ drop                                        \ drop the value
   sqrt       (Ta -- Ta')         - tensor element-wise Sqrt Ta' = sqrt(Ta)
   tanh       (N -- N')           - add tanh layer to network model
   relu       (N -- N')           - add Rectified Linear Unit to network model
-  sigmoid    (N -- N')           - add sigmoid 1/(1+exp^-z) activation to network model, used in binary
+  sigmoid    (N -- N')           - add sigmoid 1/(1+exp^-z) activation to network model, used in binary cross entropy
   selu       (N -- N')           - add Selu alpha(exp-1) activation to network model
   leakyrelu  (N a -- N')         - add leaky ReLU with slope=a
   leu        (N a -- N')         - add exponential linear unit alpha=a
@@ -227,9 +227,11 @@ drop                                        \ drop the value
 
 ### Loss and Gradiant ops
 <pre>
-  loss.mse   (N Ta -- N Ta')     - mean squared error, take output from linear layer
-  loss.ce    (N Ta -- N Ta')     - cross-entropy, takes output from softmax activation
-  loss.nll   (N Ta -- N Ta')     - negative log likelihood, takes output from log-softmax activation
+  loss.mse   (N Ta -- N Ta n)    - mean squared error, takes output from linear layer
+  loss.bce   (N Ta -- N Ta n)    - binary cross-entropy, takes output from sigmoid activation
+  loss.ce    (N Ta -- N Ta n)    - cross-entropy, takes output from softmax activation
+  loss.nll   (N Ta -- N Ta n)    - negative log likelihood, takes output from log-softmax activation
+  loss       (N Ta -- N Ta n)    - auto select between mse, bce, ce, nll based on last model output layer
 
   nn.zero    (N -- N')           - manually zero gradiant tensors
   nn.sgd     (N p -- N')         - apply SGD(learn_rate=p, momentum=0.0) model back propagation
@@ -447,5 +449,6 @@ drop                                        \ drop the value
 * optimization - adam, sgd with momentum, grad_zero
 * layers - conv1x1, upsample, batchnorm
 * activation - tanh, selu, leakyrelu, elu
+* loss - bce
 * tensor op - std (stdvar), sqrt
 
