@@ -127,8 +127,8 @@ NetVM::_loss(t4_loss op) {
     if (TOS1T && IS_M(ss[-1])) {
         Tensor &t = TTOS; POP();
         DU     n  = MTOS.loss(op, t);
-        mmu.free(t);                 /// * pop off t
-        PUSH(n);                     /// * loss on TOS
+        mmu.free(t);                    /// * pop off t
+        PUSH(n);                        /// * loss on TOS
         printf("NetVM#loss => %.3f", n);
     }
     else if (IS_M(top)) PUSH(MTOS.loss(op));
@@ -185,9 +185,20 @@ NetVM::init() {
     ///@}
     ///@defgroup Loss functions
     ///@{
-    CODE("loss.nll",  _loss(LOSS_NLL)),       ///> (N T -- N T n)
-    CODE("loss.mse",  _loss(LOSS_MSE)),       ///> (N T -- N T n)
-    CODE("loss.ce",   _loss(LOSS_CE)),        ///> (N T -- N T n)
+    CODE("loss.mse",  _loss(LOSS_MSE)),       ///> (N T -- N T n) mean square error
+    CODE("loss.bce",  _loss(LOSS_BCE)),       ///> (N T -- N T n) binary cross-entropy
+    CODE("loss.ce",   _loss(LOSS_CE)),        ///> (N T -- N T n) cross-entropy
+    CODE("loss.nll",  _loss(LOSS_NLL)),       ///> (N T -- N T n) negative log-likelihood
+    CODE("loss",                              ///> (N T -- N T n) auto select loss function
+         if (TOS1T && IS_M(ss[-1])) {
+             switch (MTOS[-1].grad_fn) {
+             case L_SIGMOID: _loss(LOSS_BCE); break;
+             case L_SOFTMAX: _loss(LOSS_CE);  break;
+             case L_LOGSMAX: _loss(LOSS_NLL); break;
+             default:        _loss(LOSS_MSE);
+             }
+         }
+         else ERROR("TOS is not a tensor or NOS is not a model!\n")),
     ///@}
     ///@defgroup Gradiant ops
     ///@{
