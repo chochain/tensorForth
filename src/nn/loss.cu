@@ -17,6 +17,10 @@ Model::_loss(t4_loss op, Tensor &out, Tensor &hot) {
         out -= hot;
         err = 0.5 * NORM(out.numel, out.data) / N;
         break;
+    case LOSS_BCE:                   /// * binary cross_entropy, input from sigmoid
+        out -= hot;
+        err  = -out.sum() / N;
+        break;
     case LOSS_CE:                    /// * cross_entropy, input from softmax
         out.map(O_LOG);
         /* no break */
