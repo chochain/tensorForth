@@ -10,27 +10,34 @@
 #if T4_ENABLE_OBJ
 __GPU__ DU
 Model::_loss(t4_loss op, Tensor &out, Tensor &hot) {
-    const int N = out.N();
+    Tensor &tmp = _mmu->copy(out);   ///< non-destructive
+    int N   = tmp.N();               ///< mini-batch sample count
     DU  err = DU0;                   ///> result loss value
     switch (op) {
     case LOSS_MSE:                   /// * mean squared error, input from linear
-        out -= hot;
-        err = 0.5 * NORM(out.numel, out.data) / N;
+        tmp -= hot;
+        err = 0.5 * NORM(tmp.numel, tmp.data) / N;
         break;
     case LOSS_BCE:                   /// * binary cross_entropy, input from sigmoid
-        out -= hot;
-        err  = -out.sum() / N;
+        for (int n=0; n < N; n++) {
+            int k = n * tmp.HWC();
+            DU  p = hot.data[k], q = tmp.data[k];
+            err -= p * LOG(q) + (DU1 - p) * LOG(DU1 - q);
+        }
+        err /= N;                    /// average loss
         break;
     case LOSS_CE:                    /// * cross_entropy, input from softmax
-        out.map(O_LOG);
+        tmp.map(O_LOG);
         /* no break */
     case LOSS_NLL:                   /// * negative log likelihood, input from log-softmax
-        out *= hot;                  /// * hot_i * log(out_i)
-        err = -out.sum() / N;        /// * negative average per sample
+        tmp *= hot;                  /// * hot_i * log(out_i)
+        err = -tmp.sum() / N;        /// * negative average per sample
         break;
     default: ERROR("Model#loss op=%d not supported!\n", op);
     }
-    // debug(out);
+    // debug(tmp);
+    _mmu->free(tmp);                 /// * free memory
+    
     SCALAR(err);
     return err;
 }
@@ -39,10 +46,12 @@ __GPU__ Tensor&
 Model::onehot() {
     if (_hot) return *_hot;
     
-    ERROR("Model.onehot not initialized, run forward first!\n");
+    ERROR("ERROR: Model.onehot not provided by dataset, input onehot tensor!\n");
     return (*this)[-1];
 }
-
+///
+///> capture onehot vector from dataset labels
+///
 __GPU__ Tensor&
 Model::onehot(Dataset &dset) {
     auto show = [](DU *h, int n, int sz) {
@@ -50,15 +59,15 @@ Model::onehot(Dataset &dset) {
         for (int i = 0; i < sz; i++) {
             printf("%2.0f", h[i]);
         }
-        printf("}\n");
+        printf(" }\n");
     };
     Tensor &out = (*this)[-1];                      ///< model output
     int    N    = out.N(), hwc = out.HWC();         ///< sample size
     Tensor &hot = _t4(N, hwc).fill(DU0);            ///< one-hot vector
     for (int n = 0; n < N; n++) {                   /// * loop through batch
         DU *h = hot.slice(n);                       ///< take a sample
-        U32 i = INT(dset.label[n]);
-        h[i < hwc ? i : 0] = DU1;
+        U32 i = INT(dset.label[n]);                 ///< label index
+        h[i < hwc ? i : 0] = DU1;                   /// * mark hot by index
         if (_trace > 1) show(h, n, hwc);
     }
     return hot;
@@ -98,9 +107,7 @@ Model::loss(t4_loss op, Tensor &hot) {              ///< loss against one-hot
         ERROR("Model#loss hot dim != out dim\n");
         return DU0;
     }
-    Tensor &tmp = _mmu->copy(out);                  ///< non-destructive
-    DU err = _loss(op, tmp, hot);                   /// * calculate loss
-    _mmu->free(tmp);                                /// * free memory
+    DU err = _loss(op, out, hot);                   /// * calculate loss
 
     return err;
 }
