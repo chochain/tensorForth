@@ -129,7 +129,7 @@ NetVM::_loss(t4_loss op) {
         DU     n  = MTOS.loss(op, t);
         mmu.free(t);                    /// * pop off t
         PUSH(n);                        /// * loss on TOS
-        printf("NetVM#loss => %.3f", n);
+        VLOG1("NetVM#loss => %.3f\n", n);
     }
     else if (IS_M(top)) PUSH(MTOS.loss(op));
     else ERROR("model?\n");
@@ -189,9 +189,11 @@ NetVM::init() {
     CODE("loss.bce",  _loss(LOSS_BCE)),       ///> (N T -- N T n) binary cross-entropy
     CODE("loss.ce",   _loss(LOSS_CE)),        ///> (N T -- N T n) cross-entropy
     CODE("loss.nll",  _loss(LOSS_NLL)),       ///> (N T -- N T n) negative log-likelihood
-    CODE("loss",                              ///> (N T -- N T n) auto select loss function
-         if (TOS1T && IS_M(ss[-1])) {
-             switch (MTOS[-1].grad_fn) {
+    CODE("nn.loss",                           ///> (N T -- N T n) auto select loss function
+         if (IS_M(top) || (TOS1T && IS_M(ss[-1]))) {
+             Model &m = IS_M(top) ? MTOS : (Model&)mmu.du2obj(ss[-1]);
+             switch (m[-2].grad_fn) {
+             case L_TANH:
              case L_SIGMOID: _loss(LOSS_BCE); break;
              case L_SOFTMAX: _loss(LOSS_CE);  break;
              case L_LOGSMAX: _loss(LOSS_NLL); break;
