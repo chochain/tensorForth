@@ -169,8 +169,8 @@ __KERN__ void k_dactivate(
     if (i < HW && c < C) {
         DU ik = I[k];                       ///< cached in register
         switch (op) {
-        case L_TANH:    I[k] = O[k] * (DU1 - ik*ik);   break;  /// * 1 - tanh^2
-        case L_SIGMOID: I[k] = O[k] * ik * (DU1 - ik); break;  /// * sig(1 - sig)
+        case L_TANH:    I[k] = (O[k] - ik) * (DU1 - ik*ik);   break;  /// * 1 - tanh^2
+        case L_SIGMOID: I[k] = (O[k] - ik) * ik * (DU1 - ik); break;  /// * sig(1 - sig)
         case L_SELU:
         case L_LEAKYRL:
         case L_ELU:     I[k] = O[k] * ik;              break;  /// * cached I[k]
