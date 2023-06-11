@@ -108,7 +108,8 @@ typedef F64         DU2;                    /**< double preciesion data */
 #define BOOL(d)     (ZERO(d) ? DU0 : -DU1)  /**< default boolean        */
 #define ABS(d)      (fabsf(d))              /**< absolute value         */
 #define EXP(d)      (expf(d))               /**< exponential(float)     */
-#define LOG(d)      (logf(d))               /**< natural logarithm      */
+#define LN(d)       (logf(d))               /**< natural logrithm       */
+#define LOG(d)      (log10f(d))             /**< log10                  */
 #define POW(d,e)    (powf(d,e))             /**< power d^(e)            */
 #define SQRT(d)     (sqrtf(d))              /**< square root            */
 #define TANH(d)     (tanhf(d))              /**< tanh(float)            */
