@@ -20,8 +20,8 @@ __KERN__ void k_sgd(
     if (k < HW) {
         if (b < DU_EPS) G[k] -= lr * DG[k];
         else {
-            M[k]  = b * M[k] + (1.0 - b) * DG[k];
-            G[k] -= lr * M[k];
+            DU mk = M[k] = b * M[k] + (1.0 - b) * DG[k];
+            G[k] -= lr * mk;
         }
         DG[k] = DU0;                                       /// * zero after batch
     }
@@ -101,7 +101,7 @@ Model::gradiant(const char *nm, GdFunc fn) {
     ///
     TRACE1("\nModel#%s batch_sz=%d, lr=%6.3f, mtum/b1=%6.3f b2=%6.3f",
            nm, n1.N(), _gparm[0], _gparm[1], _gparm[2]);
-    for (U16 i = 1; i < numel - 1; i++) {
+    for (U16 i = 1; i < numel - 1; i++) {         /// TODO: parallel update
         Tensor &in = (*this)[i];
         Tensor *w  = in.grad[0], *dw = in.grad[2];
         Tensor *b  = in.grad[1], *db = in.grad[3];
@@ -136,7 +136,7 @@ Model::sgd(DU lr, DU b) {                          /// a=momentum
         k_sgd<<<grd,blk>>>(
             g.data, dg.data, m.data, parm[0], parm[1], HW);
     };
-    _gparm[0] = lr / batch_size();                 ///> eta / batch_size
+    _gparm[0] = lr / batch_size();                 ///> eta / mini-batch size
     _gparm[1] = _iter > 1 ? b : DU0;               ///> beta
     _gparm[2] = DU0;
     _opti     = b > DU_EPS ? OPTI_SGDM : OPTI_SGD;
