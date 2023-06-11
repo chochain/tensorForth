@@ -43,7 +43,7 @@ NV_CC   := \
 	-Isrc $(CL_INCS:%=-I%) $(GL_INCS:%=-I%) \
 	-t=0 -c -std=c++14 -O3 \
 	--device-c --extended-lambda --expt-relaxed-constexpr \
-	--device-debug --debug \
+	--device-debug --debug --use_fast_math \
 	-gencode arch=${CUDA_ARCH},code=${CUDA_CODE}
 
 NV_LNK := \
