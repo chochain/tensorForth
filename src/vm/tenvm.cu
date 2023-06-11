@@ -33,6 +33,7 @@ TensorVM::xop1(t4_ten_op op, DU v) {
         case O_ABS:  top = ABS(top);          break;
         case O_EXP:  top = EXP(top);          break;
         case O_LOG:  top = LOG(top);          break;
+        case O_LN:   top = LN(top);           break;
         case O_TANH: top = TANH(top);         break;
         case O_RELU: top = top > v ? top : v; break;
         case O_SIGM: top = SIGMOID(top);      break;
@@ -53,6 +54,7 @@ TensorVM::xop1(t4_ten_op op, DU v) {
     case O_POW:   A.map(op, v);   break;
     case O_ABS:
     case O_EXP:
+    case O_LN:
     case O_LOG:
     case O_TANH:
     case O_RELU:
@@ -360,6 +362,7 @@ TensorVM::init() {
     ///@{
     CODE("pow",       DU n = POP(); xop1(O_POW, n)),    ///< (A n -- A')
     CODE("exp",       xop1(O_EXP)),                     ///< (A -- A')
+    CODE("ln",        xop1(O_LN)),                      ///< (A -- A')
     CODE("log",       xop1(O_LOG)),                     ///< (A -- A')
     ///@}
     ///@defgroup 1-tensor ops that create new tensor
