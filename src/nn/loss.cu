@@ -12,34 +12,33 @@ __GPU__ DU
 Model::_loss(t4_loss op, Tensor &out, Tensor &hot) {
     Tensor &tmp = _mmu->copy(out);   ///< non-destructive
     int N   = tmp.N();               ///< mini-batch sample count
-    DU  err = DU0;                   ///> result loss value
+    DU  sum = DU0;                   ///> result loss value
     switch (op) {
     case LOSS_MSE:                   /// * mean squared error, input from linear
         tmp -= hot;
-        err = 0.5 * NORM(tmp.numel, tmp.data) / N;
+        sum = 0.5 * NORM(tmp.numel, tmp.data);
         break;
     case LOSS_BCE:                   /// * binary cross_entropy, input from sigmoid
         for (int n=0; n < N; n++) {
             int k = n * tmp.HWC();
             DU  p = hot.data[k], q = tmp.data[k];
-            err -= p * LOG(q) + (DU1 - p) * LOG(DU1 - q);
+            sum -= p * LOG(q) + (DU1 - p) * LOG(DU1 - q);
         }
-        err /= N;                    /// average loss
         break;
     case LOSS_CE:                    /// * cross_entropy, input from softmax
         tmp.map(O_LOG);
         /* no break */
     case LOSS_NLL:                   /// * negative log likelihood, input from log-softmax
         tmp *= hot;                  /// * hot_i * log(out_i)
-        err = -tmp.sum() / N;        /// * negative average per sample
+        sum = -tmp.sum();            /// * negative sum
         break;
     default: ERROR("Model#loss op=%d not supported!\n", op);
     }
     // debug(tmp);
     _mmu->free(tmp);                 /// * free memory
-    
-    SCALAR(err);
-    return err;
+
+    sum /= N;                        /// average per mini-batch sample
+    return SCALAR(sum);              /// make sum a scalar value (not object)
 }
 
 __GPU__ Tensor&
@@ -107,9 +106,7 @@ Model::loss(t4_loss op, Tensor &hot) {              ///< loss against one-hot
         ERROR("Model#loss hot dim != out dim\n");
         return DU0;
     }
-    DU err = _loss(op, out, hot);                   /// * calculate loss
-
-    return err;
+    return _loss(op, out, hot);                     /// * calculate loss
 }
 #endif  // T4_ENABLE_OBJ
 //==========================================================================
