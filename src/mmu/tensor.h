@@ -30,6 +30,7 @@ typedef enum {
     /// 1-operand arithmetic ops
     O_ABS,
     O_EXP,
+    O_LN,
     O_LOG,
     O_TANH,
     O_RELU,

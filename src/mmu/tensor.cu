@@ -27,6 +27,7 @@ k_ten_op(t4_ten_op op, float *t, int sz, float v=DU0) {
         case O_ABS:   t[k] = ABS(t[k]);                 break;
         case O_EXP:   t[k] = EXP(t[k]);                 break;
         case O_LOG:   t[k] = LOG(t[k]);                 break;
+        case O_LN:    t[k] = LN(t[k]);                  break;
         case O_TANH:  t[k] = TANH(t[k]);                break;
         case O_RELU:  t[k] = t[k] > DU0 ? t[k] : DU0;   break;
         case O_SIGM:  t[k] = SIGMOID(t[k]);             break;
