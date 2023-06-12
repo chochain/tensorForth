@@ -46,11 +46,14 @@ private:
     ///
     __HOST__ int  _fetch(DU top, bool more, char *ds_name=NULL); ///< fetch a dataset batch (more=true load batch, more=false rewind)
     ///
-    /// NN model persistence (i.e. serialization) methods
+    /// Tensor & NN model persistence (i.e. serialization) methods
     ///
-    __HOST__ int  _nsave(DU top, U16 vid, char *fname);
-    __HOST__ int  _nload(DU top, U16 vid, char *fname);
+    __HOST__ int  _tsave(DU top, bool raw, char *fname);
+    __HOST__ int  _nsave(DU top, bool raw, char *fname);
+    __HOST__ int  _nload(DU top, bool raw, char *fname);
 
+    __HOST__ int  _tsave_raw(std::ostream &fout, Tensor &t);
+    __HOST__ int  _tsave_npy(std::ostream &fout, Tensor &t);
     __HOST__ int  _nsave_model(std::ostream &fout, Model &m);
     __HOST__ int  _nsave_param(std::ostream &fout, Model &m);
     __HOST__ int  _nload_model(std::istream &fin,  Model &m, char *fname);
