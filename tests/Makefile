@@ -20,32 +20,34 @@ TSTS := \
 	t_mnist
 
 TOBJS := \
-	./src/util.o \
-	./src/tlsf.o \
-	./src/mmu.o \
-	./src/tensor.o \
-	./src/vu/vu.o \
-	./src/vu/gui.o \
-	./src/vu/mnist_vu.o \
-	./src/ldr/mnist.o \
-	./src/ldr/loader.o
+	src/mmu/util.o \
+	src/mmu/tlsf.o \
+	src/mmu/mmu.o \
+	src/mmu/tensor.o \
+	src/vu/vu.o \
+	src/vu/gui.o \
+	src/vu/mnist_vu.o \
+	src/ldr/mnist.o \
+	src/ldr/loader.o
+
+TST_LIBS:= -Isrc/ldr -Isrc/vu
 
 .PHONY: test clean-test
 
-test: $(TSTS)
+test: $(TSTS:%.cu=%.o)
 
 # Each subdirectory must supply rules for building sources it contributes
-tests/%.o: tests/%.cu $(TOBJS) $(T4_INCS) $(DS_INCS)
+tests/%.o: tests/%.cu $(T4_INCS) $(DS_INCS)
 	@echo '<Test><Action>Compile></Action><Filename>$<</Filename><Status>'
-	-$(NV_CC) --keep-dir ${APP_HOME}/tests -o "$@" "$<"
+	-$(NV_CC) $(TST_LIBS) --keep-dir ${APP_HOME}/tests -o "$@" "$<"
 	@echo '</Status></Test>'
 	@echo ' '
 
-$(TSTS): $(TSTS:%=tests/%.o) 
+$(TSTS): $(TSTS:%=tests/%.o)
 	@echo '<Test><Action>Link</Action><Filename>$@</Filename><Status>'
 	-$(NV_LNK) -lcusolver -o "./tests/$(@:.o=)" "./tests/$@.o" $(TOBJS)
 	@echo '</Status></Test>'
 	@echo ' '
 
 clean-tst:
-	-$(RM) $(TSTS:%=./tests/%.o)
+	-$(RM) $(TSTS:%=tests/%.o)
