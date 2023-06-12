@@ -9,34 +9,26 @@
 #include <string.h>
 #include "t_bmpvu.h"
 
+#define BMP_ERR(s) { \
+    printf(" => ***BMP load error: %s ***\n", (s)); \
+    exit(EXIT_SUCCESS);                             \
+}
+
 BmpLoader *BmpLoader::load(int, int) {
     BMPHeader     hdr;
     BMPInfoHeader info;
     FILE          *fd;
-    size_t        sz;
 
     printf("Loading %s", ds_name);
     
-    if (!(fd = fopen(ds_name, "rb"))) {
-        printf("***BMP load error: file access denied***\n");
-        exit(EXIT_SUCCESS);
-    }
+    if (!(fd = fopen(ds_name, "rb"))) BMP_ERR("file access denied");
     
-    sz = fread(&hdr, sizeof(hdr), 1, fd);
-    if (hdr.type != 0x4D42) {
-        printf("***BMP load error: bad file format***\n");
-        exit(EXIT_SUCCESS);
-    }
+    size_t sz = fread(&hdr, sizeof(hdr), 1, fd);
+    if (hdr.type != 0x4D42) BMP_ERR("bad file format");
     
     sz = fread(&info, sizeof(info), 1, fd);
-    if (info.bitsPerPixel != 24) {
-        printf("***BMP load error: invalid color depth***\n");
-        exit(EXIT_SUCCESS);
-    }
-    if (info.compression) {
-        printf("***BMP load error: compressed image***\n");
-        exit(EXIT_SUCCESS);
-    }
+    if (info.bitsPerPixel != 24) BMP_ERR("invalid color depth");
+    if (info.compression) BMP_ERR("compressed image");
 
     W = info.width;
     H = info.height;
@@ -44,7 +36,7 @@ BmpLoader *BmpLoader::load(int, int) {
     ///
     /// CUDA managed memory, (compare to t_imgvu which using host mem)
     ///
-    ND_ALLOC(&data, W * H * C);
+    DS_ALLOC(&data, W * H * C);
 
     fseek(fd, hdr.offset - sizeof(hdr) - sizeof(info), SEEK_CUR);
 
@@ -60,7 +52,7 @@ BmpLoader *BmpLoader::load(int, int) {
         for (int x = 0; x < z; x++) fgetc(fd);  // skip padding
     }
     if (ferror(fd)) {
-        printf("***Unknown BMP load error.***\n");
+        printf("\n***Unknown BMP load error.***");
         cudaFree(data);
         exit(EXIT_SUCCESS);
     }
@@ -92,14 +84,14 @@ __KERN__ void k_img_copy(TColor *dst, int W, int H, CuTexObj tex, bool flip) {
 
 void BmpVu::_img_copy(TColor *d_dst) {
     dim3 blk(T4_WARP_SZ, T4_WARP_SZ, 1);
-    dim3 grd(TGRID(X, Y, 1, blk));
+    dim3 grd(NGRID(X, Y, 1, blk));
 
     k_img_copy<<<grd,blk>>>(d_dst, X, Y, cu_tex, false);
     GPU_CHK();
 }
 void BmpVu::_img_flip(TColor *d_dst) {
     dim3 blk(T4_WARP_SZ, T4_WARP_SZ, 1);
-    dim3 grd(TGRID(X, Y, 1, blk));
+    dim3 grd(NGRID(X, Y, 1, blk));
 
     k_img_copy<<<grd,blk>>>(d_dst, X, Y, cu_tex, true);
     GPU_CHK();
@@ -121,7 +113,7 @@ int main(int argc, char **argv) {
 
     if (gui_init(&argc, argv)) return -1;
 
-    BmpLoader *ldr = (new BmpLoader("./data/portrait_noise.bmp"))->load();
+    BmpLoader *ldr = (new BmpLoader("img/baboon.bmp"))->load();
     BmpVu     *vu  = new BmpVu(*ldr);
     gui_add(vu);
     
