@@ -30,6 +30,7 @@ typedef enum {
     OP_SEE,
     OP_DUMP,
     OP_SS,
+    OP_TSAVE,
     OP_DATA,
     OP_FETCH,
     OP_NSAVE,
