@@ -17,7 +17,7 @@ int main(int argc, char **argv) {
     Corpus *nd = Loader::get(0, "mnist_test");
     if (!nd) return 0;
 
-    MnistVu *vu = new MnistVu(*nd->fetch(0, 1200));
+    MnistVu *vu = new MnistVu(*nd->fetch(1200));  // 1200 samples a shot
     gui_add(vu);
         
     return gui_loop();
