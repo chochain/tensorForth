@@ -7,7 +7,8 @@
  */
 #ifndef TEST_BMPVU_H
 #define TEST_BMPVU_H
-#include "../src/vu/vu.h"
+#include "corpus.h"
+#include "vu.h"
 
 #pragma pack(1)
 
@@ -33,15 +34,15 @@ typedef struct {
     int      clrImportant;
 } BMPInfoHeader;
 
-class BmpLoader : public Ndata {
+class BmpLoader : public Corpus {
 public:
-    BmpLoader(const char *name) : Ndata(name, NULL) {}
+    BmpLoader(const char *name) : Corpus(name, NULL, 0) {}
     virtual BmpLoader *load(int bsz=0, int bid=0);
 };
 
 class BmpVu : public Vu {
 public:
-    BmpVu(Ndata &nd) : Vu(nd) {}
+    BmpVu(Corpus &nd) : Vu(nd) {}
     
     virtual void   keyboard(U8 k) { _vuop = (k == '0'); }
     virtual void   display(TColor *d_dst) {

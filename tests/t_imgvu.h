@@ -7,17 +7,18 @@
  */
 #ifndef TEST_IMGVU_H
 #define TEST_IMGVU_H
-#include "../src/vu/vu.h"
+#include "corpus.h"
+#include "vu.h"
 
-class ImgLoader : public Ndata {
+class ImgLoader : public Corpus {
 public:
-    ImgLoader(const char *name) : Ndata(name, NULL) {}
+    ImgLoader(const char *name) : Corpus(name, NULL, 0) {}
     virtual ImgLoader *load(int bsz=0, int bid=0);
 };
 
 class ImgVu : public Vu {
 public:
-    ImgVu(Ndata &nd) : Vu(nd) {}
+    ImgVu(Corpus &nd) : Vu(nd) {}
 
     virtual void keyboard(U8 k) { _vuop = (k == '0'); }
     virtual void display(TColor *d_dst) {
