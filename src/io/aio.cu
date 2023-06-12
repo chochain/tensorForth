@@ -253,7 +253,7 @@ AIO::_fetch(DU top, bool more, char *ds_name) {
     ///
     int batch_sz = ds.N();                        ///< dataset batch size
     int bid = ds.batch_id < 0 ? 0 : ds.batch_id;  ///< batch_id to fetch
-    if (!cp->fetch(bid, batch_sz)) {              /// * fetch a batch from Corpus
+    if (!cp->fetch(batch_sz, bid)) {              /// * fetch a batch from Corpus
         ERROR("fetch failed\n");  return -2;
     }
     if (ds.batch_id < 0) {
