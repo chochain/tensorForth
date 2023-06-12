@@ -288,6 +288,16 @@ TensorVM::_gemm() {                          ///< blas GEMM
     }
     else ERROR("dim?");
 }
+
+__GPU__ void
+TensorVM::_save(bool raw) {
+    if (!IS_OBJ(top)) {
+        ERROR("TOS is not a tensor?\n"); return;
+    }
+    char *fn = next_idiom();                ///< get saved model filename
+    fout << opx(OP_TSAVE, raw, top) << fn;  /// * issue save command
+    state = VM_WAIT;                        /// * return to CPU
+}
 ///
 /// Tensor Vocabulary
 ///
@@ -392,6 +402,11 @@ TensorVM::init() {
     CODE("solve",     xop2(O_SOLV,KEEP)), ///< (B A -- B A X) solve linear equations AX = B
     CODE("gemm",      _gemm()),           ///< (a b A B C -- a b A B C') GEMM (C updated)
     ///@}
+    ///@defgroup Tensor persistance
+    ///@brief - stick to PyTorch naming when possible
+    ///@{
+    CODE("save.raw",    _save(1)),
+    CODE("save.npy",    _save(0)),
     };
     const Code ext[] = {                  ///< extended (overload) words
     ///@defgroup redefined tensor ops

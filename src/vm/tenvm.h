@@ -62,6 +62,10 @@ private:
     __GPU__ Tensor &_tdiv(Tensor &A, Tensor &B);          ///< matrix-matrix division (no broadcast)
     __GPU__ Tensor &_solv(Tensor &A, Tensor &B);          ///< solve linear equation Ax = b
     __GPU__ void   _gemm();                               ///< GEMM C' = alpha * A x B + beta * C
+    ///
+    /// tensor IO
+    ///
+    __GPU__ void   _save(bool raw);
 #endif // T4_ENABLE_OBJ
 };
 #endif // TEN4_SRC_TENVM_H
