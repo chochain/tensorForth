@@ -52,14 +52,14 @@ __KERN__ void k_img_copy(TColor *dst, int W, int H, CuTexObj tex, bool flip) {
 
 void ImgVu::_img_copy(TColor *d_dst) {
     dim3 blk(T4_WARP_SZ, T4_WARP_SZ, 1);
-    dim3 grd(TGRID(X, Y, 1, blk));
+    dim3 grd(NGRID(X, Y, 1, blk));
 
     k_img_copy<<<grd,blk>>>(d_dst, X, Y, cu_tex, false);
     GPU_CHK();
 }
 void ImgVu::_img_flip(TColor *d_dst) {
     dim3 blk(T4_WARP_SZ, T4_WARP_SZ, 1);
-    dim3 grd(TGRID(X, Y, 1, blk));
+    dim3 grd(NGRID(X, Y, 1, blk));
 
     k_img_copy<<<grd,blk>>>(d_dst, X, Y, cu_tex, true);
     GPU_CHK();
@@ -81,7 +81,7 @@ int main(int argc, char **argv) {
 
     if (gui_init(&argc, argv)) return -1;
 
-    ImgLoader *ldr = (*new ImgLoader("./data/cat_n_dog.jpg")).load();
+    ImgLoader *ldr = (*new ImgLoader("./img/cat_n_dog.jpg")).load();
     ImgVu *vu0 = new ImgVu(*ldr);
     ImgVu *vu1 = new ImgVu(*ldr);
     gui_add(vu0);
