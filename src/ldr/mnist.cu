@@ -7,30 +7,30 @@
 #include "mnist.h"
 
 #define LOG_COUNT 1000
-#define LOG_MAX   0
+#define MAX_BATCH 0
 
 Corpus *Mnist::fetch(int batch_id, int batch_sz) {
-    static int bound = LOG_COUNT / batch_sz, tick = 0;
-    
+    static int tick = 0;
+
     if (N == 0 && _setup()) return NULL;           /// * setup once only
     eof = 0;
 
-    int bsz = batch_sz ? batch_sz : N;             ///< batch size
-    
+    int bsz = batch_sz ? batch_sz : N;             ///< full batch if batch_sz==0
+
     if (bsz * batch_id >= N) { eof = 1; return this; }
-    
+
     int b0  = _get_labels(batch_id, bsz);          ///< load batch labels
     int b1  = _get_images(batch_id, bsz);          ///< load batch images
     if (b0 != b1) {
         DS_ERROR("ERROR: Mnist::fetch #label=%d != #image=%d\n", b0, b1);
         return NULL;
     }
-    if ((tick++ % bound) == 0) {
+    if ((tick++ % LOG_COUNT) == 0) {
         DS_LOG1("\n\tMnist batch[%d] loaded (size=%d)\n", batch_id, b0);
         _preview(bsz < 3 ? bsz : 3);               /// * debug print
     }
-    if (LOG_MAX && (tick * batch_sz > LOG_MAX)) eof = 1;
-    
+    if (MAX_BATCH && (tick * batch_sz > MAX_BATCH)) eof = 1;
+
     return this;
 }
 
@@ -64,7 +64,7 @@ int Mnist::_setup() {
         return v;
     };
     if (_open()) return -1;
-    
+
     U32 X0, X1, N1=0;
     if (t_in) {
         X1 = _u32(t_in);    ///< label magic number 0x0801
@@ -108,37 +108,35 @@ int Mnist::_preview(int N) {
         DS_LOG1("+");
     }
     DS_LOG1("\n");
-    
+
     return 0;
 }
 
 int Mnist::_get_labels(int bid, int bsz) {
     int hdr = sizeof(U32) * 2;                     ///< header to skip over
-    
+
     if (!label) DS_ALLOC(&label, bsz);
 
     t_in.seekg(hdr + bid * bsz);                   /// * seek by batch
     t_in.read((char*)label, bsz);                  /// * fetch batch labels
     eof |= t_in.eof();                             /// * set EOF flag
-    
+
     int cnt = eof ? d_in.gcount() : bsz;
-    
+
     return cnt;
 }
 
 int Mnist::_get_images(int bid, int bsz) {
     int hdr = sizeof(U32) * 4;                     ///< header to skip over
     int xsz = bsz * dsize();                       ///< image block size
-    
+
     if (!data) DS_ALLOC(&data, xsz);
 
     d_in.seekg(hdr + bid * xsz);                   /// * seek by batch id
     d_in.read((char*)data, xsz);                   /// * fetch batch images
     eof |= d_in.eof();                             /// * set EOF flag
-    
+
     int cnt = eof ? d_in.gcount() / dsize() : bsz;
 
     return cnt;
 }
-
-

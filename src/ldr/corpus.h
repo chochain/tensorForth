@@ -28,8 +28,8 @@ struct Corpus {
     bool  trace  = false;
     U8    *data  = NULL;      ///< source data pointer
     U8    *label = NULL;      ///< label data pointer
-
-   Corpus(const char *data_name, const char *label_name, bool trace)
+    
+    Corpus(const char *data_name, const char *label_name, bool trace)
        : ds_name(data_name), tg_name(label_name), trace(trace), N(0) {}
     
     ~Corpus() {
