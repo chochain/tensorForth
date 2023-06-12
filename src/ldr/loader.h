@@ -9,7 +9,7 @@
 #include "corpus.h"
 
 struct Loader {
-    static void   init(bool trace);
+    static void   init(bool trace=0);
     static Corpus *get(int dset, const char *ds_name=NULL);
 };
 #endif  // TEN4_LOADER_H
