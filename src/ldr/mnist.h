@@ -26,7 +26,7 @@ public:
         : Corpus(data_name, label_name, trace) {}
     ~Mnist() { _close(); }
     
-    virtual Corpus *fetch(int batch_id=0, int batch_sz=0);  /// * bid=bsz=0 => load entire set
+    virtual Corpus *fetch(int batch_sz=0, int batch_id=0);  /// * bid=bsz=0 => load entire set
     virtual Corpus *rewind() { d_in.clear(); t_in.clear(); return Corpus::rewind(); }
 
 private:
@@ -35,8 +35,8 @@ private:
     int _setup();
     int _preview(int N);
     
-    int _get_labels(int bid, int bsz);
-    int _get_images(int bid, int bsz);
+    int _get_labels(int bsz, int bid);
+    int _get_images(int bsz, int bid);
 };
 #endif // TEN4_SRC_LDR_MNIST_H
 

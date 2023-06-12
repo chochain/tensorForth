@@ -9,7 +9,7 @@
 #define LOG_COUNT 1000
 #define MAX_BATCH 0
 
-Corpus *Mnist::fetch(int batch_id, int batch_sz) {
+Corpus *Mnist::fetch(int batch_sz, int batch_id) {
     static int tick = 0;
 
     if (N == 0 && _setup()) return NULL;           /// * setup once only
@@ -19,8 +19,8 @@ Corpus *Mnist::fetch(int batch_id, int batch_sz) {
 
     if (bsz * batch_id >= N) { eof = 1; return this; }
 
-    int b0  = _get_labels(batch_id, bsz);          ///< load batch labels
-    int b1  = _get_images(batch_id, bsz);          ///< load batch images
+    int b0  = _get_labels(bsz, batch_id);          ///< load batch labels
+    int b1  = _get_images(bsz, batch_id);          ///< load batch images
     if (b0 != b1) {
         DS_ERROR("ERROR: Mnist::fetch #label=%d != #image=%d\n", b0, b1);
         return NULL;
@@ -112,7 +112,7 @@ int Mnist::_preview(int N) {
     return 0;
 }
 
-int Mnist::_get_labels(int bid, int bsz) {
+int Mnist::_get_labels(int bsz, int bid) {
     int hdr = sizeof(U32) * 2;                     ///< header to skip over
 
     if (!label) DS_ALLOC(&label, bsz);
@@ -126,7 +126,7 @@ int Mnist::_get_labels(int bid, int bsz) {
     return cnt;
 }
 
-int Mnist::_get_images(int bid, int bsz) {
+int Mnist::_get_images(int bsz, int bid) {
     int hdr = sizeof(U32) * 4;                     ///< header to skip over
     int xsz = bsz * dsize();                       ///< image block size
 
