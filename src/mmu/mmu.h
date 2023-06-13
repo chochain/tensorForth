@@ -139,8 +139,8 @@ public:
     __GPU__ __INLINE__ int  align()      { int i = (-_midx & 0x3); _midx += i; return i; }
     __GPU__ __INLINE__ void clear(IU i)  { _didx = i; _midx = 0; }   ///< clear dictionary
     __GPU__ __INLINE__ void add(Code *c) { _dict[_didx++] = *c; }    ///< dictionary word assignment (deep copy)
-    __GPU__ __INLINE__ void add(U8* v, int sz) {                     ///< copy data to heap, TODO: dynamic parallel
-        MEMCPY(&_pmem[_midx], v, sz); _midx += sz;
+    __GPU__ __INLINE__ void add(U8* v, int sz, bool adv=true) {      ///< copy data to heap, TODO: dynamic parallel
+        MEMCPY(&_pmem[_midx], v, sz); if (adv) _midx += sz;          /// * advance HERE
     }
     __GPU__ __INLINE__ void setjmp(IU a) { wi(a, _midx); }           ///< set branch target address
     ///
