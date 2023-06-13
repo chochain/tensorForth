@@ -99,9 +99,9 @@ __GPU__ void ForthVM::add_w(IU w)  {
 }
 __GPU__ void ForthVM::add_iu(IU i) { mmu.add((U8*)&i, sizeof(IU)); }
 __GPU__ void ForthVM::add_du(DU d) { mmu.add((U8*)&d, sizeof(DU)); }
-__GPU__ void ForthVM::add_str(const char *s) {
+__GPU__ void ForthVM::add_str(const char *s, bool adv) {
     int sz = STRLENB(s)+1; sz = ALIGN2(sz);           ///> calculate string length, then adjust alignment (combine?)
-    mmu.add((U8*)s, sz);
+    mmu.add((U8*)s, sz, adv);
 }
 ///
 /// dictionary initializer
@@ -236,12 +236,19 @@ ForthVM::init() {
     IMMD("\\",      scan('\n')),
     IMMD("s\"",
         const char *s = scan('"')+1;        // string skip first blank
-        add_w(DOSTR);
-        add_str(s)),                        // dostr, (+parameter field)
+        if (compile) add_w(DOSTR);          // dostr, (+parameter field)
+        else {
+            PUSH(HERE);
+            PUSH(STRLENB(s)+1);
+        }
+        add_str(s, compile)),               // string on PAD in interpreter mode
     IMMD(".\"",
         const char *s = scan('"')+1;        // string skip first blank
-        add_w(DOTSTR);
-        add_str(s)),                        // dotstr, (+parameter field)
+        if (compile) {
+            add_w(DOTSTR);                  // dotstr, (+parameter field)
+            add_str(s);
+        }
+        else fout << s),                    // print right away
     ///@}
     ///@defgroup Branching ops
     ///@brief - if...then, if...else...then
