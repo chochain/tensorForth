@@ -3,7 +3,9 @@
 #
 # Add inputs and outputs from these tool invocations to the build variables
 IO_SRCS := \
-	src/io/aio.cu
+	src/io/aio.cu \
+    src/io/aio_tensor.cu \
+    src/io/aio_model.cu
 
 IO_INCS := \
 	src/io/istream.h \
