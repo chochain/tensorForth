@@ -120,9 +120,9 @@ ForthVM::init() {
     CODE("dovar",   PUSH(IP); IP += sizeof(DU)),
     CODE("dolit",   PUSH(LDd(IP)); IP += sizeof(DU)),
     CODE("dostr",
-        char *s  = (char*)LDs(IP);                        // get string pointer
-        int  sz  = STRLENB(s)+1;
-        PUSH(IP); IP += ALIGN2(sz)),
+        char *s  = (char*)LDs(IP);                        // get string ptr & len
+        int   sz = STRLENB(s)+1;                          // '\0' terminated
+        PUSH(IP); PUSH(sz-1); IP += ALIGN2(sz)),
     CODE("dotstr",
         char *s  = (char*)LDs(IP);                        // get string pointer
         int  sz  = STRLENB(s)+1;
@@ -223,6 +223,9 @@ ForthVM::init() {
          int n = POPi;
          MEMSET(idiom, ' ', n); idiom[n] = '\0';
          fout << idiom),
+    CODE("type",
+         int n = POPi; int idx = POPi;
+         fout << (char*)LDs(idx)),          // get string pointer
     ///@}
     ///@defgroup Literal ops
     ///@{
@@ -231,7 +234,7 @@ ForthVM::init() {
     IMMD("(",       scan(')')),
     IMMD(".(",      fout << scan(')')),
     IMMD("\\",      scan('\n')),
-    CODE("$\"",
+    IMMD("s\"",
         const char *s = scan('"')+1;        // string skip first blank
         add_w(DOSTR);
         add_str(s)),                        // dostr, (+parameter field)
@@ -303,6 +306,8 @@ ForthVM::init() {
     /// be careful with memory access, because
     /// it could make access misaligned which cause exception
     ///
+    CODE("C@",    IU w = POPi; PUSH(*(char*)LDs(w))),
+    CODE("C!",    IU w = POPi; DU n = POP(); *((char*)LDs(w)) = (U8)n),
     CODE("@",     IU w = POPi; PUSH(LDd(w))),                                     // w -- n
     CODE("!",     IU w = POPi; STd(w, POP())),                                    // n w --
     CODE(",",     DU n = POP(); add_du(n)),
