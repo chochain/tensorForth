@@ -11,8 +11,8 @@
 #define TTOS      ((Tensor&)mmu.du2obj(top))        /**< tensor on TOS      */
 #define TNOS      ((Tensor&)mmu.du2obj(ss[-1]))     /**< tensor on NOS      */
 #define TOS1T     (IS_OBJ(top) && TTOS.is_tensor())
-#define TOS2T     (TOS1T && IS_OBJ(ss[-1]) && TNOS.is_tensor())
-#define TOS3T     (TOS2T && IS_OBJ(ss[-2]) && mmu.du2obj(ss[-2]).is_tensor())
+#define TOS2T     (ss.idx > 0 && TOS1T && IS_OBJ(ss[-1]) && TNOS.is_tensor())
+#define TOS3T     (ss.idx > 1 && TOS2T && IS_OBJ(ss[-2]) && mmu.du2obj(ss[-2]).is_tensor())
 
 typedef enum {
     KEEP = false,
@@ -65,7 +65,7 @@ private:
     ///
     /// tensor IO
     ///
-    __GPU__ void   _save(bool raw);
+    __GPU__ void   _save();                               ///< save tensor to OS
 #endif // T4_ENABLE_OBJ
 };
 #endif // TEN4_SRC_TENVM_H
