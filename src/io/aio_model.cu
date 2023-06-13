@@ -116,7 +116,7 @@ AIO::_fetch(DU top, bool more, char *ds_name) {
 ///
 #include <fstream>
 __HOST__ int
-AIO::_nsave(DU top, bool raw, char* fname) {
+AIO::_nsave(DU top, U16 mode, char* fname) {
     printf("\nAIO::save model to '%s' =>", fname);
     Model &m = (Model&)_mmu->du2obj(top);
     ofstream fout(fname, ios_base::binary);     ///< open an output file
@@ -125,8 +125,13 @@ AIO::_nsave(DU top, bool raw, char* fname) {
         return 1;
     }
     fout << "\\ " << T4_APP_NAME << " model\n\\ version v" << T4_MAJOR_VER << "." << T4_MINOR_VER << "\n";
-    _nsave_model(fout, m);                       /// * blank line as section break
-    _nsave_param(fout, m);
+    if (mode & FAM_RAW) {
+        // TODO: raw format (.npy, .petastorm, hdf5)
+    }
+    else {
+        _nsave_model(fout, m);                  /// * blank line as section break
+        _nsave_param(fout, m);
+    }
     fout << "\n---" << endl;
     fout.close();
     printf(" completed\n");
@@ -134,7 +139,7 @@ AIO::_nsave(DU top, bool raw, char* fname) {
 }
 
 __HOST__ int
-AIO::_nload(DU top, bool raw, char* fname) {
+AIO::_nload(DU top, U16 mode, char* fname) {
     printf("\nAIO::load '%s' ", fname);
     Model &m = (Model&)_mmu->du2obj(top);
     ifstream fin(fname, ios_base::binary);           ///< open an input file
@@ -142,10 +147,11 @@ AIO::_nload(DU top, bool raw, char* fname) {
         ERROR("=> failed to open for input\n");
         return 1;
     }
+    /// TODO: handle raw data format
     int err = 0;
     if (m.numel <= 2) {
         printf("NN model");
-        err = _nload_model(fin, m, fname);            /// * load model layers
+        err = _nload_model(fin, m, fname);           /// * load model layers
     }
     else {
         std::string tmp;

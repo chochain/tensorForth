@@ -117,7 +117,7 @@ AIO::_print_tensor(std::ostream &fout, DU v) {
 ///
 #include <fstream>
 __HOST__ int
-AIO::_tsave(DU top, bool raw, char *fname) {
+AIO::_tsave(DU top, U16 mode, char *fname) {
     printf("\nAIO::save tensor to '%s' =>", fname);
     Tensor &t = (Tensor&)_mmu->du2obj(top);
     ofstream fout(fname, ios_base::binary);     ///< open an output file
@@ -125,8 +125,9 @@ AIO::_tsave(DU top, bool raw, char *fname) {
         ERROR(" failed to open for output\n");
         return 1;
     }
-    if (raw) _tsave_raw(fout, t);               ///< write in NHWC byte format
-    else     _tsave_npy(fout, t);               ///< write in Numpy format
+    int rw  = mode & FAM_RW;                    ///< R/W, TODO:
+    if (mode & FAM_RAW) _tsave_raw(fout, t);    /// * write in NHWC byte format
+    else                _tsave_npy(fout, t);    /// * write in Numpy format
     fout.close();
     printf(" completed\n");
     return 0;
@@ -138,7 +139,7 @@ AIO::_tsave_raw(std::ostream &fout, Tensor &t) {
     char *buf = (char*)malloc(sz);
     for (int n=0; n < N; n++) {
         for (int i=0; i < sz; i++) {
-            buf[i] = static_cast<U8>(t.data[i + n * N]);
+            buf[i] = static_cast<U8>(256.0 * t.data[i + n * N]);
         }
         fout.write(buf, sz);
     }

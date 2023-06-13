@@ -48,9 +48,9 @@ private:
     ///
     /// Tensor & NN model persistence (i.e. serialization) methods
     ///
-    __HOST__ int  _tsave(DU top, bool raw, char *fname);
-    __HOST__ int  _nsave(DU top, bool raw, char *fname);
-    __HOST__ int  _nload(DU top, bool raw, char *fname);
+    __HOST__ int  _tsave(DU top, U16 mode, char *fname);
+    __HOST__ int  _nsave(DU top, U16 mode, char *fname);
+    __HOST__ int  _nload(DU top, U16 mode, char *fname);
 
     __HOST__ int  _tsave_raw(std::ostream &fout, Tensor &t);
     __HOST__ int  _tsave_npy(std::ostream &fout, Tensor &t);
