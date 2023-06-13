@@ -14,8 +14,8 @@
 #define TOS1D    (IS_OBJ(top) && (TTOS.is_tensor() || TTOS.is_dataset()))
 #define RS1D     (IS_OBJ(rs[-1]) && mmu.du2obj(rs[-1]).is_dataset())
 #define IS_M(v)  (IS_OBJ(v) && mmu.du2obj(v).is_model())           /** check param is a model */
-#define M1V      (!IS_OBJ(top) && IS_M(ss[-1]))                    /** NOS model w 1-param    */
-#define M2V      (!IS_OBJ(top) && !IS_OBJ(ss[-1]) && IS_M(ss[-2])) /** ss[-2] model w 2-param */
+#define M1V      (ss.idx > 0 && !IS_OBJ(top) && IS_M(ss[-1]))                    /** NOS model w 1-param    */
+#define M2V      (ss.idx > 1 && !IS_OBJ(top) && !IS_OBJ(ss[-1]) && IS_M(ss[-2])) /** ss[-2] model w 2-param */
 
 class NetVM : public TensorVM {
 public:

@@ -290,12 +290,17 @@ TensorVM::_gemm() {                          ///< blas GEMM
 }
 
 __GPU__ void
-TensorVM::_save(bool raw) {
-    if (!IS_OBJ(top)) {
-        ERROR("TOS is not a tensor?\n"); return;
-    }
-    char *fn = next_idiom();                ///< get saved model filename
-    fout << opx(OP_TSAVE, raw, top) << fn;  /// * issue save command
+TensorVM::_save() {
+    IU   mode= FAM_WO | FAM_RAW;            ///< file mode (W/O,R/W)|BIN
+    
+    if (ss.idx > 1 && IS_OBJ(ss[-2])) { /* OK */ }
+    else if (ss.idx > 2 && IS_OBJ(ss[-3])) mode = POPi;
+    else { ERROR("tensor adr len [mode]?\n"); return; }
+    
+    IU   len = POPi;                        ///< string length (not used for now)
+    IU   adr = POPi;                        ///< address to pmem
+    char *fn = (char*)mmu.pmem(adr);        ///< pointer to string on PAD
+    fout << opx(OP_TSAVE, mode, top) << fn; /// * issue save command
     state = VM_WAIT;                        /// * return to CPU
 }
 ///
@@ -405,8 +410,10 @@ TensorVM::init() {
     ///@defgroup Tensor persistance
     ///@brief - stick to PyTorch naming when possible
     ///@{
-    CODE("save.raw",    _save(1)),
-    CODE("save.npy",    _save(0)),
+    CODE("bin",       PUSH(FAM_RAW)),     ///< raw/binary file
+    CODE("w/o",       PUSH(FAM_WO)),      ///< write only file
+    CODE("r/w",       PUSH(FAM_RW)),      ///< read-write file
+    CODE("save",      _save()),           ///< save tensor
     };
     const Code ext[] = {                  ///< extended (overload) words
     ///@defgroup redefined tensor ops
