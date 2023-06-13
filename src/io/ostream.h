@@ -36,6 +36,14 @@ typedef enum {
     OP_NSAVE,
     OP_NLOAD
 } OP;
+///
+/// file access mode
+///
+typedef enum {
+    FAM_WO  = 0,
+    FAM_RW  = 1,
+    FAM_RAW = 0x10
+} FAM;
 
 //================================================================
 /*! printf internal version data container.
