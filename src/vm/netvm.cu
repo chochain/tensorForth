@@ -81,11 +81,16 @@ NetVM::predict(Tensor &I, Tensor &P) {
 ///
 __GPU__ void
 NetVM::_pickle(bool save) {
-    if (!IS_M(top)) {
-        ERROR("TOS is not a model?\n"); return;
-    }
-    char *fn = next_idiom();                                 ///< get saved model filename
-    fout << opx(save ? OP_NSAVE : OP_NLOAD, vid, top) << fn; /// * issue pickle command
+    IU   mode= save ? FAM_WO : FAM_RW;      ///< file access mode
+    
+    if (ss.idx > 1 && IS_M(ss[-2])) { /* OK */ }
+    else if (ss.idx > 2 && IS_M(ss[-3])) mode |= POPi;       ///< TODO: RAW format
+    else { ERROR("model adr len [mode]?\n"); return; }
+    
+    IU   len = POPi;                        ///< string length (not used for now)
+    IU   adr = POPi;                        ///< address to pmem
+    char *fn = (char*)mmu.pmem(adr);        ///< pointer to string on PAD
+    fout << opx(save ? OP_NSAVE : OP_NLOAD, mode, top) << fn;/// * issue pickle command
     state = VM_WAIT;                                         /// * return to CPU
 }
 
