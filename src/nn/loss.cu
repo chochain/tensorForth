@@ -20,13 +20,13 @@ Model::_loss(t4_loss op, Tensor &out, Tensor &hot) {
         break;
     case LOSS_BCE:                   /// * binary cross_entropy, input from sigmoid
         for (int n=0; n < N; n++) {
-            int k = n * tmp.HWC();
+            int k = n * tmp.HWC();   ///> offset to data (1 or 0 per sample)
             DU  p = hot.data[k], q = tmp.data[k];
-            sum -= p * LOG(q) + (DU1 - p) * LOG(DU1 - q);
+            sum -= p * LN(q) + (DU1 - p) * LN(DU1 - q);
         }
         break;
     case LOSS_CE:                    /// * cross_entropy, input from softmax
-        tmp.map(O_LOG);
+        tmp.map(O_LN);
         /* no break */
     case LOSS_NLL:                   /// * negative log likelihood, input from log-softmax
         tmp *= hot;                  /// * hot_i * log(out_i)
