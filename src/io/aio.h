@@ -17,7 +17,7 @@ public:
     Ostream *_ostr;         ///< managed output stream
     MMU     *_mmu;          ///< memory managing unit
     int     _radix = 10;    ///< output stream radix
-    int     _thres = 100;   ///< print number of element threshold
+    int     _thres = 10;    ///< max cell count for each dimension
     int     _edge  = 3;     ///< number of tensor edge items
     int     _prec  = 4;     ///< shown floating point precision
     int     _trace = 0;     ///< debug tracing control
@@ -37,14 +37,14 @@ private:
     /// object print methods
     ///
     __HOST__ void _print_obj(std::ostream &fout, DU v);
-    __HOST__ void _print_vec(std::ostream &fout, DU *d, int mi, int ri, int ci);
-    __HOST__ void _print_mat(std::ostream &fout, DU *d, int mi, int mj, int ri, int rj, int ci);
+    __HOST__ void _print_vec(std::ostream &fout, DU *vd, int W, int C);
+    __HOST__ void _print_mat(std::ostream &fout, DU *md, U16 *shape);
     __HOST__ void _print_tensor(std::ostream &fout, DU v);
     __HOST__ void _print_model(std::ostream &fout, DU v);
     ///
     /// dataset IO methods
     ///
-    __HOST__ int  _fetch(DU top, bool more, char *ds_name=NULL); ///< fetch a dataset batch (more=true load batch, more=false rewind)
+    __HOST__ int  _dsfetch(DU top, U16 mode, char *ds_name=NULL); ///< fetch a dataset batch (more=true load batch, more=false rewind)
     ///
     /// Tensor & NN model persistence (i.e. serialization) methods
     ///
