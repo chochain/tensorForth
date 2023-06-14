@@ -42,7 +42,8 @@ typedef enum {
 typedef enum {
     FAM_WO  = 0,
     FAM_RW  = 1,
-    FAM_RAW = 0x10
+    FAM_RAW = 0x10,
+    FAM_REW = 0x100
 } FAM;
 
 //================================================================
@@ -68,7 +69,7 @@ typedef struct {
 ///
 struct _setbase { U8  base;  __GPU__ _setbase(U8 b) : base(b)  {}};
 struct _setw    { U8  width; __GPU__ _setw(U8 w)    : width(w) {}};
-struct _setfill { U8 fill;   __GPU__ _setfill(U8 f) : fill(f)  {}};
+struct _setfill { U8  fill;  __GPU__ _setfill(U8 f) : fill(f)  {}};
 struct _setprec { U8  prec;  __GPU__ _setprec(U8 p) : prec(p)  {}};
 __GPU__ __INLINE__ _setbase setbase(int b)  { return _setbase((U8)b); }
 __GPU__ __INLINE__ _setw    setw(int w)     { return _setw((U8)w);    }
