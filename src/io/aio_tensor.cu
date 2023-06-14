@@ -29,78 +29,76 @@ AIO::_print_obj(std::ostream &fout, DU v) {
     }
 }
 __HOST__ void
-AIO::_print_vec(std::ostream &fout, DU *d, int mj, int rj, int c) {
+AIO::_print_vec(std::ostream &fout, DU *vd, int W, int C) {
+    int rw = (W <= _thres) ? W : (W < _edge ? W : _edge);
     fout << setprecision(_prec) << "{";                 /// set precision
-    for (int j=0; j<rj; j++) {
-        DU *dx = &d[j * c];
-        for (int k=0; k < c; k++) {
+    for (int j=0; j < rw; j++) {
+        DU *dx = vd + j * C;
+        for (int k=0; k < C; k++) {
             fout << (k>0 ? "_" : " ") << *dx++;
         }
     }
-    int x = mj - rj;
-    if (x > rj) fout << " ...";
-    for (int j=(x > rj ? x : rj); j<mj; j++) {
-        DU *dx = &d[j * c];
-        for (int k=0; k < c; k++) {
+    int x = W - rw;
+    if (x > rw) fout << " ...";
+    for (int j=(x > rw ? x : rw); j < W; j++) {
+        DU *dx = vd + j * C;
+        for (int k=0; k < C; k++) {
             fout << (k>0 ? "_" : " ") << *dx++;
         }
     }
     fout << " }";
 }
 __HOST__ void
-AIO::_print_mat(std::ostream &fout, DU *d, int mi, int mj, int ri, int rj, int c) {
+AIO::_print_mat(std::ostream &fout, DU *td, U16 *shape) {
+    auto range = [this](int v) { return (v < _edge) ? v : _edge; };
+    const int H = shape[0], W = shape[1], C = shape[2]; ///< height, width, channels
+    const int rh= range(H), rw=range(W);                ///< h,w range for ...
+    DU *d = td;
+    
     fout.flags(ios::showpos | ios::right | ios::fixed); /// enforce +- sign
-    bool full = (mi * mj) <= _thres;
-    int  x    = full ? mj : rj;
-    DU   *d0  = d;
-    for (int i=0, i1=1; i<ri; i++, i1++, d0+=(mj * c)) {
-        _print_vec(fout, d0, mj, x, c);
-        fout << (i1==mi ? "" : "\n\t");
+    for (int y=0, y1=1; y<rh; y++, y1++, d+=(W * C)) {
+        _print_vec(fout, d, W, C);
+        fout << (y1==H ? "" : "\n\t");
     }
-    int y = full ? ri : mi - ri;
-    if (y > ri) fout << "...\n\t";
-    else y = ri;
-    DU *d1 = (d + y * mj * c);
-    for (int i=y, i1=i+1; i<mi; i++, i1++, d1+=(mj * c)) {
-        _print_vec(fout, d1, mj, x, c);
-        fout << (i1==mi ? "" : "\n\t");
+
+    int ym = (H <= _thres) ? rh : H - rh;
+    if (ym > rh) fout << "...\n\t";
+    else ym = rh;
+    
+    d = td + ym * W * C;
+    for (int y=ym, y1=y+1; y<H; y++, y1++, d+=(W * C)) {
+        _print_vec(fout, d, W, C);
+        fout << (y1==H ? "" : "\n\t");
     }
 }
 __HOST__ void
 AIO::_print_tensor(std::ostream &fout, DU v) {
-    auto range = [this](int n) { return (n < _edge) ? n : _edge; };
-
-    Tensor &t = (Tensor&)_mmu->du2obj(v);
-    DU     *d = t.data;                     /// * short hand
-    WARN("aio#print_tensor::T[%x]=%p data=%p\n", DU2X(v), &t, d);
+    Tensor &t  = (Tensor&)_mmu->du2obj(v);
+    DU     *td = t.data;                    /// * short hand
+    WARN("aio#print_tensor::T[%x]=%p data=%p\n", DU2X(v), &t, td);
 
     ios::fmtflags fmt0 = fout.flags();
     fout << setprecision(-1);               /// * standard format
     switch (t.rank) {
     case 1: {
         fout << "vector[" << t.numel << "] = ";
-        int ri = (t.numel < _thres) ? t.numel : range(t.numel);
-        _print_vec(fout, d, t.numel, ri, 1);
+        _print_vec(fout, td, t.numel, 1);
     } break;
     case 2: {
-        int mi = t.H(), mj = t.W(), ri = range(mi),  rj = range(mj);
-        fout << "matrix[" << mi << "," << mj << "] = {\n\t";
-        _print_mat(fout, d, mi, mj, ri, rj, 1);
+        fout << "matrix[" << t.H() << "," << t.W() << "] = {\n\t";
+        _print_mat(fout, td, t.shape);
         fout << " }";
     } break;
     case 4: {
-        int n  = t.N(), mi = t.H(), mj = t.W(), mc = t.C();
-        int ri = range(mi), rj = range(mj);
-        int pg = mi * mj * mc;
+        int N = t.N();
         fout << "tensor["
-             << n << "," << mi << "," << mj << "," << mc
-             << "] = {\n\t";
-        for (int i = 0; i < n; i++, d += pg) {
-            if (mj==1) _print_mat(fout, d, mj, mi, rj, ri, mc);
-            else       _print_mat(fout, d, mi, mj, ri, rj, mc);
-            fout << ((i+1) < n ? "\n\t" : "");
+             << N << "," << t.W() << "," << t.H() << "," << t.C()
+             << "] = { {\n\t";
+        for (int n = 0; n < N; n++, td += t.HWC()) {
+            _print_mat(fout, td, t.shape);
+            fout << ((n+1) < N ? " } {\n\t" : "");
         }
-        fout << " }";
+        fout << " } }";
     } break;
     case 5: {
         fout << "tensor[" << t.parm << "]["
@@ -119,15 +117,23 @@ AIO::_print_tensor(std::ostream &fout, DU v) {
 __HOST__ int
 AIO::_tsave(DU top, U16 mode, char *fname) {
     printf("\nAIO::save tensor to '%s' =>", fname);
+    
+    ios_base::openmode m = (mode & FAM_RW) ? ios_base::in : ios_base::out;
+    if (mode & FAM_RAW) m |= ios_base::binary;
+    
     Tensor &t = (Tensor&)_mmu->du2obj(top);
-    ofstream fout(fname, ios_base::binary);     ///< open an output file
+    ofstream fout(fname, m);                      ///< open an output file
     if (!fout.is_open()) {
         ERROR(" failed to open for output\n");
         return 1;
     }
-    int rw  = mode & FAM_RW;                    ///< R/W, TODO:
-    if (mode & FAM_RAW) _tsave_raw(fout, t);    /// * write in NHWC byte format
-    else                _tsave_npy(fout, t);    /// * write in Numpy format
+    if (mode & FAM_RAW) _tsave_raw(fout, t);      /// * write in NHWC byte format
+    else {                                        /// * write in Numpy format
+        int tmp = _thres;
+        _thres  = 1024;                           /// * allow 1K*1K cells
+        _print_tensor(fout, top);              
+        _thres  = tmp;
+    }
     fout.close();
     printf(" completed\n");
     return 0;
