@@ -51,20 +51,20 @@ AIO::process_node(std::ostream &fout, obuf_node *node) {
         case OP_SS:    _mmu->ss_dump(fout, (IU)node->id, o->a, _radix); break;
         case OP_TSAVE:
             node = NEXTNODE(node);
-            _tsave(o->n, (bool)o->a, (char*)node->data);
+            _tsave(o->n, o->a, (char*)node->data);
             break;
         case OP_DATA:
-            node = NEXTNODE(node);                          ///< get dataset repo name
-            _fetch(o->n, (bool)o->a, (char*)node->data);    /// * fetch first batch
+            node = NEXTNODE(node);                   ///< get dataset repo name
+            _dsfetch(o->n, o->a, (char*)node->data); /// * fetch first batch
             break;
-        case OP_FETCH: _fetch(o->n, (bool)o->a); break;     /// * fetch/rewind dataset batch
+        case OP_FETCH: _dsfetch(o->n, o->a); break;  /// * fetch/rewind dataset batch
         case OP_NSAVE:
-            node = NEXTNODE(node);                          ///< get dataset repo name
-            _nsave(o->n, (bool)o->a, (char*)node->data);
+            node = NEXTNODE(node);                   ///< get dataset repo name
+            _nsave(o->n, o->a, (char*)node->data);
             break;
         case OP_NLOAD:
             node = NEXTNODE(node);
-            _nload(o->n, (bool)o->a, (char*)node->data);
+            _nload(o->n, o->a, (char*)node->data);
             break;
         }
     } break;
