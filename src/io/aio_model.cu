@@ -66,23 +66,24 @@ AIO::_print_model(std::ostream &fout, DU v) {
 ///         -> dataset::alloc   - alloc device memory blocks if needed
 ///
 __HOST__ int
-AIO::_fetch(DU top, bool more, char *ds_name) {
+AIO::_dsfetch(DU top, U16 mode, char *ds_name) {
     Dataset &ds = (Dataset&)_mmu->du2obj(top);    ///< dataset ref
     U32     dsx = DU2X(top);                      ///< dataset mnemonic
     if (!ds.is_dataset()) {                       /// * indeed a dataset?
         ERROR("mmu#load TOS is not a dataset\n");
         return -1;
     }
+    bool rewind = (mode & FAM_REW)!=0;
     ///
     /// search cache for top <=> dataset pair
     ///
     TRACE1("\nAIO::%s dataset (id=%x) =>",
-           ds_name ? ds_name : (more ? "fetch" : "rewind"), dsx);
+           ds_name ? ds_name : (rewind ? "rewind" : "fetch"), dsx);
     Corpus *cp = Loader::get(dsx, ds_name);      ///< Corpus/Dataset provider
     if (!cp) {
         ERROR(" dataset not found\n"); return -1;
     }
-    if (more==0 && ds.batch_id >= 0) {            /// rewind dataset
+    if (rewind && ds.batch_id >= 0) {            /// rewind dataset
         cp->rewind();
         ds.batch_id = ds.done = 0;
     }
