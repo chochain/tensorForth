@@ -95,12 +95,12 @@ NetVM::_pickle(bool save) {
 }
 
 __GPU__ void
-NetVM::_fetch(DU d, bool more) {
+NetVM::_fetch(DU d, bool rewind) {
     if (!((Dataset&)mmu.du2obj(d)).is_dataset()) {
         ERROR("TOS=%08x not dataset?\n", DU2X(d));
         return;
     }
-    fout << opx(OP_FETCH, (U16)more, d);                   /// * issue a fetch or rewind
+    fout << opx(OP_FETCH, rewind ? FAM_REW : 0, d);        /// * issue a fetch or rewind
     state = VM_WAIT;                                       /// * return to CPU
 }
 /// Convolution ops
@@ -251,10 +251,10 @@ NetVM::init() {
         char *dsn = next_idiom();               ///< retrieve dataset name
         I16   bsz = POPi;                       ///< batch size
         PUSH(mmu.dataset(bsz));                 /// * create a dataset as TOS
-        fout << opx(OP_DATA, 1, top) << dsn;    /// * issue a dataset init command
+        fout << opx(OP_DATA, 0, top) << dsn;    /// * issue a dataset init command
         state = VM_WAIT),
-    CODE("fetch",   _fetch(top, true)),         /// * fetch a dataset batch
-    CODE("rewind",  _fetch(top, false)),        /// * rewind a dataset (batch_id=0)
+    CODE("fetch",   _fetch(top, false)),        /// * fetch a dataset batch
+    CODE("rewind",  _fetch(top, true)),         /// * rewind a dataset (batch_id=0)
     CODE("forward",                             /// * forward process
         if (IS_M(ss[-1]) && TOS1D) {            /// * TOS is a dataset
             Tensor &t = TTOS; POP();            /// * NOS is the model
@@ -296,7 +296,7 @@ NetVM::init() {
                 IP += sizeof(IU);                  /// * skip over to next word
             }
             else {
-                _fetch(rs[-1], true);              /// * issue a dataset fetch
+                _fetch(rs[-1], false);             /// * issue a dataset fetch
                 IP = mmu.ri(IP);                   /// * loop branch target address
             }
         }
