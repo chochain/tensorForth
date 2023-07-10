@@ -32,4 +32,4 @@ private:
     void   _img_copy(TColor *d_dst);
     void   _img_flip(TColor *d_dst);
 };
-#endif // TEST_BMPVU_H
+#endif // TEST_IMGVU_H
