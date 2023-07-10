@@ -97,9 +97,9 @@ MMU::status() {
     }
     c = _dict;
     for (int i=0; i<_didx; i++, c++) {      ///< dump dictionary from device
-        TRACE2("%3d> xt=%4x:%p name=%4x:%p %s\n", i,
-            (U16)((UFP)c->xt   - x0), c->xt,
-            (U16)((UFP)c->name - n0), c->name,
+        TRACE2("%3d> xt=%5x:%p name=%5x:%p %s\n", i,
+            (U32)((UFP)c->xt   - x0), c->xt,
+            (U32)((UFP)c->name - n0), c->name,
             c->name);
     }
     TRACE1("\\  MMU.stat dict[%d/%d], pmem[%d]=%0.1f%%, tfree[%d/%d]\n",
@@ -114,10 +114,12 @@ MMU::colon(const char *name) {
     int  sz = STRLENB(name);                // aligned string length
     Code &c = _dict[_didx++];               // get next dictionary slot
     align();                                // nfa 32-bit aligned (adjust _midx)
+    c.didx = _didx-1;                       // reverse link
+    c.nfa  = _midx;                         // name field offset
     c.name = (const char*)&_pmem[_midx];    // assign name field index
     c.def  = 1;                             // specify a colon word
     add((U8*)name,  ALIGN2(sz+1));          // setup raw name field
-    c.pfa  = _midx;                         // capture code field index
+    c.pfa  = _midx;                         // parameter field offset
 }
 #if T4_ENABLE_OBJ
 ///====================================================================
