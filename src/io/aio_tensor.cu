@@ -9,10 +9,7 @@
 #include <iomanip>       // setbase, setprecision
 #include "dataset.h"     // in ../mmu
 #include "aio.h"
-///
-/// AIO takes managed memory blocks as input and output buffers
-/// which can be access by both device and host
-///
+
 using namespace std;
 ///
 /// Tensor IO private methods
@@ -24,10 +21,11 @@ AIO::_print_obj(std::ostream &fout, DU v) {
     switch (b.ttype) {
     case T4_VIEW:
     case T4_TENSOR:
-    case T4_DATASET: _print_tensor(fout, v); break;
-    case T4_MODEL:   _print_model(fout, v);  break;
+    case T4_DATASET: _print_tensor(fout, (Tensor&)b); break;
+    case T4_MODEL:   _print_model(fout, (Model&)b);
     }
 }
+
 __HOST__ void
 AIO::_print_vec(std::ostream &fout, DU *vd, int W, int C) {
     int rw = (W <= _thres) ? W : (W < _edge ? W : _edge);
@@ -72,9 +70,8 @@ AIO::_print_mat(std::ostream &fout, DU *td, U16 *shape) {
     }
 }
 __HOST__ void
-AIO::_print_tensor(std::ostream &fout, DU v) {
-    Tensor &t  = (Tensor&)_mmu->du2obj(v);
-    DU     *td = t.data;                    /// * short hand
+AIO::_print_tensor(std::ostream &fout, Tensor &t) {
+    DU *td = t.data;                        /// * short hand
     WARN("aio#print_tensor::T[%x]=%p data=%p\n", DU2X(v), &t, td);
 
     ios::fmtflags fmt0 = fout.flags();
@@ -127,34 +124,44 @@ AIO::_tsave(DU top, U16 mode, char *fname) {
         ERROR(" failed to open for output\n");
         return 1;
     }
-    if (mode & FAM_RAW) _tsave_raw(fout, t);      /// * write in NHWC byte format
-    else {                                        /// * write in Numpy format
-        int tmp = _thres;
-        _thres  = 1024;                           /// * allow 1K*1K cells
-        _print_tensor(fout, top);              
-        _thres  = tmp;
-    }
+    if (mode & FAM_RAW) _tsave_raw(fout, t);      /// * write in raw format
+    else                _tsave_txt(fout, t);      /// * write in text format
+    
     fout.close();
     printf(" completed\n");
     return 0;
 }
 
 __HOST__ int
+AIO::_tsave_txt(std::ostream &fout, Tensor &t) {
+    int tmp = _thres;
+    _thres  = 1024;                              /// * allow 1K*1K cells
+    _print_tensor(fout, t);              
+    _thres  = tmp;
+    return 0;
+}
+
+__HOST__ int
 AIO::_tsave_raw(std::ostream &fout, Tensor &t) {
+    const char hdr[2] = { 'T', '4' };
     const int N = t.N(), sz = t.HWC();
-    char *buf = (char*)malloc(sz);
+    U8 *buf = (U8*)malloc(sz);
+
+    fout.write(hdr, sizeof(hdr));
+    fout.write((const char*)t.shape, sizeof(t.shape));
     for (int n=0; n < N; n++) {
         for (int i=0; i < sz; i++) {
             buf[i] = static_cast<U8>(256.0 * t.data[i + n * N]);
         }
-        fout.write(buf, sz);
+        fout.write((const char*)buf, sz);
     }
     free(buf);
     return 0;
 }
+
 __HOST__ int
 AIO::_tsave_npy(std::ostream &fout, Tensor &t) {
-    /// TODO:
+    // TODO:
     return 0;
-}
+}        
 #endif // T4_ENABLE_OBJ
