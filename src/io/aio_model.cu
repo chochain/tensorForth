@@ -21,7 +21,7 @@ using namespace std;
 ///
 #if T4_ENABLE_OBJ
 __HOST__ void
-AIO::_print_model(std::ostream &fout, DU v) {
+AIO::_print_model(std::ostream &fout, Model &m) {
     auto tinfo = [this, &fout](Tensor &t, int i, int fn) { ///> layer info
         fout << "[" << std::setw(3) << i << "] "
              << Model::nname(fn) << ":";
@@ -37,8 +37,7 @@ AIO::_print_model(std::ostream &fout, DU v) {
             fout << " "; _mmu->to_s(fout, *g[i]);
         }
     };
-    Model &m = (Model&)_mmu->du2obj(v);
-    int   sz = m.numel;
+    int sz = m.numel;
     if (!m.is_model()) return;
     
     fout << "NN model[" << sz-1 << "/" << m.slots() << "]" << endl;
@@ -172,7 +171,7 @@ AIO::_nsave_model(std::ostream &fout, Model &m) {
         DU       p  = 0.001 * in.parm;         ///< layer parameter
         switch(fn) {
         case L_CONV:   fout << p << " " << out.C() << " "; break;
-        case L_LINEAR: fout << p << " " << out.H() << " "; break;
+        case L_LINEAR: fout << p << " " << in.grad[0]->H() << " "; break;
         case L_SELU:
         case L_LEAKYRL:
         case L_ELU:
@@ -185,12 +184,11 @@ AIO::_nsave_model(std::ostream &fout, Model &m) {
         default: break;
         }
         const char *nm = Model::nname(fn);
-        fout << nm << endl;                              /// * one blank line serves
-                                                         /// * as the sectional break
+        fout << nm << endl;                   /// * one blank line serves
+                                              /// * as the sectional break
         printf("\n%2d> %s [%d,%d,%d,%d]\tp=%-2d => out[%d,%d,%d,%d]",
             i, nm, in.N(), in.H(), in.W(), in.C(), in.parm,
             out.N(), out.H(), out.W(), out.C());
-        
     }
     return 0;
 }
