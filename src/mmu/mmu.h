@@ -49,9 +49,10 @@ struct Code : public Managed {
             U16 def:  1;    ///< colon defined word
             U16 immd: 1;    ///< immediate flag
             U16 diff: 1;    ///< autograd flag
-            U16 xxx:  13;   ///< reserved
-            IU  pfa;        ///< offset to pmem space
-            U32 tidx;       ///< tensor storage offset
+            U16 didx: 13;   ///< dictionary index (reverse link)
+            IU  pfa;        ///< parameter field offset in pmem space
+            IU  nfa;        ///< name field offset to pmem space
+            U16 xxx;        ///< reserved
         };
     };
     template<typename F>    ///< template function for lambda
@@ -137,7 +138,9 @@ public:
     ///
     __GPU__ void colon(const char *name);                            ///< define colon word
     __GPU__ __INLINE__ int  align()      { int i = (-_midx & 0x3); _midx += i; return i; }
-    __GPU__ __INLINE__ void clear(IU i)  { _didx = i; _midx = 0; }   ///< clear dictionary
+    __GPU__ __INLINE__ void clear(IU i)  {                           ///< clear dictionary
+        _didx = i; _midx = _dict[i].nfa;
+    }
     __GPU__ __INLINE__ void add(Code *c) { _dict[_didx++] = *c; }    ///< dictionary word assignment (deep copy)
     __GPU__ __INLINE__ void add(U8* v, int sz, bool adv=true) {      ///< copy data to heap, TODO: dynamic parallel
         MEMCPY(&_pmem[_midx], v, sz); if (adv) _midx += sz;          /// * advance HERE
