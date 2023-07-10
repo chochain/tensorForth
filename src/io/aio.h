@@ -39,8 +39,8 @@ private:
     __HOST__ void _print_obj(std::ostream &fout, DU v);
     __HOST__ void _print_vec(std::ostream &fout, DU *vd, int W, int C);
     __HOST__ void _print_mat(std::ostream &fout, DU *md, U16 *shape);
-    __HOST__ void _print_tensor(std::ostream &fout, DU v);
-    __HOST__ void _print_model(std::ostream &fout, DU v);
+    __HOST__ void _print_tensor(std::ostream &fout, Tensor &t);
+    __HOST__ void _print_model(std::ostream &fout, Model &m);
     ///
     /// dataset IO methods
     ///
@@ -52,6 +52,7 @@ private:
     __HOST__ int  _nsave(DU top, U16 mode, char *fname);
     __HOST__ int  _nload(DU top, U16 mode, char *fname);
 
+    __HOST__ int  _tsave_txt(std::ostream &fout, Tensor &t);
     __HOST__ int  _tsave_raw(std::ostream &fout, Tensor &t);
     __HOST__ int  _tsave_npy(std::ostream &fout, Tensor &t);
     __HOST__ int  _nsave_model(std::ostream &fout, Model &m);
