@@ -327,7 +327,9 @@ ForthVM::init() {
     CODE("here",  PUSH(HERE)),
     CODE("ucase", ucase = !ZERO(POPi)),
     CODE("'",     int w = FIND(next_idiom()); PUSH(w)),
-    CODE("pfa",   int w = FIND(next_idiom()); PUSH(PFA(w))),
+    CODE("didx",  IU w = POPi; PUSH(dict[w].didx)),
+    CODE("pfa",   IU w = POPi; PUSH(PFA(w))),
+    CODE("nfa",   IU w = POPi; PUSH(dict[w].nfa)),
     CODE("trace", mmu.trace(POPi)),                                               // turn tracing on/off
     CODE(".s",    ss_dump(POPi)),
     CODE("words", fout << opx(OP_WORDS)),
