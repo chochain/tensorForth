@@ -52,9 +52,8 @@ BmpLoader *BmpLoader::load(int, int) {
         for (int x = 0; x < z; x++) fgetc(fd);  // skip padding
     }
     if (ferror(fd)) {
-        printf("\n***Unknown BMP load error.***");
         cudaFree(data);
-        exit(EXIT_SUCCESS);
+        BMP_ERR("\n***Unknown BMP load error.***");
     }
     fclose(fd);
     printf(" => [%d,%d,%d] loaded\n", H, W, C);
