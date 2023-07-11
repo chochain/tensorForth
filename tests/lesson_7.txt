@@ -1,0 +1,65 @@
+\ GAN demo - MNIST
+2 constant N                           \ mini-batch sample count
+N dataset mnist_test constant ds0        \ create dataset MNIST (Real data) 
+
+: SEED N 128 1 1 tensor rand ;           \ create random input for fake data
+: REAL N   1 1 1 tensor ones ;           \ create a real label tensor
+: FAKE N   1 1 1 tensor zeros ;          \ create a fake label tensor
+
+: dn linear 0.2 leakyrelu 0.3 dropout ;  \ discriminator network layers
+N 28 28 1 nn.model                       \ define Discriminator model (13-layer)
+flatten 1024 dn 512 dn 256 dn            \ with 3 linear blocks
+1 linear sigmoid constant D              \ as D, (sigmoid = binary classification)
+
+: gn linear 0.2 leakyrelu ;              \ generator network layers
+N 128 1 1 nn.model                       \ define Generator Model (10-layer)
+256 gn 512 gn 1024 gn                    \ with 3 linear blocks
+784 linear tanh 1 linear constant G      \ as G, (last linear layer is dummy)
+
+: update backprop 0.01 0.0 nn.sgd ;
+\ : update backprop 0.0005 0.9 nn.adam ;
+
+variable idx 0 idx !                          \ filename index number
+: fn s" ../out/l7_0000" ;                     \ filename storage
+fn + 1 - constant pos                         \ pointer to filename digits
+: i2n                                         \ convert index number to ASCII digit
+  begin dup 0> while
+    swap 10 / int swap 1 -
+  repeat
+  drop 10 mod 48 + ;
+: nxfn idx @                                  \ create next filename
+  3 for dup r@ i2n pos r@ - c! next drop      \ translate index into digits
+  1 idx +! fn ;                               \ increment index, return filename
+: gen ( G -- G t )                            \ generate a mini-batch of fake images
+  SEED forward -2 n@ N 28 28 1 reshape4       \ from random seeds, and
+  nxfn bin save ;                             \ tee to raw file (for debugging)
+  
+variable _dr                                  \ discriminator loss for real samples
+: stat                                        \ display loss statistics
+  cr clock 1000 / int ." t=" .
+  _dr @ ."  Dr=" . FAKE nn.loss ."  Df=" .
+  REAL nn.loss ."  G=" . ;
+: epoch ( G D ds -- G D )                     \ one epoch for the given data source
+  for ( G D )                                 \ loop thru mini-batches (on rs)
+    forward REAL update REAL nn.loss _dr !    \ feed D with real data
+    swap ( D G ) gen >r                       \ G creates (and save) fake data
+    swap r> ( G D t ) forward FAKE update     \ feed D with fake data, update D
+    -1 n@ ( G D t ) -1 *= 1 +=                \ calc D loss on fake data (as REAL)
+    rot swap ( D G t ) update                 \ update G with fake loss, and save
+    swap ( G D ) stat \ 46 emit               \ display mini-batch statistics
+  next ;                                      \ loop, if next mini-batch available
+: jk ( G D ds -- G D )
+    forward REAL update REAL nn.loss _dr !
+    swap ( D G ) gen >r
+    swap ( G D ) r> forward FAKE update
+    -1 n@ ( G D t ) -1 *= 1 +=
+    rot swap ( D G t ) update
+    swap ( G D ) stat
+;
+: train ( D ds -- D )
+  >r
+    forward REAL backprop nn.hit .
+  r> ;
+G D ds0 train
+bye
+
