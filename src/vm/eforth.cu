@@ -51,7 +51,7 @@ ForthVM::nest() {
         IU w = LDi(IP);                              ///< fetch opcode, and cache dataline hopefully
         IP += sizeof(IU);
         _dlog(w);
-        if (dict[w].def) {                           ///< is it a colon word?
+        if (dict[w].colon) {                         ///< is it a colon word?
             rs.push(WP);                             /// * ENTER
             rs.push(IP);                             /// * setup call frame 
             IP = dict[w].pfa;                        ///< jump to pfa of given colon word
@@ -76,7 +76,7 @@ ForthVM::nest() {
 }
 __GPU__ __INLINE__ void ForthVM::call(IU w) {
     Code &c = dict[w];                               /// * code reference
-    if (c.def) {                                     /// * userd defined word
+    if (c.colon) {                                   /// * userd defined word
 //        printf("%03d WP=%d CALL[%d] %s\n", IP, WP, w, c.name);
         rs.push(WP);                                 /// * setup call frame
         rs.push(IP=0);
@@ -382,7 +382,7 @@ ForthVM::parse(char *str) {
         return 0;                         /// * next, try as a number
     }
     VLOG2("%4x:%p %s %d ",
-         dict[w].def ? dict[w].pfa : 0, dict[w].xt, dict[w].name, w);
+        dict[w].colon ? dict[w].pfa : 0, dict[w].xt, dict[w].name, w);
     if (compile && !dict[w].immd) {       /// * in compile mode?
         add_w((IU)w);                     /// * add found word to new colon word
     }
