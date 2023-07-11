@@ -46,13 +46,14 @@ struct Code : public Managed {
         FPTR xt = 0;        ///< lambda pointer (CUDA 49-bit)
         U64  *fp;           ///< function pointer (for debugging)
         struct {
-            U16 def:  1;    ///< colon defined word
-            U16 immd: 1;    ///< immediate flag
-            U16 diff: 1;    ///< autograd flag
-            U16 didx: 13;   ///< dictionary index (reverse link)
+            U16 colon: 1;   ///< colon defined word
+            U16 immd:  1;   ///< immediate flag
+            U16 adiff: 1;   ///< TODO: autograd flag
+            U16 xx1:   1;   ///< reserved
+            U16 didx:  12;  ///< dictionary index (reverse link)
             IU  pfa;        ///< parameter field offset in pmem space
             IU  nfa;        ///< name field offset to pmem space
-            U16 xxx;        ///< reserved
+            U16 xx2;        ///< reserved
         };
     };
     template<typename F>    ///< template function for lambda
