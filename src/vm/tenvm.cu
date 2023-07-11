@@ -413,7 +413,7 @@ TensorVM::init() {
     CODE("bin",       PUSH(FAM_RAW)),     ///< raw/binary file
     CODE("w/o",       PUSH(FAM_WO)),      ///< write-only file
     CODE("r/w",       PUSH(FAM_RW)),      ///< read-write file
-    CODE("save",      _save()),           ///< save tensor
+    CODE("save",      _save()),           ///< ( T fn len -- T ) save tensor
     };
     const Code ext[] = {                  ///< extended (overload) words
     ///@defgroup redefined tensor ops

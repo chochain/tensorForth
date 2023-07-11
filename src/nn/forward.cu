@@ -180,7 +180,10 @@ __KERN__ void k_batchnorm(
         O[k] = (X[k] = (I[k] - avg[c]) * ivar[c]) * gamma[c] + beta[c];
     }
 }
-
+//
+//< Neaural network forward propagation
+// * input can be a Tensor or a Dataset
+//
 __GPU__ Model&
 Model::forward(Tensor &input) {
     Tensor &n1 = (*this)[1];  ///< reference model input layer
