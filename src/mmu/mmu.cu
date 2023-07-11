@@ -96,10 +96,11 @@ MMU::status() {
         if ((UFP)c->name < n0) n0 = (UFP)c->name;
     }
     c = _dict;
+    TRACE2("Built-in Dictionary [xt0=%lx, name0=%lx]\n", x0, n0);
     for (int i=0; i<_didx; i++, c++) {      ///< dump dictionary from device
-        TRACE2("%3d> xt=%5x:%p name=%5x:%p %s\n", i,
-            (U32)((UFP)c->xt   - x0), c->xt,
-            (U32)((UFP)c->name - n0), c->name,
+        TRACE2("%4d> xt=%6x, name=%6x %s\n", i,
+            (U32)((UFP)c->xt   - x0),
+            (U32)((UFP)c->name - n0),
             c->name);
     }
     TRACE1("\\  MMU.stat dict[%d/%d], pmem[%d]=%0.1f%%, tfree[%d/%d]\n",
@@ -114,10 +115,10 @@ MMU::colon(const char *name) {
     int  sz = STRLENB(name);                // aligned string length
     Code &c = _dict[_didx++];               // get next dictionary slot
     align();                                // nfa 32-bit aligned (adjust _midx)
-    c.didx = _didx-1;                       // reverse link
+    c.didx = _didx-1;                       // directory index (reverse link)
     c.nfa  = _midx;                         // name field offset
     c.name = (const char*)&_pmem[_midx];    // assign name field index
-    c.def  = 1;                             // specify a colon word
+    c.colon= 1;                             // specify a colon word
     add((U8*)name,  ALIGN2(sz+1));          // setup raw name field
     c.pfa  = _midx;                         // parameter field offset
 }
@@ -366,7 +367,7 @@ MMU::rand(DU d, t4_rand_opt ntype) {
 __HOST__ int
 MMU::to_s(std::ostream &fout, IU w) {
     /*
-     * TODO: not sure why copying 32 byt does not work?
+     * TODO: not sure why copying 32 byte does not work?
      * char name[36];
      * cudaMemcpy(name, _dict[w].name, 32, D2H);
      */
@@ -374,7 +375,8 @@ MMU::to_s(std::ostream &fout, IU w) {
     if (_trace) {
         fout << (code.immd ? "*" : " ")
              << "[" << std::setw(3) << w << "]"
-             << code.xt << ":";
+             << (code.colon ? (FPTR)&_pmem[code.nfa] : code.xt)
+             << (code.colon ? ':': '=');
     }
     U8 c, i=0;
     cudaMemcpy(&c, code.name, 1, D2H);
@@ -427,7 +429,7 @@ MMU::see(std::ostream &fout, U8 *ip, int dp) {
         fout << "[" << std::setw(4) << (IU)(ip - _pmem) << ": ";
         IU w = *(IU*)ip;                                            /// * fetch word index
         to_s(fout, w);                                              /// * display word name
-        if (_dict[w].def && dp < 2) {                               /// * check if is a colon word
+        if (_dict[w].colon && dp < 2) {                             /// * check if is a colon word
             see(fout, &_pmem[_dict[w].pfa], dp+1);                  /// * go one level deeper
         }
         ip += sizeof(IU);                                           /// * advance instruction pointer
@@ -453,7 +455,7 @@ MMU::see(std::ostream &fout, U8 *ip, int dp) {
 __HOST__ void
 MMU::see(std::ostream &fout, U16 w) {
     fout << "["; to_s(fout, w);
-    if (_dict[w].def) see(fout, &_pmem[_dict[w].pfa]);
+    if (_dict[w].colon) see(fout, &_pmem[_dict[w].pfa]);
     fout << "]" << std::endl;
 }
 ///
