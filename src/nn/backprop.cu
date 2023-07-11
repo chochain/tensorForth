@@ -167,13 +167,14 @@ __KERN__ void k_dactivate(
     const int k  = c + i * C + ns;                         ///< output tensor index
 
     if (i < HW && c < C) {
-        DU ik = I[k];                       ///< cached in register
+        DU ik = I[k], ok = O[k];                           ///< cached in register
         switch (op) {
-        case L_TANH:    I[k] = (O[k] - ik) * (DU1 - ik*ik);   break;  /// * 1 - tanh^2
-        case L_SIGMOID: I[k] = (O[k] - ik) * ik * (DU1 - ik); break;  /// * sig(1 - sig)
+        case L_TANH:    I[k] = (ik - ok) * (DU1 - ik*ik); break;           /// * (o - y) * (1 - tanh^2)
+        case L_SIGMOID: I[k] =                                             /// binary classifier i.e. y=0|1
+                ((DU1 - ok)/(DU1 - ik) - ok/ik) * ik * (DU1 - ik); break;  /// * ((1-y)/(1-p) - y/p) * sig(1 - sig)
         case L_SELU:
         case L_LEAKYRL:
-        case L_ELU:     I[k] = O[k] * ik;              break;  /// * cached I[k]
+        case L_ELU:     I[k] = ok* ik; break;              /// * cached I[k]
         }
     }
 }
