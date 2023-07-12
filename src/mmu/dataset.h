@@ -11,13 +11,13 @@
 struct Dataset : public Tensor {
     int   batch_id = -1;            ///< current batch id
     int   done     = -1;            ///< completed
-    DU    *label = NULL;            ///< label data on host
+    U16   *label = NULL;            ///< label data on host
     ///
     /// constructors (for host testing mostly)
     ///
     __HOST__ Dataset(U16 n, U16 h, U16 w, U16 c)
         : Tensor(n, h, w, c) {
-        MM_ALLOC((void**)&label, (size_t)n * sizeof(DU));
+        MM_ALLOC(&label, n * sizeof(U16));
         batch_id = 0;
         WARN("Dataset[%d,%d,%d,%d] created\n", n, h, w, c);
     }
@@ -42,16 +42,16 @@ struct Dataset : public Tensor {
         /// allocate managed memory if needed
         /// Note: from Managed memory instead of TLSF
         ///
-        if (!data)  MM_ALLOC(&data,  numel * sizeof(DU));
-        if (!label) MM_ALLOC(&label, N() * sizeof(DU));
+        if (!data)  MM_ALLOC(&data, numel * sizeof(DU));
+        if (!label) MM_ALLOC(&label, N() * sizeof(U16));
         
         DU  *d = data;
         for (int i = 0; i < numel; i++) {
             *d++ = I2D((int)*h_data++) / 256.0f;
         }
-        DU  *t = label;
+        U16 *t = label;
         for (int i = 0; i < N(); i++) {
-            *t++ = I2D((int)*h_label++);
+            *t++ = (U16)*h_label++;
         }
         return this;
     }
