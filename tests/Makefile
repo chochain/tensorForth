@@ -12,12 +12,11 @@ TSTS0 := \
 	t_cg \
 	t_bmpvu	\
 	t_imgvu \
-	t_mnist
+	t_mnist \
+    t_ganvu
 
 TSTS := \
-	t_bmpvu	\
-	t_imgvu \
-	t_mnist
+    t_ganvu
 
 TOBJS := \
 	src/mmu/util.o \
