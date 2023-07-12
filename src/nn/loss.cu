@@ -65,7 +65,7 @@ Model::onehot(Dataset &dset) {
     Tensor &hot = _t4(N, hwc).fill(DU0);            ///< one-hot vector
     for (int n = 0; n < N; n++) {                   /// * loop through batch
         DU *h = hot.slice(n);                       ///< take a sample
-        U32 i = INT(dset.label[n]);                 ///< label index
+        U16 i = dset.label[n];                      ///< label index
         h[i < hwc ? i : 0] = DU1;                   /// * mark hot by index
         if (_trace > 1) show(h, n, hwc);
     }
