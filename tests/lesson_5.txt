@@ -34,25 +34,26 @@
   10 linear softmax ;
 
 50 28 28 1 nn.model                         \ create a model (50 per batch of 28x28x1 img)
-nn_x_bn                                     \ use neural network model
+nn_a                                        \ use neural network model
 constant md0                                \ keep as a constant
 
 md0 batchsize dataset mnist_train           \ create MNIST dataset with model batch size
-constant ds0                                \ save dataset in a constant
+constant ds0                                \ keep dataset in a constant
 
 variable acc 0 acc !                        \ create an accuracy counter, and zero it
 
-: cnn for forward backprop nn.hit acc +! 0.01 0.9 nn.adam 46 emit next ;
+\ : epoch for forward backprop nn.hit acc +! 0.01 nn.sgd 46 emit next ;
+: epoch for forward backprop nn.hit acc +! 0.002 0.9 nn.adam 46 emit next ;
 : stat cr .
   ." , t="  clock 1000 / int .
   ." , hit="  acc @ . 0 acc !
   ." , loss=" loss.ce . cr ;
-: epoch for cnn r@ stat ds0 rewind next ;
+: cnn for epoch r@ stat ds0 rewind next ;
 
 ds0                                         \ push dataset as TOS
-19 epoch                                    \ execute multiple epoches
+19 cnn                                      \ execute multiple epoches
 
 drop                                        \ drop dataset
-nn.save model/l5_c.t4                       \ save trainned model
+s" model/l5_c.t4" nn.save                   \ save trainned model
 
 bye
