@@ -31,7 +31,7 @@ struct T4Base : public Managed {
             U16   parm;     ///< extra parameter storage
         };
     };
-    DU  *data;    ///< managed memory block pointer
+    DU  *data;    ///< managed memory block pointer (Note: instead of from TLSF)
     ///
     /// class contructors
     ///
@@ -60,6 +60,7 @@ struct T4Base : public Managed {
         rank  = rnk;
         nref  = 1;
         parm  = 0;
+        data  = NULL;
     }
     __BOTH__ __INLINE__ DU   &operator[](int i) { return data[i]; }
     __BOTH__ __INLINE__ int  ref_inc() {
