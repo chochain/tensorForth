@@ -270,7 +270,12 @@ NetVM::init() {
     CODE("backprop",
          if (IS_M(ss[-1]) && TOS1T) {          /// * TOS is a onehot vector
              Tensor &t = TTOS; POP();
-             MTOS.backprop(t);
+             Model  &m = MTOS;
+             if (m[-1].is_same_shape(t)) m.backprop(t);
+             else {
+                 m.broadcast(t);
+                 m.backprop();
+             }
              mmu.free(t);
          }
          else if (IS_M(top)) MTOS.backprop();  /// * use default output
