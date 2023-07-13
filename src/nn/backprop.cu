@@ -191,7 +191,7 @@ __KERN__ void k_dbatchnorm_1(
 
     if (i < HW) {
         I[k] = (O[k] - sum[c] * _N) * g_var[c];            /// * dX = g_var * (dout - sum(dout) / N)
-        O[k] *= X[k];                                     /// * dout * x_hat
+        O[k] *= X[k];                                      /// * dout * x_hat
     }
 }
 __KERN__ void k_dbatchnorm_2(
@@ -210,15 +210,31 @@ __KERN__ void k_dbatchnorm_2(
 /// Note: cascade execution layer by layer backward
 ///
 __GPU__ Model&
+Model::broadcast(Tensor &tgt) {
+    Tensor &out = (*this)[-1];                   ///< model output
+    int    N    = out.N(), HWC = out.HWC();      ///< sample size
+    Tensor &hot = _t4(N, HWC);                   ///< one-hot vector
+    // TODO: kernel
+    for (int n = 0; n < N; n++) {                /// * loop through batch
+        DU  v = tgt.data[n];                     ///< target vector
+        DU *h = hot.slice(n);                    ///< take a sample
+        for (int i=0; i<HWC; i++) h[i] = v;      /// * broadcast [N,1] => [N,HWC]
+    }
+    if (_hot) _mmu->free(*_hot);                 /// * free previous allocated vector
+    _hot = &hot;
+    return *this;
+}
+
+__GPU__ Model&
 Model::backprop() {
-    if (_hot) return backprop(*_hot);    /// * use default one-hot vector
+    if (_hot) return backprop(*_hot);            /// * use default one-hot vector
 
     ERROR("Model#backprop missing onehot vector?\n");
     return *this;
 }
 
 __GPU__ Model&
-Model::backprop(Tensor &hot) {
+Model::backprop(Tensor &tgt) {
     auto trace = [](DU t, int i, Tensor &in, Tensor &out) {
         printf("\n%6.2f:%2d> %s [%d,%d,%d,%d]\tp=%-2d <= out'Σ/n=%6.2f [%d,%d,%d,%d] ",
             t, i, d_nname(in.grad_fn),
@@ -227,9 +243,9 @@ Model::backprop(Tensor &hot) {
             out.N(), out.H(), out.W(), out.C());
     };
     Tensor &tail = (*this)[numel - 1];           /// * final layer i.e. output
-    if (!hot.is_same_shape(tail)) {              /// * check shape of onehot
+    if (!tgt.is_same_shape(tail)) {              /// * check shape of target vector
         ERROR("\nERROR: Onehot wrong shape[%d,%d,%d,%d] != [%d,%d,%d,%d]\n",
-              hot.N(),  hot.H(),  hot.W(), hot.C(),
+              tgt.N(),  tgt.H(),  tgt.W(), tgt.C(),
               tail.N(), tail.H(), tail.W(), tail.C());
         return *this;
     }
@@ -237,7 +253,7 @@ Model::backprop(Tensor &hot) {
     DU  t0 = _mmu->ms(), t1 = t0, tt;            ///< performance measurement
     int x  = 0;
     for (U16 i = numel - 2, j = 0; i > 0; i--, j++) {
-        Tensor &in = (*this)[i], &out = j ? (*this)[i + 1] : hot;
+        Tensor &in = (*this)[i], &out = j ? (*this)[i + 1] : tgt;
         if (_trace) {
             trace((tt=_mmu->ms()) - t1, i, in, out);
             t1 = tt;
@@ -268,8 +284,8 @@ Model::_bstep(Tensor &in, Tensor &out) {
     case L_SELU:
     case L_LEAKYRL:
     case L_ELU:     _bactivate(in, out, fn); break;
-    case L_SOFTMAX: /* softmax + CrossEntropy derivative, out = one-hot */
-    case L_LOGSMAX: /* log-softmax + NLL      derivative, out = one-hot */
+    case L_SOFTMAX: /* softmax + CrossEntropy derivative, out = tgt */
+    case L_LOGSMAX: /* log-softmax + NLL      derivative, out = tgt */
         in -= out;  /* softmax:    Xi = Yi - Li     */
                     /* logsoftmax: Xi = Yi - Li * p */
         break;

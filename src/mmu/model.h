@@ -85,16 +85,17 @@ public:
     /// @{
     __GPU__ Model  &add(t4_layer fn, U16 n=0, DU bias=DU0, U16 *opt=0);
     __GPU__ Model  &forward(Tensor &input);             ///< network feed forward
-    __GPU__ Model  &backprop();                         ///< back propegation with default onehot vector
-    __GPU__ Model  &backprop(Tensor &hot);              ///< back propegation
+    __GPU__ Model  &broadcast(Tensor &tgt);
+    __GPU__ Model  &backprop();                         ///< back propegation with default onehot vector (built during forward pass from dataset labels)
+    __GPU__ Model  &backprop(Tensor &tgt);              ///< back propegation with given target vector
     /// @}
     /// @name loss functions
     /// @{
     __GPU__ Tensor &onehot();                           ///< get default onehot vector
-    __GPU__ Tensor &onehot(Dataset &dset);              ///< calculate one-hot vector
+    __GPU__ Tensor &onehot(Dataset &dset);              ///< create one-hot vector from dataset labels (called in forward pass)
     __GPU__ int    hit(bool recalc=false);              ///< calculate hit count
     __GPU__ DU     loss(t4_loss op);                    ///< calc loss with cached one-hot vector
-    __GPU__ DU     loss(t4_loss op, Tensor &hot);       ///< calc loss from one-hhot vector
+    __GPU__ DU     loss(t4_loss op, Tensor &tgt);       ///< calc loss from tgt vector
     /// @}
     /// @name gradiant decent functions
     /// @{
@@ -161,7 +162,7 @@ private:
     /// @}
     /// @name loss functions
     /// @{
-    __GPU__ DU     _loss(t4_loss op, Tensor &out, Tensor &hot);  ///< calc loss from one-hot
+    __GPU__ DU     _loss(t4_loss op, Tensor &out, Tensor &tgt);  ///< calc loss from target vector
     /// @}
     /// @name debug functions
     /// @{
