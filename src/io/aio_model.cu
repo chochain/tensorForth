@@ -97,8 +97,8 @@ AIO::_dsfetch(DU top, U16 mode, char *ds_name) {
     if (!cp->fetch(batch_sz, bid)) {              /// * fetch a batch from Corpus
         ERROR("fetch failed\n");  return -2;
     }
-    if (ds.batch_id < 0) {
-        ds.reshape(batch_sz, cp->H, cp->W, cp->C);
+    if (ds.batch_id < 0) {                        /// * very first batch
+        ds.reshape(batch_sz, cp->H, cp->W, cp->C);/// * reshape ds to match Corpus
         ds.batch_id = 1;                          /// * ready for next batch
     }
     else ds.batch_id++;

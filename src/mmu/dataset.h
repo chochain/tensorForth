@@ -39,8 +39,10 @@ struct Dataset : public Tensor {
     }
     __HOST__ Dataset *load_batch(U8 *h_data, U8 *h_label) {
         ///
-        /// allocate managed memory if needed
         /// Note: from Managed memory instead of TLSF
+        /// allocate managed memory if needed
+        /// it's necessary because numel is known only after reading from Corpus
+        /// (see ~/src/io/aio_model#_dsfetch)
         ///
         if (!data)  MM_ALLOC(&data, numel * sizeof(DU));
         if (!label) MM_ALLOC(&label, N() * sizeof(U16));
