@@ -9,19 +9,19 @@
 
 #if T4_ENABLE_OBJ
 __GPU__ DU
-Model::_loss(t4_loss op, Tensor &out, Tensor &hot) {
+Model::_loss(t4_loss op, Tensor &out, Tensor &tgt) {
     Tensor &tmp = _mmu->copy(out);   ///< non-destructive
     int N   = tmp.N();               ///< mini-batch sample count
     DU  sum = DU0;                   ///> result loss value
     switch (op) {
     case LOSS_MSE:                   /// * mean squared error, input from linear
-        tmp -= hot;
+        tmp -= tgt;
         sum = 0.5 * NORM(tmp.numel, tmp.data);
         break;
     case LOSS_BCE:                   /// * binary cross_entropy, input from sigmoid
         for (int n=0; n < N; n++) {
             int k = n * tmp.HWC();   ///> offset to data (1 or 0 per sample)
-            DU  p = hot.data[k], q = tmp.data[k];
+            DU  p = tgt.data[k], q = tmp.data[k];
             sum -= p * LN(q) + (DU1 - p) * LN(DU1 - q);
         }
         break;
@@ -29,7 +29,7 @@ Model::_loss(t4_loss op, Tensor &out, Tensor &hot) {
         tmp.map(O_LN);
         /* no break */
     case LOSS_NLL:                   /// * negative log likelihood, input from log-softmax
-        tmp *= hot;                  /// * hot_i * log(out_i)
+        tmp *= tgt;                  /// * tgt_i * log(out_i)
         sum = -tmp.sum();            /// * negative sum
         break;
     default: ERROR("Model#loss op=%d not supported!\n", op);
@@ -61,13 +61,13 @@ Model::onehot(Dataset &dset) {
         printf(" }\n");
     };
     Tensor &out = (*this)[-1];                      ///< model output
-    int    N    = out.N(), hwc = out.HWC();         ///< sample size
-    Tensor &hot = _t4(N, hwc).fill(DU0);            ///< one-hot vector
+    int    N    = out.N(), HWC = out.HWC();         ///< sample size
+    Tensor &hot = _t4(N, HWC).fill(DU0);            ///< one-hot vector
     for (int n = 0; n < N; n++) {                   /// * loop through batch
         DU *h = hot.slice(n);                       ///< take a sample
         U16 i = dset.label[n];                      ///< label index
-        h[i < hwc ? i : 0] = DU1;                   /// * mark hot by index
-        if (_trace > 1) show(h, n, hwc);
+        h[i < HWC ? i : 0] = DU1;                   /// * mark hot by index
+        if (_trace > 1) show(h, n, HWC);
     }
     return hot;
 }
@@ -100,13 +100,13 @@ Model::loss(t4_loss op) {
 }
 
 __GPU__ DU
-Model::loss(t4_loss op, Tensor &hot) {              ///< loss against one-hot
+Model::loss(t4_loss op, Tensor &tgt) {              ///< loss against target vector
     Tensor &out = (*this)[-1];                      ///< model output
-    if (!out.is_same_shape(hot)) {                  /// * check dimensions
+    if (!out.is_same_shape(tgt)) {                  /// * check dimensions
         ERROR("Model#loss hot dim != out dim\n");
         return DU0;
     }
-    return _loss(op, out, hot);                     /// * calculate loss
+    return _loss(op, out, tgt);                     /// * calculate loss
 }
 #endif  // T4_ENABLE_OBJ
 //==========================================================================

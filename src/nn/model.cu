@@ -84,8 +84,8 @@ Model::_iconv(Tensor &in, U16 C0, DU bias, U16 *opt) {
         printf("%6.3f", dx);
     }
     */
-    Tensor &out= _t4(N1, H0, W0, C0);           ///> output tensor
-    npush(out);                                 /// * stage for next stage
+    Tensor &out= _t4(N1, H0, W0, C0);            ///> output tensor
+    npush(out);                                  /// * stage for next stage
 }
 __GPU__ void
 Model::_ilinear(Tensor &in, U16 C0, DU bias) {

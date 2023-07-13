@@ -219,8 +219,8 @@ Model::forward(Tensor &input) {
     /// collect onehot vector and hit count
     ///
     if (input.is_dataset()) {
-        _hot = &onehot((Dataset&)input);         /// * cache onehot vector
-        _hit = hit(true);                        /// * recalc hit count
+        _hot = &onehot((Dataset&)input);         /// * create/cache onehot vector
+        _hit = hit(true);                        /// * recalc/cache hit count
     }
     TRACE1("\nModel#forward %5.2f ms\n", _mmu->ms() - t0);
 
