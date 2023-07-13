@@ -39,7 +39,7 @@ __GPU__ void         u32_to_bin(uint32_t l, const void *bin);
 //__GPU__ void         d_memcpy(void *t, const void *s, size_t n);
 //__GPU__ void         d_memset(void *t, int c, size_t n);
 #define d_memcpy(t,s,n) memcpy(t,s,n)
-#define d_memset(t,s,n) memset(t,s,n)
+#define d_memset(t,c,n) memset(t,c,n)
 __GPU__ int          d_memcmp(const void *t, const void *s, size_t n);
 ///@}
 ///@name String ops
@@ -69,7 +69,7 @@ __KERN__ void        k_identity(float *t, int h, int w, int c);
 ///@name Unified memory ops
 ///@{
 #define MEMCPY(t,s,n)   d_memcpy((void*)(t), (void*)(s), (size_t)(n))       /** TODO: cudaMemcpyAsyn */
-#define MEMSET(t,v,n)   d_memset((void*)(t), (int)(v), (size_t)(n))
+#define MEMSET(t,c,n)   d_memset((void*)(t), (int)(c), (size_t)(n))
 #define MEMCMP(t,s,n)   d_memcmp((const char*)(t), (const char*)(s), (size_t)(n))
 ///@}
 ///@name Unified string ops
@@ -96,7 +96,7 @@ __KERN__ void        k_identity(float *t, int h, int w, int c);
 ///@name Unified memory ops
 ///@{
 #define MEMCPY(t,s,n)   memcpy(t,s,n)
-#define MEMSET(t,v,n)   memset(t,v,n)
+#define MEMSET(t,c,n)   memset(t,c,n)
 #define MEMCMP(t,s,n)   memcmp(t,s,n)
 ///@}
 ///@name Unified string ops
