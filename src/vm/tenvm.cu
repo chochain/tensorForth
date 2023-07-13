@@ -110,7 +110,7 @@ __GPU__ void
 TensorVM::xop2(t4_ten_op op, t4_drop_opt x) {
     static const char *opn[] = { "+", "-", "*", "/", "@", "x" };
     ///
-    /// 2-operand operator
+    /// 2-operand operator (broadcasting)
     ///
     bool s0 = !IS_OBJ(top), s1 = !IS_OBJ(ss[-1]); /// * scalar flags
     if (s0 && s1) return _ss_op(op);              /// * scalar scalar op
@@ -139,25 +139,6 @@ TensorVM::xop2(t4_ten_op op, t4_drop_opt x) {
         PUSH(O);
     }
 }
-/**
-  TODO: Matrix product of two Tensors.
-  The behavior depends on the dimensionality of the Tensors as follows:
-  - DONE: If both arguments are 2-dimensional, the matrix-matrix product is returned.
-  - DONE: If both Tensors are 1-dimensional, the dot product (scalar) is returned.
-  - TODO: If the first argument is 2-dimensional and the second argument is 1-dimensional,
-    the matrix-vector product is returned.
-  - TODO: If the first argument is 1-dimensional and the second argument is 2-dimensional,
-    a 1 is prepended to its dimension for the purpose of the matrix multiply.
-    After the matrix multiply, the prepended dimension is removed.
-  - TODO: If both arguments are at least 1-dimensional and at least one argument is
-    N-dimensional (where N > 2), then a batched matrix multiply is returned.  If the first
-    argument is 1-dimensional, a 1 is prepended to its dimension for the purpose of the
-    batched matrix multiply and removed after.  If the second argument is 1-dimensional, a
-    1 is appended to its dimension for the purpose of the batched matrix multiple and removed after.
-    The non-matrix (i.e. batch) dimensions are broadcasted (and thus
-    must be broadcastable).  For example, if tensor1 is a (j x 1 x n x m) Tensor
-    and tensor2 is a (k x m x p) Tensor, the returned tensor will be an (j x k x n x p) Tensor.
-*/
 __GPU__ void
 TensorVM::_ss_op(t4_ten_op op) {               ///< scalar-scalar ops
     switch (op) {
@@ -193,21 +174,32 @@ TensorVM::_ts_op(t4_ten_op op) {              ///< tensor scalar op
     
     return O;
 }
-
 ///
 /// op(tensor, tensor)
 ///
+/**
+  In NumPy, the behavior depends on the dimensionality of the Tensors as follows:
+  - DONE: If both arguments are 2-dimensional, the matrix-matrix product is returned.
+  - DONE: If both Tensors are 1-dimensional, the dot product (scalar) is returned.
+  - TODO: If the first argument is 2-dimensional and the second argument is 1-dimensional, the matrix-vector product is returned.
+  - TODO: If the first argument is 1-dimensional and the second argument is 2-dimensional, a 1 is prepended to its dimension for the purpose of the matrix multiply. After the matrix multiply, the prepended dimension is removed.
+  - TODO: If both arguments are at least 1-dimensional and at least one argument is N-dimensional (where N > 2), then a batched matrix multiply is returned.  
+    - If the first argument is 1-dimensional, a 1 is prepended to its dimension for the purpose of the batched matrix multiply and removed after.  
+    - If the second argument is 1-dimensional, a 1 is appended to its dimension for the purpose of the batched matrix multiple and removed after. 
+    - The non-matrix (i.e. batch) dimensions are broadcasted (and thus must be broadcastable).  
+    - For example, if tensor1 is a (j x 1 x n x m) Tensor and tensor2 is a (k x m x p) Tensor, the returned tensor will be an (j x k x n x p) Tensor.
+*/
 __GPU__ Tensor&
 TensorVM::_tt_op(t4_ten_op op) {              ///< tensor-tensor ops
     Tensor &A = TNOS, &B = TTOS;
+
+    if (op == O_DOT)  return _tdot(A, B);     /// * O = A · B
+    if (op == O_SOLV) return _solv(B, A);     /// * solve B = A @ X (notation flipped)
     ///
-    /// broadcast_op(tensor, tensor)
+    /// tensor, tensor op
     ///
-    if (op == O_DOT)  return _tdot(A, B);    /// * O = A · B
-    if (op == O_SOLV) return _solv(B, A);    /// * solve B = A @ X (notation flipped)
-    
     if (!A.is_same_shape(B)) return (ERROR("dim?\n"), B);
-    
+
     Tensor &O = mmu.copy(A);                  ///< make a hard copy
     Tensor::ten_op(op, A, B, O);              /// * Hadamard ops
     if (A.rank==1) O.reshape(O.numel);
