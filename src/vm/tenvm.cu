@@ -352,6 +352,9 @@ TensorVM::init() {
     ///@}
     ///@defgrup Tensor slice and dice
     ///@{
+    CODE("normalize",
+         DU std = POP(); DU avg = POP();
+         if (TOS1T) { TTOS.normalize(std, avg); }),
     CODE("sum", if (TOS1T) PUSH(TTOS.sum())),
     CODE("avg", if (TOS1T) PUSH(TTOS.avg())),
     CODE("std", if (TOS1T) PUSH(TTOS.std())),
