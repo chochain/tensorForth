@@ -270,16 +270,18 @@ NetVM::init() {
     CODE("backprop",
          if (IS_M(ss[-1]) && TOS1T) {          /// * TOS is a onehot vector
              Tensor &t = TTOS; POP();
-             Model  &m = MTOS;
-             if (m[-1].is_same_shape(t)) m.backprop(t);
-             else {
-                 m.broadcast(t);
-                 m.backprop();
-             }
+             MTOS.backprop(t);
              mmu.free(t);
          }
          else if (IS_M(top)) MTOS.backprop();  /// * use default output
          else ERROR("TOS not a model?\n")),
+    CODE("broadcast",
+         if (IS_M(ss[-1]) && TOS1T) {          /// * TOS is a onehot vector
+             Tensor &t = TTOS; POP();
+             MTOS.broadcast(t);
+             mmu.free(t);
+         }
+         else ERROR("TOS not a tensor nor NOS a model?\n")),
     ///@}
     ///@defgroup Debugging ops
     ///@{
