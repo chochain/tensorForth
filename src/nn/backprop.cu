@@ -169,11 +169,14 @@ __KERN__ void k_dactivate(
     if (i < HW && c < C) {
         DU ik = I[k];                                      ///< cached in register
         switch (op) {
-        case L_TANH:    I[k] = (ik - O[k]) * (DU1 - ik*ik); break;           /// * (o - y) * (1 - tanh^2)
-        case L_SIGMOID: I[k] = ik - O[k]; break;             /// * ((1-y)/(1-p) - y/p) * sig(1 - sig)
+        case L_TANH: {                                     /// * (o - y) * (1 - tanh^2)
+            DU th = TANH(ik);
+            I[k] = (ik - O[k]) * (DU1 - th*th);
+        } break;
+        case L_SIGMOID: I[k] = ik - O[k]; break;           /// * ((1-y)/(1-p) - y/p) * sig(1 - sig)
         case L_SELU:
         case L_LEAKYRL:
-        case L_ELU:     I[k] = ik * O[k]; break;             /// * cached I[k]
+        case L_ELU:     I[k] = ik * O[k]; break;           /// * cached I[k]
         }
     }
 }
@@ -213,15 +216,12 @@ __GPU__ Model&
 Model::broadcast(Tensor &tgt) {
     Tensor &out = (*this)[-1];                   ///< model output
     int    N    = out.N(), HWC = out.HWC();      ///< sample size
-    Tensor &hot = _t4(N, HWC);                   ///< one-hot vector
-    // TODO: kernel
-    for (int n = 0; n < N; n++) {                /// * loop through batch
+    if (!_hot) _hot = &_t4(N, HWC);              ///< allocate onehot vector if needed
+    for (int n = 0; n < N; n++) {                /// * loop through batch, TODO: Kernel
         DU  v = tgt.data[n];                     ///< target vector
-        DU *h = hot.slice(n);                    ///< take a sample
+        DU *h = _hot->slice(n);                  ///< take a sample
         for (int i=0; i<HWC; i++) h[i] = v;      /// * broadcast [N,1] => [N,HWC]
     }
-    if (_hot) _mmu->free(*_hot);                 /// * free previous allocated vector
-    _hot = &hot;
     return *this;
 }
 

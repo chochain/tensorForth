@@ -150,8 +150,8 @@ __KERN__ void k_activate(
     if (i < HW) {
         DU ik = I[k];                                      ///< use register
         switch (op) {
-        case L_TANH:    O[k] = I[k] = TANH(ik);      break;/// * cache tanh(x)
-        case L_SIGMOID: O[k] = I[k] = SIGMOID(ik);   break;/// * cache sigmoid(x)
+        case L_TANH:    O[k] = TANH(ik);    break;
+        case L_SIGMOID: O[k] = SIGMOID(ik); break;
         case L_SELU:    O[k] = ik > DU0                    /// * cache I[k]
              ? (I[k] = SELU_L, ik)
              : (I[k] = SELU_LA * EXP(ik)) - SELU_LA; break;
