@@ -69,7 +69,8 @@ k_var(DU *I, DU *avg, DU *var, int HW) {
     const int i  = threadIdx.x + blockIdx.x * blockDim.x;  ///< element index
     const int c  = blockIdx.y, C = gridDim.y;              ///< channel
     const int ns = blockIdx.z * HW * C;                    ///< batch slice index
-    DU vi = i < HW ? POW(I[c + i * C + ns] - avg[c], 2) : DU0;
+    DU v0 = i < HW ? I[c + i * C + ns] - avg[c] : DU0;
+    DU vi = v0 * v0;
     ///
     /// prefix sum every 32-threaded tile
     ///
@@ -503,16 +504,16 @@ Tensor::avg() {
 }
 __GPU__ DU
 Tensor::std() {
-    Tensor *tmp[2] = { grad[0], grad[1] };  ///< borrow grad for mem storage
-    DU     *sum[2] = { (DU*)&grad[0], (DU*)&grad[1] };
+    Tensor *tmp[2] = { grad[0], grad[1] }; ///< borrow grad for mem storage, because
+    DU     *sum[2] = { (DU*)&grad[0], (DU*)&grad[1] };          /// * kernel does not like auto variables
     *sum[0] = DU0, *sum[1] = this->avg();
-    
+
     dim3 blk(T4_WARP_SQ, 1, 1);
     dim3 grd((numel + blk.x - 1)/blk.x, 1, 1);
 
     k_var<<<grd, blk>>>(data, sum[1], sum[0], numel);  /// * 8x straight loop
     GPU_SYNC();           /// * cooperative_groups.sync() does not work!
-
+    
     DU v = numel ? SQRT(*sum[0] / numel) : DU0;
     grad[0] = tmp[0];     /// * restore grad pointers
     grad[1] = tmp[1];
@@ -694,5 +695,18 @@ Tensor::map(t4_ten_op op, DU v) {
     k_ten_op<<<n, T4_WARP_SQ>>>(op, data, numel, v);
     GPU_SYNC();
     
+    return *this;
+}
+
+__BOTH__ Tensor&
+Tensor::normalize(DU avg, DU std) {
+    dim3 blk(T4_WARP_SQ, 1, 1);
+    dim3 grd((numel + blk.x - 1) / blk.x, 1, N());
+    
+    k_ts_op<<<grd, blk>>>(O_SUB, data, avg, data, numel);
+    GPU_SYNC();
+    k_ts_op<<<grd, blk>>>(O_DIV, data, std, data, numel);
+    GPU_SYNC();
+
     return *this;
 }

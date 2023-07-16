@@ -169,6 +169,7 @@ struct Tensor : public T4Base {
     __BOTH__ Tensor &identity();              ///< fill as an identity matrix
     __BOTH__ Tensor &map(t4_ten_op op, DU v=DU0); ///< element-wise absolute
     __BOTH__ Tensor &fill(DU v) { return this->map(O_FILL, v); }
+    __BOTH__ Tensor &normalize(DU avg, DU std);
     __HOST__ void   copy_to_host(void* dst) { cudaMemcpy(dst, data, numel, cudaMemcpyDeviceToHost); }
     ///
     /// IO
