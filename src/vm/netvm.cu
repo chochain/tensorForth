@@ -131,7 +131,7 @@ __GPU__ void
 NetVM::_loss(t4_loss op) {
     if (TOS2T) {                        /// * calculate loss of two tensors
         Tensor &y = TTOS; POP();        /// * pop off target tensor
-        Tensor &x = TNOS;
+        Tensor &x = TTOS;
         PUSH(x.loss(op, y));
         mmu.free(y);
     }
