@@ -10,28 +10,28 @@
 ///=======================================================================
 /// static methods
 ///
-/// matrix-matrix multiplication with transpose, increment options
+/// tensor op on self (i.e. +=, -=, ...)
 ///
 __KERN__ void
-k_ten_op(t4_ten_op op, float *t, int sz, float v=DU0) {
+k_ten_op(t4_ten_op op, float *A, int sz, float v=DU0) {
     const int k = threadIdx.x + blockIdx.x * blockDim.x;
     if (k < sz) {
         switch(op) {
-        case O_ADD:   t[k] += v;                        break;
-        case O_SUB:   t[k] -= v;                        break;
-        case O_MUL:   t[k] *= v;                        break;
-        case O_DIV:   t[k] /= v;                        break;
-        case O_FILL:  t[k] = v;                         break;
-        case O_SCALE: t[k] *= v;                        break;
-        case O_POW:   t[k] = POW(t[k], v);              break;
-        case O_ABS:   t[k] = ABS(t[k]);                 break;
-        case O_EXP:   t[k] = EXP(t[k]);                 break;
-        case O_LOG:   t[k] = LOG(t[k]);                 break;
-        case O_LN:    t[k] = LN(t[k]);                  break;
-        case O_TANH:  t[k] = TANH(t[k]);                break;
-        case O_RELU:  t[k] = t[k] > DU0 ? t[k] : DU0;   break;
-        case O_SIGM:  t[k] = SIGMOID(t[k]);             break;
-        case O_SQRT:  t[k] = SQRT(t[k]);                break;
+        case O_ADD:   A[k] += v;                        break;
+        case O_SUB:   A[k] -= v;                        break;
+        case O_MUL:   A[k] *= v;                        break;
+        case O_DIV:   A[k] /= v;                        break;
+        case O_FILL:  A[k] = v;                         break;
+        case O_SCALE: A[k] *= v;                        break;
+        case O_POW:   A[k] = POW(A[k], v);              break;
+        case O_ABS:   A[k] = ABS(A[k]);                 break;
+        case O_EXP:   A[k] = EXP(A[k]);                 break;
+        case O_LOG:   A[k] = LOG(A[k]);                 break;
+        case O_LN:    A[k] = LN(A[k]);                  break;
+        case O_TANH:  A[k] = TANH(A[k]);                break;
+        case O_RELU:  A[k] = A[k] > DU0 ? A[k] : DU0;   break;
+        case O_SIGM:  A[k] = SIGMOID(A[k]);             break;
+        case O_SQRT:  A[k] = SQRT(A[k]);                break;
         default: ERROR("k_ten_op %d not supported\n", op);
         }
     }
@@ -151,9 +151,10 @@ k_gemm(
     }
 }
 ///
-/// matrix-matrix element-wise ops
+/// tensor-tensor element-wise ops
 ///
-__KERN__ void k_tt_op(
+__KERN__ void
+k_tt_op(
     t4_ten_op op,
     DU *A, DU *B, DU *O,
     int HW)
@@ -172,7 +173,11 @@ __KERN__ void k_tt_op(
         }
     }
 }
-__KERN__ void k_ts_op(
+///
+/// tensor-scalar element-wise ops
+///
+__KERN__ void
+k_ts_op(
     t4_ten_op op,
     DU *A, DU v, DU *O,
     int HW)
@@ -189,6 +194,19 @@ __KERN__ void k_ts_op(
         case O_MUL: O[k] = A[k] * v; break;                /// * convolution
         case O_DIV: O[k] = A[k] / v; break;
         }
+    }
+}
+///
+/// Binary cross-entropy
+///
+__KERN__ void
+k_bce(DU *X, DU *Y, DU *O, int numel) {
+    const int i = threadIdx.x + blockIdx.x * blockDim.x;  ///< element index
+    if (i < numel) {
+        DU x = X[i], y = Y[i];
+        O[i] = ABS(y) < DU_EPS
+            ? (ABS(DU1 - x) < DU_EPS ? -100.0 : LN(DU1 - x))
+            : (ABS(x)       < DU_EPS ? -100.0 : LN(x));
     }
 }
 ///
@@ -477,6 +495,7 @@ Tensor::plu(Tensor &A, Tensor &P, int *ns) {
     }
     return A;
 }
+
 ///=======================================================================
 /// tensor arithmetics
 ///
@@ -546,6 +565,34 @@ Tensor::dot(Tensor &B) {
     }
     else ERROR("A.dot(B) dim? %d != %d)\n", numel, B.numel);
     return SCALAR(acc);
+}
+__GPU__ DU
+Tensor::loss(t4_loss op, Tensor &tgt) {
+    DU sum = DU0;                    ///> result loss value
+    switch (op) {
+    case LOSS_MSE:                   /// * mean squared error, input from linear
+        *this -= tgt;
+        sum = 0.5 * NORM(numel, data);
+        break;
+    case LOSS_BCE: {                 /// * binary cross_entropy, input from sigmoid
+        dim3 blk(T4_WARP_SQ, 1, 1);
+        dim3 grd((numel + blk.x - 1)/blk.x, 1, 1);
+        k_bce<<<grd, blk>>>(data, tgt.data, data, numel);
+        GPU_SYNC();
+        sum = this->sum();
+    } break;
+    case LOSS_CE:                    /// * cross_entropy, input from softmax
+        map(O_LN);                   /// * log(out_i)
+        /* no break */
+    case LOSS_NLL:                   /// * negative log likelihood, input from log-softmax
+        *this *= tgt;                /// * out_i * tgt_i
+        sum = -this->sum();          /// * negative sum
+        break;
+    default: ERROR("Model#loss op=%d not supported!\n", op);
+    }
+
+    sum /= N();                      /// average per mini-batch sample
+    return SCALAR(sum);              /// make sum a scalar value (not object)
 }
 ///=======================================================================
 /// linear algebra methods
