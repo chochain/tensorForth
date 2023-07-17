@@ -37,19 +37,21 @@ struct Dataset : public Tensor {
         
         return *this;
     }
-    __HOST__ Dataset *load_batch(U8 *h_data, U8 *h_label) {
+    __HOST__ Dataset *load_batch(
+        U8 *h_data, U8 *h_label, DU mean=0.5f, DU std=0.5f) {
+        const DU m = mean * 256, s = std * 256;
         ///
-        /// Note: from Managed memory instead of TLSF
-        /// allocate managed memory if needed
-        /// it's necessary because numel is known only after reading from Corpus
-        /// (see ~/src/io/aio_model#_dsfetch)
+        /// Allocate managed memory if needed
+        /// data and label buffer from Managed memory instead of TLSF
+        /// Note: numel is known only after reading from Corpus
+        ///       (see ~/src/io/aio_model#_dsfetch)
         ///
         if (!data)  MM_ALLOC(&data, numel * sizeof(DU));
         if (!label) MM_ALLOC(&label, N() * sizeof(U16));
-        
+
         DU  *d = data;
         for (int i = 0; i < numel; i++) {
-            *d++ = I2D((int)*h_data++) / 256.0f;
+            *d++ = (I2D((int)*h_data++) - m) / s;  // normalize
         }
         U16 *t = label;
         for (int i = 0; i < N(); i++) {
