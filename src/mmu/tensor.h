@@ -81,6 +81,13 @@ typedef enum {
     MM_B_TXP = 4
 } t4_mm_opt;
 
+typedef enum {
+    LOSS_MSE = 0,            ///< mean square error
+    LOSS_BCE,                ///< binary cross entropy (sigmoid input)
+    LOSS_CE,                 ///< cross entropy (softmax input)
+    LOSS_NLL                 ///< negative log-likelihood (logsoftmax input)
+} t4_loss;
+
 struct Tensor : public T4Base {
     U16      stride[4] = {1,1,1,1}; ///< stride=HWCN, for calc memory offset
     U16      shape[4]  = {1,1,1,1}; ///< shape=HWCN, matrix C=N=1, vector W=C=N=1
@@ -151,6 +158,7 @@ struct Tensor : public T4Base {
     __GPU__  DU     max();
     __GPU__  DU     min();
     __GPU__  DU     dot(Tensor &B);
+    __GPU__  DU     loss(t4_loss op, Tensor &tgt);
     ///
     /// linear algebra methods
     ///

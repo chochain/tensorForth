@@ -9,13 +9,6 @@
 #include "mmu.h"         // in ../mmu
 
 typedef enum {
-    LOSS_MSE = 0,            ///< mean square error
-    LOSS_BCE,                ///< binary cross entropy (sigmoid input)
-    LOSS_CE,                 ///< cross entropy (softmax input)
-    LOSS_NLL                 ///< negative log-likelihood (logsoftmax input)
-} t4_loss;
-
-typedef enum {
     UP_NEAREST = 0,
     UP_LINEAR,
     UP_BILINEAR,
@@ -159,10 +152,6 @@ private:
     __GPU__ int    _bpool(Tensor &in, Tensor &out, t4_layer fn);
     __GPU__ int    _bupsample(Tensor &in, Tensor &out, t4_layer fn);
     __GPU__ int    _bbatchnorm(Tensor &in, Tensor &out);
-    /// @}
-    /// @name loss functions
-    /// @{
-    __GPU__ DU     _loss(t4_loss op, Tensor &out, Tensor &tgt);  ///< calc loss from target vector
     /// @}
     /// @name debug functions
     /// @{
