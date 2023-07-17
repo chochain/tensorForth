@@ -129,7 +129,13 @@ NetVM::_conv(U16 k) {
 ///
 __GPU__ void
 NetVM::_loss(t4_loss op) {
-    if (TOS1T && IS_M(ss[-1])) {
+    if (TOS2T) {                        /// * calculate loss of two tensors
+        Tensor &y = TTOS; POP();        /// * pop off target tensor
+        Tensor &x = TNOS;
+        PUSH(x.loss(op, y));
+        mmu.free(y);
+    }
+    else if (TOS1T && IS_M(ss[-1])) {
         Tensor &t = TTOS; POP();
         DU     n  = MTOS.loss(op, t);
         mmu.free(t);                    /// * pop off t
