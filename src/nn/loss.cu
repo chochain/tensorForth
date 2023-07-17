@@ -8,39 +8,6 @@
 #include "dataset.h"
 
 #if T4_ENABLE_OBJ
-__GPU__ DU
-Model::_loss(t4_loss op, Tensor &out, Tensor &tgt) {
-    Tensor &tmp = _mmu->copy(out);   ///< non-destructive
-    int N   = tmp.N();               ///< mini-batch sample count
-    DU  sum = DU0;                   ///> result loss value
-    switch (op) {
-    case LOSS_MSE:                   /// * mean squared error, input from linear
-        tmp -= tgt;
-        sum = 0.5 * NORM(tmp.numel, tmp.data);
-        break;
-    case LOSS_BCE:                   /// * binary cross_entropy, input from sigmoid
-        for (int n=0; n < N; n++) {
-            int k = n * tmp.HWC();   ///> offset to data (1 or 0 per sample)
-            DU  p = tgt.data[k], q = tmp.data[k];
-            sum -= p * LN(q) + (DU1 - p) * LN(DU1 - q);
-        }
-        break;
-    case LOSS_CE:                    /// * cross_entropy, input from softmax
-        tmp.map(O_LN);
-        /* no break */
-    case LOSS_NLL:                   /// * negative log likelihood, input from log-softmax
-        tmp *= tgt;                  /// * tgt_i * log(out_i)
-        sum = -tmp.sum();            /// * negative sum
-        break;
-    default: ERROR("Model#loss op=%d not supported!\n", op);
-    }
-    // debug(tmp);
-    _mmu->free(tmp);                 /// * free memory
-
-    sum /= N;                        /// average per mini-batch sample
-    return SCALAR(sum);              /// make sum a scalar value (not object)
-}
-
 __GPU__ Tensor&
 Model::onehot() {
     if (_hot) return *_hot;
@@ -101,12 +68,17 @@ Model::loss(t4_loss op) {
 
 __GPU__ DU
 Model::loss(t4_loss op, Tensor &tgt) {              ///< loss against target vector
+    
     Tensor &out = (*this)[-1];                      ///< model output
     if (!out.is_same_shape(tgt)) {                  /// * check dimensions
         ERROR("Model#loss hot dim != out dim\n");
         return DU0;
     }
-    return _loss(op, out, tgt);                     /// * calculate loss
+    Tensor &tmp = _mmu->copy(out);                 ///< non-destructive
+    DU sum = tmp.loss(op, tgt);                    /// * calculate loss per op
+    _mmu->free(tmp);                               /// * free memory
+
+    return sum;
 }
 #endif  // T4_ENABLE_OBJ
 //==========================================================================
