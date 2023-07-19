@@ -150,17 +150,21 @@ __KERN__ void k_activate(
     if (i < HW) {
         DU ik = I[k];                                      ///< use register
         switch (op) {
-        case L_TANH:    O[k] = TANH(ik);    break;
-        case L_SIGMOID: O[k] = SIGMOID(ik); break;
-        case L_SELU:    O[k] = ik > DU0                    /// * cache I[k]
-             ? (I[k] = SELU_L, ik)
-             : (I[k] = SELU_LA * EXP(ik)) - SELU_LA; break;
+        case L_TANH:
+            ik = O[k] = TANH(ik);                       
+            I[k] = DU1 - ik*ik;                     break; /// * cache (1 - tanh^2)
+        case L_SIGMOID:
+            ik = O[k] = SIGMOID(ik);
+            I[k] = ik * (DU1 - ik);                 break; /// * cache sig*(1 - sig)
+        case L_SELU:    O[k] = ik > DU0                    /// * cache selu in I[k]
+            ? (I[k] = SELU_L, ik)
+            : (I[k] = SELU_LA * EXP(ik)) - SELU_LA; break;
         case L_LEAKYRL: O[k] = ik > DU0
-             ? (I[k] = DU1, ik)
-             : (I[k] = alpha) * ik;                  break;
+            ? (I[k] = DU1, ik)
+            : (I[k] = alpha) * ik;                  break;
         case L_ELU:     O[k] = ik > DU0
-             ? (I[k] = DU1, ik)
-             : (I[k] = alpha * EXP(ik)) - alpha;     break;
+            ? (I[k] = DU1, ik)
+            : (I[k] = alpha * EXP(ik)) - alpha;     break;
         }
     }
 }
@@ -188,8 +192,10 @@ __GPU__ Model&
 Model::forward(Tensor &input) {
     Tensor &n1 = (*this)[1];  ///< reference model input layer
 
-    if (!input.is_same_shape(n1)) {
-        ERROR("Model#forward dataset dim != model input dim?\n");
+    if (input.numel != n1.numel) {
+        ERROR("Model#forward dataset wrong shape[%d,%d,%d,%d] != model input[[%d,%d,%d,%d]\n",
+            input.N(), input.H(), input.W(), input.C(),
+            n1.N(), n1.H(), n1.W(), n1.C());
         return *this;
     }
     n1 = input;               /// * copy dataset batch into the first layer
