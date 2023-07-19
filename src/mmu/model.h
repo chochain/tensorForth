@@ -39,7 +39,7 @@ class Model : public T4Base {
     DU           _gparm[3];          ///< gradiant parameters
     
 public:
-    bool autograd = true;
+    bool train = true;               ///< Network Model trainable
     ///
     /// @name Derivertive ops
     /// @{
@@ -60,7 +60,7 @@ public:
         _mmu   = mmu;
         _store = &store;
         data   = store.data;                    /// * cached entries
-        autograd = true;
+        train  = true;
         npush(store);                           /// * model.data[0] = store
     }
     __GPU__ __INLINE__ Model &npush(DU v) {
