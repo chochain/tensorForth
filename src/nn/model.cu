@@ -23,8 +23,9 @@ Model::d_nname(int i) {
 __GPU__ Model&
 Model::add(t4_layer fn, U16 n, DU bias, U16 *opt) {
     Tensor &in = (*this)[-1];
-    if (!autograd || in.grad_fn != L_NONE) return *this;
-    
+    if (in.grad_fn != L_NONE) return *this;    /// * tensor already setup
+
+    for (int i=0; i<4; i++) in.grad[i] = NULL;
     switch(fn) {
     case L_CONV:    _iconv(in, n, bias, opt);   break;
     case L_LINEAR:  _ilinear(in, n, bias);      break;
