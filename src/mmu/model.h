@@ -49,6 +49,8 @@ public:
     /// @name layer access methods
     /// @{
     __BOTH__ __INLINE__ Tensor &operator[](int i) {
+        /// * model.data[0] = store
+        /// so 1st layer starts from model.data[1]
         return (Tensor&)_mmu->du2obj(data[(i < 0) ? numel + i : i]);
     }
     __BOTH__ __INLINE__ int  slots() { return _store->numel; }
@@ -59,12 +61,12 @@ public:
         _store = &store;
         data   = store.data;                    /// * cached entries
         autograd = true;
-        npush(store);                           /// * keep store as root
+        npush(store);                           /// * model.data[0] = store
     }
     __GPU__ __INLINE__ Model &npush(DU v) {
         data[numel++] = v;
-        U32 tsz = _store->numel;
-        if (tsz <= numel) {
+        U32 tsz = _store->numel;                ///< current allocated for layers
+        if (tsz <= numel) {                     /// * resize if too many layers
             _mmu->resize(*_store, tsz + T4_NET_SZ);
             data = _store->data;                /// * reset storage cached pointer
         }
@@ -148,7 +150,6 @@ private:
     __GPU__ int    _bconv(Tensor &in, Tensor &out);
     __GPU__ int    _blinear(Tensor &in, Tensor &out);
     __GPU__ int    _bfilter(Tensor &in, Tensor &msk, Tensor &out);
-    __GPU__ int    _bactivate(Tensor &in, Tensor &out, t4_layer fn);
     __GPU__ int    _bpool(Tensor &in, Tensor &out, t4_layer fn);
     __GPU__ int    _bupsample(Tensor &in, Tensor &out, t4_layer fn);
     __GPU__ int    _bbatchnorm(Tensor &in, Tensor &out);
