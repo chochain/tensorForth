@@ -197,7 +197,7 @@ k_ts_op(
     }
 }
 ///
-/// Binary cross-entropy
+/// Binary Cross-Entropy (clamps output to >= -100)
 ///
 __KERN__ void
 k_bce(DU *X, DU *Y, DU *O, int numel) {

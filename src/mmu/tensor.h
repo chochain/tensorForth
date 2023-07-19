@@ -184,18 +184,21 @@ struct Tensor : public T4Base {
     ///
     __BOTH__ void to_s(std::ostream &fout);
     ///
-    /// TODO: tensor operators
+    /// tensor-scalar operators
     ///
     __GPU__ __INLINE__ Tensor &operator=(DU v)      { fill(v); return *this; }
     __GPU__ __INLINE__ Tensor &operator+=(DU v)     { map(O_ADD, v); return *this; }
     __GPU__ __INLINE__ Tensor &operator-=(DU v)     { map(O_SUB, v); return *this; }
     __GPU__ __INLINE__ Tensor &operator*=(DU v)     { map(O_MUL, v); return *this; }
+    ///
+    /// tensor-tensor arithmetic operators
+    ///
     __GPU__ __INLINE__ Tensor &operator=(Tensor &t) { copy(t, *this); return *this; }
     __GPU__ __INLINE__ Tensor &operator+=(Tensor &t){ ten_op(O_ADD, *this, t, *this); return *this; }
     __GPU__ __INLINE__ Tensor &operator-=(Tensor &t){ ten_op(O_SUB, *this, t, *this); return *this; }
     __GPU__ __INLINE__ Tensor &operator*=(Tensor &t){ ten_op(O_MUL, *this, t, *this); return *this; }
     ///
-    /// TODO: tensor logical ops
+    /// tensor-tensor logical ops
     ///
     __GPU__ __INLINE__ bool   operator<(Tensor &t)  { return 0; }
     __GPU__ __INLINE__ bool   operator>(Tensor &t)  { return 0; }
