@@ -140,7 +140,6 @@ NetVM::_loss(t4_loss op) {
         DU     n  = MTOS.loss(op, t);
         mmu.free(t);                    /// * pop off t
         PUSH(n);                        /// * loss on TOS
-        VLOG1("NetVM#loss => %.3f\n", n);
     }
     else if (IS_M(top)) PUSH(MTOS.loss(op));
     else ERROR("model?\n");
@@ -249,7 +248,7 @@ NetVM::init() {
     ///@}
     ///@defgroup Batch Control ops
     ///@{
-    CODE("autograd",  if (M1V) { bool on = POPi; MTOS.autograd = on; }),
+    CODE("trainable",  if (M1V) { bool on = POPi; MTOS.train = on; }),
     CODE("batchsize",
          if (IS_M(top)) PUSH(MTOS.batch_size());
          else ERROR("TOS is not a model?\n")),
