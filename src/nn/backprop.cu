@@ -11,10 +11,10 @@
 /// convolution filter derivatives
 /// TODO: stride, dilation, [C1]NCHW filter
 ///
-template<int TS, int KS>         ///> tile size, kernel size
+template<int TS, int KS>    ///> tile size, kernel size
 __KERN__ void k_dconv2d(
     DU *I, DU *F, DU *DF, DU *DB, DU *O,   ///< input I[HxW], F,DF[KSxKS], output O[HxW]
-    int H, int W, int C0                   ///< H1==H0, W1==W0, output Channels
+    int H, int W, int C0, bool train       ///< H1==H0, W1==W0, output Channels
     ) {
     __shared__ DU _I[T4_WARP_SQ];                    ///< input cache tile [16x16]
     __shared__ DU _O[T4_WARP_SQ];                    ///< output cache tile [16x16]
@@ -42,8 +42,9 @@ __KERN__ void k_dconv2d(
             (i0 >= 0 && i0 < H && j0 >= 0 && j0 < W) /// * with zero padding
             ? O[z0] : DU0;                           /// * by channel
         g.sync();                                    /// * smem write barrier
-        if (c1 == 0) atomicAdd(&DB[c0], _O[xy]);     /// * dB += dY
-
+        if (train && c1 == 0) {
+            atomicAdd(&DB[c0], _O[xy]);              /// * dB += dY
+        }
         const int zf = c0 + c1 * KSQ * C0;           ///< filter index F[C1,KS,KS,C0]
         if (tx < TS && ty < TS) {                    /// * within tile [12x12]
             DU *fx = &F[zf + (KSQ - 1) * C0];        ///< F[c1,KS-1,KS-1,c0] i.e. rot180
@@ -53,6 +54,7 @@ __KERN__ void k_dconv2d(
                 for (int x = 0; x < KS; x++) {
                     sum     += (*fx) * ox[x];        /// * dX += F' @ dY (for each C1)
                     fx      -= C0;                   /// * walk F backward
+                    if (!train) continue;
                     atomicAdd(dfx, ox[x] * _I[xy]);  /// * dF += dY * X (TSxTS threads)
                     dfx     += C0;                   /// * DF[c1,0,1,c0]
                 }
@@ -78,7 +80,7 @@ __KERN__ void k_dlinear_dwdb(
 
     if (c0 < C0 && c1 < C1) {
         DU x = I[c1 + n * HWC1], dy = O[c0 + n * HWC0];
-        atomicAdd_block(&DW[cx], dy * x);           /// * dw += dY * X^t
+        atomicAdd_block(&DW[cx], dy * x);       /// * dw += dY * X^t
         if (c1 == 0) {
             atomicAdd_block(&DB[c0], dy);           /// * db += dY
         }
@@ -156,31 +158,6 @@ __KERN__ void k_dfilter(
     }
 }
 
-__KERN__ void k_dactivate(
-    t4_layer op,
-    DU *I, DU *O,                           ///< input, filter, output
-    int HW                                  ///< H1==H0, W1==W0 (C1==C0)
-    ) {
-    const int i  = threadIdx.x + blockIdx.x * blockDim.x;  ///< element index
-    const int c  = blockIdx.y, C = gridDim.y;              ///< channel deep
-    const int ns = blockIdx.z * HW * C;                    ///< batch slice index
-    const int k  = c + i * C + ns;                         ///< output tensor index
-
-    if (i < HW && c < C) {
-        DU ik = I[k];                                      ///< cached in register
-        switch (op) {
-        case L_TANH: {                                     /// * (o - y) * (1 - tanh^2)
-            DU th = TANH(ik);
-            I[k] = (ik - O[k]) * (DU1 - th*th);
-        } break;
-        case L_SIGMOID: I[k] = ik - O[k]; break;           /// * ((1-y)/(1-p) - y/p) * sig(1 - sig)
-        case L_SELU:
-        case L_LEAKYRL:
-        case L_ELU:     I[k] = ik * O[k]; break;           /// * cached I[k]
-        }
-    }
-}
-
 __KERN__ void k_dbatchnorm_1(
     DU *I, DU *O, DU *X,                   ///< input, output, x_hat tensors
     DU *sum, DU *g_var,                    ///< sum(x_hat), gamma/(stdvar+e)
@@ -242,25 +219,27 @@ Model::backprop(Tensor &tgt) {
             out.sum() / out.N() / out.C(),
             out.N(), out.H(), out.W(), out.C());
     };
-    Tensor &tail = (*this)[numel - 1];           /// * final layer i.e. output
-    if (!tgt.is_same_shape(tail)) {              /// * check shape of target vector
+    Tensor &tail = (*this)[-1];                  /// * final layer i.e. output
+    if (tgt.numel != tail.numel) {               /// * check dimensions of target vector
         ERROR("\nERROR: Onehot wrong shape[%d,%d,%d,%d] != [%d,%d,%d,%d]\n",
               tgt.N(),  tgt.H(),  tgt.W(), tgt.C(),
               tail.N(), tail.H(), tail.W(), tail.C());
         return *this;
     }
+    TRACE1("\nModel#backprop: input dimensions OK, calculate dLoss");
+    tail -= tgt;                                 /// * calc delta (dLoss)
+    if (_trace) debug(tail, 300.0f);
+    
     TRACE1("\nModel#backprop starts");
     DU  t0 = _mmu->ms(), t1 = t0, tt;            ///< performance measurement
-    int x  = 0;
     for (U16 i = numel - 2, j = 0; i > 0; i--, j++) {
-        Tensor &in = (*this)[i], &out = j ? (*this)[i + 1] : tgt;
+        Tensor &in = (*this)[i], &out = (*this)[i + 1];
         if (_trace) {
             trace((tt=_mmu->ms()) - t1, i, in, out);
             t1 = tt;
         }
         _bstep(in, out);
-        if (_trace > 1) debug(in, 300.0f);
-//        if (++x > 2) break;
+        if (_trace) debug(in, 300.0f);
     }
     TRACE1("\nModel::backprop %5.2f ms\n", _mmu->ms() - t0);
     return *this;
@@ -279,21 +258,18 @@ Model::_bstep(Tensor &in, Tensor &out) {
     case L_LINEAR:  _blinear(in, out);       break; /// * out = w @ in + b
     case L_FLATTEN: in = out;                break; /// * pass dY to X
     case L_RELU:    _bfilter(in, in, out);   break; /// * filter (in > 0)
-    case L_TANH:
-    case L_SIGMOID:
+    case L_TANH:                                    /// * d_activate
+    case L_SIGMOID:                                 ///   with cached value
     case L_SELU:
     case L_LEAKYRL:
-    case L_ELU:     _bactivate(in, out, fn); break;
-    case L_SOFTMAX: /* softmax + CrossEntropy derivative, out = tgt */
-    case L_LOGSMAX: /* log-softmax + NLL      derivative, out = tgt */
-        in -= out;  /* softmax:    Xi = Yi - Li     */
-                    /* logsoftmax: Xi = Yi - Li * p */
-        break;
+    case L_ELU:     in *= out;               break; 
+    case L_SOFTMAX:                                 /// * softmax + CrossEntropy (pass thru)
+    case L_LOGSMAX: in = out;                break; /// * log-softmax + NLL (pass thru)
     case L_MAXPOOL:
     case L_AVGPOOL:
     case L_MINPOOL: _bpool(in, out, fn);     break;
-    case L_DROPOUT: {
-        Tensor &msk = *in.grad[0];             ///< dropout mask
+    case L_DROPOUT: {                               
+        Tensor &msk = *in.grad[0];                  ///< dropout mask
         _bfilter(in, msk, out);
     } break;
     case L_USAMPLE: _bupsample(in, out, fn); break;
@@ -326,9 +302,9 @@ Model::_bconv(Tensor &in, Tensor &out) {
         DU *f  = tf.data,     *df = tdf.data, *db = tdb.data;
         const int ks = tf.H();                       ///< kernel size
         switch (ks) {
-        case 1: k_dconv2d<TILE1,1><<<g1,blk>>>(d1, f, df, db, d0, H, W, C0); break;
-        case 3: k_dconv2d<TILE3,3><<<g3,blk>>>(d1, f, df, db, d0, H, W, C0); break;
-        case 5: k_dconv2d<TILE5,5><<<g5,blk>>>(d1, f, df, db, d0, H, W, C0); break;
+        case 1: k_dconv2d<TILE1,1><<<g1,blk>>>(d1, f, df, db, d0, H, W, C0, train); break;
+        case 3: k_dconv2d<TILE3,3><<<g3,blk>>>(d1, f, df, db, d0, H, W, C0, train); break;
+        case 5: k_dconv2d<TILE5,5><<<g5,blk>>>(d1, f, df, db, d0, H, W, C0, train); break;
         default:
             ERROR("model_back#conv kernel_size %d not supported\n", ks);
             return -1;
@@ -358,10 +334,12 @@ Model::_blinear(Tensor &in, Tensor &out) {
         dim3 blk(T4_WARP_SZ, T4_WARP_SZ, 1);
         dim3 grd(NGRID(C0, C1, N, blk));
         dim3 grx(NGRID(C1, 1, N, blk));
-
-        k_dlinear_dwdb<<<grd, blk>>>(               /// * update dB, dW
-            in.data, out.data, tdw.data, tdb.data,
-            C1, C0, in.HWC(), out.HWC());
+        
+        if (train) {
+            k_dlinear_dwdb<<<grd, blk>>>(           /// * update dB, dW
+                in.data, out.data, tdw.data, tdb.data,
+                C1, C0, in.HWC(), out.HWC());
+        }
         k_dlinear_dx<<<grx, blk>>>(                 /// * update dX (in parallel)
             in.data, out.data, tw.data,
             C1, C0, in.HWC(), out.HWC());
@@ -370,12 +348,15 @@ Model::_blinear(Tensor &in, Tensor &out) {
     else {                                          /// * serial mode (for validation)
         TRACE1("*");
         for (int n = 0; n < N; n++) {
-            DU *x = in.slice(n), *y = out.slice(n), *dw = tdw.data;
-            for (int c0 = 0; c0 < C0; c0++) {       /// W[C0,C1]
-                DU yi = y[c0];
-                tdb[c0] += yi;                      /// * db += dY
-                for (int c1 =0; c1 < C1; c1++) {
-                    *dw++ += yi * x[c1];            /// * dw += dY @ X^t
+            DU *x = in.slice(n), *y = out.slice(n);
+            if (train) {
+                DU *dw = tdw.data;
+                for (int c0 = 0; c0 < C0; c0++) {   /// W[C0,C1]
+                    DU yi = y[c0];
+                    tdb[c0] += yi;                  /// * db += dY
+                    for (int c1 =0; c1 < C1; c1++) {
+                        *dw++ += yi * x[c1];        /// * dw += dY @ X^t
+                    }
                 }
             }
             DU *w = tw.data;
@@ -404,19 +385,6 @@ Model::_bfilter(Tensor &in, Tensor &msk, Tensor &out) {
     dim3 grd((HW + blk.x -1) / blk.x, out.C(), out.N());
 
     k_dfilter<<<grd,blk>>>(in.data, msk.data, out.data, HW);
-    GPU_SYNC();
-
-    return 0;
-}
-
-__GPU__ int
-Model::_bactivate(Tensor &in, Tensor &out, t4_layer fn) {
-    const int W = out.W(), HW = out.H() * W;
-
-    dim3 blk(T4_WARP_SQ, 1, 1);
-    dim3 grd((HW + blk.x -1) / blk.x, out.C(), out.N());
-
-    k_dactivate<<<grd,blk>>>(fn, in.data, out.data, HW);
     GPU_SYNC();
 
     return 0;
