@@ -35,7 +35,6 @@ class Model : public T4Base {
     int          _trace = 0;         ///< cached debug/tracing level
     int          _iter  = 0;         ///< iteration counter
     int          _hit   = 0;         ///< hit counter
-    t4_optimizer _opti  = OPTI_SGD;  ///< optimizer selection
     DU           _gparm[3];          ///< gradiant parameters
     
 public:
@@ -94,9 +93,10 @@ public:
     /// @}
     /// @name gradiant decent functions
     /// @{
-    __GPU__ Model  &grad_alloc(Tensor &in, bool do_w, bool do_b);
+    __GPU__ Model  &grad_alloc(Tensor &in, bool do_w, bool do_b, t4_optimizer op);
     __GPU__ Model  &grad_zero() { _iter = 0; }          ///< manual zero momentum tensors
-    __GPU__ Model  &gradiant(const char *nm, GdFunc fn);///< gradiant descent functor
+    __GPU__ Model  &gradiant(const char *nm, GdFunc fn, ///< gradiant descent functor
+                             t4_optimizer op=OPTI_SGD); 
     __GPU__ Model  &sgd(DU lr, DU b);                   ///< stochastic gradiant descent
     __GPU__ Model  &adam(DU lr, DU b1, DU b2);          ///< Adam gradiant descent
     /// @}
