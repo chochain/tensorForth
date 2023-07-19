@@ -68,16 +68,17 @@ Model::loss(t4_loss op) {
 
 __GPU__ DU
 Model::loss(t4_loss op, Tensor &tgt) {              ///< loss against target vector
-    
+    static const char *opn[] = { "MSE", "BCE", "CE", "NLL" };
     Tensor &out = (*this)[-1];                      ///< model output
     if (!out.is_same_shape(tgt)) {                  /// * check dimensions
-        ERROR("Model#loss hot dim != out dim\n");
+        ERROR("Model#loss: hot dim != out dim\n");
         return DU0;
     }
     Tensor &tmp = _mmu->copy(out);                 ///< non-destructive
     DU sum = tmp.loss(op, tgt);                    /// * calculate loss per op
     _mmu->free(tmp);                               /// * free memory
-
+    
+    TRACE1("Model#loss: %s=%6.3f\n", opn[op], sum);
     return sum;
 }
 #endif  // T4_ENABLE_OBJ
