@@ -210,7 +210,6 @@ Model::forward(Tensor &input) {
             out.N(), out.H(), out.W(), out.C());
     };
     TRACE1("\nModel#forward starts");
-    _iter++;                                     ///< advance iteration counter
     DU t0 = _mmu->ms(), t1 = t0, tt;             ///< performance measurement
     for (U16 i = 1; i < numel - 1; i++) {
         Tensor &in = (*this)[i], &out = (*this)[i + 1];

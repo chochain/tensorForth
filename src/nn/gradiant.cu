@@ -59,22 +59,19 @@ Model::grad_alloc(t4_optimizer op) {
         bool do_w = dw && dw->is_same_shape(*w);
         bool do_b = db && db->is_same_shape(*b);
         
-        TRACE1("Model::grad_alloc %2d> %s do_w,b[%d,%d] grad=%p,%p,%p,%p\n",
-               i, d_nname(in.grad_fn), do_w, do_b, w, dw, b, db);
-    
         switch (op) {
         case OPTI_SGD:
-            in.mtum[0] = in.mtum[2] = NULL;       /// * no need for extra storage
-            in.mtum[1] = in.mtum[3] = NULL;
+            in.mtum[0] = in.mtum[2] = dw;         /// * dummy, no extra storage
+            in.mtum[1] = in.mtum[3] = db;
             break;
         case OPTI_SGDM:
             if (do_w && !in.mtum[0]) {
                 in.mtum[0] = &_mmu->copy(*w);     ///< m of w
-                in.mtum[2] = NULL;                ///< dummy
+                in.mtum[2] = dw;                  ///< dummy
             }
             if (do_b && !in.mtum[1]) {
                 in.mtum[1] = &_mmu->copy(*b);     ///< m of b
-                in.mtum[3] = NULL;                ///< dummy
+                in.mtum[3] = db;                  ///< dummy
             }
             break;
         case OPTI_ADAM:
@@ -88,7 +85,8 @@ Model::grad_alloc(t4_optimizer op) {
             }
             break;
         }
-        TRACE1("    => mtum=%p,%p,%p,%p\n",
+        TRACE1("Model::grad_alloc %2d> %s do_w,b[%d,%d] mtum=%p,%p,%p,%p\n",
+               i, d_nname(in.grad_fn), do_w, do_b,
                in.mtum[0], in.mtum[1], in.mtum[2], in.mtum[3]);
     }
     return *this;
@@ -105,14 +103,14 @@ Model::gradiant(const char *nm, GdFunc fn, DU *parm, t4_optimizer op) {
             fn(parm, g, dg, m, v);
             TRACE1(" => %cΣ=%6.3f", n, g.sum());
     };
-    if (train && _iter <= 1) grad_alloc(op);       ///< allocate m & v tensors if needed
+    TRACE1("\nModel#%s batch_sz=%d, lr=%6.3f, mtum/b1=%6.3f b2=%6.3f\n",
+           nm, (*this)[1].N(), parm[0], parm[1], parm[2]);
     
-    DU t0  = _mmu->ms();                           ///< performance measurement
+    if (train && _iter++==0) grad_alloc(op);      ///< allocate m & v tensors
     ///
     /// cascade execution layer by layer forward
     ///
-    TRACE1("\nModel#%s batch_sz=%d, lr=%6.3f, mtum/b1=%6.3f b2=%6.3f",
-           nm, (*this)[1].N(), parm[0], parm[1], parm[2]);
+    DU t0  = _mmu->ms();                          ///< performance measurement
     for (U16 i = 1; i < numel - 1; i++) {         /// TODO: parallel update
         Tensor &in = (*this)[i];
         Tensor *w  = in.grad[0], *dw = in.grad[2];
@@ -143,7 +141,7 @@ Model::sgd(DU lr, DU b) {                          /// a=momentum
     };
     DU parm[3] = {
         lr / batch_size(),                        ///> eta / mini-batch size
-        _iter > 1 ? b : (DU)DU0,                  ///> beta
+        _iter ? b : (DU)DU0,                      ///> beta
         DU0
     };
     gradiant("sgd", update, parm, ABS(b) < DU_EPS ? OPTI_SGD : OPTI_SGDM);
@@ -163,11 +161,10 @@ Model::adam(DU lr, DU b1, DU b2) {
             parm[0], parm[1], parm[2], HW);
     };
     DU parm[3] = {
-        lr * SQRT(1 - POW(b2, _iter)) / (1 - POW(b1, _iter)),
-        _iter > 1 ? b1 : (DU)DU0,
-        _iter > 1 ? b2 : (DU)DU0
+        lr * SQRT(1 - POW(b2, _iter+1)) / (1 - POW(b1, _iter+1)),
+        _iter ? b1 : (DU)DU0,
+        _iter ? b2 : (DU)DU0
     };
-    
     gradiant("adam", update, parm, OPTI_ADAM);
 
     return *this;
