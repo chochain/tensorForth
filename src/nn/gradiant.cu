@@ -50,73 +50,78 @@ __KERN__ void k_adam(
 ///  @brief - allocate Momentum and Velocity tensors
 ///
 __GPU__ Model&
-Model::grad_alloc(Tensor &in, bool do_w, bool do_b) {
-    Tensor *w = in.grad[0], *dw = in.grad[2];
-    Tensor *b = in.grad[1], *db = in.grad[3];
+Model::grad_alloc(t4_optimizer op) {
+    for (int i = 1; i < numel - 1; i++) {
+        Tensor &in = (*this)[i];
+        Tensor *w = in.grad[0], *dw = in.grad[2];
+        Tensor *b = in.grad[1], *db = in.grad[3];
+
+        bool do_w = dw && dw->is_same_shape(*w);
+        bool do_b = db && db->is_same_shape(*b);
+        
+        TRACE1("Model::grad_alloc %2d> %s do_w,b[%d,%d] grad=%p,%p,%p,%p\n",
+               i, d_nname(in.grad_fn), do_w, do_b, w, dw, b, db);
     
-    switch (_opti) {
-    case OPTI_SGD:
-        /// * fake tensor references (not used)
-        if (do_w && !in.mtum[0]) { in.mtum[0] = in.mtum[2] = dw; }
-        if (do_b && !in.mtum[1]) { in.mtum[1] = in.mtum[3] = db; }
-        break;
-    case OPTI_SGDM:
-        if (do_w && !in.mtum[0]) {
-            in.mtum[0] = &_mmu->copy(*w);     ///< m of w
-            in.mtum[2] = dw;                  ///< dummy
+        switch (op) {
+        case OPTI_SGD:
+            in.mtum[0] = in.mtum[2] = NULL;       /// * no need for extra storage
+            in.mtum[1] = in.mtum[3] = NULL;
+            break;
+        case OPTI_SGDM:
+            if (do_w && !in.mtum[0]) {
+                in.mtum[0] = &_mmu->copy(*w);     ///< m of w
+                in.mtum[2] = NULL;                ///< dummy
+            }
+            if (do_b && !in.mtum[1]) {
+                in.mtum[1] = &_mmu->copy(*b);     ///< m of b
+                in.mtum[3] = NULL;                ///< dummy
+            }
+            break;
+        case OPTI_ADAM:
+            if (do_w && !in.mtum[0]) {
+                in.mtum[0] = &_mmu->copy(*w);     ///< m of w
+                in.mtum[2] = &_mmu->copy(*dw);    ///< v of w
+            }
+            if (do_b && !in.mtum[1]) {
+                in.mtum[1] = &_mmu->copy(*b);     ///< m of b
+                in.mtum[3] = &_mmu->copy(*db);    ///< v of b
+            }
+            break;
         }
-        if (do_b && !in.mtum[1]) {
-            in.mtum[1] = &_mmu->copy(*b);     ///< m of b
-            in.mtum[3] = db;                  ///< dummy
-        }
-        break;
-    case OPTI_ADAM:
-        if (do_w && !in.mtum[0]) {
-            in.mtum[0] = &_mmu->copy(*w);     ///< m of w
-            in.mtum[2] = &_mmu->copy(*dw);    ///< v of w
-        }
-        if (do_b && !in.mtum[1]) {
-            in.mtum[1] = &_mmu->copy(*b);     ///< m of b
-            in.mtum[3] = &_mmu->copy(*db);    ///< v of b
-        }
-        break;
+        TRACE1("    => mtum=%p,%p,%p,%p\n",
+               in.mtum[0], in.mtum[1], in.mtum[2], in.mtum[3]);
     }
+    return *this;
 }
 ///
 ///> grandiant descent iterator
 ///
 __GPU__ Model&
-Model::gradiant(const char *nm, GdFunc fn) {
-    auto step = [this, fn](const char n,
+Model::gradiant(const char *nm, GdFunc fn, DU *parm, t4_optimizer op) {
+    auto step = [this, fn, parm](const char n,
             Tensor &g, Tensor &dg, Tensor &m, Tensor &v) {
             TRACE1("\n    %c[%d,%d,%d,%d] Σ=%6.3f - %6.3f",
                    n, g.N(), g.H(), g.W(), g.C(), g.sum(), dg.sum());
-            fn(_gparm, g, dg, m, v);
+            fn(parm, g, dg, m, v);
             TRACE1(" => %cΣ=%6.3f", n, g.sum());
     };
-    Tensor &n1 = (*this)[1];                       ///< reference model input layer
-    DU     t0  = _mmu->ms();                       ///< performance measurement
+    if (train && _iter <= 1) grad_alloc(op);       ///< allocate m & v tensors if needed
+    
+    DU t0  = _mmu->ms();                           ///< performance measurement
     ///
     /// cascade execution layer by layer forward
     ///
     TRACE1("\nModel#%s batch_sz=%d, lr=%6.3f, mtum/b1=%6.3f b2=%6.3f",
-           nm, n1.N(), _gparm[0], _gparm[1], _gparm[2]);
+           nm, (*this)[1].N(), parm[0], parm[1], parm[2]);
     for (U16 i = 1; i < numel - 1; i++) {         /// TODO: parallel update
         Tensor &in = (*this)[i];
         Tensor *w  = in.grad[0], *dw = in.grad[2];
         Tensor *b  = in.grad[1], *db = in.grad[3];
         
-        if (_trace) printf("\n  %2d> %s", i, d_nname(in.grad_fn));
-        ///
-        /// * initialize adam m and v tensors for each layer if needed
-        ///
-        bool w_ok = dw && dw->is_same_shape(*w);
-        bool b_ok = db && db->is_same_shape(*b);
+        TRACE1("\n  %2d> %s", i, d_nname(in.grad_fn));
         
-        grad_alloc(in, w_ok, b_ok);
-        
-        if (w_ok) step('w', *w, *dw, *in.mtum[0], *in.mtum[2]);
-        if (b_ok) step('b', *b, *db, *in.mtum[1], *in.mtum[3]);
+        if (dw) step('w', *w, *dw, *in.mtum[0], *in.mtum[2]);
+        if (db) step('b', *b, *db, *in.mtum[1], *in.mtum[3]);
     }
     TRACE1("\nModel#%s %5.2f ms\n", nm, _mmu->ms() - t0);
     return *this;
@@ -136,12 +141,12 @@ Model::sgd(DU lr, DU b) {                          /// a=momentum
         k_sgd<<<grd,blk>>>(
             g.data, dg.data, m.data, parm[0], parm[1], HW);
     };
-    _gparm[0] = lr / batch_size();                 ///> eta / mini-batch size
-    _gparm[1] = _iter > 1 ? b : DU0;               ///> beta
-    _gparm[2] = DU0;
-    _opti     = b > DU_EPS ? OPTI_SGDM : OPTI_SGD;
-    
-    gradiant("sgd", update);
+    DU parm[3] = {
+        lr / batch_size(),                        ///> eta / mini-batch size
+        _iter > 1 ? b : (DU)DU0,                  ///> beta
+        DU0
+    };
+    gradiant("sgd", update, parm, ABS(b) < DU_EPS ? OPTI_SGD : OPTI_SGDM);
     
     return *this;
 }
@@ -150,19 +155,20 @@ __GPU__ Model&
 Model::adam(DU lr, DU b1, DU b2) {
     auto update = [](DU *parm, Tensor &g, Tensor &dg, Tensor &m, Tensor &v) {
         const int HW = g.H() * g.W();
-        const dim3 blk(T4_WARP_SQ, 1, 1);          ///< default blocks
+        const dim3 blk(T4_WARP_SQ, 1, 1);         ///< default blocks
         const dim3 grd((HW + blk.x - 1)/blk.x, g.C(), g.N());
 
         k_adam<<<grd,blk>>>(
             g.data, dg.data, m.data, v.data,
             parm[0], parm[1], parm[2], HW);
     };
-    _gparm[0] = lr * SQRT(1 - POW(b2, _iter)) / (1 - POW(b1, _iter));
-    _gparm[1] = _iter > 1 ? b1 : DU0;
-    _gparm[2] = _iter > 1 ? b2 : DU0;
-    _opti     = OPTI_ADAM;
+    DU parm[3] = {
+        lr * SQRT(1 - POW(b2, _iter)) / (1 - POW(b1, _iter)),
+        _iter > 1 ? b1 : (DU)DU0,
+        _iter > 1 ? b2 : (DU)DU0
+    };
     
-    gradiant("adam", update);
+    gradiant("adam", update, parm, OPTI_ADAM);
 
     return *this;
 }
