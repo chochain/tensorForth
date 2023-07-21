@@ -61,8 +61,8 @@ Model::grad_alloc(t4_optimizer op) {
         
         switch (op) {
         case OPTI_SGD:
-            in.mtum[0] = in.mtum[2] = dw;         /// * dummy, no extra storage
-            in.mtum[1] = in.mtum[3] = db;
+            in.mtum[0] = in.mtum[1] = dw;         /// * dummy, no extra storage
+            in.mtum[2] = in.mtum[3] = db;
             break;
         case OPTI_SGDM:
             if (do_w && !in.mtum[0]) {
@@ -110,16 +110,15 @@ Model::gradiant(const char *nm, GdFunc fn, DU *parm, t4_optimizer op) {
     ///
     /// cascade execution layer by layer forward
     ///
-    DU t0  = _mmu->ms();                          ///< performance measurement
+    DU t0 = _mmu->ms();                           ///< performance measurement
     for (U16 i = 1; i < numel - 1; i++) {         /// TODO: parallel update
         Tensor &in = (*this)[i];
         Tensor *w  = in.grad[0], *dw = in.grad[2];
         Tensor *b  = in.grad[1], *db = in.grad[3];
         
         TRACE1("\n  %2d> %s", i, d_nname(in.grad_fn));
-        
-        if (dw) step('w', *w, *dw, *in.mtum[0], *in.mtum[2]);
-        if (db) step('b', *b, *db, *in.mtum[1], *in.mtum[3]);
+        if (in.mtum[0]!=in.mtum[2]) step('w', *w, *dw, *in.mtum[0], *in.mtum[2]);
+        if (in.mtum[1]!=in.mtum[3]) step('b', *b, *db, *in.mtum[1], *in.mtum[3]);
     }
     TRACE1("\nModel#%s %5.2f ms\n", nm, _mmu->ms() - t0);
     return *this;
