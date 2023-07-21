@@ -284,10 +284,10 @@ Model::_bstep(Tensor &in, Tensor &out) {
 
 __GPU__ int
 Model::_bconv(Tensor &in, Tensor &out) {
-    Tensor &tf = *in.grad[0], &tdf = *in.grad[2];    ///< filter tensor
-    Tensor &tb = *in.grad[1], &tdb = *in.grad[3];    ///< bias tensor
+    Tensor &w = *in.grad[0], &dw = *in.grad[2];      ///< filter tensor
+    Tensor &b = *in.grad[1], &db = *in.grad[3];      ///< bias tensor
 
-    TRACE1(" f[%d,%d,%d,%d], b[%d]", tf.N(), tf.H(), tf.W(), tf.C(), tb.numel);
+    TRACE1(" f[%d,%d,%d,%d], b[%d]", w.N(), w.H(), w.W(), w.C(), b.numel);
 
     const int N = in.N(), H = in.H(), W = in.W();    ///< input dimensions
     const int C1 = in.C(), C0 = out.C();
@@ -299,49 +299,51 @@ Model::_bconv(Tensor &in, Tensor &out) {
 
     for (int n = 0; n < N; n++) {
         DU *d1 = in.slice(n), *d0 = out.slice(n);
-        DU *f  = tf.data,     *df = tdf.data, *db = tdb.data;
-        const int ks = tf.H();                       ///< kernel size
+        const int ks = w.H();                       ///< kernel size
         switch (ks) {
-        case 1: k_dconv2d<TILE1,1><<<g1,blk>>>(d1, f, df, db, d0, H, W, C0, train); break;
-        case 3: k_dconv2d<TILE3,3><<<g3,blk>>>(d1, f, df, db, d0, H, W, C0, train); break;
-        case 5: k_dconv2d<TILE5,5><<<g5,blk>>>(d1, f, df, db, d0, H, W, C0, train); break;
+        case 1: k_dconv2d<TILE1,1><<<g1,blk>>>(
+                    d1, w.data, dw.data, db.data, d0, H, W, C0, train); break;
+        case 3: k_dconv2d<TILE3,3><<<g3,blk>>>(
+                    d1, w.data, dw.data, db.data, d0, H, W, C0, train); break;
+        case 5: k_dconv2d<TILE5,5><<<g5,blk>>>(
+                    d1, w.data, dw.data, db.data, d0, H, W, C0, train); break;
         default:
             ERROR("model_back#conv kernel_size %d not supported\n", ks);
             return -1;
         }
         GPU_SYNC();
     }
-//  _dump_db(tdb);
-//  _dump(tdf.data, tdf.H(), tdf.W(), tdf.C());
-    if (_trace > 1) _dump_dbdf(tdb, tdf);
+//  _dump_db(db);
+//  _dump(dw.data, dw.H(), dw.W(), dw.C());
+    if (_trace > 1) _dump_dbdf(db, dw);
     return 0;
 }
 
 __GPU__ int
 Model::_blinear(Tensor &in, Tensor &out) {
-    Tensor &tw  = *in.grad[0];                      ///< weight tensor
-    Tensor &tdw = *in.grad[2];                      ///< d_weight tensor
-    Tensor &tdb = *in.grad[3];                      ///< d_bias tensor
+    Tensor &w  = *in.grad[0];                       ///< weight tensor
+    Tensor &dw = *in.grad[2];                       ///< d_weight tensor
+    Tensor &db = *in.grad[3];                       ///< d_bias tensor
 
     const int N  = out.N();                         ///< batch size (N1 == N0)
     const int H1 = in.H(), H0 = out.H();            ///< input output H
-    const int C0 = tw.H(), C1 = tw.W();             ///< filter dimensions
+    const int C0 = w.H(),  C1 = w.W();              ///< filter dimensions
 
     TRACE1("\n\tdw[%d,%d] += out'[%d,1] @ in^t[1,%d]", C0, C1, H0, H1);
     TRACE1("\n\tin[%d, 1]  = w^t[%d,%d] @ out'[%d,1]", H1, C1, C0, H0);
 
-    if (tw.numel > T4_WARP_SQ) {                    /// * parallel mode
+    if (w.numel > T4_WARP_SQ) {                     /// * parallel mode
         dim3 blk(T4_WARP_SZ, T4_WARP_SZ, 1);
         dim3 grd(NGRID(C0, C1, N, blk));
         dim3 grx(NGRID(C1, 1, N, blk));
         
         if (train) {
             k_dlinear_dwdb<<<grd, blk>>>(           /// * update dB, dW
-                in.data, out.data, tdw.data, tdb.data,
+                in.data, out.data, dw.data, db.data,
                 C1, C0, in.HWC(), out.HWC());
         }
         k_dlinear_dx<<<grx, blk>>>(                 /// * update dX (in parallel)
-            in.data, out.data, tw.data,
+            in.data, out.data, w.data,
             C1, C0, in.HWC(), out.HWC());
         GPU_SYNC();
     }
@@ -350,29 +352,29 @@ Model::_blinear(Tensor &in, Tensor &out) {
         for (int n = 0; n < N; n++) {
             DU *x = in.slice(n), *y = out.slice(n);
             if (train) {
-                DU *dw = tdw.data;
+                DU *dp = dw.data;
                 for (int c0 = 0; c0 < C0; c0++) {   /// W[C0,C1]
                     DU yi = y[c0];
-                    tdb[c0] += yi;                  /// * db += dY
+                    db[c0] += yi;                   /// * db += dY
                     for (int c1 =0; c1 < C1; c1++) {
-                        *dw++ += yi * x[c1];        /// * dw += dY @ X^t
+                        *dp++ += yi * x[c1];        /// * dw += dY @ X^t
                     }
                 }
             }
-            DU *w = tw.data;
+            DU *wd = w.data;
             for (int c1 = 0; c1 < C1; c1++) {       /// * dX = w^t @ dY
                 DU sum = DU0;
                 for (int c0 = 0; c0 < C0; c0++) {
-                    sum += w[c1 + c0 * C1] * y[c0];
+                    sum += wd[c1 + c0 * C1] * y[c0];
                 }
                 x[c1] = sum;
             }
         }
     }
     // _dump(in.data, in.H(), in.W(), in.C());
-    if (_trace > 1) {
-         _dump_db(tdb);
-         _dump_dw(tdw, false);
+    if (train && _trace > 1) {
+         _dump_db(db);
+         _dump_dw(dw, false);
     }
     return 0;
 }
@@ -464,7 +466,7 @@ Model::_bbatchnorm(Tensor &in, Tensor &out) {
     GPU_SYNC();
 
     for (int c=0; c < C; c++) {
-        db[c] += (sum[c] /= HW);                       /// * collect dbeta = sum(dout) (/ HW?)
+        if (train) db[c] += (sum[c] /= HW);            /// * collect dbeta = sum(dout) (/ HW?)
         var[c] *= w[c];                                /// * var <= gamma * ivar
     }
     k_dbatchnorm_1<<<grd, blk>>>(                      /// * dX = gamma * ivar * (dout - sum(dout)/N)
@@ -476,7 +478,7 @@ Model::_bbatchnorm(Tensor &in, Tensor &out) {
     GPU_SYNC();
 
     for (int c=0; c < C; c++) {
-        dw[c]  += (sum[c] /= HW);                      /// * collect dgamma = sum(dout * x_hat)( / HW?)
+        if (train) dw[c]  += (sum[c] /= HW);           /// * collect dgamma = sum(dout * x_hat)( / HW?)
         sum[c] *= var[c] / N;                          /// * scale sum
     }
     k_dbatchnorm_2<<<grd, blk>>>(in.data, xht, sum, HW);/// * dX -= gamma * ivar * x_hat * sum(dout * x_hat) / N
