@@ -30,8 +30,10 @@ mnist                             \ retrieve model
 network                           \ display the model
 
 .( #### model feed foward ) cr
+mstat
 1 28 28 1 tensor eye 0.5 *=       \ create input image (random)
 forward                           \ execute forward pass
+mstat
 
 .( #### fetch last layer i.e. output ) cr
 -1 n@ .                           \ fetch forward result from model
@@ -44,7 +46,14 @@ constant 1hot                     \ store in a constant
 loss.ce .                         \ calculate network loss
 
 .( #### model back propagation ) cr
+mstat
 1hot
 backprop
+mstat
+
+.( #### gradiant decent ) cr
+mstat
+0.01 nn.sgd
+mstat
 
 bye
