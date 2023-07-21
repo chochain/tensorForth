@@ -97,10 +97,11 @@ print('######################')
 optim_g = optim.Adam(generator.parameters(), lr=0.0002)
 optim_d = optim.Adam(discriminator.parameters(), lr=0.0002)
 
-# loss function
+# losses
 criterion = nn.BCELoss()
-losses_g = [] # to store generator loss after each epoch
-losses_d = [] # to store discriminator loss after each epoch
+losses_g  = [] # to store generator loss after each epoch
+losses_dr = [] # to store discriminator loss after each epoch
+losses_df = [] # to store discriminator loss after each epoch
 images = [] # to store images generatd by the generator
 
 # to create real labels (1s)
@@ -137,7 +138,7 @@ def train_discriminator(optimizer, data_real, data_fake):
     loss_fake.backward()
     
     optimizer.step()
-    return loss_real + loss_fake
+    return [ loss_real, loss_fake ]
 
 # function to train the generator network
 def train_generator(optimizer, data_fake):
@@ -157,19 +158,28 @@ def train_generator(optimizer, data_fake):
 noise = create_noise(GEN_SZ)
 
 for epoch in range(EPOCHS):
-    loss_g = 0.0
-    loss_d = 0.0
+    loss_g  = 0.0
+    loss_dr = 0.0
+    loss_df = 0.0
     for bi, data in tqdm(enumerate(train_loader), total=int(len(train_data)/train_loader.batch_size)):
         image, _ = data
         image    = image.to(device)
         b_size   = len(image)
+
+        print(f"b_size={b_size}")
         
         # run the discriminator for k number of steps
         for step in range(K):
-            data_fake = generator(create_noise(b_size)).detach()
             data_real = image
-            # train the discriminator network
-            loss_d += train_discriminator(optim_d, data_real, data_fake)
+            data_fake = generator(create_noise(b_size)).detach()
+            #
+            # CC: detach breaks tensor backprop chain
+            #     so that discriminator stop fake backprop into generator
+            #     Keras, instead, uses Model.trainable = false
+            #
+            loss_d = train_discriminator(optim_d, data_real, data_fake)
+            loss_dr += loss_d[0]
+            loss_df += loss_d[1]
             
         data_fake = generator(create_noise(b_size))
         # train the generator network
@@ -184,14 +194,16 @@ for epoch in range(EPOCHS):
     save_generator_image(generated_img, f"../out/gen_img{epoch}.png")
     images.append(generated_img)
     
-    epoch_loss_g = loss_g / bi # total generator loss for the epoch
-    epoch_loss_d = loss_d / bi # total discriminator loss for the epoch
+    epoch_loss_g  = loss_g  / (bi+1) # total generator loss for the epoch
+    epoch_loss_dr = loss_dr / (bi+1) # total discriminator loss for the epoch
+    epoch_loss_df = loss_df / (bi+1) # total discriminator loss for the epoch
     
     losses_g.append(epoch_loss_g)
-    losses_d.append(epoch_loss_d)
+    losses_dr.append(epoch_loss_dr)
+    losses_df.append(epoch_loss_df)
 
-    print(f"Epoch {epoch} of {epochs}")
-    print(f"Generator loss: {epoch_loss_g:.8f}, Discriminator loss: {epoch_loss_d:.8f}")
+    print(f"Epoch {epoch} of {EPOCHS}")
+    print(f"Loss G: {epoch_loss_g:.4f}, Dr: {epoch_loss_dr:.4f}, Df: {epoch_loss_df:.4f}")
 
 print('DONE TRAINING')
 torch.save(generator.state_dict(), '../out/generator.pth')
@@ -202,8 +214,9 @@ imageio.mimsave('../out/generator_images.gif', imgs)
 
 # plot and save the generator and discriminator loss
 plt.figure()
-plt.plot(losses_g, label='Generator loss')
-plt.plot(losses_d, label='Discriminator Loss')
+plt.plot(losses_g,  label='Loss G')
+plt.plot(losses_dr, label='Loss Dr')
+plt.plot(losses_df, label='Loss Df')
 plt.legend()
 plt.savefig('../out/loss.png')
 
