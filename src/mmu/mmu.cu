@@ -103,8 +103,12 @@ MMU::status() {
             (U32)((UFP)c->name - n0),
             c->name);
     }
-    TRACE1("\\  MMU.stat dict[%d/%d], pmem[%d]=%0.1f%%, tfree[%d/%d]\n",
+    TRACE1("\\  MMU.stat dict[%d/%d], pmem[%d]=%0.1f%%, tfree[%d/%d]",
         _didx, T4_DICT_SZ, _midx, 100.0*(_midx/T4_PMEM_SZ), _fidx, T4_TFREE_SZ);
+    ///
+    /// display object store statistics
+    ///
+    _ostore.status(_trace);
 }
 ///
 /// colon - dictionary word compiler
