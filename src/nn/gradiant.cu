@@ -103,7 +103,7 @@ Model::gradiant(const char *nm, GdFunc fn, DU *parm, t4_optimizer op) {
             fn(parm, g, dg, m, v);
             TRACE1(" => %cΣ=%6.3f", n, g.sum());
     };
-    TRACE1("\nModel#%s batch_sz=%d, lr=%6.3f, mtum/b1=%6.3f b2=%6.3f\n",
+    TRACE1("\nModel::%s batch_sz=%d, lr=%7.4f, mtum/b1=%6.3f b2=%6.3f\n",
            nm, (*this)[1].N(), parm[0], parm[1], parm[2]);
     
     if (train && _iter++==0) grad_alloc(op);      ///< allocate m & v tensors
@@ -120,7 +120,7 @@ Model::gradiant(const char *nm, GdFunc fn, DU *parm, t4_optimizer op) {
         if (in.mtum[0]!=in.mtum[2]) step('w', *w, *dw, *in.mtum[0], *in.mtum[2]);
         if (in.mtum[1]!=in.mtum[3]) step('b', *b, *db, *in.mtum[1], *in.mtum[3]);
     }
-    TRACE1("\nModel#%s %5.2f ms\n", nm, _mmu->ms() - t0);
+    TRACE1("\nModel::%s %5.2f ms\n", nm, _mmu->ms() - t0);
     return *this;
 }
 ///
