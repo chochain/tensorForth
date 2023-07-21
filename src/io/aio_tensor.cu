@@ -89,7 +89,7 @@ AIO::_print_tensor(std::ostream &fout, Tensor &t) {
     case 4: {
         int N = t.N();
         fout << "tensor["
-             << N << "," << t.W() << "," << t.H() << "," << t.C()
+             << N << "," << t.H() << "," << t.W() << "," << t.C()
              << "] = { {\n\t";
         for (int n = 0; n < N; n++, td += t.HWC()) {
             _print_mat(fout, td, t.shape);
