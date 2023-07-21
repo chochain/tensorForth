@@ -291,7 +291,7 @@ NetVM::init() {
     ///@defgroup Debugging ops
     ///@{
     CODE(">n",        if (M1V) { DU t = POP(); MTOS.npush(t); }),
-    CODE("n@",        if (M1V) { I16 i = POPi; PUSH(mmu.view(MTOS[i])); }),
+    CODE("n@",        if (M1V) { I16 i = POPi; PUSH(mmu.copy(MTOS[i])); }),
     CODE("network",   if (IS_M(top)) fout << top),
     };
     const Code over[] = {                          ///< extended (overload) words
