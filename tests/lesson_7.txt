@@ -1,8 +1,8 @@
 \ GAN demo - MNIST
 100 constant N                                \ mini-batch sample count
-N dataset mnist_test constant ds0             \ create dataset MNIST (Real data) 
+N dataset mnist_train constant ds0            \ create dataset MNIST (Real data) 
 
-: SEED N 128 1 1 tensor rand ;                \ create random [0,1) input for fake data
+: SEED N 128 1 1 tensor randn ;               \ create randn avg=0,std=1 input for fake data
 : REAL N   1 1 1 tensor ones ;                \ create a real label tensor
 : FAKE N   1 1 1 tensor zeros ;               \ create a fake label tensor
 
@@ -14,10 +14,7 @@ flatten 1024 dn 512 dn 256 dn                 \ with 3 linear blocks
 : gn linear 0.2 leakyrelu ;                   \ generator network layers
 N 128 1 1 nn.model                            \ define Generator Model (10-layer)
 256 gn 512 gn 1024 gn                         \ with 3 linear blocks
-784 linear sigmoid constant G                 \ as G, sigmoid result in [0, 1)
-
-\ : update backprop 0.01 0.0 nn.sgd ;         \ backprop & SGD optimization
-: update backprop 0.0005 0.9 nn.adam ;        \ backprop & Adam optimization
+784 linear tanh constant G                    \ as G, tanh result in [-1, 1)
 
 variable idx 0 idx !                          \ filename index number
 : fn s" ../out/l7_0000" ;                     \ filename storage
@@ -30,34 +27,56 @@ fn + 1 - constant pos                         \ pointer to filename digits
 : nxfn idx @                                  \ create next filename
   3 for dup r@ i2n pos r@ - c! next drop      \ translate index into digits
   1 idx +! fn ;                               \ increment index, return filename
-: gen ( G -- G t )                            \ generate a mini-batch of fake images
-  SEED forward -2 n@ N 28 28 1 reshape4       \ from random seeds, and
-  \ nxfn bin save                               \ tee to raw file (for debugging)
-  ;
+  
+variable _gr                                  \ G loss from fake samples
 variable _dr                                  \ D loss for real samples
 variable _df                                  \ D loss for fake samples
-: f2r ( G D ) -1 n@ ( G D t ) -1 *= 1 += ;    \ treat D loss from fake as real samples
-: stat ( G D -- G D )                         \ display loss statistics
+: stat ( -- )                                 \ display loss statistics
   cr clock 1000 / int ." t=" .
-  _dr @ ."  Dr=" . _df @ ."  Df=" .
-  ."  G=" . ;
+  _gr @ ." , G="  .
+  _dr @ ." , Dr=" .
+  _df @ ." , Df=" . cr mstat ;
+
+: gen ( G D -- G D t ) swap                   \ generate a mini-batch of fake images
+  SEED forward -1 n@                          \ from random seeds
+  N 28 28 1 reshape4
+  rot swap ;               
+\ : d_back backprop 0.01 nn.sgd ;        \ D backprop (with SGD optimization)
+\ : g_back backprop 0.01 nn.sgd ;        \ G backprop (with Adam optimization)
+: d_back backprop 0.0002 0.9 nn.adam ;        \ D backprop (with SGD optimization)
+: g_back backprop 0.0002 0.9 nn.adam ;        \ G backprop (with Adam optimization)
+
 : epoch ( G D ds -- G D )                     \ one epoch for the given data source
   for ( G D )                                 \ loop thru mini-batches (on rs)
-    forward REAL update REAL nn.loss _dr !    \ feed D with real data
-    swap ( D G ) gen >r swap r> ( G D t )     \ G creates (and save) fake data
-    forward FAKE update FAKE nn.loss _df !    \ feed D with fake data, update D
-    f2r ( G D t ) rot swap ( D G t ) update   \ update G with as real sigmoid
-    swap ( G D ) stat \ 46 emit               \ display mini-batch statistics
+    forward REAL loss.bce _dr ! REAL d_back   \ feed D with real data
+    gen dup >r ( G D t )                      \ G creates fake images, keep a copy on rs
+    forward FAKE loss.bce _df ! FAKE d_back   \ feed D with fake data, update D
+    0 trainable r@ ( G D t )                  \ make D non-trainable, retrieve fake images
+    forward REAL loss.bce _gr ! REAL backprop \ feed D as real (but without updating)
+    1 n@ r> swap -= ( G D t )                 \ fetch D backprop image, adjust as dLoss
+    rot swap ( D G t ) g_back                 \ feed G with it
+    swap ( G D ) 1 trainable 46 emit          \ display progress, restore D trainable
   next ;                                      \ loop, if next mini-batch available
 : jk ( G D ds -- G D )
-    for
-    forward REAL update REAL nn.loss ." Dr=" .
-    swap ( D G ) gen >r swap r> ( G D t )
-    forward FAKE update FAKE nn.loss ." , Df=" .
-    f2r ( G D t ) . \ rot swap ( D G t ) update
-    \ swap ( G D ) stat
-    next
-;
-G D ds0 jk
+    >r
+    forward REAL loss.bce ." Dr=" . REAL d_back
+    gen dup >r ( G D t )
+    forward FAKE loss.bce ." , Df=" . FAKE d_back
+    0 trainable
+    r@ ( G D t )
+    forward REAL loss.bce ." , G=" . cr REAL backprop 
+    1 n@ r> swap -= ( G D t )
+    rot swap ( D G t ) g_back
+    swap ( G D ) 1 trainable
+    r>
+    ;
+: gan
+  for
+    epoch stat
+    gen nxfn bin save drop
+    ds0 rewind
+  next drop ;
+  
+G D ds0 9 gan
 bye
 

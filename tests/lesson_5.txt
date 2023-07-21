@@ -33,27 +33,44 @@
   24 linear batchnorm relu
   10 linear softmax ;
 
-50 28 28 1 nn.model                         \ create a model (50 per batch of 28x28x1 img)
-nn_a                                        \ use neural network model
-constant md0                                \ keep as a constant
+\ statistics 
+variable hit 0 hit !                \ create var for hit counter, and zero it
+variable lox                        \ create var for epoch latest loss
+: stat cr .                         \ display statistics
+  ." , t="  clock 1000 / int .      \ time in seconds
+  ." , hit="  hit @ . 0 hit !
+  ." , loss=" lox @ . cr ;
 
-md0 batchsize dataset mnist_train           \ create MNIST dataset with model batch size
-constant ds0                                \ keep dataset in a constant
+\ model
+50 28 28 1 nn.model                 \ create a model (50 per batch of 28x28x1 img)
+nn_x_bn                             \ use neural network model
+constant md0                        \ keep as a constant
 
-variable acc 0 acc !                        \ create an accuracy counter, and zero it
+\ dataset
+md0 batchsize dataset mnist_train   \ create MNIST dataset with model batch size
+constant ds0                        \ keep dataset in a constant
 
-\ : epoch for forward backprop nn.hit acc +! 0.01 nn.sgd 46 emit next ;
-: epoch for forward backprop nn.hit acc +! 0.002 0.9 nn.adam 46 emit next ;
-: stat cr .
-  ." , t="  clock 1000 / int .
-  ." , hit="  acc @ . 0 acc !
-  ." , loss=" loss.ce . cr ;
-: cnn for epoch r@ stat ds0 rewind next ;
+\ CNN framework
+: epoch ( N ds -- N' )              \ one epoch thru entire dataset
+  for                               \ fetch a mini-batch
+    forward                         \ neural network forward pass
+    loss.ce lox ! nn.hit hit +!     \ collect latest loss and accumulate hit
+    backprop                        \ neural network back propegation
+    \ 0.01 nn.sgd                   \ train with Stochastic Gradiant Decent
+    0.002 0.9 nn.adam               \ train with Adam Gradiant Decent
+    46 emit
+  next ;
+: cnn ( N ds n -- N' )              \ run multiple epoches
+  for
+    epoch r@ stat                   \ run one epoch, display statistics
+    ds0 rewind                      \ rewind entire dataset 
+  next ;   
 
-ds0                                         \ push dataset as TOS
-19 cnn                                      \ execute multiple epoches
+\ run
+ds0                                 \ push dataset as TOS
+19 cnn                              \ execute multiple epoches
 
-drop                                        \ drop dataset
-s" model/l5_c.t4" nn.save                   \ save trainned model
+drop                                \ drop dataset
+s" model/l5_c.t4" nn.save           \ save trainned model
 
 bye
