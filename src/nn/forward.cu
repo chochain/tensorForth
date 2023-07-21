@@ -193,7 +193,7 @@ Model::forward(Tensor &input) {
     Tensor &n1 = (*this)[1];  ///< reference model input layer
 
     if (input.numel != n1.numel) {
-        ERROR("Model#forward dataset wrong shape[%d,%d,%d,%d] != model input[[%d,%d,%d,%d]\n",
+        ERROR("Model::forward dataset wrong shape[%d,%d,%d,%d] != model input[[%d,%d,%d,%d]\n",
             input.N(), input.H(), input.W(), input.C(),
             n1.N(), n1.H(), n1.W(), n1.C());
         return *this;
@@ -209,7 +209,7 @@ Model::forward(Tensor &input) {
             in.N(), in.H(), in.W(), in.C(), in.parm,
             out.N(), out.H(), out.W(), out.C());
     };
-    TRACE1("\nModel#forward starts");
+    TRACE1("\nModel::forward starts");
     DU t0 = _mmu->ms(), t1 = t0, tt;             ///< performance measurement
     for (U16 i = 1; i < numel - 1; i++) {
         Tensor &in = (*this)[i], &out = (*this)[i + 1];
@@ -224,10 +224,11 @@ Model::forward(Tensor &input) {
     /// collect onehot vector and hit count
     ///
     if (input.is_dataset()) {
+        if (_hot) _mmu->free(*_hot);
         _hot = &onehot((Dataset&)input);         /// * create/cache onehot vector
         _hit = hit(true);                        /// * recalc/cache hit count
     }
-    TRACE1("\nModel#forward %5.2f ms\n", _mmu->ms() - t0);
+    TRACE1("\nModel::forward %5.2f ms\n", _mmu->ms() - t0);
 
     return *this;
 }
@@ -263,7 +264,7 @@ Model::_fstep(Tensor &in, Tensor &out) {
     } break;
     case L_USAMPLE: _fupsample(in, out, fn); break;
     case L_BATCHNM: _fbatchnorm(in, out);    break;
-    default: ERROR("Model#forward layer=%d not supported\n", fn);
+    default: ERROR("Model::forward layer=%d not supported\n", fn);
     }
 }
 
