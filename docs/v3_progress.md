@@ -14,22 +14,34 @@ md0 batchsize dataset mnist_train         \ create a MNIST dataset with model ba
 constant ds0                              \ save dataset in a constant
 
 variable acc 0 acc !                      \ create an accuracy counter, and zero it
-
-: cnn (N D -- N') for forward backprop nn.hit acc +! 0.01 0.0 nn.sgd 46 emit next ;
-: stat cr . ." >" clock . ." : hit=" acc @ . 0 acc ! ." , loss=" loss.ce . cr ;
-: epoch for cnn r@ stat ds0 rewind next ;
+variable lst 0 lst !
+: stat cr .                               \ display statistics
+  ." >" clock .
+  ." : hit=" acc @ . 0 acc !
+  ." , loss=" lst @ . cr ;
+  
+: epoch ( N D -- N' )                     \ an CNN epoch (thru entire dataset)
+  for                                     \ loop thru dataset per mini-batch
+    forward                               \ neural net forward pass
+    loss.ce lst ! nn.hit acc +!           \ calculate loss and total hit rate
+    backprop                              \ back propergate loss
+    0.01 0.0 nn.sgd                       \ execute stochastic gradiant decent
+    46 emit                               \ display progress '.'
+  next ;
+: cnn ( N D n -- N' D )                   \ entire CNN in one word
+  for epoch r@ stat ds0 rewind next ;     \ run multiple epochs
 
 ds0                                       \ put dataset as TOS
-19 epoch                                  \ execute multiple epoches
+19 cnn                                    \ execute multiple epoches
 drop                                      \ drop dataset from TOS
 
-nn.save tests/my_net.t4                   \ persist the trained network
+s" tests/my_net.t4" nn.save               \ persist the trained network
 </pre>
 
 ### A CNN Prediction Application Example
 <pre>
 1000 28 28 1 nn.model                     \ create a blank model
-nn.load tests/my_net.t4                   \ load trained model and parameters from saved file
+s" tests/my_net.t4" nn.load               \ load trained model and parameters from saved file
 
 batchsize dataset mnist_test              \ create a test dataset with model batch size
 constant ds1                              \ keep it in a constant
@@ -59,14 +71,15 @@ ds1                                       \ put dataset on TOS
     > + loader - MNIST
   * Viewer (some more work)
     > + OpenGL for dataset
+    > + Output tensor in HWC raw format with util to convert to PNG
 
 ### Machine Learning volcabularies
 #### Model creation and persistence
 |word|param/example|tensor creation ops|
 |---|---|---|
 |nn.model|(n h w c -- N)|create a Neural Network model with (n,h,w,c) input|
-|nn.load|(N -- N')|load trained network from a given file name|
-|nn.save|(N -- N)|export network as a file|
+|nn.load|(N adr len [fam] -- N')|load trained network from a given file name|
+|nn.save|(N adr len [fam] -- N)|export network as a file|
     
 #### Dataset ops
 |word|param/example|tensor creation ops|
@@ -143,7 +156,7 @@ ds1                                       \ put dataset on TOS
 |loss.bce|(N Ta -- N Ta n)|binary cross-entropy, takes output from sigmoid layer|
 |loss.ce|(N Ta -- N Ta n)|cross-entropy, takes output from softmax activation|
 |loss.nll|(N Ta -- N Ta n)|negative log likelihood, takes output from log-softmax activation|
-|loss|(N Ta -- N Ta n)|auto select loss function from last output layer|
+|nn.loss|(N Ta -- N Ta n)|auto select loss function from last output layer|
 
 #### Gradiant ops
 |word|param/example|tensor creation ops|
@@ -190,6 +203,7 @@ ds1                                       \ put dataset on TOS
 * https://luniak.io/cuda-neural-network-implementation-part-1/
 
 * Loss https://towardsdatascience.com/cross-entropy-for-classification-d98e7f974451
+* Binary Classification well explained https://towardsdatascience.com/nothing-but-numpy-understanding-creating-binary-classification-neural-networks-with-e746423c8d5c
 
 * 1D nn   https://machinelearningmastery.com/implement-backpropagation-algorithm-scratch-python/
 * 2D conv https://datascience-enthusiast.com/DL/Convolution_model_Step_by_Stepv2.html
@@ -202,6 +216,8 @@ ds1                                       \ put dataset on TOS
 
 * GAN https://machinelearningmastery.com/how-to-develop-a-generative-adversarial-network-for-an-mnist-handwritten-digits-from-scratch-in-keras/
 * GAN applications https://github.com/nashory/gans-awesome-applications
+  + Mnist Keras https://debuggercafe.com/vanilla-gan-pytorch/
+  + Mnist Pytorch https://medium.com/intel-student-ambassadors/mnist-gan-detailed-step-by-step-explanation-implementation-in-code-ecc93b22dc60
 
 + Inception https://towardsdatascience.com/a-simple-guide-to-the-versions-of-the-inception-network-7fc52b863202
 + ResNet https://d2l.ai/chapter_convolutional-modern/resnet.html

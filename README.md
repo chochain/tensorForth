@@ -52,18 +52,31 @@ constant md0                                \ we can store the model in a consta
 md0 batchsize dataset mnist_train           \ create a MNIST dataset with model batch size
 constant ds0                                \ save dataset in a constant
 
+\ statistics
 variable acc 0 acc !                        \ create an accuracy counter, and zero it
+variable lox                                \ a variable to keep current loss
+: stat cr .                                 \ display statistics
+  ." >" clock .
+  ." : hit=" acc @ . 0 acc !
+  ." , loss=" lox @ . cr ;
 
-\ here's the entire training framework in 3 lines
-: cnn (N D -- N') for forward backprop nn.hit acc +! 0.01 0.0 nn.sgd 46 emit next ;
-: stat cr . ." >" clock . ." : hit=" acc @ . 0 acc ! ." , loss=" loss.ce . cr ;
-: epoch for cnn r@ stat ds0 rewind next ;
+\ entire CNN training framework
+: epoch (N D -- N')                         \ one epoch thru entire training dataset
+  for                                       \ loop thru dataset per mini-batch
+    forward                                 \ neural network forward pass
+    loss.ce lox ! nn.hit acc +!             \ get loss and hit count
+    backprop                                \ neural network back propegation
+    0.01 0.0 nn.sgd                         \ training with Stochastic Gradiant
+    46 emit                                 \ display progress '.'
+  next ;                                    \ next mini-batch (kept on return stack)
+: cnn ( N D n -- N' D )                     \ run multiple epochs
+  for epoch r@ stat ds0 rewind next ;
 
 ds0                                         \ put dataset as TOS
 19 epoch                                    \ execute multiple epoches
 drop                                        \ drop dataset from TOS
 
-nn.save tests/my_net.t4                     \ persist the trained network
+s" tests/my_net.t4" nn.save                 \ persist the trained network
 </pre>
 
 ### Example - Small Matrix ops
@@ -142,7 +155,8 @@ drop                                        \ drop the value
   > ~/tests> ten4 < lesson_3.txt - for linear algebra stuffs
 * enter the following for testsing machine learning (v3) ops<br/>
   > ~/tests> ten4 < lesson_4.txt - for single pass of forward, loss, and backprop<br/>
-  > ~/tests> ten4 < lesson_5.txt - for full blown 20 epoches of MNIST training<br/>
+  > ~/tests> ten4 < lesson_5.txt - MINST trainning, 20 epoches<br/>
+  > ~/tests> ten4 < lesson_7.txt - GAN on MINST dataset, 100 epoches<br/>
 
 #### with Eclipse
 * install Eclipse
@@ -163,8 +177,8 @@ drop                                        \ drop the value
 ### Model creation and persistence
 <pre>
   nn.model   (n h w c -- N)      - create a Neural Network model with (n,h,w,c) input
-  nn.load    (N -- N')           - load trained network from a given file name
-  nn.save    (N -- N)            - export network as a file
+  nn.load    (N adr len [fam] -- N') - load trained network from a given file name
+  nn.save    (N adr len [fam] -- N)  - export network as a file
   
   >n         (N T -- N')         - manually add tensor to model
   n@         (N n -- N T)        - fetch layered tensor from model, -1 is the latest layer
@@ -182,6 +196,7 @@ drop                                        \ drop the value
   forward    (N ds -- N')        - execute one forward propagation with TOS dataset, layer-by-layer in given model
   backprop   (N -- N')           - execute one backward propagation, adding derivatives for all parameters
   backprop   (N T -- N')         - execute one backward propagation with given onehot vector
+  broadcast  (N T -- N' )        - broadcast onehot tensor into Network Model (for backprop)
   
   for        (N ds -- N')        - loop through a dataset, ds will be pushed onto return stack
   next       (N -- N')           - loop if any subset of dataset left, or ds is pop off return stack
@@ -231,8 +246,8 @@ drop                                        \ drop the value
   loss.bce   (N Ta -- N Ta n)    - binary cross-entropy, takes output from sigmoid activation
   loss.ce    (N Ta -- N Ta n)    - cross-entropy, takes output from softmax activation
   loss.nll   (N Ta -- N Ta n)    - negative log likelihood, takes output from log-softmax activation
-  loss       (N Ta -- N Ta n)    - auto select between mse, bce, ce, nll based on last model output layer
-
+  
+  nn.loss    (N Ta -- N Ta n)    - auto select between mse, bce, ce, nll based on last model output layer
   nn.zero    (N -- N')           - manually zero gradiant tensors
   nn.sgd     (N p -- N')         - apply SGD(learn_rate=p, momentum=0.0) model back propagation
   nn.sgd     (N p m -- N')       - apply SGD(learn_rate=p, momentum=m) model back propagation
@@ -337,6 +352,14 @@ drop                                        \ drop the value
    /=        (Ta n  -- Ta')   - tensor-scalar scale down multiplication Ta' = 1/n * Ta
 </pre>
 
+### Tensor-Tensor loss functions (by default destructive, as in Forth)
+<pre>
+   loss.mse  (Tx Ty -- Tx')   - Mean Square Loss
+   loss.bce  (Tx Ty -- Tx')   - Binary Cross Entropy Loss
+   loss.ce   (Tx Ty -- Tx')   - Categorical Cross Entropy Loss
+   loss.nll  (Tx Ty -- Tx')   - Negative Log Likelyhood Loss
+</pre>
+
 ### Linear Algebra (by default non-destructive)
 <pre>
    matmul    (Ma Mb -- Ma Mb Mc) - matrix-matrix multiplication Mc = Ma @ Mb
@@ -352,12 +375,14 @@ drop                                        \ drop the value
    gemm      (a b Ma Mb Mc -- a b Ma Mb Mc') - GEMM Mc' = a * Ma * Mb + b * Mc
 </pre>
 
+### Tensor I/O, Persistence
+<pre>
+   save      (T adr len [fam] -- T) - pickle tensor to OS file (default text mode)
+</pre>
 
 ### TODO - by priorities
 * Model
   + GAN
-    - Mnist Keras https://machinelearningmastery.com/how-to-develop-a-generative-adversarial-network-for-an-mnist-handwritten-digits-from-scratch-in-keras/
-    - Mnist Pytorch https://debuggercafe.com/vanilla-gan-pytorch/
     - AC-GAN Keras (https://machinelearningmastery.com/how-to-develop-an-auxiliary-classifier-gan-ac-gan-from-scratch-with-keras/
     - use pre-trained model, i.e. transfer learning (https://openaccess.thecvf.com/content_ECCV_2018/papers/yaxing_wang_Transferring_GANs_generating_ECCV_2018_paper.pdf)
   + add block - branch & concatenate (i.e Inception in GoogLeNet)
@@ -373,8 +398,9 @@ drop                                        \ drop the value
     - https://towardsdatascience.com/a-detailed-guide-to-pytorchs-nn-transformer-module-c80afbc9ffb1
     - https://nlp.seas.harvard.edu/2018/04/03/attention.html
 * Data + Visualization
-  + output image in CHW format
-    * create Pytorch Dataset, CustomDataLoader => matplotlib
+  + output tensor in HWC format
+      * util from raw to png (with STB)
+      * for PIL (Python Image Lib), matplotlib
   + add loader plug-in API - CIFAR
   + add K-fold sampler
   + data API - Python(cffi), Ruby(FFI)
