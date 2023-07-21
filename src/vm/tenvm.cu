@@ -417,6 +417,9 @@ TensorVM::init() {
         DU v = mmu.rd(IP); IP += sizeof(DU);
         if (IS_OBJ(v)) mmu.ref_inc(v);
         PUSH(v)),
+    CODE("r@",
+        if (IS_OBJ(rs[-1])) PUSH(mmu.copy(rs[-1]));   /// * hard copy object, or
+        else PUSH(mmu.dup(rs[-1]))),                  /// * dup number
     CODE("abs", xop1(O_ABS)),
     CODE(".",   tprint()),
     CODE("+",   xop2(O_ADD, KEEP)),
