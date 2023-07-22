@@ -95,6 +95,7 @@ ds1                                       \ put dataset on TOS
 |>n|(N T -- N')|manually add tensor to model|
 |n@|(N n -- N T)|fetch layered tensor from model, -1 is the latest layer|
 |network|(N -- N)|display network model|
+|trainable|(N f -- N)|set/unset network model trainable flag|
 
 #### Batch controls
 |word|param/example|tensor creation ops|

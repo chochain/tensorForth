@@ -183,6 +183,7 @@ drop                                        \ drop the value
   >n         (N T -- N')         - manually add tensor to model
   n@         (N n -- N T)        - fetch layered tensor from model, -1 is the latest layer
   network    (N -- N)            - display network model
+  trainable  (N f -- N')         - enable/disable network trainable flag
 </pre>
     
 ### Dataset and Batch controls
