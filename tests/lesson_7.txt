@@ -31,11 +31,11 @@ fn + 1 - constant pos                         \ pointer to filename digits
 variable _gr                                  \ G loss from fake samples
 variable _dr                                  \ D loss for real samples
 variable _df                                  \ D loss for fake samples
-: stat ( -- )                                 \ display loss statistics
-  cr clock 1000 / int ." t=" .
-  _gr @ ." , G="  .
-  _dr @ ." , Dr=" .
-  _df @ ." , Df=" . cr mstat ;
+: stat ( -- ) cr                              \ display loss statistics
+  ." t=" clock 1000 / int .
+  ." , G="  _gr @ .
+  ." , Dr=" _dr @ .
+  ." , Df=" _df @ . cr mstat ;
 
 : gen ( G D -- G D t ) swap                   \ generate a mini-batch of fake images
   SEED forward -1 n@                          \ from random seeds
@@ -48,6 +48,7 @@ variable _df                                  \ D loss for fake samples
 
 : epoch ( G D ds -- G D )                     \ one epoch for the given data source
   for ( G D )                                 \ loop thru mini-batches (on rs)
+    1 trainable                               \ set D as trainable
     forward REAL loss.bce _dr ! REAL d_back   \ feed D with real data
     gen dup >r ( G D t )                      \ G creates fake images, keep a copy on rs
     forward FAKE loss.bce _df ! FAKE d_back   \ feed D with fake data, update D
@@ -55,10 +56,11 @@ variable _df                                  \ D loss for fake samples
     forward REAL loss.bce _gr ! REAL backprop \ feed D as real (but without updating)
     1 n@ r> swap -= ( G D t )                 \ fetch D backprop image, adjust as dLoss
     rot swap ( D G t ) g_back                 \ feed G with it
-    swap ( G D ) 1 trainable 46 emit          \ display progress, restore D trainable
+    swap ( G D ) 46 emit                      \ display progress, restore D trainable
   next ;                                      \ loop, if next mini-batch available
 : jk ( G D ds -- G D )
     >r
+    1 trainable
     forward REAL loss.bce ." Dr=" . REAL d_back
     gen dup >r ( G D t )
     forward FAKE loss.bce ." , Df=" . FAKE d_back
@@ -67,7 +69,7 @@ variable _df                                  \ D loss for fake samples
     forward REAL loss.bce ." , G=" . cr REAL backprop 
     1 n@ r> swap -= ( G D t )
     rot swap ( D G t ) g_back
-    swap ( G D ) 1 trainable
+    swap ( G D )
     r>
     ;
 : gan
@@ -77,6 +79,6 @@ variable _df                                  \ D loss for fake samples
     ds0 rewind
   next drop ;
   
-G D ds0 9 gan
+G D ds0 99 gan
 bye
 
