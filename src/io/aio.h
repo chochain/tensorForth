@@ -11,6 +11,8 @@
 #include "ostream.h"
 #include "mmu.h"            // in ../mmu
 
+#define IO_TRACE(...)      { if (_mmu->trace()) INFO(__VA_ARGS__); }
+
 class AIO : public Managed {
 public:
     Istream *_istr;         ///< managed input stream
@@ -20,10 +22,9 @@ public:
     int     _thres = 10;    ///< max cell count for each dimension
     int     _edge  = 3;     ///< number of tensor edge items
     int     _prec  = 4;     ///< shown floating point precision
-    int     _trace = 0;     ///< debug tracing control
 
-    AIO(MMU *mmu, int verbose=0) :
-        _istr(new Istream()), _ostr(new Ostream()), _mmu(mmu), _trace(verbose) {}
+    AIO(MMU *mmu) :
+        _istr(new Istream()), _ostr(new Ostream()), _mmu(mmu) {}
 
     __HOST__ Istream   *istream() { return _istr; }
     __HOST__ Ostream   *ostream() { return _ostr; }
