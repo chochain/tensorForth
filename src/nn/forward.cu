@@ -209,16 +209,17 @@ Model::forward(Tensor &input) {
             in.N(), in.H(), in.W(), in.C(), in.parm,
             out.N(), out.H(), out.W(), out.C());
     };
+    int tlvl = _mmu->trace();
     TRACE1("\nModel::forward starts");
     DU t0 = _mmu->ms(), t1 = t0, tt;             ///< performance measurement
     for (U16 i = 1; i < numel - 1; i++) {
         Tensor &in = (*this)[i], &out = (*this)[i + 1];
-        if (_trace) {
+        if (tlvl) {
             trace((tt=_mmu->ms()) - t1, i, in, out);
             t1 = tt;
         }
         _fstep(in, out);
-        if (_trace) debug(out);
+        if (tlvl) debug(out);
     }
     ///
     /// collect onehot vector and hit count

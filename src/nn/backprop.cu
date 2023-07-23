@@ -228,18 +228,20 @@ Model::backprop(Tensor &tgt) {
     }
     TRACE1("\nModel#backprop: input dimensions OK, calculate dLoss");
     tail -= tgt;                                 /// * calc delta (dLoss)
-    if (_trace) debug(tail, 300.0f);
+
+    int tlvl = _mmu->trace();
+    if (tlvl) debug(tail, 300.0f);
     
     TRACE1("\nModel#backprop starts");
     DU  t0 = _mmu->ms(), t1 = t0, tt;            ///< performance measurement
     for (U16 i = numel - 2, j = 0; i > 0; i--, j++) {
         Tensor &in = (*this)[i], &out = (*this)[i + 1];
-        if (_trace) {
+        if (tlvl) {
             trace((tt=_mmu->ms()) - t1, i, in, out);
             t1 = tt;
         }
         _bstep(in, out);
-        if (_trace) debug(in, 300.0f);
+        if (tlvl) debug(in, 300.0f);
     }
     TRACE1("\nModel::backprop %5.2f ms\n", _mmu->ms() - t0);
     return *this;
@@ -315,7 +317,7 @@ Model::_bconv(Tensor &in, Tensor &out) {
     }
 //  _dump_db(db);
 //  _dump(dw.data, dw.H(), dw.W(), dw.C());
-    if (_trace > 1) _dump_dbdf(db, dw);
+    if (_mmu->trace() > 1) _dump_dbdf(db, dw);
     return 0;
 }
 
@@ -372,7 +374,7 @@ Model::_blinear(Tensor &in, Tensor &out) {
         }
     }
     // _dump(in.data, in.H(), in.W(), in.C());
-    if (train && _trace > 1) {
+    if (train && _mmu->trace() > 1) {
          _dump_db(db);
          _dump_dw(dw, false);
     }

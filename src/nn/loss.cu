@@ -34,7 +34,7 @@ Model::onehot(Dataset &dset) {
         DU *h = hot.slice(n);                       ///< take a sample
         U16 i = dset.label[n];                      ///< label index
         h[i < HWC ? i : 0] = DU1;                   /// * mark hot by index
-        if (_trace > 1) show(h, n, HWC);
+        if (_mmu->trace() > 1) show(h, n, HWC);
     }
     return hot;
 }
