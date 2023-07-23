@@ -134,7 +134,7 @@ TensorForth::TensorForth(int device, int verbose) {
     /// allocate cuda memory blocks
     ///
     mmu = new MMU(khz, verbose);                ///> instantiate memory manager
-    aio = new AIO(mmu, verbose);                ///> instantiate async IO manager
+    aio = new AIO(mmu);                         ///> instantiate async IO manager
     MM_ALLOC(&vmst, VMST_SZ);                   ///> allocate for state of VMs
     MM_ALLOC(&vmst_cnt, sizeof(int)*4);
     
