@@ -44,7 +44,7 @@ AIO::_print_model(std::ostream &fout, Model &m) {
     for (int i = 1; i < sz; i++) {  /// skip root[0]
         Tensor &t = m[i];
         tinfo(t, i, (i==(sz-1)) ? 0 : t.grad_fn);
-        if (_trace && t.grad_fn != L_NONE) finfo(t.grad);
+        if (_mmu->trace() && t.grad_fn != L_NONE) finfo(t.grad);
         fout << endl;
     }
 }
@@ -76,7 +76,7 @@ AIO::_dsfetch(DU top, U16 mode, char *ds_name) {
     ///
     /// search cache for top <=> dataset pair
     ///
-    TRACE1("\nAIO::%s dataset (id=%x) =>",
+    IO_TRACE("\nAIO::%s dataset (id=%x) =>",
            ds_name ? ds_name : (rewind ? "rewind" : "fetch"), dsx);
     Corpus *cp = Loader::get(dsx, ds_name);      ///< Corpus/Dataset provider
     if (!cp) {
@@ -87,7 +87,7 @@ AIO::_dsfetch(DU top, U16 mode, char *ds_name) {
         ds.batch_id = ds.done = 0;
     }
     else if ((ds.done=cp->eof)) {                /// * dataset exhausted?
-        TRACE1(" completed, no more data.\n"); return 0;
+        IO_TRACE(" completed, no more data.\n"); return 0;
     }
     ///
     /// init and load a batch of data points
@@ -107,7 +107,7 @@ AIO::_dsfetch(DU top, U16 mode, char *ds_name) {
     /// if needed, allocate Dataset device (managed) memory blocks
     ///
     if (!cp->eof) ds.load_batch(cp->data, cp->label);
-    TRACE1("batch[%d] %d record(s) loaded\n", ds.batch_id - 1, batch_sz);
+    IO_TRACE("batch[%d] %d record(s) loaded\n", ds.batch_id - 1, batch_sz);
     
     return 0;
 }
