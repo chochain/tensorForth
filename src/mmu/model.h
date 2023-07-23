@@ -21,6 +21,11 @@ typedef enum {
     OPTI_ADAM                ///< Adam gradiant
 } t4_optimizer;
 ///
+/// tracing control
+///
+#define TRACE1(...) { if (_mmu->trace() > 0) INFO(__VA_ARGS__); }
+#define TRACE2(...) { if (_mmu->trace() > 1) INFO(__VA_ARGS__); }
+///
 ///< gradiant function pointer
 ///
 typedef void (*GdFunc)(
@@ -29,15 +34,13 @@ typedef void (*GdFunc)(
 ///< Neural Network Model class
 ///
 class Model : public T4Base {
-    MMU          *_mmu;              ///< tensor storage base
-    Tensor       *_store;            ///< model storage - Sequential, TODO: DAG
-    Tensor       *_hot  = NULL;      ///< cached dataset one-hot vector
-    int          _trace = 0;         ///< cached debug/tracing level
-    int          _iter  = 0;         ///< iteration counter
-    int          _hit   = 0;         ///< hit counter
+    MMU    *_mmu;              ///< tensor storage base
+    Tensor *_store;            ///< model storage - Sequential, TODO: DAG
+    Tensor *_hot  = NULL;      ///< cached dataset one-hot vector
+    int    _iter  = 0;         ///< iteration counter
+    int    _hit   = 0;         ///< hit counter
     
 public:
-    bool train = true;               ///< Network Model trainable
     ///
     /// @name Derivertive ops
     /// @{
@@ -52,13 +55,12 @@ public:
         return (Tensor&)_mmu->du2obj(data[(i < 0) ? numel + i : i]);
     }
     __BOTH__ __INLINE__ int  slots() { return _store->numel; }
-    __GPU__  __INLINE__ void reset(MMU *mmu, Tensor &store, int trace) {
+    __GPU__  __INLINE__ void reset(MMU *mmu, Tensor &store) {
         init(0, T4_MODEL, 0);                   /// * T4Base attributes
-        _trace = trace;
         _mmu   = mmu;
         _store = &store;
         data   = store.data;                    /// * cached entries
-        train  = true;
+        train  = 1;
         npush(store);                           /// * model.data[0] = store
     }
     __GPU__ __INLINE__ Model &npush(DU v) {
