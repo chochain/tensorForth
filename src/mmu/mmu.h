@@ -85,8 +85,8 @@ typedef enum {
 ///
 /// tracing level control
 ///
-#define TRACE1(...)   { if (_trace > 0) INFO(__VA_ARGS__); }
-#define TRACE2(...)   { if (_trace > 1) INFO(__VA_ARGS__); }
+#define MM_TRACE1(...) { if (_trace > 0) INFO(__VA_ARGS__); }
+#define MM_TRACE2(...) { if (_trace > 1) INFO(__VA_ARGS__); }
 ///
 /// Forth memory manager
 /// TODO: compare TLSF to RMM (Rapids Memory Manager)
