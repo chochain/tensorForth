@@ -25,8 +25,9 @@ struct T4Base : public Managed {
         U32  attr = 0;      ///< attrbutes collective
         struct {
             U8    ttype: 2; ///< t4_obj, 0:view, 1=tensor, 2=model, 3=dataset
-            U8    dsize: 3; ///< size of data element, F32=5, F64=6
+            U8    dunit: 2; ///< size of data element, F32=0, F64=1
             U8    rank : 3; ///< rank of tensor 2:matrix, 4:NHWC tensor
+            U8    train: 1; ///< trainable
             U8    nref;     ///< reference counter (reserved)
             U16   parm;     ///< extra parameter storage
         };
@@ -36,17 +37,17 @@ struct T4Base : public Managed {
     /// class contructors
     ///
     __HOST__ T4Base() :
-        dsize(DSIZE), numel(0), rank(0) {}
+        dunit(DUNIT), numel(0), rank(0) {}
     __HOST__ T4Base(U32 sz) :
-        dsize(DSIZE), numel(sz), rank(1) {
+        dunit(DUNIT), numel(sz), rank(1) {
         MM_ALLOC((void**)&data, (size_t)numel * sizeof(DU));
     }
     __HOST__ T4Base(U16 h, U16 w) :
-        dsize(DSIZE), numel(h * w), rank(2) {
+        dunit(DUNIT), numel(h * w), rank(2) {
         MM_ALLOC((void**)&data, (size_t)numel * sizeof(DU));
     }
     __HOST__ T4Base(U16 n, U16 h, U16 w, U16 c) :
-        dsize(DSIZE), numel(n * h * w * c), rank(4) {
+        dunit(DUNIT), numel(n * h * w * c), rank(4) {
         MM_ALLOC((void**)&data, (size_t)numel * sizeof(DU));
     }
     __HOST__ ~T4Base() {
@@ -56,7 +57,7 @@ struct T4Base : public Managed {
     __BOTH__ __INLINE__ void init(U32 n, U8 tt, U8 rnk) {
         numel = n;
         ttype = tt;
-        dsize = DSIZE;
+        dunit = DUNIT;
         rank  = rnk;
         nref  = 1;
         parm  = 0;
