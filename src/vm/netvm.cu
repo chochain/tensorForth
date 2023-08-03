@@ -133,7 +133,7 @@ NetVM::_loss(t4_loss op) {
         Tensor &y = TTOS; POP();        /// * pop off target tensor
         Tensor &x = TTOS;
         PUSH(x.loss(op, y));
-        mmu.free(y);
+        mmu.mark_free(y);               /// * delayed free
     }
     else if (TOS1T && IS_M(ss[-1])) {
         Tensor &t = TTOS; POP();
@@ -273,20 +273,20 @@ NetVM::init() {
         }
         else ERROR("no model or a dataset?\n")),
     CODE("backprop",
-         if (IS_M(ss[-1]) && TOS1T) {          /// * TOS is a onehot vector
-             Tensor &t = TTOS; POP();
-             MTOS.backprop(t);
-             mmu.free(t);
-         }
-         else if (IS_M(top)) MTOS.backprop();  /// * use default output
-         else ERROR("TOS not a model?\n")),
+        if (IS_M(ss[-1]) && TOS1T) {          /// * TOS is a onehot vector
+            Tensor &t = TTOS; POP();
+            MTOS.backprop(t);
+            mmu.free(t);
+        }
+        else if (IS_M(top)) MTOS.backprop();  /// * use default output
+        else ERROR("TOS not a model?\n")),
     CODE("broadcast",
-         if (IS_M(ss[-1]) && TOS1T) {          /// * TOS is a onehot vector
-             Tensor &t = TTOS; POP();
-             MTOS.broadcast(t);
-             mmu.free(t);
-         }
-         else ERROR("TOS not a tensor nor NOS a model?\n")),
+        if (IS_M(ss[-1]) && TOS1T) {          /// * TOS is a onehot vector
+            Tensor &t = TTOS; POP();
+            MTOS.broadcast(t);
+            mmu.free(t);
+        }
+        else ERROR("TOS not a tensor nor NOS a model?\n")),
     ///@}
     ///@defgroup Debugging ops
     ///@{
