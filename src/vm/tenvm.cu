@@ -118,7 +118,7 @@ TensorVM::xop2(t4_ten_op op, t4_drop_opt x) {
         Tensor &O = _ts_op(op);
         VLOG1("A[%d,%d] %s %f => O[%d,%d]\n",
               TNOS.H(), TNOS.W(), opn[op], top, O.H(), O.W());
-        if (x==DROP) { POP(); mmu.free(TTOS); POP(); }
+        if (x==DROP) { POP(); mmu.mark_free(TTOS); POP(); }
         PUSH(O);
         return;
     }
@@ -126,7 +126,7 @@ TensorVM::xop2(t4_ten_op op, t4_drop_opt x) {
         Tensor &O = _st_op(op);
         VLOG1("%f %s A[%d,%d] => O[%d,%d]\n",
               ss[-1], opn[op], TTOS.H(), TTOS.W(), O.H(), O.W());
-        if (x==DROP) { mmu.free(TTOS); POP(); POP(); }
+        if (x==DROP) { mmu.mark_free(TTOS); POP(); POP(); }
         PUSH(O);
         return;
     }
@@ -135,7 +135,10 @@ TensorVM::xop2(t4_ten_op op, t4_drop_opt x) {
     if (O != TTOS) {
         VLOG1("TensorVM# A[%d,%d] %s B[%d,%d] => O[%d,%d]\n",
              TNOS.H(), TNOS.W(), opn[op], TTOS.H(), TTOS.W(), O.H(), O.W());
-        if (x==DROP) { mmu.free(TTOS); POP(); mmu.free(TTOS); POP(); }
+        if (x==DROP) {
+            mmu.mark_free((Tensor&)TTOS); POP();
+            mmu.mark_free((Tensor&)TTOS); POP();
+        }
         PUSH(O);
     }
 }
