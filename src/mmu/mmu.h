@@ -167,6 +167,7 @@ public:
     __GPU__  __INLINE__ void drop(DU d)      {}             ///< place holder
     __GPU__  __INLINE__ DU   dup(DU d)       { return d; }  ///< place holder
 #else // T4_ENABLE_OBJ
+    __GPU__  void   mark_free(T4Base &t);                   ///< mark a tensor free
     __GPU__  void   mark_free(DU v);                        ///< mark a tensor free
     __GPU__  void   sweep();                                ///< free marked tensor
     __GPU__  Tensor &talloc(U32 sz);                        ///< allocate from tensor space

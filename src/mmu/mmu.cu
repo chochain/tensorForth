@@ -131,15 +131,21 @@ MMU::colon(const char *name) {
 /// tensor life-cycle methods
 ///
 __GPU__ void
-MMU::mark_free(DU v) {            ///< mark a tensor free for release
-    T4Base &t = du2obj(v);
+MMU::mark_free(T4Base &t) {       ///< mark a tensor free for release
     if (t.ref_dec()) return;
-    
+
+    DU v = obj2du(t);
+
     MM_TRACE1("mmu#mark T=%x to free[%d]\n", DU2X(v), _fidx);
 //    lock();
     if (_fidx < T4_TFREE_SZ) _mark[_fidx++] = v;
     else ERROR("ERR: tfree store full, increase T4_TFREE_SZ!");
 //    unlock();                   ///< TODO: CC: DEAD LOCK, now!
+}
+__GPU__ void
+MMU::mark_free(DU v) {            ///< mark a tensor free for release
+    T4Base &t = du2obj(v);
+    mark_free(t);
 }
 __GPU__ void                      ///< release marked free tensor
 MMU::sweep() {
