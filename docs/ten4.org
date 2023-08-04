@@ -1,0 +1,521 @@
+#+title: tensorForth
+#+author: Chochain Lee
+
+* tensorForth - Forth does matrices and machine learning
+
+** *Forth* VMs
+** support tensor calculus, and
+** Neural Network operations,
+** with dynamic parallelism,
+** on GPU
+
+* Status
+
+| version | feature | stage | description                      | conceptual comparable |
+|---------+---------+-------+----------------------------------+-----------------------|
+| [[https://github.com/chochain/tensorForth/releases/tag/v1.0.2][v1.0]]    | *float*   | prod  | extended *eForth* with F32 float   | Python                |
+| [[https://github.com/chochain/tensorForth/releases/tag/v2.0.2][v2.0]]    | *matrix*  | prod  | + vector and matrix objects      | NumPy                 |
+| [[https://github.com/chochain/tensorForth/releases/tag/v2.2.2][v2.2]]    | *lapack*  | beta  | + linear algebra methods         | SciPy                 |
+| [[https://github.com/chochain/tensorForth/releases/tag/v3.0.0][v3.0]]    | *CNN*     | alpha | + Machine Learning with autograd | Torch                 |
+| v3.2    | *GAN*     | devel | + Generative Adversarial Net     | PyTorch.GAN           |
+| future  | *Xfmr*    | plan  | to add Transformer ops           | PyTorch.Transformer   |
+
+* Why?
+
+
+** /Niklaus Wirth/: *Algorithms + Data Structures = Programs*
+   + To much on Algorithms - most modern languages, i.e. OOP
+   + Too focused on Data Structures - APL, SQL
+   + /Numpy/ solves both, so AI use *Python*.
+
+** *Python* code used like a *Makefile* 
+   + need compilers/linker on the host box,
+   + code analysis happen at the tail-end,
+   + hard to debug or automate monitoring
+
+** *Forth* build and test incrementally
+   + as a 'shell', lives in GPU, no drop back to host
+   + develop/run each AI layer/node as 'words'
+
+** Flipped side
+   + branch divergence might kill the GPU performance. 
+   + but, the 'shell scripts' themselves are not really the point.
+
+* What?
+
+*tensor + Forth = tensorForth!*
+
+** Compiled programs on Linux. 
+   + Command-line interface and shell scripting tie them together in operation. 
+   + With interactive development, small tools are built along the way, 
+
+** Get GPU involved
+   + no need 'just-in-time' transcoding to C/C++, i.e. /Numba/
+   + no on-the-fly compilation then load and run.
+
+** More details (TODO)
+** Benchmarks
+   + [[./docs/img/ten4_model_cmp.png][Different Neural Network Models]]  + [[./docs/img/ten4_act_cmp.png][Activation Layers on linear MNIST]]
+
+* How?
+
+** GPU, behaves like a co-processor or a DSP chip. 
+** It has no OS, no string support, and runs its own memory. 
+** Most of the available libraries are built for host instead of device
+** So, to be interactive, a memory manager, IO, and syncing with CPU are things needed to be had. 
+** need a Forth from scratch for a the GPU
+  + Since GPUs have good compiler support nowadays, and
+  + I've ported the latest [[https://github.com/chochain/eforth][eForth]] to lambda-based in C++, so C for now.
+  + having *FP32* or *float32* as my basic data unit
+  + *FP16*, or even fixed-point later
+  + need to watch addressing and logic ops
+  + class/methods => loadable Forth blocks later?
+  + Forth in NVVM IR or even PTX assembly?
+  + [[https://www.greenarraychips.com/][*GreenArray*]] or FPGA?
+** It's the problem they solve. Languages don't really matter. 
+  + Having an interactive Forth in GPU does not mean a lot by itself. 
+  + However by adding vector, matrix, linear algebra support 
+  + with a breath of **APL**'s massively parallel from GPUs. 
+  + Neural Network tensor ops like PyTorch
+
+* Example - Small Matrix ops
+<pre>
+> ten4                # enter tensorForth
+/tensorForth 2.0/
+/\  GPU 0 initialized at 1800MHz, dict[1024], vmss[64*1], pmem=48K, tensor=1024M/
+2 3 *matrix{ 1 2 3 4 5 6 }*            \ create a 2x3 matrix
+ /<0 T2[2,3]> ok/                      \ 2-D tensor shown on top of stack (TOS)
+*dup*                                  \ duplicate
+ /<0 T2[2,3] T2[2,3]> ok/              \ two matrices now sit on stack
+*.*                                    \ print one
+/matrix[2,3] = {/
+	/{ +1.0000 +2.0000 +3.0000 }/
+	/{ +4.0000 +5.0000 +6.0000 } }/
+ /<0 T2[2,3]> ok/                      \ only one matrix now left on stack
+3 2 *matrix* *ones*                      \ create a 3x2 matrix, fill it with ones
+ /<0 T2[2,3] T2[3,2]> ok/
+*@*                                    \ multiply matrices 2x3 @ 3x2
+ /<0 T2[2,3] T2[3,2] T2[2,2]> ok/      \ 2x2 resultant matrix shown on TOS
+*.*                                    \ print the matrix
+/matrix[2,2] = {/
+	/{ +6.0000 +6.0000 }/
+	/{ +15.0000 +15.0000 } }/
+ /<0 T2[2,3] T2[3,2]> ok/
+*2drop*                                \ free both matrics
+ /<0> ok/
+*bye*                                  \ exit tensorForth
+ /<0> ok/
+/tensorForth 2.0 done./
+</pre>
+
+* Example - Larger Matrix ops
+benchmark 1024x2048 x 2048x512 matrices - 1000 loops
+<pre>
+1024 2048 matrix rand                \ create a 1024x2048 matrix with uniform random values
+ <0 T2[1024,2048]> ok                
+2048 512 matrix ones                 \ create another 2048x512 matrix filled with 1s
+ <0 T2[1024,2048] T2[2048,512]> ok
+@                                    \ multiply them and resultant matrix on TOS
+ <0 T2[1024,2048] T2[2048,512] T2[1024,512]> ok
+2048 / .                             \ scale down and print the resultant 1024x512 matrix
+matrix[1024,512] = {                 \ in PyTorch style (edgeitem=3)
+	{ +0.4873 +0.4873 +0.4873 ... +0.4873 +0.4873 +0.4873 }
+	{ +0.4274 +0.4274 +0.4274 ... +0.4274 +0.4274 +0.4274 }
+	{ +0.5043 +0.5043 +0.5043 ... +0.5043 +0.5043 +0.5043 }
+	...
+	{ +0.5041 +0.5041 +0.5041 ... +0.5041 +0.5041 +0.5041 }
+	{ +0.5007 +0.5007 +0.5007 ... +0.5007 +0.5007 +0.5007 }
+	{ +0.5269 +0.5269 +0.5269 ... +0.5269 +0.5269 +0.5269 } }
+ <0 T2[1024,2048] T2[2048,512] T2[1024,512] 2048> ok  \ note that matrix and 2048 are untouched
+2drop                                       \ because tensor ops are by default non-destructive
+ <0 T2[1024,2048] T2[2048,512]> ok          \ so we drop them from TOS
+
+: mx clock >r for @ drop next clock r> - ;  \ now let's define a word 'mx' for benchmark loop
+9 mx                                        \ run benchmark for 10 loops
+ <0 T2[1024,2048] T2[2048,512] 396> ok      \ 396 ms for 10 cycles
+drop                                        \ drop the value
+ <0 T2[1024,2048] T2[2048,512]> ok
+999 mx                                      \ now try 1000 loops
+ <0 T2[1024,2048] T2[2048,512] 3.938+04> ok \ that is 39.38 sec (i.e. ~40ms / loop)
+</pre>
+
+* Example - CNN Training on MNIST dataset
+<pre>
+10 28 28 1 *nn.model*                         \ create a network model (input dimensions)
+0.5 10 conv2d 2 maxpool relu                \ add a convolution block
+0.5 20 conv2d 0.5 dropout 2 maxpool relu    \ add another convolution block
+flatten 49 linear                           \ add reduction layer to 49-feature, and
+0.5 dropout 10 linear softmax               \ final 10-feature fully connected output
+constant md0                                \ we can store the model in a constant
+                                
+md0 batchsize dataset mnist_train           \ create a MNIST dataset with model batch size
+constant ds0                                \ save dataset in a constant
+
+\ statistics
+variable acc 0 acc !                        \ create an accuracy counter, and zero it
+variable lox                                \ a variable to keep current loss
+: stat cr .                                 \ display statistics
+  ." >" clock .
+  ." : hit=" acc @ . 0 acc !
+  ." , loss=" lox @ . cr ;
+
+\ entire CNN training framework
+: epoch (N D -- N')                         \ one epoch thru entire training dataset
+  for                                       \ loop thru dataset per mini-batch
+    forward                                 \ neural network forward pass
+    loss.ce lox ! nn.hit acc +!             \ get loss and hit count
+    backprop                                \ neural network back propegation
+    0.01 0.0 nn.sgd                         \ training with Stochastic Gradiant
+    46 emit                                 \ display progress '.'
+  next ;                                    \ next mini-batch (kept on return stack)
+: cnn ( N D n -- N' D )                     \ run multiple epochs
+  for epoch r@ stat ds0 rewind next ;
+
+ds0                                         \ put dataset as TOS
+19 epoch                                    \ execute multiple epoches
+drop                                        \ drop dataset from TOS
+
+s" tests/my_net.t4" nn.save                 \ persist the trained network
+</pre>
+
+* To build
+
++ install CUDA 11.6 on your machine
++ download one of the releases from the list above to your local directory
+
+** with Makefile, and test
+   + cd to your ten4 repo directory,
+   + update root Makefile to your desired CUDA_ARCH, CUDA_CODE,
+   + type 'make all',
+   + if all goes well, some warnings aside, cd to tests directory,
+   + enter the following for Forth (v1) ops<br/>
+     > ~/tests> ten4 < lesson_1.txt - for basic syntax checks
+   + enter the following for testing matrix (v2) ops<br/>
+     > ~/tests> ten4 < lesson_2.txt - for matrix ops,<br/>
+     > ~/tests> ten4 < lesson_3.txt - for linear algebra stuffs
+   + enter the following for testsing machine learning (v3) ops<br/>
+     > ~/tests> ten4 < lesson_4.txt - for single pass of forward, loss, and backprop<br/>
+     > ~/tests> ten4 < lesson_5.txt - MINST trainning, 20 epoches<br/>
+     > ~/tests> ten4 < lesson_7.txt - GAN on MINST dataset, 100 epoches<br/>
+
+** with Eclipse
+   + install Eclipse
+   + install CUDA SDK 11.6 for Eclipse (from Nvidia site)
+   + create project by importing from your local repo root
+   + exclude directories - ~/tests, ~/img
+   + set File=>Properties=>C/C++ Build=>Setting=>NVCC compiler
+     + Dialect=C++14
+     + CUDA=5.2 or above
+     + Optimization=O3
+
+* Command-line options
+   -h             - list all GPU id and their properties<br/>
+   -d device_id   - select GPU device id
+   -v verbo_level - set verbosity level 0: off (default), 1: mmu tracing on, 2: detailed trace
+
+* Vocabulary - Machine Learning
+** Model creation and persistence
+<pre>
+  nn.model   (n h w c -- N)      - create a Neural Network model with (n,h,w,c) input
+  nn.load    (N adr len [fam] -- N') - load trained network from a given file name
+  nn.save    (N adr len [fam] -- N)  - export network as a file
+  
+  >n         (N T -- N')         - manually add tensor to model
+  n@         (N n -- N T)        - fetch layered tensor from model, -1 is the latest layer
+  network    (N -- N)            - display network model
+  trainable  (N f -- N')         - enable/disable network trainable flag
+</pre>
+    
+** Dataset and Batch controls
+<pre>
+  dataset    (n -- D)            - create a dataset with batch size = n, and given name i.e. 10 dataset abc
+  fetch      (D -- D')           - fetch a mini-batch from dataset on return stack
+  rewind     (D -- D')           - rewind dataset internal counters (for another epoch)
+  batchsize  (D -- D b)          - get input batch size of a model
+  
+  forward    (N -- N')           - execute one forward path with rs[-1] dataset, layer-by-layer in given model
+  forward    (N ds -- N')        - execute one forward propagation with TOS dataset, layer-by-layer in given model
+  backprop   (N -- N')           - execute one backward propagation, adding derivatives for all parameters
+  backprop   (N T -- N')         - execute one backward propagation with given onehot vector
+  broadcast  (N T -- N' )        - broadcast onehot tensor into Network Model (for backprop)
+  
+  for        (N ds -- N')        - loop through a dataset, ds will be pushed onto return stack
+  next       (N -- N')           - loop if any subset of dataset left, or ds is pop off return stack
+</pre>
+
+** Convolution, Dense, and Pooling Layers
+<pre>
+  conv2d     (N -- N')           - create a 2D convolution 3x3 filter, stride=1, padding=same, dilation=0, bias=0.5
+  conv2d     (N b c -- N')       - create a 2D convolution, bias=b, c channels output, with default 3x3 filter
+  conv2d     (N b c A -- N')     - create a 2D convolution, bias=b, c channels output, with config i.g. Vector[5, 5, 3, 2, 1] for (5x5, padding=3, stride=2, dilation=1, bais=0.3)
+  conv1x1    (N b c -- N')       - create a 1x1 convolution, bias=b, c channels output, stide=1, padding=same, dilation=0
+  flatten    (N -- N')           - flatten a tensor (usually input to linear)
+  
+  linear     (N b n -- N')       - linearize (y = Wx + b) from Ta input to n out_features
+  linear     (N n -- N')         - linearize (y = Wx), bias=0.0 from Ta input to n out_features
+  
+  maxpool    (N n -- N')         - nxn cells maximum pooling
+  avgpool    (N n -- N')         - nxn cells average pooling
+  minpool    (N n -- N')         - nxn cell minimum pooling
+  dropout    (N p -- N')         - zero out p% of channel data (add noise between data points)
+  upsample   (N n -- N')         - upsample to nearest size=n, 2x2 and 3x3 supported
+  upsample   (N m n -- N')       - upsample with method=m, size=n, 2x2 and 3x3 supported
+  batchnorm  (N -- N')           - batch normal layer with default momentum=0.1
+  batchnorm  (N m -- N')         - batch normal with momentum=m
+</pre>
+
+** Activation (non-linear) and Classifier
+<pre>
+  tanh       (Ta -- Ta')         - tensor element-wise tanh Ta' = tanh(Ta)
+  relu       (Ta -- Ta')         - tensor element-wise ReLU Ta' = max(0, Ta)
+  sigmoid    (Ta -- Ta')         - tensor element-wise Sigmoid Ta' = 1/(1+exp(-Ta))
+  sqrt       (Ta -- Ta')         - tensor element-wise Sqrt Ta' = sqrt(Ta)
+  tanh       (N -- N')           - add tanh layer to network model
+  relu       (N -- N')           - add Rectified Linear Unit to network model
+  sigmoid    (N -- N')           - add sigmoid 1/(1+exp^-z) activation to network model, used in binary cross entropy
+  selu       (N -- N')           - add Selu alpha(exp-1) activation to network model
+  leakyrelu  (N a -- N')         - add leaky ReLU with slope=a
+  leu        (N a -- N')         - add exponential linear unit alpha=a
+  
+  softmax    (N -- N')           - add probability vector exp(x)/sum(exp(x)) to network model, feeds loss.ce, used in multi-class
+  logsoftmax (N -- N')           - add probability vector x - log(sum(exp(x))) to network model, feeds loss.nll, used in multi-class
+</pre>
+
+** Loss and Gradiant ops
+<pre>
+  loss.mse   (N Ta -- N Ta n)    - mean squared error, takes output from linear layer
+  loss.bce   (N Ta -- N Ta n)    - binary cross-entropy, takes output from sigmoid activation
+  loss.ce    (N Ta -- N Ta n)    - cross-entropy, takes output from softmax activation
+  loss.nll   (N Ta -- N Ta n)    - negative log likelihood, takes output from log-softmax activation
+  
+  nn.loss    (N Ta -- N Ta n)    - auto select between mse, bce, ce, nll based on last model output layer
+  nn.zero    (N -- N')           - manually zero gradiant tensors
+  nn.sgd     (N p -- N')         - apply SGD(learn_rate=p, momentum=0.0) model back propagation
+  nn.sgd     (N p m -- N')       - apply SGD(learn_rate=p, momentum=m) model back propagation
+  nn.adam    (N a b1 -- N')      - apply Adam backprop alpha, beta1, default beta2=1-(1-b1)^3
+  nn.zero    (N -- N')           - reset momentum tensors
+  nn.onehot  (N -- N T)          - get cached onehot vector from a model
+  nn.hit     (N -- N n)          - get number of hit (per mini-batch) of a model
+</pre>
+
+* Vocabulary - Tensor Calculus
+** Tensor creation
+<pre>
+   vector    (n       -- T1)     - create a 1-D array and place on top of stack (TOS)
+   matrix    (h w     -- T2)     - create 2-D matrix and place on TOS
+   tensor    (n h w c -- T4)     - create a 4-D NHWC tensor on TOS
+   vector{   (n       -- T1)     - create 1-D array from console stream
+   matrix{   (h w     -- T2)     - create a 2-D matrix from console stream
+   view      (Ta      -- Ta Va)  - create a view (shallow copy) of a tensor
+   copy      (Ta      -- Ta Ta') - duplicate (deep copy) a tensor on TOS
+</pre>
+
+** Duplication ops (reference creation)
+<pre>
+   dup       (Ta    -- Ta Ta)    - create a reference of a tensor on TOS
+   over      (Ta Tb -- Ta Tb Ta) - create a reference of the 2nd item (NOS)
+   2dup      (Ta Tb -- Ta Tb Ta Tb)
+   2over     (Ta Tb Tc Td -- Ta Tb Tc Td Ta Tb)
+</pre>
+
+** Tensor/View print
+<pre>
+   . (dot)   (Ta -- )        - print a vector, matrix, or tensor
+   . (dot)   (Va -- )        - print a view of a tensor
+</pre>
+
+** Shape adjustment (change shape of origial tensor or view)
+<pre>
+   flatten   (Ta -- T1a')    - reshap a tensor or view to 1-D array
+   reshape2  (Ta -- T2a')    - reshape to a 2-D matrix view
+   reshape4  (Ta -- T4a')    - reshape to a 4-D NHWC tensor or view
+</pre>
+
+** Fill tensor with init values (data updated to original tensor)
+<pre>
+   zeros     (Ta   -- Ta')   - fill tensor with zeros
+   ones      (Ta   -- Ta')   - fill tensor with ones
+   full      (Ta   -- Ta')   - fill tensor with number on TOS
+   eye       (Ta   -- Ta')   - fill diag with 1 and other with 0
+   rand      (Ta   -- Ta')   - fill tensor with uniform random numbers
+   randn     (Ta   -- Ta')   - fill tensor with normal distribution random numbers
+   ={        (Ta   -- Ta')   - fill tensor with console input from the first element
+   ={        (Ta n -- Ta')   - fill tensor with console input starting at n'th element
+</pre>
+
+** Tensor slice and dice
+<pre>
+   slice     (Ta i0 i1 j0 j1 -- Ta Ta') - numpy.slice[i0:i1,j0:j1,]
+</pre>
+
+** Tensor arithmetic (by default non-destructive)
+<pre>
+   +         (Ta Tb -- Ta Tb Tc)  - tensor element-wise addition Tc = Ta + Tb
+   +         (Ta n  -- Ta n  Ta') - tensor-scalar addition (broadcast) Ta' = Ta + n
+   +         (n  Ta -- n  Ta Ta') - scalar-tensor addition (broadcast) Ta' = Ta + n
+   -         (Ta Tb -- Ta Tb Tc)  - tensor element-wise subtraction Tc = Ta - Tb
+   -         (Ta n  -- Ta n  Ta') - tensor-scalar subtraction (broadcast) Ta' = Ta - n
+   -         (n  Ta -- n  Ta Ta') - tensor-scalar subtraction (broadcast) Ta' = n - Ta
+   @         (Ta Tb -- Ta Tb Tc)  - matrix-matrix inner product Tc = Ta @ Tb, i.e. matmul
+   @         (Ta Ab -- Ta Ab Ac)  - matrix-vector inner product Ac = Ta @ Ab
+   @         (Aa Ab -- Aa Ab n)   - vector-vector inner product n = Aa @ Ab, i.e. dot
+   *         (Ta Tb -- Ta Tb Tc)  - tensor-tensor element-wise multiplication Tc = Ta * Tb
+   *         (Ta Ab -- Ta Ab Ta') - matrix-vector multiplication Ta' = Ta * colum_vector(Ab)
+   *         (Ta n  -- Ta n  Ta') - tensor-scalar multiplication Ta' = n * Ta, i.e. scale up
+   *         (n  Ta -- n  Ta Ta') - scalar-tensor multiplication Ta' = n * Ta, i.e. scale up
+   /         (Ta Tb -- Ta Tb Tc)  - tensor-tensor element-wise divide Tc = Ta / Tb
+   /         (Ta n  -- Ta n  Ta') - tensor-scalar scale down Ta' = 1/n * Ta
+   sum       (Ta    -- Ta n)      - sum all elements of a tensor
+   avg       (Ta    -- Ta n)      - average of all elements of a tensor
+   max       (Ta    -- Ta n)      - max of all elements of a tensor
+   min       (Ta    -- Ta n)      - min of all elements of a tensor
+</pre>
+
+** Tensor arithmetic (by default destructive, as in Forth)
+<pre>
+   abs       (Ta    -- Ta')   - tensor element-wise absolute Ta' = abs(Ta)
+   negate    (Ta    -- Ta')   - tensor element-wise negate   Ta' = -(Ta)
+   exp       (Ta    -- Ta')   - tensor element-wise exponential Ta' = exp(Ta)
+   +=        (Ta Tb -- Tc)    - tensor element-wise addition Tc = Ta + Tb
+   +=        (Ta n  -- Ta')   - tensor-scalar addition (broadcast) Ta' = Ta + n
+   +=        (n  Ta -- Ta')   - scalar-tensor addition (broadcast) Ta' = Ta + n
+   -=        (Ta Tb -- Tc)    - tensor element-wise subtraction Tc = Ta - Tb
+   -=        (Ta n  -- Ta')   - tensor-scalar subtraction (broadcast) Ta' = Ta - n
+   -=        (n  Ta -- Ta')   - scalar-tensor subtraction (broadcast) Ta' = n - Ta
+   @=        (Ta Tb -- Tc)    - matrix-matrix inner product Tc = Ta @ Tb, i.e. matmul
+   @=        (Ta Ab -- Ac)    - matrix-vector inner product Ac = Ta @ Ab
+   @=        (Aa Ab -- Ac)    - vector-vector inner prodcut n = Aa @ Ab, i.e. dot
+   *=        (Ta Tb -- Tc)    - matrix-matrix element-wise multiplication Tc = Ta * Tb
+   *=        (Ta Ab -- Ac')   - matrix-vector multiplication Ac' = Ta * Ab
+   *=        (Ta n  -- Ta')   - tensor-scalar multiplication Ta' = n * Ta
+   *=        (n  Ta -- Ta')   - scalar-tensor multiplication Ta' = n * Ta
+   /=        (Ta Tb -- Tc)    - matrix-matrix element-wise Tc = Ta / Tb 
+   /=        (Ta n  -- Ta')   - tensor-scalar scale down multiplication Ta' = 1/n * Ta
+</pre>
+
+** Tensor-Tensor loss functions (by default destructive, as in Forth)
+<pre>
+   loss.mse  (Tx Ty -- Tx')   - Mean Square Loss
+   loss.bce  (Tx Ty -- Tx')   - Binary Cross Entropy Loss
+   loss.ce   (Tx Ty -- Tx')   - Categorical Cross Entropy Loss
+   loss.nll  (Tx Ty -- Tx')   - Negative Log Likelyhood Loss
+</pre>
+
+** Linear Algebra (by default non-destructive)
+<pre>
+   matmul    (Ma Mb -- Ma Mb Mc) - matrix-matrix multiplication Mc = Ma @ Mb
+   matdiv    (Ma Mb -- Ma Mb Mc) - matrix-matrix division Mc = Ma @ inverse(Mb)
+   inverse   (Ma    -- Ma Ma')   - matrix inversion (Gauss-Jordan with Pivot)
+   transpose (Ma    -- Ma Ma')   - matrix transpose
+   det       (Ma    -- Ma d)     - matrix determinant (with PLU)
+   lu        (Ma    -- Ma Ma')   - LU decomposition (no Pivot)
+   luinv     (Ma    -- Ma Ma')   - inverse of an LU matrix
+   upper     (Ma    -- Ma Ma')   - upper triangle
+   lower     (Ma    -- Ma Ma')   - lower triangle with diag filled with 1s
+   solve     (Ab Ma -- Ab Ma Ax) - solve linear equation AX = B
+   gemm      (a b Ma Mb Mc -- a b Ma Mb Mc') - GEMM Mc' = a * Ma * Mb + b * Mc
+</pre>
+
+** Tensor I/O, Persistence
+<pre>
+   save      (T adr len [fam] -- T) - pickle tensor to OS file (default text mode)
+</pre>
+
+* TODO
+** Model
+  + GAN
+    - [[https://machinelearningmastery.com/how-to-train-stable-generative-adversarial-networks/][DC-GAN]]
+    - [[https://machinelearningmastery.com/how-to-develop-an-auxiliary-classifier-gan-ac-gan-from-scratch-with-keras/][AC-GAN Keras]]
+    - [[https://openaccess.thecvf.com/content_ECCV_2018/papers/yaxing_wang_Transferring_GANs_generating_ECCV_2018_paper.pdf)][use pre-trained model, i.e. transfer learning ]]
+  + add block - branch & concatenate (i.e Inception in GoogLeNet)
+  + add block - residual map i.e. [[https://d2l.ai/chapter_convolutional-modern/resnet.html][ResNet]]
+  + torch.eval() i.e. normalize using running stat, disable dropout (vs torch.train())
+  + add layer - Swish, Mish
+  + add layer - [[https://d2l.ai/chapter_computer-vision/transposed-conv.html][Transposed Convolution]]
+    * [[https://distill.pub/2016/deconv-checkerboard/][Less used now b/c it creates checkerboard pattern]]
+  + add Transformer
+    - study ChatGPT vs BLOOM (from Hugging Face, model with 176B params, =~ 700GB)
+    - https://stats.stackexchange.com/questions/421935/what-exactly-are-keys-queries-and-values-in-attention-mechanisms
+    - https://towardsdatascience.com/neural-machine-translation-inner-workings-seq2seq-and-transformers-229faff5895b
+    - https://towardsdatascience.com/a-detailed-guide-to-pytorchs-nn-transformer-module-c80afbc9ffb1
+    - https://nlp.seas.harvard.edu/2018/04/03/attention.html
+** Data + Visualization
+  + output tensor in HWC format
+      * util from raw to png (with STB)
+      * for PIL (Python Image Lib), matplotlib
+  + add loader plug-in API - CIFAR
+  + add K-fold sampler
+  + data API - Python(cffi), Ruby(FFI)
+** VM
+  + inter-VM communication (CUDA stream, review CUB again)
+  + inter-VM loader (from VM->VM)
+** Refactor
+  + study JAX
+    - JIT (XLA)
+    - auto parallelization (pmap)
+    - auto vectorization (vmap)
+    - auto diff (grad), diffrax (RK4, Dormand-Prince)
+  + check namespace
+  + warp-level collectives (study libcu++, MordenGPU for kernel)
+  + consider multi-domain (i.e. MDNet)
+  + consider GNN - dynamic graph with VMs
+  + consider RNN - maybe not! lost to Transformer.
+
+* LATER
+** Data
+  + NCHW tensor format support (as in PyTorch)
+  + loader - .petastorm, .csv (available on github)
+  + model persistance - .npy, .petastorm, hdf5
+  + integrate ONNX
+** Visualization
+  + integrate plots (matplotlib, tensorboard/graphviz)
+** 3rd-party lib Integration
+  + integrate CUB, CUTLASS (utilities.init, gemm_api) - slow, later
+  + preprocessor (DALI) + GPUDirect - heavy, later
+  + calling API - Python(cffi), Ruby(FFI)
+
+* History
+** [[./docs/v1_progress.md][Release 1.0]] features
+   + Dr. Ting's eForth words with F32 as data unit, U16 instruction unit
+   + Support parallel Forth VMs
+   + Lambda-based Forth microcode
+   + Memory mangement unit handles dictionary, stack, and parameter blocks in CUDA
+   + Managed memory debug utilities, words, see, ss_dump, mem_dump
+   + String handling utilities in CUDA
+   + Light-weight vector class, no dependency on STL
+   + Output Stream, async from GPU to host
+
+** [[./docs/v2_progress.md][Release 2.0]] features
+   + vector, matrix, tensor objects (modeled to PyTorch)
+   + TLSF tensor storage manager (now 4G max)
+   + matrix arithmetics (i.e. +, -, *, copy, matmul, transpose)
+   +* matrix fill (i.e. zeros, ones, full, eye, random)
+   + matrix console input (i.e. matrix[..., array[..., and T![)
+   + matrix print (i.e PyTorch-style, adjustable edge elements)
+   + tensor view (i.e. dup, over, pick, r@)
+   + GEMM (i.e. a * A x B + b * C, use CUDA Dynamic Parallelism)
+   + command line option: debug print level control (T4_DEBUG)
+   + command line option: list (all) device properties
+   + use cuRAND kernel randomizer for uniform and standard normal distribution
+
+** [[./docs/v3_progress.md][Release 3.0]] features
+   + NN model creation and persistence
+   + NN model batch control (feed forward, backprop w/ autograd)
+   + optimization - sgd
+   + layers - conv2d, linear, flatten
+   + pooling - maxpool, minpool, avgpool, dropout
+   + activation - relu, sigmoid, softmax, log_softmax
+   + loss - ce, mse, nll
+   + formated data - NHWC (as in TensorFlow)
+   + dataset rewind
+   + mini-batch fetch
+   + dataset loader - MNIST
+   + OpenGL dataset Viewer
+
+** [[./docs/v3_progress.md][Release 3.2]] features
+   + NN model - supports GAN
+   + optimization - adam, sgd with momentum, grad_zero
+   + layers - conv1x1, upsample, batchnorm
+   + activation - tanh, selu, leakyrelu, elu
+   + loss - bce
+   + tensor op - std (stdvar), sqrt
