@@ -6,7 +6,6 @@
  */
 #include "tensor.h"
 
-#define ABS(d) (fabsf(d))  /**< absolute value */
 ///=======================================================================
 /// static methods
 ///
