@@ -8,8 +8,8 @@
 |[2.0](https://github.com/chochain/tensorForth/releases/tag/v2.0.2)|**matrix**|production|+ vector and matrix objects|NumPy|
 |[2.2](https://github.com/chochain/tensorForth/releases/tag/v2.2.2)|**lapack**|beta|+ linear algebra methods|SciPy|
 |[3.0](https://github.com/chochain/tensorForth/releases/tag/v3.0.0)|**CNN**|alpha|+ Machine Learning with autograd|Torch|
-|3.2|**GAN**|developing|adding Generative Adversarial Net|Torch/DCGAN|
-|future|**Transformer**|planning|to add Transformer ops|PyTorch|
+|3.2|**GAN**|developing|adding Generative Adversarial Net|PyTorch.GAN|
+|future|**Transformer**|planning|to add Transformer ops|PyTorch.Transformer|
 
 ### Why?
 Compiled programs run fast on Linux. On the other hand, command-line interface and shell scripting tie them together in operation. With interactive development, small tools are built along the way, productivity usually grows with time, especially in the hands of researchers.
@@ -18,14 +18,14 @@ Compiled programs run fast on Linux. On the other hand, command-line interface a
 * Too much on Algorithms - most modern languages, i.e. OOP, abstraction, template, ...
 * Too focused on Data Structures - APL, SQL, ...
 
-*Numpy* kind of solves both. So, for AI projects today, we use *Python* mostly. However, when GPU got involved, to enable processing on CUDA device, say with *Numba* or the likes, mostly there will be a behind the scene 'just-in-time' transcoding to C/C++ followed by compilation then load and run. In a sense, your *Python* code behaves like a *Makefile* which requires compilers/linker available on the host box. Common practice for code analysis can only happen at the tail-end after execution. This is usually a long journey. After many coffee breaks, we tweek the *Python* code and restart again. To monitor progress or catch any anomaly, scanning the intermittent dump become a habit which probably reminisce the line-printer days for seasoned developers. So much for 70 years of software engineering progress.
+*Numpy* kind of solves both. So, for AI projects today, we use *Python* mostly. However, when GPU got involved, to enable processing on CUDA device, say with *Numba* or the likes, mostly there will be a behind the scene 'just-in-time' transcoding to C/C++ followed by compilation then load and run. In a sense, your *Python* code behaves like a *Makefile* which requires compilers/linker available on the host box. Common practice for code analysis can only happen at the tail-end after execution. This is usually a long journey. After many coffee breaks, we tweak the *Python* code and restart again. To monitor progress or catch any anomaly, scanning the intermittent dump become a habit which probably reminisce the line-printer days for seasoned developers. So much for 70 years of software engineering progress.
 
 Forth language encourages incremental build and test. Having a 'shell', resides in GPU, that can interactively and incrementally develop/run each AI layer/node as a small 'subroutine' without dropping back to host system might better assist building a rapid and accurate system. The rationale is not unlike why the NASA probes sent into space are equipped with Forth chips. On the flipped side, with this kind of CUDA kernel code, some might argue that the branch divergence could kill the GPU. Well, the performance of the 'shell scripts' themselves are not really the point. So, here we are!
 
 > **tensor + Forth = tensorForth!**
 
 ### What?
-More details to come but here're samples of tensorForth in action
+More details to come but here are some samples of tensorForth in action
 * Benchmarks
   > |Different Neural Network Models|Activation Layers on linear MNIST|
   > |---|---|
@@ -65,15 +65,15 @@ variable lox                                \ a variable to keep current loss
   for                                       \ loop thru dataset per mini-batch
     forward                                 \ neural network forward pass
     loss.ce lox ! nn.hit acc +!             \ get loss and hit count
-    backprop                                \ neural network back propegation
-    0.01 0.0 nn.sgd                         \ training with Stochastic Gradiant
+    backprop                                \ neural network back propagation
+    0.01 0.0 nn.sgd                         \ training with Stochastic Gradient
     46 emit                                 \ display progress '.'
   next ;                                    \ next mini-batch (kept on return stack)
 : cnn ( N D n -- N' D )                     \ run multiple epochs
   for epoch r@ stat ds0 rewind next ;
 
 ds0                                         \ put dataset as TOS
-19 epoch                                    \ execute multiple epoches
+19 epoch                                    \ execute multiple epochs
 drop                                        \ drop dataset from TOS
 
 s" tests/my_net.t4" nn.save                 \ persist the trained network
@@ -153,10 +153,10 @@ drop                                        \ drop the value
 * enter the following for testing matrix (v2) ops<br/>
   > ~/tests> ten4 < lesson_2.txt - for matrix ops,<br/>
   > ~/tests> ten4 < lesson_3.txt - for linear algebra stuffs
-* enter the following for testsing machine learning (v3) ops<br/>
+* enter the following for testing machine learning (v3) ops<br/>
   > ~/tests> ten4 < lesson_4.txt - for single pass of forward, loss, and backprop<br/>
-  > ~/tests> ten4 < lesson_5.txt - MINST trainning, 20 epoches<br/>
-  > ~/tests> ten4 < lesson_7.txt - GAN on MINST dataset, 100 epoches<br/>
+  > ~/tests> ten4 < lesson_5.txt - MINST training, 20 epochs<br/>
+  > ~/tests> ten4 < lesson_7.txt - GAN on MINST dataset, 100 epochs<br/>
 
 #### with Eclipse
 * install Eclipse
@@ -173,7 +173,7 @@ drop                                        \ drop the value
 * \-d device_id   - select GPU device id
 * \-v verbo_level - set verbosity level 0: off (default), 1: mmu tracing on, 2: detailed trace
 
-## Machine Learning volcabularies (see [doc3](./docs/v3_progress.md) for detail and examples)
+## Machine Learning vocabularies (see [doc3](./docs/v3_progress.md) for detail and examples)
 ### Model creation and persistence
 <pre>
   nn.model   (n h w c -- N)      - create a Neural Network model with (n,h,w,c) input
@@ -207,8 +207,8 @@ drop                                        \ drop the value
 <pre>
   conv2d     (N -- N')           - create a 2D convolution 3x3 filter, stride=1, padding=same, dilation=0, bias=0.5
   conv2d     (N b c -- N')       - create a 2D convolution, bias=b, c channels output, with default 3x3 filter
-  conv2d     (N b c A -- N')     - create a 2D convolution, bias=b, c channels output, with config i.g. Vector[5, 5, 3, 2, 1] for (5x5, padding=3, stride=2, dilation=1, bais=0.3)
-  conv1x1    (N b c -- N')       - create a 1x1 convolution, bias=b, c channels output, stide=1, padding=same, dilation=0
+  conv2d     (N b c A -- N')     - create a 2D convolution, bias=b, c channels output, with config i.g. Vector[5, 5, 3, 2, 1] for (5x5, padding=3, stride=2, dilation=1, bias=0.3)
+  conv1x1    (N b c -- N')       - create a 1x1 convolution, bias=b, c channels output, stride=1, padding=same, dilation=0
   flatten    (N -- N')           - flatten a tensor (usually input to linear)
   
   linear     (N b n -- N')       - linearize (y = Wx + b) from Ta input to n out_features
@@ -249,7 +249,7 @@ drop                                        \ drop the value
   loss.nll   (N Ta -- N Ta n)    - negative log likelihood, takes output from log-softmax activation
   
   nn.loss    (N Ta -- N Ta n)    - auto select between mse, bce, ce, nll based on last model output layer
-  nn.zero    (N -- N')           - manually zero gradiant tensors
+  nn.zero    (N -- N')           - manually zero gradient tensors
   nn.sgd     (N p -- N')         - apply SGD(learn_rate=p, momentum=0.0) model back propagation
   nn.sgd     (N p m -- N')       - apply SGD(learn_rate=p, momentum=m) model back propagation
   nn.adam    (N a b1 -- N')      - apply Adam backprop alpha, beta1, default beta2=1-(1-b1)^3
@@ -258,7 +258,7 @@ drop                                        \ drop the value
   nn.hit     (N -- N n)          - get number of hit (per mini-batch) of a model
 </pre>
 
-## Tensor Calculus volcabularies (see [doc2](./docs/v2_progress.md) for detail and examples)
+## Tensor Calculus vocabularies (see [doc2](./docs/v2_progress.md) for detail and examples)
 ### Tensor creation
 <pre>
    vector    (n       -- T1)     - create a 1-D array and place on top of stack (TOS)
@@ -284,9 +284,9 @@ drop                                        \ drop the value
    . (dot)   (Va -- )        - print a view of a tensor
 </pre>
 
-### Shape adjustment (change shape of origial tensor or view)
+### Shape adjustment (change shape of original tensor or view)
 <pre>
-   flatten   (Ta -- T1a')    - reshap a tensor or view to 1-D array
+   flatten   (Ta -- T1a')    - reshape a tensor or view to 1-D array
    reshape2  (Ta -- T2a')    - reshape to a 2-D matrix view
    reshape4  (Ta -- T4a')    - reshape to a 4-D NHWC tensor or view
 </pre>
@@ -320,7 +320,7 @@ drop                                        \ drop the value
    @         (Ta Ab -- Ta Ab Ac)  - matrix-vector inner product Ac = Ta @ Ab
    @         (Aa Ab -- Aa Ab n)   - vector-vector inner product n = Aa @ Ab, i.e. dot
    *         (Ta Tb -- Ta Tb Tc)  - tensor-tensor element-wise multiplication Tc = Ta * Tb
-   *         (Ta Ab -- Ta Ab Ta') - matrix-vector multiplication Ta' = Ta * colum_vector(Ab)
+   *         (Ta Ab -- Ta Ab Ta') - matrix-vector multiplication Ta' = Ta * column_vector(Ab)
    *         (Ta n  -- Ta n  Ta') - tensor-scalar multiplication Ta' = n * Ta, i.e. scale up
    *         (n  Ta -- n  Ta Ta') - scalar-tensor multiplication Ta' = n * Ta, i.e. scale up
    /         (Ta Tb -- Ta Tb Tc)  - tensor-tensor element-wise divide Tc = Ta / Tb
@@ -344,7 +344,7 @@ drop                                        \ drop the value
    -=        (n  Ta -- Ta')   - scalar-tensor subtraction (broadcast) Ta' = n - Ta
    @=        (Ta Tb -- Tc)    - matrix-matrix inner product Tc = Ta @ Tb, i.e. matmul
    @=        (Ta Ab -- Ac)    - matrix-vector inner product Ac = Ta @ Ab
-   @=        (Aa Ab -- Ac)    - vector-vector inner prodcut n = Aa @ Ab, i.e. dot
+   @=        (Aa Ab -- Ac)    - vector-vector inner product n = Aa @ Ab, i.e. dot
    *=        (Ta Tb -- Tc)    - matrix-matrix element-wise multiplication Tc = Ta * Tb
    *=        (Ta Ab -- Ac')   - matrix-vector multiplication Ac' = Ta * Ab
    *=        (Ta n  -- Ta')   - tensor-scalar multiplication Ta' = n * Ta
@@ -358,7 +358,7 @@ drop                                        \ drop the value
    loss.mse  (Tx Ty -- Tx')   - Mean Square Loss
    loss.bce  (Tx Ty -- Tx')   - Binary Cross Entropy Loss
    loss.ce   (Tx Ty -- Tx')   - Categorical Cross Entropy Loss
-   loss.nll  (Tx Ty -- Tx')   - Negative Log Likelyhood Loss
+   loss.nll  (Tx Ty -- Tx')   - Negative Log Likelihood Loss
 </pre>
 
 ### Linear Algebra (by default non-destructive)
@@ -384,6 +384,7 @@ drop                                        \ drop the value
 ### TODO - by priorities
 * Model
   + GAN
+    - DC-GAN https://machinelearningmastery.com/how-to-train-stable-generative-adversarial-networks/
     - AC-GAN Keras (https://machinelearningmastery.com/how-to-develop-an-auxiliary-classifier-gan-ac-gan-from-scratch-with-keras/
     - use pre-trained model, i.e. transfer learning (https://openaccess.thecvf.com/content_ECCV_2018/papers/yaxing_wang_Transferring_GANs_generating_ECCV_2018_paper.pdf)
   + add block - branch & concatenate (i.e Inception in GoogLeNet)
@@ -424,13 +425,13 @@ drop                                        \ drop the value
 * Data
   + NCHW tensor format support (as in PyTorch)
   + loader - .petastorm, .csv (available on github)
-  + model persistance - .npy, .petastorm, hdf5
+  + model persistence - .npy, .petastorm, hdf5
   + integrate ONNX
 * Visualization
   + integrate plots (matplotlib, tensorboard/graphviz)
 * 3rd-party lib Integration
   + integrate CUB, CUTLASS (utilities.init, gemm_api) - slow, later
-  + preprocessor (DALI) + GPUDirect - heavy, later
+  + pre-processor (DALI) + GPUDirect - heavy, later
   + calling API - Python(cffi), Ruby(FFI)
 
 ## History
@@ -438,7 +439,7 @@ drop                                        \ drop the value
 * Dr. Ting's eForth words with F32 as data unit, U16 instruction unit
 * Support parallel Forth VMs
 * Lambda-based Forth microcode
-* Memory mangement unit handles dictionary, stack, and parameter blocks in CUDA
+* Memory management unit handles dictionary, stack, and parameter blocks in CUDA
 * Managed memory debug utilities, words, see, ss_dump, mem_dump
 * String handling utilities in CUDA
 * Light-weight vector class, no dependency on STL
@@ -447,7 +448,7 @@ drop                                        \ drop the value
 ### [Release 2.0](./docs/v2_progress.md) features
 * vector, matrix, tensor objects (modeled to PyTorch)
 * TLSF tensor storage manager (now 4G max)
-* matrix arithmetics (i.e. +, -, *, copy, matmul, transpose)
+* matrix arithmetic (i.e. +, -, *, copy, matmul, transpose)
 * matrix fill (i.e. zeros, ones, full, eye, random)
 * matrix console input (i.e. matrix[..., array[..., and T![)
 * matrix print (i.e PyTorch-style, adjustable edge elements)
@@ -465,7 +466,7 @@ drop                                        \ drop the value
 * pooling - maxpool, minpool, avgpool, dropout
 * activation - relu, sigmoid, softmax, log_softmax
 * loss - ce, mse, nll
-* formated data - NHWC (as in TensorFlow)
+* formatted data - NHWC (as in TensorFlow)
 * dataset rewind
 * mini-batch fetch
 * dataset loader - MNIST
