@@ -1,5 +1,5 @@
 # tensorForth - Release 3.0 / 2022-11
-A Forth word can be seen as a nested function in processing data flow, i.e. y = fn(fn-1(...(f2(f1(x))))). On the foundation of tensor manipulation capabilities of Release 2.x, machine learning functions are build as simple Forth words in tensorForth. With the stack centric operations, compaired to popular frameworks like TensorFlow or PyTorch, tensorForth keeps data in GPU which reduce the typical input-output shuffle. The clean syntax of Forth makes this NN framework compact and hopefully easier to understand.
+A Forth word can be seen as a nested function in processing data flow, i.e. y = fn(fn-1(...(f2(f1(x))))). On the foundation of tensor manipulation capabilities of Release 2.x, machine learning functions are build as simple Forth words in tensorForth. With the stack-centric operations, compared to popular frameworks like TensorFlow or PyTorch, tensorForth keeps data in GPU which reduce the typical input-output shuffle. The clean syntax of Forth makes this NN framework compact and hopefully easier to understand.
   
 ### A CNN Training Example - MNIST
 <pre>
@@ -24,15 +24,15 @@ variable lst 0 lst !
   for                                     \ loop thru dataset per mini-batch
     forward                               \ neural net forward pass
     loss.ce lst ! nn.hit acc +!           \ calculate loss and total hit rate
-    backprop                              \ back propergate loss
-    0.01 0.0 nn.sgd                       \ execute stochastic gradiant decent
+    backprop                              \ back propagate loss
+    0.01 0.0 nn.sgd                       \ execute stochastic gradient decent
     46 emit                               \ display progress '.'
   next ;
 : cnn ( N D n -- N' D )                   \ entire CNN in one word
   for epoch r@ stat ds0 rewind next ;     \ run multiple epochs
 
 ds0                                       \ put dataset as TOS
-19 cnn                                    \ execute multiple epoches
+19 cnn                                    \ execute multiple epochs
 drop                                      \ drop dataset from TOS
 
 s" tests/my_net.t4" nn.save               \ persist the trained network
@@ -56,7 +56,7 @@ ds1                                       \ put dataset on TOS
   * Model
     > + creation
     > + feed forward
-    > + back propegation with autograd
+    > + back propagation with autograd
     > + optimization
     > + persistence
   * Layers
@@ -73,7 +73,7 @@ ds1                                       \ put dataset on TOS
     > + OpenGL for dataset
     > + Output tensor in HWC raw format with util to convert to PNG
 
-### Machine Learning volcabularies
+### Machine Learning vocabularies
 #### Model creation and persistence
 |word|param/example|tensor creation ops|
 |---|---|---|
@@ -107,13 +107,13 @@ ds1                                       \ put dataset on TOS
 |for|(N ds -- N')|loop through a dataset, ds will be pushed onto return stack|
 |next|(N -- N')|loop if any subset of dataset left, or ds is pop off return stack|
 
-#### Convolution and Linear funtions (destructive by default)
+#### Convolution and Linear functions (destructive by default)
 |word|param/example|tensor creation ops|
 |---|---|---|
 |conv1x1|(N b c -- N')|create a 1x1 convolution, bias=b, c channels output|
 |conv2d|(N -- N')|create a 2D convolution 3x3 filter, stride=1, padding=same, dilation=0, bias=0.5|
 |conv2d|(N b c -- N')|create a 2D convolution, bias=b, c channels output, with default 3x3 filter|
-|conv2d|(N b c A -- N')|create a 2D convolution, bias=b, c channels output, with config i.g. Vector[5, 5, 3, 2, 1] for (5x5, padding=3, stride=2, dilation=1, bais=0.3)|
+|conv2d|(N b c A -- N')|create a 2D convolution, bias=b, c channels output, with config i.g. Vector[5, 5, 3, 2, 1] for (5x5, padding=3, stride=2, dilation=1, bias=0.3)|
 |flatten|(N -- N')|flatten a tensor (usually input to linear)|
 |linear|(N b n -- N')|linearize (y = Wx + b) from Ta input to n out_features|
 |linear|(N n -- N')|linearize (y = Wx) bias=0.0 from Ta input to n out_features|
@@ -140,7 +140,7 @@ ds1                                       \ put dataset on TOS
 |minpool|(N n -- N')|nxn cell minimum pooling|
 |dropout|(N p -- N')|zero out p% of channel data (add noise between data points)|
 |upsample|(N n -- N')|upsample to nearest size=n, 2x2 and 3x3 supported|
-|upsample|(N m n -- N')|upsample with method=m, size=n, 2x2 and 3x3 suppor|
+|upsample|(N m n -- N')|upsample with method=m, size=n, 2x2 and 3x3 support|
 |batchnorm|(N -- N')|add batchnorm layer with default momentum=0.1|
 |batchnorm|(N m -- N')|add batchnorm layer with momentum=m|
 
@@ -159,7 +159,7 @@ ds1                                       \ put dataset on TOS
 |loss.nll|(N Ta -- N Ta n)|negative log likelihood, takes output from log-softmax activation|
 |nn.loss|(N Ta -- N Ta n)|auto select loss function from last output layer|
 
-#### Gradiant ops
+#### Gradient ops
 |word|param/example|tensor creation ops|
 |---|---|---|
 |nn.sgd|(N p -- N')|apply SGD(learn_rate=p, momentum=0.0) model back propagation|
@@ -175,7 +175,7 @@ ds1                                       \ put dataset on TOS
 |stack|(Aa Ab i - Aa Ab Tc)|stack arrays on given axis|
 |split|(Ta i - Ta Aa Ab Ac)|split matrix into matrix on a given axis|
 
-### Backpropagation Case Study - MNIST
+### Back-propagation Case Study - MNIST
 {% include backprop.html %}
 |word|forward|param|network DAG|grad_fn|param[grad]|
 |---|---|---|---|---|---|
@@ -222,8 +222,6 @@ ds1                                       \ put dataset on TOS
 
 + Inception https://towardsdatascience.com/a-simple-guide-to-the-versions-of-the-inception-network-7fc52b863202
 + ResNet https://d2l.ai/chapter_convolutional-modern/resnet.html
-
-
 
 * code ref https://github.com/rasmusbergpalm/DeepLearnToolbox
 

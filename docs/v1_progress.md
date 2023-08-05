@@ -3,7 +3,7 @@
 * Dr. Ting's eForth words with F32 as data unit, U16 instruction unit
 * Support parallel Forth VMs
 * Lambda-based Forth microcode
-* Memory mangement unit handles dictionary, stack, and parameter blocks in CUDA
+* Memory management unit handles dictionary, stack, and parameter blocks in CUDA
 * Managed memory debug utilities, words, see, ss_dump, mem_dump
 * String handling utilities in CUDA
 * Light-weight vector class, no dependency on STL

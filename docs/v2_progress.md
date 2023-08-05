@@ -2,7 +2,7 @@
 ## Features
 * vector, matrix, tensor objects (modeled to PyTorch)
 * TLSF tensor storage manager
-* matrix arithmetics (i.e. +, -, @, *, sum, min, max, avg, abs, negate, exp, log, pow)
+* matrix arithmetic (i.e. +, -, @, *, sum, min, max, avg, abs, negate, exp, log, pow)
 * linear algebra (i.e. copy, matmul, inverse, transpose, det, lu, luinv, upper, lower, solve)
 * matrix fill (i.e. zeros, ones, full, eye, random)
 * matrix console input (i.e. matrix{..., vector{..., and T!{)
@@ -138,7 +138,7 @@ tensorForth 2.0 done.
 ### Shape adjustment ops
 |word|param/example|Shape adjusting ops|
 |---|---|---|
-|flatten|(Ta -- Ta')|reshap a tensor or view to 1-D array|
+|flatten|(Ta -- Ta')|reshape a tensor or view to 1-D array|
 ||> `2 3 matrix{ 1 2 3 4 5 6 }`<br/>> **`flatten`**<br/>> `.`|`T2[2,3]`</br>`T1[6]`<br/>`vector[6] = { +1.0000 +2.0000 +3.0000 +4.0000 +5.0000 +6.0000 }`|
 |reshape2|(h w Ta -- Ta')|reshape to a 2-D matrix/view|
 ||> `2 3 matrix{ 1 2 3 4 5 6 }`<br/>> `dup .`<br/>> `3 2`**`reshape2`**</br>> `dup .`|`T2[2,3]`<br/>`matrix[2,3] = { { +1.0000 +2.0000 +3.0000 } { +4.0000 +5.0000 +6.0000 } }`<br/>`T2[3,2]`<br/>`matrix[3,2] = { { +1.0000 +2.0000 } { +3.0000 +4.0000 } { +5.0000 +6.0000 } }`|
@@ -146,7 +146,7 @@ tensorForth 2.0 done.
 ||> `2 3 matrix{ 1 2 3 4 5 6 }`<br/>> `1 3 2 1`**`reshape4`**|`T2[2,3]`<br/>`T4[1,3,2,1]`|
 
 ### Tensor Fill ops
-|word|param/example|Fill tensor with init valuess|
+|word|param/example|Fill tensor with init values|
 |---|---|---|
 |zeros|(Ta -- Ta')|fill tensor with zeros|
 ||> `2 3 matrix`**`zeros`**<br/>> `.`|`T2[2,3]`<br/>`matrix[2,3] = { { +0.0000 +0.0000 +0.0000 } { +0.0000 +0.0000 +0.0000 } }`|
@@ -179,8 +179,8 @@ tensorForth 2.0 done.
 |+|(Ta n  -- Ta n  Ta')|tensor-scalar addition (broadcast) Ta' = Ta + n|
 |+|(n  Ta -- n  Ta Ta')|scalar-tensor addition (broadcast) Ta' = Ta + n|
 |-|(Ta Tb -- Ta Tb Tc)|tensor element-wise subtraction Tc = Ta - Tb|
-|-|(Ta n  -- Ta n  Ta')|tensor-scalar subtraction (boardcast) Ta' = Ta - n|
-|-|(n  Ta -- n  Ta Ta')|scalar-tensor subtraction (boardcast) Ta' = n - Ta|
+|-|(Ta n  -- Ta n  Ta')|tensor-scalar subtraction (broadcast) Ta' = Ta - n|
+|-|(n  Ta -- n  Ta Ta')|scalar-tensor subtraction (broadcast) Ta' = n - Ta|
 |@|(Ta Tb -- Ta Tb Tc)|matrix-matrix inner product Tc = Ta @ Tb|
 |@|(Ta Ab -- Ta Tb Ac)|matrix-vector inner product Ac = Ta @ Ab|
 |@|(Aa Ab -- Aa Ab n)|vector-vector inner product n = Aa @ Ab, i.e. dot|
@@ -208,8 +208,8 @@ tensorForth 2.0 done.
 |+=|(Ta n  -- Ta')|tensor-scalar addition (broadcast) Ta' = Ta + n|
 |+=|(n  Ta -- Ta')|scalar-tensor addition (broadcast) Ta' = Ta + n|
 |-=|(Ta Tb -- Tc)|tensor element-wise subtraction Tc = Ta - Tb|
-|-=|(Ta n  -- Ta')|tensor-scalar subtraction (boardcast) Ta' = Ta - n|
-|-=|(n  Ta -- Ta')|scalar-tensor subtraction (boardcast) Ta' = n - Ta|
+|-=|(Ta n  -- Ta')|tensor-scalar subtraction (broadcast) Ta' = Ta - n|
+|-=|(n  Ta -- Ta')|scalar-tensor subtraction (broadcast) Ta' = n - Ta|
 |@=|(Ta Tb -- Tc)|matrix-matrix inner product Tc = Ta @ Tb|
 |@=|(Ta Ab -- Ac)|matrix-vector inner product Ac = Ta @ Ab|
 |@=|(Aa Ab -- n)|vector-vector inner (dot) product n = Aa * Ab|
