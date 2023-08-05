@@ -18,7 +18,7 @@ typedef enum {
 typedef enum {
     OPTI_SGD = 0,            ///< Stochastic Gradient Descent
     OPTI_SGDM,               ///< SGD with momemtum
-    OPTI_ADAM                ///< Adam gradiant
+    OPTI_ADAM                ///< Adam gradient
 } t4_optimizer;
 ///
 /// tracing control
@@ -26,7 +26,7 @@ typedef enum {
 #define TRACE1(...) { if (_mmu->trace() > 0) INFO(__VA_ARGS__); }
 #define TRACE2(...) { if (_mmu->trace() > 1) INFO(__VA_ARGS__); }
 ///
-///< gradiant function pointer
+///< gradient function pointer
 ///
 typedef void (*GdFunc)(
     DU *parm, Tensor &w, Tensor &dw, Tensor &m, Tensor &v);
@@ -92,16 +92,16 @@ public:
     __GPU__ DU     loss(t4_loss op);                    ///< calc loss with cached one-hot vector
     __GPU__ DU     loss(t4_loss op, Tensor &tgt);       ///< calc loss from tgt vector
     /// @}
-    /// @name gradiant decent functions
+    /// @name gradient decent functions
     /// @{
     __GPU__ Model  &grad_alloc(t4_optimizer op);        ///< allocate gradiant vectors
     __GPU__ Model  &grad_zero() { _iter = 0; }          ///< manual zero momentum tensors
-    __GPU__ Model  &gradiant(const char *nm,            ///< gradiant descent functor
+    __GPU__ Model  &gradient(const char *nm,            ///< gradient descent functor
                              GdFunc fn,                 
                              DU *parm,
                              t4_optimizer op=OPTI_SGD); 
-    __GPU__ Model  &sgd(DU lr, DU b);                   ///< stochastic gradiant descent
-    __GPU__ Model  &adam(DU lr, DU b1, DU b2);          ///< Adam gradiant descent
+    __GPU__ Model  &sgd(DU lr, DU b);                   ///< stochastic gradient descent
+    __GPU__ Model  &adam(DU lr, DU b1, DU b2);          ///< Adam gradient descent
     /// @}
     /// @name debug functions
     /// @{
