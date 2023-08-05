@@ -1,13 +1,14 @@
 #+title: tensorForth
 #+author: Chochain Lee
 
-* tensorForth - Forth does matrices and machine learning
-
+* tensorForth
+#+BEGIN_CENTER
 ** *Forth* VMs
 ** support tensor calculus, and
 ** Neural Network operations,
 ** with dynamic parallelism,
 ** on GPU
+#+END_CENTER
 
 * Status
 
@@ -21,7 +22,6 @@
 | future  | *Xfmr*    | plan  | to add Transformer ops           | PyTorch.Transformer   |
 
 * Why?
-
 
 ** /Niklaus Wirth/: *Algorithms + Data Structures = Programs*
    + To much on Algorithms - most modern languages, i.e. OOP
@@ -57,29 +57,38 @@
 ** Benchmarks
    + [[./docs/img/ten4_model_cmp.png][Different Neural Network Models]]  + [[./docs/img/ten4_act_cmp.png][Activation Layers on linear MNIST]]
 
-* How?
-
-** GPU, behaves like a co-processor or a DSP chip. 
-** It has no OS, no string support, and runs its own memory. 
-** Most of the available libraries are built for host instead of device
-** So, to be interactive, a memory manager, IO, and syncing with CPU are things needed to be had. 
-** need a Forth from scratch for a the GPU
-  + Since GPUs have good compiler support nowadays, and
-  + I've ported the latest [[https://github.com/chochain/eforth][eForth]] to lambda-based in C++, so C for now.
-  + having *FP32* or *float32* as my basic data unit
-  + *FP16*, or even fixed-point later
-  + need to watch addressing and logic ops
-  + class/methods => loadable Forth blocks later?
-  + Forth in NVVM IR or even PTX assembly?
-  + [[https://www.greenarraychips.com/][*GreenArray*]] or FPGA?
-** It's the problem they solve. Languages don't really matter. 
+It's the problem they solve. Languages don't really matter. 
   + Having an interactive Forth in GPU does not mean a lot by itself. 
   + However by adding vector, matrix, linear algebra support 
   + with a breath of **APL**'s massively parallel from GPUs. 
   + Neural Network tensor ops like PyTorch
 
+* How?
+
+** GPU 
+  + behaves like a co-processor or a DSP chip.
+  + It has no OS, no string support, and
+  + runs its own memory. 
+
+** need libraries - built for host instead of device
+  + streamming IO,
+  + memory manager, and
+  + syncing with CPU
+
+** need a Forth
+  + I have [[https://github.com/chochain/eforth][eForth]] ported to lambda-based C++,
+  + GPUs have good C++ compiler,
+  + *FP32* as my basic data unit,
+  + watch out addressing and logic ops
+
+** Later
+  + *FP16*, or even fixed-point later
+  + class/methods => loadable Forth blocks later?
+  + Forth in NVVM IR or even PTX assembly?
+  + [[https://www.greenarraychips.com/][*GreenArray*]] or FPGA?
+
 * Example - Small Matrix ops
-<pre>
+#+BEGIN_QUOTE
 > ten4                # enter tensorForth
 /tensorForth 2.0/
 /\  GPU 0 initialized at 1800MHz, dict[1024], vmss[64*1], pmem=48K, tensor=1024M/
@@ -106,11 +115,11 @@
 *bye*                                  \ exit tensorForth
  /<0> ok/
 /tensorForth 2.0 done./
-</pre>
+#+END_QUOTE
 
 * Example - Larger Matrix ops
-benchmark 1024x2048 x 2048x512 matrices - 1000 loops
-<pre>
+\ benchmark 1024x2048 x 2048x512 matrices - 1000 loops
+#+BEGIN_QUOTE
 1024 2048 matrix rand                \ create a 1024x2048 matrix with uniform random values
  <0 T2[1024,2048]> ok                
 2048 512 matrix ones                 \ create another 2048x512 matrix filled with 1s
@@ -137,10 +146,10 @@ drop                                        \ drop the value
  <0 T2[1024,2048] T2[2048,512]> ok
 999 mx                                      \ now try 1000 loops
  <0 T2[1024,2048] T2[2048,512] 3.938+04> ok \ that is 39.38 sec (i.e. ~40ms / loop)
-</pre>
+#+END_QUOTE
 
 * Example - CNN Training on MNIST dataset
-<pre>
+#+BEGIN_QUOTE
 10 28 28 1 *nn.model*                         \ create a network model (input dimensions)
 0.5 10 conv2d 2 maxpool relu                \ add a convolution block
 0.5 20 conv2d 0.5 dropout 2 maxpool relu    \ add another convolution block
@@ -176,7 +185,7 @@ ds0                                         \ put dataset as TOS
 drop                                        \ drop dataset from TOS
 
 s" tests/my_net.t4" nn.save                 \ persist the trained network
-</pre>
+#+END_QUOTE
 
 * To build
 
@@ -215,7 +224,7 @@ s" tests/my_net.t4" nn.save                 \ persist the trained network
 
 * Vocabulary - Machine Learning
 ** Model creation and persistence
-<pre>
+#+BEGIN_QUOTE
   nn.model   (n h w c -- N)      - create a Neural Network model with (n,h,w,c) input
   nn.load    (N adr len [fam] -- N') - load trained network from a given file name
   nn.save    (N adr len [fam] -- N)  - export network as a file
@@ -224,10 +233,10 @@ s" tests/my_net.t4" nn.save                 \ persist the trained network
   n@         (N n -- N T)        - fetch layered tensor from model, -1 is the latest layer
   network    (N -- N)            - display network model
   trainable  (N f -- N')         - enable/disable network trainable flag
-</pre>
+#+END_QUOTE
     
 ** Dataset and Batch controls
-<pre>
+#+BEGIN_QUOTE
   dataset    (n -- D)            - create a dataset with batch size = n, and given name i.e. 10 dataset abc
   fetch      (D -- D')           - fetch a mini-batch from dataset on return stack
   rewind     (D -- D')           - rewind dataset internal counters (for another epoch)
@@ -241,10 +250,10 @@ s" tests/my_net.t4" nn.save                 \ persist the trained network
   
   for        (N ds -- N')        - loop through a dataset, ds will be pushed onto return stack
   next       (N -- N')           - loop if any subset of dataset left, or ds is pop off return stack
-</pre>
+#+END_QUOTE
 
 ** Convolution, Dense, and Pooling Layers
-<pre>
+#+BEGIN_QUOTE
   conv2d     (N -- N')           - create a 2D convolution 3x3 filter, stride=1, padding=same, dilation=0, bias=0.5
   conv2d     (N b c -- N')       - create a 2D convolution, bias=b, c channels output, with default 3x3 filter
   conv2d     (N b c A -- N')     - create a 2D convolution, bias=b, c channels output, with config i.g. Vector[5, 5, 3, 2, 1] for (5x5, padding=3, stride=2, dilation=1, bais=0.3)
@@ -262,10 +271,10 @@ s" tests/my_net.t4" nn.save                 \ persist the trained network
   upsample   (N m n -- N')       - upsample with method=m, size=n, 2x2 and 3x3 supported
   batchnorm  (N -- N')           - batch normal layer with default momentum=0.1
   batchnorm  (N m -- N')         - batch normal with momentum=m
-</pre>
+#+END_QUOTE
 
 ** Activation (non-linear) and Classifier
-<pre>
+#+BEGIN_QUOTE
   tanh       (Ta -- Ta')         - tensor element-wise tanh Ta' = tanh(Ta)
   relu       (Ta -- Ta')         - tensor element-wise ReLU Ta' = max(0, Ta)
   sigmoid    (Ta -- Ta')         - tensor element-wise Sigmoid Ta' = 1/(1+exp(-Ta))
@@ -279,10 +288,10 @@ s" tests/my_net.t4" nn.save                 \ persist the trained network
   
   softmax    (N -- N')           - add probability vector exp(x)/sum(exp(x)) to network model, feeds loss.ce, used in multi-class
   logsoftmax (N -- N')           - add probability vector x - log(sum(exp(x))) to network model, feeds loss.nll, used in multi-class
-</pre>
+#+END_QUOTE
 
 ** Loss and Gradiant ops
-<pre>
+#+BEGIN_QUOTE
   loss.mse   (N Ta -- N Ta n)    - mean squared error, takes output from linear layer
   loss.bce   (N Ta -- N Ta n)    - binary cross-entropy, takes output from sigmoid activation
   loss.ce    (N Ta -- N Ta n)    - cross-entropy, takes output from softmax activation
@@ -296,11 +305,11 @@ s" tests/my_net.t4" nn.save                 \ persist the trained network
   nn.zero    (N -- N')           - reset momentum tensors
   nn.onehot  (N -- N T)          - get cached onehot vector from a model
   nn.hit     (N -- N n)          - get number of hit (per mini-batch) of a model
-</pre>
+#+END_QUOTE
 
 * Vocabulary - Tensor Calculus
 ** Tensor creation
-<pre>
+#+BEGIN_QUOTE
    vector    (n       -- T1)     - create a 1-D array and place on top of stack (TOS)
    matrix    (h w     -- T2)     - create 2-D matrix and place on TOS
    tensor    (n h w c -- T4)     - create a 4-D NHWC tensor on TOS
@@ -308,31 +317,31 @@ s" tests/my_net.t4" nn.save                 \ persist the trained network
    matrix{   (h w     -- T2)     - create a 2-D matrix from console stream
    view      (Ta      -- Ta Va)  - create a view (shallow copy) of a tensor
    copy      (Ta      -- Ta Ta') - duplicate (deep copy) a tensor on TOS
-</pre>
+#+END_QUOTE
 
 ** Duplication ops (reference creation)
-<pre>
+#+BEGIN_QUOTE
    dup       (Ta    -- Ta Ta)    - create a reference of a tensor on TOS
    over      (Ta Tb -- Ta Tb Ta) - create a reference of the 2nd item (NOS)
    2dup      (Ta Tb -- Ta Tb Ta Tb)
    2over     (Ta Tb Tc Td -- Ta Tb Tc Td Ta Tb)
-</pre>
+#+END_QUOTE
 
 ** Tensor/View print
-<pre>
+#+BEGIN_QUOTE
    . (dot)   (Ta -- )        - print a vector, matrix, or tensor
    . (dot)   (Va -- )        - print a view of a tensor
-</pre>
+#+END_QUOTE
 
 ** Shape adjustment (change shape of origial tensor or view)
-<pre>
+#+BEGIN_QUOTE
    flatten   (Ta -- T1a')    - reshap a tensor or view to 1-D array
    reshape2  (Ta -- T2a')    - reshape to a 2-D matrix view
    reshape4  (Ta -- T4a')    - reshape to a 4-D NHWC tensor or view
-</pre>
+#+END_QUOTE
 
 ** Fill tensor with init values (data updated to original tensor)
-<pre>
+#+BEGIN_QUOTE
    zeros     (Ta   -- Ta')   - fill tensor with zeros
    ones      (Ta   -- Ta')   - fill tensor with ones
    full      (Ta   -- Ta')   - fill tensor with number on TOS
@@ -341,15 +350,15 @@ s" tests/my_net.t4" nn.save                 \ persist the trained network
    randn     (Ta   -- Ta')   - fill tensor with normal distribution random numbers
    ={        (Ta   -- Ta')   - fill tensor with console input from the first element
    ={        (Ta n -- Ta')   - fill tensor with console input starting at n'th element
-</pre>
+#+END_QUOTE
 
 ** Tensor slice and dice
-<pre>
+#+BEGIN_QUOTE
    slice     (Ta i0 i1 j0 j1 -- Ta Ta') - numpy.slice[i0:i1,j0:j1,]
-</pre>
+#+END_QUOTE
 
 ** Tensor arithmetic (by default non-destructive)
-<pre>
+#+BEGIN_QUOTE
    +         (Ta Tb -- Ta Tb Tc)  - tensor element-wise addition Tc = Ta + Tb
    +         (Ta n  -- Ta n  Ta') - tensor-scalar addition (broadcast) Ta' = Ta + n
    +         (n  Ta -- n  Ta Ta') - scalar-tensor addition (broadcast) Ta' = Ta + n
@@ -369,10 +378,10 @@ s" tests/my_net.t4" nn.save                 \ persist the trained network
    avg       (Ta    -- Ta n)      - average of all elements of a tensor
    max       (Ta    -- Ta n)      - max of all elements of a tensor
    min       (Ta    -- Ta n)      - min of all elements of a tensor
-</pre>
+#+END_QUOTE
 
 ** Tensor arithmetic (by default destructive, as in Forth)
-<pre>
+#+BEGIN_QUOTE
    abs       (Ta    -- Ta')   - tensor element-wise absolute Ta' = abs(Ta)
    negate    (Ta    -- Ta')   - tensor element-wise negate   Ta' = -(Ta)
    exp       (Ta    -- Ta')   - tensor element-wise exponential Ta' = exp(Ta)
@@ -391,18 +400,18 @@ s" tests/my_net.t4" nn.save                 \ persist the trained network
    *=        (n  Ta -- Ta')   - scalar-tensor multiplication Ta' = n * Ta
    /=        (Ta Tb -- Tc)    - matrix-matrix element-wise Tc = Ta / Tb 
    /=        (Ta n  -- Ta')   - tensor-scalar scale down multiplication Ta' = 1/n * Ta
-</pre>
+#+END_QUOTE
 
 ** Tensor-Tensor loss functions (by default destructive, as in Forth)
-<pre>
+#+BEGIN_QUOTE
    loss.mse  (Tx Ty -- Tx')   - Mean Square Loss
    loss.bce  (Tx Ty -- Tx')   - Binary Cross Entropy Loss
    loss.ce   (Tx Ty -- Tx')   - Categorical Cross Entropy Loss
    loss.nll  (Tx Ty -- Tx')   - Negative Log Likelyhood Loss
-</pre>
+#+END_QUOTE
 
 ** Linear Algebra (by default non-destructive)
-<pre>
+#+BEGIN_QUOTE
    matmul    (Ma Mb -- Ma Mb Mc) - matrix-matrix multiplication Mc = Ma @ Mb
    matdiv    (Ma Mb -- Ma Mb Mc) - matrix-matrix division Mc = Ma @ inverse(Mb)
    inverse   (Ma    -- Ma Ma')   - matrix inversion (Gauss-Jordan with Pivot)
@@ -414,12 +423,12 @@ s" tests/my_net.t4" nn.save                 \ persist the trained network
    lower     (Ma    -- Ma Ma')   - lower triangle with diag filled with 1s
    solve     (Ab Ma -- Ab Ma Ax) - solve linear equation AX = B
    gemm      (a b Ma Mb Mc -- a b Ma Mb Mc') - GEMM Mc' = a * Ma * Mb + b * Mc
-</pre>
+#+END_QUOTE
 
 ** Tensor I/O, Persistence
-<pre>
+#+BEGIN_QUOTE
    save      (T adr len [fam] -- T) - pickle tensor to OS file (default text mode)
-</pre>
+#+END_QUOTE
 
 * TODO
 ** Model
