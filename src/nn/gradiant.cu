@@ -1,6 +1,6 @@
 /** -*- c++ -*-
  * @file
- * @brief Model class - gradiant descent functions implementation
+ * @brief Model class - gradient descent functions implementation
  *
  * <pre>Copyright (C) 2022- GreenII, this file is distributed under BSD 3-Clause License.</pre>
  */
@@ -9,39 +9,32 @@
 
 #if T4_ENABLE_OBJ
 __KERN__ void k_sgd(
-    DU *G, DU *DG, DU *M,        ///< w, dw, and momemtum tensors
-    DU lr, DU b, int HW          ///< learn rate, beta(momemtum), and dw zero flag
+    DU *G, DU *DG, DU *M,   ///< w, dw, and momemtum tensors
+    DU lr, DU b, int numel  ///< learn rate, beta(momemtum)
     ) {
-    const int i  = threadIdx.x + blockIdx.x * blockDim.x;  ///< element index
-    const int c  = blockIdx.y, C = gridDim.y;              ///< channel deep
-    const int ns = blockIdx.z * HW * C;                    ///< batch slice index
-    const int k  = c + i * C + ns;                         ///< output tensor index
-    
-    if (k < HW) {
-        if (b < DU_EPS) G[k] -= lr * DG[k];
+    const int i = threadIdx.x + blockIdx.x * blockDim.x;  ///< element index
+    if (i < numel) {
+        if (ABS(b) < DU_EPS) G[i] -= lr * DG[i];
         else {
-            DU mk = M[k] = b * M[k] + (1.0 - b) * DG[k];
-            G[k] -= lr * mk;
+            DU mi = M[i] = b * M[i] + (1.0 - b) * DG[i];   ///< momentum
+            G[i] -= lr * mi;                               /// * learn
         }
-        DG[k] = DU0;                                       /// * zero after batch
+        DG[i] = DU0;                                       /// * zero after batch
     }
 }
 
 __KERN__ void k_adam(
-    DU *G, DU *DG, DU *M, DU *V, ///< w, dw, and momemtum tensors
-    DU lr, DU b1, DU b2, int HW  ///< learn rate, beta(momemtum), and dw zero flag
+    DU *G, DU *DG, DU *M, DU *V,   ///< w, dw, and momemtum tensors
+    DU lr, DU b1, DU b2,           ///< learn rate, beta(momemtum)
+    int N, int numel               ///< batch size, number of element
     ) {
-    const int i  = threadIdx.x + blockIdx.x * blockDim.x;  ///< element index
-    const int c  = blockIdx.y, C = gridDim.y;              ///< channel deep
-    const int ns = blockIdx.z * HW * C;                    ///< batch slice index
-    const int k  = c + i * C + ns;                         ///< output tensor index
-    
-    if (k < HW) {
-        DU dg = DG[k] / gridDim.z;
-        DU mk = M[k] = b1 * M[k] + (1.0 - b1) * dg;
-        DU vk = V[k] = b2 * V[k] + (1.0 - b2) * dg * dg;
-        G[k] -= lr * M[k] / (SQRT(V[k]) + DU_EPS);
-        DG[k] = DU0;
+    const int i = threadIdx.x + blockIdx.x * blockDim.x;   ///< element index
+    if (i < numel) {
+        DU dg = DG[i] / N;                                 ///< delta/N
+        DU mi = M[i] = b1 * M[i] + (1.0 - b1) * dg;        ///< momentum
+        DU vi = V[i] = b2 * V[i] + (1.0 - b2) * dg * dg;   ///< velocity
+        G[i] -= lr * mi / (SQRT(vi) + DU_EPS);             /// * learn
+        DG[i] = DU0;                                       /// * zero out gradient
     }
 }
 
@@ -95,7 +88,7 @@ Model::grad_alloc(t4_optimizer op) {
 ///> grandiant descent iterator
 ///
 __GPU__ Model&
-Model::gradiant(const char *nm, GdFunc fn, DU *parm, t4_optimizer op) {
+Model::gradient(const char *nm, GdFunc fn, DU *parm, t4_optimizer op) {
     auto step = [this, fn, parm](const char n,
             Tensor &g, Tensor &dg, Tensor &m, Tensor &v) {
             TRACE1("\n    %c[%d,%d,%d,%d] Σ=%6.3f - %6.3f",
@@ -124,26 +117,25 @@ Model::gradiant(const char *nm, GdFunc fn, DU *parm, t4_optimizer op) {
     return *this;
 }
 ///
-/// Stochastic Gradiant Descent
+/// Stochastic Gradient Descent
 /// Note: does not get affected by batch size
 ///       because filters are fixed size
 ///
 __GPU__ Model&
 Model::sgd(DU lr, DU b) {                          /// a=momentum
     auto update = [](DU *parm, Tensor &g, Tensor &dg, Tensor &m, Tensor &v) {
-        const int HW = g.H() * g.W();
+        const int numel = g.numel;
         const dim3 blk(T4_WARP_SQ, 1, 1);          ///< default blocks
-        const dim3 grd((HW + blk.x - 1)/blk.x, g.C(), g.N());
+        const dim3 grd((numel + blk.x - 1)/blk.x, 1, 1);
         
         k_sgd<<<grd,blk>>>(
-            g.data, dg.data, m.data, parm[0], parm[1], HW);
+            g.data, dg.data, m.data, parm[0], parm[1], numel);
     };
-    DU parm[3] = {
+    DU parm[2] = {
         lr / batch_size(),                        ///> eta / mini-batch size
-        _iter ? b : (DU)DU0,                      ///> beta
-        DU0
+        _iter ? b : (DU)DU0                       ///> beta
     };
-    gradiant("sgd", update, parm, ABS(b) < DU_EPS ? OPTI_SGD : OPTI_SGDM);
+    gradient("sgd", update, parm, ABS(b) < DU_EPS ? OPTI_SGD : OPTI_SGDM);
     
     return *this;
 }
@@ -151,20 +143,23 @@ Model::sgd(DU lr, DU b) {                          /// a=momentum
 __GPU__ Model&
 Model::adam(DU lr, DU b1, DU b2) {
     auto update = [](DU *parm, Tensor &g, Tensor &dg, Tensor &m, Tensor &v) {
-        const int HW = g.H() * g.W();
+        const int numel = g.numel;
         const dim3 blk(T4_WARP_SQ, 1, 1);         ///< default blocks
-        const dim3 grd((HW + blk.x - 1)/blk.x, g.C(), g.N());
+        const dim3 grd((numel + blk.x - 1)/blk.x, 1, 1);
 
         k_adam<<<grd,blk>>>(
             g.data, dg.data, m.data, v.data,
-            parm[0], parm[1], parm[2], HW);
+            parm[0], parm[1], parm[2], parm[3], numel);
     };
-    DU parm[3] = {
-        lr * SQRT(1 - POW(b2, _iter+1)) / (1 - POW(b1, _iter+1)),
+    DU vr = SQRT(DU1 - POW(b2, DU1+_iter));
+    DU mr = DU1 - POW(b1, DU1+_iter);
+    DU parm[4] = {
+        lr * vr / mr,
         _iter ? b1 : (DU)DU0,
-        _iter ? b2 : (DU)DU0
+        _iter ? b2 : (DU)DU0,
+        (DU)batch_size()
     };
-    gradiant("adam", update, parm, OPTI_ADAM);
+    gradient("adam", update, parm, OPTI_ADAM);
 
     return *this;
 }
