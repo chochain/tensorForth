@@ -445,7 +445,7 @@ Model::_bupsample(Tensor &in, Tensor &out, t4_layer fn) {
 ///  @note
 ///    my own implmentation having dbeta and dgamma divided by HW
 ///    which is different from original document by does better
-///    in preventing gradiant explosion
+///    in preventing gradient explosion
 ///
 extern __KERN__ void k_sum(DU *I, DU *sum, int HW);
 __GPU__ int
