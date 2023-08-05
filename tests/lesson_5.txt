@@ -60,7 +60,7 @@ constant ds0                        \ keep dataset in a constant
     0.002 0.9 nn.adam               \ train with Adam Gradiant Decent
     46 emit
   next ;
-: cnn ( N ds n -- N' )              \ run multiple epoches
+: cnn ( N ds n -- N' )              \ run multiple epochs
   for
     epoch r@ stat                   \ run one epoch, display statistics
     ds0 rewind                      \ rewind entire dataset 
