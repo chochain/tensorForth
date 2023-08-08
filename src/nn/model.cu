@@ -101,7 +101,14 @@ Model::_ilinear(Tensor &in, U16 C0, DU bias) {
     DU k = DU1 / SQRT(C1);                       /// * default weight
     _mmu->random(*w, UNIFORM, -0.5, 2.0 * k);    /// * randomize w
     TRACE1("bias=%4.2f,  k=%6.3f, w.std=%6.3f\n", bias, k, w->std());
-    
+    /*
+    for (int c0=0; c0<C0; c0++) {
+        TRACE1("\nw.c0=%d ", c0);
+        for (int c1=0; c1<C1; c1++) {
+            TRACE1("%5.2f", w->data[c1 + c0*C1]);
+        }
+    }
+    */
     Tensor &out = _t4(N1, C0);                   ///> output tensor sizing
     TRACE1(" out[%d,%d,%d,%d]", out.N(), out.H(), out.W(), out.C());
     npush(out);                                  /// * stage for next stage
