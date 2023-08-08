@@ -14,6 +14,7 @@
 __KERN__ void
 k_ten_op(t4_ten_op op, float *A, int sz, float v=DU0) {
     const int k = threadIdx.x + blockIdx.x * blockDim.x;
+    DU ak = A[k];                             ///< cache value
     if (k < sz) {
         switch(op) {
         case O_ADD:   A[k] += v;                        break;
@@ -22,15 +23,15 @@ k_ten_op(t4_ten_op op, float *A, int sz, float v=DU0) {
         case O_DIV:   A[k] /= v;                        break;
         case O_FILL:  A[k] = v;                         break;
         case O_SCALE: A[k] *= v;                        break;
-        case O_POW:   A[k] = POW(A[k], v);              break;
-        case O_ABS:   A[k] = ABS(A[k]);                 break;
-        case O_EXP:   A[k] = EXP(A[k]);                 break;
-        case O_LOG:   A[k] = LOG(A[k]);                 break;
-        case O_LN:    A[k] = LN(A[k]);                  break;
-        case O_TANH:  A[k] = TANH(A[k]);                break;
-        case O_RELU:  A[k] = A[k] > DU0 ? A[k] : DU0;   break;
-        case O_SIGM:  A[k] = SIGMOID(A[k]);             break;
-        case O_SQRT:  A[k] = SQRT(A[k]);                break;
+        case O_POW:   A[k] = POW(ak, v);                break;
+        case O_ABS:   A[k] = ABS(ak);                   break;
+        case O_EXP:   A[k] = EXP(ak);                   break;
+        case O_LN:    A[k] = LN(ak);                    break;
+        case O_LOG:   A[k] = LOG(ak);                   break;
+        case O_TANH:  A[k] = TANH(ak);                  break;
+        case O_RELU:  A[k] = ak > DU0 ? ak : DU0;       break;
+        case O_SIGM:  A[k] = SIGMOID(ak);               break;
+        case O_SQRT:  A[k] = SQRT(ak);                  break;
         default: ERROR("k_ten_op %d not supported\n", op);
         }
     }
@@ -734,7 +735,7 @@ Tensor::identity() {
 
 __BOTH__ Tensor&
 Tensor::map(t4_ten_op op, DU v) {
-    OPN("+", "-", "*", "/", "@", "solv", "fill", "scale","pow", "abs", "exp", "log", "tanh", "relu", "sigmoid", "sqrt");
+    OPN("+", "-", "*", "/", "@", "solv", "fill", "scale","pow", "abs", "exp", "ln", "log", "tanh", "relu", "sigmoid", "sqrt");
     WARN("Tensor#%s v=%f\n", opn[op], v);
     int n = (numel + T4_WARP_SQ - 1) / T4_WARP_SQ;
     
