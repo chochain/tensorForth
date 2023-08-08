@@ -40,12 +40,20 @@ int load_gan_img(const char *fname) {
     ///
     /// STB use host memory, (compare to t_bmpvu which uses CUDA managed mem)
     ///
+    /// +- N2*WC -+
+    /// |         |
+    /// |         | N2*H
+    /// |         |
+    /// +---------+
+    ///
     int WC   = W * C;
     int HWC  = H * W * C;
-    int WC10 = WC * 10;
+    int N2   = static_cast<int>(ceilf(sqrtf(N)));
+    int WX   = N2 * WC;
+    int HX   = N2 * H;
     
     char *buf = (char*)malloc(HWC);
-    char *img = (char*)malloc(N * HWC);
+    char *img = (char*)malloc(HX * WX);
 
     for (int n = 0; n < N; n++) {
         sz = fread(buf, 1, HWC, fd);
@@ -54,23 +62,55 @@ int load_gan_img(const char *fname) {
             free(buf);
             GAN_ERR(" read size mismatched");
         }
-        int x = n % 10, y = n / 10;
+        int x = n % N2, y = n / N2;
         for (int h = 0; h < H; h++) {
-            char *p = img + ((h + y*H) * WC10 + x*WC);
-            memcpy(p, buf, WC);
+            char *p = img + (h + y * H) * WX + x * WC;
+            memcpy(p, buf + h * WC, WC);
         }
+        *(img + (y * H * WX) + x * WC) = (char)0xff;
     }
     fclose(fd);
-    sprintf(buf, "%s_10x%d.png", fname, N/10);
-    printf(" => creating 10x%d png %s\n", N/10, buf);
+    sprintf(buf, "%s_%dx%d.png", fname, N2, N2);
+    printf(" => creating png[%d,%d] %s\n", WX, HX, buf);
     
-    stbi_write_png(buf, W*10, H*N/10, C, img, WC10);
+    stbi_write_png(buf, N2 * W, N2 * H, C, img, WX);
     free(buf);
     free(img);
 
     return 0;
 }
+#include <iomanip>
+#include <fstream>
+using namespace std;
+
+typedef unsigned short U16;
+
+int gen_test_img(char *fname, U16 N, U16 H, U16 W, U16 C) {
+    const char hdr[2] = { 'T', '4' };
+    const int HWC = H * W * C;
+    U16 shape[4] = { H, W, C, N };
+    
+    char *buf = (char*)malloc(HWC);
+    
+    ofstream fout(fname, ios_base::out | ios_base::binary);
+    if (!fout.is_open()) {
+        printf(" failed to open for output\n");
+        return 1;
+    }
+    fout.write(hdr, sizeof(hdr));
+    fout.write((const char*)shape, sizeof(shape));
+    for (int n=0; n < N; n++) {
+        for (int i=0; i < HWC; i++) {
+            buf[i] = (char)(n * 2);
+        }
+        fout.write((const char*)buf, HWC);
+    }
+    free(buf);
+    return 0;
+}
 
 int main(int argc, char **argv) {
-    return load_gan_img(argv[1]);
+    return argc > 2
+        ? gen_test_img(argv[1], 100, 28, 28, 1)
+        : load_gan_img(argv[1]);
 }
