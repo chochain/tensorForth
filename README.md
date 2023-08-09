@@ -40,45 +40,6 @@ The codebase will be in C for my own understanding of the multi-trip data flows.
 
 In the end, languages don't really matter. It's the problem they solve. Having an interactive Forth in GPU does not mean a lot by itself. However by adding vector, matrix, linear algebra support with a breath of **APL**'s massively parallel from GPUs. Neural Network tensor ops with backprop following the path from Numpy to PyTorch, plus the cleanness of **Forth**, it can be useful one day, hopefully! 
 
-### Example - CNN Training on MNIST dataset
-<pre>
-10 28 28 1 nn.model                         \ create a network model (input dimensions)
-0.5 10 conv2d 2 maxpool relu                \ add a convolution block
-0.5 20 conv2d 0.5 dropout 2 maxpool relu    \ add another convolution block
-flatten 49 linear                           \ add reduction layer to 49-feature, and
-0.5 dropout 10 linear softmax               \ final 10-feature fully connected output
-constant md0                                \ we can store the model in a constant
-                                
-md0 batchsize dataset mnist_train           \ create a MNIST dataset with model batch size
-constant ds0                                \ save dataset in a constant
-
-\ statistics
-variable acc 0 acc !                        \ create an accuracy counter, and zero it
-variable lox                                \ a variable to keep current loss
-: stat cr .                                 \ display statistics
-  ." >" clock .
-  ." : hit=" acc @ . 0 acc !
-  ." , loss=" lox @ . cr ;
-
-\ entire CNN training framework
-: epoch (N D -- N')                         \ one epoch thru entire training dataset
-  for                                       \ loop thru dataset per mini-batch
-    forward                                 \ neural network forward pass
-    loss.ce lox ! nn.hit acc +!             \ get loss and hit count
-    backprop                                \ neural network back propagation
-    0.01 0.0 nn.sgd                         \ training with Stochastic Gradient
-    46 emit                                 \ display progress '.'
-  next ;                                    \ next mini-batch (kept on return stack)
-: cnn ( N D n -- N' D )                     \ run multiple epochs
-  for epoch r@ stat ds0 rewind next ;
-
-ds0                                         \ put dataset as TOS
-19 epoch                                    \ execute multiple epochs
-drop                                        \ drop dataset from TOS
-
-s" tests/my_net.t4" nn.save                 \ persist the trained network
-</pre>
-
 ### Example - Small Matrix ops
 <pre>
 > ten4                # enter tensorForth
@@ -130,14 +91,49 @@ matrix[1024,512] = {                 \ in PyTorch style (edgeitem=3)
  <0 T2[1024,2048] T2[2048,512] T2[1024,512]> ok  \ note that matrix is untouched
 drop                                        \ because tensor ops are by default non-destructive
  <0 T2[1024,2048] T2[2048,512]> ok          \ so we drop them from TOS
-
 : mx clock >r for @ drop next clock r> - ;  \ now let's define a word 'mx' for benchmark loop
-9 mx                                        \ run benchmark for 10 loops
- <0 T2[1024,2048] T2[2048,512] 396> ok      \ 396 ms for 10 cycles
-drop                                        \ drop the value
  <0 T2[1024,2048] T2[2048,512]> ok
 999 mx                                      \ now try 1000 loops
  <0 T2[1024,2048] T2[2048,512] 3.938+04> ok \ that is 39.38 sec (i.e. ~40ms / loop)
+</pre>
+
+### Example - CNN Training on MNIST dataset
+<pre>
+10 28 28 1 nn.model                         \ create a network model (input dimensions)
+0.5 10 conv2d 2 maxpool relu                \ add a convolution block
+0.5 20 conv2d 0.5 dropout 2 maxpool relu    \ add another convolution block
+flatten 49 linear                           \ add reduction layer to 49-feature, and
+0.5 dropout 10 linear softmax               \ final 10-feature fully connected output
+constant md0                                \ we can store the model in a constant
+                                
+md0 batchsize dataset mnist_train           \ create a MNIST dataset with model batch size
+constant ds0                                \ save dataset in a constant
+
+\ statistics
+variable acc 0 acc !                        \ create an accuracy counter, and zero it
+variable lox                                \ a variable to keep current loss
+: stat cr .                                 \ display statistics
+  ." >" clock .
+  ." : hit=" acc @ . 0 acc !
+  ." , loss=" lox @ . cr ;
+
+\ entire CNN training framework
+: epoch (N D -- N')                         \ one epoch thru entire training dataset
+  for                                       \ loop thru dataset per mini-batch
+    forward                                 \ neural network forward pass
+    loss.ce lox ! nn.hit acc +!             \ get loss and hit count
+    backprop                                \ neural network back propagation
+    0.01 0.0 nn.sgd                         \ training with Stochastic Gradient
+    46 emit                                 \ display progress '.'
+  next ;                                    \ next mini-batch (kept on return stack)
+: cnn ( N D n -- N' D )                     \ run multiple epochs
+  for epoch r@ stat ds0 rewind next ;
+
+ds0                                         \ put dataset as TOS
+19 epoch                                    \ execute multiple epochs
+drop                                        \ drop dataset from TOS
+
+s" tests/my_net.t4" nn.save                 \ persist the trained network
 </pre>
 
 ### To build
