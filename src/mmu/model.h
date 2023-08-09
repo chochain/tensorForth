@@ -123,9 +123,8 @@ private:
     /// @}
     /// @name Activation ops
     /// @{
-    __GPU__ void   _icopy(Tensor &in);              ///< for relu, tanh, sigmoid
+    __GPU__ void   _icopy(Tensor &in);              ///< for relu, tanh, sigmoid, softmax, logsoftmax
     __GPU__ void   _iactivate(Tensor &in, DU alpha);///< zero out p% of channel data (add noise between data points)
-    __GPU__ void   _isoftmax(Tensor &in);           ///< for softmax, logsoftmax
     /// @}
     /// @name Pooling and Dropout ops
     /// @{
