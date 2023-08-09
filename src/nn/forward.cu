@@ -65,8 +65,8 @@ __KERN__ void k_linear(
     DU *I, DU *O, DU *W, DU *B,
     int C1, int C0, int HWC1, int HWC0
     ) {
-    const int c0 = threadIdx.x + blockIdx.x * blockDim.x;
-    const int c1 = threadIdx.y + blockIdx.y * blockDim.y;
+    const int c1 = threadIdx.x + blockIdx.x * blockDim.x;
+    const int c0 = threadIdx.y + blockIdx.y * blockDim.y;
     const int n  = blockIdx.z;
 
     if (c0 < C0 && c1 < C1) {
@@ -307,6 +307,17 @@ Model::_fconv(Tensor &in, Tensor &out) {
 
 __GPU__ int
 Model::_flinear(Tensor &in, Tensor &out) {
+    auto qa_calc = [&in, &out](DU *w, DU *b, int N, int C1, int C0) {
+        for (int n = 0; n < N; n++) {                 /// * walk through batch
+            DU *x = in.slice(n), *y = out.slice(n);
+            for (int c0 = 0; c0 < C0; c0++) {
+                y[c0] = b[c0];                        /// init with bias
+                for (int c1 = 0; c1 < C1; c1++) {     /// dot product
+                    y[c0] += w[c1 + c0 * C1] * x[c1]; /// Y = W @ X + B
+                }
+            }
+        }
+    };
     Tensor &tw = *in.grad[0];                         ///< weight tensor
     Tensor &tb = *in.grad[1];                         ///< bias tensor
 
@@ -318,25 +329,13 @@ Model::_flinear(Tensor &in, Tensor &out) {
 
     if (tw.numel > T4_WARP_SQ) {                      /// * threadhold control
         dim3 blk(T4_WARP_SZ, T4_WARP_SZ, 1);          ///< default blocks
-        dim3 grd(NGRID(C0, C1, N, blk));              ///< default grids
+        dim3 grd(NGRID(C1, C0, N, blk));              ///< default grids
 
         k_linear<<<grd,blk>>>(
             in.data, out.data, tw.data, tb.data, C1, C0, in.HWC(), out.HWC());
         GPU_SYNC();                                   /// * this makes it slow
     }
-    else {                                            /// * serial code (for validation)
-        TRACE1("*");
-        DU *w = tw.data, *b = tb.data;
-        for (int n = 0; n < N; n++) {                 /// * walk through batch
-            DU *x = in.slice(n), *y = out.slice(n);
-            for (int c0 = 0; c0 < C0; c0++) {
-                y[c0] = b[c0];                        /// init with bias
-                for (int c1 = 0; c1 < C1; c1++) {     /// dot product
-                    y[c0] += w[c1 + c0 * C1] * x[c1]; /// Y = W @ X + B
-                }
-            }
-        }
-    }
+    else qa_calc(tw.data, tb.data, N, C1, C0);        /// * serial code (for validation)
     // _dump(out.data, out.H(), out.W(), out.C());
     return 0;
 }
@@ -390,45 +389,35 @@ Model::_fpool(Tensor &in, Tensor &out, t4_layer fn) {
 }
 
 __GPU__ int
-Model::_fsoftmax(Tensor &in, Tensor &out) {   /// * TODO: DCP
-    out = in;                                 /// * copy content for exp calc
-    DU *sum = in.grad[0]->data;               /// * sum(exp(xi)), for DCP
-    int hwc = in.HWC();
-    for (int n = 0; n < in.N(); n++, sum++) { /// * loop throught batch
-        *sum = DU0;
-        DU *d = out.slice(n), *d1 = d;
-        for (int i = 0; i < hwc; i++) {
-            *d   = EXP(*d);                   /// * softmax = exp(xi) / sum(exp(xi))
-            *sum += *d++;
-        }
-        DU r = DU1 / (*sum + DU_EPS);         /// * r = 1.0 / sum(exp(xi))
-        *sum = DU0;
-        for (int i = 0; i < hwc; i++) {
-            *d1  *= r;
-            *sum += *d1++;
-        }
-        TRACE2(" Σ%d=%5.3f", n, *sum);        /// * verify sum = 1.0
+Model::_fsoftmax(Tensor &in, Tensor &out) {
+    out = in;                                   /// copy content for exe calc
+    out.map(O_EXP);                             /// *
+    Tensor &t = _t4(1, in.H(), in.W(), in.C()); ///< create temp tensor for calc
+    DU     *d = t.data;                         ///< cached tensor data
+    for (int n = 0; n < in.N(); n++) {          ///< loop thru mini-batch
+        t.data = out.slice(n);                  /// * point to output data slice
+        DU sum = t.sum();                       ///< sum(exp(xi))
+        t.map(O_MUL, DU1 / (sum + DU_EPS));     /// * softmax = exp(xi)/sum(exp(xi))
     }
+    t.data = d;                                 /// * restore tensor data
+    _mmu->free(t);                              /// * release memory
     return 0;
 }
 
 __GPU__ int
-Model::_flogsoftmax(Tensor &in, Tensor &out) {/// * TODO: DCP
-    out = in;                                 /// * copy in data to out
-    DU *sum = in.grad[0]->data;               /// * sum(exp(xi)), for DCP
-    int hwc = in.HWC();
-    for (int n = 0; n < in.N(); n++, sum++) { /// * loop throught batch
-        *sum = DU0;
-        DU *d = out.slice(n), *d1 = d;
-        for (int i = 0; i < hwc; i++) {
-            *sum += EXP(*d++);
-        }
-        DU logsum = LOG(*sum);
-        for (int i = 0; i < hwc; i++) {
-            *d1++ -= logsum;
-        }
-        TRACE2(" lnΣ%d=%5.3f", n, logsum);   /// * verify sum
+Model::_flogsoftmax(Tensor &in, Tensor &out) {  /// * TODO: DCP
+    out = in;                                   /// * copy in data to out
+    out.map(O_EXP);
+    Tensor &t = _t4(1, in.H(), in.W(), in.C()); ///< create tmp tensor
+    DU     *d = t.data;                         ///< cache tensor data
+    for (int n = 0; n < in.N(); n++) {          /// * loop throught mini-batch
+        t.data = out.slice(n);
+        DU sum    = t.sum();
+        DU logsum = LOG(sum > DU0 ? sum : DU_EPS);
+        t -= logsum;                            ///< xi - log(sum(exp(xi)))
     }
+    t.data = d;                                 /// * restore tensor data pointer
+    _mmu->free(t);                              /// * release memory
     return 0;
 }
 ///
