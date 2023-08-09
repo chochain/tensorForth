@@ -360,6 +360,8 @@ TensorVM::init() {
              Tensor &t1 = mmu.slice(t0, x0, x1, y0, y1);
              PUSH(t1);
          }),
+    CODE("t@",  IU i = POPi; if (IS_OBJ(top)) PUSH(TTOS[i])),
+    CODE("t!",  DU v = POP(); IU i = POPi; if (IS_OBJ(top)) TTOS[i]=v),
     ///@}
     ///@defgroup 1-tensor ops in-place (i.e. destructive, as in Forth)
     ///@{
