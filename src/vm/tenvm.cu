@@ -8,18 +8,6 @@
 
 #if T4_ENABLE_OBJ
 ///
-/// Tensor print to host
-///
-__GPU__ void
-TensorVM::tprint() {
-    if (TOS1T) {                             /// * handle objects
-        DU d = POP(); fout << d;
-        mmu.mark_free(d);
-    }
-    else if (IS_OBJ(top)) fout << top;       /// * view, model, dataset
-    else fout << " " << POP();               /// * eForth has a space prefix
-}
-///
 /// Tensor-self ops
 ///
 __GPU__ void
@@ -60,7 +48,7 @@ TensorVM::xop1(t4_ten_op op, DU v) {
     case O_RELU:
     case O_SIGM:  A.map(op);      break;
     case O_IDEN:  A.identity();   break;
-    default: ERROR("TensorVM#xop1(%d) not supprted\n", op);
+    default: ERROR("tenvm#xop1(%d) not supprted\n", op);
     }
 }
 ///
@@ -99,7 +87,7 @@ TensorVM::xop1x(t4_ten_op op) {
         t.reshape(A.W(), A.H());
         Tensor::transpose(A, t);  break;
     default:
-        ERROR("TensorVM#xop1x(%d) not supported\n", op);
+        ERROR("tenvm#xop1x(%d) not supported\n", op);
         mmu.free(t);
         tos = false;
     }
@@ -115,25 +103,27 @@ TensorVM::xop2(t4_ten_op op, t4_drop_opt x) {
     bool s0 = !IS_OBJ(top), s1 = !IS_OBJ(ss[-1]); /// * scalar flags
     if (s0 && s1) return _ss_op(op);              /// * scalar scalar op
     if (s0) {                                     /// * tensor scaler op
-        Tensor &O = _ts_op(op);
-        VLOG1("A[%d,%d] %s %f => O[%d,%d]\n",
+        Tensor &O = _ts_op(op, x);
+        VLOG1("tenvm# A[%d,%d] %s %f => O[%d,%d]\n",
               TNOS.H(), TNOS.W(), opn[op], top, O.H(), O.W());
-        if (x==DROP) { POP(); mmu.mark_free(TTOS); POP(); }
-        PUSH(O);
+        if (x==KEEP) PUSH(O);
+        else         POP();
+
         return;
     }
     if (s1) {                                     /// * scalar tensor op
-        Tensor &O = _st_op(op);
-        VLOG1("%f %s A[%d,%d] => O[%d,%d]\n",
+        Tensor &O = _st_op(op, x);
+        VLOG1("tenvm# %f %s A[%d,%d] => O[%d,%d]\n",
               ss[-1], opn[op], TTOS.H(), TTOS.W(), O.H(), O.W());
-        if (x==DROP) { mmu.mark_free(TTOS); POP(); POP(); }
-        PUSH(O);
+        if (x==KEEP) PUSH(O);
+        else         ss.pop();
+
         return;
     }
     
     Tensor &O = _tt_op(op);                       /// * tensor tensor op
     if (O != TTOS) {
-        VLOG1("TensorVM# A[%d,%d] %s B[%d,%d] => O[%d,%d]\n",
+        VLOG1("tenvm# A[%d,%d] %s B[%d,%d] => O[%d,%d]\n",
              TNOS.H(), TNOS.W(), opn[op], TTOS.H(), TTOS.W(), O.H(), O.W());
         if (x==DROP) {
             mmu.mark_free((Tensor&)TTOS); POP();
@@ -154,10 +144,10 @@ TensorVM::_ss_op(t4_ten_op op) {               ///< scalar-scalar ops
 }
 
 __GPU__ Tensor&
-TensorVM::_st_op(t4_ten_op op) {              ///< scalar tensor op
+TensorVM::_st_op(t4_ten_op op, t4_drop_opt x) {///< scalar tensor op
     Tensor &A = TTOS;                         /// * Tensor on TOS
     DU     v  = ss[-1];                       /// * scalar as NOS
-    Tensor &O = mmu.copy(A);                  /// * make a hard copy (and parameters)
+    Tensor &O = x==KEEP ? mmu.copy(A) : A;    /// * make a hard copy (and parameters)
     if (op==O_DIV || op==O_SUB) {             /// * op(scaler, tensor)
         Tensor &B = mmu.tensor(A.numel);      /// * working tensor
         B.map(O_FILL, v);                     /// * broadcast
@@ -170,9 +160,9 @@ TensorVM::_st_op(t4_ten_op op) {              ///< scalar tensor op
 }
 
 __GPU__ Tensor&
-TensorVM::_ts_op(t4_ten_op op) {              ///< tensor scalar op
+TensorVM::_ts_op(t4_ten_op op, t4_drop_opt x) {///< tensor scalar op
     Tensor &A = TNOS;                         ///< tensor on NOS
-    Tensor &O = mmu.copy(A);                  ///< make a hard copy of A
+    Tensor &O = x==KEEP ? mmu.copy(A) : A;    ///< make a hard copy of A
     Tensor::ten_op(op, A, top, O);            /// * broadcast_op(tensor, scalar)
     
     return O;
@@ -238,7 +228,7 @@ TensorVM::_tdot(Tensor &A, Tensor &B) {      ///< tensor dot product
         A.rank==1 && A.numel==B.numel) {
         DU v = A.dot(B);
         PUSH(v);
-        VLOG1("A[%d] · B[%d] => %f\n", A.H(), B.H(), v);
+        VLOG1("tenvm# A[%d] · B[%d] => %f\n", A.H(), B.H(), v);
         return B;                            /// * non-tensor
     }
     if (B.rank==1 && A.W()==B.numel) {       ///> inner(tensor, vector)
@@ -256,7 +246,7 @@ TensorVM::_tdot(Tensor &A, Tensor &B) {      ///< tensor dot product
 __GPU__ Tensor&
 TensorVM::_solv(Tensor &A, Tensor &B) {      /// Note: A B flipped [3,3]x[3,1]
     U16 m = A.H(), k = A.W(), n = B.H();
-    VLOG1("solv[%d,%d] x [%d]\n", m, k, n);
+    VLOG1("tenvm# solv[%d,%d] x [%d]\n", m, k, n);
     
     if (B.rank!=1 || m!=k || k!=n) return A;
     
@@ -423,12 +413,14 @@ TensorVM::init() {
     CODE("r@",
         if (IS_OBJ(rs[-1])) PUSH(mmu.copy(rs[-1]));   /// * hard copy object, or
         else PUSH(mmu.dup(rs[-1]))),                  /// * dup number
-    CODE("abs", xop1(O_ABS)),
-    CODE(".",   tprint()),
+    CODE(".",
+        if (IS_OBJ(top)) fout << top;         /// * view, model, dataset (non-destructive)
+        else fout << " " << POP()),           /// * eForth has a space prefix
     CODE("+",   xop2(O_ADD, KEEP)),
     CODE("-",   xop2(O_SUB, KEEP)),
     CODE("*",   xop2(O_MUL, KEEP)),
     CODE("/",   xop2(O_DIV, KEEP)),
+    CODE("abs", xop1(O_ABS)),
     CODE("@",
         if (IS_OBJ(top)) xop2(O_DOT, KEEP);   ///< matrix @ product
         else {
@@ -457,7 +449,7 @@ TensorVM::init() {
     mmu.append(prim, sizeof(prim)/sizeof(Code)); /// * append tensor words
     mmu.merge(ext,   sizeof(ext)/sizeof(Code));  /// * overload existed words
     
-    VLOG1("TensorVM::init ok\n");
+    VLOG1("tenvm#init ok\n");
 };
 ///
 /// override with tensor handler

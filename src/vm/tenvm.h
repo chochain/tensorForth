@@ -38,7 +38,6 @@ protected:
     /// override literal handler
     ///
     __GPU__ virtual int  number(char *str); ///< TODO: CC - worked without 'final', why?
-    __GPU__ void tprint();                  ///< tensor dot (print)
     ///
     /// tensor ops based on number of operands
     ///
@@ -50,10 +49,10 @@ private:
     ///
     /// tensor ops based on data types
     ///
-    __GPU__ void _ss_op(t4_ten_op op);      ///< scalar-scalar (eForth) ops
-    __GPU__ Tensor &_st_op(t4_ten_op op);   ///< scalar tensor op (broadcast)
-    __GPU__ Tensor &_ts_op(t4_ten_op op);   ///< tensor scalar op (broadcast)
-    __GPU__ Tensor &_tt_op(t4_ten_op op);   ///< tensor tensor op
+    __GPU__ void _ss_op(t4_ten_op op);                    ///< scalar-scalar (eForth) ops
+    __GPU__ Tensor &_st_op(t4_ten_op op, t4_drop_opt x);  ///< scalar tensor op (broadcast)
+    __GPU__ Tensor &_ts_op(t4_ten_op op, t4_drop_opt x);  ///< tensor scalar op (broadcast)
+    __GPU__ Tensor &_tt_op(t4_ten_op op);                 ///< tensor tensor op
     ///
     /// tensor-tensor ops
     ///
