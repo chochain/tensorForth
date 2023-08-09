@@ -86,24 +86,25 @@ tensorForth 2.0
 \  GPU 0 initialized at 1800MHz, dict[1024], vmss[64*1], pmem=48K, tensor=1024M
 2 3 matrix{ 1 2 3 4 5 6 }            \ create a 2x3 matrix
  <0 T2[2,3]> ok                      \ 2-D tensor shown on top of stack (TOS)
-dup                                  \ duplicate
- <0 T2[2,3] T2[2,3]> ok              \ two matrices now sit on stack
-.                                    \ print one
+.                                    \ print the matrix
 matrix[2,3] = {
 	{ +1.0000 +2.0000 +3.0000 }
 	{ +4.0000 +5.0000 +6.0000 } }
- <0 T2[2,3]> ok                      \ only one matrix now left on stack
+ <0 T2[2,3]> ok                      \ matrix still there on stack (non-destructive)
 3 2 matrix ones                      \ create a 3x2 matrix, fill it with ones
- <0 T2[2,3] T2[3,2]> ok
-@                                    \ multiply matrices 2x3 @ 3x2
+ <0 T2[2,3] T2[3,2]> ok              \ now we have two matrices on stack
+.                                    \ see whether it
+matrix[3,2] = {                      \ filled with ones indeed
+	{ +1.0000 +1.0000 }
+	{ +1.0000 +1.0000 }
+	{ +1.0000 +1.0000 } }
+@                                    \ multiply them 2x3 @ 3x2
  <0 T2[2,3] T2[3,2] T2[2,2]> ok      \ 2x2 resultant matrix shown on TOS
-.                                    \ print the matrix
+.                                    \ print the new matrix
 matrix[2,2] = {
 	{ +6.0000 +6.0000 }
 	{ +15.0000 +15.0000 } }
- <0 T2[2,3] T2[3,2]> ok
-2drop                                \ free both matrics
- <0> ok
+ <0 T2[2,3] T2[3,2] T2[2,2]> ok
 bye                                  \ exit tensorForth
  <0> ok
 tensorForth 2.0 done.
@@ -117,7 +118,7 @@ tensorForth 2.0 done.
  <0 T2[1024,2048] T2[2048,512]> ok
 @                                    \ multiply them and resultant matrix on TOS
  <0 T2[1024,2048] T2[2048,512] T2[1024,512]> ok
-2048 / .                             \ scale down and print the resultant 1024x512 matrix
+2048 /= .                            \ scale down and print the resultant 1024x512 matrix
 matrix[1024,512] = {                 \ in PyTorch style (edgeitem=3)
 	{ +0.4873 +0.4873 +0.4873 ... +0.4873 +0.4873 +0.4873 }
 	{ +0.4274 +0.4274 +0.4274 ... +0.4274 +0.4274 +0.4274 }
@@ -126,8 +127,8 @@ matrix[1024,512] = {                 \ in PyTorch style (edgeitem=3)
 	{ +0.5041 +0.5041 +0.5041 ... +0.5041 +0.5041 +0.5041 }
 	{ +0.5007 +0.5007 +0.5007 ... +0.5007 +0.5007 +0.5007 }
 	{ +0.5269 +0.5269 +0.5269 ... +0.5269 +0.5269 +0.5269 } }
- <0 T2[1024,2048] T2[2048,512] T2[1024,512] 2048> ok  \ note that matrix and 2048 are untouched
-2drop                                       \ because tensor ops are by default non-destructive
+ <0 T2[1024,2048] T2[2048,512] T2[1024,512]> ok  \ note that matrix is untouched
+drop                                        \ because tensor ops are by default non-destructive
  <0 T2[1024,2048] T2[2048,512]> ok          \ so we drop them from TOS
 
 : mx clock >r for @ drop next clock r> - ;  \ now let's define a word 'mx' for benchmark loop
@@ -278,10 +279,10 @@ drop                                        \ drop the value
    2over     (Ta Tb Tc Td -- Ta Tb Tc Td Ta Tb)
 </pre>
 
-### Tensor/View print
+### Tensor/View print (non-destructive)
 <pre>
-   . (dot)   (Ta -- )        - print a vector, matrix, or tensor
-   . (dot)   (Va -- )        - print a view of a tensor
+   . (dot)   (Ta -- Ta)      - print a vector, matrix, or tensor
+   . (dot)   (Va -- Va)      - print a view of a tensor
 </pre>
 
 ### Shape adjustment (change shape of original tensor or view)
@@ -305,6 +306,8 @@ drop                                        \ drop the value
 
 ### Tensor slice and dice
 <pre>
+   t@        (T  i -- T n)  - fetch ith element of tensor (in NHWC order)
+   t!        (T  i n -- T') - store n into ith element of tensor (in NHWC order)
    slice     (Ta i0 i1 j0 j1 -- Ta Ta') - numpy.slice[i0:i1,j0:j1,]
 </pre>
 

@@ -125,14 +125,14 @@ tensorForth 2.0 done.
 ||> `2 3 matrix{ 1 2 3 4 5 6 }`<br/>> `3 2 matrix`<br/>> **`2dup`**|`T2[2,3]`<br/>`T2[2,3] T2[3,2]`<br/>`T2[2,3] T2[3,2] T2[2,3] T2[3,2]`|
 |2over|(Ta Tb Tc Td -- Ta Tb Tc Td Ta Tb)|`...`|
 
-### Tensor print
+### Tensor print (non-destructive)
 |word|param/example|Tensor print|
 |---|---|---|
-|. (dot)|(T1 -- )|print vector|
+|. (dot)|(T1 -- T1)|print vector|
 ||> `5 vector{ 1 2 3 4 5 }`<br/>> **`.`**|`T1[5]`<br/>`vector[5] = { +1.0000 +2.0000 +3.0000 +4.0000 +5.0000 }`|
-|. (dot)|(T2 -- )|print matrix|
+|. (dot)|(T2 -- T2)|print matrix|
 ||> `2 3 matrix{ 1 2 3 4 5 6 }`<br/>> **`.`**|`T2[2,3]`<br/>`matrix[2,3] = { { +1.0000 +2.0000 +3.0000 } { +4.0000 +5.0000 +6.0000 } }`|
-|. (dot)|(V2 -- )|print a view|
+|. (dot)|(V2 -- V2)|print a view|
 ||> `2 3 matrix{ 1 2 3 4 5 6 }`<br/>> view<br/>> **`.`**|`T2[2,3]`<br/>`T2[2,3] V2[2,3]`<br/>`matrix[2,3] = { { +1.0000 +2.0000 +3.0000 } { +4.0000 +5.0000 +6.0000 } }`|
 
 ### Shape adjustment ops
@@ -168,6 +168,8 @@ tensorForth 2.0 done.
 ### Tensor slice and dice
 |word|param/example|tensor slicing ops (non-destructive)|
 |---|---|---|
+|t@|(T i -- T n)|fetch ith element of tensor (in NHWC order)|
+|t!|(T i v -- T')|store n into ith element of tensor (in NHWC order)|
 |slice|(Ta x0 x1 y0 y1 -- Ta Ta')|numpy.slice[x0:x1, y0:y1, ]|
 ||> `4 4 matrix rand`<br/>> `dup .`<br/>> **`1 3 1 3 slice`**<br/>> `.`|`T2[4,4]`<br/>`matrix[4,4] = {`<br/> `{ +0.0940 +0.5663 +0.3323 +0.0840 }`<br/> `{ +0.6334 +0.3548 +0.1104 +0.7236 }`<br/> `{ +0.2781 +0.0530 +0.7532 +0.4145 }`<br/> `{ +0.4473 +0.0823 +0.1551 +0.3159 } }`<br> `matrix[2,2] = {`<br/> `{ +0.3548 +0.1104 }`</br> `{ +0.0530 +0.7532 } }`|
 
