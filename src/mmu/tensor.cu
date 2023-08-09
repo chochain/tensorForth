@@ -214,11 +214,11 @@ k_bce(DU *X, DU *Y, DU *O, int numel) {
 ///
 __GPU__ Tensor&
 Tensor::ten_op(t4_ten_op op, Tensor &A, Tensor &B, Tensor &O) {
-    U16 N = A.N(), H = A.H(), W = A.W(), C = A.C(), HW = H * W;
-    
+    U16 N = A.N(), H = A.H(), W = A.W(), C = A.C();
     OPN("add", "sub", "mul", "div");
     WARN("Tensor::mat%s[%d,%d,%d,%d]\n", opn[op], N, H, W, C);
     
+    int HW = H * W;
     dim3 blk(T4_WARP_SQ, 1, 1);
     dim3 grd((HW + blk.x - 1) / blk.x, C, N);
     
@@ -228,15 +228,15 @@ Tensor::ten_op(t4_ten_op op, Tensor &A, Tensor &B, Tensor &O) {
     return O;
 }
 ///
-/// tensor-scalar addition O = A +- n element-wise (Hadamard)
+/// tensor-scalar addition O = A op n element-wise (Hadamard)
 ///
 __GPU__ Tensor&
 Tensor::ten_op(t4_ten_op op, Tensor &A, DU v, Tensor &O) {
-    U16 N = A.N(), H = A.H(), W = A.W(), C = A.C(), HW = H * W;
-
-    OPN("add", "sub", "mul", "div");
+    U16 N = A.N(), H = A.H(), W = A.W(), C = A.C();
+    OPN("+", "-", "*", "/");
     WARN("Tensor::mat[%d,%d,%d,%d] %s %6.2f\n", N, H, W, C, opn[op], v);
 
+    int HW = H * W;
     dim3 blk(T4_WARP_SQ, 1, 1);
     dim3 grd((HW + blk.x - 1) / blk.x, C, N);
     
