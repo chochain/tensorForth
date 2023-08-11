@@ -756,3 +756,96 @@ Tensor::normalize(DU avg, DU std) {
 
     return *this;
 }
+///=======================================================================
+/// Tensor debugger
+///
+__BOTH__ void
+Tensor::_dump(DU *v, int H, int W, int C) {
+    const int hw = H * W, sq = (int)sqrt(hw);
+    const int sh = (hw/sq) + ((hw - sq*sq) > 0 ? 1 : 0);
+    const int h  = W > 1 ? H : (hw < 36 ? 1 : sh);
+    const int w  = W > 1 ? W : (hw < 36 ? H : sq);
+    
+    DU *csum = new DU[C];
+    for (int k = 0; k < C; k++) csum[k] = DU0;
+    for (int i = 0; i < h; i++) {
+        printf("\n");
+        DU sum = DU0;
+        for (int k = 0; k < C; k++) {
+            for (int j = 0; j < w; j++) {
+                int n = j + i * w;
+                if (n >= hw) { printf(" ...."); continue; }
+                
+                DU  r = v[k + n * C];
+                printf("%5.2f", r);
+                sum += r;
+                csum[k] += r;
+            }
+            printf("|");
+        }
+        printf("Σ=%6.3f", sum);
+    }
+    if (h > 1) {
+        printf("\nΣΣ=");
+        for (int k = 0; k < C; k++) printf("%5.2f ", csum[k]);
+    }
+    printf("\n");
+    delete csum;
+}
+///
+///> _view - in ASCII art
+///
+__BOTH__ void
+Tensor::_view(DU *v, int H, int W, int C, DU scale) {
+//  static const char *map = " .'`^\",:;Il!i><~+_-?][}{1)(|/tfjrxnuvczXYUJCLQ0OZmwqpdbkhao*#MW&8%B@$";   // 69 shades
+    static const char *map = " .:-=+*#%@X";
+    const int hw = H * W, sr = static_cast<int>(SQRT(hw));
+    const int sh = (hw/sr) + ((hw - sr*sr) > 0 ? 1 : 0);
+    const int w  = W > 1 ? W : (hw < 36 ? H : sr);
+    const int h  = W > 1 ? H : (hw < 36 ? 1 : sh);
+    
+    DU *csum = new DU[C];
+    for (int k = 0; k < C; k++) csum[k] = DU0;
+    for (int i = 0; i < h; i++) {
+        printf("\n");
+        for (int k = 0; k < C; k++) {
+            for (int j = 0; j < w; j++) {
+                int n = j + i * w;
+                if (n >= hw) { printf("  "); continue; }
+                
+                DU r0 = v[k + (j>0 ? n - 1 : n) * C];
+                DU r1 = v[k + n * C];
+                DU x0 = r0 * scale;
+                DU x1 = (r0 + r1) * scale * 0.5;
+                char c0 = map[x0 < 10.0f ? (x0 < DU0 ? 10 : (int)x0) : 9];
+                char c1 = map[x1 < 10.0f ? (x1 < DU0 ? 10 : (int)x1) : 9];
+                
+                printf("%c%c", c0, c1);                           // double width
+                csum[k] += r1;
+            }
+            printf("|");
+        }
+    }
+    if (h > 1) {
+        printf("\nΣΣ=");
+        for (int k = 0; k < C; k++) printf("%5.2f ", csum[k]);
+    }
+    printf("\n");
+    
+    delete csum;
+}
+
+__BOTH__ void
+Tensor::show(DU scale) {
+    const U16 N = this->N(), H = this->H(), W = this->W(), C = this->C();
+    const int hw = H * W;
+    
+    for (int n = 0; n < N; n++) {
+        DU *d = slice(n);
+        if (hw < 100) {
+            printf("\nn=%d", n);
+            _dump(d, H, W, C);
+        }
+        if (hw > 36) _view(d, H, W, C, scale);
+    }
+}
