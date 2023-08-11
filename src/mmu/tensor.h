@@ -184,6 +184,12 @@ struct Tensor : public T4Base {
     ///
     __BOTH__ void to_s(std::ostream &fout);
     ///
+    /// tensor debugger
+    ///
+    __BOTH__ void _dump(DU *v, int H, int W, int C);
+    __BOTH__ void _view(DU *v, int H, int W, int C, DU scale);
+    __BOTH__ void show(DU scale=DU1);
+    ///
     /// tensor-scalar operators
     ///
     __GPU__ __INLINE__ Tensor &operator=(DU v)      { fill(v); return *this; }

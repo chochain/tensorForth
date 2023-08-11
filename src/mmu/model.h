@@ -103,11 +103,7 @@ public:
     __GPU__ Model  &sgd(DU lr, DU b);                   ///< stochastic gradient descent
     __GPU__ Model  &adam(DU lr, DU b1, DU b2);          ///< Adam gradient descent
     /// @}
-    /// @name debug functions
-    /// @{
-    __GPU__ void   debug(Tensor &t, DU scale=10.0f);
-    /// @}
-
+    
 private:
     /// @name internal tensor constructors
     /// @{
@@ -158,8 +154,6 @@ private:
     /// @}
     /// @name debug functions
     /// @{
-    __GPU__ void   _view(DU *v, int H, int W, int C, DU scale=10.0f);
-    __GPU__ void   _dump(DU *v, int H, int W, int C);
     __GPU__ void   _dump_dbdf(Tensor &db, Tensor &df);
     __GPU__ void   _dump_db(Tensor &db);
     __GPU__ void   _dump_dw(Tensor &dw, bool full=false);
