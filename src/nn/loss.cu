@@ -79,6 +79,13 @@ Model::loss(t4_loss op, Tensor &tgt) {              ///< loss against target vec
     _mmu->free(tmp);                               /// * free memory
     
     TRACE1("Model#loss: %s=%6.3f\n", opn[op], sum);
+
+    if (isnan(sum)) {
+        printf("Model#loss: %s=%6.3f\n", opn[op], sum);
+        printf("\n******tmp, tgt=");
+        tmp.show();
+        tgt.show();
+    }
     return sum;
 }
 #endif  // T4_ENABLE_OBJ

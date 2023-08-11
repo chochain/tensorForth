@@ -198,7 +198,7 @@ Model::forward(Tensor &input) {
             n1.N(), n1.H(), n1.W(), n1.C());
         return *this;
     }
-    n1 = input;               /// * copy dataset batch into the first layer
+    n1 = input;               /// * copy dataset batch into the first layer [-1,1)
     ///
     /// cascade execution layer by layer forward
     /// TODO: model execution becomes a superscalar pipeline
@@ -219,7 +219,7 @@ Model::forward(Tensor &input) {
             t1 = tt;
         }
         _fstep(in, out);
-        if (tlvl) debug(out);
+        if (tlvl) out.show();
     }
     ///
     /// collect onehot vector and hit count

@@ -230,7 +230,7 @@ Model::backprop(Tensor &tgt) {
     tail -= tgt;                                 /// * calc delta (dLoss)
 
     int tlvl = _mmu->trace();
-    if (tlvl) debug(tail, 300.0f);
+    if (tlvl) tail.show(300.0f);
     
     TRACE1("\nModel#backprop starts");
     DU  t0 = _mmu->ms(), t1 = t0, tt;            ///< performance measurement
@@ -241,7 +241,7 @@ Model::backprop(Tensor &tgt) {
             t1 = tt;
         }
         _bstep(in, out);
-        if (tlvl) debug(in, 300.0f);
+        if (tlvl) in.show(300.0f);
     }
     TRACE1("\nModel::backprop %5.2f ms\n", _mmu->ms() - t0);
     return *this;
