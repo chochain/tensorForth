@@ -26,12 +26,12 @@ k_ten_op(t4_ten_op op, float *A, int sz, float v=DU0) {
         case O_POW:   A[k] = POW(ak, v);                break;
         case O_ABS:   A[k] = ABS(ak);                   break;
         case O_EXP:   A[k] = EXP(ak);                   break;
-        case O_LN:    A[k] = LN(ak);                    break;
-        case O_LOG:   A[k] = LOG(ak);                   break;
+        case O_LN:    A[k] = LN(ak  > DU_EPS ? ak : DU_EPS);  break; // clamped
+        case O_LOG:   A[k] = LOG(ak > DU_EPS ? ak : DU_EPS);  break; // clamped
         case O_TANH:  A[k] = TANH(ak);                  break;
         case O_RELU:  A[k] = ak > DU0 ? ak : DU0;       break;
         case O_SIGM:  A[k] = SIGMOID(ak);               break;
-        case O_SQRT:  A[k] = SQRT(ak);                  break;
+        case O_SQRT:  A[k] = ak > DU0 ? SQRT(ak) : DU0; break;
         default: ERROR("k_ten_op %d not supported\n", op);
         }
     }
@@ -590,7 +590,6 @@ Tensor::loss(t4_loss op, Tensor &tgt) {
         break;
     default: ERROR("Model#loss op=%d not supported!\n", op);
     }
-
     sum /= N();                      /// average per mini-batch sample
     return SCALAR(sum);              /// make sum a scalar value (not object)
 }
