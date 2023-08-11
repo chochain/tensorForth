@@ -72,7 +72,7 @@ AIO::_print_mat(std::ostream &fout, DU *td, U16 *shape) {
 __HOST__ void
 AIO::_print_tensor(std::ostream &fout, Tensor &t) {
     DU *td = t.data;                        /// * short hand
-    WARN("aio#print_tensor::T[%x]=%p data=%p\n", DU2X(v), &t, td);
+    WARN("aio#print_tensor::T=%p data=%p\n", &t, td);
 
     ios::fmtflags fmt0 = fout.flags();
     fout << setprecision(-1);               /// * standard format
@@ -152,7 +152,7 @@ AIO::_tsave_raw(std::ostream &fout, Tensor &t) {
     for (int n=0; n < N; n++) {
         DU *p = &t.data[n * HWC];
         for (int i=0; i < HWC; i++) {
-            buf[i] = static_cast<U8>(128.0 * (DU1 + *p++));
+            buf[i] = static_cast<U8>(128.0 * (DU1 + *p++));  /// * [-1,1)=>[0,256)
         }
         fout.write((const char*)buf, HWC);
     }
