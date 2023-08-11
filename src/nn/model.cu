@@ -78,13 +78,10 @@ Model::_iconv(Tensor &in, U16 C0, DU bias, U16 *opt) {
 
     DU k = DU1 / SQRT(Hf * Wf * C1);             /// * filter default range
     _mmu->random(*f, UNIFORM, -0.5, 2.0 * k);    /// * randomize f [-k ~ k)
-    /* dump filter and bias 
-    printf("bias=%4.2f,  k=%6.4f, f.std=%6.4f\n", bias, k, f->std());
-    for (int i=0; i<f->numel; i++) {
-        DU dx = f->data[i];
-        printf("%6.3f", dx);
-    }
-    */
+    TRACE1("model#conv2d bias=%4.2f,  k=%6.3f, f.std=%6.3f\n", bias, k, f->std());
+    
+    // for (int i=0; i<f->numel; i++) printf("%6.3f", f->data[i]);
+    
     Tensor &out= _t4(N1, H0, W0, C0);            ///> output tensor
     npush(out);                                  /// * stage for next stage
 }
@@ -100,7 +97,7 @@ Model::_ilinear(Tensor &in, U16 C0, DU bias) {
     
     DU k = DU1 / SQRT(C1);                       /// * default weight
     _mmu->random(*w, UNIFORM, -0.5, 2.0 * k);    /// * randomize w
-    TRACE1("bias=%4.2f,  k=%6.3f, w.std=%6.3f\n", bias, k, w->std());
+    TRACE1("model#linear bias=%4.2f,  k=%6.3f, w.std=%6.3f\n", bias, k, w->std());
     /*
     for (int c0=0; c0<C0; c0++) {
         TRACE1("\nw.c0=%d ", c0);
@@ -116,7 +113,7 @@ Model::_ilinear(Tensor &in, U16 C0, DU bias) {
 __GPU__ void
 Model::_iflatten(Tensor &in) {
     in.parm = in.HWC();                          /// * keep numel per sample
-    TRACE1("flatten parm=%d\n", in.parm);
+    TRACE1("model#flatten parm=%d\n", in.parm);
     Tensor &out = _t4(in.N(), in.parm);          /// * for backprop
     npush(out);
 }
@@ -134,7 +131,7 @@ Model::_iactivate(Tensor &in, DU alpha) {
     Tensor &out = _mmu->copy(in);
     
     in.parm = INT(1000.0 * alpha);               /// * alpha * 1000
-    TRACE1("alpha=%6.3f\n", alpha);
+    TRACE1("model#activate alpha=%6.3f\n", alpha);
     
     npush(out);
 }
@@ -144,10 +141,11 @@ Model::_iactivate(Tensor &in, DU alpha) {
 __GPU__ void
 Model::_ipool(Tensor &in, U16 f) {
     if (f != 2 && f != 3) {
-        ERROR("Model#pooling f=[%d,%d]? 2x2 and 3x3 supported only\n", f, f);
+        ERROR("pooling f=[%d,%d]? 2x2 and 3x3 supported only\n", f, f);
         return;
     }
     in.parm = f;                                 /// * keep kernel size
+    TRACE1("model#pool f=%dx%d\n", f, f);
                                                  /// * used by backprop
     U16 H0 = INT((in.H() - f) / f) + 1;
     U16 W0 = INT((in.W() - f) / f) + 1;
@@ -163,7 +161,7 @@ Model::_idropout(Tensor &in, DU pct) {
     Tensor *msk = in.grad[0] = &_mmu->copy(in);  ///> dropout mask
     
     in.parm = INT(1000.0 * pct);                 /// * keep pct * 1000
-    TRACE1("dropout=%6.3f\n", pct);
+    TRACE1("model#dropout pct=%6.3f\n", pct);
     
     npush(out);
 }
@@ -175,6 +173,7 @@ Model::_iup(Tensor &in, U16 f, DU method) {
         return;
     }
     in.parm = (INT(method)<<8) | f;              /// * keep (method<<8) | kernel size
+    TRACE1("model#upsample f=%dx%d\n", f, f);
                                                  /// * used by backprop
     U16 H0 = in.H() * f;
     U16 W0 = in.W() * f;
@@ -196,6 +195,7 @@ Model::_ibatchnorm(Tensor &in, DU m) {
         in.grad[0]->data[c] = DU1;
     }
     in.parm = INT(1000.0 * m);                   ///> default EMA momentum = 0.1
+    TRACE1("model#batchnorm m=%5.3f\n", m);
     
     Tensor &out = _mmu->copy(in);                /// * retain dimensions
     npush(out);
