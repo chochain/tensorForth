@@ -27,7 +27,7 @@ Forth language encourages incremental build and test. Having a 'shell', resides 
 ### What?
 More details to come but here are some samples of tensorForth in action
 * Benchmarks (on MNIST)
-  > |Different Neural Network Models|Different Gradient Decent Methods|
+  > |Different Neural Network Models|Different Gradient Descent Methods|
   > |---|---|
   > |<img src="./docs/img/ten4_model_cmp.png" width="600px" height="400px">|<img src="./docs/img/ten4_gradient_cmp.png" width="600px" height="400px">|
   
@@ -122,7 +122,7 @@ variable lox                                \ a variable to keep current loss
   ." , loss=" lox @ . cr ;
 
 \ entire CNN training framework
-: epoch (N D -- N')                         \ one epoch thru entire training dataset
+: epoch ( N D -- N' )                       \ one epoch thru entire training dataset
   for                                       \ loop thru dataset per mini-batch
     forward                                 \ neural network forward pass
     loss.ce lox ! nn.hit acc +!             \ get loss and hit count
