@@ -30,6 +30,7 @@ More details to come but here are some samples of tensorForth in action
   > |Different Neural Network Models|Different Gradient Decent Methods|
   > |---|---|
   > |<img src="./docs/img/ten4_model_cmp.png" width="600px" height="400px">|<img src="./docs/img/ten4_gradient_cmp.png" width="600px" height="400px">|
+  
   > |2D Convolution vs Linear+BatchNorm|Effectiveness of Different Activations|
   > |---|---|
   > |<img src="./docs/img/ten4_cnv_vs_bn.png" width="600px" height="400px">|<img src="./docs/img/ten4_act_cmp.png" width="600px" height="400px">|
