@@ -92,9 +92,9 @@ public:
     __GPU__ DU     loss(t4_loss op);                    ///< calc loss with cached one-hot vector
     __GPU__ DU     loss(t4_loss op, Tensor &tgt);       ///< calc loss from tgt vector
     /// @}
-    /// @name gradient decent functions
+    /// @name gradient descent functions
     /// @{
-    __GPU__ Model  &grad_alloc(t4_optimizer op);        ///< allocate gradiant vectors
+    __GPU__ Model  &grad_alloc(t4_optimizer op);        ///< allocate gradient vectors
     __GPU__ Model  &grad_zero() { _iter = 0; }          ///< manual zero momentum tensors
     __GPU__ Model  &gradient(const char *nm,            ///< gradient descent functor
                              GdFunc fn,                 

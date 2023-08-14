@@ -92,7 +92,7 @@ struct Tensor : public T4Base {
     U16      stride[4] = {1,1,1,1}; ///< stride=HWCN, for calc memory offset
     U16      shape[4]  = {1,1,1,1}; ///< shape=HWCN, matrix C=N=1, vector W=C=N=1
     t4_layer grad_fn   = L_NONE;    ///< grandiant funtion type
-    Tensor   *grad[4];              ///< gradiant and jacobian tensors
+    Tensor   *grad[4];              ///< gradient and jacobian tensors
     Tensor   *mtum[4];              ///< momentum and delta tensors
     ///
     /// static ops
