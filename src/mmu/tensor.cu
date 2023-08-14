@@ -201,13 +201,10 @@ k_ts_op(
 /// Binary Cross-Entropy (clamps output to >= -100)
 ///
 __KERN__ void
-k_bce(DU *X, DU *Y, DU *O, int numel) {
+k_bce(DU *O, DU *T, int numel) {
     const int i = threadIdx.x + blockIdx.x * blockDim.x;  ///< element index
     if (i < numel) {
-        DU x = X[i], y = Y[i];
-        O[i] = ABS(y) < DU_EPS
-            ? (ABS(DU1 - x) < DU_EPS ? -100.0 : LN(DU1 - x))
-            : (ABS(x)       < DU_EPS ? -100.0 : LN(x));
+        O[i] = ABS(T[i]) < DU_EPS ? LN(DU1 - O[i]) : LN(O[i]);
     }
 }
 ///
@@ -578,9 +575,9 @@ Tensor::loss(t4_loss op, Tensor &tgt) {
     case LOSS_BCE: {                 /// * binary cross_entropy, input from sigmoid
         dim3 blk(T4_WARP_SQ, 1, 1);
         dim3 grd((numel + blk.x - 1)/blk.x, 1, 1);
-        k_bce<<<grd, blk>>>(data, tgt.data, data, numel);
+        k_bce<<<grd, blk>>>(data, tgt.data, numel);
         GPU_SYNC();
-        sum = this->sum();
+        sum = -this->sum();          /// * -(y*ln(out_i) + (1-y)*ln(1-out_i))
     } break;
     case LOSS_CE:                    /// * cross_entropy, input from softmax
         map(O_LN);                   /// * log(out_i)
