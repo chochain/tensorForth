@@ -187,8 +187,8 @@ struct Tensor : public T4Base {
     /// tensor debugger
     ///
     __BOTH__ void _dump(DU *v, int H, int W, int C);
-    __BOTH__ void _view(DU *v, int H, int W, int C, DU scale);
-    __BOTH__ void show(DU scale=DU1);
+    __BOTH__ void _view(DU *v, int H, int W, int C, DU mean, DU scale);
+    __GPU__ void show();
     ///
     /// tensor-scalar operators
     ///

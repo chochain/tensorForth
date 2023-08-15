@@ -795,14 +795,19 @@ Tensor::_dump(DU *v, int H, int W, int C) {
 ///> _view - in ASCII art
 ///
 __BOTH__ void
-Tensor::_view(DU *v, int H, int W, int C, DU scale) {
-//  static const char *map = " .'`^\",:;Il!i><~+_-?][}{1)(|/tfjrxnuvczXYUJCLQ0OZmwqpdbkhao*#MW&8%B@$";   // 69 shades
-    static const char *map = " .:-=+*#%@X";
+Tensor::_view(DU *v, int H, int W, int C, DU mean, DU scale) {
+    auto map = [](DU v) {
+        // static const char *lk = " .'`^\",:;Il!i><~+_-?][}{1)(|/tfjrxnuvczXYUJCLQ0OZmwqpdbkhao*#MW&8%B@$";                             // 69 shades
+        static const char *lk = " .:-=+*#%@X";      // 11 shades
+        //return lk[v < 10.0f ? (v < DU0 ? 10 : (int)v) : 9];
+        int i = static_cast<int>((v + 1.0) * 5.5);
+        return lk[i < 0 ? 0 : (i > 10 ? 10 : i)];
+    };
     const int hw = H * W, sr = static_cast<int>(SQRT(hw));
     const int sh = (hw/sr) + ((hw - sr*sr) > 0 ? 1 : 0);
     const int w  = W > 1 ? W : (hw < 36 ? H : sr);
     const int h  = W > 1 ? H : (hw < 36 ? 1 : sh);
-    
+
     DU *csum = new DU[C];
     for (int k = 0; k < C; k++) csum[k] = DU0;
     for (int i = 0; i < h; i++) {
@@ -814,12 +819,10 @@ Tensor::_view(DU *v, int H, int W, int C, DU scale) {
                 
                 DU r0 = v[k + (j>0 ? n - 1 : n) * C];
                 DU r1 = v[k + n * C];
-                DU x0 = r0 * scale;
-                DU x1 = (r0 + r1) * scale * 0.5;
-                char c0 = map[x0 < 10.0f ? (x0 < DU0 ? 10 : (int)x0) : 9];
-                char c1 = map[x1 < 10.0f ? (x1 < DU0 ? 10 : (int)x1) : 9];
-                
-                printf("%c%c", c0, c1);                           // double width
+                DU x0 = (r0 - mean) * scale;
+                DU x1 = (((r0 + r1) * 0.5) - mean) * scale;
+
+                printf("%c%c", map(x0), map(x1));  // double width
                 csum[k] += r1;
             }
             printf("|");
@@ -834,17 +837,19 @@ Tensor::_view(DU *v, int H, int W, int C, DU scale) {
     delete csum;
 }
 
-__BOTH__ void
-Tensor::show(DU scale) {
+__GPU__ void
+Tensor::show() {
     const U16 N = this->N(), H = this->H(), W = this->W(), C = this->C();
     const int hw = H * W;
-    
+
+    DU mean  = avg();
+    DU scale = 0.5 / std();            // P=95%
     for (int n = 0; n < N; n++) {
         DU *d = slice(n);
         if (hw < 100) {
             printf("\nn=%d", n);
             _dump(d, H, W, C);
         }
-        if (hw > 36) _view(d, H, W, C, scale);
+        if (hw > 36) _view(d, H, W, C, mean, scale);
     }
 }
