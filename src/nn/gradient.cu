@@ -98,8 +98,8 @@ Model::gradient(const char *nm, GdFunc fn, DU *parm, t4_optimizer op) {
     };
     TRACE1("\nModel::%s batch_sz=%d, lr=%7.4f, mtum/b1=%6.3f b2=%6.3f\n",
            nm, (*this)[1].N(), parm[0], parm[1], parm[2]);
-    
-    if (train && _iter++==0) grad_alloc(op);      ///< allocate m & v tensors
+    if (_iter++==0) grad_alloc(op);               /// * allocate m & v tensors
+    if (!train) return *this;                     /// * bail if not in trainning
     ///
     /// cascade execution layer by layer forward
     ///
@@ -135,9 +135,7 @@ Model::sgd(DU lr, DU b) {                          /// a=momentum
         lr / batch_size(),                        ///> eta / mini-batch size
         _iter ? b : (DU)DU0                       ///> beta
     };
-    gradient("sgd", update, parm, ABS(b) < DU_EPS ? OPTI_SGD : OPTI_SGDM);
-    
-    return *this;
+    return gradient("sgd", update, parm, ABS(b) < DU_EPS ? OPTI_SGD : OPTI_SGDM);
 }
 
 __GPU__ Model&
@@ -159,9 +157,7 @@ Model::adam(DU lr, DU b1, DU b2) {
         _iter ? b2 : (DU)DU0,
         (DU)batch_size()
     };
-    gradient("adam", update, parm, OPTI_ADAM);
-
-    return *this;
+    return gradient("adam", update, parm, OPTI_ADAM);
 }
 #endif  // T4_ENABLE_OBJ
 //==========================================================================
