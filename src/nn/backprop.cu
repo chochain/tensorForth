@@ -52,11 +52,11 @@ __KERN__ void k_dconv2d(
             DU sum = DU0;                            ///< dX sum (TSxTS threads)
             for (int y = 0; y < KS; y++) {           /// * process one KS * KS cell
                 for (int x = 0; x < KS; x++) {
-                    sum     += (*fx) * ox[x];        /// * dX += F' @ dY (for each C1)
-                    fx      -= C0;                   /// * walk F backward
+                    sum += (*fx) * ox[x];            /// * dX += F' @ dY (for each C1)
+                    fx  -= C0;                       /// * walk F backward
                     if (!train) continue;
                     atomicAdd(dfx, ox[x] * _I[xy]);  /// * dF += dY * X (TSxTS threads)
-                    dfx     += C0;                   /// * DF[c1,0,1,c0]
+                    dfx += C0;                       /// * DF[c1,0,1,c0]
                 }
                 ox += T4_WARP_SZ;
             }
@@ -229,19 +229,19 @@ Model::backprop(Tensor &tgt) {
     TRACE1("\nModel#backprop: input dimensions OK, calculate dLoss");
     tail -= tgt;                                 /// * calc delta (dLoss)
 
-    int tlvl = _mmu->trace();
-    if (tlvl) tail.show(300.0f);
+    int trc = _mmu->trace();
+    if (trc) tail.show();
     
     TRACE1("\nModel#backprop starts");
     DU  t0 = _mmu->ms(), t1 = t0, tt;            ///< performance measurement
     for (U16 i = numel - 2, j = 0; i > 0; i--, j++) {
         Tensor &in = (*this)[i], &out = (*this)[i + 1];
-        if (tlvl) {
-            trace((tt=_mmu->ms()) - t1, i, in, out);
-            t1 = tt;
+        if (trc) {
+            trace((tt=_mmu->ms()) - t1, i, in, out); t1 = tt;
+            _bstep(in, out);
+            in.show();
         }
-        _bstep(in, out);
-        if (tlvl) in.show(300.0f);
+        else _bstep(in, out);
     }
     TRACE1("\nModel::backprop %5.2f ms\n", _mmu->ms() - t0);
     return *this;
@@ -261,7 +261,7 @@ Model::_bstep(Tensor &in, Tensor &out) {
     case L_FLATTEN: in = out;                break; /// * pass dY to X
     case L_RELU:    _bfilter(in, in, out);   break; /// * filter (in > 0)
     case L_TANH:                                    /// * d_activate
-    case L_SIGMOID:                                 ///   with cached value
+    case L_SIGMOID:                                 /// * with cached value
     case L_SELU:
     case L_LEAKYRL:
     case L_ELU:     in *= out;               break; 
@@ -328,28 +328,13 @@ Model::_blinear(Tensor &in, Tensor &out) {
     Tensor &db = *in.grad[3];                       ///< d_bias tensor
 
     const int N  = out.N();                         ///< batch size (N1 == N0)
-    const int H1 = in.H(), H0 = out.H();            ///< input output H
+    const int E1 = in.HWC(), E0 = out.HWC();        ///< input, output element count
     const int C0 = w.H(),  C1 = w.W();              ///< filter dimensions
 
-    TRACE1("\n\tdw[%d,%d] += out'[%d,1] @ in^t[1,%d]", C0, C1, H0, H1);
-    TRACE1("\n\tin[%d, 1]  = w^t[%d,%d] @ out'[%d,1]", H1, C1, C0, H0);
+    TRACE1("\n\tdw[%d,%d] += out'[%d,1] @ in^t[1,%d]", C0, C1, E0, E1);
+    TRACE1("\n\tin[%d, 1]  = w^t[%d,%d] @ out'[%d,1]", E1, C1, C0, E0);
 
-    if (w.numel > T4_WARP_SQ) {                     /// * parallel mode
-        dim3 blk(T4_WARP_SZ, T4_WARP_SZ, 1);
-        dim3 grd(NGRID(C0, C1, N, blk));
-        dim3 grx(NGRID(C1, 1, N, blk));
-        
-        if (train) {
-            k_dlinear_dwdb<<<grd, blk>>>(           /// * update dB, dW
-                in.data, out.data, dw.data, db.data,
-                C1, C0, in.HWC(), out.HWC());
-        }
-        k_dlinear_dx<<<grx, blk>>>(                 /// * update dX (in parallel)
-            in.data, out.data, w.data,
-            C1, C0, in.HWC(), out.HWC());
-        GPU_SYNC();
-    }
-    else {                                          /// * serial mode (for validation)
+    if (w.numel < T4_WARP_SQ) {                     /// * serial mode (validation)
         TRACE1("*");
         for (int n = 0; n < N; n++) {
             DU *x = in.slice(n), *y = out.slice(n);
@@ -372,6 +357,21 @@ Model::_blinear(Tensor &in, Tensor &out) {
                 x[c1] = sum;
             }
         }
+    }
+    else {                                          /// * parallel mode
+        dim3 blk(T4_WARP_SZ, T4_WARP_SZ, 1);
+        dim3 grd(NGRID(C0, C1, N, blk));
+        dim3 grx(NGRID(C1, 1, N, blk));
+        
+        if (train) {
+            k_dlinear_dwdb<<<grd, blk>>>(           /// * update dB, dW
+                in.data, out.data, dw.data, db.data,
+                C1, C0, E1, E0);
+        }
+        k_dlinear_dx<<<grx, blk>>>(                 /// * update dX (in parallel)
+            in.data, out.data, w.data,
+            C1, C0, E1, E0);
+        GPU_SYNC();
     }
     // _dump(in.data, in.H(), in.W(), in.C());
     if (train && _mmu->trace() > 1) {
