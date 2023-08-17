@@ -15,11 +15,11 @@ __KERN__ void k_sgd(
     const int i = threadIdx.x + blockIdx.x * blockDim.x;   ///< element index
     
     if (i < numel) {
-        if (ABS(b) < DU_EPS) G[i] -= lr * DG[i];
+        if (ABS(b) < DU_EPS) G[i] -= lr * DG[i] / N;
         else {
-            DU dg = DG[i] / N;
+            DU dg = DG[i] / N;                             ///< dG batch avg
             DU mi = M[i] = b * M[i] + (1.0 - b) * dg;      ///< momentum
-            G[i] -= lr * mi;                               /// * learn
+            G[i] -= lr * mi;                               /// * update gradient
         }
         DG[i] = DU0;                                       /// * zero after batch
     }
@@ -33,13 +33,13 @@ __KERN__ void k_adam(
     const int i = threadIdx.x + blockIdx.x * blockDim.x;   ///< element index
     
     if (i < numel) {
-        DU dg = DG[i] / N;                                 ///< delta/N
+        DU dg = DG[i] / N;                                 ///< dG batch avg
         DU mi = M[i] = b1 * M[i] + (DU1 - b1) * dg;        ///< momentum
         DU vi = V[i] = b2 * V[i] + (DU1 - b2) * dg * dg;   ///< velocity
         DU mt = mi / (DU1 - POW(b1, t));                   ///< m bias correction
         DU vt = vi / (DU1 - POW(b2, t));                   ///< v bias correction
-        G[i] -= lr * mt / (SQRT(vt) + DU_EPS);             /// * learn
-        DG[i] = DU0;                                       /// * zero out gradient
+        G[i] -= lr * mt / (SQRT(vt) + DU_EPS);             /// * update gradient
+        DG[i] = DU0;                                       /// * zero out dG
     }
 }
 
@@ -115,18 +115,8 @@ Model::gradient(const char *nm, GdFunc fn, DU *parm, t4_optimizer op) {
         Tensor *b  = in.grad[1], *db = in.grad[3];
         
         TRACE1("\n  %2d> %s", i, d_nname(in.grad_fn));
-        if (in.mtum[0]!=in.mtum[2]) {
-//            TRACE1("\nw,m,v=");
-//            _dump_dw(*dw); _dump_dw(*in.mtum[0]); _dump_dw(*in.mtum[2]);
-            step('w', *w, *dw, *in.mtum[0], *in.mtum[2]);
-//            _dump_dw(*dw); _dump_dw(*in.mtum[0]); _dump_dw(*in.mtum[2]);
-        }
-        if (in.mtum[1]!=in.mtum[3]) {
-//            TRACE1("\nb,m,v=");
-//            _dump_db(*db); _dump_db(*in.mtum[1]); _dump_db(*in.mtum[3]);
-            step('b', *b, *db, *in.mtum[1], *in.mtum[3]);
-//            _dump_db(*db); _dump_db(*in.mtum[1]); _dump_db(*in.mtum[3]);
-        }
+        if (in.mtum[0]!=in.mtum[2]) step('w', *w, *dw, *in.mtum[0], *in.mtum[2]);
+        if (in.mtum[1]!=in.mtum[3]) step('b', *b, *db, *in.mtum[1], *in.mtum[3]);
     }
     TRACE1("\nModel::%s %5.2f ms\n", nm, _mmu->ms() - t0);
     return *this;
@@ -167,8 +157,8 @@ Model::adam(DU lr, DU b1, DU b2) {
         GPU_SYNC();
     };
     DU parm[5] = {
-        lr, epoch ? b1 : DU0, epoch ? b2 : DU0,
-        DU1 + epoch, (DU)batch_size() };
+        lr, epoch ? b1 : DU0, epoch ? b2 : DU0,   /// * learn rate, b1, b2
+        DU1 + epoch, (DU)batch_size() };          /// * t, N
     
     return gradient("adam", update, parm, OPTI_ADAM);
 }
