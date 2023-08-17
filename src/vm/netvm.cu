@@ -215,7 +215,7 @@ NetVM::init() {
     ///@defgroup Gradiant ops
     ///@{
     CODE("nn.zero",
-         if (IS_M(top)) MTOS.grad_zero();
+         if (IS_M(top)) MTOS.epoch = 0;
          else ERROR("TOS is not a model!\n")),
     CODE("nn.sgd",                            
          if (M2V) {                           ///> (N p m -- N')
@@ -225,14 +225,14 @@ NetVM::init() {
          }
          else if (M1V) {                      ///> (N p -- N')
              DU lr = POP();                   ///< learn rate
-             MTOS.sgd(lr, 0.0);               ///< default momentum = 0.0
+             MTOS.sgd(lr, DU0);               ///< default momentum = 0.0
          }
          else ERROR("rate mtum nn.sgd?\n")),
     CODE("nn.adam",
          if (M2V) {                           ///> (N lr b1 -- N')
-             DU b1 = POP();                   ///< beta1
-             DU b2 = DU1 - POW(DU1 - b1, 3);  ///< default beta2
-             DU lr = POP();                   ///< learn rate
+             DU b1 = POP();                   ///< beta1 i.g. 0.9
+             DU b2 = DU1 - POW(DU1 - b1, 3);  ///< default beta2 i.g. 0.999
+             DU lr = POP();                   ///< learning rate i.g. 0.001
              MTOS.adam(lr, b1, b2);
          }
          else ERROR("rate beta1 nn.adam?\n")),
@@ -303,7 +303,7 @@ NetVM::init() {
                 ERROR("not a dataset on RS?\n"); return;
             }
             if (d.done) {
-                m.grad_zero();                     /// * reset momentum tensors
+                m.epoch++;                         /// * increment epoch counter
                 rs.pop();                          /// * pop off dataset
                 IP += sizeof(IU);                  /// * skip over to next word
             }
