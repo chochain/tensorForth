@@ -378,6 +378,8 @@ Model::_blinear(Tensor &in, Tensor &out) {
          _dump_db(db);
          _dump_dw(dw, false);
     }
+//         _dump_db(db);
+//         _dump_dw(dw);
     return 0;
 }
 

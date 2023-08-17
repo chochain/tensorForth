@@ -155,7 +155,7 @@ private:
     /// @{
     __GPU__ void   _dump_dbdf(Tensor &db, Tensor &df);
     __GPU__ void   _dump_db(Tensor &db);
-    __GPU__ void   _dump_dw(Tensor &dw, bool full=false);
+    __GPU__ void   _dump_dw(Tensor &dw, bool full=true);
     /// @}
 };
 #endif // TEN4_SRC_MODEL_H
