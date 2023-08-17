@@ -211,6 +211,7 @@ ds1                                       \ put dataset on TOS
 
 * Backprop https://medium.com/@ngocson2vn/a-gentle-explanation-of-backpropagation-in-convolutional-neural-network-cnn-1a70abff508b
 * Backprop https://www.google.com/search?channel=fs&client=ubuntu&q=forward+backward+propagation
+* Sigmoid backprop https://towardsdatascience.com/nothing-but-numpy-understanding-creating-binary-classification-neural-networks-with-e746423c8d5c
 
 + Batchnorm Backprop https://www.adityaagrawal.net/blog/deep_learning/bprop_batch_norm
 * BatchNorm Alternatives https://analyticsindiamag.com/alternatives-batch-normalization-deep-learning/
