@@ -9,14 +9,16 @@
 
 #if T4_ENABLE_OBJ
 __KERN__ void k_sgd(
-    DU *G, DU *DG, DU *M,   ///< w, dw, and momemtum tensors
-    DU lr, DU b, int numel  ///< learn rate, beta(momemtum)
+    DU *G, DU *DG, DU *M,                    ///< w, dw, and momemtum tensors
+    DU lr, DU b, int N, int numel            ///< learn rate, beta(momemtum)
     ) {
-    const int i = threadIdx.x + blockIdx.x * blockDim.x;  ///< element index
+    const int i = threadIdx.x + blockIdx.x * blockDim.x;   ///< element index
+    
     if (i < numel) {
         if (ABS(b) < DU_EPS) G[i] -= lr * DG[i];
         else {
-            DU mi = M[i] = b * M[i] + (1.0 - b) * DG[i];   ///< momentum
+            DU dg = DG[i] / N;
+            DU mi = M[i] = b * M[i] + (1.0 - b) * dg;      ///< momentum
             G[i] -= lr * mi;                               /// * learn
         }
         DG[i] = DU0;                                       /// * zero after batch
@@ -24,16 +26,19 @@ __KERN__ void k_sgd(
 }
 
 __KERN__ void k_adam(
-    DU *G, DU *DG, DU *M, DU *V,   ///< w, dw, and momemtum tensors
-    DU lr, DU b1, DU b2,           ///< learn rate, beta(momemtum)
-    int N, int numel               ///< batch size, number of element
+    DU *G, DU *DG, DU *M, DU *V,            ///< w, dw, and momemtum tensors
+    DU lr, DU b1, DU b2,                    ///< learn rate, beta(momemtum)
+    int t, int N, int numel                 ///< epoch, batch size
     ) {
     const int i = threadIdx.x + blockIdx.x * blockDim.x;   ///< element index
+    
     if (i < numel) {
         DU dg = DG[i] / N;                                 ///< delta/N
-        DU mi = M[i] = b1 * M[i] + (1.0 - b1) * dg;        ///< momentum
-        DU vi = V[i] = b2 * V[i] + (1.0 - b2) * dg * dg;   ///< velocity
-        G[i] -= lr * mi / (SQRT(vi) + DU_EPS);             /// * learn
+        DU mi = M[i] = b1 * M[i] + (DU1 - b1) * dg;        ///< momentum
+        DU vi = V[i] = b2 * V[i] + (DU1 - b2) * dg * dg;   ///< velocity
+        DU mt = mi / (DU1 - POW(b1, t));                   ///< m bias correction
+        DU vt = vi / (DU1 - POW(b2, t));                   ///< v bias correction
+        G[i] -= lr * mt / (SQRT(vt) + DU_EPS);             /// * learn
         DG[i] = DU0;                                       /// * zero out gradient
     }
 }
@@ -49,8 +54,8 @@ Model::grad_alloc(t4_optimizer op) {
         Tensor *w = in.grad[0], *dw = in.grad[2];
         Tensor *b = in.grad[1], *db = in.grad[3];
 
-        bool do_w = dw && dw->is_same_shape(*w);
-        bool do_b = db && db->is_same_shape(*b);
+        bool do_w = dw && dw->is_same_shape(*w);  ///< exception: dropout
+        bool do_b = db && db->is_same_shape(*b);  ///< exception: batchnorm
         
         switch (op) {
         case OPTI_SGD:
@@ -59,22 +64,22 @@ Model::grad_alloc(t4_optimizer op) {
             break;
         case OPTI_SGDM:
             if (do_w && !in.mtum[0]) {
-                in.mtum[0] = &_mmu->copy(*w);     ///< m of w
-                in.mtum[2] = dw;                  ///< dummy
+                in.mtum[0] = &_mmu->copy(*dw).fill(DU0); ///< m of w (zero filled)
+                in.mtum[2] = dw;                         ///< dummy
             }
             if (do_b && !in.mtum[1]) {
-                in.mtum[1] = &_mmu->copy(*b);     ///< m of b
-                in.mtum[3] = db;                  ///< dummy
+                in.mtum[1] = &_mmu->copy(*db).fill(DU0); ///< m of b (zero filled)
+                in.mtum[3] = db;                         ///< dummy
             }
             break;
         case OPTI_ADAM:
             if (do_w && !in.mtum[0]) {
-                in.mtum[0] = &_mmu->copy(*w);     ///< m of w
-                in.mtum[2] = &_mmu->copy(*dw);    ///< v of w
+                in.mtum[0] = &_mmu->copy(*dw).fill(DU0); ///< m of w (zeor filled)
+                in.mtum[2] = &_mmu->copy(*dw).fill(DU0); ///< v of w (zero filled)
             }
             if (do_b && !in.mtum[1]) {
-                in.mtum[1] = &_mmu->copy(*b);     ///< m of b
-                in.mtum[3] = &_mmu->copy(*db);    ///< v of b
+                in.mtum[1] = &_mmu->copy(*db).fill(DU0); ///< m of b (zero filled)
+                in.mtum[3] = &_mmu->copy(*db).fill(DU0); ///< v of b (zero filled)
             }
             break;
         }
@@ -98,7 +103,7 @@ Model::gradient(const char *nm, GdFunc fn, DU *parm, t4_optimizer op) {
     };
     TRACE1("\nModel::%s batch_sz=%d, lr=%7.4f, mtum/b1=%6.3f b2=%6.3f\n",
            nm, (*this)[1].N(), parm[0], parm[1], parm[2]);
-    if (_iter++==0) grad_alloc(op);               /// * allocate m & v tensors
+    if (epoch==0) grad_alloc(op);                 /// * allocate m & v tensors
     if (!train) return *this;                     /// * bail if not in trainning
     ///
     /// cascade execution layer by layer forward
@@ -110,8 +115,18 @@ Model::gradient(const char *nm, GdFunc fn, DU *parm, t4_optimizer op) {
         Tensor *b  = in.grad[1], *db = in.grad[3];
         
         TRACE1("\n  %2d> %s", i, d_nname(in.grad_fn));
-        if (in.mtum[0]!=in.mtum[2]) step('w', *w, *dw, *in.mtum[0], *in.mtum[2]);
-        if (in.mtum[1]!=in.mtum[3]) step('b', *b, *db, *in.mtum[1], *in.mtum[3]);
+        if (in.mtum[0]!=in.mtum[2]) {
+//            TRACE1("\nw,m,v=");
+//            _dump_dw(*dw); _dump_dw(*in.mtum[0]); _dump_dw(*in.mtum[2]);
+            step('w', *w, *dw, *in.mtum[0], *in.mtum[2]);
+//            _dump_dw(*dw); _dump_dw(*in.mtum[0]); _dump_dw(*in.mtum[2]);
+        }
+        if (in.mtum[1]!=in.mtum[3]) {
+//            TRACE1("\nb,m,v=");
+//            _dump_db(*db); _dump_db(*in.mtum[1]); _dump_db(*in.mtum[3]);
+            step('b', *b, *db, *in.mtum[1], *in.mtum[3]);
+//            _dump_db(*db); _dump_db(*in.mtum[1]); _dump_db(*in.mtum[3]);
+        }
     }
     TRACE1("\nModel::%s %5.2f ms\n", nm, _mmu->ms() - t0);
     return *this;
@@ -127,14 +142,14 @@ Model::sgd(DU lr, DU b) {                          /// a=momentum
         const int numel = g.numel;
         const dim3 blk(T4_WARP_SQ, 1, 1);          ///< default blocks
         const dim3 grd((numel + blk.x - 1)/blk.x, 1, 1);
-        
+
         k_sgd<<<grd,blk>>>(
-            g.data, dg.data, m.data, parm[0], parm[1], numel);
+            g.data, dg.data, m.data,
+            parm[0], parm[1], parm[2], numel);
+        GPU_SYNC();
     };
-    DU parm[2] = {
-        lr / batch_size(),                        ///> eta / mini-batch size
-        _iter ? b : (DU)DU0                       ///> beta
-    };
+    DU parm[3] = { lr, epoch ? b : DU0, (DU)batch_size() };
+
     return gradient("sgd", update, parm, ABS(b) < DU_EPS ? OPTI_SGD : OPTI_SGDM);
 }
 
@@ -147,16 +162,14 @@ Model::adam(DU lr, DU b1, DU b2) {
 
         k_adam<<<grd,blk>>>(
             g.data, dg.data, m.data, v.data,
-            parm[0], parm[1], parm[2], parm[3], numel);
+            parm[0], parm[1], parm[2],
+            static_cast<int>(parm[3]), static_cast<int>(parm[4]), numel);
+        GPU_SYNC();
     };
-    DU vr = SQRT(DU1 - POW(b2, DU1+_iter));
-    DU mr = DU1 - POW(b1, DU1+_iter);
-    DU parm[4] = {
-        lr * vr / mr,
-        _iter ? b1 : (DU)DU0,
-        _iter ? b2 : (DU)DU0,
-        (DU)batch_size()
-    };
+    DU parm[5] = {
+        lr, epoch ? b1 : DU0, epoch ? b2 : DU0,
+        DU1 + epoch, (DU)batch_size() };
+    
     return gradient("adam", update, parm, OPTI_ADAM);
 }
 #endif  // T4_ENABLE_OBJ
