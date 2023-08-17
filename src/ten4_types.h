@@ -98,9 +98,9 @@ typedef float       F32;                    ///< single precision float
 typedef U16         IU;                     /**< instruction unit       */
 typedef F32         DU;                     /**< data unit              */
 typedef F64         DU2;                    /**< double preciesion data */
-#define DU0         0.0                     /**< default data value 0   */
-#define DU1         1.0                     /**< default data value 1   */
-#define DU_EPS      1.0e-6                  /**< floating point epsilon */
+#define DU0         ((DU)0.0)               /**< default data value 0   */
+#define DU1         ((DU)1.0)               /**< default data value 1   */
+#define DU_EPS      ((DU)1.0e-6)            /**< floating point epsilon */
 ///
 /// cross platform floating-point math support
 ///
