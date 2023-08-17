@@ -143,6 +143,7 @@ private:
     /// @}
     /// @name backward ops
     /// @{
+    __GPU__ int    _bloss(Tensor &tgt);
     __GPU__ void   _bstep(Tensor &in, Tensor &out);
     __GPU__ int    _bconv(Tensor &in, Tensor &out);
     __GPU__ int    _blinear(Tensor &in, Tensor &out);
