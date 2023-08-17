@@ -37,10 +37,10 @@ class Model : public T4Base {
     MMU    *_mmu;              ///< tensor storage base
     Tensor *_store;            ///< model storage - Sequential, TODO: DAG
     Tensor *_hot  = NULL;      ///< cached dataset one-hot vector
-    int    _iter  = 0;         ///< iteration counter
     int    _hit   = 0;         ///< hit counter
     
 public:
+    int    epoch = 0;          ///< iteration counter
     ///
     /// @name Derivertive ops
     /// @{
@@ -95,7 +95,6 @@ public:
     /// @name gradient descent functions
     /// @{
     __GPU__ Model  &grad_alloc(t4_optimizer op);        ///< allocate gradient vectors
-    __GPU__ Model  &grad_zero() { _iter = 0; }          ///< manual zero momentum tensors
     __GPU__ Model  &gradient(const char *nm,            ///< gradient descent functor
                              GdFunc fn,                 
                              DU *parm,
