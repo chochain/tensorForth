@@ -80,9 +80,9 @@ __KERN__ void k_dlinear_dwdb(
 
     if (c0 < C0 && c1 < C1) {
         DU x = I[c1 + n * HWC1], dy = O[c0 + n * HWC0];
-        atomicAdd_block(&DW[cx], dy * x);       /// * dw += dY * X^t
+        atomicAdd_block(&DW[cx], dy * x);              /// * dw += dY * X^t
         if (c1 == 0) {
-            atomicAdd_block(&DB[c0], dy);           /// * db += dY
+            atomicAdd_block(&DB[c0], dy);              /// * db += dY
         }
     }
 }
@@ -95,7 +95,7 @@ __KERN__ void k_dlinear_dx(
     const int n  = blockIdx.z;
 
     if (c1 < C1) {
-        DU *w = &W[c1], *y = &O[n * HWC0];          /// * dX = W^t @ dY
+        DU *w = &W[c1], *y = &O[n * HWC0];            /// * dX = W^t @ dY
         DU acc = DU0;
         for (int c0 = 0; c0 < C0; c0++, w+=C1) {
             acc += (*w) * (*y++);
@@ -219,24 +219,13 @@ Model::backprop(Tensor &tgt) {
             out.sum() / out.N() / out.C(),
             out.N(), out.H(), out.W(), out.C());
     };
-    Tensor &tail = (*this)[-1];                  /// * final layer i.e. output
-    if (tgt.numel != tail.numel) {               /// * check dimensions of target vector
-        ERROR("\nERROR: Onehot wrong shape[%d,%d,%d,%d] != [%d,%d,%d,%d]\n",
-              tgt.N(),  tgt.H(),  tgt.W(), tgt.C(),
-              tail.N(), tail.H(), tail.W(), tail.C());
-        return *this;
-    }
-    TRACE1("\nModel#backprop: input dimensions OK, calculate dLoss");
-    tail -= tgt;                                 /// * calc delta (dLoss)
-
-    int trc = _mmu->trace();
-    if (trc) tail.show();
+    if (_bloss(tgt)) return *this;               /// * pre-calculate dLoss
     
     TRACE1("\nModel#backprop starts");
     DU  t0 = _mmu->ms(), t1 = t0, tt;            ///< performance measurement
     for (U16 i = numel - 2, j = 0; i > 0; i--, j++) {
         Tensor &in = (*this)[i], &out = (*this)[i + 1];
-        if (trc) {
+        if (_mmu->trace()) {
             trace((tt=_mmu->ms()) - t1, i, in, out); t1 = tt;
             _bstep(in, out);
             in.show();
@@ -249,6 +238,32 @@ Model::backprop(Tensor &tgt) {
 /// ========================================================================
 /// private methods
 ///
+__GPU__ int
+Model::_bloss(Tensor &tgt) {                     ///> pre-calc dLoss
+    Tensor &out = (*this)[-1];                   ///< output layer, used as dLoss
+    if (tgt.numel != out.numel) {                /// * check dimensions of target vector
+        ERROR("\nERROR: Onehot wrong shape[%d,%d,%d,%d] != [%d,%d,%d,%d]\n",
+              tgt.N(), tgt.H(), tgt.W(), tgt.C(),
+              out.N(), out.H(), out.W(), out.C());
+        return 1;
+    }
+    TRACE1("\nModel#backprop: input dimensions OK, calculate dLoss");
+    t4_layer fn = (*this)[-2].grad_fn;           ///< final activation layer
+    switch (fn) {
+    case L_SOFTMAX:                              /// * softmax + CrossEntropy (pass thru)
+    case L_LOGSMAX: out -= tgt;  break;          /// * log-softmax + NLL (pass thr    }
+    case L_SIGMOID:
+        for (int i=0; i<out.numel; i++) {
+            out[i] = ((DU1 - tgt[i])/(DU1 - out[i]) - tgt[i]/out[i]) / out.N();
+        }
+        break;
+    default: TRACE1("unknown grad_fn: %d", fn);
+    }
+    if (_mmu->trace()) out.show();               /// * display loss if trace on
+
+    return 0;
+}
+
 __GPU__ void
 Model::_bstep(Tensor &in, Tensor &out) {
     ///
