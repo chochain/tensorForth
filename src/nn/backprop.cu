@@ -252,12 +252,13 @@ Model::_bloss(Tensor &tgt) {                     ///> pre-calc dLoss
     switch (fn) {
     case L_SOFTMAX:                              /// * softmax + CrossEntropy (pass thru)
     case L_LOGSMAX: out -= tgt;  break;          /// * log-softmax + NLL (pass thr    }
+    case L_TANH:    out  = tgt;  break;          /// * dLoss pass thru
     case L_SIGMOID:
         for (int i=0; i<out.numel; i++) {
-            out[i] = ((DU1 - tgt[i])/(DU1 - out[i]) - tgt[i]/out[i]) / out.N();
+            out[i] = ((DU1 - tgt[i])/(DU1 - out[i] + DU_EPS) - tgt[i]/(out[i] + DU_EPS)) / out.N();
         }
         break;
-    default: TRACE1("unknown grad_fn: %d", fn);
+    default: ERROR("\nUnknown grad_fn: %d", fn);
     }
     if (_mmu->trace()) out.show();               /// * display loss if trace on
 
@@ -276,7 +277,7 @@ Model::_bstep(Tensor &in, Tensor &out) {
     case L_FLATTEN: in = out;                break; /// * pass dY to X
     case L_RELU:    _bfilter(in, in, out);   break; /// * filter (in > 0)
     case L_TANH:                                    /// * d_activate
-    case L_SIGMOID:                                 /// * with cached value
+    case L_SIGMOID:                                 /// * cached value s(1 - s)
     case L_SELU:
     case L_LEAKYRL:
     case L_ELU:     in *= out;               break; 
