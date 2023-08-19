@@ -77,7 +77,7 @@ Model::_iconv(Tensor &in, U16 C0, DU bias, U16 *opt) {
     Tensor *db = in.grad[3] = &_vec(C0).map(O_FILL, DU0);            ///> db
 
     DU k = DU1 / SQRT(Hf * Wf * C1);             /// * filter default range
-    _mmu->random(*f, UNIFORM, -0.5, 2.0 * k);    /// * randomize f [-k ~ k)
+    _mmu->random(*f, UNIFORM, -0.5, 2.0 * k);    /// * randomize f [-k, k)
     TRACE1("model#conv2d bias=%4.2f,  k=%6.3f, f.std=%6.3f\n", bias, k, f->std());
     
     // for (int i=0; i<f->numel; i++) printf("%6.3f", f->data[i]);
@@ -96,7 +96,7 @@ Model::_ilinear(Tensor &in, U16 C0, DU bias) {
     in.parm = INT(bias * 1000.0);                /// * keep for persistence
     
     DU k = DU1 / SQRT(C1);                       /// * default weight
-    _mmu->random(*w, UNIFORM, -0.5, 2.0 * k);    /// * randomize w
+    _mmu->random(*w, UNIFORM, -0.5, 2.0 * k);    /// * randomize w [-k, k)
     TRACE1("model#linear bias=%4.2f,  k=%6.3f, w.std=%6.3f\n", bias, k, w->std());
     /*
     for (int c0=0; c0<C0; c0++) {
