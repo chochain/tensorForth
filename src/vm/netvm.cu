@@ -217,6 +217,9 @@ NetVM::init() {
     CODE("nn.zero",
          if (IS_M(top)) MTOS.epoch = 0;
          else ERROR("TOS is not a model!\n")),
+    CODE("nn.epoch++",
+         if (IS_M(top)) MTOS.epoch++;
+         else ERROR("TOS is not a model!\n")),
     CODE("nn.sgd",                            
          if (M2V) {                           ///> (N p m -- N')
              DU m  = POP();                   ///< momentum
