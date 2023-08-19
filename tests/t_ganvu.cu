@@ -63,11 +63,11 @@ int load_gan_img(const char *fname) {
             GAN_ERR(" read size mismatched");
         }
         int x = n % N2, y = n / N2;
-        for (int h = 0; h < H; h++) {
-            char *p = img + (h + y * H) * WX + x * WC;
+        char *p = img + y * H * WX + x * WC, *p0 = p;
+        for (int h = 0; h < H; h++, p+=WX) {
             memcpy(p, buf + h * WC, WC);
         }
-        *(img + (y * H * WX) + x * WC) = (char)0xff;
+        *p0 = (char)0xff;
     }
     fclose(fd);
     sprintf(buf, "%s_%dx%d.png", fname, N2, N2);
@@ -79,11 +79,10 @@ int load_gan_img(const char *fname) {
 
     return 0;
 }
+
 #include <iomanip>
 #include <fstream>
 using namespace std;
-
-typedef unsigned short U16;
 
 int gen_test_img(char *fname, U16 N, U16 H, U16 W, U16 C) {
     const char hdr[2] = { 'T', '4' };
