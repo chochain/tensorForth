@@ -1,6 +1,6 @@
 \ GAN demo - MNIST
-100 constant N                                \ mini-batch sample count
-N dataset mnist_train constant ds0            \ create dataset MNIST (Real data) 
+100 constant N                               \ mini-batch sample count
+N dataset mnist_test constant ds0            \ create dataset MNIST (Real data) 
 
 : SEED N 128 1 1 tensor randn ;               \ create randn avg=0,std=1 input for fake data
 : REAL N   1 1 1 tensor ones ;                \ create a real label tensor
@@ -9,7 +9,7 @@ N dataset mnist_train constant ds0            \ create dataset MNIST (Real data)
 : dn linear 0.2 leakyrelu 0.3 dropout ;       \ discriminator network layers
 N 28 28 1 nn.model                            \ define Discriminator model (13-layer)
 flatten 1024 dn 512 dn 256 dn                 \ with 3 linear blocks
-1 linear sigmoid constant D                   \ as D, (sigmoid = binary classification)
+1 linear sigmoid constant D                   \ as D, tanh (sigmoid = binary classification)
 
 : gn linear 0.2 leakyrelu ;                   \ generator network layers
 N 128 1 1 nn.model                            \ define Generator Model (10-layer)
@@ -40,45 +40,42 @@ variable _df                                  \ D loss for fake samples
 : gen ( G D -- G D t ) swap                   \ generate a mini-batch of fake images
   SEED forward -1 n@                          \ from random seeds
   N 28 28 1 reshape4
-  rot swap ;               
-\ : d_back backprop 0.01 nn.sgd ;        \ D backprop (with SGD optimization)
-\ : g_back backprop 0.01 nn.sgd ;        \ G backprop (with Adam optimization)
-: d_back backprop 0.0002 0.9 nn.adam ;        \ D backprop (with SGD optimization)
-: g_back backprop 0.0002 0.9 nn.adam ;        \ G backprop (with Adam optimization)
+  rot swap ;
+: d_opti backprop 0.0002 0.5 nn.adam ;        \ D backprop (with SGD optimization)
+: g_opti backprop 0.0002 0.5 nn.adam ;        \ G backprop (with Adam optimization)
 
 : epoch ( G D ds -- G D )                     \ one epoch for the given data source
   for ( G D )                                 \ loop thru mini-batches (on rs)
     1 trainable                               \ set D as trainable
-    forward REAL loss.bce _dr ! REAL d_back   \ feed D with real data
+    forward REAL loss.bce _dr ! REAL backprop \ feed D with real data
     gen dup >r ( G D t )                      \ G creates fake images, keep a copy on rs
-    forward FAKE loss.bce _df ! FAKE d_back   \ feed D with fake data, update D
-    0 trainable r@ ( G D t )                  \ make D non-trainable, retrieve fake images
+    forward FAKE loss.bce _df ! FAKE d_opti   \ feed D with fake data, update D
+    0 trainable r> ( G D t )                  \ make D non-trainable, retrieve fake images
     forward REAL loss.bce _gr ! REAL backprop \ feed D as real (but without updating)
-    1 n@ r> swap -= ( G D t )                 \ fetch D backprop image, adjust as dLoss
-    rot swap ( D G t ) g_back                 \ feed G with it
+    1 n@ rot swap ( D G t ) g_opti            \ fetch D backprop image, feed as gLoss
     swap ( G D ) 46 emit                      \ display progress, restore D trainable
-  next ;                                      \ loop, if next mini-batch available
+  next swap nn.epoch++ swap ;                 \ loop, if next mini-batch available
 : jk ( G D ds -- G D )
     >r
     1 trainable
-    forward REAL loss.bce ." Dr=" . REAL d_back
+    forward REAL loss.bce ." Dr=" . REAL backprop
     gen dup >r ( G D t )
-    forward FAKE loss.bce ." , Df=" . FAKE d_back
-    0 trainable
-    r@ ( G D t )
+    forward FAKE loss.bce ." , Df=" . FAKE d_opti
+    0 trainable r> ( G D t )
     forward REAL loss.bce ." , G=" . cr REAL backprop 
-    1 n@ r> swap -= ( G D t )
-    rot swap ( D G t ) g_back
+    1 n@ rot swap ( D G t ) g_opti
     swap ( G D )
     r>
     ;
 : gan
   for
     epoch stat
-    gen nxfn bin save drop
+    gen nxfn bin save drop                    \ create fake image dump
     ds0 rewind
   next drop ;
   
-G D ds0 99 gan
+G D ds0 99 gan   \ expected loss G=>low, Dr=>low, Df=>high (thinking fake as real)
+\ G D ds0 jk
+
 bye
 
