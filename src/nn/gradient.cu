@@ -27,8 +27,8 @@ __KERN__ void k_sgd(
 
 __KERN__ void k_adam(
     DU *G, DU *DG, DU *M, DU *V,            ///< w, dw, and momemtum tensors
-    DU lr, DU b1, DU b2,                    ///< learn rate, beta(momemtum)
-    int t, int N, int numel                 ///< epoch, batch size
+    DU lc, DU b1, DU b2,                    ///< corrected learn rate, beta(momemtum)
+    int N, int numel                        ///< epoch, batch size
     ) {
     const int i = threadIdx.x + blockIdx.x * blockDim.x;   ///< element index
     
@@ -36,9 +36,7 @@ __KERN__ void k_adam(
         DU dg = DG[i] / N;                                 ///< dG batch avg
         DU mi = M[i] = b1 * M[i] + (DU1 - b1) * dg;        ///< momentum
         DU vi = V[i] = b2 * V[i] + (DU1 - b2) * dg * dg;   ///< velocity
-        DU mt = mi / (DU1 - POW(b1, t));                   ///< m bias correction
-        DU vt = vi / (DU1 - POW(b2, t));                   ///< v bias correction
-        G[i] -= lr * mt / (SQRT(vt) + DU_EPS);             /// * update gradient
+        G[i] -= lc * mi / (SQRT(vi) + DU_EPS);             /// * update gradient
         DG[i] = DU0;                                       /// * zero out dG
     }
 }
@@ -152,13 +150,14 @@ Model::adam(DU lr, DU b1, DU b2) {
 
         k_adam<<<grd,blk>>>(
             g.data, dg.data, m.data, v.data,
-            parm[0], parm[1], parm[2],
-            static_cast<int>(parm[3]), static_cast<int>(parm[4]), numel);
+            parm[0], parm[1], parm[2], static_cast<int>(parm[3]), numel);
         GPU_SYNC();
     };
     DU parm[5] = {
-        lr, epoch ? b1 : DU0, epoch ? b2 : DU0,   /// * learn rate, b1, b2
-        DU1 + epoch, (DU)batch_size() };          /// * t, N
+        lr * SQRT(DU1 - POW(b2, DU1+epoch)) / (DU1 - POW(b1, DU1+epoch)),
+        epoch ? b1 : DU0,                         /// * corrected learn rate
+        epoch ? b2 : DU0,                         /// * b1, b2
+        (DU)batch_size() };                       /// * N
     
     return gradient("adam", update, parm, OPTI_ADAM);
 }
