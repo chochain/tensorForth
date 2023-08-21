@@ -250,6 +250,7 @@ Model::_bloss(Tensor &tgt) {                     ///> pre-calc dLoss
     TRACE1("\nModel#backprop: input dimensions OK, calculate dLoss");
     t4_layer fn = (*this)[-2].grad_fn;           ///< final activation layer
     switch (fn) {
+    case L_LINEAR:
     case L_TANH:    out  = tgt;  break;          /// * dLoss pass thru
     case L_SIGMOID:                              /// * s(1 - s) is cached in input
     /*        
