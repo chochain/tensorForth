@@ -80,9 +80,9 @@ __KERN__ void k_dlinear_dwdb(
 
     if (c0 < C0 && c1 < C1) {
         DU x = I[c1 + n * HWC1], dy = O[c0 + n * HWC0];
-        atomicAdd_block(&DW[cx], dy * x);              /// * dw += dY * X^t
+        atomicAdd(&DW[cx], dy * x);                    /// * dw += dY * X^t
         if (c1 == 0) {
-            atomicAdd_block(&DB[c0], dy);              /// * db += dY
+            atomicAdd(&DB[c0], dy);                    /// * db += dY
         }
     }
 }
@@ -378,17 +378,17 @@ Model::_blinear(Tensor &in, Tensor &out) {
         }
     }
     else {                                          /// * parallel mode
-        dim3 blk(T4_WARP_SZ, T4_WARP_SZ, 1);
-        dim3 grd(NGRID(C0, C1, N, blk));
+        dim3 blk(T4_WARP_SZ, T4_WARP_SZ, 1);        /// * (16,16,1)
+        dim3 grd(NGRID(C0, C1, N, blk));            /// * (1,1,N)
         dim3 grx(NGRID(C1, 1, N, blk));
         
         if (train) {
             k_dlinear_dwdb<<<grd, blk>>>(           /// * update dB, dW
-                in.data, out.data, dw.data, db.data,
-                C1, C0, E1, E0);
+                in.data, out.data, dw.data, db.data,/// * dw += dY @ X^t
+                C1, C0, E1, E0);                    /// * db += dY
         }
         k_dlinear_dx<<<grx, blk>>>(                 /// * update dX (in parallel)
-            in.data, out.data, w.data,
+            in.data, out.data, w.data,              /// * dX = W^t @ dY
             C1, C0, E1, E0);
         GPU_SYNC();
     }
@@ -397,8 +397,6 @@ Model::_blinear(Tensor &in, Tensor &out) {
          _dump_db(db);
          _dump_dw(dw, false);
     }
-//         _dump_db(db);
-//         _dump_dw(dw);
     return 0;
 }
 
