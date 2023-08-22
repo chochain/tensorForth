@@ -1,0 +1,43 @@
+.( ## GAN linear regression tests ) cr
+8 constant N
+
+N 2 1 1 nn.model                           \ generator
+2 linear
+constant G
+
+N 2 1 1 nn.model                           \ discriminator
+5 linear 0.2 leakyrelu
+3 linear 0.2 leakyrelu
+1 linear sigmoid
+constant D
+
+: X N 2 matrix rand 0.02 *= ;              \ random input points
+2 2 matrix{ 1 2 -0.1 0.5 } constant A      \ Y = AX + b   a linear 
+2 1 matrix{ 1 2 } constant b
+: Y X A @= N 2 1 1 reshape4 ;              \ real data points
+
+N 1 1 1 tensor ones constant  REAL
+N 1 1 1 tensor zeros constant FAKE
+
+: gen ( G D -- G D t )
+  swap X forward -1 n@ rot swap ;
+: g_opti ( G t -- G ) backprop 0.002 0.9 nn.adam ;
+: d_opti ( D t -- D ) backprop 0.02  0.9 nn.adam ;
+
+: epoch ( G D -- G D )
+  1 trainable Y ( G D t )
+  forward REAL loss.bce ." Dr=" . REAL backprop
+  gen dup >r ( G D t )
+  forward FAKE loss.bce ." , Df=" . FAKE d_opti
+  0 trainable r> ( G D t )
+  forward REAL loss.bce ." , G=" . REAL backprop
+  1 n@ rot swap ( D G t ) g_opti
+  swap ( G D )
+  ;
+: jk ( G D -- G D ) Y
+  forward REAL loss.bce ." Dr=" . REAL d_opti
+  ;
+  
+G D jk jk
+
+bye 
