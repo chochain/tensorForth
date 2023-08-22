@@ -49,10 +49,10 @@ Model::_dump_dw(Tensor &dw, bool full) {
         for (int j = 0; j < W; j++, p++) {
             sum  += *p;
             hsum += *p;
-            if (full) printf("%6.2f", *p);
+            if (full) printf("%6.3f", *p);
         }
-        if (full) printf(" Σ=%5.2f", sum);
-        else      printf("%5.2f ", sum);
+        if (full) printf(" Σ=%6.3f", sum);
+        else      printf("%6.3f ", sum);
     }
     if (H > 1) printf("%sΣΣ=%6.3f", full ? "\n\t" : " ", hsum);
 }
