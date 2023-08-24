@@ -46,15 +46,25 @@ NetVM::nnop(t4_layer op) {     /// vtable dispatcher
     case L_RELU:
     case L_TANH:
     case L_SELU:
-    case L_SIGMOID: if (IS_M(top)) MTOS.add(op); break;
+    case L_SIGMOID:
+        if (IS_M(top)) MTOS.add(op);
+        else ERROR("model?");                            break;
     case L_LEAKYRL:
-    case L_ELU:     if (M1V) { DU  a = POP(); MTOS.add(op, 0, a); } break;
+    case L_ELU:
+        if (M1V) { DU  a = POP(); MTOS.add(op, 0, a); }
+        else ERROR("model?");                            break;
     case L_SOFTMAX:
-    case L_LOGSMAX: if (IS_M(top)) MTOS.add(op); break;
+    case L_LOGSMAX:
+        if (IS_M(top)) MTOS.add(op);
+        else ERROR("model?");                            break;
     case L_MAXPOOL: 
     case L_AVGPOOL:
-    case L_MINPOOL: if (M1V) { U16 n = POPi;  MTOS.add(op, n); }    break;
-    case L_DROPOUT: if (M1V) { DU  p = POP(); MTOS.add(op, 0, p); } break;
+    case L_MINPOOL:
+        if (M1V) { U16 n = POPi;  MTOS.add(op, n); }
+        else ERROR("model?");                            break;
+    case L_DROPOUT:
+        if (M1V) { DU  p = POP(); MTOS.add(op, 0, p); }
+        else ERROR("model?");                            break;
     case L_USAMPLE: {
         U16 n = POPi;
         U16 m = (M1V) ? POPi : UP_NEAREST;
@@ -65,7 +75,7 @@ NetVM::nnop(t4_layer op) {     /// vtable dispatcher
         else if (M1V) {
             DU m = POP(); MTOS.add(op, 0, m);
         }
-        break;
+        else ERROR("model?");                           break;
     default: ERROR("NetVM::nnop(%d) not supported\n", op);
     }
 }
@@ -215,10 +225,7 @@ NetVM::init() {
     ///@defgroup Gradiant ops
     ///@{
     CODE("nn.zero",
-         if (IS_M(top)) MTOS.epoch = 0;
-         else ERROR("TOS is not a model!\n")),
-    CODE("nn.epoch++",
-         if (IS_M(top)) MTOS.epoch++;
+         if (IS_M(top)) MTOS.grad_zero();
          else ERROR("TOS is not a model!\n")),
     CODE("nn.sgd",                            
          if (M2V) {                           ///> (N p m -- N')
@@ -306,7 +313,7 @@ NetVM::init() {
                 ERROR("not a dataset on RS?\n"); return;
             }
             if (d.done) {
-                m.epoch++;                         /// * increment epoch counter
+                m.grad_zero();                     /// * reset iterator counter
                 rs.pop();                          /// * pop off dataset
                 IP += sizeof(IU);                  /// * skip over to next word
             }
