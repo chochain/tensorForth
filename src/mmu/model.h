@@ -38,9 +38,9 @@ class Model : public T4Base {
     Tensor *_store;            ///< model storage - Sequential, TODO: DAG
     Tensor *_hot  = NULL;      ///< cached dataset one-hot vector
     int    _hit   = 0;         ///< hit counter
+    int    _iter  = 0;         ///< iteration counter (for Adam)
     
 public:
-    int    epoch = 0;          ///< iteration counter
     ///
     /// @name Derivertive ops
     /// @{
@@ -78,7 +78,7 @@ public:
     /// @}
     /// @name main NN methods
     /// @{
-    __GPU__ Model  &add(t4_layer fn, U16 n=0, DU bias=DU0, U16 *opt=0);
+    __GPU__ Model  &add(t4_layer fn, U16 n=0, DU alpha=DU0, U16 *opt=0);
     __GPU__ Model  &forward(Tensor &input);             ///< network feed forward
     __GPU__ Model  &broadcast(Tensor &tgt);
     __GPU__ Model  &backprop();                         ///< back propegation with default onehot vector (built during forward pass from dataset labels)
@@ -94,6 +94,7 @@ public:
     /// @}
     /// @name gradient descent functions
     /// @{
+    __GPU__ Model  &grad_zero() { _iter = 0; }
     __GPU__ Model  &grad_alloc(t4_optimizer op);        ///< allocate gradient vectors
     __GPU__ Model  &gradient(const char *nm,            ///< gradient descent functor
                              GdFunc fn,                 
@@ -124,7 +125,6 @@ private:
     /// @name Pooling and Dropout ops
     /// @{
     __GPU__ void   _ipool(Tensor &in, U16 n);       ///< pooling with nxn filter
-    __GPU__ void   _idropout(Tensor &in, DU pct);   ///< zero out p% of channel data (add noise between data points)
     __GPU__ void   _iup(Tensor &in, U16 n, DU m);   ///< upsample with nxn filter
     __GPU__ void   _ibatchnorm(Tensor &in, DU m);   ///< batch norm with momentum=m
     /// @}
@@ -133,7 +133,6 @@ private:
     __GPU__ void   _fstep(Tensor &in, Tensor &out);
     __GPU__ int    _fconv(Tensor &in, Tensor &out);
     __GPU__ int    _flinear(Tensor &in, Tensor &out);
-    __GPU__ int    _ffilter(Tensor &in, Tensor &m, Tensor &out);
     __GPU__ int    _factivate(Tensor &in, Tensor &out, t4_layer fn);
     __GPU__ int    _fpool(Tensor &in, Tensor &out, t4_layer fn);
     __GPU__ int    _fsoftmax(Tensor &in, Tensor &out);
@@ -147,7 +146,7 @@ private:
     __GPU__ void   _bstep(Tensor &in, Tensor &out);
     __GPU__ int    _bconv(Tensor &in, Tensor &out);
     __GPU__ int    _blinear(Tensor &in, Tensor &out);
-    __GPU__ int    _bfilter(Tensor &in, Tensor &msk, Tensor &out);
+    __GPU__ int    _bactivate(Tensor &in, Tensor &out);
     __GPU__ int    _bpool(Tensor &in, Tensor &out, t4_layer fn);
     __GPU__ int    _bupsample(Tensor &in, Tensor &out, t4_layer fn);
     __GPU__ int    _bbatchnorm(Tensor &in, Tensor &out);
