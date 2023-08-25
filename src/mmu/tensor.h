@@ -6,7 +6,6 @@
  */
 #ifndef TEN4_SRC_TENSOR_H_
 #define TEN4_SRC_TENSOR_H_
-#include <ostream>
 #include "t4base.h"         // in ../mmu
 #include "util.h"           // in ../mmu
 //===============================================================================
@@ -186,9 +185,9 @@ struct Tensor : public T4Base {
     ///
     /// tensor debugger
     ///
-    __BOTH__ void _dump(DU *v, int H, int W, int C);
-    __BOTH__ void _view(DU *v, int H, int W, int C, DU mean, DU scale);
-    __GPU__ void show();
+    static __BOTH__ void _dump(DU *v, int H, int W, int C);
+    static __BOTH__ void _view(DU *v, int H, int W, int C, DU mean, DU scale);
+    __GPU__ void show(bool dump=false);
     ///
     /// tensor-scalar operators
     ///

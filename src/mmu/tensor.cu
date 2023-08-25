@@ -673,10 +673,10 @@ Tensor::reshape(U32 sz) {
 
 __BOTH__ Tensor&
 Tensor::reshape(U16 h, U16 w) {
-    const U16 s[4] = { 1, 1, 1, 1 }, t[4] = { h, w, 1,  1};
+    const U16 s[4] = { 1, 1, 1, 1 }, t[4] = { h, w, 1, 1 };
     U32 sz = h * w;
     if (sz == numel) {
-        rank   = 2;
+        rank = 2;
         memcpy(stride, s, sizeof(s));
         memcpy(shape,  t, sizeof(t));
         WARN("Tensor::reshaped(%d,%d)\n", H(), W());
@@ -692,7 +692,7 @@ Tensor::reshape(U16 n, U16 h, U16 w, U16 c) {
     const U16 s[4] = { 1, 1, 1, 1 }, t[4] = { h, w, c, n };
     U32 sz = n * h * w * c;
     if (sz == numel) {
-        rank   = 4;
+        rank = 4;
         memcpy(stride, s, sizeof(s));
         memcpy(shape,  t, sizeof(t));
         WARN("Tensor::reshaped(%d,%d,%d,%d)\n", N(), H(), W(), C());
@@ -839,15 +839,15 @@ Tensor::_view(DU *v, int H, int W, int C, DU mean, DU scale) {
 }
 
 __GPU__ void
-Tensor::show() {
-    const U16 N = this->N(), H = this->H(), W = this->W(), C = this->C();
+Tensor::show(bool dump) {
+    const U16 N  = this->N(), H = this->H(), W = this->W(), C = this->C();
     const int hw = H * W;
 
     DU mean  = avg();
     DU scale = 0.5 / std();            // P=95%
     for (int n = 0; n < N; n++) {
         DU *d = slice(n);
-        if (hw < 100) {
+        if (dump || hw < 100) {
             printf("\nn=%d", n);
             _dump(d, H, W, C);
         }
