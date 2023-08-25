@@ -33,15 +33,15 @@ Model::add(t4_layer fn, U16 n, DU bias, U16 *opt) {
     case L_RELU:
     case L_TANH:
     case L_SIGMOID:
-    case L_SOFTMAX:
-    case L_LOGSMAX: _icopy(in);                 break;
     case L_SELU:
     case L_LEAKYRL:
-    case L_ELU:     _iactivate(in, bias);       break;
+    case L_ELU:
+    case L_DROPOUT: _iactivate(in, bias);       break;
+    case L_SOFTMAX:
+    case L_LOGSMAX: _icopy(in);                 break;
     case L_AVGPOOL:
     case L_MAXPOOL:
     case L_MINPOOL: _ipool(in, n);              break;
-    case L_DROPOUT: _idropout(in, bias);        break;
     case L_USAMPLE: _iup(in, n, bias);          break;
     case L_BATCHNM: _ibatchnorm(in, bias);      break;
     default: ERROR("Model#add layer %d not supported\n", fn);
@@ -129,8 +129,9 @@ Model::_icopy(Tensor &in) {
 __GPU__ void
 Model::_iactivate(Tensor &in, DU alpha) {
     Tensor &out = _mmu->copy(in);
+    Tensor *msk = in.grad[0] = &_mmu->copy(in);  ///> activation mask
     
-    in.parm = INT(1000.0 * alpha);               /// * alpha * 1000
+    in.parm = INT(1000.0 * alpha);               /// * bias * 1000
     TRACE1("model#activate alpha=%6.3f\n", alpha);
     
     npush(out);
@@ -153,17 +154,6 @@ Model::_ipool(Tensor &in, U16 f) {
     
     Tensor &out = _t4(in.N(), H0, W0, in.C());
     npush(out);                                  /// * stage for next stage
-}
-
-__GPU__ void
-Model::_idropout(Tensor &in, DU pct) {
-    Tensor &out = _mmu->copy(in);
-    Tensor *msk = in.grad[0] = &_mmu->copy(in);  ///> dropout mask
-    
-    in.parm = INT(1000.0 * pct);                 /// * keep pct * 1000
-    TRACE1("model#dropout pct=%6.3f\n", pct);
-    
-    npush(out);
 }
 
 __GPU__ void
