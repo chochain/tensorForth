@@ -241,6 +241,9 @@ TensorVM::_tdot(Tensor &A, Tensor &B) {      ///< tensor dot product
         Tensor::mm(A, B, O);
         return O;
     }
+    ERROR("A.W!=B.H dim?");
+    
+    return A;                                /// * i.e. skip in xop2
 }
 
 __GPU__ Tensor&
@@ -330,6 +333,11 @@ TensorVM::init() {
     CODE("reshape4",                     ///< reshape as Tensor(NHWC)
         IU c = POPi; IU w = POPi; IU h = POPi; IU n = POPi;
         TTOS.reshape(n, h, w, c)),
+    CODE("same_shape?",
+        if (IS_OBJ(top) && IS_OBJ(ss[-1])) {
+            Tensor &A=TTOS; Tensor &B=TNOS; PUSH(BOOL(A.is_same_shape(B)));
+        }
+        else ERROR("TOS,NOS tensors?")),
     ///@}
     ///@defgroup Tensor fill ops
     ///@brief - stick to PyTorch naming when possible
