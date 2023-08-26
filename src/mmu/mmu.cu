@@ -248,6 +248,10 @@ MMU::free(Tensor &t) {
         _ostore.free(t.data);    /// * free physical data
         if (t.grad_fn != L_NONE) {
             MM_TRACE1(" {\n");
+            for (int i=0; t.mtum[i] && i < 4; i++) {
+                if (t.mtum[i] == t.grad[i]) continue;
+                MM_TRACE1("\t\t"); free(*t.mtum[i]);
+            }
             for (int i=0; t.grad[i] && i < 4; i++) {
                 MM_TRACE1("\t\t"); free(*t.grad[i]);    /// recursive
             }
