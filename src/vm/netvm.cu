@@ -11,18 +11,22 @@
 __GPU__ void
 NetVM::nnop(t4_layer op) {     /// vtable dispatcher
     ///
-    /// handle tensor ops (proxy)
+    /// handle tensor ops (destructive)
     ///
     if (TOS1T) {
+        Tensor &t = TTOS;
         switch (op) {
-        case L_RELU:    xop1(O_RELU, DU0); return; ///> (Ta -- Ta Ta')
-        case L_TANH:    xop1(O_TANH);      return; ///> (Ta -- Ta Ta')
-        case L_SIGMOID: xop1(O_SIGM);      return; ///> (Ta -- Ta Ta')
-        case L_FLATTEN: {                          ///> (Ta -- Ta Ta')
-                Tensor &t = TTOS;
-                t.reshape(t.numel);
-                return;
-            }
+        case L_FLATTEN: t.reshape(t.numel); return;
+        case L_RELU:    t.map(O_RELU);      return;
+        case L_TANH:    t.map(O_TANH);      return;
+        case L_SIGMOID: t.map(O_SIGM);      return;
+        case L_SOFTMAX:
+            t.map(O_MUL, DU1 / (t.sum() + DU_EPS)); return;
+        case L_LOGSMAX:
+            DU sum = t.sum();
+            if (sum > DU_EPS) t -= LOG(sum);
+            else ERROR("logsoftmax tensor sum < 0!");
+            return;
         }
         // * continue to zero param
     }
@@ -54,8 +58,8 @@ NetVM::nnop(t4_layer op) {     /// vtable dispatcher
         switch (op) {
         case L_LINEAR:  m.add(op, INT(a));             return; /* bias = 0.0 */
         case L_LEAKYRL:
-        case L_ELU:     m.add(op, 0, a);               return;
-        case L_DROPOUT: 
+        case L_ELU:     
+        case L_DROPOUT: m.add(op, 0, a);               return;
         case L_AVGPOOL:
         case L_MAXPOOL: 
         case L_MINPOOL: m.add(op, INT(a));             return;
