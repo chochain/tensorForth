@@ -144,6 +144,8 @@ tensorForth 2.0 done.
 ||> `2 3 matrix{ 1 2 3 4 5 6 }`<br/>> `dup .`<br/>> `3 2`**`reshape2`**</br>> `dup .`|`T2[2,3]`<br/>`matrix[2,3] = { { +1.0000 +2.0000 +3.0000 } { +4.0000 +5.0000 +6.0000 } }`<br/>`T2[3,2]`<br/>`matrix[3,2] = { { +1.0000 +2.0000 } { +3.0000 +4.0000 } { +5.0000 +6.0000 } }`|
 |reshape4|(n h w c Ta -- Ta')|reshape to a 4-D NHWC tensor or view|
 ||> `2 3 matrix{ 1 2 3 4 5 6 }`<br/>> `1 3 2 1`**`reshape4`**|`T2[2,3]`<br/>`T4[1,3,2,1]`|
+|same_shape?|(Ta Tb -- Ta Tb T/F)|check whether Ta and Tb are the same shape|
+||> `1 2 matrix{ 1 1 }`<br/>> `2 1 matrix{ 2 2 }`<br/>> **`same_shape?`**|`T2[1,2] T2[2,1] 0`|
 
 ### Tensor Fill ops
 |word|param/example|Fill tensor with init values|
