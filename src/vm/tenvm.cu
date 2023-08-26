@@ -30,7 +30,7 @@ TensorVM::xop1(t4_ten_op op, DU v) {
         return;
     }
     ///
-    /// single tensor handler
+    /// single tensor handler (destructive)
     ///
     Tensor &A = TTOS;
     if (!A.is_tensor()) { ERROR("tensor?"); return; }

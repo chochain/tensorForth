@@ -15,68 +15,93 @@ NetVM::nnop(t4_layer op) {     /// vtable dispatcher
     ///
     if (TOS1T) {
         switch (op) {
-        case L_RELU:    xop1(O_RELU, DU0); break; ///> (Ta -- Ta Ta')
-        case L_TANH:    xop1(O_TANH);      break; ///> (Ta -- Ta Ta')
-        case L_SIGMOID: xop1(O_SIGM);      break; ///> (Ta -- Ta Ta')
-        case L_FLATTEN:                           ///> (Ta -- Ta Ta')
-            Tensor &t = TTOS;
-            t.reshape(t.numel);            break; 
+        case L_RELU:    xop1(O_RELU, DU0); return; ///> (Ta -- Ta Ta')
+        case L_TANH:    xop1(O_TANH);      return; ///> (Ta -- Ta Ta')
+        case L_SIGMOID: xop1(O_SIGM);      return; ///> (Ta -- Ta Ta')
+        case L_FLATTEN: {                          ///> (Ta -- Ta Ta')
+                Tensor &t = TTOS;
+                t.reshape(t.numel);
+                return;
+            }
         }
-        return;
+        // * continue to zero param
     }
     ///
-    /// model layer ops
+    /// zero parameter layers
     ///
+    if (IS_M(top)) {
+        Model &m = MTOS;
+        switch (op) {
+        case L_FLATTEN:
+        case L_RELU:
+        case L_TANH:
+        case L_SIGMOID:
+        case L_SELU:    m.add(op);           return;
+        case L_LEAKYRL: m.add(op, 0, -0.01); return;
+        case L_ELU:     m.add(op, 0, DU1);   return;
+        case L_SOFTMAX:
+        case L_LOGSMAX: m.add(op);           return;
+        case L_BATCHNM: m.add(op, 0, 0.1);   return; /// * default momentum=0.1
+        }
+        // * continue to one param
+    }
+    ///
+    /// one parameter layers
+    ///
+    if (M1V) {
+        DU    a  = POP();
+        Model &m = MTOS;
+        switch (op) {
+        case L_LINEAR:  m.add(op, INT(a));             return; /* bias = 0.0 */
+        case L_LEAKYRL:
+        case L_ELU:     m.add(op, 0, a);               return;
+        case L_DROPOUT: 
+        case L_AVGPOOL:
+        case L_MAXPOOL: 
+        case L_MINPOOL: m.add(op, INT(a));             return;
+        case L_BATCHNM: m.add(op, 0, a);               return;
+        case L_USAMPLE: m.add(op, INT(a), UP_NEAREST); return;
+        }
+        PUSH(a);                                   /// * restore top
+        /// continue to error handling cases
+    }
     switch (op) {
-    case L_CONV:  break;                           ///> conv handled at VM level
     case L_LINEAR:
-        if (M2V) {                                 ///> param checking
-            U16   n    = POPi;                     ///> number of output channels
-            DU    bias = POP();                    ///> linear bias
-            MTOS.add(L_LINEAR, n, bias);           ///> (N b c -- N')
+        if (M2V) {                                 /// * param checking
+            U16 n    = POPi;                       ///> number of output channels
+            DU  bias = POP();                      ///> linear bias
+            MTOS.add(op, n, bias);                 /// * (N b c -- N')
         }
-        else if (M1V) {
-            U16   n    = POPi;                     ///> number of output channels
-            DU    bias = DU0;                      ///> linear bias=0.0
-            MTOS.add(L_LINEAR, n, bias);           ///> (N c -- N')
-        }
-        else ERROR("linear: [bias] n required!");
+        else ERROR("( N [bias] n -- ) for linear required!");
         break;
     case L_FLATTEN:
-    case L_RELU:
-    case L_TANH:
     case L_SELU:
-    case L_SIGMOID:
-        if (IS_M(top)) MTOS.add(op);
-        else ERROR("model?");                            break;
+    case L_SOFTMAX:
+    case L_LOGSMAX: ERROR("( N -- ) no param needed!"); break;
     case L_LEAKYRL:
     case L_ELU:
-        if (M1V) { DU  a = POP(); MTOS.add(op, 0, a); }
-        else ERROR("model?");                            break;
-    case L_SOFTMAX:
-    case L_LOGSMAX:
-        if (IS_M(top)) MTOS.add(op);
-        else ERROR("model?");                            break;
-    case L_MAXPOOL: 
-    case L_AVGPOOL:
-    case L_MINPOOL:
-        if (M1V) { U16 n = POPi;  MTOS.add(op, n); }
-        else ERROR("model?");                            break;
     case L_DROPOUT:
-        if (M1V) { DU  p = POP(); MTOS.add(op, 0, p); }
-        else ERROR("model?");                            break;
-    case L_USAMPLE: {
-        U16 n = POPi;
-        U16 m = (M1V) ? POPi : UP_NEAREST;
-        MTOS.add(op, n, m);
-    } break;
-    case L_BATCHNM:
-        if (IS_M(top)) MTOS.add(op, 0, 0.1);   /// * default momentum=0.1
-        else if (M1V) {
-            DU m = POP(); MTOS.add(op, 0, m);
+    case L_AVGPOOL:
+    case L_MAXPOOL: 
+    case L_MINPOOL:
+    case L_BATCHNM: ERROR("( N n -- ) one param required!"); break;
+    case L_USAMPLE:
+        if (M2V) {
+            U16 n = POPi;
+            DU  m = POP();
+            MTOS.add(op, n, m);
         }
-        else ERROR("model?");                           break;
-    default: ERROR("NetVM::nnop(%d) not supported\n", op);
+        else ERROR("( N [mtum] n -- ) for upsample required?");
+        break;
+    default:
+        if (!IS_OBJ(top)) {
+            switch (op) {
+            case L_RELU:    xop1(O_RELU, DU0); break;
+            case L_TANH:    xop1(O_TANH);      break;
+            case L_SIGMOID: xop1(O_SIGM);      break;
+            }
+        }
+        else ERROR("NetVM::nnop layer %d not supported(2)\n", op);
     }
 }
 
@@ -129,7 +154,7 @@ NetVM::_conv(U16 k) {
         }
         else { ERROR("vec?"); return; }
     }
-    if (!M2V) { ERROR("convolution: bias c required!"); return; }
+    if (!M2V) { ERROR("Model#add bias c for conv2d required!"); return; }
     U16 c    = POPi;                    ///> number of output channels
     DU  bias = POP();                   ///> convolution bias
     MTOS.add(L_CONV, c, bias, opt);
@@ -303,6 +328,13 @@ NetVM::init() {
     CODE(">n",        if (M1V) { DU t = POP(); MTOS.npush(t); }),
     CODE("n@",        if (M1V) { I16 i = POPi; PUSH(mmu.copy(MTOS[i])); }),
     CODE("network",   if (IS_M(top)) fout << top),
+    CODE("dump",
+         Model &m = MTOS;
+         for (int i=1; i < m.numel - 1; i++) {
+             Tensor &t = m[i];
+             printf("m[%d]=", i);
+             t.show(true);
+         }),
     };
     const Code over[] = {                          ///< extended (overload) words
     CODE("donext",                                 /// * overwrite "donext" in eforth.cu
@@ -313,7 +345,6 @@ NetVM::init() {
                 ERROR("not a dataset on RS?\n"); return;
             }
             if (d.done) {
-                m.grad_zero();                     /// * reset iterator counter
                 rs.pop();                          /// * pop off dataset
                 IP += sizeof(IU);                  /// * skip over to next word
             }
