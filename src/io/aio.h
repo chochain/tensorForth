@@ -42,6 +42,7 @@ private:
     __HOST__ void _print_mat(std::ostream &fout, DU *md, U16 *shape);
     __HOST__ void _print_tensor(std::ostream &fout, Tensor &t);
     __HOST__ void _print_model(std::ostream &fout, Model &m);
+    __HOST__ void _print_model_parm(std::ostream &fout, Tensor &in, Tensor &out);
     ///
     /// dataset IO methods
     ///

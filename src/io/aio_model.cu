@@ -37,15 +37,50 @@ AIO::_print_model(std::ostream &fout, Model &m) {
             fout << " "; _mmu->to_s(fout, *g[i]);
         }
     };
-    int sz = m.numel;
     if (!m.is_model()) return;
+    int n = m.numel;
     
-    fout << "NN model[" << sz-1 << "/" << m.slots() << "]" << endl;
-    for (int i = 1; i < sz; i++) {  /// skip root[0]
-        Tensor &t = m[i];
-        tinfo(t, i, (i==(sz-1)) ? 0 : t.grad_fn);
-        if (_mmu->trace() && t.grad_fn != L_NONE) finfo(t.grad);
+    fout << "NN model[" << n-1 << "/" << m.slots() << "]" << endl;
+    for (int i = 1; i < n; i++) {              /// skip root[0]
+        Tensor &in = m[i], &out = m[i+1];
+        tinfo(in, i, in.grad_fn);
+        if (_mmu->trace()) {
+            finfo(in.grad);
+            _print_model_parm(fout, in, out);
+        }
         fout << endl;
+    }
+}
+///
+/// print model layer parameters
+///
+__HOST__ void
+AIO::_print_model_parm(std::ostream &fout, Tensor &in, Tensor &out) {
+    t4_layer fn = in.grad_fn;             ///< layer function
+    DU       p  = 0.001 * in.parm;        ///< layer parameter
+    switch(fn) {
+    case L_NONE:    /* do nothing  */                  break;
+    case L_CONV:   fout << " bias=" << p << ", C="
+                        << out.C() << " ";             break;
+    case L_LINEAR: fout << " bias=" << p << ", H="
+                        << in.grad[0]->H() << " ";     break;
+    case L_FLATTEN:
+    case L_RELU:
+    case L_TANH:
+    case L_SIGMOID: /* do nothing */                   break;
+    case L_SELU:
+    case L_LEAKYRL:
+    case L_ELU:     fout << " bias=" << p << " ";      break;
+    case L_DROPOUT: fout << " rate=" << p*100.0 << "% "; break;
+    case L_SOFTMAX:
+    case L_LOGSMAX: /* do nothing */                   break;
+    case L_AVGPOOL:
+    case L_MAXPOOL:
+    case L_MINPOOL: fout << " n=" << in.parm << " ";   break;
+    case L_BATCHNM: fout << " mtum=" << p << " ";      break;
+    case L_USAMPLE: fout << (in.parm&0xff) << "["
+                         << (in.parm>>8) << "] ";      break;
+    default: fout << "unknown layer=" << fn << " ";    break;
     }
 }
 ///
@@ -163,27 +198,14 @@ AIO::_nload(DU top, U16 mode, char* fname) {
     printf(" => %s\n", err ? "error" : "completed");
     return err;
 }
+
 __HOST__ int
 AIO::_nsave_model(std::ostream &fout, Model &m) {
     for (U16 i = 1; i < m.numel - 1; i++) {
         Tensor &in = m[i], &out = m[i+1];
-        t4_layer fn = in.grad_fn;              ///< layer function
-        DU       p  = 0.001 * in.parm;         ///< layer parameter
-        switch(fn) {
-        case L_CONV:   fout << p << " " << out.C() << " "; break;
-        case L_LINEAR: fout << p << " " << in.grad[0]->H() << " "; break;
-        case L_SELU:
-        case L_LEAKYRL:
-        case L_ELU:
-        case L_AVGPOOL:
-        case L_MAXPOOL:
-        case L_MINPOOL: fout << in.parm << " ";            break;
-        case L_DROPOUT:
-        case L_BATCHNM: fout << p << " ";                  break;
-        case L_USAMPLE: fout << (in.parm&0xff) << "[" << (in.parm>>8) << "] "; break;
-        default: break;
-        }
-        const char *nm = Model::nname(fn);
+        _print_model_parm(fout, in, out);
+        
+        const char *nm = Model::nname(in.grad_fn);
         fout << nm << endl;                   /// * one blank line serves
                                               /// * as the sectional break
         printf("\n%2d> %s [%d,%d,%d,%d]\tp=%-2d => out[%d,%d,%d,%d]",
