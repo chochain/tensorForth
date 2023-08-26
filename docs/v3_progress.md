@@ -140,7 +140,7 @@ ds1                                       \ put dataset on TOS
 |minpool|(N n -- N')|nxn cell minimum pooling|
 |dropout|(N p -- N')|zero out p% of channel data (add noise between data points)|
 |upsample|(N n -- N')|upsample to nearest size=n, 2x2 and 3x3 supported|
-|upsample|(N m n -- N')|upsample with method=m, size=n, 2x2 and 3x3 support|
+|upsample|(N m n -- N')|upsample size=n, 2x2 and 3x3 support, method: 0=nearest, 1=linear, 2=bilinear, 3=cubic|
 |batchnorm|(N -- N')|add batchnorm layer with default momentum=0.1|
 |batchnorm|(N m -- N')|add batchnorm layer with momentum=m|
 

@@ -220,7 +220,7 @@ s" tests/my_net.t4" nn.save                 \ persist the trained network
   minpool    (N n -- N')         - nxn cell minimum pooling
   dropout    (N p -- N')         - zero out p% of channel data (add noise between data points)
   upsample   (N n -- N')         - upsample to nearest size=n, 2x2 and 3x3 supported
-  upsample   (N m n -- N')       - upsample with method=m, size=n, 2x2 and 3x3 supported
+  upsample   (N m n -- N')       - upsample size=n, 2x2 and 3x3 supported, method=[0 nearest, 1=linear, 2=bilinear, 3=cubic
   batchnorm  (N -- N')           - batch normal layer with default momentum=0.1
   batchnorm  (N m -- N')         - batch normal with momentum=m
 </pre>
@@ -290,6 +290,7 @@ s" tests/my_net.t4" nn.save                 \ persist the trained network
    flatten   (Ta -- T1a')    - reshape a tensor or view to 1-D array
    reshape2  (Ta -- T2a')    - reshape to a 2-D matrix view
    reshape4  (Ta -- T4a')    - reshape to a 4-D NHWC tensor or view
+   same_shape? (Ta Tb -- Ta Tb T/F) - check whether Ta and Tb are the same shape
 </pre>
 
 ### Fill tensor with init values (data updated to original tensor)
