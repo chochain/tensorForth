@@ -121,50 +121,39 @@ __KERN__ void k_pool(
     }
 }
 
-__KERN__ void k_filter(
-    DU *I, DU *F, DU *O,                   ///< input, filter, output tensors
-    int HW                                 ///< H0=H1, W0==W1 (C0==C1)
-    ) {
-    const int i  = threadIdx.x + blockIdx.x * blockDim.x;  ///< element index
-    const int c  = blockIdx.y, C = gridDim.y;              ///< channel deep
-    const int ns = blockIdx.z * HW * C;                    ///< batch slice index
-    const int k  = c + i * C + ns;                         ///< output tensor index
-
-    if (i < HW) {
-        O[k] = (F[k] > DU0) ? I[k] : DU0;
-    }
-}
-
 #define SELU_L  1.0507                     /** Selu lambda */
 #define SELU_LA 1.7581                     /** Selu alpha  */
 
 __KERN__ void k_activate(
-    t4_layer op, DU *I, DU *O,             ///< func, input, output tensors
-    DU alpha, int HW                       ///< H0=H1, W0==W1 (C0==C1)
+    t4_layer op, DU *I, DU *F, DU *O,      ///< func, input, filter, output tensors
+    DU alpha, int numel                    ///< number of tensor elements
     ) {
-    const int i  = threadIdx.x + blockIdx.x * blockDim.x;  ///< element index
-    const int c  = blockIdx.y, C = gridDim.y;              ///< channel deep
-    const int ns = blockIdx.z * HW * C;                    ///< batch slice index
-    const int k  = c + i * C + ns;                         ///< output tensor index
+    const int k = threadIdx.x + blockIdx.x * blockDim.x;   ///< element index
 
-    if (i < HW) {
+    if (k < numel) {
         DU ik = I[k];                                      ///< use register
         switch (op) {
+        case L_RELU:
+            O[k] = ik > DU0
+                ? (F[k]=DU1, ik) : (F[k]=DU0);      break; /// * 1|0
         case L_TANH:
             ik = O[k] = TANH(ik);                       
-            I[k] = DU1 - ik*ik;                     break; /// * cache (1 - tanh^2)
+            F[k] = DU1 - ik*ik;                     break; /// * 1 - tanh^2
         case L_SIGMOID:
             ik = O[k] = SIGMOID(ik);
-            I[k] = ik * (DU1 - ik);                 break; /// * cache sig*(1 - sig)
-        case L_SELU:    O[k] = ik > DU0                    /// * cache selu in I[k]
-            ? (I[k] = SELU_L, ik)
-            : (I[k] = SELU_LA * EXP(ik)) - SELU_LA; break;
+            F[k] = ik * (DU1 - ik);                 break; /// * sig*(1 - sig)
+        case L_SELU: O[k] = ik > DU0                       /// * selu
+            ? (F[k] = SELU_L, ik)
+            : (F[k] = SELU_LA * EXP(ik)) - SELU_LA; break;
         case L_LEAKYRL: O[k] = ik > DU0
-            ? (I[k] = DU1, ik)
-            : (I[k] = alpha) * ik;                  break;
+            ? (F[k] = DU1, ik)
+            : (F[k] = alpha) * ik;                  break;
         case L_ELU:     O[k] = ik > DU0
-            ? (I[k] = DU1, ik)
-            : (I[k] = alpha * EXP(ik)) - alpha;     break;
+            ? (F[k] = DU1, ik)
+            : (F[k] = alpha * EXP(ik)) - alpha;     break;
+        case L_DROPOUT:
+            O[k] = F[k] > DU0
+            ? (F[k]=DU1, ik) : (F[k]=DU0);          break; /// * 1|0
         }
     }
 }
@@ -246,25 +235,25 @@ Model::_fstep(Tensor &in, Tensor &out) {
     case L_CONV:    _fconv(in, out);         break; ///< convolution
     case L_LINEAR:  _flinear(in, out);       break; ///< out = W @ in + B
     case L_FLATTEN: out = in;                break; ///< straight copy
-    case L_RELU:    _ffilter(in, in, out);   break; ///< filter in < 0
+    case L_RELU:
     case L_TANH:
     case L_SIGMOID:
     case L_SELU:
     case L_LEAKYRL:
     case L_ELU:     _factivate(in, out, fn); break;
+    case L_DROPOUT: {                               ///< dropout mask
+        DU     pct  = 0.001 * in.parm;              ///< percentage dropout
+        Tensor &msk = *in.grad[0];                  ///< dropout mask
+        _mmu->random(msk, UNIFORM, -pct);           /// * randomize w, shift pct
+        _factivate(in, out, fn);
+    } break;
     case L_SOFTMAX: _fsoftmax(in, out);      break; /// * feed to CrossEtropy
     case L_LOGSMAX: _flogsoftmax(in, out);   break; /// * feed to NLL
     case L_AVGPOOL:
     case L_MAXPOOL:
     case L_MINPOOL: _fpool(in, out, fn);     break;
-    case L_DROPOUT: {                               ///< dropout mask
-        DU     pct  = 0.001 * in.parm;              ///< percentage dropout
-        Tensor &msk = *in.grad[0];                  ///< dropout mask
-        _mmu->random(msk, UNIFORM, -pct);           /// * randomize w, shift pct
-        _ffilter(in, msk, out);
-    } break;
-    case L_USAMPLE: _fupsample(in, out, fn); break;
     case L_BATCHNM: _fbatchnorm(in, out);    break;
+    case L_USAMPLE: _fupsample(in, out);     break;
     default: ERROR("Model::forward layer=%d not supported\n", fn);
     }
 }
@@ -327,7 +316,7 @@ Model::_flinear(Tensor &in, Tensor &out) {
     TRACE1(" = w[%d,%d] @ in[%d,%d,%d,%d] + b[%d]",
         C0, C1, in.N(), in.H(), in.W(), in.C(), tb.numel);
 
-    if (tw.numel > T4_WARP_SQ) {                      /// * threadhold control
+    if (tw.numel >= T4_WARP_SQ) {                     /// * threadhold control
         dim3 blk(T4_WARP_SZ, T4_WARP_SZ, 1);          ///< default blocks
         dim3 grd(NGRID(C1, C0, N, blk));              ///< default grids
 
@@ -336,33 +325,18 @@ Model::_flinear(Tensor &in, Tensor &out) {
         GPU_SYNC();                                   /// * this makes it slow
     }
     else qa_calc(tw.data, tb.data, N, C1, C0);        /// * serial code (for validation)
-    // _dump(out.data, out.H(), out.W(), out.C());
-    return 0;
-}
-
-__GPU__ int
-Model::_ffilter(Tensor &in, Tensor &msk, Tensor &out) {
-    const int W = out.W(), HW = out.H() * W;
-
-    dim3 blk(T4_WARP_SQ, 1, 1);                        ///< default blocks
-    dim3 grd((HW + blk.x - 1)/blk.x, out.C(), out.N());
-
-    k_filter<<<grd, blk>>>(in.data, msk.data, out.data, HW);
-    GPU_SYNC();
-
     return 0;
 }
 
 __GPU__ int
 Model::_factivate(Tensor &in, Tensor &out, t4_layer fn) {
-    const int W = out.W(), HW = out.H() * W;
-
     dim3 blk(T4_WARP_SQ, 1, 1);                        ///< default blocks
-    dim3 grd((HW + blk.x - 1)/blk.x, out.C(), out.N());
+    dim3 grd((in.numel + blk.x - 1)/blk.x, 1, 1);
 
     DU alpha = 0.001 * in.parm;
 
-    k_activate<<<grd, blk>>>(fn, in.data, out.data, alpha, HW);
+    k_activate<<<grd, blk>>>(
+        fn, in.data, in.grad[0]->data, out.data, alpha, in.numel);
     GPU_SYNC();
 
     return 0;
@@ -421,34 +395,6 @@ Model::_flogsoftmax(Tensor &in, Tensor &out) {  /// * TODO: DCP
     return 0;
 }
 ///
-///> upsampling =~ reverse pooling (calls backprop k_dpool)
-///
-template<int KS>                                        /// forward declare (in backprop.cu)
-__KERN__ void k_dpool(t4_layer op, DU *I, DU *O, int H, int W);
-__GPU__ int
-Model::_fupsample(Tensor &in, Tensor &out, t4_layer fn) {
-    const int W  = in.W(), H = in.H();                  ///< input dimensions (reversed pool)
-    const int me = (in.parm >> 8);                      ///< upsample method, TODO
-    const int ks = in.parm & 0xff;                      ///< upsampling size
-
-    dim3 blk(T4_WARP_SQ, 1, 1);
-    dim3 grd((H * W + blk.x - 1) / blk.x, in.C(), in.N());
-
-    switch(ks) {
-    case 2: k_dpool<2><<<grd,blk>>>(fn, out.data, in.data, H, W); break;
-    case 3: k_dpool<3><<<grd,blk>>>(fn, out.data, in.data, H, W); break;
-    default:
-        ERROR("model#upsample size=%d not supported\n", ks);
-        return -1;
-    }
-    GPU_SYNC();
-
-    //_dump(in.data,  in.H(), in.W(), in.C());
-    //_dump(out.data, out.H(), out.W(), out.C());
-    return 0;
-}
-
-///
 ///> batch norm
 ///  Note: borrow k_sum, k_var from ~/mmu/tensor.cu
 ///
@@ -486,6 +432,33 @@ Model::_fbatchnorm(Tensor &in, Tensor &out) {
     );
     GPU_SYNC();
 
+    return 0;
+}
+///
+///> upsampling =~ reverse pooling (calls backprop k_dpool)
+///
+template<int KS>                                        /// forward declare (in backprop.cu)
+__KERN__ void k_dpool(t4_layer op, DU *I, DU *O, int H, int W);
+__GPU__ int
+Model::_fupsample(Tensor &in, Tensor &out) {
+    const int W  = in.W(), H = in.H();                  ///< input dimensions (reversed pool)
+    const int me = (in.parm >> 8);                      ///< upsample method, TODO
+    const int ks = in.parm & 0xff;                      ///< upsampling size
+
+    dim3 blk(T4_WARP_SQ, 1, 1);
+    dim3 grd((H * W + blk.x - 1) / blk.x, in.C(), in.N());
+
+    switch(ks) {
+    case 2: k_dpool<2><<<grd,blk>>>(L_USAMPLE, out.data, in.data, H, W); break;
+    case 3: k_dpool<3><<<grd,blk>>>(L_USAMPLE, out.data, in.data, H, W); break;
+    default:
+        ERROR("model#upsample size=%d not supported\n", ks);
+        return -1;
+    }
+    GPU_SYNC();
+
+    //_dump(in.data,  in.H(), in.W(), in.C());
+    //_dump(out.data, out.H(), out.W(), out.C());
     return 0;
 }
 #endif  // T4_ENABLE_OBJ

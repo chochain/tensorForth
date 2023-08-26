@@ -137,8 +137,8 @@ private:
     __GPU__ int    _fpool(Tensor &in, Tensor &out, t4_layer fn);
     __GPU__ int    _fsoftmax(Tensor &in, Tensor &out);
     __GPU__ int    _flogsoftmax(Tensor &in, Tensor &out);
-    __GPU__ int    _fupsample(Tensor &in, Tensor &out, t4_layer fn);
     __GPU__ int    _fbatchnorm(Tensor &in, Tensor &out);
+    __GPU__ int    _fupsample(Tensor &in, Tensor &out);
     /// @}
     /// @name backward ops
     /// @{
