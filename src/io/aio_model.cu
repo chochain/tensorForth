@@ -78,8 +78,11 @@ AIO::_print_model_parm(std::ostream &fout, Tensor &in, Tensor &out) {
     case L_MAXPOOL:
     case L_MINPOOL: fout << " n=" << in.parm << " ";   break;
     case L_BATCHNM: fout << " mtum=" << p << " ";      break;
-    case L_USAMPLE: fout << (in.parm&0xff) << "["
-                         << (in.parm>>8) << "] ";      break;
+    case L_USAMPLE: {
+        const char *nm[] = { "nearest", "linear", "bilinear", "cubic" };
+        int n = in.parm & 0xff;
+        fout << " " << n << "x" << n << " " << nm[in.parm>>8];
+    } break;
     default: fout << "unknown layer=" << fn << " ";    break;
     }
 }
