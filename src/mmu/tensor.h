@@ -57,21 +57,21 @@ typedef enum {
     L_SELU,         //> Scaled Exponential Linear Unit
     L_LEAKYRL,      //> Leaky ReLU
     L_ELU,          //> Exponential Linear Unit
+    L_DROPOUT,
     L_SOFTMAX,
     L_LOGSMAX,
     L_AVGPOOL,
     L_MAXPOOL,
     L_MINPOOL,
-    L_DROPOUT,
-    L_USAMPLE,      //> UpSample
-    L_BATCHNM       //> Batch Norm
+    L_BATCHNM,      //> Batch Norm
+    L_USAMPLE       //> UpSample
 } t4_layer;
 
 #define T4_LAYER_LIST \
     "output ", "conv2d ", "linear ", "flatten", "relu   ", \
     "tanh   ", "sigmoid", "selu   ", "leakyrl", "elu    ", \
-    "softmax", "logsmax", "avgpool", "maxpool", "minpool", \
-    "dropout", "upsampl", "batchnm"
+    "dropout", "softmax", "logsmax", "avgpool", "maxpool", \
+    "minpool", "batchnm", "upsampl"
 
 typedef enum {
     MM_NONE  = 0,
