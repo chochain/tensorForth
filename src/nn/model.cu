@@ -36,18 +36,18 @@ Model::add(t4_layer fn, U16 n, DU bias, U16 *opt) {
     case L_SELU:
     case L_LEAKYRL:
     case L_ELU:
-    case L_DROPOUT: _iactivate(in, bias);       break;
+    case L_DROPOUT: _iactivate(in, bias, fn);   break;
     case L_SOFTMAX:
-    case L_LOGSMAX: _icopy(in);                 break;
+    case L_LOGSMAX: _icopy(in, fn);             break;
     case L_AVGPOOL:
     case L_MAXPOOL:
-    case L_MINPOOL: _ipool(in, n);              break;
-    case L_USAMPLE: _iup(in, n, bias);          break;
+    case L_MINPOOL: _ipool(in, n, fn);          break;
     case L_BATCHNM: _ibatchnorm(in, bias);      break;
+    case L_USAMPLE: _iup(in, n, bias);          break;
     default: ERROR("Model#add layer %d not supported\n", fn);
     }
-    in.grad_fn = fn;
-
+    in.grad_fn = fn;                           /// * set layer function name
+    
     return *this;
 }
 ///
@@ -62,7 +62,7 @@ Model::_iconv(Tensor &in, U16 C0, DU bias, U16 *opt) {
     U16 H0 = (in.H() - Hf + p*2) / s + 1;             ///> output height
     U16 W0 = (in.W() - Wf + p*2) / s + 1;             ///> output width
     if (Hf != Wf || (Hf != 1 && Hf != 3 && Hf != 5)) {
-        ERROR("Model#conv2d f=[%d,%d]? 1x1, 3x3, and 5x5 supported only.\n", Hf, Wf);
+        ERROR("Model#add conv2d f=[%d,%d]? 1x1, 3x3, and 5x5 supported only.\n", Hf, Wf);
         return;
     }
     in.stride[0] = in.stride[1] = s;
@@ -78,7 +78,8 @@ Model::_iconv(Tensor &in, U16 C0, DU bias, U16 *opt) {
 
     DU k = DU1 / SQRT(Hf * Wf * C1);             /// * filter default range
     _mmu->random(*f, UNIFORM, -0.5, 2.0 * k);    /// * randomize f [-k, k)
-    TRACE1("model#conv2d bias=%4.2f,  k=%6.3f, f.std=%6.3f\n", bias, k, f->std());
+    TRACE1("model#add conv2d %dx%d bias=%4.2f, k=%6.3f, f.std=%6.3f\n",
+           Hf, Wf, bias, k, f->std());
     
     // for (int i=0; i<f->numel; i++) printf("%6.3f", f->data[i]);
     
@@ -97,7 +98,7 @@ Model::_ilinear(Tensor &in, U16 C0, DU bias) {
     
     DU k = DU1 / SQRT(C1);                       /// * default weight
     _mmu->random(*w, UNIFORM, -0.5, 2.0 * k);    /// * randomize w [-k, k)
-    TRACE1("model#linear bias=%4.2f,  k=%6.3f, w.std=%6.3f\n", bias, k, w->std());
+    TRACE1("model#add linear bias=%4.2f, k=%6.3f, w.std=%6.3f\n", bias, k, w->std());
     /*
     for (int c0=0; c0<C0; c0++) {
         TRACE1("\nw.c0=%d ", c0);
@@ -112,27 +113,27 @@ Model::_ilinear(Tensor &in, U16 C0, DU bias) {
 }
 __GPU__ void
 Model::_iflatten(Tensor &in) {
-    in.parm = in.HWC();                          /// * keep numel per sample
-    TRACE1("model#flatten parm=%d\n", in.parm);
-    Tensor &out = _t4(in.N(), in.parm);          /// * for backprop
+    TRACE1("model#add flatten\n");
+    Tensor &out = _t4(in.N(), in.HWC());         /// * for backprop
     npush(out);
 }
 ///
 /// Activation ops
 ///
 __GPU__ void
-Model::_icopy(Tensor &in) {
+Model::_icopy(Tensor &in, t4_layer fn) {
     Tensor &out = _mmu->copy(in);                ///> output tensor sizing
+    TRACE1("model#add %s\n", d_nname(fn));
     npush(out);                                  /// * stage for next stage
 }
 
 __GPU__ void
-Model::_iactivate(Tensor &in, DU alpha) {
+Model::_iactivate(Tensor &in, DU alpha, t4_layer fn) {
     Tensor &out = _mmu->copy(in);
     Tensor *msk = in.grad[0] = &_mmu->copy(in);  ///> activation mask
-    
+
     in.parm = INT(1000.0 * alpha);               /// * bias * 1000
-    TRACE1("model#activate alpha=%6.3f\n", alpha);
+    TRACE1("model#add %s (alpha=%6.3f)\n", d_nname(fn), alpha);
     
     npush(out);
 }
@@ -140,33 +141,16 @@ Model::_iactivate(Tensor &in, DU alpha) {
 /// Pooling, Dropout, and UpSample ops
 ///
 __GPU__ void
-Model::_ipool(Tensor &in, U16 f) {
+Model::_ipool(Tensor &in, U16 f, t4_layer fn) {
     if (f != 2 && f != 3) {
-        ERROR("pooling f=[%d,%d]? 2x2 and 3x3 supported only\n", f, f);
+        ERROR("pooling f=%dx%d? 2x2 and 3x3 supported only\n", f, f);
         return;
     }
     in.parm = f;                                 /// * keep kernel size
-    TRACE1("model#pool f=%dx%d\n", f, f);
+    TRACE1("model#add %s %dx%d\n", d_nname(fn), f, f);
                                                  /// * used by backprop
     U16 H0 = INT((in.H() - f) / f) + 1;
     U16 W0 = INT((in.W() - f) / f) + 1;
-    U16 s[4] = { f, f, 1, 1 }; memcpy(in.stride, s, sizeof(s));  // stride
-    
-    Tensor &out = _t4(in.N(), H0, W0, in.C());
-    npush(out);                                  /// * stage for next stage
-}
-
-__GPU__ void
-Model::_iup(Tensor &in, U16 f, DU method) {
-    if (f != 2 && f != 3) {
-        ERROR("Model#upsample f=[%d,%d]? 2x2 and 3x3 supported only\n", f, f);
-        return;
-    }
-    in.parm = (INT(method)<<8) | f;              /// * keep (method<<8) | kernel size
-    TRACE1("model#upsample f=%dx%d\n", f, f);
-                                                 /// * used by backprop
-    U16 H0 = in.H() * f;
-    U16 W0 = in.W() * f;
     U16 s[4] = { f, f, 1, 1 }; memcpy(in.stride, s, sizeof(s));  // stride
     
     Tensor &out = _t4(in.N(), H0, W0, in.C());
@@ -185,10 +169,27 @@ Model::_ibatchnorm(Tensor &in, DU m) {
         in.grad[0]->data[c] = DU1;
     }
     in.parm = INT(1000.0 * m);                   ///> default EMA momentum = 0.1
-    TRACE1("model#batchnorm m=%5.3f\n", m);
+    TRACE1("model#add batchnorm m=%5.3f\n", m);
     
     Tensor &out = _mmu->copy(in);                /// * retain dimensions
     npush(out);
+}
+
+__GPU__ void
+Model::_iup(Tensor &in, U16 f, DU method) {
+    if (f != 2 && f != 3) {
+        ERROR("Model#upsample f=%dx%d? only 2x2 and 3x3 supported\n", f, f);
+        return;
+    }
+    in.parm = (INT(method)<<8) | f;              /// * keep (method<<8) | kernel size
+    TRACE1("model#add upsample %dx%d\n", f, f);
+                                                 /// * used by backprop
+    U16 H0 = in.H() * f;
+    U16 W0 = in.W() * f;
+    U16 s[4] = { f, f, 1, 1 }; memcpy(in.stride, s, sizeof(s));  // stride
+    
+    Tensor &out = _t4(in.N(), H0, W0, in.C());
+    npush(out);                                  /// * stage for next stage
 }
 
 #endif  // T4_ENABLE_OBJ
