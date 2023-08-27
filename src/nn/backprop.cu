@@ -144,18 +144,13 @@ __KERN__ void k_dpool(
     }
 }
 
-__KERN__ void k_dfilter(
+__KERN__ void k_dactivate(
     DU *I, DU *F, DU *O,                    ///< input, filter, output
-    int HW                                  ///< H1==H0, W1==W0 (C1==C0)
+    int numel                               ///< tensor element count
     ) {
-    const int i  = threadIdx.x + blockIdx.x * blockDim.x;  ///< element index
-    const int c  = blockIdx.y, C = gridDim.y;              ///< channel deep
-    const int ns = blockIdx.z * HW * C;                    ///< batch slice index
-    const int k  = c + i * C + ns;                         ///< output tensor index
+    const int k = threadIdx.x + blockIdx.x * blockDim.x;   ///< element index
 
-    if (i < HW && c < C) {
-        I[k] = (F[k] > DU0) ? O[k] : DU0;
-    }
+    if (k < numel) I[k] = O[k] * F[k];
 }
 
 __KERN__ void k_dbatchnorm_1(
@@ -250,18 +245,10 @@ Model::_bloss(Tensor &tgt) {                     ///> pre-calc dLoss
     TRACE1("\nModel#backprop: input dimensions OK, calculate dLoss");
     t4_layer fn = (*this)[-2].grad_fn;           ///< final activation layer
     switch (fn) {
-    case L_LINEAR:
-    case L_TANH:    out  = tgt;  break;          /// * dLoss pass thru
-    case L_SIGMOID:                              /// * s(1 - s) is cached in input
-    /*        
-        for (int i=0; i<out.numel; i++) {
-            out[i] = ((DU1 - tgt[i])/(DU1 - out[i] + DU_EPS) - tgt[i]/(out[i] + DU_EPS)) / out.N();
-        }
-        break;
-   */
-    case L_SOFTMAX:                              /// * softmax + CrossEntropy (pass thru)
-    case L_LOGSMAX: out -= tgt;  break;          /// * log-softmax + NLL (pass thr    }
-    default: ERROR("\nUnknown grad_fn: %d", fn);
+    case L_SIGMOID:                              /// * sigmoid + BCE
+    case L_SOFTMAX:                              /// * softmax + CE
+    case L_LOGSMAX: out -= tgt;  break;          /// * log-softmax + NLL
+    default:        out  = tgt;  break;          /// * pre-calc dLoss (pass thru)
     }
     if (_mmu->trace()) out.show();               /// * display loss if trace on
 
@@ -278,23 +265,20 @@ Model::_bstep(Tensor &in, Tensor &out) {
     case L_CONV:    _bconv(in, out);         break; /// * convolution
     case L_LINEAR:  _blinear(in, out);       break; /// * out = w @ in + b
     case L_FLATTEN: in = out;                break; /// * pass dY to X
-    case L_RELU:    _bfilter(in, in, out);   break; /// * filter (in > 0)
-    case L_TANH:                                    /// * input = (1 - t^2)
-    case L_SIGMOID:                                 /// * input = s(1 - s)
+    case L_RELU:
+    case L_TANH:                                    /// * in = (1 - t^2)*out
+    case L_SIGMOID:                                 /// * in = s*(1 - s)*out
     case L_SELU:
     case L_LEAKYRL:
-    case L_ELU:     in *= out;               break; 
+    case L_ELU:
+    case L_DROPOUT: _bactivate(in, out);     break; /// * in = msk * out
     case L_SOFTMAX:                                 /// * softmax + CrossEntropy (pass thru)
     case L_LOGSMAX: in = out;                break; /// * log-softmax + NLL (pass thru)
     case L_MAXPOOL:
     case L_AVGPOOL:
     case L_MINPOOL: _bpool(in, out, fn);     break;
-    case L_DROPOUT: {                               
-        Tensor &msk = *in.grad[0];                  ///< dropout mask
-        _bfilter(in, msk, out);
-    } break;
-    case L_USAMPLE: _bupsample(in, out, fn); break;
     case L_BATCHNM: _bbatchnorm(in, out);    break;
+    case L_USAMPLE: _bupsample(in, out, fn); break;
     default: ERROR("Model#backprop layer=%d not supported\n", fn);
     }
 }
@@ -348,12 +332,27 @@ Model::_blinear(Tensor &in, Tensor &out) {
 
     const int N  = out.N();                         ///< batch size (N1 == N0)
     const int E1 = in.HWC(), E0 = out.HWC();        ///< input, output element count
-    const int C0 = w.H(),  C1 = w.W();              ///< filter dimensions
+    const int C0 = w.H(), C1 = w.W();               ///< weight tensor dimensions
 
     TRACE1("\n\tdw[%d,%d] += out'[%d,1] @ in^t[1,%d]", C0, C1, E0, E1);
     TRACE1("\n\tin[%d, 1]  = w^t[%d,%d] @ out'[%d,1]", E1, C1, C0, E0);
 
-    if (w.numel < T4_WARP_SQ) {                     /// * serial mode (validation)
+    if (w.numel >= T4_WARP_SQ) {                    /// * parallel mode
+        dim3 blk(T4_WARP_SZ, T4_WARP_SZ, 1);        /// * (16,16,1)
+        dim3 grd(NGRID(C0, C1, N, blk));            /// * (1,1,N)
+        dim3 grx(NGRID(C1, 1, N, blk));
+        
+        if (train) {
+            k_dlinear_dwdb<<<grd, blk>>>(           /// * update dB, dW
+                in.data, out.data, dw.data, db.data,/// * dw += dY @ X^t
+                C1, C0, E1, E0);                    /// * db += dY
+        }
+        k_dlinear_dx<<<grx, blk>>>(                 /// * update dX (in parallel)
+            in.data, out.data, w.data,              /// * dX = W^t @ dY
+            C1, C0, E1, E0);
+        GPU_SYNC();
+    }
+    else {                                          /// * serial mode (validation)
         TRACE1("*");
         for (int n = 0; n < N; n++) {
             DU *x = in.slice(n), *y = out.slice(n);
@@ -377,21 +376,6 @@ Model::_blinear(Tensor &in, Tensor &out) {
             }
         }
     }
-    else {                                          /// * parallel mode
-        dim3 blk(T4_WARP_SZ, T4_WARP_SZ, 1);        /// * (16,16,1)
-        dim3 grd(NGRID(C0, C1, N, blk));            /// * (1,1,N)
-        dim3 grx(NGRID(C1, 1, N, blk));
-        
-        if (train) {
-            k_dlinear_dwdb<<<grd, blk>>>(           /// * update dB, dW
-                in.data, out.data, dw.data, db.data,/// * dw += dY @ X^t
-                C1, C0, E1, E0);                    /// * db += dY
-        }
-        k_dlinear_dx<<<grx, blk>>>(                 /// * update dX (in parallel)
-            in.data, out.data, w.data,              /// * dX = W^t @ dY
-            C1, C0, E1, E0);
-        GPU_SYNC();
-    }
     // _dump(in.data, in.H(), in.W(), in.C());
     if (train && _mmu->trace() > 1) {
          _dump_db(db);
@@ -401,13 +385,11 @@ Model::_blinear(Tensor &in, Tensor &out) {
 }
 
 __GPU__ int
-Model::_bfilter(Tensor &in, Tensor &msk, Tensor &out) {
-    const int W = out.W(), HW = out.H() * W;
-
+Model::_bactivate(Tensor &in, Tensor &out) {
     dim3 blk(T4_WARP_SQ, 1, 1);
-    dim3 grd((HW + blk.x -1) / blk.x, out.C(), out.N());
+    dim3 grd((in.numel + blk.x -1) / blk.x, 1, 1);
 
-    k_dfilter<<<grd,blk>>>(in.data, msk.data, out.data, HW);
+    k_dactivate<<<grd,blk>>>(in.data, in.grad[0]->data, out.data, in.numel);
     GPU_SYNC();
 
     return 0;
