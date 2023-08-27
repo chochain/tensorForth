@@ -175,7 +175,7 @@ s" tests/my_net.t4" nn.save                 \ persist the trained network
 * \-v verbo_level - set verbosity level 0: off (default), 1: mmu tracing on, 2: detailed trace
 
 ## Machine Learning vocabularies (see [doc3](./docs/v3_progress.md) for detail and examples)
-### Model creation and persistence
+### Model creation, query, and persistence
 <pre>
   nn.model   (n h w c -- N)      - create a Neural Network model with (n,h,w,c) input
   nn.load    (N adr len [fam] -- N') - load trained network from a given file name
@@ -183,6 +183,8 @@ s" tests/my_net.t4" nn.save                 \ persist the trained network
   
   >n         (N T -- N')         - manually add tensor to model
   n@         (N n -- N T)        - fetch layered tensor from model, -1 is the latest layer
+  nn.weight  (N n -- N T)        - query weight tensor of nth layer (0 means none)
+  nn.bias    (N n -- N T)        - query bias tensor of nth layer (0 means none)
   network    (N -- N)            - display network model
   trainable  (N f -- N')         - enable/disable network trainable flag
 </pre>

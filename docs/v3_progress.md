@@ -93,7 +93,9 @@ ds1                                       \ put dataset on TOS
 |word|param/example|tensor creation ops|
 |---|---|---|
 |>n|(N T -- N')|manually add tensor to model|
-|n@|(N n -- N T)|fetch layered tensor from model, -1 is the latest layer|
+|n@|(N n -- N T)|fetch value tensor of nth layer from model, -1 is the latest layer|
+|nn.weight|(N n -- N T)|fetch weight tensor of nth layer from model, 0 means none|
+|nn.bias|(N n -- N T)|fetch weight tensor of nth layer from model, 0 means none|
 |network|(N -- N)|display network model|
 |trainable|(N f -- N)|set/unset network model trainable flag|
 
