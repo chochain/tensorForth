@@ -193,9 +193,9 @@ Model::forward(Tensor &input) {
     /// TODO: model execution becomes a superscalar pipeline
     ///
     auto trace = [](DU t, int i, Tensor &in, Tensor &out) {
-        printf("\n%6.2f:%2d> %s Σ/n=%6.2f [%d,%d,%d,%d]\tp=%-2d => out[%d,%d,%d,%d]",
+        printf("\n%6.2f:%2d> %s Σ/n=%6.2f [%d,%d,%d,%d]\tp=%6.3f => out[%d,%d,%d,%d]",
             t, i, d_nname(in.grad_fn), in.sum() / in.N() / in.C(),
-            in.N(), in.H(), in.W(), in.C(), in.parm,
+            in.N(), in.H(), in.W(), in.C(), 0.001*in.parm,
             out.N(), out.H(), out.W(), out.C());
     };
     int tlvl = _mmu->trace();
