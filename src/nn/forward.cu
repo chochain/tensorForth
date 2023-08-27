@@ -152,7 +152,7 @@ __KERN__ void k_activate(
             ? (F[k] = DU1, ik)
             : (F[k] = alpha * EXP(ik)) - alpha;     break;
         case L_DROPOUT:
-            O[k] = F[k] > DU0
+            O[k] = F[k] > alpha
             ? (F[k]=DU1, ik) : (F[k]=DU0);          break; /// * 1|0
         }
     }
@@ -241,12 +241,9 @@ Model::_fstep(Tensor &in, Tensor &out) {
     case L_SELU:
     case L_LEAKYRL:
     case L_ELU:     _factivate(in, out, fn); break;
-    case L_DROPOUT: {                               ///< dropout mask
-        DU     pct  = 0.001 * in.parm;              ///< percentage dropout
-        Tensor &msk = *in.grad[0];                  ///< dropout mask
-        _mmu->random(msk, UNIFORM, -pct);           /// * randomize w, shift pct
-        _factivate(in, out, fn);
-    } break;
+    case L_DROPOUT:                                 ///< dropout mask
+        _mmu->random(*in.grad[0], UNIFORM);         /// * randomize w, shift pct
+        _factivate(in, out, fn);             break;
     case L_SOFTMAX: _fsoftmax(in, out);      break; /// * feed to CrossEtropy
     case L_LOGSMAX: _flogsoftmax(in, out);   break; /// * feed to NLL
     case L_AVGPOOL:
