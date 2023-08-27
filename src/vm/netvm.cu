@@ -41,7 +41,7 @@ NetVM::nnop(t4_layer op) {     /// vtable dispatcher
         case L_TANH:
         case L_SIGMOID:
         case L_SELU:    m.add(op);           return;
-        case L_LEAKYRL: m.add(op, 0, -0.01); return;
+        case L_LEAKYRL: m.add(op, 0, 0.01);  return;
         case L_ELU:     m.add(op, 0, DU1);   return;
         case L_SOFTMAX:
         case L_LOGSMAX: m.add(op);           return;
@@ -293,7 +293,7 @@ NetVM::init() {
          else ERROR("TOS is not a model?\n")),
     CODE("dataset",                             /// * create a dataset
         char *dsn = next_idiom();               ///< retrieve dataset name
-        I16   bsz = POPi;                       ///< batch size
+        S16   bsz = POPi;                       ///< batch size
         PUSH(mmu.dataset(bsz));                 /// * create a dataset as TOS
         fout << opx(OP_DATA, 0, top) << dsn;    /// * issue a dataset init command
         state = VM_WAIT),
@@ -329,8 +329,16 @@ NetVM::init() {
     ///@}
     ///@defgroup Debugging ops
     ///@{
-    CODE(">n",        if (M1V) { DU t = POP(); MTOS.npush(t); }),
-    CODE("n@",        if (M1V) { I16 i = POPi; PUSH(mmu.copy(MTOS[i])); }),
+    CODE(">n",        if (M1V) { DU  t = POP(); MTOS.npush(t); }),
+    CODE("n@",        if (M1V) { S16 i = POPi; PUSH(mmu.copy(MTOS[i])); }),
+    CODE("nn.weight", if (M1V) {
+        S16 i = POPi; Tensor *w = MTOS[i].grad[0]; 
+        if (w) PUSH(mmu.copy(*w)); else PUSH(DU0); 
+        }),
+    CODE("nn.bias",   if (M1V) {
+        S16 i = POPi; Tensor *b = MTOS[i].grad[2];
+        if (b) PUSH(mmu.copy(*b)); else PUSH(DU0);
+        }),
     CODE("network",   if (IS_M(top)) fout << top),
     CODE("dump",
          Model &m = MTOS;
