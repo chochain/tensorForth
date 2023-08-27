@@ -29,7 +29,7 @@ struct T4Base : public Managed {
             U8    rank : 3; ///< rank of tensor 2:matrix, 4:NHWC tensor
             U8    train: 1; ///< trainable
             U8    nref;     ///< reference counter (reserved)
-            U16   parm;     ///< extra parameter storage
+            S16   parm;     ///< extra parameter storage
         };
     };
     DU  *data;    ///< managed memory block pointer (Note: instead of from TLSF)
