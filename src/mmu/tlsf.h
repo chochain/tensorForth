@@ -15,8 +15,8 @@ typedef struct used_block {          //< 8-bytes
 typedef struct free_block {          //< 16-bytes (i.e. mininum allocation per block)
     U32 bsz;                         //< block size, header included (max 2G)
     U32 psz;                         //< prior adjacent memory block size
-    I32 next;                        //< offset to next free block
-    I32 prev;                        //< offset to previous free block
+    S32 next;                        //< offset to next free block
+    S32 prev;                        //< offset to previous free block
 } free_block;
 
 #define FREE_FLAG       0x1
@@ -77,7 +77,7 @@ public:
 
 private:
     __GPU__  U32         _idx(U32 sz);                           ///> calc freemap index
-    __GPU__  I32         _find_free_index(U32 sz);               ///> find available index
+    __GPU__  S32         _find_free_index(U32 sz);               ///> find available index
     __GPU__  void        _split(free_block *blk, U32 bsz);       ///> split a large block
     __GPU__  void        _pack(free_block *b0, free_block *b1);  ///> pack adjacent blocks
     __GPU__  void        _unmap(free_block *blk);                ///> clear freemaps

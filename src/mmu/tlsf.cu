@@ -16,7 +16,7 @@
 #define _UNLOCK         { MUTEX_FREE(_mutex); }
 #define U8PADD(p, n)	((U8*)(p) + (n))                    /** pointer add */
 #define U8PSUB(p, n)	((U8*)(p) - (n))                    /** pointer sub */
-#define U8POFF(p1, p0)	((I32)((U8*)(p1) - (U8*)(p0)))      /** calc offset */
+#define U8POFF(p1, p0)	((S32)((U8*)(p1) - (U8*)(p0)))      /** calc offset */
 
 //================================================================
 /*! constructor
@@ -179,7 +179,7 @@ TLSF::_idx(U32 sz) {
   @retval -1    not found
   @retval index to available _free_list
 */
-__GPU__ I32
+__GPU__ S32
 TLSF::_find_free_index(U32 sz) {
     U32 index = _idx(sz);                        // find free_list index by size
 

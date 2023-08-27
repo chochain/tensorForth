@@ -29,7 +29,7 @@ AIO::process_node(std::ostream &fout, obuf_node *node) {
     
     char *v = (char*)node->data;    ///< fetch payload in buffered print node
     switch (node->gt) {
-    case GT_INT:   fout << (*(I32*)v); break;
+    case GT_INT:   fout << (*(S32*)v); break;
     case GT_FLOAT: fout << (*(F32*)v); break;
     case GT_STR:   fout << v;          break;
     case GT_FMT:   {

@@ -78,9 +78,9 @@ typedef uint16_t    U16;                    ///< 16-bit unsigned integer
 typedef uint8_t     U8;                     ///< 8-bit  unsigned integer
 typedef uintptr_t   UFP;                    ///< function pointer type
 
-typedef int64_t     I64;                    ///< 64-bit signed integer
-typedef int32_t     I32;                    ///< 32-bit signed integer
-typedef int16_t     I16;                    ///< 16-bit signed integer
+typedef int64_t     S64;                    ///< 64-bit signed integer
+typedef int32_t     S32;                    ///< 32-bit signed integer
+typedef int16_t     S16;                    ///< 16-bit signed integer
 
 typedef double      F64;                    ///< double precision float
 typedef float       F32;                    ///< single precision float
