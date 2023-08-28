@@ -63,10 +63,10 @@ class TLSF : public Managed {
     free_block *_free_list[FL_SLOTS];   ///> vector of free lists (head of linked list)
 
 public:
-    __BOTH__ void        init(U8 *mem, U32 sz);      ///> initialize storage pool
-    __GPU__  void*       malloc(U32 sz);             ///> malloc from TLSF memory
-    __GPU__  void*       realloc(void *p0, U32 sz);  ///> resize allocated memory
-    __GPU__  void        free(void *ptr);            ///> free memory block back to TLSF
+    __BOTH__ void        init(U8 *mem, U32 sz, U32 off); ///> initialize storage pool
+    __GPU__  void*       malloc(U32 sz);                 ///> malloc from TLSF memory
+    __GPU__  void*       realloc(void *p0, U32 sz);      ///> resize allocated memory
+    __GPU__  void        free(void *ptr);                ///> free memory block back to TLSF
     //
     // sanity check, JTAG
     //
