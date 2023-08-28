@@ -123,7 +123,6 @@ public:
     __GPU__ __INLINE__ Code *last()      { return &_dict[_didx - 1]; }    ///< last dictionary word
     __GPU__ __INLINE__ DU   *vmss(int i) { return &_vmss[i * T4_SS_SZ]; } ///< data stack (per VM id)
     __GPU__ __INLINE__ U8   *pmem(IU i)  { return &_pmem[i]; }            ///< base of parameter memory
-    __GPU__ __INLINE__ Tensor &tzero()   { return *(Tensor*)_obj; }       ///< zero tensor (shared address)
     ///
     /// dictionary management ops
     ///

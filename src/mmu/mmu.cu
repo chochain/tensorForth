@@ -44,10 +44,10 @@ MMU::MMU(int khz, int verbose) : _khz(khz), _trace(verbose) {
     MM_ALLOC(&_vmss, sizeof(DU) * T4_SS_SZ * VM_MIN_COUNT);
     MM_ALLOC(&_seed, sizeof(curandState) * T4_RAND_SZ);
 
-    _ostore.init(_obj, T4_OSTORE_SZ, sizeof(Tensor));
-    k_rand_init<<<1, T4_RAND_SZ>>>(_seed, time(NULL));       /// serialized
+    _ostore.init(_obj, T4_OSTORE_SZ);
+    k_rand_init<<<1, T4_RAND_SZ>>>(_seed, time(NULL));  /// serialized randomizer
     GPU_CHK();
-
+    
     MM_TRACE1("\\  MMU dict=%p, mem=%p, vmss=%p, obj=%p\n", _dict, _pmem, _vmss, _obj);
 }
 __HOST__
@@ -410,7 +410,7 @@ MMU::to_s(std::ostream &fout, Tensor &t) {
     };
     fout << tn[t.ttype];
     switch(t.rank) {
-    case 0: fout << "["  << (t.numel - 1) << "]";         break;
+    case 0: fout << "["  << (t.numel - 1) << "]";         break; // network model
     case 1: fout << "1[" << t.numel << "]";               break;
     case 2: fout << "2[" << t.H() << "," << t.W() << "]"; break;
     case 4: fout << "4["; t4();                           break;
