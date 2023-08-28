@@ -122,14 +122,17 @@ __GPU__ void
 NetVM::_pickle(bool save) {
     IU   mode= save ? FAM_WO : FAM_RW;      ///< file access mode
     
-    if (ss.idx > 1 && IS_M(ss[-2])) { /* OK */ }
-    else if (ss.idx > 2 && IS_M(ss[-3])) mode |= POPi;       ///< TODO: RAW format
-    else { ERROR("model adr len [mode]?\n"); return; }
+    if (ss.idx > 1 && IS_OBJ(ss[-2])) { /* OK */ }
+    else if (ss.idx > 2 && IS_OBJ(ss[-3])) mode |= POPi;       ///< TODO: RAW format
+    else { ERROR("model/tensor adr len [mode]?\n"); return; }
     
     IU   len = POPi;                        ///< string length (not used for now)
     IU   adr = POPi;                        ///< address to pmem
     char *fn = (char*)mmu.pmem(adr);        ///< pointer to string on PAD
-    fout << opx(save ? OP_NSAVE : OP_NLOAD, mode, top) << fn;/// * issue pickle command
+    _opx op  = IS_M(top)
+        ? opx(save ? OP_NSAVE : OP_NLOAD, mode, top)
+        : opx(OP_TSAVE, mode, top);
+    fout << op << fn;                       /// * issue pickle command
     state = VM_WAIT;                                         /// * return to CPU
 }
 
@@ -203,8 +206,6 @@ NetVM::init() {
          Tensor &t = mmu.tensor(n,h,w,c);     /// * create input tensor
          m.npush(t);                          /// * serves as the 1st layer
          PUSH(m)),
-    CODE("nn.save",   _pickle(true)),         /// * save trainned model
-    CODE("nn.load",   _pickle(false)),        /// * load trainned model
     ///@}
     ///@defgroup Convolution and Linear ops
     ///@{
@@ -370,6 +371,8 @@ NetVM::init() {
         }
         else { rs.pop(); IP += sizeof(IU); }),
     CODE("flatten",   nnop(L_FLATTEN)),
+    CODE("save",      _pickle(true)),             /// * save trainned model
+    CODE("load",      _pickle(false)),            /// * load trainned model
     CODE("boot",      mmu.clear(FIND("network") + 1))
     };
     TensorVM::init();

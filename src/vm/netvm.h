@@ -38,7 +38,7 @@ public:
 private:
     /// @name model and dataset ops
     /// @{
-    __GPU__ void _pickle(bool save);             ///<
+    __GPU__ void _pickle(bool save);             ///< override TenVM::_pickle
     __GPU__ void _fetch(DU d, bool rewind);      ///< fetch or rewind dataset
     /// @}
     /// @name Convolution, loss and Gradiant ops
