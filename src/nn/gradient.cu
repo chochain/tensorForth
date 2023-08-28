@@ -57,8 +57,8 @@ Model::grad_alloc(t4_optimizer op) {
         
         switch (op) {
         case OPTI_SGD:
-            in.mtum[0] = in.mtum[1] = dw;         /// * dummy, no extra storage
-            in.mtum[2] = in.mtum[3] = db;
+            in.mtum[0] = w; in.mtum[1] = dw;      /// * dummy, no extra storage
+            in.mtum[2] = b; in.mtum[3] = db;
             break;
         case OPTI_SGDM:
             if (do_w && !in.mtum[0]) {
@@ -101,20 +101,28 @@ Model::gradient(const char *nm, GdFunc fn, DU *parm, t4_optimizer op) {
     };
     TRACE1("\nModel::%s batch_sz=%d, lr=%7.4f, mtum/b1=%6.3f b2=%6.3f\n",
            nm, (*this)[1].N(), parm[0], parm[1], parm[2]);
-    if (epoch==0) grad_alloc(op);                 /// * allocate m & v tensors
+    if (_iter==0) grad_alloc(op);                 /// * allocate m & v tensors
     if (!train) return *this;                     /// * bail if not in trainning
     ///
     /// cascade execution layer by layer forward
     ///
     DU t0 = _mmu->ms();                           ///< performance measurement
-    for (U16 i = 1; i < numel - 1; i++) {         /// TODO: parallel update
+    for (U16 i = 1; i < numel - 1; i++) {         /// TODO: parallel layer update
         Tensor &in = (*this)[i];
         Tensor *w  = in.grad[0], *dw = in.grad[2];
         Tensor *b  = in.grad[1], *db = in.grad[3];
         
         TRACE1("\n  %2d> %s", i, d_nname(in.grad_fn));
-        if (in.mtum[0]!=in.mtum[2]) step('w', *w, *dw, *in.mtum[0], *in.mtum[2]);
-        if (in.mtum[1]!=in.mtum[3]) step('b', *b, *db, *in.mtum[1], *in.mtum[3]);
+        if (in.mtum[0]!=in.mtum[2]) {
+            if (i==5) { _dump_dw(*w); _dump_dw(*dw); }
+            step('w', *w, *dw, *in.mtum[0], *in.mtum[2]);
+            if (i==5) _dump_dw(*w);
+        }
+        if (in.mtum[1]!=in.mtum[3]) {
+            if (i==5) { _dump_db(*b); _dump_db(*db); }
+            step('b', *b, *db, *in.mtum[1], *in.mtum[3]);
+            if (i==5) _dump_db(*b);
+        }
     }
     TRACE1("\nModel::%s %5.2f ms\n", nm, _mmu->ms() - t0);
     return *this;
@@ -136,7 +144,7 @@ Model::sgd(DU lr, DU b) {                          /// a=momentum
             parm[0], parm[1], parm[2], numel);
         GPU_SYNC();
     };
-    DU parm[3] = { lr, epoch ? b : DU0, (DU)batch_size() };
+    DU parm[3] = { lr, _iter ? b : DU0, (DU)batch_size() };
 
     return gradient("sgd", update, parm, ABS(b) < DU_EPS ? OPTI_SGD : OPTI_SGDM);
 }
@@ -153,10 +161,12 @@ Model::adam(DU lr, DU b1, DU b2) {
             parm[0], parm[1], parm[2], static_cast<int>(parm[3]), numel);
         GPU_SYNC();
     };
+    _iter++;                                      /// * bump time step
     DU parm[5] = {
-        lr * SQRT(DU1 - POW(b2, DU1+epoch)) / (DU1 - POW(b1, DU1+epoch)),
-        epoch ? b1 : DU0,                         /// * corrected learn rate
-        epoch ? b2 : DU0,                         /// * b1, b2
+        lr * SQRT(DU1 - POW(b2, _iter)) / (DU1 - POW(b1, _iter)),
+        // epoch ? b1 : DU0,                      /// * corrected learn rate
+        // epoch ? b2 : DU0,                      /// * adjusted init b1, b2
+        b1, b2,                                   /// * converge faster but peaked
         (DU)batch_size() };                       /// * N
     
     return gradient("adam", update, parm, OPTI_ADAM);
