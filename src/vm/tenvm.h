@@ -64,7 +64,7 @@ private:
     ///
     /// tensor IO
     ///
-    __GPU__ void   _save();                               ///< save tensor to OS
+    __GPU__ void   _pickle(bool save);                    ///< save/load a tensor to/from a file
 #endif // T4_ENABLE_OBJ
 };
 #endif // TEN4_SRC_TENVM_H

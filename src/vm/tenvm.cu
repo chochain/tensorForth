@@ -278,7 +278,7 @@ TensorVM::_gemm() {                          ///< blas GEMM
 }
 
 __GPU__ void
-TensorVM::_save() {
+TensorVM::_pickle(bool save) {
     IU   mode= FAM_WO;                      ///< file mode (W/O,R/W)|BIN
     
     if (ss.idx > 1 && IS_OBJ(ss[-2])) { /* OK */ }
@@ -412,7 +412,8 @@ TensorVM::init() {
     CODE("bin",       PUSH(FAM_RAW)),     ///< raw/binary file
     CODE("w/o",       PUSH(FAM_WO)),      ///< write-only file
     CODE("r/w",       PUSH(FAM_RW)),      ///< read-write file
-    CODE("save",      _save()),           ///< ( T fn len -- T ) save tensor
+    CODE("save",      _pickle(true)),     ///< ( T fn len -- T ) save tensor to a file
+    CODE("load",      _pickle(false)),    ///< ( T fn -- T' ) fill a tensor from file
     };
     const Code ext[] = {                  ///< extended (overload) words
     ///@defgroup redefined tensor ops
