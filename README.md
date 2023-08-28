@@ -137,7 +137,7 @@ ds0                                         \ put dataset as TOS
 19 epoch                                    \ execute multiple epochs
 drop                                        \ drop dataset from TOS
 
-s" tests/my_net.t4" nn.save                 \ persist the trained network
+s" tests/my_net.t4" save                    \ persist the trained network
 </pre>
 
 ### To build
@@ -178,15 +178,14 @@ s" tests/my_net.t4" nn.save                 \ persist the trained network
 ### Model creation, query, and persistence
 <pre>
   nn.model   (n h w c -- N)      - create a Neural Network model with (n,h,w,c) input
-  nn.load    (N adr len [fam] -- N') - load trained network from a given file name
-  nn.save    (N adr len [fam] -- N)  - export network as a file
-  
   >n         (N T -- N')         - manually add tensor to model
   n@         (N n -- N T)        - fetch layered tensor from model, -1 is the latest layer
   nn.weight  (N n -- N T)        - query weight tensor of nth layer (0 means none)
   nn.bias    (N n -- N T)        - query bias tensor of nth layer (0 means none)
   network    (N -- N)            - display network model
-  trainable  (N f -- N')         - enable/disable network trainable flag
+  
+  load       (N adr len [fam] -- N') - load trained network from a given file name
+  save       (N adr len [fam] -- N)  - export network as a file
 </pre>
     
 ### Dataset and Batch controls
@@ -204,6 +203,7 @@ s" tests/my_net.t4" nn.save                 \ persist the trained network
   
   for        (N ds -- N')        - loop through a dataset, ds will be pushed onto return stack
   next       (N -- N')           - loop if any subset of dataset left, or ds is pop off return stack
+  trainable  (N f -- N')         - enable/disable network trainable flag
 </pre>
 
 ### Convolution, Dense, and Pooling Layers

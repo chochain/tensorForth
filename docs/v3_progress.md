@@ -35,7 +35,7 @@ ds0                                       \ put dataset as TOS
 19 cnn                                    \ execute multiple epochs
 drop                                      \ drop dataset from TOS
 
-s" tests/my_net.t4" nn.save               \ persist the trained network
+s" tests/my_net.t4" save                  \ persist the trained network
 </pre>
 
 ### A CNN Prediction Application Example
@@ -74,12 +74,17 @@ ds1                                       \ put dataset on TOS
     > + Output tensor in HWC raw format with util to convert to PNG
 
 ### Machine Learning vocabularies
-#### Model creation and persistence
+#### Model creation, query, and persistence
 |word|param/example|tensor creation ops|
 |---|---|---|
 |nn.model|(n h w c -- N)|create a Neural Network model with (n,h,w,c) input|
-|nn.load|(N adr len [fam] -- N')|load trained network from a given file name|
-|nn.save|(N adr len [fam] -- N)|export network as a file|
+|network|(N -- N)|display network model|
+|>n|(N T -- N')|manually add tensor to model|
+|n@|(N n -- N T)|fetch value tensor of nth layer from model, -1 is the latest layer|
+|nn.weight|(N n -- N T)|fetch weight tensor of nth layer from model, 0 means none|
+|nn.bias|(N n -- N T)|fetch weight tensor of nth layer from model, 0 means none|
+|load|(N adr len [fam] -- N')|load trained network from a given file name|
+|save|(N adr len [fam] -- N)|export network as a file|
     
 #### Dataset ops
 |word|param/example|tensor creation ops|
@@ -88,16 +93,6 @@ ds1                                       \ put dataset on TOS
 |fetch|(D -- D')|fetch a mini-batch from dataset on return stack|
 |rewind|(D -- D')|rewind dataset internal counters (for another epoch)|
 |batchsize|(D -- D b)|get input batch size of a model|
-
-#### Model Debug ops
-|word|param/example|tensor creation ops|
-|---|---|---|
-|>n|(N T -- N')|manually add tensor to model|
-|n@|(N n -- N T)|fetch value tensor of nth layer from model, -1 is the latest layer|
-|nn.weight|(N n -- N T)|fetch weight tensor of nth layer from model, 0 means none|
-|nn.bias|(N n -- N T)|fetch weight tensor of nth layer from model, 0 means none|
-|network|(N -- N)|display network model|
-|trainable|(N f -- N)|set/unset network model trainable flag|
 
 #### Batch controls
 |word|param/example|tensor creation ops|
@@ -108,6 +103,7 @@ ds1                                       \ put dataset on TOS
 |backprop|(N T -- N')|execute one backward propagation with given onehot vector|
 |for|(N ds -- N')|loop through a dataset, ds will be pushed onto return stack|
 |next|(N -- N')|loop if any subset of dataset left, or ds is pop off return stack|
+|trainable|(N f -- N)|set/unset network model trainable flag|
 
 #### Convolution and Linear functions (destructive by default)
 |word|param/example|tensor creation ops|
