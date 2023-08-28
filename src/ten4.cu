@@ -128,7 +128,7 @@ TensorForth::TensorForth(int device, int verbose) {
          << ", dict["          << T4_DICT_SZ << "]"
          << ", vmss["          << T4_SS_SZ << "*" << VM_MIN_COUNT << "]"
          << ", pmem="          << T4_PMEM_SZ/1024 << "K"
-         << ", tensor="        << T4_TENSOR_SZ/1024/1024 << "M"
+         << ", tensor="        << T4_OSTORE_SZ/1024/1024 << "M"
          << endl;
     ///
     /// allocate cuda memory blocks
