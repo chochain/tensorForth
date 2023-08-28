@@ -120,14 +120,17 @@ typedef F64         DU2;                    /**< double preciesion data */
 #define MIN(x,y)    ((DU)fminf(x,y))        /**< minimum of the two     */
 #define NORM(n,p)   ((DU)normf(n,p))        /**< normal of n floats     */
 ///
-/// macros for object classification
+/// data conversion macros
 ///
-#define T4_OBJ_FLAG 1                                     /**< obj flag       */
-#define DU2X(v)     (*(U32*)&(v))                         /**< to U32 ptr     */
 #define INT(f)      (static_cast<int>(floor((f)+DU_EPS))) /**< float to int   */
 #define I2D(i)      (static_cast<DU>(i))                  /**< int to float   */
-#define SCALAR(v)   ((DU2X(v) &= ~T4_OBJ_FLAG), (v))      /**< clear obj flag */
+///
+/// object classification macros
+///
 #if     T4_ENABLE_OBJ
+#define T4_OBJ_FLAG 0x00000001                            /**< obj flag       */
+#define DU2X(v)     (*(U32*)&(v))                         /**< to U32 ptr     */
+#define SCALAR(v)   ((DU2X(v) &= ~T4_OBJ_FLAG), (v))      /**< clear obj flag */
 #define IS_OBJ(v)   (DU2X(v) & T4_OBJ_FLAG)               /**< if is an obj   */
 #else  // T4_ENABLE_OBJ
 #define IS_OBJ(v)   (0)
