@@ -44,10 +44,8 @@ AIO::_print_model(std::ostream &fout, Model &m) {
     for (int i = 1; i < n; i++) {              /// skip root[0]
         Tensor &in = m[i], &out = m[i+1];
         tinfo(in, i, in.grad_fn);
-        if (_mmu->trace()) {
-            finfo(in.grad);
-            _print_model_parm(fout, in, out);
-        }
+        finfo(in.grad);
+        _print_model_parm(fout, in, out);
         fout << endl;
     }
 }
