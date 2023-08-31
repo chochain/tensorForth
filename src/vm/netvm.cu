@@ -358,6 +358,7 @@ NetVM::init() {
                 ERROR("not a dataset on RS?\n"); return;
             }
             if (d.done) {
+                m.epoch++;                         /// * bump epoch counter
                 rs.pop();                          /// * pop off dataset
                 IP += sizeof(IU);                  /// * skip over to next word
             }

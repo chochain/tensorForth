@@ -36,7 +36,7 @@ ForthVM::resume() {
 ///
 #if 0
 #define _log(hdr)  printf("%03d: %s.rs=%d\n", IP, hdr, rs.idx)
-#define _dlog(w) printf("\t%03d: %s %d\n", IP, dict[w].name, w)
+#define _dlog(w)   printf("\t%03d: %s %d\n", IP, dict[w].name, w)
 #else
 #define _log(hdr)
 #define _dlog(w)
