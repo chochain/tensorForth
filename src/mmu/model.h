@@ -29,7 +29,7 @@ typedef enum {
 ///< gradient function pointer
 ///
 typedef void (*GdFunc)(
-    DU *parm, Tensor &w, Tensor &dw, Tensor &m, Tensor &v);
+    DU *parm, Tensor *w, Tensor *dw, Tensor *m, Tensor *v);
 ///
 ///< Neural Network Model class
 ///
@@ -41,6 +41,7 @@ class Model : public T4Base {
     int    _iter  = 0;         ///< iteration counter (for Adam)
     
 public:
+    int    epoch  = 0;         ///< TODO: for learning rate decay
     ///
     /// @name Derivertive ops
     /// @{
@@ -94,7 +95,7 @@ public:
     /// @}
     /// @name gradient descent functions
     /// @{
-    __GPU__ Model  &grad_zero() { _iter = 0; }
+    __GPU__ Model  &grad_zero() { _iter = _hit = 0; }
     __GPU__ Model  &grad_alloc(t4_optimizer op);        ///< allocate gradient vectors
     __GPU__ Model  &gradient(const char *nm,            ///< gradient descent functor
                              GdFunc fn,                 
