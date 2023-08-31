@@ -57,17 +57,17 @@ Model::grad_alloc(t4_optimizer op) {
         
         switch (op) {
         case OPTI_SGD:
-            in.mtum[0] = w; in.mtum[1] = dw;      /// * dummy, no extra storage
-            in.mtum[2] = b; in.mtum[3] = db;
+            in.mtum[0] = do_w ? w : NULL; in.mtum[2] = NULL;  /// * dummy
+            in.mtum[1] = do_b ? b : NULL; in.mtum[3] = NULL;
             break;
         case OPTI_SGDM:
             if (do_w && !in.mtum[0]) {
                 in.mtum[0] = &_mmu->copy(*dw).fill(DU0); ///< m of w (zero filled)
-                in.mtum[2] = dw;                         ///< dummy
+                in.mtum[2] = NULL;                       ///< dummy
             }
             if (do_b && !in.mtum[1]) {
                 in.mtum[1] = &_mmu->copy(*db).fill(DU0); ///< m of b (zero filled)
-                in.mtum[3] = db;                         ///< dummy
+                in.mtum[3] = NULL;                       ///< dummy
             }
             break;
         case OPTI_ADAM:
@@ -82,8 +82,8 @@ Model::grad_alloc(t4_optimizer op) {
             break;
         }
         TRACE1("Model::grad_alloc %2d> %s do_w,b[%d,%d] mtum=%p,%p,%p,%p\n",
-               i, d_nname(in.grad_fn), do_w, do_b,
-               in.mtum[0], in.mtum[1], in.mtum[2], in.mtum[3]);
+            i, d_nname(in.grad_fn), do_w, do_b,
+            in.mtum[0], in.mtum[1], in.mtum[2], in.mtum[3]);
     }
     return *this;
 }
@@ -93,15 +93,15 @@ Model::grad_alloc(t4_optimizer op) {
 __GPU__ Model&
 Model::gradient(const char *nm, GdFunc fn, DU *parm, t4_optimizer op) {
     auto step = [this, fn, parm](const char n,
-            Tensor &g, Tensor &dg, Tensor &m, Tensor &v) {
+            Tensor *g, Tensor *dg, Tensor *m, Tensor *v) {
             TRACE1("\n    %c[%d,%d,%d,%d] Σ=%6.3f - %6.3f",
-                   n, g.N(), g.H(), g.W(), g.C(), g.sum(), dg.sum());
+                   n, g->N(), g->H(), g->W(), g->C(), g->sum(), dg->sum());
             fn(parm, g, dg, m, v);
-            TRACE1(" => %cΣ=%6.3f", n, g.sum());
+            TRACE1(" => %cΣ=%6.3f", n, g->sum());
     };
-    TRACE1("\nModel::%s batch_sz=%d, lr=%7.4f, mtum/b1=%6.3f b2=%6.3f\n",
+    TRACE1("\nModel::%s batch_sz=%d, lr=%7.4f, mtum/b1=%6.3f, b2=%6.3f\n",
            nm, (*this)[1].N(), parm[0], parm[1], parm[2]);
-    if (_iter==0) grad_alloc(op);                 /// * allocate m & v tensors
+    if (_iter++==0) grad_alloc(op);               /// * allocate m & v tensors
     if (!train) return *this;                     /// * bail if not in trainning
     ///
     /// cascade execution layer by layer forward
@@ -113,15 +113,15 @@ Model::gradient(const char *nm, GdFunc fn, DU *parm, t4_optimizer op) {
         Tensor *b  = in.grad[1], *db = in.grad[3];
         
         TRACE1("\n  %2d> %s", i, d_nname(in.grad_fn));
-        if (in.mtum[0]!=in.mtum[2]) {
-            if (i==5) { _dump_dw(*w); _dump_dw(*dw); }
-            step('w', *w, *dw, *in.mtum[0], *in.mtum[2]);
-            if (i==5) _dump_dw(*w);
+        if (in.mtum[0]) {
+//            if (i==5) { _dump_dw(*w); _dump_dw(*dw); }
+            step('w', w, dw, in.mtum[0], in.mtum[2]);
+//            if (i==5) _dump_dw(*w);
         }
-        if (in.mtum[1]!=in.mtum[3]) {
-            if (i==5) { _dump_db(*b); _dump_db(*db); }
-            step('b', *b, *db, *in.mtum[1], *in.mtum[3]);
-            if (i==5) _dump_db(*b);
+        if (in.mtum[1]) {
+//            if (i==5) { _dump_db(*b); _dump_db(*db); }
+            step('b', b, db, in.mtum[1], in.mtum[3]);
+//            if (i==5) _dump_db(*b);
         }
     }
     TRACE1("\nModel::%s %5.2f ms\n", nm, _mmu->ms() - t0);
@@ -134,13 +134,13 @@ Model::gradient(const char *nm, GdFunc fn, DU *parm, t4_optimizer op) {
 ///
 __GPU__ Model&
 Model::sgd(DU lr, DU b) {                          /// a=momentum
-    auto update = [](DU *parm, Tensor &g, Tensor &dg, Tensor &m, Tensor &v) {
-        const int numel = g.numel;
+    auto update = [](DU *parm, Tensor *g, Tensor *dg, Tensor *m, Tensor *v) {
+        const int numel = g->numel;
         const dim3 blk(T4_WARP_SQ, 1, 1);          ///< default blocks
         const dim3 grd((numel + blk.x - 1)/blk.x, 1, 1);
 
         k_sgd<<<grd,blk>>>(
-            g.data, dg.data, m.data,
+            g->data, dg->data, m->data,
             parm[0], parm[1], parm[2], numel);
         GPU_SYNC();
     };
@@ -151,19 +151,18 @@ Model::sgd(DU lr, DU b) {                          /// a=momentum
 
 __GPU__ Model&
 Model::adam(DU lr, DU b1, DU b2) {
-    auto update = [](DU *parm, Tensor &g, Tensor &dg, Tensor &m, Tensor &v) {
-        const int numel = g.numel;
+    auto update = [](DU *parm, Tensor *g, Tensor *dg, Tensor *m, Tensor *v) {
+        const int numel = g->numel;
         const dim3 blk(T4_WARP_SQ, 1, 1);         ///< default blocks
         const dim3 grd((numel + blk.x - 1)/blk.x, 1, 1);
 
         k_adam<<<grd,blk>>>(
-            g.data, dg.data, m.data, v.data,
+            g->data, dg->data, m->data, v->data,
             parm[0], parm[1], parm[2], static_cast<int>(parm[3]), numel);
         GPU_SYNC();
     };
-    _iter++;                                      /// * bump time step
     DU parm[5] = {
-        lr * SQRT(DU1 - POW(b2, _iter)) / (DU1 - POW(b1, _iter)),
+        lr * SQRT(DU1 - POW(b2, _iter+1)) / (DU1 - POW(b1, _iter+1)),
         // epoch ? b1 : DU0,                      /// * corrected learn rate
         // epoch ? b2 : DU0,                      /// * adjusted init b1, b2
         b1, b2,                                   /// * converge faster but peaked
