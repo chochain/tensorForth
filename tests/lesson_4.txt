@@ -1,5 +1,6 @@
-.( ## MNIST convolution tests ## ) cr
-1 28 28 1 nn.model                \ create a model with NHWC tensor input
+.( ## Convolution NN tests ## ) cr
+1 trace
+2 10 10 1 nn.model                \ create a model with NHWC tensor input
 network                           \ display it
 
 .( #### define seq1 ) cr
@@ -19,7 +20,7 @@ flatten                           \ flatten for dense layer (no need)
 
 .( #### define lin2 ) cr
 0.5 dropout                       \ another 50% drop out
-0.0 10 linear                     \ linerize to 10 output with no bias
+0.0 4 linear                      \ linerize to 4 output with no bias
 softmax                           \ translate to probability
 
 network                           \ display network model
@@ -31,15 +32,16 @@ network                           \ display the model
 
 .( #### model feed foward ) cr
 mstat
-1 28 28 1 tensor eye 0.5 *=       \ create input image (random)
+2 10 10 1 tensor eye 0.5 *=       \ create input image (random)
 forward                           \ execute forward pass
 mstat
 
 .( #### fetch last layer i.e. output ) cr
--1 n@ .                           \ fetch forward result from model
+-1 n@ . drop                      \ fetch forward result from model
 
 .( #### calculate loss ) cr
-10 vector{ 0 0 1 0 0 0 0 0 0 0 }  \ create onehot vector
+2 4 matrix{ 0 0 1 0 0 1 0 0 }     \ create onehot vector
+2 4 1 1 reshape4 .                \ reshape it into a labeled rank-4 tensor
 constant 1hot                     \ store in a constant
 
 1hot
@@ -52,8 +54,7 @@ backprop
 mstat
 
 .( #### gradiant decent ) cr
-mstat
-0.01 nn.sgd
+0.001 0.9 nn.adam                 \ learn using Adam gradient descent
 mstat
 
 bye
