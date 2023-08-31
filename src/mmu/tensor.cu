@@ -789,7 +789,6 @@ Tensor::_dump(DU *v, int H, int W, int C) {
         printf("\nΣΣ=");
         for (int k = 0; k < C; k++) printf("%5.2f ", csum[k]);
     }
-    printf("\n");
     delete csum;
 }
 ///
@@ -853,4 +852,5 @@ Tensor::show(bool dump) {
         }
         if (hw > 36) _view(d, H, W, C, mean, scale);
     }
+    printf("\n");
 }
