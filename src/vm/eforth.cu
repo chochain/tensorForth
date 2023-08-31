@@ -302,13 +302,13 @@ ForthVM::init() {
         add_w(DOVAR)),                                      // dovar (+ parameter field)
     CODE("to",              // 3 to x                       // alter the value of a constant
         int w = FIND(next_idiom());                         // to save the extra @ of a variable
-        STd(PFA(w) + sizeof(IU), POP())),
+        STd(PFA(w) + sizeof(IU), POP())),                   // store TOS to constant's pfa
     CODE("is",              // ' y is x                     // alias a word
         int w = FIND(next_idiom());                         // can serve as a function pointer
         mmu.wi(PFA(POPi), PFA(w))),                         // but might leave a dangled block
     CODE("[to]",            // : xx 3 [to] y ;              // alter constant in compile mode
         IU w = LDi(IP); IP += sizeof(IU);                   // fetch constant pfa from 'here'
-        STd(PFA(w) + sizeof(IU), POPi)),
+        STd(PFA(w) + sizeof(IU), POP())),                   // store TOS into constant pfa
     ///
     /// be careful with memory access, because
     /// it could make access misaligned which cause exception
