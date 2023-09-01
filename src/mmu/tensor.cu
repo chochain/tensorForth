@@ -787,7 +787,7 @@ Tensor::_dump(DU *v, int H, int W, int C) {
     }
     if (h > 1) {
         printf("\nΣΣ=");
-        for (int k = 0; k < C; k++) printf("%5.2f ", csum[k]);
+        for (int k = 0; k < C; k++) printf("%6.3f ", csum[k]);
     }
     delete csum;
 }
@@ -830,7 +830,7 @@ Tensor::_view(DU *v, int H, int W, int C, DU mean, DU scale) {
     }
     if (h > 1) {
         printf("\nΣΣ=");
-        for (int k = 0; k < C; k++) printf("%5.2f ", csum[k]);
+        for (int k = 0; k < C; k++) printf("%6.3f ", csum[k]);
     }
     printf("\n");
     
