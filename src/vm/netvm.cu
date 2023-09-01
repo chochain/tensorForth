@@ -145,6 +145,17 @@ NetVM::_fetch(DU d, bool rewind) {
     fout << opx(OP_FETCH, rewind ? FAM_REW : 0, d);        /// * issue a fetch or rewind
     state = VM_WAIT;                                       /// * return to CPU
 }
+///
+/// fetch parameters onto TOS
+/// n=0:W, 1:B, 2:dW, 3:dB
+///
+__GPU__ void
+NetVM::_parm(int n) {
+    if (!M1V) { ERROR("N n required?"); return; }
+    
+    S16 i = POPi; Tensor *p = MTOS[i].grad[n]; 
+    if (p) PUSH(mmu.copy(*p)); else PUSH(DU0); 
+}
 /// Convolution ops
 /// @default: kxk filter, padding=1, stride=1, dilation=1
 /// @parameters
@@ -330,24 +341,13 @@ NetVM::init() {
     ///@}
     ///@defgroup Debugging ops
     ///@{
-    CODE(">n",        if (M1V) { DU  t = POP(); MTOS.npush(t); }),
-    CODE("n@",        if (M1V) { S16 i = POPi; PUSH(mmu.copy(MTOS[i])); }),
-    CODE("nn.weight", if (M1V) {
-        S16 i = POPi; Tensor *w = MTOS[i].grad[0]; 
-        if (w) PUSH(mmu.copy(*w)); else PUSH(DU0); 
-        }),
-    CODE("nn.bias",   if (M1V) {
-        S16 i = POPi; Tensor *b = MTOS[i].grad[2];
-        if (b) PUSH(mmu.copy(*b)); else PUSH(DU0);
-        }),
-    CODE("network",   if (IS_M(top)) fout << top),
-    CODE("dump",
-         Model &m = MTOS;
-         for (int i=1; i < m.numel - 1; i++) {
-             Tensor &t = m[i];
-             printf("m[%d]=", i);
-             t.show(true);
-         }),
+    CODE(">n",      if (M1V) { DU  t = POP(); MTOS.npush(t); }),
+    CODE("n@",      if (M1V) { S16 i = POPi; PUSH(mmu.copy(MTOS[i])); }),
+    CODE("nn.w",    _parm(0)),
+    CODE("nn.b",    _parm(1)),
+    CODE("nn.dw",   _parm(2)),
+    CODE("nn.db",   _parm(3)),
+    CODE("network", if (IS_M(top)) fout << top),
     };
     const Code over[] = {                          ///< extended (overload) words
     CODE("donext",                                 /// * overwrite "donext" in eforth.cu

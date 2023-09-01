@@ -40,6 +40,7 @@ private:
     /// @{
     __GPU__ void _pickle(bool save);             ///< override TenVM::_pickle
     __GPU__ void _fetch(DU d, bool rewind);      ///< fetch or rewind dataset
+    __GPU__ void _parm(int n);                   ///< fetch tensor parameters n=0:W, 1:B, 2:dW, 3:dB
     /// @}
     /// @name Convolution, loss and Gradiant ops
     /// @{
