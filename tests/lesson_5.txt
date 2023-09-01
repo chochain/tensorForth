@@ -51,25 +51,27 @@ md0 batchsize dataset mnist_train   \ create MNIST dataset with model batch size
 constant ds0                        \ keep dataset in a constant
 
 \ CNN framework
+0.001 constant lr                   \ init learning rate (for Adam)
 : epoch ( N ds -- N' )              \ one epoch thru entire dataset
   for                               \ fetch a mini-batch
     forward                         \ neural network forward pass
     loss.ce lox ! nn.hit hit +!     \ collect latest loss and accumulate hit
     backprop                        \ neural network back propegation
     \ 0.01 nn.sgd                     \ train with Stochastic Gradient Descent
-    0.001 0.9 nn.adam              \ train with Adam Gradient Descent
+    lr 0.9 nn.adam                  \ train with Adam Gradient Descent
     46 emit
   next ;
 : cnn ( N ds n -- N' )              \ run multiple epochs
   for
     epoch r@ stat                   \ run one epoch, display statistics
+    lr 0.9 * [to] lr                \ decay learning rate
     ds0 rewind                      \ rewind entire dataset 
   next ;   
 
 ds0                                 \ push dataset as TOS
 19 cnn                              \ execute multiple epoches
 
-\ drop                                \ drop dataset
-\ s" model/l5_c.t4" nn.save           \ save trainned model
+drop                                \ drop dataset
+s" model/l5_c.t4" save              \ save trainned model
 
 bye
