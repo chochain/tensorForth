@@ -113,16 +113,8 @@ Model::gradient(const char *nm, GdFunc fn, DU *parm, t4_optimizer op) {
         Tensor *b  = in.grad[1], *db = in.grad[3];
         
         TRACE1("\n  %2d> %s", i, d_nname(in.grad_fn));
-        if (in.mtum[0]) {
-//            if (i==5) { _dump_dw(*w); _dump_dw(*dw); }
-            step('w', w, dw, in.mtum[0], in.mtum[2]);
-//            if (i==5) _dump_dw(*w);
-        }
-        if (in.mtum[1]) {
-//            if (i==5) { _dump_db(*b); _dump_db(*db); }
-            step('b', b, db, in.mtum[1], in.mtum[3]);
-//            if (i==5) _dump_db(*b);
-        }
+        if (in.mtum[0]) step('w', w, dw, in.mtum[0], in.mtum[2]);
+        if (in.mtum[1]) step('b', b, db, in.mtum[1], in.mtum[3]);
     }
     TRACE1("\nModel::%s %5.2f ms\n", nm, _mmu->ms() - t0);
     return *this;
