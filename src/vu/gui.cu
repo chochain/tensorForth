@@ -55,7 +55,7 @@ _close_and_switch_vu() {
     Vu  *vu = _vu_get(id);
     glutDestroyWindow(id);
     
-    CUX(cudaGraphicsUnregisterResource(vu->pbo));
+    VUX(cudaGraphicsUnregisterResource(vu->pbo));
     vu_map.erase(id);                        /// * erase by key
     printf("\tvu[%d] released...", id);
     
@@ -129,13 +129,13 @@ _display() {
     TColor *d_dst = NULL;
     size_t bsz;
 
-    CUX(cudaGraphicsMapResources(1, &vu->pbo, 0));  /// lock
-    CUX(cudaGraphicsResourceGetMappedPointer(
+    VUX(cudaGraphicsMapResources(1, &vu->pbo, 0));  /// lock
+    VUX(cudaGraphicsResourceGetMappedPointer(
         (void**)&d_dst, &bsz, vu->pbo));
 
     vu->display(d_dst);         /// update buffer content
     
-    CUX(cudaGraphicsUnmapResources(1, &vu->pbo, 0)); /// unlock
+    VUX(cudaGraphicsUnmapResources(1, &vu->pbo, 0)); /// unlock
     
     _paint(vu->X, vu->Y);
 }
@@ -182,7 +182,7 @@ _bind_texture(Vu *vu) {
     // But in our particular case OpenGL is used
     // to display the content of the PBO, specified by CUDA kernels,
     // so we need to register/unregister it (once only).
-    CUX(cudaGraphicsGLRegisterBuffer(
+    VUX(cudaGraphicsGLRegisterBuffer(
         &vu->pbo, gl_pbo, cudaGraphicsMapFlagsWriteDiscard));
     printf("[%d] created\n", gl_pbo);
 }

@@ -65,8 +65,8 @@ Vu::init_cuda_tex() {
     int pitch = sizeof(uchar4) * X;
     
     cudaChannelFormatDesc fmt = cudaCreateChannelDesc<uchar4>();
-    CUX(cudaMallocArray(&d_ary, &fmt, X, Y));
-    CUX(cudaMemcpy2DToArray(
+    VUX(cudaMallocArray(&d_ary, &fmt, X, Y));
+    VUX(cudaMemcpy2DToArray(
         d_ary, 0, 0, h_tex, pitch, pitch, Y, cudaMemcpyHostToDevice));
 
     cudaResourceDesc res;
@@ -82,15 +82,15 @@ Vu::init_cuda_tex() {
     desc.addressMode[1]   = cudaAddressModeWrap;
     desc.readMode         = cudaReadModeNormalizedFloat;
   
-    CUX(cudaCreateTextureObject(&cu_tex, &res, &desc, NULL));
+    VUX(cudaCreateTextureObject(&cu_tex, &res, &desc, NULL));
 }
 
 __HOST__ void
 Vu::free_tex() {
     if (!h_tex) return;
     
-    CUX(cudaDestroyTextureObject(cu_tex));   /// * release texture object
-    CUX(cudaFreeArray(d_ary));               /// * free device texture memory
+    VUX(cudaDestroyTextureObject(cu_tex));   /// * release texture object
+    VUX(cudaFreeArray(d_ary));               /// * free device texture memory
 
     // free(h_tex);  /// * free host texture memory, TODO: => core dump?
 }

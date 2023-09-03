@@ -10,6 +10,8 @@
 #include "ten4_types.h"
 #include "corpus.h"              // in ../ldr
 
+#define VUX(g)   GPU_ERR(g)      /* check UI error */
+
 typedef U32                         TColor;
 typedef struct cudaGraphicsResource CuGfxPbo;
 typedef cudaTextureObject_t         CuTexObj;
