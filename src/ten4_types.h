@@ -43,22 +43,21 @@
 
 #define ASSERT(X) \
     if (!(X)) ERROR("ASSERT tid %d: line %d in %s\n", threadIdx.x, __LINE__, __FILE__);
-#define GPU_SYNC()          { cudaDeviceSynchronize(); }
+#define GPU_SYNC()    { cudaDeviceSynchronize(); }
 #define GPU_ERR(code) {          \
     if ((code) != cudaSuccess) { \
-        fprintf(stderr, "cudaERROR: %s %s %d\n", cudaGetErrorString(code), __FILE__, __LINE__);                \
-        cudaDeviceReset();       \
+        ERROR("cudaERROR: %s %s %d\n", cudaGetErrorString(code), __FILE__, __LINE__);                \
+        /* cudaDeviceReset(); */ \
     }}
 #define GPU_CHK() {              \
     GPU_SYNC();                  \
     GPU_ERR(cudaGetLastError()); \
 }
-#define CUX(g)             GPU_ERR(g)
-#define MM_ALLOC(...)      CUX(cudaMallocManaged(__VA_ARGS__))
-#define MM_FREE(m)         CUX(cudaFree(m))
+#define MM_ALLOC(...)      GPU_ERR(cudaMallocManaged(__VA_ARGS__))
+#define MM_FREE(m)         GPU_ERR(cudaFree(m))
 
 namespace cg = cooperative_groups;
-#define K_RUN(...)         CUX(cudaLaunchCooperativeKernel(__VA_ARGS__))
+#define K_RUN(...)         GPU_ERR(cudaLaunchCooperativeKernel(__VA_ARGS__))
 #else  // defined(__CUDACC__)
 #define __GPU__
 #define __HOST__
