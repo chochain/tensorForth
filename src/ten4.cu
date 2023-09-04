@@ -121,7 +121,7 @@ TensorForth::TensorForth(int device, int verbose) {
     /// query GPU shader clock rate
     ///
     int khz = 0;
-    CUX(cudaDeviceGetAttribute(&khz, cudaDevAttrClockRate, device));
+    GPU_ERR(cudaDeviceGetAttribute(&khz, cudaDevAttrClockRate, device));
 
     cout << "\\  GPU " << device
          << " initialized at " << khz/1000 << "MHz"

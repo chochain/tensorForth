@@ -343,10 +343,10 @@ NetVM::init() {
     ///@{
     CODE(">n",      if (M1V) { DU  t = POP(); MTOS.npush(t); }),
     CODE("n@",      if (M1V) { S16 i = POPi; PUSH(mmu.copy(MTOS[i])); }),
-    CODE("nn.w",    _parm(0)),
-    CODE("nn.b",    _parm(1)),
-    CODE("nn.dw",   _parm(2)),
-    CODE("nn.db",   _parm(3)),
+    CODE("nn.w",    _parm(0)),                     ///< tensor.weight
+    CODE("nn.b",    _parm(1)),                     ///< tensor.bias
+    CODE("nn.dw",   _parm(2)),                     ///< tensor.weight.grad
+    CODE("nn.db",   _parm(3)),                     ///< tensor.bias.grad
     CODE("network", if (IS_M(top)) fout << top),
     };
     const Code over[] = {                          ///< extended (overload) words
