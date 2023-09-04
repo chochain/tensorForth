@@ -69,38 +69,24 @@ __KERN__ void k_dconv2d(
     }
 }
 
-__KERN__ void k_dlinear_dwdb(
-    DU *I, DU *O, DU *DW, DU *DB,
-    int C1, int C0, int HWC1, int HWC0
+__KERN__ void k_dlinear(
+    DU *I, DU *O, DU *W, DU *DW, DU *DB,
+    int C1, int C0, int HWC1, int HWC0, bool train
     ) {
-    const int c0 = threadIdx.x + blockIdx.x * blockDim.x;
-    const int c1 = threadIdx.y + blockIdx.y * blockDim.y;
+    const int c1 = threadIdx.x + blockIdx.x * blockDim.x;
+    const int c0 = threadIdx.y + blockIdx.y * blockDim.y;
     const int n  = blockIdx.z;
     const int cx = c1 + c0 * C1;
 
-    if (c0 < C0 && c1 < C1) {
-        DU x = I[c1 + n * HWC1], dy = O[c0 + n * HWC0];
-        atomicAdd(&DW[cx], dy * x);                    /// * dw += dY * X^t
-        if (c1 == 0) {
-            atomicAdd(&DB[c0], dy);                    /// * db += dY
+    if (c0 < C0 && c1 < C1) {                          /// * TODO: shuffle-sum
+        DU dy = O[c0 + n * HWC0];
+        DU *x = &I[c1 + n * HWC1];                     ///< pointer to X
+        if (train) {                                   /// * no divergence
+            atomicAdd(&DW[cx], dy * (*x));             /// * dw += dY @ X^t
+            if (c1 == 0) atomicAdd(&DB[c0], dy);       /// * db += dY
         }
-    }
-}
-
-__KERN__ void k_dlinear_dx(
-    DU *I, DU *O, DU *W,
-    int C1, int C0, int HWC1, int HWC0
-    ) {
-    const int c1 = threadIdx.x + blockIdx.x * blockDim.x;
-    const int n  = blockIdx.z;
-
-    if (c1 < C1) {
-        DU *w = &W[c1], *y = &O[n * HWC0];            /// * dX = W^t @ dY
-        DU acc = DU0;
-        for (int c0 = 0; c0 < C0; c0++, w+=C1) {
-            acc += (*w) * (*y++);
-        }
-        I[c1 + n * HWC1] = acc;
+        *x = DU0;                                      /// * zero out dX
+        atomicAdd(x, W[cx] * dy);                      /// * dX = W^t * dY
     }
 }
 
@@ -318,42 +304,14 @@ Model::_bconv(Tensor &in, Tensor &out) {
         }
         GPU_SYNC();
     }
-//  _dump_db(db);
-//  _dump(dw.data, dw.H(), dw.W(), dw.C());
     if (_mmu->trace() > 1) _dump_dbdf(db, dw);
     return 0;
 }
 
 __GPU__ int
 Model::_blinear(Tensor &in, Tensor &out) {
-    Tensor &w  = *in.grad[0];                       ///< weight tensor
-    Tensor &dw = *in.grad[2];                       ///< d_weight tensor
-    Tensor &db = *in.grad[3];                       ///< d_bias tensor
-
-    const int N  = out.N();                         ///< batch size (N1 == N0)
-    const int E1 = in.HWC(), E0 = out.HWC();        ///< input, output element count
-    const int C0 = w.H(), C1 = w.W();               ///< weight tensor dimensions
-
-    TRACE1("\n\tdw[%d,%d] += out'[%d,1] @ in^t[1,%d]", C0, C1, E0, E1);
-    TRACE1("\n\tin[%d, 1]  = w^t[%d,%d] @ out'[%d,1]", E1, C1, C0, E0);
-
-    if (w.numel >= T4_WARP_SQ) {                    /// * parallel mode
-        dim3 blk(T4_WARP_SZ, T4_WARP_SZ, 1);        /// * (16,16,1)
-        dim3 grd(NGRID(C0, C1, N, blk));            /// * (1,1,N)
-        dim3 grx(NGRID(C1, 1, N, blk));
-        
-        if (train) {
-            k_dlinear_dwdb<<<grd, blk>>>(           /// * update dB, dW
-                in.data, out.data, dw.data, db.data,/// * dw += dY @ X^t
-                C1, C0, E1, E0);                    /// * db += dY
-        }
-        k_dlinear_dx<<<grx, blk>>>(                 /// * update dX (in parallel)
-            in.data, out.data, w.data,              /// * dX = W^t @ dY
-            C1, C0, E1, E0);
-        GPU_SYNC();
-    }
-    else {                                          /// * serial mode (validation)
-        TRACE1("*");
+    auto qa_calc = [&in, &out](Tensor &w, Tensor &dw, Tensor &db, bool train) {
+        const int N = in.N(), C1 = w.W(), C0 = w.H(); /// * weight dimensions
         for (int n = 0; n < N; n++) {
             DU *x = in.slice(n), *y = out.slice(n);
             if (train) {
@@ -375,11 +333,34 @@ Model::_blinear(Tensor &in, Tensor &out) {
                 x[c1] = sum;
             }
         }
+    };                    
+    Tensor &w  = *in.grad[0];                       ///< weight tensor
+    Tensor &dw = *in.grad[2];                       ///< d_weight tensor
+    Tensor &db = *in.grad[3];                       ///< d_bias tensor
+
+    const int N  = out.N();                         ///< batch size (N1 == N0)
+    const int C0 = w.H(), C1 = w.W();               ///< weight tensor dimensions
+    const int E1 = in.HWC(), E0 = out.HWC();        ///< input, output element count
+
+    TRACE1("\n\tdw[%d,%d] += out'[%d,1] @ in^t[1,%d]", C0, C1, E0, E1);
+    TRACE1("\n\tin[%d, 1]  = w^t[%d,%d] @ out'[%d,1]", E1, C1, C0, E0);
+
+    if (w.numel < T4_WARP_SQ) {                     /// * threshold control
+        TRACE1("*");
+        qa_calc(w, dw, db, train);                  /// * serial mode (validation)
     }
-    // _dump(in.data, in.H(), in.W(), in.C());
+    else {
+        dim3 blk(T4_WARP_SZ, T4_WARP_SZ, 1);        /// * (16,16,1)
+        dim3 grd(NGRID(C1, C0, N, blk));            /// * (1,1,N)
+        k_dlinear<<<grd, blk>>>(                    /// * update dB, dW, dX
+            in.data, out.data,
+            w.data, dw.data, db.data,
+            C1, C0, E1, E0, train);
+        GPU_SYNC();
+    }
     if (train && _mmu->trace() > 1) {
          _dump_db(db);
-         _dump_dw(dw, false);
+         _dump_dw(dw, true);
     }
     return 0;
 }
@@ -418,7 +399,7 @@ Model::_bpool(Tensor &in, Tensor &out, t4_layer fn) {
 ///> upsampling =~ reverse pooling (calls forward k_pool)
 ///
 template<int KS>                                        /// forward declare (in forward.cu)
-__KERN__ void  k_pool(t4_layer op, DU *I, DU *O, int H, int W);
+__KERN__ void k_pool(t4_layer op, DU *I, DU *O, int H, int W);
 __GPU__ int
 Model::_bupsample(Tensor &in, Tensor &out, t4_layer fn) {
     const int W  = in.W(), H = in.H();                  ///< input dimensions (reversed pool)
