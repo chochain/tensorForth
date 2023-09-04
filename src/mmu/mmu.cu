@@ -134,15 +134,14 @@ MMU::colon(const char *name) {
 ///====================================================================
 /// tensor life-cycle methods
 ///
+#define OBJ2X(t)  ((U32)((U8*)&(t) - _obj))
 __GPU__ void
 MMU::mark_free(T4Base &t) {       ///< mark a tensor free for release
     if (t.ref_dec()) return;
 
-    DU v = obj2du(t);
-
-    MM_TRACE1("mmu#mark T=%x to free[%d]\n", DU2X(v), _fidx);
+    MM_TRACE1("mmu#mark T[%x] to free[%d]\n", OBJ2X(t), _fidx);
 //    lock();
-    if (_fidx < T4_TFREE_SZ) _mark[_fidx++] = v;
+    if (_fidx < T4_TFREE_SZ) _mark[_fidx++] = obj2du(t);
     else ERROR("ERR: tfree store full, increase T4_TFREE_SZ!");
 //    unlock();                   ///< TODO: CC: DEAD LOCK, now!
 }
@@ -156,7 +155,7 @@ MMU::sweep() {
 //    lock();
     for (int i = 0; _fidx && i < _fidx; i++) {
         DU v = _mark[i];
-        MM_TRACE1("mmu#release T=%x from free[%d]\n", DU2X(v), i);
+        MM_TRACE1("mmu#release T[%x] from free[%d]\n", DU2X(v) & ~T4_OBJ_FLAG, i);
         drop(v);
     }
     _fidx = 0;
@@ -164,11 +163,12 @@ MMU::sweep() {
 }
 __GPU__ Tensor&                    ///< allocate a tensor from tensor space
 MMU::talloc(U32 sz) {
-    Tensor *t = (Tensor*)_ostore.malloc(sizeof(Tensor));
+    Tensor &t = *(Tensor*)_ostore.malloc(sizeof(Tensor));
+    MM_TRACE1(" T[%x]", OBJ2X(t));
     void   *d = _ostore.malloc((U64)sizeof(DU) * sz);
     _ostore.status(_trace);
-    t->reset(d, sz);
-    return *t;
+    t.reset(d, sz);
+    return t;
 }
 __GPU__ Tensor&                    ///< create a one-dimensional tensor
 MMU::tensor(U32 sz) {
@@ -242,8 +242,8 @@ MMU::resize(Tensor &t, U32 sz) {
 __GPU__ void                     ///< release tensor memory blocks
 MMU::free(Tensor &t) {
     if (t.ref_dec()) return;
-    
-    MM_TRACE1("mmu#free(T%d) numel=%d", t.rank, t.numel);
+
+    MM_TRACE1("mmu#free(T%d) numel=%d T[%x]", t.rank, t.numel, OBJ2X(t));
     if (!t.is_view()) {          /// * skip view
         _ostore.free(t.data);    /// * free physical data
         if (t.grad_fn != L_NONE) {
@@ -281,26 +281,30 @@ __GPU__ Tensor&
 MMU::copy(Tensor &t0) {
     if (!t0.is_tensor()) return t0;    ///> skip, TODO: copy model
 
-    Tensor *t1  = (Tensor*)_ostore.malloc(sizeof(Tensor));
-    memcpy(t1, &t0, sizeof(Tensor));   /// * copy attributes
-    t1->nref = 1;                      /// * physical copy, not a view
+    Tensor &t1  = *(Tensor*)_ostore.malloc(sizeof(Tensor));
+    memcpy(&t1, &t0, sizeof(Tensor));   /// * copy attributes
+    ///
+    /// set attributes
+    ///
+    for (int i=0; i<4; i++) t1.grad[i] = t1.mtum[i] = NULL;  /// * blank gradients
+    t1.grad_fn = L_NONE;                /// * not a network layer
+    t1.nref    = 1;                     /// * reset ref counter
     ///
     /// hard copy data block
     ///
     U64 bsz = sizeof(DU) * t0.numel;
-    t1->data = (DU*)_ostore.malloc(bsz);
-    *t1 = t0;                         /// * copy all tensor elements
+    t1.data = (DU*)_ostore.malloc(bsz);
+    t1 = t0;                            /// * copy all tensor elements
     
-    DU d = obj2du(*t1);               /// * offset in object space
-    MM_TRACE1("mmu#copy(T%d) numel=%d to T[%x]", t0.rank, t0.numel, DU2X(d));
+    MM_TRACE1("mmu#copy(T%d) numel=%d to T[%x]", t0.rank, t0.numel, OBJ2X(t1));
     _ostore.status(_trace);
     
-    return *t1;
+    return t1;
 }
 __GPU__ Tensor&
 MMU::random(Tensor &t, t4_rand_opt ntype, DU bias, DU scale) {
     MM_TRACE2("mmu#random(T%d) numel=%d bias=%.2f, scale=%.2f\n",
-           t.rank, t.numel, bias, scale);
+              t.rank, t.numel, bias, scale);
     k_rand<<<1, T4_RAND_SZ>>>(t.data, t.numel, bias, scale, _seed, ntype);
     GPU_SYNC();
     
