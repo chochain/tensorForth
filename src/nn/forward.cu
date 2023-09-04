@@ -293,7 +293,9 @@ Model::_fconv(Tensor &in, Tensor &out) {
 
 __GPU__ int
 Model::_flinear(Tensor &in, Tensor &out) {
-    auto qa_calc = [&in, &out](DU *w, DU *b, int N, int C1, int C0) {
+    auto qa_calc = [&in, &out](Tensor &tw, Tensor &tb) {
+        int N = in.N(), C1 = tw.W(), C0 = tw.H();     /// * weight dimensions
+        DU *w = tw.data, *b = tb.data;
         for (int n = 0; n < N; n++) {                 /// * walk through batch
             DU *x = in.slice(n), *y = out.slice(n);
             for (int c0 = 0; c0 < C0; c0++) {
@@ -313,15 +315,19 @@ Model::_flinear(Tensor &in, Tensor &out) {
     TRACE1(" = w[%d,%d] @ in[%d,%d,%d,%d] + b[%d]",
         C0, C1, in.N(), in.H(), in.W(), in.C(), tb.numel);
 
-    if (tw.numel >= T4_WARP_SQ) {                     /// * threadhold control
+    if (tw.numel < T4_WARP_SQ) {                      /// * threshold control
+        TRACE1("*");
+        qa_calc(tw, tb);                              /// * serial code
+    }
+    else {                                            
         dim3 blk(T4_WARP_SZ, T4_WARP_SZ, 1);          ///< default blocks
         dim3 grd(NGRID(C1, C0, N, blk));              ///< default grids
 
         k_linear<<<grd,blk>>>(
-            in.data, out.data, tw.data, tb.data, C1, C0, in.HWC(), out.HWC());
+            in.data, out.data, tw.data, tb.data,
+            C1, C0, in.HWC(), out.HWC());
         GPU_SYNC();                                   /// * this makes it slow
     }
-    else qa_calc(tw.data, tb.data, N, C1, C0);        /// * serial code (for validation)
     return 0;
 }
 
