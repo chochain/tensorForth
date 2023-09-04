@@ -47,7 +47,7 @@
 #define GPU_ERR(code) {          \
     if ((code) != cudaSuccess) { \
         ERROR("cudaERROR: %s %s %d\n", cudaGetErrorString(code), __FILE__, __LINE__);                \
-        /* cudaDeviceReset(); */ \
+        cudaDeviceReset();       \
     }}
 #define GPU_CHK() {              \
     GPU_SYNC();                  \
