@@ -69,9 +69,26 @@ __KERN__ void k_dconv2d(
     }
 }
 
-__KERN__ void k_dlinear(
-    DU *I, DU *O, DU *W, DU *DW, DU *DB,
-    int C1, int C0, int HWC1, int HWC0, bool train
+__KERN__ void k_dlinear_dwdb(
+    DU *I, DU *O, DU *DW, DU *DB,
+    int C1, int C0, int HWC1, int HWC0
+    ) {
+    const int c1 = threadIdx.x + blockIdx.x * blockDim.x;
+    const int c0 = threadIdx.y + blockIdx.y * blockDim.y;
+    const int n  = blockIdx.z;
+    const int cx = c1 + c0 * C1;
+
+    if (c0 < C0 && c1 < C1) {                          /// * TODO: shuffle-sum
+        DU dy = O[c0 + n * HWC0];
+        DU x  = I[c1 + n * HWC1];
+        atomicAdd(&DW[cx], dy * x);                    /// * dw += dY @ X^t
+        if (c1 == 0) atomicAdd(&DB[c0], dy);           /// * db += dY
+    }
+}
+
+__KERN__ void k_dlinear_dx(
+    DU *I, DU *O, DU *W,
+    int C1, int C0, int HWC1, int HWC0
     ) {
     const int c1 = threadIdx.x + blockIdx.x * blockDim.x;
     const int c0 = threadIdx.y + blockIdx.y * blockDim.y;
@@ -81,10 +98,6 @@ __KERN__ void k_dlinear(
     if (c0 < C0 && c1 < C1) {                          /// * TODO: shuffle-sum
         DU dy = O[c0 + n * HWC0];
         DU *x = &I[c1 + n * HWC1];                     ///< pointer to X
-        if (train) {                                   /// * no divergence
-            atomicAdd(&DW[cx], dy * (*x));             /// * dw += dY @ X^t
-            if (c1 == 0) atomicAdd(&DB[c0], dy);       /// * db += dY
-        }
         *x = DU0;                                      /// * zero out dX
         atomicAdd(x, W[cx] * dy);                      /// * dX = W^t * dY
     }
@@ -288,7 +301,7 @@ Model::_bconv(Tensor &in, Tensor &out) {
     dim3 g3((W + TILE3 - 1) / TILE3, (H + TILE3 - 1) / TILE3, C1);
     dim3 g5((W + TILE5 - 1) / TILE5, (H + TILE5 - 1) / TILE5, C1);
 
-    for (int n = 0; n < N; n++) {
+    for (int n = 0; n < N; n++) {                   ///< accumulative over N samples
         DU *d1 = in.slice(n), *d0 = out.slice(n);
         const int ks = w.H();                       ///< kernel size
         switch (ks) {
@@ -312,7 +325,7 @@ __GPU__ int
 Model::_blinear(Tensor &in, Tensor &out) {
     auto qa_calc = [&in, &out](Tensor &w, Tensor &dw, Tensor &db, bool train) {
         const int N = in.N(), C1 = w.W(), C0 = w.H(); /// * weight dimensions
-        for (int n = 0; n < N; n++) {
+        for (int n = 0; n < N; n++) {               ///< acc over N samples
             DU *x = in.slice(n), *y = out.slice(n);
             if (train) {
                 DU *dp = dw.data;
@@ -351,11 +364,16 @@ Model::_blinear(Tensor &in, Tensor &out) {
     }
     else {
         dim3 blk(T4_WARP_SZ, T4_WARP_SZ, 1);        /// * (16,16,1)
-        dim3 grd(NGRID(C1, C0, N, blk));            /// * (1,1,N)
-        k_dlinear<<<grd, blk>>>(                    /// * update dB, dW, dX
-            in.data, out.data,
-            w.data, dw.data, db.data,
-            C1, C0, E1, E0, train);
+        dim3 grd(NGRID(C1, C0, N, blk));            /// * (1,1,N) N samples in a grid
+        if (train) {
+            k_dlinear_dwdb<<<grd, blk>>>(           /// * update dB, dW
+                in.data, out.data, dw.data, db.data,
+                C1, C0, E1, E0);
+        }
+        /// barrier for X (because we did N samples in one grid)
+        k_dlinear_dx<<<grd, blk>>>(                 /// * update dX
+            in.data, out.data, w.data,
+            C1, C0, E1, E0);
         GPU_SYNC();
     }
     if (train && _mmu->trace() > 1) {
