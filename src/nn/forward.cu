@@ -405,17 +405,18 @@ extern __KERN__ void k_sum(DU *I, DU *sum, int HW);
 extern __KERN__ void k_var(DU *I, DU *avg, DU *var, int HW);
 __GPU__ int
 Model::_fbatchnorm(Tensor &in, Tensor &out) {
+    const int N = out.N(), C = out.C();                ///< C0==C1
     const int W = out.W(), HW = out.H() * W;
-    const int C = out.C(), NHW = HW * out.N();         ///< C0==C1
-
-    dim3 blk(T4_WARP_SQ, 1, 1);                        ///< default blocks
-    dim3 grd((HW + blk.x - 1)/blk.x, C, out.N());
+    const int NHW = N * HW;
 
     DU *w   = &in.grad[0]->data[0];                    ///< weight/gamma
     DU *b   = &in.grad[0]->data[C];                    ///< bias/beta
     DU *avg = &in.grad[1]->data[0];                    ///< mean
     DU *var = &in.grad[1]->data[C];                    ///< 1.0/(var+e)^0.5
     DU *xht = in.grad[3]->data;                        ///< x_hat
+
+    dim3 blk(T4_WARP_SQ, 1, 1);                        ///< default blocks
+    dim3 grd((HW + blk.x - 1)/blk.x, C, N);
 
     for (int c=0; c < C; c++) avg[c] = var[c] = DU0;   /// * zero
     k_sum<<<grd, blk>>>(in.data, avg, HW);             /// * capture sum

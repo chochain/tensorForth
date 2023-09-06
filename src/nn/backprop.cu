@@ -149,7 +149,7 @@ __KERN__ void k_dactivate(
     ) {
     const int k = threadIdx.x + blockIdx.x * blockDim.x;   ///< element index
 
-    if (k < numel) I[k] = O[k] * F[k];
+    if (k < numel) I[k] = O[k] * F[k];     /// * Harmand product
 }
 
 __KERN__ void k_dbatchnorm_1(
@@ -385,23 +385,18 @@ Model::_blinear(Tensor &in, Tensor &out) {
 
 __GPU__ int
 Model::_bactivate(Tensor &in, Tensor &out) {
-    dim3 blk(T4_WARP_SQ, 1, 1);
-    dim3 grd((in.numel + blk.x -1) / blk.x, 1, 1);
-
-    k_dactivate<<<grd,blk>>>(in.data, in.grad[0]->data, out.data, in.numel);
-    GPU_SYNC();
-
+    Tensor::ten_op(O_MUL, out, *in.grad[0], in);   /// * in = msk * out
     return 0;
 }
 
 __GPU__ int
 Model::_bpool(Tensor &in, Tensor &out, t4_layer fn) {
-    const int W = out.W(), H = out.H();   ///< output dimensions
+    const int W = out.W(), H = out.H();           ///< output dimensions
 
     dim3 blk(T4_WARP_SQ, 1, 1);
     dim3 grd((H * W + blk.x - 1) / blk.x, out.C(), out.N());
 
-    const int ks = in.parm;               ///< kernel size
+    const int ks = in.parm;                       ///< kernel size
     switch(ks) {
     case 2: k_dpool<2><<<grd,blk>>>(fn, in.data, out.data, H, W); break;
     case 3: k_dpool<3><<<grd,blk>>>(fn, in.data, out.data, H, W); break;
@@ -450,11 +445,8 @@ Model::_bupsample(Tensor &in, Tensor &out, t4_layer fn) {
 extern __KERN__ void k_sum(DU *I, DU *sum, int HW);
 __GPU__ int
 Model::_bbatchnorm(Tensor &in, Tensor &out) {
-    const int W = out.W(), HW = out.H() * W;
     const int C = out.C(), N  = out.N();               ///< C0==C1, N1=N0
-
-    dim3 blk(T4_WARP_SQ, 1, 1);
-    dim3 grd((HW + blk.x -1) / blk.x, C, N);
+    const int W = out.W(), HW = out.H() * W;
 
     DU *w   = &in.grad[0]->data[0];                    ///< weight/gamma (scale)
     DU *dw  = &in.grad[2]->data[0];                    ///< d_gamma
@@ -462,6 +454,9 @@ Model::_bbatchnorm(Tensor &in, Tensor &out) {
     DU *sum = &in.grad[1]->data[0];                    ///< batch sum
     DU *var = &in.grad[1]->data[C];                    ///< batch 1.0 / (var+e)^0.5
     DU *xht = in.grad[3]->data;                        ///< x_hat
+
+    dim3 blk(T4_WARP_SQ, 1, 1);
+    dim3 grd((HW + blk.x -1) / blk.x, C, N);
 
     for (int c=0; c < C; c++) sum[c] = DU0;            /// * zero
     k_sum<<<grd, blk>>>(out.data, sum, HW);            /// * capture out sum(dout)
