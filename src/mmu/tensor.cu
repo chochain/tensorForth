@@ -13,10 +13,10 @@
 ///
 #define DU_LNX   1.0e-12                                      /* log clamp */
 __KERN__ void
-k_ten_op(t4_ten_op op, float *A, int sz, float v=DU0) {
+k_ten_op(t4_ten_op op, float *A, int numel, float v=DU0) {
     const int k = threadIdx.x + blockIdx.x * blockDim.x;
     DU ak = A[k];                             ///< cache value
-    if (k < sz) {
+    if (k < numel) {
         switch(op) {
         case O_ADD:   A[k] += v;                        break;
         case O_SUB:   A[k] -= v;                        break;
@@ -47,7 +47,7 @@ __KERN__ void k_sum(DU *I, DU *sum, int HW) {
     const int ns = blockIdx.z * HW * C;                    ///< batch slice index
     DU vi = i < HW ? I[c + i * C + ns] : DU0;              ///< keep v for shuffle
     ///
-    /// prefix sum every 32-threaded tile
+    /// prefix sum (32-threaded tile)
     ///
     auto t = cg::tiled_partition<32>(cg::this_thread_block());
     auto shfl_sum = [](cg::thread_block_tile<32> t, DU v) {
@@ -58,9 +58,9 @@ __KERN__ void k_sum(DU *I, DU *sum, int HW) {
     };
     DU tt = shfl_sum(t, vi);
     ///
-    /// sum up atomically
+    /// sum up atomically (per channel for batchnorm)
     ///
-    if (t.thread_rank() == 0) atomicAdd_block(&sum[c], tt);
+    if (t.thread_rank() == 0) atomicAdd(&sum[c], tt);
 }
 ///
 ///> variance
@@ -84,7 +84,7 @@ k_var(DU *I, DU *avg, DU *var, int HW) {
     };
     DU tt = shfl_sum(t, vi);
     ///
-    /// sum up atomically
+    /// sum up atomically (per channel, for batchnorm)
     ///
     if (t.thread_rank() == 0) atomicAdd_block(&var[c], tt);
 }
@@ -158,14 +158,11 @@ __KERN__ void
 k_tt_op(
     t4_ten_op op,
     DU *A, DU *B, DU *O,
-    int HW)
+    int numel)
 {
-    const int i  = threadIdx.x + blockIdx.x * blockDim.x;  ///< element index
-    const int c  = blockIdx.y, C = gridDim.y;              ///< channel deep
-    const int ns = blockIdx.z * HW * C;                    ///< batch slice index
-    const int k  = c + i * C + ns;                         ///< output tensor index
+    const int k = threadIdx.x + blockIdx.x * blockDim.x;  ///< element index
 
-    if (i < HW && c < C) {
+    if (k < numel) {
         switch (op) {                                     /// no divergence
         case O_ADD: O[k] = A[k] + B[k]; break;
         case O_SUB: O[k] = A[k] - B[k]; break;
@@ -181,14 +178,10 @@ __KERN__ void
 k_ts_op(
     t4_ten_op op,
     DU *A, DU v, DU *O,
-    int HW)
+    int numel)
 {
-    const int i  = threadIdx.x + blockIdx.x * blockDim.x;  ///< element index
-    const int c  = blockIdx.y, C = gridDim.y;              ///< channel deep
-    const int ns = blockIdx.z * HW * C;                    ///< batch slice index
-    const int k  = c + i * C + ns;                         ///< output tensor index
-
-    if (i < HW && c < C) {
+    const int k = threadIdx.x + blockIdx.x * blockDim.x;   ///< element index
+    if (k < numel) {
         switch (op) {                                      /// no divergence
         case O_ADD: O[k] = A[k] + v; break;
         case O_SUB: O[k] = A[k] - v; break;
@@ -217,11 +210,10 @@ Tensor::ten_op(t4_ten_op op, Tensor &A, Tensor &B, Tensor &O) {
     OPN("add", "sub", "mul", "div");
     WARN("Tensor::mat%s[%d,%d,%d,%d]\n", opn[op], N, H, W, C);
     
-    int HW = H * W;
     dim3 blk(T4_WARP_SQ, 1, 1);
-    dim3 grd((HW + blk.x - 1) / blk.x, C, N);
+    dim3 grd((A.numel + blk.x - 1) / blk.x, 1, 1);
     
-    k_tt_op<<<grd, blk>>>(op, A.data, B.data, O.data, HW);
+    k_tt_op<<<grd, blk>>>(op, A.data, B.data, O.data, A.numel);
     GPU_SYNC();
     
     return O;
@@ -235,11 +227,10 @@ Tensor::ten_op(t4_ten_op op, Tensor &A, DU v, Tensor &O) {
     OPN("+", "-", "*", "/");
     WARN("Tensor::mat[%d,%d,%d,%d] %s %6.2f\n", N, H, W, C, opn[op], v);
 
-    int HW = H * W;
     dim3 blk(T4_WARP_SQ, 1, 1);
-    dim3 grd((HW + blk.x - 1) / blk.x, C, N);
+    dim3 grd((A.numel + blk.x - 1) / blk.x, 1, 1);
     
-    k_ts_op<<<grd, blk>>>(op, A.data, v, O.data, HW);
+    k_ts_op<<<grd, blk>>>(op, A.data, v, O.data, A.numel);
     GPU_SYNC();
     
     return O;
@@ -500,20 +491,15 @@ Tensor::plu(Tensor &A, Tensor &P, int *ns) {
 ///
 __GPU__ DU
 Tensor::sum() {
-    Tensor *tmp = grad[0];    ///< borrow grad[0] for mem storage
-    DU     *sum = (DU*)&grad[0];
-    *sum = DU0;
+    static DU sum; sum = DU0; ///< static shared memory
 
     dim3 blk(T4_WARP_SQ, 1, 1);
     dim3 grd((numel + blk.x - 1)/blk.x, 1, 1);
 
-    k_sum<<<grd, blk>>>(data, sum, numel);  /// * 8x straight loop
+    k_sum<<<grd, blk>>>(data, &sum, numel);  /// * 8x straight loop
     GPU_SYNC();               /// * cooperative_groups.sync() does not work!
-    
-    DU v = *sum;
-    grad[0] = tmp;            /// * restore grad[0]
-    
-    return SCALAR(v);
+
+    return SCALAR(sum);
 }
 __GPU__ DU
 Tensor::avg() {
@@ -522,19 +508,16 @@ Tensor::avg() {
 }
 __GPU__ DU
 Tensor::std() {
-    Tensor *tmp[2] = { grad[0], grad[1] }; ///< borrow grad for mem storage, because
-    DU     *sum[2] = { (DU*)&grad[0], (DU*)&grad[1] };          /// * kernel does not like auto variables
-    *sum[0] = DU0, *sum[1] = this->avg();
+    static DU sum, avg;
+    sum = DU0; avg = this->avg();
 
     dim3 blk(T4_WARP_SQ, 1, 1);
     dim3 grd((numel + blk.x - 1)/blk.x, 1, 1);
 
-    k_var<<<grd, blk>>>(data, sum[1], sum[0], numel);  /// * 8x straight loop
+    k_var<<<grd, blk>>>(data, &avg, &sum, numel);  /// * 8x straight loop
     GPU_SYNC();           /// * cooperative_groups.sync() does not work!
     
-    DU v = numel ? SQRT(*sum[0] / numel) : DU0;
-    grad[0] = tmp[0];     /// * restore grad pointers
-    grad[1] = tmp[1];
+    DU v = numel ? SQRT(sum / numel) : DU0;
     
     return SCALAR(v);
 }
@@ -747,7 +730,7 @@ Tensor::map(t4_ten_op op, DU v) {
 __BOTH__ Tensor&
 Tensor::normalize(DU avg, DU std) {
     dim3 blk(T4_WARP_SQ, 1, 1);
-    dim3 grd((numel + blk.x - 1) / blk.x, 1, N());
+    dim3 grd((numel + blk.x - 1) / blk.x, 1, 1);
     
     k_ts_op<<<grd, blk>>>(O_SUB, data, avg, data, numel);
     GPU_SYNC();
