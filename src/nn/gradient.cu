@@ -155,9 +155,8 @@ Model::adam(DU lr, DU b1, DU b2) {
     };
     DU parm[3] = {
         lr * SQRT(DU1 - POW(b2, _iter+1)) / (DU1 - POW(b1, _iter+1)),
-        // epoch ? b1 : DU0,                      /// * corrected learn rate
-        // epoch ? b2 : DU0,                      /// * adjusted init b1, b2
-        b1, b2
+        b1, b2                                    /// * corrected learn rate, betas
+        // epoch ? b1 : DU0, epoch ? b2 : DU0     /// ** adjusted init b1, b2
     };
     return gradient("adam", update, parm, OPTI_ADAM);
 }
