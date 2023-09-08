@@ -1,6 +1,6 @@
 .( ## MNIST convolution model comparison ## ) cr
 : nn_a ( N -- N' )                          \ simple model with 2 hidden layers
-  flatten 100 linear relu                   \ 1st hidden layer with relu activation
+  100 linear relu                           \ 1st hidden layer with relu activation
   10 linear softmax ;                       \ 2nd hidden layer with softmax output
 : nn_b
   0.5 2 conv2d                              \ add a convolution filter
@@ -43,7 +43,7 @@ variable lox                        \ create var for epoch latest loss
 
 \ model
 50 28 28 1 nn.model                 \ create a model (50 per batch of 28x28x1 img)
-nn_c                                \ use neural network model
+nn_a                                \ use neural network model
 constant md0                        \ keep as a constant
 
 \ dataset
