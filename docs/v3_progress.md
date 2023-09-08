@@ -81,8 +81,10 @@ ds1                                       \ put dataset on TOS
 |network|(N -- N)|display network model|
 |>n|(N T -- N')|manually add tensor to model|
 |n@|(N n -- N T)|fetch value tensor of nth layer from model, -1 is the latest layer|
-|nn.weight|(N n -- N T)|fetch weight tensor of nth layer from model, 0 means none|
-|nn.bias|(N n -- N T)|fetch weight tensor of nth layer from model, 0 means none|
+|nn.w|(N n -- N T)|fetch weight tensor of nth layer from model, 0 means none|
+|nn.b|(N n -- N T)|fetch weight tensor of nth layer from model, 0 means none|
+|nn.dw|(N n -- N T)|fetch weight gradient tensor of nth layer from model, 0 means none|
+|nn.db|(N n -- N T)|fetch weight gradient tensor of nth layer from model, 0 means none|
 |load|(N adr len [fam] -- N')|load trained network from a given file name|
 |save|(N adr len [fam] -- N)|export network as a file|
     

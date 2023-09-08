@@ -180,8 +180,10 @@ s" tests/my_net.t4" save                    \ persist the trained network
   nn.model   (n h w c -- N)      - create a Neural Network model with (n,h,w,c) input
   >n         (N T -- N')         - manually add tensor to model
   n@         (N n -- N T)        - fetch layered tensor from model, -1 is the latest layer
-  nn.weight  (N n -- N T)        - query weight tensor of nth layer (0 means none)
-  nn.bias    (N n -- N T)        - query bias tensor of nth layer (0 means none)
+  nn.w       (N n -- N T)        - query weight tensor of nth layer (0 means none)
+  nn.b       (N n -- N T)        - query bias tensor of nth layer (0 means none)
+  nn.dw      (N n -- N T)        - query weight gradient tensor of nth layer (0 means none)
+  nn.db      (N n -- N T)        - query bias gradient tensor of nth layer (0 means none)
   network    (N -- N)            - display network model
   
   load       (N adr len [fam] -- N') - load trained network from a given file name
@@ -413,6 +415,7 @@ s" tests/my_net.t4" save                    \ persist the trained network
   + add K-fold sampler
   + data API - Python(cffi), Ruby(FFI)
 * VM
+  + free_tensor as linked-list (instead of an array)
   + inter-VM communication (CUDA stream, review CUB again)
   + inter-VM loader (from VM->VM)
 * Refactor
