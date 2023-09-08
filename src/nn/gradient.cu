@@ -27,16 +27,16 @@ __KERN__ void k_sgd(
 
 __KERN__ void k_adam(
     DU *G, DU *DG, DU *M, DU *V,            ///< w, dw, and momemtum tensors
-    DU lc, DU b1, DU b2,                    ///< corrected learn rate, beta(momemtum)
-    int N, int numel                        ///< epoch, batch size
+    DU lrc, DU b1, DU b2,                   ///< corrected learn rate, beta(momemtum)
+    int numel                               ///< batch size
     ) {
     const int i = threadIdx.x + blockIdx.x * blockDim.x;   ///< element index
     
     if (i < numel) {
-        DU dg = DG[i] / N;                                 ///< dG batch avg
+        DU dg = DG[i];                                     ///< dG (not batch avg)
         DU mi = M[i] = b1 * M[i] + (DU1 - b1) * dg;        ///< momentum
         DU vi = V[i] = b2 * V[i] + (DU1 - b2) * dg * dg;   ///< velocity
-        G[i] -= lc * mi / (SQRT(vi) + DU_EPS);             /// * update gradient
+        G[i] -= lrc * mi / (SQRT(vi) + DU_EPS);            /// * update gradient
         DG[i] = DU0;                                       /// * zero out dG
     }
 }
@@ -150,16 +150,15 @@ Model::adam(DU lr, DU b1, DU b2) {
 
         k_adam<<<grd,blk>>>(
             g->data, dg->data, m->data, v->data,
-            parm[0], parm[1], parm[2], static_cast<int>(parm[3]), numel);
+            parm[0], parm[1], parm[2], numel);
         GPU_SYNC();
     };
-    DU parm[5] = {
+    DU parm[3] = {
         lr * SQRT(DU1 - POW(b2, _iter+1)) / (DU1 - POW(b1, _iter+1)),
         // epoch ? b1 : DU0,                      /// * corrected learn rate
         // epoch ? b2 : DU0,                      /// * adjusted init b1, b2
-        b1, b2,                                   /// * converge faster but peaked
-        (DU)batch_size() };                       /// * N
-    
+        b1, b2
+    };
     return gradient("adam", update, parm, OPTI_ADAM);
 }
 #endif  // T4_ENABLE_OBJ
