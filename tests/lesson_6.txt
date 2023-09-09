@@ -1,11 +1,11 @@
 .( ## GAN linear regression tests ) cr
 100 constant N
 
-N 1 2 1 nn.model                           \ generator
+N 2 1 1 nn.model                           \ generator
 2 linear
 constant G
 
-N 1 2 1 nn.model                           \ discriminator
+N 2 1 1 nn.model                           \ discriminator
 5 linear 0.2 leakyrelu
 3 linear 0.2 leakyrelu
 1 linear sigmoid
@@ -21,7 +21,7 @@ N 1 1 1 tensor ones constant  REAL
 N 1 1 1 tensor zeros constant FAKE
 
 : gen ( G D -- G D t )
-  swap X forward -1 n@ rot swap ;
+  swap X 2 *= forward -1 n@ rot swap ;
 
 0 constant _g
 0 constant _dr
@@ -34,21 +34,23 @@ N 1 1 1 tensor zeros constant FAKE
   forward FAKE loss.bce [to] _df FAKE backprop   \ treat fake as fake
   0.001 0.9 nn.adam                              \ train D
   0 trainable
-  gen ( G D t )
+  gen ( G D t )                                  \ regenerate fake data (can reuse)
   forward REAL loss.bce [to] _g REAL backprop    \ treat fake as real
-  1 n@ . \ rot swap ( D G t ) backprop               \ pass dX to G
-  \ 0.0001 0.9 nn.adam                             \ train G
+  1 n@ rot swap ( D G t ) backprop               \ pass dX to G
+  0.001 0.9 nn.adam                              \ train G
   swap ( G D ) pause                             \ switch task and flush
   ;
 \ expected loss G=>low, Dr=>low, Df=>high (thinking fake as real)  
 : stat ( G D -- G D ) swap
-  \ cr ." w=" 1 nn.w . X swap @= . free
+  cr ." w,b=" 1 nn.w . drop 1 nn.b . drop
   ." G=" _g . ." , Dr=" _dr . ." , Df=" _df . cr
   swap ;
 : epoch ( G D -- G D ) 100 for run next stat ;
-: gan for epoch next ;
+: gan
+  for epoch next
+  ;
 
-G D run \ 9 gan
-\ gen N 2 reshape2 s" jk" save
+G D run 9 gan
+gen N 2 reshape2 s" jk" save drop
 
 bye
