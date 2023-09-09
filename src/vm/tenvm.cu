@@ -426,8 +426,11 @@ TensorVM::init() {
         if (IS_OBJ(rs[-1])) PUSH(mmu.copy(rs[-1]));   /// * hard copy object, or
         else PUSH(mmu.dup(rs[-1]))),                  /// * dup number
     CODE(".",
-        if (IS_OBJ(top)) fout << top;         /// * view, model, dataset (non-destructive)
-        else fout << " " << POP()),           /// * eForth has a space prefix
+        if (IS_OBJ(top)) {
+             fout << top;                 /// * view, model, dataset (non-destructive)
+             state = VM_WAIT;             /// * forced flush (wasteful but no dangling object)
+        }
+        else fout << " " << POP()),       /// * eForth has a space prefix
     CODE("+",   xop2(O_ADD, KEEP)),
     CODE("-",   xop2(O_SUB, KEEP)),
     CODE("*",   xop2(O_MUL, KEEP)),
