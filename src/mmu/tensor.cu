@@ -550,6 +550,16 @@ Tensor::dot(Tensor &B) {
 }
 __GPU__ DU
 Tensor::loss(t4_loss op, Tensor &tgt) {
+    /*
+    auto check_bce = [this, &tgt]() {
+        DU sum = DU0;
+        for (int i=0; i<numel; i++) {
+            DU t = tgt.data[i], y = this->data[i];
+            sum += t * LN(y) + (DU1-t) * LN(DU1 - y);
+        }
+        return -sum;
+    };
+    */
     DU sum = DU0;                    ///> result loss value
     switch (op) {
     case LOSS_MSE:                   /// * mean squared error, input from linear
@@ -561,7 +571,7 @@ Tensor::loss(t4_loss op, Tensor &tgt) {
         dim3 grd((numel + blk.x - 1)/blk.x, 1, 1);
         k_bce<<<grd, blk>>>(data, tgt.data, numel);
         GPU_SYNC();
-        sum = -this->sum();          /// * -(y*ln(out_i) + (1-y)*ln(1-out_i))
+        sum = -this->sum();          /// * -(y * ln(out_i) + (1-y) * ln(1-out_i))
     } break;
     case LOSS_CE:                    /// * cross_entropy, input from softmax
         map(O_LN);                   /// * log(out_i)
@@ -572,7 +582,7 @@ Tensor::loss(t4_loss op, Tensor &tgt) {
         break;
     default: ERROR("Model#loss op=%d not supported!\n", op);
     }
-    sum /= N();                      /// average per mini-batch sample
+    sum /= numel;                    /// average per mini-batch sample
     
     return SCALAR(sum);              /// make sum a scalar value (not object)
 }
