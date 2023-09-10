@@ -319,7 +319,6 @@ TensorVM::init() {
         ten_off = 0; ten_lvl = 1),
     CODE("view",   PUSH(mmu.view(top))), ///< create a view of a tensor
     CODE("copy",   PUSH(mmu.copy(top))), ///< create a hardcopy of a tensor
-    CODE("free",   mmu.mark_free(top); top = ss.pop()),
     ///@}
     ///@defgroup Tensor shape ops
     ///@brief - stick to PyTorch naming when possible
