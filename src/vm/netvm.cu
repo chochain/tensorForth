@@ -299,7 +299,9 @@ NetVM::init() {
     ///@}
     ///@defgroup Batch Control ops
     ///@{
-    CODE("trainable",  if (M1V) { bool on = POPi; MTOS.train = on; }),
+    CODE("trainable",
+         if (M1V) { bool on = POPi; MTOS.train = on; }
+         else ERROR("N [1|0] required\n")),
     CODE("batchsize",
          if (IS_M(top)) PUSH(MTOS.batch_size());
          else ERROR("TOS is not a model?\n")),
