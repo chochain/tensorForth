@@ -16,10 +16,11 @@
 ///@}
 ///@name Heap memory load/store macros
 ///@{
-#define LDi(ip)   (mmu.ri((IU)(ip)))            /**< read an instruction unit from pmem      */
-#define LDd(ip)   (mmu.rd((IU)(ip)))            /**< read a data unit from pmem              */
-#define STd(ip,d) (mmu.wd((IU)(ip), (DU)(d)))   /**< write a data unit to pmem               */
-#define LDs(ip)   (mmu.pmem((IU)(ip)))          /**< pointer to IP address fetched from pmem */
+#define LDi(a)    (mmu.ri((IU)(a)))             /**< read an instruction unit from pmem      */
+#define LDd(a)    (mmu.rd((IU)(a)))             /**< read a data unit from pmem              */
+#define STi(a, d) (mmu.wi((IU)(a), (IU)(d)))    /**< write a instruction unit to pmem        */
+#define STd(a,d)  (mmu.wd((IU)(a), (DU)(d)))    /**< write a data unit to pmem               */
+#define LDp(a)    (mmu.pmem((IU)(a)))           /**< pointer to IP address fetched from pmem */
 ///@}
 ///
 /// resume suspended task
@@ -120,11 +121,11 @@ ForthVM::init() {
     CODE("dovar",   PUSH(IP); IP += sizeof(DU)),
     CODE("dolit",   PUSH(LDd(IP)); IP += sizeof(DU)),
     CODE("dostr",
-        char *s  = (char*)LDs(IP);                        // get string ptr & len
+        char *s  = (char*)LDp(IP);                        // get string ptr & len
         int   sz = STRLENB(s)+1;                          // '\0' terminated
         PUSH(IP); PUSH(sz-1); IP += ALIGN2(sz)),
     CODE("dotstr",
-        char *s  = (char*)LDs(IP);                        // get string pointer
+        char *s  = (char*)LDp(IP);                        // get string pointer
         int  sz  = STRLENB(s)+1;
         fout << s;  IP += ALIGN2(sz)),                    // send to output console
     CODE("branch" , IP = LDi(IP)),                        // unconditional branch
@@ -225,7 +226,7 @@ ForthVM::init() {
          fout << idiom),
     CODE("type",
          int n = POPi; int idx = POPi;
-         fout << (char*)LDs(idx)),          // get string pointer
+         fout << (char*)LDp(idx)),          // get string pointer
     ///@}
     ///@defgroup Literal ops
     ///@{
@@ -305,7 +306,7 @@ ForthVM::init() {
         STd(PFA(w) + sizeof(IU), POP())),                   // store TOS to constant's pfa
     CODE("is",              // ' y is x                     // alias a word
         int w = FIND(next_idiom());                         // can serve as a function pointer
-        mmu.wi(PFA(POPi), PFA(w))),                         // but might leave a dangled block
+        STi(PFA(POPi), PFA(w))),                            // but might leave a dangled block
     CODE("[to]",            // : xx 3 [to] y ;              // alter constant in compile mode
         IU w = LDi(IP); IP += sizeof(IU);                   // fetch constant pfa from 'here'
         STd(PFA(w) + sizeof(IU), POP())),                   // store TOS into constant pfa
@@ -313,13 +314,13 @@ ForthVM::init() {
     /// be careful with memory access, because
     /// it could make access misaligned which cause exception
     ///
-    CODE("C@",    IU w = POPi; PUSH(*(char*)LDs(w))),
-    CODE("C!",    IU w = POPi; DU n = POP(); *((char*)LDs(w)) = (U8)n),
+    CODE("C@",    IU w = POPi; PUSH(*(char*)LDp(w))),
+    CODE("C!",    IU w = POPi; DU n = POP(); *((char*)LDp(w)) = (U8)n),
     CODE("@",     IU w = POPi; PUSH(LDd(w))),                                     // w -- n
     CODE("!",     IU w = POPi; STd(w, POP())),                                    // n w --
     CODE(",",     DU n = POP(); add_du(n)),
     CODE("allot", DU v = 0; for (IU n = POPi, i = 0; i < n; i++) add_du(v)),      // n --
-    CODE("+!",    IU w = POPi; STd(w, LDd(w) + POP())),                           // n w --
+    CODE("+!",    IU w = POPi; DU v = LDd(w) + POP(); STd(w, v)),                 // n w --
     CODE("?",     IU w = POPi; fout << LDd(w) << " "),                            // w --
     ///@}
     ///@defgroup Debug ops
