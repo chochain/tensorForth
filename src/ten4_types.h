@@ -102,7 +102,7 @@ typedef F64         DU2;                    /**< double preciesion data */
 #define DU1         ((DU)1.0)               /**< default data value 1   */
 #define DU_EPS      ((DU)1.0e-6)            /**< floating point epsilon */
 ///
-/// cross platform floating-point math support
+/// cross platform floating-point ALU support (see nvcc -use_fast_math flag)
 ///
 #define ZERO(d)     (ABS(d) < DU_EPS)       /**< zero check             */
 #define BOOL(d)     (ZERO(d) ? DU0 : -DU1)  /**< default boolean        */
@@ -111,14 +111,15 @@ typedef F64         DU2;                    /**< double preciesion data */
 #define LOG(d)      ((DU)log10f(d))         /**< log10                  */
 #define LN(d)       ((DU)logf(d))           /**< natural logrithm       */
 #define POW(d,e)    ((DU)powf(d,e))         /**< power d^(e)            */
-#define RCP(d)      ((DU)__frcp_rz(d))      /**< reciprocol 1.0/x       */
-#define SQRT(d)     ((DU)__fsqrt_rz(d))     /**< square root            */
+#define SQRT(d)     ((DU)sqrtf(d))          /**< square root            */
+#define RCP(x)      ((DU)(DU1/(x)))         /**< reciprocol 1/x         */
+#define ADD(x,y)    ((DU)(x)+(y))           /**< addition               */
+#define SUB(x,y)    ((DU)(x)-(y))           /**< addition               */
+#define MUL(x,y)    ((DU)(x)*(y))           /**< multiplication         */
+#define DIV(x,y)    ((DU)(x)/(y))           /**< division               */
 #define TANH(d)     ((DU)tanhf(d))          /**< tanh(float)            */
-#define SIGMOID(d)  (DU1/(DU1+EXP(-(d))))   /**< sigmoid(float)         */
+#define SIGMOID(d)  (RCP(DU1+EXP(-(d))))    /**< sigmoid(float)         */
 #define MOD(t,n)    ((DU)fmodf(t, n))       /**< fmod two floats        */
-#define ADD(x,y)    ((DU)__fadd_rz(x, y))   /**< addition round to zero */
-#define MUL(x,y)    ((DU)__fmul_rz(x,y))    /**< multiply round to zero */
-#define DIV(x,y)    ((DU)__fdiv_rz(x,y))    /**< fast math devide       */
 #define MAX(x,y)    ((DU)fmaxf(x,y))        /**< maximum of the two     */
 #define MIN(x,y)    ((DU)fminf(x,y))        /**< minimum of the two     */
 #define NORM(n,p)   ((DU)normf(n,p))        /**< normal of n floats     */
