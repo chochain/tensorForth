@@ -20,7 +20,7 @@
 #define T4_MINOR_VER        "2"
 #define T4_VERBOSE          1        /**< system verbose print */
 #define T4_MMU_DEBUG        0        /**< for mmu debug trace  */
-#define CC_DEBUG            1        /**< for my local testing */
+#define CC_DEBUG            0        /**< for my local testing */
 ///@}
 ///@name CUDA cooperative dynamic parallelism support
 ///@{
@@ -67,7 +67,6 @@
 #define T4_TFREE_SZ  T4_NET_SZ /**< size of tensor free queue    */
 #define T4_RAND_SZ   256       /**< number of random seeds       */
 #define T4_WARP_SZ   16        /**< CUDA GPU warp 16x16 threads  */
-//#define T4_WARP_SZ   32      /**< CUDA GPU warp 32x32x1 threads  */
 #define T4_WARP_SQ   (T4_WARP_SZ * T4_WARP_SZ)
 ///@}
 #endif // TEN4_SRC_TEN4_CONFIG_H_
