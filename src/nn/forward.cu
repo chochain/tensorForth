@@ -374,7 +374,7 @@ Model::_fsoftmax(Tensor &in, Tensor &out) {
     for (int n = 0; n < in.N(); n++) {          ///< loop thru mini-batch
         t.data = out.slice(n);                  /// * point to output data slice
         DU sum = t.sum();                       ///< sum(exp(xi))
-        t.map(O_MUL, DU1 / (sum + DU_EPS));     /// * softmax = exp(xi)/sum(exp(xi))
+        t.map(O_MUL, RCP(sum + DU_EPS));        /// * softmax = exp(xi)/sum(exp(xi))
     }
     t.data = d;                                 /// * restore tensor data
     _mmu->free(t);                              /// * release memory
