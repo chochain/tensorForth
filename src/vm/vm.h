@@ -48,7 +48,7 @@ protected:
     __GPU__ virtual int pre(char *str)    { return 0; }
     __GPU__ virtual int parse(char *str)  { return 0; }
     __GPU__ virtual int number(char *str) { return 0; }
-    __GPU__ virtual int post(void)        { return 0; }
+    __GPU__ virtual int post()            { return 0; }
     ///
     /// input stream handler
     ///
@@ -59,9 +59,9 @@ protected:
     ///
     __GPU__ void dot(DU v)          { fout << " " << v; }
     __GPU__ void dot_r(int n, DU v) { fout << setw(n) << v; }
-    __GPU__ void ss_dump(int n)     {
+    __GPU__ void ss_dump(int n=0)   {
         ss[T4_SS_SZ-1] = top;        /// * put top at the tail of ss (for host display)
-        fout << opx(OP_SS, n);
+        fout << opx(OP_SS, n ? n : ss.idx);
     }
 };
 #endif // TEN4_SRC_VM_H
