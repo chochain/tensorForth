@@ -151,13 +151,27 @@ public:
     ///
     __BOTH__ __INLINE__ IU   here()     { return _midx; }
     __BOTH__ __INLINE__ IU   ri(U8 *c)  { return ((IU)(*(c+1)<<8)) | *c; }
-    __BOTH__ __INLINE__ IU   ri(IU pi)  { return ri(&_pmem[pi]); }
+    __BOTH__ __INLINE__ IU   ri(IU i)  {
+        if (i < T4_PMEM_SZ) return ri(&_pmem[i]);
+        ERROR("\nmmu.wi[%d]", i);
+        return 0;
+    }
     __BOTH__ __INLINE__ DU   rd(U8 *c)  { DU d; MEMCPY(&d, c, sizeof(DU)); return d; }
-    __BOTH__ __INLINE__ DU   rd(IU pi)  { return rd(&_pmem[pi]); }
+    __BOTH__ __INLINE__ DU   rd(IU i)  {
+        if (i < T4_PMEM_SZ) return rd(&_pmem[i]);
+        ERROR("\nmmu.wi[%d]", i);
+        return 0;
+    }
     __GPU__  __INLINE__ void wd(U8 *c, DU d)   { MEMCPY(c, &d, sizeof(DU)); }
-    __GPU__  __INLINE__ void wd(IU w, DU d)    { wd(&_pmem[w], d); }
-    __GPU__  __INLINE__ void wi(U8 *c, IU i)   { *c++ = i&0xff; *c = (i>>8)&0xff; }
-    __GPU__  __INLINE__ void wi(IU pi, IU i)   { wi(&_pmem[pi], i); }
+    __GPU__  __INLINE__ void wd(IU i, DU d)    {
+        if (i < T4_PMEM_SZ) wd(&_pmem[i], d);
+        else ERROR("\nmmu.wd[%d]", i);
+    }
+    __GPU__  __INLINE__ void wi(U8 *c, IU n)   { *c++ = n&0xff; *c = (n>>8)&0xff; }
+    __GPU__  __INLINE__ void wi(IU i, IU n)   {
+        if (i < T4_PMEM_SZ) wi(&_pmem[i], n);
+        else ERROR("\nmmu.wi[%d]", i);
+    }
     ///
     /// tensor life-cycle methods
     ///
