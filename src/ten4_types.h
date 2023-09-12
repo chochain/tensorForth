@@ -43,16 +43,17 @@
 
 #define ASSERT(X) \
     if (!(X)) ERROR("ASSERT tid %d: line %d in %s\n", threadIdx.x, __LINE__, __FILE__);
-#define GPU_SYNC()    { cudaDeviceSynchronize(); }
-#define GPU_ERR(code) {          \
-    if ((code) != cudaSuccess) { \
-        ERROR("cudaERROR: %s %s %d\n", cudaGetErrorString(code), __FILE__, __LINE__);                \
+#define GPU_SYNC() { cudaDeviceSynchronize(); }
+#define GPU_ERR(c) {             \
+    cudaError_t code = (c);      \
+    if (code != cudaSuccess) {   \
+        ERROR("cudaERROR[%d] %s@%s %d\n", code, cudaGetErrorString(code), __FILE__, __LINE__); \
         cudaDeviceReset();       \
     }}
 #define GPU_CHK() {              \
     GPU_SYNC();                  \
     GPU_ERR(cudaGetLastError()); \
-}
+    }
 #define MM_ALLOC(...)      GPU_ERR(cudaMallocManaged(__VA_ARGS__))
 #define MM_FREE(m)         GPU_ERR(cudaFree(m))
 
@@ -107,14 +108,17 @@ typedef F64         DU2;                    /**< double preciesion data */
 #define BOOL(d)     (ZERO(d) ? DU0 : -DU1)  /**< default boolean        */
 #define ABS(d)      ((DU)fabsf(d))          /**< absolute value         */
 #define EXP(d)      ((DU)expf(d))           /**< exponential(float)     */
-#define LN(d)       ((DU)logf(d))           /**< natural logrithm       */
 #define LOG(d)      ((DU)log10f(d))         /**< log10                  */
+#define LN(d)       ((DU)logf(d))           /**< natural logrithm       */
 #define POW(d,e)    ((DU)powf(d,e))         /**< power d^(e)            */
-#define SQRT(d)     ((DU)sqrtf(d))          /**< square root            */
+#define RCP(d)      ((DU)__frcp_rz(d))      /**< reciprocol 1.0/x       */
+#define SQRT(d)     ((DU)__fsqrt_rz(d))     /**< square root            */
 #define TANH(d)     ((DU)tanhf(d))          /**< tanh(float)            */
 #define SIGMOID(d)  (DU1/(DU1+EXP(-(d))))   /**< sigmoid(float)         */
 #define MOD(t,n)    ((DU)fmodf(t, n))       /**< fmod two floats        */
-#define DIV(x,y)    ((DU)fdividef(x,y))     /**< fast math devide       */
+#define ADD(x,y)    ((DU)__fadd_rz(x, y))   /**< addition round to zero */
+#define MUL(x,y)    ((DU)__fmul_rz(x,y))    /**< multiply round to zero */
+#define DIV(x,y)    ((DU)__fdiv_rz(x,y))    /**< fast math devide       */
 #define MAX(x,y)    ((DU)fmaxf(x,y))        /**< maximum of the two     */
 #define MIN(x,y)    ((DU)fminf(x,y))        /**< minimum of the two     */
 #define NORM(n,p)   ((DU)normf(n,p))        /**< normal of n floats     */
