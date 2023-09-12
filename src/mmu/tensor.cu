@@ -409,7 +409,7 @@ Tensor::lu_inverse(Tensor &LU) {
             dd[z + y * n] = -r1;                        // current z column
         }};
     auto backward = [dd, n](int z) {
-        DU r0 = DU1 / dd[z + z * n];
+        DU r0 = RCP(dd[z + z * n]);
         dd[z + z * n] = r0;                             // diag
         for (int k = z + 1; k < n; k++) {               // current z row
             dd[k + z * n] *= r0;
@@ -796,7 +796,7 @@ Tensor::_view(DU *v, int H, int W, int C, DU mean, DU scale) {
         int i = static_cast<int>((v + 1.0) * 5.5);
         return lk[i < 0 ? 0 : (i > 10 ? 10 : i)];
     };
-    const int hw = H * W, sr = static_cast<int>(SQRT(hw));
+    const int hw = H * W, sr = static_cast<int>(sqrtf(hw));
     const int sh = (hw/sr) + ((hw - sr*sr) > 0 ? 1 : 0);
     const int w  = W > 1 ? W : (hw < 36 ? H : sr);
     const int h  = W > 1 ? H : (hw < 36 ? 1 : sh);
