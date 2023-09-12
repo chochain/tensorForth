@@ -38,7 +38,7 @@ VM::outer() {
     }
     switch (state) {
     case VM_WAIT: VLOG1("%d} VM[%d] wait\n", vid, vid); break;
-    case VM_READY: if (!compile) ss_dump(ss.idx);       break;
+    case VM_READY: if (!compile) ss_dump();             break;
     }
 }
 //=======================================================================================
