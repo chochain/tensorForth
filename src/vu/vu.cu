@@ -47,7 +47,6 @@ Vu::init_host_tex() {
 
 __HOST__ void
 Vu::tex_dump() {
-#if CC_DEBUG
     if (!h_tex) return;
     uchar4 *p = h_tex;
     for (int i = 0; i < 10; i++) {
@@ -57,7 +56,6 @@ Vu::tex_dump() {
         }
     }
     printf("\n");
-#endif // CC_DEBUG
 }
 
 __HOST__ void

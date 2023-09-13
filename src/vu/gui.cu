@@ -221,7 +221,7 @@ gui_add(Vu *vu) {
     ///
     _vu_set(id, vu);                        /// * keep (id,vu&) pair in vu_map
     vu->init_host_tex();                    /// * create texture on host
-    vu->tex_dump();                         /// * debug dump
+// vu->tex_dump();                         /// * debug dump
     vu->init_cuda_tex();                    /// * sync texture onto device
     _bind_texture(vu);                      /// * bind h_tex to GL buffer
 //    _compile_shader();                    /// load GL float shader
