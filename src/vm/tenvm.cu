@@ -17,11 +17,11 @@ TensorVM::xop1(t4_ten_op op, DU v) {
     ///
     if (!IS_OBJ(top)) {                     /// * scalar value
         switch (op) {
-        case O_POW:  top = POW(top, v);       break;
         case O_ABS:  top = ABS(top);          break;
         case O_EXP:  top = EXP(top);          break;
         case O_LOG:  top = LOG(top);          break;
         case O_LN:   top = LN(top);           break;
+        case O_POW:  top = POW(top, v);       break;
         case O_TANH: top = TANH(top);         break;
         case O_RELU: top = top > v ? top : v; break;
         case O_SIGM: top = SIGMOID(top);      break;
@@ -135,12 +135,12 @@ TensorVM::xop2(t4_ten_op op, t4_drop_opt x) {
 __GPU__ void
 TensorVM::_ss_op(t4_ten_op op) {               ///< scalar-scalar ops
     switch (op) {
-    case O_ADD: top += ss.pop();      break;
-    case O_SUB: top = ss.pop() - top; break;
-    case O_MUL: top *= ss.pop();      break;
+    case O_ADD: top = ADD(ss.pop(), top); break;
+    case O_SUB: top = SUB(ss.pop(), top); break;
+    case O_MUL: top = MUL(ss.pop(), top); break;
     case O_DIV: top = DIV(ss.pop(), top); break;
     }
-    SCALAR(top);                               /// * even +- can set LSB
+    SCALAR(top);                               /// * even +- can set LSB (rounding)
 }
 
 __GPU__ Tensor&
@@ -443,9 +443,8 @@ TensorVM::init() {
             PUSH(v);
         }),
     CODE("+!",
-        IU w = POPi; DU v = mmu.rd(w);
-        if (IS_OBJ(v)) NA("obj +!");
-        else mmu.wd(w, v + POP())),
+        IU w = POPi; DU v = ADD(mmu.rd(w), POP()); ///< fetch target original value
+        mmu.wd(w, SCALAR(v))),                     /// * write back
     CODE("max",
         if (IS_OBJ(top)) PUSH(TTOS.max());
         else { DU n=ss.pop(); top = (top>n) ? top : n; }),
@@ -454,7 +453,7 @@ TensorVM::init() {
         else { DU n=ss.pop(); top = (top<n) ? top : n; }),
     CODE("negate",
         if (IS_OBJ(top)) xop1(O_SCALE, -DU1);
-        else top *= -DU1),
+        else top = MUL(top, -DU1)),
     ///@}
     CODE("boot", mmu.clear(FIND("gemm") + 1))
     };
