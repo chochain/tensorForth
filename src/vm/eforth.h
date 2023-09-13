@@ -46,6 +46,7 @@ protected:
     __GPU__ virtual int resume();           ///< resume suspended work
     __GPU__ virtual int parse(char *str);   ///< parse command string
     __GPU__ virtual int number(char *str);  ///< parse input as number
+    __GPU__ virtual int post();             ///< resume suspended work
     ///
     /// Forth inner interpreter
     ///

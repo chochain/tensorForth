@@ -18,9 +18,9 @@
 ///@{
 #define LDi(a)    (mmu.ri((IU)(a)))             /**< read an instruction unit from pmem      */
 #define LDd(a)    (mmu.rd((IU)(a)))             /**< read a data unit from pmem              */
+#define LDp(a)    (mmu.pmem((IU)(a)))
 #define STi(a, d) (mmu.wi((IU)(a), (IU)(d)))    /**< write a instruction unit to pmem        */
-#define STd(a,d)  (mmu.wd((IU)(a), (DU)(d)))    /**< write a data unit to pmem               */
-#define LDp(a)    (mmu.pmem((IU)(a)))           /**< pointer to IP address fetched from pmem */
+#define STd(a,d) (mmu.wd((IU)(a), (DU)(d)))     /**< write a data unit to pmem               */
 ///@}
 ///
 /// resume suspended task
@@ -31,17 +31,30 @@ ForthVM::resume() {
     nest();           /// * will set state to VM_READY
     return 1;         /// * OK, continue to outer loop
 }
+
+__GPU__ int
+ForthVM::post() {
+    cudaError_t code = cudaGetLastError();
+    
+    if (code == cudaSuccess) return 0;
+    
+    ERROR("VM ERROR: %s %s %d, IP=%d, w=%d\n",
+          cudaGetErrorString(code), __FILE__, __LINE__, IP, LDi(IP));
+    ss_dump();
+    state = VM_WAIT;
+    return 1;
+}
 ///
 /// Forth inner interpreter (colon word handler)
 /// Note: nest is also used for resume where RS != 0
 ///
-#if 0
+#if CC_DEBUG
 #define _log(hdr)  printf("%03d: %s.rs=%d\n", IP, hdr, rs.idx)
 #define _dlog(w)   printf("\t%03d: %s %d\n", IP, dict[w].name, w)
 #else
 #define _log(hdr)
 #define _dlog(w)
-#endif
+#endif // CC_DEBUG
 __GPU__ void
 ForthVM::nest() {
     ///
@@ -161,21 +174,23 @@ ForthVM::init() {
     ///@}
     ///@defgroup FPU ops
     ///@{
-    CODE("+",    top += ss.pop()),
-    CODE("*",    top *= ss.pop()),
-    CODE("-",    top = ss.pop() - top),
-    CODE("/",    top = DIV(ss.pop(), top)),
-    CODE("mod",  top = MOD(ss.pop(), top)),             /// fmod = x - int(q)*y
+    CODE("+",    top = ADD(top, ss.pop()); SCALAR(top)),
+    CODE("*",    top = MUL(top, ss.pop()); SCALAR(top)),
+    CODE("-",    top = SUB(ss.pop(), top); SCALAR(top)),
+    CODE("/",    top = DIV(ss.pop(), top); SCALAR(top)),
+    CODE("mod",  top = MOD(ss.pop(), top); SCALAR(top)),  /// fmod = x - int(q)*y
     CODE("/mod",
-        DU n = ss.pop(); DU t = top;
-        ss.push(MOD(n, t)); top = n / t),
+        DU n = ss.pop();
+        DU m = MOD(n, top); ss.push(SCALAR(m));
+        top = DIV(n, top); SCALAR(top)),
     ///@}
     ///@defgroup FPU double precision ops
     ///@{
-    CODE("*/",   top =  (DU2)ss.pop() * ss.pop() / top),
+    CODE("*/",   top = (DU2)ss.pop() * ss.pop() / top; SCALAR(top)),
     CODE("*/mod",
         DU2 n = (DU2)ss.pop() * ss.pop();
-        ss.push(MOD(n, top)); top = round(n / top)),
+        DU  m = MOD(n, top); ss.push(SCALAR(m));
+        top = round(n / top)),
     ///@}
     ///@defgroup Binary logic ops (convert to integer first)
     ///@{
@@ -183,7 +198,7 @@ ForthVM::init() {
     CODE("or",   top = I2D(INT(ss.pop()) | INT(top))),
     CODE("xor",  top = I2D(INT(ss.pop()) ^ INT(top))),
     CODE("abs",  top = ABS(top)),
-    CODE("negate", top *= -1),
+    CODE("negate", top = MUL(top, -DU1)),
     CODE("max",  DU n=ss.pop(); top = MAX(top, n)),
     CODE("min",  DU n=ss.pop(); top = MIN(top, n)),
     ///@}
@@ -303,13 +318,22 @@ ForthVM::init() {
         add_w(DOVAR)),                                      // dovar (+ parameter field)
     CODE("to",              // 3 to x                       // alter the value of a constant
         int w = FIND(next_idiom());                         // to save the extra @ of a variable
-        STd(PFA(w) + sizeof(IU), POP())),                   // store TOS to constant's pfa
+        IU  a = PFA(w) + sizeof(IU);
+        DU  d = POP();
+        if (a < T4_PMEM_SZ) STd(a, d);                      // store TOS to constant's pfa
+        else ERROR("to %x", a)),
     CODE("is",              // ' y is x                     // alias a word
         int w = FIND(next_idiom());                         // can serve as a function pointer
-        STi(PFA(POPi), PFA(w))),                            // but might leave a dangled block
+        IU  a = PFA(POPi);
+        IU  i = PFA(w);
+        if (a < T4_PMEM_SZ) STi(a, i);                     // point x to y
+        else { ERROR("is %x", a); state = VM_STOP; }),
     CODE("[to]",            // : xx 3 [to] y ;              // alter constant in compile mode
         IU w = LDi(IP); IP += sizeof(IU);                   // fetch constant pfa from 'here'
-        STd(PFA(w) + sizeof(IU), POP())),                   // store TOS into constant pfa
+        IU a = PFA(w) + sizeof(IU);
+        DU d = POP();
+        if (a < T4_PMEM_SZ) STd(a, d);                      // store TOS into constant pfa
+        else { ERROR("is %x", a); state = VM_STOP; }),
     ///
     /// be careful with memory access, because
     /// it could make access misaligned which cause exception
@@ -320,7 +344,7 @@ ForthVM::init() {
     CODE("!",     IU w = POPi; STd(w, POP())),                                    // n w --
     CODE(",",     DU n = POP(); add_du(n)),
     CODE("allot", DU v = 0; for (IU n = POPi, i = 0; i < n; i++) add_du(v)),      // n --
-    CODE("+!",    IU w = POPi; DU v = LDd(w) + POP(); STd(w, v)),                 // n w --
+    CODE("+!",    IU w = POPi; DU v = ADD(LDd(w), POP()); STd(w, SCALAR(v))),     // n w --
     CODE("?",     IU w = POPi; fout << LDd(w) << " "),                            // w --
     ///@}
     ///@defgroup Debug ops
@@ -332,7 +356,7 @@ ForthVM::init() {
     CODE("pfa",   IU w = POPi; PUSH(PFA(w))),
     CODE("nfa",   IU w = POPi; PUSH(dict[w].nfa)),
     CODE("trace", mmu.trace(POPi)),                                               // turn tracing on/off
-    CODE(".s",    ss_dump(POPi)),
+    CODE(".s",    ss_dump()),
     CODE("words", fout << opx(OP_WORDS)),
     CODE("see",   int w = FIND(next_idiom()); fout << opx(OP_SEE, w)),
     CODE("dump",  DU n = POP(); int a = POPi; fout << opx(OP_DUMP, a, n)),
