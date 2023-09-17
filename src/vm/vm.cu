@@ -8,8 +8,9 @@
 
 __GPU__
 VM::VM(Istream *istr, Ostream *ostr, MMU *mmu0) : fin(*istr), fout(*ostr), mmu(*mmu0) {
-    vid = threadIdx.x;
-    VLOG1("\\  VM[%d](mem=%p, vmss=%p)\n", vid, mmu.pmem(0), mmu.vmss(vid));
+    vid = threadIdx.x;                 /// * set VM id
+    ss.init(mmu.vmss(vid), T4_SS_SZ);  /// * point data stack to managed memory block
+    VLOG1("\\  VM[%d](mem=%p, vmss=%p)\n", vid, mmu.pmem(0), ss.v);
 }
 ///
 /// ForthVM Outer interpreter
