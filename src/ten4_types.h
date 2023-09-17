@@ -17,6 +17,7 @@
 #else  // T4_VERBOSE
 #define DEBUG(...)
 #endif // T4_VERBOSE
+
 #if T4_MMU_DEBUG
 #define WARN(...)           printf(__VA_ARGS__)
 #define OPN(...)            static const char *opn[] = { __VA_ARGS__ }
@@ -24,12 +25,14 @@
 #define WARN(...)
 #define OPN(...)
 #endif // T4_MMU_DEBUG
+
 #define ERROR(...)          printf(__VA_ARGS__)
 #define NA(msg)             ({ ERROR("method not supported: %s\n", msg); })
 ///@}
 ///@name CUDA support macros
 ///@{
-#if defined(__CUDACC__)
+#if defined(__CUDACC__)     // vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
+
 #include <cuda.h>
 #include <cooperative_groups.h>
 #define __GPU__             __device__
@@ -59,13 +62,16 @@
 
 namespace cg = cooperative_groups;
 #define K_RUN(...)         GPU_ERR(cudaLaunchCooperativeKernel(__VA_ARGS__))
-#else  // defined(__CUDACC__)
+
+#else  // defined(__CUDACC__)  ===============================================
+
 #define __GPU__
 #define __HOST__
 #define __KERN__
 #define __INLINE__          inline
 #define ASSERT(X)           assert(x)
-#endif // defined(__CUDACC__)
+
+#endif // defined(__CUDACC__)  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 #define H2D                 cudaMemcpyHostToDevice
 #define D2H                 cudaMemcpyDeviceToHost
@@ -126,19 +132,15 @@ typedef F64         DU2;                    /**< double preciesion data */
 ///
 /// data conversion macros
 ///
-#define INT(f)      (static_cast<int>(floor((f)+DU_EPS))) /**< float to int   */
-#define I2D(i)      (static_cast<DU>(i))                  /**< int to float   */
+#define INT(f)      (__float2int_rn(f))     /**< float to int   */
+#define I2D(i)      (static_cast<DU>(i))    /**< int to float   */
 ///
 /// object classification macros
 ///
-#if     T4_ENABLE_OBJ
 #define T4_OBJ_FLAG 0x00000001                            /**< obj flag       */
 #define DU2X(v)     (*(U32*)&(v))                         /**< to U32 ptr     */
-#define SCALAR(v)   ((DU2X(v) &= ~T4_OBJ_FLAG), (v))      /**< clear obj flag */
 #define IS_OBJ(v)   (DU2X(v) & T4_OBJ_FLAG)               /**< if is an obj   */
-#else  // T4_ENABLE_OBJ
-#define IS_OBJ(v)   (0)
-#endif // T4_ENABLE_OBJ
+#define SCALAR(v)   ((DU2X(v) &= ~T4_OBJ_FLAG), (v))      /**< clear obj flag */
 ///@}
 ///
 /// colon word compiler
