@@ -16,18 +16,15 @@
 ///
 ///@name functor implementation
 ///@{
-struct fop {  __GPU__  virtual void operator()() = 0; };  ///< functor virtual class
-template<typename F>        ///< template functor class
+struct fop { __GPU__ virtual void operator()() = 0; }; ///< functor virtual class
+template<typename F>          ///< template functor class
 struct functor : fop {
-    union {
-        F   op;             ///< reference to lambda
-        U64 *fp;            ///< function pointer for debugging print
-    };
-    __GPU__ functor(const F &f) : op(f) {
-        MMU_DEBUG("functor(f=%p)\n", fp);
+    F op;
+    __GPU__ functor(const F f) : op(f) {   ///< f is a lambda pointer
+        MMU_DEBUG("F(%p) => ", this);
     }
     __GPU__ __INLINE__ void operator()() {
-        MMU_DEBUG(">> op=%p\n", fp);
+        MMU_DEBUG("F(%p).op() =>", this);
         op();
     }
 };
@@ -40,7 +37,7 @@ struct Code : public Managed {
     const char *name = 0;   ///< name field
     union {
         FPTR xt = 0;        ///< lambda pointer (CUDA 49-bit)
-        U64 *fp;
+        U64  *fp;
         struct {
             U16 def:  1;    ///< colon defined word
             U16 immd: 1;    ///< immediate flag
@@ -48,17 +45,19 @@ struct Code : public Managed {
             IU  pfa;        ///< offset to pmem space
         };
     };
-    template<typename F>    ///< template function for lambda
-    __GPU__ Code(const char *n, const F &f, bool im=false) : name(n), xt(new functor<F>(f)) {
-        MMU_DEBUG("Code(...) %p: %s\n", fp, name);
+    template <typename F>
+    __GPU__ Code(const char *n, F f, int im) : name(n), xt(new functor<F>(f)) {
         immd = im ? 1 : 0;
-    }
-    __GPU__ Code(const Code &c) : name(c.name), xt(c.xt) {  ///> called by Vector::push(T*)
-        MMU_DEBUG("Code(Code) %p: %s\n", fp, name);
+        MMU_DEBUG("%cCode(name=%p, xt=%p) %s\n", im ? '*' : ' ', name, xt, n);
     }
 };
-#define CODE(s, g)    { s, [this] __GPU__ (){ g; }}
-#define IMMD(s, g)    { s, [this] __GPU__ (){ g; }, true }
+#define ADD_WORD(s, g, im) {                          \
+    Code c={ s, [this] __GPU__ (){ g; }, im };        \
+    mmu << &c;                                        \
+    }
+#define CODE(s, g) ADD_WORD(s, g, false)
+#define IMMD(s, g) ADD_WORD(s, g, true)
+
 ///
 /// Forth memory manager
 ///
@@ -84,7 +83,6 @@ public:
     __GPU__ __INLINE__ Code *last()      { return &_dict[_didx - 1]; }              ///< last dictionary word
     __GPU__ __INLINE__ DU*  vss(int vid) { return &_vss[vid * T4_SS_SZ]; }          ///< data stack (per VM id)
     __GPU__ __INLINE__ U8*  mem(IU pi)   { return &_pmem[pi]; }                     ///< base of heap space
-
     __GPU__ int  find(const char *s, bool compile, bool ucase);      ///> implemented in .cu
     ///
     /// compiler methods

@@ -13,7 +13,7 @@ MMU::MMU() {
     cudaMallocManaged(&_pmem, sizeof(U8) * T4_PMEM_SZ);
     cudaMallocManaged(&_vss,  sizeof(DU) * T4_SS_SZ * VM_MIN_COUNT);
     GPU_CHK();
-    MMU_DEBUG("H: dict=%p, mem=%p, vss=%p\n", _dict, _pmem, _vss);
+    MMU_DEBUG("Host: dict=%p, mem=%p, vss=%p\n", _dict, _pmem, _vss);
 }
 __HOST__
 MMU::~MMU() {
