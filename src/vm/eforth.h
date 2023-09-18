@@ -18,8 +18,8 @@
 ///
 class ForthVM : public VM {
 public:
-    __GPU__ ForthVM(Istream *istr, Ostream *ostr, MMU *mmu0)
-        : VM(istr, ostr, mmu0), dict(mmu0->dict()) {
+    __GPU__ ForthVM(int id, Istream *istr, Ostream *ostr, MMU *mmu0)
+        : VM(id, istr, ostr, mmu0), dict(mmu0->dict()) {
         VLOG1("\\  ::ForthVM[%d](dict=%p) sizeof(Code)=%ld\n", vid, dict, sizeof(Code));
     }
     __GPU__ virtual void init();            ///< override VM

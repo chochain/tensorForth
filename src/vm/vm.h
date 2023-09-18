@@ -27,7 +27,7 @@ public:
     DU        top    = DU0;            ///< cached top of stack
     Vector<DU, 0> ss;                  ///< parameter stack (setup in ten4.cu)
 
-    __GPU__ VM(Istream *istr, Ostream *ostr, MMU *mmu);
+    __GPU__ VM(int id, Istream *istr, Ostream *ostr, MMU *mmu);
 
     __GPU__ virtual void init() { VLOG1("VM::init ok\n"); }
     __GPU__ virtual void outer();
