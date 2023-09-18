@@ -4,6 +4,7 @@
  *
  * <pre>Copyright (C) 2022- GreenII, this file is distributed under BSD 3-Clause License.</pre>
  */
+#if (T4_ENABLE_OBJ && T4_ENABLE_NN)
 #include "mnist_vu.h"
 ///
 /// MNIST GUI texture builder
@@ -33,6 +34,7 @@ MnistVu::init_host_tex() {
     printf("\n");
     return 0;
 }
+#endif // (T4_ENABLE_OBJ && T4_ENABLE_NN)
 
 
 
