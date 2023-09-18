@@ -8,38 +8,34 @@
 #define TEN4_SRC_MMU_H
 #include <curand_kernel.h>
 #include "vector.h"
-#include "tensor.h"
-#include "tlsf.h"
+
+//#include "tensor.h"
+//#include "tlsf.h"
 ///
-/// CUDA functor (device only) implementation
-/// Note: nvstd::function is too heavy (at sizeof(Code)=56-byte)
+/// CUDA functor (device only)
+/// Note: nvstd::function is generic and smaller (at 56-byte)
 ///
-///@name light-weight functor implementation
-///@brief sizeof(Code)=16
+///@name light-weight functor object implementation
+///@brief functor object (80-byte allocated by CUDA)
 ///@{
-struct fop {  __GPU__  virtual void operator()() = 0; };  ///< functor virtual class
+struct fop { __GPU__ virtual void operator()() = 0; };  ///< functor virtual class
 template<typename F>                         ///< template functor class
 struct functor : fop {
     F op;                                    ///< reference to lambda
-    __GPU__ functor(const F &f) : op(f) {    ///< constructor
-        WARN("functor(%p) => ", this);
+    __GPU__ functor(const F f) : op(f) {     ///< constructor
+        WARN("F(%p) => ", this);
     }
-    __GPU__ functor &operator=(const F &f) {
-        WARN("op=%p", this);
-        op = f;
-        return *this;
-    }
-    __GPU__ void operator()() {              ///< lambda invoke
-        WARN("op=%p => ", this);
+    __GPU__ __INLINE__ void operator()() {   ///< lambda invoke
+        WARN("F(%p).op() => ", this);
         op();
     }
 };
-typedef fop* FPTR;          ///< lambda function pointer
 /// @}
+typedef fop* FPTR;          ///< lambda function pointer
 ///
 /// Code class for dictionary word
 ///
-#define CODE_ATTR_FLAG      0x7
+#define CODE_ATTR_FLAG      0x3              /**< nVidia func 4-byte aligned */
 struct Code : public Managed {
     const char *name = 0;   ///< name field
     union {
@@ -48,36 +44,42 @@ struct Code : public Managed {
         struct {
             U16 colon: 1;   ///< colon defined word
             U16 immd:  1;   ///< immediate flag
-            U16 adiff: 1;   ///< TODO: autograd flag
-            U16 xx1:   1;   ///< reserved
-            U16 didx:  12;  ///< dictionary index (reverse link)
+            U16 xx1:   1;   ///< reserved 1
+            U16 xx2:   1;   ///< reserved 2
+            U16 didx:  12;  ///< dictionary index (4K links)
             IU  pfa;        ///< parameter field offset in pmem space
             IU  nfa;        ///< name field offset to pmem space
-            U16 xx2;        ///< reserved
+            U16 xx3;        ///< reserved
         };
     };
     template<typename F>    ///< template function for lambda
-    __GPU__ Code(const char *n, const F &f, bool im=false) : name(n), xt(new functor<F>(f)) {
-        WARN("Code(...) %p %s\n", xt, name);
+    __GPU__ Code(const char *n, F f, bool im) : name(n), xt(new functor<F>(f)) {
         immd = im ? 1 : 0;
+        WARN("%cCode(name=%p, xt=%p) %s\n", im ? '*' : ' ', name, xt, n);
     }
-    /*
-    __GPU__ Code(const Code &c) : name(c.name), xt(c.xt) {
+    /* Note: no update (construct only)
+    __GPU__ Code(const Code &c) : name(c.name), xt(c.xt), u(c.u) {
         WARN("Code(&c) %p %s\n", xt, name);
     }
-    */
     __GPU__ Code &operator=(const Code &c) {  ///> called by Vector::push(T*)
         name = c.name;
         xt   = c.xt;
-        WARN("Code()= %p %s\n", xt, name);
+        u    = c.u;
+        WARN("Code= %p %s\n", xt, name);
         return *this;
     }
+    */
 };
 ///
 /// macros for microcode construction
 ///
-#define CODE(s, g)    { s, [this] __GPU__ (){ g; }}
-#define IMMD(s, g)    { s, [this] __GPU__ (){ g; }, true }
+#define ADD_CODE(s, g, im) {                     \
+    Code c = { s, [this] __GPU__ (){ g; }, im }; \
+    mmu.add(&c);                                 \
+}
+#define CODE(s, g) ADD_CODE(s, g, false)
+#define IMMD(s, g) ADD_CODE(s, g, true)
+
 typedef enum {
     UNIFORM = 0,
     NORMAL
@@ -103,10 +105,12 @@ class MMU : public Managed {
     Code           *_dict;          ///< dictionary block
     U8             *_pmem;          ///< parameter memory block
     DU             *_vmss;          ///< VM data stack block
-    U8             *_obj;           ///< object storage block
-    DU             *_mark;          ///< list for tensors that marked free
     curandState    *_seed;          ///< for random number generator
+    DU             *_mark = 0;      ///< list for tensors that marked free
+    U8             *_obj  = 0;      ///< object storage block
+#if T4_ENABLE_OBJ    
     TLSF           _ostore;         ///< object storage manager
+#endif // T4_ENABLE_OBJ    
 
 public:
     __HOST__ MMU(int khz, int verbose=0);
@@ -175,11 +179,21 @@ public:
     ///
     /// tensor life-cycle methods
     ///
-#if   !T4_ENABLE_OBJ
-    __GPU__  __INLINE__ void sweep()         {}             ///< holder for no object
-    __GPU__  __INLINE__ void drop(DU d)      {}             ///< place holder
-    __GPU__  __INLINE__ DU   dup(DU d)       { return d; }  ///< place holder
-#else // T4_ENABLE_OBJ
+#if T4_ENABLE_OBJ
+    __HOST__ int  to_s(std::ostream &fout, DU s);                ///< dump object from descriptor
+    __HOST__ int  to_s(std::ostream &fout, Tensor &t);           ///< dump object on stack
+    __BOTH__ T4Base &du2obj(DU d) {
+        U32    *off = (U32*)&d;
+        T4Base *t   = (T4Base*)(_obj + (*off & ~T4_OBJ_FLAG));
+        return *t;
+    }
+    __BOTH__ DU obj2du(T4Base &t) {
+        U32 o = ((U32)((U8*)&t - _obj)) | T4_OBJ_FLAG;
+        return *(DU*)&o;
+    }
+    __BOTH__ int ref_inc(DU d) { return du2obj(d).ref_inc(); }
+    __BOTH__ int ref_dec(DU d) { return du2obj(d).ref_dec(); }
+    
     __GPU__  void   mark_free(T4Base &t);                   ///< mark a tensor free
     __GPU__  void   mark_free(DU v);                        ///< mark a tensor free
     __GPU__  void   sweep();                                ///< free marked tensor
@@ -199,16 +213,15 @@ public:
     ///
     /// short hands for eforth tensor ucodes (for DU <-> Object conversion)
     ///
-    __BOTH__ T4Base &du2obj(DU d);
-    __BOTH__ DU     obj2du(T4Base &t);
-    __BOTH__ int    ref_inc(DU d);
-    __BOTH__ int    ref_dec(DU d);
-    
     __GPU__  DU     dup(DU d);
     __GPU__  DU     view(DU d);
     __GPU__  DU     copy(DU d);
     __GPU__  void   drop(DU d);
     __GPU__  DU     rand(DU d, t4_rand_opt n);             ///< randomize a tensor
+#else  // T4_ENABLE_OBJ
+    __GPU__  __INLINE__ void sweep()    {}                  ///< holder for no object
+    __GPU__  __INLINE__ void drop(DU d) {}                  ///< place holder
+    __GPU__  __INLINE__ DU   dup(DU d)  { return d; }       ///< place holder
 #endif // T4_ENABLE_OBJ
     ///
     /// debugging methods (implemented in .cu)
@@ -218,8 +231,6 @@ public:
     __BOTH__ __INLINE__ int  trace()        { return _trace; }
     __BOTH__ __INLINE__ void trace(int lvl) { _trace = lvl;  }
     
-    __HOST__ int  to_s(std::ostream &fout, Tensor &t);           ///< dump object on stack
-    __HOST__ int  to_s(std::ostream &fout, DU s);                ///< dump object from descriptor
     __HOST__ int  to_s(std::ostream &fout, IU w);                ///< dump word 
     __HOST__ void words(std::ostream &fout);                     ///< display dictionary
     __HOST__ void see(std::ostream &fout, U8 *p, int dp=1);      ///< disassemble a word
