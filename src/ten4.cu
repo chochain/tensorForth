@@ -14,9 +14,6 @@
 #include <signal.h>
 
 using namespace std;
-//#include "ldr/loader.h"      // default dataset loader
-//#include "vm/netvm.h"        // VM + ForthVM + TensorVM + NetVM
-#include "eforth.h"
 #include "ten4.h"            // wrapper
 
 __GPU__ VM *vm_pool[VM_MIN_COUNT];      ///< polymorphic VM pool

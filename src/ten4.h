@@ -6,6 +6,15 @@
 #define TEN4_SRC_TEN4_H_
 #include "vm/vm.h"
 
+#if T4_ENABLE_NN
+#include "ldr/loader.h"      // default dataset loader
+#include "vm/netvm.h"        // neural network set,
+#elif T4_ENABLE_OBJ
+#include "vm/tenvm.h"        // tensor/matrix set, or
+#else
+#include "vm/eforth.h"       // just eForth
+#endif
+
 #define WARP(t)  ((((t) + 32)>>5) << 5)   /** calculate warp thread count */
 #define VMST_SZ  (sizeof(vm_state) * VM_MIN_COUNT)
 #define VMSS_SZ  (sizeof(DU) * T4_SS_SZ * VM_MIN_COUNT)
