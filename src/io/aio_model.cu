@@ -7,9 +7,6 @@
 #include <cstdio>        // printf
 #include <iostream>      // cin, cout
 #include <iomanip>       // setbase, setprecision
-#include "dataset.h"     // in ../mmu
-#include "model.h"       // in ../mmu
-#include "loader.h"      // in ../ldr (include corpus.h)
 #include "aio.h"
 ///
 /// AIO takes managed memory blocks as input and output buffers
@@ -20,6 +17,10 @@ using namespace std;
 /// NN Model IO private methods
 ///
 #if T4_ENABLE_OBJ
+#include "dataset.h"     // in ../mmu
+#include "model.h"       // in ../mmu
+#include "loader.h"      // in ../ldr (include corpus.h)
+
 __HOST__ void
 AIO::_print_model(std::ostream &fout, Model &m) {
     auto tinfo = [this, &fout](Tensor &t, int i, int fn) { ///> layer info
@@ -295,4 +296,5 @@ AIO::_nload_param(std::istream &fin, Model &m) {
     }
     return 0;
 }
+
 #endif // T4_ENABLE_OBJ

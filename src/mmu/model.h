@@ -8,6 +8,8 @@
 #define TEN4_SRC_MODEL_H
 #include "mmu.h"         // in ../mmu
 
+#if T4_ENABLE_OBJ
+
 typedef enum {
     UP_NEAREST = 0,
     UP_LINEAR,
@@ -50,32 +52,13 @@ public:
     /// @}
     /// @name layer access methods
     /// @{
-    __BOTH__ __INLINE__ Tensor &operator[](int i) {
-        /// * model.data[0] = store
-        /// so 1st layer starts from model.data[1]
-        return (Tensor&)_mmu->du2obj(data[(i < 0) ? numel + i : i]);
-    }
-    __BOTH__ __INLINE__ int  slots() { return _store->numel; }
-    __GPU__  __INLINE__ void reset(MMU *mmu, Tensor &store) {
-        init(0, T4_MODEL, 0);                   /// * T4Base attributes
-        _mmu   = mmu;
-        _store = &store;
-        data   = store.data;                    /// * cached entries
-        train  = 1;
-        npush(store);                           /// * model.data[0] = store
-    }
-    __GPU__ __INLINE__ Model &npush(DU v) {
-        data[numel++] = v;
-        U32 tsz = _store->numel;                ///< current allocated for layers
-        if (tsz <= numel) {                     /// * resize if too many layers
-            _mmu->resize(*_store, tsz + T4_NET_SZ);
-            data = _store->data;                /// * reset storage cached pointer
-        }
-        return *this;
-    }
-    __GPU__ __INLINE__ Model  &npush(Tensor &t) { return npush(_mmu->obj2du(t)); }
-    __GPU__ __INLINE__ DU     npop() { return data[--numel]; }
-    __GPU__ __INLINE__ int    batch_size() { return (*this)[1].N(); }
+    __BOTH__ Tensor &operator[](int i);
+    __BOTH__ int    slots();
+    __GPU__  void   reset(MMU *mmu, Tensor &store);
+    __GPU__  Model  &npush(DU v);
+    __GPU__  Model  &npush(Tensor &t);
+    __GPU__  DU     npop();
+    __GPU__  int    batch_size();
     /// @}
     /// @name main NN methods
     /// @{
@@ -108,9 +91,9 @@ public:
 private:
     /// @name internal tensor constructors
     /// @{
-    __GPU__ __INLINE__ Tensor &_vec(U16 sz)                            { return _mmu->tensor(sz); }
-    __GPU__ __INLINE__ Tensor &_t4(U16 n, U16 h)                       { return _mmu->tensor(n, h, 1, 1); }
-    __GPU__ __INLINE__ Tensor &_t4(U16 n, U16 h, U16 w, U16 c)         { return _mmu->tensor(n, h, w, c); }
+    __GPU__ __INLINE__ Tensor &_vec(U16 sz);
+    __GPU__ __INLINE__ Tensor &_t4(U16 n, U16 h);
+    __GPU__ __INLINE__ Tensor &_t4(U16 n, U16 h, U16 w, U16 c);
     /// @}
     /// @name Convolution and Linear initializer
     /// @{
@@ -159,4 +142,6 @@ private:
     __GPU__ void   _dump_dw(Tensor &dw, bool full=true);
     /// @}
 };
-#endif // TEN4_SRC_MODEL_H
+
+#endif // T4_ENABLE_OBJ
+#endif // define(TEN4_SRC_MODEL_H) && T4_ENABLE_OBJ

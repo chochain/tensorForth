@@ -4,10 +4,11 @@
  *
  * <pre>Copyright (C) 2022- GreenII, this file is distributed under BSD 3-Clause License.</pre>
  */
-#ifndef TEN4_SRC_TENSOR_H_
-#define TEN4_SRC_TENSOR_H_
+#if !defined(TEN4_SRC_TENSOR_H) && T4_ENABLE_OBJ
+#define TEN4_SRC_TENSOR_H
 #include "t4base.h"         // in ../mmu
 #include "util.h"           // in ../mmu
+
 //===============================================================================
 /// tensorForth tensor class
 /// @brief - Tensor at rank=4, row-major, F32 only storage
@@ -212,4 +213,5 @@ struct Tensor : public T4Base {
     __GPU__ __INLINE__ bool   operator!=(Tensor &t) { return (intptr_t)this!=(intptr_t)&t; }
     __GPU__ __INLINE__ bool   operator==(Tensor &t) { return (intptr_t)this==(intptr_t)&t; }
 };
-#endif // TEN4_SRC_TENSOR_H_
+
+#endif // !defined(TEN4_SRC_TENSOR_H) && T4_ENABLE_OBJ

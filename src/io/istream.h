@@ -6,6 +6,8 @@
  */
 #ifndef TEN4_SRC_ISTREAM_H_
 #define TEN4_SRC_ISTREAM_H_
+#include "ten4_types.h"
+#include "util.h"
 #include "tensor.h"             /// in ../mmu include util.h
 ///
 /// istream class

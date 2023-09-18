@@ -6,6 +6,8 @@
  */
 #include "tensor.h"
 
+#if T4_ENABLE_OBJ
+
 ///=======================================================================
 /// static methods
 ///
@@ -847,3 +849,5 @@ Tensor::show(bool dump) {
     }
     printf("\n");
 }
+
+#endif // T4_ENABLE_OBJ

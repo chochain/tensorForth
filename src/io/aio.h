@@ -36,7 +36,10 @@ private:
     ///
     /// object print methods
     ///
-#if T4_ENABLE_OBJ
+#if !T4_ENABLE_OBJ // vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
+    __HOST__ void _print_obj(std::ostream &fout, DU v) {}
+
+#else // !T4_ENABLE_OBJ =======================================================
     __HOST__ void _print_obj(std::ostream &fout, DU v);
     __HOST__ void _print_vec(std::ostream &fout, DU *vd, int W, int C);
     __HOST__ void _print_mat(std::ostream &fout, DU *md, U16 *shape);
@@ -61,8 +64,8 @@ private:
     __HOST__ int  _nsave_param(std::ostream &fout, Model &m);
     __HOST__ int  _nload_model(std::istream &fin,  Model &m, char *fname);
     __HOST__ int  _nload_param(std::istream &fin,  Model &m);
-#else  // T4_ENABLE_OBJ
-    __HOST__ void _print_obj(std::ostream &fout, DU v) {}
-#endif // T4_ENABLE_OBJ
+    
+#endif // !T4_ENABLE_OBJ ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 };
+
 #endif // TEN4_SRC_AIO_H_
