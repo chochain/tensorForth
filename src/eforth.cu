@@ -82,7 +82,7 @@ ForthVM::nest() {
 ///
 __GPU__ __INLINE__ void ForthVM::add_w(IU w)  {
 	add_iu(w);
-	T4_DEBUG("add_w(%d) => %s\n", w, dict[w].name);
+	MMU_DEBUG("add_w(%d) => %s\n", w, dict[w].name);
 }
 __GPU__ __INLINE__ void ForthVM::add_iu(IU i) { mmu.add((U8*)&i, sizeof(IU)); }
 __GPU__ __INLINE__ void ForthVM::add_du(DU d) { mmu.add((U8*)&d, sizeof(DU)); }
@@ -360,17 +360,17 @@ ForthVM::init() {
 __GPU__ void
 ForthVM::outer() {
     while (fin >> idiom) {                   /// loop throught tib
-        T4_DEBUG("%d>> %-10s => ", blockIdx.x, idiom);
+        MMU_DEBUG("%d>> %-10s => ", blockIdx.x, idiom);
         int w = FIND(idiom);                 /// * search through dictionary
         if (w>=0) {                          /// * word found?
-            T4_DEBUG("%4x:%p %s %d ",
+            MMU_DEBUG("%4x:%p %s %d ",
             	dict[w].def ? dict[w].pfa : 0,
             	dict[w].xt, dict[w].name, w);
             if (compile && !dict[w].immd) {  /// * in compile mode?
                 add_w((IU)w);                /// * add found word to new colon word
             }
             else {
-            	T4_DEBUG("=> call(%s)\n", dict[w].name);
+            	MMU_DEBUG("=> call(%s)\n", dict[w].name);
 	            call((IU)w);                 /// * execute forth word
             }
             continue;
@@ -386,13 +386,13 @@ ForthVM::outer() {
             break;                           ///> skip the entire input buffer
         }
         // is a number
-        T4_DEBUG("%f\n", n);
+        MMU_DEBUG("%f\n", n);
         if (compile) {                       /// * add literal when in compile mode
             add_w(DOLIT);                    ///> dovar (+parameter field)
             add_du(n);                       ///> store literal
         }
         else {
-            T4_DEBUG("ss.push(%08x)\n", *(U32*)&n);
+            MMU_DEBUG("ss.push(%08x)\n", *(U32*)&n);
         	PUSH(n);                         ///> or, add value onto data stack
         }
     }
