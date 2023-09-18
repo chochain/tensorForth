@@ -4,7 +4,7 @@
  *
  * <pre>Copyright (C) 2022- GreenII, this file is distributed under BSD 3-Clause License.</pre>
  */
-#ifndef TEN4_SRC_TENVM_H
+#if !defined(TEN4_SRC_TENVM_H) && T4_ENABLE_OBJ
 #define TEN4_SRC_TENVM_H
 #include "eforth.h"                         /// extending ForthVM
 
@@ -21,15 +21,11 @@ typedef enum {
 
 class TensorVM : public ForthVM {
 public:
-#if   !T4_ENABLE_OBJ
-    __GPU__ TensorVM(Istream *istr, Ostream *ostr, MMU *mmu0) : ForthVM(istr, ostr, mmu0) {}
-    __GPU__ virtual void init() { ForthVM::init(); }
-    
-#else // T4_ENABLE_OBJ
-    __GPU__ TensorVM(Istream *istr, Ostream *ostr, MMU *mmu0) : ForthVM(istr, ostr, mmu0) {
-        VLOG1("\\  ::TensorVM[%d](...) sizeof(Tensor)=%ld\n", threadIdx.x, sizeof(Tensor));
+    __GPU__ TensorVM(int id, Istream *istr, Ostream *ostr, MMU *mmu0)
+        : ForthVM(id, istr, ostr, mmu0) {
+        VLOG1("\\  ::TensorVM[%d](...) sizeof(Tensor)=%ld\n", id, sizeof(Tensor));
     }
-    __GPU__ virtual void init();            ///< override ForthVM
+    __GPU__ virtual void init();            ///< override ForthVM.init()
     
 protected:
     int    ten_lvl = 0;                     ///< tensor input level
@@ -65,6 +61,7 @@ private:
     /// tensor IO
     ///
     __GPU__ void   _pickle(bool save);                    ///< save/load a tensor to/from a file
-#endif // T4_ENABLE_OBJ
+
 };
-#endif // TEN4_SRC_TENVM_H
+
+#endif // !defined(TEN4_SRC_TENVM_H) && T4_ENABLE_OBJ

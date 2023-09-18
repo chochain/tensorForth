@@ -4,7 +4,7 @@
  *
  * <pre>Copyright (C) 2022- GreenII, this file is distributed under BSD 3-Clause License.</pre>
  */
-#ifndef TEN4_SRC_NETVM_H
+#if !defined(TEN4_SRC_NETVM_H) && T4_ENABLE_OBJ
 #define TEN4_SRC_NETVM_H
 #include "model.h"                // in ../mmu
 #include "tenvm.h"                // extending TensorVM
@@ -19,25 +19,25 @@
 
 class NetVM : public TensorVM {
 public:
-#if   !T4_ENABLE_OBJ
-    __GPU__ NetVM(Istream *istr, Ostream *ostr, MMU *mmu0) : TensorVM(istr, ostr, mmu0) {}
-    __GPU__ virtual void init() { TensorVM::init(); }
-
-#else // T4_ENABLE_OBJ
+    __GPU__ NetVM(int id, Istream *istr, Ostream *ostr, MMU *mmu0)
+        : TensorVM(id, istr, ostr, mmu0) {
+        VLOG1("\\  ::NetVM[%d](...) sizeof(Model)=%d\n", id, (int)sizeof(Model));
+    }
     ///
     /// @name Class Object Constructor
     /// @{
-    __GPU__ NetVM(Istream *istr, Ostream *ostr, MMU *mmu0) : TensorVM(istr, ostr, mmu0) {
-        VLOG1("\\  ::NetVM[%d](...) sizeof(Model)=%d\n", vid, (int)sizeof(Model));
-    }
-    __GPU__ virtual void init() final; ///< override TensorVM, TODO: does not work without 'final', why?
+    __GPU__ virtual void init() final;           ///< override TensorVM, TODO: does not work without 'final', why?
     
-    __GPU__ void nnop(t4_layer op);
     __GPU__ void predict(Tensor &I, Tensor &P);  ///< predict result
 
 private:
+    /// @name overwrite ops
+    /// @{
+    __GPU__ void _donext();
+    /// @}
     /// @name model and dataset ops
     /// @{
+    __GPU__ void _nnop(t4_layer op);
     __GPU__ void _pickle(bool save);             ///< override TenVM::_pickle
     __GPU__ void _fetch(DU d, bool rewind);      ///< fetch or rewind dataset
     __GPU__ void _parm(int n);                   ///< fetch tensor parameters n=0:W, 1:B, 2:dW, 3:dB
@@ -47,6 +47,5 @@ private:
     __GPU__ void _conv(U16 k=3);                 ///< init convolution layer
     __GPU__ void _loss(t4_loss op);              ///< calculate loss
     /// @}
-#endif // T4_ENABLE_OBJ
 };
-#endif // TEN4_SRC_NETVM_H
+#endif // !defined(TEN4_SRC_NETVM_H) && T4_ENABLE_OBJ
