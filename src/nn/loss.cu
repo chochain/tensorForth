@@ -4,10 +4,10 @@
  *
  * <pre>Copyright (C) 2022- GreenII, this file is distributed under BSD 3-Clause License.</pre>
  */
+#if (T4_ENABLE_OBJ && T4_ENABLE_NN)
 #include "model.h"
 #include "dataset.h"
 
-#if T4_ENABLE_OBJ
 __GPU__ Tensor&
 Model::onehot() {
     if (_hot) return *_hot;
@@ -82,5 +82,5 @@ Model::loss(t4_loss op, Tensor &tgt) {              ///< loss against target vec
     
     return sum;
 }
-#endif  // T4_ENABLE_OBJ
+#endif  // (T4_ENABLE_OBJ && T4_ENABLE_NN)
 //==========================================================================

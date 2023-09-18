@@ -4,9 +4,9 @@
  *
  * <pre>Copyright (C) 2022- GreenII, this file is distributed under BSD 3-Clause License.</pre>
  */
+#if (T4_ENABLE_OBJ && T4_ENABLE_NN)
 #include "model.h"
 
-#if T4_ENABLE_OBJ
 ///
 /// convolution filter
 /// TODO: stride, dilation, [C1]NCHW filter
@@ -465,5 +465,5 @@ Model::_fupsample(Tensor &in, Tensor &out) {
     //_dump(out.data, out.H(), out.W(), out.C());
     return 0;
 }
-#endif  // T4_ENABLE_OBJ
+#endif  // (T4_ENABLE_OBJ && T4_ENABLE_NN)
 //==========================================================================

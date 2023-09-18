@@ -4,10 +4,10 @@
  *
  * <pre>Copyright (C) 2022- GreenII, this file is distributed under BSD 3-Clause License.</pre>
  */
+#if (T4_ENABLE_OBJ && T4_ENABLE_NN)
 #include "model.h"
 #include "dataset.h"
 
-#if T4_ENABLE_OBJ
 __KERN__ void k_sgd(
     DU *G, DU *DG, DU *M,                    ///< w, dw, and momemtum tensors
     DU lr, DU b, int N, int numel            ///< learn rate, beta(momemtum)
@@ -160,5 +160,5 @@ Model::adam(DU lr, DU b1, DU b2) {
     };
     return gradient("adam", update, parm, OPTI_ADAM);
 }
-#endif  // T4_ENABLE_OBJ
+#endif  // (T4_ENABLE_OBJ && T4_ENABLE_NN)
 //==========================================================================

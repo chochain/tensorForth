@@ -4,10 +4,10 @@
  *
  * <pre>Copyright (C) 2022- GreenII, this file is distributed under BSD 3-Clause License.</pre>
  */
+#if (T4_ENABLE_OBJ && T4_ENABLE_NN)
 #include "model.h"
 #include "dataset.h"
 
-#if T4_ENABLE_OBJ
 __GPU__ void
 Model::_dump_dbdf(Tensor &db, Tensor &df) {
     _dump_db(db);
@@ -56,5 +56,5 @@ Model::_dump_dw(Tensor &dw, bool full) {
     }
     if (H > 1) printf("%sΣΣ=%6.3f", full ? "\n\t" : " ", hsum);
 }
-#endif  // T4_ENABLE_OBJ
+#endif  // (T4_ENABLE_OBJ && T4_ENABLE_NN)
 //==========================================================================
