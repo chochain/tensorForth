@@ -4,6 +4,7 @@
  *
  * <pre>Copyright (C) 2022- GreenII, this file is distributed under BSD 3-Clause License.</pre>
  */
+#if (T4_ENABLE_OBJ && T4_ENABLE_NN)
 #include "mnist.h"
 
 #define LOG_COUNT 1000
@@ -140,3 +141,5 @@ int Mnist::_get_images(int bsz, int bid) {
 
     return cnt;
 }
+
+#endif // (T4_ENABLE_OBJ && T4_ENABLE_NN)

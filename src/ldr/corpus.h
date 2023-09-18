@@ -4,7 +4,7 @@
  *
  * <pre>Copyright (C) 2022- GreenII, this file is distributed under BSD 3-Clause License.</pre>
  */
-#ifndef T4_CORPUS_H
+#if !defined(T4_CORPUS_H) && (T4_ENABLE_OBJ && T4_ENABLE_NN)
 #define T4_CORPUS_H
 
 #define DS_LOG1(...)         if (trace > 0) printf(__VA_ARGS__)
@@ -58,5 +58,6 @@ struct Corpus {
     virtual Corpus *rewind() { eof = 0; return this; }
     virtual U8 *operator [](int idx){ return &data[idx * dsize()]; }  ///< data point
 };
-#endif // T4_CORPUS_H
+
+#endif // !defined(T4_CORPUS_H) && (T4_ENABLE_OBJ && T4_ENABLE_NN)
 

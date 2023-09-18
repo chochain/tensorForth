@@ -4,6 +4,7 @@
  *
  * <pre>Copyright (C) 2022- GreenII, this file is distributed under BSD 3-Clause License.</pre>
  */
+#if (T4_ENABLE_OBJ && T4_ENABLE_NN)
 #include <map>
 #include "mnist.h"
 #include "loader.h"
@@ -42,5 +43,7 @@ Corpus *Loader::get(int dset, const char *ds_name) {
 
     return ds_map[dset] = cpi->second;
 }
+
+#endif // (T4_ENABLE_OBJ && T4_ENABLE_NN)
 
 

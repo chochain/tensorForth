@@ -4,7 +4,7 @@
  *
  * <pre>Copyright (C) 2022- GreenII, this file is distributed under BSD 3-Clause License.</pre>
  */
-#ifndef TEN4_SRC_LDR_MNIST_H
+#if !defined(TEN4_SRC_LDR_MNIST_H) && (T4_ENABLE_OBJ && T4_ENABLE_NN)
 #define TEN4_SRC_LDR_MNIST_H
 #include <iostream>
 #include <fstream>            // std::ifstream
@@ -38,5 +38,5 @@ private:
     int _get_labels(int bsz, int bid);
     int _get_images(int bsz, int bid);
 };
-#endif // TEN4_SRC_LDR_MNIST_H
+#endif // !defined(TEN4_SRC_LDR_MNIST_H) && (T4_ENABLE_OBJ && T4_ENABLE_NN)
 
