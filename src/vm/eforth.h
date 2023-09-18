@@ -37,14 +37,15 @@ protected:
     ///
     __GPU__ __INLINE__ DU POP()           { DU n=top; top=ss.pop(); return n; }
     __GPU__ __INLINE__ DU PUSH(DU v)      { ss.push(top); return top = v; }
+#if T4_ENABLE_OBJ    
     __GPU__ __INLINE__ DU PUSH(T4Base &t) { ss.push(top); return top = mmu.obj2du(t); }
+#endif // T4_ENABLE_OBJ
     ///
     /// Forth outer interpreter
     ///
     __GPU__ virtual int resume();           ///< resume suspended work
     __GPU__ virtual int parse(char *str);   ///< parse command string
     __GPU__ virtual int number(char *str);  ///< parse input as number
-    __GPU__ virtual int post();             ///< resume suspended work
     ///
     /// Forth inner interpreter
     ///
