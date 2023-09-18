@@ -1,5 +1,5 @@
-/*!
- * @file - ten4.cu
+/*
+ * @File - ten4.cu
  * @brief - tensorForth value definitions non-optimized
  *
  * <pre>Copyright (C) 2022- GreenII, this file is distributed under BSD 3-Clause License.</pre>
@@ -20,7 +20,7 @@ using namespace std;
 #include "ten4.h"            // wrapper
 
 #define MAJOR_VERSION        "1"
-#define MINOR_VERSION        "0"
+#define MINOR_VERSION        "2"
 
 __GPU__ ForthVM *vm_pool[VM_MIN_COUNT];
 ///
@@ -89,6 +89,7 @@ TensorForth::TensorForth(bool trace) {
 #if T4_VERBOSE
     cout << "initializing dict[" << T4_DICT_SZ << "]"
     	 << ", pmem[" << T4_PMEM_SZ << "]"
+         << ", vss[" << sizeof(DU) * T4_SS_SZ * VM_MIN_COUNT << "]"
 		 << ", sizeof(Code)=" << sizeof(Code) << endl;
 #endif // T4_VERBOSE
 
