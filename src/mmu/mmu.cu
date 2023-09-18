@@ -5,8 +5,10 @@
  * <pre>Copyright (C) 2022- GreenII, this file is distributed under BSD 3-Clause License.</pre>
  */
 #include <iomanip>             // setw, setbase
-#include "model.h"             // in ../nn, include ../mmu/mmu.h
-#include "dataset.h"           // in ../nn
+#include "mmu.h"
+
+//#include "model.h"             // in ../nn, include ../mmu/mmu.h
+//#include "dataset.h"           // in ../nn
 ///
 /// random number generator setup
 /// Note: kept here because curandStates stays in CUDA memory
@@ -39,25 +41,30 @@ __HOST__
 MMU::MMU(int khz, int verbose) : _khz(khz), _trace(verbose) {
     MM_ALLOC(&_dict, sizeof(Code) * T4_DICT_SZ);
     MM_ALLOC(&_pmem, T4_PMEM_SZ);
-    MM_ALLOC(&_obj,  T4_OSTORE_SZ);
-    MM_ALLOC(&_mark, sizeof(DU) * T4_TFREE_SZ);
     MM_ALLOC(&_vmss, sizeof(DU) * T4_SS_SZ * VM_MIN_COUNT);
     MM_ALLOC(&_seed, sizeof(curandState) * T4_RAND_SZ);
-
+    
+#if T4_ENABLE_OBJ    
+    MM_ALLOC(&_mark, sizeof(DU) * T4_TFREE_SZ);
+    MM_ALLOC(&_obj,  T4_OSTORE_SZ);
     _ostore.init(_obj, T4_OSTORE_SZ);
+#endif // T4_ENABLE_OBJ
+    
     k_rand_init<<<1, T4_RAND_SZ>>>(_seed, time(NULL));  /// serialized randomizer
     GPU_CHK();
-    
-    MM_TRACE1("\\  MMU dict=%p, mem=%p, vmss=%p, obj=%p\n", _dict, _pmem, _vmss, _obj);
+    MM_TRACE1(
+        "\\  MMU\n\\\tdict=%p\n\\\tmem =%p\n\\\tvmss=%p"
+        "\n\\\tseed=%p\n\\\tmark=%p\n\\\tobj =%p\n",
+        _dict, _pmem, _vmss, _seed, _mark, _obj);
 }
 __HOST__
 MMU::~MMU() {
     GPU_SYNC();
     MM_TRACE1("\\  MMU releasing CUDA managed memory...\n");
+    if (_obj)  MM_FREE(_obj);
+    if (_mark) MM_FREE(_mark);
     MM_FREE(_seed);
     MM_FREE(_vmss);
-    MM_FREE(_mark);
-    MM_FREE(_obj);
     MM_FREE(_pmem);
     MM_FREE(_dict);
 }
@@ -94,6 +101,7 @@ __GPU__ void
 MMU::status() {
     UFP x0 = ~0;                            ///< base of xt   allocations
     UFP n0 = ~0;                            ///< base of name allocations
+
     Code *c = _dict;
     for (int i=0; i<_didx; i++, c++) {      /// * scan thru for max range
         if ((UFP)c->xt   < x0) x0 = (UFP)c->xt;
@@ -107,12 +115,15 @@ MMU::status() {
             (U32)((UFP)c->name - n0),
             c->name);
     }
-    MM_TRACE1("\\  MMU.stat dict[%d/%d], pmem[%d]=%0.1f%%, tfree[%d/%d]",
+
+    MM_TRACE1("\\  MMU.stat dict[%d/%d], pmem[%d]=%0.1f%%, tfree[%d/%d]\n",
         _didx, T4_DICT_SZ, _midx, 100.0*(_midx/T4_PMEM_SZ), _fidx, T4_TFREE_SZ);
     ///
     /// display object store statistics
     ///
+#if T4_ENABLE_OBJ    
     _ostore.status(_trace);
+#endif // T4_ENABLE_OBJ
 }
 ///
 /// colon - dictionary word compiler
@@ -314,22 +325,6 @@ MMU::random(Tensor &t, t4_rand_opt ntype, DU bias, DU scale) {
 /// short hands for eforth tensor ucodes (for DU <-> Tensor conversion)
 /// TODO: more object types
 ///
-__BOTH__ T4Base&
-MMU::du2obj(DU d) {
-    U32    *off = (U32*)&d;
-    T4Base *t   = (T4Base*)(_obj + (*off & ~T4_OBJ_FLAG));
-    return *t;
-}
-__BOTH__ DU
-MMU::obj2du(T4Base &t) {
-    U32 o = ((U32)((U8*)&t - _obj)) | T4_OBJ_FLAG;
-    return *(DU*)&o;
-}
-__BOTH__ int
-MMU::ref_inc(DU d) { return du2obj(d).ref_inc(); }
-__BOTH__ int
-MMU::ref_dec(DU d) { return du2obj(d).ref_dec(); }
-
 __GPU__  DU
 MMU::dup(DU d)  { if (IS_OBJ(d)) ref_inc(d); return d; }
 __GPU__  DU
@@ -377,6 +372,26 @@ MMU::rand(DU d, t4_rand_opt ntype) {
     random((Tensor&)du2obj(d), ntype);
     return d;
 }
+__HOST__ int
+MMU::to_s(std::ostream &fout, Tensor &t) {
+    static const char tn[] = { 'V', 'T', 'N', 'D' };  /// sync with t4_obj
+    auto t4 = [&fout, &t]() {
+        fout << t.N() << "," << t.H() << "," << t.W() << "," << t.C() << "]";
+    };
+    fout << tn[t.ttype];
+    switch(t.rank) {
+    case 0: fout << "["  << (t.numel - 1) << "]";         break; // network model
+    case 1: fout << "1[" << t.numel << "]";               break;
+    case 2: fout << "2[" << t.H() << "," << t.W() << "]"; break;
+    case 4: fout << "4["; t4();                           break;
+    case 5: fout << "5[" << t.parm << "]["; t4();         break;
+    }
+    return 1;
+}
+__HOST__ __INLINE__ int
+MMU::to_s(std::ostream &fout, DU s) {
+    return to_s(fout, (Tensor&)du2obj(s));
+}
 #endif // T4_ENABLE_OBJ
 ///
 /// Debugging methods
@@ -405,26 +420,6 @@ MMU::to_s(std::ostream &fout, IU w) {
         cudaMemcpy(&c, code.name+(++i), 1, D2H);
     }
     return (int)i;
-}
-__HOST__ int
-MMU::to_s(std::ostream &fout, Tensor &t) {
-    static const char tn[] = { 'V', 'T', 'N', 'D' };  /// sync with t4_obj
-    auto t4 = [&fout, &t]() {
-        fout << t.N() << "," << t.H() << "," << t.W() << "," << t.C() << "]";
-    };
-    fout << tn[t.ttype];
-    switch(t.rank) {
-    case 0: fout << "["  << (t.numel - 1) << "]";         break; // network model
-    case 1: fout << "1[" << t.numel << "]";               break;
-    case 2: fout << "2[" << t.H() << "," << t.W() << "]"; break;
-    case 4: fout << "4["; t4();                           break;
-    case 5: fout << "5[" << t.parm << "]["; t4();         break;
-    }
-    return 1;
-}
-__HOST__ __INLINE__ int
-MMU::to_s(std::ostream &fout, DU s) {
-    return to_s(fout, (Tensor&)du2obj(s));
 }
 ///
 /// display dictionary word list
