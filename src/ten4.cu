@@ -14,31 +14,30 @@
 #include <signal.h>
 
 using namespace std;
-#include "ldr/loader.h"      // default dataset loader
-#include "vm/netvm.h"        // VM + ForthVM + TensorVM + NetVM
+//#include "ldr/loader.h"      // default dataset loader
+//#include "vm/netvm.h"        // VM + ForthVM + TensorVM + NetVM
+#include "eforth.h"
 #include "ten4.h"            // wrapper
 
-__GPU__ NetVM *vm_pool[VM_MIN_COUNT]; /// TODO: CC - polymorphic does not work?
+__GPU__ VM *vm_pool[VM_MIN_COUNT];      ///< polymorphic VM pool
 ///
 /// instantiate VMs (threadIdx.x is vm_id)
 ///
 __KERN__ void
 k_ten4_init(Istream *istr, Ostream *ostr, MMU *mmu) {
-    auto  g   = cg::this_thread_block();
-    int   vid = g.thread_rank();                ///< VM id
-
-    if (vid < VM_MIN_COUNT) {
-        NetVM *vm = vm_pool[vid] = new NetVM(istr, ostr, mmu);  /// * instantiate VM
-        vm->ss.init(mmu->vmss(vid), T4_SS_SZ);  /// * point data stack to managed memory block
-        vm->state = VM_STOP;                    /// * workers wait in queue
-        
-        if (vid==0) {
-            vm->init();                         /// * initialize common dictionary (once only)
-            mmu->status();                      /// * report MMU status after init
-            vm->state = VM_READY;               /// * VM[0] available for work
-        }
+    int vid = threadIdx.x;
+    
+    if (vid >= VM_MIN_COUNT) return;    /// * Note: watch for divergence
+    
+    VM *vm = vm_pool[vid] =             ///< instantiate VMs
+        new ForthVM(vid, istr, ostr, mmu); 
+    
+    vm->state = VM_STOP;                /// * workers wait in queue
+    if (vid==0) {                       /// * only once 
+        vm->init();                     /// * initialize common dictionary
+        mmu->status();                  /// * report MMU status after init
+        vm->state = VM_READY;           /// * VM[0] available for work
     }
-    g.sync();
 }
 ///
 /// check VM status (using warp-level collectives)
@@ -46,7 +45,7 @@ k_ten4_init(Istream *istr, Ostream *ostr, MMU *mmu) {
 __KERN__ void
 k_ten4_tally(vm_state *vmst, int *vmst_cnt) {
     const auto g   = cg::this_thread_block();
-    const int  vid = g.thread_rank();            ///< VM id
+    const int  vid = g.thread_rank();           ///< VM id
     
     for (int i = 0; i < 4; i++) vmst_cnt[i] = 0;
     g.sync();
@@ -126,8 +125,8 @@ TensorForth::TensorForth(int device, int verbose) {
     cout << "\\  GPU " << device
          << " initialized at " << khz/1000 << "MHz"
          << ", dict["          << T4_DICT_SZ << "]"
-         << ", vmss["          << T4_SS_SZ << "*" << VM_MIN_COUNT << "]"
          << ", pmem="          << T4_PMEM_SZ/1024 << "K"
+         << ", vmss["          << T4_SS_SZ << "*" << VM_MIN_COUNT << "]"
          << ", tensor="        << T4_OSTORE_SZ/1024/1024 << "M"
          << endl;
     ///
@@ -137,8 +136,10 @@ TensorForth::TensorForth(int device, int verbose) {
     aio = new AIO(mmu);                         ///> instantiate async IO manager
     MM_ALLOC(&vmst, VMST_SZ);                   ///> allocate for state of VMs
     MM_ALLOC(&vmst_cnt, sizeof(int)*4);
-    
+
+#if T4_ENABLE_OBJ
     Loader::init(verbose);
+#endif
     ///
     /// instantiate virtual machines
     ///
@@ -221,6 +222,9 @@ int main(int argc, char**argv) {
     const string APP = string(T4_APP_NAME) + " " + T4_MAJOR_VER + "." + T4_MINOR_VER;
     Options opt;
     opt.parse(argc, argv);
+    
+    GPU_ERR(cudaDeviceSetLimit(cudaLimitStackSize, T4_PER_THREAD_STACK));
+    // GPU_ERR(cudaDeviceSetLimit(cudaLimitMallocHeapSize, 16*1024*1024));
     
     if (opt.help) {
         opt.print_usage(std::cout);
