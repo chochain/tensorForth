@@ -27,6 +27,7 @@
 #define T4_ENABLE_OBJ       1
 #define T4_ENABLE_CDP       0
 #define T4_USE_STRBUF       0
+#define T4_PER_THREAD_STACK 8*1024   /**< init() stack overflow */
 ///@}
 ///@name Virtual machine instance controls
 ///@{
@@ -63,7 +64,7 @@
 #define T4_IBUF_SZ   1024      /**< host input buffer size       */
 #define T4_OBUF_SZ   8192      /**< device output buffer size    */
 #define T4_STRBUF_SZ 128       /**< temp string buffer size      */
-#define T4_OSTORE_SZ (1*1024*1024*1024) /**< object storage size */
+#define T4_OSTORE_SZ (1024*1024*1024) /**< object storage size   */ 
 #define T4_TFREE_SZ  T4_NET_SZ /**< size of tensor free queue    */
 #define T4_RAND_SZ   256       /**< number of random seeds       */
 #define T4_WARP_SZ   16        /**< CUDA GPU warp 16x16 threads  */
