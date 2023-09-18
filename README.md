@@ -419,6 +419,7 @@ s" tests/my_net.t4" save                    \ persist the trained network
   + inter-VM communication (CUDA stream, review CUB again)
   + inter-VM loader (from VM->VM)
 * Refactor
+  + study Scikit-learn (discrete functions)
   + study JAX
     - JIT (XLA)
     - auto parallelization (pmap)
