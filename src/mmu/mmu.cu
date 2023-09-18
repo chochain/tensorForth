@@ -6,9 +6,6 @@
  */
 #include <iomanip>             // setw, setbase
 #include "mmu.h"
-
-//#include "model.h"             // in ../nn, include ../mmu/mmu.h
-//#include "dataset.h"           // in ../nn
 ///
 /// random number generator setup
 /// Note: kept here because curandStates stays in CUDA memory
@@ -141,10 +138,13 @@ MMU::colon(const char *name) {
     add((U8*)name,  ALIGN2(sz+1));          // setup raw name field
     c.pfa  = _midx;                         // parameter field offset
 }
-#if T4_ENABLE_OBJ
-///====================================================================
+///
 /// tensor life-cycle methods
 ///
+#if T4_ENABLE_OBJ // vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
+#include "model.h"             // in ../nn, include ../mmu/mmu.h
+#include "dataset.h"           // in ../nn
+
 #define OBJ2X(t)  ((U32)((U8*)&(t) - _obj))
 __GPU__ void
 MMU::mark_free(T4Base &t) {       ///< mark a tensor free for release
@@ -372,6 +372,9 @@ MMU::rand(DU d, t4_rand_opt ntype) {
     random((Tensor&)du2obj(d), ntype);
     return d;
 }
+///
+/// Object debugging methods
+///
 __HOST__ int
 MMU::to_s(std::ostream &fout, Tensor &t) {
     static const char tn[] = { 'V', 'T', 'N', 'D' };  /// sync with t4_obj
@@ -392,7 +395,7 @@ __HOST__ __INLINE__ int
 MMU::to_s(std::ostream &fout, DU s) {
     return to_s(fout, (Tensor&)du2obj(s));
 }
-#endif // T4_ENABLE_OBJ
+#endif // T4_ENABLE_OBJ ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 ///
 /// Debugging methods
 ///

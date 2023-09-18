@@ -8,9 +8,8 @@
 #define TEN4_SRC_MMU_H
 #include <curand_kernel.h>
 #include "vector.h"
-
-//#include "tensor.h"
-//#include "tlsf.h"
+#include "tensor.h"
+#include "tlsf.h"
 ///
 /// CUDA functor (device only)
 /// Note: nvstd::function is generic and smaller (at 56-byte)
@@ -179,7 +178,8 @@ public:
     ///
     /// tensor life-cycle methods
     ///
-#if T4_ENABLE_OBJ
+#if T4_ENABLE_OBJ // vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
+    
     __HOST__ int  to_s(std::ostream &fout, DU s);                ///< dump object from descriptor
     __HOST__ int  to_s(std::ostream &fout, Tensor &t);           ///< dump object on stack
     __BOTH__ T4Base &du2obj(DU d) {
@@ -218,11 +218,14 @@ public:
     __GPU__  DU     copy(DU d);
     __GPU__  void   drop(DU d);
     __GPU__  DU     rand(DU d, t4_rand_opt n);             ///< randomize a tensor
-#else  // T4_ENABLE_OBJ
-    __GPU__  __INLINE__ void sweep()    {}                  ///< holder for no object
-    __GPU__  __INLINE__ void drop(DU d) {}                  ///< place holder
-    __GPU__  __INLINE__ DU   dup(DU d)  { return d; }       ///< place holder
-#endif // T4_ENABLE_OBJ
+    
+#else  // T4_ENABLE_OBJ ===========================================================
+    __GPU__  void   sweep()    {}                          ///< holder for no object
+    __GPU__  void   drop(DU d) {}                          ///< place holder
+    __GPU__  DU     dup(DU d)  { return d; }               ///< place holder
+    
+#endif // T4_ENABLE_OBJ ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    
     ///
     /// debugging methods (implemented in .cu)
     ///
