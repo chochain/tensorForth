@@ -18,13 +18,14 @@
 #define T4_APP_NAME         "tensorForth"
 #define T4_MAJOR_VER        "3"
 #define T4_MINOR_VER        "2"
-#define T4_VERBOSE          1        /**< system verbose print */
-#define T4_MMU_DEBUG        0        /**< for mmu debug trace  */
-#define CC_DEBUG            0        /**< for my local testing */
+#define T4_VERBOSE          1        /**< system verbose print  */
+#define T4_MMU_DEBUG        0        /**< for mmu debug trace   */
+#define CC_DEBUG            0        /**< for my local testing  */
 ///@}
 ///@name CUDA cooperative dynamic parallelism support
 ///@{
-#define T4_ENABLE_OBJ       1
+#define T4_ENABLE_OBJ       0        /**< enable tensor/matrix  */
+#define T4_ENABLE_NN        0        /**< enable neural network */
 #define T4_ENABLE_CDP       0
 #define T4_USE_STRBUF       0
 #define T4_PER_THREAD_STACK 8*1024   /**< init() stack overflow */

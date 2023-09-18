@@ -4,11 +4,9 @@
  *
  * <pre>Copyright (C) 2022- GreenII, this file is distributed under BSD 3-Clause License.</pre>
  */
-#ifndef TEN4_SRC_MODEL_H
+#if !defined(TEN4_SRC_MODEL_H) && (T4_ENABLE_OBJ && T4_ENABLE_NN)
 #define TEN4_SRC_MODEL_H
 #include "mmu.h"         // in ../mmu
-
-#if T4_ENABLE_OBJ
 
 typedef enum {
     UP_NEAREST = 0,
@@ -143,5 +141,4 @@ private:
     /// @}
 };
 
-#endif // T4_ENABLE_OBJ
-#endif // define(TEN4_SRC_MODEL_H) && T4_ENABLE_OBJ
+#endif // define(TEN4_SRC_MODEL_H) && (T4_ENABLE_OBJ && T4_ENABLE_NN)

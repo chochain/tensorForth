@@ -4,7 +4,7 @@
  *
  * <pre>Copyright (C) 2022- GreenII, this file is distributed under BSD 3-Clause License.</pre>
  */
-#if !defined(TEN4_SRC_DATASET_H) && T4_ENABLE_OBJ
+#if !defined(TEN4_SRC_DATASET_H) && (T4_ENABLE_OBJ && T4_ENABLE_NN)
 #define TEN4_SRC_DATASET_H
 #include "tensor.h"                  // in ../mmu
 
@@ -61,5 +61,5 @@ struct Dataset : public Tensor {
     }
 };
 
-#endif  // !defined(TEN4_SRC_DATASET_H) && T4_ENABLE_OBJ
+#endif  // !defined(TEN4_SRC_DATASET_H) && (T4_ENABLE_OBJ && T4_ENABLE_NN)
 

@@ -4,7 +4,7 @@
 
   <pre>Copyright (C) 2019 GreenII. This file is distributed under BSD 3-Clause License.</pre>
 */
-#if !defined(TEN4_SRC_TLSF_H) && T4_ENABLE_OBJ
+#if !defined(TEN4_SRC_TLSF_H) && T4_ENABLE_OBJ 
 #define TEN4_SRC_TLSF_H
 
 typedef struct used_block {          //< 8-bytes
