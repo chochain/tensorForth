@@ -72,12 +72,12 @@ struct Code : public Managed {
 ///
 /// macros for microcode construction
 ///
-#define ADD_CODE(s, g, im) {                     \
-    Code c = { s, [this] __GPU__ (){ g; }, im }; \
-    mmu.add(&c);                                 \
+#define ADD_CODE(n, g, im) {                     \
+    Code c = { n, [this] __GPU__ (){ g; }, im }; \
+    mmu.merge(&c);                               \
 }
-#define CODE(s, g) ADD_CODE(s, g, false)
-#define IMMD(s, g) ADD_CODE(s, g, true)
+#define CODE(n, g)  ADD_CODE(n, g, false)
+#define IMMD(n, g)  ADD_CODE(n, g, true)
 
 typedef enum {
     UNIFORM = 0,
@@ -129,13 +129,9 @@ public:
     ///
     /// dictionary management ops
     ///
-    __GPU__ void append(const Code *clist, int sz) {
-        Code *c = (Code*)clist;
-        for (int i=0; i < sz; i++) add(c++);
-    }
     __GPU__ int  find(const char *s, bool compile=0, bool ucase=0);  ///< dictionary search
-    __GPU__ void merge(const Code *clist, int sz);
-    __GPU__ void status();
+    __GPU__ void merge(Code *c);                                     ///< append/merge a new word
+    __GPU__ void status();                                           ///< display current MMU status
     ///
     /// compiler methods
     ///
@@ -205,7 +201,9 @@ public:
     __GPU__  Dataset&dataset(U16 batch_sz);                 ///< create a NN dataset
     __GPU__  void   resize(Tensor &t, U32 sz);              ///< resize the tensor storage
     __GPU__  void   free(Tensor &t);                        ///< free the tensor
+#if   T4_ENABLE_NN    
     __GPU__  void   free(Model &m);
+#endif // T4_ENABLE_NN
     __GPU__  Tensor &view(Tensor &t0);                      ///< create a view to a tensor
     __GPU__  Tensor &copy(Tensor &t0);                      ///< hard copy a tensor
     __GPU__  Tensor &slice(Tensor &t0, IU x0, IU x1, IU y0, IU y1);     ///< a slice of a tensor

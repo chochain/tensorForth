@@ -4,9 +4,11 @@
  *
  * <pre>Copyright (C) 2022- GreenII, this file is distributed under BSD 3-Clause License.</pre>
  */
-#if !defined(TEN4_SRC_DATASET_H) && (T4_ENABLE_OBJ && T4_ENABLE_NN)
+#ifndef TEN4_SRC_DATASET_H
 #define TEN4_SRC_DATASET_H
 #include "tensor.h"                  // in ../mmu
+
+#if (T4_ENABLE_OBJ && T4_ENABLE_NN)
 
 struct Dataset : public Tensor {
     int   batch_id = -1;            ///< current batch id
@@ -61,5 +63,6 @@ struct Dataset : public Tensor {
     }
 };
 
-#endif  // !defined(TEN4_SRC_DATASET_H) && (T4_ENABLE_OBJ && T4_ENABLE_NN)
+#endif  // (T4_ENABLE_OBJ && T4_ENABLE_NN)
+#endif  // TEN4_SRC_DATASET_H
 
