@@ -134,7 +134,7 @@ TensorForth::TensorForth(int device, int verbose) {
     MM_ALLOC(&vmst, VMST_SZ);                   ///> allocate for state of VMs
     MM_ALLOC(&vmst_cnt, sizeof(int)*4);
 
-#if T4_ENABLE_OBJ
+#if (T4_ENABLE_OBJ && T4_ENABLE_NN)
     Loader::init(verbose);
 #endif
     ///
