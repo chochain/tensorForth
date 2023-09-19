@@ -4,9 +4,11 @@
  *
  * <pre>Copyright (C) 2022- GreenII, this file is distributed under BSD 3-Clause License.</pre>
  */
-#if !defined(TEN4_SRC_VU_MNIST_VU_H) && (T4_ENABLE_OBJ && T4_ENABLE_NN)
+#ifndef TEN4_SRC_VU_MNIST_VU_H
 #define TEN4_SRC_VU_MNIST_VU_H
 #include "vu.h"
+
+#if (T4_ENABLE_OBJ && T4_ENABLE_NN)
 ///
 /// MNIST GUI texture builder
 ///
@@ -18,7 +20,9 @@ public:
     
     __HOST__ virtual int init_host_tex();
 };
-#endif  // !defined(TEN4_SRC_VU_MNIST_VU_H) && (T4_ENABLE_OBJ && T4_ENABLE_NN)
+
+#endif  // (T4_ENABLE_OBJ && T4_ENABLE_NN)
+#endif  // TEN4_SRC_VU_MNIST_VU_H
 
 
 
