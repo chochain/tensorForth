@@ -4,8 +4,8 @@
  *
  * <pre>Copyright (C) 2022- GreenII, this file is distributed under BSD 3-Clause License.</pre>
  */
-#if (T4_ENABLE_OBJ && T4_ENABLE_NN)
 #include "model.h"
+#if (T4_ENABLE_OBJ && T4_ENABLE_NN)
 ///
 /// convolution filter derivatives
 /// TODO: stride, dilation, [C1]NCHW filter
