@@ -4,9 +4,11 @@
  *
  * <pre>Copyright (C) 2022- GreenII, this file is distributed under BSD 3-Clause License.</pre>
  */
-#if !defined(TEN4_SRC_TENVM_H) && T4_ENABLE_OBJ
+#ifndef TEN4_SRC_TENVM_H
 #define TEN4_SRC_TENVM_H
 #include "eforth.h"                         /// extending ForthVM
+
+#if T4_ENABLE_OBJ
 
 #define TTOS      ((Tensor&)mmu.du2obj(top))        /**< tensor on TOS      */
 #define TNOS      ((Tensor&)mmu.du2obj(ss[-1]))     /**< tensor on NOS      */
@@ -64,4 +66,5 @@ private:
 
 };
 
-#endif // !defined(TEN4_SRC_TENVM_H) && T4_ENABLE_OBJ
+#endif // T4_ENABLE_OBJ
+#endif // TEN4_SRC_TENVM_H
