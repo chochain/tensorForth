@@ -266,7 +266,6 @@ ForthVM::init() {
             add_str(s);
         }
         else fout << s);                    // print right away
-    CODE("bye",   state = VM_STOP);
     ///@}
     ///@defgroup Branching ops
     ///@brief - if...then, if...else...then
