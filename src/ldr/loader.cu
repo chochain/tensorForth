@@ -4,10 +4,11 @@
  *
  * <pre>Copyright (C) 2022- GreenII, this file is distributed under BSD 3-Clause License.</pre>
  */
-#if (T4_ENABLE_OBJ && T4_ENABLE_NN)
 #include <map>
-#include "mnist.h"
 #include "loader.h"
+
+#if (T4_ENABLE_OBJ && T4_ENABLE_NN)
+#include "mnist.h"
 ///
 /// Note:
 ///   const char* key in map will not work because ptr1 != ptr2
