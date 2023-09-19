@@ -7,14 +7,14 @@
 #include <cstdio>        // printf
 #include <iostream>      // cin, cout
 #include <iomanip>       // setbase, setprecision
-#include "dataset.h"     // in ../mmu
 #include "aio.h"
+
+#if T4_ENABLE_OBJ
 
 using namespace std;
 ///
 /// Tensor IO private methods
 ///
-#if T4_ENABLE_OBJ
 __HOST__ void
 AIO::_print_obj(std::ostream &fout, DU v) {
     T4Base &b = _mmu->du2obj(v);
@@ -164,5 +164,5 @@ __HOST__ int
 AIO::_tsave_npy(std::ostream &fout, Tensor &t) {
     // TODO:
     return 0;
-}        
+}
 #endif // T4_ENABLE_OBJ

@@ -49,11 +49,12 @@ AIO::process_node(std::ostream &fout, obuf_node *node) {
         case OP_SEE:   _mmu->see(fout, (IU)o->a);                       break;
         case OP_DUMP:  _mmu->mem_dump(fout, (IU)o->a, (IU)o->n);        break;
         case OP_SS:    _mmu->ss_dump(fout, (IU)node->id, o->a, _radix); break;
-#if T4_ENABLE_OBJ            
+#if T4_ENABLE_OBJ // vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
         case OP_TSAVE:
             node = NEXTNODE(node);
             _tsave(o->n, o->a, (char*)node->data);
             break;
+#if T4_ENABLE_NN  //==========================================================
         case OP_DATA:
             node = NEXTNODE(node);                   ///< get dataset repo name
             _dsfetch(o->n, o->a, (char*)node->data); /// * fetch first batch
@@ -67,7 +68,8 @@ AIO::process_node(std::ostream &fout, obuf_node *node) {
             node = NEXTNODE(node);
             _nload(o->n, o->a, (char*)node->data);
             break;
-#endif // T4_ENABLE_OBJ            
+#endif // T4_ENABLE_NN =======================================================
+#endif // T4_ENABLE_OBJ ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
         }
     } break;
     default: fout << "print type not supported: " << (int)node->gt; break;
