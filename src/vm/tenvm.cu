@@ -4,8 +4,9 @@
  *
  * <pre>Copyright (C) 2022- GreenII, this file is distributed under BSD 3-Clause License.</pre>
  */
-#if T4_ENABLE_OBJ
 #include "tenvm.h"
+
+#if T4_ENABLE_OBJ
 ///
 /// Tensor-self ops
 ///
@@ -414,49 +415,49 @@ TensorVM::init() {
     CODE("save",      _pickle(true));     ///< ( T fn len -- T ) save tensor to a file
     CODE("load",      _pickle(false));    ///< ( T fn -- T' ) fill a tensor from file
     ///
-    /// ========================================================================
+    /// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
     ///
     ///@defgroup redefined tensor ops
     ///@{
-    XCODE("dolit",
+    CODE("dolit",
          DU v = mmu.rd(IP); IP += sizeof(DU);
          if (IS_OBJ(v)) mmu.ref_inc(v);
          PUSH(v));
-    XCODE("r@",
+    CODE("r@",
          if (IS_OBJ(rs[-1])) PUSH(mmu.copy(rs[-1]));   /// * hard copy object, or
          else PUSH(mmu.dup(rs[-1])));                  /// * dup number
-    XCODE(".",
+    CODE(".",
          if (IS_OBJ(top)) {
              fout << top;                 /// * view, model, dataset (non-destructive)
              state = VM_WAIT;             /// * forced flush (wasteful but no dangling object)
          }
          else fout << " " << POP());      /// * eForth has a space prefix
-    XCODE("+",   xop2(O_ADD, KEEP));
-    XCODE("-",   xop2(O_SUB, KEEP));
-    XCODE("*",   xop2(O_MUL, KEEP));
-    XCODE("/",   xop2(O_DIV, KEEP));
-    XCODE("abs", xop1(O_ABS));
-    XCODE("@",
+    CODE("+",   xop2(O_ADD, KEEP));
+    CODE("-",   xop2(O_SUB, KEEP));
+    CODE("*",   xop2(O_MUL, KEEP));
+    CODE("/",   xop2(O_DIV, KEEP));
+    CODE("abs", xop1(O_ABS));
+    CODE("@",
          if (IS_OBJ(top)) xop2(O_DOT, KEEP);   ///< matrix @ product
          else {
              DU v = mmu.rd(POPi);
              if (IS_OBJ(v)) mmu.ref_inc(v);
              PUSH(v);
          });
-    XCODE("+!",
+    CODE("+!",
          IU w = POPi; DU v = ADD(mmu.rd(w), POP()); ///< fetch target original value
          mmu.wd(w, SCALAR(v)));                     /// * write back
-    XCODE("max",
+    CODE("max",
          if (IS_OBJ(top)) PUSH(TTOS.max());
          else { DU n=ss.pop(); top = (top>n) ? top : n; });
-    XCODE("min",
+    CODE("min",
          if (IS_OBJ(top)) PUSH(TTOS.min());
          else { DU n=ss.pop(); top = (top<n) ? top : n; });
-    XCODE("negate",
+    CODE("negate",
          if (IS_OBJ(top)) xop1(O_SCALE, -DU1);
          else top = MUL(top, -DU1));
     ///@}
-    XCODE("boot", mmu.clear(FIND("gemm") + 1));
+    CODE("boot", mmu.clear(FIND("gemm") + 1));
 
     VLOG1("tenvm#init ok\n");
 };

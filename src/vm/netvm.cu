@@ -4,9 +4,10 @@
  *
  * <pre>Copyright (C) 2022- GreenII, this file is distributed under BSD 3-Clause License.</pre>
  */
-#if T4_ENABLE_OBJ
 #include "dataset.h"           // in ../mmu
 #include "netvm.h"
+
+#if T4_ENABLE_NN
 
 __GPU__ void
 NetVM::predict(Tensor &I, Tensor &P) {
@@ -379,13 +380,14 @@ NetVM::init() {
     ///
     /// * overwrite/extended word
     ///
-    XCODE("donext",    _donext());                 /// * overwrite eforth.cu
-    XCODE("flatten",   _nnop(L_FLATTEN));
-    XCODE("save",      _pickle(true));             /// * save trainned model
-    XCODE("load",      _pickle(false));            /// * load trainned model
-    XCODE("boot",      mmu.clear(FIND("network") + 1));
+    CODE("donext",    _donext());                  /// * overwrite eforth.cu
+    CODE("flatten",   _nnop(L_FLATTEN));
+    CODE("save",      _pickle(true));              /// * save trainned model
+    CODE("load",      _pickle(false));             /// * load trainned model
+    CODE("boot",      mmu.clear(FIND("network") + 1));
     
     VLOG1("NetVM::init ok\n");
 };
-#endif  // T4_ENABLE_OBJ
+
+#endif  // T4_ENABLE_NN
 //===========================================================================
