@@ -71,7 +71,7 @@ MMU::~MMU() {
 ///
 __GPU__ int
 MMU::find(const char *s, bool compile, bool ucase) {
-    MM_TRACE2("find(%s) => ", s);
+    MM_TRACE2("find(%s) =>", s);
     for (int i = _didx - (compile ? 2 : 1); i >= 0; --i) {
         const char *t = _dict[i].name;
         if (ucase && STRCASECMP(t, s)==0) return i;
@@ -80,19 +80,14 @@ MMU::find(const char *s, bool compile, bool ucase) {
     return -1;
 }
 __GPU__ void
-MMU::merge(const Code *clist, int sz) {
-    Code *c = (Code*)clist;
-    for (int i=0; i<sz; i++, c++) {
-        int w = find(c->name);              /// * check whether word exists
-        if (w >= 0) {
-            _dict[w] = *c;                  /// * replace existing word pointer
-            MM_TRACE1("word %s redefined\n", c->name);
-        }
-        else {
-            add(c);                         /// * append new word to dictionary
-            MM_TRACE2("new word %s created\n", c->name);
-        }
+MMU::merge(Code *c) {
+    int w = find(c->name);                  /// * check whether word exists
+    MM_TRACE2(" %d\n", w);
+    if (w >= 0) {
+        _dict[w] = *c;                      /// * replace existing word pointer
+        MM_TRACE1("*** %s redefined!\n", c->name);
     }
+    else add(c);                            /// * append new word to dictionary
 }
 __GPU__ void
 MMU::status() {
@@ -105,11 +100,11 @@ MMU::status() {
         if ((UFP)c->name < n0) n0 = (UFP)c->name;
     }
     c = _dict;
-    MM_TRACE2("Built-in Dictionary [xt0=%lx, name0=%lx]\n", x0, n0);
+    MM_TRACE2("Built-in Dictionary [name0=%lx, xt0=%lx]\n", n0, x0);
     for (int i=0; i<_didx; i++, c++) {      ///< dump dictionary from device
-        MM_TRACE2("%4d> xt=%6x, name=%6x %s\n", i,
-            (U32)((UFP)c->xt   - x0),
+        MM_TRACE2("%4d> name=%5x, xt=%5x %s\n", i,
             (U32)((UFP)c->name - n0),
+            (U32)((UFP)c->xt   - x0),
             c->name);
     }
 
@@ -202,24 +197,7 @@ MMU::tensor(U16 n, U16 h, U16 w, U16 c) {
     t.reshape(n, h, w, c);
     return t;
 }
-__GPU__ Model&                     ///< create a NN model with NHWC input
-MMU::model(U32 sz) {
-    MM_TRACE1("mmu#model layers=%d", sz);
-    Model  *m = (Model*)_ostore.malloc(sizeof(Model));
-    Tensor &t = talloc(sz);        /// * allocate tensor storage
-    m->reset(this, t);
-    return *m;
-}
-__GPU__ Dataset&                   ///< create a Dataset holder
-MMU::dataset(U16 batch_sz) {       /// * Note: data block is not allocated yet
-    MM_TRACE1("mmu#dataset batch_sz=%d", batch_sz);
-    Dataset *ds = (Dataset*)_ostore.malloc(sizeof(Dataset));
-    ds->init(0, T4_DATASET, 4);
-    ds->N()      = batch_sz;       /// * other members filled in host mode
-    ds->batch_id = -1;             /// * setup control flag
-    _ostore.status(_trace);
-    return *ds;
-}
+
 __GPU__ Tensor&                    ///< create a view of a Tensor
 MMU::view(Tensor &t0) {
     if (t0.is_model()) return t0;  ///> TODO: create model view
@@ -272,6 +250,25 @@ MMU::free(Tensor &t) {
     _ostore.free(&t);            /// * free tensor object itself
     _ostore.status(_trace);
 }
+#if T4_ENABLE_NN
+__GPU__ Model&                     ///< create a NN model with NHWC input
+MMU::model(U32 sz) {
+    MM_TRACE1("mmu#model layers=%d", sz);
+    Model  *m = (Model*)_ostore.malloc(sizeof(Model));
+    Tensor &t = talloc(sz);        /// * allocate tensor storage
+    m->reset(this, t);
+    return *m;
+}
+__GPU__ Dataset&                   ///< create a Dataset holder
+MMU::dataset(U16 batch_sz) {       /// * Note: data block is not allocated yet
+    MM_TRACE1("mmu#dataset batch_sz=%d", batch_sz);
+    Dataset *ds = (Dataset*)_ostore.malloc(sizeof(Dataset));
+    ds->init(0, T4_DATASET, 4);
+    ds->N()      = batch_sz;       /// * other members filled in host mode
+    ds->batch_id = -1;             /// * setup control flag
+    _ostore.status(_trace);
+    return *ds;
+}
 __GPU__ void                     ///< release tensor memory blocks
 MMU::free(Model &m) {
     if (m.ref_dec()) return;
@@ -284,6 +281,7 @@ MMU::free(Model &m) {
     _ostore.free(&m);
     _ostore.status(_trace);
 }
+#endif // T4_ENABLE_NN
 ///
 /// deep copy a tensor
 /// TODO: CDP
@@ -336,8 +334,12 @@ MMU::drop(DU d) {
     if (!IS_OBJ(d)) return;                   /// non-object, just drop
     
     T4Base &t = du2obj(d);                    /// check reference count
+#if T4_ENABLE_NN
     if (t.is_model()) free((Model&)t);        /// release TLSF memory block
     else              free((Tensor&)t);
+#else  // T4_ENABLE_NN
+    free((Tensor&)t);
+#endif // T4_ENABLE_NN
 }
 ///
 /// tensor slice & dice
