@@ -315,7 +315,7 @@ NetVM::init() {
     CODE("nn.onehot",                         /// * current onehot vector
          if (IS_M(top)) {
              Tensor &hot = MTOS.onehot();
-             PUSH(hot); hot.ref_inc();
+             PUSH(mmu.dup(mmu.obj2du(hot)));
          }
          else ERROR("TOS is not a model!\n"));
     CODE("nn.hit", 
