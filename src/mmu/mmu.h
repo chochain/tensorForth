@@ -175,23 +175,18 @@ public:
     /// tensor life-cycle methods
     ///
 #if T4_ENABLE_OBJ // vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
-    
-    __HOST__ int  to_s(std::ostream &fout, DU s);                ///< dump object from descriptor
-    __HOST__ int  to_s(std::ostream &fout, Tensor &t);           ///< dump object on stack
-    __BOTH__ T4Base &du2obj(DU d) {
+    __HOST__ int    to_s(std::ostream &fout, DU s);         ///< dump object from descriptor
+    __HOST__ int    to_s(std::ostream &fout, T4Base &t, bool view); ///< dump object on stack
+    __BOTH__ T4Base &du2obj(DU d) {                         ///< DU to Obj convertion
         U32    *off = (U32*)&d;
-        T4Base *t   = (T4Base*)(_obj + (*off & ~T4_OBJ_FLAG));
+        T4Base *t   = (T4Base*)(_obj + (*off & ~T4_TYPE_MSK));
         return *t;
     }
-    __BOTH__ DU obj2du(T4Base &t) {
-        U32 o = ((U32)((U8*)&t - _obj)) | T4_OBJ_FLAG;
+    __BOTH__ DU     obj2du(T4Base &t) {                     ///< conver Obj to DU
+        U32 o = ((U32)((U8*)&t - _obj)) | T4_TT_OBJ;
         return *(DU*)&o;
     }
-    __BOTH__ int ref_inc(DU d) { return du2obj(d).ref_inc(); }
-    __BOTH__ int ref_dec(DU d) { return du2obj(d).ref_dec(); }
-    
-    __GPU__  void   mark_free(T4Base &t);                   ///< mark a tensor free
-    __GPU__  void   mark_free(DU v);                        ///< mark a tensor free
+    __GPU__  void   mark_free(DU v);                        ///< mark an object to be freed in host
     __GPU__  void   sweep();                                ///< free marked tensor
     __GPU__  Tensor &talloc(U32 sz);                        ///< allocate from tensor space
     __GPU__  Tensor &tensor(U32 sz);                        ///< create an vector
@@ -211,10 +206,9 @@ public:
     ///
     /// short hands for eforth tensor ucodes (for DU <-> Object conversion)
     ///
-    __GPU__  DU     dup(DU d);
-    __GPU__  DU     view(DU d);
-    __GPU__  DU     copy(DU d);
-    __GPU__  void   drop(DU d);
+    __GPU__  DU     dup(DU d);                             ///< create a view
+    __GPU__  DU     copy(DU d);                            ///< physical copy
+    __GPU__  void   drop(DU d);                            ///< drop from memory
     __GPU__  DU     rand(DU d, t4_rand_opt n);             ///< randomize a tensor
     
 #else  // T4_ENABLE_OBJ ===========================================================
