@@ -126,8 +126,8 @@ TensorVM::xop2(t4_ten_op op, t4_drop_opt x) {
         VLOG1("tenvm# A[%d,%d] %s B[%d,%d] => O[%d,%d]\n",
              TNOS.H(), TNOS.W(), opn[op], TTOS.H(), TTOS.W(), O.H(), O.W());
         if (x==DROP) {
-            mmu.mark_free(top); POP();
-            mmu.mark_free(top); POP();
+            mmu.drop(POP());
+            mmu.drop(POP());
         }
         PUSH(O);
     }
