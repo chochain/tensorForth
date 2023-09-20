@@ -137,10 +137,14 @@ typedef F64         DU2;                    /**< double preciesion data */
 ///
 /// object classification macros
 ///
-#define T4_OBJ_FLAG 0x00000001                            /**< obj flag       */
-#define DU2X(v)     (*(U32*)&(v))                         /**< to U32 ptr     */
-#define IS_OBJ(v)   (DU2X(v) & T4_OBJ_FLAG)               /**< if is an obj   */
-#define SCALAR(v)   ((DU2X(v) &= ~T4_OBJ_FLAG), (v))      /**< clear obj flag */
+#define T4_TYPE_MSK 0x00000003                             /**< obj view flag  */
+#define T4_TT_OBJ   0x00000001                             /**< data unit flag */
+#define T4_TT_VIEW  0x00000003                             /**< view of object */
+#define DU2X(v)     (*(U32*)&(v))                          /**< to U32 ptr     */
+#define IS_OBJ(v)   ((DU2X(v) & T4_TT_OBJ)!=0)             /**< if is an obj   */
+#define IS_VIEW(v)  ((DU2X(v) & T4_TYPE_MSK)==T4_TT_VIEW)
+#define AS_VIEW(v)  ((DU2X(v) |= T4_TT_VIEW), (v))
+#define SCALAR(v)   ((DU2X(v) &= ~T4_TT_OBJ), (v))         /**< set DU flag    */
 ///@}
 ///
 /// colon word compiler
