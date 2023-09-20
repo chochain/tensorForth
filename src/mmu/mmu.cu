@@ -85,7 +85,7 @@ MMU::merge(Code *c) {
     MM_TRACE2(" %d\n", w);
     if (w >= 0) {
         _dict[w] = *c;                      /// * replace existing word pointer
-        MM_TRACE1("*** %s redefined!\n", c->name);
+        MM_TRACE1("*** word redefined: %s\n", c->name);
     }
     else add(c);                            /// * append new word to dictionary
 }
@@ -142,26 +142,21 @@ MMU::colon(const char *name) {
 
 #define OBJ2X(t)  ((U32)((U8*)&(t) - _obj))
 __GPU__ void
-MMU::mark_free(T4Base &t) {       ///< mark a tensor free for release
-    if (t.ref_dec()) return;
-
+MMU::mark_free(DU v) {            ///< mark a tensor free for release
+    if (IS_VIEW(v)) return;
+    T4Base &t = du2obj(v);
     MM_TRACE1("mmu#mark T[%x] to free[%d]\n", OBJ2X(t), _fidx);
 //    lock();
     if (_fidx < T4_TFREE_SZ) _mark[_fidx++] = obj2du(t);
     else ERROR("ERR: tfree store full, increase T4_TFREE_SZ!");
 //    unlock();                   ///< TODO: CC: DEAD LOCK, now!
 }
-__GPU__ void
-MMU::mark_free(DU v) {            ///< mark a tensor free for release
-    T4Base &t = du2obj(v);
-    mark_free(t);
-}
 __GPU__ void                      ///< release marked free tensor
 MMU::sweep() {
 //    lock();
     for (int i = 0; _fidx && i < _fidx; i++) {
         DU v = _mark[i];
-        MM_TRACE1("mmu#release T[%x] from free[%d]\n", DU2X(v) & ~T4_OBJ_FLAG, i);
+        MM_TRACE1("mmu#release T[%x] from free[%d]\n", DU2X(v) & ~T4_TT_OBJ, i);
         drop(v);
     }
     _fidx = 0;
@@ -206,8 +201,7 @@ MMU::view(Tensor &t0) {
     /// replicate A tensor
     ///
     memcpy(t, &t0, sizeof(Tensor));
-    t->ttype = T4_VIEW;
-    t->nref  = 1;
+    t->nref = 1;
 
     MM_TRACE1("mmu#view => V%d numel=%d", t->rank, t->numel);
     _ostore.status(_trace);
@@ -230,22 +224,18 @@ MMU::resize(Tensor &t, U32 sz) {
 }
 __GPU__ void                     ///< release tensor memory blocks
 MMU::free(Tensor &t) {
-    if (t.ref_dec()) return;
-
     MM_TRACE1("mmu#free(T%d) numel=%d T[%x]", t.rank, t.numel, OBJ2X(t));
-    if (!t.is_view()) {          /// * skip view
-        _ostore.free(t.data);    /// * free physical data
-        if (t.grad_fn != L_NONE) {
-            MM_TRACE1(" {\n");
-            for (int i=0; t.mtum[i] && i < 4; i++) {
-                if (t.mtum[i] == t.grad[i]) continue;
-                MM_TRACE1("\t\t"); free(*t.mtum[i]);
-            }
-            for (int i=0; t.grad[i] && i < 4; i++) {
-                MM_TRACE1("\t\t"); free(*t.grad[i]);    /// recursive
-            }
-            MM_TRACE1("\t}");
+    _ostore.free(t.data);        /// * free physical data
+    if (t.grad_fn != L_NONE) {
+        MM_TRACE1(" {\n");
+        for (int i=0; t.mtum[i] && i < 4; i++) {
+            if (t.mtum[i] == t.grad[i]) continue;
+            MM_TRACE1("\t\t"); free(*t.mtum[i]);
         }
+        for (int i=0; t.grad[i] && i < 4; i++) {
+            MM_TRACE1("\t\t"); free(*t.grad[i]);    /// recursive
+        }
+        MM_TRACE1("\t}");
     }
     _ostore.free(&t);            /// * free tensor object itself
     _ostore.status(_trace);
@@ -271,8 +261,6 @@ MMU::dataset(U16 batch_sz) {       /// * Note: data block is not allocated yet
 }
 __GPU__ void                     ///< release tensor memory blocks
 MMU::free(Model &m) {
-    if (m.ref_dec()) return;
-
     MM_TRACE1("mmu#free(N%d) [\n", m.numel);
     for (int i = m.numel-1; i >= 0; i--) {
         MM_TRACE1("\t"); free(m[i]);
@@ -324,14 +312,12 @@ MMU::random(Tensor &t, t4_rand_opt ntype, DU bias, DU scale) {
 /// TODO: more object types
 ///
 __GPU__  DU
-MMU::dup(DU d)  { if (IS_OBJ(d)) ref_inc(d); return d; }
-__GPU__  DU
-MMU::view(DU d) { return IS_OBJ(d) ? obj2du(view((Tensor&)du2obj(d))) : d; }
+MMU::dup(DU d)  { return IS_OBJ(d) ? AS_VIEW(d) : d; }
 __GPU__ DU
 MMU::copy(DU d) { return IS_OBJ(d) ? obj2du(copy((Tensor&)du2obj(d))) : d; }
 __GPU__  void
 MMU::drop(DU d) {
-    if (!IS_OBJ(d)) return;                   /// non-object, just drop
+    if (!IS_OBJ(d) || IS_VIEW(d)) return;     /// non-object, just drop
     
     T4Base &t = du2obj(d);                    /// check reference count
 #if T4_ENABLE_NN
@@ -365,7 +351,8 @@ MMU::slice(Tensor &t0, U16 x0, U16 x1, U16 y0, U16 y1) {
             memcpy(d1, d0, bsz);
         }
     }
-    MM_TRACE1("mmu#slice(T%d)[%d:%d,%d:%d,] numel=%d\n", t0.rank, t0.numel, x0, x1, y0, y1);
+    MM_TRACE1("mmu#slice(T%d)[%d:%d,%d:%d,] numel=%d\n",
+              t0.rank, t0.numel, x0, x1, y0, y1);
     return t1;
 }
 __GPU__ DU
@@ -378,24 +365,27 @@ MMU::rand(DU d, t4_rand_opt ntype) {
 /// Object debugging methods
 ///
 __HOST__ int
-MMU::to_s(std::ostream &fout, Tensor &t) {
-    static const char tn[] = { 'V', 'T', 'N', 'D' };  /// sync with t4_obj
-    auto t4 = [&fout, &t]() {
-        fout << t.N() << "," << t.H() << "," << t.W() << "," << t.C() << "]";
+MMU::to_s(std::ostream &fout, T4Base &t, bool view) {
+    static const char tn[2][4] = {                   ///< sync with t4_obj
+        { 'T', 'N', 'D', 'X' }, { 't', 'n', 'd', 'x' }
     };
-    fout << tn[t.ttype];
+    auto t2 = [&fout](Tensor &t) { fout << t.H() << ',' << t.W() << ']'; };
+    auto t4 = [&fout](Tensor &t) {
+        fout << t.N() << ',' << t.H() << ',' << t.W() << ',' << t.C() << ']';
+    };
+    fout << tn[view][t.ttype];
     switch(t.rank) {
-    case 0: fout << "["  << (t.numel - 1) << "]";         break; // network model
-    case 1: fout << "1[" << t.numel << "]";               break;
-    case 2: fout << "2[" << t.H() << "," << t.W() << "]"; break;
-    case 4: fout << "4["; t4();                           break;
-    case 5: fout << "5[" << t.parm << "]["; t4();         break;
+    case 0: fout << "["  << (t.numel - 1) << "]"; break; // network model
+    case 1: fout << "1[" << t.numel << "]";       break;
+    case 2: fout << "2["; t2((Tensor&)t);         break;
+    case 4: fout << "4["; t4((Tensor&)t);         break;
+    case 5: fout << "5[" << t.parm << "]["; t4((Tensor&)t); break;
     }
     return 1;
 }
 __HOST__ __INLINE__ int
 MMU::to_s(std::ostream &fout, DU s) {
-    return to_s(fout, (Tensor&)du2obj(s));
+    return to_s(fout, du2obj(s), IS_VIEW(s));
 }
 #endif // T4_ENABLE_OBJ ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 ///
@@ -482,16 +472,16 @@ MMU::see(std::ostream &fout, U16 w) {
 ///
 __HOST__ void
 MMU::ss_dump(std::ostream &fout, U16 vid, U16 n, int radix) {
-    bool x = radix != 10;
-    auto show = [this, &fout, x](DU s) {
+    bool rx = radix != 10;
+    auto show = [this, &fout, rx](DU s) {
         if (IS_OBJ(s)) to_s(fout, s);
-        else if (x)    fout << static_cast<int>(s);
+        else if (rx)   fout << static_cast<int>(s);
         else           fout << s;
     };
     DU *ss = &_vmss[vid * T4_SS_SZ];
     if (_trace) fout << vid << "}";
     fout << std::setprecision(-1) << " <";
-    if (x) fout << std::setbase(radix);
+    if (rx) fout << std::setbase(radix);
     for (U16 i=0; i<n; i++) {
         show(ss[i]);                 /// * show stack elements
         fout << " ";
