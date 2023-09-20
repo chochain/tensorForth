@@ -193,17 +193,17 @@ struct Tensor : public T4Base {
     ///
     /// tensor-scalar operators
     ///
-    __GPU__ __INLINE__ Tensor &operator=(DU v)      { fill(v); return *this; }
-    __GPU__ __INLINE__ Tensor &operator+=(DU v)     { map(O_ADD, v); return *this; }
-    __GPU__ __INLINE__ Tensor &operator-=(DU v)     { map(O_SUB, v); return *this; }
-    __GPU__ __INLINE__ Tensor &operator*=(DU v)     { map(O_MUL, v); return *this; }
+    __GPU__ __INLINE__ Tensor &operator=(DU v)      { return fill(v);       }
+    __GPU__ __INLINE__ Tensor &operator+=(DU v)     { return map(O_ADD, v); }
+    __GPU__ __INLINE__ Tensor &operator-=(DU v)     { return map(O_SUB, v); }
+    __GPU__ __INLINE__ Tensor &operator*=(DU v)     { return map(O_MUL, v); }
     ///
     /// tensor-tensor arithmetic operators
     ///
     __GPU__ __INLINE__ Tensor &operator=(Tensor &t) { copy(t, *this); return *this; }
-    __GPU__ __INLINE__ Tensor &operator+=(Tensor &t){ ten_op(O_ADD, *this, t, *this); return *this; }
-    __GPU__ __INLINE__ Tensor &operator-=(Tensor &t){ ten_op(O_SUB, *this, t, *this); return *this; }
-    __GPU__ __INLINE__ Tensor &operator*=(Tensor &t){ ten_op(O_MUL, *this, t, *this); return *this; }
+    __GPU__ __INLINE__ Tensor &operator+=(Tensor &t){ return ten_op(O_ADD, *this, t, *this); }
+    __GPU__ __INLINE__ Tensor &operator-=(Tensor &t){ return ten_op(O_SUB, *this, t, *this); }
+    __GPU__ __INLINE__ Tensor &operator*=(Tensor &t){ return ten_op(O_MUL, *this, t, *this); }
     ///
     /// tensor-tensor logical ops
     ///
