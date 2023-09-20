@@ -19,10 +19,10 @@ __HOST__ void
 AIO::_print_obj(std::ostream &fout, DU v) {
     T4Base &b = _mmu->du2obj(v);
     switch (b.ttype) {
-    case T4_VIEW:
     case T4_TENSOR:
     case T4_DATASET: _print_tensor(fout, (Tensor&)b); break;
-    case T4_MODEL:   _print_model(fout, (Model&)b);
+    case T4_MODEL:   _print_model(fout, (Model&)b);   break;
+    case T4_XXX:     /* reserved */                   break;
     }
 }
 
