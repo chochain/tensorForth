@@ -34,7 +34,7 @@ cr .( ### verify M*M^-1 = I ) cr
 @                            \ multiply the matrices
 .                            \ validate => identity matrix (-0.0000 OK, hopefully within EPS)
 
-drop drop drop               \ drop the last tow matrices
+2drop                        \ drop the last tow matrices
 
 cr .( ## linear algebra - destructive ## ) cr
 .( ### matrix addition )
