@@ -13,10 +13,10 @@
 /// tensorForth object types
 ///
 typedef enum {
-    T4_VIEW = 0,            ///< a view object
-    T4_TENSOR,              ///< tensor object
+    T4_TENSOR = 0,          ///< tensor object
     T4_MODEL,               ///< NN model
-    T4_DATASET              ///< NN dataset
+    T4_DATASET,             ///< NN dataset
+    T4_XXX                  ///< reserved
 } t4_obj;
 ///
 /// tensorForth base object class
@@ -26,7 +26,7 @@ struct T4Base : public Managed {
     union {
         U32  attr = 0;      ///< attrbutes collective
         struct {
-            U8    ttype: 2; ///< t4_obj, 0:view, 1=tensor, 2=model, 3=dataset
+            U8    ttype: 2; ///< t4_obj, 0=tensor, 1=model, 2=dataset, 3=reserved
             U8    dunit: 2; ///< size of data element, F32=0, F64=1
             U8    rank : 3; ///< rank of tensor 2:matrix, 4:NHWC tensor
             U8    train: 1; ///< trainable
@@ -79,8 +79,7 @@ struct T4Base : public Managed {
         }
         return 0;
     }
-    __BOTH__ __INLINE__ bool is_view()    { return ttype == T4_VIEW;    }
-    __BOTH__ __INLINE__ bool is_tensor()  { return ttype <= T4_TENSOR;  }
+    __BOTH__ __INLINE__ bool is_tensor()  { return ttype == T4_TENSOR;  }
     __BOTH__ __INLINE__ bool is_model()   { return ttype == T4_MODEL;   }
     __BOTH__ __INLINE__ bool is_dataset() { return ttype == T4_DATASET; }
 };
