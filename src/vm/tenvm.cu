@@ -126,8 +126,8 @@ TensorVM::xop2(t4_ten_op op, t4_drop_opt x) {
         VLOG1("tenvm# A[%d,%d] %s B[%d,%d] => O[%d,%d]\n",
              TNOS.H(), TNOS.W(), opn[op], TTOS.H(), TTOS.W(), O.H(), O.W());
         if (x==DROP) {
-            mmu.mark_free((Tensor&)TTOS); POP();
-            mmu.mark_free((Tensor&)TTOS); POP();
+            mmu.mark_free(top); POP();
+            mmu.mark_free(top); POP();
         }
         PUSH(O);
     }
@@ -318,7 +318,7 @@ TensorVM::init() {
          IU w = POPi; IU h = POPi;
          PUSH(mmu.tensor(h, w));
          ten_off = 0; ten_lvl = 1);
-    CODE("view",   PUSH(mmu.view(top))); ///< create a view of a tensor
+    CODE("view",   PUSH(mmu.dup(top)));  ///< create a view of a tensor
     CODE("copy",   PUSH(mmu.copy(top))); ///< create a hardcopy of a tensor
     ///@}
     ///@defgroup Tensor shape ops
@@ -421,17 +421,18 @@ TensorVM::init() {
     ///@{
     CODE("dolit",
          DU v = mmu.rd(IP); IP += sizeof(DU);
-         if (IS_OBJ(v)) mmu.ref_inc(v);
-         PUSH(v));
+         PUSH(mmu.dup(v)));
     CODE("r@",
          if (IS_OBJ(rs[-1])) PUSH(mmu.copy(rs[-1]));   /// * hard copy object, or
          else PUSH(mmu.dup(rs[-1])));                  /// * dup number
     CODE(".",
-         if (IS_OBJ(top)) {
-             fout << top;                 /// * view, model, dataset (non-destructive)
-             state = VM_WAIT;             /// * forced flush (wasteful but no dangling object)
+         DU v = POP();                    ///< print TOS
+         if (IS_OBJ(v)) { 
+             fout << v;                   /// * tensor, model, dataset
+             mmu.mark_free(v);            /// * mark to release by host
+             state = VM_WAIT;             /// * forced flush (wasteful but no dangling objects)
          }
-         else fout << " " << POP());      /// * eForth has a space prefix
+         else fout << " " << v);          /// * eForth has a space prefix
     CODE("+",   xop2(O_ADD, KEEP));
     CODE("-",   xop2(O_SUB, KEEP));
     CODE("*",   xop2(O_MUL, KEEP));
@@ -441,8 +442,7 @@ TensorVM::init() {
          if (IS_OBJ(top)) xop2(O_DOT, KEEP);   ///< matrix @ product
          else {
              DU v = mmu.rd(POPi);
-             if (IS_OBJ(v)) mmu.ref_inc(v);
-             PUSH(v);
+             PUSH(mmu.dup(v));
          });
     CODE("+!",
          IU w = POPi; DU v = ADD(mmu.rd(w), POP()); ///< fetch target original value
@@ -459,7 +459,7 @@ TensorVM::init() {
     ///@}
     CODE("boot", mmu.clear(FIND("gemm") + 1));
 
-    VLOG1("tenvm#init ok\n");
+    VLOG1("TensorVM::init ok\n");
 };
 ///
 /// override with tensor handler
