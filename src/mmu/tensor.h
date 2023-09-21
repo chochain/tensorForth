@@ -17,36 +17,17 @@
 ///    PyTorch.Tensor: size, dtype, type_id, stride, tensorstore
 ///
 typedef enum {
-    /// 2-operand ops
-    O_ADD = 0,
-    O_SUB,
-    O_MUL,
-    O_DIV,
-    O_DOT,
-    O_SOLV,
-    /// 1-operand + a constant
-    O_FILL,
-    O_SCALE,
-    O_POW,
-    /// 1-operand arithmetic ops
-    O_ABS,
-    O_EXP,
-    O_LN,
-    O_LOG,
-    O_TANH,
-    O_RELU,
-    O_SIGM,
-    O_SQRT,
-    /// 1-operand matrix ops
-    O_IDEN,
-    O_INV,
-    O_LU,
-    O_LUINV,
-    O_DET,
-    O_TRIU,
-    O_TRIL,
-    O_XPOS
+    T_DOT = 0,
+    T_SOLV,
+    T_INV,
+    T_LU,
+    T_LUINV,
+    T_DET,
+    T_TRIU,
+    T_TRIL,
+    T_XPOS
 } t4_ten_op;
+#define TENSOR_OP "dot","solv","inv","lu","luinv","det","triu","tril","xpos"
 
 typedef enum {
     L_NONE = 0,
@@ -101,8 +82,8 @@ struct Tensor : public T4Base {
     ///   1. resultant tensor as last parameter
     ///   2. return the resultant tensor
     ///
-    static __GPU__  Tensor &ten_op(t4_ten_op op, Tensor &A, Tensor &B, Tensor &O);  ///> matrix-matrix element-wise ops (Hadamard)
-    static __GPU__  Tensor &ten_op(t4_ten_op op, Tensor &A, DU v, Tensor &O);       ///> matrix-scalar element-wise ops
+    static __GPU__  Tensor &ten_op(math_op op, Tensor &A, DU v, Tensor &O);       ///> matrix-scalar element-wise ops
+    static __GPU__  Tensor &ten_op(math_op op, Tensor &A, Tensor &B, Tensor &O);  ///> matrix-matrix element-wise ops (Hadamard)
     static __GPU__  Tensor &mm(Tensor &A, Tensor &B, Tensor &O, t4_mm_opt opt=MM_NONE);
     static __GPU__  Tensor &gemm(Tensor &A, Tensor &B, Tensor &O, DU alpha, DU beta);
     static __GPU__  Tensor &copy(Tensor &A, Tensor &O);
@@ -175,9 +156,9 @@ struct Tensor : public T4Base {
     __BOTH__ Tensor &reshape(U16 n, U16 h, U16 w, U16 c);
     __BOTH__ Tensor &reshape(U16 c1, U16 n, U16 h, U16 w, U16 c);
     
-    __BOTH__ Tensor &identity();              ///< fill as an identity matrix
-    __BOTH__ Tensor &map(t4_ten_op op, DU v=DU0); ///< element-wise absolute
-    __BOTH__ Tensor &fill(DU v) { return this->map(O_FILL, v); }
+    __BOTH__ Tensor &identity();                  ///< fill as an identity matrix
+    __BOTH__ Tensor &map(math_op op, DU v=DU0); ///< element-wise absolute
+    __BOTH__ Tensor &fill(DU v) { return this->map(FILL, v); }
     __BOTH__ Tensor &normalize(DU avg, DU std);
     __HOST__ void   copy_to_host(void* dst) { cudaMemcpy(dst, data, numel, cudaMemcpyDeviceToHost); }
     ///
@@ -193,17 +174,17 @@ struct Tensor : public T4Base {
     ///
     /// tensor-scalar operators
     ///
-    __GPU__ __INLINE__ Tensor &operator=(DU v)      { return fill(v);       }
-    __GPU__ __INLINE__ Tensor &operator+=(DU v)     { return map(O_ADD, v); }
-    __GPU__ __INLINE__ Tensor &operator-=(DU v)     { return map(O_SUB, v); }
-    __GPU__ __INLINE__ Tensor &operator*=(DU v)     { return map(O_MUL, v); }
+    __GPU__ __INLINE__ Tensor &operator=(DU v)      { return fill(v);     }
+    __GPU__ __INLINE__ Tensor &operator+=(DU v)     { return map(ADD, v); }
+    __GPU__ __INLINE__ Tensor &operator-=(DU v)     { return map(SUB, v); }
+    __GPU__ __INLINE__ Tensor &operator*=(DU v)     { return map(MUL, v); }
     ///
     /// tensor-tensor arithmetic operators
     ///
     __GPU__ __INLINE__ Tensor &operator=(Tensor &t) { copy(t, *this); return *this; }
-    __GPU__ __INLINE__ Tensor &operator+=(Tensor &t){ return ten_op(O_ADD, *this, t, *this); }
-    __GPU__ __INLINE__ Tensor &operator-=(Tensor &t){ return ten_op(O_SUB, *this, t, *this); }
-    __GPU__ __INLINE__ Tensor &operator*=(Tensor &t){ return ten_op(O_MUL, *this, t, *this); }
+    __GPU__ __INLINE__ Tensor &operator+=(Tensor &t){ return ten_op(ADD, *this, t, *this); }
+    __GPU__ __INLINE__ Tensor &operator-=(Tensor &t){ return ten_op(SUB, *this, t, *this); }
+    __GPU__ __INLINE__ Tensor &operator*=(Tensor &t){ return ten_op(MUL, *this, t, *this); }
     ///
     /// tensor-tensor logical ops
     ///

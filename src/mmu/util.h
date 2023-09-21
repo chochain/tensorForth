@@ -11,10 +11,59 @@
 ///
 ///@name Alignment macros
 ///@{
-#define ALIGN2(sz)          ((sz) + (sz & 0x1))
-#define ALIGN4(sz)          ((sz) + (-(sz) & 0x3))
-#define ALIGN8(sz)          ((sz) + (-(sz) & 0x7))
-#define ALIGN16(sz)         ((sz) + (-(sz) & 0xf))
+#define ALIGN2(sz)  ((sz) + (sz & 0x1))
+#define ALIGN4(sz)  ((sz) + (-(sz) & 0x3))
+#define ALIGN8(sz)  ((sz) + (-(sz) & 0x7))
+#define ALIGN16(sz) ((sz) + (-(sz) & 0xf))
+///@}
+///@name cross platform floating-point ALU support (see nvcc -use_fast_math flag)
+///@{
+typedef enum {
+    /// 1-operand arithmetic ops
+    ABS = 0,
+    EXP,
+    LN,
+    LOG,
+    TANH,
+    RELU,
+    SIGM,
+    SQRT,
+    RCP,
+    IDEN,
+    /// 1-operand + a constant
+    FILL,
+    SCALE,
+    POW,
+    /// 2-operand ops
+    ADD,
+    SUB,
+    MUL,
+    DIV,
+    MOD,
+    MAX,
+    MIN
+} math_op;
+
+#define MATH_OP "abs","exp","ln","log","tanh","relu","sigmoid","sqrt","rcp","iden","fill","scale","pow","+","-","*","/"
+
+#define ABS(d)      ((float)fabsf(d))          /**< absolute value         */
+#define EXP(d)      ((float)expf(d))           /**< exponential(float)     */
+#define LN(d)       ((float)logf(d))           /**< natural logrithm       */
+#define LOG(d)      ((float)log10f(d))         /**< log10                  */
+#define TANH(d)     ((float)tanhf(d))          /**< tanh(float)            */
+#define RELU(d)     (MAX(0.0, d))              /**< relu(float)            */
+#define SIGMOID(d)  (RCP(1.0+EXP(-(d))))       /**< sigmoid(float)         */
+#define SQRT(d)     ((float)sqrtf(d))          /**< square root            */
+#define RCP(x)      ((float)(1.0/(x)))         /**< reciprocol 1/x         */
+#define POW(d,e)    ((float)powf(d,e))         /**< power d^(e)            */
+#define ADD(x,y)    ((float)(x)+(y))           /**< addition               */
+#define SUB(x,y)    ((float)(x)-(y))           /**< addition               */
+#define MUL(x,y)    ((float)(x)*(y))           /**< multiplication         */
+#define DIV(x,y)    ((float)(x)/(y))           /**< division               */
+#define MOD(t,n)    ((float)fmodf(t,n))        /**< fmod two floats        */
+#define MAX(x,y)    ((float)fmaxf(x,y))        /**< maximum of the two     */
+#define MIN(x,y)    ((float)fminf(x,y))        /**< minimum of the two     */
+#define NORM(n,p)   ((float)normf(n,p))        /**< normal of n floats     */
 ///@}
 #ifdef __cplusplus
 extern "C" {
@@ -61,9 +110,12 @@ __GPU__ int          d_hash(const char *s);
 ///@}
 ///@name Tensor ops (kernel mode)
 ///@{
-__KERN__ void        k_copy(float *src, float *dst, int sz);  ///< Note: (src, dst)
-__KERN__ void        k_transpose(float *src, float *dst, int h, int w); ///< Note: (src, dst), TODO: CDP
+__KERN__ void        k_copy(float *src, float *dst, int n);                    ///< Note: (src, dst)
+__KERN__ void        k_transpose(float *src, float *dst, int h, int w);        ///< Note: (src, dst), TODO: CDP
 __KERN__ void        k_identity(float *t, int h, int w, int c);
+__KERN__ void        k_math(math_op op, float *dst, int n, float v=0.0);       ///< tensor math ops
+__KERN__ void        k_ts_op(math_op op, float *A, float v, float *O, int n);  ///< tensor-scalar ops
+__KERN__ void        k_tt_op(math_op op, float *A, float *B, float *O, int n); ///< tensor-tensor ops
 ///@}
 ///==========================================================================
 ///@name Unified memory ops
