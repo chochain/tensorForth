@@ -1,6 +1,6 @@
 /** 
  * @file
- * @brief tensorForth memory manager unit
+ * @brief MMU class - memory manager unit interface
  *
  * <pre>Copyright (C) 2022- GreenII, this file is distributed under BSD 3-Clause License.</pre>
  */
@@ -11,83 +11,90 @@
 #include "tensor.h"
 #include "tlsf.h"
 ///
-/// CUDA functor (device only) implementation
-/// Note: nvstd::function is too heavy (at sizeof(Code)=56-byte)
+/// CUDA functor (device only)
+/// Note: nvstd::function is generic and smaller (at 56-byte)
 ///
-///@name light-weight functor implementation
-///@brief sizeof(Code)=16
+///@name light-weight functor object implementation
+///@brief functor object (80-byte allocated by CUDA)
 ///@{
-struct fop {  __GPU__  virtual void operator()() = 0; };  ///< functor virtual class
+struct fop { __GPU__ virtual void operator()() = 0; };  ///< functor virtual class
 template<typename F>                         ///< template functor class
 struct functor : fop {
-    union {
-        F   op;                              ///< reference to lambda
-        U64 *fp;                             ///< pointer for debugging
-    };
-    __GPU__ functor(const F &f) : op(f) {    ///< constructor
-        WARN("functor(%p) => ", this);
+    F op;                                    ///< reference to lambda
+    __GPU__ functor(const F f) : op(f) {     ///< constructor
+        WARN("F(%p) => ", this);
     }
-    __GPU__ functor &operator=(const F &f) {
-        WARN("op=%p", this);
-        op = f;
-        return *this;
-    }
-    __GPU__ void operator()() {              ///< lambda invoke
-        WARN("op=%p => ", this);
+    __GPU__ __INLINE__ void operator()() {   ///< lambda invoke
+        WARN("F(%p).op() => ", this);
         op();
     }
 };
-typedef fop* FPTR;          ///< lambda function pointer
 /// @}
+typedef fop* FPTR;          ///< lambda function pointer
 ///
 /// Code class for dictionary word
 ///
+#define CODE_ATTR_FLAG      0x3              /**< nVidia func 4-byte aligned */
 struct Code : public Managed {
     const char *name = 0;   ///< name field
     union {
         FPTR xt = 0;        ///< lambda pointer (CUDA 49-bit)
-        U64  *fp;           ///< pointer for debugging
+        U64  *fp;           ///< function pointer (for debugging)
         struct {
-            U16 def:  1;    ///< colon defined word
-            U16 immd: 1;    ///< immediate flag
-            U16 xxx: 14;    ///< reserved
-            IU  pfa;        ///< offset to pmem space
+            U16 colon: 1;   ///< colon defined word
+            U16 immd:  1;   ///< immediate flag
+            U16 xx1:   1;   ///< reserved 1
+            U16 xx2:   1;   ///< reserved 2
+            U16 didx:  12;  ///< dictionary index (4K links)
+            IU  pfa;        ///< parameter field offset in pmem space
+            IU  nfa;        ///< name field offset to pmem space
+            U16 xx3;        ///< reserved
         };
     };
     template<typename F>    ///< template function for lambda
-    __GPU__ Code(const char *n, const F &f, bool im=false) : name(n), xt(new functor<F>(f)) {
-        WARN("Code(...) %p %s\n", xt, name);
+    __GPU__ Code(const char *n, F f, bool im) : name(n), xt(new functor<F>(f)) {
         immd = im ? 1 : 0;
+        WARN("%cCode(name=%p, xt=%p) %s\n", im ? '*' : ' ', name, xt, n);
     }
-    /*
-    __GPU__ Code(const Code &c) : name(c.name), xt(c.xt) {
+    /* Note: no update (construct only)
+    __GPU__ Code(const Code &c) : name(c.name), xt(c.xt), u(c.u) {
         WARN("Code(&c) %p %s\n", xt, name);
     }
-    */
-    __GPU__ Code &operator=(const Code &c) {                ///> called by Vector::push(T*)
+    __GPU__ Code &operator=(const Code &c) {  ///> called by Vector::push(T*)
         name = c.name;
         xt   = c.xt;
-        WARN("Code()= %p %s\n", xt, name);
+        u    = c.u;
+        WARN("Code= %p %s\n", xt, name);
+        return *this;
     }
+    */
 };
 ///
 /// macros for microcode construction
 ///
-#define CODE(s, g)    { s, [this] __GPU__ (){ g; }}
-#define IMMD(s, g)    { s, [this] __GPU__ (){ g; }, true }
+#define ADD_CODE(n, g, im) {                     \
+    Code c = { n, [this] __GPU__ (){ g; }, im }; \
+    mmu.merge(&c);                               \
+}
+#define CODE(n, g)  ADD_CODE(n, g, false)
+#define IMMD(n, g)  ADD_CODE(n, g, true)
+
 typedef enum {
     UNIFORM = 0,
-    NORMAL  = 1
-} t4_rand_type;
+    NORMAL
+} t4_rand_opt;
 ///
 /// tracing level control
 ///
-#define TRACE1(...)   { if (_trace > 0) INFO(__VA_ARGS__); }
-#define TRACE2(...)   { if (_trace > 1) INFO(__VA_ARGS__); }
+#define MM_TRACE1(...) { if (_trace > 0) INFO(__VA_ARGS__); }
+#define MM_TRACE2(...) { if (_trace > 1) INFO(__VA_ARGS__); }
 ///
 /// Forth memory manager
+/// TODO: compare TLSF to RMM (Rapids Memory Manager)
 ///
 class MMU : public Managed {
+    int            _khz;            ///< GPU clock speed
+    int            _trace = 0;      ///< debug tracing verbosity level
     IU             _mutex = 0;      ///< lock (first so address aligned)
     IU             _didx  = 0;      ///< dictionary index
     IU             _midx  = 0;      ///< parameter memory index
@@ -95,14 +102,15 @@ class MMU : public Managed {
     Code           *_dict;          ///< dictionary block
     U8             *_pmem;          ///< parameter memory block
     DU             *_vmss;          ///< VM data stack block
-    U8             *_ten;           ///< tensor storage block
-    DU             *_mark;          ///< list for tensors that marked free
     curandState    *_seed;          ///< for random number generator
-    TLSF           _tstore;         ///< tensor storage manager
-    int            _trace = 0;      ///< debug tracing verbosity level
+    DU             *_mark = 0;      ///< list for tensors that marked free
+    U8             *_obj  = 0;      ///< object storage block
+#if T4_ENABLE_OBJ    
+    TLSF           _ostore;         ///< object storage manager
+#endif // T4_ENABLE_OBJ    
 
 public:
-    __HOST__ MMU(int verbose=0);
+    __HOST__ MMU(int khz, int verbose=0);
     __HOST__ ~MMU();
     ///
     /// memory lock for multi-processing
@@ -112,29 +120,27 @@ public:
     ///
     /// references to memory blocks
     ///
-    __GPU__ __INLINE__ Code *dict()      { return &_dict[0]; }                      ///< dictionary pointer
-    __GPU__ __INLINE__ Code *last()      { return &_dict[_didx - 1]; }              ///< last dictionary word
-    __GPU__ __INLINE__ DU   *vmss(int i) { return &_vmss[i * T4_SS_SZ]; }           ///< data stack (per VM id)
-    __GPU__ __INLINE__ U8   *pmem(IU i)  { return &_pmem[i]; }                      ///< base of parameter memory
+    __GPU__ __INLINE__ Code *dict()      { return &_dict[0]; }            ///< dictionary pointer
+    __GPU__ __INLINE__ Code *last()      { return &_dict[_didx - 1]; }    ///< last dictionary word
+    __GPU__ __INLINE__ DU   *vmss(int i) { return &_vmss[i * T4_SS_SZ]; } ///< data stack (per VM id)
+    __GPU__ __INLINE__ U8   *pmem(IU i)  { return &_pmem[i]; }            ///< base of parameter memory
     ///
     /// dictionary management ops
     ///
-    __GPU__ void append(const Code *clist, int sz) {
-        Code *c = (Code*)clist;
-        for (int i=0; i < sz; i++) add(c++);
-    }
     __GPU__ int  find(const char *s, bool compile=0, bool ucase=0);  ///< dictionary search
-    __GPU__ void merge(const Code *clist, int sz);
-    __GPU__ void status();
+    __GPU__ void merge(Code *c);                                     ///< append/merge a new word
+    __GPU__ void status();                                           ///< display current MMU status
     ///
     /// compiler methods
     ///
     __GPU__ void colon(const char *name);                            ///< define colon word
     __GPU__ __INLINE__ int  align()      { int i = (-_midx & 0x3); _midx += i; return i; }
-    __GPU__ __INLINE__ void clear(IU i)  { _didx = i; _midx = 0; }   ///< clear dictionary
+    __GPU__ __INLINE__ void clear(IU i)  {                           ///< clear dictionary
+        _didx = i; _midx = _dict[i].nfa;
+    }
     __GPU__ __INLINE__ void add(Code *c) { _dict[_didx++] = *c; }    ///< dictionary word assignment (deep copy)
-    __GPU__ __INLINE__ void add(U8* v, int sz) {                     ///< copy data to heap, TODO: dynamic parallel
-        MEMCPY(&_pmem[_midx], v, sz); _midx += sz;                   
+    __GPU__ __INLINE__ void add(U8* v, int sz, bool adv=true) {      ///< copy data to heap, TODO: dynamic parallel
+        MEMCPY(&_pmem[_midx], v, sz); if (adv) _midx += sz;          /// * advance HERE
     }
     __GPU__ __INLINE__ void setjmp(IU a) { wi(a, _midx); }           ///< set branch target address
     ///
@@ -142,60 +148,81 @@ public:
     ///
     __BOTH__ __INLINE__ IU   here()     { return _midx; }
     __BOTH__ __INLINE__ IU   ri(U8 *c)  { return ((IU)(*(c+1)<<8)) | *c; }
-    __BOTH__ __INLINE__ IU   ri(IU pi)  { return ri(&_pmem[pi]); }
+    __BOTH__ __INLINE__ IU   ri(IU i)  {
+        if (i < T4_PMEM_SZ) return ri(&_pmem[i]);
+        ERROR("\nmmu.wi[%d]", i);
+        return 0;
+    }
     __BOTH__ __INLINE__ DU   rd(U8 *c)  { DU d; MEMCPY(&d, c, sizeof(DU)); return d; }
-    __BOTH__ __INLINE__ DU   rd(IU pi)  { return rd(&_pmem[pi]); }
+    __BOTH__ __INLINE__ DU   rd(IU i)  {
+        if (i < T4_PMEM_SZ) return rd(&_pmem[i]);
+        ERROR("\nmmu.wi[%d]", i);
+        return 0;
+    }
     __GPU__  __INLINE__ void wd(U8 *c, DU d)   { MEMCPY(c, &d, sizeof(DU)); }
-    __GPU__  __INLINE__ void wd(IU w, DU d)    { wd(&_pmem[w], d); }
-    __GPU__  __INLINE__ void wi(U8 *c, IU i)   { *c++ = i&0xff; *c = (i>>8)&0xff; }
-    __GPU__  __INLINE__ void wi(IU pi, IU i)   { wi(&_pmem[pi], i); }
+    __GPU__  __INLINE__ void wd(IU i, DU d)    {
+        if (i < T4_PMEM_SZ) wd(&_pmem[i], d);
+        else ERROR("\nmmu.wd[%d]", i);
+    }
+    __GPU__  __INLINE__ void wi(U8 *c, IU n)   { *c++ = n&0xff; *c = (n>>8)&0xff; }
+    __GPU__  __INLINE__ void wi(IU i, IU n)   {
+        if (i < T4_PMEM_SZ) wi(&_pmem[i], n);
+        else ERROR("\nmmu.wi[%d]", i);
+    }
     ///
     /// tensor life-cycle methods
     ///
-#if   !T4_ENABLE_OBJ
-    __GPU__  __INLINE__ void sweep()         {}             ///< holder for no object
-    __GPU__  __INLINE__ void drop(DU d)      {}             ///< place holder
-    __GPU__  __INLINE__ DU   dup(DU d)       { return d; }  ///< place holder
-#else // T4_ENABLE_OBJ
-    __GPU__  void   mark_free(DU v);                        ///< mark a tensor free
+#if T4_ENABLE_OBJ // vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
+    __HOST__ int    to_s(std::ostream &fout, DU s);         ///< dump object from descriptor
+    __HOST__ int    to_s(std::ostream &fout, T4Base &t, bool view); ///< dump object on stack
+    __BOTH__ T4Base &du2obj(DU d) {                         ///< DU to Obj convertion
+        U32    *off = (U32*)&d;
+        T4Base *t   = (T4Base*)(_obj + (*off & ~T4_TYPE_MSK));
+        return *t;
+    }
+    __BOTH__ DU     obj2du(T4Base &t) {                     ///< conver Obj to DU
+        U32 o = ((U32)((U8*)&t - _obj)) | T4_TT_OBJ;
+        return *(DU*)&o;
+    }
+    __GPU__  void   mark_free(DU v);                        ///< mark an object to be freed in host
     __GPU__  void   sweep();                                ///< free marked tensor
+    __GPU__  Tensor &talloc(U32 sz);                        ///< allocate from tensor space
     __GPU__  Tensor &tensor(U32 sz);                        ///< create an vector
     __GPU__  Tensor &tensor(U16 h, U16 w);                  ///< create a matrix
     __GPU__  Tensor &tensor(U16 n, U16 h, U16 w, U16 c);    ///< create a NHWC tensor
+    __GPU__  void   resize(Tensor &t, U32 sz);              ///< resize the tensor storage
     __GPU__  void   free(Tensor &t);                        ///< free the tensor
-    __GPU__  Tensor &view(Tensor &t0);                      ///< create a view to a tensor
     __GPU__  Tensor &copy(Tensor &t0);                      ///< hard copy a tensor
     __GPU__  Tensor &slice(Tensor &t0, IU x0, IU x1, IU y0, IU y1);     ///< a slice of a tensor
-    __GPU__  Tensor &random(Tensor &t, t4_rand_type ntype, int seed=0); ///< randomize tensor cells (with given type)
-    __GPU__  Tensor &scale(Tensor &t, DU v);                ///< scale a tensor
+    __GPU__  Tensor &random(Tensor &t, t4_rand_opt ntype, DU bias=DU0, DU scale=DU1);  ///< randomize tensor cells (with given type)
     ///
-    /// short hands for eforth tensor ucodes (for DU <-> Tensor conversion)
-    /// TODO: more object types
+    /// short hands for eforth tensor ucodes (for DU <-> Object conversion)
     ///
-    __BOTH__ __INLINE__ Tensor &du2ten(DU d) {
-        U32    *off = (U32*)&d;
-        Tensor *t   = (Tensor*)(_ten + (*off & ~T4_OBJ_FLAG));
-        return *t;
-    }
-    __BOTH__ __INLINE__ DU     ten2du(Tensor &t) {
-        U32 o = ((U32)((U8*)&t - _ten)) | T4_OBJ_FLAG;
-        return *(DU*)&o;
-    }
-    __GPU__             DU   rand(DU d, t4_rand_type n);    ///< randomize a tensor
-    __GPU__  __INLINE__ void drop(DU d) { if (IS_OBJ(d)) free(du2ten(d)); }
-    __GPU__  __INLINE__ DU   dup(DU d)  { return IS_OBJ(d) ? ten2du(view(du2ten(d))) : d; }
-    __GPU__  __INLINE__ DU   copy(DU d) { return IS_OBJ(d) ? ten2du(copy(du2ten(d))) : d; }
-#endif // T4_ENABLE_OBJ
+    __GPU__  DU     dup(DU d);                             ///< create a view
+    __GPU__  DU     copy(DU d);                            ///< physical copy
+    __GPU__  void   drop(DU d);                            ///< drop from memory
+    __GPU__  DU     rand(DU d, t4_rand_opt n);             ///< randomize a tensor
+    
+#else  // T4_ENABLE_OBJ ===========================================================
+    __GPU__  void   sweep()    {}                          ///< holder for no object
+    __GPU__  void   drop(DU d) {}                          ///< place holder
+    __GPU__  DU     dup(DU d)  { return d; }               ///< place holder
+    
+#endif // T4_ENABLE_OBJ ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    
     ///
     /// debugging methods (implemented in .cu)
     ///
+    __GPU__  __INLINE__ DU   ms()           { return static_cast<double>(clock64()) / _khz; }
+    __BOTH__ __INLINE__ int  khz()          { return _khz;   }
     __BOTH__ __INLINE__ int  trace()        { return _trace; }
     __BOTH__ __INLINE__ void trace(int lvl) { _trace = lvl;  }
-    __HOST__ int  to_s(std::ostream &fout, IU w);
-    __HOST__ void words(std::ostream &fout);
-    __HOST__ void see(std::ostream &fout, U8 *p, int dp=1);     /// cannot pass pfa
-    __HOST__ void see(std::ostream &fout, U16 w);
+    
+    __HOST__ int  to_s(std::ostream &fout, IU w);                ///< dump word 
+    __HOST__ void words(std::ostream &fout);                     ///< display dictionary
+    __HOST__ void see(std::ostream &fout, U8 *p, int dp=1);      ///< disassemble a word
+    __HOST__ void see(std::ostream &fout, U16 w);               
     __HOST__ void ss_dump(std::ostream &fout, U16 vid, U16 n, int radix);
-    __HOST__ void mem_dump(std::ostream &fout, U16 p0, U16 sz);
+    __HOST__ void mem_dump(std::ostream &fout, U16 p0, U16 sz);   ///< dump a section of param memory
 };
 #endif // TEN4_SRC_MMU_H
