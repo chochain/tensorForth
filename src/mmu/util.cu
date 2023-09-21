@@ -422,6 +422,7 @@ k_math(math_op op, float *A, int n, float v) {
     if (k < n) {
         switch(op) {
         case ABS:   A[k] = ABS(ak);                   break;
+        case NEG:   A[k] = NEG(ak);                   break;
         case EXP:   A[k] = EXP(ak);                   break;
         case LN:    A[k] = LN(MAX(ak, DU_LNX));       break;  // clamped
         case LOG:   A[k] = LOG(MAX(ak, DU_LNX));      break;  // clamped

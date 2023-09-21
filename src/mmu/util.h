@@ -21,6 +21,7 @@
 typedef enum {
     /// 1-operand arithmetic ops
     ABS = 0,
+    NEG,
     EXP,
     LN,
     LOG,
@@ -44,9 +45,10 @@ typedef enum {
     MIN
 } math_op;
 
-#define MATH_OP "abs","exp","ln","log","tanh","relu","sigmoid","sqrt","rcp","iden","fill","scale","pow","+","-","*","/"
+#define MATH_OP "abs","neg","exp","ln","log","tanh","relu","sigmoid","sqrt","rcp","iden","fill","scale","pow","+","-","*","/"
 
 #define ABS(d)      ((float)fabsf(d))          /**< absolute value         */
+#define NEG(d)      ((float)-(d))              /**< negate                 */
 #define EXP(d)      ((float)expf(d))           /**< exponential(float)     */
 #define LN(d)       ((float)logf(d))           /**< natural logrithm       */
 #define LOG(d)      ((float)log10f(d))         /**< log10                  */
