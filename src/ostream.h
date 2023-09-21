@@ -1,6 +1,6 @@
 /**
  * @file
- * @brief managed output stream module.
+ * @brief Ostream class - kernel managed output stream module.
  *
  * <pre>Copyright (C) 2022- GreenII, this file is distributed under BSD 3-Clause License.</pre>
  */
@@ -29,8 +29,22 @@ typedef enum {
     OP_WORDS = 0,
     OP_SEE,
     OP_DUMP,
-    OP_SS
+    OP_SS,
+    OP_TSAVE,
+    OP_DATA,
+    OP_FETCH,
+    OP_NSAVE,
+    OP_NLOAD
 } OP;
+///
+/// file access mode
+///
+typedef enum {
+    FAM_WO  = 0,
+    FAM_RW  = 1,
+    FAM_RAW = 0x10,
+    FAM_REW = 0x100
+} FAM;
 
 //================================================================
 /*! printf internal version data container.
@@ -55,7 +69,7 @@ typedef struct {
 ///
 struct _setbase { U8  base;  __GPU__ _setbase(U8 b) : base(b)  {}};
 struct _setw    { U8  width; __GPU__ _setw(U8 w)    : width(w) {}};
-struct _setfill { U8 fill;   __GPU__ _setfill(U8 f) : fill(f)  {}};
+struct _setfill { U8  fill;  __GPU__ _setfill(U8 f) : fill(f)  {}};
 struct _setprec { U8  prec;  __GPU__ _setprec(U8 p) : prec(p)  {}};
 __GPU__ __INLINE__ _setbase setbase(int b)  { return _setbase((U8)b); }
 __GPU__ __INLINE__ _setw    setw(int w)     { return _setw((U8)w);    }
@@ -64,11 +78,18 @@ __GPU__ __INLINE__ _setprec setprec(int p)  { return _setprec((U8)p); }
 ///
 /// Forth parameterized manipulators
 ///
-struct _opx     {
-    U16 op, a, n;
-    __GPU__ _opx(OP op, int a, int n) : op((U16)op), a((U16)a), n((U16)n) {}
+struct _opx {
+    union {
+        U64 x;
+        struct {
+            U16 op;       // 16-bit
+            U16 a;        // 16-bit
+            DU  n;        // 32-bit
+        };
+    };
+    __GPU__ _opx(OP op, int a, DU n) : op((U16)op), a((U16)a), n(n) {}
 };
-__GPU__ __INLINE__ _opx opx(OP op, int a=0, int n=0) { return _opx(op, a, n); }
+__GPU__ __INLINE__ _opx opx(OP op, int a=0, DU n=DU0) { return _opx(op, a, n); }
 ///
 /// Ostream class
 ///
@@ -88,17 +109,17 @@ class Ostream : public Managed {
         case GT_INT:   printf("%d\n", *(GI*)d);      break;
         case GT_FLOAT: printf("%G\n", *(GF*)d);      break;
         case GT_STR:   printf("%c\n", d);            break;
-        case GT_OBJ:   printf("Obj:%8x\n", *(U32*)d);break;
+        case GT_OBJ:   printf("Obj:%8x\n", DU2X(d);  break;
         case GT_FMT:   printf("%8x\n", *(U16*)d);    break;
         case GT_OPX: {
-            OP  op = (OP)*d;
-            U16 a  = (U16)*(d+2) | ((U16)*(d+3)<<8);
-            U16 n  = (U16)*(d+4) | ((U16)*(d+5)<<8);
-            switch (op) {
-            case OP_WORDS: printf("words()\n");            break;
-            case OP_SEE:   printf("see(%d)\n", a);         break;
-            case OP_DUMP:  printf("dump(%d, %d)\n", a, n); break;
-            case OP_SS:    printf("ss_dump(%d)\n", a);     break;
+            _opx *o = (_opx*)d;
+            switch (o->op) {
+            case OP_WORDS: printf("words()\n");                       break;
+            case OP_SEE:   printf("see(%d)\n", o->a);                 break;
+            case OP_DUMP:  printf("dump(%d, %d)\n", o->a, (U16)o->n); break;
+            case OP_SS:    printf("ss_dump(%d)\n", o->a);             break;
+            case OP_DATA:  printf("data(%d)\n", o->a);                break;
+            case OP_FETCH: printf("fetch(%d)\n", o->a);               break;
             }
         } break;
         default: printf("unknown type %d\n", gt);
@@ -128,8 +149,8 @@ class Ostream : public Managed {
     __GPU__ Ostream& _wfmt() { _write(GT_FMT, (U8*)&_fmt, sizeof(obuf_fmt)); return *this; }
 
 public:
-    Ostream(int sz=T4_OBUF_SZ) { cudaMallocManaged(&_buf, _max=sz); GPU_CHK(); }
-    ~Ostream()                 { GPU_SYNC(); cudaFree(_buf); }
+    Ostream(int sz=T4_OBUF_SZ) { MM_ALLOC(&_buf, _max=sz);  }
+    ~Ostream()                 { GPU_SYNC(); MM_FREE(_buf); }
     ///
     /// clear output buffer
     ///
@@ -156,8 +177,8 @@ public:
         _write(GT_STR, (U8*)buf, 2);
         return *this;
     }
-    __GPU__ Ostream& operator<<(I32 i) {
-        _write(GT_INT, (U8*)&i, sizeof(I32));
+    __GPU__ Ostream& operator<<(S32 i) {
+        _write(GT_INT, (U8*)&i, sizeof(S32));
         return *this;
     }
     __GPU__ Ostream& operator<<(DU d) {
@@ -171,8 +192,7 @@ public:
         return *this;
     }
     __GPU__ Ostream& operator<<(_opx o) {
-        U16 x[4] = { o.op, o.a, o.n, 0 };
-        _write(GT_OPX, (U8*)x, sizeof(x));
+        _write(GT_OPX, (U8*)&o, sizeof(o));
         return *this;
     }
 };
