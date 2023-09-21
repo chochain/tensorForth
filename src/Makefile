@@ -9,7 +9,6 @@ INCS +=
 OBJS += \
 	./src/util.o \
 	./src/aio.o \
-	./src/aio_tensor.o \
 	./src/mmu.o \
 	./src/vm.o \
 	./src/eforth.o \
@@ -28,7 +27,7 @@ CL_TOOL := ${CUTLASS_HOME}/tools
 .PHONY: clean clean-src
 
 # Each subdirectory must supply rules for building sources it contributes
-src/%.o: src/%.cu
+src/%.o: src/%.cu src/%.h
 	@echo 'Building source file: $<'
 	@echo 'Invoking: NVCC Compiler'
 	${CUDA_HOME}/bin/nvcc -ccbin g++ \
@@ -36,7 +35,7 @@ src/%.o: src/%.cu
 		-t=0 -c -std=c++14 -O3 -D__CUDACC__ -o "$@" "$<" \
 		--device-c --extended-lambda --expt-relaxed-constexpr \
 		--device-debug --debug \
-		-gencode arch=${CUDA_ARCH},code=${CUDA_CODE} \
+		 -gencode arch=${CUDA_ARCH},code=${CUDA_CODE} \
 		--keep-dir $(APP_HOME)/src
 	@echo 'Finished building: $<'
 	@echo ' '
