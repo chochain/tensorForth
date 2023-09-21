@@ -24,11 +24,11 @@ NetVM::_nnop(t4_layer op) {     /// vtable dispatcher
         Tensor &t = TTOS;
         switch (op) {
         case L_FLATTEN: t.reshape(t.numel); return;
-        case L_RELU:    t.map(O_RELU);      return;
-        case L_TANH:    t.map(O_TANH);      return;
-        case L_SIGMOID: t.map(O_SIGM);      return;
+        case L_RELU:    t.map(RELU);        return;
+        case L_TANH:    t.map(TANH);        return;
+        case L_SIGMOID: t.map(SIGM);        return;
         case L_SOFTMAX:
-            t.map(O_MUL, RCP(t.sum() + DU_EPS)); return;
+            t.map(MUL, RCP(t.sum() + DU_EPS)); return;
         case L_LOGSMAX:
             DU sum = t.sum();
             if (sum > DU_EPS) t -= LOG(sum);
@@ -107,9 +107,9 @@ NetVM::_nnop(t4_layer op) {     /// vtable dispatcher
     default:
         if (!IS_OBJ(top)) {
             switch (op) {
-            case L_RELU:    xop1(O_RELU, DU0); break;
-            case L_TANH:    xop1(O_TANH);      break;
-            case L_SIGMOID: xop1(O_SIGM);      break;
+            case L_RELU:    xop1(RELU, DU0); break;
+            case L_TANH:    xop1(TANH);      break;
+            case L_SIGMOID: xop1(SIGM);      break;
             }
         }
         else ERROR("NetVM::nnop layer %d not supported(2)\n", op);
