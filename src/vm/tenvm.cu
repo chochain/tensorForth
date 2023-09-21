@@ -18,6 +18,7 @@ TensorVM::xop1(math_op op, DU v) {
     if (!IS_OBJ(top)) {                     /// * scalar value
         switch (op) {
         case ABS:  top = ABS(top);          break;
+        case NEG:  top = NEG(top);          break;
         case EXP:  top = EXP(top);          break;
         case LN:   top = LN(top);           break;
         case LOG:  top = LOG(top);          break;
@@ -39,6 +40,7 @@ TensorVM::xop1(math_op op, DU v) {
     
     switch (op) {
     case ABS:
+    case NEG:
     case EXP:
     case LN:
     case LOG:
@@ -138,6 +140,38 @@ TensorVM::xop1t(t4_ten_op op) {
     if (tos) PUSH(t);
 }
 ///
+/// 2-operand tensor ops
+///
+__GPU__ void
+TensorVM::xop2t(t4_ten_op op, t4_drop_opt x) {
+    if (!TOS2T) {
+        ERROR("tenvm#xop2t TNOS TTOS required!\n");
+        return;
+    }
+    Tensor &A = TNOS, &B = TTOS;
+    switch (op){
+    case T_DOT: {               ///< C = A @ B
+        Tensor &C = _tdot(A, B);
+        if (x==DROP && C != A) {
+            bool ok = C != B;
+            mmu.drop(POP());
+            mmu.drop(POP());
+            if (ok) PUSH(C);
+        }
+    } break;
+    case T_DIV: {               ///< C = A * inverse(B)
+        Tensor &C = _tdiv(A, B);
+        if (C != B) PUSH(C);
+    } break;
+    case T_SOLV: {              ///< solve B = AX
+        Tensor &X = _solv(A, B);
+        PUSH(X);
+    } break;
+    default:
+        ERROR("tenvm#xop2t(%d) not supported\n", op);
+    }
+}
+///
 /// scalar-scalar ops
 ///
 __GPU__ void
@@ -218,8 +252,7 @@ TensorVM::_tinv(Tensor &A) {                 ///< matrix inverse
 }
 
 __GPU__ Tensor&
-TensorVM::_tdiv() {                          ///< tensor division
-    Tensor &A = TNOS, &B = TTOS;
+TensorVM::_tdiv(Tensor &A, Tensor &B) {      ///< tensor division
     U16 m = A.H(), ka = A.W(), kb = B.H(), n = B.W();
     if (kb != n || ka != kb) return B;       /// * B square?
 
@@ -232,8 +265,7 @@ TensorVM::_tdiv() {                          ///< tensor division
 }
 
 __GPU__ Tensor&
-TensorVM::_tdot() {                          ///< A x B tensor dot product
-    Tensor &A = TNOS, &B = TTOS;
+TensorVM::_tdot(Tensor &A, Tensor &B) {      ///< A x B tensor dot product
     if (B.rank==1 &&                         ///> dot(vector, vector)
         A.rank==1 && A.numel==B.numel) {
         DU v = A.dot(B);
@@ -257,16 +289,15 @@ TensorVM::_tdot() {                          ///< A x B tensor dot product
 }
 
 __GPU__ Tensor&
-TensorVM::_solv() {                          /// Note: A B flipped [3,3]x[3,1]
-    Tensor &A = TTOS, &B = TNOS;
-    U16 m = A.H(), k = A.W(), n = B.H();
+TensorVM::_solv(Tensor &A, Tensor &B) {     /// Note: A B flipped [3,3]x[3,1]
+    U16 m = B.H(), k = B.W(), n = A.H();
     VLOG1("tenvm# solv[%d,%d] x [%d]\n", m, k, n);
     
-    if (B.rank!=1 || m!=k || k!=n) return A;
+    if (A.rank!=1 || m!=k || k!=n) return B;
     
-    Tensor &I = _tinv(A);
+    Tensor &I = _tinv(B);
     Tensor &O = mmu.tensor(k);               /// resultant vector
-    Tensor::mm(I, B, O);                     /// O = A^-1 x B
+    Tensor::mm(I, A, O);                     /// O = A^-1 x B
     mmu.free(I);
     
     return O;
@@ -380,7 +411,12 @@ TensorVM::init() {
              Tensor &t1 = mmu.slice(t0, x0, x1, y0, y1);
              PUSH(t1);
          });
-    CODE("t@",  IU i = POPi; if (IS_OBJ(top)) PUSH(TTOS[i]));
+    CODE("t@", 
+         if (!IS_OBJ(ss[-1]) && IS_OBJ(top)) {
+             IU i = POPi; DU v = TTOS[i];
+             SCALAR(v);
+             PUSH(v);
+         })
     CODE("t!",  DU v = POP(); IU i = POPi; if (IS_OBJ(top)) TTOS[i]=v);
     ///@}
     ///@defgroup 1-tensor ops in-place (i.e. destructive, as in Forth)
@@ -412,24 +448,10 @@ TensorVM::init() {
     CODE("-=",        xop2(SUB, DROP));
     CODE("*=",        xop2(MUL, DROP));
     CODE("/=",        xop2(DIV, DROP));
-    CODE("@=",                            
-         Tensor &C = _tdot();
-         if (C != TNOS) {
-             bool ok = C != TTOS;
-             mmu.drop(POP());
-             mmu.drop(POP());
-             if (ok) PUSH(C);
-         });
-    CODE("matmul",
-         Tensor &C = _tdot();             ///< (A B -- A B C) matrix multiply
-         PUSH(C));
-    CODE("matdiv",                        ///< (A B -- A B C) matrix divide
-         if (TOS2T) return;
-         Tensor &C = _tdiv();
-         if (C != TTOS) PUSH(C));
-    CODE("solve",
-         Tensor &X = _solv();
-         PUSH(X));                        ///< (B A -- B A X) solve linear equations AX = B
+    CODE("@=",        xop2t(T_DOT, DROP));///< (A B -- C)
+    CODE("matmul",    xop2t(T_DOT));      ///< (A B -- A B C) matrix multiply
+    CODE("matdiv",    xop2t(T_DIV));      ///< (A B -- A B C) matrix divide
+    CODE("solve",     xop2t(T_SOLV));     ///< (B A -- B A X) solve B = AX
     CODE("gemm",      _gemm());           ///< (a b A B C -- a b A B C') GEMM (C updated)
     ///@}
     ///@defgroup Tensor persistance
@@ -448,27 +470,24 @@ TensorVM::init() {
     CODE("dolit",
          DU v = mmu.rd(IP); IP += sizeof(DU);
          PUSH(mmu.dup(v)));
-    CODE("r@",
-         if (IS_OBJ(rs[-1])) PUSH(mmu.copy(rs[-1]));   /// * hard copy object, or
-         else PUSH(mmu.dup(rs[-1])));                  /// * dup number
     CODE(".",
          DU v = POP();                    ///< print TOS
-         if (IS_OBJ(v)) { 
+         if (!IS_OBJ(v) || IS_VIEW(v)) {
+             fout << " " << v;            /// * eForth has a space prefix
+         }
+         else {
              fout << v;                   /// * tensor, model, dataset
              mmu.mark_free(v);            /// * mark to release by host
              state = VM_WAIT;             /// * forced flush (wasteful but no dangling objects)
-         }
-         else fout << " " << v);          /// * eForth has a space prefix
-    CODE("+",   xop2(ADD, KEEP));
-    CODE("-",   xop2(SUB, KEEP));
-    CODE("*",   xop2(MUL, KEEP));
-    CODE("/",   xop2(DIV, KEEP));
-    CODE("abs", xop1(ABS));
+         });
+    CODE("+",      xop2(ADD, KEEP));
+    CODE("-",      xop2(SUB, KEEP));
+    CODE("*",      xop2(MUL, KEEP));
+    CODE("/",      xop2(DIV, KEEP));
+    CODE("abs",    xop1(ABS));
+    CODE("negate", xop1(NEG));
     CODE("@",
-         if (IS_OBJ(top)) {
-             Tensor &C = _tdot();         ///< matrix @ product
-             if (C != TTOS && C != TNOS) PUSH(C);
-         }
+         if (IS_OBJ(top)) xop2t(T_DOT);   ///< matrix @ product
          else {
              DU v = mmu.rd(POPi);
              PUSH(mmu.dup(v));
@@ -482,9 +501,6 @@ TensorVM::init() {
     CODE("min",
          if (IS_OBJ(top)) PUSH(TTOS.min());
          else xop2(MIN));
-    CODE("negate",
-         if (IS_OBJ(top)) xop1(SCALE, -DU1);
-         else top = MUL(top, -DU1));
     ///@}
     CODE("boot", mmu.clear(FIND("gemm") + 1));
 
