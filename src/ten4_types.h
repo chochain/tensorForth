@@ -7,6 +7,7 @@
 #ifndef TEN4_SRC_TEN4_TYPES_H_
 #define TEN4_SRC_TEN4_TYPES_H_
 #include "ten4_config.h"
+
 ///
 ///@name Debug tracing options
 ///@{
@@ -16,18 +17,24 @@
 #else  // T4_VERBOSE
 #define DEBUG(...)
 #endif // T4_VERBOSE
+
 #if T4_MMU_DEBUG
 #define WARN(...)           printf(__VA_ARGS__)
+#define OPN(...)            static const char *opn[] = { __VA_ARGS__ }
 #else  // T4_MMU_DEBUG
 #define WARN(...)
+#define OPN(...)
 #endif // T4_MMU_DEBUG
+
 #define ERROR(...)          printf(__VA_ARGS__)
 #define NA(msg)             ({ ERROR("method not supported: %s\n", msg); })
 ///@}
 ///@name CUDA support macros
 ///@{
-#if defined(__CUDACC__)
+#if defined(__CUDACC__)     // vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
+
 #include <cuda.h>
+#include <cooperative_groups.h>
 #define __GPU__             __device__
 #define __HOST__            __host__
 #define __BOTH__            __host__ __device__
@@ -39,22 +46,32 @@
 
 #define ASSERT(X) \
     if (!(X)) ERROR("ASSERT tid %d: line %d in %s\n", threadIdx.x, __LINE__, __FILE__);
-#define GPU_SYNC()          { cudaDeviceSynchronize(); }
-#define GPU_CHK()           { \
-    cudaDeviceSynchronize(); \
-    cudaError_t code = cudaGetLastError(); \
-    if (code != cudaSuccess) { \
-        fprintf(stderr, "GPUassert: %s %s %d\n", cudaGetErrorString(code), __FILE__, __LINE__); \
-        cudaDeviceReset(); \
-    } \
-}
-#else  // defined(__CUDACC__)
+#define GPU_SYNC() { cudaDeviceSynchronize(); }
+#define GPU_ERR(c) {             \
+    cudaError_t code = (c);      \
+    if (code != cudaSuccess) {   \
+        ERROR("cudaERROR[%d] %s@%s %d\n", code, cudaGetErrorString(code), __FILE__, __LINE__); \
+        cudaDeviceReset();       \
+    }}
+#define GPU_CHK() {              \
+    GPU_SYNC();                  \
+    GPU_ERR(cudaGetLastError()); \
+    }
+#define MM_ALLOC(...)      GPU_ERR(cudaMallocManaged(__VA_ARGS__))
+#define MM_FREE(m)         GPU_ERR(cudaFree(m))
+
+namespace cg = cooperative_groups;
+#define K_RUN(...)         GPU_ERR(cudaLaunchCooperativeKernel(__VA_ARGS__))
+
+#else  // defined(__CUDACC__)  ===============================================
+
 #define __GPU__
 #define __HOST__
 #define __KERN__
 #define __INLINE__          inline
 #define ASSERT(X)           assert(x)
-#endif // defined(__CUDACC__)
+
+#endif // defined(__CUDACC__)  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 #define H2D                 cudaMemcpyHostToDevice
 #define D2H                 cudaMemcpyDeviceToHost
@@ -67,32 +84,67 @@ typedef uint16_t    U16;                    ///< 16-bit unsigned integer
 typedef uint8_t     U8;                     ///< 8-bit  unsigned integer
 typedef uintptr_t   UFP;                    ///< function pointer type
 
-typedef int64_t     I64;                    ///< 64-bit signed integer
-typedef int32_t     I32;                    ///< 32-bit signed integer
-typedef int16_t     I16;                    ///< 16-bit signed integer
+typedef int64_t     S64;                    ///< 64-bit signed integer
+typedef int32_t     S32;                    ///< 32-bit signed integer
+typedef int16_t     S16;                    ///< 16-bit signed integer
 
 typedef double      F64;                    ///< double precision float
 typedef float       F32;                    ///< single precision float
+///@}
+///@name CUDA specific macros
+///@{
+#define NGRID(w,h,n,b)  ((w)+(b).x-1)/(b).x,((h)+(b).y-1)/(b).y,(n)
 ///@}
 //===============================================================================
 /// tensorForth common data types
 ///
 ///@name Forth instruction and data types
 ///@{
-typedef U16         IU;                     ///< instruction unit
-typedef F32         DU;                     ///< data unit
-typedef F64         DU2;                    ///< double preciesion data unit
-#define DU0         0                       /**< default data value     */
-#define DU_EPS      1.0e-6                  /**< floating point epsilon */
+#define DUNIT       0                       /**< data unit 0=F32, 1=F64 */
+typedef U16         IU;                     /**< instruction unit       */
+typedef F32         DU;                     /**< data unit              */
+typedef F64         DU2;                    /**< double preciesion data */
+#define DU0         ((DU)0.0)               /**< default data value 0   */
+#define DU1         ((DU)1.0)               /**< default data value 1   */
+#define DU_EPS      ((DU)1.0e-6)            /**< floating point epsilon */
 ///
-/// macros for Tensor definitions
+/// cross platform floating-point ALU support (see nvcc -use_fast_math flag)
 ///
-#define T4_OBJ_FLAG 1                      /**< tensor attibute flag    */
-#if     T4_ENABLE_OBJ
-#define IS_OBJ(d)   ((*(U32*)&d) & T4_OBJ_FLAG) /**< check if DU is a tensor */
-#endif
-#define IS_TEN(d)   IS_OBJ(d)              /**< TODO: more object types */
-
+#define ZERO(d)     (ABS(d) < DU_EPS)       /**< zero check             */
+#define BOOL(d)     (ZERO(d) ? DU0 : -DU1)  /**< default boolean        */
+#define ABS(d)      ((DU)fabsf(d))          /**< absolute value         */
+#define EXP(d)      ((DU)expf(d))           /**< exponential(float)     */
+#define LOG(d)      ((DU)log10f(d))         /**< log10                  */
+#define LN(d)       ((DU)logf(d))           /**< natural logrithm       */
+#define POW(d,e)    ((DU)powf(d,e))         /**< power d^(e)            */
+#define SQRT(d)     ((DU)sqrtf(d))          /**< square root            */
+#define RCP(x)      ((DU)(DU1/(x)))         /**< reciprocol 1/x         */
+#define ADD(x,y)    ((DU)(x)+(y))           /**< addition               */
+#define SUB(x,y)    ((DU)(x)-(y))           /**< addition               */
+#define MUL(x,y)    ((DU)(x)*(y))           /**< multiplication         */
+#define DIV(x,y)    ((DU)(x)/(y))           /**< division               */
+#define TANH(d)     ((DU)tanhf(d))          /**< tanh(float)            */
+#define SIGMOID(d)  (RCP(DU1+EXP(-(d))))    /**< sigmoid(float)         */
+#define MOD(t,n)    ((DU)fmodf(t, n))       /**< fmod two floats        */
+#define MAX(x,y)    ((DU)fmaxf(x,y))        /**< maximum of the two     */
+#define MIN(x,y)    ((DU)fminf(x,y))        /**< minimum of the two     */
+#define NORM(n,p)   ((DU)normf(n,p))        /**< normal of n floats     */
+///
+/// data conversion macros
+///
+#define INT(f)      (__float2int_rn(f))     /**< float to int   */
+#define I2D(i)      (static_cast<DU>(i))    /**< int to float   */
+///
+/// object classification macros
+///
+#define T4_TYPE_MSK 0x00000003                             /**< obj view flag  */
+#define T4_TT_OBJ   0x00000001                             /**< data unit flag */
+#define T4_TT_VIEW  0x00000003                             /**< view of object */
+#define DU2X(v)     (*(U32*)&(v))                          /**< to U32 ptr     */
+#define IS_OBJ(v)   ((DU2X(v) & T4_TT_OBJ)!=0)             /**< if is an obj   */
+#define IS_VIEW(v)  ((DU2X(v) & T4_TYPE_MSK)==T4_TT_VIEW)
+#define AS_VIEW(v)  ((DU2X(v) |= T4_TT_VIEW), (v))
+#define SCALAR(v)   ((DU2X(v) &= ~T4_TT_OBJ), (v))         /**< set DU flag    */
 ///@}
 ///
 /// colon word compiler
@@ -105,17 +157,12 @@ enum {
     EXIT = 0, DONEXT, DOVAR, DOLIT, DOSTR, DOTSTR, BRAN, ZBRAN, DOES, TOR
 } forth_opcode;
 
-class Managed {
-public:
+struct Managed {
     void *operator new(size_t sz) {
         void *ptr;
-        cudaMallocManaged(&ptr, sz);
-        GPU_SYNC();
+        MM_ALLOC(&ptr, sz);
         return ptr;
     }
-    void operator delete(void *ptr) {
-        GPU_SYNC();
-        cudaFree(ptr);
-    }
+    void operator delete(void *ptr) { MM_FREE(ptr); }
 };
 #endif // TEN4_SRC_TEN4_TYPES_H_
