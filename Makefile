@@ -55,6 +55,7 @@ $(APP_NAME): $(OBJS) $(USER_OBJS) $(OPTIONAL_TOOL_DEPS)
 		-L$(CUDA_LIB) \
 		-L${CUTLASS_HOME}/build/tools/library \
 		-l$(CL_LIB) \
+		-Xnvlink --suppress-stack-size-warning \
 		-gencode arch=${CUDA_ARCH},code=${CUDA_CODE} \
 		$^
 	@echo 'Finished building target: $@'
