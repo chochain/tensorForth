@@ -384,7 +384,7 @@ Model::_blinear(Tensor &in, Tensor &out) {
 
 __GPU__ int
 Model::_bactivate(Tensor &in, Tensor &out) {
-    Tensor::ten_op(O_MUL, out, *in.grad[0], in);   /// * in = msk * out
+    Tensor::ten_op(MUL, out, *in.grad[0], in);     /// * in = msk * out
     return 0;
 }
 

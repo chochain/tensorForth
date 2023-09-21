@@ -116,10 +116,10 @@ Model::_iconv(Tensor &in, U16 C0, DU bias, U16 *opt) {
     /// filter: C1 to C0 fully connected
     /// TODO: filters's 5th dimension is stored in parm field for now
     ///
-    Tensor *f  = in.grad[0] = &_t4(C1, Hf, Wf, C0);                  ///> f
-    Tensor *df = in.grad[2] = &_t4(C1, Hf, Wf, C0).map(O_FILL, DU0); ///> df
-    Tensor *b  = in.grad[1] = &_vec(C0).map(O_FILL, bias);           ///> b
-    Tensor *db = in.grad[3] = &_vec(C0).map(O_FILL, DU0);            ///> db
+    Tensor *f  = in.grad[0] = &_t4(C1, Hf, Wf, C0);                ///> f
+    Tensor *df = in.grad[2] = &_t4(C1, Hf, Wf, C0).map(FILL, DU0); ///> df
+    Tensor *b  = in.grad[1] = &_vec(C0).map(FILL, bias);           ///> b
+    Tensor *db = in.grad[3] = &_vec(C0).map(FILL, DU0);            ///> db
 
     DU k = SQRT(RCP(Hf * Wf * C1));              /// * filter default range
     _mmu->random(*f, UNIFORM, -0.5, 2.0 * k);    /// * randomize f [-k, k)
@@ -134,10 +134,10 @@ Model::_iconv(Tensor &in, U16 C0, DU bias, U16 *opt) {
 __GPU__ void
 Model::_ilinear(Tensor &in, U16 C0, DU bias) {
     U16 N1 = in.N(), C1 = in.HWC();
-    Tensor *w  = in.grad[0] = &_t4(1, C0, C1, 1);                   ///> w
-    Tensor *dw = in.grad[2] = &_t4(1, C0, C1, 1).map(O_FILL, DU0);  ///> dw
-    Tensor *b  = in.grad[1] = &_vec(C0).map(O_FILL, bias);          ///> b
-    Tensor *db = in.grad[3] = &_vec(C0).map(O_FILL, DU0);           ///> db
+    Tensor *w  = in.grad[0] = &_t4(1, C0, C1, 1);                 ///> w
+    Tensor *dw = in.grad[2] = &_t4(1, C0, C1, 1).map(FILL, DU0);  ///> dw
+    Tensor *b  = in.grad[1] = &_vec(C0).map(FILL, bias);          ///> b
+    Tensor *db = in.grad[3] = &_vec(C0).map(FILL, DU0);           ///> db
     
     in.parm = INT(bias * 1000.0);                /// * keep for persistence
     
@@ -205,9 +205,9 @@ Model::_ipool(Tensor &in, U16 f, t4_layer fn) {
 __GPU__ void
 Model::_ibatchnorm(Tensor &in, DU m) {
     const int C = in.C();                        /// C0==C1
-    in.grad[0] = &_vec(C*2).map(O_FILL, DU0);    ///> weight/gamma, bias/beta
+    in.grad[0] = &_vec(C*2).map(FILL, DU0);      ///> weight/gamma, bias/beta
     in.grad[1] = &_vec(C*2);                     ///> tmp storage
-    in.grad[2] = &_vec(C*2).map(O_FILL, DU0);    ///> d_gamma, d_beta
+    in.grad[2] = &_vec(C*2).map(FILL, DU0);      ///> d_gamma, d_beta
     in.grad[3] = &_mmu->copy(in);                ///> x_hat (same as in)
 
     for (int c=0; c < C; c++) {                  /// * default gamma=1.0, beta=0.0

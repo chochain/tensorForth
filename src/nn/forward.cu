@@ -368,13 +368,13 @@ Model::_fpool(Tensor &in, Tensor &out, t4_layer fn) {
 __GPU__ int
 Model::_fsoftmax(Tensor &in, Tensor &out) {
     out = in;                                   /// copy content for exe calc
-    out.map(O_EXP);                             /// *
+    out.map(EXP);                               /// *
     Tensor &t = _t4(1, in.H(), in.W(), in.C()); ///< create temp tensor for calc
     DU     *d = t.data;                         ///< cached tensor data
     for (int n = 0; n < in.N(); n++) {          ///< loop thru mini-batch
         t.data = out.slice(n);                  /// * point to output data slice
         DU sum = t.sum();                       ///< sum(exp(xi))
-        t.map(O_MUL, RCP(sum + DU_EPS));        /// * softmax = exp(xi)/sum(exp(xi))
+        t.map(MUL, RCP(sum + DU_EPS));          /// * softmax = exp(xi)/sum(exp(xi))
     }
     t.data = d;                                 /// * restore tensor data
     _mmu->free(t);                              /// * release memory
@@ -384,7 +384,7 @@ Model::_fsoftmax(Tensor &in, Tensor &out) {
 __GPU__ int
 Model::_flogsoftmax(Tensor &in, Tensor &out) {  /// * TODO: DCP
     out = in;                                   /// * copy in data to out
-    out.map(O_EXP);
+    out.map(EXP);
     Tensor &t = _t4(1, in.H(), in.W(), in.C()); ///< create tmp tensor
     DU     *d = t.data;                         ///< cache tensor data
     for (int n = 0; n < in.N(); n++) {          /// * loop throught mini-batch
