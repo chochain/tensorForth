@@ -1,368 +1,465 @@
 /** -*- c++ -*-
- * @File
- * @brief - eForth Vritual Machine implementation
+ * @file
+ * @brief TensorVM class - extend ForthVM, handle tensor ops implementation
  *
  * <pre>Copyright (C) 2022- GreenII, this file is distributed under BSD 3-Clause License.</pre>
  */
 #include "tenvm.h"
 
 #if T4_ENABLE_OBJ
-__GPU__ void
-TensorVM::tprint(DU d) {
-    if (IS_OBJ(d)) { fout << d; mmu.mark_free(d); }
-    else fout << " " << d;                  /// eForth has a space prefix
-}
-__GPU__ void TensorVM::add_to_tensor(DU n) {
-    DU *d = (DU*)mmu.du2ten(top).data;
-    d[ten_off++] = n;
-}
 ///
-/// tensor methods
+/// Tensor-self ops
 ///
 __GPU__ void
-TensorVM::texp() {
-    if (!IS_TEN(top)) {                      /// * scalar
-        top = EXP(top); NO_OBJ(top);         /// * mask off object-bit if any
-        return;
-    }
-    Tensor &A = mmu.du2ten(top);
-    Tensor &B = mmu.copy(A);
-    DU *d = (DU*)B.data;
-    for (int i=0; i < B.size; i++, d++) {    ///> TODO: CDP
-        *d = EXP(*d);
-    }
-    PUSH(B);
-}
-__GPU__ void
-TensorVM::tmat(mat_op op, t_drop x) {
-    auto drop = [this](Tensor &X) { POP(); mmu.free(X); };
-    
-    bool s0 = !IS_TEN(top), s1 = !IS_TEN(ss[-1]);  /// * scalar flags
-    if (s0 && s1) {
+TensorVM::xop1(t4_ten_op op, DU v) {
+    ///
+    /// scalar handler
+    ///
+    if (!IS_OBJ(top)) {                     /// * scalar value
         switch (op) {
-        case ADD: top += ss.pop();          break;
-        case SUB: top = ss.pop() - top;     break;
-        case MUL: top *= ss.pop();          break;
-        case DIV: top = DIV(ss.pop(), top); NO_OBJ(top); break;
+        case O_ABS:  top = ABS(top);          break;
+        case O_EXP:  top = EXP(top);          break;
+        case O_LOG:  top = LOG(top);          break;
+        case O_LN:   top = LN(top);           break;
+        case O_POW:  top = POW(top, v);       break;
+        case O_TANH: top = TANH(top);         break;
+        case O_RELU: top = top > v ? top : v; break;
+        case O_SIGM: top = SIGMOID(top);      break;
         }
+        SCALAR(top);
         return;
     }
-    if (s0 || s1) {                            ///> tensor +- scalar
-        Tensor &A = mmu.du2ten(s0 ? ss[-1] : top);
-        DU     n  = s0 ? top : ss[-1];
-        Tensor &C = mmu.tensor(A.H(), A.W());
-        Tensor::mat(op, A, n, C);
-        if (s1 && op==SUB) C.scale(-1.0);      /// negate
-        if (x==DROP) { drop(A); POP(); }       /// TODO: in-place
-        PUSH(C);
-        return;
+    ///
+    /// single tensor handler (destructive)
+    ///
+    Tensor &A = TTOS;
+    if (!A.is_tensor()) { ERROR("tensor?"); return; }
+    
+    switch (op) {
+    /// ops => update in-place
+    case O_FILL:
+    case O_SCALE:
+    case O_POW:   A.map(op, v);   break;
+    case O_ABS:
+    case O_EXP:
+    case O_LN:
+    case O_LOG:
+    case O_TANH:
+    case O_RELU:
+    case O_SIGM:  A.map(op);      break;
+    case O_IDEN:  A.identity();   break;
+    default: ERROR("tenvm#xop1(%d) not supprted\n", op);
     }
-    Tensor &A = mmu.du2ten(ss[-1]);            ///> tensor op tensor
-    Tensor &B = mmu.du2ten(top);
-    U16 m = A.H(), n = A.W();                  /// matrix-matrix element-wise ops
-    if (op==MUL
-        && A.rank==1 && B.rank==1              ///> vector * vector
-        && A.size==B.size) {
-        DU d = A.dot(B);                       /// * inner product
-        if (x==DROP) { drop(B); drop(A); }
-        PUSH(d);                               /// * dot product on TOS
-        VLOG2(" => %f\n", top);
-        return;
-    }
-    if (op==MUL
-        && B.rank==1 && n==B.size) {           ///> tensor * vector
-        Tensor &C = mmu.tensor(n);
-        Tensor::mm(A, B, C);
-        if (x==DROP) { drop(B); drop(A); }     /// TODO: in-place
-        PUSH(C);                               /// * resultant tensor on TOS
-        VLOG2("=> C[%d]=%p\n", C.H(), &C);
-        return;
-    }
-    if (m == B.H() && n == B.W()) {            ///> tensor op tensor (Hadamard)
-        Tensor &C = mmu.tensor(m, n);
-        Tensor::mat(op, A, B, C);
-        if (x==DROP) { drop(B); drop(A); }     /// TODO: in-place 
-        PUSH(C);
-    }
-    else ERROR("dim?");
 }
+///
+/// 1-operand ops with new tensor created (on TOS)
+///
+__GPU__ void
+TensorVM::xop1x(t4_ten_op op) {
+    Tensor &A  = TTOS;
+    if (!A.is_tensor() || A.rank != 2) { ERROR("tensor2?"); return; }
+    ///
+    /// single tensor handler
+    ///
+    Tensor &t = (op == O_INV) ? A : mmu.copy(A); /// * hardcopy original matrix if needed
+    bool   tos = true;
+    switch (op) {
+    case O_INV:
+        PUSH(_tinv(A));                       /// * inverse A matrix
+        tos = false;             break;       /// * _tinv create its own temp
+    case O_DET: {                             /// * TODO: use PLU
+        int    ns;                            ///> number of row flipping
+        Tensor &P = mmu.tensor(A.H());        /// * dummy vector
+        Tensor::plu(t, P, &ns);               /// * decompose A to PLU
+        DU     v  = t.det();                  /// * multiply diagnal
+        PUSH(ns&1 ? -v : v);                  /// * return determinant on TOS
+        mmu.free(P);
+        mmu.free(t);                          /// * not needed
+        tos = false;
+    } break;
+    case O_LU:  Tensor::lu(t);    break;      /// * decompose A to LU
+    case O_LUINV:
+        Tensor::lu(t);                        /// * create the LU matrix
+        Tensor::lu_inverse(t);    break;      /// * inverse it 
+    case O_TRIU: t.triu();        break;
+    case O_TRIL: t.tril();        break;
+    case O_XPOS:
+        t.reshape(A.W(), A.H());
+        Tensor::transpose(A, t);  break;
+    default:
+        ERROR("tenvm#xop1x(%d) not supported\n", op);
+        mmu.free(t);
+        tos = false;
+    }
+    if (tos) PUSH(t);
+}
+
+__GPU__ void
+TensorVM::xop2(t4_ten_op op, t4_drop_opt x) {
+    static const char *opn[] = { "+", "-", "*", "/", "@", "x" };
+    ///
+    /// 2-operand operator (broadcasting)
+    ///
+    bool s0 = !IS_OBJ(top), s1 = !IS_OBJ(ss[-1]); /// * scalar flags
+    if (s0 && s1) return _ss_op(op);              /// * scalar scalar op
+    if (s0) {                                     /// * tensor scaler op
+        Tensor &O = _ts_op(op, x);
+        VLOG1("tenvm# A[%d,%d] %s %f => O[%d,%d]\n",
+              TNOS.H(), TNOS.W(), opn[op], top, O.H(), O.W());
+        if (x==KEEP) PUSH(O);
+        else         POP();
+
+        return;
+    }
+    if (s1) {                                     /// * scalar tensor op
+        Tensor &O = _st_op(op, x);
+        VLOG1("tenvm# %f %s A[%d,%d] => O[%d,%d]\n",
+              ss[-1], opn[op], TTOS.H(), TTOS.W(), O.H(), O.W());
+        if (x==KEEP) PUSH(O);
+        else         ss.pop();
+
+        return;
+    }
+    
+    Tensor &O = _tt_op(op);                       /// * tensor tensor op
+    if (O != TTOS) {
+        VLOG1("tenvm# A[%d,%d] %s B[%d,%d] => O[%d,%d]\n",
+             TNOS.H(), TNOS.W(), opn[op], TTOS.H(), TTOS.W(), O.H(), O.W());
+        if (x==DROP) {
+            mmu.drop(POP());
+            mmu.drop(POP());
+        }
+        PUSH(O);
+    }
+}
+__GPU__ void
+TensorVM::_ss_op(t4_ten_op op) {               ///< scalar-scalar ops
+    switch (op) {
+    case O_ADD: top = ADD(ss.pop(), top); break;
+    case O_SUB: top = SUB(ss.pop(), top); break;
+    case O_MUL: top = MUL(ss.pop(), top); break;
+    case O_DIV: top = DIV(ss.pop(), top); break;
+    }
+    SCALAR(top);                               /// * even +- can set LSB (rounding)
+}
+
+__GPU__ Tensor&
+TensorVM::_st_op(t4_ten_op op, t4_drop_opt x) {///< scalar tensor op
+    Tensor &A = TTOS;                         /// * Tensor on TOS
+    DU     v  = ss[-1];                       /// * scalar as NOS
+    Tensor &O = x==KEEP ? mmu.copy(A) : A;    /// * make a hard copy (and parameters)
+    if (op==O_DIV || op==O_SUB) {             /// * op(scaler, tensor)
+        Tensor &B = mmu.tensor(A.numel);      /// * working tensor
+        B.map(O_FILL, v);                     /// * broadcast
+        Tensor::ten_op(op, B, A, O);          /// * Hadamard ops
+        mmu.free(B);                          /// * free working tensor
+    }
+    else Tensor::ten_op(op, A, v, O);         /// * broadcast_op(tensor, scalar)
+    
+    return O;
+}
+
+__GPU__ Tensor&
+TensorVM::_ts_op(t4_ten_op op, t4_drop_opt x) {///< tensor scalar op
+    Tensor &A = TNOS;                         ///< tensor on NOS
+    Tensor &O = x==KEEP ? mmu.copy(A) : A;    ///< make a hard copy of A
+    Tensor::ten_op(op, A, top, O);            /// * broadcast_op(tensor, scalar)
+    
+    return O;
+}
+///
+/// op(tensor, tensor)
+///
 /**
-  TODO: Matrix product of two Tensors.
-  The behavior depends on the dimensionality of the Tensors as follows:
+  In NumPy, the behavior depends on the dimensionality of the Tensors as follows:
   - DONE: If both arguments are 2-dimensional, the matrix-matrix product is returned.
   - DONE: If both Tensors are 1-dimensional, the dot product (scalar) is returned.
-  - TODO: If the first argument is 2-dimensional and the second argument is 1-dimensional,
-    the matrix-vector product is returned.
-  - TODO: If the first argument is 1-dimensional and the second argument is 2-dimensional,
-    a 1 is prepended to its dimension for the purpose of the matrix multiply.
-    After the matrix multiply, the prepended dimension is removed.
-  - TODO: If both arguments are at least 1-dimensional and at least one argument is
-    N-dimensional (where N > 2), then a batched matrix multiply is returned.  If the first
-    argument is 1-dimensional, a 1 is prepended to its dimension for the purpose of the
-    batched matrix multiply and removed after.  If the second argument is 1-dimensional, a
-    1 is appended to its dimension for the purpose of the batched matrix multiple and removed after.
-    The non-matrix (i.e. batch) dimensions are broadcasted (and thus
-    must be broadcastable).  For example, if tensor1 is a (j x 1 x n x m) Tensor
-    and tensor2 is a (k x m x p) Tensor, the returned tensor will be an (j x k x n x p) Tensor.
+  - TODO: If the first argument is 2-dimensional and the second argument is 1-dimensional, the matrix-vector product is returned.
+  - TODO: If the first argument is 1-dimensional and the second argument is 2-dimensional, a 1 is prepended to its dimension for the purpose of the matrix multiply. After the matrix multiply, the prepended dimension is removed.
+  - TODO: If both arguments are at least 1-dimensional and at least one argument is N-dimensional (where N > 2), then a batched matrix multiply is returned.  
+    - If the first argument is 1-dimensional, a 1 is prepended to its dimension for the purpose of the batched matrix multiply and removed after.  
+    - If the second argument is 1-dimensional, a 1 is appended to its dimension for the purpose of the batched matrix multiple and removed after. 
+    - The non-matrix (i.e. batch) dimensions are broadcasted (and thus must be broadcastable).  
+    - For example, if tensor1 is a (j x 1 x n x m) Tensor and tensor2 is a (k x m x p) Tensor, the returned tensor will be an (j x k x n x p) Tensor.
 */
-__GPU__ void
-TensorVM::tmul(t_drop x) {                            ///< tensor multiplication
-    auto drop = [this](Tensor &X) { POP(); mmu.free(X); };
-    
-    bool s0 = !IS_TEN(top), s1 = !IS_TEN(ss[-1]);     /// * scalar check
-    if (s0 || s1) return;                             /// * matrix-matrix only
+__GPU__ Tensor&
+TensorVM::_tt_op(t4_ten_op op) {              ///< tensor-tensor ops
+    Tensor &A = TNOS, &B = TTOS;
 
-    Tensor &A = mmu.du2ten(ss[-1]);                   /// tensor @ tensor
-    Tensor &B = mmu.du2ten(top);
-    U16 m = A.H(), ka = A.W(), kb = B.H(), n = B.W();
-    VLOG2("A[%d,%d]=%p @ B[%d,%d]=%p ", m, ka, &A, kb, n, &B);
-    if (A.rank==2 && B.rank==2 && ka == kb) {         /// * tensor x tensor
-        Tensor &C = mmu.tensor(m, n);
-        Tensor::mm(A, B, C);
-        if (x==DROP) { drop(B); drop(A); }            /// TODO: in-place
-        PUSH(C);                                      /// * resultant tensor on TOS
-        VLOG2("=> C[%d,%d]=%p\n", C.H(), C.W(), &C);
-    }
-    else ERROR("dim?");
+    if (op == O_DOT)  return _tdot(A, B);     /// * O = A · B
+    if (op == O_SOLV) return _solv(B, A);     /// * solve B = A @ X (notation flipped)
+    ///
+    /// tensor, tensor op
+    ///
+    if (!A.is_same_shape(B)) return (ERROR("dim?\n"), B);
+
+    Tensor &O = mmu.copy(A);                  ///< make a hard copy
+    Tensor::ten_op(op, A, B, O);              /// * Hadamard ops
+    if (A.rank==1) O.reshape(O.numel);
+    
+    return O;
 }
-__GPU__ void
-TensorVM::tdiv(t_drop x) {                            ///< tensor division
-    auto drop = [this](Tensor &X) { POP(); mmu.free(X); };
-        
-    bool s0 = !IS_TEN(top), s1 = !IS_TEN(ss[-1]);
-    if (s0 || s1) return;
-    
-    /// tensor / tensor i.e. C = A * inv(B)
-    Tensor &A  = mmu.du2ten(ss[-1]);
-    Tensor &B  = mmu.du2ten(top);
-    U16 m = A.H(), ka = A.W(), kb = B.H(), n = B.W();
-    if (kb != n || ka != kb) { ERROR("dim?"); return; }/// * B square?
-        
-    tinv();                                            /// * top = inverse(B)
-    Tensor &Bi = mmu.du2ten(POP());
-    Tensor &C  = mmu.tensor(m, n);
-    VLOG2("A[%d,%d]=%p / B[%d,%d]=%p => C=%p\n", m, ka, &A, kb, n, &B, &C);
-    Tensor::mm(A, Bi, C);
-    
-    /// free matrices if desired
-    mmu.free(Bi);                                      /// * drop Bi
-    if (x==DROP) { drop(B); drop(A); }                 /// TODO: in-place
-    
-    PUSH(C);                                           /// * put result on TOS
-}
-///
-/// matrix inversion GauseJordan (with Pivot)
-///
-__GPU__ void
-TensorVM::tinv() {
-    if (!IS_TEN(top)) { ERROR("tensor?"); return; }
-    Tensor &A = mmu.du2ten(top);
+
+__GPU__ Tensor&
+TensorVM::_tinv(Tensor &A) {                 ///< matrix inverse
     Tensor &I = mmu.tensor(A.H(), A.W()).identity();
-    Tensor &C = mmu.copy(A);
-    Tensor::inverse(C, I);
-    mmu.free(C);
-    PUSH(I);
+    Tensor &X = mmu.copy(A);                 ///< tmep, keep A untouched
+    Tensor::inverse(X, I);
+    mmu.free(X);                             /// * release temp 
+    return I;
 }
-///
-/// LU conversion (no Pivot)
-///
-__GPU__ void
-TensorVM::tlu() {
-    if (!IS_TEN(top)) { ERROR("tensor?"); return; }
-    Tensor &A  = mmu.du2ten(top);
-    Tensor &LU = mmu.copy(A);             /// * hardcopy original matrix
-    Tensor::lu(LU);                       /// * decompose A to LU
-    PUSH(LU);
+
+__GPU__ Tensor&
+TensorVM::_tdiv(Tensor &A, Tensor &B) {      ///< tensor division
+    U16 m = A.H(), ka = A.W(), kb = B.H(), n = B.W();
+    if (kb != n || ka != kb) return B;       /// * B square?
+
+    Tensor &I = _tinv(B);
+    Tensor &O = mmu.tensor(m, n);
+    Tensor::mm(A, I, O);                     /// A * B^-1
+    mmu.free(I);
+    
+    return O;
 }
-///
-/// matrix determinant
-///
-__GPU__ void
-TensorVM::tdet() {
-    if (!IS_TEN(top)) { ERROR("tensor?"); return; }
-    Tensor &A  = mmu.du2ten(top);
-    Tensor &LU = mmu.copy(A);             /// * hardcopy original matrix
-    Tensor &P  = mmu.tensor(A.H());       /// * dummy
-    Tensor::plu(LU, P);                   /// * decompose A to LU
-    mmu.free(P);
-    PUSH(LU.det());                       /// * return determinant on TOS
-}
-__GPU__ void
-TensorVM::ttrans() {
-    if (!IS_TEN(top)) { ERROR("tensor?"); return; }
-    Tensor &A = mmu.du2ten(top);
-    U16 h = A.H(), w = A.W();
-    Tensor &B = mmu.tensor(w, h);
-    VLOG2("A[%d,%d]=%p => B[%d,%d]=%p", h, w, &A, B.H(), B.W(), &B);
-    Tensor::transpose(A, B);
-    PUSH(B);
-}
-__GPU__ void
-TensorVM::solve() {
-    if (!IS_TEN(ss[-1]) || !IS_TEN(top)) { ERROR("tensor?"); return; }
-    Tensor &B = mmu.du2ten(ss[-1]);      /// B vector
-    Tensor &A = mmu.du2ten(top);         /// A linear equations
-    U16 m = A.H(), k = A.W(), n = B.W();
-    if (m==k && B.rank==1 && k==B.H()) {
-        tinv();                          /// * inverse (i.e. A^-1)
-        Tensor &Ai = mmu.du2ten(POP());  /// * pop off A^-1
-        Tensor &X  = mmu.tensor(k);      /// resultant vector
-        Tensor::mm(Ai, B, X);            /// X = A^-1 x B
-        PUSH(X);                         /// * put resultant on TOS
-        mmu.free(Ai);                    /// * release inverse matrix
+
+__GPU__ Tensor&
+TensorVM::_tdot(Tensor &A, Tensor &B) {      ///< tensor dot product
+    if (B.rank==1 &&                         ///> dot(vector, vector)
+        A.rank==1 && A.numel==B.numel) {
+        DU v = A.dot(B);
+        PUSH(v);
+        VLOG1("tenvm# A[%d] · B[%d] => %f\n", A.H(), B.H(), v);
+        return B;                            /// * non-tensor
     }
-    else ERROR("B A or dim?");
+    if (B.rank==1 && A.W()==B.numel) {       ///> inner(tensor, vector)
+        Tensor &O = mmu.tensor(A.H());
+        Tensor::mm(A, B, O);
+        return O;
+    }
+    if (A.W()==B.H()) {                      /// * tensor @ tensor
+        Tensor &O = mmu.tensor(A.H(), B.W());
+        Tensor::mm(A, B, O);
+        return O;
+    }
+    ERROR("A.W!=B.H dim?");
+    
+    return A;                                /// * i.e. skip in xop2
 }
+
+__GPU__ Tensor&
+TensorVM::_solv(Tensor &A, Tensor &B) {      /// Note: A B flipped [3,3]x[3,1]
+    U16 m = A.H(), k = A.W(), n = B.H();
+    VLOG1("tenvm# solv[%d,%d] x [%d]\n", m, k, n);
+    
+    if (B.rank!=1 || m!=k || k!=n) return A;
+    
+    Tensor &I = _tinv(A);
+    Tensor &O = mmu.tensor(k);               /// resultant vector
+    Tensor::mm(I, B, O);                     /// O = A^-1 x B
+    mmu.free(I);
+    
+    return O;
+}
+
 __GPU__ void
-TensorVM::gemm() {                       ///< blas GEMM
-    Tensor &C = mmu.du2ten(top);
-    Tensor &B = mmu.du2ten(ss[-1]);
-    Tensor &A = mmu.du2ten(ss[-2]);
+TensorVM::_gemm() {                          ///< blas GEMM
+    if (!TOS3T) { ERROR("tensors?"); return; }
+    
+    Tensor &O = TTOS, &B = TNOS, &A = (Tensor&)mmu.du2obj(ss[-2]);
     DU     b  = ss[-3];
     DU     a  = ss[-4];
-    U16 m = A.H(), k = A.W(), n = B.W();
-    if (k == B.H() && m == C.H() && n == C.W()) {
-        Tensor &D = mmu.copy(C);         /// * hard copy C tensor
-        Tensor::gemm(A, B, D, a, b);
-        PUSH(D);
+    U16    m  = A.H(), k = A.W(), n = B.W();
+    if (k == B.H() && m == O.H() && n == O.W()) {
+        Tensor &X = mmu.copy(O);             /// * hard copy O tensor
+        Tensor::gemm(A, B, X, a, b);
+        PUSH(X);
     }
     else ERROR("dim?");
 }
+
+__GPU__ void
+TensorVM::_pickle(bool save) {
+    IU   mode= FAM_WO;                      ///< file mode (W/O,R/W)|BIN
+    
+    if (ss.idx > 1 && IS_OBJ(ss[-2])) { /* OK */ }
+    else if (ss.idx > 2 && IS_OBJ(ss[-3])) mode |= POPi;
+    else { ERROR("tensor adr len [mode]?\n"); return; }
+    
+    IU   len = POPi;                        ///< string length (not used for now)
+    IU   adr = POPi;                        ///< address to pmem
+    char *fn = (char*)mmu.pmem(adr);        ///< pointer to string on PAD
+    fout << opx(OP_TSAVE, mode, top) << fn; /// * issue save command
+    state = VM_WAIT;                        /// * return to CPU
+}
 ///
-/// Tensor specific dictionary constructor
+/// Tensor Vocabulary
 ///
 __GPU__ void
-TensorVM::init_t() {
-    const Code prim[] = {       /// singleton, build once only
+TensorVM::init() {
+    ForthVM::init();
+    ///
     ///@defgroup Tensor creation ops
     ///@brief - stick to PyTorch naming when possible
     ///@{
-    CODE("vector",                        ///< allocate a vector
-        IU sz = POPi;
-        PUSH(mmu.tensor(sz))),
+    CODE("vector",                       ///< allocate a vector
+         IU sz = POPi;
+         PUSH(mmu.tensor(sz)));
     CODE("matrix",                       ///< allocate a matrix
-        IU w = POPi; IU h = POPi;
-        PUSH(mmu.tensor(h, w))),
+         IU w = POPi; IU h = POPi;
+         PUSH(mmu.tensor(h, w)));
     CODE("tensor",                       ///< allocate a NHWC tensor
-        IU c = POPi; IU w = POPi; IU h = POPi; IU n = POPi;
-        PUSH(mmu.tensor(n, h, w, c))),
+         IU c = POPi; IU w = POPi; IU h = POPi; IU n = POPi;
+         PUSH(mmu.tensor(n, h, w, c)));
     CODE("vector{",                      ///< create a vector with literals
-        IU sz = POPi;
-        PUSH(mmu.tensor(sz));
-        ten_off = 0; ten_lvl = 1),
+         IU sz = POPi;
+         PUSH(mmu.tensor(sz));
+         ten_off = 0; ten_lvl = 1);
     CODE("matrix{",                      ///< create a matrix with literals
-        IU w = POPi; IU h = POPi;
-        PUSH(mmu.tensor(h, w));
-        ten_off = 0; ten_lvl = 1),
-    CODE("copy",    PUSH(mmu.copy(top))),
+         IU w = POPi; IU h = POPi;
+         PUSH(mmu.tensor(h, w));
+         ten_off = 0; ten_lvl = 1);
+    CODE("view",   PUSH(mmu.dup(top)));  ///< create a view of a tensor
+    CODE("copy",   PUSH(mmu.copy(top))); ///< create a hardcopy of a tensor
     ///@}
     ///@defgroup Tensor shape ops
     ///@brief - stick to PyTorch naming when possible
     ///@{
     CODE("flatten",                      ///< reshape as a vector (1-D array)
-        Tensor &t = mmu.du2ten(top);
-        t.reshape(t.size)),
+         Tensor &t = TTOS;
+         t.reshape(t.numel));
     CODE("reshape2",                     ///< reshape as matrix(h,w)
-        IU w = POPi; IU h = POPi;
-        mmu.du2ten(top).reshape(h, w)),
+         IU w = POPi; IU h = POPi;
+         TTOS.reshape(h, w));
     CODE("reshape4",                     ///< reshape as Tensor(NHWC)
-        IU c = POPi; IU w = POPi; IU h = POPi; IU n = POPi;
-        mmu.du2ten(top).reshape(n, h, w, c)),
+         IU c = POPi; IU w = POPi; IU h = POPi; IU n = POPi;
+         TTOS.reshape(n, h, w, c));
+    CODE("same_shape?",
+         if (IS_OBJ(top) && IS_OBJ(ss[-1])) {
+             Tensor &A=TTOS; Tensor &B=TNOS; PUSH(BOOL(A.is_same_shape(B)));
+         }
+         else ERROR("TOS,NOS tensors?"));
     ///@}
     ///@defgroup Tensor fill ops
     ///@brief - stick to PyTorch naming when possible
     ///@{
-    CODE("={",                          ///< (n -- ) or ( -- )
-         ten_off = IS_TEN(top) ? 0 : POPi;
-         ten_lvl = IS_TEN(top) ? 1 : 0),
-    CODE("zeros", if (IS_TEN(top)) mmu.du2ten(top).fill(0)),
-    CODE("ones",  if (IS_TEN(top)) mmu.du2ten(top).fill(1)),
-    CODE("full",  if (IS_TEN(ss[-1])) { DU d = POP(); mmu.du2ten(top).fill(d); }),
-    CODE("eye",   if (IS_TEN(top)) mmu.du2ten(top).identity()),
-    CODE("rand",  top = mmu.rand(top, UNIFORM)),  ///< uniform randomize a tensor or number
-    CODE("randn", top = mmu.rand(top, NORMAL)),   ///< normal dist. randomize a tensor
+    CODE("={",                                    ///< (n -- ) or ( -- )
+         ten_off = IS_OBJ(top) ? 0 : POPi;
+         ten_lvl = IS_OBJ(top) ? 1 : 0);
+    CODE("zeros", xop1(O_FILL, DU0));             ///< fill tensor with 0s
+    CODE("ones",  xop1(O_FILL, DU1));             ///< fill tensor with 1s
+    CODE("full",  DU d = POP(); xop1(O_FILL, d)); ///< fill tensor with a value
+    CODE("eye",   xop1(O_IDEN));                  ///< fill 1s in diag
+    CODE("rand",  top = mmu.rand(top, UNIFORM));  ///< uniform randomize a tensor or number
+    CODE("randn", top = mmu.rand(top, NORMAL));   ///< normal dist. randomize a tensor
     ///@}
     ///@defgrup Tensor slice and dice
     ///@{
-    CODE("sum",
-        if (IS_TEN(top)) {
-            DU d =  mmu.du2ten(top).sum();
-            PUSH(d);
-        }),
-    CODE("{",   if (IS_TEN(top) && ten_lvl > 0) ++ten_lvl),
-    CODE("}",   if (IS_TEN(top) && ten_lvl > 0) --ten_lvl),
+    CODE("normalize",
+         DU std = POP(); DU avg = POP();
+         if (TOS1T) { TTOS.normalize(std, avg); });
+    CODE("sum", if (TOS1T) PUSH(TTOS.sum()));
+    CODE("avg", if (TOS1T) PUSH(TTOS.avg()));
+    CODE("std", if (TOS1T) PUSH(TTOS.std()));
+    CODE("{",   if (TOS1T && ten_lvl > 0) ++ten_lvl);
+    CODE("}",   if (TOS1T && ten_lvl > 0) --ten_lvl);
     CODE("slice",
          IU y1 = POPi; IU y0 = POPi; IU x1 = POPi; IU x0 = POPi;
-         if (IS_TEN(top)) {
-             Tensor &t0 = mmu.du2ten(top);
+         if (TOS1T) {
+             Tensor &t0 = TTOS;
              Tensor &t1 = mmu.slice(t0, x0, x1, y0, y1);
              PUSH(t1);
-         }),
+         });
+    CODE("t@",  IU i = POPi; if (IS_OBJ(top)) PUSH(TTOS[i]));
+    CODE("t!",  DU v = POP(); IU i = POPi; if (IS_OBJ(top)) TTOS[i]=v);
     ///@}
-    ///@defgroup Tensor matrix ops (destructive, as in Forth)
+    ///@defgroup 1-tensor ops in-place (i.e. destructive, as in Forth)
     ///@{
-    CODE("+=",        tmat(ADD, DROP)),
-    CODE("-=",        tmat(SUB, DROP)),
-    CODE("*=",        tmat(MUL, DROP)),
-    CODE("/=",        tmat(DIV, DROP)),
-    CODE("@=",        tmul(DROP)),
-    ///@defgroup Tensor matrix ops
+    CODE("pow",       DU n = POP(); xop1(O_POW, n));    ///< (A n -- A')
+    CODE("exp",       xop1(O_EXP));                     ///< (A -- A')
+    CODE("ln",        xop1(O_LN));                      ///< (A -- A')
+    CODE("log",       xop1(O_LOG));                     ///< (A -- A')
+    ///@}
+    ///@defgroup 1-tensor ops that create new tensor
     ///@brief - stick to PyTorch naming when possible
     ///@{
-    CODE("exp",       texp()),     ///< (A -- A A')    matrix exponential
-    CODE("inverse",   tinv()),     ///< (A -- A Ai')   matrix inversion (GaussJordan)
-    CODE("det",       tdet()),     ///< (A -- A d)     matrix determinant
-    CODE("lu",        tlu()),      ///< (A -- A A')    LU decomposition
-    CODE("luinv",                  ///< (A -- A A')    inverse an LU matrix
-         if (!IS_TEN(top)) return;
-         Tensor &t0 = mmu.du2ten(top);
-         Tensor::inverse(t0)),
-    CODE("upper", if (!IS_TEN(top)) return;
-         Tensor &t0 = mmu.du2ten(top);
-         Tensor &t1 = mmu.copy(t0);
-         t1.triu();
-         PUSH(t1)),
-    CODE("lower", if (!IS_TEN(top)) return;
-         Tensor &t0 = mmu.du2ten(top);
-         Tensor &t1 = mmu.copy(t0);
-         t1.tril();
-         PUSH(t1)),
-    CODE("transpose", ttrans()),   ///< (A -- A At)    matrix transpose
-    CODE("matmul",    tmul(KEEP)), ///< (A B -- A B C) matrix multiplication
-    CODE("matdiv",    tdiv(KEEP)), ///< (A B -- A B C) matrix division
-    CODE("solve",     solve()),    ///< (B A -- B A X) solve linear equations AX = B
-    CODE("gemm",      gemm()),     ///< (a b A B C -- a b A B C') GEMM (C updated)
+    CODE("inverse",   xop1x(O_INV));      ///< (A -- A Ai')   matrix inversion (GaussJordan)
+    CODE("det",       xop1x(O_DET));      ///< (A -- A d)     matrix determinant
+    CODE("lu",        xop1x(O_LU));       ///< (A -- A A')    LU decomposition
+    CODE("luinv",     xop1x(O_LUINV));    ///< (A -- A A')    inverse the LU matrix
+    CODE("upper",     xop1x(O_TRIU));     ///< (A -- A A')    upper triangle
+    CODE("lower",     xop1x(O_TRIL));     ///< (A -- A A')    lower triangle
+    CODE("transpose", xop1x(O_XPOS));     ///< (A -- A At)    matrix transpose
     ///@}
-    };
-    const Code over[] = {          /// extended (overload) words
+    ///@defgroup 2-tensor matrix ops
+    ///@{
+    CODE("+=",        xop2(O_ADD, DROP));
+    CODE("-=",        xop2(O_SUB, DROP));
+    CODE("*=",        xop2(O_MUL, DROP));
+    CODE("/=",        xop2(O_DIV, DROP));
+    CODE("@=",        xop2(O_DOT, DROP));
+    CODE("matmul",    xop2(O_DOT, KEEP)); ///< (A B -- A B C) matrix multiply
+    CODE("matdiv",                        ///< (A B -- A B C) matrix divide
+         if (TOS2T) return;
+         Tensor &A = TNOS; Tensor &B = TTOS;
+         Tensor &C = _tdiv(A, B);
+         if (C != B) PUSH(C));
+    CODE("solve",     xop2(O_SOLV,KEEP)); ///< (B A -- B A X) solve linear equations AX = B
+    CODE("gemm",      _gemm());           ///< (a b A B C -- a b A B C') GEMM (C updated)
+    ///@}
+    ///@defgroup Tensor persistance
+    ///@brief - stick to PyTorch naming when possible
+    ///@{
+    CODE("bin",       PUSH(FAM_RAW));     ///< raw/binary file
+    CODE("w/o",       PUSH(FAM_WO));      ///< write-only file
+    CODE("r/w",       PUSH(FAM_RW));      ///< read-write file
+    CODE("save",      _pickle(true));     ///< ( T fn len -- T ) save tensor to a file
+    CODE("load",      _pickle(false));    ///< ( T fn -- T' ) fill a tensor from file
+    ///
+    /// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
+    ///
     ///@defgroup redefined tensor ops
     ///@{
-    CODE(".",   tprint(POP())),
-    CODE("+",   tmat(ADD, KEEP)),
-    CODE("-",   tmat(SUB, KEEP)),
-    CODE("*",   tmat(MUL, KEEP)),
-    CODE("/",   tmat(DIV, KEEP)),
+    CODE("dolit",
+         DU v = mmu.rd(IP); IP += sizeof(DU);
+         PUSH(mmu.dup(v)));
+    CODE("r@",
+         if (IS_OBJ(rs[-1])) PUSH(mmu.copy(rs[-1]));   /// * hard copy object, or
+         else PUSH(mmu.dup(rs[-1])));                  /// * dup number
+    CODE(".",
+         DU v = POP();                    ///< print TOS
+         if (IS_OBJ(v)) { 
+             fout << v;                   /// * tensor, model, dataset
+             mmu.mark_free(v);            /// * mark to release by host
+             state = VM_WAIT;             /// * forced flush (wasteful but no dangling objects)
+         }
+         else fout << " " << v);          /// * eForth has a space prefix
+    CODE("+",   xop2(O_ADD, KEEP));
+    CODE("-",   xop2(O_SUB, KEEP));
+    CODE("*",   xop2(O_MUL, KEEP));
+    CODE("/",   xop2(O_DIV, KEEP));
+    CODE("abs", xop1(O_ABS));
     CODE("@",
-         if (IS_TEN(top)) tmul(KEEP);
+         if (IS_OBJ(top)) xop2(O_DOT, KEEP);   ///< matrix @ product
          else {
-             IU w = POPi; PUSH(mmu.rd((IU)w));
-         }),
-    CODE("abs",
-         if (!IS_OBJ(top)) top = ABS(top);
-         else mmu.du2ten(top).abs()),
+             DU v = mmu.rd(POPi);
+             PUSH(mmu.dup(v));
+         });
+    CODE("+!",
+         IU w = POPi; DU v = ADD(mmu.rd(w), POP()); ///< fetch target original value
+         mmu.wd(w, SCALAR(v)));                     /// * write back
+    CODE("max",
+         if (IS_OBJ(top)) PUSH(TTOS.max());
+         else { DU n=ss.pop(); top = (top>n) ? top : n; });
+    CODE("min",
+         if (IS_OBJ(top)) PUSH(TTOS.min());
+         else { DU n=ss.pop(); top = (top<n) ? top : n; });
     CODE("negate",
-         if (!IS_OBJ(top)) top *= -1.0;
-         else mmu.du2ten(top).scale(-1.0)),
+         if (IS_OBJ(top)) xop1(O_SCALE, -DU1);
+         else top = MUL(top, -DU1));
     ///@}
-    CODE("boot", mmu.clear(FIND("gemm") + 1))
-    };
-    ForthVM::init_f();
+    CODE("boot", mmu.clear(FIND("gemm") + 1));
 
-    mmu.append(prim, sizeof(prim)/sizeof(Code)); /// * append tensor words
-    mmu.merge(over,  sizeof(over)/sizeof(Code)); /// * overload existed words
-    mmu.status();
-
-    status = VM_RUN;
+    VLOG1("TensorVM::init ok\n");
 };
 ///
 /// override with tensor handler
@@ -374,20 +471,22 @@ TensorVM::number(char *str) {
         ? STRTOF(idiom, &p)
         : STRTOL(idiom, &p, radix);
     if (*p != '\0') return 0;
-    NO_OBJ(n);                           /// * mask out object bit
+    SCALAR(n);                           /// * mask out object bit
     if (compile) {                       /// * add literal when in compile mode
-        VLOG2("%f\n", n);
+        VLOG2("%d| %f\n", vid, n);
         add_w(DOLIT);                    ///> dovar (+parameter field)
         add_du(n);                       ///> store literal
     }
     else if (ten_lvl > 0) {              /// * append literal into tensor storage
-        VLOG2("T[%d]=%f\n", ten_off, n);
-        add_to_tensor(n);
+        VLOG2("%d| T[%d]=%f\n", vid, ten_off, n);
+        TTOS.data[ten_off++] = n;        /// * append to tensor.data
     }
     else {                               ///> or, add value onto data stack
-        VLOG2("ss.push(%08x)\n", *(U32*)&n);
+        VLOG2("%d| ss.push(%f)=%08x\n", vid, n, DU2X(n));
         PUSH(n);
     }
+    return 1;
 }
+
 #endif  // T4_ENABLE_OBJ
-//=======================================================================================
+//==========================================================================
