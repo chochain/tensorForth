@@ -1,6 +1,6 @@
 /** -*- c++ -*-
- * @File
- * @brief tensorForth tensor memory storage management.
+ * @file
+ * @brief TLSF class - tensor storage manager implementation
  *
  * <pre>Copyright (C) 2022 GreenII. This file is distributed under BSD 3-Clause License.</p>
 */
@@ -8,15 +8,17 @@
 #include "util.h"
 #include "tlsf.h"
 
+#if T4_ENABLE_OBJ
+
 // TLSF: Two-Level Segregated Fit allocator with O(1) time complexity.
 // Layer 1st(f), 2nd(s) model, smallest block 16-bytes, 16-byte alignment
 // TODO: multiple-pool, thread-safe
 // semaphore
 #define _LOCK           { MUTEX_LOCK(_mutex); }
 #define _UNLOCK         { MUTEX_FREE(_mutex); }
-#define U8PADD(p, n)	((U8*)(p) + (n))					/** pointer add */
-#define U8PSUB(p, n)	((U8*)(p) - (n))					/** pointer sub */
-#define U8POFF(p1, p0)	((I32)((U8*)(p1) - (U8*)(p0)))	    /** calc offset */
+#define U8PADD(p, n)	((U8*)(p) + (n))                    /** pointer add */
+#define U8PSUB(p, n)	((U8*)(p) - (n))                    /** pointer sub */
+#define U8POFF(p1, p0)	((S32)((U8*)(p1) - (U8*)(p0)))      /** calc offset */
 
 //================================================================
 /*! constructor
@@ -25,10 +27,10 @@
   @param  size    size. (max 4G)
 */
 __BOTH__ void
-TLSF::init(U8 *mptr, U32 sz) {
+TLSF::init(U8 *mptr, U32 sz, U32 off) {
     WARN("tlsf#init(%p, 0x%x)\n", mptr, sz);
-    _heap    = mptr;
-    _heap_sz = sz;
+    _heap    = mptr + off;                              // header offset (for Tensor0)
+    _heap_sz = sz - off;
     U32 bsz  = _heap_sz - sizeof(used_block);           // minus end block
     //
     // clean TLSF maps
@@ -118,7 +120,7 @@ TLSF::realloc(void *p0, U32 sz) {
     void *ret = this->malloc(bsz);
     MEMCPY(ret, (const void*)p0, (size_t)sz);            // deep copy, !!using CUDA provided memcpy
     this->free(p0);                                      // reclaim block
-    
+
     return ret;
 }
 
@@ -134,66 +136,12 @@ TLSF::free(void *ptr) {
     WARN("tlsf#free(%p) => %p:0x%x\n", ptr, blk, blk->bsz);
     _try_merge_next(blk);
     _mark_free(blk);
-    
+
     // the block is free now, try to merge a free block before if exists
     _try_merge_prev(blk);
     _UNLOCK;
 }
 
-//================================================================
-// MMU JTAG sanity check - memory pool walker
-//
-//================================================================
-__BOTH__ void
-TLSF::show_stat() {
-    ///
-    /// stat pre-adjusted for the stopper block
-    ///
-    int tot=sizeof(used_block), free=0, used=0;
-    int nblk=-1, nused=-1, nfree=0, nfrag=0;
-
-    used_block *p = (used_block*)_heap;
-    U32 f0 = IS_FREE(p);                  // starting block type
-    while (p) {                           // walk the memory pool
-        U32 bsz = p->bsz;                 // current block size
-        tot   += bsz;
-        nblk  += 1;
-        if (IS_FREE(p)) {
-            nfree += 1;
-            free  += bsz;
-            if (!f0) nfrag++;             // is adjacent block fragmented
-        }
-        else {
-            nused += 1;
-            used  += bsz;
-        }
-        f0 = IS_FREE(p);
-        p  = (used_block*)BLK_AFTER(p);
-    }
-    float pct = 100.0*used/tot;
-
-    printf("total=%d(%x): free[%d]=%d(%x), used[%d]=%d(%x), nblk=%d, nfrag=%d, %.2f%% allocated\n",
-           tot, tot, nfree, free, free, nused, used, used, nblk, nfrag, pct);
-}
-
-__BOTH__ void
-TLSF::dump_freelist() {
-    printf("tlsf#L1=%4x: ", _l1_map);
-    for (int i=L1_BITS-1;  i>=0; i--) { printf("%02x%s", _l2_map[i], i%4==0 ? " " : ""); }
-    for (int i=FL_SLOTS-1; i>=0; i--) {
-        if (!_free_list[i]) continue;
-        printf("\n\t[%02x]=>[", i);
-        for (free_block *b = _free_list[i]; b!=NULL; b=NEXT_FREE(b)) {
-            printf(" %p:%04x", b, b->bsz);
-            if (IS_USED(b)) {
-                printf("<-USED?");
-                break;                // something is wrong (link is broken here)
-            }
-        }
-        printf(" ] ");
-    }
-    printf("\n");
-}
 //================================================================
 /*! calc l1 and l2, and returns fli,sli of free_blocks
 
@@ -233,7 +181,7 @@ TLSF::_idx(U32 sz) {
   @retval -1    not found
   @retval index to available _free_list
 */
-__GPU__ I32
+__GPU__ S32
 TLSF::_find_free_index(U32 sz) {
     U32 index = _idx(sz);                        // find free_list index by size
 
@@ -310,7 +258,7 @@ TLSF::_pack(free_block *b0, free_block *b1) {
     used_block *b2 = (used_block *)BLK_AFTER(b1);
     b2->psz += b1->psz & ~FREE_FLAG;    // watch for the block->flag
     b0->bsz += b1->bsz;                 // include the block header
-    
+
     WARN(" %x\n", b0->bsz);
 }
 
@@ -405,7 +353,7 @@ TLSF::_try_merge_prev(free_block *b1) {
     WARN("tlsf#merge_prev %p:%x:%x + %p", b1, b1->bsz, b1->psz, b0);
     if (b0) WARN("%x.%s\n", b0->bsz, IS_FREE(b0) ? "free" : "used");
     else    WARN("%x.empty\n", 0);
-    
+
     if (b0==NULL || IS_USED(b0)) return b1;
     _unmap(b0);                              // take it out of free_list before merge
     _pack(b0, b1);                           // take b1 out and merge with b0
@@ -415,7 +363,10 @@ TLSF::_try_merge_prev(free_block *b1) {
 
     return b0;
 }
-
+//================================================================
+// MMU JTAG sanity check - memory pool walker
+//
+//================================================================
 __BOTH__ int
 TLSF::_mmu_ok()    {                         // mmu sanity check
     used_block *p0 = (used_block*)_heap;
@@ -431,3 +382,59 @@ TLSF::_mmu_ok()    {                         // mmu sanity check
     }
     return (tot==_heap_sz) && (!p1);         // last check
 }
+__BOTH__ void
+TLSF::_show_stat() {
+    ///
+    /// stat pre-adjusted for the stopper block
+    ///
+    int tot=sizeof(used_block), free=0, used=0;
+    int nblk=-1, nused=-1, nfree=0, nfrag=0;
+
+    used_block *p = (used_block*)_heap;
+    U32 f0 = IS_FREE(p);                  // starting block type
+    while (p) {                           // walk the memory pool
+        U32 bsz = p->bsz;                 // current block size
+        tot   += bsz;
+        nblk  += 1;
+        if (IS_FREE(p)) {
+            nfree += 1;
+            free  += bsz;
+            if (!f0) nfrag++;             // is adjacent block fragmented
+        }
+        else {
+            nused += 1;
+            used  += bsz;
+        }
+        f0 = IS_FREE(p);
+        p  = (used_block*)BLK_AFTER(p);
+    }
+    float pct = 100.0*used/tot;
+
+    DEBUG(", obj#used[%d]=%d(0x%x) %.2f%% allocated", nused, used, used, pct);
+    WARN(" free[%d]=%d(0x%x), total=%d(0x%x) ", nfree, free, free, tot, tot);
+    WARN(" nblk=%d, nfrag=%d", nblk, nfrag);
+    DEBUG("\n");
+}
+
+__BOTH__ void
+TLSF::_dump_freelist() {
+    WARN("tlsf#L1=%4x: ", _l1_map);
+    for (int i=L1_BITS-1;  i>=0; i--) {
+        WARN("%02x%s", _l2_map[i], i%4==0 ? " " : "");
+    }
+    for (int i=FL_SLOTS-1; i>=0; i--) {
+        if (!_free_list[i]) continue;
+        WARN("\n\t[%02x]=>[", i);
+        for (free_block *b = _free_list[i]; b!=NULL; b=NEXT_FREE(b)) {
+            WARN(" %p:%04x", b, b->bsz);
+            if (IS_USED(b)) {
+                WARN("<-USED?");
+                break;                // something is wrong (link is broken here)
+            }
+        }
+        WARN(" ] ");
+    }
+    WARN("\n");
+}
+
+#endif // T4_ENABLE_OBJ

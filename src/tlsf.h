@@ -1,10 +1,11 @@
-/*! @file
-  @brief - tensorForth tensor memory storage management.
+/*! 
+  @file
+  @brief TLSF class - tensor storage manager interface
 
   <pre>Copyright (C) 2019 GreenII. This file is distributed under BSD 3-Clause License.</pre>
 */
-#ifndef TEN4_SRC_TLSF_H_
-#define TEN4_SRC_TLSF_H_
+#if !defined(TEN4_SRC_TLSF_H) && T4_ENABLE_OBJ 
+#define TEN4_SRC_TLSF_H
 
 typedef struct used_block {          //< 8-bytes
     U32 bsz;                         //< block size, header included (max 2G)
@@ -14,8 +15,8 @@ typedef struct used_block {          //< 8-bytes
 typedef struct free_block {          //< 16-bytes (i.e. mininum allocation per block)
     U32 bsz;                         //< block size, header included (max 2G)
     U32 psz;                         //< prior adjacent memory block size
-    I32 next;                        //< offset to next free block
-    I32 prev;                        //< offset to previous free block
+    S32 next;                        //< offset to next free block
+    S32 prev;                        //< offset to previous free block
 } free_block;
 
 #define FREE_FLAG       0x1
@@ -62,19 +63,21 @@ class TLSF : public Managed {
     free_block *_free_list[FL_SLOTS];   ///> vector of free lists (head of linked list)
 
 public:
-    __BOTH__ void        init(U8 *mem, U32 sz);      ///> initialize storage pool
-    __GPU__  void*       malloc(U32 sz);             ///> malloc from TLSF memory
-    __GPU__  void*       realloc(void *p0, U32 sz);  ///> resize allocated memory
-    __GPU__  void        free(void *ptr);            ///> free memory block back to TLSF
+    __BOTH__ void        init(U8 *mem, U32 sz, U32 off=0); ///> initialize storage pool
+    __GPU__  void*       malloc(U32 sz);                   ///> malloc from TLSF memory
+    __GPU__  void*       realloc(void *p0, U32 sz);        ///> resize allocated memory
+    __GPU__  void        free(void *ptr);                  ///> free memory block back to TLSF
     //
     // sanity check, JTAG
     //
-    __BOTH__ void        show_stat();
-    __BOTH__ void        dump_freelist();
+    __BOTH__ void        status(int trace) {
+        if (trace > 0) _show_stat();
+        if (trace > 1) _dump_freelist();
+    }
 
 private:
     __GPU__  U32         _idx(U32 sz);                           ///> calc freemap index
-    __GPU__  I32         _find_free_index(U32 sz);               ///> find available index
+    __GPU__  S32         _find_free_index(U32 sz);               ///> find available index
     __GPU__  void        _split(free_block *blk, U32 bsz);       ///> split a large block
     __GPU__  void        _pack(free_block *b0, free_block *b1);  ///> pack adjacent blocks
     __GPU__  void        _unmap(free_block *blk);                ///> clear freemaps
@@ -86,5 +89,8 @@ private:
 
     /// mmu sanity check
     __BOTH__ int         _mmu_ok();
+    __BOTH__ void        _show_stat();
+    __BOTH__ void        _dump_freelist();
 };
-#endif // TEN4_SRC_TLSF_H_
+
+#endif // !defined(TEN4_SRC_TLSF_H) && T4_ENABLE_OBJ
