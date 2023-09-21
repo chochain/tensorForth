@@ -9,6 +9,7 @@ INCS +=
 OBJS += \
 	./src/util.o \
 	./src/aio.o \
+	./src/aio_tensor.o \
 	./src/mmu.o \
 	./src/vm.o \
 	./src/eforth.o \
