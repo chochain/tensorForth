@@ -1,13 +1,15 @@
 /**
  * @file
- * @brief tensorForth tensor class
+ * @brief Tensor class - ranked tensor object interface
  *
  * <pre>Copyright (C) 2022- GreenII, this file is distributed under BSD 3-Clause License.</pre>
  */
-#ifndef TEN4_SRC_TENSOR_H_
-#define TEN4_SRC_TENSOR_H_
-#include <ostream>
-#include "ten4_types.h"
+#ifndef TEN4_SRC_TENSOR_H
+#define TEN4_SRC_TENSOR_H
+#include "util.h"
+#include "t4base.h"
+
+#if T4_ENABLE_OBJ
 //===============================================================================
 /// tensorForth tensor class
 /// @brief - Tensor at rank=4, row-major, F32 only storage
@@ -15,127 +17,165 @@
 ///    PyTorch.Tensor: size, dtype, type_id, stride, tensorstore
 ///
 typedef enum {
-    ADD = 0,
-    SUB,
-    MUL,
-    DIV
-} mat_op;
+    /// 2-operand ops
+    O_ADD = 0,
+    O_SUB,
+    O_MUL,
+    O_DIV,
+    O_DOT,
+    O_SOLV,
+    /// 1-operand + a constant
+    O_FILL,
+    O_SCALE,
+    O_POW,
+    /// 1-operand arithmetic ops
+    O_ABS,
+    O_EXP,
+    O_LN,
+    O_LOG,
+    O_TANH,
+    O_RELU,
+    O_SIGM,
+    O_SQRT,
+    /// 1-operand matrix ops
+    O_IDEN,
+    O_INV,
+    O_LU,
+    O_LUINV,
+    O_DET,
+    O_TRIU,
+    O_TRIL,
+    O_XPOS
+} t4_ten_op;
 
-#define T4_TENSOR_VIEW  1
-struct Tensor : public Managed {
-    U32              size;      ///< number of data elements, TODO: more than 4G elements
-    U16              dsize;     ///< size of data element, F32 for now, TODO: others
-    U16              rank;      ///< rank of tensor 2:matrix, 4:NHWC tensor
-    U16              stride[4]; ///< strides to calculate memory offset
-    U16              shape[4];  ///< shape=HWCN, matrix C=N=1, vector W=C=N=1
-    U32              attr = 0;  ///< tensor attributes (a view)
-    union {
-        U8           *data = 0; ///< managed memory block pointer
-        DU           f;         ///< float storage
-        struct {
-            U32 t  : 1;         ///< tensor rank >= 1
-            U32 idx: 31;        ///< tensor pool index (2^31 slots)
-        };
-    };
+typedef enum {
+    MM_NONE  = 0,
+    MM_INC   = 1,
+    MM_A_TXP = 2,
+    MM_B_TXP = 4
+} t4_mm_opt;
+
+struct Tensor : public T4Base {
+    U16      stride[4] = {1,1,1,1}; ///< stride=HWCN, for calc memory offset
+    U16      shape[4]  = {1,1,1,1}; ///< shape=HWCN, matrix C=N=1, vector W=C=N=1
     ///
     /// static ops
     /// Note:
     ///   1. resultant tensor as last parameter
     ///   2. return the resultant tensor
     ///
-    static __BOTH__ Tensor &gemm(Tensor &A, Tensor &B, Tensor &C, DU alpha, DU beta);
-    static __BOTH__ Tensor &grad(Tensor &A, Tensor &B, Tensor &C);
-    static __BOTH__ Tensor &mm(Tensor &A, Tensor &B, Tensor &C) { return gemm(A, B, C, 1.0, 0.0); }
-    static __BOTH__ Tensor &mat(mat_op op, Tensor &A, Tensor &B, Tensor &C);  ///> matrix-matrix element-wise ops (Hadamard)
-    static __BOTH__ Tensor &mat(mat_op op, Tensor &A, DU v, Tensor &C);       ///> matrix-scalar element-wise ops
-    static __BOTH__ Tensor &copy(Tensor &A, Tensor &C);
-    static __BOTH__ Tensor &transpose(Tensor &A, Tensor &T);
-    static __BOTH__ Tensor &inverse(Tensor &A, Tensor &I);  /// GaussJordan (with Pivot)
-    static __BOTH__ Tensor &inverse(Tensor &LU);            /// from LU (no Pivot)
-    static __BOTH__ Tensor &lu(Tensor &A);                  /// LU (no Pivot)
-    static __BOTH__ Tensor &plu(Tensor &A, Tensor &P);      /// LU with permutation vector
+    static __GPU__  Tensor &ten_op(t4_ten_op op, Tensor &A, Tensor &B, Tensor &O);  ///> matrix-matrix element-wise ops (Hadamard)
+    static __GPU__  Tensor &ten_op(t4_ten_op op, Tensor &A, DU v, Tensor &O);       ///> matrix-scalar element-wise ops
+    static __GPU__  Tensor &mm(Tensor &A, Tensor &B, Tensor &O, t4_mm_opt opt=MM_NONE);
+    static __GPU__  Tensor &gemm(Tensor &A, Tensor &B, Tensor &O, DU alpha, DU beta);
+    static __GPU__  Tensor &copy(Tensor &A, Tensor &O);
+    static __GPU__  Tensor &transpose(Tensor &A, Tensor &T);
+    static __GPU__  Tensor &inverse(Tensor &A, Tensor &I);  /// GaussJordan (with Pivot)
+    static __GPU__  Tensor &lu(Tensor &A);                  /// LU (no Pivot)
+    static __GPU__  Tensor &lu_inverse(Tensor &LU);         /// inverse a pre-processed LU (no Pivot)
+    static __GPU__  Tensor &plu(Tensor &A, Tensor &P, int *ns);/// LU with permutation vector
     ///
     /// class contructors
     ///
-    __HOST__ Tensor();
-    __HOST__ Tensor(U16 n, U16 h, U16 w, U16 c);
-    __HOST__ Tensor(U16 h, U16 w);
-    __HOST__ Tensor(U32 sz);
-    __HOST__ ~Tensor();
-    __HOST__ Tensor(DU f0): f(f0)  { t = 0; }
+    __HOST__ Tensor()       : T4Base() {}
+    __HOST__ Tensor(U32 sz) : T4Base(sz) {
+        H() = (U16)sz;
+        WARN("vector[%d] allocated\n", numel);
+    }
+    __HOST__ Tensor(U16 h, U16 w) : T4Base(h, w) {
+        H() = h; W() = w;
+        WARN("matrix(%d,%d) allocated\n", h, w);
+    }
+    __HOST__ Tensor(U16 n, U16 h, U16 w, U16 c) : T4Base(n, h, w, c) {
+        H() = h; W() = w; C() = c; N() = n;
+        WARN("tensor(%d,%d,%d,%d) allocated\n", n, h, w, c);
+    }
+    __HOST__ ~Tensor() {
+        switch (rank) {
+        case 2: WARN("matrix(%d,%d) freed\n", H(), W()); break;
+        case 4: WARN("tensor(%d,%d,%d,%d) freed\n", N(), H(), W(), C()); break;
+        default: WARN("~Tensor error: rank=%d\n", rank);
+        }
+    }
     ///
     /// attributes
     ///
-    __BOTH__ __INLINE__ U16  N()       { return shape[3]; }
-    __BOTH__ __INLINE__ U16  H()       { return shape[0]; }
-    __BOTH__ __INLINE__ U16  W()       { return shape[1]; }
-    __BOTH__ __INLINE__ U16  C()       { return shape[2]; }
-    __BOTH__ __INLINE__ bool is_view() { return attr & T4_TENSOR_VIEW; }
+    __BOTH__ __INLINE__ U16  &N()  { return shape[3]; }
+    __BOTH__ __INLINE__ U16  &H()  { return shape[0]; }
+    __BOTH__ __INLINE__ U16  &W()  { return shape[1]; }
+    __BOTH__ __INLINE__ U16  &C()  { return shape[2]; }
+    __BOTH__ __INLINE__ U32  HWC() { return shape[0] * shape[1] * shape[2]; }
+    __BOTH__ __INLINE__ DU   *slice(int n) { return &data[ n * HWC() ]; }
+    __BOTH__ __INLINE__ bool is_same_shape(Tensor &t) {
+#ifdef __CUDA_ARCH__
+        return MEMCMP(shape, t.shape, sizeof(shape)) == 0;
+#else  // __CUDA_ARCH
+        return memcmp(shape, t.shape, sizeof(shape)) == 0;
+#endif // __CUDA_ARCH__
+    }
     ///
     /// tensor arithmetics
     ///
-    __BOTH__ DU     sum();
-    __BOTH__ DU     dot(Tensor &B);
+    __GPU__  DU     sum();
+    __GPU__  DU     avg();                    ///< mean
+    __GPU__  DU     std();                    ///< population standard deviation
+    __GPU__  DU     max();
+    __GPU__  DU     min();
+    __GPU__  DU     dot(Tensor &B);
     ///
     /// linear algebra methods
     ///
-    __BOTH__ DU     det();                    ///< matrix determinant
-    __BOTH__ Tensor &triu();                  ///< upper triangle
-    __BOTH__ Tensor &tril();                  ///< lower triangle
-    __BOTH__ Tensor &scale(DU v);             ///< element-wise linear scale
-    __BOTH__ Tensor &abs();                   ///< element-wise absolute
+    __GPU__  DU     det();                    ///< matrix determinant
+    __GPU__  Tensor &triu();                  ///< upper triangle
+    __GPU__  Tensor &tril();                  ///< lower triangle
     ///
     /// tensor life-cycle ops
     ///
-    __BOTH__ Tensor &set_as_view(bool set=true);
-    __BOTH__ Tensor &reset(void *mptr, U32 sz);
+    __BOTH__ Tensor &reset(void *mptr, U32 sz, t4_obj tt=T4_TENSOR);
     __BOTH__ Tensor &reshape(U32 sz);
     __BOTH__ Tensor &reshape(U16 h, U16 w);
     __BOTH__ Tensor &reshape(U16 n, U16 h, U16 w, U16 c);
-    __BOTH__ Tensor &fill(DU v);
+    __BOTH__ Tensor &reshape(U16 c1, U16 n, U16 h, U16 w, U16 c);
+    
     __BOTH__ Tensor &identity();              ///< fill as an identity matrix
-    __HOST__ void   copy_to_host(void* dst) { cudaMemcpy(dst, data, size, cudaMemcpyDeviceToHost); }
+    __BOTH__ Tensor &map(t4_ten_op op, DU v=DU0); ///< element-wise absolute
+    __BOTH__ Tensor &fill(DU v) { return this->map(O_FILL, v); }
+    __BOTH__ Tensor &normalize(DU avg, DU std);
+    __HOST__ void   copy_to_host(void* dst) { cudaMemcpy(dst, data, numel, cudaMemcpyDeviceToHost); }
     ///
     /// IO
     ///
     __BOTH__ void to_s(std::ostream &fout);
     ///
-    /// assignment
+    /// tensor debugger
     ///
-    __BOTH__ __INLINE__ Tensor &operator=(DU f0) { f = f0; t = 0; return *this; }
+    static __BOTH__ void _dump(DU *v, int H, int W, int C);
+    static __BOTH__ void _view(DU *v, int H, int W, int C, DU mean, DU scale);
+    __GPU__ void show(bool dump=false);
     ///
-    /// tensor arithmetics
+    /// tensor-scalar operators
     ///
-    __BOTH__ __INLINE__ Tensor &operator+=(Tensor &t){ f += t.f; return *this; }
-    __BOTH__ __INLINE__ Tensor &operator-=(Tensor &t){ f -= t.f; return *this; }
-    __BOTH__ __INLINE__ F32    operator+(Tensor &t)  { return f + t.f; }
-    __BOTH__ __INLINE__ F32    operator-(Tensor &t)  { return f - t.f; }
-    __BOTH__ __INLINE__ F32    operator*(Tensor &t)  { return f * t.f; }
-    __BOTH__ __INLINE__ F32    operator/(Tensor &t)  { return f / t.f; }
-    __BOTH__ __INLINE__ F32    operator%(Tensor &t)  { return fmod(f, t.f); }
+    __GPU__ __INLINE__ Tensor &operator=(DU v)      { return fill(v);       }
+    __GPU__ __INLINE__ Tensor &operator+=(DU v)     { return map(O_ADD, v); }
+    __GPU__ __INLINE__ Tensor &operator-=(DU v)     { return map(O_SUB, v); }
+    __GPU__ __INLINE__ Tensor &operator*=(DU v)     { return map(O_MUL, v); }
     ///
-    /// tensor logical ops
+    /// tensor-tensor arithmetic operators
     ///
-    __BOTH__ __INLINE__ bool   operator<(Tensor &t)  { return (f - t.f) <  -DU_EPS; }
-    __BOTH__ __INLINE__ bool   operator>(Tensor &t)  { return (f - t.f) >   DU_EPS; }
-    __BOTH__ __INLINE__ bool   operator<=(Tensor &t) { return (f - t.f) <= -DU_EPS; }
-    __BOTH__ __INLINE__ bool   operator>=(Tensor &t) { return (f - t.f) >=  DU_EPS; }
-    __BOTH__ __INLINE__ bool   operator==(Tensor &t) { return fabs(f - t.f) <  DU_EPS; }
-    __BOTH__ __INLINE__ bool   operator!=(Tensor &t) { return fabs(f - t.f) >= DU_EPS; }
+    __GPU__ __INLINE__ Tensor &operator=(Tensor &t) { copy(t, *this); return *this; }
+    __GPU__ __INLINE__ Tensor &operator+=(Tensor &t){ return ten_op(O_ADD, *this, t, *this); }
+    __GPU__ __INLINE__ Tensor &operator-=(Tensor &t){ return ten_op(O_SUB, *this, t, *this); }
+    __GPU__ __INLINE__ Tensor &operator*=(Tensor &t){ return ten_op(O_MUL, *this, t, *this); }
     ///
-    /// float arithmetics
+    /// tensor-tensor logical ops
     ///
-    __BOTH__ __INLINE__ Tensor &operator+=(F32 f0)   { f += f0; t = 0; return *this; }
-    __BOTH__ __INLINE__ Tensor &operator-=(F32 f0)   { f -= f0; t = 0; return *this; }
-    __BOTH__ __INLINE__ Tensor &operator*=(F32 f0)   { f *= f0; t = 0; return *this; }
-    __BOTH__ __INLINE__ Tensor &operator/=(F32 f0)   { f /= f0; t = 0; return *this; }
-    ///
-    /// float logical ops
-    ///
-    __BOTH__ __INLINE__ bool   operator<(F32 f0)     { return (f - f0) <  -DU_EPS; }
-    __BOTH__ __INLINE__ bool   operator>(F32 f0)     { return (f - f0) >   DU_EPS; }
-    __BOTH__ __INLINE__ bool   operator>=(F32 f0)    { return (f - f0) >=  DU_EPS; }
-    __BOTH__ __INLINE__ bool   operator==(F32 f0)    { return fabs(f - f0)  <  DU_EPS; }
-    __BOTH__ __INLINE__ bool   operator!=(F32 f0)    { return fabs(f - f0)  >= DU_EPS; }
+    __GPU__ __INLINE__ bool   operator<(Tensor &t)  { return 0; }
+    __GPU__ __INLINE__ bool   operator>(Tensor &t)  { return 0; }
+    __GPU__ __INLINE__ bool   operator<=(Tensor &t) { return 0; }
+    __GPU__ __INLINE__ bool   operator>=(Tensor &t) { return 0; }
+    __GPU__ __INLINE__ bool   operator!=(Tensor &t) { return (intptr_t)this!=(intptr_t)&t; }
+    __GPU__ __INLINE__ bool   operator==(Tensor &t) { return (intptr_t)this==(intptr_t)&t; }
 };
-#endif // TEN4_SRC_TENSOR_H_
+
+#endif // T4_ENABLE_OBJ
+#endif // TEN4_SRC_TENSOR_H
