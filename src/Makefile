@@ -28,7 +28,7 @@ CL_TOOL := ${CUTLASS_HOME}/tools
 .PHONY: clean clean-src
 
 # Each subdirectory must supply rules for building sources it contributes
-src/%.o: src/%.cu src/%.h
+src/%.o: src/%.cu
 	@echo 'Building source file: $<'
 	@echo 'Invoking: NVCC Compiler'
 	${CUDA_HOME}/bin/nvcc -ccbin g++ \
