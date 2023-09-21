@@ -1,156 +1,303 @@
 /** -*- c++ -*-
- * @File
- * @brief tensorForth tensor class implementation
+ * @file
+ * @brief Tensor class - ranked tensor impmementation i.e. vector, matrix, tensor, ...
  *
  * <pre>Copyright (C) 2022- GreenII, this file is distributed under BSD 3-Clause License.</pre>
  */
 #include "tensor.h"
 
-#define ABS(d) (fabsf(d))  /**< absolute value */
-///
-/// GEMM kernel (used CUDA dynamic parallelism)
-///     C = alpha * A x B + beta * C
-///     where A = MxK, B = KxN, C = MxN
-///
-__KERN__ void k_gemm(                                        ///< 2D only
-    DU *A, DU *B, DU *C,   /* HxK, KxW, HxW */
-    int M, int N, int K,
-    DU alpha, DU beta)
-{
-    int i = threadIdx.y + blockIdx.y * blockDim.y;
-    int j = threadIdx.x + blockIdx.x * blockDim.x;
+#if T4_ENABLE_OBJ
 
-    if (i < M && j < N) {
-        DU2 acc = 0;
-        for (int k = 0; k < K; ++k) {
-            acc += A[k + i * K] * B[j + k * N];
-        }
-        C[j + i * N] = alpha * acc + beta * C[j + i * N];
-    }
-}
-__KERN__ void k_mat_op(                                    ///< TODO: C
-    mat_op op,
-    DU *A, DU *B, DU *C,
-    int M, int N)
-{
-    int i = threadIdx.y + blockIdx.y * blockDim.y;
-    int j = threadIdx.x + blockIdx.x * blockDim.x;
-
-    if (i < M && j < N) {
-        int k = j + i * N;
-        switch (op) {
-        case ADD: C[k] = A[k] + B[k]; break;
-        case SUB: C[k] = A[k] - B[k]; break;
-        case MUL: C[k] = A[k] * B[k]; break;               /// * convolution
-        case DIV: C[k] = A[k] / B[k]; break;
-        }
-    }
-}
-__KERN__ void k_transpose(DU *src, DU *dst, int M, int N) { ///< Note: (src, dst), TODO: CDP
-    int i = threadIdx.y + blockIdx.y * blockDim.y;
-    int j = threadIdx.x + blockIdx.x * blockDim.x;
-
-    if (i < M && j < N) {
-        dst[i + j * M] = src[j + i * N];
-    }
-}
-__KERN__ void k_copy(DU *src, DU *dst, int sz) {           ///< Note: (src, dst)
-    int k = threadIdx.x + blockIdx.x * blockDim.x;
-    if (k < sz) dst[k] = src[k];
-}
-__KERN__ void k_fill(DU *A, DU v, int sz) {
-    int k = threadIdx.x + blockIdx.x * blockDim.x;
-    if (k < sz) A[k] = v;
-}
-__KERN__ void k_scale(DU *A, DU v, int sz) {
-    int k = threadIdx.x + blockIdx.x * blockDim.x;
-    if (k < sz) A[k] *= v;
-}
-__KERN__ void k_abs(DU *A, int sz) {
-    int k = threadIdx.x + blockIdx.x * blockDim.x;
-    if (k < sz) A[k] = fabs(A[k]);
-}
-__KERN__ void k_identity(DU *A, int M, int N, int C) {
-    const DU i01[2][4] = {{ DU0, DU0, DU0, DU0 }, { 1.0, 1.0, 1.0, 1.0 }};
-    int i = threadIdx.y + blockIdx.y * blockDim.y;
-    int j = threadIdx.x + blockIdx.x * blockDim.x;
-    if (i < M && j < N) {
-        memcpy(&A[j + i * N], i01[i==j], sizeof(DU) * C); /// * assume x==y return 0|1
-    }
-}
 ///=======================================================================
 /// static methods
 ///
-/// tensor GEMM C' = alpha * A x B + beta * C
+/// tensor op on self (i.e. +=, -=, ...)
 ///
-__BOTH__ Tensor&
-Tensor::gemm(Tensor &A, Tensor &B, Tensor &C, DU alpha, DU beta) {
-    U16 m = A.H(), n = B.W(), k = A.W();
-    WARN("GEMM M=%d, N=%d, K=%d a=%f, b=%f\n", m, n, k, alpha, beta);
-    dim3 block(16, 16), grid(
-        (n + block.x - 1) / block.x,
-        (m + block.y - 1) / block.y
-    );
-    k_gemm<<<grid, block>>>(
-        (DU*)A.data, (DU*)B.data, (DU*)C.data,
-        m, n, k,
-        alpha, beta);
-    cudaDeviceSynchronize();     // TODO: deprecated 11.6, use cooperative_groups.sync()
-    return C;
+#define DU_LNX   1.0e-12                                      /* log clamp */
+__KERN__ void
+k_ten_op(t4_ten_op op, float *A, int numel, float v=DU0) {
+    const int k = threadIdx.x + blockIdx.x * blockDim.x;
+    DU ak = A[k];                             ///< cache value
+    if (k < numel) {
+        switch(op) {
+        case O_ADD:   A[k] += v;                        break;
+        case O_SUB:   A[k] -= v;                        break;
+        case O_MUL:   A[k] *= v;                        break;
+        case O_DIV:   A[k] /= v;                        break;
+        case O_FILL:  A[k] = v;                         break;
+        case O_SCALE: A[k] *= v;                        break;
+        case O_POW:   A[k] = POW(ak, v);                break;
+        case O_ABS:   A[k] = ABS(ak);                   break;
+        case O_EXP:   A[k] = EXP(ak);                   break;
+        case O_LN:    A[k] = LN(MAX(ak, DU_LNX));       break;  // clamped
+        case O_LOG:   A[k] = LOG(MAX(ak, DU_LNX));      break;  // clamped
+        case O_TANH:  A[k] = TANH(ak);                  break;
+        case O_RELU:  A[k] = MAX(ak, DU0);              break;
+        case O_SIGM:  A[k] = SIGMOID(ak);               break;
+        case O_SQRT:  A[k] = SQRT(MAX(ak, DU0));        break;  // guarded
+        default: ERROR("k_ten_op %d not supported\n", op);
+        }
+    }
+}
+///
+///> array sum
+/// Note: tiled_partition<32> used
+///
+__KERN__ void k_sum(DU *I, DU *sum, int HW) {
+    const int i  = threadIdx.x + blockIdx.x * blockDim.x;  ///< element index
+    const int c  = blockIdx.y, C = gridDim.y;              ///< channel
+    const int ns = blockIdx.z * HW * C;                    ///< batch slice index
+    DU vi = i < HW ? I[c + i * C + ns] : DU0;              ///< keep v for shuffle
+    ///
+    /// prefix sum (32-threaded tile)
+    ///
+    auto t = cg::tiled_partition<32>(cg::this_thread_block());
+    auto shfl_sum = [](cg::thread_block_tile<32> t, DU v) {
+        for (int k = 16; k > 0; k >>= 1) {
+            v += t.shfl_down(v, k);
+        }
+        return v;
+    };
+    DU tt = shfl_sum(t, vi);
+    ///
+    /// sum up atomically (per channel for batchnorm)
+    ///
+    if (t.thread_rank() == 0) atomicAdd(&sum[c], tt);
+}
+///
+///> variance
+///
+__KERN__ void
+k_var(DU *I, DU *avg, DU *var, int HW) {
+    const int i  = threadIdx.x + blockIdx.x * blockDim.x;  ///< element index
+    const int c  = blockIdx.y, C = gridDim.y;              ///< channel
+    const int ns = blockIdx.z * HW * C;                    ///< batch slice index
+    DU v0 = i < HW ? I[c + i * C + ns] - avg[c] : DU0;
+    DU vi = v0 * v0;
+    ///
+    /// prefix sum every 32-threaded tile
+    ///
+    auto t = cg::tiled_partition<32>(cg::this_thread_block());
+    auto shfl_sum = [](cg::thread_block_tile<32> t, DU v) {
+        for (int k = 16; k > 0; k >>= 1) {
+            v += t.shfl_down(v, k);
+        }
+        return v;
+    };
+    DU tt = shfl_sum(t, vi);
+    ///
+    /// sum up atomically (per channel, for batchnorm)
+    ///
+    if (t.thread_rank() == 0) atomicAdd_block(&var[c], tt);
+}
+
+__KERN__ void
+k_matmul(
+    DU *A, DU *B, DU *O,   /* O[NxHxWxC] = A[NxHxKxC] @ B[NxKxWxC] */
+    int H, int W, int K,
+    t4_mm_opt opt)
+{
+    const int i  = threadIdx.y + blockIdx.y * blockDim.y;  ///< H
+    const int j  = threadIdx.x + blockIdx.x * blockDim.x;  ///< W
+    const int c  = blockIdx.z,  C = gridDim.z;             ///< C
+    const int z0 = c + (j + i * W) * C;                    ///< output matrix index
+    
+    if (i < H && j < W && c < C) {                         /// * TODO: tiled
+        DU  *ax, *bx;
+        int ai, bi;
+        if (opt & MM_A_TXP) {                              /// * transpose A
+            ax = &A[c + i * C];     ai = H * C;
+            bx = &B[c + j * C];     bi = W * C;
+        }
+        else if (opt & MM_B_TXP) {                         /// * transpose B
+            ax = &A[c + i * K * C]; ai = C;
+            bx = &B[c + j * K * C]; bi = C;
+        }
+        else {                                             /// * no tranposition
+            ax = &A[c + i * K * C]; ai = C;
+            bx = &B[c + j * C];     bi = W * C;
+        }
+        DU2 acc = DU0;                                     /// * TODO: suffle sum
+//      acc += ax[k * C] * bx[k * N * C];                  /// * 8.1 ms 1Kx1K
+        for (int k = 0; k < K; k++, ax += ai, bx += bi) {
+            acc += (*ax) * (*bx);                          /// * 6.2 ms 1Kx1K
+        }
+        if (opt & MM_INC) O[z0] += acc;                    /// * increment O
+        else              O[z0] =  acc;                    /// * overwrite O
+    }
+}
+///
+/// GEMM kernel (used CUDA dynamic parallelism)
+///     O = alpha * A x B + beta * O
+///     where A = HxKxC, B = KxWxC, O = HxWxC
+///
+__KERN__ void
+k_gemm(
+    DU *A, DU *B, DU *O,  /* O[HxWxC] = a * A[HxKxC] @ B[KxWxC] + b * O[HxWxC] */
+    int H, int W, int K,
+    DU alpha, DU beta)
+{
+    const int i = threadIdx.y + blockIdx.y * blockDim.y;   ///< H
+    const int j = threadIdx.x + blockIdx.x * blockDim.x;   ///< W
+    const int c = blockIdx.z, C = gridDim.z;               ///< channel deep
+    const int WC= W * C;
+    const int z0= c + (j + i * W) * C;                     ///< output index
+
+    if (i < H && j < W && c < C) {                         /// * TODO: tiled
+        DU *ax = &A[c + i * K * C];
+        DU *bx = &B[c + j * C];
+        DU2 acc = DU0;                                     /// * TODO: suffle sum
+        for (int k = 0; k < K; k++, ax += C, bx += WC) {
+            acc += (*ax) * (*bx);
+        }
+        O[z0] = alpha * acc + beta * O[z0];                /// * scaling
+    }
+}
+///
+/// tensor-tensor element-wise ops
+///
+__KERN__ void
+k_tt_op(
+    t4_ten_op op,
+    DU *A, DU *B, DU *O,
+    int numel)
+{
+    const int k = threadIdx.x + blockIdx.x * blockDim.x;  ///< element index
+
+    if (k < numel) {
+        switch (op) {                                     /// no divergence
+        case O_ADD: O[k] = A[k] + B[k]; break;
+        case O_SUB: O[k] = A[k] - B[k]; break;
+        case O_MUL: O[k] = A[k] * B[k]; break;            /// * convolution
+        case O_DIV: O[k] = A[k] / B[k]; break;
+        }
+    }
+}
+///
+/// tensor-scalar element-wise ops
+///
+__KERN__ void
+k_ts_op(
+    t4_ten_op op,
+    DU *A, DU v, DU *O,
+    int numel)
+{
+    const int k = threadIdx.x + blockIdx.x * blockDim.x;   ///< element index
+    if (k < numel) {
+        switch (op) {                                      /// no divergence
+        case O_ADD: O[k] = A[k] + v; break;
+        case O_SUB: O[k] = A[k] - v; break;
+        case O_MUL: O[k] = A[k] * v; break;                /// * convolution
+        case O_DIV: O[k] = A[k] / v; break;
+        }
+    }
 }
 ///
 /// tensor-tensor element-wise C = A op B where op=ADD|SUB|MUL|DIV (Hadamard)
 ///
-__BOTH__ Tensor&
-Tensor::mat(mat_op op, Tensor &A, Tensor &B, Tensor &C) {
-    const char *opn[] = { "add", "sub", "mul", "div" };
-    U16 m = A.H(), n = A.W();
-    WARN("Tensor::mat%s M=%d, N=%d\n", opn[op], m, n);
-    dim3 block(16, 16), grid(
-        (n + block.x - 1) / block.x,
-        (m + block.y - 1) / block.y
-    );
-    k_mat_op<<<grid, block>>>(op, (DU*)A.data, (DU*)B.data, (DU*)C.data, m, n);
-    cudaDeviceSynchronize();     // TODO: deprecated 11.6, use cooperative_groups.sync()
-    return C;
+__GPU__ Tensor&
+Tensor::ten_op(t4_ten_op op, Tensor &A, Tensor &B, Tensor &O) {
+    U16 N = A.N(), H = A.H(), W = A.W(), C = A.C();
+    OPN("add", "sub", "mul", "div");
+    WARN("Tensor::mat%s[%d,%d,%d,%d]\n", opn[op], N, H, W, C);
+    
+    dim3 blk(T4_WARP_SQ, 1, 1);
+    dim3 grd((A.numel + blk.x - 1) / blk.x, 1, 1);
+    
+    k_tt_op<<<grd, blk>>>(op, A.data, B.data, O.data, A.numel);
+    GPU_SYNC();
+    
+    return O;
 }
 ///
-/// tensor-scalar addition C = A +- n element-wise (Hadamard)
+/// tensor-scalar addition O = A op n element-wise (Hadamard)
 ///
-__BOTH__ Tensor&
-Tensor::mat(mat_op op, Tensor &A, DU v, Tensor &C) {
-    const char *opn[] = { "add", "sub", "mul", "div" };
-    U16 m = A.H(), n = A.W();
-    WARN("Tensor::mat%s M=%d, N=%d\n", opn[op], m, n);
-    DU *da = (DU*)A.data, *dc = (DU*)C.data;
-    for (int k = 0; k < A.size; k++) {
-        switch (op) {
-        case ADD: *dc++ = *da++ + v; break;
-        case SUB: *dc++ = *da++ - v; break;
-        case MUL: *dc++ = *da++ * v; break;
-        case DIV: *dc++ = *da++ / v; break;
-        }
+__GPU__ Tensor&
+Tensor::ten_op(t4_ten_op op, Tensor &A, DU v, Tensor &O) {
+    U16 N = A.N(), H = A.H(), W = A.W(), C = A.C();
+    OPN("+", "-", "*", "/");
+    WARN("Tensor::mat[%d,%d,%d,%d] %s %6.2f\n", N, H, W, C, opn[op], v);
+
+    dim3 blk(T4_WARP_SQ, 1, 1);
+    dim3 grd((A.numel + blk.x - 1) / blk.x, 1, 1);
+    
+    k_ts_op<<<grd, blk>>>(op, A.data, v, O.data, A.numel);
+    GPU_SYNC();
+    
+    return O;
+}
+__GPU__ Tensor&
+Tensor::mm(
+    Tensor &A, Tensor &B, Tensor &O, t4_mm_opt opt) {
+    U16 H  = opt & MM_A_TXP ? A.W() : A.H();
+    U16 Ka = opt & MM_A_TXP ? A.H() : A.W();
+    U16 W  = opt & MM_B_TXP ? B.H() : B.W();
+    U16 Kb = opt & MM_B_TXP ? B.W() : B.H();
+    U16 N  = B.N(), C = B.C();                     /// B, O common dimensions
+    if (Ka != Kb || N != O.N() || C != O.C()) {
+        ERROR("Tensor#mm Ka(%d)!=Kb(%d) or N, C diff\n", Ka, Kb);
+        return O;
     }
-    return C;
+    WARN("Tensor#matmul N=%d, C=%d, H=%d, W=%d, K=%d\n", N, C, H, W, Ka);
+    
+    dim3 blk(T4_WARP_SZ, T4_WARP_SZ, 1);
+    dim3 grd(NGRID(W, H, C, blk));
+
+    for (int n = 0; n < N; n++) {
+        DU *da = A.data, *db = B.slice(n), *dx = O.slice(n);
+        k_matmul<<<grd,blk>>>(da, db, dx, H, W, Ka, opt);
+    }
+    GPU_SYNC();
+    
+    return O;
 }
-__BOTH__ Tensor&
-Tensor::copy(Tensor &A, Tensor &C) {
-    WARN("Tensor::copy size=%d\n", A.size);
-    dim3 block(256), grid((A.size + block.x -1) / block.x);
-    k_copy<<<grid, block>>>((DU*)A.data, (DU*)C.data, A.size);
-    cudaDeviceSynchronize();
-    return C;
+///
+/// tensor GEMM C' = alpha * A x B + beta * C
+///
+__GPU__ Tensor&
+Tensor::gemm(Tensor &A, Tensor &B, Tensor &O, DU alpha, DU beta) {
+    U16 H = A.H(), W = B.W(), Ka = A.W(), Kb = B.H();
+    U16 N = B.N(), C = B.C();
+    if (Ka != Kb || N != O.N() || C != O.C()) {
+        ERROR("Tensor#gemm ka(%d)!=kb(%d) or N, C diff\n", Ka, Kb);
+        return O;
+    }
+    WARN("GEMM N=%d, C=%d, H=%d, W=%d, K=%d a=%f, b=%f\n", N, C, H, W, Ka, alpha, beta);
+    dim3 blk(T4_WARP_SZ, T4_WARP_SZ, 1);
+    dim3 grd(NGRID(W, H, C, blk));
+
+    for (int n = 0; n < N; n++) {
+        DU *da = A.data, *db = B.slice(n), *dx = O.slice(n);
+        k_gemm<<<grd, blk>>>(da, db, dx, H, W, Ka, alpha, beta);
+    }
+    GPU_SYNC();
+    
+    return O;
 }
-__BOTH__ Tensor&
+__GPU__ Tensor&
+Tensor::copy(Tensor &A, Tensor &O) {
+    WARN("Tensor::copy numel=%d\n", A.numel);
+    int n = (A.numel + T4_WARP_SQ - 1) / T4_WARP_SQ;
+    
+    k_copy<<<n, T4_WARP_SQ>>>(A.data, O.data, A.numel);
+    GPU_SYNC();
+    
+    return O;
+}
+__GPU__ Tensor&
 Tensor::transpose(Tensor &A, Tensor &T) {
-    U16 m = A.H(), n = A.W();
-    WARN("Tensor::transpose A[%d,%d]\n", m, n);
-    dim3 block(16, 16), grid(
-        (n + block.x - 1) / block.x,
-        (m + block.y - 1) / block.y
-    );
-    k_transpose<<<grid, block>>>((DU*)A.data, (DU*)T.data, m, n);
-    cudaDeviceSynchronize();
+    U16 N = A.N(), H = A.H(), W = A.W(), C = A.C();
+    WARN("Tensor::transpose A[%d,%d,%d,%d]\n", N, H, W, C);
+    
+    dim3 blk(T4_WARP_SZ, T4_WARP_SZ, 1);
+    dim3 grd(NGRID(W, H, C, blk));
+
+    for (int n = 0; n < N; n++) {
+        DU *da = A.slice(n), *dt = T.slice(n);
+        k_transpose<<<grd, blk>>>(da, dt, H, W);
+    }
+    GPU_SYNC();
+    
     return T;
 }
 ///
@@ -158,45 +305,43 @@ Tensor::transpose(Tensor &A, Tensor &T) {
 /// Note: Gauss-Jordan elimination is expensive O(N^3)
 /// TODO: CDP
 ///
-__BOTH__ Tensor&
+__GPU__ Tensor&
 Tensor::inverse(Tensor &A, Tensor &I) {
     U16 m = A.H(), n = A.W();
     WARN("Tensor::inverse[%d,%d]\n", m, n);
     if (m != n) { ERROR("square matrix?"); return I; }
-
-    DU *aa = (DU*)A.data;
-    DU *ii = (DU*)I.data;
-    auto swap_rows = [aa, ii, n](U16 u, U16 z) {
+    DU *da = A.data, *di = I.data;
+    auto swap_rows = [da, di, n](U16 u, U16 z) {
         for (U16 k = 0; k < n; k++) {         ///> TODO: swap entire row
-            DU ta = aa[k + z * n], ti = ii[k + z * n];
-            aa[k + z * n] = aa[k + u * n]; aa[k + u * n] = ta;
-            ii[k + z * n] = ii[k + u * n]; ii[k + u * n] = ti;
+            DU ta = da[k + z * n], ti = di[k + z * n];
+            da[k + z * n] = da[k + u * n]; da[k + u * n] = ta;
+            di[k + z * n] = di[k + u * n]; di[k + u * n] = ti;
         }
     };
-    auto find_max = [aa, n](U16 z) {
+    auto find_max = [da, n](U16 z) {
         int u = z;
         for (U16 i = z + 1; i < n; i++) {    ///> TODO: CDP reduce
-            if (ABS(aa[z + i * n]) > ABS(aa[z + u * n])) u = i;
+            if (ABS(da[z + i * n]) > ABS(da[z + u * n])) u = i;
         }
-        if (ABS(aa[z + u * n]) < DU_EPS) {
+        if (ABS(da[z + u * n]) < DU_EPS) {
             ERROR("Tensor::inverse sigular!\n");
             return -1;
         }
         return u;
     };
-    auto diag = [aa, ii, n](U16 z) {
-        DU r0 = aa[z + z * n];
+    auto diag = [da, di, n](U16 z) {
+        DU r0 = da[z + z * n];
         for (U16 k = 0; k < n; k++) {
             U16 i = k + z * n;
-            ii[i] /= r0;
-            aa[i] /= r0;
+            di[i] /= r0;
+            da[i] /= r0;
         }};
-    auto elim = [aa, ii, n](U16 z) {
+    auto elim = [da, di, n](U16 z) {
         for (U16 i = 0; i < n; i++) {
-            DU r1 = aa[z + i * n];
+            DU r1 = da[z + i * n];
             for (U16 k = 0; i!=z && k < n; k++) {
-                ii[k + i * n] -= r1 * ii[k + z * n];
-                aa[k + i * n] -= r1 * aa[k + z * n];
+                di[k + i * n] -= r1 * di[k + z * n];
+                da[k + i * n] -= r1 * da[k + z * n];
             }
         }};
     for (U16 z = 0; z < n; z++) {
@@ -211,69 +356,69 @@ Tensor::inverse(Tensor &A, Tensor &I) {
     return I;
 }
 ///
-/// LU (preprocessed) matrix inversion
-/// TODO: CDP
-///
-__BOTH__ Tensor&
-Tensor::inverse(Tensor &LU) {
-    U16 m = LU.H(), n = LU.W();
-    DU *aa = (DU*)LU.data;
-    auto forward = [aa, n](U16 z) {
-        for (U16 y = z + 1; y < n; y++) {
-            DU r1 = aa[z + y * n];
-            for (U16 k = 0; k < z; k++) {               // columns before
-                aa[k + y * n] -= aa[k + z * n] * r1;
-            }
-            aa[z + y * n] = -r1;                        // current z column
-        }};
-    auto backward = [aa, n](U16 z) {
-        DU r0 = 1.0 / aa[z + z * n];
-        aa[z + z * n] = r0;                             // diag
-        for (U16 k = z + 1; k < n; k++) {               // current z row
-            aa[k + z * n] *= r0;
-        }
-        for (U16 y = 0; y < z; y++) {                   // factorize rows above
-            DU r1 = aa[z + y * n];
-            aa[z + y *  n] = -r1 * r0;                  // current z column
-            for (U16 k = z + 1; k < n; k++) {           // columns after
-                aa[k + y * n] -= aa[k + z * n] * r1;
-            }
-        }};
-    
-    if (LU.det() < DU_EPS) return LU;
-    
-    for (U16 z = 0; z < n - 1; z++)  forward(z);
-    for (I16 z = n - 1; z >= 0; z--) backward(z);
-    
-    return LU;
-}
-///
 /// LU decomposition (no Pivot)
 /// Note: A stores both L and U in-place to save space
 /// TODO: CDP
 ///
-__BOTH__ Tensor&
+__GPU__ Tensor&
 Tensor::lu(Tensor &A) {
     U16 m = A.H(), n = A.W();
     WARN("Tensor::lu[%d,%d]\n", m, n);
     if (m != n) { ERROR("square matrix?"); return A; }
 
-    DU *aa = (DU*)A.data;
-    auto elim = [aa, n](U16 z) {
-        DU ra = aa[z + z * n];
-        if (fabs(ra) < DU_EPS) return;       /// * if 0 skip the row
+    DU *da = A.data;
+    auto elim = [da, n](U16 z) {
+        DU ra = da[z + z * n];
+        if (fabs(ra) < DU_EPS) return;      /// * if 0 skip the row
         for (U16 y = z + 1; y < n; y++) {
-            DU r1 = aa[z + y * n] / ra;      /// * substitution
+            DU r1 = da[z + y * n] / ra;     /// * substitution
             for (U16 k = z; k < n; k++) {
-                aa[k + y * n] -= r1 * aa[k + z * n];
+                da[k + y * n] -= r1 * da[k + z * n];
             }
-            aa[z + y * n] = r1;              /// L stored in A to save space
+            da[z + y * n] = r1;             /// L stored in A to save space
         }
     };
-	for (U16 z = 0; z < n; z++) {
+    for (U16 z = 0; z < n; z++) {
         elim(z);               /// * eliminate variables in upper triangle
 	}
     return A;
+}
+///
+/// LU (preprocessed) matrix inversion
+/// TODO: CDP
+///
+__GPU__ Tensor&
+Tensor::lu_inverse(Tensor &LU) {
+    U16 m = LU.H(), n = LU.W();
+    DU *dd = LU.data;
+    auto forward = [dd, n](int z) {
+        for (int y = z + 1; y < n; y++) {
+            DU r1 = dd[z + y * n];
+            for (int k = 0; k < z; k++) {               // columns before
+                dd[k + y * n] -= dd[k + z * n] * r1;
+            }
+            dd[z + y * n] = -r1;                        // current z column
+        }};
+    auto backward = [dd, n](int z) {
+        DU r0 = RCP(dd[z + z * n]);
+        dd[z + z * n] = r0;                             // diag
+        for (int k = z + 1; k < n; k++) {               // current z row
+            dd[k + z * n] *= r0;
+        }
+        for (int y = 0; y < z; y++) {                   // factorize rows above
+            DU r1 = dd[z + y * n];
+            dd[z + y *  n] = -r1 * r0;                  // current z column
+            for (int k = z + 1; k < n; k++) {           // columns after
+                dd[k + y * n] -= dd[k + z * n] * r1;
+            }
+        }};
+    
+    if (LU.det() < DU_EPS) return LU;
+    
+    for (int z = 0; z < n - 1; z++)  forward(z);
+    for (int z = n - 1; z >= 0; z--) backward(z);
+    
+    return LU;
 }
 ///
 /// PLU methods with permutation vector
@@ -281,286 +426,375 @@ Tensor::lu(Tensor &A) {
 ///       P is permutation vector
 /// TODO: CDP
 ///
-__BOTH__ Tensor&
-Tensor::plu(Tensor &A, Tensor &P) {
+__GPU__ Tensor&
+Tensor::plu(Tensor &A, Tensor &P, int *ns) {
     U16 m = A.H(), n = A.W();
-    WARN("Tensor::lu[%d,%d]\n", m, n);
+    WARN("Tensor::plu[%d,%d]\n", m, n);
     if (m != n) { ERROR("square matrix?"); return A; }
 
-    DU *aa = (DU*)A.data;
-    DU *vp = (DU*)P.data;
-    auto swap_rows = [aa, vp, n](U16 u, U16 z) {
-        DU t = vp[z]; vp[z] = vp[u]; vp[u] = t;
+    DU *da = A.data, *dp = P.data;
+    *ns = 0;                                  ///> initialize flip sign
+    auto swap_rows = [da, dp, n](U16 u, U16 z) {
+        DU t = dp[z]; dp[z] = dp[u]; dp[u] = t;
         for (U16 k = z; k < n; k++) {         ///> TODO: swap entire row
-            t = aa[k + z * n];
-            aa[k + z * n] = aa[k + u * n];
-            aa[k + u * n] = t;
+            t = da[k + z * n];
+            da[k + z * n] = da[k + u * n];
+            da[k + u * n] = t;
         }
     };
-    auto find_max = [aa, n](U16 z) {
+    auto find_max = [da, n](U16 z) {
         int u = z;
         for (U16 i = z + 1; i < n; i++) {    ///> TODO: CDP reduce
-            if (ABS(aa[z + i * n]) > ABS(aa[z + u * n])) u = i;
+            if (ABS(da[z + i * n]) > ABS(da[z + u * n])) u = i;
         }
-        if (ABS(aa[z + u * n]) < DU_EPS) {
+        if (ABS(da[z + u * n]) < DU_EPS) {
             WARN("Tensor::lu sigular!\n");
             return -1;
         }
         return u;
     };
-    auto elim = [aa, n](U16 z) {
-        DU ra = aa[z + z * n];
+    auto elim = [da, n](U16 z) {
+        DU ra = da[z + z * n];
         if (fabs(ra) < DU_EPS) return;       /// * if 0 skip the row
         for (U16 y = z + 1; y < n; y++) {
-            DU r1 = aa[z + y * n] / ra;      /// * substitution
+            DU r1 = da[z + y * n] / ra;      /// * substitution
             for (U16 k = z; k < n; k++) {
-                aa[k + y * n] -= r1 * aa[k + z * n];
+                da[k + y * n] -= r1 * da[k + z * n];
             }
-            aa[z + y * n] = r1;              /// L stored in A to save space
+            da[z + y * n] = r1;              /// L stored in A to save space
         }
     };
-	for (U16 z = 0; z < n; z++) {
+    for (U16 z = 0; z < m; z++) dp[z] = z;   /// init permutation vector
+    for (U16 z = 0; z < n; z++) {
         int u = find_max(z);   /// * pivot to reduce rounding error
         if (u < 0) return A;
-		if (u != z) { 	       /// * swapping row which has maximum xth column element
+        if (u != z) {          /// * swapping row which has maximum xth column element
             swap_rows(u, z);
+            *ns += 1;
         }
         elim(z);               /// * eliminate variables in upper triangle
-	}
+    }
     return A;
 }
-///=======================================================================
-/// Tensor class constructors
-///
-__HOST__
-Tensor::Tensor() :
-    dsize(sizeof(DU)),
-    size(0),
-    rank(0),
-    stride{1, 1, 1, 1},
-    shape{1, 1, 1, 1} {}
 
-__HOST__
-Tensor::Tensor(U32 sz) :
-    dsize(sizeof(DU)),
-    size(sz),
-    rank(1),
-    stride{1, 1, 1, 1},
-    shape{(U16)sz, 1, 1, 1} {
-    cudaMallocManaged((void**)&data, (size_t)size * dsize);
-    GPU_CHK();
-    WARN("tensor[%d] allocated\n", size);
-}
-
-__HOST__
-Tensor::Tensor(U16 h, U16 w) :
-    dsize(sizeof(DU)),
-    size(h * w),
-    rank(2),
-    stride{1, 1, 1, 1},
-    shape{h, w, 1, 1} {
-    cudaMallocManaged((void**)&data, (size_t)size * dsize);
-    GPU_CHK();
-    WARN("matrix(%d,%d) allocated\n", shape[0], shape[1]);
-}
-
-__HOST__
-Tensor::Tensor(U16 n, U16 h, U16 w, U16 c) :
-    dsize(sizeof(DU)),
-    size(n * h * w * c),
-    rank(4),
-    stride{1, 1, 1, 1},
-    shape{h, w, n, c} {
-    cudaMallocManaged((void**)&data, (size_t)size * dsize);
-    GPU_CHK();
-    WARN("tensor(%d,%d,%d,%d) allocated\n", shape[3], shape[0], shape[1], shape[2]);
-}
-
-__HOST__
-Tensor::~Tensor()
-{
-    if (!data) return;
-    cudaFree((void*)data);
-    switch (rank) {
-    case 2: WARN("matrix(%d,%d) freed\n", shape[0], shape[1]); break;
-    case 4: WARN("tensor(%d,%d,%d,%d) freed\n", shape[3], shape[0], shape[1], shape[2]); break;
-    default: WARN("~Tensor error: rank=%d\n", rank);
-    }
-}
 ///=======================================================================
 /// tensor arithmetics
 ///
-__BOTH__ DU
+__GPU__ DU
 Tensor::sum() {
-    DU v = DU0;
-    for (int i=0; i < size; i++) v += ((DU*)data)[i];   ///> TODO: CDP prefix sum
-    cudaDeviceSynchronize();
-    return v;
-}
+    static DU sum; sum = DU0; ///< static shared memory
 
-__BOTH__ DU
+    dim3 blk(T4_WARP_SQ, 1, 1);
+    dim3 grd((numel + blk.x - 1)/blk.x, 1, 1);
+
+    k_sum<<<grd, blk>>>(data, &sum, numel);  /// * 8x straight loop
+    GPU_SYNC();               /// * cooperative_groups.sync() does not work!
+
+    return SCALAR(sum);
+}
+__GPU__ DU
+Tensor::avg() {
+    DU v = sum() / numel;
+    return SCALAR(v);
+}
+__GPU__ DU
+Tensor::std() {
+    static DU sum, avg;
+    sum = DU0; avg = this->avg();
+
+    dim3 blk(T4_WARP_SQ, 1, 1);
+    dim3 grd((numel + blk.x - 1)/blk.x, 1, 1);
+
+    k_var<<<grd, blk>>>(data, &avg, &sum, numel);  /// * 8x straight loop
+    GPU_SYNC();           /// * cooperative_groups.sync() does not work!
+    
+    DU v = numel ? SQRT(sum / numel) : DU0;
+    
+    return SCALAR(v);
+}
+__GPU__ DU
+Tensor::max() {
+    DU v = data[0];
+    for (int i=1; i < numel; i++) {              ///> TODO: CDP prefix sum
+        v = MAX(data[i], v);
+    }
+    return SCALAR(v);
+}
+__GPU__ DU
+Tensor::min() {
+    DU v = data[0];
+    for (int i=1; i < numel; i++) {              ///> TODO: CDP prefix sum
+        v = MIN(data[i], v);
+    }
+    return SCALAR(v);
+}
+__GPU__ DU
 Tensor::dot(Tensor &B) {
     DU  acc = DU0;
-    if (rank == 1 && B.rank == 1 && size == B.size) {
-        for (int k=0; k < size; k++) {                   ///> TODO: kernel
-            acc += ((DU*)data)[k] * ((DU*)B.data)[k];
+    if (rank == 1 && B.rank == 1 && numel == B.numel) {
+        for (int k=0; k < numel; k++) {          ///> TODO: kernel
+            acc += data[k] * B.data[k];
         }
     }
-    else ERROR("A.dot(B) dim? %d != %d)\n", size, B.size);
-    return acc;
+    else ERROR("A.dot(B) dim? %d != %d)\n", numel, B.numel);
+    return SCALAR(acc);
 }
 ///=======================================================================
 /// linear algebra methods
 ///=======================================================================
 /// matrix determinant
 ///
-__BOTH__ DU
+__GPU__ DU
 Tensor::det() {
     U16 m = H(), n = W();
     WARN("Tensor::det[%d,%d]\n", m, n);
-    
-    DU *d = (DU*)data;
-    DU v  = 1.0;
-    for (U16 z = 0; z < m; z++) v *= d[z + z * n];
-    
-    return v;
+
+    DU v = DU1;
+    for (U16 z = 0; z < m; z++) v *= data[z + z * n];
+
+    return SCALAR(v);
 }
 ///
 /// matrix upper triangle
 ///
-__BOTH__ Tensor&
+__GPU__ Tensor&
 Tensor::triu() {
     U16 m  = H(), n = W();
     WARN("Tensor::upper[%d,%d]\n", m, n);
-    
-    DU *d = (DU*)data;
+
     for (U16 z = 1; z < m; z++) {
         for (U16 k = 0; k < z; k++) {
-            d[k + z * n] = DU0;
+            data[k + z * n] = DU0;
         }
     }
-    cudaDeviceSynchronize();
     return *this;
 }
 ///
 /// matrix lower triangle with diag filled with 1
 ///
-__BOTH__ Tensor&
+__GPU__ Tensor&
 Tensor::tril() {
     U16 m = H(), n = W();
     WARN("Tensor::lower[%d,%d]\n", m, n);
-    
-    DU *d = (DU*)data;
+
     for (U16 z = 0; z < m; z++) {
-        d[z + z * n] = DU0 + 1.0;
+        data[z + z * n] = DU1;
         for (U16 k = z + 1; k < n; k++) {
-            d[k + z * n] = DU0;
+            data[k + z * n] = DU0;
         }
     }
-    cudaDeviceSynchronize();
-    return *this;
-}
-__BOTH__ Tensor&
-Tensor::scale(DU v) {
-    WARN("Tensor#scale by %f\n", v);
-    dim3 block(256), grid((size + block.x -1)/block.x);
-    k_scale<<<grid, block>>>((DU*)data, v, size);
-    cudaDeviceSynchronize();
-    return *this;
-}
-__BOTH__ Tensor&
-Tensor::abs() {
-    WARN("Tensor#abs\n");
-    dim3 block(256), grid((size + block.x -1)/block.x);
-    k_abs<<<grid, block>>>((DU*)data, size);
-    cudaDeviceSynchronize();
     return *this;
 }
 ///=======================================================================
 /// Tensor life-cycle ops
 ///
 __BOTH__ Tensor&
-Tensor::set_as_view(bool set) {
-    if (set) attr |= T4_TENSOR_VIEW;
-    else     attr &= ~T4_TENSOR_VIEW;
-    return *this;
-}
-
-__BOTH__ Tensor&
-Tensor::reset(void *mptr, U32 sz) {
+Tensor::reset(void *mptr, U32 sz, t4_obj tt) {
     WARN("Tensor::reset(%p, %d)\n", mptr, sz);
-    dsize  = sizeof(DU);
-    size   = sz;
-    rank   = 1;
-    U16 t[4] = {1, 1, 1, 1};      memcpy(stride, t, sizeof(t));
-    U16 s[4] = {(U16)sz,1, 1, 1}; memcpy(shape,  s, sizeof(s));
-    attr   = 0;
-    data   = (U8*)mptr;
+    init(sz, tt, 1);                                   /// T4Base attributes
+    
+    const U16    s[4] = { 1, 1, 1, 1 };
+    const U16    h[4] = { (U16)sz, 1, 1, 1 };
+    data = (DU*)mptr;
+    memcpy(stride, s, sizeof(s));
+    memcpy(shape,  h, sizeof(h));
     return *this;
 }
 
 __BOTH__ Tensor&
 Tensor::reshape(U32 sz) {
-    if (sz == size) {
-        reset(data, size);
-        WARN("Tensor::reshaped(%d)\n", size);
+    if (sz == numel) {
+        reset(data, numel, (t4_obj)ttype);            /// preserve ttype and fn
+        WARN("Tensor::reshaped(%d)\n", numel);
     }
     else {
-        ERROR("Tensor::reshape sz != size (%d != %d)\n", sz, size);
+        ERROR("Tensor::reshape sz != numel (%d != %d)\n", sz, numel);
     }
     return *this;
 }
 
 __BOTH__ Tensor&
 Tensor::reshape(U16 h, U16 w) {
+    const U16 s[4] = { 1, 1, 1, 1 }, t[4] = { h, w, 1, 1 };
     U32 sz = h * w;
-    if (sz == size) {
-        rank   = 2;
-        U16 t[4] = {1, 1, 1, 1}; memcpy(stride, t, sizeof(t));
-        U16 s[4] = {h, w, 1, 1}; memcpy(shape,  s, sizeof(s));
-        WARN("Tensor::reshaped(%d,%d)\n", shape[0], shape[1]);
+    if (sz == numel) {
+        rank = 2;
+        memcpy(stride, s, sizeof(s));
+        memcpy(shape,  t, sizeof(t));
+        WARN("Tensor::reshaped(%d,%d)\n", H(), W());
     }
     else {
-        ERROR("Tensor::reshape sz != size (%d != %d)\n", sz, size);
+        ERROR("Tensor::reshape sz != numel (%d != %d)\n", sz, numel);
     }
     return *this;
 }
 
 __BOTH__ Tensor&
 Tensor::reshape(U16 n, U16 h, U16 w, U16 c) {
+    const U16 s[4] = { 1, 1, 1, 1 }, t[4] = { h, w, c, n };
     U32 sz = n * h * w * c;
-    if (sz == size) {
-        rank   = 4;
-        U16 t[4] = {1, 1, 1, 1}; memcpy(stride, t, sizeof(t));
-        U16 s[4] = {h, w, c, n}; memcpy(shape,  s, sizeof(s));
-        WARN("Tensor::reshaped(%d,%d,%d,%d)\n", shape[3], shape[0], shape[1], shape[2]);
+    if (sz == numel) {
+        rank = 4;
+        memcpy(stride, s, sizeof(s));
+        memcpy(shape,  t, sizeof(t));
+        WARN("Tensor::reshaped(%d,%d,%d,%d)\n", N(), H(), W(), C());
     }
     else {
-        ERROR("Tensor::reshape sz != size (%d != %d)\n", sz, size);
+        ERROR("Tensor::reshape sz != numel (%d != %d)\n", sz, numel);
+    }
+    return *this;
+}
+__BOTH__ Tensor&
+Tensor::reshape(U16 c1, U16 n, U16 h, U16 w, U16 c) {
+    const U16 s[4] = { 1, 1, 1, 1 }, t[4] = { h, w, c, n };
+    U32 sz = c1 * n * h * w * c;
+    if (sz == numel) {
+        rank = 5;
+        parm = c1;        /// use parm field, so we don't need s[5]
+        memcpy(stride, s, sizeof(s));
+        memcpy(shape,  t, sizeof(t));
+        WARN("Tensor::reshaped(%d,%d,%d,%d,%d)\n", c1, N(), H(), W(), C());
+    }
+    else {
+        ERROR("Tensor::reshape sz != numel (%d != %d)\n", sz, numel);
     }
     return *this;
 }
 
 __BOTH__ Tensor&
 Tensor::identity() {
-    if (rank < 2) return *this;
-    int h = H(), w = W();
-    dim3 block(16, 16), grid(
-        (w + block.x - 1) / block.x,
-        (h + block.y - 1) / block.y
-    );
-    k_identity<<<grid, block>>>((DU*)data, h, w, C());
-    cudaDeviceSynchronize();
+    dim3 blk(T4_WARP_SZ, T4_WARP_SZ, 1);
+    dim3 grd(NGRID(W(), H(), C(), blk));
+
+    for (int n = 0; n < N(); n++) {
+        k_identity<<<grd, blk>>>(slice(n), H(), W(), sizeof(DU));
+    }
+    GPU_SYNC();
+    
     return *this;
 }
 
 __BOTH__ Tensor&
-Tensor::fill(DU v) {
-    WARN("Tensor#fill with %f\n", v);
-    dim3 block(256), grid((size + block.x -1)/block.x);
-    k_fill<<<grid, block>>>((DU*)data, v, size);
-    cudaDeviceSynchronize();
+Tensor::map(t4_ten_op op, DU v) {
+    OPN("+", "-", "*", "/", "@", "solv", "fill", "scale","pow", "abs", "exp", "ln", "log", "tanh", "relu", "sigmoid", "sqrt");
+    WARN("Tensor#%s v=%f\n", opn[op], v);
+    int g = (numel + T4_WARP_SQ - 1) / T4_WARP_SQ;
+    
+    k_ten_op<<<g, T4_WARP_SQ>>>(op, data, numel, v);
+    GPU_SYNC();
+    
     return *this;
 }
 
+__BOTH__ Tensor&
+Tensor::normalize(DU avg, DU std) {
+    dim3 blk(T4_WARP_SQ, 1, 1);
+    dim3 grd((numel + blk.x - 1) / blk.x, 1, 1);
+    
+    k_ts_op<<<grd, blk>>>(O_SUB, data, avg, data, numel);
+    GPU_SYNC();
+    k_ts_op<<<grd, blk>>>(O_DIV, data, std, data, numel);
+    GPU_SYNC();
 
+    return *this;
+}
+///=======================================================================
+/// Tensor debugger
+///
+__BOTH__ void
+Tensor::_dump(DU *v, int H, int W, int C) {
+    const int hw = H * W, sq = (int)sqrt(hw);
+    const int sh = (hw/sq) + ((hw - sq*sq) > 0 ? 1 : 0);
+    const int h  = W > 1 ? H : (hw < 36 ? 1 : sh);
+    const int w  = W > 1 ? W : (hw < 36 ? H : sq);
+    
+    DU *csum = new DU[C];
+    for (int k = 0; k < C; k++) csum[k] = DU0;
+    for (int i = 0; i < h; i++) {
+        printf("\n");
+        DU sum = DU0;
+        for (int k = 0; k < C; k++) {
+            for (int j = 0; j < w; j++) {
+                int n = j + i * w;
+                if (n >= hw) { printf(" ...."); continue; }
+                
+                DU  r = v[k + n * C];
+                printf("%5.2f", r);
+                sum += r;
+                csum[k] += r;
+            }
+            printf("|");
+        }
+        printf("Σ=%6.3f", sum);
+    }
+    if (h > 1) {
+        printf("\nΣΣ=");
+        for (int k = 0; k < C; k++) printf("%6.3f ", csum[k]);
+    }
+    delete csum;
+}
+///
+///> _view - in ASCII art
+///
+__BOTH__ void
+Tensor::_view(DU *v, int H, int W, int C, DU mean, DU scale) {
+    auto map = [](DU v) {
+        // static const char *lk = " .'`^\",:;Il!i><~+_-?][}{1)(|/tfjrxnuvczXYUJCLQ0OZmwqpdbkhao*#MW&8%B@$";                             // 69 shades
+        static const char *lk = " .:-=+*#%@X";      // 11 shades
+        //return lk[v < 10.0f ? (v < DU0 ? 10 : (int)v) : 9];
+        int i = static_cast<int>((v + 1.0) * 5.5);
+        return lk[i < 0 ? 0 : (i > 10 ? 10 : i)];
+    };
+    const int hw = H * W, sr = static_cast<int>(sqrtf(hw));
+    const int sh = (hw/sr) + ((hw - sr*sr) > 0 ? 1 : 0);
+    const int w  = W > 1 ? W : (hw < 36 ? H : sr);
+    const int h  = W > 1 ? H : (hw < 36 ? 1 : sh);
+
+    DU *csum = new DU[C];
+    for (int k = 0; k < C; k++) csum[k] = DU0;
+    for (int i = 0; i < h; i++) {
+        printf("\n");
+        for (int k = 0; k < C; k++) {
+            for (int j = 0; j < w; j++) {
+                int n = j + i * w;
+                if (n >= hw) { printf("  "); continue; }
+                
+                DU r0 = v[k + (j>0 ? n - 1 : n) * C];
+                DU r1 = v[k + n * C];
+                DU x0 = (r0 - mean) * scale;
+                DU x1 = (((r0 + r1) * 0.5) - mean) * scale;
+
+                printf("%c%c", map(x0), map(x1));  // double width
+                csum[k] += r1;
+            }
+            printf("|");
+        }
+    }
+    if (h > 1) {
+        printf("\nΣΣ=");
+        for (int k = 0; k < C; k++) printf("%6.3f ", csum[k]);
+    }
+    printf("\n");
+    
+    delete csum;
+}
+
+__GPU__ void
+Tensor::show(bool dump) {
+    const U16 N  = this->N(), H = this->H(), W = this->W(), C = this->C();
+    const int hw = H * W;
+
+    DU mean  = avg();
+    DU scale = 0.5 / std();            // P=95%
+    for (int n = 0; n < N; n++) {
+        DU *d = slice(n);
+        if (dump || hw < 100) {
+            printf("\nn=%d", n);
+            _dump(d, H, W, C);
+        }
+        if (hw > 36) _view(d, H, W, C, mean, scale);
+    }
+    printf("\n");
+}
+
+#endif // T4_ENABLE_OBJ
