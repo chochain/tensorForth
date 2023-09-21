@@ -42,6 +42,7 @@ protected:
     __GPU__ void xop1(math_op op, DU v=DU0);              /// 1-operand ops in-place
     __GPU__ void xop2(math_op op, t4_drop_opt x=KEEP);    /// 2-operand ops
     __GPU__ void xop1t(t4_ten_op op);                     /// 1-operand ops with new tensor
+    __GPU__ void xop2t(t4_ten_op op, t4_drop_opt x=KEEP); /// 2-operand tensor ops
     
 private:
     ///
@@ -55,9 +56,9 @@ private:
     /// tensor-tensor ops
     ///
     __GPU__ Tensor &_tinv(Tensor &A);                     ///< matrix inversion
-    __GPU__ Tensor &_tdot();                              ///< matrix-matrix multiplication @
-    __GPU__ Tensor &_tdiv();                              ///< matrix-matrix division (no broadcast)
-    __GPU__ Tensor &_solv();                              ///< solve linear equation Ax = b
+    __GPU__ Tensor &_tdot(Tensor &A, Tensor &B);          ///< matrix-matrix multiplication @
+    __GPU__ Tensor &_tdiv(Tensor &A, Tensor &B);          ///< matrix-matrix division (no broadcast)
+    __GPU__ Tensor &_solv(Tensor &A, Tensor &B);          ///< solve linear equation Ax = b
     __GPU__ void   _gemm();                               ///< GEMM C' = alpha * A x B + beta * C
     ///
     /// tensor IO
