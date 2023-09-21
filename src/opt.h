@@ -58,37 +58,43 @@ struct Options {
     //
     int gpu_check(cudaError_t e) {
         if (e != cudaSuccess) {
-            std::cerr << "cudaGetDeviceCount() returned an error: " << cudaGetErrorString(e) << std::endl;
+            std::cerr << "cudaGetDeviceCount() returned an error: " << e << " " << cudaGetErrorString(e) << std::endl;
             return 1;
         }
         return 0;
     }
-    int check_versions(cudaDeviceProp &props) {
+
+    int check_versions(cudaDeviceProp &p) {
+        return 0;
         const char *err[] = {
             "Volta Tensor Core operations must be run on a machine with compute capability at least 70.",
             "Volta Tensor Core operations must be compiled with CUDA 10.1 Toolkit or later.",
-            "Turing Tensor Core operations must be compiled with CUDA 10.2 Toolkit or later."
+            "Turing Tensor Core operations must be compiled with CUDA 10.2 Toolkit or later.",
+            "cudaComputeModeProhibited"
         };
+        if (p.computeMode == cudaComputeModeProhibited) {
+            std::cerr << err[3] << std::endl; return -4;
+        }
         //
         // Volta Tensor Core operations are first available in CUDA 10.1 Toolkit.
         //
         // Turing Tensor Core operations are first available in CUDA 10.2 Toolkit.
         //
-        if (props.major < 7) { std::cerr << err[0] << std::endl; return 0; }
-        else if (props.major == 7 && props.minor <= 2) {
+        if (p.major < 7) { std::cerr << err[0] << std::endl; return -1; }
+        else if (p.major == 7 && p.minor <= 2) {
             //
             // If running on the Volta architecture, at least CUDA 10.1 Toolkit is required to run this example.
             //
             if (!(__CUDACC_VER_MAJOR__ > 10 || (__CUDACC_VER_MAJOR__ == 10 && __CUDACC_VER_MINOR__ >= 1))) {
-                std::cerr << err[1] << std::endl; return 0;
+                std::cerr << err[1] << std::endl; return -2;
             }
         }
-        else if (props.major == 7 && props.minor >= 5) {
+        else if (p.major == 7 && p.minor >= 5) {
             //
             // If running on the Turing architecture, at least CUDA 10.2 Toolkit is required to run this example.
             //
             if (!(__CUDACC_VER_MAJOR__ > 10 || (__CUDACC_VER_MAJOR__ == 10 && __CUDACC_VER_MINOR__ >= 2))) {
-                std::cerr << err[2] << std::endl; return 0;
+                std::cerr << err[2] << std::endl; return -3;
             }
         }
         else {
@@ -96,8 +102,9 @@ struct Options {
             //
             // fall through
         }
-        return 1;
+        return 0;
     }
+    
     std::ostream &show_device_prop(std::ostream &out, int id, cudaDeviceProp &p) {
         const char *yes_no[] = { "No", "Yes" };
         out << "\nCUDA Device #" << id << "\n"
@@ -117,25 +124,55 @@ struct Options {
             << (U32)(((U64)p.maxGridSize[0]+1)>>20) << "M, "
             << (U32)((p.maxGridSize[1]+1)>>10) << "K, "
             << (U32)((p.maxGridSize[2]+1)>>10) << "K]\n";
-        out << "\tClock rate:                    " << p.clockRate/1000 << "KHz\n"
+        out << "\tClock rate:                    " << p.clockRate/1000 << "MHz\n"
             << "\tTotal constant memory:         " << (U32)(p.totalConstMem>>10) << "K\n"
             << "\tTexture alignment:             " << p.textureAlignment << "\n"
             << "\tConcurrent copy and execution: " << yes_no[p.deviceOverlap] << "\n"
+            << "\tCooperativeLaunch:             " << yes_no[p.cooperativeLaunch] << "\n"
+            << "\tCooperativeMultiDeviceLaunch:  " << yes_no[p.cooperativeMultiDeviceLaunch] << "\n"
             << "\tKernel execution timeout:      " << yes_no[p.kernelExecTimeoutEnabled] << std::endl;
        return out;
     }
-    int check_devices(std::ostream &out) {
-        int n;
+
+    int _sm_perf(cudaDeviceProp &p) {
+        typedef struct {
+            int sm;     // 0xMn M:major, n:minor
+            int ncore;
+        } kv;
+        kv lst[] = {
+            {0x30, 192}, {0x32, 192}, {0x35, 192}, {0x37, 192},
+            {0x50, 128}, {0x52, 128}, {0x53, 128},
+            {0x60,  64}, {0x61, 128}, {0x62, 128},
+            {0x70,  64}, {0x72,  64}, {0x75,  64},
+            {0x80,  64}, {0x86, 128}, {0x87, 128}
+        };
+        int nmhz = p.multiProcessorCount * (p.clockRate / 1000);
+        for (int i = 0; i < sizeof(lst) / sizeof(kv); i++) {
+            if (lst[i].sm == ((p.major << 4) + p.minor)) {
+                return nmhz * lst[i].ncore;
+            }
+        }
+        return 1;
+    }
+     
+    int check_devices(std::ostream &out, int show=true) {
+        int perf_max = 0;
+        int n;              ///> number of GPU devices
         if (gpu_check(cudaGetDeviceCount(&n))) return -1;
 
         for (int id = 0; id < n; id++) {
             cudaDeviceProp props;
             if (gpu_check(cudaGetDeviceProperties(&props, id))) continue;
-
-            check_versions(props);
-            show_device_prop(out, id, props);
+            if (check_versions(props)) continue;
+            
+            int perf = _sm_perf(props);
+            if (perf > perf_max) {
+                perf_max = perf;
+                device_id  = id;
+            }
+            if (show) show_device_prop(out, id, props);
         }
-        return n;
+        return device_id;
     }
     /// Prints the usage statement.
     std::ostream &print_usage(std::ostream &out) const {
@@ -145,9 +182,9 @@ struct Options {
             << "  -d <int>  GPU device id\n"
             << "  -v <int>  Verbosity level, 0: default, 1: mmu debug, 2: more details\n\n"
             << "Examples:\n"
-            << "$ ./tests/ten4 -h  ;# display help\n"
-            << "$ ./tests/ten4 -d 0\n"
-            << "$ ./tests/ten4 -n 7 -y 1024 -x 512 -k 2048 -a 2.0 -b 0.707\n";
+            << "$ ./tests/ten4 -h    ;# display help\n"
+            << "$ ./tests/ten4 -d 0  ;# use device 0\n"
+            << "$ ./tests/ten4 -v 1  ;# set verbosity to level 1\n";
         return out;
     }
 };
