@@ -1,12 +1,12 @@
 /**
  * @file
- * @brief kernel input stream module.
+ * @brief Istream class - kernel input stream module
  *
  * <pre>Copyright (C) 2022- GreenII, this file is distributed under BSD 3-Clause License.</pre>
  */
 #ifndef TEN4_SRC_ISTREAM_H_
 #define TEN4_SRC_ISTREAM_H_
-#include "tensor.h"
+#include "ten4_types.h"
 #include "util.h"
 ///
 /// istream class
@@ -25,8 +25,8 @@ class Istream : public Managed {
         return nidx;
     }
 public:
-    Istream(int sz=T4_IBUF_SZ) { cudaMallocManaged(&_buf, sz); GPU_CHK(); }
-    ~Istream()                 { GPU_SYNC(); cudaFree(_buf); }
+    Istream(int sz=T4_IBUF_SZ) { MM_ALLOC(&_buf, sz);       }
+    ~Istream()                 { GPU_SYNC(); MM_FREE(_buf); }
     ///
     /// intialize by a given string
     ///
@@ -60,7 +60,7 @@ public:
             WARN("%d>> ibuf[%d] >> '%s' (%d bytes)\n", blockIdx.x, _idx, s, _gn);
         }
         else if (delim=='\n') {             // comment line
-            WARN("%d>> ibuf[%d] \ at idx=%d\n", blockIdx.x, _idx, _gn);
+            WARN("%d>> ibuf[%d] \\ at idx=%d\n", blockIdx.x, _idx, _gn);
             _buf[_idx] = '\0';              // blank out the reset of input buffer
         }
         return *this;
