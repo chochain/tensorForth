@@ -18,6 +18,7 @@
 ///
 typedef enum {
     T_DOT = 0,
+    T_DIV,
     T_SOLV,
     T_INV,
     T_LU,
