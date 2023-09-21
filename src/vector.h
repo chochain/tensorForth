@@ -1,13 +1,13 @@
 /**
  * @file
- * @brief tensorForth Vector class (device only ) implementation
+ * @brief Vector class - device-side vector container module
  *
  * <pre>Copyright (C) 2021 GreenII, this file is distributed under BSD 3-Clause License.</pre>
  */
 #ifndef TEN4_SRC_VECTOR_H
 #define TEN4_SRC_VECTOR_H
 #include "ten4_types.h"
-#include "util.h"       /// also defined __GPU__
+#include "util.h"            /// also defined __GPU__
 
 #define VECTOR_INC      4
 ///

@@ -1,6 +1,6 @@
 /**
  * @file
- * @brief tensorForth Utility functions
+ * @brief common utility functions interface
  *
  * <pre>Copyright (C) 2021- GreenII, this file is distributed under BSD 3-Clause License.</pre>
  */
@@ -26,6 +26,7 @@ uint16_t hbin_to_u16(const void *bin);
 ///
 ///@name Endianess conversion
 ///@{
+#define __KERN__     __global__
 #define __GPU__      __device__
 __GPU__ uint32_t     bin_to_u32(const void *bin);
 __GPU__ uint16_t     bin_to_u16(const void *bin);
@@ -38,7 +39,7 @@ __GPU__ void         u32_to_bin(uint32_t l, const void *bin);
 //__GPU__ void         d_memcpy(void *t, const void *s, size_t n);
 //__GPU__ void         d_memset(void *t, int c, size_t n);
 #define d_memcpy(t,s,n) memcpy(t,s,n)
-#define d_memset(t,s,n) memset(t,s,n)
+#define d_memset(t,c,n) memset(t,c,n)
 __GPU__ int          d_memcmp(const void *t, const void *s, size_t n);
 ///@}
 ///@name String ops
@@ -58,10 +59,17 @@ __GPU__ long         d_strtol(const char *s, char **p, int base=10);
 __GPU__ double       d_strtof(const char *s, char **p);
 __GPU__ int          d_hash(const char *s);
 ///@}
+///@name Tensor ops (kernel mode)
+///@{
+__KERN__ void        k_copy(float *src, float *dst, int sz);  ///< Note: (src, dst)
+__KERN__ void        k_transpose(float *src, float *dst, int h, int w); ///< Note: (src, dst), TODO: CDP
+__KERN__ void        k_identity(float *t, int h, int w, int c);
+///@}
+///==========================================================================
 ///@name Unified memory ops
 ///@{
 #define MEMCPY(t,s,n)   d_memcpy((void*)(t), (void*)(s), (size_t)(n))       /** TODO: cudaMemcpyAsyn */
-#define MEMSET(t,v,n)   d_memset((void*)(t), (int)(v), (size_t)(n))
+#define MEMSET(t,c,n)   d_memset((void*)(t), (int)(c), (size_t)(n))
 #define MEMCMP(t,s,n)   d_memcmp((const char*)(t), (const char*)(s), (size_t)(n))
 ///@}
 ///@name Unified string ops
@@ -88,7 +96,7 @@ __GPU__ int          d_hash(const char *s);
 ///@name Unified memory ops
 ///@{
 #define MEMCPY(t,s,n)   memcpy(t,s,n)
-#define MEMSET(t,v,n)   memset(t,v,n)
+#define MEMSET(t,c,n)   memset(t,c,n)
 #define MEMCMP(t,s,n)   memcmp(t,s,n)
 ///@}
 ///@name Unified string ops
