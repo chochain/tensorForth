@@ -387,9 +387,9 @@ d_hash(const char *s) {
   Tensor basic ops
 */
 __KERN__ void
-k_copy(float *src, float *dst, int sz) {                   ///< Note: (src, dst)
+k_copy(float *src, float *dst, int n) {                    ///< Note: (src, dst)
     int k = threadIdx.x + blockIdx.x * blockDim.x;
-    if (k < sz) dst[k] = src[k];
+    if (k < n) dst[k] = src[k];
 }
 __KERN__ void
 k_transpose(float *src, float *dst, int H, int W) {        ///< Note: (src, dst)
@@ -411,5 +411,64 @@ k_identity(float *t, int H, int W, int sz) {
 
     if (i < H && j < W && c < C) {
         t[c + (j + i * W) * C] = i01[i==j];
+    }
+}
+
+#define DU_LNX   1.0e-12                                      /* log clamp */
+__KERN__ void
+k_math(math_op op, float *A, int n, float v) {
+    const int k = threadIdx.x + blockIdx.x * blockDim.x;
+    float ak = A[k];                             ///< cache value
+    if (k < n) {
+        switch(op) {
+        case ABS:   A[k] = ABS(ak);                   break;
+        case EXP:   A[k] = EXP(ak);                   break;
+        case LN:    A[k] = LN(MAX(ak, DU_LNX));       break;  // clamped
+        case LOG:   A[k] = LOG(MAX(ak, DU_LNX));      break;  // clamped
+        case TANH:  A[k] = TANH(ak);                  break;
+        case RELU:  A[k] = RELU(ak);                  break;
+        case SIGM:  A[k] = SIGMOID(ak);               break;
+        case SQRT:  A[k] = SQRT(MAX(ak, 0.0));        break;  // guarded
+        case RCP:   A[k] = RCP(ak);                   break;  // 1/x
+        case FILL:  A[k] = v;                         break;
+        case SCALE: A[k] *= v;                        break;
+        case POW:   A[k] = POW(ak, v);                break;  // x^v
+        case ADD:   A[k] += v;                        break;
+        case SUB:   A[k] -= v;                        break;
+        case MUL:   A[k] *= v;                        break;
+        case DIV:   A[k] /= v;                        break;
+        default: printf("k_math op=%d not supported\n", op);
+        }
+    }
+}
+///
+/// tensor-tensor element-wise ops
+///
+__KERN__ void
+k_tt_op(math_op op, float *A, float *B, float *O, int n) {
+    const int k = threadIdx.x + blockIdx.x * blockDim.x;  ///< element index
+
+    if (k < n) {
+        switch (op) {                                     /// no divergence
+        case ADD: O[k] = A[k] + B[k]; break;
+        case SUB: O[k] = A[k] - B[k]; break;
+        case MUL: O[k] = A[k] * B[k]; break;              /// * convolution
+        case DIV: O[k] = A[k] / B[k]; break;
+        }
+    }
+}
+///
+/// tensor-scalar element-wise ops
+///
+__KERN__ void
+k_ts_op(math_op op, float *A, float v, float *O, int n) {
+    const int k = threadIdx.x + blockIdx.x * blockDim.x;   ///< element index
+    if (k < n) {
+        switch (op) {                                      /// no divergence
+        case ADD: O[k] = A[k] + v; break;
+        case SUB: O[k] = A[k] - v; break;
+        case MUL: O[k] = A[k] * v; break;                  /// * convolution
+        case DIV: O[k] = A[k] / v; break;
+        }
     }
 }

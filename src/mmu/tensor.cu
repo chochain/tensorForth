@@ -11,35 +11,6 @@
 ///=======================================================================
 /// static methods
 ///
-/// tensor op on self (i.e. +=, -=, ...)
-///
-#define DU_LNX   1.0e-12                                      /* log clamp */
-__KERN__ void
-k_ten_op(t4_ten_op op, float *A, int numel, float v=DU0) {
-    const int k = threadIdx.x + blockIdx.x * blockDim.x;
-    DU ak = A[k];                             ///< cache value
-    if (k < numel) {
-        switch(op) {
-        case O_ADD:   A[k] += v;                        break;
-        case O_SUB:   A[k] -= v;                        break;
-        case O_MUL:   A[k] *= v;                        break;
-        case O_DIV:   A[k] /= v;                        break;
-        case O_FILL:  A[k] = v;                         break;
-        case O_SCALE: A[k] *= v;                        break;
-        case O_POW:   A[k] = POW(ak, v);                break;
-        case O_ABS:   A[k] = ABS(ak);                   break;
-        case O_EXP:   A[k] = EXP(ak);                   break;
-        case O_LN:    A[k] = LN(MAX(ak, DU_LNX));       break;  // clamped
-        case O_LOG:   A[k] = LOG(MAX(ak, DU_LNX));      break;  // clamped
-        case O_TANH:  A[k] = TANH(ak);                  break;
-        case O_RELU:  A[k] = MAX(ak, DU0);              break;
-        case O_SIGM:  A[k] = SIGMOID(ak);               break;
-        case O_SQRT:  A[k] = SQRT(MAX(ak, DU0));        break;  // guarded
-        default: ERROR("k_ten_op %d not supported\n", op);
-        }
-    }
-}
-///
 ///> array sum
 /// Note: tiled_partition<32> used
 ///
@@ -154,45 +125,6 @@ k_gemm(
     }
 }
 ///
-/// tensor-tensor element-wise ops
-///
-__KERN__ void
-k_tt_op(
-    t4_ten_op op,
-    DU *A, DU *B, DU *O,
-    int numel)
-{
-    const int k = threadIdx.x + blockIdx.x * blockDim.x;  ///< element index
-
-    if (k < numel) {
-        switch (op) {                                     /// no divergence
-        case O_ADD: O[k] = A[k] + B[k]; break;
-        case O_SUB: O[k] = A[k] - B[k]; break;
-        case O_MUL: O[k] = A[k] * B[k]; break;            /// * convolution
-        case O_DIV: O[k] = A[k] / B[k]; break;
-        }
-    }
-}
-///
-/// tensor-scalar element-wise ops
-///
-__KERN__ void
-k_ts_op(
-    t4_ten_op op,
-    DU *A, DU v, DU *O,
-    int numel)
-{
-    const int k = threadIdx.x + blockIdx.x * blockDim.x;   ///< element index
-    if (k < numel) {
-        switch (op) {                                      /// no divergence
-        case O_ADD: O[k] = A[k] + v; break;
-        case O_SUB: O[k] = A[k] - v; break;
-        case O_MUL: O[k] = A[k] * v; break;                /// * convolution
-        case O_DIV: O[k] = A[k] / v; break;
-        }
-    }
-}
-///
 /// Binary Cross-Entropy (clamps output to >= -100)
 ///
 __KERN__ void
@@ -204,27 +136,10 @@ k_bce(DU *O, DU *T, int numel) {
     }
 }
 ///
-/// tensor-tensor element-wise C = A op B where op=ADD|SUB|MUL|DIV (Hadamard)
-///
-__GPU__ Tensor&
-Tensor::ten_op(t4_ten_op op, Tensor &A, Tensor &B, Tensor &O) {
-    U16 N = A.N(), H = A.H(), W = A.W(), C = A.C();
-    OPN("add", "sub", "mul", "div");
-    WARN("Tensor::mat%s[%d,%d,%d,%d]\n", opn[op], N, H, W, C);
-    
-    dim3 blk(T4_WARP_SQ, 1, 1);
-    dim3 grd((A.numel + blk.x - 1) / blk.x, 1, 1);
-    
-    k_tt_op<<<grd, blk>>>(op, A.data, B.data, O.data, A.numel);
-    GPU_SYNC();
-    
-    return O;
-}
-///
 /// tensor-scalar addition O = A op n element-wise (Hadamard)
 ///
 __GPU__ Tensor&
-Tensor::ten_op(t4_ten_op op, Tensor &A, DU v, Tensor &O) {
+Tensor::ten_op(math_op op, Tensor &A, DU v, Tensor &O) {
     U16 N = A.N(), H = A.H(), W = A.W(), C = A.C();
     OPN("+", "-", "*", "/");
     WARN("Tensor::mat[%d,%d,%d,%d] %s %6.2f\n", N, H, W, C, opn[op], v);
@@ -233,6 +148,23 @@ Tensor::ten_op(t4_ten_op op, Tensor &A, DU v, Tensor &O) {
     dim3 grd((A.numel + blk.x - 1) / blk.x, 1, 1);
     
     k_ts_op<<<grd, blk>>>(op, A.data, v, O.data, A.numel);
+    GPU_SYNC();
+    
+    return O;
+}
+///
+/// tensor-tensor element-wise C = A op B where op=ADD|SUB|MUL|DIV (Hadamard)
+///
+__GPU__ Tensor&
+Tensor::ten_op(math_op op, Tensor &A, Tensor &B, Tensor &O) {
+    U16 N = A.N(), H = A.H(), W = A.W(), C = A.C();
+    OPN("add", "sub", "mul", "div");
+    WARN("Tensor::mat%s[%d,%d,%d,%d]\n", opn[op], N, H, W, C);
+    
+    dim3 blk(T4_WARP_SQ, 1, 1);
+    dim3 grd((A.numel + blk.x - 1) / blk.x, 1, 1);
+    
+    k_tt_op<<<grd, blk>>>(op, A.data, B.data, O.data, A.numel);
     GPU_SYNC();
     
     return O;
@@ -576,7 +508,7 @@ Tensor::loss(t4_loss op, Tensor &tgt) {
         sum = -this->sum();          /// * -(y * ln(out_i) + (1-y) * ln(1-out_i))
     } break;
     case LOSS_CE:                    /// * cross_entropy, input from softmax
-        map(O_LN);                   /// * log(out_i)
+        map(LN);                     /// * log(out_i)
         /* no break */
     case LOSS_NLL:                   /// * negative log likelihood, input from log-softmax
         *this *= tgt;                /// * out_i * tgt_i
@@ -728,12 +660,12 @@ Tensor::identity() {
 }
 
 __BOTH__ Tensor&
-Tensor::map(t4_ten_op op, DU v) {
-    OPN("+", "-", "*", "/", "@", "solv", "fill", "scale","pow", "abs", "exp", "ln", "log", "tanh", "relu", "sigmoid", "sqrt");
+Tensor::map(math_op op, DU v) {
+    OPN(MATH_OP);
     WARN("Tensor#%s v=%f\n", opn[op], v);
     int g = (numel + T4_WARP_SQ - 1) / T4_WARP_SQ;
     
-    k_ten_op<<<g, T4_WARP_SQ>>>(op, data, numel, v);
+    k_math<<<g, T4_WARP_SQ>>>(op, data, numel, v);
     GPU_SYNC();
     
     return *this;
@@ -744,9 +676,9 @@ Tensor::normalize(DU avg, DU std) {
     dim3 blk(T4_WARP_SQ, 1, 1);
     dim3 grd((numel + blk.x - 1) / blk.x, 1, 1);
     
-    k_ts_op<<<grd, blk>>>(O_SUB, data, avg, data, numel);
+    k_ts_op<<<grd, blk>>>(SUB, data, avg, data, numel);
     GPU_SYNC();
-    k_ts_op<<<grd, blk>>>(O_DIV, data, std, data, numel);
+    k_ts_op<<<grd, blk>>>(DIV, data, std, data, numel);
     GPU_SYNC();
 
     return *this;
