@@ -192,21 +192,6 @@ MMU::tensor(U16 n, U16 h, U16 w, U16 c) {
     t.reshape(n, h, w, c);
     return t;
 }
-
-__GPU__ Tensor&                    ///< create a view of a Tensor
-MMU::view(Tensor &t0) {
-    if (t0.is_model()) return t0;  ///> TODO: create model view
-    Tensor *t = (Tensor*)_ostore.malloc(sizeof(Tensor));
-    ///
-    /// replicate A tensor
-    ///
-    memcpy(t, &t0, sizeof(Tensor));
-    t->nref = 1;
-
-    MM_TRACE1("mmu#view => V%d numel=%d", t->rank, t->numel);
-    _ostore.status(_trace);
-    return *t;
-}
 __GPU__ void
 MMU::resize(Tensor &t, U32 sz) {
     if (t.rank != 1) { ERROR("mmu#resize rank==1 only\n"); return; }
