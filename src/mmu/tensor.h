@@ -28,7 +28,7 @@ typedef enum {
     T_TRIL,
     T_XPOS
 } t4_ten_op;
-#define TENSOR_OP "dot","solv","inv","lu","luinv","det","triu","tril","xpos"
+#define TENSOR_OP "dot","div","solv","inv","lu","luinv","det","triu","tril","xpos"
 
 typedef enum {
     L_NONE = 0,
