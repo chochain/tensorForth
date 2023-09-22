@@ -26,7 +26,7 @@ AIO::_print_model(std::ostream &fout, Model &m) {
     auto tinfo = [this, &fout](Tensor &t, int i, int fn) { ///> layer info
         fout << "[" << std::setw(3) << i << "] "
              << Model::nname(fn) << ":";
-        _mmu->to_s(fout, t);
+        _mmu->to_s(fout, t, false);
         int sz = 0;
         for (int n = 0; n < 4; n++) {
             sz += t.grad[n] ? t.grad[n]->numel : 0;
@@ -35,7 +35,7 @@ AIO::_print_model(std::ostream &fout, Model &m) {
     };
     auto finfo = [this, &fout](Tensor **g) {
         for (int i=0; g[i] && i < 2; i++) {
-            fout << " "; _mmu->to_s(fout, *g[i]);
+            fout << " "; _mmu->to_s(fout, *g[i], false);
         }
     };
     if (!m.is_model()) return;
