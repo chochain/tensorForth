@@ -158,8 +158,8 @@ Tensor::ten_op(math_op op, Tensor &A, DU v, Tensor &O) {
 __GPU__ Tensor&
 Tensor::ten_op(math_op op, Tensor &A, Tensor &B, Tensor &O) {
     U16 N = A.N(), H = A.H(), W = A.W(), C = A.C();
-    OPN("add", "sub", "mul", "div");
-    WARN("Tensor::mat%s[%d,%d,%d,%d]\n", opn[op], N, H, W, C);
+    OPN(MATH_OP);
+    WARN("Tensor::mat_%s[%d,%d,%d,%d]\n", opn[op], N, H, W, C);
     
     dim3 blk(T4_WARP_SQ, 1, 1);
     dim3 grd((A.numel + blk.x - 1) / blk.x, 1, 1);
