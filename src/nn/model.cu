@@ -20,16 +20,16 @@ Model::d_nname(int i) {
 ///
 /// layer access methods
 ///
-__BOTH__ __INLINE__ Tensor&
+__BOTH__ Tensor&
 Model::operator[](int i) {
     /// * model.data[0] = store
     /// so 1st layer starts from model.data[1]
     return (Tensor&)_mmu->du2obj(data[(i < 0) ? numel + i : i]);
 }
-__BOTH__ __INLINE__ int
+__BOTH__ int
 Model::slots() { return _store->numel; }
 
-__GPU__  __INLINE__ void
+__GPU__  void
 Model::reset(MMU *mmu, Tensor &store) {
     init(0, T4_MODEL, 0);                   /// * T4Base attributes
     _mmu   = mmu;
@@ -38,7 +38,7 @@ Model::reset(MMU *mmu, Tensor &store) {
     train  = 1;
     npush(store);                           /// * model.data[0] = store
 }
-__GPU__ __INLINE__ Model&
+__GPU__ Model&
 Model::npush(DU v) {
     data[numel++] = v;
     U32 tsz = _store->numel;                ///< current allocated for layers
@@ -48,9 +48,9 @@ Model::npush(DU v) {
     }
     return *this;
 }
-__GPU__ __INLINE__ Model& Model::npush(Tensor &t) { return npush(_mmu->obj2du(t)); }
-__GPU__ __INLINE__ DU     Model::npop()           { return data[--numel];  }
-__GPU__ __INLINE__ int    Model::batch_size()     { return (*this)[1].N(); }
+__GPU__ Model& Model::npush(Tensor &t) { return npush(_mmu->obj2du(t)); }
+__GPU__ DU     Model::npop()           { return data[--numel];  }
+__GPU__ int    Model::batch_size()     { return (*this)[1].N(); }
 ///
 /// NN layer factory
 ///
@@ -87,14 +87,12 @@ Model::add(t4_layer fn, U16 n, DU bias, U16 *opt) {
 ///
 /// internal tensor constructors
 /// 
-__GPU__ __INLINE__ Tensor&
-Model::_vec(U16 sz)             { return _mmu->tensor(sz); }
-
-__GPU__ __INLINE__ Tensor&
-Model::_t4(U16 n, U16 h)        { return _mmu->tensor(n, h, 1, 1); }
-
-__GPU__ __INLINE__ Tensor&
-_t4(U16 n, U16 h, U16 w, U16 c) { return _mmu->tensor(n, h, w, c); }
+__GPU__ Tensor&
+Model::_vec(U16 sz)       { return _mmu->tensor(sz); }
+__GPU__ Tensor&
+Model::_t4(U16 n, U16 h)  { return _mmu->tensor(n, h, 1, 1); }
+__GPU__ Tensor&
+Model::_t4(U16 n, U16 h, U16 w, U16 c) { return _mmu->tensor(n, h, w, c); }
 ///
 /// Convolution and Linear ops
 ///
