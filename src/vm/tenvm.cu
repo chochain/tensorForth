@@ -152,14 +152,15 @@ TensorVM::xop2t(t4_ten_op op, t4_drop_opt x) {
     switch (op){
     case T_DOT: {               ///< C = A @ B
         Tensor &C = _tdot(A, B);
-        if (x==DROP && C != A) {
-            bool ok = C != B;
-            mmu.drop(POP());
-            mmu.drop(POP());
-            if (ok) PUSH(C);
+        if (C != B && C != A) {
+            if (x==DROP) {
+                mmu.drop(POP());
+                mmu.drop(POP());
+            }
+            PUSH(C);
         }
     } break;
-    case T_DIV: {               ///< C = A * inverse(B)
+    case T_DIV: {               ///< C = A @ inverse(B)
         Tensor &C = _tdiv(A, B);
         if (C != B) PUSH(C);
     } break;
@@ -278,6 +279,7 @@ TensorVM::_tdot(Tensor &A, Tensor &B) {      ///< A x B tensor dot product
         Tensor::mm(A, B, O);
         return O;
     }
+    ERROR("A.W=%d, B.H=%d\n", A.W(), B.H());
     if (A.W()==B.H()) {                      /// * tensor @ tensor
         Tensor &O = mmu.tensor(A.H(), B.W());
         Tensor::mm(A, B, O);
@@ -289,15 +291,15 @@ TensorVM::_tdot(Tensor &A, Tensor &B) {      ///< A x B tensor dot product
 }
 
 __GPU__ Tensor&
-TensorVM::_solv(Tensor &A, Tensor &B) {     /// Note: A B flipped [3,3]x[3,1]
-    U16 m = B.H(), k = B.W(), n = A.H();
-    VLOG1("tenvm# solv[%d,%d] x [%d]\n", m, k, n);
+TensorVM::_solv(Tensor &B, Tensor &A) {     /// Note: A, B flipped 
+    U16 m = A.H(), k = A.W(), n = B.H();    /// B[3,1] = A[3,3] * X
+    VLOG1("tenvm# solv B[%d] = [%d,%d]*X\n", n, m, k);
     
-    if (A.rank!=1 || m!=k || k!=n) return B;
+    if (B.rank!=1 || m!=k || k!=n) return B;
     
-    Tensor &I = _tinv(B);
+    Tensor &I = _tinv(A);
     Tensor &O = mmu.tensor(k);               /// resultant vector
-    Tensor::mm(I, A, O);                     /// O = A^-1 x B
+    Tensor::mm(I, B, O);                     /// O = A^-1 x B
     mmu.free(I);
     
     return O;
@@ -487,7 +489,7 @@ TensorVM::init() {
     CODE("abs",    xop1(ABS));
     CODE("negate", xop1(NEG));
     CODE("@",
-         if (IS_OBJ(top)) xop2t(T_DOT);   ///< matrix @ product
+         if (TOS2T) xop2t(T_DOT);         ///< matrix @ product
          else {
              DU v = mmu.rd(POPi);
              PUSH(mmu.dup(v));
