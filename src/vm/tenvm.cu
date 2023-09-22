@@ -281,7 +281,6 @@ TensorVM::_tdot(Tensor &A, Tensor &B) {      ///< A x B tensor dot product
         Tensor::mm(A, B, O);
         return O;
     }
-    ERROR("A.W=%d, B.H=%d\n", A.W(), B.H());
     if (A.W()==B.H()) {                      /// * tensor @ tensor
         Tensor &O = mmu.tensor(A.H(), B.W());
         Tensor::mm(A, B, O);
