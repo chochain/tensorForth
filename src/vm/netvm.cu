@@ -177,8 +177,13 @@ __GPU__ void
 NetVM::_parm(int n) {
     if (!M1V) { ERROR("N n required?"); return; }
     
-    S16 i = POPi; Tensor *p = MTOS[i].grad[n]; 
-    if (p) PUSH(mmu.copy(*p)); else PUSH(DU0); 
+    S16 i = POPi;
+    Tensor *p = MTOS[i].grad[n];
+    if (p) {
+        DU v = mmu.obj2du(*p);
+        PUSH(mmu.dup(v));
+    }
+    else PUSH(DU0);
 }
 /// Convolution ops
 /// @default: kxk filter, padding=1, stride=1, dilation=1
@@ -192,7 +197,7 @@ NetVM::_conv(U16 k) {
         Tensor &v = TTOS;
         if (v.rank == 1) {
             for (int i=0; i<5; i++) opt[i] = (U16)v.data[i];
-            POP(); mmu.free(v);
+            DU t = POP(); mmu.drop(t);
         }
         else { ERROR("vec?"); return; }
     }
@@ -207,16 +212,16 @@ NetVM::_conv(U16 k) {
 __GPU__ void
 NetVM::_loss(t4_loss op) {
     if (TOS2T) {                        /// * calculate loss of two tensors
-        Tensor &y = TTOS; POP();        /// * pop off target tensor
-        Tensor &x = TTOS;
-        PUSH(x.loss(op, y));
-        mmu.free(y);                    /// * free target tensor
+        DU y = POP();                   /// * pop off target tensor
+        DU n = TTOS.loss(op, (Tensor&)mmu.du2obj(y));
+        PUSH(n);
+        mmu.drop(y);                    /// * free target tensor
     }
-    else if (TOS1T && IS_M(ss[-1])) {
-        Tensor &t = TTOS; POP();
-        DU     n  = MTOS.loss(op, t);
-        mmu.free(t);                    /// * pop off t
+    else if (TOS1T && IS_M(ss[-1])) {   /// * model loss
+        DU y = POP();
+        DU n = MTOS.loss(op, (Tensor&)mmu.du2obj(y));
         PUSH(n);                        /// * loss on TOS
+        mmu.drop(y);                    /// * pop off t
     }
     else if (IS_M(top)) PUSH(MTOS.loss(op));
     else ERROR("model?\n");
@@ -315,7 +320,8 @@ NetVM::init() {
     CODE("nn.onehot",                         /// * current onehot vector
          if (IS_M(top)) {
              Tensor &hot = MTOS.onehot();
-             PUSH(mmu.dup(mmu.obj2du(hot)));
+             DU v = mmu.obj2du(hot);
+             PUSH(mmu.dup(v));
          }
          else ERROR("TOS is not a model!\n"));
     CODE("nn.hit", 
@@ -340,9 +346,9 @@ NetVM::init() {
     CODE("rewind",  _fetch(top, true));         /// * rewind a dataset (batch_id=0)
     CODE("forward",                             /// * forward process
          if (IS_M(ss[-1]) && TOS1D) {           /// * TOS is a dataset
-             Tensor &t = TTOS; POP();           /// * NOS is the model
-             MTOS.forward(t);                   /// * exec forward path
-             mmu.free(t);                       /// * release reference
+             DU x = POP();                      /// * NOS is the model
+             MTOS.forward((Tensor&)mmu.du2obj(x));     /// * exec forward path
+             mmu.drop(x);                              /// * release reference
          }
          else if (IS_M(top) && IS_OBJ(rs[-1])) {       /// * in a for/next loop
              Tensor &t = (Tensor&)mmu.du2obj(rs[-1]);  /// * rs[-1] is a dataset
@@ -351,25 +357,29 @@ NetVM::init() {
          }
          else ERROR("no model or a dataset?\n"));
     CODE("backprop",
-         if (IS_M(ss[-1]) && TOS1T) {          /// * TOS is a onehot vector
-             Tensor &t = TTOS; POP();
-             MTOS.backprop(t);
-             mmu.free(t);
+         if (IS_M(ss[-1]) && TOS1T) {                  /// * TOS is a onehot vector
+             DU y = POP();                     
+             MTOS.backprop((Tensor&)mmu.du2obj(y));    /// * backprop(target vector)
+             mmu.drop(y);
          }
-         else if (IS_M(top)) MTOS.backprop();  /// * use default output
+         else if (IS_M(top)) MTOS.backprop();          /// * use default output
          else ERROR("TOS not a model?\n"));
     CODE("broadcast",
-         if (IS_M(ss[-1]) && TOS1T) {          /// * TOS is a onehot vector
-             Tensor &t = TTOS; POP();
-             MTOS.broadcast(t);
-             mmu.free(t);
+         if (IS_M(ss[-1]) && TOS1T) {                  /// * TOS is a onehot vector
+             DU y = POP();
+             MTOS.broadcast((Tensor&)mmu.du2obj(y));
+             mmu.drop(y);
          }
          else ERROR("TOS not a tensor nor NOS a model?\n"));
     ///@}
     ///@defgroup Debugging ops
     ///@{
-    CODE(">n",      if (M1V) { DU  t = POP(); MTOS.npush(t); });
-    CODE("n@",      if (M1V) { S16 i = POPi; PUSH(mmu.copy(MTOS[i])); });
+    CODE(">n",      if (M1V) { DU t = POP(); MTOS.npush(t); });
+    CODE("n@",      if (!M1V) return;
+         S16    i  = POPi;
+         Tensor &t = MTOS[i];
+         DU     v  = mmu.obj2du(t);
+         PUSH(mmu.dup(v)));
     CODE("nn.w",    _parm(0));                     ///< tensor.weight
     CODE("nn.b",    _parm(1));                     ///< tensor.bias
     CODE("nn.dw",   _parm(2));                     ///< tensor.weight.grad
