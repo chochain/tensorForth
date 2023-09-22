@@ -137,7 +137,7 @@ NetVM::_donext() {                                ///< overwrite eforth::init
     else if ((rs[-1] -= 1) >= -DU_EPS) {
         IP = mmu.ri(IP);                      /// * handle numeric for loop
     }
-    else { rs.pop(); IP += sizeof(IU); });
+    else { rs.pop(); IP += sizeof(IU); }
 }
 ///
 /// dataset ops
@@ -210,7 +210,7 @@ NetVM::_loss(t4_loss op) {
         Tensor &y = TTOS; POP();        /// * pop off target tensor
         Tensor &x = TTOS;
         PUSH(x.loss(op, y));
-        mmu.mark_free(y);               /// * delayed free
+        mmu.free(y);                    /// * free target tensor
     }
     else if (TOS1T && IS_M(ss[-1])) {
         Tensor &t = TTOS; POP();
