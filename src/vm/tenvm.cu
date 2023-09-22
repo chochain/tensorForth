@@ -110,9 +110,11 @@ TensorVM::xop1t(t4_ten_op op) {
     Tensor &t = (op == T_INV) ? A : mmu.copy(A); /// * hardcopy original matrix if needed
     bool   tos = true;
     switch (op) {
-    case T_INV:
-        PUSH(_tinv(A));                       /// * inverse A matrix
-        tos = false;             break;       /// * _tinv create its own temp
+    case T_INV: {
+        Tensor &I = _tinv(A);                 /// * inverse A matrix
+        PUSH(I);                              /// * put on TOS
+        tos = false;                          /// * _tinv create its own temp
+    } break;
     case T_DET: {                             /// * TODO: use PLU
         int    ns;                            ///> number of row flipping
         Tensor &P = mmu.tensor(A.H());        /// * dummy vector
@@ -175,7 +177,7 @@ TensorVM::xop2t(t4_ten_op op, t4_drop_opt x) {
 ///
 /// scalar-scalar ops
 ///
-__GPU__ void
+__GPU__ __INLINE__ void
 TensorVM::_ss_op(math_op op) {               ///< scalar-scalar ops
     switch (op) {
     case ADD: top = ADD(ss.pop(), top); break;
@@ -189,7 +191,7 @@ TensorVM::_ss_op(math_op op) {               ///< scalar-scalar ops
     SCALAR(top);                               /// * even +- can set LSB (rounding)
 }
 
-__GPU__ Tensor&
+__GPU__ __INLINE__ Tensor&
 TensorVM::_st_op(math_op op, t4_drop_opt x) { ///< scalar tensor op
     Tensor &A = TTOS;                         /// * Tensor on TOS
     DU     v  = ss[-1];                       /// * scalar as NOS
@@ -205,7 +207,7 @@ TensorVM::_st_op(math_op op, t4_drop_opt x) { ///< scalar tensor op
     return O;
 }
 
-__GPU__ Tensor&
+__GPU__ __INLINE__ Tensor&
 TensorVM::_ts_op(math_op op, t4_drop_opt x) { ///< tensor scalar op
     Tensor &A = TNOS;                         ///< tensor on NOS
     Tensor &O = x==KEEP ? mmu.copy(A) : A;    ///< make a hard copy of A
@@ -228,7 +230,7 @@ TensorVM::_ts_op(math_op op, t4_drop_opt x) { ///< tensor scalar op
     - The non-matrix (i.e. batch) dimensions are broadcasted (and thus must be broadcastable).  
     - For example, if tensor1 is a (j x 1 x n x m) Tensor and tensor2 is a (k x m x p) Tensor, the returned tensor will be an (j x k x n x p) Tensor.
 */
-__GPU__ Tensor&
+__GPU__ __INLINE__ Tensor&
 TensorVM::_tt_op(math_op op) {                ///< tensor-tensor ops
     Tensor &A = TNOS, &B = TTOS;
     ///
@@ -252,7 +254,7 @@ TensorVM::_tinv(Tensor &A) {                 ///< matrix inverse
     return I;
 }
 
-__GPU__ Tensor&
+__GPU__ __INLINE__ Tensor&
 TensorVM::_tdiv(Tensor &A, Tensor &B) {      ///< tensor division
     U16 m = A.H(), ka = A.W(), kb = B.H(), n = B.W();
     if (kb != n || ka != kb) return B;       /// * B square?
@@ -265,7 +267,7 @@ TensorVM::_tdiv(Tensor &A, Tensor &B) {      ///< tensor division
     return O;
 }
 
-__GPU__ Tensor&
+__GPU__ __INLINE__ Tensor&
 TensorVM::_tdot(Tensor &A, Tensor &B) {      ///< A x B tensor dot product
     if (B.rank==1 &&                         ///> dot(vector, vector)
         A.rank==1 && A.numel==B.numel) {
@@ -290,7 +292,7 @@ TensorVM::_tdot(Tensor &A, Tensor &B) {      ///< A x B tensor dot product
     return A;                                /// * i.e. skip in xop2
 }
 
-__GPU__ Tensor&
+__GPU__ __INLINE__ Tensor&
 TensorVM::_solv(Tensor &B, Tensor &A) {     /// Note: A, B flipped 
     U16 m = A.H(), k = A.W(), n = B.H();    /// B[3,1] = A[3,3] * X
     VLOG1("tenvm# solv B[%d] = [%d,%d]*X\n", n, m, k);
@@ -305,7 +307,7 @@ TensorVM::_solv(Tensor &B, Tensor &A) {     /// Note: A, B flipped
     return O;
 }
 
-__GPU__ void
+__GPU__ __INLINE__ void
 TensorVM::_gemm() {                          ///< blas GEMM
     if (!TOS3T) { ERROR("tensors?"); return; }
     
