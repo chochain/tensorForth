@@ -91,9 +91,9 @@ public:
 private:
     /// @name internal tensor constructors
     /// @{
-    __GPU__ __INLINE__ Tensor &_vec(U16 sz);
-    __GPU__ __INLINE__ Tensor &_t4(U16 n, U16 h);
-    __GPU__ __INLINE__ Tensor &_t4(U16 n, U16 h, U16 w, U16 c);
+    __GPU__ Tensor &_vec(U16 sz);
+    __GPU__ Tensor &_t4(U16 n, U16 h);
+    __GPU__ Tensor &_t4(U16 n, U16 h, U16 w, U16 c);
     /// @}
     /// @name Convolution and Linear initializer
     /// @{
