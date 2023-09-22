@@ -29,32 +29,36 @@ network                           \ display network model
 constant mnist                    \ save model as a constant
 mnist                             \ retrieve model
 network                           \ display the model
+mstat                             \ obj#used[69]
 
 .( #### model feed foward ) cr
-mstat
 2 10 10 1 tensor eye 0.5 *=       \ create input image (random)
 forward                           \ execute forward pass
-mstat
+mstat                             \ obj#used[69]
 
 .( #### fetch last layer i.e. output ) cr
--1 n@ . drop                      \ fetch forward result from model
+-1 n@                             \ fetch forward result from model
+.                                 \ display the result/output layer
 
 .( #### calculate loss ) cr
-2 4 matrix{ 0 0 1 0 0 1 0 0 }     \ create onehot vector
-2 4 1 1 reshape4 .                \ reshape it into a labeled rank-4 tensor
-constant 1hot                     \ store in a constant
+2 4 matrix{ 0 0 1 0 0 1 0 0 }     \ create one-hot vector
+2 4 1 1 reshape4 dup .            \ reshape it into a labeled rank-4 tensor
+constant hot1                     \ store in a constant
 
-1hot
+hot1                              \ retrieve the one-hot vector
 loss.ce .                         \ calculate network loss
+mstat                             \ obj#used[71]
 
 .( #### model back propagation ) cr
-mstat
-1hot
-backprop
-mstat
+hot1                              \ target one-hot vector on TOS
+backprop                          \ execute backward propegation
+mstat                             \ obj#used[71]
 
 .( #### gradiant decent ) cr
 0.001 0.9 nn.adam                 \ learn using Adam gradient descent
-mstat
+mstat                             \ obj#used[103]
+
+0.001 0.9 nn.adam                 \ learn again
+mstat                             \ obj#used[103]
 
 bye
