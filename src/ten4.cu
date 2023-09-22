@@ -24,7 +24,7 @@ __KERN__ void
 k_ten4_init(Istream *istr, Ostream *ostr, MMU *mmu) {
     int vid = threadIdx.x;
     
-    if (vid < VM_MIN_COUNT) return;     /// * Note: watch for divergence
+    if (vid >= VM_MIN_COUNT) return;    /// * Note: watch for divergence
     
     VM *vm = vm_pool[vid] =             ///< instantiate VMs
         new TensorVM(vid, istr, ostr, mmu); 
