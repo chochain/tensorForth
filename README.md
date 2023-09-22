@@ -231,10 +231,6 @@ s" tests/my_net.t4" save                    \ persist the trained network
 
 ### Activation (non-linear) and Classifier
 <pre>
-  tanh       (Ta -- Ta')         - tensor element-wise tanh Ta' = tanh(Ta)
-  relu       (Ta -- Ta')         - tensor element-wise ReLU Ta' = max(0, Ta)
-  sigmoid    (Ta -- Ta')         - tensor element-wise Sigmoid Ta' = 1/(1+exp(-Ta))
-  sqrt       (Ta -- Ta')         - tensor element-wise Sqrt Ta' = sqrt(Ta)
   tanh       (N -- N')           - add tanh layer to network model
   relu       (N -- N')           - add Rectified Linear Unit to network model
   sigmoid    (N -- N')           - add sigmoid 1/(1+exp^-z) activation to network model, used in binary cross entropy
@@ -316,7 +312,7 @@ s" tests/my_net.t4" save                    \ persist the trained network
    slice     (Ta i0 i1 j0 j1 -- Ta Ta') - numpy.slice[i0:i1,j0:j1,]
 </pre>
 
-### Tensor arithmetic (by default non-destructive)
+### Tensor-scalar, tensor-tensor arithmetic (by default non-destructive)
 <pre>
    +         (Ta Tb -- Ta Tb Tc)  - tensor element-wise addition Tc = Ta + Tb
    +         (Ta n  -- Ta n  Ta') - tensor-scalar addition (broadcast) Ta' = Ta + n
@@ -339,11 +335,22 @@ s" tests/my_net.t4" save                    \ persist the trained network
    min       (Ta    -- Ta n)      - min of all elements of a tensor
 </pre>
 
-### Tensor arithmetic (by default destructive, as in Forth)
+### Tensor element-wise math ops (destructive, as in Forth)
 <pre>
-   abs       (Ta    -- Ta')   - tensor element-wise absolute Ta' = abs(Ta)
-   negate    (Ta    -- Ta')   - tensor element-wise negate   Ta' = -(Ta)
-   exp       (Ta    -- Ta')   - tensor element-wise exponential Ta' = exp(Ta)
+   abs       (Ta    -- Ta')   - absolute Ta' = abs(Ta)
+   exp       (Ta    -- Ta')   - exponential Ta' = exp(Ta)
+   ln        (Ta    -- Ta')   - natural log Ta' = ln(Ta)
+   log       (Ta    -- Ta')   - logrithm tanh Ta' = log(Ta)
+   tanh      (Ta    -- Ta')   - tanh Ta' = tanh(Ta)
+   relu      (Ta    -- Ta')   - ReLU Ta' = max(0, Ta)
+   sigmoid   (Ta    -- Ta')   - Sigmoid Ta' = 1/(1+exp(-Ta))
+   sqrt      (Ta    -- Ta')   - Square Root Ta' = sqrt(Ta)
+   1/x       (Ta    -- Ta')   - reciprocal Ta' = 1/Ta
+   negate    (Ta    -- Ta')   - negate   Ta' = -(Ta)
+</pre>
+
+### Tensor-tensor arithmetic (destructive, as in Forth)
+<pre>
    +=        (Ta Tb -- Tc)    - tensor element-wise addition Tc = Ta + Tb
    +=        (Ta n  -- Ta')   - tensor-scalar addition (broadcast) Ta' = Ta + n
    +=        (n  Ta -- Ta')   - scalar-tensor addition (broadcast) Ta' = Ta + n
