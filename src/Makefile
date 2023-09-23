@@ -28,17 +28,20 @@ INCS += \
     ./src/ten4.h
 
 # Additional CUDA includes if any
-CU_INCS := 
+CU_INCS :=
+
+NVCC_FLAGS:=-ccbin g++ -c -std=c++14 -O3 -D__CUDACC__ -keep
 
 # Each subdirectory must supply rules for building sources it contributes
 ./src/%.o: ./src/%.cu ${INCS} ${CU_INCS}
 	@echo 'Building file: $<'
 	@echo 'Invoking: NVCC Compiler'
-	${CUDA_HOME}/bin/nvcc -ccbin g++ -c -std=c++14 -O3 -D__CUDACC__ -o "$@" "$<" \
+	${CUDA_HOME}/bin/nvcc ${NVCC_FLAGS} \
         --device-c --extended-lambda --expt-relaxed-constexpr \
         --device-debug --debug \
          -gencode arch=${CUDA_ARCH},code=${CUDA_CODE} \
-        --keep-dir ${APP_HOME}/src
+        --keep-dir ${APP_HOME}/src \
+        -o "$@" "$<"
 	@echo 'Finished building: $<'
 	@echo ' '
 
