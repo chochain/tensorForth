@@ -20,7 +20,7 @@ struct fop { __GPU__ virtual void operator()() = 0; }; ///< functor virtual clas
 template<typename F>          ///< template functor class
 struct functor : fop {
     F op;
-    __GPU__ functor(const F f) : op(f) {   ///< f is a lambda pointer
+    __GPU__ __INLINE__ functor(const F f) : op(f) {   ///< f is a lambda pointer
         MMU_DEBUG("F(%p) => ", this);
     }
     __GPU__ __INLINE__ void operator()() {
@@ -28,7 +28,7 @@ struct functor : fop {
         op();
     }
 };
-typedef fop* FPTR;          ///< lambda function pointer
+typedef fop *FPTR;           ///< lambda function pointer
 /// @}
 ///
 /// Code class for dictionary word
@@ -37,7 +37,7 @@ struct Code : public Managed {
     const char *name = 0;   ///< name field
     union {
         FPTR xt = 0;        ///< lambda pointer (CUDA 49-bit)
-        U64  *fp;
+        U64  *fp;           ///< for debug
         struct {
             U16 def:  1;    ///< colon defined word
             U16 immd: 1;    ///< immediate flag
@@ -45,15 +45,26 @@ struct Code : public Managed {
             IU  pfa;        ///< offset to pmem space
         };
     };
-    template <typename F>
-    __GPU__ Code(const char *n, F f, int im) : name(n), xt(new functor<F>(f)) {
+/*  Note: mmu.dict is already allocated, use init to prevent extra allocation
+
+    template<typename F>
+    __GPU__ Code(const char *n, F &f, int im) : name(n) {
+        xt   = new functor<F>(f);
+        immd = im ? 1 : 0;
+        MMU_DEBUG("%cCode(name=%p, xt=%p) %s\n", im ? '*' : ' ', name, xt, n);
+    }
+*/
+    template<typename F>
+    __GPU__ __INLINE__ void set(const char *n, F &f, int im) {
+        name = n;
+        xt   = new functor<F>(f);
         immd = im ? 1 : 0;
         MMU_DEBUG("%cCode(name=%p, xt=%p) %s\n", im ? '*' : ' ', name, xt, n);
     }
 };
-#define ADD_WORD(s, g, im) {                          \
-    Code c={ s, [this] __GPU__ (){ g; }, im };        \
-    mmu << &c;                                        \
+#define ADD_WORD(s, g, im) {          \
+    auto f = [this] __GPU__ (){ g; }; \
+    mmu.add_word(s, f, im);           \
     }
 #define CODE(s, g) ADD_WORD(s, g, false)
 #define IMMD(s, g) ADD_WORD(s, g, true)
@@ -76,6 +87,10 @@ public:
     ///
     /// dictionary access and search methods
     ///
+    template <typename F>
+    __GPU__ void add_word(const char *n, F &f, int im) {                            //< dictionary word assignment
+        _dict[_didx++].set(n, f, im);
+    }
     __GPU__ __INLINE__ Code &operator<<(Code *c) { return _dict[_didx++] = *c; }    ///< dictionary word assignment
     __GPU__ __INLINE__ Code &operator[](int i)   { return (i<0) ? _dict[_didx+i] : _dict[i]; } ///< dictionary accessor by index
 
