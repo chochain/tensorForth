@@ -32,6 +32,7 @@ OPTIONAL_TOOL_DEPS := \
     $(wildcard ${HOME}/makefile.targets)
 
 APP_TARGET:= ./tests/${APP_NAME}${APP_EXT}
+NVLINK_FLAGS:= -ccbin g++ --cudart=static
 
 # All Target
 all: main-build
@@ -43,9 +44,10 @@ main-build: ${APP_NAME}
 ${APP_NAME}: $(OBJS) $(USER_OBJS) $(OPTIONAL_TOOL_DEPS)
 	@echo 'Building target: $@'
 	@echo 'Invoking: NVCC linker'
-	${CUDA_HOME}/bin/nvcc -ccbin g++ --cudart=static -L${CUDA_LIB} -o "${APP_TARGET}" \
-         -gencode arch=${CUDA_ARCH},code=${CUDA_CODE} \
-         $(OBJS) $(USER_OBJS) $(USER_LIBS)
+	${CUDA_HOME}/bin/nvcc ${NVLINK_FLAGS} \
+        -L${CUDA_LIB} -o "${APP_TARGET}" \
+        -gencode arch=${CUDA_ARCH},code=${CUDA_CODE} \
+        $(OBJS) $(USER_OBJS) $(USER_LIBS)
 	@echo 'Finished building target: $@'
 	@echo ' '
 
