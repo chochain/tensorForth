@@ -14,7 +14,6 @@ CUDA_ARCH := compute_75
 CUDA_CODE := sm_75
 CUDA_ARCH1:= compute_52
 CUDA_CODE1:= sm_52
-CUDA_FLAGS:= -Xnvlink --suppress-stack-size-warning --cudart=static
 
 # All of the sources participating in the build are defined here
 SRCS := src/ten4.cu
@@ -31,24 +30,13 @@ CL_INCS := \
 # GL libraries
 GL_LIB  := -lGL -lGLU -lglut -lX11
 GL_INCS := \
-    /u01/src/stb \
+	/u01/src/stb \
 	${CUDA_HOME}/cuda-samples/Common \
 	${CUDA_HOME}/cuda-samples/Samples/2_Concepts_and_Techniques/imageDenoising
 
-# CUDA nvcc compiler and linker flags
-NV_CC   := \
-	${CUDA_HOME}/bin/nvcc -ccbin g++ \
-	-D__CUDACC__ \
-	-D__CDPRT_SUPPRESS_SYNC_DEPRECATION_WARNING \
-	-Isrc $(GL_INCS:%=-I%) \
-	-t=0 -c -std=c++14 -O3 \
-	--device-c --extended-lambda --expt-relaxed-constexpr \
-	--device-debug --debug --use_fast_math \
-	-gencode arch=${CUDA_ARCH},code=${CUDA_CODE}
-
-NV_LNK := \
-	${CUDA_HOME}/bin/nvcc -ccbin g++ \
-	$(CUDA_FLAGS) \
+NVLINK_FLAGS:= \
+	-ccbin g++ \
+	-Xnvlink --suppress-stack-size-warning --cudart=static \
 	-L$(CUDA_LIB) \
 	$(GL_LIB) \
 	-gencode arch=${CUDA_ARCH},code=${CUDA_CODE}
@@ -78,7 +66,8 @@ tests: test
 # Tool invocations
 $(APP_NAME): $(OBJS) $(USER_OBJS) $(OPTIONAL_TOOL_DEPS)
 	@echo '<App><Action>Link</Action><Filename>$<</Filename><Status>'
-	-$(NV_LNK) -o "$(APP_TGT)" $^ || echo $(NV_ERR)
+	${CUDA_HOME}/bin/nvcc $(NVLINK_FLAGS) \
+	-o "$(APP_TGT)" $^ || echo $(NV_ERR)
 	@echo '</Status></App>'
 	@echo ' '
 
