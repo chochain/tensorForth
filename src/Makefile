@@ -25,19 +25,22 @@ CU_INCS :=
 CL_INC  := ${CUTLASS_HOME}/include
 CL_TOOL := ${CUTLASS_HOME}/tools
 
+NVCC_FLAGS:=-ccbin g++ -t=0 -c -std=c++14 -O3 -D__CUDACC__ -keep
+
 .PHONY: clean clean-src
 
 # Each subdirectory must supply rules for building sources it contributes
 src/%.o: src/%.cu
 	@echo 'Building source file: $<'
 	@echo 'Invoking: NVCC Compiler'
-	${CUDA_HOME}/bin/nvcc -ccbin g++ \
+	${CUDA_HOME}/bin/nvcc \
+		${NVCC_FLAGS} \
 		-D__CDPRT_SUPPRESS_SYNC_DEPRECATION_WARNING \
-		-t=0 -c -std=c++14 -O3 -D__CUDACC__ -o "$@" "$<" \
 		--device-c --extended-lambda --expt-relaxed-constexpr \
 		--device-debug --debug \
-		 -gencode arch=${CUDA_ARCH},code=${CUDA_CODE} \
-		--keep-dir $(APP_HOME)/src
+		-gencode arch=${CUDA_ARCH},code=${CUDA_CODE} \
+		--keep-dir $(APP_HOME)/src \
+		-o "$@" "$<"
 	@echo 'Finished building: $<'
 	@echo ' '
 
