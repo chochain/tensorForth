@@ -9,7 +9,8 @@
 #include "ten4_types.h"
 #include "util.h"            /// also defined __GPU__
 
-#define VECTOR_INC      4
+#define VECTOR_ENABLE_RESIZE  0
+#define VECTOR_INC            4
 ///
 /// Vector (device memory only) template class
 ///
@@ -23,17 +24,20 @@ struct Vector {
     __GPU__ Vector(T a[], int n) { merge((T*)a, n); }
     __GPU__ Vector(Vector<T>& a) { merge(a); }
     __GPU__ ~Vector()            { if (v) delete[] v; }
+    
+    __GPU__ __INLINE__ Vector& init(T *a, int n)  { v = a; max = n; return *this; }
     //
     // operator overloading
     //
-    __GPU__ T&      operator[](int i) { return i < 0 ? v[idx + i] : v[i]; }
-    __GPU__ Vector& push(T t)   {
+    __GPU__ __INLINE__ T& operator[](int i) { return i < 0 ? v[idx + i] : v[i]; }
+    __GPU__ __INLINE__ Vector& push(T t)   {
+#if VECTOR_ENABLE_RESIZE
         if ((idx+1) > max) resize(idx + VECTOR_INC);
+#endif // VECTOR_ENABLE_RESIZE
         v[idx++] = t;                              /// deep copy
         return *this;
     }
     __GPU__ __INLINE__ Vector& operator<<(T t)    { push(t); }
-    __GPU__ __INLINE__ Vector& init(T *a, int n)  { v = a; max = n; return *this; }
     __GPU__ __INLINE__ Vector& merge(T *a, int n) {
         for (int i=0; i<n; i++) push(a[i]);
         return *this;
@@ -53,6 +57,7 @@ struct Vector {
     __GPU__ __INLINE__ T&  pop()   { return idx>0 ? v[--idx] : v[0]; }
     __GPU__ __INLINE__ Vector& clear(int i=0)  { if (i<idx) idx = i; return *this; }
     __GPU__ Vector& resize(int nsz) {
+#if VECTOR_ENABLE_RESIZE
         int x = 0;
         if      (nsz >  max) x = ALIGN4(nsz);      // need bigger?
         else if (idx >= max) x = ALIGN4(idx + VECTOR_INC);  // allocate extra
@@ -66,6 +71,7 @@ struct Vector {
         v   = nv;
         max = x;
         // UNLOCK
+#endif // VECTOR_ENABLE_RESIZE        
         return *this;
     }
 };
