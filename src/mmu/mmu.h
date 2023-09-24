@@ -193,8 +193,8 @@ public:
     __HOST__ int    to_s(std::ostream &fout, DU s);         ///< dump object from descriptor
     __HOST__ int    to_s(std::ostream &fout, T4Base &t, bool view); ///< dump object on stack
     __BOTH__ T4Base &du2obj(DU d) {                         ///< DU to Obj convertion
-        U32    *off = (U32*)&d;
-        T4Base *t   = (T4Base*)(_obj + (*off & ~T4_TYPE_MSK));
+        U32    off = DU2X(d) & ~T4_TYPE_MSK;
+        T4Base *t  = (T4Base*)(_obj + off);
         return *t;
     }
     __BOTH__ DU     obj2du(T4Base &t) {                     ///< conver Obj to DU
