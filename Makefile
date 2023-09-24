@@ -36,6 +36,7 @@ OPTIONAL_TOOL_DEPS := \
 	$(wildcard ${HOME}/makefile.targets)
 
 APP_TARGET:= ./tests/$(APP_NAME)$(APP_EXT)
+NVLINK_FLAGS:=-ccbin g++ --cudart=static -Xnvlink --suppress-stack-size-warning
 
 .PHONY: all tests main-build clean
 
@@ -51,12 +52,13 @@ main-build: $(APP_NAME)
 $(APP_NAME): $(OBJS) $(USER_OBJS) $(OPTIONAL_TOOL_DEPS)
 	@echo 'Building target: $@'
 	@echo 'Invoking: NVCC linker'
-	${CUDA_HOME}/bin/nvcc -ccbin g++ --cudart=static -o "$(APP_TARGET)" \
+	${CUDA_HOME}/bin/nvcc \
+        ${NVLINK_FLAGS} \
 		-L$(CUDA_LIB) \
 		-L${CUTLASS_HOME}/build/tools/library \
 		-l$(CL_LIB) \
-		-Xnvlink --suppress-stack-size-warning \
 		-gencode arch=${CUDA_ARCH},code=${CUDA_CODE} \
+        -o "$(APP_TARGET)" \
 		$^
 	@echo 'Finished building target: $@'
 	@echo ' '
