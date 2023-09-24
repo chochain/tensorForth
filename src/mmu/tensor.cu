@@ -141,8 +141,8 @@ k_bce(DU *O, DU *T, int numel) {
 __GPU__ Tensor&
 Tensor::ten_op(math_op op, Tensor &A, DU v, Tensor &O) {
     U16 N = A.N(), H = A.H(), W = A.W(), C = A.C();
-    OPN("+", "-", "*", "/");
-    WARN("Tensor::mat[%d,%d,%d,%d] %s %6.2f\n", N, H, W, C, opn[op], v);
+    OPN(MATH_OP);
+    WARN("Tensor::mat_%s[%d,%d,%d,%d] %6.2f\n", opn[op], N, H, W, C, v);
 
     dim3 blk(T4_WARP_SQ, 1, 1);
     dim3 grd((A.numel + blk.x - 1) / blk.x, 1, 1);
