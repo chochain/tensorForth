@@ -58,7 +58,7 @@ private:
     ///
     /// dataset IO methods
     ///
-    __HOST__ int  _dsfetch(DU top, U16 mode, char *ds_name=NULL); ///< fetch a dataset batch (more=true load batch, more=false rewind)
+    __HOST__ int  _dsfetch(DU id, U16 mode, char *ds_name=NULL); ///< fetch a dataset batch (more=true load batch, more=false rewind)
     ///
     /// NN model persistence (i.e. serialization) methods
     ///

@@ -102,11 +102,11 @@ AIO::_print_model_parm(std::ostream &fout, Tensor &in, Tensor &out) {
 ///         -> dataset::alloc   - alloc device memory blocks if needed
 ///
 __HOST__ int
-AIO::_dsfetch(DU top, U16 mode, char *ds_name) {
-    Dataset &ds = (Dataset&)_mmu->du2obj(top);    ///< dataset ref
-    U32     dsx = DU2X(top);                      ///< dataset mnemonic
+AIO::_dsfetch(DU id, U16 mode, char *ds_name) {
+    Dataset &ds = (Dataset&)_mmu->du2obj(id);     ///< dataset ref
+    U32     dsx = DU2X(id) & ~T4_TYPE_MSK;        ///< dataset mnemonic
     if (!ds.is_dataset()) {                       /// * indeed a dataset?
-        ERROR("mmu#load TOS is not a dataset\n");
+        ERROR("mmu#load id=%x is not a dataset\n", dsx);
         return -1;
     }
     bool rewind = (mode & FAM_REW)!=0;
