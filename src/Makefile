@@ -2,12 +2,25 @@
 # tensorForth src/Makefile
 #
 # Add inputs and outputs from these tool invocations to the build variables
+# CUDA nvcc compiler and linker flags
+NVCC_FLAGS:= \
+	-ccbin g++ \
+	-D__CUDACC__ \
+	-D__CDPRT_SUPPRESS_SYNC_DEPRECATION_WARNING \
+	-Isrc $(GL_INCS:%=-I%) \
+	-t=0 -c -std=c++14 -O3 \
+	--device-c --extended-lambda --expt-relaxed-constexpr \
+	--device-debug --debug --use_fast_math \
+	-gencode arch=${CUDA_ARCH},code=${CUDA_CODE}
+
+NV_CC:=${CUDA_HOME}/bin/nvcc $(NVCC_FLAGS)
+
 T4_SRCS := \
 	./src/ten4.cu
 
 T4_INCS := \
-    ./src/ten4_config.h \
-    ./src/ten4_types.h \
+	./src/ten4_config.h \
+	./src/ten4_types.h \
 	./src/opt.h \
 	./src/ten4.h
 
@@ -20,12 +33,12 @@ SUBDIRS := nn vu ldr vm io mmu
 
 T4_LIBS := $(SUBDIRS:%=-Isrc/%)
 
--include src/nn/Makefile
--include src/vu/Makefile
--include src/ldr/Makefile
--include src/vm/Makefile
--include src/io/Makefile
 -include src/mmu/Makefile
+-include src/io/Makefile
+-include src/vm/Makefile
+-include src/ldr/Makefile
+-include src/vu/Makefile
+-include src/nn/Makefile
 
 .PHONY: src clean clean-src
 
@@ -36,7 +49,7 @@ src-t4: $(T4_OBJS) $(T4_INCS)
 # Each subdirectory must supply rules for building sources it contributes
 src/%.o: src/%.cu
 	@echo '<Source><Action>Compile</Action><Filename>$<</Filename><Status>'
-	-$(NV_CC) $(T4_LIBS) -o "$@" "$<" || $(NV_ERR)
+	${NV_CC} $(T4_LIBS) -o "$@" "$<" || $(NV_ERR)
 	@echo '</Source>'
 	@echo ' '
 
