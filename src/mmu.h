@@ -115,7 +115,7 @@ public:
     template <typename F>
     __GPU__ void add_word(const char *name, F &f, int im) {          ///< append/merge a new word
         int w   = find(name);                                        /// * check whether word exists
-        Code &c = w >= 0 ? _dict[w] : _dict[_didx++];                /// * append or merge
+        Code &c = _dict[w >= 0 ? w : _didx++];                       /// * append or merge
         c.set(name, f, im);
         MM_TRACE2(" %d\n", w);
         if (w >=0) MM_TRACE1("*** word redefined: %s\n", name);
@@ -124,7 +124,7 @@ public:
     /// memory lock for multi-processing
     ///
     __GPU__ __INLINE__ void lock()       { MUTEX_LOCK(_mutex); }
-    __GPU__ __INLINE__ void unlock()     { MUTEX_FREE(_mutex); } ///< TODO: dead lock now
+    __GPU__ __INLINE__ void unlock()     { MUTEX_FREE(_mutex); }     ///< TODO: dead lock now
     ///
     /// references to memory blocks
     ///
