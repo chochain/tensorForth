@@ -98,7 +98,7 @@ MMU::status() {
             c->name);
     }
 
-    INFO("\\  MMU.stat dict[%d/%d], pmem[%d]=%0.1f%%, tfree[%d/%d]%s\n",
+    INFO("\\  MMU.stat dict[%d/%d], pmem[%d]=%0.1f%%, tfree[%d/%d]%s",
         _didx, T4_DICT_SZ, _midx, 100.0*(_midx/T4_PMEM_SZ), _fidx, T4_TFREE_SZ,
         _trace ? "" : "\n"
         );
