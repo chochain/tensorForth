@@ -369,11 +369,7 @@ ForthVM::init() {
     ///@}
     ///@defgroup System ops
     ///@{
-    CODE("mstat",
-         int t = mmu.trace();
-         mmu.trace(1);
-         mmu.status();
-         mmu.trace(t));
+    CODE("mstat", mmu.status());
     CODE("clock", DU t = mmu.ms(); SCALAR(t); PUSH(t));
     CODE("delay", delay(POPi));                  ///< TODO: change to VM_WAIT
     CODE("pause", state = VM_WAIT);              ///< yield to other VM
