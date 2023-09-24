@@ -89,6 +89,7 @@ MMU::status() {
         if ((UFP)c->xt   < x0) x0 = (UFP)c->xt;
         if ((UFP)c->name < n0) n0 = (UFP)c->name;
     }
+    int t  = _trace;
     c = _dict;
     MM_TRACE2("Built-in Dictionary [name0=%lx, xt0=%lx]\n", n0, x0);
     for (int i=0; i<_didx; i++, c++) {      ///< dump dictionary from device
@@ -98,14 +99,17 @@ MMU::status() {
             c->name);
     }
 
-    MM_TRACE1("\\  MMU.stat dict[%d/%d], pmem[%d]=%0.1f%%, tfree[%d/%d]\n",
-        _didx, T4_DICT_SZ, _midx, 100.0*(_midx/T4_PMEM_SZ), _fidx, T4_TFREE_SZ);
+    INFO("\\  MMU.stat dict[%d/%d], pmem[%d]=%0.1f%%, tfree[%d/%d]%s",
+         _didx, T4_DICT_SZ, _midx, 100.0*(_midx/T4_PMEM_SZ), _fidx, T4_TFREE_SZ,
+         _trace ? "" : "\n");
     ///
     /// display object store statistics
     ///
 #if T4_ENABLE_OBJ    
     _ostore.status(_trace);
 #endif // T4_ENABLE_OBJ
+    
+    _trace = t;
 }
 ///
 /// colon - dictionary word compiler
