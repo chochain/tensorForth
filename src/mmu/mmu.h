@@ -18,13 +18,13 @@
 ///@brief functor object (80-byte allocated by CUDA)
 ///@{
 struct fop { __GPU__ virtual void operator()() = 0; };  ///< functor virtual class
-template<typename F>                         ///< template functor class
+template<typename F>                                    ///< template functor class
 struct functor : fop {
-    F op;                                    ///< reference to lambda
-    __GPU__ functor(const F f) : op(f) {     ///< constructor
+    F op;                                               ///< reference to lambda
+    __GPU__ __INLINE__ functor(const F f) : op(f) {     ///< constructor
         WARN("F(%p) => ", this);
     }
-    __GPU__ __INLINE__ void operator()() {   ///< lambda invoke
+    __GPU__ __INLINE__ void operator()() {              ///< lambda invoke
         WARN("F(%p).op() => ", this);
         op();
     }
@@ -51,12 +51,12 @@ struct Code : public Managed {
             U16 xx3;        ///< reserved
         };
     };
+    /* Note: no constructor needed
     template<typename F>    ///< template function for lambda
     __GPU__ Code(const char *n, F f, bool im) : name(n), xt(new functor<F>(f)) {
         immd = im ? 1 : 0;
         WARN("%cCode(name=%p, xt=%p) %s\n", im ? '*' : ' ', name, xt, n);
     }
-    /* Note: no update (construct only)
     __GPU__ Code(const Code &c) : name(c.name), xt(c.xt), u(c.u) {
         WARN("Code(&c) %p %s\n", xt, name);
     }
@@ -68,13 +68,20 @@ struct Code : public Managed {
         return *this;
     }
     */
+    template<typename F>    ///< template function for lambda
+    __GPU__ void set(const char *n, F &f, bool im) {
+        name = n;
+        xt   = new functor<F>(f);
+        immd = im ? 1 : 0;
+        WARN("%cCode(name=%p, xt=%p) %s\n", im ? '*' : ' ', name, xt, n);
+    }
 };
 ///
 /// macros for microcode construction
 ///
-#define ADD_CODE(n, g, im) {                     \
-    Code c = { n, [this] __GPU__ (){ g; }, im }; \
-    mmu.merge(&c);                               \
+#define ADD_CODE(n, g, im) {            \
+    auto f = [this] __GPU__ (){ g; };   \
+    mmu.add_word(n, f, im);             \
 }
 #define CODE(n, g)  ADD_CODE(n, g, false)
 #define IMMD(n, g)  ADD_CODE(n, g, true)
@@ -114,11 +121,20 @@ class MMU : public Managed {
 public:
     __HOST__ MMU(int khz, int verbose=0);
     __HOST__ ~MMU();
+
+    template <typename F>
+    __GPU__ void add_word(const char *name, F &f, int im) {          ///< append/merge a new word
+        int w   = find(name);                                        /// * check whether word exists
+        Code &c = _dict[w >= 0 ? w : _didx++];                       /// * append or merge
+        c.set(name, f, im);
+        MM_TRACE2(" %d\n", w);
+        if (w >=0) MM_TRACE1("*** word redefined: %s\n", name);
+    }           
     ///
     /// memory lock for multi-processing
     ///
     __GPU__ __INLINE__ void lock()       { MUTEX_LOCK(_mutex); }
-    __GPU__ __INLINE__ void unlock()     { MUTEX_FREE(_mutex); } ///< TODO: dead lock now
+    __GPU__ __INLINE__ void unlock()     { MUTEX_FREE(_mutex); }     ///< TODO: dead lock now
     ///
     /// references to memory blocks
     ///
@@ -130,7 +146,6 @@ public:
     /// dictionary management ops
     ///
     __GPU__ int  find(const char *s, bool compile=0, bool ucase=0);  ///< dictionary search
-    __GPU__ void merge(Code *c);                                     ///< append/merge a new word
     __GPU__ void status();                                           ///< display current MMU status
     ///
     /// compiler methods

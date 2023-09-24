@@ -80,16 +80,6 @@ MMU::find(const char *s, bool compile, bool ucase) {
     return -1;
 }
 __GPU__ void
-MMU::merge(Code *c) {
-    int w = find(c->name);                  /// * check whether word exists
-    MM_TRACE2(" %d\n", w);
-    if (w >= 0) {
-        _dict[w] = *c;                      /// * replace existing word pointer
-        MM_TRACE1("*** word redefined: %s\n", c->name);
-    }
-    else add(c);                            /// * append new word to dictionary
-}
-__GPU__ void
 MMU::status() {
     UFP x0 = ~0;                            ///< base of xt   allocations
     UFP n0 = ~0;                            ///< base of name allocations
@@ -108,8 +98,10 @@ MMU::status() {
             c->name);
     }
 
-    MM_TRACE1("\\  MMU.stat dict[%d/%d], pmem[%d]=%0.1f%%, tfree[%d/%d]\n",
-        _didx, T4_DICT_SZ, _midx, 100.0*(_midx/T4_PMEM_SZ), _fidx, T4_TFREE_SZ);
+    INFO("\\  MMU.stat dict[%d/%d], pmem[%d]=%0.1f%%, tfree[%d/%d]%s\n",
+        _didx, T4_DICT_SZ, _midx, 100.0*(_midx/T4_PMEM_SZ), _fidx, T4_TFREE_SZ,
+        _trace ? "" : "\n"
+        );
     ///
     /// display object store statistics
     ///
