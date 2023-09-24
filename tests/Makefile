@@ -16,7 +16,7 @@ TSTS0 := \
     t_ganvu
 
 TSTS := \
-    t_ganvu
+	t_ganvu
 
 TOBJS := \
 	src/mmu/util.o \
@@ -44,7 +44,8 @@ tests/%.o: tests/%.cu $(T4_INCS) $(DS_INCS)
 
 $(TSTS): $(TSTS:%=tests/%.o)
 	@echo '<Test><Action>Link</Action><Filename>$@</Filename><Status>'
-	-$(NV_LNK) -lcusolver -o "./tests/$(@:.o=)" "./tests/$@.o" $(TOBJS)
+	${CUDA_HOME}/bin/nvcc $(NVLINK_FLAGS) \
+	-o "./tests/$(@:.o=)" "./tests/$@.o" $(TOBJS)
 	@echo '</Status></Test>'
 	@echo ' '
 
