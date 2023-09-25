@@ -46,11 +46,10 @@ N 1 1 1 tensor zeros constant FAKE
   ." G=" _g . ." , Dr=" _dr . ." , Df=" _df . cr
   swap ;
 : epoch ( G D -- G D ) 100 for run next stat ;
-: gan
+: gan ( G D -- G D )
   for epoch next
+  gen N 2 reshape2 s" jk" save
   ;
 
-G D run 9 gan
-gen N 2 reshape2 s" jk" save
-
+G D 9 gan
 bye
