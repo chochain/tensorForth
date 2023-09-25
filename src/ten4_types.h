@@ -112,6 +112,10 @@ typedef F64         DU2;                    /**< double preciesion data */
 ///
 /// data conversion macros
 ///
+/// Note:
+///   static_cast<int>(23.5) => 23 (truncate)
+///   __float2int_rn(23.5)   => 24 (to round-to-nearest)
+///
 #define INT(f)      (__float2int_rn(f))     /**< float to int   */
 #define I2D(i)      (static_cast<DU>(i))    /**< int to float   */
 ///
