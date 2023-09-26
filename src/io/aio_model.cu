@@ -137,7 +137,7 @@ AIO::_dsfetch(DU id, U16 mode, char *ds_name) {
         IO_TRACE(" completed, no more data.\n"); return 0;
     }
     ///
-    /// init and load a batch of data points
+    /// load a mini-batch of data points
     ///
     if (!cp->fetch(ds.batch_id, batch_sz)) {     /// * fetch a batch from Corpus
         ERROR("fetch failed\n");  return -3;

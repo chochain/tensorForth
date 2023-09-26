@@ -47,7 +47,7 @@ Corpus *Mnist::init() {
 }
 
 Corpus *Mnist::fetch(int batch_id, int batch_sz) {
-    static int tick = 0;
+    static int tick = 0;                     ///< debug count ticker
 
     eof = 0;
     int bsz = batch_sz ? batch_sz : N;       ///< batch_sz==0 => entire batch
