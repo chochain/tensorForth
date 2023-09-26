@@ -243,6 +243,7 @@ Model::_bloss(Tensor &tgt) {                     ///> pre-calc dLoss
     TRACE1("\nModel#backprop: input dimensions OK, calculate dLoss");
     t4_layer fn = (*this)[-2].grad_fn;           ///< final activation layer
     switch (fn) {
+    case L_TANH:                                 /// * (1 + tanh)/2 + BCE
     case L_SIGMOID:                              /// * sigmoid + BCE
     case L_SOFTMAX:                              /// * softmax + CE
     case L_LOGSMAX: out -= tgt;  break;          /// * log-softmax + NLL

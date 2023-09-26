@@ -137,8 +137,8 @@ __KERN__ void k_activate(
             O[k] = ik > DU0
                 ? (F[k]=DU1, ik) : (F[k]=DU0);      break; /// * 1|0
         case L_TANH:
-            ik = O[k] = TANH(ik);                       
-            F[k] = DU1 - ik*ik;                     break; /// * 1 - tanh^2
+            ik = O[k] = 0.5 * (DU1 + TANH(ik));            /// * i.e. [0,1)
+            F[k] = 0.5 * (DU1 - ik*ik);             break; /// * 0.5 * (1 - tanh^2)
         case L_SIGMOID:
             ik = O[k] = SIGMOID(ik);
             F[k] = ik * (DU1 - ik);                 break; /// * sig*(1 - sig)
@@ -187,7 +187,7 @@ Model::forward(Tensor &input) {
             n1.N(), n1.H(), n1.W(), n1.C());
         return *this;
     }
-    n1 = input;               /// * copy dataset batch into the first layer [-1,1)
+    n1 = input;               /// * copy dataset batch into the first layer [0,1)
     ///
     /// cascade execution layer by layer forward
     /// TODO: model execution becomes a superscalar pipeline
