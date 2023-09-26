@@ -125,8 +125,9 @@ NetVM::_donext() {                                ///< overwrite eforth::init
             ERROR("not a dataset on RS?\n"); return;
         }
         if (d.done) {
+            DU v = rs.pop();                  /// * pop off dataset
+            mmu.drop(v);                      /// * free memory if a physical dataset
             m.epoch++;                        /// * bump epoch counter
-            rs.pop();                         /// * pop off dataset
             IP += sizeof(IU);                 /// * skip over to next word
         }
         else {
