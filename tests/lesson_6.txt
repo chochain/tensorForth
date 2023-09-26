@@ -20,36 +20,33 @@ N 2 matrix ones
 N 1 1 1 tensor ones constant  REAL
 N 1 1 1 tensor zeros constant FAKE
 
-: gen ( G D -- G D t )
-  swap X 2 *= forward -1 n@ rot swap ;
+: gen ( -- t )
+  G X 2 *= forward -1 n@ swap drop ;
 
 0 constant _g
 0 constant _dr
 0 constant _df
-: run ( G D -- G D )
-  1 trainable
-  Y ( G D t )                                    \ real data
-  forward REAL loss.bce [to] _dr REAL backprop   \ treat real as real
-  gen ( G D t )                                  \ gererate fake data
-  forward FAKE loss.bce [to] _df FAKE backprop   \ treat fake as fake
-  0.001 0.9 nn.adam                              \ train D
+: run ( -- )
+  D 1 trainable
+  Y   forward REAL loss.bce [to] _dr REAL backprop  \ treat real as real
+  gen forward FAKE loss.bce [to] _df FAKE backprop  \ treat fake as fake
+  0.001 0.9 nn.adam                                 \ train D
   0 trainable
-  gen ( G D t )                                  \ regenerate fake data (can reuse)
-  forward REAL loss.bce [to] _g REAL backprop    \ treat fake as real
-  1 n@ rot swap ( D G t ) backprop               \ pass dX to G
-  0.001 0.9 nn.adam                              \ train G
-  swap ( G D ) pause                             \ switch task and flush
+  gen forward REAL loss.bce [to] _g REAL backprop   \ treat fake as real
+  1 n@ G swap ( D G t ) backprop                    \ pass dX to G
+  0.001 0.9 nn.adam                                 \ train G
+  drop drop pause                                   \ switch task and flush
   ;
 \ expected loss G=>low, Dr=>low, Df=>high (thinking fake as real)  
-: stat ( G D -- G D ) swap
-  cr ." w,b=" 1 nn.w . 1 nn.b .
-  ." G=" _g . ." , Dr=" _dr . ." , Df=" _df . cr
-  swap ;
-: epoch ( G D -- G D ) 100 for run next stat ;
-: gan ( G D -- G D )
+: stat ( -- )
+  cr ." w,b=" G 1 nn.w . 1 nn.b . drop
+  ." G=" _g . ." , Dr=" _dr . ." , Df=" _df . cr ;
+
+: epoch ( -- ) 100 for run next stat ;
+: gan ( -- ) 
   for epoch next
   gen N 2 reshape2 s" jk" save
   ;
 
-G D 9 gan
+9 gan
 bye
