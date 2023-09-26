@@ -145,14 +145,14 @@ __HOST__ int
 AIO::_tsave_raw(std::ostream &fout, Tensor &t) {
     const char hdr[2] = { 'T', '4' };
     const int N = t.N(), HWC = t.HWC();
-    U8 *buf = (U8*)malloc(HWC);
+    U8 *buf = (U8*)malloc(HWC);                       ///< buffer for one slice
 
     fout.write(hdr, sizeof(hdr));
     fout.write((const char*)t.shape, sizeof(t.shape));
     for (int n=0; n < N; n++) {
-        DU *p = &t.data[n * HWC];
+        DU *p = &t.data[n * HWC];                    ///< slice-by-slice
         for (int i=0; i < HWC; i++) {
-            buf[i] = static_cast<U8>(128.0 * (DU1 + *p++));  /// * [-1,1)=>[0,256)
+            buf[i] = static_cast<U8>(*p++ * 256.0);  /// * [0,1)=>[0,256)
         }
         fout.write((const char*)buf, HWC);
     }
