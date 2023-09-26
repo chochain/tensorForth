@@ -51,10 +51,11 @@ struct Corpus {
             if (label) free(label);
         }
     }
-    int dsize()   { return H * W * C; }                      ///< size of each point of data
-    int len()     { return N; }                              ///< number of data point
-
-    virtual Corpus *fetch(int batch_sz=0, int batch_id=0) {  /// * bid=bsz=0 => load entire set
+    int dsize()   { return H * W * C; }                    ///< size of each point of data
+    int len()     { return N; }                            ///< number of data point
+    
+    virtual Corpus *init() { return NULL; }                /// * initialize dimensions
+    virtual Corpus *fetch(int batch_id, int batch_sz=0) {  /// * bsz=0 => load entire set
         DS_LOG1("batch(U8*) implemented?\n");
         return this;
     }

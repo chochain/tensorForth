@@ -27,18 +27,18 @@ public:
     Mnist(const char *data_name, const char *label_name, bool trace)
         : Corpus(data_name, label_name, trace) {}
     ~Mnist() { _close(); }
-    
-    virtual Corpus *fetch(int batch_sz=0, int batch_id=0);  /// * bid=bsz=0 => load entire set
+
+    virtual Corpus *init();                                ///< setup/check sizing
+    virtual Corpus *fetch(int batch_id, int batch_sz=0);   ///< fetch given size
     virtual Corpus *rewind() { d_in.clear(); t_in.clear(); return Corpus::rewind(); }
 
 private:
     int _open();
     int _close();
-    int _setup();
     int _preview(int N);
     
-    int _get_labels(int bsz, int bid);
-    int _get_images(int bsz, int bid);
+    int _get_labels(int bid, int bsz);
+    int _get_images(int bid, int bsz);
 };
 
 #endif // (T4_ENABLE_OBJ && T4_ENABLE_NN)
