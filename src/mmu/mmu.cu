@@ -232,7 +232,7 @@ MMU::dataset(U16 batch_sz) {       /// * Note: data block is not allocated yet
     Dataset *ds = (Dataset*)_ostore.malloc(sizeof(Dataset));
     ds->init(0, T4_DATASET, 4);
     ds->N()      = batch_sz;       /// * other members filled in host mode
-    ds->batch_id = -1;             /// * setup control flag
+    ds->batch_id = 0;              /// * setup control flag
     _ostore.status(_trace);
     return *ds;
 }
