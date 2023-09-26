@@ -21,7 +21,7 @@
 #define LDp(a)    (mmu.pmem((IU)(a)))
 #define STi(a,d)  (mmu.wi((IU)(a), (IU)(d)))    /**< write a instruction unit to pmem        */
 #define STd(a,d)  (mmu.wd((IU)(a), (DU)(d)))    /**< write a data unit to pmem               */
-///@}
+#define STc(a,c)  (*((char*)LDp(w))=(U8)INT(c)) /**< write a char to pmem                    */
 ///
 /// resume suspended task
 ///
@@ -340,7 +340,7 @@ ForthVM::init() {
     /// it could make access misaligned which cause exception
     ///
     CODE("C@",    IU w = POPi; PUSH(*(char*)LDp(w)));
-    CODE("C!",    IU w = POPi; DU n = POP(); *((char*)LDp(w)) = (U8)n);
+    CODE("C!",    IU w = POPi; DU n = POP(); STc(w, n));
     CODE("@",     IU w = POPi; PUSH(LDd(w)));                                     // w -- n
     CODE("!",     IU w = POPi; STd(w, POP()));                                    // n w --
     CODE(",",     DU n = POP(); add_du(n));
