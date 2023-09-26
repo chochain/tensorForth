@@ -100,6 +100,9 @@ AIO::_print_model_parm(std::ostream &fout, Tensor &in, Tensor &out) {
 ///      -> dataset::reshape    - set dimensions for the first batch (no alloc yet) 
 ///      -> dataset::load_batch - transfer host blocks to device
 ///         -> dataset::alloc   - alloc device memory blocks if needed
+/// Note:
+///   ds_name: dataset name (match in loader.cu), for initial dataset setup
+///   ds_name: NULL, following batch
 ///
 __HOST__ int
 AIO::_dsfetch(DU id, U16 mode, char *ds_name) {
@@ -109,7 +112,7 @@ AIO::_dsfetch(DU id, U16 mode, char *ds_name) {
         ERROR("mmu#load id=%x is not a dataset\n", dsx);
         return -1;
     }
-    bool rewind = (mode & FAM_REW)!=0;
+    bool rewind = (mode & FAM_REW) != 0;
     ///
     /// search cache for top <=> dataset pair
     ///
@@ -119,7 +122,14 @@ AIO::_dsfetch(DU id, U16 mode, char *ds_name) {
     if (!cp) {
         ERROR(" dataset not found\n"); return -1;
     }
-    if (rewind && ds.batch_id >= 0) {            /// rewind dataset
+    int batch_sz = ds.N();                       ///< mini batch size
+    if (ds_name) {                               /// * init load
+        if (cp->init()==NULL) {
+            ERROR(" dataset setup failed!\n"); return -2;
+        }
+        ds.reshape(batch_sz, cp->H, cp->W, cp->C);/// * reshape ds to match Corpus
+    }
+    if (rewind && ds.batch_id > 0) {
         cp->rewind();
         ds.batch_id = ds.done = 0;
     }
@@ -129,22 +139,18 @@ AIO::_dsfetch(DU id, U16 mode, char *ds_name) {
     ///
     /// init and load a batch of data points
     ///
-    int batch_sz = ds.N();                        ///< dataset batch size
-    int bid = ds.batch_id < 0 ? 0 : ds.batch_id;  ///< batch_id to fetch
-    if (!cp->fetch(batch_sz, bid)) {              /// * fetch a batch from Corpus
-        ERROR("fetch failed\n");  return -2;
+    if (!cp->fetch(ds.batch_id, batch_sz)) {     /// * fetch a batch from Corpus
+        ERROR("fetch failed\n");  return -3;
     }
-    if (ds.batch_id < 0) {                        /// * very first batch
-        ds.reshape(batch_sz, cp->H, cp->W, cp->C);/// * reshape ds to match Corpus
-        ds.batch_id = 1;                          /// * ready for next batch
-    }
-    else ds.batch_id++;
     ///
     /// transfer host into device memory
     /// if needed, allocate Dataset device (managed) memory blocks
     ///
-    if (!cp->eof) ds.load_batch(cp->data, cp->label);
-    IO_TRACE("batch[%d] %d record(s) loaded\n", ds.batch_id - 1, batch_sz);
+    ds.load_batch(cp->data, cp->label);
+    IO_TRACE("batch[%d] %d record(s) loaded\n", ds.batch_id, batch_sz);
+
+    ds.batch_id++;
+    ds.done = cp->eof;
     
     return 0;
 }
