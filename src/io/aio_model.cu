@@ -129,7 +129,7 @@ AIO::_dsfetch(DU id, U16 mode, char *ds_name) {
         }
         ds.reshape(batch_sz, cp->H, cp->W, cp->C);/// * reshape ds to match Corpus
     }
-    if (rewind && ds.batch_id > 0) {
+    if (rewind) {
         cp->rewind();
         ds.batch_id = ds.done = 0;
     }
