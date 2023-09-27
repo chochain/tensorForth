@@ -205,10 +205,10 @@ ForthVM::init() {
     ///@}
     ///@defgroup Data conversion ops
     ///@{
-    CODE("int",  top = INT(top));                /// integer part, 1.5 => 1, -1.5 => -1
-    CODE("round",top = round(top));              /// rounding 1.5 => 2, -1.5 => -1
-    CODE("ceil", top = ceil(top));
-    CODE("floor",top = floor(top));
+    CODE("int",  top = INT(top));    /// nearest-even 0.5 => 0, 1.5 => 2, 2.5 => 2
+    CODE("round",top = round(top));  /// 0.5 => 1, 1.5 => 2, 2.5 => 3, 1.5 => -2 
+    CODE("ceil", top = ceil(top));   /// 1.5 => 2, -1.5 => -1
+    CODE("floor",top = floor(top));  /// 1.5 => 1, -1.5 => -2
     ///@}
     ///@defgroup Logic ops
     ///@{
