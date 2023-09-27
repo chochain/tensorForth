@@ -8,8 +8,8 @@
 
 #if (T4_ENABLE_OBJ && T4_ENABLE_NN)
 
-#define LOG_COUNT 1  //000
-#define MAX_BATCH 0
+#define LOG_COUNT 100        /**< debug dump frequency */
+#define MAX_BATCH 0          /**< debug, limit number of mini-batches */
 
 Corpus *Mnist::init() {
     auto _u32 = [this](std::ifstream &fs) {
@@ -47,13 +47,11 @@ Corpus *Mnist::init() {
 }
 
 Corpus *Mnist::fetch(int batch_id, int batch_sz) {
-    static int tick = 0;                     ///< debug count ticker
-
-    eof = 0;
     int bsz = batch_sz ? batch_sz : N;       ///< batch_sz==0 => entire batch
     if (bsz==0 || (bsz * batch_id) >= N) {   ///< beyond total sample count
         eof=1; return this;
     }  
+    eof = 0;                                 ///< clear EOF flag
     ///
     /// fetch labels and images (and set eof if any of EOF reached)
     ///
@@ -63,11 +61,11 @@ Corpus *Mnist::fetch(int batch_id, int batch_sz) {
         DS_ERROR("ERROR: Mnist::fetch #label=%d != #image=%d\n", b0, b1);
         return NULL;
     }
-    if ((tick++ % LOG_COUNT) == 0) {
+    if ((batch_id % LOG_COUNT) == 0) {
         DS_LOG1("\n\tMnist batch[%d] loaded (size=%d)\n", batch_id, b0);
         _preview(bsz < 3 ? bsz : 3);          /// * debug print
     }
-    if (MAX_BATCH && (tick * bsz > MAX_BATCH)) eof |= 1; /// forced stop (debug)
+    if (MAX_BATCH && (batch_id >= MAX_BATCH)) eof |= 1; /// forced stop (debug)
 
     return this;
 }
