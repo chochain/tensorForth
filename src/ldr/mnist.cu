@@ -8,7 +8,7 @@
 
 #if (T4_ENABLE_OBJ && T4_ENABLE_NN)
 
-#define LOG_COUNT 100        /**< debug dump frequency */
+#define LOG_COUNT 1000       /**< debug dump frequency */
 #define MAX_BATCH 0          /**< debug, limit number of mini-batches */
 
 Corpus *Mnist::init() {
@@ -47,6 +47,7 @@ Corpus *Mnist::init() {
 }
 
 Corpus *Mnist::fetch(int batch_id, int batch_sz) {
+    static int tick = 0;
     int bsz = batch_sz ? batch_sz : N;       ///< batch_sz==0 => entire batch
     if (bsz==0 || (bsz * batch_id) >= N) {   ///< beyond total sample count
         eof=1; return this;
@@ -61,7 +62,7 @@ Corpus *Mnist::fetch(int batch_id, int batch_sz) {
         DS_ERROR("ERROR: Mnist::fetch #label=%d != #image=%d\n", b0, b1);
         return NULL;
     }
-    if ((batch_id % LOG_COUNT) == 0) {
+    if ((++tick % LOG_COUNT) == 0) {
         DS_LOG1("\n\tMnist batch[%d] loaded (size=%d)\n", batch_id, b0);
         _preview(bsz < 3 ? bsz : 3);          /// * debug print
     }
