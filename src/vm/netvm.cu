@@ -63,7 +63,7 @@ NetVM::_nnop(t4_layer op) {     /// vtable dispatcher
         DU    a  = POP();
         Model &m = MTOS;
         switch (op) {
-        case L_LINEAR:  m.add(op, INT(a));             return; /* bias = 0.0 */
+        case L_LINEAR:  m.add(op, INT(a), DU1);        return; /* bias = 1.0 */
         case L_LEAKYRL:
         case L_ELU:     
         case L_DROPOUT: m.add(op, 0, a);               return;
