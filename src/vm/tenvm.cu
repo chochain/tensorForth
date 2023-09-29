@@ -495,9 +495,6 @@ TensorVM::init() {
              DU v = mmu.rd(POPi);
              PUSH(mmu.dup(v));
          });
-    CODE("+!",
-         IU w = POPi; DU v = ADD(mmu.rd(w), POP()); ///< fetch target original value
-         mmu.wd(w, SCALAR(v)));                     /// * write back
     CODE("max",
          if (IS_OBJ(top)) PUSH(TTOS.max());
          else xop2(MAX));
