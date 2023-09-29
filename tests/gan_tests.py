@@ -5,36 +5,41 @@ import torch
 from torch import nn
 from d2l import torch as d2l
 
-X = torch.normal(0, 1, (1000, 2))             # 1000 random points
+X = torch.normal(0, 1, (1000, 2))             # 1000 random points (randn)
 A = torch.tensor([[1, 2], [-0.1, 0.5]])       # real data direction
 b = torch.tensor([1, 2])                      # real data bias
-Y = torch.matmul(X, A) + b
+Y = torch.matmul(X, A) + b                    # Corpus Y = AX + b
 
-class Lget(nn.Module):
+class nnShim(nn.Module):
     def __init__(self):
-        super(Lget, self).__init__()
-        self.f = []
+        super(nnShim, self).__init__()
+        self.v = []
     def forward(self, x):
-        self.f = x
+        self.v = x
         return x
 
-net_G = nn.Sequential(nn.Linear(2, 2))
+net_G = nn.Sequential(
+    nn.Linear(2, 2))
 net_D = nn.Sequential(
-    Lget(), nn.Linear(2, 5), nn.LeakyReLU(0.2),
-    nn.Linear(5, 3), nn.LeakyReLU(0.2),
-    nn.Linear(3, 1), nn.Sigmoid())
+    nnShim(),
+    nn.Linear(2, 5),
+    nn.LeakyReLU(0.2),
+    nn.Linear(5, 3),
+    nn.LeakyReLU(0.2),
+    nn.Linear(3, 1),
+    nn.Sigmoid())
 #@save
 
 for w in net_D.parameters():
     nn.init.normal_(w, 0, 0.707)              # was 0.02
 for w in net_G.parameters():
     nn.init.normal_(w, 0, 0.707)              # was 0.02
-trainer_D = torch.optim.Adam(net_D.parameters(), lr=0.01)   # was 0.02
-trainer_G = torch.optim.Adam(net_G.parameters(), lr=0.001)  # was 0.002
+opti_D = torch.optim.Adam(net_D.parameters(), lr=0.001)   # was 0.02
+opti_G = torch.optim.Adam(net_G.parameters(), lr=0.001)   # was 0.002
 #@save
 
 def dump():
-    print("X=", net_D[0].f)
+    print("D[0]=", net_D[0].v)                # dump from nnShim capture
     for n, p in net_G[0].named_parameters():
         print("g[0]", n, p.data)
         
@@ -43,41 +48,49 @@ def update_D(X, Z, loss):
     N       = X.shape[0]
     ones    = torch.ones((N,), device=X.device)
     zeros   = torch.zeros((N,), device=X.device)
-    trainer_D.zero_grad()
+    opti_D.zero_grad()
+    
+    # D train real as real
     real_Y  = net_D(X)
-    loss_Dr = loss(real_Y, ones.reshape(real_Y.shape))
-    loss_Dr.backward()
-    trainer_D.step()
+    loss_r  = loss(real_Y, ones.reshape(real_Y.shape))
+    loss_r.backward()
+    opti_D.step()
+
+    # D train fake as fake
     # Do not need to compute gradient for `net_G`, so detach it (no backprop)
     fake_X  = net_G(Z)
     fake_Y  = net_D(fake_X.detach())
-    loss_Df = loss(fake_Y, zeros.reshape(fake_Y.shape))
-    loss_Df.backward()
-    trainer_D.step()
-    return [ loss_Dr, loss_Df ]
+    loss_f  = loss(fake_Y, zeros.reshape(fake_Y.shape))
+    loss_f.backward()
+    opti_D.step()
+    
+    return [ loss_r, loss_f ]
 #@save
 
 def update_G(Z, loss):
     """Update generator."""
     N      = Z.shape[0]
     ones   = torch.ones((N,), device=Z.device)
-    trainer_G.zero_grad()
+    opti_G.zero_grad()
+    
     # We could reuse `fake_X` from `update_D` to save computation
-    fake_X = net_G(Z)
     # Recomputing `fake_Y` is needed since `net_D` is changed
+    # G train fake as real 
+    fake_X = net_G(Z)
     fake_Y = net_D(fake_X)
-    loss_G = loss(fake_Y, ones.reshape(fake_Y.shape))
-    loss_G.backward()
-    trainer_G.step()
-    return loss_G
+    loss_g = loss(fake_Y, ones.reshape(fake_Y.shape))
+    loss_g.backward()
+    opti_G.step()
+    
+    return loss_g
 
-def train(batch_size, data_iter, num_epochs=2, latent_dim=2):
+def train(batch_size, data_iter, num_epochs=10, latent_dim=2):
     #loss = nn.BCEWithLogitsLoss(reduction='sum')   # D without Sigmoid output
     loss = nn.BCELoss(reduction='mean')             # D with    Sigmoid output
     for epoch in range(num_epochs):
         # Train one epoch
         timer  = d2l.Timer()
-        metric = d2l.Accumulator(4)                 # loss_Dr, loss_Df, loss_G, N
+        metric = d2l.Accumulator(4)                 # loss_r, loss_f, loss_g, N
         for (X,) in data_iter:
             N = X.shape[0]
             Z = torch.normal(0, 1, size=(N, latent_dim))
@@ -87,15 +100,16 @@ def train(batch_size, data_iter, num_epochs=2, latent_dim=2):
         # Show the losses
         nb  = metric[3]/batch_size                  # number of batches
         rps = nb/timer.stop()
-        xdr, xdf, xg = metric[0]/nb, metric[1]/nb, metric[2]/nb
-        print(f'====> G={xg:.3f}, Dr={xdr:.3f}, Df={xdf:.3f} ({rps:.1f} rps)')
+        xr, xf, xg = metric[0]/nb, metric[1]/nb, metric[2]/nb
+        print(f'====> G={xg:.3f}, Dr={xr:.3f}, Df={xf:.3f} ({rps:.1f} rps)')
         dump();
     
 batch_size = 10
-data_iter = d2l.load_array((Y,), batch_size)
+data_iter  = d2l.load_array((Y,), batch_size)
 train(batch_size, data_iter)
-#print("net_G=", net_G[0].weight, net_G[0].bias)
-# fake_X = net_G(torch.normal(0, 1, size=(100, 2)))
-# print(fake_X)
+
+print("net_G=", net_G[0].weight, net_G[0].bias)
+fake_X = net_G(torch.normal(0, 1, size=(100, 2)))
+print(fake_X)
 
 
