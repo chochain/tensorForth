@@ -80,7 +80,7 @@ NetVM::_nnop(t4_layer op) {     /// vtable dispatcher
     case L_LINEAR:
         if (M2V) {                                 /// * param checking
             U16 n    = POPi;                       ///> number of output channels
-            DU  bias = POP();                      ///> linear bias
+            DU  bias = POP();                      ///> bias range [-bias, bias)
             MTOS.add(op, n, bias);                 /// * (N b c -- N')
         }
         else ERROR("( N [bias] n -- ) for linear required!");
