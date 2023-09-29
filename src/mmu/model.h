@@ -98,7 +98,7 @@ private:
     /// @name Convolution and Linear initializer
     /// @{
     __GPU__ void   _iconv(Tensor &in, U16 c, DU bias, U16 *opt);    ///< 2D convolution
-    __GPU__ void   _ilinear(Tensor &in, U16 n, DU bias=DU0);        ///< linearize (Dense) with n output
+    __GPU__ void   _ilinear(Tensor &in, U16 n, DU bias);            ///< linearize (Dense) with n outputa
     __GPU__ void   _iflatten(Tensor &in);                           ///< flatten
     /// @}
     /// @name Activation ops
