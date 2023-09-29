@@ -116,11 +116,12 @@ Model::_iconv(Tensor &in, U16 C0, DU bias, U16 *opt) {
     ///
     Tensor *f  = in.grad[0] = &_t4(C1, Hf, Wf, C0);                ///> f
     Tensor *df = in.grad[2] = &_t4(C1, Hf, Wf, C0).map(FILL, DU0); ///> df
-    Tensor *b  = in.grad[1] = &_vec(C0).map(FILL, bias);           ///> b
+    Tensor *b  = in.grad[1] = &_vec(C0);                           ///> b
     Tensor *db = in.grad[3] = &_vec(C0).map(FILL, DU0);            ///> db
 
     DU k = SQRT(RCP(Hf * Wf * C1));              /// * filter default range
     _mmu->random(*f, UNIFORM, -0.5, 2.0 * k);    /// * randomize f [-k, k)
+    _mmu->random(*b, UNIFORM, -0.5, 2.0 * bias); /// * randomize b [-bias, bias)
     TRACE1("model#add conv2d %dx%d bias=%4.2f, k=%6.3f, f.std=%6.3f\n",
            Hf, Wf, bias, k, f->std());
     
@@ -134,13 +135,14 @@ Model::_ilinear(Tensor &in, U16 C0, DU bias) {
     U16 N1 = in.N(), C1 = in.HWC();
     Tensor *w  = in.grad[0] = &_t4(1, C0, C1, 1);                 ///> w
     Tensor *dw = in.grad[2] = &_t4(1, C0, C1, 1).map(FILL, DU0);  ///> dw
-    Tensor *b  = in.grad[1] = &_vec(C0).map(FILL, bias);          ///> b
+    Tensor *b  = in.grad[1] = &_vec(C0);                          ///> b
     Tensor *db = in.grad[3] = &_vec(C0).map(FILL, DU0);           ///> db
     
     in.parm = INT(bias * 1000.0);                /// * keep for persistence
     
     DU k = SQRT(RCP(C1));                        /// * default weight
     _mmu->random(*w, UNIFORM, -0.5, 2.0 * k);    /// * randomize w [-k, k)
+    _mmu->random(*b, UNIFORM, -0.5, 2.0 * bias); /// * randomize b [-bias, bias)
     TRACE1("model#add linear bias=%4.2f, k=%6.3f, w.std=%6.3f\n", bias, k, w->std());
     /*
     for (int c0=0; c0<C0; c0++) {

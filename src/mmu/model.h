@@ -62,7 +62,7 @@ public:
     /// @}
     /// @name main NN methods
     /// @{
-    __GPU__ Model  &add(t4_layer fn, U16 n=0, DU alpha=DU0, U16 *opt=0);
+    __GPU__ Model  &add(t4_layer fn, U16 n=0, DU alpha=DU0, U16 *opt=NULL);
     __GPU__ Model  &forward(Tensor &input);             ///< network feed forward
     __GPU__ Model  &broadcast(Tensor &tgt);
     __GPU__ Model  &backprop();                         ///< back propegation with default onehot vector (built during forward pass from dataset labels)
@@ -97,9 +97,9 @@ private:
     /// @}
     /// @name Convolution and Linear initializer
     /// @{
-    __GPU__ void   _iconv(Tensor &in, U16 c, DU bias, U16 *opt);
-    __GPU__ void   _ilinear(Tensor &in, U16 n, DU bias);   ///< linearize (Dense) with n output
-    __GPU__ void   _iflatten(Tensor &in);           ///< flatten (input 
+    __GPU__ void   _iconv(Tensor &in, U16 c, DU bias, U16 *opt);    ///< 2D convolution
+    __GPU__ void   _ilinear(Tensor &in, U16 n, DU bias=DU0);        ///< linearize (Dense) with n output
+    __GPU__ void   _iflatten(Tensor &in);                           ///< flatten
     /// @}
     /// @name Activation ops
     /// @{
