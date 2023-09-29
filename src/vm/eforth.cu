@@ -302,7 +302,7 @@ ForthVM::init() {
     CODE("variable",                                        // create a variable
         mmu.colon(next_idiom());                            // create a new word on dictionary
         add_w(DOVAR);                                       // dovar (+parameter field)
-        add_du(0);                                          // data storage (32-bit float now)
+        add_du(DU0);                                        // data storage (32-bit float now)
         add_w(EXIT));
     CODE("constant",                                        // create a constant
         mmu.colon(next_idiom());                            // create a new word on dictionary
