@@ -176,7 +176,11 @@ public:
         ERROR("\nmmu.wi[%d]", i);
         return 0;
     }
-    __GPU__  __INLINE__ void wd(U8 *c, DU d)   { MEMCPY(c, &d, sizeof(DU)); }
+    __GPU__  __INLINE__ void wd(U8 *c, DU d)   {
+        DU v = rd(c);
+        if (IS_OBJ(v)) drop(v);
+        MEMCPY(c, &d, sizeof(DU));
+    }
     __GPU__  __INLINE__ void wd(IU i, DU d)    {
         if (i < T4_PMEM_SZ) wd(&_pmem[i], d);
         else ERROR("\nmmu.wd[%d]", i);
