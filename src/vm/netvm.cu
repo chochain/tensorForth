@@ -391,11 +391,11 @@ NetVM::init() {
     ///
     /// * overwrite/extended word
     ///
+    CODE("boot",      mmu.clear(FIND("network") + 1));
     CODE("donext",    _donext());                  /// * overwrite eforth.cu
     CODE("flatten",   _nnop(L_FLATTEN));
     CODE("save",      _pickle(true));              /// * save trainned model
     CODE("load",      _pickle(false));             /// * load trainned model
-    CODE("boot",      mmu.clear(FIND("network") + 1));
     
     VLOG1("NetVM::init ok\n");
 };

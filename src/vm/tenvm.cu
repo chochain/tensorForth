@@ -470,6 +470,7 @@ TensorVM::init() {
     ///
     ///@defgroup redefined tensor ops
     ///@{
+    CODE("boot", mmu.clear(FIND("load") + 1));
     CODE("dolit",
          DU v = mmu.rd(IP); IP += sizeof(DU);
          PUSH(mmu.dup(v)));
@@ -502,7 +503,6 @@ TensorVM::init() {
          if (IS_OBJ(top)) PUSH(TTOS.min());
          else xop2(MIN));
     ///@}
-    CODE("boot", mmu.clear(FIND("gemm") + 1));
 
     VLOG1("TensorVM::init ok\n");
 };
