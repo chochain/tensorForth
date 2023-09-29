@@ -43,6 +43,14 @@ for i in range(100):
 plt.axis('off')
 plt.show()
 
+class nnShim(nn.Module):
+    def __init__(self):
+        super(nnShim, self).__init__()
+        self.f = []
+    def forward(self, x):
+        self.f = x
+        return x
+
 class Generator(nn.Module):
     def __init__(self):
         super(Generator, self).__init__()
@@ -50,11 +58,12 @@ class Generator(nn.Module):
         self.main = nn.Sequential(
             nn.Linear(self.sz, 256),
             nn.LeakyReLU(0.2),
-            nn.Linear(256, 512),
-            nn.LeakyReLU(0.2),
-            nn.Linear(512, 1024),
-            nn.LeakyReLU(0.2),
-            nn.Linear(1024, 784),
+#            nn.Linear(256, 512),
+#            nn.LeakyReLU(0.2),
+#            nn.Linear(512, 1024),
+#            nn.LeakyReLU(0.2),
+#            nn.Linear(1024, 784),
+            nn.Linear(256, 784),
             nn.Tanh(),             # =>range between -1 and 1
         )
     def forward(self, x):
@@ -65,15 +74,18 @@ class Discriminator(nn.Module):
         super(Discriminator, self).__init__()
         self.n_input = 784        # 28x28
         self.main = nn.Sequential(
-            nn.Linear(self.n_input, 1024),
+            nn.Linear(self.n_input, 256),
             nn.LeakyReLU(0.2),
             nn.Dropout(0.3),
-            nn.Linear(1024, 512),
-            nn.LeakyReLU(0.2),
-            nn.Dropout(0.3),
-            nn.Linear(512, 256),
-            nn.LeakyReLU(0.2),
-            nn.Dropout(0.3),
+#            nn.Linear(self.n_input, 1024),
+#            nn.LeakyReLU(0.2),
+#            nn.Dropout(0.3),
+#            nn.Linear(1024, 512),
+#            nn.LeakyReLU(0.2),
+#            nn.Dropout(0.3),
+#            nn.Linear(512, 256),
+#            nn.LeakyReLU(0.2),
+#            nn.Dropout(0.3),
             nn.Linear(256, 1),
             nn.Sigmoid(),
         )
