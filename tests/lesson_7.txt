@@ -1,6 +1,6 @@
 \ GAN demo - MNIST
 100 constant N                                 \ mini-batch sample count
-N dataset mnist_train constant ds0             \ create dataset MNIST (Real data)
+N dataset mnist_test constant ds0             \ create dataset MNIST (Real data)
 
 : SEED N 128 1 1 tensor randn ;                \ create randn avg=0,std=1 input for fake data
 : REAL N   1 1 1 tensor ones ;                 \ create a real label tensor
@@ -8,15 +8,15 @@ N dataset mnist_train constant ds0             \ create dataset MNIST (Real data
 
 \ discriminator
 : dn linear 0.2 leakyrelu 0.3 dropout ;        \ discriminator network layers
-N 28 28 1 nn.model                             \ define Discriminator model (13-layer)
-1024 dn 512 dn 256 dn 128 dn                   \ with 4 linear blocks
+N 28 28 1 nn.model                             \ define Discriminator model (8-layer)
+512 dn 256 dn                                  \ with 2+1 linear blocks
 1 linear sigmoid constant D                    \ as D, tanh (sigmoid = binary classification)
 
 \ generator
 : gn linear 0.2 leakyrelu ;                    \ generator network layers
-N 128 1 1 nn.model                             \ define Generator Model (10-layer)
-256 gn 512 gn 1024 gn                          \ with 3 linear blocks
-784 linear tanh constant G                     \ as G, (1+tanh)/2 result in [0, 1)
+N 128 1 1 nn.model                             \ define Generator Model (6-layer)
+256 gn 512 gn
+784 linear tanh constant G                     \ as G, (1+tanh)/2 output [0,1)
 
 \ statistics
 variable _bn                                   \ mini-batch counter
@@ -47,7 +47,7 @@ variable idx 0 idx !                           \ filename index number
 fn + 1 - constant pos                          \ pointer to filename digits
 : i2n ( n i -- c )                             \ convert index number to ASCII digit
   begin dup 0> while
-    swap 10 / int swap 1 -
+    swap 10 / floor swap 1 -
   repeat
   drop 10 mod 48 + ;
 : nxfn ( -- str len ) idx @                    \ create next filename
@@ -58,21 +58,32 @@ fn + 1 - constant pos                          \ pointer to filename digits
 : epoch ( D ds -- D )                          \ one epoch for the given data source
   0 _bn !                                      \ reset mini-batch count
   for                                          \ loop thru mini-batches (on rs)
+    1 trainable                                     \ ensure D as trainable
         forward REAL loss.bce _dr +! REAL backprop  \ feed D with real data (from rs)
     gen forward FAKE loss.bce _df +! FAKE backprop  \ feed D with fake data, update D
-    d_lr 0.9 nn.adam                                \ train D
+    d_lr 0.5 nn.adam                                \ train D
     0 trainable                                     \ D non-trainable (train G only)
     gen forward REAL loss.bce _gr +! REAL backprop  \ feed D as real (but without updating)
-    1 trainable                                     \ restore D as trainable
     1 n@ G swap ( D G t ) backprop                  \ fetch D backprop image, feed as gLoss
-    g_lr 0.9 nn.adam drop ( D )                     \ train G
+    g_lr 0.5 nn.adam drop ( D )                     \ train G
     1 _bn +! 46 emit                                \ display rogress
   next ;                                       \ loop, if next mini-batch available
+: jk ( D ds -- D )                          \ one epoch for the given data source
+  >r
+    1 trainable                                     \ ensure D as trainable
+        forward REAL loss.bce _dr +! REAL backprop  \ feed D with real data (from rs)
+    gen forward FAKE loss.bce _df +! FAKE backprop  \ feed D with fake data, update D
+    d_lr 0.5 nn.adam                                \ train D
+    0 trainable                                     \ D non-trainable (train G only)
+    gen forward REAL loss.bce _gr +! REAL backprop  \ feed D as real (but without updating)
+    1 n@ G swap ( D G t ) backprop                  \ fetch D backprop image, feed as gLoss
+    g_lr 0.5 nn.adam drop ( D )                     \ train G
+  r> ;                                       \ loop, if next mini-batch available
 : gan ( D ds n -- D )
   for
     epoch stat
-    d_lr 0.95 * [to] d_lr                      \ D learning rate decay 
-    g_lr 0.95 * [to] g_lr                      \ D learning rate decay 
+    ( d_lr 0.95 * [to] d_lr )                  \ D learning rate decay 
+    ( g_lr 0.95 * [to] g_lr )                  \ D learning rate decay 
     gen nxfn bin save drop                     \ create fake image dump
     ds0 rewind                                 \ rewind dataset 
   next drop ;
