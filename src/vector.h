@@ -26,8 +26,8 @@ struct Vector {
     //
     // operator overloading
     //
-    __GPU__ T&      operator[](int i) { return i < 0 ? v[idx + i] : v[i]; }
-    __GPU__ Vector& push(T t)   {
+    __GPU__ __INLINE__ T& operator[](int i) { return i < 0 ? v[idx + i] : v[i]; }
+    __GPU__ __INLINE__ Vector& push(T t)   {
         if ((idx+1) > max) resize(idx + VECTOR_INC);
         v[idx++] = t;                              /// deep copy
         return *this;
