@@ -150,7 +150,7 @@ AIO::_tsave_raw(std::ostream &fout, Tensor &t) {
     for (int n=0; n < N; n++) {
         DU *p = &t.data[n * HWC];
         for (int i=0; i < HWC; i++) {
-            buf[i] = static_cast<U8>(128.0 * (DU1 + *p++));  /// * [-1,1)=>[0,256)
+            buf[i] = static_cast<U8>(*p++ * 256.0);  /// * [0,1)=>[0,256)
         }
         fout.write((const char*)buf, HWC);
     }
