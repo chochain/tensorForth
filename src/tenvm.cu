@@ -419,6 +419,7 @@ TensorVM::init() {
     ///
     ///@defgroup redefined tensor ops
     ///@{
+    CODE("boot", mmu.clear(FIND("load") + 1));
     CODE("dolit",
          DU v = mmu.rd(IP); IP += sizeof(DU);
          PUSH(mmu.dup(v)));
@@ -444,9 +445,6 @@ TensorVM::init() {
              DU v = mmu.rd(POPi);
              PUSH(mmu.dup(v));
          });
-    CODE("+!",
-         IU w = POPi; DU v = ADD(mmu.rd(w), POP()); ///< fetch target original value
-         mmu.wd(w, SCALAR(v)));                     /// * write back
     CODE("max",
          if (IS_OBJ(top)) PUSH(TTOS.max());
          else { DU n=ss.pop(); top = (top>n) ? top : n; });
@@ -457,7 +455,6 @@ TensorVM::init() {
          if (IS_OBJ(top)) xop1(O_SCALE, -DU1);
          else top = MUL(top, -DU1));
     ///@}
-    CODE("boot", mmu.clear(FIND("gemm") + 1));
 
     VLOG1("TensorVM::init ok\n");
 };
