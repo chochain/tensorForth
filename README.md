@@ -29,11 +29,11 @@ More details to come but here are some samples of tensorForth in action
 * Benchmarks (on MNIST)
   > |Different Neural Network Models|Different Gradient Descent Methods|
   > |---|---|
-  > |![model cmp](docs/img/ten4_model_cmp.png)|![gradient cmp](docs/img/ten4_gradient_cmp.png)|
+  > |![model cmp](tensorForth/docs/img/ten4_model_cmp.png)|![gradient cmp](tensorForth/docs/img/ten4_gradient_cmp.png)|
   
   > |2D Convolution vs Linear+BatchNorm|Effectiveness of Different Activations|
   > |---|---|
-  > |![cnv_vs_bn](docs/img/ten4_cnv_vs_bn.png)|![act_cmp](docs/img/ten4_act_cmp.png)|
+  > |![cnv_vs_bn](tensorForth/docs/img/ten4_cnv_vs_bn.png)|![act_cmp](tensorForth/docs/img/ten4_act_cmp.png)|
 
 ### How?
 GPU, behaves like a co-processor or a DSP chip. It has no OS, no string support, and runs its own memory. Most of the available libraries are built for host instead of device i.e. to initiate calls from CPU into GPU but not the other way around. So, to be interactive, a memory manager, IO, and syncing with CPU are things needed to be had. It's pretty much like creating a Forth from scratch for a new processor as in the old days.
