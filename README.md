@@ -3,6 +3,7 @@
 
 ### Status
 |version|feature|stage|description|conceptual comparable|
+
 |---|---|---|---|---|
 |[1.0](https://github.com/chochain/tensorForth/releases/tag/v1.0.2)|**float**|production|extended eForth with F32 float|Python|
 |[2.0](https://github.com/chochain/tensorForth/releases/tag/v2.0.2)|**matrix**|production|+ vector and matrix objects|NumPy|
