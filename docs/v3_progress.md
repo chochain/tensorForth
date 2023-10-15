@@ -176,7 +176,6 @@ ds1                                       \ put dataset on TOS
 |split|(Ta i - Ta Aa Ab Ac)|split matrix into matrix on a given axis|
 
 ### Back-propagation Case Study - MNIST
-{% include backprop.html %}
 |word|forward|param|network DAG|grad_fn|param[grad]|
 |---|---|---|---|---|---|
 |    |for     |(INs -- IN)        |IN                |        |                                  |
