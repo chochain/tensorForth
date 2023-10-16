@@ -1,4 +1,5 @@
 <META HTTP-EQUIV='Content-Security-Policy' CONTENT="default-src 'self' ; script-src 'self' 'unsafe-inline' *.disqus.com a.disquscdn.com requirejs.org www.google-analytics.com; style-src 'self' 'unsafe-inline' a.disquscdn.com; img-src 'self' *; media-src 'self' ; frame-src disqus.com;">
+
 ## tensorForth - Forth does matrices and machine learning
 * Forth VM that supports tensor calculus and Convolution Neural Network with dynamic parallelism in CUDA
 
@@ -30,11 +31,11 @@ More details to come but here are some samples of tensorForth in action
 * Benchmarks (on MNIST)
   > |Different Neural Network Models|Different Gradient Descent Methods|
   > |---|---|
-  > |<img src="https://chochain.github.io/tensorForth/docs/img/ten4_model_cmp.png" width="600px" height="400px">|<img src="https://chochain.github.io/tensorForth/docs/img/ten4_gradient_cmp.png" width="600px" height="400px">|
+  > |<img src="./docs/img/ten4_model_cmp.png" width="600px" height="400px">|<img src="./docs/img/ten4_gradient_cmp.png" width="600px" height="400px">|
   
   > |2D Convolution vs Linear+BatchNorm|Effectiveness of Different Activations|
   > |---|---|
-  > |<img src="https://chochain.github.io/tensorForth/docs/img/ten4_cnv_vs_bn.png" width="600px" height="400px">|<img src="https://chochain.github.io/tensorForth/docs/img/ten4_act_cmp.png" width="600px" height="400px">|
+  > |<img src="./docs/img/ten4_cnv_vs_bn.png" width="600px" height="400px">|<img src="./docs/img/ten4_act_cmp.png" width="600px" height="400px">|
 
 ### How?
 GPU, behaves like a co-processor or a DSP chip. It has no OS, no string support, and runs its own memory. Most of the available libraries are built for host instead of device i.e. to initiate calls from CPU into GPU but not the other way around. So, to be interactive, a memory manager, IO, and syncing with CPU are things needed to be had. It's pretty much like creating a Forth from scratch for a new processor as in the old days.
