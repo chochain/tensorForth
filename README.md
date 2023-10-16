@@ -395,7 +395,7 @@ s" tests/my_net.t4" save                    \ persist the trained network
 ### Tensor I/O, Persistence
 <pre>
    save      (T adr len [fam] -- T) - pickle tensor to OS file (default text mode)
-</pre>
+   </pre>
 
 ### TODO - by priorities
 * Model
@@ -452,6 +452,9 @@ s" tests/my_net.t4" save                    \ persist the trained network
   + pre-processor (DALI) + GPUDirect - heavy, later
   + calling API - Python(cffi), Ruby(FFI)
 
+### Reference
+    {% include ./docs/backprop.html %}
+    
 ## History
 ### [Release 1.0](./docs/v1_progress.md) features
 * Dr. Ting's eForth words with F32 as data unit, U16 instruction unit
