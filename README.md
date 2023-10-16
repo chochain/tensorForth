@@ -143,7 +143,7 @@ s" tests/my_net.t4" save                    \ persist the trained network
 </pre>
 
 ### To build
-* install CUDA 11.6 on your machine
+* install CUDA 11.6+ on your machine
 * download one of the releases from the list above to your local directory
 
 #### with Makefile, and test
@@ -157,19 +157,20 @@ s" tests/my_net.t4" save                    \ persist the trained network
   > ~/tests> ten4 < lesson_2.txt - for matrix ops,<br/>
   > ~/tests> ten4 < lesson_3.txt - for linear algebra stuffs
 * enter the following for testing machine learning (v3) ops<br/>
-  > ~/tests> ten4 < lesson_4.txt - for single pass of forward, loss, and backprop<br/>
+  > ~/tests> ten4 < lesson_4.txt - NN model single pass of forward, loss, and backprop<br/>
   > ~/tests> ten4 < lesson_5.txt - MINST training, 20 epochs<br/>
+  > ~/tests> ten4 < lesson_6.txt - GAN on linear regression, 10 epochs<br/>
   > ~/tests> ten4 < lesson_7.txt - GAN on MINST dataset, 100 epochs<br/>
 
 #### with Eclipse
 * install Eclipse
-* install CUDA SDK 11.6 for Eclipse (from Nvidia site)
+* install CUDA SDK 11.6 or above for Eclipse (from Nvidia site)
 * create project by importing from your local repo root
 * exclude directories - ~/tests, ~/img
 * set File=>Properties=>C/C++ Build=>Setting=>NVCC compiler
   + Dialect=C++14
-  + CUDA=5.2 or above
-  + Optimization=O3
+  + CUDA=5.2 or above (depends on your GPU)
+  + Optimization=O2 or O3
 
 ## tensorForth command line options
 * \-h             - list all GPU id and their properties<br/>
