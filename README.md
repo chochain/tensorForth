@@ -1,3 +1,4 @@
+<META HTTP-EQUIV='Content-Security-Policy' CONTENT="default-src 'self' ; script-src 'self' 'unsafe-inline' *.disqus.com a.disquscdn.com requirejs.org www.google-analytics.com; style-src 'self' 'unsafe-inline' a.disquscdn.com; img-src 'self' *; media-src 'self' ; frame-src disqus.com;">
 ## tensorForth - Forth does matrices and machine learning
 * Forth VM that supports tensor calculus and Convolution Neural Network with dynamic parallelism in CUDA
 
