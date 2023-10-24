@@ -53,15 +53,17 @@ tensorForth 2.0
 \  GPU 0 initialized at 1800MHz, dict[1024], vmss[64*1], pmem=48K, tensor=1024M
 2 3 matrix{ 1 2 3 4 5 6 }            \ create a 2x3 matrix
  <0 T2[2,3]> ok                      \ 2-D tensor shown on top of stack (TOS)
-.                                    \ print the matrix
+dup                                  \ create a view of the matrix
+ <0 T2[2,3] t[2,3]> ok               \ view shown in lower case
+.                                    \ print the matrix (destructive as in Forth)
 matrix[2,3] = {
 	{ +1.0000 +2.0000 +3.0000 }
 	{ +4.0000 +5.0000 +6.0000 } }
- <0 T2[2,3]> ok                      \ matrix still there on stack (non-destructive)
+ <0 T2[2,3]> ok                      \ original matrix still on TOS
 3 2 matrix ones                      \ create a 3x2 matrix, fill it with ones
  <0 T2[2,3] T2[3,2]> ok              \ now we have two matrices on stack
-.                                    \ see whether it
-matrix[3,2] = {                      \ filled with ones indeed
+dup .                                \ see whether it is filled with one indeed
+matrix[3,2] = {
 	{ +1.0000 +1.0000 }
 	{ +1.0000 +1.0000 }
 	{ +1.0000 +1.0000 } }
@@ -71,7 +73,7 @@ matrix[3,2] = {                      \ filled with ones indeed
 matrix[2,2] = {
 	{ +6.0000 +6.0000 }
 	{ +15.0000 +15.0000 } }
- <0 T2[2,3] T2[3,2] T2[2,2]> ok
+ <0 T2[2,3] T2[3,2]> ok
 bye                                  \ exit tensorForth
  <0> ok
 tensorForth 2.0 done.
@@ -94,10 +96,11 @@ matrix[1024,512] = {                 \ in PyTorch style (edgeitem=3)
 	{ +0.5041 +0.5041 +0.5041 ... +0.5041 +0.5041 +0.5041 }
 	{ +0.5007 +0.5007 +0.5007 ... +0.5007 +0.5007 +0.5007 }
 	{ +0.5269 +0.5269 +0.5269 ... +0.5269 +0.5269 +0.5269 } }
- <0 T2[1024,2048] T2[2048,512] T2[1024,512]> ok  \ note that matrix is untouched
-drop                                        \ because tensor ops are by default non-destructive
- <0 T2[1024,2048] T2[2048,512]> ok          \ so we drop them from TOS
-: mx clock >r for @ drop next clock r> - ;  \ now let's define a word 'mx' for benchmark loop
+ <0 T2[1024,2048] T2[2048,512]> ok
+: mx                                        \ now let's define a word 'mx' for benchmark loop
+  clock >r                                  \ keep the init time (in msec) on return stack
+  for @ drop next                           \ loops of matrix multiplication
+  clock r> - ;                              \ time it (clock1 - clock0)
  <0 T2[1024,2048] T2[2048,512]> ok
 999 mx                                      \ now try 1000 loops
  <0 T2[1024,2048] T2[2048,512] 3.938+04> ok \ that is 39.38 sec (i.e. ~40ms / loop)
