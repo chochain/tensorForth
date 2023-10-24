@@ -18,6 +18,7 @@
 #define IS_M(v)  (IS_OBJ(v) && mmu.du2obj(v).is_model())           /** check param is a model */
 #define M1V      (ss.idx > 0 && !IS_OBJ(top) && IS_M(ss[-1]))                    /** NOS model w 1-param    */
 #define M2V      (ss.idx > 1 && !IS_OBJ(top) && !IS_OBJ(ss[-1]) && IS_M(ss[-2])) /** ss[-2] model w 2-param */
+#define MTV      (ss.idx > 1 && !IS_OBJ(top) && IS_OBJ(ss[-1]) && IS_M(ss[-2]))  /** ss[-2] model tensor w 1-param */
 
 class NetVM : public TensorVM {
 public:
@@ -42,7 +43,8 @@ private:
     __GPU__ void _nnop(t4_layer op);
     __GPU__ void _pickle(bool save);             ///< override TenVM::_pickle
     __GPU__ void _fetch(DU d, bool rewind);      ///< fetch or rewind dataset
-    __GPU__ void _parm(int n);                   ///< fetch tensor parameters n=0:W, 1:B, 2:dW, 3:dB
+    __GPU__ void _get_parm(int n);               ///< fetch tensor parameters n=0:W, 1:B, 2:dW, 3:dB
+    __GPU__ void _set_parm(int n);               ///< set tensor parameters (for debugging)
     /// @}
     /// @name Convolution, loss and Gradiant ops
     /// @{
