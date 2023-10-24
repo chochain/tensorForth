@@ -175,7 +175,7 @@ NetVM::_fetch(DU d, bool rewind) {
 /// n=0:W, 1:B, 2:dW, 3:dB
 ///
 __GPU__ void
-NetVM::_parm(int n) {
+NetVM::_get_parm(int n) {
     if (!M1V) { ERROR("N n required?"); return; }
     
     S16 i = POPi;
@@ -185,6 +185,26 @@ NetVM::_parm(int n) {
         PUSH(mmu.dup(v));
     }
     else PUSH(DU0);
+}
+///
+/// fetch parameters onto TOS
+/// n=0:W, 1:B, 2:dW, 3:dB
+///
+__GPU__ void
+NetVM::_set_parm(int n) {
+    if (!MTV) { ERROR("N T n required?"); return; }
+
+    S16    i  = POPi;
+    Tensor &p = *MNOS[i].grad[n];
+    Tensor &t = TTOS;
+    if (t.numel == p.numel) {
+        Tensor::copy(t, p);
+        DU t = POP(); mmu.drop(t);
+    }
+    else {
+        PUSH(i);                        /// * restore n
+        ERROR("Tensor and model parameter is not the same shape");
+    }
 }
 /// Convolution ops
 /// @default: kxk filter, padding=1, stride=1, dilation=1
@@ -381,10 +401,12 @@ NetVM::init() {
          Tensor &t = MTOS[i];
          DU     v  = mmu.obj2du(t);
          PUSH(mmu.dup(v)));
-    CODE("nn.w",    _parm(0));                     ///< tensor.weight
-    CODE("nn.b",    _parm(1));                     ///< tensor.bias
-    CODE("nn.dw",   _parm(2));                     ///< tensor.weight.grad
-    CODE("nn.db",   _parm(3));                     ///< tensor.bias.grad
+    CODE("nn.w",    _get_parm(0));                 ///< tensor.weight
+    CODE("nn.b",    _get_parm(1));                 ///< tensor.bias
+    CODE("nn.dw",   _get_parm(2));                 ///< tensor.weight.grad
+    CODE("nn.db",   _get_parm(3));                 ///< tensor.bias.grad
+    CODE("nn.w=",   _set_parm(0));                 ///< populate tensor.weight
+    CODE("nn.b=",   _set_parm(1));                 ///< populate tensor.bias
     CODE("network", if (IS_M(top)) fout << top);
     ///
     /// ===========================================================================
