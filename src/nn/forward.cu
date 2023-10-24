@@ -179,7 +179,9 @@ __KERN__ void k_batchnorm(
 //
 __GPU__ Model&
 Model::forward(Tensor &input) {
+    int tlvl   = _mmu->trace();
     Tensor &n1 = (*this)[1];  ///< reference model input layer
+    if (tlvl) input.show();   /// * preview input data
 
     if (input.numel != n1.numel) {
         ERROR("Model::forward dataset wrong shape[%d,%d,%d,%d] != model input[[%d,%d,%d,%d]\n",
@@ -198,7 +200,6 @@ Model::forward(Tensor &input) {
             in.N(), in.H(), in.W(), in.C(), 0.001*in.parm,
             out.N(), out.H(), out.W(), out.C());
     };
-    int tlvl = _mmu->trace();
     TRACE1("\nModel::forward starts");
     DU t0 = _mmu->ms(), t1 = t0, tt;             ///< performance measurement
     for (U16 i = 1; i < numel - 1; i++) {
