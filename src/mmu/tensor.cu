@@ -497,8 +497,9 @@ Tensor::loss(t4_loss op, Tensor &tgt) {
     DU sum = DU0;                    ///> result loss value
     switch (op) {
     case LOSS_MSE:                   /// * mean squared error, input from linear
-        *this -= tgt;
-        sum = 0.5 * NORM(numel, data);
+        *this -= tgt;                /// * (output - predict)
+        *this *= *this;              /// * (output - predict)^2
+        sum = 0.5 * this->sum();
         break;
     case LOSS_BCE: {                 /// * binary cross_entropy, input from sigmoid
         dim3 blk(T4_WARP_SQ, 1, 1);
@@ -516,7 +517,7 @@ Tensor::loss(t4_loss op, Tensor &tgt) {
         break;
     default: ERROR("Model#loss op=%d not supported!\n", op);
     }
-    sum /= numel;                    /// average per mini-batch sample
+    sum /= N();                      /// * average per mini-batch sample
     
     return SCALAR(sum);              /// make sum a scalar value (not object)
 }
