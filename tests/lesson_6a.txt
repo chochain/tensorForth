@@ -1,0 +1,42 @@
+\ Linear NN step-by-step verification
+\ see https://mattmazur.com/2015/03/17/a-step-by-step-backpropagation-example/
+1 trace                         \ turn tracing on
+1 2 1 1 nn.model                \ create our NN model
+2 linear sigmoid                \ hidden layer
+2 linear sigmoid                \ output layer
+constant nn                     \ keep as a constant
+
+nn                              \ fetch model
+network                         \ show layers
+
+4 vector{ 0.15 0.2 0.25 0.3 }   \ update layer-1 weight, bias
+1 nn.w=
+2 vector{ 0.35 0.35 }
+1 nn.b=
+
+4 vector{ 0.4 0.45 0.5 0.55 }   \ update layer-3 weight, bias
+3 nn.w=
+2 vector{ 0.6 0.6 }
+3 nn.b=
+
+2 vector{ 0.05 0.1 }            \ input tensor
+forward                         \ NN forward pass
+-1 n@ .                         \ verify output { 0.7514 0.7729 }
+4 nn.w .                        \ verify sigmoid filter s(1-s) = { 0.1868 0.1755 }
+3 n@ .                          \ verify layer-3 output i.e outh1,h2 = { 0.5933 0.5969 }
+2 nn.w .                        \ sigmoid filter s(1-s) = { 0.2413 0.2406 }
+
+2 vector{ 0.01 0.99 }
+constant tgt
+tgt loss.mse .                  \ verify loss= 0.29837
+
+tgt backprop
+3 nn.dw .                       \ verify L3 dw={ { 0.0822 0.0827 } { -0.0226 -0.0227 } }
+1 nn.dw .                       \ verify L1 dw={ { 0.0004 0.0009 } { 0.0005 0.0010 } }
+
+0.5 nn.sgd                      \ learn at alpha=0.5
+3 nn.w .                        \ verify L3 w={ { 0.3589 0.4087 } { 0.5113 0.5614 } }
+1 nn.w .                        \ verify L1 w={ { 0.1498 0.1996 } { 0.2498 0.2995 } }
+
+bye
+
