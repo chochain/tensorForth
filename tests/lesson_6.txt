@@ -48,5 +48,5 @@ N 1 1 1 tensor zeros constant FAKE
   gen N 2 reshape2 s" jk" save                      \ generate N samples
   ;
 
-9 gan
+19 gan
 bye
