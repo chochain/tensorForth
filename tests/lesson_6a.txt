@@ -31,12 +31,17 @@ constant tgt
 tgt loss.mse .                  \ verify loss= 0.29837
 
 tgt backprop
+4 n@    .                       \ verify L4 dX={ 0.1385 -0.0381 }
+3 nn.db .                       \ confirm db = dX
 3 nn.dw .                       \ verify L3 dw={ { 0.0822 0.0827 } { -0.0226 -0.0227 } }
+2 n@    .                       \ verify L2 dX={ 0.0088 0.0100 }
+1 nn.db .                       \ confirm db = dX
 1 nn.dw .                       \ verify L1 dw={ { 0.0004 0.0009 } { 0.0005 0.0010 } }
 
 0.5 nn.sgd                      \ learn at alpha=0.5
 3 nn.w .                        \ verify L3 w={ { 0.3589 0.4087 } { 0.5113 0.5614 } }
+3 nn.b .                        \ verify L3 b={ 0.5308 0.6190 }
 1 nn.w .                        \ verify L1 w={ { 0.1498 0.1996 } { 0.2498 0.2995 } }
-
+1 nn.b .                        \ verify L1 b={ 0.3456 0.3450 }
 bye
 
