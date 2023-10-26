@@ -513,11 +513,11 @@ Tensor::loss(t4_loss op, Tensor &tgt) {
         /* no break */
     case LOSS_NLL:                   /// * negative log likelihood, input from log-softmax
         *this *= tgt;                /// * out_i * tgt_i
-        sum = -this->sum();          /// * negative sum
+        sum = -this->sum();          /// * sum for mini-batch samples
         break;
     default: ERROR("Model#loss op=%d not supported!\n", op);
     }
-    sum /= N();                      /// * average per mini-batch sample
+    sum /= N();                      /// * mini-batch average
     
     return SCALAR(sum);              /// make sum a scalar value (not object)
 }
