@@ -42,11 +42,11 @@ N 1 1 1 tensor zeros constant FAKE
   cr ." w,b=" G 1 nn.w . 1 nn.b . drop
   ." G=" _g . ." , Dr=" _r . ." , Df=" _f . cr ;
 
-: epoch ( -- ) 49 for run next stat ;               \ train with 50 * N samples
+: epoch ( -- ) 99 for run next stat ;               \ train with 100 * N samples
 : gan ( -- ) 
   for epoch next
   gen N 2 reshape2 s" jk" save                      \ generate N samples
   ;
 
-19 gan
+9 gan
 bye
