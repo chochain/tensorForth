@@ -319,12 +319,14 @@ ForthVM::init() {
         add_w(DOVAR));                                      // dovar (+ parameter field)
     CODE("to",              // 3 to x                       // alter the value of a constant
         int w = FIND(next_idiom());                         // to save the extra @ of a variable
+        if (w < 0) { ERROR(" word not found"); return; }
         IU  a = PFA(w) + sizeof(IU);
         DU  d = POP();
         if (a < T4_PMEM_SZ) STd(a, d);                      // store TOS to constant's pfa
         else ERROR("to %x", a));
     CODE("is",              // ' y is x                     // alias a word
         int w = FIND(next_idiom());                         // can serve as a function pointer
+        if (w < 0) { ERROR(" word not found"); return; }
         IU  a = PFA(POPi);
         IU  i = PFA(w);
         if (a < T4_PMEM_SZ) STi(a, i);                     // point x to y
