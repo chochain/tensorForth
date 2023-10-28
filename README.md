@@ -420,6 +420,12 @@ s" tests/my_net.t4" save                    \ persist the trained network
     - https://towardsdatascience.com/neural-machine-translation-inner-workings-seq2seq-and-transformers-229faff5895b
     - https://towardsdatascience.com/a-detailed-guide-to-pytorchs-nn-transformer-module-c80afbc9ffb1
     - https://nlp.seas.harvard.edu/2018/04/03/attention.html
+* VM
+  + review CUDA HostFunc callback (requires CUDA Stream)
+  + review CUDA Graph
+  + free_tensor as linked-list (instead of an array)
+  + inter-VM communication (CUDA stream, review CUB again)
+  + inter-VM loader (from VM->VM)
 * Data + Visualization
   + output tensor in HWC format
       * util from raw to png (with STB)
@@ -427,10 +433,6 @@ s" tests/my_net.t4" save                    \ persist the trained network
   + add loader plug-in API - CIFAR
   + add K-fold sampler
   + data API - Python(cffi), Ruby(FFI)
-* VM
-  + free_tensor as linked-list (instead of an array)
-  + inter-VM communication (CUDA stream, review CUB again)
-  + inter-VM loader (from VM->VM)
 * Refactor
   + study Scikit-learn (discrete functions)
   + study JAX
