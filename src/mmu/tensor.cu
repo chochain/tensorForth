@@ -131,8 +131,8 @@ __KERN__ void
 k_bce(DU *O, DU *T, int numel) {
     const int i = threadIdx.x + blockIdx.x * blockDim.x;  ///< element index
     if (i < numel) {
-//        O[i] = ABS(T[i]) < DU_EPS ? LN(DU1 - O[i]) : LN(O[i]);
-        O[i] = T[i] * LN(O[i]) + (DU1 - T[i]) * LN(DU1 - O[i]);
+//        O[i] = ABS(T[i]) < DU_EPS ? LN(DU1 - O[i] + DU_EPS) : LN(O[i] + DU_EPS);
+        O[i] = T[i] * LN(O[i] + DU_EPS) + (DU1 - T[i]) * LN(DU1 - O[i] + DU_EPS);
     }
 }
 ///
