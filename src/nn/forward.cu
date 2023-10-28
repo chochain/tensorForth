@@ -137,10 +137,10 @@ __KERN__ void k_activate(
             O[k] = ik > DU0
                 ? (F[k]=DU1, ik) : (F[k]=DU0);      break; /// * 1|0
         case L_TANH:
-            ik = O[k] = 0.5 * (DU1 + TANH(ik));            /// * i.e. [0,1)
-            F[k] = 0.5 * (DU1 - ik*ik);             break; /// * 0.5 * (1 - tanh^2)
+            O[k] = 0.5 * (DU1 + (ik=TANH(ik)));            /// * scaled to [0,1)
+            F[k] = DU1 - ik*ik;                     break; /// * (1 - tanh^2)
         case L_SIGMOID:
-            ik = O[k] = SIGMOID(ik);
+            O[k] = ik = SIGMOID(ik);
             F[k] = ik * (DU1 - ik);                 break; /// * sig*(1 - sig)
         case L_SELU: O[k] = ik > DU0                       /// * selu
             ? (F[k] = SELU_L, ik)
