@@ -33,6 +33,7 @@ typedef enum {
     IDEN,
     /// 1-operand + a constant
     FILL,
+    GFILL,
     SCALE,
     POW,
     /// 2-operand ops
