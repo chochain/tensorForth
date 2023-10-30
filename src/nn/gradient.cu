@@ -11,7 +11,8 @@
 
 __KERN__ void k_sgd(
     DU *G, DU *DG, DU *M,                    ///< w, dw, and momemtum tensors
-    DU lr, DU b, int N, int numel            ///< learn rate, beta(momemtum)
+    int N, int numel,                        ///< batch size and HWC
+    DU lr, DU b                              ///< learn rate, beta(momemtum)
     ) {
     const int i = threadIdx.x + blockIdx.x * blockDim.x;   ///< element index
     
@@ -28,13 +29,13 @@ __KERN__ void k_sgd(
 
 __KERN__ void k_adam(
     DU *G, DU *DG, DU *M, DU *V,            ///< w, dw, and momemtum tensors
-    DU lrc, DU b1, DU b2,                   ///< corrected learn rate, beta(momemtum)
-    int numel                               ///< batch size
+    int N, int numel,                       ///< batch size and HWC
+    DU lrc, DU b1, DU b2                    ///< corrected learn rate, beta(momemtum)
     ) {
     const int i = threadIdx.x + blockIdx.x * blockDim.x;   ///< element index
     
     if (i < numel) {
-        DU dg = DG[i];                                     ///< dG (not batch avg)
+        DU dg = DG[i] / N;                                 ///< dG batch avg
         DU mi = M[i] = b1 * M[i] + (DU1 - b1) * dg;        ///< momentum
         DU vi = V[i] = b2 * V[i] + (DU1 - b2) * dg * dg;   ///< velocity
         G[i] -= lrc * mi / (SQRT(vi) + DU_EPS);            /// * update gradient
@@ -130,14 +131,14 @@ Model::sgd(DU lr, DU b) {                          /// a=momentum
     auto update = [](DU *parm, Tensor *g, Tensor *dg, Tensor *m, Tensor *v) {
         const int numel = g->numel;
         const dim3 blk(T4_WARP_SQ, 1, 1);          ///< default blocks
-        const dim3 grd((numel + blk.x - 1)/blk.x, 1, 1);
+        const dim3 grd((numel + blk.x - 1) / blk.x, 1, 1);
 
         k_sgd<<<grd,blk>>>(
             g->data, dg->data, m->data,
-            parm[0], parm[1], parm[2], numel);
+            g->N(), numel, parm[0], parm[1]);
         GPU_SYNC();
     };
-    DU parm[3] = { lr, _iter ? b : DU0, (DU)batch_size() };
+    DU parm[2] = { lr, _iter ? b : DU0 };
 
     return gradient("sgd", update, parm, ABS(b) < DU_EPS ? OPTI_SGD : OPTI_SGDM);
 }
@@ -147,11 +148,11 @@ Model::adam(DU lr, DU b1, DU b2) {
     auto update = [](DU *parm, Tensor *g, Tensor *dg, Tensor *m, Tensor *v) {
         const int numel = g->numel;
         const dim3 blk(T4_WARP_SQ, 1, 1);         ///< default blocks
-        const dim3 grd((numel + blk.x - 1)/blk.x, 1, 1);
+        const dim3 grd((numel + blk.x - 1) / blk.x, 1, 1);
 
         k_adam<<<grd,blk>>>(
             g->data, dg->data, m->data, v->data,
-            parm[0], parm[1], parm[2], numel);
+            g->N(), numel, parm[0], parm[1], parm[2]);
         GPU_SYNC();
     };
     DU parm[3] = {
