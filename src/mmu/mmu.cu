@@ -206,7 +206,7 @@ MMU::free(Tensor &t) {
     if (t.grad_fn != L_NONE) {
         MM_TRACE1(" {\n");
         for (int i=0; t.mtum[i] && i < 4; i++) {
-            if (t.mtum[i] == t.grad[i]) continue;
+            if (t.mtum[i] == t.grad[i]) continue;   /// * dummy pointers for SGD
             MM_TRACE1("\t\t"); free(*t.mtum[i]);
         }
         for (int i=0; t.grad[i] && i < 4; i++) {
@@ -214,7 +214,7 @@ MMU::free(Tensor &t) {
         }
         MM_TRACE1("\t}");
     }
-    _ostore.free(&t);            /// * free tensor object itself
+    _ostore.free(&t);              /// * free tensor object itself
     _ostore.status(_trace);
 }
 #if T4_ENABLE_NN

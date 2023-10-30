@@ -489,7 +489,7 @@ Tensor::loss(t4_loss op, Tensor &tgt) {
         DU sum = DU0;
         for (int i=0; i<numel; i++) {
             DU t = tgt.data[i], y = this->data[i];
-            sum += t * LN(y) + (DU1-t) * LN(DU1 - y);
+            sum += t * LN(y + DU_EPS) + (DU1-t) * LN(DU1 - y + DU_EPS);
         }
         return -sum;
     };
