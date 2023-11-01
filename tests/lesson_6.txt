@@ -30,11 +30,11 @@ N 1 1 1 tensor zeros constant FAKE
   D 1 trainable
   Y   forward REAL loss.bce [to] _r REAL backprop   \ treat real as real
   gen forward FAKE loss.bce [to] _f FAKE backprop   \ treat fake as fake
-  0.001 0.9 nn.adam                                 \ train D
+  0.001 nn.adam                                     \ train D (b1=0.9,b2=0.999)
   0 trainable
   gen forward REAL loss.bce [to] _g REAL backprop   \ treat fake as real
   1 n@ G swap ( D G t ) backprop                    \ pass dX to G
-  0.001 0.9 nn.adam                                 \ train G
+  0.001 nn.adam                                     \ train G
   drop drop pause                                   \ switch task and flush
   ;
 \ expected loss G=>low, Dr=>low, Df=>high (thinking fake as real)  

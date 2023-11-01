@@ -55,10 +55,10 @@ backprop                          \ execute backward propegation
 mstat                             \ obj#used[71]
 
 .( #### gradiant decent ) cr
-0.001 0.9 nn.adam                 \ learn using Adam gradient descent
+0.001 nn.adam                     \ learn using Adam (b1=0.9, b2=0.999)
 mstat                             \ obj#used[103]
 
-0.001 0.9 nn.adam                 \ learn again
+0.001 nn.adam                     \ learn again
 mstat                             \ obj#used[103]
 
 bye
