@@ -35,7 +35,7 @@ __KERN__ void k_adam(
     const int i = threadIdx.x + blockIdx.x * blockDim.x;   ///< element index
     
     if (i < numel) {
-        DU dg = DG[i] / N;                                 ///< dG batch avg
+        DU dg = DG[i];                                     ///< dG (no batch avg)
         DU mi = M[i] = b1 * M[i] + (DU1 - b1) * dg;        ///< momentum
         DU vi = V[i] = b2 * V[i] + (DU1 - b2) * dg * dg;   ///< velocity
         G[i] -= lrc * mi / (SQRT(vi) + DU_EPS);            /// * update gradient
