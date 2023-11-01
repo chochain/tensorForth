@@ -97,7 +97,6 @@ __KERN__ void k_dlinear_dx(
     if (c0 < C0 && c1 < C1) {                          /// * TODO: shuffle-sum
         DU dy = O[c0 + n * HWC0];
         DU *x = &I[c1 + n * HWC1];                     ///< pointer to X
-        *x = DU0;                                      /// * zero out dX
         atomicAdd(x, W[cx] * dy);                      /// * dX = W^t * dY
     }
 }
@@ -370,6 +369,7 @@ Model::_blinear(Tensor &in, Tensor &out) {
                 C1, C0, E1, E0);
         }
         /// barrier for X (because we did N samples in one grid)
+        in.map(FILL, DU0);                          /// * zero out dX
         k_dlinear_dx<<<grd, blk>>>(                 /// * update dX
             in.data, out.data, w.data,
             C1, C0, E1, E0);
