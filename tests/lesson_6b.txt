@@ -40,7 +40,9 @@ tgt backprop
 
 0.5 nn.sgd                      \ learn at alpha=0.5
 3 nn.b .                        \ verify L3 b={ 0.4615 0.6381 }
+3 nn.db .                       \ verify L3 db=zeros
 3 nn.w .                        \ verify L3 w={ { 0.3178 0.3673 } { 0.5226 0.5727 } }
+3 nn.dw .                       \ verify L3 dw=zeros
 1 nn.b .                        \ verify L1 b={ 0.3412 0.3400 }
 1 nn.w .                        \ verify L1 w={ { 0.1496 0.1991 } { 0.2495 0.2990 } }
 bye
