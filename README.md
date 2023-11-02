@@ -37,6 +37,10 @@ More details to come but here are some samples of tensorForth in action
   > |---|---|
   > |<img src="https://raw.githubusercontent.com/chochain/tensorForth/master/docs/img/ten4_cnv_vs_bn.png" width="600px" height="400px">|<img src="https://raw.githubusercontent.com/chochain/tensorForth/master/docs/img/ten4_act_cmp.png" width="600px" height="400px">|
 
+  > |Generative Adversarial Network (MNIST)|Generator & Discriminator Losses|
+  > |---|---|
+  > |<img src="https://raw.githubusercontent.com/chochain/tensorForth/master/docs/img/ten4_l7_progress2.png" width="600px" height="400px">|<img src="https://raw.githubusercontent.com/chochain/tensorForth/master/docs/img/ten4_l7_loss.png" width="600px" height="400px">|
+
 ### How?
 GPU, behaves like a co-processor or a DSP chip. It has no OS, no string support, and runs its own memory. Most of the available libraries are built for host instead of device i.e. to initiate calls from CPU into GPU but not the other way around. So, to be interactive, a memory manager, IO, and syncing with CPU are things needed to be had. It's pretty much like creating a Forth from scratch for a new processor as in the old days.
 
@@ -303,7 +307,8 @@ s" tests/my_net.t4" save                    \ persist the trained network
 <pre>
    zeros     (Ta   -- Ta')   - fill tensor with zeros
    ones      (Ta   -- Ta')   - fill tensor with ones
-   full      (Ta   -- Ta')   - fill tensor with number on TOS
+   gradfill  (Ta   -- Ta')   - gradient fill elements from 0 to 1
+   full      (Ta n -- Ta')   - fill tensor with number on TOS
    eye       (Ta   -- Ta')   - fill diag with 1 and other with 0
    rand      (Ta   -- Ta')   - fill tensor with uniform random numbers
    randn     (Ta   -- Ta')   - fill tensor with normal distribution random numbers
