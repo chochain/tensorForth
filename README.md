@@ -1,6 +1,6 @@
 <META HTTP-EQUIV='Content-Security-Policy' CONTENT="default-src 'self' ; script-src 'self' 'unsafe-inline' *.disqus.com a.disquscdn.com requirejs.org www.google-analytics.com; style-src 'self' 'unsafe-inline' a.disquscdn.com; img-src 'self' *; media-src 'self' ; frame-src disqus.com;">
 
-## tensorForth - Forth does matrices and machine learning
+## tensorForth - lives in GPU, does linear algebra and machine learning
 * Forth VM that supports tensor calculus and Convolution Neural Network with dynamic parallelism in CUDA
 
 ### Status
@@ -9,9 +9,9 @@
 |[1.0](https://github.com/chochain/tensorForth/releases/tag/v1.0.2)|**float**|production|extended eForth with F32 float|Python|
 |[2.0](https://github.com/chochain/tensorForth/releases/tag/v2.0.2)|**matrix**|production|+ vector and matrix objects|NumPy|
 |[2.2](https://github.com/chochain/tensorForth/releases/tag/v2.2.2)|**lapack**|beta|+ linear algebra methods|SciPy|
-|[3.0](https://github.com/chochain/tensorForth/releases/tag/v3.0.0)|**CNN**|alpha|+ Machine Learning with autograd|Torch|
-|3.2|**GAN**|developing|adding Generative Adversarial Net|PyTorch.GAN|
-|future|**Transformer**|planning|to add Transformer ops|PyTorch.Transformer|
+|[3.0](https://github.com/chochain/tensorForth/releases/tag/v3.0.0)|**CNN**|beta|+ Machine Learning with autograd|Torch|
+|[3.2](https://github.com/chochain/tensorForth/releases/tag/v3.2.0)|**GAN**|alpha|+ Generative Adversarial Net|PyTorch.GAN|
+|4.0|**Transformer**|developing|add Transformer ops|PyTorch.Transformer|
 
 ### Why?
 Compiled programs run fast on Linux. On the other hand, command-line interface and shell scripting tie them together in operation. With interactive development, small tools are built along the way, productivity usually grows with time, especially in the hands of researchers.
@@ -22,7 +22,7 @@ Compiled programs run fast on Linux. On the other hand, command-line interface a
 
 *Numpy* kind of solves both. So, for AI projects today, we use *Python* mostly. However, when GPU got involved, to enable processing on CUDA device, say with *Numba* or the likes, mostly there will be a behind the scene 'just-in-time' transcoding to C/C++ followed by compilation then load and run. In a sense, your *Python* code behaves like a *Makefile* which requires compilers/linker available on the host box. Common practice for code analysis can only happen at the tail-end after execution. This is usually a long journey. After many coffee breaks, we tweak the *Python* code and restart again. To monitor progress or catch any anomaly, scanning the intermittent dump become a habit which probably reminisce the line-printer days for seasoned developers. So much for 70 years of software engineering progress.
 
-Forth language encourages incremental build and test. Having a 'shell', resides in GPU, that can interactively and incrementally develop/run each AI layer/node as a small 'subroutine' without dropping back to host system might better assist building a rapid and accurate system. The rationale is not unlike why the NASA probes sent into space are equipped with Forth chips. On the flipped side, with this kind of CUDA kernel code, some might argue that the branch divergence could kill the GPU. Well, the performance of the 'shell scripts' themselves are not really the point. So, here we are!
+Forth language encourages incremental build and test. Having a 'shell', resides in GPU, that can interactively and incrementally develop/run each AI layer/node as a small 'subroutine' without dropping back to host system might better assist building a rapid and accurate system. The rationale is not unlike why the NASA probes sent into space are equipped with Forth chips. On the flipped side, with this kind of CUDA kernel code, some might argue that the branch divergence could kill the GPU. Well, there's always space for improving. Also, the performance of the 'shell scripts' themselves is never really the point. So, here we are!
 
 > **tensor + Forth = tensorForth!**
 
@@ -164,10 +164,13 @@ s" tests/my_net.t4" save                    \ persist the trained network
   > ~/tests> ten4 < lesson_2.txt - for matrix ops,<br/>
   > ~/tests> ten4 < lesson_3.txt - for linear algebra stuffs
 * enter the following for testing machine learning (v3) ops<br/>
-  > ~/tests> ten4 < lesson_4.txt - NN model single pass of forward, loss, and backprop<br/>
-  > ~/tests> ten4 < lesson_5.txt - MINST training, 20 epochs<br/>
-  > ~/tests> ten4 < lesson_6.txt - GAN on linear regression, 10 epochs<br/>
-  > ~/tests> ten4 < lesson_7.txt - GAN on MINST dataset, 100 epochs<br/>
+  > ~/tests> ten4 < lesson_4.txt - NN model forward, loss, and backprop verification - single pass<br/>
+  > ~/tests> ten4 < lesson_5.txt - MINST training, 20 epochs
+* enter the following for testing GAN (v3.2) ops<br/>
+  > ~/tests> ten4 < lesson_6a.txt - GAN on NN single sample linear layer verification<br/>
+  > ~/tests> ten4 < lesson_6b.txt - GAN on NN multi-sample linear layer verification<br/>
+  > ~/tests> ten4 < lesson_6.txt - GAN on simple linear regression, 10 epochs<br/>
+  > ~/tests> ten4 < lesson_7.txt - GAN on MINST dataset, 100 epochs
 
 #### with Eclipse
 * install Eclipse
@@ -190,10 +193,12 @@ s" tests/my_net.t4" save                    \ persist the trained network
   nn.model   (n h w c -- N)      - create a Neural Network model with (n,h,w,c) input
   >n         (N T -- N')         - manually add tensor to model
   n@         (N n -- N T)        - fetch layered tensor from model, -1 is the latest layer
-  nn.w       (N n -- N T)        - query weight tensor of nth layer (0 means none)
-  nn.b       (N n -- N T)        - query bias tensor of nth layer (0 means none)
-  nn.dw      (N n -- N T)        - query weight gradient tensor of nth layer (0 means none)
-  nn.db      (N n -- N T)        - query bias gradient tensor of nth layer (0 means none)
+  nn.w       (N n -- N T)        - query weight tensor of nth layer (0 means N/A)
+  nn.b       (N n -- N T)        - query bias tensor of nth layer (0 means N/A)
+  nn.dw      (N n -- N T)        - query weight gradient tensor of nth layer (0 means N/A)
+  nn.db      (N n -- N T)        - query bias gradient tensor of nth layer (0 means N/A)
+  nn.w=      (N T n -- N')       - set weight tensor of nth layer
+  nn.b=      (N T n -- N')       - set bias tensor of nth layer
   network    (N -- N)            - display network model
   
   load       (N adr len [fam] -- N') - load trained network from a given file name
@@ -252,7 +257,7 @@ s" tests/my_net.t4" save                    \ persist the trained network
   logsoftmax (N -- N')           - add probability vector x - log(sum(exp(x))) to network model, feeds loss.nll, used in multi-class
 </pre>
 
-### Loss and Gradiant ops
+### Loss and Gradient ops
 <pre>
   loss.mse   (N Ta -- N Ta n)    - mean squared error, takes output from linear layer
   loss.bce   (N Ta -- N Ta n)    - binary cross-entropy, takes output from sigmoid activation
@@ -263,7 +268,9 @@ s" tests/my_net.t4" save                    \ persist the trained network
   nn.zero    (N -- N')           - manually zero gradient tensors
   nn.sgd     (N p -- N')         - apply SGD(learn_rate=p, momentum=0.0) model back propagation
   nn.sgd     (N p m -- N')       - apply SGD(learn_rate=p, momentum=m) model back propagation
-  nn.adam    (N a b1 -- N')      - apply Adam backprop alpha, beta1, default beta2=1-(1-b1)^3
+  nn.adam    (N a -- N')         - apply Adam backprop alpha=a, default b1=0.9, b2=0.999
+  nn.adam    (N a b1 -- N')      - apply Adam backprop alpha=a, beta1=b1, default beta2=0.999
+  nn.adam    (N a b1 b2 -- N')   - apply Adam backprop alpha=a, beta1=b1, beta2=b2
   nn.zero    (N -- N')           - reset momentum tensors
   nn.onehot  (N -- N T)          - get cached onehot vector from a model
   nn.hit     (N -- N n)          - get number of hit (per mini-batch) of a model
@@ -318,8 +325,8 @@ s" tests/my_net.t4" save                    \ persist the trained network
 
 ### Tensor slice and dice
 <pre>
-   t@        (T  i -- T n)  - fetch ith element of tensor (in NHWC order)
-   t!        (T  i n -- T') - store n into ith element of tensor (in NHWC order)
+   t@        (T  i -- T n)  - fetch ith element from a tensor (in NHWC order)
+   t!        (T  i n -- T') - store n into ith element of a tensor (in NHWC order)
    slice     (Ta i0 i1 j0 j1 -- Ta Ta') - numpy.slice[i0:i1,j0:j1,]
 </pre>
 
@@ -408,11 +415,13 @@ s" tests/my_net.t4" save                    \ persist the trained network
 </pre>
 
 ### TODO - by priorities
+* VM
+  + review CUDA HostFunc callback (requires CUDA Stream)
+  + review CUDA Graph
+  + free_tensor as linked-list (instead of an array)
+  + inter-VM communication (CUDA stream, review CUB again)
+  + inter-VM loader (from VM->VM)
 * Model
-  + GAN
-    - DC-GAN https://machinelearningmastery.com/how-to-train-stable-generative-adversarial-networks/
-    - AC-GAN Keras (https://machinelearningmastery.com/how-to-develop-an-auxiliary-classifier-gan-ac-gan-from-scratch-with-keras/
-    - use pre-trained model, i.e. transfer learning (https://openaccess.thecvf.com/content_ECCV_2018/papers/yaxing_wang_Transferring_GANs_generating_ECCV_2018_paper.pdf)
   + add block - branch & concatenate (i.e Inception in GoogLeNet)
   + add block - residual map (i.e. ResNet, https://d2l.ai/chapter_convolutional-modern/resnet.html)
   + torch.eval() i.e. normalize using running stat, disable dropout (vs torch.train())
@@ -425,12 +434,6 @@ s" tests/my_net.t4" save                    \ persist the trained network
     - https://towardsdatascience.com/neural-machine-translation-inner-workings-seq2seq-and-transformers-229faff5895b
     - https://towardsdatascience.com/a-detailed-guide-to-pytorchs-nn-transformer-module-c80afbc9ffb1
     - https://nlp.seas.harvard.edu/2018/04/03/attention.html
-* VM
-  + review CUDA HostFunc callback (requires CUDA Stream)
-  + review CUDA Graph
-  + free_tensor as linked-list (instead of an array)
-  + inter-VM communication (CUDA stream, review CUB again)
-  + inter-VM loader (from VM->VM)
 * Data + Visualization
   + output tensor in HWC format
       * util from raw to png (with STB)
@@ -452,6 +455,9 @@ s" tests/my_net.t4" save                    \ persist the trained network
   + consider RNN - maybe not! lost to Transformer.
 
 ### LATER
+* Model
+  + GAN
+    - use pre-trained model, i.e. transfer learning (https://openaccess.thecvf.com/content_ECCV_2018/papers/yaxing_wang_Transferring_GANs_generating_ECCV_2018_paper.pdf)
 * Data
   + NCHW tensor format support (as in PyTorch)
   + loader - .petastorm, .csv (available on github)
