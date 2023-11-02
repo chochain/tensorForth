@@ -39,7 +39,7 @@ More details to come but here are some samples of tensorForth in action
 
   > |Generative Adversarial Network (MNIST)|Generator & Discriminator Losses|
   > |---|---|
-  > |<img src="https://raw.githubusercontent.com/chochain/tensorForth/master/docs/img/ten4_l7_progress2.png" width="880px" height="560px">|<img src="https://raw.githubusercontent.com/chochain/tensorForth/master/docs/img/ten4_l7_loss.png" width="400px" height="400px">|
+  > |<img src="https://raw.githubusercontent.com/chochain/tensorForth/master/docs/img/ten4_l7_progress2.png" width="880px" height="560px">|<img src="https://raw.githubusercontent.com/chochain/tensorForth/master/docs/img/ten4_l7_loss.png" width="300px" height="300px"><br/>|
 
 ### How?
 GPU, behaves like a co-processor or a DSP chip. It has no OS, no string support, and runs its own memory. Most of the available libraries are built for host instead of device i.e. to initiate calls from CPU into GPU but not the other way around. So, to be interactive, a memory manager, IO, and syncing with CPU are things needed to be had. It's pretty much like creating a Forth from scratch for a new processor as in the old days.
