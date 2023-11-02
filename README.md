@@ -8,7 +8,7 @@
 |---|---|---|---|---|
 |[1.0](https://github.com/chochain/tensorForth/releases/tag/v1.0.2)|**float**|production|extended eForth with F32 float|Python|
 |[2.0](https://github.com/chochain/tensorForth/releases/tag/v2.0.2)|**matrix**|production|+ vector and matrix objects|NumPy|
-|[2.2](https://github.com/chochain/tensorForth/releases/tag/v2.2.2)|**lapack**|beta|+ linear algebra methods|SciPy|
+|[2.2](https://github.com/chochain/tensorForth/releases/tag/v2.2.2)|**lapack**|production|+ linear algebra methods|SciPy|
 |[3.0](https://github.com/chochain/tensorForth/releases/tag/v3.0.0)|**CNN**|beta|+ Machine Learning with autograd|Torch|
 |[3.2](https://github.com/chochain/tensorForth/releases/tag/v3.2.0)|**GAN**|alpha|+ Generative Adversarial Net|PyTorch.GAN|
 |4.0|**Transformer**|developing|add Transformer ops|PyTorch.Transformer|
@@ -132,7 +132,7 @@ constant ds0                                \ keep the dataset as a constant
 : cnn ( N D n -- N' D )                     \ run multiple epochs
   for epoch ds0 rewind next ;
 
-ds0 19 epoch drop                           \ put dataset as TOS, run 20 epochs
+ds0 19 cnn drop                             \ put dataset as TOS, run the CNN for 20 epochs
 s" tests/my_net.t4" save                    \ persist the trained network
 </pre>
 
