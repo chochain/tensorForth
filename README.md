@@ -39,7 +39,7 @@ More details to come but here are some samples of tensorForth in action
 
   > |Generative Adversarial Network (MNIST)|Generator & Discriminator Losses|
   > |---|---|
-  > |<img src="https://raw.githubusercontent.com/chochain/tensorForth/master/docs/img/ten4_l7_progress2.png" width="880px" height="560px">|<img src="https://raw.githubusercontent.com/chochain/tensorForth/master/docs/img/ten4_l7_loss.png" width="300px" height="300px"><br/>|
+  > |<img src="https://raw.githubusercontent.com/chochain/tensorForth/master/docs/img/ten4_l7_progress2.png" width="880px" height="400px">|<img src="https://raw.githubusercontent.com/chochain/tensorForth/master/docs/img/ten4_l7_loss.png" width="300px" height="300px"><br/>|
 
 ### How?
 GPU, behaves like a co-processor or a DSP chip. It has no OS, no string support, and runs its own memory. Most of the available libraries are built for host instead of device i.e. to initiate calls from CPU into GPU but not the other way around. So, to be interactive, a memory manager, IO, and syncing with CPU are things needed to be had. It's pretty much like creating a Forth from scratch for a new processor as in the old days.
@@ -117,35 +117,22 @@ matrix[1024,512] = {                 \ in PyTorch style (edgeitem=3)
 0.5 20 conv2d 0.5 dropout 2 maxpool relu    \ add another convolution block
 flatten 49 linear                           \ add reduction layer to 49-feature, and
 0.5 dropout 10 linear softmax               \ final 10-feature fully connected output
-constant md0                                \ we can store the model in a constant
+constant md0                                \ we can keep the model as a constant
                                 
 md0 batchsize dataset mnist_train           \ create a MNIST dataset with model batch size
-constant ds0                                \ save dataset in a constant
+constant ds0                                \ keep the dataset as a constant
 
-\ statistics
-variable acc 0 acc !                        \ create an accuracy counter, and zero it
-variable lox                                \ a variable to keep current loss
-: stat cr .                                 \ display statistics
-  ." >" clock .
-  ." : hit=" acc @ . 0 acc !
-  ." , loss=" lox @ . cr ;
-
-\ entire CNN training framework
+\ the entire CNN training framework here
 : epoch ( N D -- N' )                       \ one epoch thru entire training dataset
   for                                       \ loop thru dataset per mini-batch
     forward                                 \ neural network forward pass
-    loss.ce lox ! nn.hit acc +!             \ get loss and hit count
     backprop                                \ neural network back propagation
-    0.01 0.0 nn.sgd                         \ training with Stochastic Gradient
-    46 emit                                 \ display progress '.'
+    0.01 nn.sgd                             \ training with Stochastic Gradient Descent
   next ;                                    \ next mini-batch (kept on return stack)
 : cnn ( N D n -- N' D )                     \ run multiple epochs
-  for epoch r@ stat ds0 rewind next ;
+  for epoch ds0 rewind next ;
 
-ds0                                         \ put dataset as TOS
-19 epoch                                    \ execute multiple epochs
-drop                                        \ drop dataset from TOS
-
+ds0 19 epoch drop                           \ put dataset as TOS, run 20 epochs
 s" tests/my_net.t4" save                    \ persist the trained network
 </pre>
 
