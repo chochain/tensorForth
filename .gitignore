@@ -2,6 +2,12 @@
 appengine-generated/
 /src/*.o
 /src/*/*.o
+/src/*.cpp?.ii
+/src/*.cubin
+/src/*.fatbin*
+/src/*.cudafe*
+/src/*.module_id
+/src/*.ptx
 /tests/*
 !/tests/**/
 !/tests/*.*
