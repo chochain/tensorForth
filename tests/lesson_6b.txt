@@ -1,0 +1,49 @@
+\ Linear NN step-by-step with 2 samples verification
+\ see https://mattmazur.com/2015/03/17/a-step-by-step-backpropagation-example/
+1 trace                         \ turn tracing on
+2 2 1 1 nn.model                \ create our NN model
+2 linear sigmoid                \ hidden layer
+2 linear sigmoid                \ output layer
+constant nn                     \ keep as a constant
+
+nn                              \ fetch model
+network                         \ show layers
+
+4 vector{ 0.15 0.2 0.25 0.3 }   \ update layer-1 weight, bias
+1 nn.w=
+2 vector{ 0.35 0.35 }
+1 nn.b=
+
+4 vector{ 0.4 0.45 0.5 0.55 }   \ update layer-3 weight, bias
+3 nn.w=
+2 vector{ 0.6 0.6 }
+3 nn.b=
+
+4 vector{ 0.05 0.1 0.05 0.1 }   \ create input vector => 2 2 1 1 tensor
+forward                         \ NN forward pass
+-1 n@ .                         \ verify output { 0.7514 0.7729 }
+4 nn.w .                        \ verify sigmoid filter s(1-s) = { 0.1868 0.1755 }
+3 n@ .                          \ verify layer-3 output i.e outh1,h2 = { 0.5933 0.5969 }
+2 nn.w .                        \ sigmoid filter s(1-s) = { 0.2413 0.2406 }
+
+4 vector{ 0.01 0.99 0.01 0.99 } \ create target vector => 2 2 1 1 tensor
+constant tgt
+tgt loss.mse .                  \ verify loss= 0.29837 (avg, should be the same as N=1)
+
+tgt backprop                    \ back propegation
+4 n@    .                       \ L4 dX={ { 0.1385 -0.0381 } { 0.1385 -0.0381 } }
+3 nn.db .                       \ L3 db = sum(dX) { 0.277 -0.0762 }
+3 nn.dw .                       \ L3 dw={ { 0.1643 0.1653 } { -0.0452 -0.0455 } }
+2 n@    .                       \ L2 dX={ { 0.0088 0.0100 } { 0.0088 0.0100 } }
+1 nn.db .                       \ L1 db = sum(dX) { 0.01754 0.01991 }
+1 nn.dw .                       \ L1 dw={ { 0.0009 0.0018 } { 0.0010 0.0020 } }
+
+0.5 nn.sgd                      \ SGD learn at alpha=0.5
+3 nn.b .                        \ L3 b={ 0.4615 0.6381 }
+3 nn.db .                       \ L3 db=zeros
+3 nn.w .                        \ L3 w={ { 0.3178 0.3673 } { 0.5226 0.5727 } }
+3 nn.dw .                       \ L3 dw=zeros
+1 nn.b .                        \ L1 b={ 0.3412 0.3400 }
+1 nn.w .                        \ L1 w={ { 0.1496 0.1991 } { 0.2495 0.2990 } }
+bye
+

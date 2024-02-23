@@ -1,7 +1,7 @@
 .( ## Convolution NN tests ## ) cr
 1 trace
 2 10 10 1 nn.model                \ create a model with NHWC tensor input
-network                           \ display it
+dup .                             \ display it
 
 .( #### define seq1 ) cr
 0.5 2 conv2d                      \ 2d convolution with bias=0.5, 10 output channel
@@ -23,7 +23,7 @@ flatten                           \ flatten for dense layer (no need)
 0.0 4 linear                      \ linerize to 4 output with no bias
 softmax                           \ translate to probability
 
-network                           \ display network model
+network                           \ display network model (= dup .)
 
 .( #### save model as a constant ) cr
 constant mnist                    \ save model as a constant
@@ -55,10 +55,10 @@ backprop                          \ execute backward propegation
 mstat                             \ obj#used[71]
 
 .( #### gradiant decent ) cr
-0.001 0.9 nn.adam                 \ learn using Adam gradient descent
+0.001 nn.adam                     \ learn using Adam (b1=0.9, b2=0.999)
 mstat                             \ obj#used[103]
 
-0.001 0.9 nn.adam                 \ learn again
+0.001 nn.adam                     \ learn again
 mstat                             \ obj#used[103]
 
 bye

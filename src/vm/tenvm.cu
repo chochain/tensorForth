@@ -50,6 +50,7 @@ TensorVM::xop1(math_op op, DU v) {
     case SQRT:
     case RCP:
     case FILL:
+    case GFILL:
     case SCALE:
     case POW:   A.map(op, v);   break;
     case IDEN:  A.identity();   break;
@@ -393,6 +394,7 @@ TensorVM::init() {
     CODE("zeros", xop1(FILL, DU0));               ///< fill tensor with 0s
     CODE("ones",  xop1(FILL, DU1));               ///< fill tensor with 1s
     CODE("full",  xop1(FILL, POP()));             ///< fill tensor with a value
+    CODE("gradfill", xop1(GFILL, DU1));           ///< gradient fill a tensor
     CODE("eye",   xop1(IDEN));                    ///< fill 1s in diag
     CODE("rand",  top = mmu.rand(top, UNIFORM));  ///< uniform randomize a tensor or number
     CODE("randn", top = mmu.rand(top, NORMAL));   ///< normal dist. randomize a tensor

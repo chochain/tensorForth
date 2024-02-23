@@ -33,6 +33,7 @@ typedef enum {
     IDEN,
     /// 1-operand + a constant
     FILL,
+    GFILL,
     SCALE,
     POW,
     /// 2-operand ops
@@ -65,7 +66,6 @@ typedef enum {
 #define MOD(t,n)    ((float)fmodf(t,n))        /**< fmod two floats        */
 #define MAX(x,y)    ((float)fmaxf(x,y))        /**< maximum of the two     */
 #define MIN(x,y)    ((float)fminf(x,y))        /**< minimum of the two     */
-#define NORM(n,p)   ((float)normf(n,p))        /**< normal of n floats     */
 ///@}
 #ifdef __cplusplus
 extern "C" {

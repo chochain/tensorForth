@@ -11,7 +11,7 @@
 /// MNIST GUI texture builder
 ///
 __HOST__ int
-MnistVu::init_host_tex() {
+MnistVu::_init_host_tex() {
     auto fit = [this](int z0, unsigned char *src) {
         uchar4 *t = &h_tex[z0];
         for (int i = corpus.H - 1; i >= 0; i--) {      // y top-down flip

@@ -13,45 +13,63 @@ Vu::Vu(Corpus &cp, int x, int y) :
         fprintf(stderr, "ERR: Bad uchar4 size = %ld\n", sizeof(uchar4));
         exit(-1);
     }
-    if (X == corpus.W && Y == corpus.H && corpus.C == 4) {
-        h_tex = (uchar4*)corpus.data;      /// * pass thru, no buffer needed
-        return;
-    }
-    ///
-    /// malloc GL texture block (in uchar4 format)
-    ///
-    size_t bsz = X * Y * sizeof(uchar4);   ///< texture block size
-
-    h_tex = (uchar4*)malloc(bsz);          ///< alloc texture block
-    if (!h_tex) {
-        fprintf(stderr, "Vu.h_tex malloc %ld bytes failed\n", bsz);
-        exit(-1);
-    }
+    _init_host_tex();
+    _dump_host_tex();
+    _init_cuda_tex();
 }
 
-__HOST__ int
-Vu::init_host_tex() {
-    int    C  = corpus.C;
-    U8     *s = corpus.data;
-    uchar4 *t = h_tex;
-    for (int i = 0; i < Y; i++) {
-        for (int j = 0; j < X; j++, t++, s+=C) {
-            t->x = *s;
-            t->y = C < 2 ? *s   : *(s+1);
-            t->z = C < 3 ? *s   : *(s+2);
-            t->w = C < 4 ? 0xff : *(s+3);
-        }
-    }
-    return 0;                                ///< has malloc
+__HOST__
+Vu::~Vu() {
+    if (!d_ary) return;
+    cudaDestroyTextureObject(cu_tex);     /// * release texture object
+    cudaFreeArray(d_ary);                 /// * free device texture memory
+
+    if (!h_tex) return;
+    cudaFree(h_tex);                      /// * free host texture memory
 }
 
 __HOST__ void
-Vu::tex_dump() {
+Vu::_init_host_tex() {                    ///* shrink to fit
+    size_t bsz = X * Y * sizeof(uchar4);  ///< buffer size
+    VUX(cudaMallocManaged(&h_tex, bsz));  /// * h_tex on managed data
+    if (!h_tex) {
+        fprintf(stderr, "Vu.h_tex host texture malloc failed\n");
+        exit(-1);
+    }
+    printf("Vu.h_tex=%p size=%ld", h_tex, bsz);
+    
+    int xs = (corpus.W + (X-1)) / X;      ///< x-stride
+    int ys = (corpus.H + (Y-1)) / Y;      ///< y-stride
+    int C  = corpus.C;                    ///< channel depth
+    
+    if (xs==1 && ys==1 && C==sizeof(uchar4)) {
+        printf(", pass thru");
+        VUX(cudaMemcpy(h_tex, corpus.data, bsz, cudaMemcpyHostToDevice));
+        return;
+    }
+    printf(", resize");
+    ///
+    /// shrink to fit, TODO: interpolate (i.e. stb_image_resize)
+    ///
+    U8     *b = corpus.data;
+    uchar4 *t = h_tex;
+    for (int y = 0; y < Y; y++, b+=(ys - 1) * X * C) {
+        for (int x = 0; x < X; x++, t++, b+=C) {
+            t->x = *b;
+            t->y = C < 2 ? *b   : *(b+1);
+            t->z = C < 3 ? *b   : *(b+2);
+            t->w = C < 4 ? 0xff : *(b+3);
+        }
+    }
+}
+
+__HOST__ void
+Vu::_dump_host_tex() {
     if (!h_tex) return;
     uchar4 *p = h_tex;
-    for (int i = 0; i < 10; i++) {
+    for (int y = 0; y < 10; y++) {
         printf("\n");
-        for (int j = 0; j < 4; j++, p++) {
+        for (int x = 0; x < 4; x++, p++) {
             printf("[%02x,%02x,%02x,%02x] ", p->x, p->y, p->z, p->w);
         }
     }
@@ -59,11 +77,16 @@ Vu::tex_dump() {
 }
 
 __HOST__ void
-Vu::init_cuda_tex() {
+Vu::_init_cuda_tex() {
     int pitch = sizeof(uchar4) * X;
     
     cudaChannelFormatDesc fmt = cudaCreateChannelDesc<uchar4>();
     VUX(cudaMallocArray(&d_ary, &fmt, X, Y));
+    if (!d_ary) {
+        fprintf(stderr, "Vu.d_ary managed array alloc failed\n");
+        exit(-1);
+    }
+    printf(", Vu.d_ary=%p", d_ary);
     VUX(cudaMemcpy2DToArray(
         d_ary, 0, 0, h_tex, pitch, pitch, Y, cudaMemcpyHostToDevice));
 
@@ -81,16 +104,11 @@ Vu::init_cuda_tex() {
     desc.readMode         = cudaReadModeNormalizedFloat;
   
     VUX(cudaCreateTextureObject(&cu_tex, &res, &desc, NULL));
-}
-
-__HOST__ void
-Vu::free_tex() {
-    if (!h_tex) return;
-    
-    VUX(cudaDestroyTextureObject(cu_tex));   /// * release texture object
-    VUX(cudaFreeArray(d_ary));               /// * free device texture memory
-
-    // free(h_tex);  /// * free host texture memory, TODO: => core dump?
+    if (!cu_tex) {
+        fprintf(stderr, "Vu.cu_tex cuda texture alloc failed\n");
+        exit(-1);
+    }
+    printf(" ok\n");
 }
 
 

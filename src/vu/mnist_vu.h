@@ -16,9 +16,12 @@ class MnistVu : public Vu {
     int NX, NY;
 public:
     __HOST__ MnistVu(Corpus &cp, int nx=40, int ny=30) :
-        Vu(cp, cp.W * nx, cp.H * ny), NX(nx), NY(ny) {}
-    
-    __HOST__ virtual int init_host_tex();
+        Vu(cp, cp.W * nx, cp.H * ny), NX(nx), NY(ny) {
+        _init_host_tex();
+    }
+
+private:
+    __HOST__ virtual int _init_host_tex();
 };
 
 #endif  // (T4_ENABLE_OBJ && T4_ENABLE_NN)

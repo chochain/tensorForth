@@ -137,10 +137,10 @@ __KERN__ void k_activate(
             O[k] = ik > DU0
                 ? (F[k]=DU1, ik) : (F[k]=DU0);      break; /// * 1|0
         case L_TANH:
-            ik = O[k] = 0.5 * (DU1 + TANH(ik));            /// * i.e. [0,1)
-            F[k] = 0.5 * (DU1 - ik*ik);             break; /// * 0.5 * (1 - tanh^2)
+            O[k] = 0.5 * (DU1 + (ik=TANH(ik)));            /// * scaled to [0,1)
+            F[k] = DU1 - ik*ik;                     break; /// * (1 - tanh^2)
         case L_SIGMOID:
-            ik = O[k] = SIGMOID(ik);
+            O[k] = ik = SIGMOID(ik);
             F[k] = ik * (DU1 - ik);                 break; /// * sig*(1 - sig)
         case L_SELU: O[k] = ik > DU0                       /// * selu
             ? (F[k] = SELU_L, ik)
@@ -179,7 +179,9 @@ __KERN__ void k_batchnorm(
 //
 __GPU__ Model&
 Model::forward(Tensor &input) {
+    int tlvl   = _mmu->trace();
     Tensor &n1 = (*this)[1];  ///< reference model input layer
+    if (tlvl) input.show();   /// * preview input data
 
     if (input.numel != n1.numel) {
         ERROR("Model::forward dataset wrong shape[%d,%d,%d,%d] != model input[[%d,%d,%d,%d]\n",
@@ -198,7 +200,6 @@ Model::forward(Tensor &input) {
             in.N(), in.H(), in.W(), in.C(), 0.001*in.parm,
             out.N(), out.H(), out.W(), out.C());
     };
-    int tlvl = _mmu->trace();
     TRACE1("\nModel::forward starts");
     DU t0 = _mmu->ms(), t1 = t0, tt;             ///< performance measurement
     for (U16 i = 1; i < numel - 1; i++) {

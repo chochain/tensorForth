@@ -42,18 +42,18 @@ public:
 
 class BmpVu : public Vu {
 public:
-    BmpVu(Corpus &nd) : Vu(nd) {}
+    BmpVu(Corpus &cp) : Vu(cp) {}
     
     virtual void   keyboard(U8 k) { _vuop = (k == '0'); }
-    virtual void   display(TColor *d_dst) {
-        if (_vuop) _img_flip(d_dst);
-        else       _img_copy(d_dst);
+    virtual void   display(TColor *d_buf) {
+        if (_vuop) _img_flip(d_buf);
+        else       _img_copy(d_buf);
     }
 
 private:
     int    _vuop = 0;
 
-    void   _img_copy(TColor *d_dst);
-    void   _img_flip(TColor *d_dst);
+    void   _img_copy(TColor *d_buf);
+    void   _img_flip(TColor *d_buf);
 };
 #endif // TEST_BMPVU_H

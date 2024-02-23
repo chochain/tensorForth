@@ -432,6 +432,7 @@ k_math(math_op op, float *A, int n, float v) {
         case SQRT:  A[k] = SQRT(MAX(ak, 0.0));        break;  // guarded
         case RCP:   A[k] = RCP(ak);                   break;  // 1/x
         case FILL:  A[k] = v;                         break;
+        case GFILL: A[k] = v * k / n;                 break;  // gradient fill
         case SCALE: A[k] *= v;                        break;
         case POW:   A[k] = POW(ak, v);                break;  // x^v
         case ADD:   A[k] += v;                        break;

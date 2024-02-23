@@ -1,9 +1,12 @@
 .( ### small matrix creation with given values ) cr
 2 3 matrix{ 1 2 3 4 5 6 }    \ create a 2x3 matrix
-dup .                        \ create a view and print it
+dup                          \ create a view (shown in lower case)
+.                            \ print it (destructive as in Forth)
 
 3 2 matrix ones              \ create a 3x2 matrix filled with 1s
-@ .                          \ multiply matrices and print
+dup .                        \ see whether it's all ones
+@                            \ multiply matrices and leave resultant as TOS
+.                            \ print the resultant matrix
 
 2drop                        \ drop the original two matrices
 
@@ -11,17 +14,17 @@ cr .( ### large matrix multiplication ) cr
 512 1024 matrix rand         \ create a 512x1024 matrix with random values
 1024 256 matrix ones         \ create a 1024x256 matrix filled with 1s
 @                            \ multiply the matrices
-2048 / .                     \ scale down element-wise and print
-2drop                        \ clean up
+1024 /= .                    \ scale down element-wise and print
 
 cr .( ### benchmark - 100 loops ) cr
-: mx dup >r clock >r         \ create a word for benchmark loops
+: mx                         \ create a word for benchmark loops
+  dup >r clock >r            \ keep loop count and init clock on return stack
   for @ drop next            \ loop of matrix multiplication (and drop the result)
-  clock r> -                 \ clock it
+  clock r> -                 \ time it (clock1 - clock0)
   r> 1 + / ." =>"            \ retrieve loop count and calc average
   . ."  msec/cycle" cr ;     \ print result
 see mx                       \ show the word
-99 mx                        \ run 100 the multiplication loop 100 times
+99 mx                        \ run the multiplication loop 100 times
 
 2drop                        \ drop the original two matrices
 

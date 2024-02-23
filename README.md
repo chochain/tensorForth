@@ -1,4 +1,6 @@
-## tensorForth - Forth does matrices and machine learning
+<META HTTP-EQUIV='Content-Security-Policy' CONTENT="default-src 'self' ; script-src 'self' 'unsafe-inline' *.disqus.com a.disquscdn.com requirejs.org www.google-analytics.com; style-src 'self' 'unsafe-inline' a.disquscdn.com; img-src 'self' *; media-src 'self' ; frame-src disqus.com;">
+
+## tensorForth - lives in GPU, does linear algebra and machine learning
 * Forth VM that supports tensor calculus and Convolution Neural Network with dynamic parallelism in CUDA
 
 ### Status
@@ -6,10 +8,10 @@
 |---|---|---|---|---|
 |[1.0](https://github.com/chochain/tensorForth/releases/tag/v1.0.2)|**float**|production|extended eForth with F32 float|Python|
 |[2.0](https://github.com/chochain/tensorForth/releases/tag/v2.0.2)|**matrix**|production|+ vector and matrix objects|NumPy|
-|[2.2](https://github.com/chochain/tensorForth/releases/tag/v2.2.2)|**lapack**|beta|+ linear algebra methods|SciPy|
-|[3.0](https://github.com/chochain/tensorForth/releases/tag/v3.0.0)|**CNN**|alpha|+ Machine Learning with autograd|Torch|
-|3.2|**GAN**|developing|adding Generative Adversarial Net|PyTorch.GAN|
-|future|**Transformer**|planning|to add Transformer ops|PyTorch.Transformer|
+|[2.2](https://github.com/chochain/tensorForth/releases/tag/v2.2.2)|**lapack**|production|+ linear algebra methods|SciPy|
+|[3.0](https://github.com/chochain/tensorForth/releases/tag/v3.0.0)|**CNN**|beta|+ Machine Learning with autograd|Torch|
+|[3.2](https://github.com/chochain/tensorForth/releases/tag/v3.2.0)|**GAN**|alpha|+ Generative Adversarial Net|PyTorch.GAN|
+|4.0|**Transformer**|developing|add Transformer ops|PyTorch.Transformer|
 
 ### Why?
 Compiled programs run fast on Linux. On the other hand, command-line interface and shell scripting tie them together in operation. With interactive development, small tools are built along the way, productivity usually grows with time, especially in the hands of researchers.
@@ -20,7 +22,7 @@ Compiled programs run fast on Linux. On the other hand, command-line interface a
 
 *Numpy* kind of solves both. So, for AI projects today, we use *Python* mostly. However, when GPU got involved, to enable processing on CUDA device, say with *Numba* or the likes, mostly there will be a behind the scene 'just-in-time' transcoding to C/C++ followed by compilation then load and run. In a sense, your *Python* code behaves like a *Makefile* which requires compilers/linker available on the host box. Common practice for code analysis can only happen at the tail-end after execution. This is usually a long journey. After many coffee breaks, we tweak the *Python* code and restart again. To monitor progress or catch any anomaly, scanning the intermittent dump become a habit which probably reminisce the line-printer days for seasoned developers. So much for 70 years of software engineering progress.
 
-Forth language encourages incremental build and test. Having a 'shell', resides in GPU, that can interactively and incrementally develop/run each AI layer/node as a small 'subroutine' without dropping back to host system might better assist building a rapid and accurate system. The rationale is not unlike why the NASA probes sent into space are equipped with Forth chips. On the flipped side, with this kind of CUDA kernel code, some might argue that the branch divergence could kill the GPU. Well, the performance of the 'shell scripts' themselves are not really the point. So, here we are!
+Forth language encourages incremental build and test. Having a 'shell', resides in GPU, that can interactively and incrementally develop/run each AI layer/node as a small 'subroutine' without dropping back to host system might better assist building a rapid and accurate system. The rationale is not unlike why the NASA probes sent into space are equipped with Forth chips. On the flipped side, with this kind of CUDA kernel code, some might argue that the branch divergence could kill the GPU. Well, there's always space for improving. Also, the performance of the 'shell scripts' themselves is never really the point. So, here we are!
 
 > **tensor + Forth = tensorForth!**
 
@@ -29,11 +31,15 @@ More details to come but here are some samples of tensorForth in action
 * Benchmarks (on MNIST)
   > |Different Neural Network Models|Different Gradient Descent Methods|
   > |---|---|
-  > |<img src="./docs/img/ten4_model_cmp.png" width="600px" height="400px">|<img src="./docs/img/ten4_gradient_cmp.png" width="600px" height="400px">|
+  > |<img src="https://raw.githubusercontent.com/chochain/tensorForth/master/docs/img/ten4_model_cmp.png" width="600px" height="400px">|<img src="https://raw.githubusercontent.com/chochain/tensorForth/master/docs/img/ten4_gradient_cmp.png" width="600px" height="400px">|
   
   > |2D Convolution vs Linear+BatchNorm|Effectiveness of Different Activations|
   > |---|---|
-  > |<img src="./docs/img/ten4_cnv_vs_bn.png" width="600px" height="400px">|<img src="./docs/img/ten4_act_cmp.png" width="600px" height="400px">|
+  > |<img src="https://raw.githubusercontent.com/chochain/tensorForth/master/docs/img/ten4_cnv_vs_bn.png" width="600px" height="400px">|<img src="https://raw.githubusercontent.com/chochain/tensorForth/master/docs/img/ten4_act_cmp.png" width="600px" height="400px">|
+
+  > |Generative Adversarial Network (MNIST)|Generator & Discriminator Losses|
+  > |---|---|
+  > |<img src="https://raw.githubusercontent.com/chochain/tensorForth/master/docs/img/ten4_l7_progress2.png" width="880px" height="400px">|<img src="https://raw.githubusercontent.com/chochain/tensorForth/master/docs/img/ten4_l7_loss.png" width="300px" height="300px"><br/>|
 
 ### How?
 GPU, behaves like a co-processor or a DSP chip. It has no OS, no string support, and runs its own memory. Most of the available libraries are built for host instead of device i.e. to initiate calls from CPU into GPU but not the other way around. So, to be interactive, a memory manager, IO, and syncing with CPU are things needed to be had. It's pretty much like creating a Forth from scratch for a new processor as in the old days.
@@ -51,15 +57,17 @@ tensorForth 2.0
 \  GPU 0 initialized at 1800MHz, dict[1024], vmss[64*1], pmem=48K, tensor=1024M
 2 3 matrix{ 1 2 3 4 5 6 }            \ create a 2x3 matrix
  <0 T2[2,3]> ok                      \ 2-D tensor shown on top of stack (TOS)
-.                                    \ print the matrix
+dup                                  \ create a view of the matrix
+ <0 T2[2,3] t[2,3]> ok               \ view shown in lower case
+.                                    \ print the matrix (destructive as in Forth)
 matrix[2,3] = {
 	{ +1.0000 +2.0000 +3.0000 }
 	{ +4.0000 +5.0000 +6.0000 } }
- <0 T2[2,3]> ok                      \ matrix still there on stack (non-destructive)
+ <0 T2[2,3]> ok                      \ original matrix still on TOS
 3 2 matrix ones                      \ create a 3x2 matrix, fill it with ones
  <0 T2[2,3] T2[3,2]> ok              \ now we have two matrices on stack
-.                                    \ see whether it
-matrix[3,2] = {                      \ filled with ones indeed
+dup .                                \ see whether it is filled with one indeed
+matrix[3,2] = {
 	{ +1.0000 +1.0000 }
 	{ +1.0000 +1.0000 }
 	{ +1.0000 +1.0000 } }
@@ -69,7 +77,7 @@ matrix[3,2] = {                      \ filled with ones indeed
 matrix[2,2] = {
 	{ +6.0000 +6.0000 }
 	{ +15.0000 +15.0000 } }
- <0 T2[2,3] T2[3,2] T2[2,2]> ok
+ <0 T2[2,3] T2[3,2]> ok
 bye                                  \ exit tensorForth
  <0> ok
 tensorForth 2.0 done.
@@ -92,10 +100,11 @@ matrix[1024,512] = {                 \ in PyTorch style (edgeitem=3)
 	{ +0.5041 +0.5041 +0.5041 ... +0.5041 +0.5041 +0.5041 }
 	{ +0.5007 +0.5007 +0.5007 ... +0.5007 +0.5007 +0.5007 }
 	{ +0.5269 +0.5269 +0.5269 ... +0.5269 +0.5269 +0.5269 } }
- <0 T2[1024,2048] T2[2048,512] T2[1024,512]> ok  \ note that matrix is untouched
-drop                                        \ because tensor ops are by default non-destructive
- <0 T2[1024,2048] T2[2048,512]> ok          \ so we drop them from TOS
-: mx clock >r for @ drop next clock r> - ;  \ now let's define a word 'mx' for benchmark loop
+ <0 T2[1024,2048] T2[2048,512]> ok
+: mx                                        \ now let's define a word 'mx' for benchmark loop
+  clock >r                                  \ keep the init time (in msec) on return stack
+  for @ drop next                           \ loops of matrix multiplication
+  clock r> - ;                              \ time it (clock1 - clock0)
  <0 T2[1024,2048] T2[2048,512]> ok
 999 mx                                      \ now try 1000 loops
  <0 T2[1024,2048] T2[2048,512] 3.938+04> ok \ that is 39.38 sec (i.e. ~40ms / loop)
@@ -108,40 +117,27 @@ drop                                        \ because tensor ops are by default 
 0.5 20 conv2d 0.5 dropout 2 maxpool relu    \ add another convolution block
 flatten 49 linear                           \ add reduction layer to 49-feature, and
 0.5 dropout 10 linear softmax               \ final 10-feature fully connected output
-constant md0                                \ we can store the model in a constant
+constant md0                                \ we can keep the model as a constant
                                 
 md0 batchsize dataset mnist_train           \ create a MNIST dataset with model batch size
-constant ds0                                \ save dataset in a constant
+constant ds0                                \ keep the dataset as a constant
 
-\ statistics
-variable acc 0 acc !                        \ create an accuracy counter, and zero it
-variable lox                                \ a variable to keep current loss
-: stat cr .                                 \ display statistics
-  ." >" clock .
-  ." : hit=" acc @ . 0 acc !
-  ." , loss=" lox @ . cr ;
-
-\ entire CNN training framework
+\ the entire CNN training framework here
 : epoch ( N D -- N' )                       \ one epoch thru entire training dataset
   for                                       \ loop thru dataset per mini-batch
     forward                                 \ neural network forward pass
-    loss.ce lox ! nn.hit acc +!             \ get loss and hit count
     backprop                                \ neural network back propagation
-    0.01 0.0 nn.sgd                         \ training with Stochastic Gradient
-    46 emit                                 \ display progress '.'
+    0.01 nn.sgd                             \ training with Stochastic Gradient Descent
   next ;                                    \ next mini-batch (kept on return stack)
 : cnn ( N D n -- N' D )                     \ run multiple epochs
-  for epoch r@ stat ds0 rewind next ;
+  for epoch ds0 rewind next ;
 
-ds0                                         \ put dataset as TOS
-19 epoch                                    \ execute multiple epochs
-drop                                        \ drop dataset from TOS
-
+ds0 19 cnn drop                             \ put dataset as TOS, run the CNN for 20 epochs
 s" tests/my_net.t4" save                    \ persist the trained network
 </pre>
 
 ### To build
-* install CUDA 11.6 on your machine
+* install CUDA 11.6+ on your machine
 * download one of the releases from the list above to your local directory
 
 #### with Makefile, and test
@@ -155,19 +151,23 @@ s" tests/my_net.t4" save                    \ persist the trained network
   > ~/tests> ten4 < lesson_2.txt - for matrix ops,<br/>
   > ~/tests> ten4 < lesson_3.txt - for linear algebra stuffs
 * enter the following for testing machine learning (v3) ops<br/>
-  > ~/tests> ten4 < lesson_4.txt - for single pass of forward, loss, and backprop<br/>
-  > ~/tests> ten4 < lesson_5.txt - MINST training, 20 epochs<br/>
-  > ~/tests> ten4 < lesson_7.txt - GAN on MINST dataset, 100 epochs<br/>
+  > ~/tests> ten4 < lesson_4.txt - NN model forward, loss, and backprop verification - single pass<br/>
+  > ~/tests> ten4 < lesson_5.txt - MINST training, 20 epochs
+* enter the following for testing GAN (v3.2) ops<br/>
+  > ~/tests> ten4 < lesson_6a.txt - GAN on NN single sample linear layer verification<br/>
+  > ~/tests> ten4 < lesson_6b.txt - GAN on NN multi-sample linear layer verification<br/>
+  > ~/tests> ten4 < lesson_6.txt - GAN on simple linear regression, 10 epochs<br/>
+  > ~/tests> ten4 < lesson_7.txt - GAN on MINST dataset, 100 epochs
 
 #### with Eclipse
 * install Eclipse
-* install CUDA SDK 11.6 for Eclipse (from Nvidia site)
+* install CUDA SDK 11.6 or above for Eclipse (from Nvidia site)
 * create project by importing from your local repo root
 * exclude directories - ~/tests, ~/img
 * set File=>Properties=>C/C++ Build=>Setting=>NVCC compiler
   + Dialect=C++14
-  + CUDA=5.2 or above
-  + Optimization=O3
+  + CUDA=5.2 or above (depends on your GPU)
+  + Optimization=O2 or O3
 
 ## tensorForth command line options
 * \-h             - list all GPU id and their properties<br/>
@@ -180,10 +180,12 @@ s" tests/my_net.t4" save                    \ persist the trained network
   nn.model   (n h w c -- N)      - create a Neural Network model with (n,h,w,c) input
   >n         (N T -- N')         - manually add tensor to model
   n@         (N n -- N T)        - fetch layered tensor from model, -1 is the latest layer
-  nn.w       (N n -- N T)        - query weight tensor of nth layer (0 means none)
-  nn.b       (N n -- N T)        - query bias tensor of nth layer (0 means none)
-  nn.dw      (N n -- N T)        - query weight gradient tensor of nth layer (0 means none)
-  nn.db      (N n -- N T)        - query bias gradient tensor of nth layer (0 means none)
+  nn.w       (N n -- N T)        - query weight tensor of nth layer (0 means N/A)
+  nn.b       (N n -- N T)        - query bias tensor of nth layer (0 means N/A)
+  nn.dw      (N n -- N T)        - query weight gradient tensor of nth layer (0 means N/A)
+  nn.db      (N n -- N T)        - query bias gradient tensor of nth layer (0 means N/A)
+  nn.w=      (N T n -- N')       - set weight tensor of nth layer
+  nn.b=      (N T n -- N')       - set bias tensor of nth layer
   network    (N -- N)            - display network model
   
   load       (N adr len [fam] -- N') - load trained network from a given file name
@@ -242,7 +244,7 @@ s" tests/my_net.t4" save                    \ persist the trained network
   logsoftmax (N -- N')           - add probability vector x - log(sum(exp(x))) to network model, feeds loss.nll, used in multi-class
 </pre>
 
-### Loss and Gradiant ops
+### Loss and Gradient ops
 <pre>
   loss.mse   (N Ta -- N Ta n)    - mean squared error, takes output from linear layer
   loss.bce   (N Ta -- N Ta n)    - binary cross-entropy, takes output from sigmoid activation
@@ -253,7 +255,9 @@ s" tests/my_net.t4" save                    \ persist the trained network
   nn.zero    (N -- N')           - manually zero gradient tensors
   nn.sgd     (N p -- N')         - apply SGD(learn_rate=p, momentum=0.0) model back propagation
   nn.sgd     (N p m -- N')       - apply SGD(learn_rate=p, momentum=m) model back propagation
-  nn.adam    (N a b1 -- N')      - apply Adam backprop alpha, beta1, default beta2=1-(1-b1)^3
+  nn.adam    (N a -- N')         - apply Adam backprop alpha=a, default b1=0.9, b2=0.999
+  nn.adam    (N a b1 -- N')      - apply Adam backprop alpha=a, beta1=b1, default beta2=0.999
+  nn.adam    (N a b1 b2 -- N')   - apply Adam backprop alpha=a, beta1=b1, beta2=b2
   nn.zero    (N -- N')           - reset momentum tensors
   nn.onehot  (N -- N T)          - get cached onehot vector from a model
   nn.hit     (N -- N n)          - get number of hit (per mini-batch) of a model
@@ -297,7 +301,8 @@ s" tests/my_net.t4" save                    \ persist the trained network
 <pre>
    zeros     (Ta   -- Ta')   - fill tensor with zeros
    ones      (Ta   -- Ta')   - fill tensor with ones
-   full      (Ta   -- Ta')   - fill tensor with number on TOS
+   gradfill  (Ta   -- Ta')   - gradient fill elements from 0 to 1
+   full      (Ta n -- Ta')   - fill tensor with number on TOS
    eye       (Ta   -- Ta')   - fill diag with 1 and other with 0
    rand      (Ta   -- Ta')   - fill tensor with uniform random numbers
    randn     (Ta   -- Ta')   - fill tensor with normal distribution random numbers
@@ -307,8 +312,8 @@ s" tests/my_net.t4" save                    \ persist the trained network
 
 ### Tensor slice and dice
 <pre>
-   t@        (T  i -- T n)  - fetch ith element of tensor (in NHWC order)
-   t!        (T  i n -- T') - store n into ith element of tensor (in NHWC order)
+   t@        (T  i -- T n)  - fetch ith element from a tensor (in NHWC order)
+   t!        (T  i n -- T') - store n into ith element of a tensor (in NHWC order)
    slice     (Ta i0 i1 j0 j1 -- Ta Ta') - numpy.slice[i0:i1,j0:j1,]
 </pre>
 
@@ -397,6 +402,12 @@ s" tests/my_net.t4" save                    \ persist the trained network
 </pre>
 
 ### TODO - by priorities
+* VM
+  + review CUDA HostFunc callback (requires CUDA Stream)
+  + review CUDA Graph
+  + free_tensor as linked-list (instead of an array)
+  + inter-VM communication (CUDA stream, review CUB again)
+  + inter-VM loader (from VM->VM)
 * Model
   + GAN
     - DC-GAN https://machinelearningmastery.com/how-to-train-stable-generative-adversarial-networks/
@@ -425,10 +436,6 @@ volutional-modern/resnet.html)
   + add loader plug-in API - CIFAR
   + add K-fold sampler
   + data API - Python(cffi), Ruby(FFI)
-* VM
-  + free_tensor as linked-list (instead of an array)
-  + inter-VM communication (CUDA stream, review CUB again)
-  + inter-VM loader (from VM->VM)
 * Refactor
   + study Scikit-learn (discrete functions)
   + study JAX

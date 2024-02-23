@@ -4,7 +4,7 @@
 * TLSF tensor storage manager
 * matrix arithmetic (i.e. +, -, @, *, sum, min, max, avg, abs, negate, exp, log, pow)
 * linear algebra (i.e. copy, matmul, inverse, transpose, det, lu, luinv, upper, lower, solve)
-* matrix fill (i.e. zeros, ones, full, eye, random)
+* matrix fill (i.e. zeros, ones, gradfill, full, eye, random)
 * matrix console input (i.e. matrix{..., vector{..., and T!{)
 * matrix print (i.e PyTorch-style, adjustable edge elements)
 * tensor reference instead of deep copy (i.e. dup, over, pick, r@)
@@ -154,6 +154,8 @@ tensorForth 2.0 done.
 ||> `2 3 matrix`**`zeros`**<br/>> `.`|`T2[2,3]`<br/>`matrix[2,3] = { { +0.0000 +0.0000 +0.0000 } { +0.0000 +0.0000 +0.0000 } }`|
 |ones|(Ta -- Ta')|fill tensor with ones|
 ||> `2 2 matrix`**`ones`**<br/>> `.`|`T2[2,2]`<br/>`matrix[2,2] = { { +1.0000 +1.0000 } { +1.0000 +1.0000 } }`|
+|gradfill|(Ta -- Ta')|fill tensor with linear gradient values [0,1.0) for debugging mostly|
+||> `2 2 matrix`**`gradfill`**<br/>> `.`|`T2[2,2]`<br/>`matrix[2,2] = { { +0.0000 +0.2500 } { +0.5000 +0.7500 } }`|
 |full|(Ta n -- Ta')|fill tensor with number on TOS|
 ||> `2 2 matrix 3`**`full`**<br/>> `.`|`T2[2,2]`<br/>`matrix[2,2] = { { +3.0000 +3.0000 } { +3.0000 +3.0000 } }`|
 |eye|(Ta -- Ta')|fill diag with 1 and other with 0|
@@ -170,8 +172,8 @@ tensorForth 2.0 done.
 ### Tensor slice and dice
 |word|param/example|tensor slicing ops (non-destructive)|
 |---|---|---|
-|t@|(T i -- T n)|fetch ith element of tensor (in NHWC order)|
-|t!|(T i v -- T')|store n into ith element of tensor (in NHWC order)|
+|t@|(T i -- T n)|fetch ith element from a tensor (in NHWC order)|
+|t!|(T i v -- T')|store n into ith element of a tensor (in NHWC order)|
 |slice|(Ta x0 x1 y0 y1 -- Ta Ta')|numpy.slice[x0:x1, y0:y1, ]|
 ||> `4 4 matrix rand`<br/>> `dup .`<br/>> **`1 3 1 3 slice`**<br/>> `.`|`T2[4,4]`<br/>`matrix[4,4] = {`<br/> `{ +0.0940 +0.5663 +0.3323 +0.0840 }`<br/> `{ +0.6334 +0.3548 +0.1104 +0.7236 }`<br/> `{ +0.2781 +0.0530 +0.7532 +0.4145 }`<br/> `{ +0.4473 +0.0823 +0.1551 +0.3159 } }`<br> `matrix[2,2] = {`<br/> `{ +0.3548 +0.1104 }`</br> `{ +0.0530 +0.7532 } }`|
 

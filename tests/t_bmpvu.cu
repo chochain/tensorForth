@@ -10,8 +10,8 @@
 #include "t_bmpvu.h"
 
 #define BMP_ERR(s) { \
-    printf(" => ***BMP load error: %s ***\n", (s)); \
-    exit(EXIT_SUCCESS);                             \
+    fprintf(stderr, " => ***BMP load error: %s ***\n", (s));  \
+    exit(EXIT_SUCCESS);                                       \
 }
 
 BmpLoader *BmpLoader::load(int, int) {
@@ -34,29 +34,32 @@ BmpLoader *BmpLoader::load(int, int) {
     H = info.height;
     C = sizeof(uchar4);
     ///
-    /// CUDA managed memory, (compare to t_imgvu which using host mem)
+    /// allocate host memory for data
     ///
-    DS_ALLOC(&data, W * H * C);
+    data = (U8*)malloc(W * H * C);
+    if (!data) BMP_ERR("corpus.data malloc failed");
 
     fseek(fd, hdr.offset - sizeof(hdr) - sizeof(info), SEEK_CUR);
-
-    uchar4 *p = (uchar4*)data;
+    ///
+    /// init_host_text
+    ///
+    uchar4 *t = (uchar4*)data;
     int    z  = (4 - (3 * W) % 4) % 4;
     for (int y = 0; y < H; y++) {
-        for (int x = 0; x < W; x++, p++) {
-            p->z = fgetc(fd);
-            p->y = fgetc(fd);
-            p->x = fgetc(fd);
-            p->w = 0xff;
+        for (int x = 0; x < W; x++, t++) {
+            t->z = fgetc(fd);
+            t->y = fgetc(fd);
+            t->x = fgetc(fd);
+            t->w = 0xff;
         }
         for (int x = 0; x < z; x++) fgetc(fd);  // skip padding
     }
     if (ferror(fd)) {
-        cudaFree(data);
+        free(data);
         BMP_ERR("\n***Unknown BMP load error.***");
     }
     fclose(fd);
-    printf(" => [%d,%d,%d] loaded\n", H, W, C);
+    printf(" => (%d,%d,%d) loaded\n", H, W, C);
 
     return this;
 }
@@ -68,7 +71,7 @@ __GPU__ __INLINE__ TColor make_color(float r, float g, float b, float a) {
         ((int)(g * 255.0f) << 8)  |
         ((int)(r * 255.0f) << 0);
 }
-__KERN__ void k_img_copy(TColor *dst, int W, int H, CuTexObj tex, bool flip) {
+__KERN__ void k_img_copy(CuTexObj tex, TColor *buf, int W, int H, bool flip) {
     const int j = threadIdx.x + blockDim.x * blockIdx.x;
     const int i = threadIdx.y + blockDim.y * blockIdx.y;
     // Add half of a texel to always address exact texel centers
@@ -77,23 +80,23 @@ __KERN__ void k_img_copy(TColor *dst, int W, int H, CuTexObj tex, bool flip) {
 
     if (j < W && i < H) {
         float4 v = tex2D<float4>(tex, x, y);
-        dst[j + i * W] = make_color(v.x, v.y, v.z, 0);
+        buf[j + i * W] = make_color(v.x, v.y, v.z, 0);
     }
 }
 
-void BmpVu::_img_copy(TColor *d_dst) {
+void BmpVu::_img_copy(TColor *d_buf) {
     dim3 blk(T4_WARP_SZ, T4_WARP_SZ, 1);
     dim3 grd(NGRID(X, Y, 1, blk));
 
-    k_img_copy<<<grd,blk>>>(d_dst, X, Y, cu_tex, false);
-    GPU_CHK();
+    k_img_copy<<<grd,blk>>>(cu_tex, d_buf, X, Y, false);
+    // GPU_CHK();
 }
-void BmpVu::_img_flip(TColor *d_dst) {
+void BmpVu::_img_flip(TColor *d_buf) {
     dim3 blk(T4_WARP_SZ, T4_WARP_SZ, 1);
     dim3 grd(NGRID(X, Y, 1, blk));
 
-    k_img_copy<<<grd,blk>>>(d_dst, X, Y, cu_tex, true);
-    GPU_CHK();
+    k_img_copy<<<grd,blk>>>(cu_tex, d_buf, X, Y, true);
+    // GPU_CHK();
 }
 
 static const char *list_keys =
@@ -113,8 +116,9 @@ int main(int argc, char **argv) {
     if (gui_init(&argc, argv)) return -1;
 
     BmpLoader *ldr = (new BmpLoader("img/baboon.bmp"))->load();
-    BmpVu     *vu  = new BmpVu(*ldr);
-    gui_add(vu);
+    BmpVu     *vu  = new BmpVu(*ldr);  // allocate from managed memory
+    
+    if (gui_add(vu)) return 1;         // allocation failed
     
     printf("%s", list_keys);
     

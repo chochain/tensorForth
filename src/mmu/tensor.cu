@@ -131,8 +131,8 @@ __KERN__ void
 k_bce(DU *O, DU *T, int numel) {
     const int i = threadIdx.x + blockIdx.x * blockDim.x;  ///< element index
     if (i < numel) {
-//        O[i] = ABS(T[i]) < DU_EPS ? LN(DU1 - O[i]) : LN(O[i]);
-        O[i] = T[i] * LN(O[i]) + (DU1 - T[i]) * LN(DU1 - O[i]);
+//        O[i] = ABS(T[i]) < DU_EPS ? LN(DU1 - O[i] + DU_EPS) : LN(O[i] + DU_EPS);
+        O[i] = T[i] * LN(O[i] + DU_EPS) + (DU1 - T[i]) * LN(DU1 - O[i] + DU_EPS);
     }
 }
 ///
@@ -489,7 +489,7 @@ Tensor::loss(t4_loss op, Tensor &tgt) {
         DU sum = DU0;
         for (int i=0; i<numel; i++) {
             DU t = tgt.data[i], y = this->data[i];
-            sum += t * LN(y) + (DU1-t) * LN(DU1 - y);
+            sum += t * LN(y + DU_EPS) + (DU1-t) * LN(DU1 - y + DU_EPS);
         }
         return -sum;
     };
@@ -497,8 +497,9 @@ Tensor::loss(t4_loss op, Tensor &tgt) {
     DU sum = DU0;                    ///> result loss value
     switch (op) {
     case LOSS_MSE:                   /// * mean squared error, input from linear
-        *this -= tgt;
-        sum = 0.5 * NORM(numel, data);
+        *this -= tgt;                /// * (output - predict)
+        *this *= *this;              /// * (output - predict)^2
+        sum = 0.5 * this->sum();
         break;
     case LOSS_BCE: {                 /// * binary cross_entropy, input from sigmoid
         dim3 blk(T4_WARP_SQ, 1, 1);
@@ -512,11 +513,11 @@ Tensor::loss(t4_loss op, Tensor &tgt) {
         /* no break */
     case LOSS_NLL:                   /// * negative log likelihood, input from log-softmax
         *this *= tgt;                /// * out_i * tgt_i
-        sum = -this->sum();          /// * negative sum
+        sum = -this->sum();          /// * sum for mini-batch samples
         break;
     default: ERROR("Model#loss op=%d not supported!\n", op);
     }
-    sum /= numel;                    /// average per mini-batch sample
+    sum /= N();                      /// * mini-batch average
     
     return SCALAR(sum);              /// make sum a scalar value (not object)
 }

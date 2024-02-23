@@ -206,7 +206,7 @@ MMU::free(Tensor &t) {
     if (t.grad_fn != L_NONE) {
         MM_TRACE1(" {\n");
         for (int i=0; t.mtum[i] && i < 4; i++) {
-            if (t.mtum[i] == t.grad[i]) continue;
+            if (t.mtum[i] == t.grad[i]) continue;   /// * dummy pointers for SGD
             MM_TRACE1("\t\t"); free(*t.mtum[i]);
         }
         for (int i=0; t.grad[i] && i < 4; i++) {
@@ -214,7 +214,7 @@ MMU::free(Tensor &t) {
         }
         MM_TRACE1("\t}");
     }
-    _ostore.free(&t);            /// * free tensor object itself
+    _ostore.free(&t);              /// * free tensor object itself
     _ostore.status(_trace);
 }
 #if T4_ENABLE_NN
@@ -400,8 +400,9 @@ __HOST__ void
 MMU::words(std::ostream &fout) {
     fout << std::setbase(10);
     for (int i=0, sz=0; i<_didx; i++) {
-        sz += to_s(fout, (IU)i);
-        if (_trace || sz > 54) { fout << std::endl; sz = 0; } /// TODO: width configuable
+        fout << ' ';
+        sz += to_s(fout, (IU)i) + 1;
+        if (_trace || sz > 68) { fout << std::endl; sz = 0; } /// TODO: width configuable
     }
     if (!_trace) fout << std::endl;
 }
@@ -412,7 +413,7 @@ __HOST__ void
 MMU::see(std::ostream &fout, U8 *ip, int dp) {
     while (*(IU*)ip) {                                              /// * loop until EXIT
         fout << std::endl; for (int n=dp; n>0; n--) fout << "  ";   /// * indentation by level
-        fout << "[" << std::setw(4) << (IU)(ip - _pmem) << ": ";
+        fout << "[" << std::setw(4) << (IU)(ip - _pmem) << ":";
         IU w = *(IU*)ip;                                            /// * fetch word index
         to_s(fout, w);                                              /// * display word name
         if (_dict[w].colon && dp < 2) {                             /// * check if is a colon word
@@ -433,9 +434,9 @@ MMU::see(std::ostream &fout, U8 *ip, int dp) {
             fout << "= \"" << s << "\"";
         } break;
         case BRAN: case ZBRAN: case DONEXT:
-            fout << " j" << *(IU*)ip; ip += sizeof(IU); break;      /// fetch jump target
+            fout << "= " << *(IU*)ip; ip += sizeof(IU); break;      /// fetch jump target
         }
-        fout << "] ";
+        fout << " ] ";
     }
 }
 __HOST__ void

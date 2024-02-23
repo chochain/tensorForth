@@ -71,8 +71,10 @@ __GPU__ DU
 Model::loss(t4_loss op, Tensor &tgt) {              ///< loss against target vector
     static const char *opn[] = { "MSE", "BCE", "CE", "NLL" };
     Tensor &out = (*this)[-1];                      ///< model output
-    if (!out.is_same_shape(tgt)) {                  /// * check dimensions
-        ERROR("Model#loss: hot dim != out dim\n");
+    if (out.numel != tgt.numel) {                   /// * check dimensions
+        ERROR("Model::loss model output shape[%d,%d,%d,%d] != tgt[%d,%d,%d,%d]\n",
+            out.N(), out.H(), out.W(), out.C(),
+            tgt.N(), tgt.H(), tgt.W(), tgt.C());
         return DU0;
     }
     Tensor &tmp = _mmu->copy(out);                 ///< non-destructive

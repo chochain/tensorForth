@@ -59,11 +59,13 @@ ds1                                       \ put dataset on TOS
     > + back propagation with autograd
     > + optimization
     > + persistence
+    > + stackable
+    > + trainable (for GAN)
   * Layers
     > + layers: conv2d, conv1x1, linear, flatten, upsample, batchnorm
     > + pooling: maxpool, minpool, avgpool, dropout
     > + activation: relu, tanh, sigmoid, selu, leakyrelu, elu, softmax, log_softmax
-    > + loss: ce, mse, nll
+    > + loss: bce, ce, mse, nll
   * Dataset
     > + format - NHWC (as in TensorFlow)
     > + mini-batch fetch
@@ -81,10 +83,12 @@ ds1                                       \ put dataset on TOS
 |network|(N -- N)|display network model|
 |>n|(N T -- N')|manually add tensor to model|
 |n@|(N n -- N T)|fetch value tensor of nth layer from model, -1 is the latest layer|
-|nn.w|(N n -- N T)|fetch weight tensor of nth layer from model, 0 means none|
-|nn.b|(N n -- N T)|fetch weight tensor of nth layer from model, 0 means none|
-|nn.dw|(N n -- N T)|fetch weight gradient tensor of nth layer from model, 0 means none|
-|nn.db|(N n -- N T)|fetch weight gradient tensor of nth layer from model, 0 means none|
+|nn.w|(N n -- N T)|fetch weight tensor of nth layer from model, 0 means N/A|
+|nn.b|(N n -- N T)|fetch weight tensor of nth layer from model, 0 means N/A|
+|nn.dw|(N n -- N T)|fetch weight gradient tensor of nth layer from model, 0 means N/A|
+|nn.db|(N n -- N T)|fetch weight gradient tensor of nth layer from model, 0 means N/A|
+|nn.w=|(N T n -- N')|set weight tensor of nth layer from model|
+|nn.b=|(N T n -- N')|set weight tensor of nth layer from model|
 |load|(N adr len [fam] -- N')|load trained network from a given file name|
 |save|(N adr len [fam] -- N)|export network as a file|
     
@@ -164,7 +168,9 @@ ds1                                       \ put dataset on TOS
 |---|---|---|
 |nn.sgd|(N p -- N')|apply SGD(learn_rate=p, momentum=0.0) model back propagation|
 |nn.sgd|(N p m -- N')|apply SGD(learn_rate=p, momentum=m) model back propagation|
-|nn.adam|(N a b1 -- N')|apply Adam backprop alpha, beta1, default beta2=1-(1-b1)^3|
+|nn.adam|(N a -- N')|apply Adam backprop alpha=a, default beta1=0.9, beta2=0.999|
+|nn.adam|(N a b1 -- N')|apply Adam backprop alpha=a, beta1=b1, default beta2=0.999|
+|nn.adam|(N a b1 b2 -- N')|apply Adam backprop alpha=a, beta1=b1, beta2=b2|
 |nn.zero|(N -- N')|reset momentum tensors|
 |nn.onehot|(N -- N T)|get cached onehot vector from a model|
 |nn.hit|(N -- N n)|get number of hit (per mini-batch) of a model|
@@ -217,6 +223,7 @@ ds1                                       \ put dataset on TOS
 * BatchNorm Alternatives https://analyticsindiamag.com/alternatives-batch-normalization-deep-learning/
 
 * GAN https://machinelearningmastery.com/how-to-develop-a-generative-adversarial-network-for-an-mnist-handwritten-digits-from-scratch-in-keras/
+  + DC-GAN https://machinelearningmastery.com/how-to-train-stable-generative-adversarial-networks/
 * GAN applications https://github.com/nashory/gans-awesome-applications
   + Mnist Keras https://debuggercafe.com/vanilla-gan-pytorch/
   + Mnist Pytorch https://medium.com/intel-student-ambassadors/mnist-gan-detailed-step-by-step-explanation-implementation-in-code-ecc93b22dc60

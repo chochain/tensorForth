@@ -58,7 +58,7 @@ constant ds0                        \ keep dataset in a constant
     loss.ce lox ! nn.hit hit +!     \ collect latest loss and accumulate hit
     backprop                        \ neural network back propegation
     \ 0.01 nn.sgd                     \ train with Stochastic Gradient Descent
-    lr 0.9 nn.adam                  \ train with Adam Gradient Descent
+    lr nn.adam                      \ train with Adam Gradient Descent (b1=0.9,b2=0.999)
     46 emit
   next ;
 : cnn ( N ds n -- N' )              \ run multiple epochs
