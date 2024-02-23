@@ -402,18 +402,22 @@ s" tests/my_net.t4" save                    \ persist the trained network
     - DC-GAN https://machinelearningmastery.com/how-to-train-stable-generative-adversarial-networks/
     - AC-GAN Keras (https://machinelearningmastery.com/how-to-develop-an-auxiliary-classifier-gan-ac-gan-from-scratch-with-keras/
     - use pre-trained model, i.e. transfer learning (https://openaccess.thecvf.com/content_ECCV_2018/papers/yaxing_wang_Transferring_GANs_generating_ECCV_2018_paper.pdf)
-  + add block - branch & concatenate (i.e Inception in GoogLeNet)
-  + add block - residual map (i.e. ResNet, https://d2l.ai/chapter_convolutional-modern/resnet.html)
-  + torch.eval() i.e. normalize using running stat, disable dropout (vs torch.train())
-  + add layer - Swish, Mish
-  + add layer - Transposed Convolution (https://d2l.ai/chapter_computer-vision/transposed-conv.html).
-    * Less used now b/c it creates checkerboard pattern, see https://distill.pub/2016/deconv-checkerboard/)
-  + add Transformer
+    - torch.eval() i.e. normalize using running stat, disable dropout (vs torch.train())
+    - new layers
+      * add Swish, Mish
+      * add Transposed Convolution (https://d2l.ai/chapter_computer-vision/transposed-conv.html). Less used now b/c it creates checkerboard pattern, see https://distill.pub/2016/deconv-checkerboard/)
+  + Latent Diffusion (Stable Diffusion https://stability.ai/)
+    - ResNet
+      * add block - branch & concatenate (i.e Inception in GoogLeNet)
+      * add block - residual map (i.e. ResNet, https://d2l.ai/chapter_con
+    - OpenVINO
+  + Transformer
     - study ChatGPT vs BLOOM (from Hugging Face, model with 176B params, =~ 700GB)
     - https://stats.stackexchange.com/questions/421935/what-exactly-are-keys-queries-and-values-in-attention-mechanisms
     - https://towardsdatascience.com/neural-machine-translation-inner-workings-seq2seq-and-transformers-229faff5895b
     - https://towardsdatascience.com/a-detailed-guide-to-pytorchs-nn-transformer-module-c80afbc9ffb1
     - https://nlp.seas.harvard.edu/2018/04/03/attention.html
+volutional-modern/resnet.html)
 * Data + Visualization
   + output tensor in HWC format
       * util from raw to png (with STB)
@@ -439,6 +443,12 @@ s" tests/my_net.t4" save                    \ persist the trained network
   + consider RNN - maybe not! lost to Transformer.
 
 ### LATER
+* Cuda binary, study possibility for VM in assembly https://docs.nvidia.com/cuda/cuda-binary-utilities/index.html#instruction-set-reference
+  + cuobjdump
+  + cudisasm
+* Language consistancy
+  + compare to APL https://www.jsoftware.com/papers/APLDictionary.htm
+  + compare to J, (rank & axis ops)
 * Data
   + NCHW tensor format support (as in PyTorch)
   + loader - .petastorm, .csv (available on github)
