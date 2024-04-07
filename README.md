@@ -141,38 +141,50 @@ s" tests/my_net.t4" save                    \ persist the trained network
 * download one of the releases from the list above to your local directory
 
 #### with Makefile, and test
-* cd to your ten4 repo directory,
-* update root Makefile to your desired CUDA_ARCH, CUDA_CODE,
-* type 'make all',
-* if all goes well, some warnings aside, cd to tests directory,
-* enter the following for Forth (v1) ops<br/>
-  > ~/tests> ten4 < lesson_1.txt - for basic syntax checks
-* enter the following for testing matrix (v2) ops<br/>
-  > ~/tests> ten4 < lesson_2.txt - for matrix ops,<br/>
-  > ~/tests> ten4 < lesson_3.txt - for linear algebra stuffs
-* enter the following for testing machine learning (v3) ops<br/>
-  > ~/tests> ten4 < lesson_4.txt - NN model forward, loss, and backprop verification - single pass<br/>
-  > ~/tests> ten4 < lesson_5.txt - MINST training, 20 epochs
-* enter the following for testing GAN (v3.2) ops<br/>
-  > ~/tests> ten4 < lesson_6a.txt - GAN on NN single sample linear layer verification<br/>
-  > ~/tests> ten4 < lesson_6b.txt - GAN on NN multi-sample linear layer verification<br/>
-  > ~/tests> ten4 < lesson_6.txt - GAN on simple linear regression, 10 epochs<br/>
-  > ~/tests> ten4 < lesson_7.txt - GAN on MINST dataset, 100 epochs
+Build on Linux
+
+    cd to your ten4 repo directory,
+    update root Makefile to your desired CUDA_ARCH, CUDA_CODE,
+    type 'make all',
+    if all goes well, some warnings aside, cd to tests directory,
+
+Test v1 eForth ops
+
+    ~/tests> ten4 < lesson_1.txt - for basic syntax checks
+
+Test v2 matrix ops
+
+    ~/tests> ten4 < lesson_2.txt - for matrix ops
+    ~/tests> ten4 < lesson_3.txt - for linear algebra stuffs
+
+Test v3 ML ops
+
+    ~/tests> ten4 < lesson_4.txt - NN model forward, loss, and backprop verification - single pass
+    ~/tests> ten4 < lesson_5.txt - MINST training, 20 epochs
+
+Tests v3.2 GAN ops
+
+    ~/tests> ten4 < lesson_6a.txt - GAN on NN single sample linear layer verification
+    ~/tests> ten4 < lesson_6b.txt - GAN on NN multi-sample linear layer verification
+    ~/tests> ten4 < lesson_6.txt - GAN on simple linear regression, 10 epochs
+    ~/tests> ten4 < lesson_7.txt - GAN on MINST dataset, 100 epochs
 
 #### with Eclipse
-* install Eclipse
-* install CUDA SDK 11.6 or above for Eclipse (from Nvidia site)
-* create project by importing from your local repo root
-* exclude directories - ~/tests, ~/img
-* set File=>Properties=>C/C++ Build=>Setting=>NVCC compiler
-  + Dialect=C++14
-  + CUDA=5.2 or above (depends on your GPU)
-  + Optimization=O2 or O3
+
+    install Eclipse
+    install CUDA SDK 11.6 or above for Eclipse (from Nvidia site)
+    create project by importing from your local repo root
+    exclude directories - ~/tests, ~/img
+    set File=>Properties=>C/C++ Build=>Setting=>NVCC compiler
+      + Dialect=C++14
+      + CUDA=5.2 or above (depends on your GPU)
+      + Optimization=O2 or O3
 
 ## tensorForth command line options
-* \-h             - list all GPU id and their properties<br/>
-* \-d device_id   - select GPU device id
-* \-v verbo_level - set verbosity level 0: off (default), 1: mmu tracing on, 2: detailed trace
+
+    \-h             - list all GPU id and their properties
+    \-d device_id   - select GPU device id
+    \-v verbo_level - set verbosity level 0: off (default), 1: mmu tracing on, 2: detailed trace
 
 ## Machine Learning vocabularies (see [doc3](./docs/v3_progress.md) for detail and examples)
 ### Model creation, query, and persistence
