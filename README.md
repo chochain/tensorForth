@@ -402,12 +402,16 @@ s" tests/my_net.t4" save                    \ persist the trained network
 </pre>
 
 ### TODO - by priorities
+* Upgrade CUDA (2024-05 => 12.5)
+  + 12.2 HMM, 12.3 Profiler, 12.4 CUB, Graph+
+  + Docker + GPU
 * VM
   + review CUDA HostFunc callback (requires CUDA Stream)
-  + review CUDA Graph
-  + free_tensor as linked-list (instead of an array)
-  + inter-VM communication (CUDA stream, review CUB again)
+  + review CUDA dynamic Graph
+  + review CUB (now part of CCCL) again
+  + inter-VM communication (via CUDA stream)
   + inter-VM loader (from VM->VM)
+  + free_tensor as linked-list (instead of an array)
 * Model
   + GAN
     - DC-GAN https://machinelearningmastery.com/how-to-train-stable-generative-adversarial-networks/
@@ -420,7 +424,7 @@ s" tests/my_net.t4" save                    \ persist the trained network
   + Latent Diffusion (Stable Diffusion https://stability.ai/)
     - ResNet
       * add block - branch & concatenate (i.e Inception in GoogLeNet)
-      * add block - residual map (i.e. ResNet, https://d2l.ai/chapter_con
+      * add block - residual map (i.e. ResNet, https://d2l.ai/chapter_convolutional-modern/resnet.html)
     - OpenVINO
   + Transformer
     - study ChatGPT vs BLOOM (from Hugging Face, model with 176B params, =~ 700GB)
@@ -428,7 +432,6 @@ s" tests/my_net.t4" save                    \ persist the trained network
     - https://towardsdatascience.com/neural-machine-translation-inner-workings-seq2seq-and-transformers-229faff5895b
     - https://towardsdatascience.com/a-detailed-guide-to-pytorchs-nn-transformer-module-c80afbc9ffb1
     - https://nlp.seas.harvard.edu/2018/04/03/attention.html
-volutional-modern/resnet.html)
 * Data + Visualization
   + output tensor in HWC format
       * util from raw to png (with STB)
@@ -462,6 +465,7 @@ volutional-modern/resnet.html)
   + model persistence - .npy, .petastorm, hdf5
   + integrate ONNX
 * Visualization
+  + nvdiffrast https://nvlabs.github.io/nvdiffrast/
   + integrate plots (matplotlib, tensorboard/graphviz)
 * 3rd-party lib Integration
   + integrate CUB, CUTLASS (utilities.init, gemm_api) - slow, later
