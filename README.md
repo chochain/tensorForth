@@ -440,11 +440,8 @@ Tests v3.2 GAN ops
       * [Attention is all you need](https://nlp.seas.harvard.edu/2018/04/03/attention.html)
       * [lecture](https://courses.grainger.illinois.edu/ece448/sp2023/slides/lec24.pdf)
       * [what](https://www.datacamp.com/tutorial/how-transformers-work)
-      * [what](https://stats.stackexchange.com/questions/421935/what-exactly-are-keys-queries-and-values-in-attention-mechanisms)
-      * [code](https://github.com/hyunwoongko/transformer?tab=readme-ov-file)
-      * [code](https://towardsdatascience.com/a-detailed-guide-to-pytorchs-nn-transformer-module-c80afbc9ffb1)
+      * [code](https://github.com/hyunwoongko/transformer?tab=readme-ov-file), [explain](https://towardsdatascience.com/a-detailed-guide-to-pytorchs-nn-transformer-module-c80afbc9ffb1)
       * [code](https://www.datacamp.com/tutorial/building-a-transformer-with-py-torch)
-    - Analyze ChatGPT vs BLOOM, Hugging Face models (176B params, =~ 700GB)
     - New Layers
       * residual map i.e. [ResNet](https://d2l.ai/chapter_convolutional-modern/resnet.html)
       * branch & concatenate (i.e Inception in GoogLeNet)
@@ -490,7 +487,6 @@ Tests v3.2 GAN ops
   + integrate CUB, CUTLASS (utilities.init, gemm_api) - slow, later
   + pre-processor (DALI) + GPUDirect - heavy, later
   + calling API - Python(cffi), Ruby(FFI)
-  - OpenVINO? (Intel)
 
 ## History
 ### [Release 1.0](./docs/v1_progress.md) features
