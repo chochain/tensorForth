@@ -426,25 +426,32 @@ Tests v3.2 GAN ops
   + free_tensor as linked-list (instead of an array)
 * Model
   + GAN
-    - DC-GAN https://machinelearningmastery.com/how-to-train-stable-generative-adversarial-networks/
-    - AC-GAN Keras (https://machinelearningmastery.com/how-to-develop-an-auxiliary-classifier-gan-ac-gan-from-scratch-with-keras/
-    - use pre-trained model, i.e. transfer learning (https://openaccess.thecvf.com/content_ECCV_2018/papers/yaxing_wang_Transferring_GANs_generating_ECCV_2018_paper.pdf)
+    - [AC-GAN](https://machinelearningmastery.com/how-to-develop-an-auxiliary-classifier-gan-ac-gan-from-scratch-with-keras/)
+    - use pre-trained model, i.e. [transfer learning](https://openaccess.thecvf.com/content_ECCV_2018/papers/yaxing_wang_Transferring_GANs_generating_ECCV_2018_paper.pdf)
     - torch.eval() i.e. normalize using running stat, disable dropout (vs torch.train())
     - new layers
       * add Swish, Mish
-      * add Transposed Convolution (https://d2l.ai/chapter_computer-vision/transposed-conv.html). Less used now b/c it creates checkerboard pattern, see https://distill.pub/2016/deconv-checkerboard/)
-  + Latent Diffusion (Stable Diffusion https://stability.ai/)
-    - ResNet
-      * add block - branch & concatenate (i.e Inception in GoogLeNet)
-      * add block - residual map (i.e. ResNet, https://d2l.ai/chapter_convolutional-modern/resnet.html)
-    - OpenVINO
+      * add [Transposed Convolution](https://d2l.ai/chapter_computer-vision/transposed-conv.html). Less used now b/c it creates checkerboard pattern, see https://distill.pub/2016/deconv-checkerboard/)
   + Transformer
-    - study ChatGPT vs BLOOM (from Hugging Face, model with 176B params, =~ 700GB)
-    - https://stats.stackexchange.com/questions/421935/what-exactly-are-keys-queries-and-values-in-attention-mechanisms
-    - https://towardsdatascience.com/neural-machine-translation-inner-workings-seq2seq-and-transformers-229faff5895b
-    - https://towardsdatascience.com/a-detailed-guide-to-pytorchs-nn-transformer-module-c80afbc9ffb1
-    - https://nlp.seas.harvard.edu/2018/04/03/attention.html
+    - Review
+      * [CNN vs ViT](https://arxiv.org/pdf/2406.03478) (good ref paper)
+      * [seq2seq vs Transformer](https://towardsdatascience.com/neural-machine-translation-inner-workings-seq2seq-and-transformers-229faff5895b)
+    - Intro
+      * [Attention is all you need](https://nlp.seas.harvard.edu/2018/04/03/attention.html)
+      * [lecture](https://courses.grainger.illinois.edu/ece448/sp2023/slides/lec24.pdf)
+      * [what](https://www.datacamp.com/tutorial/how-transformers-work)
+      * [what](https://stats.stackexchange.com/questions/421935/what-exactly-are-keys-queries-and-values-in-attention-mechanisms)
+      * [code](https://github.com/hyunwoongko/transformer?tab=readme-ov-file)
+      * [code](https://towardsdatascience.com/a-detailed-guide-to-pytorchs-nn-transformer-module-c80afbc9ffb1)
+      * [code](https://www.datacamp.com/tutorial/building-a-transformer-with-py-torch)
+    - Analyze ChatGPT vs BLOOM, Hugging Face models (176B params, =~ 700GB)
+    - New Layers
+      * residual map i.e. [ResNet](https://d2l.ai/chapter_convolutional-modern/resnet.html)
+      * branch & concatenate (i.e Inception in GoogLeNet)
+  + GNN - dynamic graph with VMs. Value proposition.
+  + Multi-Domain, i.e. MDNet
 * Data + Visualization
+  + OpenGL/WASM
   + output tensor in HWC format
       * util from raw to png (with STB)
       * for PIL (Python Image Lib), matplotlib
@@ -460,9 +467,6 @@ Tests v3.2 GAN ops
     - auto diff (grad), diffrax (RK4, Dormand-Prince)
   + check namespace
   + warp-level collectives (study libcu++, MordenGPU for kernel)
-  + consider multi-domain (i.e. MDNet)
-  + consider GNN - dynamic graph with VMs
-  + consider RNN - maybe not! lost to Transformer.
 
 ### LATER
 * Cuda binary, study possibility for VM in assembly https://docs.nvidia.com/cuda/cuda-binary-utilities/index.html#instruction-set-reference
@@ -471,6 +475,9 @@ Tests v3.2 GAN ops
 * Language consistancy
   + compare to APL https://www.jsoftware.com/papers/APLDictionary.htm
   + compare to J, (rank & axis ops)
+* Model
+  + Latent Diffusion, [Stable Diffusion](https://stability.ai/). Pre-trained only?
+  + RNN, lost to Transformer.
 * Data
   + NCHW tensor format support (as in PyTorch)
   + loader - .petastorm, .csv (available on github)
@@ -483,6 +490,7 @@ Tests v3.2 GAN ops
   + integrate CUB, CUTLASS (utilities.init, gemm_api) - slow, later
   + pre-processor (DALI) + GPUDirect - heavy, later
   + calling API - Python(cffi), Ruby(FFI)
+  - OpenVINO? (Intel)
 
 ## History
 ### [Release 1.0](./docs/v1_progress.md) features
