@@ -443,7 +443,8 @@ Tests v3.2 GAN ops
       * [code](https://github.com/hyunwoongko/transformer?tab=readme-ov-file), [explain](https://towardsdatascience.com/a-detailed-guide-to-pytorchs-nn-transformer-module-c80afbc9ffb1)
       * [code](https://www.datacamp.com/tutorial/building-a-transformer-with-py-torch)
     - New Layers
-      * residual map i.e. [ResNet](https://d2l.ai/chapter_convolutional-modern/resnet.html)
+      * 1x1 Convolution (resize #channel)
+      * residual net i.e. [ResNet](https://d2l.ai/chapter_convolutional-modern/resnet.html)
       * branch & concatenate (i.e Inception in GoogLeNet)
   + GNN - dynamic graph with VMs. Value proposition.
   + Multi-Domain, i.e. MDNet
