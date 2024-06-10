@@ -12,6 +12,7 @@
 |[3.0](https://github.com/chochain/tensorForth/releases/tag/v3.0.0)|**CNN**|beta|+ Machine Learning with autograd|Torch|
 |[3.2](https://github.com/chochain/tensorForth/releases/tag/v3.2.0)|**GAN**|alpha|+ Generative Adversarial Net|PyTorch.GAN|
 |4.0|**Transformer**|developing|add Transformer ops|PyTorch.Transformer|
+|4.2|**Retentitive**|analyzing|add RetNet ops|PyTorch.RetNet|
 
 ### Why?
 Compiled programs run fast on Linux. On the other hand, command-line interface and shell scripting tie them together in operation. With interactive development, small tools are built along the way, productivity usually grows with time, especially in the hands of researchers.
@@ -436,6 +437,7 @@ Tests v3.2 GAN ops
     - Review
       * [CNN vs ViT](https://arxiv.org/pdf/2406.03478) (good ref paper)
       * [seq2seq vs Transformer](https://towardsdatascience.com/neural-machine-translation-inner-workings-seq2seq-and-transformers-229faff5895b)
+      * [Retentitive Network](https://arxiv.org/pdf/2307.08621)
     - Intro
       * [Attention is all you need](https://nlp.seas.harvard.edu/2018/04/03/attention.html)
       * [lecture](https://courses.grainger.illinois.edu/ece448/sp2023/slides/lec24.pdf)
