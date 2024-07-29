@@ -80,8 +80,8 @@ ForthVM::nest() {
         }
         else if (w==DONEXT && !IS_OBJ(rs[-1])) {     ///< DONEXT handler
             /// save 600ms / 100M cycles on Intel
-            if ((rs[-1] -= 1) >= -DU_EPS) IP = LDi(IP); ///< decrement loop counter, and fetch target addr
-            else { IP += sizeof(IU); rs.pop(); }        ///< done loop, pop off loop counter
+            if (GT(rs[-1] -= 1, -DU1)) IP = LDi(IP); ///< decrement loop counter, and fetch target addr
+            else { IP += sizeof(IU); rs.pop(); }     ///< done loop, pop off loop counter
             _log("DONEXT");
         }
         else (*dict[w].xt)();                        ///< execute primitive word
@@ -129,9 +129,9 @@ ForthVM::init() {
     ///@brief - DO NOT change the sequence here (see forth_opcode enum)
     ///@{
     CODE("exit",    {});       /// * quit word, handled in nest()
-    CODE("donext",  {});                                 /// * handled in nest(),
-    // if ((rs[-1] -= 1) >= -DU_EPS) IP = LDi(IP);       /// * also overwritten in netvm later
-    //     else { IP += sizeof(IU); rs.pop(); });
+    CODE("donext",  {});                                  /// * handled in nest(),
+    // if (GT(rs[-1] -= 1, -DU1)) IP = LDi(IP);           /// * also overwritten in netvm later
+    // else { IP += sizeof(IU); rs.pop(); });
     CODE("dovar",   PUSH(IP); IP += sizeof(DU));
     CODE("dolit",   PUSH(LDd(IP)); IP += sizeof(DU));
     CODE("dostr",
@@ -212,15 +212,15 @@ ForthVM::init() {
     ///@}
     ///@defgroup Logic ops
     ///@{
-    CODE("0= ",  top = BOOL(ZERO(top)));
-    CODE("0<",   top = BOOL(top < -DU_EPS));
-    CODE("0>",   top = BOOL(top > DU_EPS));
-    CODE("=",    top = BOOL(ZERO(ss.pop() - top)));
-    CODE("<",    top = BOOL((ss.pop() - top) < -DU_EPS));
-    CODE(">",    top = BOOL((ss.pop() - top) > DU_EPS));
-    CODE("<>",   top = BOOL(!ZERO(ss.pop() - top)));
-    CODE("<=",   top = BOOL(INT(ss.pop()) <= INT(top)));    /// int, for count or loop control
-    CODE(">=",   top = BOOL(INT(ss.pop()) >= INT(top)));
+    CODE("0= ",  top = BOOL(ZEQ(top)));
+    CODE("0<",   top = BOOL(LT(top, DU0)));
+    CODE("0>",   top = BOOL(GT(top, DU0)));
+    CODE("=",    top = BOOL(EQ(ss.pop(), top)));
+    CODE("<",    top = BOOL(LT(ss.pop(), top)));
+    CODE(">",    top = BOOL(GT(ss.pop(), top)));
+    CODE("<>",   top = BOOL(!EQ(ss.pop(), top)));
+    CODE("<=",   top = BOOL(!GT(ss.pop(), top)));
+    CODE(">=",   top = BOOL(!LT(ss.pop(), top)));
     ///@}
     ///@defgroup IO ops
     ///@{
@@ -365,7 +365,7 @@ ForthVM::init() {
     CODE("dump",  DU n = POP(); int a = POPi; fout << opx(OP_DUMP, a, n));
     CODE("forget",
         int w = FIND(next_idiom());
-        if (w<0) return;
+        if (w < 0) return;
         IU b = FIND("boot")+1;
         mmu.clear(w > b ? w : b));
     ///@}
