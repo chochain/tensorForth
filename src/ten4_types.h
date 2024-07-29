@@ -107,8 +107,12 @@ typedef F64         DU2;                    /**< double preciesion data */
 #define DU0         ((DU)0.0)               /**< default data value 0   */
 #define DU1         ((DU)1.0)               /**< default data value 1   */
 #define DU_EPS      ((DU)1.0e-6)            /**< floating point epsilon */
-#define ZERO(d)     (ABS(d) < DU_EPS)       /**< zero check             */
-#define BOOL(d)     (ZERO(d) ? DU0 : -DU1)  /**< default boolean        */
+#define ABS(d)      ((DU)fabsf(d))          /**< absolute value         */
+#define ZEQ(d)      (ABS(d) < DU_EPS)       /**< zero check             */
+#define EQ(a,b)     (ZEQ((a) - (b)))        /**< arithmatic equal       */
+#define LT(a,b)     (((a) - (b)) < -DU_EPS) /**< arithmatic lesser than */
+#define GT(a,b)     (((a) - (b)) > DU_EPS)  /**< arithmatic greater than*/
+#define BOOL(d)     (ZEQ(d) ? DU0 : -DU1)   /**< default boolean        */
 ///
 /// data conversion macros
 ///
