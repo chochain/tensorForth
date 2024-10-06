@@ -418,6 +418,8 @@ Tests v3.2 GAN ops
 * Upgrade CUDA (2024-05 => 12.5)
   + 12.2 HMM, 12.3 Profiler, 12.4 CUB, Graph+
   + Docker + GPU
+* Instrumentation
+  + Review [NVBits](https://github.com/NVlabs/NVBit?tab=readme-ov-file)
 * VM
   + review CUDA HostFunc callback (requires CUDA Stream)
   + review CUDA dynamic Graph
