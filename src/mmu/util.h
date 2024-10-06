@@ -46,7 +46,7 @@ typedef enum {
     MIN
 } math_op;
 
-#define MATH_OP "abs","neg","exp","ln","log","tanh","relu","sigmoid","sqrt","rcp","iden","fill","scale","pow","+","-","*","/"
+#define MATH_OP "abs","neg","exp","ln","log","tanh","relu","sigmoid","sqrt","rcp","iden","fill","gfill","scale","pow","+","-","*","/","mod","max","min"
 
 #define ABS(d)      ((float)fabsf(d))          /**< absolute value         */
 #define NEG(d)      ((float)-(d))              /**< negate                 */
