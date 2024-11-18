@@ -12,7 +12,7 @@
 |[3.0](https://github.com/chochain/tensorForth/releases/tag/v3.0.0)|**CNN**|beta|+ Machine Learning with autograd|Torch|
 |[3.2](https://github.com/chochain/tensorForth/releases/tag/v3.2.0)|**GAN**|alpha|+ Generative Adversarial Net|PyTorch.GAN|
 |4.0|**Transformer**|developing|add Transformer ops|PyTorch.Transformer|
-|4.2|**Retentitive**|analyzing|add RetNet ops|PyTorch.RetNet|
+|4.2|**Retentive**|analyzing|add RetNet ops|PyTorch.RetNet|
 
 ### Why?
 Compiled programs run fast on Linux. On the other hand, command-line interface and shell scripting tie them together in operation. With interactive development, small tools are built along the way, productivity usually grows with time, especially in the hands of researchers.
