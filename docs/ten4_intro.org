@@ -1,0 +1,22 @@
+#+TITLE: tensorForth
+#+SUBTITLE: Forth lives in GPU
+#+AUTHOR: Chochain Lee
+#+DATE: Dec. 21, 2024
+#+OPTIONS: toc:nil num:nil html-postamble:nil ^:{} reveal_title_slide:nil
+#+REVEAL_ROOT: https://cdn.jsdelivr.net/npm/reveal.js
+#+REVEAL_THEME: night
+#+REVEAL_EXTRA_CSS: ./org-example.css
+#+REVEAL_INIT_OPTIONS: slideNumber:"c/t", transition:"none", transitionSpeed:"fast", controlsTutorial:false, minScale:1.0, maxScale:1.5
+#+REVEAL_EXTRA_SCRIPT: for(let e of document.getElementsByClassName("figure-number")){e.parentElement.classList.add("fig-caption");}
+#+REVEAL_TITLE_SLIDE: <h1 class="title">%t</h1><em>%s</em><br><br>%a<br>%d
+
+* This is the first slide
+  It has some content
+* This is a second slide
+** It has sub-sections
+   these render as other slides
+** last sub-section
+   - you can navigate main sections using left/right
+   - or navigate sub-sections with up/down
+* The End
+  thanks!
