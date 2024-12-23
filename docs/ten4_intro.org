@@ -11,13 +11,16 @@
 #+REVEAL_PLUGINS: highlight notes
 
 * Artifitial Intelligence
-#+ATTR_REVEAL: :frag roll-in
-+ Neaural Network (not Expert System)
-  - Many layers, thus called "Deep" Learning
++ Neaural Network, not Expert System
+  #+ATTR_REVEAL: :frag roll-in
+  - Matrix elements as neurons
+  - Many layers, thus "Deep" Learning
 + Image/Video Processing
+  #+ATTR_REVEAL: :frag roll-in
   - CNN (Convolutional Neaural Network)
   - think of it as eyes
 + Natual Language Processing
+  #+ATTR_REVEAL: :frag roll-in
   - RNN (Recurrent NN)
   - Transformers (does better than RNN)
   - think of it as hearing & speach
@@ -27,41 +30,44 @@ this is only a tests
 * Tensors
 #+ATTR_REVEAL: :frag roll-in
 + Multilinear map between vector space
++ Can embed reference vectors (on this later)
 + Treated as multi-dimeisonal arrays of numbers
 + Generalized with rank
   - Scalar - rank 0
   - Vector - rank 1
   - Matrix - rank 2
   - Higher order - rank 3, 4, ...
-+ Can embed reference vectors (on this later)
-* GPU to AI frenzy
+* AI frenzy with GPU
 #+ATTR_REVEAL: :frag grow
 + Massive parallelism
 + High thoughput
 + Local Memory
 + Fast math
-+ Tensor Cores for matrix ops
++ Tensor Cores (for matrix ops)
 ** What is GPU anyway
-#+ATTR_REVEAL: :frag roll-in
 + Graphics Processing Unit
+  #+ATTR_REVEAL: :frag roll-in
   - A specialized processor
   - Many parallel cores
   - Did graphics & games only
 + Becomes General Purpose
+  #+ATTR_REVEAL: :frag roll-in
   - Talk to CPU via PCIe
   - Good for scientific computing
   - Machine learning, of course
   - nVidia 98%, AMD 1%, Intel < 1%
 ** Programing nVidia GPU
-#+ATTR_REVEAL: :frag roll-in
 + CUDA - C/C++ API
+  #+ATTR_REVEAL: :frag roll-in
   - A gcc/LLVM variant
   - Translate C++ to PTX (portable code)
   - Assemble PTX to SASS (device dependent)
 + Python - dominant language for AI
+  #+ATTR_REVEAL: :frag roll-in
   - PyCUDA - transcoder to C/C++
   - NumPy - an optimized array library
 + High level frameworks
+  #+ATTR_REVEAL: :frag roll-in
   - PyTorch, TensorFlow, ...
   - Backend utilize CUDA libraries
   - Encapsulate CUDA calls
@@ -83,15 +89,20 @@ this is only a tests
 + Threading - SIMT, divergence
 + Streaming - workload balancing
 * tensorForth
-#+ATTR_REVEAL: :frag roll-in
-+ = tensor + Forth
-+ CUDA + C/C++-based Forth
++ tensor + Forth = tensorForth
++ 100% C/C++-based + CUDA
+  #+ATTR_REVEAL: :frag roll-in
   - Dictionary in device
   - Host input to device
   - Device output to host
-+ Linear Algebra words
-+ Machine Learning words
+  - OpenGL viewer
++ Built-in Vocabularies
+  #+ATTR_REVEAL: :frag roll-in
+  - Linear Algebra
+  - Machine Learning
+  - Dataset Loader
 * Forth Code Example
+  - TODO:
 * Thank you!
 #+ATTR_REVEAL: :frag grow
 + More to come
