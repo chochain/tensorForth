@@ -3,45 +3,57 @@
 #+OPTIONS: toc:nil num:nil html-postamble:nil ^:{} reveal_title_slide:nil
 #+REVEAL_ROOT: https://cdn.jsdelivr.net/npm/reveal.js
 #+REVEAL_THEME: night
+#+REVEAL_HLEVEL: 2
 #+REVEAL_EXTRA_CSS: ./org-example.css
 #+REVEAL_INIT_OPTIONS: slideNumber:"c/t", transition:"none", transitionSpeed:"fast", controlsTutorial:false, minScale:1.0, maxScale:1.5
 #+REVEAL_EXTRA_SCRIPT: for(let e of document.getElementsByClassName("figure-number")){e.parentElement.classList.add("fig-caption");}
 #+REVEAL_TITLE_SLIDE: <h2 class="title">%t</h2><em>%s</em><br><br>%a<br>%d<br>
+#+REVEAL_PLUGINS: highlight notes
 
 * Artifitial Intelligence
-+ Neaural Network, Not Expert System
-  - Many layers thus called "Deep" Learning
+#+ATTR_REVEAL: :frag roll-in
++ Neaural Network (not Expert System)
+  - Many layers, thus called "Deep" Learning
 + Image/Video Processing
   - CNN (Convolutional Neaural Network)
-  - works as our eyes
+  - think of it as eyes
 + Natual Language Processing
   - RNN (Recurrent NN)
   - Transformers (does better than RNN)
-  - works as our hearing & speach
+  - think of it as hearing & speach
+#+BEGIN_NOTES
+this is only a tests
+#+END_NOTES
 * Tensors
+#+ATTR_REVEAL: :frag roll-in
 + Multilinear map between vector space
-+ Seen as multi-dimeisonal arrays of numbers
-+ It has rank
++ Treated as multi-dimeisonal arrays of numbers
++ Generalized with rank
   - Scalar - rank 0
   - Vector - rank 1
   - Matrix - rank 2
   - Higher order - rank 3, 4, ...
 + Can embed reference vectors (on this later)
-* GPU drives AI frenzy
+* GPU to AI frenzy
+#+ATTR_REVEAL: :frag grow
 + Massive parallelism
 + High thoughput
-+ Good at matrix ops
++ Local Memory
++ Fast math
++ Tensor Cores for matrix ops
 ** What is GPU anyway
+#+ATTR_REVEAL: :frag roll-in
 + Graphics Processing Unit
   - A specialized processor
-  - Many Parallel Cores
-  - Used to do graphics/games only
+  - Many parallel cores
+  - Did graphics & games only
 + Becomes General Purpose
   - Talk to CPU via PCIe
   - Good for scientific computing
   - Machine learning, of course
   - nVidia 98%, AMD 1%, Intel < 1%
-** How to program nVidia GPU
+** Programing nVidia GPU
+#+ATTR_REVEAL: :frag roll-in
 + CUDA - C/C++ API
   - A gcc/LLVM variant
   - Translate C++ to PTX (portable code)
@@ -53,25 +65,36 @@
   - PyTorch, TensorFlow, ...
   - Backend utilize CUDA libraries
   - Encapsulate CUDA calls
-* Forth in GPU
-+ Like in a DSP or MCU
+* Forth in GPU?
+#+ATTR_REVEAL: :frag roll-in
++ Similar to a DSP (or MCU)
 + Use float data types
++ Need Data Structures
 + Handle memory allocation
 + Handle data transfer
 + Handle IO
-+ Run in Parallel
-** tensorForth
++ Think in parallel
+* Forth in GPU? - cont'
+#+ATTR_REVEAL: :frag roll-in
++ Compile/Run vs Interpret
++ In assembly, C++, or Forth
++ On host or device
++ Memory types and transfer
++ Threading - SIMT, divergence
++ Streaming - workload balancing
+* tensorForth
+#+ATTR_REVEAL: :frag roll-in
 + = tensor + Forth
-+ Use CUDA
-  - C/C++-basd Forth
-  - Host => Device
-  - Device => Host
-+ Does Linear Algebra
-  - Matirx ops
-+ Does Machine Learning
-  - Neaural Network
-* Matrix Ops
-+ 2-D array (row x column)
-+ Add, Sub - Matrix-Scalar
-+ Multiply - Matrix-Scalar, Matirx-Matrix
++ CUDA + C/C++-based Forth
+  - Dictionary in device
+  - Host input to device
+  - Device output to host
++ Linear Algebra words
++ Machine Learning words
+* Forth Code Example
+* Thank you!
+#+ATTR_REVEAL: :frag grow
++ More to come
 [[https://raw.githubusercontent.com/chochain/tensorForth/master/docs/img/ten4_l7_loss.png]]
+
+
