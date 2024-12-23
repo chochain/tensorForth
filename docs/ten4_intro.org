@@ -1,22 +1,77 @@
-#+TITLE: tensorForth
-#+SUBTITLE: Forth lives in GPU
-#+AUTHOR: Chochain Lee
-#+DATE: Dec. 21, 2024
+#+title: tensorForth
+#+subtitle: Forth lives in GPU
 #+OPTIONS: toc:nil num:nil html-postamble:nil ^:{} reveal_title_slide:nil
 #+REVEAL_ROOT: https://cdn.jsdelivr.net/npm/reveal.js
 #+REVEAL_THEME: night
 #+REVEAL_EXTRA_CSS: ./org-example.css
 #+REVEAL_INIT_OPTIONS: slideNumber:"c/t", transition:"none", transitionSpeed:"fast", controlsTutorial:false, minScale:1.0, maxScale:1.5
 #+REVEAL_EXTRA_SCRIPT: for(let e of document.getElementsByClassName("figure-number")){e.parentElement.classList.add("fig-caption");}
-#+REVEAL_TITLE_SLIDE: <h1 class="title">%t</h1><em>%s</em><br><br>%a<br>%d
+#+REVEAL_TITLE_SLIDE: <h2 class="title">%t</h2><em>%s</em><br><br>%a<br>%d<br>
 
-* This is the first slide
-  It has some content
-* This is a second slide
-** It has sub-sections
-   these render as other slides
-** last sub-section
-   - you can navigate main sections using left/right
-   - or navigate sub-sections with up/down
-* The End
-  thanks!
+* Artifitial Intelligence
++ Neaural Network, Not Expert System
+  - Many layers thus called "Deep" Learning
++ Image/Video Processing
+  - CNN (Convolutional Neaural Network)
+  - works as our eyes
++ Natual Language Processing
+  - RNN (Recurrent NN)
+  - Transformers (does better than RNN)
+  - works as our hearing & speach
+* Tensors
++ Multilinear map between vector space
++ Seen as multi-dimeisonal arrays of numbers
++ It has rank
+  - Scalar - rank 0
+  - Vector - rank 1
+  - Matrix - rank 2
+  - Higher order - rank 3, 4, ...
++ Can embed reference vectors (on this later)
+* GPU drives AI frenzy
++ Massive parallelism
++ High thoughput
++ Good at matrix ops
+** What is GPU anyway
++ Graphics Processing Unit
+  - A specialized processor
+  - Many Parallel Cores
+  - Used to do graphics/games only
++ Becomes General Purpose
+  - Talk to CPU via PCIe
+  - Good for scientific computing
+  - Machine learning, of course
+  - nVidia 98%, AMD 1%, Intel < 1%
+** How to program nVidia GPU
++ CUDA - C/C++ API
+  - A gcc/LLVM variant
+  - Translate C++ to PTX (portable code)
+  - Assemble PTX to SASS (device dependent)
++ Python - dominant language for AI
+  - PyCUDA - transcoder to C/C++
+  - NumPy - an optimized array library
++ High level frameworks
+  - PyTorch, TensorFlow, ...
+  - Backend utilize CUDA libraries
+  - Encapsulate CUDA calls
+* Forth in GPU
++ Like in a DSP or MCU
++ Use float data types
++ Handle memory allocation
++ Handle data transfer
++ Handle IO
++ Run in Parallel
+** tensorForth
++ = tensor + Forth
++ Use CUDA
+  - C/C++-basd Forth
+  - Host => Device
+  - Device => Host
++ Does Linear Algebra
+  - Matirx ops
++ Does Machine Learning
+  - Neaural Network
+* Matrix Ops
++ 2-D array (row x column)
++ Add, Sub - Matrix-Scalar
++ Multiply - Matrix-Scalar, Matirx-Matrix
+[[https://raw.githubusercontent.com/chochain/tensorForth/master/docs/img/ten4_l7_loss.png]]
