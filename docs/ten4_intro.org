@@ -4,7 +4,6 @@
 #+REVEAL_ROOT: https://cdn.jsdelivr.net/npm/reveal.js
 #+REVEAL_THEME: night
 #+REVEAL_HLEVEL: 2
-#+REVEAL_EXTRA_CSS: ./org-example.css
 #+REVEAL_INIT_OPTIONS: slideNumber:"c/t", transition:"none", transitionSpeed:"fast", controlsTutorial:false, minScale:1.0, maxScale:1.5
 #+REVEAL_EXTRA_SCRIPT: for(let e of document.getElementsByClassName("figure-number")){e.parentElement.classList.add("fig-caption");}
 #+REVEAL_TITLE_SLIDE: <h2 class="title">%t</h2><em>%s</em><br><br>%a<br>%d<br>
@@ -31,7 +30,7 @@ this is only a tests
 #+ATTR_REVEAL: :frag roll-in
 + Multilinear map between vector spaces
 + Can embed reference vectors (on this later)
-+ Treated as a multi-dimeisonal array of numbers
++ Kept as a multi-dimeisonal array of numbers
 + Generalized with rank
   - Scalar - rank 0
   - Vector - rank 1
