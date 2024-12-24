@@ -10,28 +10,28 @@
 #+REVEAL_TITLE_SLIDE: <h2 class="title">%t</h2><em>%s</em><br><br>%a<br>%d<br>
 #+REVEAL_PLUGINS: highlight notes
 
-* Artifitial Intelligence
-+ Neaural Network, not Expert System
+* Artificial Intelligence
++ Neural Network, not Expert System
   #+ATTR_REVEAL: :frag roll-in
   - Matrix elements as neurons
   - Many layers, thus "Deep" Learning
 + Image/Video Processing
   #+ATTR_REVEAL: :frag roll-in
-  - CNN (Convolutional Neaural Network)
+  - CNN (Convectional Neural Network)
   - think of it as eyes
-+ Natual Language Processing
++ Natural Language Processing
   #+ATTR_REVEAL: :frag roll-in
   - RNN (Recurrent NN)
   - Transformers (does better than RNN)
-  - think of it as hearing & speach
+  - think of it as hearing & speech
 #+BEGIN_NOTES
 this is only a tests
 #+END_NOTES
 * Tensor
 #+ATTR_REVEAL: :frag roll-in
-+ Multilinear map between vector spaces
++ Multi-linear map between vector spaces
 + Can embed reference vectors (on this later)
-+ Kept as a multi-dimeisonal array of numbers
++ Kept as a multi-dimensional array of numbers
 + Generalized with rank
   - Scalar - rank 0
   - Vector - rank 1
@@ -56,7 +56,7 @@ this is only a tests
   - Good for scientific computing
   - Machine learning, of course
 + nVidia 98%, AMD 1%, Intel < 1%
-** Programing nVidia GPU
+** Programming nVidia GPU
 + CUDA - C/C++ API
   #+ATTR_REVEAL: :frag roll-in
   - A LLVM/gcc variant
@@ -76,17 +76,17 @@ this is only a tests
 + Similar to a DSP? or MCU?
 + In assembly, C++, or Forth?
 + Data types, float vs int?
-+ Memory allocation?
-+ Data transfer?
-+ IO handling?
 + Data Structures?
++ Memory allocation?
++ CPU-GPU dataflow?
++ IO handling?
 * Forth in GPU? - cont'
 + Compile/Run vs Interpret?
-+ On host or device?
-+ Memory types - transfer?
-+ Parallel - dimensions?
-+ Threading - divergence?
-+ Streaming - workload?
++ Code on host or device?
++ Memory types & transfer?
++ Parallel & dimensions?
++ Threading & divergence?
++ Streaming & workload?
 * tensorForth
 + tensor + Forth = tensorForth
 #+ATTR_REVEAL: :frag roll-in
@@ -95,12 +95,24 @@ this is only a tests
   - Dictionary in device
   - Host input to device
   - Device output to host
-  - OpenGL viewer
 + Built-in Vocabularies
   #+ATTR_REVEAL: :frag roll-in
   - Linear Algebra
   - Machine Learning
   - Dataset Loader
++ Export for sharing & visualization
+* Considerations
+#+ATTR_REVEAL: :frag roll-in
++ Float data only? Yes, 32-bit!
++ Host or kernel libraries? Kernel!
++ number of data stacks? Only one!
+  - Mix data & objects
++ Dynamic Memory allocation? TLSF!
+  - reference counting
+  - used & free queues
++ Async IO? Yes!
+  - via message queue
+  - external dataset loader
 * Example - GEMM
 - Multiply large matrices
 #+begin_src
@@ -119,6 +131,18 @@ see mx                    \ show the word
 
 100 mx                    \ run the multiplication loop 100 times
 #+end_src
+* Analysis - GEMM
+#+ATTR_REVEAL: :frag roll-in
++ Forthy syntax works nicely
++ Polymorphic words
+  - +,-,*,/ work on both arrays and numbers
+  - @ to fetch or multiply matrices
++ Matrices kept warm on device
+  - No CPU-GPU shuffling
++ Array/Matrix data structure needed
++ Temporary storage needed
++ Soft view needed (vs hard copy)
++ Memory managed dynamically
 * Example - CNN Models
 + MNIST model definitions
 #+begin_src
@@ -160,6 +184,19 @@ variable lox                    \ create var for epoch latest loss
 ds0                             \ push dataset as TOS
 20 cnn                          \ execute 20 epoches
 #+end_src
+* Analysis - CNN
+#+ATTR_REVEAL: :frag roll-in
++ NN layers fit right on Forth stack
++ Training sequence reads natually
+  - feed forward
+  - calculate loss
+  - back propegate
+  - gradient descent
++ Tensor data structure needed
++ Polymorphic words, again
+  - Iterate with for..next, do..loop
+  - Access Dataset with r@
++ Vast dump, needs good visulization
 * Thank you!
 #+ATTR_REVEAL: :frag grow
 + More to come soon
