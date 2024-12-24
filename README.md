@@ -5,6 +5,7 @@
 
 ### Status
 |version|feature|stage|description|conceptual comparable|
+
 |---|---|---|---|---|
 |[1.0](https://github.com/chochain/tensorForth/releases/tag/v1.0.2)|**float**|production|extended eForth with F32 float|Python|
 |[2.0](https://github.com/chochain/tensorForth/releases/tag/v2.0.2)|**matrix**|production|+ vector and matrix objects|NumPy|
@@ -412,7 +413,7 @@ Tests v3.2 GAN ops
 ### Tensor I/O, Persistence
 <pre>
    save      (T adr len [fam] -- T) - pickle tensor to OS file (default text mode)
-</pre>
+   </pre>
 
 ### TODO - by priorities
 * Upgrade CUDA (2024-05 => 12.5)
