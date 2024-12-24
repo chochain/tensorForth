@@ -59,7 +59,7 @@ this is only a tests
 ** Programing nVidia GPU
 + CUDA - C/C++ API
   #+ATTR_REVEAL: :frag roll-in
-  - A gcc/LLVM variant
+  - A LLVM/gcc variant
   - Translate C++ to PTX (portable code)
   - Assemble PTX to SASS (device dependent)
 + Python - dominant language for AI
@@ -89,18 +89,18 @@ this is only a tests
 + Streaming - workload?
 * tensorForth
 + tensor + Forth = tensorForth
+#+ATTR_REVEAL: :frag roll-in
++ 100% C/C++-based + CUDA
   #+ATTR_REVEAL: :frag roll-in
-  + 100% C/C++-based + CUDA
-    #+ATTR_REVEAL: :frag roll-in
-    - Dictionary in device
-    - Host input to device
-    - Device output to host
-    - OpenGL viewer
-  + Built-in Vocabularies
-    #+ATTR_REVEAL: :frag roll-in
-    - Linear Algebra
-    - Machine Learning
-    - Dataset Loader
+  - Dictionary in device
+  - Host input to device
+  - Device output to host
+  - OpenGL viewer
++ Built-in Vocabularies
+  #+ATTR_REVEAL: :frag roll-in
+  - Linear Algebra
+  - Machine Learning
+  - Dataset Loader
 * Example - GEMM
 - Multiply large matrices
 #+begin_src
