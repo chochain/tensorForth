@@ -27,11 +27,11 @@
 #+BEGIN_NOTES
 this is only a tests
 #+END_NOTES
-* Tensors
+* Tensor
 #+ATTR_REVEAL: :frag roll-in
-+ Multilinear map between vector space
++ Multilinear map between vector spaces
 + Can embed reference vectors (on this later)
-+ Treated as multi-dimeisonal arrays of numbers
++ Treated as a multi-dimeisonal array of numbers
 + Generalized with rank
   - Scalar - rank 0
   - Vector - rank 1
@@ -42,8 +42,8 @@ this is only a tests
 + Massive parallelism
 + High thoughput
 + Local Memory
-+ Fast math
-+ Tensor Cores (for matrix ops)
++ Fast math hardware
++ Tensor Cores for matrix ops
 ** What is GPU anyway
 + Graphics Processing Unit
   #+ATTR_REVEAL: :frag roll-in
@@ -55,7 +55,7 @@ this is only a tests
   - Talk to CPU via PCIe
   - Good for scientific computing
   - Machine learning, of course
-  - nVidia 98%, AMD 1%, Intel < 1%
++ nVidia 98%, AMD 1%, Intel < 1%
 ** Programing nVidia GPU
 + CUDA - C/C++ API
   #+ATTR_REVEAL: :frag roll-in
@@ -73,36 +73,93 @@ this is only a tests
   - Encapsulate CUDA calls
 * Forth in GPU?
 #+ATTR_REVEAL: :frag roll-in
-+ Similar to a DSP (or MCU)
-+ Use float data types
-+ Need Data Structures
-+ Handle memory allocation
-+ Handle data transfer
-+ Handle IO
-+ Think in parallel
++ Similar to a DSP? or MCU?
++ In assembly, C++, or Forth?
++ Data types, float vs int?
++ Memory allocation?
++ Data transfer?
++ IO handling?
++ Data Structures?
 * Forth in GPU? - cont'
-#+ATTR_REVEAL: :frag roll-in
-+ Compile/Run vs Interpret
-+ In assembly, C++, or Forth
-+ On host or device
-+ Memory types and transfer
-+ Threading - SIMT, divergence
-+ Streaming - workload balancing
++ Compile/Run vs Interpret?
++ On host or device?
++ Memory types - transfer?
++ Parallel - dimensions?
++ Threading - divergence?
++ Streaming - workload?
 * tensorForth
 + tensor + Forth = tensorForth
-+ 100% C/C++-based + CUDA
   #+ATTR_REVEAL: :frag roll-in
-  - Dictionary in device
-  - Host input to device
-  - Device output to host
-  - OpenGL viewer
-+ Built-in Vocabularies
-  #+ATTR_REVEAL: :frag roll-in
-  - Linear Algebra
-  - Machine Learning
-  - Dataset Loader
-* Forth Code Example
-  - TODO:
+  + 100% C/C++-based + CUDA
+    #+ATTR_REVEAL: :frag roll-in
+    - Dictionary in device
+    - Host input to device
+    - Device output to host
+    - OpenGL viewer
+  + Built-in Vocabularies
+    #+ATTR_REVEAL: :frag roll-in
+    - Linear Algebra
+    - Machine Learning
+    - Dataset Loader
+* Example - GEMM
+- Multiply large matrices
+#+begin_src
+512 1024 matrix rand      \ create a 512x1024 matrix with random values
+1024 256 matrix ones      \ create a 1024x256 matrix filled with 1s
+@                         \ multiply the matrices
+1024 /= .                 \ scale down element-wise and print
+
+: mx                      \ create a word for benchmark loops
+  1- dup >r clock >r      \ keep loop count and init clock on return stack
+  for @ drop next         \ loop of matrix multiplication (and drop the result)
+  clock r> -              \ time it (clock1 - clock0)
+  r> 1 + / ." =>"         \ retrieve loop count and calc average
+  . ."  msec/cycle" cr ;  \ print result
+see mx                    \ show the word
+
+100 mx                    \ run the multiplication loop 100 times
+#+end_src
+* Example - CNN Models
++ MNIST model definitions
+#+begin_src
+: model_a                       \ A model template
+  0.5 10 conv2d                 \ 1st 2D convolution layer
+  2 maxpool relu ;              \ with maxpool and relu activation
+: model_b                       \ B model template
+  0.5 10 conv2d 0.5 dropout     \ 1st 2D conv with dropout
+  flatten 100 linear relu ;     \ linear connection with relu activation
+
+50 28 28 1 nn.model             \ create a model (50 per batch of 28x28x1 img)
+model_a                         \ choose model_a for tests
+10 linear softmax               \ add final fully connected layer
+dup constant md0                \ keep model as a constant
+
+batchsize dataset mnist_train   \ create MNIST dataset with model batch size
+constant ds0                    \ keep dataset in a constant
+#+end_src
+* Cont' - CNN Training
+#+begin_src
+variable hit 0 hit !            \ create var for hit counter, and zero it
+variable lox                    \ create var for epoch latest loss
+0.001 constant lr               \ init learning rate (for Adam)
+: epoch ( N ds -- N' )          \ one epoch thru entire dataset
+  for                           \ fetch a mini-batch
+    forward                     \ neural network forward pass
+    loss.ce lox ! nn.hit hit +! \ collect latest loss and accumulate hit
+    backprop                    \ neural network back propegation
+    lr nn.adam                  \ train with Adam Gradient Descent (b1=0.9,b2=0.999)
+    46 emit
+  next ;
+: cnn ( N ds n -- N' ) 1-       \ run multiple epochs
+  for
+    epoch r@ stat               \ run one epoch, display statistics
+    lr 0.9 * [to] lr            \ decay learning rate
+    ds0 rewind                  \ rewind entire dataset 
+  next ;
+
+ds0                             \ push dataset as TOS
+20 cnn                          \ execute 20 epoches
+#+end_src
 * Thank you!
 #+ATTR_REVEAL: :frag grow
 + More to come
