@@ -1,0 +1,397 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<title>tensorForth</title>
+<meta name="author" content="Chochain Lee"/>
+<meta name="description" content=""/>
+<meta name="keywords" content=""/>
+<style type="text/css">
+.underline { text-decoration: underline; }
+</style>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js/dist/reveal.css"/>
+
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js/dist/theme/night.css" id="theme"/>
+
+<link rel="stylesheet" href="./org-reveal.css"/>
+
+<!-- If the query includes 'print-pdf', include the PDF print sheet -->
+<script>
+    if( window.location.search.match( /print-pdf/gi ) ) {
+        var link = document.createElement( 'link' );
+        link.rel = 'stylesheet';
+        link.type = 'text/css';
+        link.href = 'https://cdn.jsdelivr.net/npm/reveal.js/css/print/pdf.css';
+        document.getElementsByTagName( 'head' )[0].appendChild( link );
+    }
+</script>
+</head>
+<body>
+<div class="reveal">
+<div class="slides">
+<section id="sec-title-slide"><h2 class="title">tensorForth</h2><em>Forth lives in GPU</em><br><br>Chochain Lee<br><br>
+</section>
+
+<section>
+<section id="slide-org27ae7c4">
+<h2 id="org27ae7c4">Artificial Intelligence</h2>
+<ul>
+<li>Neural Network, not Expert System
+<ul class="fragment roll-in">
+<li>Matrix elements as neurons</li>
+<li>Many layers, thus "Deep" Learning</li>
+
+</ul></li>
+<li>Image/Video Processing
+<ul class="fragment roll-in">
+<li>CNN (Convectional Neural Network)</li>
+<li>think of it as eyes</li>
+
+</ul></li>
+<li>Natural Language Processing
+<ul class="fragment roll-in">
+<li>RNN (Recurrent NN)</li>
+<li>Transformers (does better than RNN)</li>
+<li>think of it as hearing &amp; speech</li>
+
+</ul></li>
+
+</ul>
+<aside class="notes">
+<p>
+this is only a tests
+</p>
+
+</aside>
+</section>
+</section>
+<section>
+<section id="slide-orgf6b4fda">
+<h2 id="orgf6b4fda">Tensor</h2>
+<ul class="fragment roll-in">
+<li>Kept as a multi-dimensional array of numbers</li>
+<li>Is a multi-linear map between vector spaces</li>
+<li>Can embed reference vectors (on this later)</li>
+<li>Generalized with rank
+<ul>
+<li>Scalar - rank 0</li>
+<li>Vector - rank 1</li>
+<li>Matrix - rank 2</li>
+<li>3D Array - rank 3</li>
+<li>Higher order - rank 4, 5, &#x2026;</li>
+
+</ul></li>
+
+</ul>
+</section>
+</section>
+<section>
+<section id="slide-orgfbbe465">
+<h2 id="orgfbbe465">GPU fuels AI frenzy</h2>
+<ul>
+<li>With its
+<ul>
+<li>Massive parallelism</li>
+<li>High thoughput</li>
+<li>Local Memory</li>
+<li>Fast math hardware, and</li>
+<li>Tensor Cores for matrix ops</li>
+
+</ul></li>
+
+</ul>
+</section>
+</section>
+<section>
+<section id="slide-orgae78a77">
+<h3 id="orgae78a77">What is GPU anyway</h3>
+<ul>
+<li>Graphics Processing Unit
+<ul class="fragment roll-in">
+<li>A specialized processor</li>
+<li>Many parallel cores</li>
+<li>Did graphics &amp; games only</li>
+
+</ul></li>
+<li>Becomes General Purpose
+<ul class="fragment roll-in">
+<li>Talk to CPU via PCIe</li>
+<li>Good for scientific computing</li>
+<li>Machine learning, of course</li>
+
+</ul></li>
+<li>nVidia <font color="red">98%</font>, AMD ~2%, Intel &lt; 1% (data center)</li>
+
+</ul>
+</section>
+</section>
+<section>
+<section id="slide-org52f7194">
+<h3 id="org52f7194">Programming nVidia GPU</h3>
+<ul>
+<li>CUDA - C/C++ API
+<ul class="fragment roll-in">
+<li>A LLVM/gcc variant</li>
+<li>Translate C++ to PTX (portable code)</li>
+<li>Assemble PTX to SASS (device dependent)</li>
+
+</ul></li>
+<li>Python - dominant language for AI
+<ul class="fragment roll-in">
+<li>PyCUDA - transcoder to C/C++</li>
+<li>NumPy - an optimized array library</li>
+
+</ul></li>
+<li>High level frameworks
+<ul class="fragment roll-in">
+<li>PyTorch, TensorFlow, &#x2026;</li>
+<li>Backend utilize CUDA libraries</li>
+<li>Encapsulate CUDA calls</li>
+
+</ul></li>
+
+</ul>
+</section>
+</section>
+<section>
+<section id="slide-org7df5718">
+<h2 id="org7df5718">Forth in GPU?</h2>
+<ul class="fragment roll-in">
+<li>Similar to a DSP? or MCU?</li>
+<li>In assembly, C++, or Forth?</li>
+<li>Data types, float vs int?</li>
+<li>Data Structures?</li>
+<li>Big stack or memory allocation?</li>
+<li>CPU-GPU dataflow?</li>
+<li>IO handling?</li>
+
+</ul>
+</section>
+</section>
+<section>
+<section id="slide-org56bc378">
+<h2 id="org56bc378">Forth in GPU? - cont'</h2>
+<ul>
+<li>Compile/Run vs Interpret?</li>
+<li>Code on host or device?</li>
+<li>Memory types &amp; transfer?</li>
+<li>Parallel &amp; dimensions?</li>
+<li>Threading &amp; divergence?</li>
+<li>Streaming &amp; workload?</li>
+
+</ul>
+</section>
+</section>
+<section>
+<section id="slide-orgf0f0da2">
+<h2 id="orgf0f0da2">tensorForth</h2>
+<ul>
+<li>tensor + Forth = tensorForth</li>
+
+</ul>
+<ul class="fragment roll-in">
+<li>100% C/C++-based + CUDA
+<ul class="fragment roll-in">
+<li>Dictionary in device</li>
+<li>Host input to device</li>
+<li>Device output to host</li>
+
+</ul></li>
+<li>Built-in Vocabularies
+<ul class="fragment roll-in">
+<li>Linear Algebra</li>
+<li>Machine Learning</li>
+<li>Dataset Loader</li>
+
+</ul></li>
+<li>Export for sharing &amp; visualization</li>
+
+</ul>
+</section>
+</section>
+<section>
+<section id="slide-org6ccf8b5">
+<h2 id="org6ccf8b5">Considerations</h2>
+<ul class="fragment roll-in">
+<li>Float data only? Yes, 32-bit!</li>
+<li>Host or kernel libraries? Kernel!</li>
+<li>number of data stacks? Only one!
+<ul>
+<li>Mix data &amp; objects</li>
+
+</ul></li>
+<li>Dynamic Memory allocation? TLSF!
+<ul>
+<li>reference counting</li>
+<li>used &amp; free queues</li>
+
+</ul></li>
+<li>Async IO? Yes!
+<ul>
+<li>via message queue</li>
+<li>external dataset loader</li>
+
+</ul></li>
+
+</ul>
+</section>
+</section>
+<section>
+<section id="slide-org8d11a70">
+<h2 id="org8d11a70">Example - GEMM</h2>
+<ul>
+<li>Multiply large matrices</li>
+
+</ul>
+<pre  class="example" >
+512 1024 matrix rand      \ create a 512x1024 matrix with random values
+1024 256 matrix ones      \ create a 1024x256 matrix filled with 1s
+@                         \ multiply the matrices
+1024 /= .                 \ scale down element-wise and print
+
+: mx                      \ create a word for benchmark loops
+  1- dup &gt;r clock &gt;r      \ keep loop count and init clock on return stack
+  for @ drop next         \ loop of matrix multiplication (and drop the result)
+  clock r&gt; -              \ time it (clock1 - clock0)
+  r&gt; 1 + / ." =&gt;"         \ retrieve loop count and calc average
+  . ."  msec/cycle" cr ;  \ print result
+see mx                    \ show the word
+
+100 mx                    \ run the multiplication loop 100 times
+</pre>
+</section>
+</section>
+<section>
+<section id="slide-org714a63e">
+<h2 id="org714a63e">Analysis - GEMM</h2>
+<ul class="fragment roll-in">
+<li>Forthy syntax works nicely</li>
+<li>Polymorphic words
+<ul>
+<li>+,-,*,/ work on both arrays and numbers</li>
+<li>@ to fetch or multiply matrices</li>
+
+</ul></li>
+<li>Matrices kept warm on device
+<ul>
+<li>No CPU-GPU shuffling</li>
+
+</ul></li>
+<li>Array/Matrix data structure needed</li>
+<li>Temporary storage needed</li>
+<li>Soft view needed (vs hard copy)</li>
+<li>Memory managed dynamically</li>
+
+</ul>
+</section>
+</section>
+<section>
+<section id="slide-org387bae8">
+<h2 id="org387bae8">Example - CNN Models</h2>
+<ul>
+<li>MNIST model definitions</li>
+
+</ul>
+<pre  class="example" >
+: model_a                       \ A model template
+  0.5 10 conv2d                 \ 1st 2D convolution layer
+  2 maxpool relu ;              \ with maxpool and relu activation
+: model_b                       \ B model template
+  0.5 10 conv2d 0.5 dropout     \ 1st 2D conv with dropout
+  flatten 100 linear relu ;     \ linear connection with relu activation
+
+50 28 28 1 nn.model             \ create a model (50 per batch of 28x28x1 img)
+model_a                         \ choose model_a for tests
+10 linear softmax               \ add final fully connected layer
+dup constant md0                \ keep model as a constant
+
+batchsize dataset mnist_train   \ create MNIST dataset with model batch size
+constant ds0                    \ keep dataset in a constant
+</pre>
+</section>
+</section>
+<section>
+<section id="slide-org6f544e4">
+<h2 id="org6f544e4">Cont' - CNN Training</h2>
+<pre  class="example" >
+variable hit 0 hit !            \ create var for hit counter, and zero it
+variable lox                    \ create var for epoch latest loss
+0.001 constant lr               \ init learning rate (for Adam)
+: epoch ( N ds -- N' )          \ one epoch thru entire dataset
+  for                           \ fetch a mini-batch
+    forward                     \ neural network forward pass
+    loss.ce lox ! nn.hit hit +! \ collect latest loss and accumulate hit
+    backprop                    \ neural network back propegation
+    lr nn.adam                  \ train with Adam Gradient Descent (b1=0.9,b2=0.999)
+    46 emit
+  next ;
+: cnn ( N ds n -- N' ) 1-       \ run multiple epochs
+  for
+    epoch r@ stat               \ run one epoch, display statistics
+    lr 0.9 * [to] lr            \ decay learning rate
+    ds0 rewind                  \ rewind entire dataset 
+  next ;
+
+ds0                             \ push dataset as TOS
+20 cnn                          \ execute 20 epoches
+</pre>
+</section>
+</section>
+<section>
+<section id="slide-org036d2a4">
+<h2 id="org036d2a4">Analysis - CNN</h2>
+<ul class="fragment roll-in">
+<li>NN layers fit right on Forth stack</li>
+<li>Training sequence reads natually
+<ul>
+<li>feed forward</li>
+<li>calculate loss</li>
+<li>back propegate</li>
+<li>gradient descent</li>
+
+</ul></li>
+<li>Tensor data structure needed</li>
+<li>Polymorphic words, again
+<ul>
+<li>Iterate with for..next, do..loop</li>
+<li>Access Dataset with r@</li>
+
+</ul></li>
+<li>Vast dump, needs good visulization</li>
+
+</ul>
+</section>
+</section>
+<section>
+<section id="slide-org95848e9">
+<h2 id="org95848e9">Thank you!</h2>
+<ul>
+<li>More to come soon&#x2026;</li>
+
+</ul>
+
+<div id="orgd9f367d" class="figure">
+<p><img src="https://raw.githubusercontent.com/chochain/tensorForth/master/docs/img/ten4_l7_loss.png" alt="ten4_l7_loss.png" />
+</p>
+</div>
+</section>
+</section>
+</div>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/reveal.js/dist/reveal.js"></script>
+
+<script>
+// Full list of configuration options available here:
+// https://github.com/hakimel/reveal.js#configuration
+Reveal.initialize({
+slideNumber:"c/t", transition:"none", transitionSpeed:"fast", controlsTutorial:false, minScale:1.0, maxScale:1.5,
+
+// Optional libraries used to extend on reveal.js
+dependencies: [
+ { src: 'https://cdn.jsdelivr.net/npm/reveal.js/plugin/notes/notes.js', async: true, condition: function() { return !!document.body.classList; } }]
+
+});
+for(let e of document.getElementsByClassName("figure-number")){e.parentElement.classList.add("fig-caption");}
+</script>
+</body>
+</html>
