@@ -4,6 +4,7 @@
 #+REVEAL_ROOT: https://cdn.jsdelivr.net/npm/reveal.js
 #+REVEAL_THEME: night
 #+REVEAL_HLEVEL: 2
+#+REVEAL_EXTRA_CSS: ./org-reveal.css
 #+REVEAL_INIT_OPTIONS: slideNumber:"c/t", transition:"none", transitionSpeed:"fast", controlsTutorial:false, minScale:1.0, maxScale:1.5
 #+REVEAL_EXTRA_SCRIPT: for(let e of document.getElementsByClassName("figure-number")){e.parentElement.classList.add("fig-caption");}
 #+REVEAL_TITLE_SLIDE: <h2 class="title">%t</h2><em>%s</em><br><br>%a<br>%d<br>
@@ -161,7 +162,8 @@ ds0                             \ push dataset as TOS
 #+end_src
 * Thank you!
 #+ATTR_REVEAL: :frag grow
-+ More to come
++ More to come soon
 [[https://raw.githubusercontent.com/chochain/tensorForth/master/docs/img/ten4_l7_loss.png]]
+
 
 
