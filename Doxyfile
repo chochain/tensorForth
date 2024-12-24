@@ -863,14 +863,6 @@ FILE_PATTERNS          = *.cu \
                          *.cpp \
                          *.c++ \
                          *.java \
-                         *.ii \
-                         *.ixx \
-                         *.ipp \
-                         *.i++ \
-                         *.inl \
-                         *.idl \
-                         *.ddl \
-                         *.odl \
                          *.h \
                          *.hh \
                          *.hxx \
@@ -901,7 +893,8 @@ FILE_PATTERNS          = *.cu \
                          *.vhdl \
                          *.ucf \
                          *.qsf \
-                         *.ino
+                         *.ino \
+                         *.org
 
 # The RECURSIVE tag can be used to specify whether or not subdirectories should
 # be searched for input files as well.
@@ -920,14 +913,15 @@ EXCLUDE                = tests \
                          examples \
                          html \
                          latex \
-                         Debug
+                         Debug \
+                         data
 
 # The EXCLUDE_SYMLINKS tag can be used to select whether or not files or
 # directories that are symbolic links (a Unix file system feature) are excluded
 # from the input.
 # The default value is: NO.
 
-EXCLUDE_SYMLINKS       = NO
+EXCLUDE_SYMLINKS       = YES
 
 # If the value of the INPUT tag contains directories, you can use the
 # EXCLUDE_PATTERNS tag to specify one or more wildcard patterns to exclude
