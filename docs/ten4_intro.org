@@ -9,6 +9,7 @@
 #+REVEAL_EXTRA_SCRIPT: for(let e of document.getElementsByClassName("figure-number")){e.parentElement.classList.add("fig-caption");}
 #+REVEAL_TITLE_SLIDE: <h2 class="title">%t</h2><em>%s</em><br><br>%a<br>%d<br>
 #+REVEAL_PLUGINS: highlight notes
+#+MACRO: color @@html:<font color="$1">$2</font>@@
 
 * Artificial Intelligence
 + Neural Network, not Expert System
@@ -29,21 +30,22 @@ this is only a tests
 #+END_NOTES
 * Tensor
 #+ATTR_REVEAL: :frag roll-in
-+ Multi-linear map between vector spaces
-+ Can embed reference vectors (on this later)
 + Kept as a multi-dimensional array of numbers
++ Is a multi-linear map between vector spaces
++ Can embed reference vectors (on this later)
 + Generalized with rank
   - Scalar - rank 0
   - Vector - rank 1
   - Matrix - rank 2
-  - Higher order - rank 3, 4, ...
-* AI frenzy with GPU
-#+ATTR_REVEAL: :frag grow
-+ Massive parallelism
-+ High thoughput
-+ Local Memory
-+ Fast math hardware
-+ Tensor Cores for matrix ops
+  - 3D Array - rank 3
+  - Higher order - rank 4, 5, ...
+* GPU fuels AI frenzy
++ With its
+  - Massive parallelism
+  - High thoughput
+  - Local Memory
+  - Fast math hardware, and
+  - Tensor Cores for matrix ops
 ** What is GPU anyway
 + Graphics Processing Unit
   #+ATTR_REVEAL: :frag roll-in
@@ -55,7 +57,7 @@ this is only a tests
   - Talk to CPU via PCIe
   - Good for scientific computing
   - Machine learning, of course
-+ nVidia 98%, AMD 1%, Intel < 1%
++ nVidia {{{color(red,98%)}}}, AMD ~2%, Intel < 1% (data center)
 ** Programming nVidia GPU
 + CUDA - C/C++ API
   #+ATTR_REVEAL: :frag roll-in
@@ -77,7 +79,7 @@ this is only a tests
 + In assembly, C++, or Forth?
 + Data types, float vs int?
 + Data Structures?
-+ Memory allocation?
++ Big stack or memory allocation?
 + CPU-GPU dataflow?
 + IO handling?
 * Forth in GPU? - cont'
@@ -198,8 +200,7 @@ ds0                             \ push dataset as TOS
   - Access Dataset with r@
 + Vast dump, needs good visulization
 * Thank you!
-#+ATTR_REVEAL: :frag grow
-+ More to come soon
++ More to come soon...
 [[https://raw.githubusercontent.com/chochain/tensorForth/master/docs/img/ten4_l7_loss.png]]
 
 
