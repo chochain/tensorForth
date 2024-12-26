@@ -1,14 +1,12 @@
 #+title: tensorForth
 #+subtitle: Forth lives in GPU
 #+OPTIONS: toc:nil num:nil html-postamble:nil ^:{} reveal_title_slide:nil
-#+REVEAL_ROOT: https://cdn.jsdelivr.net/npm/reveal.js
 #+REVEAL_THEME: night
 #+REVEAL_HLEVEL: 2
 #+REVEAL_EXTRA_CSS: ./org-reveal.css
 #+REVEAL_INIT_OPTIONS: slideNumber:"c/t", transition:"none", transitionSpeed:"fast", controlsTutorial:false, minScale:1.0, maxScale:1.5
 #+REVEAL_EXTRA_SCRIPT: for(let e of document.getElementsByClassName("figure-number")){e.parentElement.classList.add("fig-caption");}
 #+REVEAL_TITLE_SLIDE: <h2 class="title">%t</h2><em>%s</em><br><br>%a<br>%d<br>
-#+REVEAL_PLUGINS: highlight notes
 #+MACRO: color @@html:<font color="$1">$2</font>@@
 
 * Artificial Intelligence
@@ -18,7 +16,7 @@
   - Many layers, thus "Deep" Learning
 + Image/Video Processing
   #+ATTR_REVEAL: :frag roll-in
-  - CNN (Convectional Neural Network)
+  - CNN (Convolutional Neural Network)
   - think of it as eyes
 + Natural Language Processing
   #+ATTR_REVEAL: :frag roll-in
