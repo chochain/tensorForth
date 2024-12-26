@@ -1,12 +1,14 @@
 #+title: tensorForth
 #+subtitle: Forth lives in GPU
 #+OPTIONS: toc:nil num:nil html-postamble:nil ^:{} reveal_title_slide:nil
+#+REVEAL_ROOT: https://cdn.jsdelivr.net/npm/reveal.js
 #+REVEAL_THEME: night
 #+REVEAL_HLEVEL: 2
 #+REVEAL_EXTRA_CSS: ./org-reveal.css
 #+REVEAL_INIT_OPTIONS: slideNumber:"c/t", transition:"none", transitionSpeed:"fast", controlsTutorial:false, minScale:1.0, maxScale:1.5
 #+REVEAL_EXTRA_SCRIPT: for(let e of document.getElementsByClassName("figure-number")){e.parentElement.classList.add("fig-caption");}
 #+REVEAL_TITLE_SLIDE: <h2 class="title">%t</h2><em>%s</em><br><br>%a<br>%d<br>
+#+REVEAL_PLUGINS: highlight notes
 #+MACRO: color @@html:<font color="$1">$2</font>@@
 
 * Artificial Intelligence
@@ -59,7 +61,7 @@ this is only a tests
 ** Programming nVidia GPU
 + CUDA - C/C++ API
   #+ATTR_REVEAL: :frag roll-in
-  - A LLVM/gcc variant
+  - An LLVM/gcc variant
   - Translate C++ to PTX (portable code)
   - Assemble PTX to SASS (device dependent)
 + Python - dominant language for AI
@@ -105,7 +107,7 @@ this is only a tests
 #+ATTR_REVEAL: :frag roll-in
 + Float data only? Yes, 32-bit!
 + Host or kernel libraries? Kernel!
-+ number of data stacks? Only one!
++ Number of data stacks? Only one!
   - Mix data & objects
 + Dynamic Memory allocation? TLSF!
   - reference counting
@@ -113,6 +115,27 @@ this is only a tests
 + Async IO? Yes!
   - via message queue
   - external dataset loader
+* Example - Matrix ops
+#+begin_src
+2 3 matrix{ 1 2 3 4 5 6 }            \ create a 2x3 matrix
+ <0 T2[2,3]> ok                      \ 2-D tensor shown on top of stack (TOS)
+dup                                  \ duplicate the matrix for printing
+ <0 T2[2,3] t[2,3]> ok               \ TOS is a 'view', shown in lowercase
+.                                    \ print the matrix (destructive as in Forth)
+matrix[2,3] = {
+	{ +1.0000 +2.0000 +3.0000 }
+	{ +4.0000 +5.0000 +6.0000 } }
+ <0 T2[2,3]> ok                      \ original matrix still on TOS
+3 2 matrix ones                      \ create a 3x2 matrix, fill it with ones
+ <0 T2[2,3] T2[3,2]> ok              \ now we have two matrices on stack
+@                                    \ multiply them 2x3 @ 3x2
+ <0 T2[2,3] T2[3,2] T2[2,2]> ok      \ 2x2 resultant matrix shown on TOS
+.                                    \ print the new matrix
+matrix[2,2] = {
+	{ +6.0000 +6.0000 }
+	{ +15.0000 +15.0000 } }
+ <0 T2[2,3] T2[3,2]> ok
+#+end_src
 * Example - GEMM
 - Multiply large matrices
 #+begin_src
@@ -120,6 +143,8 @@ this is only a tests
 1024 256 matrix ones      \ create a 1024x256 matrix filled with 1s
 @                         \ multiply the matrices
 1024 /= .                 \ scale down element-wise and print
+matrix[1024,512] = {      \ in PyTorch style
+  ... }                   \ skipped here for presentation
 
 : mx                      \ create a word for benchmark loops
   1- dup >r clock >r      \ keep loop count and init clock on return stack
