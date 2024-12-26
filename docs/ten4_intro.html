@@ -33,8 +33,8 @@
 </section>
 
 <section>
-<section id="slide-org27ae7c4">
-<h2 id="org27ae7c4">Artificial Intelligence</h2>
+<section id="slide-org67ed579">
+<h2 id="org67ed579">Artificial Intelligence</h2>
 <ul>
 <li>Neural Network, not Expert System
 <ul class="fragment roll-in">
@@ -66,8 +66,8 @@ this is only a tests
 </section>
 </section>
 <section>
-<section id="slide-orgf6b4fda">
-<h2 id="orgf6b4fda">Tensor</h2>
+<section id="slide-org0a16d29">
+<h2 id="org0a16d29">Tensor</h2>
 <ul class="fragment roll-in">
 <li>Kept as a multi-dimensional array of numbers</li>
 <li>Is a multi-linear map between vector spaces</li>
@@ -86,8 +86,8 @@ this is only a tests
 </section>
 </section>
 <section>
-<section id="slide-orgfbbe465">
-<h2 id="orgfbbe465">GPU fuels AI frenzy</h2>
+<section id="slide-orgff96532">
+<h2 id="orgff96532">GPU fuels AI frenzy</h2>
 <ul>
 <li>With its
 <ul>
@@ -103,8 +103,8 @@ this is only a tests
 </section>
 </section>
 <section>
-<section id="slide-orgae78a77">
-<h3 id="orgae78a77">What is GPU anyway</h3>
+<section id="slide-orgd15087c">
+<h3 id="orgd15087c">What is GPU anyway</h3>
 <ul>
 <li>Graphics Processing Unit
 <ul class="fragment roll-in">
@@ -126,12 +126,12 @@ this is only a tests
 </section>
 </section>
 <section>
-<section id="slide-org52f7194">
-<h3 id="org52f7194">Programming nVidia GPU</h3>
+<section id="slide-org9c6fcb8">
+<h3 id="org9c6fcb8">Programming nVidia GPU</h3>
 <ul>
 <li>CUDA - C/C++ API
 <ul class="fragment roll-in">
-<li>A LLVM/gcc variant</li>
+<li>An LLVM/gcc variant</li>
 <li>Translate C++ to PTX (portable code)</li>
 <li>Assemble PTX to SASS (device dependent)</li>
 
@@ -154,8 +154,8 @@ this is only a tests
 </section>
 </section>
 <section>
-<section id="slide-org7df5718">
-<h2 id="org7df5718">Forth in GPU?</h2>
+<section id="slide-org2a7fd8a">
+<h2 id="org2a7fd8a">Forth in GPU?</h2>
 <ul class="fragment roll-in">
 <li>Similar to a DSP? or MCU?</li>
 <li>In assembly, C++, or Forth?</li>
@@ -169,8 +169,8 @@ this is only a tests
 </section>
 </section>
 <section>
-<section id="slide-org56bc378">
-<h2 id="org56bc378">Forth in GPU? - cont'</h2>
+<section id="slide-org149fe51">
+<h2 id="org149fe51">Forth in GPU? - cont'</h2>
 <ul>
 <li>Compile/Run vs Interpret?</li>
 <li>Code on host or device?</li>
@@ -183,8 +183,8 @@ this is only a tests
 </section>
 </section>
 <section>
-<section id="slide-orgf0f0da2">
-<h2 id="orgf0f0da2">tensorForth</h2>
+<section id="slide-orgafe0286">
+<h2 id="orgafe0286">tensorForth</h2>
 <ul>
 <li>tensor + Forth = tensorForth</li>
 
@@ -210,12 +210,12 @@ this is only a tests
 </section>
 </section>
 <section>
-<section id="slide-org6ccf8b5">
-<h2 id="org6ccf8b5">Considerations</h2>
+<section id="slide-org35f2fbc">
+<h2 id="org35f2fbc">Considerations</h2>
 <ul class="fragment roll-in">
 <li>Float data only? Yes, 32-bit!</li>
 <li>Host or kernel libraries? Kernel!</li>
-<li>number of data stacks? Only one!
+<li>Number of data stacks? Only one!
 <ul>
 <li>Mix data &amp; objects</li>
 
@@ -237,8 +237,33 @@ this is only a tests
 </section>
 </section>
 <section>
-<section id="slide-org8d11a70">
-<h2 id="org8d11a70">Example - GEMM</h2>
+<section id="slide-orga3ec705">
+<h2 id="orga3ec705">Example - Matrix ops</h2>
+<pre  class="example" >
+2 3 matrix{ 1 2 3 4 5 6 }            \ create a 2x3 matrix
+ &lt;0 T2[2,3]&gt; ok                      \ 2-D tensor shown on top of stack (TOS)
+dup                                  \ duplicate the matrix for printing
+ &lt;0 T2[2,3] t[2,3]&gt; ok               \ TOS is a 'view', shown in lowercase
+.                                    \ print the matrix (destructive as in Forth)
+matrix[2,3] = {
+    { +1.0000 +2.0000 +3.0000 }
+    { +4.0000 +5.0000 +6.0000 } }
+ &lt;0 T2[2,3]&gt; ok                      \ original matrix still on TOS
+3 2 matrix ones                      \ create a 3x2 matrix, fill it with ones
+ &lt;0 T2[2,3] T2[3,2]&gt; ok              \ now we have two matrices on stack
+@                                    \ multiply them 2x3 @ 3x2
+ &lt;0 T2[2,3] T2[3,2] T2[2,2]&gt; ok      \ 2x2 resultant matrix shown on TOS
+.                                    \ print the new matrix
+matrix[2,2] = {
+    { +6.0000 +6.0000 }
+    { +15.0000 +15.0000 } }
+ &lt;0 T2[2,3] T2[3,2]&gt; ok
+</pre>
+</section>
+</section>
+<section>
+<section id="slide-org294213a">
+<h2 id="org294213a">Example - GEMM</h2>
 <ul>
 <li>Multiply large matrices</li>
 
@@ -248,6 +273,8 @@ this is only a tests
 1024 256 matrix ones      \ create a 1024x256 matrix filled with 1s
 @                         \ multiply the matrices
 1024 /= .                 \ scale down element-wise and print
+matrix[1024,512] = {      \ in PyTorch style
+  ... }                   \ skipped here for presentation
 
 : mx                      \ create a word for benchmark loops
   1- dup &gt;r clock &gt;r      \ keep loop count and init clock on return stack
@@ -262,8 +289,8 @@ see mx                    \ show the word
 </section>
 </section>
 <section>
-<section id="slide-org714a63e">
-<h2 id="org714a63e">Analysis - GEMM</h2>
+<section id="slide-org7dc929c">
+<h2 id="org7dc929c">Analysis - GEMM</h2>
 <ul class="fragment roll-in">
 <li>Forthy syntax works nicely</li>
 <li>Polymorphic words
@@ -286,8 +313,8 @@ see mx                    \ show the word
 </section>
 </section>
 <section>
-<section id="slide-org387bae8">
-<h2 id="org387bae8">Example - CNN Models</h2>
+<section id="slide-org9d07fe1">
+<h2 id="org9d07fe1">Example - CNN Models</h2>
 <ul>
 <li>MNIST model definitions</li>
 
@@ -311,8 +338,8 @@ constant ds0                    \ keep dataset in a constant
 </section>
 </section>
 <section>
-<section id="slide-org6f544e4">
-<h2 id="org6f544e4">Cont' - CNN Training</h2>
+<section id="slide-org403c0d7">
+<h2 id="org403c0d7">Cont' - CNN Training</h2>
 <pre  class="example" >
 variable hit 0 hit !            \ create var for hit counter, and zero it
 variable lox                    \ create var for epoch latest loss
@@ -338,8 +365,8 @@ ds0                             \ push dataset as TOS
 </section>
 </section>
 <section>
-<section id="slide-org036d2a4">
-<h2 id="org036d2a4">Analysis - CNN</h2>
+<section id="slide-orgcfe54cc">
+<h2 id="orgcfe54cc">Analysis - CNN</h2>
 <ul class="fragment roll-in">
 <li>NN layers fit right on Forth stack</li>
 <li>Training sequence reads natually
@@ -363,14 +390,14 @@ ds0                             \ push dataset as TOS
 </section>
 </section>
 <section>
-<section id="slide-org95848e9">
-<h2 id="org95848e9">Thank you!</h2>
+<section id="slide-org0f409f6">
+<h2 id="org0f409f6">Thank you!</h2>
 <ul>
 <li>More to come soon&#x2026;</li>
 
 </ul>
 
-<div id="orgd9f367d" class="figure">
+<div id="org43a6c28" class="figure">
 <p><img src="https://raw.githubusercontent.com/chochain/tensorForth/master/docs/img/ten4_l7_loss.png" alt="ten4_l7_loss.png" />
 </p>
 </div>
@@ -388,6 +415,9 @@ slideNumber:"c/t", transition:"none", transitionSpeed:"fast", controlsTutorial:f
 
 // Optional libraries used to extend on reveal.js
 dependencies: [
+ { src: 'https://cdn.jsdelivr.net/npm/reveal.js/plugin/markdown/marked.js', condition: function() { return !!document.querySelector( '[data-markdown]' ); } },
+ { src: 'https://cdn.jsdelivr.net/npm/reveal.js/plugin/markdown/markdown.js', condition: function() { return !!document.querySelector( '[data-markdown]' ); } },
+ { src: 'https://cdn.jsdelivr.net/npm/reveal.js/plugin/zoom-js/zoom.js', async: true, condition: function() { return !!document.body.classList; } },
  { src: 'https://cdn.jsdelivr.net/npm/reveal.js/plugin/notes/notes.js', async: true, condition: function() { return !!document.body.classList; } }]
 
 });
