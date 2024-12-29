@@ -296,7 +296,7 @@ Tests v3.2 GAN ops
    2over     (Ta Tb Tc Td -- Ta Tb Tc Td Ta Tb)
 </pre>
 
-### Tensor/View print (non-destructive)
+### Tensor/View print (destructive as in Forth)
 <pre>
    . (dot)   (Ta -- Ta)      - print a vector, matrix, or tensor
    . (dot)   (Va -- Va)      - print a view of a tensor
@@ -415,11 +415,14 @@ Tests v3.2 GAN ops
 </pre>
 
 ### TODO - by priorities
-* Upgrade CUDA (2024-05 => 12.5)
-  + 12.2 HMM, 12.3 Profiler, 12.4 CUB, Graph+
-  + Docker + GPU
 * Instrumentation
-  + Review [NVBits](https://github.com/NVlabs/NVBit?tab=readme-ov-file)
+  + Docker + GPU - no local upgrade (Ubuntu 20.04 works for Jetson Orin Nano, too)
+    - nsight-system/compute in docker
+  + Separate Vu from ten4
+    - ref TensorBoard vs TensorFlow
+    - callback during fit cycle
+    - with module similar to summary.writer
+    - Vu supports web interface and can be access remotely
 * VM
   + review CUDA HostFunc callback (requires CUDA Stream)
   + review CUDA dynamic Graph
@@ -471,7 +474,12 @@ Tests v3.2 GAN ops
   + warp-level collectives (study libcu++, MordenGPU for kernel)
 
 ### LATER
-* Cuda binary, study possibility for VM in assembly https://docs.nvidia.com/cuda/cuda-binary-utilities/index.html#instruction-set-reference
+* Tuning
+  + Graph (CUDA 10.x) - host-only, to reduce repetitive launch overhead
+  + HMM (CUDA 12.2) - unify CPU-GPU memory allocation
+  + CUB (CUDA 12.4) - warp/block/device-wide collective primitives
+* CUDA binary, study possibility for VM in assembly https://docs.nvidia.com/cuda/cuda-binary-utilities/index.html#instruction-set-reference
+  + Review [NVBits](https://github.com/NVlabs/NVBit?tab=readme-ov-file)
   + cuobjdump
   + cudisasm
 * Language consistancy
