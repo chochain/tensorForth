@@ -415,14 +415,19 @@ Tests v3.2 GAN ops
 </pre>
 
 ### TODO - by priorities
-* Instrumentation
+* Design & Instrumentation
   + Docker + GPU - no local upgrade (Ubuntu 20.04 works for Jetson Orin Nano, too)
     - nsight-system/compute in docker
   + Separate Vu from ten4
-    - ref TensorBoard vs TensorFlow
-    - callback during fit cycle
+    - ref TensorBoard vs TensorFlow, i.e. callback during fit cycle
     - with module similar to summary.writer
+      [tfevents](https://github.com/mlverse/tfevents)
+      [protobuf](https://chromium.googlesource.com/external/github.com/tensorflow/tensorflow/+/r0.10/tensorflow/g3doc/how_tos/tool_developers/index.md)
     - Vu supports web interface and can be access remotely
+  + Ollama
+    - [Review](https://www.hostinger.com/tutorials/what-is-ollama). Local LLM environment with pre-train model.
+    - [GGML Tensor library]( https://github.com/ggerganov/ggml). Host-oriented, compare.
+    - [GGUF](https://github.com/ggerganov/ggml/blob/master/docs/gguf.md). Optimized for GPU, cross-platform, structured model storage.
 * VM
   + review CUDA HostFunc callback (requires CUDA Stream)
   + review CUDA dynamic Graph
@@ -447,9 +452,12 @@ Tests v3.2 GAN ops
       * [Attention is all you need](https://nlp.seas.harvard.edu/2018/04/03/attention.html)
       * [lecture](https://courses.grainger.illinois.edu/ece448/sp2023/slides/lec24.pdf)
       * [what](https://www.datacamp.com/tutorial/how-transformers-work)
-      * [code](https://github.com/hyunwoongko/transformer?tab=readme-ov-file), [explain](https://towardsdatascience.com/a-detailed-guide-to-pytorchs-nn-transformer-module-c80afbc9ffb1)
-      * [code](https://www.datacamp.com/tutorial/building-a-transformer-with-py-torch)
-    - New Layers
+    - Code
+      * [transformer](https://github.com/hyunwoongko/transformer?tab=readme-ov-file)
+      * [pytorch](https://towardsdatascience.com/a-detailed-guide-to-pytorchs-nn-transformer-module-c80afbc9ffb1)
+      * [pytorch](https://www.datacamp.com/tutorial/building-a-transformer-with-py-torch)
+      * [llama.cpp](https://github.com/ggerganov/llama.cpp?tab=readme-ov-file)
+  + New Layers
       * 1x1 Convolution (resize #channel)
       * residual net i.e. [ResNet](https://d2l.ai/chapter_convolutional-modern/resnet.html)
       * branch & concatenate (i.e Inception in GoogLeNet)
@@ -458,8 +466,8 @@ Tests v3.2 GAN ops
 * Data + Visualization
   + OpenGL/WASM
   + output tensor in HWC format
-      * util from raw to png (with STB)
-      * for PIL (Python Image Lib), matplotlib
+    * util from raw to png (with STB)
+    * for PIL (Python Image Lib), matplotlib
   + add loader plug-in API - CIFAR
   + add K-fold sampler
   + data API - Python(cffi), Ruby(FFI)
