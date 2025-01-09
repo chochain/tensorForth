@@ -418,12 +418,16 @@ Tests v3.2 GAN ops
 * Design & Instrumentation
   + Docker + GPU - no local upgrade (Ubuntu 20.04 works for Jetson Orin Nano, too)
     - nsight-system/compute in docker
-  + Separate Vu from ten4
-    - ref TensorBoard vs TensorFlow, i.e. callback during fit cycle
-    - with module similar to summary.writer
-      [tfevents](https://github.com/mlverse/tfevents)
-      [protobuf](https://chromium.googlesource.com/external/github.com/tensorflow/tensorflow/+/r0.10/tensorflow/g3doc/how_tos/tool_developers/index.md)
-    - Vu supports web interface and can be access remotely
+  + Visulization via TensorBoard
+    - separate Vu from ten4
+    - output tensor in HWC format
+    - util from raw to png (with STB)
+    - for PIL (Python Image Lib), matplotlib
+    - [tfevents](https://github.com/mlverse/tfevents)
+    - [protobuf](https://chromium.googlesource.com/external/github.com/tensorflow/tensorflow/+/r0.10/tensorflow/g3doc/how_tos/tool_developers/index.md)
+    - [tensorflow EventWriter](https://stackoverflow.com/questions/48610803/how-i-can-use-filewrite-summary-in-tensorflow-c-api-to-view-it-in-tensorboard/48702823#48702823)
+    - [pytorch SummaryWriter](https://github.com/pytorch/pytorch/blob/main/torch/utils/tensorboard/writer.py)
+    - [pytorch TensorBoard writer](https://github.com/pytorch/pytorch/blob/main/torch/utils/tensorboard/writer.py)
   + Ollama
     - [Review](https://www.hostinger.com/tutorials/what-is-ollama). Local LLM environment with pre-train model.
     - [GGML Tensor library]( https://github.com/ggerganov/ggml). Host-oriented, review kernel code.
@@ -452,8 +456,11 @@ Tests v3.2 GAN ops
       * [Attention is all you need](https://nlp.seas.harvard.edu/2018/04/03/attention.html)
       * [lecture](https://courses.grainger.illinois.edu/ece448/sp2023/slides/lec24.pdf)
       * [what](https://www.datacamp.com/tutorial/how-transformers-work)
+      * [cross-attention](https://medium.com/@sachinsoni600517/cross-attention-in-transformer-f37ce7129d78)
     - Code
       * [transformer](https://github.com/hyunwoongko/transformer?tab=readme-ov-file)
+      * [position encoding](https://machinelearningmastery.com/a-gentle-introduction-to-positional-encoding-in-transformer-models-part-1/)
+      * [python](https://benjaminwarner.dev/2023/07/01/attention-mechanism)
       * [pytorch](https://towardsdatascience.com/a-detailed-guide-to-pytorchs-nn-transformer-module-c80afbc9ffb1)
       * [pytorch](https://www.datacamp.com/tutorial/building-a-transformer-with-py-torch)
       * [llama.cpp](https://github.com/ggerganov/llama.cpp?tab=readme-ov-file)
@@ -498,13 +505,18 @@ Tests v3.2 GAN ops
   + loader - .petastorm, .csv (available on github)
   + model persistence - .npy, .petastorm, hdf5
   + integrate ONNX
-* Visualization - use TensorBoard first
+* Visualization
+  + TensorBoard
+    - output tensor in HWC format
+    - util from raw to png (with STB)
+    - for PIL (Python Image Lib), matplotlib
+    - [tfevents](https://github.com/mlverse/tfevents)
+    - [protobuf](https://chromium.googlesource.com/external/github.com/tensorflow/tensorflow/+/r0.10/tensorflow/g3doc/how_tos/tool_developers/index.md)
+    - [tensorflow EventWriter](https://stackoverflow.com/questions/48610803/how-i-can-use-filewrite-summary-in-tensorflow-c-api-to-view-it-in-tensorboard/48702823#48702823)
+    - [pytorch SummaryWriter](https://github.com/pytorch/pytorch/blob/main/torch/utils/tensorboard/writer.py)
+    - [pytorch TensorBoard writer](https://github.com/pytorch/pytorch/blob/main/torch/utils/tensorboard/writer.py)
   + nvdiffrast https://nvlabs.github.io/nvdiffrast/
-  + integrate plots (matplotlib, tensorboard/graphviz)
   + OpenGL/WASM
-  + output tensor in HWC format
-    * util from raw to png (with STB)
-    * for PIL (Python Image Lib), matplotlib
 * 3rd-party lib Integration
   + integrate CUB, CUTLASS (utilities.init, gemm_api) - slow, later
   + pre-processor (DALI) + GPUDirect - heavy, later
