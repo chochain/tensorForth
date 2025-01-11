@@ -29,7 +29,8 @@ T4_OBJS := $(T4_SRCS:%.cu=%.o)
 OBJS += $(T4_OBJS)
 
 # Every subdirectory with source files must be described here
-SUBDIRS := nn vu ldr vm io mmu
+#SUBDIRS := nn vu ldr vm io mmu  # vu excluded after v4.x
+SUBDIRS := nn ldr vm io mmu
 
 T4_LIBS := $(SUBDIRS:%=-Isrc/%)
 
@@ -37,7 +38,7 @@ T4_LIBS := $(SUBDIRS:%=-Isrc/%)
 -include src/io/Makefile
 -include src/vm/Makefile
 -include src/ldr/Makefile
--include src/vu/Makefile
+#-include src/vu/Makefile
 -include src/nn/Makefile
 
 .PHONY: src clean clean-src

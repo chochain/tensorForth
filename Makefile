@@ -27,8 +27,9 @@ CL_INCS := \
 	${CUTLASS_HOME}/tools/library/include \
 	${CUTLASS_HOME}/tools/util/include
 
-# GL libraries
-GL_LIB  := -lGL -lGLU -lglut -lX11
+# GL libraries (deprecated v4.x, i.e. separation of View from M and C)
+# GL_LIB  := -lGL -lGLU -lglut -lX11
+GL_LIB  := 
 GL_INCS := \
 	/u01/src/stb \
 	${CUDA_HOME}/cuda-samples/Common \
@@ -66,8 +67,7 @@ tests: test
 # Tool invocations
 $(APP_NAME): $(OBJS) $(USER_OBJS) $(OPTIONAL_TOOL_DEPS)
 	@echo '<App><Action>Link</Action><Filename>$<</Filename><Status>'
-	${CUDA_HOME}/bin/nvcc $(NVLINK_FLAGS) \
-	-o "$(APP_TGT)" $^ || echo $(NV_ERR)
+	${CUDA_HOME}/bin/nvcc $(NVLINK_FLAGS) -o $(APP_TGT) $^ || echo $(NV_ERR)
 	@echo '</Status></App>'
 	@echo ' '
 
