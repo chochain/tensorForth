@@ -143,7 +143,7 @@ ForthVM::init() {
         int  sz  = STRLENB(s)+1;
         fout << s;  IP += ALIGN2(sz));                    // send to output console
     CODE("branch" , IP = LDi(IP));                        // unconditional branch
-    CODE("0branch", IP = ZERO(POP()) ? LDi(IP) : IP + sizeof(IU)); // conditional branch
+    CODE("0branch", IP = ZEQ(POP()) ? LDi(IP) : IP + sizeof(IU)); // conditional branch
     CODE("does",                                          // CREATE...DOES... meta-program
          IU ip = PFA(WP);
          while (LDi(ip) != DOES) ip++;                    // find DOES
@@ -353,7 +353,7 @@ ForthVM::init() {
     ///@defgroup Debug ops
     ///@{
     CODE("here",  PUSH(HERE));
-    CODE("ucase", ucase = !ZERO(POPi));
+    CODE("ucase", ucase = !ZEQ(POPi));
     CODE("'",     int w = FIND(next_idiom()); PUSH(w));
     CODE("didx",  IU w = POPi; PUSH(dict[w].didx));
     CODE("pfa",   IU w = POPi; PUSH(PFA(w)));
