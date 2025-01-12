@@ -416,10 +416,7 @@ Tests v3.2 GAN ops
 
 ### TODO - by priorities
 * Design & Instrumentation
-  + Docker + GPU - no local upgrade (Ubuntu 20.04 works for Jetson Orin Nano, too)
-    - nsight-system/compute in docker
   + Visulization via TensorBoard
-    - separate Vu from ten4
     - output tensor in HWC format
     - util from raw to png (with STB)
     - for PIL (Python Image Lib), matplotlib
