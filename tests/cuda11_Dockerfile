@@ -1,0 +1,28 @@
+FROM nvcr.io/nvidia/cuda:11.6.1-devel-ubuntu20.04
+
+ARG NSYS_URL=https://developer.nvidia.com/downloads/assets/tools/secure/nsight-systems/2023_4_1_97/
+ARG NSYS_PKG=nsight-systems-2023.4.1_2023.4.1.97-1_amd64.deb
+ARG NCUI_URL=https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2004/x86_64/
+ARG NCUI_PKG=cuda-nsight-compute-11-6_11.6.1-1_amd64.deb
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+RUN apt-get update -y && \
+    apt-get install -y --no-install-recommends \
+        wget apt-transport-https ca-certificates \
+        dbus gnupg openssh-client \
+        fontconfig libfreetype6 libasound2 \
+        libglib2.0-0 libnss3 libsqlite3-0 \
+        xcb xkb-data libx11-xcb1 libxcb-glx0 libxcb-xkb1 \
+        libxcomposite1 libxcursor1 libxdamage1 \
+        libxi6 libxml2 libxrandr2 libxrender1 \
+        libxtst6 libgl1-mesa-glx libxkbfile-dev \
+        libegl1 libopengl0 \
+        libxcb-cursor0 libxcb-xinput0 libxkbcommon-x11-0  \
+        libxcb-shape0 libxcb-render-util0 libxcb-randr0 \
+        libxcb-keysyms1 libxcb-image0 libxcb-xinerama0 libxcb-icccm4 && \
+        apt-get clean
+
+RUN wget ${NSYS_URL}${NSYS_PKG} && dpkg -i $NSYS_PKG && rm $NSYS_PKG
+RUN wget ${NCUI_URL}${NCUI_PKG} && dpkg -i $NCUI_PKG && rm $NCUI_PKG
+
