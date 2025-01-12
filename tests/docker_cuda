@@ -2,11 +2,11 @@
 xhost +
 docker run -it --rm --gpus all --user $(id -u):$(id -g) \
        --network host --cap-add=SYS_ADMIN --security-opt seccomp=unconfined \
-       -e DOCKER_NAME=nsys \
+       -e DOCKER_NAME=cuda11 \
        -e DISPLAY=$DISPLAY -e TERM=xterm-color \
        -e XDG_RUNTIME_DIR="/tmp/$(id -u)" \
        -v /etc/passwd:/etc/passwd:ro -v /etc/group:/etc/group:ro \
        -v /tmp/.X11-unix:/tmp/.X11-unix \
        -v $HOME:$HOME -w $HOME \
-       gnii/nsys:u20v11
+       gnii/cuda:u20v11
 xhost -
