@@ -430,7 +430,8 @@ Tests v3.2 GAN ops
     - [GGML Tensor library]( https://github.com/ggerganov/ggml). Host-oriented, review kernel code.
     - [GGUF](https://github.com/ggerganov/ggml/blob/master/docs/gguf.md). Optimized for GPU, cross-platform, structured model storage.
 * VM
-  + review CUDA HostFunc callback (requires CUDA Stream)
+  + review CUDA Stream Management (cudaStreamAddCallback) and Event Management
+  + review CUDA EventSync/LaunchHostFunc, flip calling from GPU=>CPU (requires CUDA Stream + event pool)
   + review CUDA dynamic Graph
   + review CUB (now part of CCCL) again
   + inter-VM communication (via CUDA stream)
