@@ -211,11 +211,11 @@ public:
     __GPU__  Tensor &tensor(U32 sz);                        ///< create an vector
     __GPU__  Tensor &tensor(U16 h, U16 w);                  ///< create a matrix
     __GPU__  Tensor &tensor(U16 n, U16 h, U16 w, U16 c);    ///< create a NHWC tensor
-    __GPU__  Model  &model(U32 sz=T4_NET_SZ);               ///< create a NN model
     __GPU__  Dataset&dataset(U16 batch_sz);                 ///< create a NN dataset
     __GPU__  void   resize(Tensor &t, U32 sz);              ///< resize the tensor storage
     __GPU__  void   free(Tensor &t);                        ///< free the tensor
 #if   T4_ENABLE_NN    
+    __GPU__  Model  &model(U32 sz=T4_NET_SZ);               ///< create a NN model
     __GPU__  void   free(Model &m);
 #endif // T4_ENABLE_NN
     __GPU__  Tensor &copy(Tensor &t0);                      ///< hard copy a tensor
