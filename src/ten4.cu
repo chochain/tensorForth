@@ -27,7 +27,8 @@ k_ten4_init(Istream *istr, Ostream *ostr, MMU *mmu) {
     if (vid >= VM_MIN_COUNT) return;    /// * Note: watch for divergence
     
     VM *vm = vm_pool[vid] =             ///< instantiate VMs
-        new NetVM(vid, istr, ostr, mmu); 
+//        new NetVM(vid, istr, ostr, mmu); 
+        new ForthVM(vid, istr, ostr, mmu); 
     
     vm->state = VM_STOP;                /// * workers wait in queue
     if (vid==0) {                       /// * only once 
