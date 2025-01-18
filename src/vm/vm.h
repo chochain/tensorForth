@@ -20,27 +20,68 @@
 /// virtual machine base class
 ///
 typedef enum { VM_READY=0, VM_RUN, VM_WAIT, VM_STOP } vm_state;
-class VM {
-public:
-    int       vid    = 0;              ///< VM id
-    vm_state  state  = VM_READY;       ///< VM state
-    DU        top    = DU0;            ///< cached top of stack
+class ALIGNAS VM {
+public:    
+    IU        vid    = 0;              ///< VM id
+    vm_state  state  = VM_STOP;        ///< VM state
+    
+    DU        tos    = DU0;            ///< cached top of stack
+    IU        wp     = 0;
+    
     Vector<DU, 0> ss;                  ///< parameter stack (setup in ten4.cu)
+    Vector<DU, 0> rs;                  ///< return stack    (setup in ten4.cu)
 
+    cudaEvent_t   event;
+    cudaStream_t  stream;
+
+    static void vm_init(Istream *istr, Ostream *ostr, MMU *mmu) {
+        fin  = *istr;
+        fout = *ostr;
+        mmu  = *mmu0;
+    }
     __GPU__ VM(int id, Istream *istr, Ostream *ostr, MMU *mmu);
 
     __GPU__ virtual void init() { VLOG1("VM::init ok\n"); }
     __GPU__ virtual void outer();
+    
+#if DO_MULTITASK
+    static int      NCORE;         ///< number of hardware cores
+    
+    static bool     io_busy;       ///< IO locking control
+    static MUTEX    io;            ///< mutex for io access
+    static MUTEX    tsk;           ///< mutex for tasker
+    static COND_VAR cv_io;         ///< io control
+    static COND_VAR cv_tsk;        ///< tasker control
+    static void _ss_dup(VM &dst, VM &src, int n);
+    ///
+    /// task life cycle methods
+    ///
+    void reset(IU w, vm_state st);    ///< reset a VM user variables
+    void join(int tid);               ///< wait for the given task to end
+    void stop();                      ///< stop VM
+    ///
+    /// messaging interface
+    ///
+    void send(int tid, int n);        ///< send onto destination VM's stack (blocking, wait for receiver availabe)
+    void recv();                      ///< receive data from any sending VM's stack (blocking, wait for sender's message)
+    void bcast(int n);                ///< broadcast to all receivers
+    void pull(int tid, int n);        ///< pull n items from the stack of a stopped task
+    ///
+    /// IO interface
+    ///
+    void io_lock();                   ///< lock IO
+    void io_unlock();                 ///< unlock IO
+#endif // DO_MULTITASK
 
 protected:
-    Istream  &fin;                     ///< VM stream input
-    Ostream  &fout;                    ///< VM stream output
-    MMU      &mmu;                     ///< memory managing unit
-
-    U32   *ptop   = (U32*)&top;        ///< 32-bit mask for top
-    bool  compile = false;             ///< compiling flag
-
-    char  idiom[T4_STRBUF_SZ];         ///< terminal input buffer
+    U32   *ptop   = (U32*)&top;       ///< 32-bit mask for top
+    U8    *base   = 0;                ///< radix
+    bool  compile = false;            ///< compiling flag
+    char  idiom[T4_STRBUF_SZ];        ///< terminal input buffer
+    
+    static Istream  &fin;             ///< VM stream input
+    static Ostream  &fout;            ///< VM stream output
+    static MMU      &mmu;             ///< memory managing unit
     ///
     /// inner interpreter handlers
     ///
