@@ -377,12 +377,35 @@ ForthVM::init() {
          mmu.status();
          mmu.trace(t));
     CODE("clock", DU t = mmu.ms(); SCALAR(t); PUSH(t));
-    CODE("delay", delay(POPi));                  ///< TODO: change to VM_WAIT
+    CODE("ms",    delay(POPi));                  ///< TODO: change to VM_WAIT
     CODE("pause", state = VM_WAIT);              ///< yield to other VM
     CODE("bye",   state = VM_STOP);
     ///@}
     CODE("boot",  mmu.clear(FIND("boot") + 1));
-    
+#if 0  /* words TODO */  
+    CODE("?dup",  {});
+    CODE("?do",   {});
+    CODE("do",    {});
+    CODE("i",     {});
+    CODE("loop",  {});
+    CODE("immediate", {});
+    CODE("included", {});
+    CODE("base",  {});
+    CODE("bl",    {});
+    CODE("depth", {});
+    CODE("invert", {});
+    CODE("is",    {});
+    CODE("leave", {});
+    CODE("lshift", {});
+    CODE("rshift", {});
+    CODE("nip",    {});
+    CODE("roll",   {});
+    CODE("u.",     {});
+    CODE("u<",     {});
+    CODE("u>",     {});
+    CODE("value",  {});
+    CODE("within", {});
+#endif     
     VLOG1("ForthVM::init ok\n");
 };
 ///
