@@ -8,7 +8,7 @@ NVCC_FLAGS:= \
 	-D__CUDACC__ \
 	-D__CDPRT_SUPPRESS_SYNC_DEPRECATION_WARNING \
 	-Isrc $(GL_INCS:%=-I%) \
-	-t=0 -c -std=c++14 -O3 \
+	-t=0 -c -std=c++17 -O3 \
 	--device-c --extended-lambda --expt-relaxed-constexpr \
 	--device-debug --debug --use_fast_math \
 	-gencode arch=${CUDA_ARCH},code=${CUDA_CODE}
@@ -30,16 +30,17 @@ OBJS += $(T4_OBJS)
 
 # Every subdirectory with source files must be described here
 #SUBDIRS := nn vu ldr vm io mmu  # vu excluded after v4.x
-SUBDIRS := nn ldr vm io mmu
+#SUBDIRS := nn ldr vm io mmu     
+SUBDIRS := vm io mmu      # stream devel
 
 T4_LIBS := $(SUBDIRS:%=-Isrc/%)
 
 -include src/mmu/Makefile
 -include src/io/Makefile
 -include src/vm/Makefile
--include src/ldr/Makefile
+#-include src/ldr/Makefile
 #-include src/vu/Makefile
--include src/nn/Makefile
+#-include src/nn/Makefile
 
 .PHONY: src clean clean-src
 

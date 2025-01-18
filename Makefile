@@ -29,11 +29,12 @@ CL_INCS := \
 
 # GL libraries (deprecated v4.x, i.e. separation of View from M and C)
 # GL_LIB  := -lGL -lGLU -lglut -lX11
-GL_LIB  := 
-GL_INCS := \
-	/u01/src/stb \
-	${CUDA_HOME}/cuda-samples/Common \
-	${CUDA_HOME}/cuda-samples/Samples/2_Concepts_and_Techniques/imageDenoising
+# GL_INCS := \
+#	/u01/src/stb \
+#	${CUDA_HOME}/cuda-samples/Common \
+#	${CUDA_HOME}/cuda-samples/Samples/2_Concepts_and_Techniques/imageDenoising
+GL_LIB  :=
+GL_INCS :=
 
 NVLINK_FLAGS:= \
 	-ccbin g++ \
