@@ -102,8 +102,6 @@ typedef enum {
 struct Model;
 struct Dataset;
 class MMU : public Managed {
-    int            _khz;            ///< GPU clock speed
-    int            _trace = 0;      ///< debug tracing verbosity level
     IU             _mutex = 0;      ///< lock (first so address aligned)
     IU             _didx  = 0;      ///< dictionary index
     IU             _midx  = 0;      ///< parameter memory index
@@ -111,7 +109,6 @@ class MMU : public Managed {
     Code           *_dict;          ///< dictionary block
     U8             *_pmem;          ///< parameter memory block
     DU             *_vmss;          ///< VM data stack block
-    curandState    *_seed;          ///< for random number generator
     DU             *_mark = 0;      ///< list for tensors that marked free
     U8             *_obj  = 0;      ///< object storage block
 #if T4_ENABLE_OBJ    
@@ -119,7 +116,7 @@ class MMU : public Managed {
 #endif // T4_ENABLE_OBJ    
 
 public:
-    __HOST__ MMU(int khz, int verbose=0);
+    __HOST__ MMU();
     __HOST__ ~MMU();
 
     template <typename F>
