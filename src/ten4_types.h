@@ -7,7 +7,6 @@
 #ifndef TEN4_SRC_TEN4_TYPES_H_
 #define TEN4_SRC_TEN4_TYPES_H_
 #include "ten4_config.h"
-
 ///
 ///@name Debug tracing options
 ///@{
@@ -40,6 +39,8 @@
 #define __BOTH__            __host__ __device__
 #define __KERN__            __global__
 #define __INLINE__          __forceinline__
+typedef cudaStream_t        STREAM;
+typedef cudaEvent_t         EVENT;
 
 #define MUTEX_LOCK(p)       while (atomicCAS((int *)&p, 0, 1)!=0)
 #define MUTEX_FREE(p)       atomicExch((int *)&p, 0)
@@ -69,6 +70,9 @@ namespace cg = cooperative_groups;
 #define __HOST__
 #define __KERN__
 #define __INLINE__          inline
+typedef int                 STREAM;
+typedef int                 EVENT;
+
 #define ASSERT(X)           assert(x)
 
 #endif // defined(__CUDACC__)  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
