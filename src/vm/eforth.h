@@ -26,12 +26,6 @@ public:
     
 protected:
     Code  *dict;                            ///< dictionary array
-    Vector<DU, T4_RS_SZ> rs;                ///< return stack
-    
-    int   radix   = 10;                     ///< numeric radix
-    bool  ucase   = true;                   ///< case insensitive
-    IU    WP      = 0;                      ///< word and parameter pointers
-    IU    IP      = 0;                      ///< instruction pointer
     ///
     /// stack short hands
     ///
