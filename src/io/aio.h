@@ -15,14 +15,26 @@
 
 class AIO : public Managed {
 public:
-    Istream *_istr;         ///< managed input stream
-    Ostream *_ostr;         ///< managed output stream
-    MMU     *_mmu;          ///< memory managing unit
-    int     _radix = 10;    ///< output stream radix
-    int     _thres = 10;    ///< max cell count for each dimension
-    int     _edge  = 3;     ///< number of tensor edge items
-    int     _prec  = 4;     ///< shown floating point precision
+    Istream *_istr;                   ///< managed input stream
+    Ostream *_ostr;                   ///< managed output stream
+    MMU     *_mmu;                    ///< memory managing unit
+    
+    int     _radix = 10;              ///< output stream radix
+    int     _thres = 10;              ///< max cell count for each dimension
+    int     _edge  = 3;               ///< number of tensor edge items
+    int     _prec  = 4;               ///< shown floating point precision
 
+#if DO_MULTITASK
+    static bool     io_busy;          ///< IO locking control
+    static MUTEX    io;               ///< mutex for io access
+    static COND_VAR cv_io;            ///< io control
+    ///
+    /// IO interface
+    ///
+    static void io_lock();            ///< lock IO
+    static void io_unlock();          ///< unlock IO
+#endif // DO_MULTITASK
+    
     AIO(MMU *mmu) :
         _istr(new Istream()), _ostr(new Ostream()), _mmu(mmu) {}
 
