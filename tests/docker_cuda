@@ -7,6 +7,7 @@ docker run -it --rm --gpus all --user $(id -u):$(id -g) \
        -e XDG_RUNTIME_DIR="/tmp/$(id -u)" \
        -v /etc/passwd:/etc/passwd:ro -v /etc/group:/etc/group:ro \
        -v /tmp/.X11-unix:/tmp/.X11-unix \
+       -v /u01:/u01 \
        -v $HOME:$HOME -w $HOME \
        gnii/cuda:u20v11
 xhost -
