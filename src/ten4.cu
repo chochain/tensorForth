@@ -15,28 +15,16 @@
 
 using namespace std;
 #include "ten4.h"            // wrapper
-
-__GPU__ VM *vm_pool[VM_MIN_COUNT];      ///< polymorphic VM pool
-///
-/// instantiate VMs (threadIdx.x is vm_id)
-///
-__KERN__ void
-k_ten4_init(Istream *istr, Ostream *ostr, MMU *mmu) {
-    int vid = threadIdx.x;
-    
-    if (vid >= VM_MIN_COUNT) return;    /// * Note: watch for divergence
-    
-    VM *vm = vm_pool[vid] =             ///< instantiate VMs
-//        new NetVM(vid, istr, ostr, mmu); 
-        new ForthVM(vid, istr, ostr, mmu); 
-    
-    vm->state = VM_STOP;                /// * workers wait in queue
-    if (vid==0) {                       /// * only once 
-        vm->init();                     /// * initialize common dictionary
-        mmu->status();                  /// * report MMU status after init
-        vm->state = VM_READY;           /// * VM[0] available for work
-    }
-}
+#if T4_ENABLE_NN
+#include "vm/netvm.h"        // neural network set,
+#define VM_TYPE NetVM
+#elif T4_ENABLE_OBJ
+#include "vm/tenvm.h"        // tensor/matrix set, or
+#define VM_TYPE TenVM
+#else
+#include "vm/eforth.h"       // just eForth
+#define VM_TYPE ForthVM
+#endif
 ///
 /// check VM status (using warp-level collectives)
 ///
@@ -60,49 +48,20 @@ k_ten4_tally(vm_state *vmst, int *vmst_cnt) {
 /// Note: 1 block per VM, thread 0 active only (wasteful?)
 ///
 __KERN__ void
-k_ten4_exec() {
-    extern __shared__ DU shared_ss[];           ///< use shard mem for ss
-
-    const int tx  = threadIdx.x;                ///< thread id (0 only)
-    const int vid = blockIdx.x;                 ///< VM id
+k_vm_exec(VM *vm) {
+    extern __shared__ DU *ss[];                 ///< use shard mem for ss
     
-    VM *vm = vm_pool[vid];
-    if (tx == 0 && vm->state != VM_STOP) {      /// * one thread per VM
-        DU *ss  = &shared_ss[vid * T4_SS_SZ];   ///< each VM uses its own ss
-        DU *ss0 = vm->ss.v;                     ///< VM's data stack
-
-        MEMCPY(ss, ss0, sizeof(DU) * T4_SS_SZ); /// * copy stack into shared memory block
-        vm->ss.v = ss;                          /// * redirect data stack to shared memory
-        ///
-        /// * enter ForthVM outer loop
-        /// * Note: single-threaded, dynamic parallelism when needed
-        ///
-        vm->outer();                            /// * enter VM outer loop
+    DU *ss0 = vm->ss.v;                         ///< VM's data stack
+    MEMCPY(ss, ss0, sizeof(DU) * T4_SS_SZ);     /// * copy stack into shared memory block
+    vm->ss.v = ss;                              /// * redirect data stack to shared memory
+    ///
+    /// * enter ForthVM outer loop
+    /// * Note: single-threaded, dynamic parallelism when needed
+    ///
+    vm->outer();                                /// * enter VM outer loop
         
-        MEMCPY(ss0, ss, sizeof(DU) * T4_SS_SZ); /// * copy updated stack back to global mem
-        vm->ss.v = ss0;                         /// * restore stack ptr
-    }
-    /// * grid sync needed but CUDA 11.6 does not support dymanic parallelism
-}
-///
-/// clean up marked free tensors
-///
-__KERN__ void
-k_ten4_sweep(MMU *mmu) {
-//    mmu->lock();
-    if (blockIdx.x == 0 && threadIdx.x == 0) {  /// * one thread only
-        mmu->sweep();
-    }
-//    mmu->unlock(); !!! DEAD LOCK now
-}
-
-__KERN__ void
-k_ten4_vm_select(int vid, vm_state st) {
-    /// lock
-    if (threadIdx.x==0) {
-        vm_pool[vid]->state == st;
-    }
-    /// unlock
+    MEMCPY(ss0, ss, sizeof(DU) * T4_SS_SZ);     /// * copy updated stack back to global mem
+    vm->ss.v = ss0;                             /// * restore stack ptr
 }
 
 TensorForth::TensorForth(int device, int verbose) {
@@ -128,74 +87,83 @@ TensorForth::TensorForth(int device, int verbose) {
          << ", tensor="        << T4_OSTORE_SZ/1024/1024 << "M"
          << endl;
     ///
-    /// allocate cuda memory blocks
+    /// allocate tensorForth system memory blocks
     ///
-    mmu = new MMU(khz, verbose);                ///> instantiate memory manager
-    aio = new AIO(mmu);                         ///> instantiate async IO manager
-    MM_ALLOC(&vmst, VMST_SZ);                   ///> allocate for state of VMs
-    MM_ALLOC(&vmst_cnt, sizeof(int)*4);
-
-#if (T4_ENABLE_OBJ && T4_ENABLE_NN)
-    Loader::init(verbose);
-#endif
-    ///
-    /// instantiate virtual machines
-    ///
-    int t = WARP(VM_MIN_COUNT);                 ///> thread count = 32 modulo
-    k_ten4_init<<<1, t>>>(aio->istream(), aio->ostream(), mmu); // create VMs
-    GPU_CHK();
+    sys = new System(khz, verbose);
 }
 
-TensorForth::~TensorForth() {
-    delete aio;
+__HOST__ void
+TensorForth::setup() {
+    for (int i=0; i < VM_MIN_COUNT; i++) {
+        T4Entry *e = &vm_pool[i];
+        (e->vm = new VM_TYPE(vid, sys))->init();     ///< instantiate VMs
+        GPU_ERR(cudaCreateStream(&e->st));
+        GPU_ERR(cudaEventCreate(&e->t0));
+        GPU_ERR(cudaEventCreate(&e->t1));
+    }
     
-    MM_FREE(vmst_cnt);
-    MM_FREE(vmst);
-    cudaDeviceReset();
+    vm_pool[0].vm->state = HOLD;
 }
 
 __HOST__ int
 TensorForth::vm_tally() {
-    k_ten4_tally<<<1, WARP(VM_MIN_COUNT)>>>(vmst, vmst_cnt);
-    GPU_CHK();
+    if (sys->trace() <= 1) return 0;
     
-    if (mmu->trace() > 1) {
-        cout << "VM.state[READY,RUN,WAIT,STOP]=[";
-        for (int i = 0; i < 4; i++) cout << " " << vmst_cnt[i];
-        cout << " ]" << std::endl;
+    int cnt[VM_MIN_COUNT] = { 0, 0, 0, 0};
+    for (int i=0; VM_MIN_COUNT; i++) {
+        cnt[vm_pool[i].vm->state]++;
     }
+    cout << "VM.state[STOP,HOLD,QUERY,NEST]=[";
+    for (int i = 0; i < 4; i++) cout << " " << cnt[i];
+    cout << " ]" << std::endl;
+    
     return 1;
 }
 
-#define HAS_BUSY (vmst_cnt[VM_STOP] < VM_MIN_COUNT)
-#define HAS_RUN  (vmst_cnt[VM_RUN] > 0)
-
 __HOST__ int
 TensorForth::run() {
-    while (vm_tally() && HAS_BUSY) {
-        if (HAS_RUN || aio->readline(cin)) {  /// * feed from host console to managed buffer
-            ///
-            /// CUDA 11.6, dynamic parallelism does not work with coop-launch
-            ///
-            k_ten4_exec<<<VM_MIN_COUNT, 1, VMSS_SZ>>>();
+    int n_vm = 1;
+    while (n_vm && sys->readline()) {
+        n_vm = 0;
+        for (int i=0; i<VM_MIN_COUNT; i++) {
+            T4Entry *e = &vm_pool[i];
+            if (e->vm->state == STOP) continue;
+            n_vm++;
+            cudaEventRecord(e->t0, e->st);
+            k_vm_exec<<<1, 1, T4_SS_SZ, e->st>>>(e->vm);
             GPU_CHK();
+            cudaEventRecord(e->t1, e->st);
+            cudaStreamWaitEvent(e->t1);       // CPU will wait here
             
-            aio->flush(cout);                 /// * flush output buffer
-            k_ten4_sweep<<<1, 1>>>(mmu);      /// * release buffered memory
-            GPU_CHK();
+            float dt;
+            cudaEventElapsedTime(&dt, e->t0, e->t1);
         }
-        yield();
+        aio->flush(cout);     /// * flush output buffer
+///
+/// clean up marked free tensors
+///
+        sys->mmu_sweep();     /// * release buffered memory
         
 #if T4_MMU_DEBUG
-        int m0 = (int)mmu->here() - 0x80;
-        mmu->mem_dump(cout, m0 < 0 ? 0 : m0, 0x80);
+        int m0 = (int)sys->mmu.here() - 0x80;
+        sys->mem_dump(cout, m0 < 0 ? 0 : m0, 0x80);
 #endif // T4_MMU_DEBUG
+        
+        tally();
     }
     return 0;
 }
 
 __HOST__ void
-TensorForth::teardown(int sig) {}
+TensorForth::teardown(int sig) {
+    for (int i=0; i < VM_MIN_COUNT; i++) {
+        T4Entry *e = &pool[i];
+        
+        GPU_ERR(cudaDestroyStream(e->st));
+        GPU_ERR(cudaDestroyEvent(p->t0));
+        GPU_ERR(cudaDestroyStream(p->t1));
+    }
+}
 ///
 /// main program
 ///
