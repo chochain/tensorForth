@@ -6,7 +6,6 @@
  */
 #ifndef TEN4_SRC_MMU_H
 #define TEN4_SRC_MMU_H
-#include <curand_kernel.h>
 #include "vector.h"
 #include "tensor.h"
 #include "tlsf.h"
