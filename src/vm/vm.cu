@@ -7,10 +7,10 @@
 #include "vm.h"
 
 __GPU__
-VM::VM(int id, Istream *istr, Ostream *ostr, MMU *mmu0)
-    : vid(id), fin(*istr), fout(*ostr), mmu(*mmu0) {
-    ss.init(mmu.vmss(vid), T4_SS_SZ);  /// * point data stack to managed memory block
-    VLOG1("\\  VM[%d](mem=%p, vmss=%p)\n", vid, mmu.pmem(0), ss.v);
+VM::VM(int id, System *sys)
+    : vid(id), state(STOP), sys(*sys) {
+    ss.init(sys.mmu.vmss(vid), T4_SS_SZ);      /// * point data stack to managed memory block
+    VLOG1("\\  VM[%d](mem=%p, vmss=%p)\n", vid, sys.mmu.pmem(0), ss.v);
 }
 ///
 /// ForthVM Outer interpreter
