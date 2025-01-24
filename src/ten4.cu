@@ -15,16 +15,6 @@
 
 using namespace std;
 #include "ten4.h"            // wrapper
-#if T4_ENABLE_NN
-#include "vm/netvm.h"        // neural network set,
-#define VM_TYPE NetVM
-#elif T4_ENABLE_OBJ
-#include "vm/tenvm.h"        // tensor/matrix set, or
-#define VM_TYPE TenVM
-#else
-#include "vm/eforth.h"       // just eForth
-#define VM_TYPE ForthVM
-#endif
 ///
 /// check VM status (using warp-level collectives)
 ///
