@@ -19,19 +19,15 @@
 ///
 /// virtual machine base class
 ///
-typedef enum { VM_READY=0, VM_RUN, VM_WAIT, VM_STOP } vm_state;
+typedef enum { STOP=0, HOLD, QUERY, NEST } vm_state;   // eforth states
+//typedef enum { VM_READY=0, VM_RUN, VM_WAIT, VM_STOP } vm_state;   //ten4 states
 class ALIGNAS VM {
 public:    
-    IU        id     = 0;              ///< VM id
-    vm_state  state  = VM_STOP;        ///< VM state
+    IU        id;                      ///< VM id
+    vm_state  state;                   ///< VM state
+    System    &sys;                    ///< system interface
 
-    EVENT     t0, t1;
-    STREAM    &stream;
-    
-    AIO       &io;
-    MMU       &mmu;
-
-    __GPU__ VM(int id, cudaStrem_t *st, MMU *mu, AIO *iu);
+    __GPU__ VM(int id, System *sys);
 
     __GPU__ virtual void init() { VLOG1("VM::init ok\n"); }
     __GPU__ virtual void outer();
@@ -69,7 +65,7 @@ protected:
     U32   *ptos   = (U32*)&top;       ///< 32-bit mask for top
     U8    *radix  = 0;                ///< radix (base)
     bool  compile = false;            ///< compiling flag
-    char  idiom[T4_STRBUF_SZ];        ///< terminal input buffer
+    char  pad[T4_STRBUF_SZ];          ///< terminal input buffer
     
     static Istream  &fin;             ///< VM stream input
     static Ostream  &fout;            ///< VM stream output
