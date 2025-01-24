@@ -137,6 +137,13 @@ typedef F64         DU2;                    /**< double preciesion data */
 #define AS_VIEW(v)  ((DU2X(v) |= T4_TT_VIEW), (v))
 #define SCALAR(v)   ((DU2X(v) &= ~T4_TT_OBJ), (v))         /**< set DU flag    */
 ///@}
+///>name Random Number Generator
+///@{
+typedef enum {
+    UNIFORM = 0,
+    NORMAL
+} rand_opt;
+///@}
 ///
 /// colon word compiler
 /// Note:
@@ -144,7 +151,12 @@ typedef F64         DU2;                    /**< double preciesion data */
 ///   * if they are combined then can behaves similar to classic Forth
 ///   * with an addition link field added.
 ///
-enum {
+typedef enum { // ceforth
+    EXIT=0|EXT_FLAG, NOP, NEXT, LOOP, LIT, VAR, STR, DOTQ, BRAN, ZBRAN,
+    VBRAN, DOES, FOR, DO, KEY, MAX_OP
+} prim_op;
+
+enum { // ten4 original
     EXIT = 0, DONEXT, DOVAR, DOLIT, DOSTR, DOTSTR, BRAN, ZBRAN, DOES, TOR
 } forth_opcode;
 
