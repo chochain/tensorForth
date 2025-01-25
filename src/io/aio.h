@@ -45,23 +45,7 @@ public:
     __HOST__ int       readline(std::istream &fin);
     __HOST__ obuf_node *process_node(std::ostream &fout, obuf_node *node);
     __HOST__ void      flush(std::ostream &fout);
-    ///
-    ///> IO functions
-    ///
-    __HOST__ void fin_setup(const char *line);
-    __HOST__ void fout_setup(void (*hook)(int, const char*));
-
-    __GPU__  char *scan(char c);                       ///< scan input stream for a given char
-    __GPU__  int  fetch(string &idiom);                ///< read input stream into string
-    __GPU__  char *word();                             ///< get next idiom
     
-    __GPU__  char key();                               ///< read key from console
-    __GPU__  void load(VM &vm, const char* fn);        ///< load external Forth script
-    __GPU__  void spaces(int n);                       ///< show spaces
-    __GPU__  void dot(io_op op, DU v=DU0);             ///< print literals
-    __GPU__  void dotr(int w, DU v, int b, bool u=false); ///< print fixed width literals
-    __GPU__  void pstr(const char *str, io_op op=SPCS);///< print string
-
 private:
 #if T4_ENABLE_OBJ // vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
     ///
