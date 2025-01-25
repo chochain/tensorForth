@@ -71,6 +71,7 @@ Building a Forth core on an FPGA (Field-Programmable Gate Array) is a complex ta
 1. **Forth compiler:** A Forth compiler is a custom-built compiler that translates the Forth code into machine code that can be executed on the FPGA.
 2. **FPGA design:** A design for a Forth core on an FPGA, including the digital circuitry and hardware components required to execute the Forth code.
 3. **Tools and software:** A set of tools and software for the FPGA design and synthesis, such as Vivado, Xilinx, or Intel Quartus.
+
 **Step-by-Step Guide:**
 1. **Design the Forth compiler:**
 	* Create a Forth compiler that can translate Forth code into machine code (e.g., Verilog or VHDL).
@@ -79,11 +80,9 @@ Building a Forth core on an FPGA (Field-Programmable Gate Array) is a complex ta
 2. **Design the FPGA core:**
 	* Choose an FPGA platform (e.g., Xilinx Zynq, Intel Cyclone 10) and design the FPGA core architecture.
 ...
-
 **Tools and Software:**
 1. **Vivado:** A popular tool for designing and synthesizing FPGA designs.
 ...
-
 **Conclusion:**
 Building a Forth core on an FPGA is a complex task that requires significant expertise in both Forth programming and FPGA design. However, with careful planning and design, it is possible to create a functional Forth core on an FPGA. Be sure to research and consult with experts in both areas before starting your project.
 #+end_src  
