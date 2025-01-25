@@ -17,7 +17,7 @@
 + vs ChatGPT and Gemini
 + Large Language Model Meta AI
   [[https://raw.githubusercontent.com/chochain/tensorForth/master/docs/img/llama.png]]
-* Chronical
+* Chronicle
 #+ATTR_REVEAL: :frag roll-in
 + 2023-03: v1 leaked to 4chan
 + 2023-07: v2 with Microsoft
@@ -106,7 +106,7 @@ Build
 #+end_src
 Models
 #+begin_src
-  15M, 42M, 110M tinyStores
+  15M, 42M, 110M, from tinyStories dataset
   7B possible with some work
 #+end_src
 ** Run llama2.c
@@ -131,12 +131,12 @@ She says goodbye and flies away. The boy watches her go. He is happy and amazed.
 He has a new bike and new friends. He has learned a lesson. He has been kind and gentle.
 achieved tok/s: 9.860246
 #+end_src
-* Analysis
+* Thoughts
 #+ATTR_REVEAL: :frag roll-in
-+ Easy to accquire and build
++ Easy to acquire and build
 + Many sites on the subject
-+ Small models aviable
-+ Lower end CPU and MCU
++ Small models available
++ Lower end CPU and MCU OK
 + No GPU needed
 + Potential for FPGA
 * Thank You!
