@@ -16,30 +16,12 @@
 using namespace std;
 #include "ten4.h"            // wrapper
 ///
-/// check VM status (using warp-level collectives)
-///
-__KERN__ void
-k_ten4_tally(vm_state *vmst, int *vmst_cnt) {
-    const auto g   = cg::this_thread_block();
-    const int  vid = g.thread_rank();           ///< VM id
-    
-    for (int i = 0; i < 4; i++) vmst_cnt[i] = 0;
-    g.sync();
-    
-    if (vid < VM_MIN_COUNT) {
-        vm_state *s = &vm_pool[vid]->state;
-        if (*s == VM_WAIT) *s = VM_RUN;         ///< assuming WAIT is done
-        vmst[vid] = *s;
-        atomicAdd(&vmst_cnt[*s], 1);
-    }
-}
-///
 /// tensorForth kernel - VM dispatcher
 /// Note: 1 block per VM, thread 0 active only (wasteful?)
 ///
 __KERN__ void
 k_vm_exec(VM *vm) {
-    extern __shared__ DU *ss[];                 ///< use shard mem for ss
+    extern __shared__ DU *ss[];                 ///< shared mem for ss (much faster)
     
     DU *ss0 = vm->ss.v;                         ///< VM's data stack
     MEMCPY(ss, ss0, sizeof(DU) * T4_SS_SZ);     /// * copy stack into shared memory block
@@ -116,17 +98,23 @@ TensorForth::run() {
     while (n_vm && sys->readline()) {
         n_vm = 0;
         for (int i=0; i<VM_MIN_COUNT; i++) {
-            T4Entry *e = &vm_pool[i];
-            if (e->vm->state == STOP) continue;
+            T4Entry *e  = &vm_pool[i];
+            VM      *vm = e->vm;
+            if (vm->state == STOP) continue;
             n_vm++;
             cudaEventRecord(e->t0, e->st);
-            k_vm_exec<<<1, 1, T4_SS_SZ, e->st>>>(e->vm);
+            k_vm_exec<<<1, 1, T4_SS_SZ, e->st>>>(vm);
             GPU_CHK();
             cudaEventRecord(e->t1, e->st);
             cudaStreamWaitEvent(e->t1);       // CPU will wait here
             
             float dt;
             cudaEventElapsedTime(&dt, e->t0, e->t1);
+            
+            switch (vm->state) {
+            case VM_WAIT:  VLOG1("%d} VM[%d] wait\n", vm->vid, vm->vid); break;
+            case VM_QUERY: if (!vm->compile) sys.ss_dump(*vm);           break;
+            }
         }
         aio->flush(cout);     /// * flush output buffer
 ///
