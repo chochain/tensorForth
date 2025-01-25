@@ -84,11 +84,6 @@ struct Code : public Managed {
 }
 #define CODE(n, g)  ADD_CODE(n, g, false)
 #define IMMD(n, g)  ADD_CODE(n, g, true)
-
-typedef enum {
-    UNIFORM = 0,
-    NORMAL
-} t4_rand_opt;
 ///
 /// tracing level control
 ///
@@ -107,7 +102,6 @@ class MMU : public Managed {
     IU             _fidx  = 0;      ///< index to freed tensor list
     Code           *_dict;          ///< dictionary block
     U8             *_pmem;          ///< parameter memory block
-    DU             *_vmss;          ///< VM data stack block
     DU             *_mark = 0;      ///< list for tensors that marked free
     U8             *_obj  = 0;      ///< object storage block
 #if T4_ENABLE_OBJ    
@@ -136,7 +130,6 @@ public:
     ///
     __GPU__ __INLINE__ Code *dict()      { return &_dict[0]; }            ///< dictionary pointer
     __GPU__ __INLINE__ Code *last()      { return &_dict[_didx - 1]; }    ///< last dictionary word
-    __GPU__ __INLINE__ DU   *vmss(int i) { return &_vmss[i * T4_SS_SZ]; } ///< data stack (per VM id)
     __GPU__ __INLINE__ U8   *pmem(IU i)  { return &_pmem[i]; }            ///< base of parameter memory
     ///
     /// dictionary management ops
@@ -190,8 +183,6 @@ public:
     /// tensor life-cycle methods
     ///
 #if T4_ENABLE_OBJ // vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
-    __HOST__ int    to_s(std::ostream &fout, DU s);         ///< dump object from descriptor
-    __HOST__ int    to_s(std::ostream &fout, T4Base &t, bool view); ///< dump object on stack
     __BOTH__ T4Base &du2obj(DU d) {                         ///< DU to Obj convertion
         U32    off = DU2X(d) & ~T4_TYPE_MSK;
         T4Base *t  = (T4Base*)(_obj + off);
@@ -207,23 +198,22 @@ public:
     __GPU__  Tensor &tensor(U32 sz);                        ///< create an vector
     __GPU__  Tensor &tensor(U16 h, U16 w);                  ///< create a matrix
     __GPU__  Tensor &tensor(U16 n, U16 h, U16 w, U16 c);    ///< create a NHWC tensor
-    __GPU__  Dataset&dataset(U16 batch_sz);                 ///< create a NN dataset
     __GPU__  void   resize(Tensor &t, U32 sz);              ///< resize the tensor storage
     __GPU__  void   free(Tensor &t);                        ///< free the tensor
-#if   T4_ENABLE_NN    
-    __GPU__  Model  &model(U32 sz=T4_NET_SZ);               ///< create a NN model
-    __GPU__  void   free(Model &m);
-#endif // T4_ENABLE_NN
     __GPU__  Tensor &copy(Tensor &t0);                      ///< hard copy a tensor
     __GPU__  Tensor &slice(Tensor &t0, IU x0, IU x1, IU y0, IU y1);     ///< a slice of a tensor
     __GPU__  Tensor &random(Tensor &t, t4_rand_opt ntype, DU bias=DU0, DU scale=DU1);  ///< randomize tensor cells (with given type)
+#if   T4_ENABLE_NN    
+    __GPU__  Dataset&dataset(U16 batch_sz);                 ///< create a NN dataset
+    __GPU__  Model  &model(U32 sz=T4_NET_SZ);               ///< create a NN model
+    __GPU__  void   free(Model &m);
+#endif // T4_ENABLE_NN
     ///
     /// short hands for eforth tensor ucodes (for DU <-> Object conversion)
     ///
     __GPU__  DU     dup(DU d);                             ///< create a view
     __GPU__  DU     copy(DU d);                            ///< physical copy
     __GPU__  void   drop(DU d);                            ///< drop from memory
-    __GPU__  DU     rand(DU d, t4_rand_opt n);             ///< randomize a tensor
     
 #else  // T4_ENABLE_OBJ ===========================================================
     __GPU__  void   sweep()    {}                          ///< holder for no object
@@ -231,20 +221,5 @@ public:
     __GPU__  DU     dup(DU d)  { return d; }               ///< place holder
     
 #endif // T4_ENABLE_OBJ ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-    
-    ///
-    /// debugging methods (implemented in .cu)
-    ///
-    __GPU__  __INLINE__ DU   ms()           { return static_cast<double>(clock64()) / _khz; }
-    __BOTH__ __INLINE__ int  khz()          { return _khz;   }
-    __BOTH__ __INLINE__ int  trace()        { return _trace; }
-    __BOTH__ __INLINE__ void trace(int lvl) { _trace = lvl;  }
-    
-    __HOST__ int  to_s(std::ostream &fout, IU w);                ///< dump word 
-    __HOST__ void words(std::ostream &fout);                     ///< display dictionary
-    __HOST__ void see(std::ostream &fout, U8 *p, int dp=1);      ///< disassemble a word
-    __HOST__ void see(std::ostream &fout, U16 w);               
-    __HOST__ void ss_dump(std::ostream &fout, U16 vid, U16 n, int radix);
-    __HOST__ void mem_dump(std::ostream &fout, U16 p0, U16 sz);   ///< dump a section of param memory
 };
 #endif // TEN4_SRC_MMU_H
