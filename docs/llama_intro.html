@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<title>Llama Intro</title>
+<meta name="author" content="Chochain Lee"/>
+<meta name="description" content=""/>
+<meta name="keywords" content=""/>
+<style type="text/css">
+.underline { text-decoration: underline; }
+</style>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js/dist/reveal.css"/>
+
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js/dist/theme/night.css" id="theme"/>
+
+<link rel="stylesheet" href="./org-reveal.css"/>
+
+<!-- If the query includes 'print-pdf', include the PDF print sheet -->
+<script>
+    if( window.location.search.match( /print-pdf/gi ) ) {
+        var link = document.createElement( 'link' );
+        link.rel = 'stylesheet';
+        link.type = 'text/css';
+        link.href = 'https://cdn.jsdelivr.net/npm/reveal.js/css/print/pdf.css';
+        document.getElementsByTagName( 'head' )[0].appendChild( link );
+    }
+</script>
+</head>
+<body>
+<div class="reveal">
+<div class="slides">
+<section id="sec-title-slide"><h2 class="title">Llama Intro</h2><em>Large Language Modeling on your desktop</em><br><br>Chochain Lee<br><br>
+</section>
+
+<section>
+<section id="slide-orgd81ae6f">
+<h2 id="orgd81ae6f">Llama</h2>
+<ul>
+<li>From Meta (Facebook)</li>
+<li>vs ChatGPT and Gemini</li>
+<li>Large Language Model Meta AI
+<img src="https://raw.githubusercontent.com/chochain/tensorForth/master/docs/img/llama.png" alt="llama.png" /></li>
+
+</ul>
+</section>
+</section>
+<section>
+<section id="slide-org81f0cf2">
+<h2 id="org81f0cf2">Chronical</h2>
+<ul class="fragment roll-in">
+<li>2023-03: v1 leaked to 4chan</li>
+<li>2023-07: v2 with Microsoft
+<ul>
+<li>7B, 13B, 70B params</li>
+
+</ul></li>
+<li>2024-04: v3 to public
+<ul>
+<li>8B, 70B params</li>
+
+</ul></li>
+<li>2024-07: v3.2, small models
+<ul>
+<li>1B, 3B, 11B params</li>
+
+</ul></li>
+
+</ul>
+</section>
+</section>
+<section>
+<section id="slide-orgd91f7c4">
+<h2 id="orgd91f7c4">Look for</h2>
+<ul class="fragment roll-in">
+<li>Llama.cpp
+<ul>
+<li>C/C++</li>
+<li>full suite</li>
+
+</ul></li>
+<li>llama2.c
+<ul>
+<li>pure C</li>
+<li>one file, 700+ lines</li>
+
+</ul></li>
+<li>Ollama
+<ul>
+<li>Wrapper for Llama.cpp</li>
+<li>user friendly UI</li>
+<li>but, we prefer source codes</li>
+
+</ul></li>
+
+</ul>
+</section>
+</section>
+<section>
+<section id="slide-org5762d17">
+<h2 id="org5762d17">Llama.cpp</h2>
+<ul class="fragment roll-in">
+<li>by AI veteran, G. Gerganov</li>
+<li>Open Source, Cross Platform</li>
+<li>Full source in C/C++</li>
+<li>Supports almost all models</li>
+<li>GPU optional</li>
+
+</ul>
+</section>
+</section>
+<section>
+<section id="slide-org6e270d8">
+<h3 id="org6e270d8">Build Llama.cpp</h3>
+<p>
+Get
+</p>
+<pre  class="example" >
+git clone https://github.com/ggerganov/llama.cpp
+cd llama.cpp
+</pre>
+<p>
+Build
+</p>
+<pre  class="example" >
+cmake -B build
+cmake --build build --config Release
+</pre>
+<p>
+Models
+</p>
+<pre  class="example" >
+most models work
+HuggingFace, login needed
+</pre>
+</section>
+</section>
+<section>
+<section id="slide-org4c6ae7b">
+<h3 id="org4c6ae7b">Run Llama.cpp</h3>
+<pre  class="example" >
+./bin/llama-cli -m ./models/Llama-3.2-1B-Instruct-Q4_K_M.gguf
+&gt; how to build Forth core on FPGA
+Building a Forth core on an FPGA (Field-Programmable Gate Array) is a complex task that requires a deep understanding of both the Forth programming language and the FPGA design process. I'll provide a general overview of the steps involved, but keep in mind that this is a simplified guide and may require additional research and expertise.
+
+**Required Components:**
+1. **Forth compiler:** A Forth compiler is a custom-built compiler that translates the Forth code into machine code that can be executed on the FPGA.
+2. **FPGA design:** A design for a Forth core on an FPGA, including the digital circuitry and hardware components required to execute the Forth code.
+3. **Tools and software:** A set of tools and software for the FPGA design and synthesis, such as Vivado, Xilinx, or Intel Quartus.
+**Step-by-Step Guide:**
+1. **Design the Forth compiler:**
+    * Create a Forth compiler that can translate Forth code into machine code (e.g., Verilog or VHDL).
+    * Implement a compiler that can handle various Forth dialects and syntax.
+    * Include a code editor and debugger that can support Forth.
+2. **Design the FPGA core:**
+    * Choose an FPGA platform (e.g., Xilinx Zynq, Intel Cyclone 10) and design the FPGA core architecture.
+...
+
+**Tools and Software:**
+1. **Vivado:** A popular tool for designing and synthesizing FPGA designs.
+...
+
+**Conclusion:**
+Building a Forth core on an FPGA is a complex task that requires significant expertise in both Forth programming and FPGA design. However, with careful planning and design, it is possible to create a functional Forth core on an FPGA. Be sure to research and consult with experts in both areas before starting your project.
+</pre>
+</section>
+</section>
+<section>
+<section id="slide-orgad3cd4f">
+<h2 id="orgad3cd4f">llama2.c</h2>
+<ul class="fragment roll-in">
+<li>by A. Karpathy (Tesla, OpenAI)</li>
+<li>Open Source</li>
+<li>Easy 700+ lines C</li>
+<li>Llama2 only</li>
+<li>No GPU (see llama2.cu)</li>
+
+</ul>
+</section>
+</section>
+<section>
+<section id="slide-org12508cc">
+<h3 id="org12508cc">Build llama2.c</h3>
+<p>
+Get
+</p>
+<pre  class="example" >
+git clone https://github.com/karpathy/llama2.c.git
+cd llama2.c
+</pre>
+<p>
+Build
+</p>
+<pre  class="example" >
+make run
+</pre>
+<p>
+Models
+</p>
+<pre  class="example" >
+15M, 42M, 110M tinyStores
+7B possible with some work
+</pre>
+</section>
+</section>
+<section>
+<section id="slide-orgc0d27a8">
+<h3 id="orgc0d27a8">Run llama2.c</h3>
+<pre  class="example" >
+./run stories110M.bin -t 0.8 -n 1024 -i "tell me a story"
+tell me a story about a fairy. She is very small and has wings.
+She lives in a big tree with her friends. They like to play and sing and dance.
+One day, a boy finds the fairy in the garden. He is very happy and wants to keep her.
+He puts her in a jar and takes her to his room. He thinks she is pretty and sweet.
+But the fairy does not like the boy. She misses her friends and her tree.
+She tries to fly away, but the jar is too tight. She is sad and scared.
+The boy's mom sees the fairy in the jar. She is surprised and angry.
+She tells the boy to let the fairy go. She says the fairy is not a toy, she is a living thing.
+She says the boy should not keep her in a jar. She says he should be kind and gentle to fairies.
+The boy feels sorry and ashamed. He takes the jar to the garden and opens the lid.
+The fairy flies out and hops on his finger. She thanks him for setting her free.
+She says she will give him a wish. She says he can wish for anything he wants.
+The boy thinks for a moment. He wishes for a new bike. He says thank you to the fairy.
+He says he will be good and kind to her. He says he will visit her and her tree and her friends.
+The fairy smiles and nods. She says she will see him soon.
+She says goodbye and flies away. The boy watches her go. He is happy and amazed.
+He has a new bike and new friends. He has learned a lesson. He has been kind and gentle.
+achieved tok/s: 9.860246
+</pre>
+</section>
+</section>
+<section>
+<section id="slide-orgd04a52b">
+<h2 id="orgd04a52b">Analysis</h2>
+<ul class="fragment roll-in">
+<li>Easy to accquire and build</li>
+<li>Many sites on the subject</li>
+<li>Small models aviable</li>
+<li>Lower end CPU and MCU</li>
+<li>No GPU needed</li>
+<li>Potential for FPGA</li>
+
+</ul>
+</section>
+</section>
+<section>
+<section id="slide-org41f95b4">
+<h2 id="org41f95b4">Thank You!</h2>
+</section>
+</section>
+</div>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/reveal.js/dist/reveal.js"></script>
+
+<script>
+// Full list of configuration options available here:
+// https://github.com/hakimel/reveal.js#configuration
+Reveal.initialize({
+slideNumber:"c/t", transition:"none", transitionSpeed:"fast", controlsTutorial:false, minScale:1.0, maxScale:1.5,
+
+// Optional libraries used to extend on reveal.js
+dependencies: [
+ { src: 'https://cdn.jsdelivr.net/npm/reveal.js/plugin/markdown/marked.js', condition: function() { return !!document.querySelector( '[data-markdown]' ); } },
+ { src: 'https://cdn.jsdelivr.net/npm/reveal.js/plugin/markdown/markdown.js', condition: function() { return !!document.querySelector( '[data-markdown]' ); } },
+ { src: 'https://cdn.jsdelivr.net/npm/reveal.js/plugin/zoom-js/zoom.js', async: true, condition: function() { return !!document.body.classList; } },
+ { src: 'https://cdn.jsdelivr.net/npm/reveal.js/plugin/notes/notes.js', async: true, condition: function() { return !!document.body.classList; } }]
+
+});
+for(let e of document.getElementsByClassName("figure-number")){e.parentElement.classList.add("fig-caption");}
+</script>
+</body>
+</html>
