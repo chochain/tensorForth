@@ -33,8 +33,8 @@
 </section>
 
 <section>
-<section id="slide-orgea03630">
-<h2 id="orgea03630">Llama</h2>
+<section id="slide-orgec0b1fc">
+<h2 id="orgec0b1fc">Llama</h2>
 <ul>
 <li>From Meta (Facebook)</li>
 <li>vs ChatGPT and Gemini</li>
@@ -45,23 +45,28 @@
 </section>
 </section>
 <section>
-<section id="slide-org7263ba5">
-<h2 id="org7263ba5">Chronicle</h2>
+<section id="slide-orgef25611">
+<h2 id="orgef25611">Chronicle</h2>
 <ul class="fragment roll-in">
 <li>2023-03: v1 leaked to 4chan</li>
 <li>2023-07: v2 with Microsoft
 <ul>
-<li>7B, 13B, 70B params</li>
+<li>7B, 13B, 70B params, from 2.2T tokens</li>
 
 </ul></li>
 <li>2024-04: v3 to public
 <ul>
-<li>8B, 70B params</li>
+<li>8B, 70B params, from 15T tokens</li>
 
 </ul></li>
 <li>2024-07: v3.2, small models
 <ul>
-<li>1B, 3B, 11B params</li>
+<li>txt 1B, 3B, txt-img 11B, 90B params</li>
+
+</ul></li>
+<li>2024-12: v3.3, back to big
+<ul>
+<li>txt 70B multi-lingual</li>
 
 </ul></li>
 
@@ -69,8 +74,8 @@
 </section>
 </section>
 <section>
-<section id="slide-orgab1c2c3">
-<h2 id="orgab1c2c3">Look for</h2>
+<section id="slide-org0afc735">
+<h2 id="org0afc735">Look for</h2>
 <ul class="fragment roll-in">
 <li>Llama.cpp
 <ul>
@@ -96,8 +101,8 @@
 </section>
 </section>
 <section>
-<section id="slide-orga115e25">
-<h2 id="orga115e25">Llama.cpp</h2>
+<section id="slide-org1b5d10c">
+<h2 id="org1b5d10c">Llama.cpp</h2>
 <ul class="fragment roll-in">
 <li>by AI veteran, G. Gerganov</li>
 <li>Open Source, Cross Platform</li>
@@ -109,8 +114,8 @@
 </section>
 </section>
 <section>
-<section id="slide-orga203639">
-<h3 id="orga203639">Build Llama.cpp</h3>
+<section id="slide-orgfac3bc8">
+<h3 id="orgfac3bc8">Build Llama.cpp</h3>
 <p>
 Get
 </p>
@@ -135,8 +140,8 @@ HuggingFace, login needed
 </section>
 </section>
 <section>
-<section id="slide-orgbe6aad6">
-<h3 id="orgbe6aad6">Run Llama.cpp</h3>
+<section id="slide-orgc2d1b7f">
+<h3 id="orgc2d1b7f">Run Llama.cpp</h3>
 <pre  class="example" >
 ./bin/llama-cli -m ./models/Llama-3.2-1B-Instruct-Q4_K_M.gguf
 &gt; how to build Forth core on FPGA
@@ -164,8 +169,8 @@ Building a Forth core on an FPGA is a complex task that requires significant exp
 </section>
 </section>
 <section>
-<section id="slide-orgb2af605">
-<h2 id="orgb2af605">llama2.c</h2>
+<section id="slide-orgade3a37">
+<h2 id="orgade3a37">llama2.c</h2>
 <ul class="fragment roll-in">
 <li>by A. Karpathy (Tesla, OpenAI)</li>
 <li>Open Source</li>
@@ -177,8 +182,8 @@ Building a Forth core on an FPGA is a complex task that requires significant exp
 </section>
 </section>
 <section>
-<section id="slide-orgb03e639">
-<h3 id="orgb03e639">Build llama2.c</h3>
+<section id="slide-org643d34f">
+<h3 id="org643d34f">Build llama2.c</h3>
 <p>
 Get
 </p>
@@ -202,8 +207,8 @@ Models
 </section>
 </section>
 <section>
-<section id="slide-orgc8e51c1">
-<h3 id="orgc8e51c1">Run llama2.c</h3>
+<section id="slide-org89c1a48">
+<h3 id="org89c1a48">Run llama2.c</h3>
 <pre  class="example" >
 ./run stories110M.bin -t 0.8 -n 1024 -i "tell me a story"
 tell me a story about a fairy. She is very small and has wings.
@@ -228,8 +233,8 @@ achieved tok/s: 9.860246
 </section>
 </section>
 <section>
-<section id="slide-org0ffc480">
-<h2 id="org0ffc480">Thoughts</h2>
+<section id="slide-org523887a">
+<h2 id="org523887a">Thoughts</h2>
 <ul class="fragment roll-in">
 <li>Easy to acquire and build</li>
 <li>Many sites on the subject</li>
@@ -242,8 +247,8 @@ achieved tok/s: 9.860246
 </section>
 </section>
 <section>
-<section id="slide-orgf2861e0">
-<h2 id="orgf2861e0">Thank You!</h2>
+<section id="slide-org5d8da4b">
+<h2 id="org5d8da4b">Thank You!</h2>
 </section>
 </section>
 </div>

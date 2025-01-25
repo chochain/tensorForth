@@ -21,11 +21,13 @@
 #+ATTR_REVEAL: :frag roll-in
 + 2023-03: v1 leaked to 4chan
 + 2023-07: v2 with Microsoft
-  - 7B, 13B, 70B params
+  - 7B, 13B, 70B params, from 2.2T tokens
 + 2024-04: v3 to public
-  - 8B, 70B params
+  - 8B, 70B params, from 15T tokens
 + 2024-07: v3.2, small models
-  - 1B, 3B, 11B params
+  - txt 1B, 3B, txt-img 11B, 90B params
++ 2024-12: v3.3, back to big model
+  - txt 70B multi-lingual
 * Look for
 #+ATTR_REVEAL: :frag roll-in
 + Llama.cpp
