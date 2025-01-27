@@ -131,11 +131,58 @@ typedef F64         DU2;                    /**< double preciesion data */
 #define T4_TYPE_MSK 0x00000003                             /**< obj view flag  */
 #define T4_TT_OBJ   0x00000001                             /**< data unit flag */
 #define T4_TT_VIEW  0x00000003                             /**< view of object */
+#define EXT_FLAG    0x80000000                             /**< extention flag */
 #define DU2X(v)     (*(U32*)&(v))                          /**< to U32 ptr     */
 #define IS_OBJ(v)   ((DU2X(v) & T4_TT_OBJ)!=0)             /**< if is an obj   */
 #define IS_VIEW(v)  ((DU2X(v) & T4_TYPE_MSK)==T4_TT_VIEW)
 #define AS_VIEW(v)  ((DU2X(v) |= T4_TT_VIEW), (v))
 #define SCALAR(v)   ((DU2X(v) &= ~T4_TT_OBJ), (v))         /**< set DU flag    */
+///@}
+///>name General Data Types for IO Event
+///@{
+typedef enum {
+    GT_EMPTY = 0,
+    GT_INT,
+    GT_U32,
+    GT_FLOAT,
+    GT_STR,
+    GT_OBJ,
+    GT_FMT,
+    GT_OPX
+} GT;
+///@}
+///>name General Opocode Type for IO Event
+///@{
+typedef enum {
+    OP_WORDS = 0,
+    OP_SEE,
+    OP_DUMP,
+    OP_SS,
+    OP_TSAVE,
+    OP_DATA,
+    OP_FETCH,
+    OP_NSAVE,
+    OP_NLOAD
+} OP;
+///@}
+///>name File Access Mode for IO Event
+///@{
+typedef enum {
+    FAM_WO  = 0,
+    FAM_RW  = 1,
+    FAM_RAW = 0x10,
+    FAM_REW = 0x100
+} FAM;
+///@}
+///>name IO Event
+typedef struct {
+    U16 gt   : 4;
+    U16 id   : 12;
+    U16 sz;
+    U8  data[];      // different from *data
+} io_event;
+
+#define EVENT_SZ  sizeof(U32)
 ///@}
 ///>name Random Number Generator
 ///@{
@@ -144,6 +191,10 @@ typedef enum {
     NORMAL
 } rand_opt;
 ///@}
+///>name IO operators
+///@{
+typedef enum { RDX=0, CR, DOT, UDOT, EMIT, SPCS } io_op;
+///@}
 ///
 /// colon word compiler
 /// Note:
@@ -151,10 +202,10 @@ typedef enum {
 ///   * if they are combined then can behaves similar to classic Forth
 ///   * with an addition link field added.
 ///
-typedef enum { // ceforth
-    EXIT=0|EXT_FLAG, NOP, NEXT, LOOP, LIT, VAR, STR, DOTQ, BRAN, ZBRAN,
-    VBRAN, DOES, FOR, DO, KEY, MAX_OP
-} prim_op;
+//typedef enum { // ceforth
+//    EXIT=0|EXT_FLAG, NOP, NEXT, LOOP, LIT, VAR, STR, DOTQ, BRAN, ZBRAN,
+//    VBRAN, DOES, FOR, DO, KEY, MAX_OP
+//} prim_op;
 
 enum { // ten4 original
     EXIT = 0, DONEXT, DOVAR, DOLIT, DOSTR, DOTSTR, BRAN, ZBRAN, DOES, TOR
