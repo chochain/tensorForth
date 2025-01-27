@@ -7,8 +7,7 @@
 #ifndef TEN4_SRC_ISTREAM_H_
 #define TEN4_SRC_ISTREAM_H_
 #include "ten4_types.h"
-#include "util.h"
-#include "tensor.h"             /// in ../mmu include util.h
+#include "util.h"               /// in mmu
 ///
 /// istream class
 ///
@@ -69,6 +68,7 @@ public:
     __GPU__ Istream& getline(char *s, int sz, char delim='\n') {
         return get_idiom(s, delim);
     }
-    __GPU__ int operator>>(char *s)   { get_idiom(s); return _gn; }
+    __GPU__ int  operator>>(char *s) { get_idiom(s); return _gn; }
+    __GPU__ char operator>>(char c)  { return ' '; }
 };
 #endif // TEN4_SRC_ISTREAM_H_
