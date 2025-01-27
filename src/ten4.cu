@@ -67,13 +67,12 @@ TensorForth::TensorForth(int device, int verbose) {
 __HOST__ void
 TensorForth::setup() {
     for (int i=0; i < VM_MIN_COUNT; i++) {
-        T4Entry *e = &vm_pool[i];
-        (e->vm = new VM_TYPE(vid, sys))->init();     ///< instantiate VMs
-        GPU_ERR(cudaCreateStream(&e->st));
-        GPU_ERR(cudaEventCreate(&e->t0));
-        GPU_ERR(cudaEventCreate(&e->t1));
+        VM_Handle *h = &vm_pool[i];
+        (h->vm = new VM_TYPE(vid, sys))->init();     ///< instantiate VMs
+        GPU_ERR(cudaCreateStream(&h->st));
+        GPU_ERR(cudaEventCreate(&h->t0));
+        GPU_ERR(cudaEventCreate(&h->t1));
     }
-    
     vm_pool[0].vm->state = HOLD;
 }
 
@@ -98,18 +97,18 @@ TensorForth::run() {
     while (n_vm && sys->readline()) {
         n_vm = 0;
         for (int i=0; i<VM_MIN_COUNT; i++) {
-            T4Entry *e  = &vm_pool[i];
-            VM      *vm = e->vm;
+            VM_Handle *h  = &vm_pool[i];
+            VM        *vm = h->vm;
             if (vm->state == STOP) continue;
             n_vm++;
-            cudaEventRecord(e->t0, e->st);
-            k_vm_exec<<<1, 1, T4_SS_SZ, e->st>>>(vm);
+            cudaEventRecord(h->t0, h->st);
+            k_vm_exec<<<1, 1, T4_SS_SZ, h->st>>>(vm);
             GPU_CHK();
-            cudaEventRecord(e->t1, e->st);
-            cudaStreamWaitEvent(e->t1);       // CPU will wait here
+            cudaEventRecord(h->t1, h->st);
+            cudaStreamWaitEvent(h->t1);       // CPU will wait here
             
             float dt;
-            cudaEventElapsedTime(&dt, e->t0, e->t1);
+            cudaEventElapsedTime(&dt, h->t0, h->t1);
             
             switch (vm->state) {
             case VM_WAIT:  VLOG1("%d} VM[%d] wait\n", vm->vid, vm->vid); break;
@@ -135,11 +134,11 @@ TensorForth::run() {
 __HOST__ void
 TensorForth::teardown(int sig) {
     for (int i=0; i < VM_MIN_COUNT; i++) {
-        T4Entry *e = &pool[i];
+        VM_Handle *h = &vm_pool[i];
         
-        GPU_ERR(cudaDestroyStream(e->st));
-        GPU_ERR(cudaDestroyEvent(p->t0));
-        GPU_ERR(cudaDestroyStream(p->t1));
+        GPU_ERR(cudaDestroyStream(h->st));
+        GPU_ERR(cudaDestroyEvent(h->t0));
+        GPU_ERR(cudaDestroyStream(h->t1));
     }
 }
 ///
