@@ -10,60 +10,14 @@
 #include "util.h"                // in ../mmu
 
 //================================================================
-///
-/// general data types
-///
-typedef enum {
-    GT_EMPTY = 0,
-    GT_INT,
-    GT_FLOAT,
-    GT_STR,
-    GT_OBJ,
-    GT_FMT,
-    GT_OPX
-} GT;
-///
-/// global opocode type
-///
-typedef enum {
-    OP_WORDS = 0,
-    OP_SEE,
-    OP_DUMP,
-    OP_SS,
-    OP_TSAVE,
-    OP_DATA,
-    OP_FETCH,
-    OP_NSAVE,
-    OP_NLOAD
-} OP;
-///
-/// file access mode
-///
-typedef enum {
-    FAM_WO  = 0,
-    FAM_RW  = 1,
-    FAM_RAW = 0x10,
-    FAM_REW = 0x100
-} FAM;
-
-//================================================================
 /*! printf internal version data container.
 */
-typedef struct {
-    U16 gt   : 4;
-    U16 id   : 12;
-    U16 sz;
-    U8  data[];      // different from *data
-} obuf_node;
-
 typedef struct {
     U8 base;
     U8 width;
     U8 prec;
     U8 fill;
 } obuf_fmt;
-
-#define NODE_SZ  sizeof(U32)
 ///
 /// implement kernel iomanip classes
 ///
@@ -107,6 +61,7 @@ class Ostream : public Managed {
         MEMCPY(d, v, sz);
         switch(gt) {
         case GT_INT:   printf("%d\n", *(GI*)d);      break;
+        case GT_U32:   printf("%u\n", *(U32*)d);     break;
         case GT_FLOAT: printf("%G\n", *(GF*)d);      break;
         case GT_STR:   printf("%c\n", d);            break;
         case GT_OBJ:   printf("Obj:%8x\n", DU2X(d);  break;
@@ -126,17 +81,18 @@ class Ostream : public Managed {
         }
 #endif // MMU_TRACE
     }
+        
     __GPU__  void _write(GT gt, U8 *v, int sz) {
         if (threadIdx.x!=0) return;               // only thread 0 within a block can write
 
         //_LOCK;
-        obuf_node *n = (obuf_node*)&_buf[_idx];   // allocate next node
+        io_event *n = (io_event*)&_buf[_idx];     // allocate next node
 
         n->gt   = gt;                             // data type
         n->id   = blockIdx.x;                     // VM.id
         n->sz   = ALIGN4(sz);                     // 32-bit alignment
 
-        int inc = NODE_SZ + n->sz;                // calc node allocation size
+        int inc = EVENT_SZ + n->sz;               // calc node allocation size
 
         _debug(gt, v, sz);
 
@@ -179,6 +135,10 @@ public:
     }
     __GPU__ Ostream& operator<<(S32 i) {
         _write(GT_INT, (U8*)&i, sizeof(S32));
+        return *this;
+    }
+    __GPU__ Ostream& operator<<(U32 i) {
+        _write(GT_U32, (U8*)&i, sizeof(U32));
         return *this;
     }
     __GPU__ Ostream& operator<<(DU d) {
