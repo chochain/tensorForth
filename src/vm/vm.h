@@ -6,7 +6,7 @@
  */
 #ifndef TEN4_SRC_VM_H
 #define TEN4_SRC_VM_H
-#include "aio.h"            // async IO (includes Istream, Ostream), in ../io
+#include "sys.h"                    /// system interface
 ///
 ///@name Cross platform support
 ///@{
@@ -14,18 +14,18 @@
 #define delay(ticks) { U64 t = clock64() + (ticks * mmu.khz()); while ((U64)clock64()<t) yield(); }
 #define yield()                        /**< TODO: multi-VM  */
 ///@}
-#define VLOG1(...)         if (mmu.trace() > 0) INFO(__VA_ARGS__);
-#define VLOG2(...)         if (mmu.trace() > 1) INFO(__VA_ARGS__);
+#define VLOG1(...)         if (sys->io->trace > 0) INFO(__VA_ARGS__);
+#define VLOG2(...)         if (sys->io->trace > 1) INFO(__VA_ARGS__);
 ///
 /// virtual machine base class
 ///
 typedef enum { STOP=0, HOLD, QUERY, NEST } vm_state;   // eforth states
 //typedef enum { VM_READY=0, VM_RUN, VM_WAIT, VM_STOP } vm_state;   //ten4 states
-class ALIGNAS VM {
+class VM {
 public:    
     IU        id;                      ///< VM id
     vm_state  state;                   ///< VM state
-    System    &sys;                    ///< system interface
+    System    *sys;                    ///< system interface
 
     __GPU__ VM(int id, System *sys);
 
@@ -62,14 +62,9 @@ protected:
     Vector<DU, 0> ss;                 ///< parameter stack (setup in ten4.cu)
     Vector<DU, T4_RS_SZ> rs;          ///< return stack
     
-    U32   *ptos   = (U32*)&top;       ///< 32-bit mask for top
+    U32   *ptos   = (U32*)&tos;       ///< 32-bit mask for top
     U8    *radix  = 0;                ///< radix (base)
     bool  compile = false;            ///< compiling flag
-    char  pad[T4_STRBUF_SZ];          ///< terminal input buffer
-    
-    static Istream  &fin;             ///< VM stream input
-    static Ostream  &fout;            ///< VM stream output
-    static MMU      &mmu;             ///< memory managing unit
     ///
     /// inner interpreter handlers
     ///
@@ -78,19 +73,5 @@ protected:
     __GPU__ virtual int parse(char *str)  { return 0; }
     __GPU__ virtual int number(char *str) { return 0; }
     __GPU__ virtual int post()            { return 0; }
-    ///
-    /// input stream handler
-    ///
-    __GPU__ char *next_idiom()      { fin >> idiom; return idiom; }
-    __GPU__ char *scan(char delim)  { fin.get_idiom(idiom, delim); return idiom; }
-    ///
-    /// output methods
-    ///
-    __GPU__ void dot(DU v)          { fout << " " << v; }
-    __GPU__ void dot_r(int n, DU v) { fout << setw(n) << v; }
-    __GPU__ void ss_dump(int n=0)   {
-        ss[T4_SS_SZ-1] = top;        /// * put top at the tail of ss (for host display)
-        fout << opx(OP_SS, n ? n : ss.idx);
-    }
 };
 #endif // TEN4_SRC_VM_H
