@@ -10,13 +10,11 @@
 #include "aio.h"
 
 #if T4_ENABLE_OBJ
-
-using namespace std;
 ///
 /// Tensor IO private methods
 ///
 __HOST__ void
-AIO::_print_obj(std::ostream &fout, DU v) {
+AIO::_print_obj(h_ostr &fout, DU v) {
     T4Base &b = _mmu->du2obj(v);
     switch (b.ttype) {
     case T4_TENSOR:
@@ -27,7 +25,7 @@ AIO::_print_obj(std::ostream &fout, DU v) {
 }
 
 __HOST__ void
-AIO::_print_vec(std::ostream &fout, DU *vd, int W, int C) {
+AIO::_print_vec(h_ostr &fout, DU *vd, int W, int C) {
     int rw = (W <= _thres) ? W : (W < _edge ? W : _edge);
     fout << setprecision(_prec) << "{";                 /// set precision
     for (int j=0; j < rw; j++) {
@@ -47,7 +45,7 @@ AIO::_print_vec(std::ostream &fout, DU *vd, int W, int C) {
     fout << " }";
 }
 __HOST__ void
-AIO::_print_mat(std::ostream &fout, DU *td, U16 *shape) {
+AIO::_print_mat(h_ostr &fout, DU *td, U16 *shape) {
     auto range = [this](int v) { return (v < _edge) ? v : _edge; };
     const int H = shape[0], W = shape[1], C = shape[2]; ///< height, width, channels
     const int rh= range(H), rw=range(W);                ///< h,w range for ...
@@ -70,7 +68,7 @@ AIO::_print_mat(std::ostream &fout, DU *td, U16 *shape) {
     }
 }
 __HOST__ void
-AIO::_print_tensor(std::ostream &fout, Tensor &t) {
+AIO::_print_tensor(h_ostr &fout, Tensor &t) {
     DU *td = t.data;                        /// * short hand
     WARN("aio#print_tensor::T=%p data=%p\n", &t, td);
 
@@ -133,7 +131,7 @@ AIO::_tsave(DU top, U16 mode, char *fname) {
 }
 
 __HOST__ int
-AIO::_tsave_txt(std::ostream &fout, Tensor &t) {
+AIO::_tsave_txt(h_ostr &fout, Tensor &t) {
     int tmp = _thres;
     _thres  = 1024;                              /// * allow 1K*1K cells
     _print_tensor(fout, t);              
@@ -142,7 +140,7 @@ AIO::_tsave_txt(std::ostream &fout, Tensor &t) {
 }
 
 __HOST__ int
-AIO::_tsave_raw(std::ostream &fout, Tensor &t) {
+AIO::_tsave_raw(h_ostr &fout, Tensor &t) {
     const char hdr[2] = { 'T', '4' };
     const int N = t.N(), HWC = t.HWC();
     U8 *buf = (U8*)malloc(HWC);                       ///< buffer for one slice
@@ -161,7 +159,7 @@ AIO::_tsave_raw(std::ostream &fout, Tensor &t) {
 }
 
 __HOST__ int
-AIO::_tsave_npy(std::ostream &fout, Tensor &t) {
+AIO::_tsave_npy(h_ostr &fout, Tensor &t) {
     // TODO:
     return 0;
 }
