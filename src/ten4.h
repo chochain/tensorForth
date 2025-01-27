@@ -4,8 +4,7 @@
 */
 #ifndef TEN4_SRC_TEN4_H_
 #define TEN4_SRC_TEN4_H_
-#include "sys.h"
-#include "vm/vm.h"
+#include "vm/vm.h"           // proxy to sys.h
 
 #if T4_ENABLE_NN
 #include "ldr/loader.h"      // default dataset loader
@@ -19,16 +18,16 @@ typedef TenVM   VM_TYPE;
 typedef ForthVM VM_TYPE;
 #endif
 
-struct T4Entry {
-    __GPU__  VM     *vm;
-    __HOST__ STREAM st;
-    __HOST__ EVENT  t0;
-    __HOST__ EVENT  t1;
+struct VM_Handle {
+    VM     *vm;
+    STREAM st;
+    EVENT  t0;
+    EVENT  t1;
 };
 
 class TensorForth {
-    System  *sys;
-    T4Entry vm_pool[VM_MIN_COUNT];           ///< CUDA stream per VM
+    System    *sys;
+    VM_Handle vm_pool[VM_MIN_COUNT];         ///< CUDA stream per VM
     
 public:
     TensorForth(int device=0, int verbose=0);
