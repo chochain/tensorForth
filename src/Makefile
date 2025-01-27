@@ -16,12 +16,16 @@ NVCC_FLAGS:= \
 NV_CC:=${CUDA_HOME}/bin/nvcc $(NVCC_FLAGS)
 
 T4_SRCS := \
+    ./src/sys.cu \
+    ./src/debug.cu \
 	./src/ten4.cu
 
 T4_INCS := \
 	./src/ten4_config.h \
 	./src/ten4_types.h \
 	./src/opt.h \
+    ./src/sys.h \
+    ./src/debug.h \
 	./src/ten4.h
 
 T4_OBJS := $(T4_SRCS:%.cu=%.o)
