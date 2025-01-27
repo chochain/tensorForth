@@ -141,7 +141,7 @@ ForthVM::init() {
     CODE("dotstr",
         char *s  = (char*)LDp(IP);                        // get string pointer
         int  sz  = STRLENB(s)+1;
-        fout << s;  IP += ALIGN2(sz));                    // send to output console
+        pstr(s);  IP += ALIGN2(sz));                      // send to output console
     CODE("branch" , IP = LDi(IP));                        // unconditional branch
     CODE("0branch", IP = ZEQ(POP()) ? LDi(IP) : IP + sizeof(IU)); // conditional branch
     CODE("does",                                          // CREATE...DOES... meta-program
@@ -224,32 +224,29 @@ ForthVM::init() {
     ///@}
     ///@defgroup IO ops
     ///@{
-    CODE("base@",   PUSH(I2D(radix)));
-    CODE("base!",   fout << setbase(radix = POPi));
-    CODE("hex",     fout << setbase(radix = 16));
-    CODE("decimal", fout << setbase(radix = 10));
-    CODE("cr",      fout << ENDL);
-    CODE(".",       dot(POP()));
-    CODE(".r",      int n = POPi; dot_r(n, POP()));
-    CODE("u.r",     int n = POPi; dot_r(n, ABS(POP())));
-    CODE(".f",      int n = POPi; fout << setprec(n) << POP());
+    CODE("base",    PUSH(vm.base));
+    CODE("decimal", dot(RDX, *BASE=10));
+    CODE("hex",     dot(RDX, *BASE=16));
+    CODE("cr",      dot(CR));
+    CODE(".",       dot(DOT,  POP()));
+    CODE("u.",      dot(UDOT, POP()));
+    CODE(".r",      int n = POPi; dotr(n, POP()));
+    CODE("u.r",     int n = POPi; dotr(n, ABS(POP())));
+    CODE(".f",      int n = POPi; dotf(n, POP()));
     CODE("key",     PUSH(next_idiom()[0]));
-    CODE("emit",    fout << (char)POPi);
-    CODE("space",   fout << ' ');
-    CODE("spaces",
-         int n = POPi;
-         MEMSET(idiom, ' ', n); idiom[n] = '\0';
-         fout << idiom);
+    CODE("emit",    dot(EMIT, POP()));
+    CODE("space",   dot(SPCS, DU1));
+    CODE("spaces",  dot(SPCS, POP()));
     CODE("type",
          int n = POPi; int idx = POPi;
-         fout << (char*)LDp(idx));          // get string pointer
+         pstr((char*)LDp(idx)));             // get string pointer
     ///@}
     ///@defgroup Literal ops
     ///@{
     CODE("[",       compile = false);
     CODE("]",       compile = true);
     IMMD("(",       scan(')'));
-    IMMD(".(",      fout << scan(')'));
+    IMMD(".(",      pstr(scan(')')));
     IMMD("\\",      scan('\n'));
     IMMD("s\"",
         const char *s = scan('"')+1;        // string skip first blank
@@ -265,7 +262,7 @@ ForthVM::init() {
             add_w(DOTSTR);                  // dotstr, (+parameter field)
             add_str(s);
         }
-        else fout << s);                    // print right away
+        else pstr(s));                      // print right away
     ///@}
     ///@defgroup Branching ops
     ///@brief - if...then, if...else...then
@@ -348,7 +345,7 @@ ForthVM::init() {
     CODE(",",     DU n = POP(); add_du(n));
     CODE("allot", DU v = 0; for (IU n = POPi, i = 0; i < n; i++) add_du(v));      // n --
     CODE("+!",    IU w = POPi; DU v = ADD(LDd(w), POP()); STd(w, SCALAR(v)));     // n w --
-    CODE("?",     IU w = POPi; fout << LDd(w) << " ");                            // w --
+    CODE("?",     IU w = POPi; dot(DOT, LDd(w)));                                 // w --
     ///@}
     ///@defgroup Debug ops
     ///@{
@@ -360,9 +357,9 @@ ForthVM::init() {
     CODE("nfa",   IU w = POPi; PUSH(dict[w].nfa));
     CODE("trace", mmu.trace(POPi));                                               // turn tracing on/off
     CODE(".s",    ss_dump());
-    CODE("words", fout << opx(OP_WORDS));
-    CODE("see",   int w = FIND(next_idiom()); fout << opx(OP_SEE, w));
-    CODE("dump",  DU n = POP(); int a = POPi; fout << opx(OP_DUMP, a, n));
+    CODE("words", dot(OPX, opx(OP_WORDS)));
+    CODE("see",   int w = FIND(next_idiom()); dot(OPX, opx(OP_SEE, w)));
+    CODE("dump",  DU n = POP(); int a = POPi; dot(OPX, opx(OP_DUMP, a, n)));
     CODE("forget",
         int w = FIND(next_idiom());
         if (w < 0) return;
