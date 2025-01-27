@@ -87,8 +87,8 @@ struct Code : public Managed {
 ///
 /// tracing level control
 ///
-#define MM_TRACE1(...) { if (_trace > 0) INFO(__VA_ARGS__); }
-#define MM_TRACE2(...) { if (_trace > 1) INFO(__VA_ARGS__); }
+#define MM_TRACE1(...) { if (CC_DEBUG > 0) INFO(__VA_ARGS__); }
+#define MM_TRACE2(...) { if (CC_DEBUG > 1) INFO(__VA_ARGS__); }
 ///
 /// Forth memory manager
 /// TODO: compare TLSF to RMM (Rapids Memory Manager)
@@ -109,6 +109,8 @@ class MMU : public Managed {
 #endif // T4_ENABLE_OBJ    
 
 public:
+    friend class Debug;             ///< Debug can access my private members
+    
     __HOST__ MMU();
     __HOST__ ~MMU();
 
