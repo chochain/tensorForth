@@ -84,6 +84,9 @@ struct T4Base : public Managed {
     __BOTH__ __INLINE__ bool is_dataset() { return ttype == T4_DATASET; }
 };
 
+#else  // !T4_ENABLE_OBJ
+class T4Base {};
 #endif // T4_ENABLE_OBJ
+
 #endif // TEN4_SRC_T4BASE_H
 
