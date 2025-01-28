@@ -6,11 +6,11 @@
  */
 #include "vm.h"
 
-__GPU__
+__HOST__
 VM::VM(int id, System *sys)
-    : vid(id), state(STOP), sys(*sys) {
-    ss.init(sys.mmu.vmss(vid), T4_SS_SZ);      /// * point data stack to managed memory block
-    VLOG1("\\  VM[%d](mem=%p, vmss=%p)\n", vid, sys.mmu.pmem(0), ss.v);
+    : id(id), state(STOP), sys(sys) {
+    ss.init(sys->mu->vmss(id), T4_SS_SZ);      /// * point data stack to managed memory block
+    VLOG1("\\  VM[%d](mem=%p, vmss=%p)\n", id, sys->mu->pmem(0), ss.v);
 }
 ///
 /// ForthVM Outer interpreter
@@ -26,16 +26,17 @@ VM::VM(int id, System *sys)
 ///
 __GPU__ void
 VM::outer() {
-    VLOG1("%d%c %s\n", vid, compile ? ':' : '{', fin.rdbuf()); /// * display input buffer
-    if (state == VM_RUN) resume();                 /// * resume from suspended VM
-    while (state == VM_READY && fin >> idiom) {    /// * loop throught tib
-        if (pre(idiom)) continue;                  /// * pre process
-        VLOG2("%d| >> %-10s => ", vid, idiom);
+    VLOG1("%d%c %s\n", id, compile ? ':' : '{', sys->io->fin.rdbuf()); /// * display input buffer
+    char *idiom = sys->_pad;
+    if (state == NEST) resume();                     /// * resume from suspended VM
+    while (state == HOLD && sys->io->fin >> idiom) { /// * loop throught tib
+        if (pre(idiom)) continue;                    /// * pre process
+        VLOG2("%d| >> %-10s => ", id, idiom);
         if (!parse(idiom) && !number(idiom)) {
-            fout << idiom << "? " << ENDL;         /// * display error prompt
-            compile = false;                       /// * reset to interpreter mode
+            sys->io->fout << idiom << "? " << ENDL;  /// * display error prompt
+            compile = false;                         /// * reset to interpreter mode
         }
-        if (post()) break;                         /// * post process
+        if (post()) break;                           /// * post process
     }
 }
 //=======================================================================================
