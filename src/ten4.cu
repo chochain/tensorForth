@@ -21,7 +21,7 @@ using namespace std;
 ///
 __KERN__ void
 k_vm_exec(VM *vm) {
-    extern __shared__ DU *ss[];                 ///< shared mem for ss (much faster)
+    extern __shared__ DU *ss;                   ///< shared mem for ss (much faster)
     
     DU *ss0 = vm->ss.v;                         ///< VM's data stack
     MEMCPY(ss, ss0, sizeof(DU) * T4_SS_SZ);     /// * copy stack into shared memory block
@@ -55,21 +55,22 @@ TensorForth::TensorForth(int device, int verbose) {
          << " initialized at " << khz/1000 << "MHz"
          << ", dict["          << T4_DICT_SZ << "]"
          << ", pmem="          << T4_PMEM_SZ/1024 << "K"
-         << ", vmss["          << T4_SS_SZ << "*" << VM_MIN_COUNT << "]"
+         << ", vmss["          << T4_SS_SZ << "*" << VM_COUNT << "]"
          << ", tensor="        << T4_OSTORE_SZ/1024/1024 << "M"
          << endl;
     ///
     /// allocate tensorForth system memory blocks
     ///
-    sys = new System(khz, verbose);
+    sys = new System(cin, cout, khz, verbose);
 }
 
 __HOST__ void
 TensorForth::setup() {
-    for (int i=0; i < VM_MIN_COUNT; i++) {
+    for (int i=0; i < VM_COUNT; i++) {
         VM_Handle *h = &vm_pool[i];
-        (h->vm = new VM_TYPE(vid, sys))->init();     ///< instantiate VMs
-        GPU_ERR(cudaCreateStream(&h->st));
+        MM_ALLOC(&h->vm, sizeof(VM_TYPE));
+//        (h->vm = new VM_TYPE(i, sys))->init();     ///< instantiate VMs
+        GPU_ERR(cudaStreamCreate(&h->st));
         GPU_ERR(cudaEventCreate(&h->t0));
         GPU_ERR(cudaEventCreate(&h->t1));
     }
@@ -77,17 +78,22 @@ TensorForth::setup() {
 }
 
 __HOST__ int
-TensorForth::vm_tally() {
+TensorForth::tally() {
     if (sys->trace() <= 1) return 0;
     
-    int cnt[VM_MIN_COUNT] = { 0, 0, 0, 0};
-    for (int i=0; VM_MIN_COUNT; i++) {
+    int cnt[4] = { 0, 0, 0, 0};                    /// STOP, HOLD, QUERY, NEST
+    for (int i=0; VM_COUNT; i++) {
         cnt[vm_pool[i].vm->state]++;
     }
     cout << "VM.state[STOP,HOLD,QUERY,NEST]=[";
     for (int i = 0; i < 4; i++) cout << " " << cnt[i];
     cout << " ]" << std::endl;
     
+#if T4_MMU_DEBUG
+    int m0 = (int)sys->mm->here() - 0x80;
+    db->mem_dump(cout, m0 < 0 ? 0 : m0, 0x80);
+#endif // T4_MMU_DEBUG
+        
     return 1;
 }
 
@@ -96,49 +102,42 @@ TensorForth::run() {
     int n_vm = 1;
     while (n_vm && sys->readline()) {
         n_vm = 0;
-        for (int i=0; i<VM_MIN_COUNT; i++) {
+        for (int i=0; i<VM_COUNT; i++) {
             VM_Handle *h  = &vm_pool[i];
             VM        *vm = h->vm;
             if (vm->state == STOP) continue;
             n_vm++;
+            
             cudaEventRecord(h->t0, h->st);
             k_vm_exec<<<1, 1, T4_SS_SZ, h->st>>>(vm);
             GPU_CHK();
             cudaEventRecord(h->t1, h->st);
-            cudaStreamWaitEvent(h->t1);       // CPU will wait here
+            cudaStreamWaitEvent(h->st, h->t1);       // CPU will wait here
             
             float dt;
             cudaEventElapsedTime(&dt, h->t0, h->t1);
             
             switch (vm->state) {
-            case VM_WAIT:  VLOG1("%d} VM[%d] wait\n", vm->vid, vm->vid); break;
-            case VM_QUERY: if (!vm->compile) sys.ss_dump(*vm);           break;
+            case HOLD:  VLOG1("%d} VM[%d] HOLD\n", vm->id, vm->id);   break;
+#if T4_ENABLE_OBJ                
+            case QUERY: if (!vm->compile) db->ss_dump(i, vm->ss.idx); break;
+#endif // T4_ENABLE_OBJ                
             }
         }
-        aio->flush(cout);     /// * flush output buffer
-///
-/// clean up marked free tensors
-///
-        sys->mmu_sweep();     /// * release buffered memory
-        
-#if T4_MMU_DEBUG
-        int m0 = (int)sys->mmu.here() - 0x80;
-        sys->mem_dump(cout, m0 < 0 ? 0 : m0, 0x80);
-#endif // T4_MMU_DEBUG
-        
-        tally();
+        sys->flush();             /// * flush output buffer
+        tally();                  /// * tally debug info
     }
     return 0;
 }
 
 __HOST__ void
 TensorForth::teardown(int sig) {
-    for (int i=0; i < VM_MIN_COUNT; i++) {
+    for (int i=0; i < VM_COUNT; i++) {
         VM_Handle *h = &vm_pool[i];
         
-        GPU_ERR(cudaDestroyStream(h->st));
-        GPU_ERR(cudaDestroyEvent(h->t0));
-        GPU_ERR(cudaDestroyStream(h->t1));
+        GPU_ERR(cudaEventDestroy(h->t1));
+        GPU_ERR(cudaEventDestroy(h->t0));
+        GPU_ERR(cudaStreamDestroy(h->st));
     }
 }
 ///

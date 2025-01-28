@@ -27,7 +27,7 @@ struct VM_Handle {
 
 class TensorForth {
     System    *sys;
-    VM_Handle vm_pool[VM_MIN_COUNT];         ///< CUDA stream per VM
+    VM_Handle vm_pool[VM_COUNT];             ///< CUDA stream per VM
     
 public:
     TensorForth(int device=0, int verbose=0);
