@@ -26,8 +26,8 @@ public:
     IU        id;                      ///< VM id
     vm_state  state;                   ///< VM state
     System    *sys;                    ///< system interface
-
-    __GPU__ VM(int id, System *sys);
+    
+    __HOST__ VM(int id, System *sys);
 
     __GPU__ virtual void init() { VLOG1("VM::init ok\n"); }
     __GPU__ virtual void outer();
@@ -55,15 +55,6 @@ public:
 #endif // DO_MULTITASK
 
 protected:
-    IU        WP     = 0;             ///< word pointer
-    IU        IP     = 0;             ///< instruction pointer
-    DU        tos    = DU0;           ///< cached top of stack
-    
-    Vector<DU, 0> ss;                 ///< parameter stack (setup in ten4.cu)
-    Vector<DU, T4_RS_SZ> rs;          ///< return stack
-    
-    U32   *ptos   = (U32*)&tos;       ///< 32-bit mask for top
-    U8    *radix  = 0;                ///< radix (base)
     bool  compile = false;            ///< compiling flag
     ///
     /// inner interpreter handlers

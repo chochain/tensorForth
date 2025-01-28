@@ -18,21 +18,31 @@
 ///
 class ForthVM : public VM {
 public:
-    __GPU__ ForthVM(int id, Istream *istr, Ostream *ostr, MMU *mmu0)
-        : VM(id, istr, ostr, mmu0), dict(mmu0->dict()) {
-        VLOG1("\\  ::ForthVM[%d](dict=%p) sizeof(Code)=%ld\n", vid, dict, sizeof(Code));
+    __HOST__ ForthVM(int id, System *sys)
+        : VM(id, sys), dict(sys->mu->dict()) {
+        VLOG1("\\  ::ForthVM[%d](dict=%p) sizeof(Code)=%ld\n", id, dict, sizeof(Code));
     }
-    __GPU__ virtual void init();            ///< override VM
+    __GPU__ virtual void init();      ///< override VM
     
 protected:
-    Code  *dict;                            ///< dictionary array
+    Code      *dict;                  ///< dictionary array (cached)
+    
+    IU        WP     = 0;             ///< word pointer
+    IU        IP     = 0;             ///< instruction pointer
+    DU        tos    = DU0;           ///< cached top of stack
+    
+    Vector<DU, 0> ss;                 ///< parameter stack (setup in ten4.cu)
+    Vector<DU, T4_RS_SZ> rs;          ///< return stack
+    
+    U32   *ptos   = (U32*)&tos;       ///< 32-bit mask for top
+    U8    *base   = 0;                ///< radix (base)
     ///
     /// stack short hands
     ///
-    __GPU__ __INLINE__ DU POP()           { DU n=top; top=ss.pop(); return n; }
-    __GPU__ __INLINE__ DU PUSH(DU v)      { ss.push(top); return top = v; }
+    __GPU__ __INLINE__ DU POP()           { DU n=tos; tos=ss.pop(); return n; }
+    __GPU__ __INLINE__ DU PUSH(DU v)      { ss.push(tos); return tos = v; }
 #if T4_ENABLE_OBJ    
-    __GPU__ __INLINE__ DU PUSH(T4Base &t) { ss.push(top); return top = mmu.obj2du(t); }
+    __GPU__ __INLINE__ DU PUSH(T4Base &t) { ss.push(tos); return tos = mmu.obj2du(t); }
 #endif // T4_ENABLE_OBJ
     ///
     /// Forth outer interpreter
