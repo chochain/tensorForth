@@ -13,6 +13,7 @@ __HOST__
 MMU::MMU() {
     MM_ALLOC(&_dict, sizeof(Code) * T4_DICT_SZ);
     MM_ALLOC(&_pmem, T4_PMEM_SZ);
+    MM_ALLOC(&_vmss, sizeof(DU) * T4_SS_SZ * VM_COUNT);
     
 #if T4_ENABLE_OBJ    
     MM_ALLOC(&_mark, sizeof(DU) * T4_TFREE_SZ);
@@ -67,10 +68,8 @@ MMU::status() {
             c->name);
     }
 
-    INFO("\\  MMU.stat dict[%d/%d], pmem[%d]=%0.1f%%, tfree[%d/%d]%s",
-        _didx, T4_DICT_SZ, _midx, 100.0*(_midx/T4_PMEM_SZ), _fidx, T4_TFREE_SZ,
-        _trace ? "" : "\n"
-        );
+    INFO("\\  MMU.stat dict[%d/%d], pmem[%d]=%0.1f%%, tfree[%d/%d]\n",
+        _didx, T4_DICT_SZ, _midx, 100.0*(_midx/T4_PMEM_SZ), _fidx, T4_TFREE_SZ);
     ///
     /// display object store statistics
     ///
@@ -301,3 +300,4 @@ MMU::slice(Tensor &t0, U16 x0, U16 x1, U16 y0, U16 y1) {
               t0.rank, t0.numel, x0, x1, y0, y1);
     return t1;
 }
+#endif // T4_ENABLE_OBJ // vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
