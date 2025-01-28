@@ -10,6 +10,8 @@
 #include "ldr/loader.h"
 #include "debug.h"                              ///< include mmu/mmu.h, io/aio.h
 
+#define ENDL std::endl
+
 class System : public Managed {                 ///< singleton class
 private:    
     int            _khz;                        ///< GPU clock speed
@@ -23,21 +25,9 @@ public:
     AIO            *io;                         ///< HOST IO manager
     Debug          *db;
     
-    __HOST__ System(int khz, int verbo=0)
-        : _khz(khz), _istr(new Istream()), _ostr(new Ostream()) {
-        mu = new MMU();                         ///> instantiate memory manager
-        io = new AIO(verbo);                    ///> instantiate async IO manager
-        db = new Debug(mu, io);
-        
-#if (T4_ENABLE_OBJ && T4_ENABLE_NN)
-        Loader::init(verbo);
-#endif
-    }
-    __HOST__ ~System() {
-        delete db;
-        delete io;
-        cudaDeviceReset();
-    }
+    __HOST__ System(h_istr &i, h_ostr &o, int khz, int verbo=0);
+    __HOST__ ~System();
+    
     __HOST__ void      fin_setup(const char *line);
     __HOST__ void      fout_setup(void (*hook)(int, const char*));
     ///
@@ -77,7 +67,7 @@ public:
     __GPU__  char *next_idiom()      {                    ///< fetch next idiom
         *_istr >> _pad; return _pad;
     }
-    __GPU__  int  fetch(string &idiom);                   ///< read input stream into string
+//    __GPU__  int  fetch(string &idiom);                   ///< read input stream into string
 //    __GPU__  void load(VM &vm, const char* fn);           ///< load external Forth script
     ///
     /// output methods
@@ -87,23 +77,24 @@ public:
     }
     __GPU__  void dot(io_op op, DU v) {                   ///< print literals
         switch (op) {
-        case RDX:   *_ostr << setbase(UINT(v));               break;
+        case RDX:   *_ostr << setbase(INT(v));                break;
         case CR:    *_ostr << ENDL;                           break;
         case DOT:   *_ostr << v << " ";                       break;
         case UDOT:  *_ostr << static_cast<U32>(v) << " ";     break;
-        case EMIT:  { char b = (char)UINT(v); *_ostr << b; }  break;
-        case SPCS:  spaces(UINT(v));                          break;
+        case EMIT:  { char b = (char)INT(v); *_ostr << b; }   break;
+        case SPCS:  spaces(INT(v));                           break;
         default:    *_ostr << "unknown io_op=" << op << ENDL; break;
         }
+    }
+    __GPU__ void dotr(int w, DU v, int b, bool u=false) {
+        *_ostr << setbase(b) << setw(w)
+               << (u ? static_cast<U32>(v) : v);
     }
     __GPU__  void pstr(const char *str, io_op op=SPCS) {  ///< print string
         *_ostr << str;
         if (op==CR) { *_ostr << ENDL; }
     }
-    __GPU__  void ss_dump(DU *ss, int n=0)   {
-        ss[T4_SS_SZ-1] = tos;        /// * put TOS at the tail of ss (for host display)
-        *_ostr << opx(OP_SS, n ? n : ss.idx);
-    }
+    __GPU__  void ss_dump(int n) { *_ostr << opx(OP_SS, n); }
 };
 #endif // TEN4_SRC_SYS_H
 
