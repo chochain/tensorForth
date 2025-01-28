@@ -5,45 +5,41 @@
  * <pre>Copyright (C) 2021- GreenII, this file is distributed under BSD 3-Clause License.</pre>
  */
 #include <cstdio>        // printf
+#include <iostream>      // cin, cout
 #include <iomanip>       // setbase, setprecision
 #include "aio.h"
-///
-/// AIO takes managed memory blocks as input and output buffers
-/// which can be access by both device and host
-///
-__HOST__ __INLINE__ int
-AIO::to_s(DU s) {
-    return to_s(fout, du2obj(s), IS_VIEW(s));
+
+__HOST__ void
+AIO::show(DU v, int rdx) {
+#if T4_ENABLE_OBJ    
+    if (IS_OBJ(v)) { show(du2obj(v), IS_VIEW(v)); return; }
+#endif
+    if (rdx != 10) fout << static_cast<int>(v);
+    else           fout << v;
 }
-__HOST__ int
-AIO::to_s(IU w) {
-    /*
-     * TODO: not sure why copying 32 byte does not work?
-     * char name[36];
-     * cudaMemcpy(name, _dict[w].name, 32, D2H);
-     */
-    Code &code = _dict[w];
-    if (_trace) {
-        fout << (code.immd ? "*" : " ")
-             << "[" << std::setw(3) << w << "]"
-             << (code.colon ? (FPTR)&_pmem[code.nfa] : code.xt)
-             << (code.colon ? ':': '=');
+
+__HOST__ void
+AIO::print(DU v) {
+#if T4_ENABLE_OBJ
+    T4Base &o = _mmu->du2obj(v);
+    switch (o.ttype) {
+    case T4_TENSOR:
+    case T4_DATASET: _print_tensor((Tensor&)o); break;
+#if T4_ENABLE_NN        
+    case T4_MODEL:   _print_model((Model&)o);   break;
+#endif // T4_ENABLE_NN        
+    case T4_XXX:     /* reserved */             break;
     }
-    U8 c, i=0;
-    cudaMemcpy(&c, code.name, 1, D2H);
-    fout << " ";
-    while (c) {
-        fout << c;
-        cudaMemcpy(&c, code.name+(++i), 1, D2H);
-    }
-    return (int)i;
+    return;
+#endif // T4_ENABLE_OBJ
+    fout << v;
 }
 ///
 /// Object debugging methods
 ///
-__HOST__ int
-AIO::to_s(T4Base &t, bool view) {
 #if T4_ENABLE_OBJ
+__HOST__ int
+AIO::_show_obj(T4Base &t, bool view) {
     static const char tn[2][4] = {                   ///< sync with t4_obj
         { 'T', 'N', 'D', 'X' }, { 't', 'n', 'd', 'x' }
     };
@@ -59,6 +55,9 @@ AIO::to_s(T4Base &t, bool view) {
     case 4: fout << "4["; t4((Tensor&)t);         break;
     case 5: fout << "5[" << t.parm << "]["; t4((Tensor&)t); break;
     }
-#endif // T4_ENABLE_OBJ
     return 1;
 }
+#endif // T4_ENABLE_OBJ    
+
+
+
