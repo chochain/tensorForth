@@ -69,6 +69,6 @@ public:
         return get_idiom(s, delim);
     }
     __GPU__ int  operator>>(char *s) { get_idiom(s); return _gn; }
-    __GPU__ char operator>>(char c)  { return ' '; }
+    __GPU__ char operator>>(char &c) { return (*(&c) = _buf[_idx++]); }
 };
 #endif // TEN4_SRC_ISTREAM_H_
