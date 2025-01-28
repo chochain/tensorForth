@@ -10,8 +10,8 @@
 ///
 ///@name Data conversion
 ///@{
-#define POPi         (INT(POP()))                  /**< convert popped DU as an IU     */
-#define FIND(s)      (mmu.find(s, compile, ucase)) /**< find input idiom in dictionary */
+#define POPi         (INT(POP()))                       /**< convert popped DU as an IU     */
+#define FIND(s)      (sys->mu->find(s, compile, ucase)) /**< find input idiom in dictionary */
 ///@}
 ///
 /// Forth Virtual Machine
