@@ -80,7 +80,7 @@ struct Code : public Managed {
 ///
 #define ADD_CODE(n, g, im) {            \
     auto f = [this] __GPU__ (){ g; };   \
-    mmu.add_word(n, f, im);             \
+    sys->mu->add_word(n, f, im);        \
 }
 #define CODE(n, g)  ADD_CODE(n, g, false)
 #define IMMD(n, g)  ADD_CODE(n, g, true)
@@ -102,6 +102,7 @@ class MMU : public Managed {
     IU             _fidx  = 0;      ///< index to freed tensor list
     Code           *_dict;          ///< dictionary block
     U8             *_pmem;          ///< parameter memory block
+    DU             *_vmss;          ///< stack for all VMs
     DU             *_mark = 0;      ///< list for tensors that marked free
     U8             *_obj  = 0;      ///< object storage block
 #if T4_ENABLE_OBJ    
@@ -113,7 +114,14 @@ public:
     
     __HOST__ MMU();
     __HOST__ ~MMU();
-
+    ///
+    /// references to memory blocks
+    ///
+    __BOTH__ __INLINE__ Code *dict()      { return &_dict[0]; }      ///< dictionary pointer
+    __BOTH__ __INLINE__ U8   *pmem(IU i)  { return &_pmem[i]; }      ///< base of parameter memory
+    __BOTH__ __INLINE__ DU   *vmss(int i) { return &_vmss[i * T4_SS_SZ]; } ///< data stack for VM[i]
+    __BOTH__ __INLINE__ Code *last()      { return &_dict[_didx - 1]; }    ///< last dictionary word
+    
     template <typename F>
     __GPU__ void add_word(const char *name, F &f, int im) {          ///< append/merge a new word
         int w   = find(name);                                        /// * check whether word exists
@@ -127,12 +135,6 @@ public:
     ///
     __GPU__ __INLINE__ void lock()       { MUTEX_LOCK(_mutex); }
     __GPU__ __INLINE__ void unlock()     { MUTEX_FREE(_mutex); }     ///< TODO: dead lock now
-    ///
-    /// references to memory blocks
-    ///
-    __GPU__ __INLINE__ Code *dict()      { return &_dict[0]; }            ///< dictionary pointer
-    __GPU__ __INLINE__ Code *last()      { return &_dict[_didx - 1]; }    ///< last dictionary word
-    __GPU__ __INLINE__ U8   *pmem(IU i)  { return &_pmem[i]; }            ///< base of parameter memory
     ///
     /// dictionary management ops
     ///
