@@ -5,7 +5,6 @@
  * <pre>Copyright (C) 2021- GreenII, this file is distributed under BSD 3-Clause License.</pre>
  */
 #include <cstdio>        // printf
-#include <iostream>      // cin, cout
 #include <iomanip>       // setbase, setprecision
 #include "aio.h"
 
@@ -14,18 +13,7 @@
 /// Tensor IO private methods
 ///
 __HOST__ void
-AIO::_print_obj(h_ostr &fout, DU v) {
-    T4Base &b = _mmu->du2obj(v);
-    switch (b.ttype) {
-    case T4_TENSOR:
-    case T4_DATASET: _print_tensor(fout, (Tensor&)b); break;
-    case T4_MODEL:   _print_model(fout, (Model&)b);   break;
-    case T4_XXX:     /* reserved */                   break;
-    }
-}
-
-__HOST__ void
-AIO::_print_vec(h_ostr &fout, DU *vd, int W, int C) {
+AIO::_print_vec(DU *vd, int W, int C) {
     int rw = (W <= _thres) ? W : (W < _edge ? W : _edge);
     fout << setprecision(_prec) << "{";                 /// set precision
     for (int j=0; j < rw; j++) {
@@ -45,7 +33,7 @@ AIO::_print_vec(h_ostr &fout, DU *vd, int W, int C) {
     fout << " }";
 }
 __HOST__ void
-AIO::_print_mat(h_ostr &fout, DU *td, U16 *shape) {
+AIO::_print_mat(DU *td, U16 *shape) {
     auto range = [this](int v) { return (v < _edge) ? v : _edge; };
     const int H = shape[0], W = shape[1], C = shape[2]; ///< height, width, channels
     const int rh= range(H), rw=range(W);                ///< h,w range for ...
@@ -68,7 +56,7 @@ AIO::_print_mat(h_ostr &fout, DU *td, U16 *shape) {
     }
 }
 __HOST__ void
-AIO::_print_tensor(h_ostr &fout, Tensor &t) {
+AIO::_print_tensor(Tensor &t) {
     DU *td = t.data;                        /// * short hand
     WARN("aio#print_tensor::T=%p data=%p\n", &t, td);
 
@@ -164,3 +152,4 @@ AIO::_tsave_npy(h_ostr &fout, Tensor &t) {
     return 0;
 }
 #endif // T4_ENABLE_OBJ
+

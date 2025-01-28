@@ -14,7 +14,7 @@
 /// NN Model IO private methods
 ///
 __HOST__ void
-AIO::_print_model(h_ostr &fout, Model &m) {
+AIO::_print_model(Model &m) {
     auto tinfo = [this, &fout](Tensor &t, int i, int fn) { ///> layer info
         fout << "[" << std::setw(3) << i << "] "
              << Model::nname(fn) << ":";
@@ -46,7 +46,7 @@ AIO::_print_model(h_ostr &fout, Model &m) {
 /// print model layer parameters
 ///
 __HOST__ void
-AIO::_print_model_parm(h_ostr &fout, Tensor &in, Tensor &out) {
+AIO::_print_model_parm(Tensor &in, Tensor &out) {
     t4_layer fn = in.grad_fn;             ///< layer function
     DU       p  = 0.001 * in.parm;        ///< layer parameter
     switch(fn) {
@@ -200,7 +200,7 @@ AIO::_nload(Model &m, U16 mode, char* fname) {
 }
 
 __HOST__ int
-AIO::_nsave_model(h_ostr &fout, Model &m) {
+AIO::_nsave_model(Model &m) {
     for (U16 i = 1; i < m.numel - 1; i++) {
         Tensor &in = m[i], &out = m[i+1];
         _print_model_parm(fout, in, out);
@@ -216,7 +216,7 @@ AIO::_nsave_model(h_ostr &fout, Model &m) {
 }
 
 __HOST__ int
-AIO::_nsave_param(h_ostr &fout, Model &m) {
+AIO::_nsave_param(Model &m) {
     auto _dump = [&fout](const char pn, const char *nm, Tensor &t) {
         fout << "\n--- " << pn << "." << nm << endl;     /// * section marker
         fout.write((char*)t.data, t.numel * sizeof(DU));
@@ -239,7 +239,7 @@ AIO::_nsave_param(h_ostr &fout, Model &m) {
 }
 
 __HOST__ int
-AIO::_nload_model(h_istr &fin, Model &m, char *fname) {
+AIO::_nload_model(Model &m, char *fname) {
     std::string line;
     while (getline(fin, line) && line[0] == '\\') {    /// * TODO: check version
         cout << endl << line;
@@ -265,7 +265,7 @@ AIO::_nload_model(h_istr &fin, Model &m, char *fname) {
 }
 
 __HOST__ int
-AIO::_nload_param(h_istr &fin, Model &m) {
+AIO::_nload_param(Model &m) {
     auto _read = [&fin](const char *pn, const char *nm, Tensor &t) {
         std::string line;                              ///< input string
         printf("\n%s %s[%d,%d,%d,%d] ", nm, pn, t.N(), t.H(), t.W(), t.C());
