@@ -29,7 +29,9 @@ class AIO {
 public:
     friend class Debug;               ///< Debug can access my private members
     
-    int     trace = 0;                ///< debug tracing verbosity level
+    h_istr &fin;                      ///< host input stream
+    h_ostr &fout;                     ///< host output stream
+    int    trace = 0;                 ///< debug tracing verbosity level
     
 #if DO_MULTITASK
     static bool     io_busy;          ///< IO locking control
@@ -42,11 +44,10 @@ public:
     static void io_unlock();          ///< unlock IO
 #endif // DO_MULTITASK
     
-    AIO(int verbo) : trace(verbo) {}
+    AIO(h_istr &i, h_ostr &o, int verbo) : fin(i), fout(o), trace(verbo) {}
 
-    __HOST__ int  to_s(DU s);
-    __HOST__ int  to_s(IU w);
-    __HOST__ void to_s(T4Base &t, bool view);
+    __HOST__ void show(DU v, int rdx=10); ///< display value by ss_dump
+    __HOST__ void print(DU v);            ///< print object info to fout
 
 private:
     int     _radix = 10;              ///< output stream radix
@@ -58,24 +59,24 @@ private:
     ///
     /// Tensor print methods
     ///
-    __HOST__ void _print_obj(h_ostr &fout, DU v);
-    __HOST__ void _print_vec(h_ostr &fout, DU *vd, int W, int C);
-    __HOST__ void _print_mat(h_ostr &fout, DU *md, U16 *shape);
-    __HOST__ void _print_tensor(h_ostr &fout, Tensor &t);
+    __HOST__ void _show_obj(T4Base &t, bool view);  ///< display object on ss_dump
+    __HOST__ void _print_vec(DU *vd, int W, int C);
+    __HOST__ void _print_mat(DU *md, U16 *shape);
+    __HOST__ void _print_tensor(Tensor &t);
     ///
     /// Tensor persistence (i.e. serialization) methods
     ///
     __HOST__ int  _tsave(DU top, U16 mode, char *fname);
-    __HOST__ int  _tsave_txt(h_ostr &fout, Tensor &t);
-    __HOST__ int  _tsave_raw(h_ostr &fout, Tensor &t);
-    __HOST__ int  _tsave_npy(h_ostr &fout, Tensor &t);
+    __HOST__ int  _tsave_txt(Tensor &t);
+    __HOST__ int  _tsave_raw(Tensor &t);
+    __HOST__ int  _tsave_npy(Tensor &t);
     
 #if T4_ENABLE_NN
     ///
     /// NN model print methods
     ///
-    __HOST__ void _print_model(h_ostr &fout, Model &m);
-    __HOST__ void _print_model_parm(h_ostr &fout, Tensor &in, Tensor &out);
+    __HOST__ void _print_model(Model &m);
+    __HOST__ void _print_model_parm(Tensor &in, Tensor &out);
     ///
     /// dataset IO methods
     ///
@@ -86,17 +87,12 @@ private:
     __HOST__ int  _nsave(Model &m, U16 mode, char *fname);
     __HOST__ int  _nload(Model &m, U16 mode, char *fname);
     
-    __HOST__ int  _nsave_model(h_ostr &fout, Model &m);
-    __HOST__ int  _nsave_param(h_ostr &fout, Model &m);
-    __HOST__ int  _nload_model(h_istr &fin, Model &m, char *fname);
-    __HOST__ int  _nload_param(h_istr &fin, Model &m);
+    __HOST__ int  _nsave_model(Model &m);
+    __HOST__ int  _nsave_param(Model &m);
+    __HOST__ int  _nload_model(Model &m, char *fname);
+    __HOST__ int  _nload_param(Model &m);
 
-#else
-    __HOST__ void _print_model(h_ostr &fout, Model &m) {}  ///< stub
 #endif // T4_ENABLE_NN
-#else  // T4_ENABLE_OBJ
-    __HOST__ void _print_obj(h_ostr &fout, DU v) {}        ///< stub
-
 #endif // T4_ENABLE_OBJ ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 };
 
