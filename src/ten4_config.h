@@ -24,7 +24,7 @@
 ///@}
 ///@name CUDA cooperative dynamic parallelism support
 ///@{
-#define T4_ENABLE_OBJ       1        /**< enable tensor/matrix  */
+#define T4_ENABLE_OBJ       0        /**< enable tensor/matrix  */
 #define T4_ENABLE_NN        0        /**< enable neural network */
 #define T4_ENABLE_CDP       0
 #define T4_USE_STRBUF       0
@@ -32,8 +32,7 @@
 ///@}
 ///@name Virtual machine instance controls
 ///@{
-#define VM_MIN_COUNT        2
-#define VM_MAX_COUNT        16
+#define VM_COUNT            2        /**< number of VMs         */
 #define VM_EXP_STACK        8        /**< exception stack depth */
 #define VM_REGFILE_SZ       128      /**< register file size    */
 ///@}
