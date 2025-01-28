@@ -18,14 +18,13 @@ public:
     __HOST__ Debug(MMU *mmu, AIO *aio) : mu(mmu), io(aio) {}
     __HOST__ ~Debug();
     
-    __HOST__ int  to_s(DU s);                             ///< dump object from descriptor
-    __HOST__ int  to_s(T4Base &t, bool view);             ///< dump object on stack
-    
-    __HOST__ void words(int rdx);                         ///< list dictionary words
-    __HOST__ void see(IU pfa, int rdx);                   ///< disassemble user defined word
-    __HOST__ void ss_dump(DU *ss, U16 n, int rdx);        ///< show data stack content
-    __HOST__ void mem_dump(U32 addr, IU sz, int base);    ///< dump memory frm addr...addr+sz
-    __HOST__ void dict_dump(int base);                    ///< dump dictionary
+    __HOST__ int  to_s(IU w);                             ///< show dictionary info from descriptor
+    __HOST__ void words(int rdx=10);                      ///< list dictionary words
+    __HOST__ void see(U8 *ip, int dp, int rdx=10);        ///< disassemble user defined word
+    __HOST__ void see(IU w, int rdx=10);                  ///< disassemble user defined word
+    __HOST__ void mem_dump(U32 addr, IU sz, int rdx=10);  ///< dump memory frm addr...addr+sz
+    __HOST__ void dict_dump(int rdx=10);                  ///< dump dictionary
     __HOST__ void mem_stat();                             ///< display memory statistics
+    __HOST__ void ss_dump(IU vid, U16 n, int rdx=10);     ///< show data stack content
 };
 #endif // TEN4_SRC_DEBUG_H
