@@ -225,14 +225,14 @@ ForthVM::init() {
     ///@}
     ///@defgroup IO ops
     ///@{
-    CODE("base",    PUSH(vm.base));
-    CODE("decimal", sys->dot(RDX, *BASE=10));
-    CODE("hex",     sys->dot(RDX, *BASE=16));
+    CODE("base",    PUSH((DU)(base - MU->pmem(0))));
+    CODE("decimal", sys->dot(RDX, *base=10));
+    CODE("hex",     sys->dot(RDX, *base=16));
     CODE("cr",      sys->dot(CR));
     CODE(".",       sys->dot(DOT,  POP()));
     CODE("u.",      sys->dot(UDOT, POP()));
-    CODE(".r",      int n = POPi; sys->dotr(n, POP()));
-    CODE("u.r",     int n = POPi; sys->dotr(n, ABS(POP())));
+    CODE(".r",      int n = POPi; sys->dotr(n, POP(), *base));
+    CODE("u.r",     int n = POPi; sys->dotr(n, ABS(POP()), *base));
     CODE("key",     PUSH(sys->next_idiom()[0]));
     CODE("emit",    sys->dot(EMIT, POP()));
     CODE("space",   sys->dot(SPCS, DU1));
@@ -302,7 +302,7 @@ ForthVM::init() {
         add_du(DU0);                                        // data storage (32-bit float now)
         add_w(EXIT));
     CODE("constant",                                        // create a constant
-        MU->colon(sys-next_idiom());                        // create a new word on dictionary
+        MU->colon(sys->next_idiom());                       // create a new word on dictionary
         add_w(DOLIT);                                       // dovar (+parameter field)
         add_du(POP());
         add_w(EXIT));
@@ -355,10 +355,10 @@ ForthVM::init() {
     CODE("pfa",   IU w = POPi; PUSH(PFA(w)));
     CODE("nfa",   IU w = POPi; PUSH(dict[w].nfa));
     CODE("trace", sys->trace(POPi));                                              // turn tracing on/off
-    CODE(".s",    sys->ss_dump());
-    CODE("words", sys->dot(OPX, opx(OP_WORDS)));
-    CODE("see",   int w = FIND(sys->next_idiom()); sys->dot(OPX, opx(OP_SEE, w)));
-    CODE("dump",  DU n = POP(); int a = POPi; sys->dot(OPX, opx(OP_DUMP, a, n)));
+    CODE(".s",    sys->op(OP_SS, id));
+    CODE("words", sys->op(OP_WORDS));
+    CODE("see",   int w = FIND(sys->next_idiom()); sys->op(OP_SEE, w));
+    CODE("dump",  DU n = POP(); int a = POPi; sys->op(OP_DUMP, a, n));
     CODE("forget",
         int w = FIND(sys->next_idiom());
         if (w < 0) return;
@@ -367,12 +367,7 @@ ForthVM::init() {
     ///@}
     ///@defgroup System ops
     ///@{
-    CODE("mstat",
-         int t = sys->trace();
-         sys->trace(1);
-         sys->status();
-         sys->trace(t));
-    CODE("clock", DU t = MU->ms(); SCALAR(t); PUSH(t));
+    CODE("clock", DU t = sys->ms(); SCALAR(t); PUSH(t));
     CODE("ms",    delay(POPi));                  ///< TODO: change to VM_WAIT
     CODE("pause", state = HOLD);                 ///< yield to other VM
     CODE("bye",   state = STOP);
@@ -401,7 +396,7 @@ ForthVM::init() {
     CODE("u>",     {});
     CODE("value",  {});
     CODE("within", {});
-#endif     
+#endif
     VLOG1("ForthVM::init ok\n");
 };
 ///
@@ -440,8 +435,8 @@ ForthVM::parse(char *str) {
 /// parse input idiom as a number
 ///
 __GPU__ int
-ForthVM::number(char *str) {
-    char *p, *idiom = sys->_pad;
+ForthVM::number(char *idiom) {
+    char *p;
     DU n = (STRCHR(idiom, '.'))
         ? STRTOF(idiom, &p)
         : STRTOL(idiom, &p, *base);
