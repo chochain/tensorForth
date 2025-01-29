@@ -101,8 +101,8 @@ class MMU : public Managed {
     IU             _midx  = 0;      ///< parameter memory index
     IU             _fidx  = 0;      ///< index to freed tensor list
     Code           *_dict;          ///< dictionary block
+    DU             *_vmss;          ///< VM data stacks
     U8             *_pmem;          ///< parameter memory block
-    DU             *_vmss;          ///< stack for all VMs
     DU             *_mark = 0;      ///< list for tensors that marked free
     U8             *_obj  = 0;      ///< object storage block
 #if T4_ENABLE_OBJ    
@@ -117,9 +117,9 @@ public:
     ///
     /// references to memory blocks
     ///
-    __BOTH__ __INLINE__ Code *dict()      { return &_dict[0]; }      ///< dictionary pointer
-    __BOTH__ __INLINE__ U8   *pmem(IU i)  { return &_pmem[i]; }      ///< base of parameter memory
-    __BOTH__ __INLINE__ DU   *vmss(int i) { return &_vmss[i * T4_SS_SZ]; } ///< data stack for VM[i]
+    __BOTH__ __INLINE__ Code *dict()      { return &_dict[0]; }            ///< dictionary pointer
+    __BOTH__ __INLINE__ DU   *vmss(IU i)  { return &_vmss[i * T4_SS_SZ]; } ///< dictionary pointer
+    __BOTH__ __INLINE__ U8   *pmem(IU i)  { return &_pmem[i]; }            ///< base of parameter memory
     __BOTH__ __INLINE__ Code *last()      { return &_dict[_didx - 1]; }    ///< last dictionary word
     
     template <typename F>
@@ -138,7 +138,7 @@ public:
     ///
     /// dictionary management ops
     ///
-    __GPU__ int  find(const char *s, bool compile=0, bool ucase=0);  ///< dictionary search
+    __GPU__ int  find(const char *s, bool compile=0);                ///< dictionary search
     __GPU__ void status();                                           ///< display current MMU status
     ///
     /// compiler methods
@@ -158,13 +158,13 @@ public:
     ///
     __BOTH__ __INLINE__ IU   here()     { return _midx; }
     __BOTH__ __INLINE__ IU   ri(U8 *c)  { return ((IU)(*(c+1)<<8)) | *c; }
-    __BOTH__ __INLINE__ IU   ri(IU i)  {
+    __BOTH__ __INLINE__ IU   ri(IU i)   {
         if (i < T4_PMEM_SZ) return ri(&_pmem[i]);
         ERROR("\nmmu.wi[%d]", i);
         return 0;
     }
     __BOTH__ __INLINE__ DU   rd(U8 *c)  { DU d; MEMCPY(&d, c, sizeof(DU)); return d; }
-    __BOTH__ __INLINE__ DU   rd(IU i)  {
+    __BOTH__ __INLINE__ DU   rd(IU i)   {
         if (i < T4_PMEM_SZ) return rd(&_pmem[i]);
         ERROR("\nmmu.wi[%d]", i);
         return 0;
@@ -179,7 +179,7 @@ public:
         else ERROR("\nmmu.wd[%d]", i);
     }
     __GPU__  __INLINE__ void wi(U8 *c, IU n)   { *c++ = n&0xff; *c = (n>>8)&0xff; }
-    __GPU__  __INLINE__ void wi(IU i, IU n)   {
+    __GPU__  __INLINE__ void wi(IU i, IU n)    {
         if (i < T4_PMEM_SZ) wi(&_pmem[i], n);
         else ERROR("\nmmu.wi[%d]", i);
     }
