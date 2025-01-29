@@ -9,8 +9,8 @@
 __HOST__
 VM::VM(int id, System *sys)
     : id(id), state(STOP), sys(sys) {
-    ss.init(sys->mu->vmss(id), T4_SS_SZ);      /// * point data stack to managed memory block
-    VLOG1("\\  VM[%d](mem=%p, vmss=%p)\n", id, sys->mu->pmem(0), ss.v);
+    ss.init(sys->mu->vmss(id), T4_SS_SZ);
+    VLOG1("\\  VM[%d] ss=%p\n", id, ss.v);
 }
 ///
 /// ForthVM Outer interpreter
@@ -26,14 +26,13 @@ VM::VM(int id, System *sys)
 ///
 __GPU__ void
 VM::outer() {
-    VLOG1("%d%c %s\n", id, compile ? ':' : '{', sys->io->fin.rdbuf()); /// * display input buffer
-    char *idiom = sys->_pad;
     if (state == NEST) resume();                     /// * resume from suspended VM
-    while (state == HOLD && sys->io->fin >> idiom) { /// * loop throught tib
+    char *idiom = sys->next_idiom();
+    while (state == HOLD && idiom) {                 /// * loop throught tib
         if (pre(idiom)) continue;                    /// * pre process
         VLOG2("%d| >> %-10s => ", id, idiom);
         if (!parse(idiom) && !number(idiom)) {
-            sys->io->fout << idiom << "? " << ENDL;  /// * display error prompt
+            sys->perr(idiom, "? ");                  /// * display error prompt
             compile = false;                         /// * reset to interpreter mode
         }
         if (post()) break;                           /// * post process
