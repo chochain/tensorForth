@@ -131,11 +131,14 @@ __KERN__ void        k_tt_op(math_op op, float *A, float *B, float *O, int n); /
 #define STRLEN(s)       d_strlen((const char*)(s), false)
 #define STRLENB(s)      d_strlen((const char*)(s), true)
 #define STRCPY(t,s)     d_strcpy((char*)(t), (const char*)(s))
-#define STRCMP(t,s)     d_strcmp((const char*)(t), (const char*)(s))
-#define STRCASECMP(t,s) d_strcasecmp((const char*)(t), (const char*)(s))
-#define STRCHR(t,c)     d_strchr((char*)(t), (const char)(c))
+#define STRCHR(t,c)     d_strchr((char*)(t), (c))
 #define STRCAT(t,s)     d_strcat((char*)(t), (const char*)(s))
 #define STRCUT(s,n)     d_strcut((const char*)(s), (int)(n))
+#if T4_CASE_SENSITIVE    
+#define STRCMP(t,s)     d_strcasecmp((const char*)(t), (const char*)(s))
+#else  // T4_CASE_SENSITIVE
+#define STRCMP(t,s)     d_strcmp((const char*)(t), (const char*)(s))
+#endif // T4_CASE_SENSITIVE    
 ///@}
 ///@name Unified numeric conversion ops
 ///@{
@@ -158,11 +161,14 @@ __KERN__ void        k_tt_op(math_op op, float *A, float *B, float *O, int n); /
 #define STRLEN(s)       (int)strlen((char*)s)
 #define STRLENB(s)      STRLEN(s)
 #define STRCPY(t,s)     strcpy(t,s)
-#define STRCMP(t,s)     strcmp(t,s)
-#define STRCASECMP(t,s) strcasecmp(t,s)
 #define STRCHR(t,c)     strchr(t,c)
 #define STRCAT(t,s)     strcat(t,s)
 #define STRCUT(s,n)     substr(s,n)
+#if T4_CASE_SENSITIVE
+#define STRCMP(t,s)     strcasecmp(t,s)
+#else  // !T4_CASE_SENSITIVE
+#define STRCMP(t,s)     strcmp(t,s)
+#endif // T4_CASE_SENSITIVE
 ///@}
 ///@name Unified numeric conversion ops
 ///@{
