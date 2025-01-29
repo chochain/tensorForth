@@ -50,11 +50,13 @@ System::System(h_istr &i, h_ostr &o, int khz, int verbo)
     MM_ALLOC(&_seed, sizeof(curandState) * T4_RAND_SZ);
     k_rand_init<<<1, T4_RAND_SZ>>>(_seed, time(NULL));  /// serialized randomizer
     GPU_CHK();
+    
+    INFO("\\  System ok\n");
 }
 
 System::~System() {
-    delete db;
-    delete io;
+//    delete db;
+//    delete io;
     MM_FREE(_seed);
     cudaDeviceReset();
 }
@@ -135,7 +137,7 @@ System::flush() {
     ///
     /// clean up marked free tensors
     ///
-    mu->sweep();
+//    mu->sweep();   // device function
 }
 
 
