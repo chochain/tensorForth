@@ -6,12 +6,12 @@
  */
 #ifndef TEN4_SRC_EFORTH_H
 #define TEN4_SRC_EFORTH_H
-#include "vm.h"             // VM base class in ../vm
+#include "vm.h"                         ///< VM base class in ../vm
 ///
 ///@name Data conversion
 ///@{
-#define POPi         (INT(POP()))                       /**< convert popped DU as an IU     */
-#define FIND(s)      (sys->mu->find(s, compile, ucase)) /**< find input idiom in dictionary */
+#define POPi    (INT(POP()))                   /**< convert popped DU as an IU     */
+#define FIND(s) (sys->mu->find(s, compile))    /**< find input idiom in dictionary */
 ///@}
 ///
 /// Forth Virtual Machine
@@ -20,6 +20,7 @@ class ForthVM : public VM {
 public:
     __HOST__ ForthVM(int id, System *sys)
         : VM(id, sys), dict(sys->mu->dict()) {
+        base = sys->mu->pmem(id);
         VLOG1("\\  ::ForthVM[%d](dict=%p) sizeof(Code)=%ld\n", id, dict, sizeof(Code));
     }
     __GPU__ virtual void init();      ///< override VM
@@ -31,7 +32,6 @@ protected:
     IU        IP     = 0;             ///< instruction pointer
     DU        tos    = DU0;           ///< cached top of stack
     
-    Vector<DU, 0> ss;                 ///< parameter stack (setup in ten4.cu)
     Vector<DU, T4_RS_SZ> rs;          ///< return stack
     
     U32   *ptos   = (U32*)&tos;       ///< 32-bit mask for top
