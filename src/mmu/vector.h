@@ -25,7 +25,7 @@ struct Vector {
     __GPU__ Vector(Vector<T>& a) { merge(a); }
     __GPU__ ~Vector()            { if (v) delete[] v; }
     
-    __GPU__ __INLINE__ Vector& init(T *a, int n)  { v = a; max = n; return *this; }
+    __BOTH__ __INLINE__ Vector& init(T *a, int n)  { v = a; max = n; return *this; }
     //
     // operator overloading
     //
