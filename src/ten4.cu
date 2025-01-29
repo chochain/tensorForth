@@ -24,15 +24,15 @@ k_vm_exec(VM *vm) {
     extern __shared__ DU *ss;                   ///< shared mem for ss (much faster)
     
     DU *ss0 = vm->ss.v;                         ///< VM's data stack
-    MEMCPY(ss, ss0, sizeof(DU) * T4_SS_SZ);     /// * copy stack into shared memory block
-    vm->ss.v = ss;                              /// * redirect data stack to shared memory
+//    MEMCPY(ss, ss0, sizeof(DU) * T4_SS_SZ);     /// * copy stack into shared memory block
+//    vm->ss.v = ss;                              /// * redirect data stack to shared memory
     ///
     /// * enter ForthVM outer loop
     /// * Note: single-threaded, dynamic parallelism when needed
     ///
     vm->outer();                                /// * enter VM outer loop
         
-    MEMCPY(ss0, ss, sizeof(DU) * T4_SS_SZ);     /// * copy updated stack back to global mem
+//    MEMCPY(ss0, ss, sizeof(DU) * T4_SS_SZ);     /// * copy updated stack back to global mem
     vm->ss.v = ss0;                             /// * restore stack ptr
 }
 
@@ -54,8 +54,8 @@ TensorForth::TensorForth(int device, int verbose) {
     cout << "\\  GPU " << device
          << " initialized at " << khz/1000 << "MHz"
          << ", dict["          << T4_DICT_SZ << "]"
-         << ", pmem="          << T4_PMEM_SZ/1024 << "K"
          << ", vmss["          << T4_SS_SZ << "*" << VM_COUNT << "]"
+         << ", pmem="          << T4_PMEM_SZ/1024 << "K"
          << ", tensor="        << T4_OSTORE_SZ/1024/1024 << "M"
          << endl;
     ///
