@@ -12,8 +12,8 @@
 __HOST__
 MMU::MMU() {
     MM_ALLOC(&_dict, sizeof(Code) * T4_DICT_SZ);
-    MM_ALLOC(&_pmem, T4_PMEM_SZ);
     MM_ALLOC(&_vmss, sizeof(DU) * T4_SS_SZ * VM_COUNT);
+    MM_ALLOC(&_pmem, T4_PMEM_SZ);
     
 #if T4_ENABLE_OBJ    
     MM_ALLOC(&_mark, sizeof(DU) * T4_TFREE_SZ);
@@ -22,9 +22,13 @@ MMU::MMU() {
 #endif // T4_ENABLE_OBJ
     
     MM_TRACE1(
-        "\\  MMU\n\\\tdict=%p\n\\\tmem =%p\n\\"
-        "\n\\\n\\\tmark=%p\n\\\tobj =%p\n",
-        _dict, _pmem, _mark, _obj);
+        "\\  MMU\n"
+        "\\\tdict=%p\n"
+        "\\\tvmss=%p\n"
+        "\\\tmem =%p\n"
+        "\\\tmark=%p\n"
+        "\\\tobj =%p\n",
+        _dict, _vmss, _pmem, _mark, _obj);
 }
 __HOST__
 MMU::~MMU() {
@@ -33,6 +37,7 @@ MMU::~MMU() {
     if (_obj)  MM_FREE(_obj);
     if (_mark) MM_FREE(_mark);
     MM_FREE(_pmem);
+    MM_FREE(_vmss);
     MM_FREE(_dict);
 }
 ///
@@ -40,12 +45,11 @@ MMU::~MMU() {
 /// TODO: use const Code[] directly, as ROM, to prevent deep copy
 ///
 __GPU__ int
-MMU::find(const char *s, bool compile, bool ucase) {
+MMU::find(const char *s, bool compile) {
     MM_TRACE2("find(%s) =>", s);
     for (int i = _didx - (compile ? 2 : 1); i >= 0; --i) {
         const char *t = _dict[i].name;
-        if (ucase && STRCASECMP(t, s)==0) return i;
-        if (!ucase && STRCMP(t, s)==0) return i;
+        if (STRCMP(t, s)==0) return i;
     }
     return -1;
 }
