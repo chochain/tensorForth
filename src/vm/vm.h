@@ -11,21 +11,25 @@
 ///@name Cross platform support
 ///@{
 #define ENDL         '\n'
-#define delay(ticks) { U64 t = clock64() + (ticks * mmu.khz()); while ((U64)clock64()<t) yield(); }
-#define yield()                        /**< TODO: multi-VM  */
+#define yield()            /**< TODO: multi-VM  */
+#define delay(ticks) {                            \
+        U64 t = clock64() + (ticks * sys->khz()); \
+        while ((U64)clock64()<t) yield();         \
+}
 ///@}
 #define VLOG1(...)         if (sys->io->trace > 0) INFO(__VA_ARGS__);
 #define VLOG2(...)         if (sys->io->trace > 1) INFO(__VA_ARGS__);
 ///
 /// virtual machine base class
 ///
-typedef enum { STOP=0, HOLD, QUERY, NEST } vm_state;   // eforth states
-//typedef enum { VM_READY=0, VM_RUN, VM_WAIT, VM_STOP } vm_state;   //ten4 states
+typedef enum { STOP=0, HOLD, QUERY, NEST } vm_state;   ///< ten4 states
 class VM {
-public:    
-    IU        id;                      ///< VM id
-    vm_state  state;                   ///< VM state
-    System    *sys;                    ///< system interface
+public:
+    IU        id;                     ///< VM id
+    vm_state  state;                  ///< VM state
+    System    *sys;                   ///< system interface
+    
+    Vector<DU, 0> ss;                 ///< parameter stack (setup in ten4.cu)
     
     __HOST__ VM(int id, System *sys);
 
@@ -33,8 +37,6 @@ public:
     __GPU__ virtual void outer();
     
 #if DO_MULTITASK
-    static int      NCORE;            ///< number of hardware cores
-    
     static MUTEX    tsk;              ///< mutex for tasker
     static COND_VAR cv_tsk;           ///< tasker control
     
