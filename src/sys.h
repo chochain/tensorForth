@@ -10,7 +10,7 @@
 #include "ldr/loader.h"
 #include "debug.h"                              ///< include mmu/mmu.h, io/aio.h
 
-#define ENDL std::endl
+#define ENDL '\n'
 
 class System : public Managed {                 ///< singleton class
 private:    
@@ -75,7 +75,7 @@ public:
     __GPU__  void spaces(int n) {                         ///< show spaces
         for (int i = 0; i < n; i++) *_ostr << " ";
     }
-    __GPU__  void dot(io_op op, DU v) {                   ///< print literals
+    __GPU__  void dot(io_op op, DU v=DU0) {               ///< print literals
         switch (op) {
         case RDX:   *_ostr << setbase(INT(v));                break;
         case CR:    *_ostr << ENDL;                           break;
@@ -90,11 +90,16 @@ public:
         *_ostr << setbase(b) << setw(w)
                << (u ? static_cast<U32>(v) : v);
     }
+    __GPU__  void op(OP op, int a=0, DU n=DU0) {          ///< print operator
+        *_ostr << opx(op, a, n);
+    }
     __GPU__  void pstr(const char *str, io_op op=SPCS) {  ///< print string
         *_ostr << str;
         if (op==CR) { *_ostr << ENDL; }
     }
-    __GPU__  void ss_dump(int n) { *_ostr << opx(OP_SS, n); }
+    __GPU__  void perr(const char *str, const char *msg) {
+        *_ostr << str << msg << ENDL;
+    }
 };
 #endif // TEN4_SRC_SYS_H
 
