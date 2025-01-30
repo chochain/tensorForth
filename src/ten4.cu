@@ -21,34 +21,54 @@ using namespace std;
 ///
 __KERN__ void
 k_vm_exec(VM *vm) {
-    __shared__ DU ss[T4_SS_SZ], rs[T4_RS_SZ];    ///< shared mem for ss, rs (much faster)
+    __shared__ DU ss[T4_SS_SZ];      ///< shared mem for ss, rs (much faster)
+    __shared__ DU rs[T4_RS_SZ];      ///< CC: make sure SZ < 32
     
-    ///> preserve VM data and return stacks
-    DU *s0 = vm->ss.v;
-    DU *r0 = vm->rs.v;
-    MEMCPY(ss, s0, sizeof(DU) * vm->ss.idx);
-    MEMCPY(rs, r0, sizeof(DU) * vm->rs.idx);
-    vm->ss.v = ss;
-    vm->rs.v = rs;
-    ///
-    /// * enter ForthVM outer loop
-    /// * Note: single-threaded, dynamic parallelism when needed
-    ///
-//    vm->outer();                               /// * enter VM outer loop
+    bool i   = threadIdx.x;
+    DU   *s0 = vm->ss.v;
+    DU   *r0 = vm->rs.v;
+    
+    ///> copy stack from global mem to shared
+    if (i < vm->ss.idx) ss[i] = s0[i];
+    if (i < vm->rs.idx) rs[i] = r0[i];
     __syncthreads();
+    
+    if (i == 0) {
+        vm->ss.v = ss;
+        vm->rs.v = rs;
+        ///
+        /// * enter ForthVM outer loop
+        /// * Note: single-threaded, dynamic parallelism when needed
+        ///
+//    vm->outer();                               /// * enter VM outer loop
+        DU ss0 = vm->ss[0];
+        for (int i=0; i<1000000; i++) {
+            vm->ss[0] = (DU)i;
+        }
+        vm->ss[0] = ss0;
+    }
+    __syncthreads();
+    
     ///> copy updated stack back to global mem
-    MEMCPY(s0, ss, sizeof(DU) * vm->ss.idx);
-    MEMCPY(r0, rs, sizeof(DU) * vm->rs.idx);
-    vm->ss.v = s0;                               /// * restore stack pointers
-    vm->rs.v = r0;
+    if (i < vm->ss.idx) s0[i] = ss[i];
+    if (i < vm->rs.idx) r0[i] = rs[i];
+    if (i == 0) {
+        vm->ss.v = s0;                           /// * restore stack pointers
+        vm->rs.v = r0;
+    }
+    __syncthreads();
 }
 
+__GPU__ VM *d_vm_pool[VM_COUNT];
+
 __KERN__ void
-k_vm_init(VM *vm, DU *ss, DU *rs) {
-    vm->ss.v = ss;                               /// * set data stack pointer
-    vm->rs.v = rs;                               /// * set return stack pointer
-    vm->init();
-    __syncthreads();
+k_vm_init(System *sys) {
+    int id = threadIdx.x;
+    if (id >= VM_COUNT) return;
+    
+    VM *vm = d_vm_pool[id] = new VM(id, sys);
+//    printf("d_vm=%p\n", vm);
+//    vm->state = id==0 ? HOLD : STOP;
 }
 
 TensorForth::TensorForth(int device, int verbose) {
@@ -66,33 +86,30 @@ TensorForth::TensorForth(int device, int verbose) {
     int khz = 0;
     GPU_ERR(cudaDeviceGetAttribute(&khz, cudaDevAttrClockRate, device));
 
-    cout << "\\  GPU "  << device
-         << " at "      << khz/1000 << "MHz"
-         << ", dict["   << T4_DICT_SZ << "]"
-         << ", pmem="   << T4_PMEM_SZ/1024 << "K"
-         << ", tensor=" << T4_OSTORE_SZ/1024/1024 << "M"
-         << ", vmss["   << T4_SS_SZ << "*" << VM_COUNT << "]"
-         << ", vmrs["   << T4_RS_SZ << "*" << VM_COUNT << "]"
+    cout << "\\ GPU "  << device
+         << " at "     << khz/1000 << "MHz"
+         << ", dict["  << T4_DICT_SZ << "]"
+         << ", pmem="  << T4_PMEM_SZ/1024 << "K"
+         << ", ostor=" << T4_OSTORE_SZ/1024/1024 << "M"
+         << ", vmss["  << T4_SS_SZ << "*" << VM_COUNT << "]"
+         << ", vmrs["  << T4_RS_SZ << "*" << VM_COUNT << "]"
          << endl;
     ///
     /// allocate tensorForth system memory blocks
     ///
-//    sys = new System(cin, cout, khz, verbose);
+    sys = new System(cin, cout, khz, T4_VERBOSE);
 }
 
 __HOST__ void
 TensorForth::setup() {
     for (int i=0; i < VM_COUNT; i++) {
-        VM_Handle *h  = &vm_pool[i];
-        GPU_ERR(cudaStreamCreate(&h->st));
-        GPU_ERR(cudaEventCreate(&h->t0));
+        VM_Handle *h = &vm_pool[i];
+        GPU_ERR(cudaStreamCreate(&h->st));         /// * allocate stream
+        GPU_ERR(cudaEventCreate(&h->t0));          /// * allocate timers
         GPU_ERR(cudaEventCreate(&h->t1));
-        
-        MM_ALLOC(&h->vm, sizeof(VM_TYPE));
-        k_vm_init<<<1, 1>>>(h->vm, sys->mu->vmss(i), sys->mu->vmrs(i));
-        GPU_CHK();
     }
-    vm_pool[0].vm->state = HOLD;
+    k_vm_init<<<1, WARP(VM_COUNT)>>>(sys);
+    GPU_CHK();
 }
 
 __HOST__ int
@@ -108,8 +125,8 @@ TensorForth::tally() {
     cout << " ]" << std::endl;
     
 #if T4_MMU_DEBUG
-    int m0 = (int)sys->mm->here() - 0x80;
-    db->mem_dump(cout, m0 < 0 ? 0 : m0, 0x80);
+    int m0 = (int)sys->mu->here() - 0x80;
+    sys->db->mem_dump(m0 < 0 ? 0 : m0, 0x80);
 #endif // T4_MMU_DEBUG
         
     return 1;
@@ -127,7 +144,7 @@ TensorForth::run() {
             n_vm++;
             
             cudaEventRecord(h->t0, h->st);
-            k_vm_exec<<<1, 1, 0, h->st>>>(vm);
+            k_vm_exec<<<1, 1, 0, h->st>>>(vm);       // one block per VM
             GPU_CHK();
             cudaEventRecord(h->t1, h->st);
             cudaStreamWaitEvent(h->st, h->t1);       // CPU will wait here
@@ -197,7 +214,7 @@ int main(int argc, char**argv) {
     cout << APP << endl;
 
     TensorForth *f = new TensorForth(opt.device_id, opt.verbose);
-//    f->setup();
+    f->setup();
 //    f->run();
 
     cout << APP << " done." << endl;
