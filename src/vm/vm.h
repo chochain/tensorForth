@@ -10,7 +10,6 @@
 ///
 ///@name Cross platform support
 ///@{
-#define ENDL         '\n'
 #define yield()            /**< TODO: multi-VM  */
 #define delay(ticks) {                            \
         U64 t = clock64() + (ticks * sys->khz()); \
@@ -30,9 +29,10 @@ public:
     System    *sys;                   ///< system interface
     
     Vector<DU, 0> ss;                 ///< parameter stack (setup in ten4.cu)
+    Vector<DU, 0> rs;                 ///< return stack
     
     __HOST__ VM(int id, System *sys);
-
+    
     __GPU__ virtual void init() { VLOG1("VM::init ok\n"); }
     __GPU__ virtual void outer();
     

@@ -8,6 +8,15 @@
 #define TEN4_SRC_EFORTH_H
 #include "vm.h"                         ///< VM base class in ../vm
 ///
+/// macros for microcode construction
+///
+#define ADD_CODE(n, g, im) {            \
+    auto f = [this] __GPU__ (){ g; };   \
+    sys->mu->add_word(n, f, im);        \
+}
+#define CODE(n, g)  ADD_CODE(n, g, false)
+#define IMMD(n, g)  ADD_CODE(n, g, true)
+///
 ///@name Data conversion
 ///@{
 #define POPi    (INT(POP()))                   /**< convert popped DU as an IU     */
@@ -31,8 +40,6 @@ protected:
     IU        WP     = 0;             ///< word pointer
     IU        IP     = 0;             ///< instruction pointer
     DU        tos    = DU0;           ///< cached top of stack
-    
-    Vector<DU, T4_RS_SZ> rs;          ///< return stack
     
     U32   *ptos   = (U32*)&tos;       ///< 32-bit mask for top
     U8    *base   = 0;                ///< radix (base)
