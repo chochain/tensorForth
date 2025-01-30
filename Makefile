@@ -10,8 +10,10 @@ APP_HOME  := ${HOME}/devel/forth/$(APP_NAME)
 APP_TGT   := $(APP_HOME)/tests/$(APP_NAME)
 
 CUDA_LIB  := ${CUDA_HOME}/targets/x86_64-linux/lib
-CUDA_ARCH := compute_75
-CUDA_CODE := sm_75
+#CUDA_ARCH := compute_75
+#CUDA_CODE := sm_75
+CUDA_ARCH := compute_61
+CUDA_CODE := sm_61
 CUDA_ARCH1:= compute_52
 CUDA_CODE1:= sm_52
 
