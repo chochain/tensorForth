@@ -16,8 +16,8 @@
         while ((U64)clock64()<t) yield();         \
 }
 ///@}
-#define VLOG1(...)         if (sys->io->trace > 0) INFO(__VA_ARGS__);
-#define VLOG2(...)         if (sys->io->trace > 1) INFO(__VA_ARGS__);
+#define VLOG1(...) if (sys->trace() > 0) INFO(__VA_ARGS__);
+#define VLOG2(...) if (sys->trace() > 1) INFO(__VA_ARGS__);
 ///
 /// virtual machine base class
 ///
@@ -30,10 +30,10 @@ public:
     
     Vector<DU, 0> ss;                 ///< parameter stack (setup in ten4.cu)
     Vector<DU, 0> rs;                 ///< return stack
+
+    __GPU__ VM(int id, System *sys);
     
-    __HOST__ VM(int id, System *sys);
-    
-    __GPU__ virtual void init() { VLOG1("VM::init ok\n"); }
+    __GPU__ virtual void init();
     __GPU__ virtual void outer();
     
 #if DO_MULTITASK

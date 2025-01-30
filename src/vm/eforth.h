@@ -27,22 +27,18 @@
 ///
 class ForthVM : public VM {
 public:
-    __HOST__ ForthVM(int id, System *sys)
-        : VM(id, sys), dict(sys->mu->dict()) {
-        base = sys->mu->pmem(id);
-        VLOG1("\\  ::ForthVM[%d](dict=%p) sizeof(Code)=%ld\n", id, dict, sizeof(Code));
-    }
+    __GPU__ ForthVM(int id, System *sys);
+    
     __GPU__ virtual void init();      ///< override VM
     
 protected:
-    Code      *dict;                  ///< dictionary array (cached)
+    IU    WP     = 0;                 ///< word pointer
+    IU    IP     = 0;                 ///< instruction pointer
+    DU    tos    = DU0;               ///< cached top of stack
     
-    IU        WP     = 0;             ///< word pointer
-    IU        IP     = 0;             ///< instruction pointer
-    DU        tos    = DU0;           ///< cached top of stack
-    
-    U32   *ptos   = (U32*)&tos;       ///< 32-bit mask for top
-    U8    *base   = 0;                ///< radix (base)
+    Code  *dict  = 0;                 ///< dictionary array (cached)
+    U8    *base  = 0;                 ///< radix (base)
+    U32   *ptos  = (U32*)&tos;        ///< 32-bit mask for tos
     ///
     /// stack short hands
     ///

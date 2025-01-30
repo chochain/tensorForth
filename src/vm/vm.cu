@@ -1,19 +1,25 @@
 /** -*- c++ -*-
  * @file
- * @brief VM class - eForth Vritual Machine implementation
+ * @brief VM class - tensorForth Vritual Machine implementation
  *
  * <pre>Copyright (C) 2022- GreenII, this file is distributed under BSD 3-Clause License.</pre>
  */
 #include "vm.h"
 
-__HOST__
-VM::VM(int id, System *sys)
+__GPU__ 
+VM::VM(int id, System *sys) 
     : id(id), state(STOP), sys(sys) {
     ss.init(sys->mu->vmss(id), T4_SS_SZ);
-    VLOG1("\\  VM[%d] ss=%p\n", id, ss.v);
+    rs.init(sys->mu->vmrs(id), T4_RS_SZ);
+    VLOG1("\\ VM[%d] created, sys=%p, ss=%p, rs=%p\n", id, sys, ss.v, rs.v);
+}
+
+__GPU__ void
+VM::init() {
+    printf("VM[%d]::init ok\n", id);
 }
 ///
-/// ForthVM Outer interpreter
+/// VM Outer interpreter
 /// @brief having outer() on device creates branch divergence but
 ///    + can enable parallel VMs (with different tasks)
 ///    + can support parallel find()
