@@ -25,7 +25,7 @@ public:
     AIO            *io;                         ///< HOST IO manager
     Debug          *db;
     
-    __HOST__ System(h_istr &i, h_ostr &o, int khz, int verbo=0);
+    __HOST__ System(h_istr &i, h_ostr &o, int khz, int verbo);
     __HOST__ ~System();
     
     __HOST__ void      fin_setup(const char *line);

@@ -39,7 +39,7 @@ System::System(h_istr &i, h_ostr &o, int khz, int verbo)
     : _khz(khz), _istr(new Istream()), _ostr(new Ostream()) {
     mu = new MMU();                  ///> instantiate memory manager
     io = new AIO(i, o, verbo);       ///> instantiate async IO manager
-    db = new Debug(mu, io);
+    db = new Debug(mu, io);          ///> tracing instrumentation
         
 #if (T4_ENABLE_OBJ && T4_ENABLE_NN)
     Loader::init(verbo);
@@ -51,14 +51,16 @@ System::System(h_istr &i, h_ostr &o, int khz, int verbo)
     k_rand_init<<<1, T4_RAND_SZ>>>(_seed, time(NULL));  /// serialized randomizer
     GPU_CHK();
     
-    INFO("\\  System ok\n");
+    INFO("\\ System OK\n");
 }
 
 System::~System() {
+    delete mu;
 //    delete db;
 //    delete io;
     MM_FREE(_seed);
     cudaDeviceReset();
+    INFO("\\ System freed\n");
 }
 
 __HOST__ int
