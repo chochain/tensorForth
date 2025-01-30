@@ -222,6 +222,7 @@ struct Managed {
     void *operator new(size_t sz) {
         void *ptr;
         MM_ALLOC(&ptr, sz);
+        DEBUG("new Managed Obj %p size=%ld byes\n", ptr, sz);
         return ptr;
     }
     void operator delete(void *ptr) { MM_FREE(ptr); }
