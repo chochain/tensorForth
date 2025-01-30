@@ -78,8 +78,8 @@ struct Code : public Managed {
 ///
 /// tracing level control
 ///
-#define MM_TRACE1(...) { if (CC_DEBUG > 0) INFO(__VA_ARGS__); }
-#define MM_TRACE2(...) { if (CC_DEBUG > 1) INFO(__VA_ARGS__); }
+#define MM_TRACE1(...) { if (T4_MMU_DEBUG > 0) INFO(__VA_ARGS__); }
+#define MM_TRACE2(...) { if (T4_MMU_DEBUG > 1) INFO(__VA_ARGS__); }
 ///
 /// Forth memory manager
 /// TODO: compare TLSF to RMM (Rapids Memory Manager)
@@ -92,14 +92,14 @@ class MMU : public Managed {
     IU             _midx  = 0;      ///< parameter memory index
     IU             _fidx  = 0;      ///< index to freed tensor list
     Code           *_dict;          ///< dictionary block
+    DU             *_vmss;          ///< VM data stacks
+    DU             *_vmrs;          ///< VM return stacks
     U8             *_pmem;          ///< parameter memory block
     DU             *_mark = 0;      ///< list for tensors that marked free
     U8             *_obj  = 0;      ///< object storage block
 #if T4_ENABLE_OBJ    
     TLSF           _ostore;         ///< object storage manager
 #endif // T4_ENABLE_OBJ    
-    DU             *_vmss;          ///< VM data stacks
-    DU             *_vmrs;          ///< VM return stacks
 
 public:
     friend class Debug;             ///< Debug can access my private members
@@ -110,10 +110,10 @@ public:
     /// references to memory blocks
     ///
     __BOTH__ __INLINE__ Code *dict()      { return &_dict[0]; }          ///< dictionary pointer
-    __BOTH__ __INLINE__ U8   *pmem(IU i)  { return &_pmem[i]; }          ///< base of parameter memory
-    __BOTH__ __INLINE__ Code *last()      { return &_dict[_didx - 1]; }  ///< last dictionary word
     __BOTH__ __INLINE__ DU   *vmss(IU i)  { return &_vmss[i*T4_SS_SZ]; } ///< dictionary pointer
     __BOTH__ __INLINE__ DU   *vmrs(IU i)  { return &_vmrs[i*T4_RS_SZ]; } ///< dictionary pointer
+    __BOTH__ __INLINE__ U8   *pmem(IU i)  { return &_pmem[i]; }          ///< base of parameter memory
+    __BOTH__ __INLINE__ Code *last()      { return &_dict[_didx - 1]; }  ///< last dictionary word
     
     template <typename F>
     __GPU__ void add_word(const char *name, F &f, int im) {          ///< append/merge a new word
