@@ -21,19 +21,34 @@ using namespace std;
 ///
 __KERN__ void
 k_vm_exec(VM *vm) {
-    extern __shared__ DU *ss;                   ///< shared mem for ss (much faster)
+    __shared__ DU ss[T4_SS_SZ], rs[T4_RS_SZ];    ///< shared mem for ss, rs (much faster)
     
-    DU *ss0 = vm->ss.v;                         ///< VM's data stack
-//    MEMCPY(ss, ss0, sizeof(DU) * T4_SS_SZ);     /// * copy stack into shared memory block
-//    vm->ss.v = ss;                              /// * redirect data stack to shared memory
+    ///> preserve VM data and return stacks
+    DU *s0 = vm->ss.v;
+    DU *r0 = vm->rs.v;
+    MEMCPY(ss, s0, sizeof(DU) * vm->ss.idx);
+    MEMCPY(rs, r0, sizeof(DU) * vm->rs.idx);
+    vm->ss.v = ss;
+    vm->rs.v = rs;
     ///
     /// * enter ForthVM outer loop
     /// * Note: single-threaded, dynamic parallelism when needed
     ///
-    vm->outer();                                /// * enter VM outer loop
-        
-//    MEMCPY(ss0, ss, sizeof(DU) * T4_SS_SZ);     /// * copy updated stack back to global mem
-    vm->ss.v = ss0;                             /// * restore stack ptr
+//    vm->outer();                               /// * enter VM outer loop
+    __syncthreads();
+    ///> copy updated stack back to global mem
+    MEMCPY(s0, ss, sizeof(DU) * vm->ss.idx);
+    MEMCPY(r0, rs, sizeof(DU) * vm->rs.idx);
+    vm->ss.v = s0;                               /// * restore stack pointers
+    vm->rs.v = r0;
+}
+
+__KERN__ void
+k_vm_init(VM *vm, DU *ss, DU *rs) {
+    vm->ss.v = ss;                               /// * set data stack pointer
+    vm->rs.v = rs;                               /// * set return stack pointer
+    vm->init();
+    __syncthreads();
 }
 
 TensorForth::TensorForth(int device, int verbose) {
@@ -51,28 +66,31 @@ TensorForth::TensorForth(int device, int verbose) {
     int khz = 0;
     GPU_ERR(cudaDeviceGetAttribute(&khz, cudaDevAttrClockRate, device));
 
-    cout << "\\  GPU " << device
-         << " initialized at " << khz/1000 << "MHz"
-         << ", dict["          << T4_DICT_SZ << "]"
-         << ", vmss["          << T4_SS_SZ << "*" << VM_COUNT << "]"
-         << ", pmem="          << T4_PMEM_SZ/1024 << "K"
-         << ", tensor="        << T4_OSTORE_SZ/1024/1024 << "M"
+    cout << "\\  GPU "  << device
+         << " at "      << khz/1000 << "MHz"
+         << ", dict["   << T4_DICT_SZ << "]"
+         << ", pmem="   << T4_PMEM_SZ/1024 << "K"
+         << ", tensor=" << T4_OSTORE_SZ/1024/1024 << "M"
+         << ", vmss["   << T4_SS_SZ << "*" << VM_COUNT << "]"
+         << ", vmrs["   << T4_RS_SZ << "*" << VM_COUNT << "]"
          << endl;
     ///
     /// allocate tensorForth system memory blocks
     ///
-    sys = new System(cin, cout, khz, verbose);
+//    sys = new System(cin, cout, khz, verbose);
 }
 
 __HOST__ void
 TensorForth::setup() {
     for (int i=0; i < VM_COUNT; i++) {
-        VM_Handle *h = &vm_pool[i];
-        MM_ALLOC(&h->vm, sizeof(VM_TYPE));
-//        (h->vm = new VM_TYPE(i, sys))->init();     ///< instantiate VMs
+        VM_Handle *h  = &vm_pool[i];
         GPU_ERR(cudaStreamCreate(&h->st));
         GPU_ERR(cudaEventCreate(&h->t0));
         GPU_ERR(cudaEventCreate(&h->t1));
+        
+        MM_ALLOC(&h->vm, sizeof(VM_TYPE));
+        k_vm_init<<<1, 1>>>(h->vm, sys->mu->vmss(i), sys->mu->vmrs(i));
+        GPU_CHK();
     }
     vm_pool[0].vm->state = HOLD;
 }
@@ -109,7 +127,7 @@ TensorForth::run() {
             n_vm++;
             
             cudaEventRecord(h->t0, h->st);
-            k_vm_exec<<<1, 1, T4_SS_SZ, h->st>>>(vm);
+            k_vm_exec<<<1, 1, 0, h->st>>>(vm);
             GPU_CHK();
             cudaEventRecord(h->t1, h->st);
             cudaStreamWaitEvent(h->st, h->t1);       // CPU will wait here
@@ -134,7 +152,7 @@ __HOST__ void
 TensorForth::teardown(int sig) {
     for (int i=0; i < VM_COUNT; i++) {
         VM_Handle *h = &vm_pool[i];
-        
+        MM_FREE(h->vm);
         GPU_ERR(cudaEventDestroy(h->t1));
         GPU_ERR(cudaEventDestroy(h->t0));
         GPU_ERR(cudaStreamDestroy(h->st));
@@ -161,7 +179,7 @@ void sigtrap() {
 int main(int argc, char**argv) {
     sigtrap();
     
-    const string APP = string(T4_APP_NAME) + " " + T4_MAJOR_VER + "." + T4_MINOR_VER;
+    const string APP = string(T4_APP_NAME) + " " + T4_VERSION;
     Options opt;
     opt.parse(argc, argv);
     
@@ -179,10 +197,11 @@ int main(int argc, char**argv) {
     cout << APP << endl;
 
     TensorForth *f = new TensorForth(opt.device_id, opt.verbose);
-    f->run();
+//    f->setup();
+//    f->run();
 
     cout << APP << " done." << endl;
-    f->teardown();
+//    f->teardown();
 
     return 0;
 }
