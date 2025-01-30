@@ -16,8 +16,7 @@
 ///@name Debugging macros
 ///@{
 #define T4_APP_NAME         "tensorForth"
-#define T4_MAJOR_VER        "3"
-#define T4_MINOR_VER        "2"
+#define T4_VERSION          "4.0"
 #define T4_VERBOSE          1        /**< system verbose print  */
 #define T4_CASE_SENSITIVE   0        /**< interpreter case      */
 #define T4_MMU_DEBUG        0        /**< for mmu debug trace   */
