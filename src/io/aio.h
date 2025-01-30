@@ -31,7 +31,7 @@ public:
     
     h_istr &fin;                      ///< host input stream
     h_ostr &fout;                     ///< host output stream
-    int    trace = 0;                 ///< debug tracing verbosity level
+    int    trace;                     ///< debug tracing verbosity level
     
 #if DO_MULTITASK
     static bool     io_busy;          ///< IO locking control
