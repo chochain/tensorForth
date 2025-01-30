@@ -18,11 +18,13 @@ typedef TenVM   VM_TYPE;
 typedef ForthVM VM_TYPE;
 #endif
 
+#define WARP(t)   ((((t) + 32)>>5) << 5)
+
 struct VM_Handle {
-    VM     *vm;
-    STREAM st;
-    EVENT  t0;
-    EVENT  t1;
+    VM      *vm;             // polymorphic class
+    STREAM  st;
+    EVENT   t0;
+    EVENT   t1;
 };
 
 class TensorForth {
