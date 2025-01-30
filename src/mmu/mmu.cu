@@ -13,6 +13,7 @@ __HOST__
 MMU::MMU() {
     MM_ALLOC(&_dict, sizeof(Code) * T4_DICT_SZ);
     MM_ALLOC(&_vmss, sizeof(DU) * T4_SS_SZ * VM_COUNT);
+    MM_ALLOC(&_vmrs, sizeof(DU) * T4_RS_SZ * VM_COUNT);
     MM_ALLOC(&_pmem, T4_PMEM_SZ);
     
 #if T4_ENABLE_OBJ    
@@ -22,21 +23,23 @@ MMU::MMU() {
 #endif // T4_ENABLE_OBJ
     
     MM_TRACE1(
-        "\\  MMU\n"
+        "\\ MMU: CUDA Managed Memory\n"
         "\\\tdict=%p\n"
         "\\\tvmss=%p\n"
+        "\\\tvmrs=%p\n"
         "\\\tmem =%p\n"
         "\\\tmark=%p\n"
         "\\\tobj =%p\n",
-        _dict, _vmss, _pmem, _mark, _obj);
+        _dict, _vmss, _vmrs, _pmem, _mark, _obj);
 }
 __HOST__
 MMU::~MMU() {
     GPU_SYNC();
-    MM_TRACE1("\\  MMU releasing CUDA managed memory...\n");
+    MM_TRACE1("\\ MMU releasing CUDA Managed Memory...\n");
     if (_obj)  MM_FREE(_obj);
     if (_mark) MM_FREE(_mark);
     MM_FREE(_pmem);
+    MM_FREE(_vmrs);
     MM_FREE(_vmss);
     MM_FREE(_dict);
 }
