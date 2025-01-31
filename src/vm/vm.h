@@ -31,10 +31,11 @@ public:
     Vector<DU, 0> ss;                 ///< parameter stack (setup in ten4.cu)
     Vector<DU, 0> rs;                 ///< return stack
 
-    __GPU__ VM(int id, System *sys);
+    __GPU__  VM(int id, System *sys);
+    __GPU__  ~VM() { VLOG1("VM[%d] free\n", id); }
     
-    __GPU__ virtual void init() { VLOG1("VM[%d]::init ok\n", id); }
-    __GPU__ virtual void outer();
+    __GPU__  virtual void init() { VLOG1("VM[%d]::init ok\n", id); }
+    __GPU__  virtual void outer();
     
 #if DO_MULTITASK
     static MUTEX    tsk;              ///< mutex for tasker
