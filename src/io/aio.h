@@ -23,7 +23,7 @@
 typedef std::istream h_istr;          ///< host input stream
 typedef std::ostream h_ostr;          ///< host output ostream
 
-#define IO_TRACE(...)      { if (_trace) INFO(__VA_ARGS__); }
+#define IO_TRACE(...)      { if (trace) INFO(__VA_ARGS__); }
 
 class AIO {
 public:
