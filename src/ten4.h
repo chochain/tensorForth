@@ -21,8 +21,8 @@ typedef ForthVM VM_TYPE;
 #define WARP_SZ   32                        /** threads per warp       */
 #define WARP(t)   ((((t) + 32)>>5) << 5)    /** calculate block number */
 
-struct VM_Handle {
-    VM      *vm;             // polymorphic class
+struct VM_Handle : public Managed {
+    VM_TYPE *vm;
     STREAM  st;
     EVENT   t0;
     EVENT   t1;
@@ -30,7 +30,7 @@ struct VM_Handle {
 
 class TensorForth {
     System    *sys;
-    VM_Handle vm_pool[VM_COUNT];             ///< CUDA stream per VM
+    VM_Handle *vm_pool;                      ///< CUDA stream per VM
     
 public:
     TensorForth(int device=0, int verbose=0);
