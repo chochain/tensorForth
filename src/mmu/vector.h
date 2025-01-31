@@ -23,9 +23,10 @@ struct Vector {
     __GPU__ Vector()             { v = N ? new T[N] : NULL; }
     __GPU__ Vector(T a[], int n) { merge((T*)a, n); }
     __GPU__ Vector(Vector<T>& a) { merge(a); }
-    __GPU__ ~Vector()            { if (v) delete[] v; }
+    __GPU__ ~Vector()            {}
     
-    __BOTH__ __INLINE__ Vector& init(T *a, int n)  { v = a; max = n; return *this; }
+    __GPU__ __INLINE__ Vector& init(T *a, int n)  { v = a; max = n; return *this; }
+    __GPU__ __INLINE__ Vector& free() { if (v) delete[] v; }
     //
     // operator overloading
     //
