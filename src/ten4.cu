@@ -22,13 +22,23 @@ using namespace std;
 __GPU__ VM *d_vm_pool[VM_COUNT];
 
 __KERN__ void
-k_vm_init(System *sys) {
+k_vm_init(System *sys, VM_Handle *pool) {
     int id = threadIdx.x;
     if (id >= VM_COUNT) return;
     
-    VM *vm = d_vm_pool[id] = new VM_TYPE(id, sys);
+    VM *vm = pool[id].vm = new VM_TYPE(id, sys);
     vm->init();
     vm->state = id==0 ? HOLD : STOP;
+
+    if (id==0) sys->mu->status();
+}
+
+__KERN__ void
+k_vm_done(VM_Handle *pool) {
+    int id = threadIdx.x;
+    if (id >= VM_COUNT) return;
+    
+    delete pool[id].vm;
 }
 
 __KERN__ void
@@ -56,13 +66,13 @@ k_vm_exec(VM *vm) {
         /// * Note: single-threaded, dynamic parallelism when needed
         ///
 //    vm->outer();                               /// * enter VM outer loop
-/*        
+        /*
         DU ss0 = vm->ss[0];
-        for (int i=0; i<1000000; i++) {
+        for (int i=0; i<10; i++) {
             vm->ss[0] = (DU)i;
         }
         vm->ss[0] = ss0;
-*/
+        */
     }
     __syncthreads();
     
@@ -105,17 +115,21 @@ TensorForth::TensorForth(int device, int verbose) {
     /// allocate tensorForth system memory blocks
     ///
     sys = new System(cin, cout, khz, T4_VERBOSE);
+    ///
+    /// allocate VM handle pool
+    ///
+    MM_ALLOC(&vm_pool, sizeof(VM_Handle) * VM_COUNT);
 }
 
 __HOST__ void
 TensorForth::setup() {
     for (int i=0; i < VM_COUNT; i++) {
         VM_Handle *h = &vm_pool[i];
-        GPU_ERR(cudaStreamCreate(&h->st));         /// * allocate stream
-        GPU_ERR(cudaEventCreate(&h->t0));          /// * allocate timers
+        GPU_ERR(cudaStreamCreate(&h->st));          /// * allocate stream
+        GPU_ERR(cudaEventCreate(&h->t0));           /// * allocate timers
         GPU_ERR(cudaEventCreate(&h->t1));
     }
-    k_vm_init<<<1, WARP(VM_COUNT)>>>(sys);         /// * initialize all VMs
+    k_vm_init<<<1, WARP(VM_COUNT)>>>(sys, vm_pool); /// * initialize all VMs
     GPU_CHK();
 }
 
@@ -124,7 +138,7 @@ TensorForth::tally() {
     if (sys->trace() <= 1) return 0;
     
     int cnt[4] = { 0, 0, 0, 0};                    /// STOP, HOLD, QUERY, NEST
-    for (int i=0; VM_COUNT; i++) {
+    for (int i=0; i < VM_COUNT; i++) {
         cnt[vm_pool[i].vm->state]++;
     }
     cout << "VM.state[STOP,HOLD,QUERY,NEST]=[";
@@ -174,13 +188,15 @@ TensorForth::run() {
 
 __HOST__ void
 TensorForth::teardown(int sig) {
+    k_vm_done<<<1, WARP(VM_COUNT)>>>(vm_pool);
+    GPU_CHK();
     for (int i=0; i < VM_COUNT; i++) {
         VM_Handle *h = &vm_pool[i];
-        MM_FREE(h->vm);
         GPU_ERR(cudaEventDestroy(h->t1));
         GPU_ERR(cudaEventDestroy(h->t0));
         GPU_ERR(cudaStreamDestroy(h->st));
     }
+    MM_FREE(vm_pool);
 }
 ///
 /// main program
@@ -225,7 +241,7 @@ int main(int argc, char**argv) {
 //    f->run();
 
     cout << APP << " done." << endl;
-//    f->teardown();
+    f->teardown();
 
     return 0;
 }
