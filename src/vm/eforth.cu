@@ -28,8 +28,7 @@ __GPU__
 ForthVM::ForthVM(int id, System *sys) : VM(id, sys) {
     dict = sys->mu->dict();
     base = sys->mu->pmem(id);
-//        VLOG1("\\  ::ForthVM[%d](dict=%p) sizeof(Code)=%ld\n", id, dict, sizeof(Code));
-    printf("\\ ::ForthVM[%d](dict=%p) sizeof(Code)=%ld\n", id, dict, sizeof(Code));
+    VLOG1("\\  ::ForthVM[%d](dict=%p) sizeof(Code)=%ld\n", id, dict, sizeof(Code));
 }
 ///
 /// resume suspended task
@@ -65,6 +64,7 @@ ForthVM::post() {
 #define _log(hdr)
 #define _dlog(w)
 #endif // CC_DEBUG
+
 __GPU__ void
 ForthVM::nest() {
     ///
@@ -133,11 +133,7 @@ __GPU__ void ForthVM::add_str(const char *s, bool adv) {
 __GPU__ void
 ForthVM::init() {
     VM::init();
-    printf("\\ ::ForthVM[%d].init() ok\n", id);
-    return;
-    
-    dict = sys->mu->dict();
-    base = sys->mu->pmem(id);
+    if (id != 0) return;       /// * done once only
     ///
     ///@defgroup Execution flow ops
     ///@brief - DO NOT change the sequence here (see forth_opcode enum)
