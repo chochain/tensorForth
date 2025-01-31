@@ -18,6 +18,7 @@ private:
     curandState    *_seed;                      ///< for random number generator
     Istream        *_istr;                      ///< managed input stream
     Ostream        *_ostr;                      ///< managed output stream
+    int            _trace;
     char           _pad[T4_STRBUF_SZ];          ///< terminal input buffer
     
 public:
@@ -40,8 +41,8 @@ public:
     /// debuging controls
     ///
     __BOTH__ __INLINE__ int  khz()          { return _khz;   }
-    __BOTH__ __INLINE__ int  trace()        { return io->trace; }
-    __BOTH__ __INLINE__ void trace(int lvl) { io->trace = lvl;  }
+    __BOTH__ __INLINE__ int  trace()        { return _trace; }
+    __BOTH__ __INLINE__ void trace(int lvl) { _trace = lvl;  }
     
     ///==============================================================================
     /// Device methods

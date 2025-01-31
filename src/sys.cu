@@ -36,7 +36,7 @@ k_rand(DU *mat, int sz, DU bias, DU scale, curandState *st, rand_opt ntype) {
 ///
 __HOST__
 System::System(h_istr &i, h_ostr &o, int khz, int verbo)
-    : _khz(khz), _istr(new Istream()), _ostr(new Ostream()) {
+    : _khz(khz), _istr(new Istream()), _ostr(new Ostream()), _trace(verbo) {
     mu = new MMU();                  ///> instantiate memory manager
     io = new AIO(i, o, verbo);       ///> instantiate async IO manager
     db = new Debug(mu, io);          ///> tracing instrumentation
