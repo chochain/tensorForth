@@ -406,7 +406,7 @@ ForthVM::init() {
     CODE("value",  {});
     CODE("within", {});
 #endif
-    VLOG1("ForthVM::init ok\n");
+    VLOG1("ForthVM[%d]::init ok\n", id);
 };
 ///
 /// ForthVM Outer interpreter
