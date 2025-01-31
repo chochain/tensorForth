@@ -141,6 +141,12 @@ s" tests/my_net.t4" save                    \ persist the trained network
 * install CUDA 11.6+ on your machine
 * download one of the releases from the list above to your local directory
 
+or, better yet
+
+* install Docker Engine on your *nix machine
+* pull CUDA 11.6 docker image, a template provided in ~/tests/cuda11_Docker
+* run the CUDA container with your environment variables, a template provided in ~/tests/docker_cuda
+
 #### with Makefile, and test
 Build on Linux
 
