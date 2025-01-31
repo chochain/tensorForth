@@ -5,8 +5,13 @@
  * <pre>Copyright (C) 2022- GreenII, this file is distributed under BSD 3-Clause License.</pre>
  */
 #include "tensor.h"
-
 #if T4_ENABLE_OBJ
+
+#if T4_VERBOSE
+#define OPN(...)   static const char *opn[] = { __VA_ARGS__ }
+#else 
+#define OPN(...)
+#endif // T4_VERBOSE
 
 ///=======================================================================
 /// static methods
@@ -142,7 +147,7 @@ __GPU__ Tensor&
 Tensor::ten_op(math_op op, Tensor &A, DU v, Tensor &O) {
     U16 N = A.N(), H = A.H(), W = A.W(), C = A.C();
     OPN(MATH_OP);
-    WARN("Tensor::mat_%s[%d,%d,%d,%d] %6.2f\n", opn[op], N, H, W, C, v);
+    DEBUG("Tensor::mat_%s[%d,%d,%d,%d] %6.2f\n", opn[op], N, H, W, C, v);
 
     dim3 blk(T4_WARP_SQ, 1, 1);
     dim3 grd((A.numel + blk.x - 1) / blk.x, 1, 1);
@@ -159,7 +164,7 @@ __GPU__ Tensor&
 Tensor::ten_op(math_op op, Tensor &A, Tensor &B, Tensor &O) {
     U16 N = A.N(), H = A.H(), W = A.W(), C = A.C();
     OPN(MATH_OP);
-    WARN("Tensor::mat_%s[%d,%d,%d,%d]\n", opn[op], N, H, W, C);
+    DEBUG("Tensor::mat_%s[%d,%d,%d,%d]\n", opn[op], N, H, W, C);
     
     dim3 blk(T4_WARP_SQ, 1, 1);
     dim3 grd((A.numel + blk.x - 1) / blk.x, 1, 1);
@@ -181,7 +186,7 @@ Tensor::mm(
         ERROR("Tensor#mm Ka(%d)!=Kb(%d) or N, C diff\n", Ka, Kb);
         return O;
     }
-    WARN("Tensor#matmul N=%d, C=%d, H=%d, W=%d, K=%d\n", N, C, H, W, Ka);
+    DEBUG("Tensor#matmul N=%d, C=%d, H=%d, W=%d, K=%d\n", N, C, H, W, Ka);
     
     dim3 blk(T4_WARP_SZ, T4_WARP_SZ, 1);
     dim3 grd(NGRID(W, H, C, blk));
@@ -205,7 +210,7 @@ Tensor::gemm(Tensor &A, Tensor &B, Tensor &O, DU alpha, DU beta) {
         ERROR("Tensor#gemm ka(%d)!=kb(%d) or N, C diff\n", Ka, Kb);
         return O;
     }
-    WARN("GEMM N=%d, C=%d, H=%d, W=%d, K=%d a=%f, b=%f\n", N, C, H, W, Ka, alpha, beta);
+    DEBUG("GEMM N=%d, C=%d, H=%d, W=%d, K=%d a=%f, b=%f\n", N, C, H, W, Ka, alpha, beta);
     dim3 blk(T4_WARP_SZ, T4_WARP_SZ, 1);
     dim3 grd(NGRID(W, H, C, blk));
 
@@ -219,7 +224,7 @@ Tensor::gemm(Tensor &A, Tensor &B, Tensor &O, DU alpha, DU beta) {
 }
 __GPU__ Tensor&
 Tensor::copy(Tensor &A, Tensor &O) {
-    WARN("Tensor::copy numel=%d\n", A.numel);
+    DEBUG("Tensor::copy numel=%d\n", A.numel);
     int n = (A.numel + T4_WARP_SQ - 1) / T4_WARP_SQ;
     
     k_copy<<<n, T4_WARP_SQ>>>(A.data, O.data, A.numel);
@@ -230,7 +235,7 @@ Tensor::copy(Tensor &A, Tensor &O) {
 __GPU__ Tensor&
 Tensor::transpose(Tensor &A, Tensor &T) {
     U16 N = A.N(), H = A.H(), W = A.W(), C = A.C();
-    WARN("Tensor::transpose A[%d,%d,%d,%d]\n", N, H, W, C);
+    DEBUG("Tensor::transpose A[%d,%d,%d,%d]\n", N, H, W, C);
     
     dim3 blk(T4_WARP_SZ, T4_WARP_SZ, 1);
     dim3 grd(NGRID(W, H, C, blk));
@@ -251,7 +256,7 @@ Tensor::transpose(Tensor &A, Tensor &T) {
 __GPU__ Tensor&
 Tensor::inverse(Tensor &A, Tensor &I) {
     U16 m = A.H(), n = A.W();
-    WARN("Tensor::inverse[%d,%d]\n", m, n);
+    DEBUG("Tensor::inverse[%d,%d]\n", m, n);
     if (m != n) { ERROR("square matrix?"); return I; }
     DU *da = A.data, *di = I.data;
     auto swap_rows = [da, di, n](U16 u, U16 z) {
@@ -306,7 +311,7 @@ Tensor::inverse(Tensor &A, Tensor &I) {
 __GPU__ Tensor&
 Tensor::lu(Tensor &A) {
     U16 m = A.H(), n = A.W();
-    WARN("Tensor::lu[%d,%d]\n", m, n);
+    DEBUG("Tensor::lu[%d,%d]\n", m, n);
     if (m != n) { ERROR("square matrix?"); return A; }
 
     DU *da = A.data;
@@ -372,7 +377,7 @@ Tensor::lu_inverse(Tensor &LU) {
 __GPU__ Tensor&
 Tensor::plu(Tensor &A, Tensor &P, int *ns) {
     U16 m = A.H(), n = A.W();
-    WARN("Tensor::plu[%d,%d]\n", m, n);
+    DEBUG("Tensor::plu[%d,%d]\n", m, n);
     if (m != n) { ERROR("square matrix?"); return A; }
 
     DU *da = A.data, *dp = P.data;
@@ -391,7 +396,7 @@ Tensor::plu(Tensor &A, Tensor &P, int *ns) {
             if (ABS(da[z + i * n]) > ABS(da[z + u * n])) u = i;
         }
         if (ABS(da[z + u * n]) < DU_EPS) {
-            WARN("Tensor::lu sigular!\n");
+            DEBUG("Tensor::lu sigular!\n");
             return -1;
         }
         return u;
@@ -529,7 +534,7 @@ Tensor::loss(t4_loss op, Tensor &tgt) {
 __GPU__ DU
 Tensor::det() {
     U16 m = H(), n = W();
-    WARN("Tensor::det[%d,%d]\n", m, n);
+    DEBUG("Tensor::det[%d,%d]\n", m, n);
 
     DU v = DU1;
     for (U16 z = 0; z < m; z++) v *= data[z + z * n];
@@ -542,7 +547,7 @@ Tensor::det() {
 __GPU__ Tensor&
 Tensor::triu() {
     U16 m  = H(), n = W();
-    WARN("Tensor::upper[%d,%d]\n", m, n);
+    DEBUG("Tensor::upper[%d,%d]\n", m, n);
 
     for (U16 z = 1; z < m; z++) {
         for (U16 k = 0; k < z; k++) {
@@ -557,7 +562,7 @@ Tensor::triu() {
 __GPU__ Tensor&
 Tensor::tril() {
     U16 m = H(), n = W();
-    WARN("Tensor::lower[%d,%d]\n", m, n);
+    DEBUG("Tensor::lower[%d,%d]\n", m, n);
 
     for (U16 z = 0; z < m; z++) {
         data[z + z * n] = DU1;
@@ -572,7 +577,7 @@ Tensor::tril() {
 ///
 __BOTH__ Tensor&
 Tensor::reset(void *mptr, U32 sz, t4_obj tt, t4_layer fn) {
-    WARN("Tensor::reset(%p, %d)\n", mptr, sz);
+    DEBUG("Tensor::reset(%p, %d)\n", mptr, sz);
     init(sz, tt, 1);                                   /// T4Base attributes
     
     const U16    s[4] = { 1, 1, 1, 1 };
@@ -591,7 +596,7 @@ __BOTH__ Tensor&
 Tensor::reshape(U32 sz) {
     if (sz == numel) {
         reset(data, numel, (t4_obj)ttype, grad_fn);   /// preserve ttype and fn
-        WARN("Tensor::reshaped(%d)\n", numel);
+        DEBUG("Tensor::reshaped(%d)\n", numel);
     }
     else {
         ERROR("Tensor::reshape sz != numel (%d != %d)\n", sz, numel);
@@ -607,7 +612,7 @@ Tensor::reshape(U16 h, U16 w) {
         rank = 2;
         memcpy(stride, s, sizeof(s));
         memcpy(shape,  t, sizeof(t));
-        WARN("Tensor::reshaped(%d,%d)\n", H(), W());
+        DEBUG("Tensor::reshaped(%d,%d)\n", H(), W());
     }
     else {
         ERROR("Tensor::reshape sz != numel (%d != %d)\n", sz, numel);
@@ -623,7 +628,7 @@ Tensor::reshape(U16 n, U16 h, U16 w, U16 c) {
         rank = 4;
         memcpy(stride, s, sizeof(s));
         memcpy(shape,  t, sizeof(t));
-        WARN("Tensor::reshaped(%d,%d,%d,%d)\n", N(), H(), W(), C());
+        DEBUG("Tensor::reshaped(%d,%d,%d,%d)\n", N(), H(), W(), C());
     }
     else {
         ERROR("Tensor::reshape sz != numel (%d != %d)\n", sz, numel);
@@ -639,7 +644,7 @@ Tensor::reshape(U16 c1, U16 n, U16 h, U16 w, U16 c) {
         parm = c1;        /// use parm field, so we don't need s[5]
         memcpy(stride, s, sizeof(s));
         memcpy(shape,  t, sizeof(t));
-        WARN("Tensor::reshaped(%d,%d,%d,%d,%d)\n", c1, N(), H(), W(), C());
+        DEBUG("Tensor::reshaped(%d,%d,%d,%d,%d)\n", c1, N(), H(), W(), C());
     }
     else {
         ERROR("Tensor::reshape sz != numel (%d != %d)\n", sz, numel);
@@ -663,7 +668,7 @@ Tensor::identity() {
 __BOTH__ Tensor&
 Tensor::map(math_op op, DU v) {
     OPN(MATH_OP);
-    WARN("Tensor#%s v=%f\n", opn[op], v);
+    DEBUG("Tensor#%s v=%f\n", opn[op], v);
     int g = (numel + T4_WARP_SQ - 1) / T4_WARP_SQ;
     
     k_math<<<g, T4_WARP_SQ>>>(op, data, numel, v);

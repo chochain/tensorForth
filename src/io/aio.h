@@ -25,7 +25,7 @@ typedef std::ostream h_ostr;          ///< host output ostream
 
 #define IO_TRACE(...)      { if (trace) INFO(__VA_ARGS__); }
 
-class AIO {
+class AIO {                           ///< create in host mode
 public:
     friend class Debug;               ///< Debug can access my private members
     

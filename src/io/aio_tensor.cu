@@ -58,7 +58,7 @@ AIO::_print_mat(DU *td, U16 *shape) {
 __HOST__ void
 AIO::_print_tensor(Tensor &t) {
     DU *td = t.data;                        /// * short hand
-    WARN("aio#print_tensor::T=%p data=%p\n", &t, td);
+    DEBUG("aio#print_tensor::T=%p data=%p\n", &t, td);
 
     ios::fmtflags fmt0 = fout.flags();
     fout << setprecision(-1);               /// * standard format
