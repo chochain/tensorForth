@@ -22,7 +22,7 @@
 /// virtual machine base class
 ///
 typedef enum { STOP=0, HOLD, QUERY, NEST } vm_state;   ///< ten4 states
-class VM {
+class VM {                            ///< VM (created in kernal mode)
 public:
     IU        id;                     ///< VM id
     vm_state  state;                  ///< VM state
@@ -33,7 +33,7 @@ public:
 
     __GPU__ VM(int id, System *sys);
     
-    __GPU__ virtual void init();
+    __GPU__ virtual void init() { VLOG1("VM[%d]::init ok\n", id); }
     __GPU__ virtual void outer();
     
 #if DO_MULTITASK

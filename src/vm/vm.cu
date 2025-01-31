@@ -13,11 +13,6 @@ VM::VM(int id, System *sys)
     rs.init(sys->mu->vmrs(id), T4_RS_SZ);
     VLOG1("\\ VM[%d] created, sys=%p, ss=%p, rs=%p\n", id, sys, ss.v, rs.v);
 }
-
-__GPU__ void
-VM::init() {
-    printf("VM[%d]::init ok\n", id);
-}
 ///
 /// VM Outer interpreter
 /// @brief having outer() on device creates branch divergence but
