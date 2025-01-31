@@ -21,10 +21,10 @@ template<typename F>                                    ///< template functor cl
 struct functor : fop {
     F op;                                               ///< reference to lambda
     __GPU__ __INLINE__ functor(const F f) : op(f) {     ///< constructor
-        WARN("F(%p) => ", this);
+        DEBUG("F(%p) => ", this);
     }
     __GPU__ __INLINE__ void operator()() {              ///< lambda invoke
-        WARN("F(%p).op() => ", this);
+        DEBUG("F(%p).op() => ", this);
         op();
     }
 };
@@ -54,16 +54,16 @@ struct Code : public Managed {
     template<typename F>    ///< template function for lambda
     __GPU__ Code(const char *n, F f, bool im) : name(n), xt(new functor<F>(f)) {
         immd = im ? 1 : 0;
-        WARN("%cCode(name=%p, xt=%p) %s\n", im ? '*' : ' ', name, xt, n);
+        DEBUG("%cCode(name=%p, xt=%p) %s\n", im ? '*' : ' ', name, xt, n);
     }
     __GPU__ Code(const Code &c) : name(c.name), xt(c.xt), u(c.u) {
-        WARN("Code(&c) %p %s\n", xt, name);
+        DEBUG("Code(&c) %p %s\n", xt, name);
     }
     __GPU__ Code &operator=(const Code &c) {  ///> called by Vector::push(T*)
         name = c.name;
         xt   = c.xt;
         u    = c.u;
-        WARN("Code= %p %s\n", xt, name);
+        DEBUG("Code= %p %s\n", xt, name);
         return *this;
     }
     */
@@ -72,14 +72,9 @@ struct Code : public Managed {
         name = n;
         xt   = new functor<F>(f);
         immd = im ? 1 : 0;
-        WARN("%cCode(name=%p, xt=%p) %s\n", im ? '*' : ' ', name, xt, n);
+        DEBUG("%cCode(name=%p, xt=%p) %s\n", im ? '*' : ' ', name, xt, n);
     }
 };
-///
-/// tracing level control
-///
-#define MM_TRACE1(...) { if (T4_MMU_DEBUG > 0) INFO(__VA_ARGS__); }
-#define MM_TRACE2(...) { if (T4_MMU_DEBUG > 1) INFO(__VA_ARGS__); }
 ///
 /// Forth memory manager
 /// TODO: compare TLSF to RMM (Rapids Memory Manager)
@@ -120,8 +115,8 @@ public:
         int w   = find(name);                                        /// * check whether word exists
         Code &c = _dict[w >= 0 ? w : _didx++];                       /// * append or merge
         c.set(name, f, im);
-        MM_TRACE2(" %d\n", w);
-        if (w >=0) MM_TRACE1("*** word redefined: %s\n", name);
+        DEBUG(" %d\n", w);
+        if (w >=0) TRACE("*** word redefined: %s\n", name);
     }           
     ///
     /// memory lock for multi-processing
