@@ -23,11 +23,6 @@ typedef enum {
     OPTI_ADAM                ///< Adam gradient
 } t4_optimizer;
 ///
-/// tracing control
-///
-#define TRACE1(...) { if (_mmu->trace() > 0) INFO(__VA_ARGS__); }
-#define TRACE2(...) { if (_mmu->trace() > 1) INFO(__VA_ARGS__); }
-///
 ///< gradient function pointer
 ///
 typedef void (*GdFunc)(
