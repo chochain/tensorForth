@@ -12,14 +12,25 @@
  */
 #include <iostream>          // cin, cout
 #include <signal.h>
+#include "ten4.h"            // wrapper
 
 using namespace std;
-
-#include "ten4.h"            // wrapper
 ///
 /// tensorForth kernel - VM dispatcher
 /// Note: 1 block per VM, thread 0 active only (wasteful?)
 ///
+__GPU__ VM *d_vm_pool[VM_COUNT];
+
+__KERN__ void
+k_vm_init(System *sys) {
+    int id = threadIdx.x;
+    if (id >= VM_COUNT) return;
+    
+    VM *vm = d_vm_pool[id] = new VM_TYPE(id, sys);
+    vm->init();
+    vm->state = id==0 ? HOLD : STOP;
+}
+
 __KERN__ void
 k_vm_exec(VM *vm) {
     __shared__ DU ss[T4_SS_SZ];      ///< shared mem for ss, rs (much faster)
@@ -67,18 +78,6 @@ k_vm_exec(VM *vm) {
     }
 }
 
-__GPU__ VM *d_vm_pool[VM_COUNT];
-
-__KERN__ void
-k_vm_init(System *sys) {
-    int id = threadIdx.x;
-    if (id >= VM_COUNT) return;
-    
-    VM *vm = d_vm_pool[id] = new VM(id, sys);
-    vm->init();
-    vm->state = id==0 ? HOLD : STOP;
-}
-
 TensorForth::TensorForth(int device, int verbose) {
     ///
     /// set active device
@@ -116,7 +115,7 @@ TensorForth::setup() {
         GPU_ERR(cudaEventCreate(&h->t0));          /// * allocate timers
         GPU_ERR(cudaEventCreate(&h->t1));
     }
-    k_vm_init<<<1, WARP(VM_COUNT)>>>(sys);
+    k_vm_init<<<1, WARP(VM_COUNT)>>>(sys);         /// * initialize all VMs
     GPU_CHK();
 }
 
@@ -132,10 +131,10 @@ TensorForth::tally() {
     for (int i = 0; i < 4; i++) cout << " " << cnt[i];
     cout << " ]" << std::endl;
     
-#if T4_MMU_DEBUG
+#if T4_VERBOSE > 1
     int m0 = (int)sys->mu->here() - 0x80;
     sys->db->mem_dump(m0 < 0 ? 0 : m0, 0x80);
-#endif // T4_MMU_DEBUG
+#endif // T4_VERBOSE > 1
         
     return 1;
 }
