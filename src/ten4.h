@@ -18,7 +18,8 @@ typedef TenVM   VM_TYPE;
 typedef ForthVM VM_TYPE;
 #endif
 
-#define WARP(t)   ((((t) + 32)>>5) << 5)
+#define WARP_SZ   32                        /** threads per warp       */
+#define WARP(t)   ((((t) + 32)>>5) << 5)    /** calculate block number */
 
 struct VM_Handle {
     VM      *vm;             // polymorphic class
