@@ -8,25 +8,23 @@
 #define TEN4_SRC_TEN4_TYPES_H_
 #include "ten4_config.h"
 ///
-///@name Debug tracing options
+///@name Debug/Tracing options
+///@brief INFO/WTRACE/DEBUG/WARN/ERROR
 ///@{
 #define INFO(...)           printf(__VA_ARGS__)
-#if T4_VERBOSE
-#define DEBUG(...)          printf(__VA_ARGS__)
-#else  // T4_VERBOSE
-#define DEBUG(...)
-#endif // T4_VERBOSE
-
-#if T4_MMU_DEBUG
-#define WARN(...)           printf(__VA_ARGS__)
-#define OPN(...)            static const char *opn[] = { __VA_ARGS__ }
-#else  // T4_MMU_DEBUG
-#define WARN(...)
-#define OPN(...)
-#endif // T4_MMU_DEBUG
-
 #define ERROR(...)          printf(__VA_ARGS__)
 #define NA(msg)             ({ ERROR("method not supported: %s\n", msg); })
+
+#if   T4_VERBOSE > 1
+#define TRACE(...)          printf(__VA_ARGS__)
+#define DEBUG(...)          printf(__VA_ARGS__)
+#elif T4_VERBOSE > 0
+#define TRACE(...)          printf(__VA_ARGS__)
+#define DEBUG(...)
+#else  // T4_VERBOSE==0
+#define TRACE(...)
+#define DEBUG(...)
+#endif // T4_VERBOSE
 ///@}
 ///@name CUDA support macros
 ///@{
