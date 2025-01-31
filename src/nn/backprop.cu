@@ -213,7 +213,7 @@ Model::backprop(Tensor &tgt) {
     };
     if (_bloss(tgt)) return *this;               /// * pre-calculate dLoss
     
-    TRACE1("\nModel#backprop starts");
+    TRACE("\nModel#backprop starts");
     DU  t0 = _mmu->ms(), t1 = t0, tt;            ///< performance measurement
     for (U16 i = numel - 2, j = 0; i > 0; i--, j++) {
         Tensor &in = (*this)[i], &out = (*this)[i + 1];
@@ -224,7 +224,7 @@ Model::backprop(Tensor &tgt) {
         }
         else _bstep(in, out);
     }
-    TRACE1("\nModel::backprop %5.2f ms\n", _mmu->ms() - t0);
+    TRACE("\nModel::backprop %5.2f ms\n", _mmu->ms() - t0);
     return *this;
 }
 /// ========================================================================
@@ -239,7 +239,7 @@ Model::_bloss(Tensor &tgt) {                     ///> pre-calc dLoss
               out.N(), out.H(), out.W(), out.C());
         return 1;
     }
-    TRACE1("\nModel#backprop: input dimensions OK, calculate dLoss");
+    TRACE("\nModel#backprop: input dimensions OK, calculate dLoss");
     t4_layer fn = (*this)[-2].grad_fn;           ///< final activation layer
     switch (fn) {
     case L_SIGMOID:                              /// * sigmoid + BCE
@@ -289,7 +289,7 @@ Model::_bconv(Tensor &in, Tensor &out) {
     Tensor &w = *in.grad[0], &dw = *in.grad[2];      ///< filter tensor
     Tensor &b = *in.grad[1], &db = *in.grad[3];      ///< bias tensor
 
-    TRACE1(" f[%d,%d,%d,%d], b[%d]", w.N(), w.H(), w.W(), w.C(), b.numel);
+    TRACE(" f[%d,%d,%d,%d], b[%d]", w.N(), w.H(), w.W(), w.C(), b.numel);
 
     const int N = in.N(), H = in.H(), W = in.W();    ///< input dimensions
     const int C1 = in.C(), C0 = out.C();
@@ -353,11 +353,11 @@ Model::_blinear(Tensor &in, Tensor &out) {
     const int C0 = w.H(), C1 = w.W();               ///< weight tensor dimensions
     const int E1 = in.HWC(), E0 = out.HWC();        ///< input, output element count
 
-    TRACE1("\n\tdw[%d,%d] += out'[%d,1] @ in^t[1,%d]", C0, C1, E0, E1);
-    TRACE1("\n\tin[%d, 1]  = w^t[%d,%d] @ out'[%d,1]", E1, C1, C0, E0);
+    TRACE("\n\tdw[%d,%d] += out'[%d,1] @ in^t[1,%d]", C0, C1, E0, E1);
+    TRACE("\n\tin[%d, 1]  = w^t[%d,%d] @ out'[%d,1]", E1, C1, C0, E0);
 
     if (w.numel < T4_WARP_SQ) {                     /// * threshold control
-        TRACE1("*");
+        TRACE("*");
         qa_calc(w, dw, db, train);                  /// * serial mode (validation)
     }
     else {
