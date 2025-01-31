@@ -147,6 +147,8 @@ or, better yet
 * pull CUDA 11.6 docker image, a template provided in ~/tests/cuda11_Docker
 * run the CUDA container with your environment variables, a template provided in ~/tests/docker_cuda
 
+Note: I'm still working on CUDA 12 compatability. It's broken because cudaDeviceSynchronize was deprecated when using Dynamic Parallelism. Needs a new way to sync data in parallel pipelines.
+
 #### with Makefile, and test
 Build on Linux
 
