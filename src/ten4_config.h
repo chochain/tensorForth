@@ -17,9 +17,8 @@
 ///@{
 #define T4_APP_NAME         "tensorForth"
 #define T4_VERSION          "4.0"
-#define T4_VERBOSE          1        /**< system verbose print  */
-#define T4_CASE_SENSITIVE   0        /**< interpreter case      */
-#define T4_MMU_DEBUG        1        /**< for mmu debug trace   */
+#define T4_VERBOSE          2        /**< system verbose 0|1|2  */
+#define T4_CASE_SENSITIVE   1        /**< interpreter case      */
 #define CC_DEBUG            1        /**< for my local testing  */
 ///@}
 ///@name CUDA cooperative dynamic parallelism support
