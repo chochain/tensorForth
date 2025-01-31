@@ -54,17 +54,17 @@ class Ostream : public Managed {
     obuf_fmt _fmt = { 10, 0, 0, ' '};
 
     __GPU__ __INLINE__ void _debug(GT gt, U8 *v, int sz) {
-#if MMU_TRACE
+#if T4_VERBOSE > 1
         printf("%d>> obuf[%d] << ", blockIdx.x, _idx);
         if (!sz) return;
         U8 d[T4_STRBUF_SZ];
         MEMCPY(d, v, sz);
         switch(gt) {
-        case GT_INT:   printf("%d\n", *(GI*)d);      break;
+        case GT_INT:   printf("%d\n", *(IU*)d);      break;
         case GT_U32:   printf("%u\n", *(U32*)d);     break;
-        case GT_FLOAT: printf("%G\n", *(GF*)d);      break;
-        case GT_STR:   printf("%c\n", d);            break;
-        case GT_OBJ:   printf("Obj:%8x\n", DU2X(d);  break;
+        case GT_FLOAT: printf("%G\n", *(DU*)d);      break;
+        case GT_STR:   printf("%s\n", d);            break;
+        case GT_OBJ:   printf("Obj:%8x\n", DU2X(d)); break;
         case GT_FMT:   printf("%8x\n", *(U16*)d);    break;
         case GT_OPX: {
             _opx *o = (_opx*)d;
@@ -79,7 +79,7 @@ class Ostream : public Managed {
         } break;
         default: printf("unknown type %d\n", gt);
         }
-#endif // MMU_TRACE
+#endif // T4_VERBOSE > 1
     }
         
     __GPU__  void _write(GT gt, U8 *v, int sz) {
