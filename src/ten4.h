@@ -19,7 +19,7 @@ typedef ForthVM VM_TYPE;
 #endif
 
 #define WARP_SZ   32                        /** threads per warp       */
-#define WARP(t)   ((((t) + 32)>>5) << 5)    /** calculate block number */
+#define WARP(t)   ((((t) + 31)>>5) << 5)    /** calculate block number */
 
 struct VM_Handle : public Managed {
     VM_TYPE *vm;
@@ -41,5 +41,9 @@ public:
     __HOST__ int   run();                    ///< execute tensorForth main loop
     __HOST__ int   tally();                  ///< tally fetch state of VMs
     __HOST__ void  teardown(int sig=0);
+    
+private:    
+    __HOST__ void  _once();
+    __HOST__ void  _profile();
 };
 #endif // TEN4_SRC_TEN4_H_
