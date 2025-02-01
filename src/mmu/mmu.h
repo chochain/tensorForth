@@ -50,6 +50,7 @@ struct Code : public Managed {
             U16 xx3;        ///< reserved
         };
     };
+    
     /* Note: no constructor needed
     template<typename F>    ///< template function for lambda
     __GPU__ Code(const char *n, F f, bool im) : name(n), xt(new functor<F>(f)) {
@@ -67,6 +68,8 @@ struct Code : public Managed {
         return *this;
     }
     */
+    ~Code() { DEBUG("Code(%s) freed\n", name); }
+    
     template<typename F>    ///< template function for lambda
     __GPU__ void set(const char *n, F &f, bool im) {
         name = n;
@@ -171,10 +174,10 @@ public:
         if (i < T4_PMEM_SZ) wi(&_pmem[i], n);
         else ERROR("\nmmu.wi[%d]", i);
     }
-    ///
-    /// tensor life-cycle methods
-    ///
 #if T4_ENABLE_OBJ // vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
+    ///
+    /// tensor object life-cycle methods
+    ///
     __BOTH__ T4Base &du2obj(DU d) {                         ///< DU to Obj convertion
         U32    off = DU2X(d) & ~T4_TYPE_MSK;
         T4Base *t  = (T4Base*)(_obj + off);
