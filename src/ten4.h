@@ -31,6 +31,7 @@ struct VM_Handle : public Managed {
 class TensorForth {
     System    *sys;
     VM_Handle *vm_pool;                      ///< CUDA stream per VM
+    int       *vmst_cnt;
     
 public:
     TensorForth(int device=0, int verbose=0);
