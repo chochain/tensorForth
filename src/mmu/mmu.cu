@@ -34,14 +34,13 @@ MMU::MMU() {
 }
 __HOST__
 MMU::~MMU() {
-    GPU_SYNC();
-    TRACE("\\ MMU releasing CUDA Managed Memory...\n");
     if (_obj)  MM_FREE(_obj);
     if (_mark) MM_FREE(_mark);
     MM_FREE(_pmem);
     MM_FREE(_vmrs);
     MM_FREE(_vmss);
     MM_FREE(_dict);
+    TRACE("\\ MMU: CUDA Managed Memory freed\n");
 }
 ///
 /// dictionary management methods
@@ -75,7 +74,7 @@ MMU::status() {
             c->name);
     }
 
-    INFO("\\  MMU.stat dict[%d/%d], pmem[%d]=%0.1f%%, tfree[%d/%d]\n",
+    INFO("\\ MMU.stat dict[%d/%d], pmem[%d]=%0.1f%%, tfree[%d/%d]\n",
         _didx, T4_DICT_SZ, _midx, 100.0*(_midx/T4_PMEM_SZ), _fidx, T4_TFREE_SZ);
     ///
     /// display object store statistics
