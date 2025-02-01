@@ -16,6 +16,7 @@ class Debug {                                             ///< friend class to M
     
 public:
     __HOST__ Debug(MMU *mmu, AIO *aio) : mu(mmu), io(aio) {}
+    __HOST__ ~Debug() {}
     
     __HOST__ int  to_s(IU w);                             ///< show dictionary info from descriptor
     __HOST__ void words(int rdx=10);                      ///< list dictionary words
