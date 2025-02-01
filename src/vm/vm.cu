@@ -27,6 +27,13 @@ VM::VM(int id, System *sys)
 ///
 __GPU__ void
 VM::outer() {
+    DU ss0 = ss[0];
+    for (int i=0; i<1000; i++) {
+        ss[0] = (DU)i;
+    }
+    ss[0] = ss0;
+    return;
+    
     if (state == NEST) resume();                     /// * resume from suspended VM
     char *idiom = sys->next_idiom();
     while (state == HOLD && idiom) {                 /// * loop throught tib
