@@ -55,11 +55,12 @@ System::System(h_istr &i, h_ostr &o, int khz, int verbo)
 }
 
 System::~System() {
-    delete mu;
-//    delete db;
-//    delete io;
+    GPU_SYNC();
+    
     MM_FREE(_seed);
-    cudaDeviceReset();
+    delete io;
+    delete db;
+    delete mu;
     INFO("\\ System freed\n");
 }
 
@@ -75,7 +76,7 @@ System::readline() {
 
 __HOST__ io_event*
 System::process_event(io_event *ev) {
-    cudaDeviceSynchronize();        /// * make sure data is completely written
+    GPU_SYNC();                     /// * make sure data is completely written
 
     char   *v    = (char*)ev->data; ///< fetch payload in buffered print node
     h_ostr &fout = io->fout;        ///< host output stream
@@ -136,10 +137,6 @@ System::flush() {
         e = process_event(e);
     }
     _ostr->clear();
-    ///
-    /// clean up marked free tensors
-    ///
-//    mu->sweep();   // device function
 }
 
 
