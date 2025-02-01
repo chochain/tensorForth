@@ -19,70 +19,83 @@ using namespace std;
 /// tensorForth kernel - VM dispatcher
 /// Note: 1 block per VM, thread 0 active only (wasteful?)
 ///
-__GPU__ VM *d_vm_pool[VM_COUNT];
-
 __KERN__ void
 k_vm_init(System *sys, VM_Handle *pool) {
-    int id = threadIdx.x;
-    if (id >= VM_COUNT) return;
-    
-    VM *vm = pool[id].vm = new VM_TYPE(id, sys);
-    vm->init();
-    vm->state = id==0 ? HOLD : STOP;
-
-    if (id==0) sys->mu->status();
+    const auto g  = cg::this_thread_block();   ///< all blocks in grid
+    const int  id = g.thread_rank();           ///< VM id
+    if (id < VM_COUNT) {
+        VM *vm = pool[id].vm = new VM_TYPE(id, sys);
+        vm->init();
+    }
+    if (id==0) {
+        sys->mu->status();
+        pool[0].vm->state = HOLD;
+    }
 }
 
 __KERN__ void
 k_vm_done(VM_Handle *pool) {
-    int id = threadIdx.x;
+    const auto g  = cg::this_thread_block();   ///< all blocks in grid
+    const int  id = g.thread_rank();           ///< VM id
     if (id >= VM_COUNT) return;
     
     delete pool[id].vm;
+}
+///
+/// check VM status (using warp-level collectives)
+///
+
+__KERN__ void
+k_ten4_tally(int *vmst_cnt, VM_Handle *pool) {
+    const auto g  = cg::this_thread_block();   ///< all blocks in grid
+    const int  id = g.thread_rank();           ///< VM id
+
+    if (id < 4) vmst_cnt[id] = 0;
+    g.sync();
+
+    if (id < VM_COUNT) {
+        vm_state s = pool[id].vm->state;
+        atomicAdd(&vmst_cnt[s], 1);
+    }
 }
 
 __KERN__ void
 k_vm_exec(VM *vm) {
     __shared__ DU ss[T4_SS_SZ];      ///< shared mem for ss, rs (much faster)
-    __shared__ DU rs[T4_RS_SZ];      ///< CC: make sure SZ < 32
+    __shared__ DU rs[T4_RS_SZ];
+
+    if (vm->state==STOP) return;
     
-    bool i   = threadIdx.x;
-    bool t0  = i == 0 && blockIdx.x == 0;
-    DU   *s0 = vm->ss.v;
-    DU   *r0 = vm->rs.v;
+    const auto g = cg::this_thread_block();  ///< all blocks
+    const int  i = g.thread_rank();          ///< thread id -> ss[i]
+    DU *s0 = vm->ss.v;
+    DU *r0 = vm->rs.v;
 
     ///> copy stacks from global to shared mem
-    for (int n = 0; n < T4_SS_SZ; n += WARP_SZ)
-        if (i < vm->ss.idx) ss[n + i] = s0[n + i];
-    for (int n = 0; n < T4_RS_SZ; n += WARP_SZ)
-        if (i < vm->rs.idx) rs[n + i] = r0[n + i];
-    __syncthreads();
+    for (int n=0; n < T4_SS_SZ; n+= WARP_SZ)
+        if ((n+i) < vm->ss.idx) ss[n+i] = s0[n+i];
+    for (int n=0; n < T4_RS_SZ; n+= WARP_SZ)
+        if ((n+i) < vm->rs.idx) rs[n+i] = r0[n+i];
+    g.sync();
     
-    if (t0) {
+    if (i == 0) {
         vm->ss.v = ss;
         vm->rs.v = rs;
         ///
         /// * enter ForthVM outer loop
         /// * Note: single-threaded, dynamic parallelism when needed
         ///
-//    vm->outer();                               /// * enter VM outer loop
-        /*
-        DU ss0 = vm->ss[0];
-        for (int i=0; i<10; i++) {
-            vm->ss[0] = (DU)i;
-        }
-        vm->ss[0] = ss0;
-        */
+        vm->outer();                               /// * enter VM outer loop
     }
-    __syncthreads();
+    g.sync();
     
     ///> copy updated stacks back to global mem
-    for (int n = 0; n < T4_SS_SZ; n += WARP_SZ)
-        if (i < vm->ss.idx) s0[n + i] = ss[n + i];
-    for (int n = 0; n < T4_SS_SZ; n += WARP_SZ)
-        if (i < vm->rs.idx) r0[n + i] = rs[n + i];
+    for (int n=0; n < T4_SS_SZ; n+= WARP_SZ)
+        if ((n+i) < vm->ss.idx) s0[n+i] = ss[n+i];
+    for (int n=0; n < T4_RS_SZ; n+= WARP_SZ)
+        if ((n+i) < vm->rs.idx) r0[n+i] = rs[n+i];
 
-    if (t0) {
+    if (i == 0) {
         vm->ss.v = s0;                           /// * restore stack pointers
         vm->rs.v = r0;
     }
@@ -119,6 +132,7 @@ TensorForth::TensorForth(int device, int verbose) {
     /// allocate VM handle pool
     ///
     MM_ALLOC(&vm_pool, sizeof(VM_Handle) * VM_COUNT);
+    MM_ALLOC(&vmst_cnt, sizeof(int) * 4);
 }
 
 __HOST__ void
@@ -129,74 +143,94 @@ TensorForth::setup() {
         GPU_ERR(cudaEventCreate(&h->t0));           /// * allocate timers
         GPU_ERR(cudaEventCreate(&h->t1));
     }
-    k_vm_init<<<1, WARP(VM_COUNT)>>>(sys, vm_pool); /// * initialize all VMs
+    k_vm_init<<<1, WARP(VM_COUNT)>>>(sys, vm_pool);         /// * initialize all VMs
     GPU_CHK();
 }
 
 __HOST__ int
 TensorForth::tally() {
     if (sys->trace() <= 1) return 0;
+
+    k_ten4_tally<<<1, WARP(VM_COUNT)>>>(vmst_cnt, vm_pool);
+    GPU_CHK();
     
-    int cnt[4] = { 0, 0, 0, 0};                    /// STOP, HOLD, QUERY, NEST
-    for (int i=0; i < VM_COUNT; i++) {
-        cnt[vm_pool[i].vm->state]++;
-    }
     cout << "VM.state[STOP,HOLD,QUERY,NEST]=[";
-    for (int i = 0; i < 4; i++) cout << " " << cnt[i];
-    cout << " ]" << std::endl;
-    
+    for (int i = 0; i < 4; i++) cout << " " << vmst_cnt[i];
+    cout << " ]" << endl;
+
 #if T4_VERBOSE > 1
     int m0 = (int)sys->mu->here() - 0x80;
     sys->db->mem_dump(m0 < 0 ? 0 : m0, 0x80);
 #endif // T4_VERBOSE > 1
-        
-    return 1;
+    
+    return vmst_cnt[STOP];                         /// * number of STOP VM
 }
 
 __HOST__ int
 TensorForth::run() {
-    int n_vm = 1;
-    while (n_vm && sys->readline()) {
-        n_vm = 0;
-        for (int i=0; i<VM_COUNT; i++) {
-            VM_Handle *h  = &vm_pool[i];
-            VM        *vm = h->vm;
-            if (vm->state == STOP) continue;
-            n_vm++;
-            
-            cudaEventRecord(h->t0, h->st);
-            k_vm_exec<<<1, 1, 0, h->st>>>(vm);  // one block per VM
-            GPU_CHK();
-            cudaEventRecord(h->t1, h->st);
-            cudaStreamWaitEvent(h->st, h->t1);  // CPU will wait here
-            
-            float dt;
-            cudaEventElapsedTime(&dt, h->t0, h->t1);
-            
-            switch (vm->state) {
-            case HOLD:  VLOG1("%d} VM[%d] HOLD\n", vm->id, vm->id);   break;
+    _once();
+    _profile();
+    return 0;
+/*        
+    tally();
+    while (tally() < VM_COUNT && sys->readline()) {
+        once();
+        switch (vm->state) {
+        case HOLD:  VLOG1("%d} VM[%d] HOLD\n", vm->id, vm->id);   break;
 #if T4_ENABLE_OBJ                
-            case QUERY: if (!vm->compile) db->ss_dump(i, vm->ss.idx); break;
+        case QUERY: if (!vm->compile) db->ss_dump(i, vm->ss.idx); break;
 #endif // T4_ENABLE_OBJ                
-            }
         }
+//        sys->mu->sweep();       /// * CC: device function call
         sys->flush();             /// * flush output buffer
         tally();                  /// * tally debug info
     }
     return 0;
+*/
 }
 
 __HOST__ void
 TensorForth::teardown(int sig) {
+    cout << "\\ VM[] ";
     k_vm_done<<<1, WARP(VM_COUNT)>>>(vm_pool);
     GPU_CHK();
+    cout << "freed" << endl;
+    
     for (int i=0; i < VM_COUNT; i++) {
         VM_Handle *h = &vm_pool[i];
         GPU_ERR(cudaEventDestroy(h->t1));
         GPU_ERR(cudaEventDestroy(h->t0));
         GPU_ERR(cudaStreamDestroy(h->st));
     }
+    MM_FREE(vmst_cnt);           /// * release ten4 Managed memory
     MM_FREE(vm_pool);
+    delete sys;                  /// * release system
+    
+    cudaDeviceReset();
+}
+
+__HOST__ void
+TensorForth::_once() {
+    for (int i=0; i<VM_COUNT; i++) {
+        VM_Handle *h  = &vm_pool[i];
+        VM        *vm = h->vm;
+        
+        cudaEventRecord(h->t0, h->st);            /// * record start clock
+        k_vm_exec<<<1, 1, 0, h->st>>>(vm);
+        cudaEventRecord(h->t1, h->st);            /// * record end clock
+//        cudaStreamWaitEvent(h->st, h->t1);        /// * CPU will wait here
+    }
+    GPU_CHK();
+}
+
+__HOST__ void
+TensorForth::_profile() {
+    for (int i=0; i<VM_COUNT; i++) {
+        VM_Handle *h  = &vm_pool[i];
+        float dt;
+        cudaEventElapsedTime(&dt, h->t0, h->t1);
+        VLOG1("VM[%d] dt=%0.3f\n", i, dt);
+    }
 }
 ///
 /// main program
@@ -238,7 +272,7 @@ int main(int argc, char**argv) {
 
     TensorForth *f = new TensorForth(opt.device_id, opt.verbose);
     f->setup();
-//    f->run();
+    f->run();
 
     cout << APP << " done." << endl;
     f->teardown();
