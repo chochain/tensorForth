@@ -31,7 +31,7 @@
 ///@}
 ///@name Virtual machine instance controls
 ///@{
-#define VM_COUNT            2        /**< number of VMs         */
+#define VM_COUNT            4        /**< number of VMs         */
 #define VM_EXP_STACK        8        /**< exception stack depth */
 #define VM_REGFILE_SZ       128      /**< register file size    */
 ///@}
