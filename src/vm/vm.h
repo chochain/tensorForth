@@ -32,7 +32,7 @@ public:
     Vector<DU, 0> rs;                 ///< return stack
 
     __GPU__  VM(int id, System *sys);
-    __GPU__  ~VM() { VLOG1("VM[%d] free\n", id); }
+    __GPU__  ~VM() { VLOG1("%d ", id); }
     
     __GPU__  virtual void init() { VLOG1("VM[%d]::init ok\n", id); }
     __GPU__  virtual void outer();
