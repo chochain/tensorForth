@@ -6,9 +6,9 @@
  */
 #ifndef TEN4_SRC_DEBUG_H
 #define TEN4_SRC_DEBUG_H
+#include "t4base.h"                                       ///< include ten4_types.h
 #include "io/aio.h"
 #include "mmu/mmu.h"
-#include "mmu/t4base.h"                                   ///< include ten4_types.h
 
 class Debug {                                             ///< friend class to MMU and AIO
     MMU *mu;                                              ///< memory management unit

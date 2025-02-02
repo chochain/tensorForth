@@ -119,14 +119,14 @@ NetVM::_nnop(t4_layer op) {     /// vtable dispatcher
 __GPU__ void
 NetVM::_donext() {                                ///< overwrite eforth::init
     if (IS_M(top) && IS_OBJ(rs[-1])) {
-        Model   &m = (Model&)mmu.du2obj(top);
-        Dataset &d = (Dataset&)mmu.du2obj(rs[-1]);
+        Model   &m = (Model&)T4Base::du2obj(top);
+        Dataset &d = (Dataset&)T4Base::du2obj(rs[-1]);
         if (!d.is_dataset()) {
             ERROR("not a dataset on RS?\n"); return;
         }
         if (d.done) {
             DU v = rs.pop();                  /// * pop off dataset
-            mmu.drop(v);                      /// * free memory if a physical dataset
+            DROP(v);                          /// * free memory if a physical dataset
             m.epoch++;                        /// * bump epoch counter
             IP += sizeof(IU);                 /// * skip over to next word
         }
@@ -163,7 +163,7 @@ NetVM::_pickle(bool save) {
 
 __GPU__ void
 NetVM::_fetch(DU d, bool rewind) {
-    if (!((Dataset&)mmu.du2obj(d)).is_dataset()) {
+    if (!((Dataset&)T4Base::du2obj(d)).is_dataset()) {
         ERROR("TOS=%08x not dataset?\n", DU2X(d));
         return;
     }
@@ -181,8 +181,8 @@ NetVM::_get_parm(int n) {
     S16 i = POPi;
     Tensor *p = MTOS[i].grad[n];
     if (p) {
-        DU v = mmu.obj2du(*p);
-        PUSH(mmu.dup(v));
+        DU v = T4Base::obj2du(*p);
+        PUSH(DUP(v));
     }
     else PUSH(DU0);
 }
@@ -199,7 +199,7 @@ NetVM::_set_parm(int n) {
     Tensor &t = TTOS;
     if (t.numel == p.numel) {
         Tensor::copy(t, p);
-        DU t = POP(); mmu.drop(t);
+        DU t = POP(); DROP(t);
     }
     else {
         PUSH(i);                        /// * restore n
@@ -218,7 +218,7 @@ NetVM::_conv(U16 k) {
         Tensor &v = TTOS;
         if (v.rank == 1) {
             for (int i=0; i<5; i++) opt[i] = (U16)v.data[i];
-            DU t = POP(); mmu.drop(t);
+            DU t = POP(); DROP(t);
         }
         else { ERROR("vec?"); return; }
     }
@@ -234,15 +234,15 @@ __GPU__ void
 NetVM::_loss(t4_loss op) {
     if (TOS2T) {                        /// * calculate loss of two tensors
         DU y = POP();                   /// * pop off target tensor
-        DU n = TTOS.loss(op, (Tensor&)mmu.du2obj(y));
+        DU n = TTOS.loss(op, (Tensor&)T4Base::du2obj(y));
         PUSH(n);
-        mmu.drop(y);                    /// * free target tensor
+        DROP(y);                        /// * free target tensor
     }
     else if (TOS1T && IS_M(ss[-1])) {   /// * model loss
         DU y = POP();
-        DU n = MTOS.loss(op, (Tensor&)mmu.du2obj(y));
+        DU n = MTOS.loss(op, (Tensor&)T4Base::du2obj(y));
         PUSH(n);                        /// * loss on TOS
-        mmu.drop(y);                    /// * pop off t
+        DROP(y);                        /// * pop off t
     }
     else if (IS_M(top)) PUSH(MTOS.loss(op));
     else ERROR("model?\n");
@@ -303,7 +303,7 @@ NetVM::init() {
     CODE("loss.nll",  _loss(LOSS_NLL));       ///> (N T -- N T n) negative log-likelihood
     CODE("nn.loss",                           ///> (N T -- N T n) auto select loss function
          if (IS_M(top) || (TOS1T && IS_M(ss[-1]))) {
-             Model &m = IS_M(top) ? MTOS : (Model&)mmu.du2obj(ss[-1]);
+             Model &m = IS_M(top) ? MTOS : (Model&)T4Base::du2obj(ss[-1]);
              switch (m[-2].grad_fn) {
              case L_TANH:
              case L_SIGMOID: _loss(LOSS_BCE); break;
@@ -344,8 +344,8 @@ NetVM::init() {
     CODE("nn.onehot",                         /// * current onehot vector
          if (IS_M(top)) {
              Tensor &hot = MTOS.onehot();
-             DU v = mmu.obj2du(hot);
-             PUSH(mmu.dup(v));
+             DU v = T4Base::obj2du(hot);
+             PUSH(DUP(v));
          }
          else ERROR("TOS is not a model!\n"));
     CODE("nn.hit", 
@@ -371,11 +371,11 @@ NetVM::init() {
     CODE("forward",                             /// * forward process
          if (IS_M(ss[-1]) && TOS1D) {           /// * TOS is a dataset
              DU x = POP();                      /// * NOS is the model
-             MTOS.forward((Tensor&)mmu.du2obj(x));     /// * exec forward path
-             mmu.drop(x);                              /// * release reference
+             MTOS.forward((Tensor&)T4Base::du2obj(x));     /// * exec forward path
+             DROP(x);                           /// * release reference
          }
          else if (IS_M(top) && IS_OBJ(rs[-1])) {       /// * in a for/next loop
-             Tensor &t = (Tensor&)mmu.du2obj(rs[-1]);  /// * rs[-1] is a dataset
+             Tensor &t = (Tensor&)T4Base::du2obj(rs[-1]);  /// * rs[-1] is a dataset
              if (t.is_dataset()) MTOS.forward(t);
              else ERROR("rs[-1] is not a dataset?\n");
          }
@@ -383,16 +383,16 @@ NetVM::init() {
     CODE("backprop",
          if (IS_M(ss[-1]) && TOS1T) {                  /// * TOS is a onehot vector
              DU y = POP();                     
-             MTOS.backprop((Tensor&)mmu.du2obj(y));    /// * backprop(target vector)
-             mmu.drop(y);
+             MTOS.backprop((Tensor&)T4Base::du2obj(y));    /// * backprop(target vector)
+             DROP(y);
          }
          else if (IS_M(top)) MTOS.backprop();          /// * use default output
          else ERROR("TOS not a model?\n"));
     CODE("broadcast",
          if (IS_M(ss[-1]) && TOS1T) {                  /// * TOS is a onehot vector
              DU y = POP();
-             MTOS.broadcast((Tensor&)mmu.du2obj(y));
-             mmu.drop(y);
+             MTOS.broadcast((Tensor&)T4Base::du2obj(y));
+             DROP(y);
          }
          else ERROR("TOS not a tensor nor NOS a model?\n"));
     ///@}
@@ -402,8 +402,8 @@ NetVM::init() {
     CODE("n@",      if (!M1V) return;
          S16    i  = POPi;
          Tensor &t = MTOS[i];
-         DU     v  = mmu.obj2du(t);
-         PUSH(mmu.dup(v)));
+         DU     v  = T4Base::obj2du(t);
+         PUSH(DUP(v)));
     CODE("nn.w",    _get_parm(0));                 ///< tensor.weight
     CODE("nn.b",    _get_parm(1));                 ///< tensor.bias
     CODE("nn.dw",   _get_parm(2));                 ///< tensor.weight.grad

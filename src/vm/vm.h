@@ -36,6 +36,19 @@ public:
     
     __GPU__  virtual void init() { VLOG1("VM[%d]::init ok\n", id); }
     __GPU__  virtual void outer();
+
+    static __GPU__ __INLINE__ DU    DUP(DU d)  { return IS_OBJ(d) ? AS_VIEW(d) : d; }
+#if T4_ENABLE_OBJ        
+    static __GPU__ __INLINE__ DU    COPY(DU d) {
+        return (IS_OBJ(d))
+            ? T4Base::obj2du(sys->mu->copy((Tensor&)T4Base::du2obj(d)))
+            : d;
+    }
+    static __GPU__ __INLINE__ void  DROP(DU d) { sys->mu->drop(t); }
+#else  // !T4_ENABLE_OBJ    
+    static __GPU__ __INLINE__ DU    COPY(DU d) { return d; }
+    static __GPU__ __INLINE__ void  DROP(DU d) {}
+#endif // T4_ENABLE_OBJ
     
 #if DO_MULTITASK
     static MUTEX    tsk;              ///< mutex for tasker

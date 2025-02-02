@@ -160,25 +160,25 @@ ForthVM::init() {
          while (LDi(ip)) add_iu(LDi(ip)));                // copy&paste code
     CODE(">r",   rs.push(POP()));
     CODE("r>",   PUSH(rs.pop()));
-    CODE("r@",   PUSH(MU->dup(rs[-1])));
+    CODE("r@",   PUSH(DUP(rs[-1])));
     ///@}
     ///@defgroup Stack ops
     ///@brief - opcode sequence can be changed below this line
     ///@{
-    CODE("dup",  PUSH(MU->dup(tos)));                     // CC: new view created
-    CODE("drop", MU->drop(tos); tos = ss.pop());          // free tensor or view
-    CODE("over", PUSH(MU->dup(ss[-1])));                  // CC: new view created
+    CODE("dup",  PUSH(DUP(tos)));                      // CC: new view created
+    CODE("drop", DROP(tos); tos = ss.pop());          // free tensor or view
+    CODE("over", PUSH(DUP(ss[-1])));                  // CC: new view created
     CODE("swap", DU n = ss.pop(); PUSH(n));
     CODE("rot",  DU n = ss.pop(); DU m = ss.pop(); ss.push(n); PUSH(m));
-    CODE("pick", int i = INT(tos); tos = MU->dup(ss[-i]));
+    CODE("pick", int i = INT(tos); tos = DUP(ss[-i]));
     ///@}
     ///@defgroup Stack double
     ///@{
-    CODE("2dup", PUSH(MU->dup(ss[-1])); PUSH(MU->dup(ss[-1])));
+    CODE("2dup", PUSH(DUP(ss[-1])); PUSH(DUP(ss[-1])));
     CODE("2drop",
-         DU s = ss.pop(); MU->drop(s); MU->drop(tos);
+         DU s = ss.pop(); DROP(s); DROP(tos);
          tos = ss.pop());
-    CODE("2over",PUSH(MU->dup(ss[-3])); PUSH(MU->dup(ss[-3])));
+    CODE("2over",PUSH(DUP(ss[-3])); PUSH(DUP(ss[-3])));
     CODE("2swap",
         DU n = ss.pop(); DU m = ss.pop(); DU l = ss.pop();
          ss.push(n); PUSH(l); PUSH(m));
