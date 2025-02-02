@@ -6,6 +6,7 @@
  */
 #include <iomanip>        /// setw, setprec, setbase...
 #include "sys.h"
+#include "ldr/loader.h"
 ///
 /// random number generator setup
 /// Note: kept here because curandStates stays in CUDA memory

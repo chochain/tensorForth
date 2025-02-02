@@ -7,7 +7,6 @@
 #ifndef TEN4_SRC_SYS_H
 #define TEN4_SRC_SYS_H
 #include <curand_kernel.h>
-#include "ldr/loader.h"
 #include "debug.h"                              ///< include mmu/mmu.h, io/aio.h
 
 #define ENDL '\n'
