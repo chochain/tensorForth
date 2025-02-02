@@ -16,16 +16,17 @@ NVCC_FLAGS:= \
 NV_CC:=${CUDA_HOME}/bin/nvcc $(NVCC_FLAGS)
 
 T4_SRCS := \
-    ./src/sys.cu \
-    ./src/debug.cu \
+	./src/sys.cu \
+	./src/debug.cu \
 	./src/ten4.cu
 
 T4_INCS := \
 	./src/ten4_config.h \
 	./src/ten4_types.h \
 	./src/opt.h \
-    ./src/sys.h \
-    ./src/debug.h \
+	./src/sys.h \
+	./src/debug.h \
+	./src/t4base.h \
 	./src/ten4.h
 
 T4_OBJS := $(T4_SRCS:%.cu=%.o)
@@ -34,7 +35,7 @@ OBJS += $(T4_OBJS)
 
 # Every subdirectory with source files must be described here
 #SUBDIRS := nn vu ldr vm io mmu  # vu excluded after v4.x
-#SUBDIRS := nn ldr vm io mmu     
+#SUBDIRS := nn ldr vm io mmu
 SUBDIRS := vm io mmu      # stream devel
 
 T4_LIBS := $(SUBDIRS:%=-Isrc/%)

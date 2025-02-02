@@ -9,9 +9,12 @@ MMU_SRCS := \
 	src/mmu/mmu.cu
 
 MMU_INCS := \
+	src/ten4_config.h \
+	src/ten4_types.h \
+	src/debug.h \
+	src/t4base.h \
 	src/mmu/util.h \
 	src/mmu/vector.h \
-	src/mmu/t4base.h \
 	src/mmu/tensor.h \
 	src/mmu/tlsf.h \
 	src/mmu/mmu.h \
