@@ -17,6 +17,7 @@ MMU_INCS := \
 	src/mmu/vector.h \
 	src/mmu/tensor.h \
 	src/mmu/tlsf.h \
+	src/mmu/code.h \
 	src/mmu/mmu.h \
 	src/mmu/model.h \
 	src/mmu/dataset.h
