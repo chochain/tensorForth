@@ -12,15 +12,14 @@
 ///
 #define ADD_CODE(n, g, im) {            \
     auto f = [this] __GPU__ (){ g; };   \
-    sys->mu->add_word(n, f, im);        \
+    mmu->add_word(n, f, im);            \
 }
 #define CODE(n, g)  ADD_CODE(n, g, false)
 #define IMMD(n, g)  ADD_CODE(n, g, true)
 ///
 ///@name Data conversion
 ///@{
-#define POPi    (INT(POP()))                   /**< convert popped DU as an IU     */
-#define FIND(s) (sys->mu->find(s, compile))    /**< find input idiom in dictionary */
+#define POPi    (INT(POP()))          /**< convert popped DU as an IU     */
 ///@}
 ///
 /// Forth Virtual Machine
@@ -42,10 +41,15 @@ protected:
     ///
     /// stack short hands
     ///
+    __GPU__ __INLINE__ int FIND(char *name) {
+        int w = mmu->find(name, compile);
+        if (w < 0) DEBUG(" word not found");
+        return w;
+    }
     __GPU__ __INLINE__ DU POP()           { DU n=tos; tos=ss.pop(); return n; }
     __GPU__ __INLINE__ DU PUSH(DU v)      { ss.push(tos); return tos = v; }
 #if T4_ENABLE_OBJ    
-    __GPU__ __INLINE__ DU PUSH(T4Base &t) { ss.push(tos); return tos = mmu.obj2du(t); }
+    __GPU__ __INLINE__ DU PUSH(T4Base &t) { ss.push(tos); return tos = T4Base::obj2du(t); }
 #endif // T4_ENABLE_OBJ
     ///
     /// Forth outer interpreter
