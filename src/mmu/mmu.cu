@@ -50,8 +50,7 @@ __GPU__ int
 MMU::find(const char *s, bool compile) {
     DEBUG("find(%s) =>", s);
     for (int i = _didx - (compile ? 2 : 1); i >= 0; --i) {
-        const char *t = _dict[i].name;
-        if (STRCMP(t, s)==0) return i;
+        if (STRCMP(_dict[i].name, s)==0) return i;
     }
     return -1;
 }
