@@ -8,9 +8,9 @@
 
 __GPU__ 
 VM::VM(int id, System *sys) 
-    : id(id), state(STOP), sys(sys) {
-    ss.init(sys->mu->vmss(id), T4_SS_SZ);
-    rs.init(sys->mu->vmrs(id), T4_RS_SZ);
+    : id(id), state(STOP), sys(sys), mmu(sys->mu) {
+    ss.init(mmu->vmss(id), T4_SS_SZ);
+    rs.init(mmu->vmrs(id), T4_RS_SZ);
     VLOG1("\\ VM[%d] created, sys=%p, ss=%p, rs=%p\n", id, sys, ss.v, rs.v);
 }
 ///
