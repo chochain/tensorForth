@@ -27,6 +27,7 @@ public:
     IU        id;                     ///< VM id
     vm_state  state;                  ///< VM state
     System    *sys;                   ///< system interface
+    MMU       *mmu;                   ///< cached MMU interface
     
     Vector<DU, 0> ss;                 ///< parameter stack (setup in ten4.cu)
     Vector<DU, 0> rs;                 ///< return stack
@@ -34,20 +35,22 @@ public:
     __GPU__  VM(int id, System *sys);
     __GPU__  ~VM() { VLOG1("%d ", id); }
     
-    __GPU__  virtual void init() { VLOG1("VM[%d]::init ok\n", id); }
-    __GPU__  virtual void outer();
-
-    static __GPU__ __INLINE__ DU    DUP(DU d)  { return IS_OBJ(d) ? AS_VIEW(d) : d; }
+    __GPU__  virtual void    init() { VLOG1("VM[%d]::init ok\n", id); }
+    __GPU__  virtual void    outer();
+    ///
+    /// proxy methods to MMU
+    ///
+    __GPU__ __INLINE__ DU    DUP(DU d)  { return IS_OBJ(d) ? AS_VIEW(d) : d; }  ///< soft copy
 #if T4_ENABLE_OBJ        
-    static __GPU__ __INLINE__ DU    COPY(DU d) {
+    __GPU__ __INLINE__ DU    COPY(DU d) {                                       ///< hard copy
         return (IS_OBJ(d))
-            ? T4Base::obj2du(sys->mu->copy((Tensor&)T4Base::du2obj(d)))
+            ? T4Base::obj2du(mmu->copy((Tensor&)T4Base::du2obj(d)))
             : d;
     }
-    static __GPU__ __INLINE__ void  DROP(DU d) { sys->mu->drop(t); }
+    __GPU__ __INLINE__ void  DROP(DU d) { mmu->drop(t); }                       ///< free obj
 #else  // !T4_ENABLE_OBJ    
-    static __GPU__ __INLINE__ DU    COPY(DU d) { return d; }
-    static __GPU__ __INLINE__ void  DROP(DU d) {}
+    __GPU__ __INLINE__ DU    COPY(DU d) { return d; }
+    __GPU__ __INLINE__ void  DROP(DU d) {}
 #endif // T4_ENABLE_OBJ
     
 #if DO_MULTITASK
