@@ -104,12 +104,13 @@ AIO::_tsave(DU top, U16 mode, char *fname) {
     ios_base::openmode m = (mode & FAM_RW) ? ios_base::in : ios_base::out;
     if (mode & FAM_RAW) m |= ios_base::binary;
     
-    Tensor &t = (Tensor&)_mmu->du2obj(top);
     ofstream fout(fname, m);                      ///< open an output file
     if (!fout.is_open()) {
         ERROR(" failed to open for output\n");
         return 1;
     }
+    
+    Tensor &t = (Tensor&)T4Base::du2obj(top);
     if (mode & FAM_RAW) _tsave_raw(fout, t);      /// * write in raw format
     else                _tsave_txt(fout, t);      /// * write in text format
     

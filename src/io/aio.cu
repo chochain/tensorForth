@@ -12,7 +12,7 @@
 __HOST__ void
 AIO::show(DU v, int rdx) {
 #if T4_ENABLE_OBJ    
-    if (IS_OBJ(v)) { show(du2obj(v), IS_VIEW(v)); return; }
+    if (IS_OBJ(v)) { _show_obj(T4Base::du2obj(v), IS_VIEW(v)); return; }
 #endif
     if (rdx != 10) fout << static_cast<int>(v);
     else           fout << v;
@@ -21,7 +21,7 @@ AIO::show(DU v, int rdx) {
 __HOST__ void
 AIO::print(DU v) {
 #if T4_ENABLE_OBJ
-    T4Base &o = _mmu->du2obj(v);
+    T4Base &o = T4Base::du2obj(v);
     switch (o.ttype) {
     case T4_TENSOR:
     case T4_DATASET: _print_tensor((Tensor&)o); break;

@@ -215,7 +215,7 @@ Model::forward(Tensor &input) {
     /// collect onehot vector and hit count
     ///
     if (input.is_dataset()) {
-        if (_hot) _mmu->drop(_mmu->obj2du(*_hot));
+        if (_hot) _mmu->drop(T4Base::obj2du(*_hot));
         _hot = &onehot((Dataset&)input);         /// * create/cache onehot vector
         _hit = hit(true);                        /// * recalc/cache hit count
     }

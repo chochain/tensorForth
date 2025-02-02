@@ -110,10 +110,10 @@ MMU::colon(const char *name) {
 __GPU__ void
 MMU::mark_free(DU v) {            ///< mark a tensor free for release
     if (IS_VIEW(v)) return;
-    T4Base &t = du2obj(v);
+    T4Base &t = TBase::du2obj(v);
     TRACE("mmu#mark T[%x] to free[%d]\n", OBJ2X(t), _fidx);
 //    lock();
-    if (_fidx < T4_TFREE_SZ) _mark[_fidx++] = obj2du(t);
+    if (_fidx < T4_TFREE_SZ) _mark[_fidx++] = T4base::obj2du(t);
     else ERROR("ERR: tfree store full, increase T4_TFREE_SZ!");
 //    unlock();                   ///< TODO: CC: DEAD LOCK, now!
 }
@@ -257,26 +257,6 @@ MMU::random(Tensor &t, t4_rand_opt ntype, DU bias, DU scale) {
     GPU_SYNC();
     
     return t;
-}
-///
-/// short hands for eforth tensor ucodes (for DU <-> Tensor conversion)
-/// TODO: more object types
-///
-__GPU__ DU
-MMU::dup(DU d)  { return IS_OBJ(d) ? AS_VIEW(d) : d; }
-__GPU__ DU
-MMU::copy(DU d) { return IS_OBJ(d) ? obj2du(copy((Tensor&)du2obj(d))) : d; }
-__GPU__ void
-MMU::drop(DU d) {
-    if (!IS_OBJ(d) || IS_VIEW(d)) return;     /// non-object, just drop
-    
-    T4Base &t = du2obj(d);                    /// check reference count
-#if T4_ENABLE_NN
-    if (t.is_model()) free((Model&)t);        /// release TLSF memory block
-    else              free((Tensor&)t);
-#else  // T4_ENABLE_NN
-    free((Tensor&)t);
-#endif // T4_ENABLE_NN
 }
 ///
 /// tensor slice & dice

@@ -98,12 +98,12 @@ AIO::_print_model_parm(Tensor &in, Tensor &out) {
 ///
 __HOST__ int
 AIO::_dsfetch(Dataset &ds, U16 mode, char *ds_name) {
-//    Dataset &ds = (Dataset&)_mmu->du2obj(id);     ///< dataset ref
-//    U32     dsx = DU2X(id) & ~T4_TYPE_MSK;        ///< dataset mnemonic
-//    if (!ds.is_dataset()) {                       /// * indeed a dataset?
-//        ERROR("mmu#load id=%x is not a dataset\n", dsx);
-//        return -1;
-//    }
+    Dataset &ds = (Dataset&)T4Base::du2obj(id);   ///< dataset ref
+    U32     dsx = DU2X(id) & ~T4_TYPE_MSK;        ///< dataset mnemonic
+    if (!ds.is_dataset()) {                       /// * indeed a dataset?
+        ERROR("mmu#load id=%x is not a dataset\n", dsx);
+        return -1;
+    }
     bool rewind = (mode & FAM_REW) != 0;
     ///
     /// search cache for top <=> dataset pair
@@ -153,7 +153,6 @@ AIO::_dsfetch(Dataset &ds, U16 mode, char *ds_name) {
 __HOST__ int
 AIO::_nsave(Model &m, U16 mode, char* fname) {
     printf("\nAIO::save model to '%s' =>", fname);
-//    Model &m = (Model&)_mmu->du2obj(top);
     ofstream fout(fname, ios_base::binary);     ///< open an output file
     if (!fout.is_open()) {
         ERROR(" failed to open for output\n");
@@ -164,6 +163,7 @@ AIO::_nsave(Model &m, U16 mode, char* fname) {
         // TODO: raw format (.npy, .petastorm, hdf5)
     }
     else {
+        Model &m = (Model&)T4Base::du2obj(top);
         _nsave_model(fout, m);                  /// * blank line as section break
         _nsave_param(fout, m);
     }
@@ -176,13 +176,13 @@ AIO::_nsave(Model &m, U16 mode, char* fname) {
 __HOST__ int
 AIO::_nload(Model &m, U16 mode, char* fname) {
     printf("\nAIO::load '%s' ", fname);
-//    Model &m = (Model&)_mmu->du2obj(top);
     ifstream fin(fname, ios_base::binary);           ///< open an input file
     if (!fin.is_open()) {
         ERROR("=> failed to open for input\n");
         return 1;
     }
     /// TODO: handle raw data format
+    Model &m = (Model&)T4Base::du2obj(top);
     int err = 0;
     if (m.numel <= 2) {
         printf("NN model");

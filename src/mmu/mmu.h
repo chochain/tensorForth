@@ -162,7 +162,7 @@ public:
     }
     __GPU__  __INLINE__ void wd(U8 *c, DU d)   {
         DU v = rd(c);
-        if (IS_OBJ(v)) drop(v);
+        drop(v);
         MEMCPY(c, &d, sizeof(DU));
     }
     __GPU__  __INLINE__ void wd(IU i, DU d)    {
@@ -174,19 +174,11 @@ public:
         if (i < T4_PMEM_SZ) wi(&_pmem[i], n);
         else ERROR("\nmmu.wi[%d]", i);
     }
+    
 #if T4_ENABLE_OBJ // vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
     ///
     /// tensor object life-cycle methods
     ///
-    __BOTH__ T4Base &du2obj(DU d) {                         ///< DU to Obj convertion
-        U32    off = DU2X(d) & ~T4_TYPE_MSK;
-        T4Base *t  = (T4Base*)(_obj + off);
-        return *t;
-    }
-    __BOTH__ DU     obj2du(T4Base &t) {                     ///< conver Obj to DU
-        U32 o = ((U32)((U8*)&t - _obj)) | T4_TT_OBJ;
-        return *(DU*)&o;
-    }
     __GPU__  void   mark_free(DU v);                        ///< mark an object to be freed in host
     __GPU__  void   sweep();                                ///< free marked tensor
     __GPU__  Tensor &talloc(U32 sz);                        ///< allocate from tensor space
@@ -203,17 +195,16 @@ public:
     __GPU__  Model  &model(U32 sz=T4_NET_SZ);               ///< create a NN model
     __GPU__  void   free(Model &m);
 #endif // T4_ENABLE_NN
-    ///
-    /// short hands for eforth tensor ucodes (for DU <-> Object conversion)
-    ///
-    __GPU__  DU     dup(DU d);                             ///< create a view
-    __GPU__  DU     copy(DU d);                            ///< physical copy
-    __GPU__  void   drop(DU d);                            ///< drop from memory
+    __GPU__  void   drop(DU d) {
+        if (!IS_OBJ(d) || IS_VIEW(d)) return;               /// non-object, just drop
     
+        T4Base &t = T4Base::du2obj(d);                      /// check reference count
+        if (t.is_model()) sys->mu->free((Model&)t);         /// release TLSF memory block
+        else              sys->mu->free((Tensor&)t);
+    }
 #else  // T4_ENABLE_OBJ ===========================================================
-    __GPU__  void   sweep()    {}                          ///< holder for no object
-    __GPU__  void   drop(DU d) {}                          ///< place holder
-    __GPU__  DU     dup(DU d)  { return d; }               ///< place holder
+    __GPU__  void   sweep()    {}                           ///< holder for no object
+    __GPU__  void   drop(DU v) {}
     
 #endif // T4_ENABLE_OBJ ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 };
