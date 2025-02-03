@@ -11,7 +11,7 @@ VM::VM(int id, System *sys)
     : id(id), state(STOP), sys(sys), mmu(sys->mu) {
     ss.init(mmu->vmss(id), T4_SS_SZ);
     rs.init(mmu->vmrs(id), T4_RS_SZ);
-    VLOG1("\\ VM[%d] created, sys=%p, ss=%p, rs=%p\n", id, sys, ss.v, rs.v);
+    TRACE("\\ VM[%d] created, sys=%p, ss=%p, rs=%p\n", id, sys, ss.v, rs.v);
 }
 ///
 /// VM Outer interpreter
@@ -27,23 +27,24 @@ VM::VM(int id, System *sys)
 ///
 __GPU__ void
 VM::outer() {
-    DU ss0 = ss[0];
-    for (int i=0; i<1000; i++) {
-        ss[0] = (DU)i;
-    }
-    ss[0] = ss0;
-    return;
-    
     if (state == NEST) resume();                     /// * resume from suspended VM
-    char *idiom = sys->next_idiom();
-    while (state == HOLD && idiom) {                 /// * loop throught tib
+    char *idiom = sys->fetch();
+    while (idiom) {                                  /// * loop throught tib
         if (pre(idiom)) continue;                    /// * pre process
-        VLOG2("%d| >> %-10s => ", id, idiom);
+        DEBUG("%d> idiom='%s' =>", id, idiom);
         if (!parse(idiom) && !number(idiom)) {
             sys->perr(idiom, "? ");                  /// * display error prompt
             compile = false;                         /// * reset to interpreter mode
         }
         if (post()) break;                           /// * post process
+        idiom = sys->fetch();
     }
+    TRACE("%d> VM.state=%d\n", id, state);
+/*    
+#if T4_ENABLE_OBJ                
+    if (state==QUERY) if (!compile) sys->db->ss_dump(i, ss.idx); break;
+#endif // T4_ENABLE_OBJ                
+    }
+*/    
 }
 //=======================================================================================
