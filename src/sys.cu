@@ -64,13 +64,15 @@ System::~System() {
     delete mu;
     INFO("\\ System freed\n");
 }
-
+///
+///> feed device input stream with a line from host input
+///
 __HOST__ int
 System::readline() {
-    _istr->clear();
-    char *tib = _istr->rdbuf();
-    io->fin.getline(tib, T4_IBUF_SZ, '\n');
-    return strlen(tib);
+    _istr->clear();                          /// * clear device inpugt stream
+    char *tib = _istr->rdbuf();              ///> device input buffer
+    io->fin.getline(tib, T4_IBUF_SZ, '\n');  /// * feed
+    return strlen(tib);                      /// * return size of input line
 }
 
 #define NEXT_EVENT(n) ((io_event*)((char*)&ev->data[0] + ev->sz))
@@ -114,6 +116,7 @@ System::process_event(io_event *ev) {
             io->_dsfetch(o->n, o->a, (char*)ev->data);   /// * fetch first batch
             break;
         case OP_FETCH: io->_dsfetch(o->n, o->a); break;  /// * fetch/rewind dataset batch
+
         case OP_NSAVE:
             ev = NEXT_EVENT(ev);                         ///< get dataset repo name
             io->_nsave(o->n, o->a, (char*)ev->data);
