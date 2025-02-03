@@ -27,9 +27,6 @@ public:
     
     __HOST__ System(h_istr &i, h_ostr &o, int khz, int verbo);
     __HOST__ ~System();
-    
-    __HOST__ void      fin_setup(const char *line);
-    __HOST__ void      fout_setup(void (*hook)(int, const char*));
     ///
     /// System functions
     ///
@@ -64,11 +61,10 @@ public:
     __GPU__  char *scan(char delim)  {
         _istr->get_idiom(_pad, delim); return _pad;       ///< scan input stream for a given char
     }
-    __GPU__  char *next_idiom()      {                    ///< fetch next idiom
-        *_istr >> _pad; return _pad;
+    __GPU__  char *fetch()           {                    ///< fetch next idiom
+        return (*_istr >> _pad) ? _pad : NULL;
     }
-//    __GPU__  int  fetch(string &idiom);                   ///< read input stream into string
-//    __GPU__  void load(VM &vm, const char* fn);           ///< load external Forth script
+//    __GPU__  void load(VM &vm, const char* fn);                   ///< load external Forth script
     ///
     /// output methods
     ///
