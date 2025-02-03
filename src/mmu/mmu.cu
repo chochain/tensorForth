@@ -48,7 +48,7 @@ MMU::~MMU() {
 ///
 __GPU__ int
 MMU::find(const char *s, bool compile) {
-    DEBUG("find(%s) =>", s);
+    DEBUG("mmu.find(%s) =>", s);
     for (int i = _didx - (compile ? 2 : 1); i >= 0; --i) {
         if (STRCMP(_dict[i].name, s)==0) return i;
     }
@@ -65,7 +65,7 @@ MMU::status() {
         if ((UFP)c->name < n0) n0 = (UFP)c->name;
     }
     c = _dict;
-    DEBUG("Built-in Dictionary [name0=%lx, xt0=%lx]\n", n0, x0);
+    DEBUG("Built-in Dictionary [name0=0x%lx, xt0=0x%lx]\n", n0, x0);
     for (int i=0; i<_didx; i++, c++) {      ///< dump dictionary from device
         DEBUG("%4d> name=%5x, xt=%5x %s\n", i,
             (U32)((UFP)c->name - n0),

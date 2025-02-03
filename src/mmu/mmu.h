@@ -39,7 +39,7 @@ public:
     ///
     /// references to memory blocks
     ///
-    __BOTH__ __INLINE__ Code *dict()      { return &_dict[0]; }          ///< dictionary pointer
+    __BOTH__ __INLINE__ Code *dict(IU i)  { return &_dict[i]; }          ///< dictionary pointer
     __BOTH__ __INLINE__ DU   *vmss(IU i)  { return &_vmss[i*T4_SS_SZ]; } ///< dictionary pointer
     __BOTH__ __INLINE__ DU   *vmrs(IU i)  { return &_vmrs[i*T4_RS_SZ]; } ///< dictionary pointer
     __BOTH__ __INLINE__ U8   *pmem(IU i)  { return &_pmem[i]; }          ///< base of parameter memory
