@@ -27,7 +27,7 @@
 
 __GPU__
 ForthVM::ForthVM(int id, System *sys) : VM(id, sys) {
-    dict = mmu->dict();
+    dict = mmu->dict(0);
     base = mmu->pmem(id);
     VLOG1("\\  ::ForthVM[%d](dict=%p) sizeof(Code)=%ld\n", id, dict, sizeof(Code));
 }
@@ -126,19 +126,6 @@ __GPU__ __INLINE__ void ForthVM::call(IU w) {
         UFP xt = (UFP)c.xt & ~CODE_ATTR_FLAG;        /// * strip off attribute bit
         (*(FPTR)xt)();                               /// * execute function
     }
-}
-///
-/// Dictionary compiler proxy macros to reduce verbosity
-///
-__GPU__ void ForthVM::add_w(IU w)  {
-    add_iu(w);
-    VLOG2("add_w(%d) => %s\n", w, dict[w].name);
-}
-__GPU__ void ForthVM::add_iu(IU i) { mmu->add((U8*)&i, sizeof(IU)); }
-__GPU__ void ForthVM::add_du(DU d) { mmu->add((U8*)&d, sizeof(DU)); }
-__GPU__ void ForthVM::add_str(const char *s, bool adv) {
-    int sz = STRLENB(s)+1; sz = ALIGN2(sz);           ///> calculate string length, then adjust alignment (combine?)
-    mmu->add((U8*)s, sz, adv);
 }
 ///
 /// dictionary initializer
@@ -255,7 +242,7 @@ ForthVM::init() {
     CODE("u.",      sys->dot(UDOT, POP()));
     CODE(".r",      int n = POPi; sys->dotr(n, POP(), *base));
     CODE("u.r",     int n = POPi; sys->dotr(n, ABS(POP()), *base));
-    CODE("key",     PUSH(sys->next_idiom()[0]));
+    CODE("key",     PUSH(sys->fetch()[0]));
     CODE("emit",    sys->dot(EMIT, POP()));
     CODE("space",   sys->dot(SPCS, DU1));
     CODE("spaces",  sys->dot(SPCS, POP()));
@@ -316,15 +303,15 @@ ForthVM::init() {
     ///@}
     ///@defgrouop Compiler ops
     ///@{
-    CODE(":", mmu->colon(sys->next_idiom()); compile=true);
+    CODE(":", mmu->colon(sys->fetch()); compile=true);
     IMMD(";", add_w(EXIT); compile = false);                // terminate a word
     CODE("variable",                                        // create a variable
-         mmu->colon(sys->next_idiom());                     // create a new word on dictionary
+         mmu->colon(sys->fetch());                          // create a new word on dictionary
          add_w(DOVAR);                                      // dovar (+parameter field)
          add_du(DU0);                                       // data storage (32-bit float now)
          add_w(EXIT));
     CODE("constant",                                        // create a constant
-         mmu->colon(sys->next_idiom());                     // create a new word on dictionary
+         mmu->colon(sys->fetch());                          // create a new word on dictionary
          add_w(DOLIT);                                      // dovar (+parameter field)
          add_du(POP());
          add_w(EXIT));
@@ -334,16 +321,16 @@ ForthVM::init() {
     ///@{
     CODE("exec",  call(POPi));                              // execute word
     CODE("create",
-         mmu->colon(sys->next_idiom());                     // create a new word on dictionary
+         mmu->colon(sys->fetch());                          // create a new word on dictionary
          add_w(DOVAR));                                     // dovar (+ parameter field)
     CODE("to",              // 3 to x                       // alter the value of a constant
-         int w = FIND(sys->next_idiom()); if (w<0) return;  // to save the extra @ of a variable
+         int w = FIND(sys->fetch()); if (w<0) return;       // to save the extra @ of a variable
          IU  a = PFA(w) + sizeof(IU);
          DU  d = POP();
          if (a < T4_PMEM_SZ) STd(a, d);                     // store TOS to constant's pfa
          else ERROR("to %x", a));
     CODE("is",              // ' y is x                     // alias a word
-         int w = FIND(sys->next_idiom()); if (w<0) return;  // can serve as a function pointer
+         int w = FIND(sys->fetch()); if (w<0) return;       // can serve as a function pointer
          IU  a = PFA(POPi);
          IU  i = PFA(w);
          if (a < T4_PMEM_SZ) STi(a, i);                     // point x to y
@@ -370,17 +357,17 @@ ForthVM::init() {
     ///@defgroup Debug ops
     ///@{
     CODE("here",  PUSH(HERE));
-    CODE("'",     int w = FIND(sys->next_idiom()); PUSH(w));
+    CODE("'",     int w = FIND(sys->fetch()); PUSH(w));
     CODE("didx",  IU w = POPi; PUSH(dict[w].didx));
     CODE("pfa",   IU w = POPi; PUSH(PFA(w)));
     CODE("nfa",   IU w = POPi; PUSH(dict[w].nfa));
     CODE("trace", sys->trace(POPi));                                              // turn tracing on/off
     CODE(".s",    sys->op(OP_SS, id));
     CODE("words", sys->op(OP_WORDS));
-    CODE("see",   int w = FIND(sys->next_idiom()); sys->op(OP_SEE, w));
+    CODE("see",   int w = FIND(sys->fetch()); sys->op(OP_SEE, w));
     CODE("dump",  DU n = POP(); int a = POPi; sys->op(OP_DUMP, a, n));
     CODE("forget",
-         int w = FIND(sys->next_idiom());
+         int w = FIND(sys->fetch());
          if (w < 0) return;
          int b = FIND((char*)"boot")+1;
          mmu->clear(w > b ? w : b));
@@ -437,16 +424,16 @@ __GPU__ int
 ForthVM::parse(char *str) {
     int w = FIND(str);                    /// * search through dictionary
     if (w < 0) {                          /// * input word not found
-        VLOG2("'%s' not found\n", str);
+        DEBUG(" '%s' not found\n", str);
         return 0;                         /// * next, try as a number
     }
-    VLOG2("%4x:%p %s %d ",
+    DEBUG(" %04x:%p %s %d",
         dict[w].colon ? dict[w].pfa : 0, dict[w].xt, dict[w].name, w);
     if (compile && !dict[w].immd) {       /// * in compile mode?
         add_w((IU)w);                     /// * add found word to new colon word
     }
     else {
-        VLOG2("=> call(%s)\n", dict[w].name);
+        DEBUG(" => call(%s)\n", dict[w].name);
         call((IU)w);                      /// * execute forth word
     }
     return 1;
@@ -463,12 +450,12 @@ ForthVM::number(char *idiom) {
     if (*p != '\0') return 0;            /// * not a number, bail
     // is a number
     if (compile) {                       /// * add literal when in compile mode
-        VLOG2("%d| %f\n", id, n);
+        DEBUG(" %f\n", n);
         add_w(DOLIT);                    ///> dovar (+parameter field)
         add_du(n);                       ///> store literal
     }
     else {                               ///> or, add value onto data stack
-        VLOG2("%d| ss.push(%f)\n", id, n);
+        DEBUG(" ss.push(%f)\n", n);
         PUSH(n);
     }
     return 1;
