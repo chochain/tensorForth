@@ -13,11 +13,7 @@
 __HOST__ int
 Debug::to_s(IU w) {                     ///< dictionary name size
     h_ostr &fout = io->fout;
-    /*
-     * TODO: not sure why copying 32 byte does not work?
-     * char name[36];
-     * cudaMemcpy(name, _dict[w].name, 32, D2H);
-     */
+    
     Code &code = mu->_dict[w];
     if (io->trace) {
         fout << (code.immd ? "*" : " ")
@@ -25,14 +21,18 @@ Debug::to_s(IU w) {                     ///< dictionary name size
              << (code.colon ? (FPTR)&mu->_pmem[code.nfa] : code.xt)
              << (code.colon ? ':': '=');
     }
-    U8 c, i=0;
-    cudaMemcpy(&c, code.name, 1, D2H);
-    fout << " ";
-    while (c) {
-        fout << c;
-        cudaMemcpy(&c, code.name+(++i), 1, D2H);
+    /*
+     * TODO: not sure why copying 32 byte does not work?
+     * char name[36];
+     * cudaMemcpy(name, dict[w].name, 32, D2H);
+     */
+    U8 name[36], i=0;
+    cudaMemcpy(name, code.name, 1, D2H);
+    while (name[i++]) {
+        cudaMemcpy(name+i, code.name+i, 1, D2H);
     }
-    return (int)i;
+    fout << name << "  ";
+    return (int)i + 2;                ///< return string size (+ 2 spaces)
 }
 ///
 /// display dictionary word (wastefully one byte at a time)
@@ -43,7 +43,7 @@ Debug::words(int rdx) {
     fout << std::setbase(10);
     for (int i=0, sz=0; i<mu->_didx; i++) {
         fout << ' ';
-        sz += to_s((IU)i) + 1;
+        sz += to_s((IU)i);
         if (io->trace || sz > 68) { fout << std::endl; sz = 0; } /// TODO: width configuable
     }
     if (!io->trace) fout << std::setbase(rdx) << std::endl;
@@ -142,9 +142,9 @@ Debug::ss_dump(IU vid, U16 n, int rdx) {
     fout << std::setprecision(-1)
          << std::setbase(rdx) << " <";
     for (U16 i=0; i<n; i++) {
-        io->show(ss[i]);            /// * show stack elements
+        io->show(ss[i]);                      /// * show stack elements
         fout << " ";
     }
-    io->show(ss[T4_SS_SZ-1]);       /// * show top
+    io->show(ss[T4_SS_SZ-1]);                 /// * show top
     fout << "> ok" << std::endl;
 }
