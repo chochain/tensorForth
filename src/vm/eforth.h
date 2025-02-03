@@ -41,15 +41,11 @@ protected:
     ///
     /// stack short hands
     ///
-    __GPU__ __INLINE__ int FIND(char *name) {
-        int w = mmu->find(name, compile);
-        if (w < 0) DEBUG(" word not found");
-        return w;
-    }
-    __GPU__ __INLINE__ DU POP()           { DU n=tos; tos=ss.pop(); return n; }
-    __GPU__ __INLINE__ DU PUSH(DU v)      { ss.push(tos); return tos = v; }
+    __GPU__ __INLINE__ int FIND(char *name) { return mmu->find(name, compile);  }
+    __GPU__ __INLINE__ DU  POP()            { DU n=tos; tos=ss.pop(); return n; }
+    __GPU__ __INLINE__ DU  PUSH(DU v)       { ss.push(tos); return tos = v;     }
 #if T4_ENABLE_OBJ    
-    __GPU__ __INLINE__ DU PUSH(T4Base &t) { ss.push(tos); return tos = T4Base::obj2du(t); }
+    __GPU__ __INLINE__ DU  PUSH(T4Base &t)  { ss.push(tos); return tos = T4Base::obj2du(t); }
 #endif // T4_ENABLE_OBJ
     ///
     /// Forth outer interpreter
@@ -63,11 +59,17 @@ protected:
     __GPU__ void nest();                    ///< inner interpreter
     __GPU__ void call(IU w);                ///< execute word by index
     ///
-    /// compiler proxy funtions to reduce verbosity
+    /// Dictionary compiler proxy macros to reduce verbosity
     ///
-    __GPU__ void add_w(IU w);               ///< append a word pfa to pmem
-    __GPU__ void add_iu(IU i);              ///< append an instruction unit to parameter memory
-    __GPU__ void add_du(DU d);              ///< append a data unit to pmem
-    __GPU__ void add_str(const char *s, bool adv=true); ///< append a string to pmem
+    __GPU__ __INLINE__ void add_w(IU w)  {  ///< append a word pfa to pmem
+        add_iu(w);
+        DEBUG("add_w(%d) => %s\n", w, dict[w].name);
+    }
+    __GPU__ __INLINE__ void add_iu(IU i) { mmu->add((U8*)&i, sizeof(IU)); }
+    __GPU__ __INLINE__ void add_du(DU d) { mmu->add((U8*)&d, sizeof(DU)); }
+    __GPU__ __INLINE__ void add_str(const char *s, bool adv=true) {
+        int sz = STRLENB(s)+1; sz = ALIGN2(sz);  ///> calculate string length, then adjust alignment (combine?)
+        mmu->add((U8*)s, sz, adv);
+    }
 };
 #endif // TEN4_SRC_EFORTH_H
