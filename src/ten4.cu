@@ -29,7 +29,7 @@ k_vm_init(System *sys, VM_Handle *pool) {
     }
     if (id==0) {
         sys->mu->status();
-        pool[0].vm->state = HOLD;
+        pool[0].vm->state = QUERY;
     }
 }
 
@@ -166,27 +166,39 @@ TensorForth::tally() {
     return vmst_cnt[STOP];                         /// * number of STOP VM
 }
 
-__HOST__ int
+__HOST__ void
 TensorForth::run() {
-    _once();
-    _profile();
-    return 0;
-/*        
-    tally();
-    while (tally() < VM_COUNT && sys->readline()) {
-        once();
-        switch (vm->state) {
-        case HOLD:  VLOG1("%d} VM[%d] HOLD\n", vm->id, vm->id);   break;
-#if T4_ENABLE_OBJ                
-        case QUERY: if (!vm->compile) db->ss_dump(i, vm->ss.idx); break;
-#endif // T4_ENABLE_OBJ                
-        }
-//        sys->mu->sweep();       /// * CC: device function call
-        sys->flush();             /// * flush output buffer
-        tally();                  /// * tally debug info
+    ///
+    ///> execute VM per stream
+    ///
+    for (int i=0; i<VM_COUNT; i++) {
+        VM_Handle *h  = &vm_pool[i];
+        VM        *vm = h->vm;
+        
+        cudaEventRecord(h->t0, h->st);            /// * record start clock
+        k_vm_exec<<<1, 1, 0, h->st>>>(vm);
+        cudaEventRecord(h->t1, h->st);            /// * record end clock
     }
+    GPU_CHK();
+    ///
+    ///> profile
+    ///
+    for (int i=0; i<VM_COUNT; i++) {
+        VM_Handle *h  = &vm_pool[i];
+        float dt;
+        cudaEventElapsedTime(&dt, h->t0, h->t1);
+        TRACE("VM[%d] dt=%0.3f\n", i, dt);
+    }
+}
+
+__HOST__ int
+TensorForth::main_loop() {
+    while (tally() < VM_COUNT && sys->readline()) {
+        run();
+        sys->flush();              /// * flush output buffer
+//    sys->mu->sweep();       /// * CC: device function call
+    }    
     return 0;
-*/
 }
 
 __HOST__ void
@@ -209,29 +221,6 @@ TensorForth::teardown(int sig) {
     cudaDeviceReset();
 }
 
-__HOST__ void
-TensorForth::_once() {
-    for (int i=0; i<VM_COUNT; i++) {
-        VM_Handle *h  = &vm_pool[i];
-        VM        *vm = h->vm;
-        
-        cudaEventRecord(h->t0, h->st);            /// * record start clock
-        k_vm_exec<<<1, 1, 0, h->st>>>(vm);
-        cudaEventRecord(h->t1, h->st);            /// * record end clock
-//        cudaStreamWaitEvent(h->st, h->t1);        /// * CPU will wait here
-    }
-    GPU_CHK();
-}
-
-__HOST__ void
-TensorForth::_profile() {
-    for (int i=0; i<VM_COUNT; i++) {
-        VM_Handle *h  = &vm_pool[i];
-        float dt;
-        cudaEventElapsedTime(&dt, h->t0, h->t1);
-        VLOG1("VM[%d] dt=%0.3f\n", i, dt);
-    }
-}
 ///
 /// main program
 ///
@@ -272,10 +261,10 @@ int main(int argc, char**argv) {
 
     TensorForth *f = new TensorForth(opt.device_id, opt.verbose);
     f->setup();
-    f->run();
-
-    cout << APP << " done." << endl;
+    f->main_loop();
     f->teardown();
+    
+    cout << APP << " done." << endl;
 
     return 0;
 }
