@@ -55,7 +55,7 @@ class Ostream : public Managed {
 
     __GPU__ __INLINE__ void _debug(GT gt, U8 *v, int sz) {
 #if T4_VERBOSE > 1
-        printf("%d>> obuf[%d] << ", blockIdx.x, _idx);
+        printf(" obuf[%d] << ", _idx);
         if (!sz) return;
         U8 d[T4_STRBUF_SZ];
         MEMCPY(d, v, sz);
