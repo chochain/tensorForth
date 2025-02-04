@@ -11,27 +11,27 @@
 #if (T4_ENABLE_OBJ && T4_ENABLE_NN)
 
 struct Dataset : public Tensor {
-    int   batch_id =  0;            ///< current batch id
-    int   done     =  1;            ///< completed
-    U16   *label = NULL;            ///< label data on host
+    int   batch_id =  0;             ///< current batch id
+    int   done     =  1;             ///< completed
+    U32   *label   = NULL;           ///< label data on host
     ///
     /// constructors (for host testing mostly)
     ///
-    __HOST__ Dataset(U16 n, U16 h, U16 w, U16 c)
+    __HOST__ Dataset(U32 n, U32 h, U32 w, U32 c)
         : Tensor(n, h, w, c) {
-        MM_ALLOC(&label, n * sizeof(U16));
+        MM_ALLOC(&label, n * sizeof(U32));
         WARN("Dataset[%d,%d,%d,%d] created\n", n, h, w, c);
     }
     __HOST__ ~Dataset() {
         if (!label) return;
         MM_FREE((void*)label);
     }
-    __HOST__ Dataset &reshape(U16 n, U16 h, U16 w, U16 c) {
+    __HOST__ Dataset &reshape(U32 n, U32 h, U32 w, U32 c) {
         WARN("Dataset::setup(%d, %d, %d, %d)\n", n, h, w, c);
         ///
         /// set dimensions
         ///
-        numel = (U32)n * h * w * c;    /// * number of batch elements
+        numel = (U64)n * h * w * c;    /// * number of batch elements
         Tensor::reshape(n, h, w, c);   /// * reshape to 4-D tensor
         
         return *this;
@@ -46,15 +46,15 @@ struct Dataset : public Tensor {
         ///       (see ~/src/io/aio_model#_dsfetch)
         ///
         if (!data)  MM_ALLOC(&data, numel * sizeof(DU));
-        if (!label) MM_ALLOC(&label, N() * sizeof(U16));
+        if (!label) MM_ALLOC(&label, N() * sizeof(U32));
 
         DU  *d = data;                ///< data in device memory
-        for (int i = 0; i < numel; i++) {
+        for (U64 i = 0; i < numel; i++) {
             *d++ = (I2D((int)*h_data++) - m) / s;  // normalize
         }
-        U16 *t = label;               ///< label in device memory
-        for (int i = 0; i < N(); i++) {
-            *t++ = (U16)*h_label++;
+        U32 *t = label;               ///< label in device memory
+        for (U64 i = 0; i < N(); i++) {
+            *t++ = (U32)*h_label++;
         }
         return this;
     }

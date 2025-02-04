@@ -113,17 +113,17 @@ public:
     ///
     __GPU__  void   mark_free(DU v);                        ///< mark an object to be freed in host
     __GPU__  void   sweep();                                ///< free marked tensor
-    __GPU__  Tensor &talloc(U32 sz);                        ///< allocate from tensor space
-    __GPU__  Tensor &tensor(U32 sz);                        ///< create an vector
-    __GPU__  Tensor &tensor(U16 h, U16 w);                  ///< create a matrix
-    __GPU__  Tensor &tensor(U16 n, U16 h, U16 w, U16 c);    ///< create a NHWC tensor
-    __GPU__  void   resize(Tensor &t, U32 sz);              ///< resize the tensor storage
+    __GPU__  Tensor &talloc(U64 sz);                        ///< allocate from tensor space
+    __GPU__  Tensor &tensor(U64 sz);                        ///< create an vector
+    __GPU__  Tensor &tensor(U32 h, U32 w);                  ///< create a matrix
+    __GPU__  Tensor &tensor(U32 n, U32 h, U32 w, U32 c);    ///< create a NHWC tensor
+    __GPU__  void   resize(Tensor &t, U64 sz);              ///< resize the tensor storage
     __GPU__  void   free(Tensor &t);                        ///< free the tensor
     __GPU__  Tensor &copy(Tensor &t0);                      ///< hard copy a tensor
     __GPU__  Tensor &slice(Tensor &t0, IU x0, IU x1, IU y0, IU y1);     ///< a slice of a tensor
     __GPU__  Tensor &random(Tensor &t, t4_rand_opt ntype, DU bias=DU0, DU scale=DU1);  ///< randomize tensor cells (with given type)
 #if   T4_ENABLE_NN    
-    __GPU__  Dataset&dataset(U16 batch_sz);                 ///< create a NN dataset
+    __GPU__  Dataset&dataset(U32 batch_sz);                 ///< create a NN dataset
     __GPU__  Model  &model(U32 sz=T4_NET_SZ);               ///< create a NN model
     __GPU__  void   free(Model &m);
 #endif // T4_ENABLE_NN

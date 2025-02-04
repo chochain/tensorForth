@@ -95,7 +95,7 @@ MMU::colon(const char *name) {
     c.nfa  = _midx;                         // name field offset
     c.name = (const char*)&_pmem[_midx];    // assign name field index
     c.colon= 1;                             // specify a colon word
-    add((U8*)name,  ALIGN2(sz+1));          // setup raw name field
+    add((U8*)name,  ALIGN(sz+1));           // setup raw name field
     c.pfa  = _midx;                         // parameter field offset
 }
 ///
