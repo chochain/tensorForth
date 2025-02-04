@@ -53,8 +53,7 @@
 ///
 ///@name Storage sizing
 ///@{
-#define T4_32BIT_ALIGN_REQUIRED   1
-
+#define T4_ALIGN4    1         /**< data 32-bit aligned          */
 #define T4_PMEM_SZ   (48*1024) /**< parameter memory block size  */
 #define T4_RS_SZ     64        /**< depth of return stack        */
 #define T4_SS_SZ     64        /**< depth of data stack          */

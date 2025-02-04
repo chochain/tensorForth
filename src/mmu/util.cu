@@ -144,7 +144,7 @@ _hash(const char *str, int bsz) {
 */
 __GPU__ uint32_t
 bin_to_u32(const void *s) {
-#if TEN4_32BIT_ALIGN_REQUIRED
+#if T4_ALIGN4
     char *p = (char*)s;
     return (uint32_t)(p[0]<<24) | (p[1]<<16) |  (p[2]<<8) | p[3];
 #else
@@ -162,7 +162,7 @@ bin_to_u32(const void *s) {
 */
 __GPU__ uint16_t
 bin_to_u16(const void *s) {
-#if TEN4_32BIT_ALIGN_REQUIRED
+#if T4_ALIGN4
     char *p = (char*)s;
     return (uint16_t)(p[0]<<8) | p[1];
 #else
