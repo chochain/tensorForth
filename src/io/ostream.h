@@ -36,14 +36,15 @@ struct _opx {
     union {
         U64 x;
         struct {
-            U16 op;       // 16-bit
-            U16 a;        // 16-bit
-            DU  n;        // 32-bit
+            U32 op  : 4;   ///> max 16 ops
+            U32 fam : 2;   ///> file access mode
+            U32 i   : 26;  ///> max 32M
+            DU  n;         ///> F32
         };
     };
-    __GPU__ _opx(OP op, int a, DU n) : op((U16)op), a((U16)a), n(n) {}
+    __GPU__ _opx(OP op0, U8 f0, DU n, int i0=0) : n(n) { op = op0; fam = f0; i = i0; }
 };
-__GPU__ __INLINE__ _opx opx(OP op, int a=0, DU n=DU0) { return _opx(op, a, n); }
+__GPU__ __INLINE__ _opx opx(OP op, U8 f, DU n=DU0, int i=0) { return _opx(op, f, n, i); }
 ///
 /// Ostream class
 ///
@@ -53,7 +54,7 @@ class Ostream : public Managed {
     int      _idx = 0;
     obuf_fmt _fmt = { 10, 0, 0, ' '};
 
-    __GPU__ __INLINE__ void _debug(GT gt, U8 *v, int sz) {
+    __GPU__ __INLINE__ void _debug(GT gt, U8 *v, U32 sz) {
 #if T4_VERBOSE > 1
         printf(" obuf[%d] << ", _idx);
         if (!sz) return;
@@ -65,16 +66,16 @@ class Ostream : public Managed {
         case GT_FLOAT: printf("%G\n", *(DU*)d);      break;
         case GT_STR:   printf("%s\n", d);            break;
         case GT_OBJ:   printf("Obj:%8x\n", DU2X(d)); break;
-        case GT_FMT:   printf("%8x\n", *(U16*)d);    break;
+        case GT_FMT:   printf("%8x\n", *(U32*)d);    break;
         case GT_OPX: {
             _opx *o = (_opx*)d;
             switch (o->op) {
             case OP_WORDS: printf("words()\n");                       break;
-            case OP_SEE:   printf("see(%d)\n", o->a);                 break;
-            case OP_DUMP:  printf("dump(%d, %d)\n", o->a, (U16)o->n); break;
-            case OP_SS:    printf("ss_dump(%d)\n", o->a);             break;
-            case OP_DATA:  printf("data(%d)\n", o->a);                break;
-            case OP_FETCH: printf("fetch(%d)\n", o->a);               break;
+            case OP_SEE:   printf("see(%d)\n", o->i);                 break;
+            case OP_DUMP:  printf("dump(%d, %d)\n", o->i, (U32)o->n); break;
+            case OP_SS:    printf("ss_dump(%d)\n", o->i);             break;
+            case OP_DATA:  printf("data(%d)\n", o->i);                break;
+            case OP_FETCH: printf("fetch(%d)\n", o->i);               break;
             }
         } break;
         default: printf("unknown type %d\n", gt);
@@ -82,7 +83,7 @@ class Ostream : public Managed {
 #endif // T4_VERBOSE > 1
     }
         
-    __GPU__  void _write(GT gt, U8 *v, int sz) {
+    __GPU__  void _write(GT gt, U8 *v, U32 sz) {
         if (threadIdx.x!=0) return;               // only thread 0 within a block can write
 
         //_LOCK;
@@ -90,7 +91,7 @@ class Ostream : public Managed {
 
         n->gt   = gt;                             // data type
         n->id   = blockIdx.x;                     // VM.id
-        n->sz   = ALIGN4(sz);                     // 32-bit alignment
+        n->sz   = ALIGN(sz);                      // data alignment (32-bit)
 
         int inc = EVENT_SZ + n->sz;               // calc node allocation size
 
@@ -105,7 +106,7 @@ class Ostream : public Managed {
     __GPU__ Ostream& _wfmt() { _write(GT_FMT, (U8*)&_fmt, sizeof(obuf_fmt)); return *this; }
 
 public:
-    Ostream(int sz=T4_OBUF_SZ) { MM_ALLOC(&_buf, _max=sz);  }
+    Ostream(U32 sz=T4_OBUF_SZ) { MM_ALLOC(&_buf, _max=sz);  }
     ~Ostream()                 { GPU_SYNC(); MM_FREE(_buf); }
     ///
     /// clear output buffer
