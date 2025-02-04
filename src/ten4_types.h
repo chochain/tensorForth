@@ -95,6 +95,7 @@ typedef float       F32;                    ///< single precision float
 ///@}
 ///@name CUDA specific macros
 ///@{
+#define ALIGN(sz)       ALIGN4(sz)
 #define NGRID(w,h,n,b)  ((w)+(b).x-1)/(b).x,((h)+(b).y-1)/(b).y,(n)
 ///@}
 //===============================================================================
@@ -103,7 +104,7 @@ typedef float       F32;                    ///< single precision float
 ///@name Forth instruction and data types
 ///@{
 #define DUNIT       0                       /**< data unit 0=F32, 1=F64 */
-typedef U16         IU;                     /**< instruction unit       */
+typedef U32         IU;                     /**< instruction unit       */
 typedef F32         DU;                     /**< data unit              */
 typedef F64         DU2;                    /**< double preciesion data */
 #define DU0         ((DU)0.0)               /**< default data value 0   */
@@ -175,16 +176,15 @@ typedef enum {
 typedef enum {
     FAM_WO  = 0,
     FAM_RW  = 1,
-    FAM_RAW = 0x10,
-    FAM_REW = 0x100
+    FAM_RAW = 2
 } FAM;
 ///@}
 ///>name IO Event
 typedef struct {
-    U16 gt   : 4;
-    U16 id   : 12;
-    U16 sz;
-    U8  data[];      // different from *data
+    U32 gt : 4;    // 16 io event types
+    U32 id : 8;    // max 256 VMs
+    U32 sz : 20;   // max 1G payload
+    U8  data[];    // different from *data
 } io_event;
 
 #define EVENT_SZ  sizeof(U32)
