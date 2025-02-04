@@ -99,31 +99,30 @@ System::process_event(io_event *ev) {
     case GT_OBJ: io->print(*(DU*)v); break;
     case GT_OPX: {
         _opx *o = (_opx*)v;
-        printf("OP=%d a=%d, n=0x%08x=%f\n", o->op, o->a, DU2X(o->n), o->n);
+        printf("OP=%d, M=%d, i=%d, n=0x%08x=%f\n", o->op, o->fam, o->i, DU2X(o->n), o->n);
         switch (o->op) {
-        case OP_WORDS: db->words();                      break;
-        case OP_SEE:   db->see((IU)o->a);                break;
-        case OP_DUMP:  db->mem_dump((IU)o->a, (IU)o->n); break;
-        case OP_SS:    db->ss_dump((IU)ev->id, o->a);    break;
+        case OP_WORDS: db->words();                       break;
+        case OP_SEE:   db->see((IU)o->i);                 break;
+        case OP_DUMP:  db->mem_dump((IU)o->i, (IU)o->n);  break;
+        case OP_SS:    db->ss_dump((IU)ev->id, (IU)o->i); break;
 #if T4_ENABLE_OBJ // vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
         case OP_TSAVE:
             ev = NEXT_EVENT(ev);
-            io->_tsave(o->n, o->a, (char*)ev->data);
+            io->_tsave(o->n, (char*)ev->data, o->fam);
             break;
 #if T4_ENABLE_NN  //==========================================================
         case OP_DATA:
-            ev = NEXT_EVENT(ev);                         ///< get dataset repo name
-            io->_dsfetch(o->n, o->a, (char*)ev->data);   /// * fetch first batch
+            ev = NEXT_EVENT(ev);                            ///< get dataset repo name
+            io->_dsfetch(o->n, (char*)ev->data, o->fam);    /// * fetch first batch
             break;
-        case OP_FETCH: io->_dsfetch(o->n, o->a); break;  /// * fetch/rewind dataset batch
-
+        case OP_FETCH: io->_dsfetch(o->n, NULL, o->fam); break;  /// * fetch/rewind dataset batch
         case OP_NSAVE:
-            ev = NEXT_EVENT(ev);                         ///< get dataset repo name
-            io->_nsave(o->n, o->a, (char*)ev->data);
+            ev = NEXT_EVENT(ev);                            ///< get dataset repo name
+            io->_nsave(o->n, (char*)ev->data, o->fam);
             break;
         case OP_NLOAD:
             ev = NEXT_EVENT(ev);
-            io->_nload(o->n, o->a, (char*)ev->data);
+            io->_nload(o->n, (char*)ev->data, o->fam);
             break;
 #endif // T4_ENABLE_NN =======================================================
 #endif // T4_ENABLE_OBJ ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

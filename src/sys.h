@@ -86,8 +86,8 @@ public:
         *_ostr << setbase(b) << setw(w)
                << (u ? static_cast<U32>(v) : v);
     }
-    __GPU__  void op(OP op, int a=0, DU n=DU0) {          ///< print operator
-        *_ostr << opx(op, a, n);
+    __GPU__  void op(OP op, U8 f=0, int a=0, DU n=DU0) {  ///< print operator
+        *_ostr << opx(op, f, a, n);
     }
     __GPU__  void pstr(const char *str, io_op op=SPCS) {  ///< print string
         *_ostr << str;
