@@ -7,6 +7,19 @@
 #ifndef TEN4_SRC_EFORTH_H
 #define TEN4_SRC_EFORTH_H
 #include "vm.h"                         ///< VM base class in ../vm
+
+class Param {
+    union {
+        U32 xtoff;
+        struct {
+            U16  usr  : 1;    ///> user defined words
+            U16  prim : 1;    ///> primitive
+            U16  xx1  : 14;   ///> reserved
+            U16  didx;        ///> offset or index
+        };
+    };
+    Param(IU off, bool u=false, bool p=false) : xtoff(off) { usr=u; prim=p; }
+};
 ///
 /// macros for microcode construction
 ///
@@ -61,14 +74,15 @@ protected:
     ///
     /// Dictionary compiler proxy macros to reduce verbosity
     ///
-    __GPU__ __INLINE__ void add_w(IU w)  {  ///< append a word pfa to pmem
+    __GPU__ __INLINE__ void add_w(IU w)  {  ///< compile a word into pmem
         add_iu(w);
-        DEBUG("add_w(%d) => %s\n", w, dict[w].name);
+        DEBUG(" add_w(%d) => %s\n", w, dict[w].name);
     }
+//    __GPU__ __INLINE__ void add_w(Param p) { add_w((IU)p.pfa); }
     __GPU__ __INLINE__ void add_iu(IU i) { mmu->add((U8*)&i, sizeof(IU)); }
     __GPU__ __INLINE__ void add_du(DU d) { mmu->add((U8*)&d, sizeof(DU)); }
     __GPU__ __INLINE__ void add_str(const char *s, bool adv=true) {
-        int sz = STRLENB(s)+1; sz = ALIGN2(sz);  ///> calculate string length, then adjust alignment (combine?)
+        int sz = STRLENB(s)+1; sz = ALIGN(sz);  ///> calculate string length, then adjust alignment (combine?)
         mmu->add((U8*)s, sz, adv);
     }
 };

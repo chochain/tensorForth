@@ -113,6 +113,7 @@ ForthVM::nest() {
 }
 __GPU__ __INLINE__ void ForthVM::call(IU w) {
     Code &c = dict[w];                               /// * code reference
+    DEBUG(" => call(%s)\n", c.name);
     if (c.colon) {                                   /// * userd defined word
 //        printf("%03d WP=%d CALL[%d] %s\n", IP, WP, w, c.name);
         rs.push(WP);                                 /// * setup call frame
@@ -147,11 +148,11 @@ ForthVM::init() {
     CODE("dostr",
          char *s  = (char*)LDp(IP);                       // get string ptr & len
          int   sz = STRLENB(s)+1;                         // '\0' terminated
-         PUSH(IP); PUSH(sz-1); IP += ALIGN2(sz));
+         PUSH(IP); PUSH(sz-1); IP += ALIGN(sz));
     CODE("dotstr",
          char *s  = (char*)LDp(IP);                       // get string pointer
          int  sz  = STRLENB(s)+1;
-         sys->pstr(s);  IP += ALIGN2(sz));                // send to output console
+         sys->pstr(s);  IP += ALIGN(sz));                 // send to output console
     CODE("branch" , IP = LDi(IP));                        // unconditional branch
     CODE("0branch", IP = ZEQ(POP()) ? LDi(IP) : IP + sizeof(IU)); // conditional branch
     CODE("does",                                          // CREATE...DOES... meta-program
@@ -358,7 +359,6 @@ ForthVM::init() {
     ///@{
     CODE("here",  PUSH(HERE));
     CODE("'",     int w = FIND(sys->fetch()); PUSH(w));
-    CODE("didx",  IU w = POPi; PUSH(dict[w].didx));
     CODE("pfa",   IU w = POPi; PUSH(PFA(w)));
     CODE("nfa",   IU w = POPi; PUSH(dict[w].nfa));
     CODE("trace", sys->trace(POPi));                                              // turn tracing on/off
@@ -380,7 +380,8 @@ ForthVM::init() {
     CODE("bye",   state = STOP);
     ///@}
     CODE("boot",  mmu->clear(FIND((char*)"boot") + 1));
-#if 0  /* words TODO */  
+#if 0  /* words TODO */
+    CODE("^",     {}); // power(2, 3)
     CODE("?dup",  {});
     CODE("?do",   {});
     CODE("do",    {});
@@ -427,13 +428,12 @@ ForthVM::parse(char *str) {
         DEBUG(" '%s' not found\n", str);
         return 0;                         /// * next, try as a number
     }
-    DEBUG(" %04x:%p %s %d",
-        dict[w].colon ? dict[w].pfa : 0, dict[w].xt, dict[w].name, w);
-    if (compile && !dict[w].immd) {       /// * in compile mode?
+    Code &c = dict[w];
+    DEBUG(" %06x:%p %s %d", c.colon ? c.pfa : 0, c.xt, c.name, w);
+    if (compile && !c.immd) {             /// * in compile mode?
         add_w((IU)w);                     /// * add found word to new colon word
     }
     else {
-        DEBUG(" => call(%s)\n", dict[w].name);
         call((IU)w);                      /// * execute forth word
     }
     return 1;
