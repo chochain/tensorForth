@@ -325,7 +325,7 @@ TensorVM::_gemm() {                          ///< blas GEMM
 
 __GPU__ void
 TensorVM::_pickle(bool save) {
-    IU   mode= FAM_WO;                      ///< file mode (W/O,R/W)|BIN
+    U8   mode= FAM_WO;                      ///< file mode (W/O,R/W)|BIN
     
     if (ss.idx > 1 && IS_OBJ(ss[-2])) { /* OK */ }
     else if (ss.idx > 2 && IS_OBJ(ss[-3])) mode |= POPi;
