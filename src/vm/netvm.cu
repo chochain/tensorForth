@@ -145,7 +145,7 @@ NetVM::_donext() {                                ///< overwrite eforth::init
 ///
 __GPU__ void
 NetVM::_pickle(bool save) {
-    IU   mode= save ? FAM_WO : FAM_RW;      ///< file access mode
+    U8   mode= save ? FAM_WO : FAM_RW;      ///< file access mode
     
     if (ss.idx > 1 && IS_OBJ(ss[-2])) { /* OK */ }
     else if (ss.idx > 2 && IS_OBJ(ss[-3])) mode |= POPi;       ///< TODO: RAW format
@@ -158,7 +158,7 @@ NetVM::_pickle(bool save) {
         ? opx(save ? OP_NSAVE : OP_NLOAD, mode, top)
         : opx(OP_TSAVE, mode, top);
     fout << op << fn;                       /// * issue pickle command
-    state = VM_WAIT;                                         /// * return to CPU
+    state = VM_WAIT;                        /// * return to CPU
 }
 
 __GPU__ void
@@ -167,8 +167,8 @@ NetVM::_fetch(DU d, bool rewind) {
         ERROR("TOS=%08x not dataset?\n", DU2X(d));
         return;
     }
-    fout << opx(OP_FETCH, rewind ? FAM_REW : 0, d);        /// * issue a fetch or rewind
-    state = VM_WAIT;                                       /// * return to CPU
+    fout << opx(OP_FETCH, (U8)rewind, d);   /// * issue a fetch or rewind
+    state = VM_WAIT;                        /// * return to CPU
 }
 ///
 /// fetch parameters onto TOS
