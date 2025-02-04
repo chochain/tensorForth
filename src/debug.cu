@@ -74,7 +74,7 @@ Debug::see(U8 *ip, int dp, int rdx) {
         case DOSTR: case DOTSTR: {
             char *s = (char*)ip;
             int  sz = strlen(s)+1;
-            ip += ALIGN2(sz);                                       /// fetch string
+            ip += ALIGN(sz);                                        /// fetch string
             fout << "= \"" << s << "\"";
         } break;
         case BRAN: case ZBRAN: case DONEXT:
@@ -100,14 +100,14 @@ Debug::see(IU w, int rdx) {
 #define C2H(c) { buf[x++] = i2h[(c)>>4]; buf[x++] = i2h[(c)&0xf]; }
 #define IU2H(i){ C2H((i)>>8); C2H((i)&0xff); }
 __HOST__ void
-Debug::mem_dump(U32 p0, IU sz, int rdx) {
+Debug::mem_dump(IU p0, IU sz, int rdx) {
     static const char *i2h = "0123456789abcdef";
     h_ostr &fout = io->fout;
     char buf[80];
-    for (U16 i=ALIGN16(p0); i<=ALIGN16(p0+sz); i+=16) {
+    for (IU i=ALIGN16(p0); i<=ALIGN16(p0+sz); i+=16) {
         int x = 0;
         buf[x++] = '\n'; IU2H(i); buf[x++] = ':'; buf[x++] = ' ';  // "%04x: "
-        for (U16 j=0; j<16; j++) {
+        for (IU j=0; j<16; j++) {
             //U8 c = *(((U8*)&_dict[0])+i+j) & 0x7f;               // to dump _dict
             U8 c = mu->_pmem[i+j];
             C2H(c);                                                // "%02x "
@@ -135,13 +135,13 @@ Debug::mem_stat() {                            ///< display memory statistics
 /// dump data stack content
 ///
 __HOST__ void
-Debug::ss_dump(IU vid, U16 n, int rdx) {
+Debug::ss_dump(IU vid, IU n, int rdx) {
     h_ostr &fout = io->fout;
     DU *ss = mu->vmss(vid);
     if (io->trace) fout << vid << "}";
     fout << std::setprecision(-1)
          << std::setbase(rdx) << " <";
-    for (U16 i=0; i<n; i++) {
+    for (IU i=0; i<n; i++) {
         io->show(ss[i]);                      /// * show stack elements
         fout << " ";
     }

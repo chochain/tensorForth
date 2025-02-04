@@ -22,9 +22,9 @@ public:
     __HOST__ void words(int rdx=10);                      ///< list dictionary words
     __HOST__ void see(U8 *ip, int dp, int rdx=10);        ///< disassemble user defined word
     __HOST__ void see(IU w, int rdx=10);                  ///< disassemble user defined word
-    __HOST__ void mem_dump(U32 addr, IU sz, int rdx=10);  ///< dump memory frm addr...addr+sz
+    __HOST__ void mem_dump(IU addr, IU sz, int rdx=10);   ///< dump memory frm addr...addr+sz
     __HOST__ void dict_dump(int rdx=10);                  ///< dump dictionary
     __HOST__ void mem_stat();                             ///< display memory statistics
-    __HOST__ void ss_dump(IU vid, U16 n, int rdx=10);     ///< show data stack content
+    __HOST__ void ss_dump(IU vid, IU n, int rdx=10);      ///< show data stack content
 };
 #endif // TEN4_SRC_DEBUG_H
