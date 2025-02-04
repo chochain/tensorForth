@@ -57,7 +57,7 @@ public:
     /// @}
     /// @name main NN methods
     /// @{
-    __GPU__ Model  &add(t4_layer fn, U16 n=0, DU alpha=DU0, U16 *opt=NULL);
+    __GPU__ Model  &add(t4_layer fn, U32 n=0, DU alpha=DU0, U32 *opt=NULL);
     __GPU__ Model  &forward(Tensor &input);             ///< network feed forward
     __GPU__ Model  &broadcast(Tensor &tgt);
     __GPU__ Model  &backprop();                         ///< back propegation with default onehot vector (built during forward pass from dataset labels)

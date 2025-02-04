@@ -37,14 +37,11 @@ struct Code : public Managed {
         FPTR xt = 0;        ///< lambda pointer (CUDA 49-bit)
         U64  *fp;           ///< function pointer (for debugging)
         struct {
-            U16 colon: 1;   ///< colon defined word
-            U16 immd:  1;   ///< immediate flag
-            U16 xx1:   1;   ///< reserved 1
-            U16 xx2:   1;   ///< reserved 2
-            U16 didx:  12;  ///< dictionary index (4K links)
-            IU  pfa;        ///< parameter field offset in pmem space
-            IU  nfa;        ///< name field offset to pmem space
-            U16 xx3;        ///< reserved
+            U64 colon: 1;   ///< colon defined word
+            U64 immd : 1;   ///< immediate flag
+            U64 didx : 14;  ///< dictionary index (reverse link)
+            U64 nfa  : 24;  ///< string pointer (offset) pmem space
+            U64 pfa  : 24;  ///< param field offset to pmem space
         };
     };
     

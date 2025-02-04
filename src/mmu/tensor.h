@@ -72,8 +72,8 @@ typedef enum {
 } t4_loss;
 
 struct Tensor : public T4Base {
-    U16      stride[4] = {1,1,1,1}; ///< stride=HWCN, for calc memory offset
-    U16      shape[4]  = {1,1,1,1}; ///< shape=HWCN, matrix C=N=1, vector W=C=N=1
+    U32      stride[4] = {1,1,1,1}; ///< stride=HWCN, for calc memory offset
+    U32      shape[4]  = {1,1,1,1}; ///< shape=HWCN, matrix C=N=1, vector W=C=N=1
     t4_layer grad_fn   = L_NONE;    ///< grandiant funtion type
     Tensor   *grad[4];              ///< gradient and jacobian tensors
     Tensor   *mtum[4];              ///< momentum and delta tensors
@@ -98,14 +98,14 @@ struct Tensor : public T4Base {
     ///
     __HOST__ Tensor()       : T4Base() {}
     __HOST__ Tensor(U32 sz) : T4Base(sz) {
-        H() = (U16)sz;
+        H() = sz;
         WARN("vector[%d] allocated\n", numel);
     }
-    __HOST__ Tensor(U16 h, U16 w) : T4Base(h, w) {
+    __HOST__ Tensor(U32 h, U32 w) : T4Base(h, w) {
         H() = h; W() = w;
         WARN("matrix(%d,%d) allocated\n", h, w);
     }
-    __HOST__ Tensor(U16 n, U16 h, U16 w, U16 c) : T4Base(n, h, w, c) {
+    __HOST__ Tensor(U32 n, U32 h, U32 w, U32 c) : T4Base(n, h, w, c) {
         H() = h; W() = w; C() = c; N() = n;
         WARN("tensor(%d,%d,%d,%d) allocated\n", n, h, w, c);
     }
@@ -119,12 +119,12 @@ struct Tensor : public T4Base {
     ///
     /// attributes
     ///
-    __BOTH__ __INLINE__ U16  &N()  { return shape[3]; }
-    __BOTH__ __INLINE__ U16  &H()  { return shape[0]; }
-    __BOTH__ __INLINE__ U16  &W()  { return shape[1]; }
-    __BOTH__ __INLINE__ U16  &C()  { return shape[2]; }
-    __BOTH__ __INLINE__ U32  HWC() { return shape[0] * shape[1] * shape[2]; }
-    __BOTH__ __INLINE__ DU   *slice(int n) { return &data[ n * HWC() ]; }
+    __BOTH__ __INLINE__ U32  &N()  { return shape[3]; }
+    __BOTH__ __INLINE__ U32  &H()  { return shape[0]; }
+    __BOTH__ __INLINE__ U32  &W()  { return shape[1]; }
+    __BOTH__ __INLINE__ U32  &C()  { return shape[2]; }
+    __BOTH__ __INLINE__ U64  HWC() { return (U64)shape[0] * shape[1] * shape[2]; }
+    __BOTH__ __INLINE__ DU   *slice(int n) { return &data[ HWC() * n ]; }
     __BOTH__ __INLINE__ bool is_same_shape(Tensor &t) {
 #ifdef __CUDA_ARCH__
         return MEMCMP(shape, t.shape, sizeof(shape)) == 0;
@@ -151,11 +151,11 @@ struct Tensor : public T4Base {
     ///
     /// tensor life-cycle ops
     ///
-    __BOTH__ Tensor &reset(void *mptr, U32 sz, t4_obj tt=T4_TENSOR, t4_layer fn=L_NONE);
-    __BOTH__ Tensor &reshape(U32 sz);
-    __BOTH__ Tensor &reshape(U16 h, U16 w);
-    __BOTH__ Tensor &reshape(U16 n, U16 h, U16 w, U16 c);
-    __BOTH__ Tensor &reshape(U16 c1, U16 n, U16 h, U16 w, U16 c);
+    __BOTH__ Tensor &reset(void *mptr, U64 sz, t4_obj tt=T4_TENSOR, t4_layer fn=L_NONE);
+    __BOTH__ Tensor &reshape(U64 sz);
+    __BOTH__ Tensor &reshape(U32 h, U32 w);
+    __BOTH__ Tensor &reshape(U32 n, U32 h, U32 w, U32 c);
+    __BOTH__ Tensor &reshape(U32 c1, U32 n, U32 h, U32 w, U32 c);
     
     __BOTH__ Tensor &identity();                  ///< fill as an identity matrix
     __BOTH__ Tensor &map(math_op op, DU v=DU0); ///< element-wise absolute
@@ -169,8 +169,8 @@ struct Tensor : public T4Base {
     ///
     /// tensor debugger
     ///
-    static __BOTH__ void _dump(DU *v, int H, int W, int C);
-    static __BOTH__ void _view(DU *v, int H, int W, int C, DU mean, DU scale);
+    static __BOTH__ void _dump(DU *v, U32 H, U32 W, U32 C);
+    static __BOTH__ void _view(DU *v, U32 H, U32 W, U32 C, DU mean, DU scale);
     __GPU__ void show(bool dump=false);
     ///
     /// tensor-scalar operators
@@ -193,8 +193,8 @@ struct Tensor : public T4Base {
     __GPU__ __INLINE__ bool   operator>(Tensor &t)  { return 0; }
     __GPU__ __INLINE__ bool   operator<=(Tensor &t) { return 0; }
     __GPU__ __INLINE__ bool   operator>=(Tensor &t) { return 0; }
-    __GPU__ __INLINE__ bool   operator!=(Tensor &t) { return (intptr_t)this!=(intptr_t)&t; }
-    __GPU__ __INLINE__ bool   operator==(Tensor &t) { return (intptr_t)this==(intptr_t)&t; }
+    __GPU__ __INLINE__ bool   operator!=(Tensor &t) { return (UFP)this!=(UFP)&t; }
+    __GPU__ __INLINE__ bool   operator==(Tensor &t) { return (UFP)this==(UFP)&t; }
 };
 
 #endif // T4_ENABLE_OBJ
