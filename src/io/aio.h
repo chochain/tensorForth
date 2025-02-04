@@ -60,13 +60,13 @@ private:
     /// Tensor print methods
     ///
     __HOST__ void _show_obj(T4Base &t, bool view);  ///< display object on ss_dump
-    __HOST__ void _print_vec(DU *vd, int W, int C);
-    __HOST__ void _print_mat(DU *md, U16 *shape);
+    __HOST__ void _print_vec(DU *vd, U32 W, U32 C);
+    __HOST__ void _print_mat(DU *md, U32 *shape);
     __HOST__ void _print_tensor(Tensor &t);
     ///
     /// Tensor persistence (i.e. serialization) methods
     ///
-    __HOST__ int  _tsave(DU top, U16 mode, char *fname);
+    __HOST__ int  _tsave(DU top, U8 mode, char *fname);
     __HOST__ int  _tsave_txt(Tensor &t);
     __HOST__ int  _tsave_raw(Tensor &t);
     __HOST__ int  _tsave_npy(Tensor &t);
@@ -80,12 +80,12 @@ private:
     ///
     /// dataset IO methods
     ///
-    __HOST__ int  _dsfetch(Dataset &ds, U16 mode, char *ds_name=NULL); ///< fetch a dataset batch (more=true load batch, more=false rewind)
+    __HOST__ int  _dsfetch(Dataset &ds, char *ds_name=NULL, bool rewind=0); ///< fetch a dataset batch (rewind=false load batch)
     ///
     /// NN model persistence (i.e. serialization) methods
     ///
-    __HOST__ int  _nsave(Model &m, U16 mode, char *fname);
-    __HOST__ int  _nload(Model &m, U16 mode, char *fname);
+    __HOST__ int  _nsave(Model &m, char *fname, U8 mode);
+    __HOST__ int  _nload(Model &m, char *fname, U8 mode);
     
     __HOST__ int  _nsave_model(Model &m);
     __HOST__ int  _nsave_param(Model &m);

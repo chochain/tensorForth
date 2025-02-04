@@ -97,14 +97,13 @@ AIO::_print_model_parm(Tensor &in, Tensor &out) {
 ///   ds_name: NULL, following batch
 ///
 __HOST__ int
-AIO::_dsfetch(Dataset &ds, U16 mode, char *ds_name) {
+AIO::_dsfetch(Dataset &ds, char *ds_name, bool rewind) {
     Dataset &ds = (Dataset&)T4Base::du2obj(id);   ///< dataset ref
     U32     dsx = DU2X(id) & ~T4_TYPE_MSK;        ///< dataset mnemonic
     if (!ds.is_dataset()) {                       /// * indeed a dataset?
         ERROR("mmu#load id=%x is not a dataset\n", dsx);
         return -1;
     }
-    bool rewind = (mode & FAM_REW) != 0;
     ///
     /// search cache for top <=> dataset pair
     ///
