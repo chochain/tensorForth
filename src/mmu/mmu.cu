@@ -6,14 +6,21 @@
  */
 #include <iomanip>             // setw, setbase
 #include "mmu.h"
+
+///@name static class member
+///@note: CUDA does not support device static data
+///@{
+__GPU__ UFP _XT0;
+__GPU__ UFP _NM0;
+///@}
 ///
 /// Forth Virtual Machine operational macros to reduce verbosity
 ///
 __HOST__
 MMU::MMU() {
     MM_ALLOC(&_dict, sizeof(Code) * T4_DICT_SZ);
-    MM_ALLOC(&_vmss, sizeof(DU) * T4_SS_SZ * VM_COUNT);
-    MM_ALLOC(&_vmrs, sizeof(DU) * T4_RS_SZ * VM_COUNT);
+    MM_ALLOC(&_vmss, sizeof(DU) * T4_SS_SZ * T4_VM_COUNT);
+    MM_ALLOC(&_vmrs, sizeof(DU) * T4_RS_SZ * T4_VM_COUNT);
     MM_ALLOC(&_pmem, T4_PMEM_SZ);
     
 #if T4_ENABLE_OBJ    
@@ -43,9 +50,27 @@ MMU::~MMU() {
     TRACE("\\ MMU: CUDA Managed Memory freed\n");
 }
 ///
+/// static functions (for type conversion)
+///
+__GPU__ FPTR MMU::XT(IU ioff)    { return (FPTR)(_XT0 + ioff); }
+__GPU__ IU   MMU::XTOFF(FPTR xt) { return (IU)((UFP)xt - _XT0); }
+///
 /// dictionary management methods
 /// TODO: use const Code[] directly, as ROM, to prevent deep copy
 ///
+__GPU__ void
+MMU::dict_validate() {
+    UFP  x0 = ~0;                           ///< base of xt   allocations
+    UFP  n0 = ~0;
+    Code *c = _dict;
+    for (int i=0; i<_didx; i++, c++) {      /// * scan thru for max range
+        if ((UFP)c->xt   < x0) x0 = (UFP)c->xt;
+        if ((UFP)c->name < n0) n0 = (UFP)c->name;
+    }
+    _XT0 = x0;
+    _NM0 = n0;
+}
+
 __GPU__ int
 MMU::find(const char *s, bool compile) {
     DEBUG("mmu.find(%s) =>", s);
@@ -54,22 +79,15 @@ MMU::find(const char *s, bool compile) {
     }
     return -1;
 }
+
 __GPU__ void
 MMU::status() {
-    UFP x0 = ~0;                            ///< base of xt   allocations
-    UFP n0 = ~0;                            ///< base of name allocations
-
     Code *c = _dict;
-    for (int i=0; i<_didx; i++, c++) {      /// * scan thru for max range
-        if ((UFP)c->xt   < x0) x0 = (UFP)c->xt;
-        if ((UFP)c->name < n0) n0 = (UFP)c->name;
-    }
-    c = _dict;
-    DEBUG("Built-in Dictionary [name0=0x%lx, xt0=0x%lx]\n", n0, x0);
+    DEBUG("Built-in Dictionary [name0=0x%lx, xt0=0x%lx]\n", _NM0, _XT0);
     for (int i=0; i<_didx; i++, c++) {      ///< dump dictionary from device
-        DEBUG("%4d> name=%5x, xt=%5x %s\n", i,
-            (U32)((UFP)c->name - n0),
-            (U32)((UFP)c->xt   - x0),
+        DEBUG("%4d> name=%6x, xt=%6x %s\n", i,
+            (U32)((UFP)c->name - _NM0),
+            (U32)((UFP)c->xt   - _XT0),
             c->name);
     }
 
@@ -94,7 +112,7 @@ MMU::colon(const char *name) {
     c.didx = _didx-1;                       // directory index (reverse link)
     c.nfa  = _midx;                         // name field offset
     c.name = (const char*)&_pmem[_midx];    // assign name field index
-    c.colon= 1;                             // specify a colon word
+    c.udf  = 1;                             // specify a colon word
     add((U8*)name,  ALIGN(sz+1));           // setup raw name field
     c.pfa  = _midx;                         // parameter field offset
 }
