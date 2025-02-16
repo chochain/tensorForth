@@ -32,10 +32,14 @@ class MMU : public Managed {
 #endif // T4_ENABLE_OBJ    
 
 public:
-    friend class Debug;             ///< Debug can access my private members
-    
+    friend class Debug;                   ///< Debug can access my private members
     __HOST__ MMU();
     __HOST__ ~MMU();
+    ///
+    /// function pointer conversion
+    ///
+    __GPU__  FPTR XT(IU ioff);     ///< function pointer from _XT0 offset 
+    __GPU__  IU   XTOFF(FPTR xt);  ///< _XT0 offset from function pointer
     ///
     /// references to memory blocks
     ///
@@ -46,47 +50,52 @@ public:
     __BOTH__ __INLINE__ Code *last()      { return &_dict[_didx - 1]; }  ///< last dictionary word
     
     template <typename F>
-    __GPU__ void add_word(const char *name, F &f, int im) {          ///< append/merge a new word
-        int w   = find(name);                                        /// * check whether word exists
-        Code &c = _dict[w < 0 ? _didx++ : w];                        /// * append or merge
-        c.set(name, f, im);
+    __GPU__ void add_word(const char *name, F &f, int im) {           ///< append/merge a new word
+        int  w  = find(name);                                         ///< check whether word exists
+        Code &c = _dict[w < 0 ? _didx++ : w];                         ///< new or exist Code object
+        c.set(name, f, im);                                           /// * hardcopy Code object
         DEBUG(" %d\n", w);
-        if (w >= 0) TRACE("*** word redefined: %s\n", name);
+        if (w >= 0) TRACE("*** word redefined: %s\n", c.name);
     }           
     ///
     /// memory lock for multi-processing
     ///
-    __GPU__ __INLINE__ void lock()       { MUTEX_LOCK(_mutex); }
-    __GPU__ __INLINE__ void unlock()     { MUTEX_FREE(_mutex); }     ///< TODO: dead lock now
+    __GPU__  __INLINE__ void lock()       { MUTEX_LOCK(_mutex); }
+    __GPU__  __INLINE__ void unlock()     { MUTEX_FREE(_mutex); }  ///< TODO: dead lock now
     ///
     /// dictionary management ops
     ///
-    __GPU__ int  find(const char *s, bool compile=0);                ///< dictionary search
-    __GPU__ void status();                                           ///< display current MMU status
+    __GPU__  void dict_validate();                                 ///< dictionary validation
+    __GPU__  int  find(const char *s, bool compile=0);             ///< dictionary search
+    __GPU__  void status();                                        ///< display current MMU status
     ///
     /// compiler methods
     ///
-    __GPU__ void colon(const char *name);                            ///< define colon word
-    __GPU__ __INLINE__ int  align()      { int i = (-_midx & 0x3); _midx += i; return i; }
-    __GPU__ __INLINE__ void clear(IU i)  {                           ///< clear dictionary
-        _didx = i; _midx = _dict[i].nfa;
+    __GPU__  void colon(const char *name);                         ///< define colon word
+    __GPU__  __INLINE__ int  align()      { int i = (-_midx & 0x3); _midx += i; return i; }
+    __GPU__  __INLINE__ void clear(IU i)  {                        ///< clear dictionary
+        _midx = _dict[i].pfa - STRLENB(_dict[i].name);
+        _didx = i; 
     }
-    __GPU__ __INLINE__ void add(Code *c) { _dict[_didx++] = *c; }    ///< dictionary word assignment (deep copy)
-    __GPU__ __INLINE__ void add(U8* v, int sz, bool adv=true) {      ///< copy data to heap, TODO: dynamic parallel
-        MEMCPY(&_pmem[_midx], v, sz); if (adv) _midx += sz;          /// * advance HERE
+    __GPU__  __INLINE__ void add(Code *c) { _dict[_didx++] = *c; } ///< dictionary word assignment (deep copy)
+    __GPU__  __INLINE__ void add(U8* v, int sz, bool adv=true) {   ///< copy data to heap, TODO: dynamic parallel
+        MEMCPY(&_pmem[_midx], v, sz); if (adv) _midx += sz;        /// * advance HERE
     }
-    __GPU__ __INLINE__ void setjmp(IU a) { wi(a, _midx); }           ///< set branch target address
+    __GPU__  __INLINE__ void setjmp(IU a)  { wi(a, _midx); }       ///< set branch target address
+    __GPU__  __INLINE__ void set_here(IU a) { _midx = a; }         ///< set branch target address
     ///
     /// low level memory access
     ///
     __BOTH__ __INLINE__ IU   here()     { return _midx; }
-    __BOTH__ __INLINE__ IU   ri(U8 *c)  { return ((IU)(*(c+1)<<8)) | *c; }
-    __BOTH__ __INLINE__ IU   ri(IU i)   {
-        if (i < T4_PMEM_SZ) return ri(&_pmem[i]);
-        ERROR("\nmmu.wi[%d]", i);
-        return 0;
-    }
-    __BOTH__ __INLINE__ DU   rd(U8 *c)  { DU d; MEMCPY(&d, c, sizeof(DU)); return d; }
+//    __BOTH__ __INLINE__ IU   ri(U8 *c)  { return ((IU)(*(c+1)<<8)) | *c; }
+//    __BOTH__ __INLINE__ IU   ri(U8 *c)  { return *(IU*)c; }
+//    __BOTH__ __INLINE__ IU   ri(IU i)   {
+//        if (i < T4_PMEM_SZ) return ri(&_pmem[i]);
+//        ERROR("\nmmu.wi[%d]", i);
+//        return 0;
+//    }
+//    __BOTH__ __INLINE__ DU   rd(U8 *c)  { DU d; MEMCPY(&d, c, sizeof(DU)); return d; }
+    __BOTH__ __INLINE__ DU   rd(U8 *c)  { return *(DU*)c; }
     __BOTH__ __INLINE__ DU   rd(IU i)   {
         if (i < T4_PMEM_SZ) return rd(&_pmem[i]);
         ERROR("\nmmu.wi[%d]", i);
@@ -95,13 +104,15 @@ public:
     __GPU__  __INLINE__ void wd(U8 *c, DU d)   {
         DU v = rd(c);
         drop(v);
-        MEMCPY(c, &d, sizeof(DU));
+        *(DU*)c = d;
+//        MEMCPY(c, &d, sizeof(DU));
     }
     __GPU__  __INLINE__ void wd(IU i, DU d)    {
         if (i < T4_PMEM_SZ) wd(&_pmem[i], d);
         else ERROR("\nmmu.wd[%d]", i);
     }
-    __GPU__  __INLINE__ void wi(U8 *c, IU n)   { *c++ = n&0xff; *c = (n>>8)&0xff; }
+//    __GPU__  __INLINE__ void wi(U8 *c, IU n)   { *c++ = n&0xff; *c = (n>>8)&0xff; }
+    __GPU__  __INLINE__ void wi(U8 *c, IU n)   { *(IU*)c = n; }
     __GPU__  __INLINE__ void wi(IU i, IU n)    {
         if (i < T4_PMEM_SZ) wi(&_pmem[i], n);
         else ERROR("\nmmu.wi[%d]", i);
