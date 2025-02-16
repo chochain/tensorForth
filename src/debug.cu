@@ -6,92 +6,126 @@
  */
 #include <iomanip>
 #include "debug.h"
+
+#define MEM(a)  (mu->pmem(a))
+///
+///@name Primitive words to help printing
+///@{
+Code prim[] = {
+    Code(";",    EXIT),  Code("next", NEXT),  Code("loop", LOOP),  Code("lit", LIT),
+    Code("var",  VAR),   Code("str",  STR),   Code("dotq", DOTQ),  Code("bran",BRAN),
+    Code("0bran",ZBRAN), Code("for",  FOR),   Code("do",   DO),    Code("key", KEY)
+};
+///@}
 ///
 /// AIO takes managed memory blocks as input and output buffers
 /// which can be access by both device and host
 ///
-__HOST__ int
-Debug::to_s(IU w) {                     ///< dictionary name size
+__HOST__ void
+Debug::ss_dump(DU *ss, int n, int base) {
     h_ostr &fout = io->fout;
+    static char buf[34];                  ///< static buffer
+    auto rdx = [](DU v, int b) {          ///< display v by radix
+        DU t, f = modf(v, &t);            ///< integral, fraction
+        if (ABS(f) > DU_EPS) {
+            sprintf(buf, "%0.6g", v);
+            return buf;
+        }
+        int i = 33;  buf[i]='\0';         /// * C++ can do only base=8,10,16
+        int dec = b==10;
+        U32 n   = dec ? (U32)(ABS(v)) : (U32)(v);  ///< handle negative
+        do {                              ///> digit-by-digit
+            U8 d = (U8)MOD(n,b);  n /= b;
+            buf[--i] = d > 9 ? (d-10)+'a' : d+'0';
+        } while (n && i);
+        if (dec && v < DU0) buf[--i]='-';
+        return &buf[i];
+    };
+    for (int i=0; i<n; i++) {
+        fout << rdx(*ss++, base) << ' ';
+    }
+    fout << "-> ok" << endl;
+}
+__HOST__ int
+Debug::p2didx(Param *p) {                          ///< reverse lookup
+    for (int i = mu->_didx - 1; i >= 0; --i) {
+        Code &c = mu->_dict[i];
+        if (c.udf==p->udf && p->ioff==c.pfa) return i;
+        if (c.udf!=p->udf && p->ioff==mu->XTOFF(c.xt)) return i;
+    }
+    return -1;                                     /// * not found
+}
+__HOST__ int
+Debug::to_s(IU w, int base) {
+    Param *p = (Param*)mu->_pmem[mu->_dict[w].pfa];
+    to_s(p, 0, base);
+}
+__HOST__ int
+Debug::to_s(Param *p, int nv, int base) {
+    bool pm = p->op != MAX_OP;                     ///< is prim
+    int  w  = pm ? p->op : p2didx(p);              ///< fetch word index by pfa
+    if (w < 0) return -1;                          ///> loop guard
     
-    Code &code = mu->_dict[w];
-    if (io->trace) {
-        fout << (code.immd ? "*" : " ")
-             << "[" << std::setw(3) << w << "]"
-             << (code.colon ? (FPTR)&mu->_pmem[code.nfa] : code.xt)
-             << (code.colon ? ':': '=');
+    h_ostr &fout = io->fout;
+    Code   &code = mu->_dict[w];
+    
+    fout << endl; fout << "  ";                    /// * indent
+    if (io->trace) {                               /// * header
+        fout << setbase((int)16) << "( ";
+        fout << setfill('0') << setw(4) << ((U8*)p - MEM0);   ///> addr
+        fout << '[' << setfill(' ') << setw(4) << w << ']';   ///> word ref
+        fout << " ) " << setbase(base);
     }
-    /*
-     * TODO: not sure why copying 32 byte does not work?
-     * char name[36];
-     * cudaMemcpy(name, dict[w].name, 32, D2H);
-     */
-    U8 name[36], i=0;
-    cudaMemcpy(name, code.name, 1, D2H);
-    while (name[i++]) {
-        cudaMemcpy(name+i, code.name+i, 1, D2H);
+    if (!pm) {                                     ///> built-in
+        U8 name[36], i=0;                          ///< name buffer on host
+//        cudaMemcpy(name, code.name, 1, D2H);
+        while (name[i++]) {                        ///* not sure why strcpy does not work
+            cudaMemcpy(name+i, code.name+i, 1, D2H);
+        }
+        fout << name << "  ";
+        return 0;
     }
-    fout << name << "  ";
-    return (int)i + 2;                ///< return string size (+ 2 spaces)
+    U8 *ip = (U8*)(p+1);                           ///< pointer to data
+    switch (w) {
+    case LIT:  io->show(*(DU*)ip);                  break;
+    case STR:  fout << "s\" " << (char*)ip << '"';  break;
+    case DOTQ: fout << ".\" " << (char*)ip << '"';  break;
+    case VAR:
+        for (int i=0; i < nv; i+=sizeof(DU)) {
+            fout << *(DU*)(ip + i) << ' ';
+        }
+        /* no break */
+    default: fout << prim[w].name; break;
+    }
+    switch (w) {
+    case NEXT: case LOOP:
+    case BRAN: case ZBRAN:                   ///> display jmp target
+        fout << " \ $" << setbase(16)
+             << setfill('0') << setw(4) << p->ioff;
+        break;
+    default: fout << setfill(' ') << setw(-1);          ///> restore format
+    }
+    return
+        w==EXIT ||                           /// * end of word
+        (w==LIT && p->exit) ||               /// * constant
+        (w==VAR && !p->ioff);                /// * variable
 }
 ///
 /// display dictionary word (wastefully one byte at a time)
 ///
 __HOST__ void
-Debug::words(int rdx) {
+Debug::words(int base) {
+    const int WIDTH = 60;
     h_ostr &fout = io->fout;
-    fout << std::setbase(10);
+    fout << setbase(10);
     for (int i=0, sz=0; i<mu->_didx; i++) {
         fout << ' ';
         sz += to_s((IU)i);
-        if (io->trace || sz > 68) { fout << std::endl; sz = 0; } /// TODO: width configuable
-    }
-    if (!io->trace) fout << std::setbase(rdx) << std::endl;
-}
-///
-/// recursively disassemble colon word
-///
-__HOST__ void
-Debug::see(U8 *ip, int dp, int rdx) {
-    h_ostr &fout = io->fout;
-    while (*(IU*)ip) {                                              /// * loop until EXIT
-        fout << std::endl; for (int n=dp; n>0; n--) fout << "  ";   /// * indentation by level
-        fout << "[" << std::setw(4) << (IU)(ip - mu->_pmem) << ":";
-        IU w = *(IU*)ip;                                            /// * fetch word index
-        to_s(w);                                                    /// * display word name
-        if (mu->_dict[w].colon && dp < 2) {                         /// * check if is a colon word
-            see(&mu->_pmem[mu->_dict[w].pfa], dp+1);                /// * go one level deeper
+        if (io->trace || sz > WIDTH) {     /// TODO: width configuable
+            fout << endl; sz = 0;
         }
-        ip += sizeof(IU);                                           /// * advance instruction pointer
-        switch (w) {
-        case DOVAR: case DOLIT: {                                   /// * fetch literal
-            DU v = *(DU*)ip;  ip += sizeof(DU);
-            fout << "= ";
-            io->show(v);
-            if (IS_OBJ(v)) io->show(v);                             /// * handle object
-            else fout << v;                                         /// * display the literal
-        } break;
-        case DOSTR: case DOTSTR: {
-            char *s = (char*)ip;
-            int  sz = strlen(s)+1;
-            ip += ALIGN(sz);                                        /// fetch string
-            fout << "= \"" << s << "\"";
-        } break;
-        case BRAN: case ZBRAN: case DONEXT:
-            fout << "= " << *(IU*)ip; ip += sizeof(IU); break;      /// fetch jump target
-        }
-        fout << " ] ";
     }
-}
-
-__HOST__ void
-Debug::see(IU w, int rdx) {
-    h_ostr &fout = io->fout;
-    fout << "["; to_s(w);
-    if (mu->_dict[w].colon) {
-        see(&mu->_pmem[mu->_dict[w].pfa], 0);
-    }
-    fout << "]" << std::endl;
+    if (!io->trace) fout << setbase(base) << endl;
 }
 ///
 /// Forth pmem memory dump
@@ -100,10 +134,10 @@ Debug::see(IU w, int rdx) {
 #define C2H(c) { buf[x++] = i2h[(c)>>4]; buf[x++] = i2h[(c)&0xf]; }
 #define IU2H(i){ C2H((i)>>8); C2H((i)&0xff); }
 __HOST__ void
-Debug::mem_dump(IU p0, IU sz, int rdx) {
-    static const char *i2h = "0123456789abcdef";
+Debug::mem_dump(IU p0, int sz, int base) {
     h_ostr &fout = io->fout;
     char buf[80];
+    fout << setbase(16) << setfill('0');
     for (IU i=ALIGN16(p0); i<=ALIGN16(p0+sz); i+=16) {
         int x = 0;
         buf[x++] = '\n'; IU2H(i); buf[x++] = ':'; buf[x++] = ' ';  // "%04x: "
@@ -119,32 +153,55 @@ Debug::mem_dump(IU p0, IU sz, int rdx) {
         buf[75] = '\0';
         fout << buf;
     }
-    fout << std::endl;
+    fout << setbase(base) << setfill(' ');
 }
-
 __HOST__ void
-Debug::dict_dump(int rdx) {                    ///< dump dictionary
-    // TODO
-}
-
-__HOST__ void
-Debug::mem_stat() {                            ///< display memory statistics
-    // TODO
-}
-///
-/// dump data stack content
-///
-__HOST__ void
-Debug::ss_dump(IU vid, IU n, int rdx) {
+Debug::see(IU w, int base) {
     h_ostr &fout = io->fout;
-    DU *ss = mu->vmss(vid);
-    if (io->trace) fout << vid << "}";
-    fout << std::setprecision(-1)
-         << std::setbase(rdx) << " <";
-    for (IU i=0; i<n; i++) {
-        io->show(ss[i]);                      /// * show stack elements
-        fout << " ";
+    fout << ": " << dict[w].name << endl;
+    if (!mmu->dict[w].udf) {
+        fout << " ( built-ins ) ;" << endl;
+        return;
     }
-    io->show(ss[T4_SS_SZ-1]);                 /// * show top
-    fout << "> ok" << std::endl;
+    auto nvar = [](IU i0, IU ioff, U8 *ip) { /// * calculate # of elements
+        if (ioff) return MEM(ioff) - ip - sizeof(IU);  /// create...does>
+        IU pfa0 = dict[i0].ip();
+        IU nfa1 = (i0+1) < (IU)dict.idx ? NFA(i0+1) : pmem.idx;
+        return (nfa1 - pfa0 - sizeof(IU));             ///> variable, create ,
+    };
+    U8 *ip = MEM(dict[w].ip());                        ///< PFA pointer
+    while (1) {
+        Param *p = (Param*)ip;
+        int   nv = p->op==VAR ? nvar(w, p->ioff, ip) : 0;  ///< VAR number of elements
+        if (to_s(p, nv, base)) break;                      ///< display Parameter
+        ///
+        /// advance ip to next Param
+        ///
+        ip += sizeof(IU);
+        switch (p->op) {                     ///> extra bytes to skip
+        case LIT: ip += sizeof(DU);             break;
+        case VAR: ip = MEM(p->ioff);            break;  ///> create/does
+        case STR: case DOTQ: ip += p->ioff;     break;
+        }
+    }
+    fout << endl;
+}
+///====================================================================
+///
+///> System statistics - for heap, stack, external memory debugging
+///
+__HOST__ void
+Debug::dict_dump(int base) {
+    h_ostr &fout = io->fout;
+    fout << setbase(16) << setfill('0') << "XT0=" << MMU::XT0 << endl;
+    for (int i=0; i<dict._didx; i++) {
+        Code &c = *mu->_dict[i];
+        fout << setfill('0') << setw(3) << i
+             << c.udf ? " U" : "  ")
+			 << c.imm ? "I " : "  ")
+             << setw(8) << (UFP)c.xt
+             << ":" << setw(6) << c.ip()
+             << " " << c.name << endl;
+    }
+    fout << setbase(base) << setfill(' ') << setw(-1);
 }
