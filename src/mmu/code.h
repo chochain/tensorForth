@@ -25,50 +25,40 @@ struct functor : fop {
         op();
     }
 };
-/// @}
-typedef fop* FPTR;          ///< lambda function pointer
-///
-/// Code class for dictionary word
-///
-#define CODE_ATTR_FLAG      0x3              /**< nVidia func 4-byte aligned */
+typedef fop* FPTR;                ///< lambda function pointer
+///@}
+///@name Code class for dictionary word
+///@{
+constexpr UFP MSK_XT = (UFP)~0>>2;/// xt pointer mask (for union attributes)
 struct Code : public Managed {
-    const char *name = 0;   ///< name field
+    const char *name = 0;         ///< name field
     union {
-        FPTR xt = 0;        ///< lambda pointer (CUDA 49-bit)
-        U64  *fp;           ///< function pointer (for debugging)
+        FPTR xt = 0;              ///< lambda pointer (CUDA 49-bit)
+        U64  *fp;                 ///< function pointer (for debugging)
         struct {
-            U64 colon: 1;   ///< colon defined word
-            U64 immd : 1;   ///< immediate flag
-            U64 didx : 14;  ///< dictionary index (reverse link)
-            U64 nfa  : 24;  ///< string pointer (offset) pmem space
-            U64 pfa  : 24;  ///< param field offset to pmem space
+            IU  pfa;              ///< param field offset to pmem space
+            U32 nfa : 16;         ///< reserved
+            U32 didx: 14;         ///< dictionary index (reverse link)
+            U32 imm : 1;          ///< immediate flag
+            U32 udf : 1;          ///< colon defined word
         };
     };
-    
-    /* Note: no constructor needed
-    template<typename F>    ///< template function for lambda
-    __GPU__ Code(const char *n, F f, bool im) : name(n), xt(new functor<F>(f)) {
-        immd = im ? 1 : 0;
+
+    __HOST__ Code(const char *n, IU w) : name(n), xt((FPTR)((UFP)w)) {}  ///< primitives
+    /*
+    __GPU__ Code() {}             ///< blank struct (for initilization)
+    __GPU__ Code(const char *n, FPTR fp, bool im) : name(n), xt(fp) {  ///< built-in and colon words
+        imm = im;
         DEBUG("%cCode(name=%p, xt=%p) %s\n", im ? '*' : ' ', name, xt, n);
-    }
-    __GPU__ Code(const Code &c) : name(c.name), xt(c.xt), u(c.u) {
-        DEBUG("Code(&c) %p %s\n", xt, name);
-    }
-    __GPU__ Code &operator=(const Code &c) {  ///> called by Vector::push(T*)
-        name = c.name;
-        xt   = c.xt;
-        u    = c.u;
-        DEBUG("Code= %p %s\n", xt, name);
-        return *this;
     }
     */
     ~Code() { DEBUG("Code(%s) freed\n", name); }
     
-    template<typename F>    ///< template function for lambda
+    template<typename F>          ///< template function for lambda
     __GPU__ void set(const char *n, F &f, bool im) {
         name = n;
         xt   = new functor<F>(f);
-        immd = im ? 1 : 0;
+        imm  = im ? 1 : 0;
         DEBUG("%cCode(name=%p, xt=%p) %s\n", im ? '*' : ' ', name, xt, n);
     }
 };
