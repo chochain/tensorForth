@@ -122,17 +122,18 @@ typedef F64         DU2;                    /**< double preciesion data */
 ///   static_cast<int>(23.5) => 23 (truncate)
 ///   __float2int_rn(23.5)   => 24 (to round-to-nearest)
 ///
-#define INT(f)      (__float2int_rn(f))     /**< nearest-even int 1.5=>1, 1.51=>2 */
-#define I2D(i)      (static_cast<DU>(i))    /**< int to float */
+#define INT(f)      (__float2int_rn(f))              /**< nearest-even int 1.5=>1, 1.51=>2 */
+#define UINT(f)     (static_cast<U32>(INT(f)))       /**< unsigned int */
+#define I2D(i)      (static_cast<DU>(i))             /**< int to float */
 ///
 /// object classification macros
 ///
-#define T4_TYPE_MSK 0x00000003                             /**< obj view flag  */
-#define T4_TT_OBJ   0x00000001                             /**< data unit flag */
-#define T4_TT_VIEW  0x00000003                             /**< view of object */
-#define EXT_FLAG    0x80000000                             /**< extention flag */
-#define DU2X(v)     (*(U32*)&(v))                          /**< to U32 ptr     */
-#define SCALAR(v)   ((DU2X(v) &= ~T4_TT_OBJ), (v))         /**< set DU flag    */
+constexpr U32 T4_TYPE_MSK = 0x00000003;              /**< obj view flag  */
+constexpr U32 T4_TT_OBJ   = 0x00000001;              /**< data unit flag */
+constexpr U32 T4_TT_VIEW  = 0x00000003;              /**< view of object */
+constexpr U32 EXT_FLAG    = 0x80000000;              /**< extention flag */
+#define DU2X(v)     (*(U32*)&(v))                    /**< to U32 ptr     */
+#define SCALAR(v)   ((DU2X(v) &= ~T4_TT_OBJ), (v))   /**< set DU flag    */
 
 #if T4_ENABLE_OBJ
 #define IS_OBJ(v)   ((DU2X(v) & T4_TT_OBJ)!=0)             /**< if is an obj   */
@@ -207,15 +208,16 @@ typedef enum { RDX=0, CR, DOT, UDOT, EMIT, SPCS } io_op;
 ///   * if they are combined then can behaves similar to classic Forth
 ///   * with an addition link field added.
 ///
-//typedef enum { // ceforth
-//    EXIT=0|EXT_FLAG, NOP, NEXT, LOOP, LIT, VAR, STR, DOTQ, BRAN, ZBRAN,
-//    VBRAN, DOES, FOR, DO, KEY, MAX_OP
-//} prim_op;
-
-enum { // ten4 original
-    EXIT = 0, DONEXT, DOVAR, DOLIT, DOSTR, DOTSTR, BRAN, ZBRAN, DOES, TOR
-} forth_opcode;
-
+///@name primitive opcode
+///{@
+typedef enum {
+    EXIT=0, NEXT, LOOP, LIT, VAR, STR, DOTQ, BRAN, ZBRAN, FOR,
+    DO, KEY, MAX_OP=0xf
+} prim_op;
+//enum { // ten4 original
+//    EXIT = 0, DONEXT, DOVAR, DOLIT, DOSTR, DOTSTR, BRAN, ZBRAN, DOES, TOR
+//} forth_opcode;
+///@}
 struct Managed {
     void *operator new(size_t sz) {
         void *ptr;
