@@ -31,9 +31,9 @@
 ///@}
 ///@name Virtual machine instance controls
 ///@{
-#define VM_COUNT            4        /**< number of VMs         */
-#define VM_EXP_STACK        8        /**< exception stack depth */
-#define VM_REGFILE_SZ       128      /**< register file size    */
+#define T4_VM_COUNT         4        /**< number of VMs         */
+#define T4_EXP_STACK        8        /**< exception stack depth */
+#define T4_REGFILE_SZ       128      /**< register file size    */
 ///@}
 /*
  * 32it alignment is required
