@@ -10,8 +10,8 @@
 ///@name static class member
 ///@note: CUDA does not support device static data
 ///@{
-__GPU__ UFP _XT0;
-__GPU__ UFP _NM0;
+__GPU__  UFP _XT0;
+__GPU__  UFP _NM0;
 ///@}
 ///
 /// Forth Virtual Machine operational macros to reduce verbosity
@@ -52,8 +52,13 @@ MMU::~MMU() {
 ///
 /// static functions (for type conversion)
 ///
-__GPU__ FPTR MMU::XT(IU ioff)    { return (FPTR)(_XT0 + ioff); }
-__GPU__ IU   MMU::XTOFF(FPTR xt) { return (IU)((UFP)xt - _XT0); }
+__GPU__  FPTR MMU::XT(IU ioff)      { return (FPTR)(_XT0 + ioff);    }
+__GPU__  IU   MMU::XTOFF(FPTR xt)   { return (IU)((UFP)xt - _XT0);   }
+__HOST__ IU   MMU::H_XTOFF(FPTR xt) {
+    UFP xt0;
+    cudaMemcpy((void*)&xt0, (void*)&_XT0, sizeof(UFP), D2H);
+    return (IU)((UFP)xt - xt0);
+}
 ///
 /// dictionary management methods
 /// TODO: use const Code[] directly, as ROM, to prevent deep copy
@@ -63,7 +68,7 @@ MMU::dict_validate() {
     UFP  x0 = ~0;                           ///< base of xt   allocations
     UFP  n0 = ~0;
     Code *c = _dict;
-    for (int i=0; i<_didx; i++, c++) {      /// * scan thru for max range
+    for (int i=0; i < _didx; i++, c++) {    /// * scan thru for max range
         if ((UFP)c->xt   < x0) x0 = (UFP)c->xt;
         if ((UFP)c->name < n0) n0 = (UFP)c->name;
     }

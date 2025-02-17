@@ -32,14 +32,15 @@ class MMU : public Managed {
 #endif // T4_ENABLE_OBJ    
 
 public:
-    friend class Debug;                   ///< Debug can access my private members
+    friend class Debug;             ///< Debug can access my private members
     __HOST__ MMU();
     __HOST__ ~MMU();
     ///
     /// function pointer conversion
     ///
-    __GPU__  FPTR XT(IU ioff);     ///< function pointer from _XT0 offset 
-    __GPU__  IU   XTOFF(FPTR xt);  ///< _XT0 offset from function pointer
+    __GPU__  FPTR XT(IU ioff);      ///< function pointer from _XT0 offset 
+    __GPU__  IU   XTOFF(FPTR xt);   ///< _XT0 offset from function pointer
+    __HOST__ IU   H_XTOFF(FPTR xt); ///< _XT0 offset in host mode (for Debugging)
     ///
     /// references to memory blocks
     ///
