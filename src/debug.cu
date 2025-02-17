@@ -7,14 +7,16 @@
 #include <iomanip>
 #include "debug.h"
 
-#define MEM(a)  (mu->pmem(a))
+#define MEM(a)  ((U8*)&mu->_pmem[a])
+#define DICT(w) (mu->_dict[w])
+#define DIDX    (mu->_didx)
 ///
 ///@name Primitive words to help printing
 ///@{
 Code prim[] = {
-    Code(";",    EXIT),  Code("next", NEXT),  Code("loop", LOOP),  Code("lit", LIT),
-    Code("var",  VAR),   Code("str",  STR),   Code("dotq", DOTQ),  Code("bran",BRAN),
-    Code("0bran",ZBRAN), Code("for",  FOR),   Code("do",   DO),    Code("key", KEY)
+    Code(";",    EXIT),  Code("next ", NEXT), Code("loop ", LOOP), Code("lit",   LIT),
+    Code("var",  VAR),   Code("str",   STR),  Code("dotq",  DOTQ), Code("bran ", BRAN),
+    Code("0bran",ZBRAN), Code("for  ", FOR),  Code("do",    DO),   Code("key",   KEY)
 };
 ///@}
 ///
@@ -22,7 +24,8 @@ Code prim[] = {
 /// which can be access by both device and host
 ///
 __HOST__ void
-Debug::ss_dump(DU *ss, int n, int base) {
+Debug::ss_dump(IU id, int n, int base) {
+    DU *ss = mu->vmss(id);                ///< retrieve VM SS
     h_ostr &fout = io->fout;
     static char buf[34];                  ///< static buffer
     auto rdx = [](DU v, int b) {          ///< display v by radix
@@ -44,21 +47,22 @@ Debug::ss_dump(DU *ss, int n, int base) {
     for (int i=0; i<n; i++) {
         fout << rdx(*ss++, base) << ' ';
     }
-    fout << "-> ok" << endl;
+    fout << "-> ok" << ENDL;
 }
 __HOST__ int
-Debug::p2didx(Param *p) {                          ///< reverse lookup
-    for (int i = mu->_didx - 1; i >= 0; --i) {
-        Code &c = mu->_dict[i];
-        if (c.udf==p->udf && p->ioff==c.pfa) return i;
-        if (c.udf!=p->udf && p->ioff==mu->XTOFF(c.xt)) return i;
+Debug::p2didx(Param *p) {
+    IU pfa = p->ioff;
+    for (int i = DIDX - 1; i >= 0; --i) {
+        Code &c = DICT(i);
+        if (p->udf) { if (c.udf && pfa==c.pfa) return i; }
+        else        { if (!c.udf && pfa==mu->H_XTOFF(c.xt)) return i; }
     }
     return -1;                                     /// * not found
 }
 __HOST__ int
 Debug::to_s(IU w, int base) {
-    Param *p = (Param*)mu->_pmem[mu->_dict[w].pfa];
-    to_s(p, 0, base);
+    Param *p = (Param*)MEM(DICT(w).pfa);
+    return to_s(p, 0, base);
 }
 __HOST__ int
 Debug::to_s(Param *p, int nv, int base) {
@@ -67,21 +71,21 @@ Debug::to_s(Param *p, int nv, int base) {
     if (w < 0) return -1;                          ///> loop guard
     
     h_ostr &fout = io->fout;
-    Code   &code = mu->_dict[w];
+    Code   &code = DICT(w);
     
-    fout << endl; fout << "  ";                    /// * indent
+    fout << ENDL; fout << "  ";                    /// * indent
     if (io->trace) {                               /// * header
-        fout << setbase((int)16) << "( ";
-        fout << setfill('0') << setw(4) << ((U8*)p - MEM0);   ///> addr
-        fout << '[' << setfill(' ') << setw(4) << w << ']';   ///> word ref
-        fout << " ) " << setbase(base);
+        fout << std::setbase((int)16) << "( ";
+        fout << std::setfill('0') << std::setw(4) << ((U8*)p - MEM(0)); ///> addr
+        fout << '['   << std::setfill(' ') << std::setw(4) << w << ']'; ///> word ref
+        fout << " ) " << std::setbase(base);
     }
     if (!pm) {                                     ///> built-in
         U8 name[36], i=0;                          ///< name buffer on host
 //        cudaMemcpy(name, code.name, 1, D2H);
-        while (name[i++]) {                        ///* not sure why strcpy does not work
+        do {
             cudaMemcpy(name+i, code.name+i, 1, D2H);
-        }
+        } while (name[i++] != '\0');
         fout << name << "  ";
         return 0;
     }
@@ -100,10 +104,10 @@ Debug::to_s(Param *p, int nv, int base) {
     switch (w) {
     case NEXT: case LOOP:
     case BRAN: case ZBRAN:                   ///> display jmp target
-        fout << " \ $" << setbase(16)
-             << setfill('0') << setw(4) << p->ioff;
+        fout << " \\ $" << std::setbase(16)
+             << std::setfill('0') << std::setw(4) << p->ioff;
         break;
-    default: fout << setfill(' ') << setw(-1);          ///> restore format
+    default: fout << std::setfill(' ') << std::setw(-1);          ///> restore format
     }
     return
         w==EXIT ||                           /// * end of word
@@ -117,15 +121,24 @@ __HOST__ void
 Debug::words(int base) {
     const int WIDTH = 60;
     h_ostr &fout = io->fout;
-    fout << setbase(10);
-    for (int i=0, sz=0; i<mu->_didx; i++) {
-        fout << ' ';
-        sz += to_s((IU)i);
-        if (io->trace || sz > WIDTH) {     /// TODO: width configuable
-            fout << endl; sz = 0;
+    fout << std::setbase(10);
+    for (int i=0, sz=0; i < DIDX; i++) {
+        const char *nm = DICT(i).name;
+        const int  len = strlen(nm);
+#if CC_DEBUG > 1
+        if (nm[0])
+#else  //  CC_DEBUG > 1
+        if (nm[len-1] != ' ')
+#endif // CC_DEBUG > 1
+        {            
+            sz += len + 2;
+            fout << "  " << nm;
+        }
+        if (io->trace || sz > WIDTH) {
+            fout << ENDL; sz = 0;
         }
     }
-    if (!io->trace) fout << setbase(base) << endl;
+    if (!io->trace) fout << std::setbase(base) << ENDL;
 }
 ///
 /// Forth pmem memory dump
@@ -135,9 +148,10 @@ Debug::words(int base) {
 #define IU2H(i){ C2H((i)>>8); C2H((i)&0xff); }
 __HOST__ void
 Debug::mem_dump(IU p0, int sz, int base) {
+    const char i2h[] = "0123456789abcdef";
     h_ostr &fout = io->fout;
     char buf[80];
-    fout << setbase(16) << setfill('0');
+    fout << std::setbase(16) << std::setfill('0');
     for (IU i=ALIGN16(p0); i<=ALIGN16(p0+sz); i+=16) {
         int x = 0;
         buf[x++] = '\n'; IU2H(i); buf[x++] = ':'; buf[x++] = ' ';  // "%04x: "
@@ -153,27 +167,30 @@ Debug::mem_dump(IU p0, int sz, int base) {
         buf[75] = '\0';
         fout << buf;
     }
-    fout << setbase(base) << setfill(' ');
+    fout << std::setbase(base) << std::setfill(' ');
 }
+
+#define NFA(w) (DICT(w).pfa - ALIGN(strlen(DICT(w).name)))
 __HOST__ void
 Debug::see(IU w, int base) {
     h_ostr &fout = io->fout;
-    fout << ": " << dict[w].name << endl;
-    if (!mmu->dict[w].udf) {
-        fout << " ( built-ins ) ;" << endl;
+    Code   &c    = DICT(w);
+    fout << ": " << c.name << ENDL;
+    if (!c.udf) {
+        fout << " ( built-ins ) ;" << ENDL;
         return;
     }
-    auto nvar = [](IU i0, IU ioff, U8 *ip) { /// * calculate # of elements
+    auto nvar = [this](IU i0, IU ioff, U8 *ip) {       /// * calculate # of elements
         if (ioff) return MEM(ioff) - ip - sizeof(IU);  /// create...does>
-        IU pfa0 = dict[i0].ip();
-        IU nfa1 = (i0+1) < (IU)dict.idx ? NFA(i0+1) : pmem.idx;
+        IU pfa0 = DICT(i0).pfa;
+        IU nfa1 = (i0+1) < DIDX ? NFA(i0+1) : mu->_midx;
         return (nfa1 - pfa0 - sizeof(IU));             ///> variable, create ,
     };
-    U8 *ip = MEM(dict[w].ip());                        ///< PFA pointer
+    U8 *ip = MEM(c.pfa);                               ///< PFA pointer
     while (1) {
         Param *p = (Param*)ip;
         int   nv = p->op==VAR ? nvar(w, p->ioff, ip) : 0;  ///< VAR number of elements
-        if (to_s(p, nv, base)) break;                      ///< display Parameter
+        if (to_s(p, nv, base) != 0) break;                 ///< display Parameter
         ///
         /// advance ip to next Param
         ///
@@ -184,7 +201,7 @@ Debug::see(IU w, int base) {
         case STR: case DOTQ: ip += p->ioff;     break;
         }
     }
-    fout << endl;
+    fout << ENDL;
 }
 ///====================================================================
 ///
@@ -193,15 +210,15 @@ Debug::see(IU w, int base) {
 __HOST__ void
 Debug::dict_dump(int base) {
     h_ostr &fout = io->fout;
-    fout << setbase(16) << setfill('0') << "XT0=" << MMU::XT0 << endl;
-    for (int i=0; i<dict._didx; i++) {
-        Code &c = *mu->_dict[i];
-        fout << setfill('0') << setw(3) << i
-             << c.udf ? " U" : "  ")
-			 << c.imm ? "I " : "  ")
-             << setw(8) << (UFP)c.xt
-             << ":" << setw(6) << c.ip()
-             << " " << c.name << endl;
+    fout << std::setbase(16) << std::setfill('0') << ENDL;
+    for (int i=0; i < DIDX; i++) {
+        Code &c = DICT(i);
+        fout << std::setfill('0') << std::setw(3) << i
+             << (c.udf ? " U" : "  ")
+			 << (c.imm ? "I " : "  ")
+             << std::setw(8) << (UFP)c.xt
+             << ":" << std::setw(6) << c.pfa
+             << " " << c.name << ENDL;
     }
-    fout << setbase(base) << setfill(' ') << setw(-1);
+    fout << std::setbase(base) << std::setfill(' ') << std::setw(-1);
 }
