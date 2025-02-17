@@ -27,20 +27,18 @@ VM::VM(int id, System *sys)
 ///
 __GPU__ void
 VM::outer() {
+    char *idiom;
     if (state == NEST) resume();                     /// * resume from suspended VM
-    char *idiom = sys->fetch();
-    while (idiom) {                                  /// * loop throught tib
+    while ((idiom = sys->fetch())) {                 /// * loop throught tib
         if (pre(idiom)) continue;                    /// * pre process
-        DEBUG("%d> idiom='%s' =>", id, idiom);
+        DEBUG("%d> idiom='%s' => ", id, idiom);
         if (!process(idiom)) {
             sys->perr(idiom, "? ");                  /// * display error prompt
             compile = false;                         /// * reset to interpreter mode
-            sys->readline();                         /// * flush input stream
             state   = QUERY;                         /// * back to input mode
             break;                                   /// * bail
         }
         if (post()) break;                           /// * post process
-        idiom = sys->fetch();
     }
     TRACE("%d> VM.state=%d\n", id, state);
     
