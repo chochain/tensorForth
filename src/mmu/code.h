@@ -45,6 +45,7 @@ struct Code : public Managed {
     };
 
     __HOST__ Code(const char *n, IU w) : name(n), xt((FPTR)((UFP)w)) {}  ///< primitives
+    __HOST__ ~Code() { DEBUG("Code(%s) freed\n", name); }                ///< destructor
     /*
     __GPU__ Code() {}             ///< blank struct (for initilization)
     __GPU__ Code(const char *n, FPTR fp, bool im) : name(n), xt(fp) {  ///< built-in and colon words
@@ -52,7 +53,6 @@ struct Code : public Managed {
         DEBUG("%cCode(name=%p, xt=%p) %s\n", im ? '*' : ' ', name, xt, n);
     }
     */
-    ~Code() { DEBUG("Code(%s) freed\n", name); }
     
     template<typename F>          ///< template function for lambda
     __GPU__ void set(const char *n, F &f, bool im) {
