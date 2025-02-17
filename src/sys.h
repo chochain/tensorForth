@@ -8,11 +8,10 @@
 #define TEN4_SRC_SYS_H
 #include <curand_kernel.h>
 #include "debug.h"                              ///< include mmu/mmu.h, io/aio.h
-
-#define ENDL '\n'
-
+///
+///@name System Manager Class
+///@{
 class System : public Managed {                 ///< singleton class
-private:    
     int            _khz;                        ///< GPU clock speed
     curandState    *_seed;                      ///< for random number generator
     Istream        *_istr;                      ///< managed input stream
@@ -61,10 +60,9 @@ public:
     __GPU__  char *scan(char delim)  {
         _istr->get_idiom(_pad, delim); return _pad;       ///< scan input stream for a given char
     }
-    __GPU__  char *fetch()           {                    ///< fetch next idiom
+    __GPU__  char *fetch() {                              ///< fetch next idiom
         return (*_istr >> _pad) ? _pad : NULL;
     }
-//    __GPU__  void load(VM &vm, const char* fn);                   ///< load external Forth script
     ///
     /// output methods
     ///
@@ -97,5 +95,6 @@ public:
         *_ostr << str << msg << ENDL;
     }
 };
+///@}
 #endif // TEN4_SRC_SYS_H
 
