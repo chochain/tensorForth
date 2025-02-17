@@ -49,6 +49,7 @@ protected:
     ///
     __GPU__ virtual int resume();             ///< resume suspended work
     __GPU__ virtual int process(char *idiom); ///< process command string
+//    __GPU__ virtual int post();     ///< for debugging
     
 private:
     ///

@@ -50,17 +50,30 @@ ForthVM::resume() {
     nest();           /// * will set state to VM_READY
     return 1;         /// * OK, continue to outer loop
 }
-/* Note: for debugging, add post() to eforth.h
+///
+/// ForthVM Outer interpreter
+/// @brief having outer() on device creates branch divergence but
+///    + can enable parallel VMs (with different tasks)
+///    + can support parallel find()
+///    + can support system without a host
+///    However, to optimize,
+///    + compilation can be done on host and
+///    + only call() is dispatched to device
+///    + number() and find() can run in parallel
+///    - however, find() can run in serial only
+///
+__GPU__ int
+ForthVM::process(char *idiom) {
+    return parse(idiom) || number(idiom);
+}
+/*
 __GPU__ int
 ForthVM::post() {
     cudaError_t code = cudaGetLastError();
-    
     if (code == cudaSuccess) return 0;
     
-    ERROR("VM ERROR: %s %s %d, IP=%d, w=%d\n",
-          cudaGetErrorString(code), __FILE__, __LINE__, IP, LDi(IP));
-    ss_dump();
-    state = VM_WAIT;
+    ERROR("VM ERROR: %s %s %d, IP=%x, CELL(IP)=%f\n",
+          cudaGetErrorString(code), __FILE__, __LINE__, IP, CELL(IP));
     return 1;
 }
 */
@@ -185,7 +198,7 @@ ForthVM::init() {
     CODE("-",       TOS =  SS.pop() - TOS);
     CODE("/",       TOS =  SS.pop() / TOS);
     CODE("mod",     TOS =  MOD(SS.pop(), TOS));
-    CODE("*/",      TOS =  (DU2)SS.pop() * SS.pop() / TOS);
+    CODE("*/",      TOS =  (DU2)SS.pop() * SS.pop() / TOS);     // ( a b c --- d ) a * b / c 
     CODE("/mod",    DU  n = SS.pop();
                     DU  t = TOS;
                     DU  m = MOD(n, t);
@@ -388,11 +401,11 @@ ForthVM::init() {
     CODE("mstat", mmu->status());
     CODE("rnd",   PUSH(sys->rand(DU1, NORMAL)));                // generate random number
     CODE("ms",    delay(POPI()));
-//    CODE("included",                                            // include external file
-//         POP();                                                 // string length, not used
-//         sys->load(MEM(POP())));                                // include external file
+//    CODE("included",                                          // include external file
+//         POP();                                               // string length, not used
+//         sys->load(MEM(POP())));                              // include external file
     CODE("clock", DU t = sys->ms(); SCALAR(t); PUSH(t));
-    CODE("bye",   state = STOP);
+    CODE("bye",   state = STOP);                                // atomicExch(&state, STOP)
     ///@}
     CODE("boot",  mmu->clear(FIND((char*)"boot") + 1));
 #if 0  /* words TODO */
@@ -422,25 +435,10 @@ ForthVM::init() {
 #endif
     VLOG1("ForthVM[%d]::init ok\n", id);
 };
-///
-/// ForthVM Outer interpreter
-/// @brief having outer() on device creates branch divergence but
-///    + can enable parallel VMs (with different tasks)
-///    + can support parallel find()
-///    + can support system without a host
-///    However, to optimize,
-///    + compilation can be done on host and
-///    + only call() is dispatched to device
-///    + number() and find() can run in parallel
-///    - however, find() can run in serial only
+///======================================================================
 ///
 /// parse input idiom as a word
 ///
-__GPU__ int
-ForthVM::process(char *idiom) {
-    return parse(idiom) || number(idiom);
-}
-
 __GPU__ int
 ForthVM::parse(char *idiom) {
     state = QUERY;
