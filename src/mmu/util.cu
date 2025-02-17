@@ -338,13 +338,15 @@ d_strtof(const char *s, char** p) {
     long v = 0L, f = 0L;
     auto digi = [](char c) { return c>='0' && c<='9'; };
     auto expo = [](char c) { return c=='e' || c=='E'; };
+    auto done = [](char c) { return c=='\0' || c=='\n' || c==' ' || c=='\t'; };
     
+//    printf("\nd_strtof(%s)\n", s);
     while (*s==' ' || *s=='\t') s++;
     if (*s=='+' || *s=='-') sign = *s++=='-' ? -1 : 1;
 
     *p = (char*)s;                                  // init to not NULL
     char c = *s;
-    while (c!='\0' && c!='\n' && c!=' ' && c!='\t') {
+    while (!done(c)) {
 //        printf("\n\nc,st,v,f,e=%x,%d:%ld,%ld[%d],%d", c, state, v, f, r, e);
         if (state==0) {
             if (digi(c)) {                          // integer
