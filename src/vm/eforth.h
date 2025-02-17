@@ -8,8 +8,6 @@
 #define TEN4_SRC_VM_EFORTH_H
 #include "vm.h"                         ///< VM base class in ../vm
 #include "param.h"                      ///< Parameter field
-
-#define USER_AREA  (ALIGN16(MAX_OP))
 ///
 ///@name Dictionary Compiler macros
 ///@note - a lambda without capture can degenerate into a function pointer

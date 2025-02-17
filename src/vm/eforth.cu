@@ -39,6 +39,7 @@ __GPU__
 ForthVM::ForthVM(int id, System *sys) : VM(id, sys) {
     dict = mmu->dict(0);
     base = id;                                  /// * pmem[id], 0..USER_AREA-1 reserved
+    *MEM(base) = 10;
     VLOG1("\\  ::ForthVM[%d] dict=%p\n", id, dict);
 }
 ///
@@ -448,9 +449,10 @@ ForthVM::parse(char *idiom) {
         return 0;                         /// * next, try as a number
     }
     Code &c = dict[w];
-    DEBUG(" %c%c %06x: %s %d",
-          c.imm ? 'I' : ' ', c.udf ? 'U' : ' ',
-          c.udf ? c.pfa : mmu->XTOFF(c.xt), c.name, w);
+    DEBUG("%04x[%3x]%c%c %s",
+          c.udf ? c.pfa : mmu->XTOFF(c.xt), w,
+          c.imm ? '*' : ' ', c.udf ? 'u' : ' ',
+          c.name);
     if (compile && !c.imm) {              /// * in compile mode?
         add_w((IU)w);                     /// * add found word to new colon word
     }
@@ -463,21 +465,23 @@ ForthVM::parse(char *idiom) {
 ///
 __GPU__ int
 ForthVM::number(char *idiom) {
-    int base;
+    int b = *BASE;
     switch (*idiom) {                     ///> base override
-    case '%': base = 2;  idiom++; break;
+    case '%': b = 2;  idiom++; break;
     case '&':
-    case '#': base = 10; idiom++; break;
-    case '$': base = 16; idiom++; break;
-    default:  base = 10;
+    case '#': b = 10; idiom++; break;
+    case '$': b = 16; idiom++; break;
     }
     char *p;
-    DU n = (STRCHR(idiom, '.'))
+    DU n = (b==10 || STRCHR(idiom, '.'))
         ? STRTOF(idiom, &p)
-        : STRTOL(idiom, &p, base);
-    if (*p != '\0') return 0;            /// * not a number, bail
-    
+        : STRTOL(idiom, &p, b);
+    if (*p != '\0') {                    /// * not a number, bail
+        DEBUG(" STRTOF error base=%d\n", b);
+        return 0;
+    }
     // is a number
+    DEBUG(" lit %g\n", n);
     if (compile) add_lit((DU)n);          /// * add literal when in compile mode
     else         PUSH((DU)n);             ///> or, add value onto data stack
     
