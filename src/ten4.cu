@@ -124,6 +124,8 @@ TensorForth::TensorForth(int device, int verbose) {
          << ", ostor=" << T4_OSTORE_SZ/1024/1024 << "M"
          << ", vmss["  << T4_SS_SZ << "*" << T4_VM_COUNT << "]"
          << ", vmrs["  << T4_RS_SZ << "*" << T4_VM_COUNT << "]"
+         << ", sizeof(Code)="  << sizeof(Code)
+         << ", sizeof(Param)=" << sizeof(Param)
          << endl;
     ///
     /// allocate tensorForth system memory blocks
@@ -149,22 +151,26 @@ TensorForth::setup() {
 }
 
 __HOST__ int
-TensorForth::tally() {
-    if (sys->trace() <= 1) return 0;
-
+TensorForth::more_job() {
+    auto show = [this]() {
+        cout << "VM.state[STOP,HOLD,QUERY,NEST]=[";
+        for (int i = 0; i < 4; i++) cout << " " << vmst_cnt[i];
+        cout << " ]";
+#if T4_VERBOSE > 1
+        int m0 = (int)sys->mu->here() - 0x80;
+        sys->db->mem_dump(m0 < 0 ? 0 : m0, 0x80);
+#endif // T4_VERBOSE > 1
+        cout << endl;
+    };
+    ///
+    /// collect VM states into vmst_cnt
+    ///
     k_ten4_tally<<<1, WARP(T4_VM_COUNT)>>>(vmst_cnt, vm_pool);
     GPU_CHK();
     
-    cout << "VM.state[STOP,HOLD,QUERY,NEST]=[";
-    for (int i = 0; i < 4; i++) cout << " " << vmst_cnt[i];
-    cout << " ]" << endl;
+    if (sys->trace() > 0) show();
 
-#if T4_VERBOSE > 1
-    int m0 = (int)sys->mu->here() - 0x80;
-    sys->db->mem_dump(m0 < 0 ? 0 : m0, 0x80);
-#endif // T4_VERBOSE > 1
-    
-    return vmst_cnt[STOP];                         /// * number of STOP VM
+    return vmst_cnt[STOP] < T4_VM_COUNT;          /// * number of STOP VM
 }
 
 __HOST__ void
@@ -194,7 +200,7 @@ TensorForth::run() {
 
 __HOST__ int
 TensorForth::main_loop() {
-    while (tally() < T4_VM_COUNT && sys->readline()) {
+    while (more_job() && sys->readline()) {
         run();
         sys->flush();              /// * flush output buffer
 //    sys->mu->sweep();       /// * CC: device function call
@@ -221,7 +227,6 @@ TensorForth::teardown(int sig) {
     
     cudaDeviceReset();
 }
-
 ///
 /// main program
 ///
@@ -243,7 +248,6 @@ void sigtrap() {
 int main(int argc, char**argv) {
     sigtrap();
     
-    const string APP = string(T4_APP_NAME) + " " + T4_VERSION;
     Options opt;
     opt.parse(argc, argv);
     
@@ -251,21 +255,21 @@ int main(int argc, char**argv) {
     // GPU_ERR(cudaDeviceSetLimit(cudaLimitMallocHeapSize, 16*1024*1024));
     
     if (opt.help) {
-        opt.print_usage(std::cout);
-        opt.check_devices(std::cout);
-        cout << "\nRecommended GPU: " << opt.device_id << std::endl;
+        opt.print_usage(cout);
+        opt.check_devices(cout);
+        cout << "\nRecommended GPU: " << opt.device_id << endl;
         return 0;
     }
-    else opt.check_devices(std::cout, false);
+    else opt.check_devices(cout, false);
 
-    cout << APP << endl;
+    cout << T4_APP_NAME << endl;
 
     TensorForth *f = new TensorForth(opt.device_id, opt.verbose);
     f->setup();
     f->main_loop();
     f->teardown();
     
-    cout << APP << " done." << endl;
+    cout << T4_APP_NAME << " done." << endl;
 
     return 0;
 }
