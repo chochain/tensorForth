@@ -28,6 +28,8 @@ MMU::MMU() {
     MM_ALLOC(&_obj,  T4_OSTORE_SZ);
     _ostore.init(_obj, T4_OSTORE_SZ);
 #endif // T4_ENABLE_OBJ
+
+    _midx = T4_USER_AREA;      // set aside user area (for base and maybe compile)
     
     TRACE(
         "\\ MMU: CUDA Managed Memory\n"
@@ -78,7 +80,7 @@ MMU::dict_validate() {
 
 __GPU__ int
 MMU::find(const char *s, bool compile) {
-    DEBUG("mmu.find(%s) =>", s);
+    DEBUG("mmu.find(%s) => ", s);
     for (int i = _didx - (compile ? 2 : 1); i >= 0; --i) {
         if (STRCMP(_dict[i].name, s)==0) return i;
     }
@@ -90,7 +92,7 @@ MMU::status() {
     Code *c = _dict;
     DEBUG("Built-in Dictionary [name0=0x%lx, xt0=0x%lx]\n", _NM0, _XT0);
     for (int i=0; i<_didx; i++, c++) {      ///< dump dictionary from device
-        DEBUG("%4d> name=%6x, xt=%6x %s\n", i,
+        DEBUG("%4d|%03x> name=%6x, xt=%6x %s\n", i, i,
             (U32)((UFP)c->name - _NM0),
             (U32)((UFP)c->xt   - _XT0),
             c->name);
