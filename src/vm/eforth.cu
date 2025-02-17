@@ -19,7 +19,7 @@
 ///@name Heap memory load/store macros
 ///@{
 #define MEM(a)    (mmu->pmem((IU)(a)))
-#define CELL(a)   (*(DU*)&mmu->pmem((IU)a))     /**< fetch a cell from parameter memory    */
+#define CELL(a)   (*(DU*)mmu->pmem((IU)a))      /**< fetch a cell from parameter memory    */
 #define LAST      (mmu->dict(mmu->dict._didx-1))/**< last colon word defined               */
 #define BASE      ((int*)MEM(base))
 //#define LDi(a)    (mmu->ri((IU)(a)))            /**< read an instruction unit from pmem    */
@@ -39,7 +39,7 @@ __GPU__
 ForthVM::ForthVM(int id, System *sys) : VM(id, sys) {
     dict = mmu->dict(0);
     base = id;                                  /// * pmem[id], 0..USER_AREA-1 reserved
-    VLOG1("\\  ::ForthVM[%d](dict=%p) sizeof(Code)=%ld, sizeof(Param)=%ld\n", id, dict, sizeof(Code), sizeof(Param));
+    VLOG1("\\  ::ForthVM[%d] dict=%p\n", id, dict);
 }
 ///
 /// resume suspended task
@@ -239,8 +239,8 @@ ForthVM::init() {
     CODE("cr",      sys->dot(CR));
     CODE(".",       sys->dot(DOT,  POP()));
     CODE("u.",      sys->dot(UDOT, POP()));
-    CODE(".r",      IU w = POPI(); sys->dotr(w, POP(), *BASE));
-    CODE("u.r",     IU w = POPI(); sys->dotr(w, POP(), *BASE, true));
+    CODE(".r",      IU i = POPI(); sys->dotr(i, POP(), *BASE));
+    CODE("u.r",     IU i = POPI(); sys->dotr(i, POP(), *BASE, true));
     CODE("type",    POP(); sys->pstr((const char*)MEM(POPI())));     // pass string pointer
     IMMD("key",     if (compile) add_p(KEY); else PUSH(sys->key()));
     CODE("emit",    sys->dot(EMIT, POP()));
@@ -343,15 +343,11 @@ ForthVM::init() {
     /// be careful with memory access, because
     /// it could make access misaligned which cause exception
     ///
-//    CODE("@",     IU i = POPI(); PUSH((DU)CELL(i)));            // w -- n
-//    CODE("!",     IU w = POPI(); CELL(w) = POP(););             // n w --
-//    CODE("+!",    IU w = POPI(); CELL(w) += POP());             // n w --
-//    CODE("?",     IU w = POPI(); sys->dot(DOT, CELL(w)));       // w --
-    CODE("@",     IU i = POPI(); PUSH(mmu->rd(i)));             // w -- n
-    CODE("!",     IU i = POPI(); mmu->wd(i, POP()));            // n w --
-    CODE("+!",    IU i = POPI(); DU v=mmu->rd(i); mmu->wd(i, POP()+v));
-    CODE("?",     IU i = POPI(); sys->dot(DOT, mmu->rd(i)));    // w --
-    CODE(",",     DU n = POP(); add_du(n));                     // n -- , compile a cell
+    CODE("@",     IU i = POPI(); PUSH((DU)CELL(i)));            // i -- n
+    CODE("!",     IU i = POPI(); CELL(i) = POP(););             // n i --
+    CODE("+!",    IU i = POPI(); CELL(i) += POP());             // n i --
+    CODE("?",     IU i = POPI(); sys->dot(DOT, CELL(i)));       // i --
+    CODE(",",     DU n = POP();  add_du(n));                    // n -- , compile a cell
     CODE("cells", IU i = POPI(); PUSH(i * sizeof(DU)));         // n -- n'
     CODE("allot",                                               // n --
          IU n = POPI();                                         // number of bytes
@@ -362,7 +358,7 @@ ForthVM::init() {
     /// @defgroup Multitasking ops
     /// @}
     CODE("task",                                                // w -- task_id
-         IU w = POPI(); Code &c = dict[w];                      ///< dictionary index
+         IU i = POPI(); Code &c = dict[i];                      ///< dictionary index
          if (c.udf) PUSH(task_create(c.pfa));                   /// create a task starting on pfa
          else pstr("  ?colon word only\n"));
     CODE("rank",  PUSH(id));                                    /// ( -- task_id ) used insided a task
@@ -389,14 +385,13 @@ ForthVM::init() {
     /// @}
     /// @defgroup OS ops
     /// @{
-//    CODE("mstat", sys->mem_stat());
+    CODE("mstat", mmu->status());
     CODE("rnd",   PUSH(sys->rand(DU1, NORMAL)));                // generate random number
     CODE("ms",    delay(POPI()));
 //    CODE("included",                                            // include external file
 //         POP();                                                 // string length, not used
 //         sys->load(MEM(POP())));                                // include external file
     CODE("clock", DU t = sys->ms(); SCALAR(t); PUSH(t));
-    CODE("ms",    delay(POPi));                                 ///< TODO: change to VM_WAIT
     CODE("bye",   state = STOP);
     ///@}
     CODE("boot",  mmu->clear(FIND((char*)"boot") + 1));
