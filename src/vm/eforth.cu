@@ -21,7 +21,7 @@
 #define MEM(a)    (mmu->pmem((IU)(a)))
 #define CELL(a)   (*(DU*)mmu->pmem((IU)a))      /**< fetch a cell from parameter memory    */
 #define LAST      (mmu->dict(mmu->dict._didx-1))/**< last colon word defined               */
-#define BASE      ((int*)MEM(base))
+#define BASE      ((U8*)MEM(base))
 //#define LDi(a)    (mmu->ri((IU)(a)))            /**< read an instruction unit from pmem    */
 //#define LDd(a)    (mmu->rd((IU)(a)))            /**< read a data unit from pmem            */
 //#define STi(a,d)  (mmu->wi((IU)(a), (IU)(d)))   /**< write a instruction unit to pmem      */
@@ -103,7 +103,6 @@ ForthVM::nest() {
     ///
     while (IP) {                                     /// * try no recursion
         Param &ix = *(Param*)MEM(IP);
-        IP += sizeof(IU);
         VM_HDR(":%x", ix.op);
         IP += sizeof(IU);
         DISPATCH(ix.op) {                            /// * opcode dispatcher
@@ -473,15 +472,20 @@ ForthVM::number(char *idiom) {
     case '$': b = 16; idiom++; break;
     }
     char *p;
-    DU n = (b==10 || STRCHR(idiom, '.'))
+    DU2 n = (b==10 && STRCHR(idiom, '.'))
         ? STRTOF(idiom, &p)
         : STRTOL(idiom, &p, b);
-    if (*p != '\0') {                    /// * not a number, bail
-        DEBUG(" STRTOF error base=%d\n", b);
+    if (*p != '\0') {                     /// * not a number, bail
+        DEBUG(" number(%s) base=%d => error\n", idiom, b);
         return 0;
     }
     // is a number
-    DEBUG(" lit %g\n", n);
+    DU m = (DU)n;
+    p = (char*)&m;
+    for (int i=0; i<sizeof(DU); i++, p++) {
+        const char h2c[] = "0123456789abcdef";
+        DEBUG("%c%c ", h2c[((*p)>>4)&0xf], h2c[(*p)&0xf]);
+    }
     if (compile) add_lit((DU)n);          /// * add literal when in compile mode
     else         PUSH((DU)n);             ///> or, add value onto data stack
     
@@ -495,8 +499,10 @@ ForthVM::_def_word() {                    ///< display if redefined
     char *name = sys->fetch();
     if (name[0]=='\0') {                  /// * missing name?
         sys->pstr(" name?", CR); return 0;
-    }  
-    if (FIND(name)) {                     /// * word redefined?
+    }
+    int w = FIND(name);
+    DEBUG("_def_word(%s) => %d\n", name, w);
+    if (FIND(name) >= 0) {                /// * word redefined?
         sys->pstr(name);
         sys->pstr(" reDef? ", CR);
     }
