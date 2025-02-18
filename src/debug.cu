@@ -7,10 +7,10 @@
 #include <iomanip>
 #include "debug.h"
 
-#define MEM(a)  ((U8*)&mu->_pmem[a])
-#define DICT(w) (mu->_dict[w])
-#define DIDX    (mu->_didx)
-#define XT0     ((UFP)DICT(0).xt)
+#define MEM(a)   ((U8*)&mu->_pmem[a])
+#define DICT(w)  (mu->_dict[w])
+#define DIDX     (mu->_didx)
+#define XT0      ((UFP)DICT(0).xt)
 ///
 ///@name Primitive words to help printing
 ///@{
@@ -52,12 +52,14 @@ Debug::ss_dump(IU id, int n, int base) {
 }
 __HOST__ int
 Debug::p2didx(Param *p) {
-    IU  pfa = p->ioff;
     UFP xt0 = XT0;
-    for (int i = DIDX - 1; i >= 0; --i) {
-        Code &c = DICT(i);
-        if (p->udf) { if (c.udf && pfa==c.pfa) return i; }
-        else        { if (!c.udf && pfa==(IU)((UFP)c.xt - xt0)) return i; }
+    IU  pfa = p->ioff;
+    for (int i = DIDX - 1; i > 0; --i) {
+        Code &c  = DICT(i);
+        bool hit = p->udf
+            ? (c.udf  && pfa==c.pfa)
+            : (!c.udf && pfa==(IU)((UFP)c.xt - xt0));
+        if (hit) return i;
     }
     return -1;                                     /// * not found
 }
@@ -77,17 +79,16 @@ Debug::to_s(Param *p, int nv, int base) {
     
     fout << std::endl << "  ";                     /// * indent
     if (io->trace) {                               /// * header
-        fout << std::setbase((int)16) << "( ";
-        fout << std::setfill('0') << std::setw(4) << ((U8*)p - MEM(0)); ///> addr
-        fout << '['   << std::setfill(' ') << std::setw(4) << w << ']'; ///> word ref
-        fout << " ) " << std::setbase(base);
+        fout << std::hex
+             << std::setfill('0') << "( "
+              << std::setw(4) << ((U8*)p - MEM(0)) ///> addr
+             << std::setfill(' ') << '['
+             << std::setw(4) << w << "] )"         ///> word ref
+             << std::setbase(base);
     }
     if (!pm) {                                     ///> built-in
-        U8 name[36], i=0;                          ///< name buffer on host
-//        cudaMemcpy(name, code.name, 1, D2H);
-        do {
-            cudaMemcpy(name+i, code.name+i, 1, D2H);
-        } while (name[i++] != '\0');
+        char name[256];                            ///< name buffer on host
+        d2h_strcpy(name, code.name);               /// * copy string from device
         fout << name << "  ";
         return 0;
     }
@@ -106,7 +107,7 @@ Debug::to_s(Param *p, int nv, int base) {
     switch (w) {
     case NEXT: case LOOP:
     case BRAN: case ZBRAN:                   ///> display jmp target
-        fout << " \\ $" << std::setbase(16)
+        fout << " \\ $" << std::hex
              << std::setfill('0') << std::setw(4) << p->ioff;
         break;
     default: fout << std::setfill(' ') << std::setw(-1);          ///> restore format
@@ -123,24 +124,18 @@ __HOST__ void
 Debug::words(int base) {
     const int WIDTH = 60;
     h_ostr &fout = io->fout;
-    fout << std::setbase(10);
-    for (int i=0, sz=0; i < DIDX; i++) {
-        const char *nm = DICT(i).name;
-        const int  len = strlen(nm);
-#if CC_DEBUG > 1
-        if (nm[0])
-#else  //  CC_DEBUG > 1
-        if (nm[len-1] != ' ')
-#endif // CC_DEBUG > 1
-        {            
-            sz += len + 2;
-            fout << "  " << nm;
-        }
-        if (io->trace || sz > WIDTH) {
+    fout << std::dec;
+    char name[256];
+    for (int i=1, sz=0; i < DIDX; i++) {
+        d2h_strcpy(name, DICT(i).name);
+        fout << "  " << name;
+        sz += strlen(name) + 2;
+
+        if (sz > WIDTH) {
             fout << ENDL; sz = 0;
         }
     }
-    if (!io->trace) fout << std::setbase(base) << std::endl;
+    fout << std::setbase(base) << std::endl;
 }
 ///
 /// Forth pmem memory dump
@@ -153,7 +148,7 @@ Debug::mem_dump(IU p0, int sz, int base) {
     const char i2h[] = "0123456789abcdef";
     h_ostr &fout = io->fout;
     char buf[80];
-    fout << std::setbase(16) << std::setfill('0');
+    fout << std::hex << std::setfill('0');
     for (IU i=ALIGN16(p0); i<=ALIGN16(p0+sz); i+=16) {
         int x = 0;
         buf[x++] = '\n'; IU2H(i); buf[x++] = ':'; buf[x++] = ' ';  // "%04x: "
@@ -214,20 +209,23 @@ Debug::dict_dump(int base) {
     h_ostr &fout = io->fout;
     UFP xt0 = XT0;
     char name[256];
-    fout << std::setbase(16) << std::setfill('0') << ENDL;
+    fout << "Built-in Dictionary: _XT0="
+         << std::hex << xt0 << std::setfill('0') << ENDL;
     for (int i=0; i < DIDX; i++) {
         Code &c = DICT(i);
         IU  ip = c.udf ? c.pfa : (IU)(((UFP)c.xt & MSK_XT) - xt0);
         d2h_strcpy(name, (char*)c.name);
-        fout << std::setfill('0') << std::setw(3) << i
-             << ":" << std::setw(6) << ip
+        fout << std::dec << std::setw(4) << i << '|'
+             << std::hex << std::setw(3) << i << " :"
+             << std::setw(6) << ip
              << (c.udf ? 'u' : ' ')
-			 << (c.imm ? '*' : ' ')
-             << ' ' << name << std::endl;
+			 << (c.imm ? '*' : ' ') << ' '
+             << name << std::endl;
     }
     fout << std::setbase(base) << std::setfill(' ') << std::setw(-1);
 }
 
 __HOST__ void Debug::self_tests() {
-    dict_dump(10);
+//    dict_dump(10);
+    words();
 }
