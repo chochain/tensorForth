@@ -6,12 +6,14 @@
  */
 #include <iomanip>
 #include "debug.h"
-
-#define MEM(a)   ((U8*)&mu->_pmem[a])
-#define DICT(w)  (mu->_dict[w])
-#define DIDX     (mu->_didx)
-#define XT0      ((UFP)DICT(0).xt)
 ///
+///@name memory macros to reduce verbosity
+///@{
+#define MEM(a)   ((U8*)&mu->_pmem[a])         /** memory pointer by offset           */
+#define DIDX     (mu->_didx)                  /** number of dictionary entries       */
+#define DICT(w)  (mu->_dict[w])               /** dictionary entry                   */
+#define XT0      ((UFP)DICT(0).xt)            /** base of lambda functions (i.e. xt) */
+///@}
 ///@name Primitive words to help printing
 ///@{
 Code prim[] = {
@@ -26,8 +28,6 @@ Code prim[] = {
 ///
 __HOST__ void
 Debug::ss_dump(IU id, int n, int base) {
-    DU *ss = mu->vmss(id);                ///< retrieve VM SS
-    h_ostr &fout = io->fout;
     static char buf[34];                  ///< static buffer
     auto rdx = [](DU v, int b) {          ///< display v by radix
         DU t, f = modf(v, &t);            ///< integral, fraction
@@ -45,9 +45,12 @@ Debug::ss_dump(IU id, int n, int base) {
         if (dec && v < DU0) buf[--i]='-';
         return &buf[i];
     };
-    for (int i=0; i<n; i++) {
+    h_ostr &fout = io->fout;
+    DU *ss = mu->vmss(id);                ///< retrieve VM SS
+    for (int i=0; i < n; i++) {
         fout << rdx(*ss++, base) << ' ';
     }
+    /// TODO << TOS
     fout << "-> ok" << std::endl;
 }
 __HOST__ int
@@ -154,7 +157,7 @@ Debug::mem_dump(IU p0, int sz, int base) {
         buf[x++] = '\n'; IU2H(i); buf[x++] = ':'; buf[x++] = ' ';  // "%04x: "
         for (IU j=0; j<16; j++) {
             //U8 c = *(((U8*)&_dict[0])+i+j) & 0x7f;               // to dump _dict
-            U8 c = mu->_pmem[i+j];
+            U8 c = *MEM(i+j);
             C2H(c);                                                // "%02x "
             c &= 0x7f;                                             // mask off high bit
             buf[x++] = ' ';
@@ -164,7 +167,7 @@ Debug::mem_dump(IU p0, int sz, int base) {
         buf[75] = '\0';
         fout << buf;
     }
-    fout << std::setbase(base) << std::setfill(' ');
+    fout << std::setfill(' ') << std::setbase(base) << std::endl;
 }
 
 #define NFA(w) (DICT(w).pfa - ALIGN(strlen(DICT(w).name)))
@@ -227,5 +230,7 @@ Debug::dict_dump(int base) {
 
 __HOST__ void Debug::self_tests() {
 //    dict_dump(10);
-    words();
+//    words();
+//    mem_dump(0, 256, 10);
+    ss_dump(0, 3, 10);
 }
