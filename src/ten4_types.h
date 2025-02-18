@@ -161,7 +161,8 @@ typedef enum {
 ///>name General Opocode Type for IO Event
 ///@{
 typedef enum {
-    OP_WORDS = 0,
+    OP_DICT = 0,
+    OP_WORDS,
     OP_SEE,
     OP_DUMP,
     OP_SS,

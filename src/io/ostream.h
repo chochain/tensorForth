@@ -70,6 +70,7 @@ class Ostream : public Managed {
         case GT_OPX: {
             _opx *o = (_opx*)d;
             switch (o->op) {
+            case OP_DICT:  printf("dict_dump()\n");                   break;
             case OP_WORDS: printf("words()\n");                       break;
             case OP_SEE:   printf("see(%d)\n", o->i);                 break;
             case OP_DUMP:  printf("dump(%d, %d)\n", o->i, (U32)o->n); break;

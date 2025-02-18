@@ -101,6 +101,7 @@ System::process_event(io_event *ev) {
         _opx *o = (_opx*)v;
         printf("OP=%d, M=%d, i=%d, n=0x%08x=%f\n", o->op, o->fam, o->i, DU2X(o->n), o->n);
         switch (o->op) {
+        case OP_DICT:  db->dict_dump();                   break;
         case OP_WORDS: db->words();                       break;
         case OP_SEE:   db->see((IU)o->i);                 break;
         case OP_DUMP:  db->mem_dump((IU)o->i, (IU)o->n);  break;
