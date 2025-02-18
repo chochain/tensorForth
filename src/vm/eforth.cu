@@ -166,7 +166,8 @@ __GPU__ __INLINE__ void ForthVM::call(IU w) {
 __GPU__ void
 ForthVM::init() {
     VM::init();
-    if (id != 0) return;       /// * done once only
+    if (id != 0) return;               /// * done once only
+    
     CODE("nul ",    {});               /// dict[0], not used, simplify find()
     CODE("nop",     {});               /// do nothing
     ///
@@ -389,11 +390,12 @@ ForthVM::init() {
     /// @{
     CODE("abort", TOS = -DU1; SS.clear(); RS.clear());          // clear ss, rs
     CODE("here",  PUSH(HERE));
-    CODE("'",     int w = FIND(sys->fetch()); PUSH(w));
+    CODE("'",     IU w = FIND(sys->fetch()); if (w) PUSH(w));
     CODE(".s",    sys->op(OP_SS, id));
     CODE("words", sys->op(OP_WORDS));
-    CODE("see",   int w = FIND(sys->fetch()); sys->op(OP_SEE, w));
-    CODE("dump",  DU n = POP(); int a = POPi; sys->op(OP_DUMP, a, n));
+    CODE("dict",  mmu->dict_dump());
+    CODE("see",   IU w = FIND(sys->fetch()); if (w) sys->op(OP_SEE, w));
+    CODE("dump",  DU n = POP(); IU a = POPI(); sys->op(OP_DUMP, a, n));
     CODE("forget", _forget());
     /// @}
     /// @defgroup OS ops
@@ -442,8 +444,8 @@ ForthVM::init() {
 __GPU__ int
 ForthVM::parse(char *idiom) {
     state = QUERY;
-    int w = FIND(idiom);                  /// * search through dictionary
-    if (w < 0) {                          /// * input word not found
+    IU w = FIND(idiom);                  /// * search through dictionary
+    if (!w) {                            /// * input word not found
         DEBUG(" '%s' not found\n", idiom);
         return 0;                         /// * next, try as a number
     }
@@ -500,9 +502,9 @@ ForthVM::_def_word() {                    ///< display if redefined
     if (name[0]=='\0') {                  /// * missing name?
         sys->pstr(" name?", CR); return 0;
     }
-    int w = FIND(name);
+    IU w = FIND(name);
     DEBUG("_def_word(%s) => %d\n", name, w);
-    if (FIND(name) >= 0) {                /// * word redefined?
+    if (w) {                              /// * word redefined?
         sys->pstr(name);
         sys->pstr(" reDef? ", CR);
     }
@@ -511,8 +513,8 @@ ForthVM::_def_word() {                    ///< display if redefined
 }
 __GPU__ void
 ForthVM::_forget() {
-    int w = FIND(sys->fetch()); if (!w) return;             // bail, if not found
-    int b = FIND((char*)"boot")+1;
+    IU w = FIND(sys->fetch()); if (!w) return; /// bail, if not found
+    IU b = FIND((char*)"boot")+1;
     mmu->clear(w > b ? w : b);
 }
 __GPU__ void

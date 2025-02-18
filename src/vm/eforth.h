@@ -63,7 +63,7 @@ private:
     ///
     /// stack short hands
     ///
-    __GPU__ __INLINE__ int FIND(char *name) { return mmu->find(name, compile);  }
+    __GPU__ __INLINE__ int FIND(char *name) { return mmu->find(name);  }
     __GPU__ __INLINE__ DU  POP()            { DU n=TOS; TOS=SS.pop(); return n; }
     __GPU__ __INLINE__ DU  PUSH(DU v)       { SS.push(TOS); return TOS = v;     }
 #if T4_ENABLE_OBJ    
@@ -77,8 +77,9 @@ private:
     __GPU__ __INLINE__ void add_w(Param p) { add_iu(p.pack); }
     __GPU__ void add_w(IU w) {                ///< compile a word index into pmem
         Code &c = dict[w];
-        DEBUG(" add_w(%d) => %s\n", w, c.name);
-        Param p(MAX_OP, dict[w].pfa, c.udf);
+        IU   ip = c.udf ? c.pfa : mmu->XTOFF(c.xt);
+        DEBUG(" add_w(%d) => ioff=%x %s\n", w, ip, c.name);
+        Param p(MAX_OP, ip, c.udf);
         add_w(p);
     }
     __GPU__ int  add_str(const char *s, bool adv=true) {
