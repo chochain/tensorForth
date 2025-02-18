@@ -392,8 +392,10 @@ ForthVM::init() {
     CODE("here",  PUSH(HERE));
     CODE("'",     IU w = FIND(sys->fetch()); if (w) PUSH(w));
     CODE(".s",    sys->op(OP_SS, id));
+    CODE("depth", PUSH(SS.idx));
     CODE("words", sys->op(OP_WORDS));
-    CODE("dict",  mmu->dict_dump());
+    CODE("dict",  sys->op(OP_DICT));                            // dict_dump in host mode
+    CODE("dict_dump", mmu->dict_dump());
     CODE("see",   IU w = FIND(sys->fetch()); if (w) sys->op(OP_SEE, w));
     CODE("dump",  DU n = POP(); IU a = POPI(); sys->op(OP_DUMP, a, n));
     CODE("forget", _forget());
@@ -411,28 +413,11 @@ ForthVM::init() {
     ///@}
     CODE("boot",  mmu->clear(FIND((char*)"boot") + 1));
 #if 0  /* words TODO */
-    CODE("^",     {}); // power(2, 3)
-    CODE("?dup",  {});
-    CODE("?do",   {});
-    CODE("do",    {});
-    CODE("i",     {});
-    CODE("loop",  {});
-    CODE("immediate", {});
-    CODE("included", {});
-    CODE("base",  {});
-    CODE("bl",    {});
-    CODE("depth", {});
-    CODE("invert", {});
-    CODE("is",    {});
-    CODE("leave", {});
-    CODE("lshift", {});
-    CODE("rshift", {});
-    CODE("nip",    {});
+    CODE("power",  {}); // power(2, 3)
+    CODE("?do",    {});
     CODE("roll",   {});
-    CODE("u.",     {});
     CODE("u<",     {});
     CODE("u>",     {});
-    CODE("value",  {});
     CODE("within", {});
 #endif
     VLOG1("ForthVM[%d]::init ok\n", id);
