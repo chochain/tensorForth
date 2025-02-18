@@ -40,7 +40,6 @@ public:
     ///
     __GPU__  FPTR XT(IU ioff);      ///< function pointer from _XT0 offset 
     __GPU__  IU   XTOFF(FPTR xt);   ///< _XT0 offset from function pointer
-    __HOST__ IU   H_XTOFF(FPTR xt); ///< _XT0 offset in host mode (for Debugging)
     ///
     /// references to memory blocks
     ///
@@ -49,15 +48,6 @@ public:
     __BOTH__ __INLINE__ DU   *vmrs(IU i)  { return &_vmrs[i*T4_RS_SZ]; } ///< dictionary pointer
     __BOTH__ __INLINE__ U8   *pmem(IU i)  { return &_pmem[i]; }          ///< base of parameter memory
     __BOTH__ __INLINE__ Code *last()      { return &_dict[_didx - 1]; }  ///< last dictionary word
-    
-    template <typename F>
-    __GPU__ void add_word(const char *name, F &f, int im) {           ///< append/merge a new word
-        int  w  = find(name);                                         ///< check whether word exists
-        Code &c = _dict[w < 0 ? _didx++ : w];                         ///< new or exist Code object
-        c.set(name, f, im);                                           /// * hardcopy Code object
-        DEBUG(" %d\n", w);
-        if (w >= 0) TRACE("*** word redefined: %s\n", c.name);
-    }           
     ///
     /// memory lock for multi-processing
     ///
@@ -67,8 +57,16 @@ public:
     /// dictionary management ops
     ///
     __GPU__  void dict_validate();                                 ///< dictionary validation
-    __GPU__  int  find(const char *s, bool compile=0);             ///< dictionary search
     __GPU__  void status();                                        ///< display current MMU status
+    __GPU__  void dict_dump();
+    template <typename F>
+    __GPU__ void  add_word(const char *name, F &f, int im) {       ///< append or merge a new word
+        IU   w  = find(name);                                      ///< check whether word exists
+        Code &c = _dict[w ? w : _didx++];                          ///< new or exist Code object
+        c.set(name, f, im);                                        /// * hardcopy Code object
+        if (w) TRACE("*** word redefined: %s\n", c.name);
+    }           
+    __GPU__  IU   find(const char *s);                             ///< dictionary search
     ///
     /// compiler methods
     ///
