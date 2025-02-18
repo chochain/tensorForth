@@ -10,6 +10,7 @@
 #define MEM(a)  ((U8*)&mu->_pmem[a])
 #define DICT(w) (mu->_dict[w])
 #define DIDX    (mu->_didx)
+#define XT0     ((UFP)DICT(0).xt)
 ///
 ///@name Primitive words to help printing
 ///@{
@@ -47,15 +48,16 @@ Debug::ss_dump(IU id, int n, int base) {
     for (int i=0; i<n; i++) {
         fout << rdx(*ss++, base) << ' ';
     }
-    fout << "-> ok" << ENDL;
+    fout << "-> ok" << std::endl;
 }
 __HOST__ int
 Debug::p2didx(Param *p) {
-    IU pfa = p->ioff;
+    IU  pfa = p->ioff;
+    UFP xt0 = XT0;
     for (int i = DIDX - 1; i >= 0; --i) {
         Code &c = DICT(i);
         if (p->udf) { if (c.udf && pfa==c.pfa) return i; }
-        else        { if (!c.udf && pfa==mu->H_XTOFF(c.xt)) return i; }
+        else        { if (!c.udf && pfa==(IU)((UFP)c.xt - xt0)) return i; }
     }
     return -1;                                     /// * not found
 }
@@ -73,7 +75,7 @@ Debug::to_s(Param *p, int nv, int base) {
     h_ostr &fout = io->fout;
     Code   &code = DICT(w);
     
-    fout << ENDL; fout << "  ";                    /// * indent
+    fout << std::endl << "  ";                     /// * indent
     if (io->trace) {                               /// * header
         fout << std::setbase((int)16) << "( ";
         fout << std::setfill('0') << std::setw(4) << ((U8*)p - MEM(0)); ///> addr
@@ -138,7 +140,7 @@ Debug::words(int base) {
             fout << ENDL; sz = 0;
         }
     }
-    if (!io->trace) fout << std::setbase(base) << ENDL;
+    if (!io->trace) fout << std::setbase(base) << std::endl;
 }
 ///
 /// Forth pmem memory dump
@@ -177,7 +179,7 @@ Debug::see(IU w, int base) {
     Code   &c    = DICT(w);
     fout << ": " << c.name << ENDL;
     if (!c.udf) {
-        fout << " ( built-ins ) ;" << ENDL;
+        fout << " ( built-ins ) ;" << std::endl;
         return;
     }
     auto nvar = [this](IU i0, IU ioff, U8 *ip) {       /// * calculate # of elements
@@ -201,7 +203,7 @@ Debug::see(IU w, int base) {
         case STR: case DOTQ: ip += p->ioff;     break;
         }
     }
-    fout << ENDL;
+    fout << std::endl;
 }
 ///====================================================================
 ///
@@ -210,15 +212,22 @@ Debug::see(IU w, int base) {
 __HOST__ void
 Debug::dict_dump(int base) {
     h_ostr &fout = io->fout;
+    UFP xt0 = XT0;
+    char name[256];
     fout << std::setbase(16) << std::setfill('0') << ENDL;
     for (int i=0; i < DIDX; i++) {
         Code &c = DICT(i);
+        IU  ip = c.udf ? c.pfa : (IU)(((UFP)c.xt & MSK_XT) - xt0);
+        d2h_strcpy(name, (char*)c.name);
         fout << std::setfill('0') << std::setw(3) << i
-             << (c.udf ? " U" : "  ")
-			 << (c.imm ? "I " : "  ")
-             << std::setw(8) << (UFP)c.xt
-             << ":" << std::setw(6) << c.pfa
-             << " " << c.name << ENDL;
+             << ":" << std::setw(6) << ip
+             << (c.udf ? 'u' : ' ')
+			 << (c.imm ? '*' : ' ')
+             << ' ' << name << std::endl;
     }
     fout << std::setbase(base) << std::setfill(' ') << std::setw(-1);
+}
+
+__HOST__ void Debug::self_tests() {
+    dict_dump(10);
 }

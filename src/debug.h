@@ -32,6 +32,10 @@ public:
     __HOST__ void see(IU w, int base=10);                 ///< disassemble user defined word
     __HOST__ void dict_dump(int base=10);                 ///< dump dictionary
     __HOST__ void mem_stat();                             ///< display memory statistics
+    ///
+    /// self tests
+    ///
+    __HOST__ void self_tests();
 };
 ///@}
 #endif // TEN4_SRC_DEBUG_H
