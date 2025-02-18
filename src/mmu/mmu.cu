@@ -54,13 +54,8 @@ MMU::~MMU() {
 ///
 /// static functions (for type conversion)
 ///
-__GPU__  FPTR MMU::XT(IU ioff)      { return (FPTR)(_XT0 + ioff);    }
-__GPU__  IU   MMU::XTOFF(FPTR xt)   { return (IU)((UFP)xt - _XT0);   }
-__HOST__ IU   MMU::H_XTOFF(FPTR xt) {
-    UFP xt0;
-    cudaMemcpy((void*)&xt0, (void*)&_XT0, sizeof(UFP), D2H);
-    return (IU)((UFP)xt - xt0);
-}
+__GPU__  FPTR MMU::XT(IU ioff)      { return (FPTR)(_XT0 + ioff);  }
+__GPU__  IU   MMU::XTOFF(FPTR xt)   { return (IU)((UFP)xt - _XT0); }
 ///
 /// dictionary management methods
 /// TODO: use const Code[] directly, as ROM, to prevent deep copy
@@ -76,28 +71,21 @@ MMU::dict_validate() {
     }
     _XT0 = x0;
     _NM0 = n0;
+    _dict[0].xt = (FPTR)x0;                 /// * borrow for xt0
 }
 
-__GPU__ int
-MMU::find(const char *s, bool compile) {
+__GPU__ IU
+MMU::find(const char *s) {
+    IU v = 0;
     DEBUG("mmu.find(%s) => ", s);
-    for (int i = _didx - (compile ? 2 : 1); i >= 0; --i) {
-        if (STRCMP(_dict[i].name, s)==0) return i;
+    for (IU i = _didx - 1; _didx && !v && i > 0; --i) {
+        if (STRCMP(_dict[i].name, s)==0) v = i;
     }
-    return -1;
+    return v;
 }
 
 __GPU__ void
 MMU::status() {
-    Code *c = _dict;
-    DEBUG("Built-in Dictionary [name0=0x%lx, xt0=0x%lx]\n", _NM0, _XT0);
-    for (int i=0; i<_didx; i++, c++) {      ///< dump dictionary from device
-        DEBUG("%4d|%03x> name=%6x, xt=%6x %s\n", i, i,
-            (U32)((UFP)c->name - _NM0),
-            (U32)((UFP)c->xt   - _XT0),
-            c->name);
-    }
-
     INFO("\\ MMU.stat dict[%d/%d], pmem[%d]=%0.1f%%, tfree[%d/%d]\n",
         _didx, T4_DICT_SZ, _midx, 100.0*(_midx/T4_PMEM_SZ), _fidx, T4_TFREE_SZ);
     ///
@@ -106,6 +94,18 @@ MMU::status() {
 #if T4_ENABLE_OBJ    
     _ostore.status(_trace);
 #endif // T4_ENABLE_OBJ
+}
+
+__GPU__ void
+MMU::dict_dump() {
+    Code *c = _dict;
+    DEBUG("Built-in Dictionary [name0=0x%lx, xt0=0x%lx]\n", _NM0, _XT0);
+    for (int i=0; i<_didx; i++, c++) {      ///< dump dictionary from device
+        DEBUG("%4d|%03x> name=%6x, xt=%6x %s\n", i, i,
+            (U32)((UFP)c->name - _NM0),
+            (U32)((UFP)c->xt   - _XT0),
+            c->name);
+    }
 }
 ///
 /// colon - dictionary word compiler
