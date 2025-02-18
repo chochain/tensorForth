@@ -77,6 +77,7 @@ uint16_t hbin_to_u16(const void *bin);
 ///
 ///@name Endianess conversion
 ///@{
+#define __HOST__     __host__
 #define __KERN__     __global__
 #define __GPU__      __device__
 __GPU__ uint32_t     bin_to_u32(const void *bin);
@@ -87,6 +88,7 @@ __GPU__ void         u32_to_bin(uint32_t l, const void *bin);
 ///@}
 ///@name Memory ops
 ///@{
+__HOST__ void        d2h_strcpy(char *h, const char *d);
 //__GPU__ void         d_memcpy(void *t, const void *s, size_t n);
 //__GPU__ void         d_memset(void *t, int c, size_t n);
 #define d_memcpy(t,s,n) memcpy(t,s,n)

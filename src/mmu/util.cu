@@ -211,6 +211,13 @@ d_memset(void *t, int c, size_t n) {
     for (; n; n--) *p1++ = (char)c;
 }
 */
+__HOST__ void
+d2h_strcpy(char *h, const char *d) {
+    int i = 0;
+    do {
+        cudaMemcpy(h+i, d+i, 1, cudaMemcpyDeviceToHost);
+    } while (h[i++]);
+}
 __GPU__ int
 d_memcmp(const void *t, const void *s, size_t n) {
     char *p1=(char*)t, *p0=(char*)s;
