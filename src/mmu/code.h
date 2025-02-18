@@ -18,10 +18,10 @@ template<typename F>                                    ///< template functor cl
 struct functor : fop {
     F op;                                               ///< reference to lambda
     __GPU__ __INLINE__ functor(const F f) : op(f) {     ///< constructor
-        DEBUG("F(%p) => ", this);
+        DEBUG("fop:%p => ", this);
     }
     __GPU__ __INLINE__ void operator()() {              ///< lambda invoke
-        DEBUG("F(%p).op() => ", this);
+        DEBUG("op(%p) => ", this);
         op();
     }
 };
@@ -46,14 +46,13 @@ struct Code : public Managed {
 
     __HOST__ Code(const char *n, IU w) : name(n), xt((FPTR)((UFP)w)) {}  ///< primitives
     __HOST__ ~Code() { DEBUG("Code(%s) freed\n", name); }                ///< destructor
-    /*
+/*
     __GPU__ Code() {}             ///< blank struct (for initilization)
     __GPU__ Code(const char *n, FPTR fp, bool im) : name(n), xt(fp) {  ///< built-in and colon words
         imm = im;
         DEBUG("%cCode(name=%p, xt=%p) %s\n", im ? '*' : ' ', name, xt, n);
     }
-    */
-    
+*/    
     template<typename F>          ///< template function for lambda
     __GPU__ void set(const char *n, F &f, bool im) {
         name = n;
