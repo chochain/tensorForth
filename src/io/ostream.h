@@ -36,15 +36,15 @@ struct _opx {
     union {
         U64 x;
         struct {
-            U32 op  : 4;   ///> max 16 ops
-            U32 fam : 2;   ///> file access mode
-            U32 i   : 26;  ///> max 32M
-            DU  n;         ///> F32
+            U32 op : 4;   ///> max 16 ops
+            U32 m  : 8;   ///> mode - file access, format
+            U32 i  : 20;  ///> max 1M
+            DU  n;        ///> F32
         };
     };
-    __GPU__ _opx(OP op0, U8 f0, DU n, int i0=0) : n(n) { op = op0; fam = f0; i = i0; }
+    __GPU__ _opx(OP op0, U8 m0, DU n, int i0=0) : n(n) { op = op0; m = m0; i = i0; }
 };
-__GPU__ __INLINE__ _opx opx(OP op, U8 f, DU n=DU0, int i=0) { return _opx(op, f, n, i); }
+__GPU__ __INLINE__ _opx opx(OP op, U8 m, DU n=DU0, int i=0) { return _opx(op, m, n, i); }
 ///
 /// Ostream class
 ///
