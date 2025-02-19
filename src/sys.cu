@@ -66,12 +66,13 @@ System::~System() {
 ///
 ///> feed device input stream with a line from host input
 ///
+#include <string.h>
 __HOST__ int
 System::readline() {
     _istr->clear();                          /// * clear device inpugt stream
-    char *tib = _istr->rdbuf();              ///> device input buffer
-    io->fin.getline(tib, T4_IBUF_SZ, '\n');  /// * feed
-    return strlen(tib);                      /// * return size of input line
+    char *tib = _istr->rdbuf();              ///< device input buffer
+    io->fin.getline(tib, T4_IBUF_SZ, '\n');  /// * feed input buffer
+    return !io->fin.eof();                   /// * end of file
 }
 
 #define NEXT_EVENT(n) ((io_event*)((char*)&ev->data[0] + ev->sz))
