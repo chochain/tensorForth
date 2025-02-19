@@ -21,13 +21,20 @@ Code prim[] = {
     Code("var",  VAR),   Code("str",   STR),  Code("dotq",  DOTQ), Code("bran ", BRAN),
     Code("0bran",ZBRAN), Code("for  ", FOR),  Code("do",    DO),   Code("key",   KEY)
 };
+std::ios _fmt0(NULL);                     ///< static format storage
 ///@}
 ///
 /// AIO takes managed memory blocks as input and output buffers
 /// which can be access by both device and host
 ///
 __HOST__ void
-Debug::ss_dump(IU id, int n, int base) {
+Debug::keep_fmt() { _fmt0.copyfmt(io->fout); }
+
+__HOST__ void
+Debug::reset_fmt() { io->fout.copyfmt(_fmt0); }
+    
+__HOST__ void
+Debug::ss_dump(IU id, int sz, DU tos, int base) {
     static char buf[34];                  ///< static buffer
     auto rdx = [](DU v, int b) {          ///< display v by radix
         DU t, f = modf(v, &t);            ///< integral, fraction
@@ -35,7 +42,7 @@ Debug::ss_dump(IU id, int n, int base) {
             sprintf(buf, "%0.6g", v);
             return buf;
         }
-        int i = 33;  buf[i]='\0';         /// * C++ can do only base=8,10,16
+        int i   = 33;  buf[i]='\0';       /// * C++ can do only base=8,10,16
         int dec = b==10;
         U32 n   = dec ? (U32)(ABS(v)) : (U32)(v);  ///< handle negative
         do {                              ///> digit-by-digit
@@ -47,11 +54,11 @@ Debug::ss_dump(IU id, int n, int base) {
     };
     h_ostr &fout = io->fout;
     DU *ss = mu->vmss(id);                ///< retrieve VM SS
-    for (int i=0; i < n; i++) {
+
+    for (int i=0; i < sz; i++) {
         fout << rdx(*ss++, base) << ' ';
     }
-    /// TODO << TOS
-    fout << "-> ok" << std::endl;
+    fout << tos << " -> ok" << std::endl;
 }
 __HOST__ int
 Debug::p2didx(Param *p) {
@@ -80,6 +87,7 @@ Debug::to_s(Param *p, int nv, int base) {
     h_ostr &fout = io->fout;
     Code   &code = DICT(w);
     
+    keep_fmt();
     fout << std::endl << "  ";                     /// * indent
     if (io->trace) {                               /// * header
         fout << std::hex
@@ -93,6 +101,7 @@ Debug::to_s(Param *p, int nv, int base) {
         char name[256];                            ///< name buffer on host
         d2h_strcpy(name, code.name);               /// * copy string from device
         fout << name << "  ";
+        reset_fmt();                               /// * restore format
         return 0;
     }
     U8 *ip = (U8*)(p+1);                           ///< pointer to data
@@ -113,8 +122,8 @@ Debug::to_s(Param *p, int nv, int base) {
         fout << " \\ $" << std::hex
              << std::setfill('0') << std::setw(4) << p->ioff;
         break;
-    default: fout << std::setfill(' ') << std::setw(-1);          ///> restore format
     }
+    reset_fmt();                             /// * restore format
     return
         w==EXIT ||                           /// * end of word
         (w==LIT && p->exit) ||               /// * constant
@@ -124,9 +133,11 @@ Debug::to_s(Param *p, int nv, int base) {
 /// display dictionary word (wastefully one byte at a time)
 ///
 __HOST__ void
-Debug::words(int base) {
+Debug::words() {
     const int WIDTH = 60;
     h_ostr &fout = io->fout;
+    
+    keep_fmt();
     fout << std::dec;
     char name[256];
     for (int i=1, sz=0; i < DIDX; i++) {
@@ -138,7 +149,8 @@ Debug::words(int base) {
             fout << ENDL; sz = 0;
         }
     }
-    fout << std::setbase(base) << std::endl;
+    fout << std::endl;
+    reset_fmt();                             /// * restore format
 }
 ///
 /// Forth pmem memory dump
@@ -147,27 +159,30 @@ Debug::words(int base) {
 #define C2H(c) { buf[x++] = i2h[(c)>>4]; buf[x++] = i2h[(c)&0xf]; }
 #define IU2H(i){ C2H((i)>>8); C2H((i)&0xff); }
 __HOST__ void
-Debug::mem_dump(IU p0, int sz, int base) {
+Debug::mem_dump(IU p0, int sz) {
     const char i2h[] = "0123456789abcdef";
-    h_ostr &fout = io->fout;
     char buf[80];
+    h_ostr &fout = io->fout;
+
+    keep_fmt();
     fout << std::hex << std::setfill('0');
-    for (IU i=ALIGN16(p0); i<=ALIGN16(p0+sz); i+=16) {
+    for (IU i=ALIGN16(p0); i<=ALIGN16(p0+sz); i+=16) {             ///< every 16-bytes
         int x = 0;
-        buf[x++] = '\n'; IU2H(i); buf[x++] = ':'; buf[x++] = ' ';  // "%04x: "
+        buf[x++] = '\n'; IU2H(i); buf[x++] = ':'; buf[x++] = ' ';  /// * "%04x: "
         for (IU j=0; j<16; j++) {
-            //U8 c = *(((U8*)&_dict[0])+i+j) & 0x7f;               // to dump _dict
+            //U8 c = *(((U8*)&_dict[0])+i+j) & 0x7f;               /// * to dump _dict
             U8 c = *MEM(i+j);
-            C2H(c);                                                // "%02x "
-            c &= 0x7f;                                             // mask off high bit
+            C2H(c);                                                /// * "%02x "
+            c &= 0x7f;                                             /// * mask off high bit
             buf[x++] = ' ';
             if (j%4==3) buf[x++] = ' ';
-            buf[59+j]= (c==0x7f||c<0x20) ? '.' : c;                // %c
+            buf[59+j]= (c==0x7f||c<0x20) ? '.' : c;                /// * %c
         }
         buf[75] = '\0';
         fout << buf;
     }
-    fout << std::setfill(' ') << std::setbase(base) << std::endl;
+    fout << std::endl;
+    reset_fmt();                                                   /// * restore format
 }
 
 #define NFA(w) (DICT(w).pfa - ALIGN(strlen(DICT(w).name)))
@@ -175,6 +190,8 @@ __HOST__ void
 Debug::see(IU w, int base) {
     h_ostr &fout = io->fout;
     Code   &c    = DICT(w);
+
+    keep_fmt();
     fout << ": " << c.name << ENDL;
     if (!c.udf) {
         fout << " ( built-ins ) ;" << std::endl;
@@ -195,37 +212,40 @@ Debug::see(IU w, int base) {
         /// advance ip to next Param
         ///
         ip += sizeof(IU);
-        switch (p->op) {                     ///> extra bytes to skip
+        switch (p->op) {                                   ///> extra bytes to skip
         case LIT: ip += sizeof(DU);             break;
-        case VAR: ip = MEM(p->ioff);            break;  ///> create/does
+        case VAR: ip = MEM(p->ioff);            break;     ///> create/does
         case STR: case DOTQ: ip += p->ioff;     break;
         }
     }
     fout << std::endl;
+    reset_fmt();                                           /// * restore format
 }
 ///====================================================================
 ///
 ///> System statistics - for heap, stack, external memory debugging
 ///
 __HOST__ void
-Debug::dict_dump(int base) {
+Debug::dict_dump() {
     h_ostr &fout = io->fout;
     UFP xt0 = XT0;
     char name[256];
+
+    keep_fmt();
     fout << "Built-in Dictionary: _XT0="
          << std::hex << xt0 << std::setfill('0') << ENDL;
     for (int i=0; i < DIDX; i++) {
         Code &c = DICT(i);
-        IU  ip = c.udf ? c.pfa : (IU)(((UFP)c.xt & MSK_XT) - xt0);
+        U32  ip = c.udf ? c.pfa : (U32)(((UFP)c.xt & MSK_XT) - xt0);
         d2h_strcpy(name, (char*)c.name);
         fout << std::dec << std::setw(4) << i << '|'
-             << std::hex << std::setw(3) << i << " :"
+             << std::hex << std::setw(3) << i << '>'
+             << (c.udf ? " pf=" : " xt=")
              << std::setw(6) << ip
-             << (c.udf ? 'u' : ' ')
 			 << (c.imm ? '*' : ' ') << ' '
              << name << std::endl;
     }
-    fout << std::setbase(base) << std::setfill(' ') << std::setw(-1);
+    reset_fmt();
 }
 
 __HOST__ void Debug::self_tests() {
