@@ -28,8 +28,7 @@ VM::VM(int id, System *sys)
 __GPU__ void
 VM::outer() {
     char *idiom;
-    if (state == NEST) resume();                     /// * resume from suspended VM
-    while ((idiom = sys->fetch())) {                 /// * loop throught tib
+    while ((idiom = sys->fetch())!=0) {              /// * loop throught tib
         if (pre(idiom)) continue;                    /// * pre process
         DEBUG("%d> idiom='%s' => ", id, idiom);
         if (!process(idiom)) {
