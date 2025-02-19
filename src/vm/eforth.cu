@@ -65,7 +65,11 @@ ForthVM::resume() {
 ///
 __GPU__ int
 ForthVM::process(char *idiom) {
-    return parse(idiom) || number(idiom);
+    int v = parse(idiom) || number(idiom);
+    if (state!=HOLD && !compile) {
+        sys->op(OP_SS, *BASE, TOS, (id<<10)|SS.idx);
+    }
+    return v;
 }
 /*
 __GPU__ int
@@ -166,10 +170,10 @@ __GPU__ __INLINE__ void ForthVM::call(IU w) {
 __GPU__ void
 ForthVM::init() {
     VM::init();
-    if (id != 0) return;               /// * done once only
+    if (id != 0) return;  /// * done once only
     
-    CODE("nul ",    {});               /// dict[0], not used, simplify find()
-    CODE("nop",     {});               /// do nothing
+    CODE("___ ",    {});  /// dict[0] not used, simplify find(), also keeps _XT0
+    CODE("nop",     {});  /// do nothing
     ///
     /// @defgroup Stack ops
     /// @brief - opcode sequence can be changed below this line

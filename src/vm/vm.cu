@@ -41,9 +41,5 @@ VM::outer() {
         if (post()) break;                           /// * post process
     }
     TRACE("%d> VM.state=%d\n", id, state);
-    
-#if T4_ENABLE_OBJ                
-    if (state==QUERY && !compile) sys->ss_dump(i, ss.idx);
-#endif // T4_ENABLE_OBJ                
 }
 //=======================================================================================
