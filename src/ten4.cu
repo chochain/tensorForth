@@ -61,7 +61,23 @@ k_ten4_tally(int *vmst_cnt, VM_Handle *pool) {
 }
 
 __KERN__ void
-k_vm_exec(VM *vm) {
+k_vm_exec0(VM *vm) {
+    if (vm->state==STOP) return;
+    
+    const auto g = cg::this_thread_block();  ///< all blocks
+    const int  i = g.thread_rank();          ///< thread id -> ss[i]
+
+    if (i == 0) {
+        ///
+        /// * enter ForthVM outer loop
+        /// * Note: single-threaded, dynamic parallelism when needed
+        ///
+        vm->outer();                               /// * enter VM outer loop
+    }
+}
+
+__KERN__ void
+k_vm_exec1(VM *vm) {
     __shared__ DU ss[T4_SS_SZ];      ///< shared mem for ss, rs (much faster)
     __shared__ DU rs[T4_RS_SZ];
 
@@ -69,6 +85,7 @@ k_vm_exec(VM *vm) {
     
     const auto g = cg::this_thread_block();  ///< all blocks
     const int  i = g.thread_rank();          ///< thread id -> ss[i]
+
     DU *s0 = vm->SS.v;
     DU *r0 = vm->RS.v;
 
@@ -160,7 +177,6 @@ TensorForth::more_job() {
         int m0 = (int)sys->mu->here() - 0x80;
         sys->db->mem_dump(m0 < 0 ? 0 : m0, 0x80);
 #endif // T4_VERBOSE > 1
-        cout << endl;
     };
     ///
     /// collect VM states into vmst_cnt
@@ -183,7 +199,7 @@ TensorForth::run() {
         VM        *vm = h->vm;
         
         cudaEventRecord(h->t0, h->st);            /// * record start clock
-        k_vm_exec<<<1, 1, 0, h->st>>>(vm);
+        k_vm_exec0<<<1, 1, 0, h->st>>>(vm);
         cudaEventRecord(h->t1, h->st);            /// * record end clock
     }
     GPU_CHK();
@@ -200,11 +216,12 @@ TensorForth::run() {
 
 __HOST__ int
 TensorForth::main_loop() {
+//    sys->db->self_tests();
     while (more_job() && sys->readline()) {
         run();
         sys->flush();              /// * flush output buffer
 //    sys->mu->sweep();       /// * CC: device function call
-    }    
+    }
     return 0;
 }
 
