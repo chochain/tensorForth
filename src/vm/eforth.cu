@@ -391,13 +391,15 @@ ForthVM::init() {
     CODE("abort", TOS = -DU1; SS.clear(); RS.clear());          // clear ss, rs
     CODE("here",  PUSH(HERE));
     CODE("'",     IU w = FIND(sys->fetch()); if (w) PUSH(w));
-    CODE(".s",    sys->op(OP_SS, id));
-    CODE("depth", PUSH(SS.idx));
+    CODE(".s",    sys->op(OP_SS, *BASE, TOS, (id<<10)|SS.idx));
+    CODE("depth", PUSH(SS.idx - 1));
     CODE("words", sys->op(OP_WORDS));
     CODE("dict",  sys->op(OP_DICT));                            // dict_dump in host mode
     CODE("dict_dump", mmu->dict_dump());
-    CODE("see",   IU w = FIND(sys->fetch()); if (w) sys->op(OP_SEE, w));
-    CODE("dump",  DU n = POP(); IU a = POPI(); sys->op(OP_DUMP, a, n));
+    CODE("see",   IU w = FIND(sys->fetch()); if (!w) return;
+                  sys->op(OP_SEE, *BASE, DU0, w));
+    CODE("dump",  DU n = POP(); IU a = POPI();
+                  sys->op(OP_DUMP, 0, n, a));
     CODE("forget", _forget());
     /// @}
     /// @defgroup OS ops
