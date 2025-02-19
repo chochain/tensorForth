@@ -166,13 +166,17 @@ TensorForth::setup() {
 __HOST__ int
 TensorForth::more_job() {
     auto show = [this]() {
+#if T4_VERBOSE > 0    
         cout << "VM.state[STOP,HOLD,QUERY,NEST]=[";
         for (int i = 0; i < 4; i++) cout << " " << vmst_cnt[i];
         cout << " ]";
 #if T4_VERBOSE > 1
         int m0 = (int)sys->mu->here() - 0x80;
         sys->db->mem_dump(m0 < 0 ? 0 : m0, 0x80);
+#else
+        cout << std::endl;
 #endif // T4_VERBOSE > 1
+#endif // T4_VERBOSE > 0        
     };
     ///
     /// collect VM states into vmst_cnt
