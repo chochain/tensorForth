@@ -63,15 +63,11 @@ k_ten4_tally(int *vmst_cnt, VM_Handle *pool) {
 __KERN__ void
 k_vm_exec0(VM *vm) {
     if (vm->state==STOP) return;
-    
-    const auto g = cg::this_thread_block();  ///< all blocks
-    const int  i = g.thread_rank();          ///< thread id -> ss[i]
-
-    if (i == 0) {
-        ///
-        /// * enter ForthVM outer loop
-        /// * Note: single-threaded, dynamic parallelism when needed
-        ///
+    ///
+    /// * enter ForthVM outer loop
+    /// * Note: single-threaded, dynamic parallelism when needed
+    ///
+    if (threadIdx.x == 0) {
         vm->outer();                               /// * enter VM outer loop
     }
 }
@@ -185,7 +181,7 @@ TensorForth::more_job() {
     GPU_CHK();
     
     if (sys->trace() > 0) show();
-
+    
     return vmst_cnt[STOP] < T4_VM_COUNT;          /// * number of STOP VM
 }
 
