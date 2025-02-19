@@ -89,7 +89,7 @@ System::process_event(io_event *ev) {
     case GT_STR:   fout << v;                          break;
     case GT_FMT:   {
         obuf_fmt *f = (obuf_fmt*)v;
-        //printf("FMT: b=%d, w=%d, p=%d, f='%c'\n", f->base, f->width, f->prec, f->fill);
+        DEBUG("FMT: b=%d, w=%d, p=%d, f='%c'\n", f->base, f->width, f->prec, f->fill);
         fout << std::setbase(f->base)
              << std::setw(f->width)
              << std::setprecision(f->prec ? f->prec : -1)
@@ -98,7 +98,7 @@ System::process_event(io_event *ev) {
     case GT_OBJ: io->print(*(DU*)v); break;
     case GT_OPX: {
         _opx *o = (_opx*)v;
-        printf("OP=%d, m=%d, i=%d, n=0x%08x=%f\n", o->op, o->m, o->i, DU2X(o->n), o->n);
+        DEBUG("OP=%d, m=%d, i=%d, n=0x%08x=%f\n", o->op, o->m, o->i, DU2X(o->n), o->n);
         switch (o->op) {
         case OP_DICT:  db->dict_dump();                             break;
         case OP_WORDS: db->words();                                 break;
