@@ -125,6 +125,7 @@ typedef F64         DU2;                    /**< double preciesion data */
 #define INT(f)      (__float2int_rn(f))              /**< nearest-even int 1.5=>1, 1.51=>2 */
 #define UINT(f)     (static_cast<U32>(INT(f)))       /**< unsigned int */
 #define I2D(i)      (static_cast<DU>(i))             /**< int to float */
+#define D2I(f)      (static_cast<IU>(f))             /**< host integer */
 ///
 /// object classification macros
 ///
