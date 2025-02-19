@@ -9,6 +9,18 @@
 #include "vm.h"                         ///< VM base class in ../vm
 #include "param.h"                      ///< Parameter field
 ///
+///@name progress status macros
+///@{
+#define VM_HDR(fmt, ...)                     \
+    DEBUG("\e[%dm[%02d.%d]%-4x" fmt "\e[0m", \
+          (id&7) ? 38-(id&7) : 37, id, state, IP, ##__VA_ARGS__)
+#define VM_TLR(fmt, ...)                     \
+    DEBUG("\e[%dm" fmt "\e[0m\n",            \
+          (id&7) ? 38-(id&7) : 37, ##__VA_ARGS__)
+#define VM_LOG(fmt, ...)                     \
+    VM_HDR(fmt, ##__VA_ARGS__);              \
+    DEBUG("\n")
+///@}
 ///@name Dictionary Compiler macros
 ///@note - a lambda without capture can degenerate into a function pointer
 ///@{
@@ -19,13 +31,8 @@
 #define CODE(n, g) ADD_CODE(n, g, false)
 #define IMMD(n, g) ADD_CODE(n, g, true)
 ///@}
-///@name Data conversion
+///@name Forth Virtual Machine class
 ///@{
-#define POPi    (INT(POP()))          /**< convert popped DU as an IU     */
-///@}
-///
-/// Forth Virtual Machine
-///
 class ForthVM : public VM {
 public:
     __GPU__ ForthVM(int id, System *sys);
@@ -106,4 +113,5 @@ private:
     __GPU__ void _to_value();                 ///< update a constant/value
     __GPU__ void _is_alias();                 ///< create alias function
 };
+///@}
 #endif // TEN4_SRC_VM_EFORTH_H

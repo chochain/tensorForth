@@ -22,11 +22,6 @@
 #define CELL(a)   (*(DU*)mmu->pmem((IU)a))      /**< fetch a cell from parameter memory    */
 #define LAST      (mmu->dict(mmu->dict._didx-1))/**< last colon word defined               */
 #define BASE      ((U8*)MEM(base))
-//#define LDi(a)    (mmu->ri((IU)(a)))            /**< read an instruction unit from pmem    */
-//#define LDd(a)    (mmu->rd((IU)(a)))            /**< read a data unit from pmem            */
-//#define STi(a,d)  (mmu->wi((IU)(a), (IU)(d)))   /**< write a instruction unit to pmem      */
-//#define STd(a,d)  (mmu->wd((IU)(a), (DU)(d)))   /**< write a data unit to pmem             */
-//#define STc(a,c)  (*((char*)MEM(w))=(U8)INT(c)) /**< write a char to pmem                  */
 ///@}
 ///@name stack op macros
 ///@{
@@ -82,15 +77,6 @@ ForthVM::post() {
     return 1;
 }
 */
-#define VM_HDR(fmt, ...)                      \
-    printf("\e[%dm[%02d.%d]%-4x" fmt "\e[0m", \
-           (id&7) ? 38-(id&7) : 37, id, state, IP, ##__VA_ARGS__)
-#define VM_TLR(fmt, ...)                      \
-    printf("\e[%dm" fmt "\e[0m\n",            \
-           (id&7) ? 38-(id&7) : 37, ##__VA_ARGS__)
-#define VM_LOG(fmt, ...)                      \
-    VM_HDR(fmt, ##__VA_ARGS__);               \
-    printf("\n")
 ///
 ///@name Forth Inter-Interpreter
 ///@{
@@ -435,8 +421,8 @@ ForthVM::init() {
 __GPU__ int
 ForthVM::parse(char *idiom) {
     state = QUERY;
-    IU w = FIND(idiom);                  /// * search through dictionary
-    if (!w) {                            /// * input word not found
+    IU w = FIND(idiom);                   /// * search through dictionary
+    if (!w) {                             /// * input word not found
         DEBUG(" '%s' not found\n", idiom);
         return 0;                         /// * next, try as a number
     }
@@ -473,12 +459,14 @@ ForthVM::number(char *idiom) {
         return 0;
     }
     // is a number
+#if T4_VERBOSE > 1    
     DU m = (DU)n;
     p = (char*)&m;
     for (int i=0; i<sizeof(DU); i++, p++) {
         const char h2c[] = "0123456789abcdef";
         DEBUG("%c%c ", h2c[((*p)>>4)&0xf], h2c[(*p)&0xf]);
     }
+#endif // T4_VERBOSE > 1
     if (compile) add_lit((DU)n);          /// * add literal when in compile mode
     else         PUSH((DU)n);             ///> or, add value onto data stack
     
