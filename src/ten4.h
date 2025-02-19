@@ -40,6 +40,7 @@ public:
     __HOST__ void  setup();
     __HOST__ int   more_job();               ///< tally fetch state of VMs
     __HOST__ void  run();                    ///< run (and profile) VMs once
+    __HOST__ void  profile();                ///< profile VM elapse
     __HOST__ int   main_loop();              ///< execute tensorForth main loop
     __HOST__ void  teardown(int sig=0);
 };

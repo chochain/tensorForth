@@ -179,30 +179,13 @@ TensorForth::setup() {
     k_vm_init<<<1, WARP(T4_VM_COUNT)>>>(sys, vm_pool);         /// * initialize all VMs
     GPU_CHK();
 }
-
+///
+/// collect VM states into vmst_cnt
+///
 __HOST__ int
 TensorForth::more_job() {
-    auto show = [this]() {
-#if T4_VERBOSE > 0    
-        cout << "VM.state[STOP,HOLD,QUERY,NEST]=[";
-        for (int i = 0; i < 4; i++) cout << " " << vmst_cnt[i];
-        cout << " ]";
-#if T4_VERBOSE > 1
-        int m0 = (int)sys->mu->here() - 0x80;
-        sys->db->mem_dump(m0 < 0 ? 0 : m0, 0x80);
-#else
-        cout << std::endl;
-#endif // T4_VERBOSE > 1
-#endif // T4_VERBOSE > 0        
-    };
-    ///
-    /// collect VM states into vmst_cnt
-    ///
     k_ten4_tally<<<1, WARP(T4_VM_COUNT)>>>(vmst_cnt, vm_pool);
     GPU_CHK();
-    
-    if (sys->trace() > 0) show();
-    
     return vmst_cnt[STOP] < T4_VM_COUNT;          /// * number of STOP VM
 }
 
@@ -220,9 +203,25 @@ TensorForth::run() {
         cudaEventRecord(h->t1, h->st);            /// * record end clock
     }
     GPU_CHK();
-    ///
-    ///> profile
-    ///
+}
+
+__HOST__ void
+TensorForth::profile() {
+    auto show = [this]() {
+#if T4_VERBOSE > 0    
+        cout << "VM.state[STOP,HOLD,QUERY,NEST]=[";
+        for (int i = 0; i < 4; i++) cout << " " << vmst_cnt[i];
+        cout << " ]";
+#if T4_VERBOSE > 1
+        int m0 = (int)sys->mu->here() - 0x80;
+        sys->db->mem_dump(m0 < 0 ? 0 : m0, 0x80);
+#else
+        cout << std::endl;
+#endif // T4_VERBOSE > 1
+#endif // T4_VERBOSE > 0        
+    };
+    if (sys->trace() > 0) show();
+    
     TRACE("VM dt=[ ");
     for (int i=0; i<T4_VM_COUNT; i++) {
         VM_Handle *h  = &vm_pool[i];
@@ -236,9 +235,12 @@ TensorForth::run() {
 __HOST__ int
 TensorForth::main_loop() {
 //    sys->db->self_tests();
-    while (more_job() && sys->readline()) {
+    int i = 0;
+    while (more_job() && sys->readline()) {    /// * with loop guard
+        if (++i > 200) break;
         run();
-        sys->flush();              /// * flush output buffer
+        sys->flush();                          /// * flush output buffer
+        profile();
 //    sys->mu->sweep();       /// * CC: device function call
     }
     return 0;
