@@ -5,10 +5,11 @@
  * <pre>Copyright (C) 2022- GreenII, this file is distributed under BSD 3-Clause License.</pre>
  *
  * Benchmark: 1K*1K cycles on 3.2GHz AMD, Nvidia GTX1660
- *    + 19.0 msec - REALLY SLOW! Probably due to heavy branch divergence.
- *    + 21.1 msec - without NXT cache in nest() => branch is slow
- *    + 19.1 msec - without push/pop WP         => static ram access is fast
- *    + 20.3 msec - token indirect threading    => not that much worse but portable
+ *    + 19.0 ms - REALLY SLOW! Probably due to heavy branch divergence.
+ *    + 21.1 ms - without NXT cache in nest()            => branch is slow
+ *    + 19.1 ms - without push/pop WP                    => static ram access is fast
+ *    + 20.3 ms - 16-bit IU, token indirect threading    => not that much worse but portable
+ *    + 14.1 ms - 32-bit IU, nest with primitive, indirect threading (with offset)
  */
 #include <iostream>          // cin, cout
 #include <signal.h>
@@ -62,13 +63,31 @@ k_ten4_tally(int *vmst_cnt, VM_Handle *pool) {
 
 __KERN__ void
 k_vm_exec0(VM *vm) {
-    if (vm->state==STOP) return;
+    __shared__ DU ss[T4_SS_SZ];      ///< shared mem for ss, rs (much faster)
+    __shared__ DU rs[T4_RS_SZ];      ///< shared mem for ss, rs (much faster)
+
+    if (vm->state == STOP) return;
+    
+    const auto g = cg::this_thread_block();         ///< all blocks
+    const int  i = g.thread_rank();                 ///< thread id -> ss[i]
     ///
     /// * enter ForthVM outer loop
     /// * Note: single-threaded, dynamic parallelism when needed
     ///
-    if (threadIdx.x == 0) {
+    if (i == 0) {
+        DU *s0 = vm->SS.v;
+        DU *r0 = vm->RS.v;
+        MEMCPY(ss, s0, sizeof(DU) * T4_SS_SZ);     /// * TODO: parallel sync issue
+        MEMCPY(rs, r0, sizeof(DU) * T4_RS_SZ);     /// * see _exec1 below
+        vm->SS.v = ss;
+        vm->RS.v = rs;
+        
         vm->outer();                               /// * enter VM outer loop
+        
+        MEMCPY(s0, ss, sizeof(DU) * T4_SS_SZ);
+        MEMCPY(r0, rs, sizeof(DU) * T4_RS_SZ);
+        vm->SS.v = s0;
+        vm->RS.v = r0;
     }
 }
 
@@ -76,43 +95,41 @@ __KERN__ void
 k_vm_exec1(VM *vm) {
     __shared__ DU ss[T4_SS_SZ];      ///< shared mem for ss, rs (much faster)
     __shared__ DU rs[T4_RS_SZ];
-
-    if (vm->state==STOP) return;
     
-    const auto g = cg::this_thread_block();  ///< all blocks
-    const int  i = g.thread_rank();          ///< thread id -> ss[i]
+    if (vm->state == STOP) return;
+    
+    const auto g = cg::this_thread_block();       ///< all blocks
+    const int  i = g.thread_rank();               ///< thread id -> ss[i]
 
     DU *s0 = vm->SS.v;
     DU *r0 = vm->RS.v;
-
-    ///> copy stacks from global to shared mem
-    for (int n=0; n < T4_SS_SZ; n+= WARP_SZ)
-        if ((n+i) < vm->SS.idx) ss[n+i] = s0[n+i];
-    for (int n=0; n < T4_RS_SZ; n+= WARP_SZ)
-        if ((n+i) < vm->RS.idx) rs[n+i] = r0[n+i];
-    g.sync();
     
+    ///> copy stacks from global to shared mem
+    for (int n=0; n < T4_SS_SZ; n+= WARP_SZ)      /// * TODO: parallel copy, sync issue
+        if ((n+i) < T4_SS_SZ) ss[n+i] = s0[n+i];  /// * see _exec0 above
+    for (int n=0; n < T4_RS_SZ; n+= WARP_SZ)      
+        if ((n+i) < T4_RS_SZ) rs[n+i] = r0[n+i];
+    g.sync();
+    ///
+    /// * enter ForthVM outer loop
+    /// * Note: single-threaded, dynamic parallelism when needed
+    ///
     if (i == 0) {
-        vm->SS.v = ss;
+        vm->SS.v = ss;                            /// * use shared memory ss, rs
         vm->RS.v = rs;
-        ///
-        /// * enter ForthVM outer loop
-        /// * Note: single-threaded, dynamic parallelism when needed
-        ///
-        vm->outer();                               /// * enter VM outer loop
+        
+        vm->outer();                              /// * enter VM outer loop
+
+        vm->SS.v = s0;                            /// * restore stack pointers
+        vm->RS.v = r0;
     }
     g.sync();
     
     ///> copy updated stacks back to global mem
     for (int n=0; n < T4_SS_SZ; n+= WARP_SZ)
-        if ((n+i) < vm->SS.idx) s0[n+i] = ss[n+i];
+        if ((n+i) < T4_SS_SZ) s0[n+i] = ss[n+i];
     for (int n=0; n < T4_RS_SZ; n+= WARP_SZ)
-        if ((n+i) < vm->RS.idx) r0[n+i] = rs[n+i];
-
-    if (i == 0) {
-        vm->SS.v = s0;                           /// * restore stack pointers
-        vm->RS.v = r0;
-    }
+        if ((n+i) < T4_RS_SZ) r0[n+i] = rs[n+i];
 }
 
 TensorForth::TensorForth(int device, int verbose) {
@@ -206,12 +223,14 @@ TensorForth::run() {
     ///
     ///> profile
     ///
+    TRACE("VM dt=[ ");
     for (int i=0; i<T4_VM_COUNT; i++) {
         VM_Handle *h  = &vm_pool[i];
         float dt;
         cudaEventElapsedTime(&dt, h->t0, h->t1);
-        TRACE("VM[%d] dt=%0.3f\n", i, dt);
+        TRACE("%0.2f ", dt);
     }
+    TRACE("]\n");
 }
 
 __HOST__ int
