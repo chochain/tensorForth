@@ -500,7 +500,7 @@ __GPU__ void
 ForthVM::_quote(prim_op op) {
     const char *s = sys->scan('"')+1;     ///> string skip first blank
     if (compile) {
-        add_p(op, STRLEN(s));             ///> dostr, (+parameter field)
+        add_p(op, ALIGN(STRLEN(s)+1));    ///> dostr, (+parameter field)
         add_str(s);                       ///> byte0, byte1, byte2, ..., byteN
     }
     else {
