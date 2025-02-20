@@ -242,7 +242,6 @@ d_strcmp(const char *t, const char *s) {
     for (; *p1 && *p0 && *p1==*p0; p1++, p0++);
     return *p1 - *p0;
 }
-
 __GPU__ int
 d_strcasecmp(const char *t, const char *s) {
     char *p1=(char*)t, *p0=(char*)s;

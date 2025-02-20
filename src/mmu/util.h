@@ -8,6 +8,7 @@
 #define TEN4_SRC_UTIL_H_
 #include <stdint.h>
 #include <stddef.h>
+#include "ten4_config.h"
 ///
 ///@name Alignment macros
 ///@{
@@ -136,9 +137,9 @@ __KERN__ void        k_tt_op(math_op op, float *A, float *B, float *O, int n); /
 #define STRCAT(t,s)     d_strcat((char*)(t), (const char*)(s))
 #define STRCUT(s,n)     d_strcut((const char*)(s), (int)(n))
 #if T4_CASE_SENSITIVE    
-#define STRCMP(t,s)     d_strcasecmp((const char*)(t), (const char*)(s))
-#else  // T4_CASE_SENSITIVE
 #define STRCMP(t,s)     d_strcmp((const char*)(t), (const char*)(s))
+#else  // T4_CASE_SENSITIVE
+#define STRCMP(t,s)     d_strcasecmp((const char*)(t), (const char*)(s))
 #endif // T4_CASE_SENSITIVE    
 ///@}
 ///@name Unified numeric conversion ops
@@ -166,9 +167,9 @@ __KERN__ void        k_tt_op(math_op op, float *A, float *B, float *O, int n); /
 #define STRCAT(t,s)     strcat(t,s)
 #define STRCUT(s,n)     substr(s,n)
 #if T4_CASE_SENSITIVE
-#define STRCMP(t,s)     strcasecmp(t,s)
-#else  // !T4_CASE_SENSITIVE
 #define STRCMP(t,s)     strcmp(t,s)
+#else  // !T4_CASE_SENSITIVE
+#define STRCMP(t,s)     strcasecmp(t,s)
 #endif // T4_CASE_SENSITIVE
 ///@}
 ///@name Unified numeric conversion ops
