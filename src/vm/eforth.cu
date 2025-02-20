@@ -8,26 +8,24 @@
 ///
 /// Forth Virtual Machine operational macros to reduce verbosity
 /// Note:
-///    so we can change pmem implementation anytime without affecting opcodes defined below
+///    also we can change pmem implementation anytime without affecting opcodes defined below
 ///
-///@name Dictioanry access
+///@name parameter memory load/store macros
 ///@{
-#define PFA(w)    (dict[(IU)(w)].pfa)           /**< PFA of given word id                 */
-#define HERE      (mmu->here())                 /**< current context                      */
-#define SETJMP(a) (mmu->setjmp(a))              /**< address offset for branching opcodes */
-///@}
-///@name Heap memory load/store macros
-///@{
-#define MEM(a)    (mmu->pmem((IU)(a)))
-#define CELL(a)   (*(DU*)mmu->pmem((IU)a))      /**< fetch a cell from parameter memory    */
-#define LAST      (mmu->dict(mmu->dict._didx-1))/**< last colon word defined               */
-#define BASE      ((U8*)MEM(base))
+#define PFA(w)    (dict[(IU)(w)].pfa)             /**< PFA of given word id                 */
+#define HERE      (mmu->here())                   /**< current context                      */
+#define MEM(a)    (mmu->pmem((IU)(a)))            /**< parameter memory by offset address   */
+#define CELL(a)   (*(DU*)mmu->pmem((IU)a))        /**< fetch a cell from parameter memory   */
+#define LAST      (mmu->dict(mmu->dict._didx-1))  /**< last colon word defined              */
+#define BASE      ((U8*)MEM(base))                /**< pointer to user area per VM          */
+#define SETJMP(a) (((Param*)MEM(a))->ioff = HERE) /**< set branch target                    */
 ///@}
 ///@name stack op macros
 ///@{
 #define PUSH(v) (SS.push(TOS), TOS = v)
 #define POP()   ({ DU n=TOS; TOS=SS.pop(); n; })
 #define POPI()  (UINT(POP()))
+#define SS2I    ((id<<10)|(SS.idx>=0 ? SS.idx : 0)) /**< ss_dump parameter (composite)     */
 ///@}
 
 __GPU__
@@ -60,23 +58,17 @@ ForthVM::resume() {
 ///
 __GPU__ int
 ForthVM::process(char *idiom) {
-    int v = parse(idiom) || number(idiom);
-    if (state!=HOLD && !compile) {
-        sys->op(OP_SS, *BASE, TOS, (id<<10)|SS.idx);
-    }
-    return v;
+    return parse(idiom) || number(idiom);
 }
-/*
+
 __GPU__ int
 ForthVM::post() {
-    cudaError_t code = cudaGetLastError();
-    if (code == cudaSuccess) return 0;
-    
-    ERROR("VM ERROR: %s %s %d, IP=%x, CELL(IP)=%f\n",
-          cudaGetErrorString(code), __FILE__, __LINE__, IP, CELL(IP));
-    return 1;
+    TRACE("%d> VM.state=%d\n", id, state);
+    if (state!=HOLD && !compile) {
+        sys->op(OP_SS, *BASE, TOS, SS2I);
+    }
+    return 0;
 }
-*/
 ///
 ///@name Forth Inter-Interpreter
 ///@{
@@ -381,7 +373,7 @@ ForthVM::init() {
     CODE("abort", TOS = -DU1; SS.clear(); RS.clear());          // clear ss, rs
     CODE("here",  PUSH(HERE));
     CODE("'",     IU w = FIND(sys->fetch()); if (w) PUSH(w));
-    CODE(".s",    sys->op(OP_SS, *BASE, TOS, (id<<10)|SS.idx));
+    CODE(".s",    sys->op(OP_SS, *BASE, TOS, SS2I));
     CODE("depth", PUSH(SS.idx - 1));
     CODE("words", sys->op(OP_WORDS));
     CODE("dict",  sys->op(OP_DICT));                            // dict_dump in host mode
