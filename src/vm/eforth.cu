@@ -180,15 +180,15 @@ ForthVM::init() {
     CODE("*",       TOS *= SS.pop());
     CODE("-",       TOS =  SS.pop() - TOS);
     CODE("/",       TOS =  SS.pop() / TOS);
-    CODE("mod",     TOS =  MOD(SS.pop(), TOS));
-    CODE("*/",      TOS =  (DU2)SS.pop() * SS.pop() / TOS);     // ( a b c --- d ) a * b / c 
-    CODE("/mod",    DU  n = SS.pop();
+    CODE("mod",     TOS =  MOD(SS.pop(), TOS));                 // ( a b -- c )   c=a%b
+    CODE("*/",      TOS =  MUL2(SS.pop(), SS.pop()) / TOS);     // ( a b c -- d ) d= a*b / c 
+    CODE("/mod",    DU  n = SS.pop();                           // ( a b -- c d ) c=a%b, d=a/b
                     DU  t = TOS;
                     DU  m = MOD(n, t);
                     SS.push(m); TOS = UINT(n / t));
-    CODE("*/mod",   DU2 n = (DU2)SS.pop() * SS.pop();
+    CODE("*/mod",   DU2 n = MUL2(SS.pop(), SS.pop());           // ( a b c -- d e ) d=(a*b)%c, e=(a*b)/c
                     DU2 t = TOS;
-                    DU  m = MOD(n, t);
+                    DU  m = MOD2(n, t);
                     SS.push(m); TOS = UINT(n / t));
     CODE("and",     TOS = UINT(TOS) & UINT(SS.pop()));
     CODE("or",      TOS = UINT(TOS) | UINT(SS.pop()));
