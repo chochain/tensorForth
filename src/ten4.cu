@@ -222,7 +222,7 @@ TensorForth::profile() {
     };
     if (sys->trace() > 0) show();
     
-    TRACE("VM dt=[ ");
+    TRACE("VM.dt=[ ");
     for (int i=0; i<T4_VM_COUNT; i++) {
         VM_Handle *h  = &vm_pool[i];
         float dt;
