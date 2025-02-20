@@ -12,14 +12,14 @@
 ///@name progress status macros
 ///@{
 #define VM_HDR(fmt, ...)                     \
-    DEBUG("\e[%dm[%02d.%d]%-4x" fmt "\e[0m", \
+    TRACE("\e[%dm[%02d.%d]%-4x" fmt "\e[0m", \
           (id&7) ? 38-(id&7) : 37, id, state, IP, ##__VA_ARGS__)
 #define VM_TLR(fmt, ...)                     \
-    DEBUG("\e[%dm" fmt "\e[0m\n",            \
+    TRACE("\e[%dm" fmt "\e[0m\n",            \
           (id&7) ? 38-(id&7) : 37, ##__VA_ARGS__)
 #define VM_LOG(fmt, ...)                     \
     VM_HDR(fmt, ##__VA_ARGS__);              \
-    DEBUG("\n")
+    TRACE("\n")
 ///@}
 ///@name Dictionary Compiler macros
 ///@note - a lambda without capture can degenerate into a function pointer
@@ -54,7 +54,7 @@ protected:
     ///
     __GPU__ virtual int resume();             ///< resume suspended work
     __GPU__ virtual int process(char *idiom); ///< process command string
-//    __GPU__ virtual int post();     ///< for debugging
+    __GPU__ virtual int post();               ///< for tracing
     
 private:
     ///
