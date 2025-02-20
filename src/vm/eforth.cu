@@ -63,7 +63,7 @@ ForthVM::process(char *idiom) {
 
 __GPU__ int
 ForthVM::post() {
-    TRACE("%d> VM.state=%d\n", id, state);
+    DEBUG("%d> VM.state=%d\n", id, state);
     if (state!=HOLD && !compile) {
         sys->op(OP_SS, *BASE, TOS, SS2I);
     }
@@ -383,6 +383,7 @@ ForthVM::init() {
     CODE("dump",  DU n = POP(); IU a = POPI();
                   sys->op(OP_DUMP, 0, n, a));
     CODE("forget", _forget());
+    CODE("trace", sys->trace(POPI()));                          // set debug/trace level
     /// @}
     /// @defgroup OS ops
     /// @{
