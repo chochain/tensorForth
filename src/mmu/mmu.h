@@ -80,7 +80,6 @@ public:
     __GPU__  __INLINE__ void add(U8* v, int sz, bool adv=true) {   ///< copy data to heap, TODO: dynamic parallel
         MEMCPY(&_pmem[_midx], v, sz); if (adv) _midx += sz;        /// * advance HERE
     }
-    __GPU__  __INLINE__ void setjmp(IU a)  { wi(a, _midx); }       ///< set branch target address
     __GPU__  __INLINE__ void set_here(IU a) { _midx = a; }         ///< set branch target address
     ///
     /// low level memory access
