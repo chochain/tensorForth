@@ -88,7 +88,6 @@ __GPU__ void         u32_to_bin(uint32_t l, const void *bin);
 ///@}
 ///@name Memory ops
 ///@{
-__HOST__ void        d2h_strcpy(char *h, const char *d);
 //__GPU__ void         d_memcpy(void *t, const void *s, size_t n);
 //__GPU__ void         d_memset(void *t, int c, size_t n);
 #define d_memcpy(t,s,n) memcpy(t,s,n)
