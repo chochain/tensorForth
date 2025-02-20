@@ -32,6 +32,7 @@ typedef enum {
     SQRT,
     RCP,
     IDEN,
+    SAT,
     /// 1-operand + a constant
     FILL,
     GFILL,
@@ -44,29 +45,34 @@ typedef enum {
     DIV,
     MOD,
     MAX,
-    MIN
+    MIN,
+    MUL2,
+    MOD2
 } math_op;
 
-#define MATH_OP "abs","neg","exp","ln","log","tanh","relu","sigmoid","sqrt","rcp","iden","fill","gfill","scale","pow","+","-","*","/","mod","max","min"
+#define MATH_OP "abs","neg","exp","ln","log","tanh","relu","sigmoid","sqrt","rcp","iden","sat","fill","gfill","scale","pow","+","-","*","/","mod","max","min","mul2","mod2"
 
-#define ABS(d)      ((float)fabsf(d))          /**< absolute value         */
-#define NEG(d)      ((float)-(d))              /**< negate                 */
-#define EXP(d)      ((float)expf(d))           /**< exponential(float)     */
-#define LN(d)       ((float)logf(d))           /**< natural logrithm       */
-#define LOG(d)      ((float)log10f(d))         /**< log10                  */
-#define TANH(d)     ((float)tanhf(d))          /**< tanh(float)            */
+#define ABS(d)      (fabsf(d))                 /**< absolute value         */
+#define NEG(d)      (-d)                       /**< negate                 */
+#define EXP(d)      (__expf(d))                /**< exponential(float)     */
+#define LN(d)       (__logf(d))                /**< natural logrithm       */
+#define LOG(d)      (__log10f(d))              /**< log10                  */
+#define TANH(d)     (__tanhf(d))               /**< tanh(float)            */
 #define RELU(d)     (MAX(0.0, d))              /**< relu(float)            */
 #define SIGMOID(d)  (RCP(1.0+EXP(-(d))))       /**< sigmoid(float)         */
-#define SQRT(d)     ((float)sqrtf(d))          /**< square root            */
-#define RCP(x)      ((float)(1.0/(x)))         /**< reciprocol 1/x         */
-#define POW(d,e)    ((float)powf(d,e))         /**< power d^(e)            */
-#define ADD(x,y)    ((float)(x)+(y))           /**< addition               */
-#define SUB(x,y)    ((float)(x)-(y))           /**< addition               */
-#define MUL(x,y)    ((float)(x)*(y))           /**< multiplication         */
-#define DIV(x,y)    ((float)(x)/(y))           /**< division               */
-#define MOD(t,n)    ((float)fmodf(t,n))        /**< fmod two floats        */
-#define MAX(x,y)    ((float)fmaxf(x,y))        /**< maximum of the two     */
-#define MIN(x,y)    ((float)fminf(x,y))        /**< minimum of the two     */
+#define SQRT(d)     (__fsqrt_rn(d))            /**< square root            */
+#define RCP(x)      (__frcp_rn(x))             /**< reciprocol 1/x         */
+#define POW(d,e)    (__powf(d,e))              /**< power d^(e)            */
+#define SAT(d)      (__saturatef(x))           /**< clamp into [0.0..1.0]  */
+#define ADD(x,y)    (__fadd_rn(x,y))           /**< addition               */
+#define SUB(x,y)    (__fsub_rn(x,y))           /**< addition               */
+#define MUL(x,y)    (__fmul_rn(x,y))           /**< multiplication         */
+#define DIV(x,y)    (__fdiv_rn(x,y))           /**< division               */
+#define MOD(t,n)    (fmodf(t,n))               /**< fmod two floats        */
+#define MAX(x,y)    (max(x,y))                 /**< maximum of the two     */
+#define MIN(x,y)    (min(x,y))                 /**< minimum of the two     */
+#define MUL2(x2,y2) (__dmul_rn(x2,y2))         /**< double precision mul   */
+#define MOD2(x2,y2) (fmod(x2,y2))              /**< double precision mod   */
 ///@}
 #ifdef __cplusplus
 extern "C" {
