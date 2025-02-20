@@ -24,7 +24,7 @@
 ///@{
 #define PUSH(v) (SS.push(TOS), TOS = v)
 #define POP()   ({ DU n=TOS; TOS=SS.pop(); n; })
-#define POPI()  (UINT(POP()))
+#define POPI()  (D2I(POP()))
 #define SS2I    ((id<<10)|(SS.idx>=0 ? SS.idx : 0)) /**< ss_dump parameter (composite)     */
 ///@}
 
@@ -75,7 +75,7 @@ ForthVM::post() {
 #define DISPATCH(op) switch(op)
 #define CASE(op, g)  case op : { g; } break
 #define OTHER(g)     default : { g; } break
-#define UNNEST()     (IP=INT(RS.pop()))
+#define UNNEST()     (IP=D2I(RS.pop()))
 
 __GPU__ void
 ForthVM::nest() {
@@ -115,9 +115,9 @@ ForthVM::nest() {
              sys->pstr(s); IP += ix.ioff);           /// * send to output console
         CASE(BRAN,  IP = ix.ioff);                   /// * unconditional branch
         CASE(ZBRAN, if (ZEQ(POP())) IP = ix.ioff);   /// * conditional branch
-        CASE(FOR, RS.push(POPI()));                  /// * setup FOR..NEXT call frame
+        CASE(FOR, RS.push(POP()));                   /// * setup FOR..NEXT call frame
         CASE(DO,                                     /// * setup DO..LOOP call frame
-             RS.push(SS.pop()); SS.push(POPI())); 
+             RS.push(SS.pop()); SS.push(POP())); 
         CASE(KEY, PUSH(sys->key()); UNNEST());       /// * fetch single keypress
         OTHER(
             if (ix.udf) {                            /// * user defined word?
@@ -162,7 +162,7 @@ ForthVM::init() {
     CODE("swap",    DU n = SS.pop(); PUSH(n));
     CODE("rot",     DU n = SS.pop(); DU m = SS.pop(); SS.push(n); PUSH(m));
     CODE("-rot",    DU n = SS.pop(); DU m = SS.pop(); PUSH(m); PUSH(n));
-    CODE("pick",    IU i = UINT(TOS); TOS = SS[-i]);
+    CODE("pick",    IU i = D2I(TOS); TOS = SS[-i]);
     CODE("nip",     SS.pop());
     CODE("?dup",    if (TOS != DU0) PUSH(TOS));
     /// @}
@@ -180,24 +180,25 @@ ForthVM::init() {
     CODE("*",       TOS *= SS.pop());
     CODE("-",       TOS =  SS.pop() - TOS);
     CODE("/",       TOS =  SS.pop() / TOS);
-    CODE("mod",     TOS =  MOD(SS.pop(), TOS));                 // ( a b -- c )   c=a%b
+    CODE("mod",     TOS =  INT(MOD(SS.pop(), TOS)));            // ( a b -- c )   c=int(a%b)
+    CODE("fmod",    TOS =  MOD(SS.pop(), TOS));                 // ( a b -- c )   c=a%b      
     CODE("*/",      TOS =  MUL2(SS.pop(), SS.pop()) / TOS);     // ( a b c -- d ) d= a*b / c 
     CODE("/mod",    DU  n = SS.pop();                           // ( a b -- c d ) c=a%b, d=a/b
                     DU  t = TOS;
                     DU  m = MOD(n, t);
-                    SS.push(m); TOS = UINT(n / t));
+                    SS.push(m); TOS = INT(n / t));
     CODE("*/mod",   DU2 n = MUL2(SS.pop(), SS.pop());           // ( a b c -- d e ) d=(a*b)%c, e=(a*b)/c
                     DU2 t = TOS;
                     DU  m = MOD2(n, t);
-                    SS.push(m); TOS = UINT(n / t));
-    CODE("and",     TOS = UINT(TOS) & UINT(SS.pop()));
-    CODE("or",      TOS = UINT(TOS) | UINT(SS.pop()));
-    CODE("xor",     TOS = UINT(TOS) ^ UINT(SS.pop()));
+                    SS.push(m); TOS = INT(n / t));
+    CODE("and",     TOS = D2I(TOS) & D2I(SS.pop()));
+    CODE("or",      TOS = D2I(TOS) | D2I(SS.pop()));
+    CODE("xor",     TOS = D2I(TOS) ^ D2I(SS.pop()));
     CODE("abs",     TOS = ABS(TOS));
     CODE("negate",  TOS = -TOS);
-    CODE("invert",  TOS = ~UINT(TOS));
-    CODE("rshift",  TOS = UINT(SS.pop()) >> UINT(TOS));
-    CODE("lshift",  TOS = UINT(SS.pop()) << UINT(TOS));
+    CODE("invert",  TOS = ~D2I(TOS));
+    CODE("rshift",  TOS = D2I(SS.pop()) >> D2I(TOS));
+    CODE("lshift",  TOS = D2I(SS.pop()) << D2I(TOS));
     CODE("max",     DU n=SS.pop(); TOS = (TOS>n) ? TOS : n);
     CODE("min",     DU n=SS.pop(); TOS = (TOS<n) ? TOS : n);
     CODE("2*",      TOS *= 2);
@@ -207,10 +208,10 @@ ForthVM::init() {
     /// @}
     /// @defgroup Data conversion ops
     /// @{
-    CODE("int",     TOS = INT(TOS));    /// nearest-even 0.5 => 0, 1.5 => 2, 2.5 => 2
-    CODE("round",   TOS = round(TOS));  /// 0.5 => 1, 1.5 => 2, 2.5 => 3, 1.5 => -2 
-    CODE("ceil",    TOS = ceil(TOS));   /// 1.5 => 2, -1.5 => -1
-    CODE("floor",   TOS = floor(TOS));  /// 1.5 => 1, -1.5 => -2
+    CODE("int",     TOS = INT(TOS));     /// nearest-even 0.5 => 0, 1.5 => 2, 2.5 => 2
+    CODE("round",   TOS = round(TOS));   /// 0.5 => 1, 1.5 => 2, 2.5 => 3, 1.5 => -2 
+    CODE("ceil",    TOS = ceilf(TOS));   /// 1.5 => 2, -1.5 => -1
+    CODE("floor",   TOS = floorf(TOS));  /// 1.5 => 1, -1.5 => -2
     ///@}
     /// @defgroup Logic ops
     /// @{
@@ -223,8 +224,8 @@ ForthVM::init() {
     CODE("<>",      TOS = BOOL(!EQ(SS.pop(), TOS)));
     CODE(">=",      TOS = BOOL(!LT(SS.pop(), TOS)));
     CODE("<=",      TOS = BOOL(!GT(SS.pop(), TOS)));
-    CODE("u<",      TOS = BOOL(UINT(SS.pop()) < UINT(TOS)));
-    CODE("u>",      TOS = BOOL(UINT(SS.pop()) > UINT(TOS)));
+    CODE("u<",      TOS = BOOL(UINT(D2I(SS.pop())) < UINT(D2I(TOS))));
+    CODE("u>",      TOS = BOOL(UINT(D2I(SS.pop())) > UINT(D2I(TOS))));
     /// @}
     /// @defgroup IO ops
     /// @{
