@@ -19,6 +19,9 @@
 class Debug {                                             ///< friend class to MMU and AIO
     MMU      *mu;                                         ///< memory management unit
     AIO      *io;                                         ///< async IO unit
+    char     tmp[256];                                    ///< tmp string buffer
+    
+    __HOST__ char *_h(const char *d_str);                 ///< convert from device string
     
 public:
     __HOST__ Debug(MMU *mmu, AIO *aio) : mu(mmu), io(aio) {}

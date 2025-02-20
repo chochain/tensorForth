@@ -27,6 +27,14 @@ std::ios _fmt0(NULL);                     ///< static format storage
 /// AIO takes managed memory blocks as input and output buffers
 /// which can be access by both device and host
 ///
+__HOST__ char*                            ///< convert device string to host
+Debug::_h(const char *d_str) {
+    int i = 0;
+    do {
+        cudaMemcpy(tmp+i, d_str+i, 1, cudaMemcpyDeviceToHost);
+    } while (tmp[i++]);
+    return tmp;
+}
 __HOST__ void
 Debug::keep_fmt() { _fmt0.copyfmt(io->fout); }
 
@@ -73,6 +81,7 @@ Debug::p2didx(Param *p) {
     }
     return -1;                                     /// * not found
 }
+
 __HOST__ int
 Debug::to_s(IU w, int base) {
     Param *p = (Param*)MEM(DICT(w).pfa);
@@ -88,19 +97,17 @@ Debug::to_s(Param *p, int nv, int base) {
     Code   &code = DICT(w);
     
     keep_fmt();
-    fout << std::endl << "  ";                     /// * indent
+    fout << "  ";                                  /// * indent
     if (io->trace) {                               /// * header
         fout << std::hex
              << std::setfill('0') << "( "
-              << std::setw(4) << ((U8*)p - MEM(0)) ///> addr
+             << std::setw(4) << ((U8*)p - MEM(0))  ///> addr
              << std::setfill(' ') << '['
-             << std::setw(4) << w << "] )"         ///> word ref
+             << std::setw(3) << w << "] ) "        ///> word ref
              << std::setbase(base);
     }
     if (!pm) {                                     ///> built-in
-        char name[256];                            ///< name buffer on host
-        d2h_strcpy(name, code.name);               /// * copy string from device
-        fout << name << "  ";
+        fout << _h(code.name) << "  ";
         reset_fmt();                               /// * restore format
         return 0;
     }
@@ -139,9 +146,8 @@ Debug::words() {
     
     keep_fmt();
     fout << std::dec;
-    char name[256];
     for (int i=1, sz=0; i < DIDX; i++) {
-        d2h_strcpy(name, DICT(i).name);
+        char *name = _h(DICT(i).name);
         fout << "  " << name;
         sz += strlen(name) + 2;
 
@@ -168,7 +174,7 @@ Debug::mem_dump(IU p0, int sz) {
     fout << std::hex << std::setfill('0');
     for (IU i=ALIGN16(p0); i<=ALIGN16(p0+sz); i+=16) {             ///< every 16-bytes
         int x = 0;
-        buf[x++] = '\n'; IU2H(i); buf[x++] = ':'; buf[x++] = ' ';  /// * "%04x: "
+        IU2H(i); buf[x++] = ':'; buf[x++] = ' ';                   /// * "%04x: "
         for (IU j=0; j<16; j++) {
             //U8 c = *(((U8*)&_dict[0])+i+j) & 0x7f;               /// * to dump _dict
             U8 c = *MEM(i+j);
@@ -176,38 +182,37 @@ Debug::mem_dump(IU p0, int sz) {
             c &= 0x7f;                                             /// * mask off high bit
             buf[x++] = ' ';
             if (j%4==3) buf[x++] = ' ';
-            buf[59+j]= (c==0x7f||c<0x20) ? '.' : c;                /// * %c
+            buf[58+j]= (c==0x7f||c<0x20) ? '.' : c;                /// * %c
         }
-        buf[75] = '\0';
-        fout << buf;
+        buf[74] = '\0';
+        fout << buf << std::endl;
     }
-    fout << std::endl;
     reset_fmt();                                                   /// * restore format
 }
 
 #define NFA(w) (DICT(w).pfa - ALIGN(strlen(DICT(w).name)))
 __HOST__ void
 Debug::see(IU w, int base) {
+    auto nvar = [this](IU i0, IU ioff, U8 *ip) {           /// * calculate # of elements
+        if (ioff) return MEM(ioff) - ip - sizeof(IU);      /// create...does>
+        IU pfa0 = DICT(i0).pfa;
+        IU nfa1 = (i0+1) < DIDX ? NFA(i0+1) : mu->_midx;
+        return (nfa1 - pfa0 - sizeof(IU));                 ///> variable, create ,
+    };
     h_ostr &fout = io->fout;
     Code   &c    = DICT(w);
 
-    keep_fmt();
-    fout << ": " << c.name << ENDL;
+    fout << ": " << _h(c.name) << ENDL;
     if (!c.udf) {
         fout << " ( built-ins ) ;" << std::endl;
         return;
     }
-    auto nvar = [this](IU i0, IU ioff, U8 *ip) {       /// * calculate # of elements
-        if (ioff) return MEM(ioff) - ip - sizeof(IU);  /// create...does>
-        IU pfa0 = DICT(i0).pfa;
-        IU nfa1 = (i0+1) < DIDX ? NFA(i0+1) : mu->_midx;
-        return (nfa1 - pfa0 - sizeof(IU));             ///> variable, create ,
-    };
-    U8 *ip = MEM(c.pfa);                               ///< PFA pointer
+    U8 *ip = MEM(c.pfa);                                   ///< PFA pointer
     while (1) {
         Param *p = (Param*)ip;
         int   nv = p->op==VAR ? nvar(w, p->ioff, ip) : 0;  ///< VAR number of elements
         if (to_s(p, nv, base) != 0) break;                 ///< display Parameter
+        fout << ENDL;
         ///
         /// advance ip to next Param
         ///
@@ -219,7 +224,6 @@ Debug::see(IU w, int base) {
         }
     }
     fout << std::endl;
-    reset_fmt();                                           /// * restore format
 }
 ///====================================================================
 ///
@@ -229,7 +233,6 @@ __HOST__ void
 Debug::dict_dump() {
     h_ostr &fout = io->fout;
     UFP xt0 = XT0;
-    char name[256];
 
     keep_fmt();
     fout << "Built-in Dictionary: _XT0="
@@ -237,13 +240,12 @@ Debug::dict_dump() {
     for (int i=0; i < DIDX; i++) {
         Code &c = DICT(i);
         U32  ip = c.udf ? c.pfa : (U32)(((UFP)c.xt & MSK_XT) - xt0);
-        d2h_strcpy(name, (char*)c.name);
         fout << std::dec << std::setw(4) << i << '|'
              << std::hex << std::setw(3) << i << '>'
              << (c.udf ? " pf=" : " xt=")
              << std::setw(6) << ip
 			 << (c.imm ? '*' : ' ') << ' '
-             << name << std::endl;
+             << _h(c.name) << std::endl;
     }
     reset_fmt();
 }
