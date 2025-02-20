@@ -57,13 +57,13 @@ typedef enum {
 #define EXP(d)      (__expf(d))                /**< exponential(float)     */
 #define LN(d)       (__logf(d))                /**< natural logrithm       */
 #define LOG(d)      (__log10f(d))              /**< log10                  */
-#define TANH(d)     (__tanhf(d))               /**< tanh(float)            */
+#define TANH(d)     (atanhf(d))                /**< tanh(float)            */
 #define RELU(d)     (MAX(0.0, d))              /**< relu(float)            */
 #define SIGMOID(d)  (RCP(1.0+EXP(-(d))))       /**< sigmoid(float)         */
 #define SQRT(d)     (__fsqrt_rn(d))            /**< square root            */
 #define RCP(x)      (__frcp_rn(x))             /**< reciprocol 1/x         */
 #define POW(d,e)    (__powf(d,e))              /**< power d^(e)            */
-#define SAT(d)      (__saturatef(x))           /**< clamp into [0.0..1.0]  */
+#define SAT(d)      (__saturatef(d))           /**< clamp into [0.0..1.0]  */
 #define ADD(x,y)    (__fadd_rn(x,y))           /**< addition               */
 #define SUB(x,y)    (__fsub_rn(x,y))           /**< addition               */
 #define MUL(x,y)    (__fmul_rn(x,y))           /**< multiplication         */
