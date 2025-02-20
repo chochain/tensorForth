@@ -3,7 +3,6 @@
 #
 # Add inputs and outputs from these tool invocations to the build variables
 MMU_SRCS := \
-	src/mmu/util.cu \
 	src/mmu/tlsf.cu \
 	src/mmu/tensor.cu \
 	src/mmu/mmu.cu
@@ -13,7 +12,6 @@ MMU_INCS := \
 	src/ten4_types.h \
 	src/debug.h \
 	src/t4base.h \
-	src/mmu/util.h \
 	src/mmu/vector.h \
 	src/mmu/tensor.h \
 	src/mmu/tlsf.h \
