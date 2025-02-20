@@ -29,16 +29,16 @@ __GPU__ void
 VM::outer() {
     char *idiom;
     while ((idiom = sys->fetch())!=0) {              /// * loop throught tib
-        if (pre(idiom)) continue;                    /// * pre process
         DEBUG("%d> idiom='%s' => ", id, idiom);
+        if (pre(idiom)) continue;                    /// * pre process (filter)
         if (!process(idiom)) {
             sys->perr(idiom, "? ");                  /// * display error prompt
+            sys->clrbuf();                           /// * flush input stream
             compile = false;                         /// * reset to interpreter mode
             state   = QUERY;                         /// * back to input mode
             break;                                   /// * bail
         }
-        if (post()) break;                           /// * post process
     }
-    TRACE("%d> VM.state=%d\n", id, state);
+    post();                                          /// * post process (debug)
 }
 //=======================================================================================
