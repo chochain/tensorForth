@@ -66,6 +66,7 @@ public:
     __GPU__  char *fetch() {                              ///< fetch next idiom
         return (*_istr >> _pad) ? _pad : NULL;
     }
+    __GPU__  void clrbuf() { _istr->clear(); }
     ///
     /// output methods
     ///
