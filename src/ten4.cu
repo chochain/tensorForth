@@ -207,29 +207,24 @@ TensorForth::run() {
 
 __HOST__ void
 TensorForth::profile() {
-    auto show = [this]() {
-#if T4_VERBOSE > 0    
-        cout << "VM.state[STOP,HOLD,QUERY,NEST]=[";
-        for (int i = 0; i < 4; i++) cout << " " << vmst_cnt[i];
-        cout << " ]";
-#if T4_VERBOSE > 1
+    int t = sys->trace();
+    if (t==0) return;
+
+    INFO("VM.state[STOP,HOLD,QUERY,NEST]=[");
+    for (int i = 0; i < 4; i++) INFO(" %d", vmst_cnt[i]);
+    INFO(" ]\n");
+    if (t > 1) {
         int m0 = (int)sys->mu->here() - 0x80;
         sys->db->mem_dump(m0 < 0 ? 0 : m0, 0x80);
-#else
-        cout << std::endl;
-#endif // T4_VERBOSE > 1
-#endif // T4_VERBOSE > 0        
-    };
-    if (sys->trace() > 0) show();
-    
-    TRACE("VM.dt=[ ");
+    }
+    INFO("VM.dt=[ ");
     for (int i=0; i<T4_VM_COUNT; i++) {
         VM_Handle *h  = &vm_pool[i];
         float dt;
         cudaEventElapsedTime(&dt, h->t0, h->t1);
-        TRACE("%0.2f ", dt);
+        INFO("%0.2f ", dt);
     }
-    TRACE("]\n");
+    INFO("]\n");
 }
 
 __HOST__ int
