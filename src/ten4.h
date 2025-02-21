@@ -5,16 +5,16 @@
 #ifndef TEN4_SRC_TEN4_H_
 #define TEN4_SRC_TEN4_H_
 #include "vm/vm.h"           // proxy to sys.h
+#include "vm/eforth.h"       // just eForth
+#include "vm/tenvm.h"        // tensor/matrix set, or
+#include "vm/netvm.h"        // neural network set,
+#include "ldr/loader.h"      // default dataset loader
 
 #if T4_ENABLE_NN
-#include "ldr/loader.h"      // default dataset loader
-#include "vm/netvm.h"        // neural network set,
 typedef NetVM   VM_TYPE;
 #elif T4_ENABLE_OBJ
-#include "vm/tenvm.h"        // tensor/matrix set, or
 typedef TenVM   VM_TYPE;
 #else
-#include "vm/eforth.h"       // just eForth
 typedef ForthVM VM_TYPE;
 #endif
 
