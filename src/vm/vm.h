@@ -16,11 +16,8 @@
         while ((U64)clock64()<t) yield();         \
 }
 ///@}
-#define VLOG1(...) if (sys->trace() > 0) INFO(__VA_ARGS__);
-#define VLOG2(...) if (sys->trace() > 1) INFO(__VA_ARGS__);
-///
-/// virtual machine base class
-///
+///@name virtual machine base class
+///@{
 typedef enum { STOP=0, HOLD, QUERY, NEST } vm_state;   ///< ten4 states
 class VM {                            ///< VM (created in kernal mode)
 public:
@@ -34,9 +31,9 @@ public:
     Vector<DU, 0> rs;                 ///< return stack
 
     __GPU__  VM(int id, System *sys);
-    __GPU__  ~VM() { VLOG1("%d ", id); }
+    __GPU__  ~VM() { TRACE("%d ", id); }
     
-    __GPU__  virtual void    init() { VLOG1("VM[%d]::init ok\n", id); }
+    __GPU__  virtual void    init() { TRACE("VM[%d]::init ok\n", id); }
     __GPU__  virtual void    outer();
     ///
     /// proxy methods to MMU
@@ -87,4 +84,5 @@ protected:
     void set_state(vm_state st) { state = st; }
 #endif // DO_MULTITASK    
 };
+///@}
 #endif // TEN4_SRC_VM_VM_H

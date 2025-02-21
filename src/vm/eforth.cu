@@ -33,14 +33,14 @@ ForthVM::ForthVM(int id, System *sys) : VM(id, sys) {
     dict = mmu->dict(0);
     base = id;                                  /// * pmem[id], 0..USER_AREA-1 reserved
     *MEM(base) = 10;
-    VLOG1("\\  ::ForthVM[%d] dict=%p\n", id, dict);
+    TRACE("\\  ::ForthVM[%d] dict=%p\n", id, dict);
 }
 ///
 /// resume suspended task
 ///
 __GPU__ int
 ForthVM::resume() {
-    VLOG1("VM[%d] resumed at ip=%x\n", id, ip);
+    TRACE("VM[%d] resumed at ip=%x\n", id, ip);
     nest();           /// * will set state to VM_READY
     return 1;         /// * OK, continue to outer loop
 }
@@ -406,7 +406,7 @@ ForthVM::init() {
     CODE("u>",     {});
     CODE("within", {});
 #endif
-    VLOG1("ForthVM[%d]::init ok\n", id);
+    TRACE("ForthVM[%d]::init ok\n", id);
 };
 ///======================================================================
 ///
