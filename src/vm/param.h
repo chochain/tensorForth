@@ -21,7 +21,7 @@ struct Param : public Managed {
             U32 exit : 1;          ///< word exit flag
         };
     };
-    __BOTH__ Param(prim_op o, IU ip, bool u=false, bool x=false) : pack(ip) {
+    __BOTH__ Param(prim_op o, IU ix, bool u=false, bool x=false) : pack(ix) {
         op=o; udf=u; exit=x;
     }
 };
