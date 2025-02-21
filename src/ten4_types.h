@@ -216,9 +216,6 @@ typedef enum {
     EXIT=0, NEXT, LOOP, LIT, VAR, STR, DOTQ, BRAN, ZBRAN, FOR,
     DO, KEY, MAX_OP=0xf
 } prim_op;
-//enum { // ten4 original
-//    EXIT = 0, DONEXT, DOVAR, DOLIT, DOSTR, DOTSTR, BRAN, ZBRAN, DOES, TOR
-//} forth_opcode;
 ///@}
 struct Managed {
     void *operator new(size_t sz) {
