@@ -6,8 +6,8 @@
  */
 #ifndef TEN4_SRC_TENSOR_H
 #define TEN4_SRC_TENSOR_H
-#include "util.h"           // in ../mmu
-#include "t4base.h"         // in ../mmu
+#include "util.h"
+#include "t4base.h"
 
 #if T4_ENABLE_OBJ
 //===============================================================================
@@ -72,7 +72,7 @@ typedef enum {
 } t4_loss;
 
 struct Tensor : public T4Base {
-    U32      stride[4] = {1,1,1,1}; ///< stride=HWCN, for calc memory offset
+    U16      stride[4] = {1,1,1,1}; ///< stride=HWCN, for calc memory offset
     U32      shape[4]  = {1,1,1,1}; ///< shape=HWCN, matrix C=N=1, vector W=C=N=1
     t4_layer grad_fn   = L_NONE;    ///< grandiant funtion type
     Tensor   *grad[4];              ///< gradient and jacobian tensors
@@ -97,23 +97,25 @@ struct Tensor : public T4Base {
     /// class contructors
     ///
     __HOST__ Tensor()       : T4Base() {}
-    __HOST__ Tensor(U32 sz) : T4Base(sz) {
-        H() = sz;
-        WARN("vector[%d] allocated\n", numel);
+    __HOST__ Tensor(U64 sz) : T4Base(sz) {
+        const U64 GB = 1L << 30;
+        if (sz > GB) { H() = sz>>30; W() = GB; }
+        else         { H() = sz;     W() = 1;  }
+        TRACE("vector[%ld] allocated\n", numel);
     }
     __HOST__ Tensor(U32 h, U32 w) : T4Base(h, w) {
         H() = h; W() = w;
-        WARN("matrix(%d,%d) allocated\n", h, w);
+        TRACE("matrix(%d,%d) allocated\n", h, w);
     }
     __HOST__ Tensor(U32 n, U32 h, U32 w, U32 c) : T4Base(n, h, w, c) {
         H() = h; W() = w; C() = c; N() = n;
-        WARN("tensor(%d,%d,%d,%d) allocated\n", n, h, w, c);
+        TRACE("tensor(%d,%d,%d,%d) allocated\n", n, h, w, c);
     }
     __HOST__ ~Tensor() {
         switch (rank) {
-        case 2: WARN("matrix(%d,%d) freed\n", H(), W()); break;
-        case 4: WARN("tensor(%d,%d,%d,%d) freed\n", N(), H(), W(), C()); break;
-        default: WARN("~Tensor error: rank=%d\n", rank);
+        case 2: TRACE("matrix(%d,%d) freed\n", H(), W()); break;
+        case 4: TRACE("tensor(%d,%d,%d,%d) freed\n", N(), H(), W(), C()); break;
+        default: TRACE("~Tensor error: rank=%d\n", rank);
         }
     }
     ///
@@ -151,7 +153,7 @@ struct Tensor : public T4Base {
     ///
     /// tensor life-cycle ops
     ///
-    __BOTH__ Tensor &reset(void *mptr, U64 sz, t4_obj tt=T4_TENSOR, t4_layer fn=L_NONE);
+    __BOTH__ Tensor &reset(void *mem, U64 sz, t4_obj tt=T4_TENSOR, t4_layer fn=L_NONE);
     __BOTH__ Tensor &reshape(U64 sz);
     __BOTH__ Tensor &reshape(U32 h, U32 w);
     __BOTH__ Tensor &reshape(U32 n, U32 h, U32 w, U32 c);
@@ -171,6 +173,7 @@ struct Tensor : public T4Base {
     ///
     static __BOTH__ void _dump(DU *v, U32 H, U32 W, U32 C);
     static __BOTH__ void _view(DU *v, U32 H, U32 W, U32 C, DU mean, DU scale);
+    
     __GPU__ void show(bool dump=false);
     ///
     /// tensor-scalar operators
