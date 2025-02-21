@@ -15,21 +15,22 @@ TensorVM::xop1(math_op op, DU v) {
     ///
     /// scalar handler
     ///
-    if (!IS_OBJ(top)) {                     /// * scalar value
+    if (!IS_OBJ(tos)) {                     /// * scalar value
         switch (op) {
-        case ABS:  top = ABS(top);          break;
-        case NEG:  top = NEG(top);          break;
-        case EXP:  top = EXP(top);          break;
-        case LN:   top = LN(top);           break;
-        case LOG:  top = LOG(top);          break;
-        case TANH: top = TANH(top);         break;
-        case RELU: top = MAX(top, DU0);     break;
-        case SIGM: top = SIGMOID(top);      break;
-        case SQRT: top = SQRT(top);         break;
-        case RCP:  top = RCP(top);          break;
-        case POW:  top = POW(top, v);       break;
+        case ABS:  tos = ABS(tos);          break;
+        case NEG:  tos = NEG(tos);          break;
+        case EXP:  tos = EXP(tos);          break;
+        case LN:   tos = LN(tos);           break;
+        case LOG:  tos = LOG(tos);          break;
+        case TANH: tos = TANH(tos);         break;
+        case RELU: tos = MAX(tos, DU0);     break;
+        case SIGM: tos = SIGMOID(tos);      break;
+        case SQRT: tos = SQRT(tos);         break;
+        case RCP:  tos = RCP(tos);          break;
+        case SAT:  tos = SAT(tos);          break;
+        case POW:  tos = POW(tos, v);       break;
         }
-        SCALAR(top);
+        SCALAR(tos);
         return;
     }
     ///
@@ -67,15 +68,14 @@ TensorVM::xop2(math_op op, t4_drop_opt x) {
     ///
     /// 2-operand operator (broadcasting)
     ///
-    bool s0 = !IS_OBJ(top), s1 = !IS_OBJ(ss[-1]); /// * scalar flags
+    bool s0 = !IS_OBJ(tos), s1 = !IS_OBJ(ss[-1]); /// * scalar flags
     if (s0 && s1) return _ss_op(op);              /// * scalar scalar op
     if (s0) {                                     /// * tensor scaler op
         Tensor &O = _ts_op(op, x);
         VLOG1("tenvm# A[%d,%d] %s %f => O[%d,%d]\n",
-              TNOS.H(), TNOS.W(), opn[op], top, O.H(), O.W());
+              TNOS.H(), TNOS.W(), opn[op], tos, O.H(), O.W());
         if (x==KEEP) PUSH(O);
         else         POP();
-
         return;
     }
     if (s1) {                                     /// * scalar tensor op
@@ -84,7 +84,6 @@ TensorVM::xop2(math_op op, t4_drop_opt x) {
               ss[-1], opn[op], TTOS.H(), TTOS.W(), O.H(), O.W());
         if (x==KEEP) PUSH(O);
         else         ss.pop();
-
         return;
     }
 
@@ -182,17 +181,17 @@ TensorVM::xop2t(t4_ten_op op, t4_drop_opt x) {
 __GPU__ __INLINE__ void
 TensorVM::_ss_op(math_op op) {               ///< scalar-scalar ops
     switch (op) {
-    case ADD:  top = ADD(ss.pop(), top); break;
-    case SUB:  top = SUB(ss.pop(), top); break;
-    case MUL:  top = MUL(ss.pop(), top); break;
-    case DIV:  top = DIV(ss.pop(), top); break;
-    case MOD:  top = MOD(ss.pop(), top); break;
-    case MAX:  top = MAX(ss.pop(), top); break;
-    case MIN:  top = MIN(ss.pop(), top); break;
-    case MUL2: top = MUL2(ss.pop(), top); break;
-    case MOD2: top = MOD2(ss.pop(), top); break;
+    case ADD:  tos = ADD(ss.pop(), tos); break;
+    case SUB:  tos = SUB(ss.pop(), tos); break;
+    case MUL:  tos = MUL(ss.pop(), tos); break;
+    case DIV:  tos = DIV(ss.pop(), tos); break;
+    case MOD:  tos = MOD(ss.pop(), tos); break;
+    case MAX:  tos = MAX(ss.pop(), tos); break;
+    case MIN:  tos = MIN(ss.pop(), tos); break;
+    case MUL2: tos = MUL2(ss.pop(), tos); break;
+    case MOD2: tos = MOD2(ss.pop(), tos); break;
     }
-    SCALAR(top);                               /// * even +- can set LSB (rounding)
+    SCALAR(tos);                               /// * even +- can set LSB (rounding)
 }
 
 __GPU__ __INLINE__ Tensor&
@@ -215,7 +214,7 @@ __GPU__ __INLINE__ Tensor&
 TensorVM::_ts_op(math_op op, t4_drop_opt x) { ///< tensor scalar op
     Tensor &A = TNOS;                         ///< tensor on NOS
     Tensor &O = x==KEEP ? copy(A) : A;        ///< make a hard copy of A
-    Tensor::ten_op(op, A, top, O);            /// * broadcast_op(tensor, scalar)
+    Tensor::ten_op(op, A, tos, O);            /// * broadcast_op(tensor, scalar)
     
     return O;
 }
@@ -337,7 +336,7 @@ TensorVM::_pickle(bool save) {
     IU   len = POPi;                        ///< string length (not used for now)
     IU   adr = POPi;                        ///< address to pmem
     char *fn = (char*)mmu.pmem(adr);        ///< pointer to string on PAD
-    fout << opx(OP_TSAVE, mode, top) << fn; /// * issue save command
+    fout << opx(OP_TSAVE, mode, tos) << fn; /// * issue save command
     state = VM_WAIT;                        /// * return to CPU
 }
 ///
@@ -367,8 +366,8 @@ TensorVM::init() {
          IU w = POPi; IU h = POPi;
          PUSH(mmu.tensor(h, w));
          ten_off = 0; ten_lvl = 1);
-    CODE("view",   PUSH(DUP(top)));      ///< create a view of a tensor
-    CODE("copy",   PUSH(COPY(top)));     ///< create a hardcopy of a tensor
+    CODE("view",   PUSH(DUP(tos)));      ///< create a view of a tensor
+    CODE("copy",   PUSH(COPY(tos)));     ///< create a hardcopy of a tensor
     ///@}
     ///@defgroup Tensor shape ops
     ///@brief - stick to PyTorch naming when possible
@@ -383,7 +382,7 @@ TensorVM::init() {
          IU c = POPi; IU w = POPi; IU h = POPi; IU n = POPi;
          TTOS.reshape(n, h, w, c));
     CODE("same_shape?",
-         if (IS_OBJ(top) && IS_OBJ(ss[-1])) {
+         if (IS_OBJ(tos) && IS_OBJ(ss[-1])) {
              Tensor &A=TTOS; Tensor &B=TNOS; PUSH(BOOL(A.is_same_shape(B)));
          }
          else ERROR("TOS,NOS tensors?"));
@@ -392,15 +391,15 @@ TensorVM::init() {
     ///@brief - stick to PyTorch naming when possible
     ///@{
     CODE("={",                                    ///< (n -- ) or ( -- )
-         ten_off = IS_OBJ(top) ? 0 : POPi;
-         ten_lvl = IS_OBJ(top) ? 1 : 0);
+         ten_off = IS_OBJ(tos) ? 0 : POPi;
+         ten_lvl = IS_OBJ(tos) ? 1 : 0);
     CODE("zeros", xop1(FILL, DU0));               ///< fill tensor with 0s
     CODE("ones",  xop1(FILL, DU1));               ///< fill tensor with 1s
     CODE("full",  xop1(FILL, POP()));             ///< fill tensor with a value
     CODE("gradfill", xop1(GFILL, DU1));           ///< gradient fill a tensor
     CODE("eye",   xop1(IDEN));                    ///< fill 1s in diag
-    CODE("rand",  top = mmu.rand(top, UNIFORM));  ///< uniform randomize a tensor or number
-    CODE("randn", top = mmu.rand(top, NORMAL));   ///< normal dist. randomize a tensor
+    CODE("rand",  tos = mmu.rand(tos, UNIFORM));  ///< uniform randomize a tensor or number
+    CODE("randn", tos = mmu.rand(tos, NORMAL));   ///< normal dist. randomize a tensor
     ///@}
     ///@defgrup Tensor slice and dice
     ///@{
@@ -420,12 +419,12 @@ TensorVM::init() {
              PUSH(t1);
          });
     CODE("t@", 
-         if (!IS_OBJ(ss[-1]) && IS_OBJ(top)) {
+         if (!IS_OBJ(ss[-1]) && IS_OBJ(tos)) {
              IU i = POPi; DU v = TTOS[i];
              SCALAR(v);
              PUSH(v);
          })
-    CODE("t!",  DU v = POP(); IU i = POPi; if (IS_OBJ(top)) TTOS[i]=v);
+    CODE("t!",  DU v = POP(); IU i = POPi; if (IS_OBJ(tos)) TTOS[i]=v);
     ///@}
     ///@defgroup 1-tensor ops in-place (i.e. destructive, as in Forth)
     ///@{
@@ -437,6 +436,7 @@ TensorVM::init() {
     CODE("sigmoid",   xop1(SIGM));
     CODE("sqrt",      xop1(SQRT));
     CODE("1/x",       xop1(RCP));                     ///< reciprocal
+    CODE("sat",       xop1(SAT));
     CODE("pow",       xop1(POW, POP()));              ///< scale tensor with TOS
     ///@}
     ///@defgroup 1-tensor ops that create new tensor
@@ -502,10 +502,10 @@ TensorVM::init() {
              PUSH(DUP(v));
          });
     CODE("max",
-         if (IS_OBJ(top)) PUSH(TTOS.max());
+         if (IS_OBJ(tos)) PUSH(TTOS.max());
          else xop2(MAX));
     CODE("min",
-         if (IS_OBJ(top)) PUSH(TTOS.min());
+         if (IS_OBJ(tos)) PUSH(TTOS.min());
          else xop2(MIN));
     ///@}
 
