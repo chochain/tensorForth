@@ -49,10 +49,13 @@ public:
     }
     __GPU__  DU   ms() { return static_cast<double>(clock64()) / _khz; }
     __GPU__  DU   rand(DU d, rand_opt n) {                ///< randomize a tensor
-#if T4_ENABLE_OBJ    
-        if (IS_OBJ(d)) { random((Tensor&)du2obj(d), ntype); return d; }
-#endif // T4_ENABLE_OBJ    
         return d * curand_uniform(&_seed[0]);
+    }
+    __GPU__ void  rand(DU *d, U64 sz, rand_opt n, DU bias=DU0, DU scale=DU1) {
+//        DEBUG("mmu#random(T%d) numel=%ld bias=%.2f, scale=%.2f\n",
+//              t.rank, t.numel, bias, scale);
+//        k_rand<<<1, T4_RAND_SZ>>>(t.data, t.numel, bias, scale, _seed, ntype);
+        k_rand<<<1, T4_RAND_SZ>>>(d, sz, bias, scale, _seed, n);
     }
     ///
     /// input stream handler
