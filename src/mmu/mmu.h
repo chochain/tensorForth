@@ -118,6 +118,18 @@ public:
     
 #if T4_ENABLE_OBJ // vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
     ///
+    /// static short hands for eforth tensor ucodes (for DU <-> Tensor conversion)
+    ///
+    __BOTH__ T4Base &du2obj(DU d) {                          ///< DU to Obj convertion
+        U32    off = DU2X(d) & ~T4_TYPE_MSK;
+        T4Base *t  = (T4Base*)(_obj + off);
+        return *t;
+    }
+    __BOTH__ DU     obj2du(T4Base &t) {                      ///< conver Obj to DU
+        U32 o = ((U32)((U8*)&t - _obj)) | T4_TT_OBJ;
+        return *(DU*)&o;
+    }
+    ///
     /// tensor object life-cycle methods
     ///
     __GPU__  void   mark_free(DU v);                        ///< mark an object to be freed in host
@@ -130,7 +142,6 @@ public:
     __GPU__  void   free(Tensor &t);                        ///< free the tensor
     __GPU__  Tensor &copy(Tensor &t0);                      ///< hard copy a tensor
     __GPU__  Tensor &slice(Tensor &t0, IU x0, IU x1, IU y0, IU y1);     ///< a slice of a tensor
-    __GPU__  Tensor &random(Tensor &t, t4_rand_opt ntype, DU bias=DU0, DU scale=DU1);  ///< randomize tensor cells (with given type)
 #if   T4_ENABLE_NN    
     __GPU__  Dataset&dataset(U32 batch_sz);                 ///< create a NN dataset
     __GPU__  Model  &model(U32 sz=T4_NET_SZ);               ///< create a NN model
@@ -138,10 +149,9 @@ public:
 #endif // T4_ENABLE_NN
     __GPU__  void   drop(DU d) {
         if (!IS_OBJ(d) || IS_VIEW(d)) return;               /// non-object, just drop
-    
-        T4Base &t = T4Base::du2obj(d);                      /// check reference count
-        if (t.is_model()) sys->mu->free((Model&)t);         /// release TLSF memory block
-        else              sys->mu->free((Tensor&)t);
+        T4Base &t = du2obj(d);                              /// check reference count
+        if (t.is_model()) free((Model&)t);                  /// release TLSF memory block
+        else              free((Tensor&)t);
     }
 #else  // T4_ENABLE_OBJ ===========================================================
     __GPU__  void   sweep()    {}                           ///< holder for no object
