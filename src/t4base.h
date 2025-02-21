@@ -22,7 +22,7 @@ typedef enum {
 /// tensorForth base object class
 ///
 struct T4Base : public Managed {
-    U64 numel;     ///< number of data elements, TODO: more than 4G elements
+    U64 numel;               ///< number of data elements
     union {
         U64 attr = 0;        ///< attrbutes collective
         struct {
@@ -36,18 +36,6 @@ struct T4Base : public Managed {
         };
     };
     DU  *data;    ///< managed memory block pointer (Note: instead of from TLSF)
-    ///
-    /// static short hands for eforth tensor ucodes (for DU <-> Tensor conversion)
-    ///
-    static __BOTH__ T4Base &du2obj(DU d) {                         ///< DU to Obj convertion
-        U32    off = DU2X(d) & ~T4_TYPE_MSK;
-        T4Base *t  = (T4Base*)(_obj + off);
-        return *t;
-    }
-    static __BOTH__ DU     obj2du(T4Base &t) {                     ///< conver Obj to DU
-        U32 o = ((U32)((U8*)&t - _obj)) | T4_TT_OBJ;
-        return *(DU*)&o;
-    }
     ///
     /// class contructors
     ///
