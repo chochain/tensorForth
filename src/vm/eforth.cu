@@ -208,7 +208,7 @@ ForthVM::init() {
     /// @}
     /// @defgroup Data conversion ops
     /// @{
-    CODE("int",     TOS = INT(TOS));     /// nearest-even 0.5 => 0, 1.5 => 2, 2.5 => 2
+    CODE("f>s",     TOS = INT(TOS));     /// nearest-even 0.5 => 0, 1.5 => 2, 2.5 => 2
     CODE("round",   TOS = round(TOS));   /// 0.5 => 1, 1.5 => 2, 2.5 => 3, 1.5 => -2 
     CODE("ceil",    TOS = ceilf(TOS));   /// 1.5 => 2, -1.5 => -1
     CODE("floor",   TOS = floorf(TOS));  /// 1.5 => 1, -1.5 => -2
