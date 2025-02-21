@@ -70,10 +70,7 @@ public:
     //
     // sanity check, JTAG
     //
-    __BOTH__ void        status(int trace) {
-        if (trace > 0) _show_stat();
-        if (trace > 1) _dump_freelist();
-    }
+    __BOTH__ void        status() { _show_stat(); _dump_freelist(); }
 
 private:
     __GPU__  U32         _idx(U64 sz);                           ///> calc freemap index
