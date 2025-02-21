@@ -51,12 +51,7 @@ public:
     __GPU__  DU   rand(DU d, rand_opt n) {                ///< randomize a tensor
         return d * curand_uniform(&_seed[0]);
     }
-    __GPU__ void  rand(DU *d, U64 sz, rand_opt n, DU bias=DU0, DU scale=DU1) {
-//        DEBUG("mmu#random(T%d) numel=%ld bias=%.2f, scale=%.2f\n",
-//              t.rank, t.numel, bias, scale);
-//        k_rand<<<1, T4_RAND_SZ>>>(t.data, t.numel, bias, scale, _seed, ntype);
-        k_rand<<<1, T4_RAND_SZ>>>(d, sz, bias, scale, _seed, n);
-    }
+    __GPU__ void  rand(DU *d, U64 sz, rand_opt n, DU bias=DU0, DU scale=DU1);
     ///
     /// input stream handler
     ///
