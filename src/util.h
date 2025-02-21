@@ -31,8 +31,8 @@ typedef enum {
     SIGM,
     SQRT,
     RCP,
-    IDEN,
     SAT,
+    IDEN,
     /// 1-operand + a constant
     FILL,
     GFILL,
@@ -50,7 +50,7 @@ typedef enum {
     MOD2
 } math_op;
 
-#define MATH_OP "abs","neg","exp","ln","log","tanh","relu","sigmoid","sqrt","rcp","iden","sat","fill","gfill","scale","pow","+","-","*","/","mod","max","min","mul2","mod2"
+#define MATH_OP "abs","neg","exp","ln","log","tanh","relu","sigmoid","sqrt","rcp","sat","iden","fill","gfill","scale","pow","+","-","*","/","mod","max","min","mul2","mod2"
 
 #define ABS(d)      (fabsf(d))                 /**< absolute value         */
 #define NEG(d)      (-d)                       /**< negate                 */
@@ -62,8 +62,8 @@ typedef enum {
 #define SIGMOID(d)  (RCP(1.0+EXP(-(d))))       /**< sigmoid(float)         */
 #define SQRT(d)     (__fsqrt_rn(d))            /**< square root            */
 #define RCP(x)      (__frcp_rn(x))             /**< reciprocol 1/x         */
-#define POW(d,e)    (__powf(d,e))              /**< power d^(e)            */
 #define SAT(d)      (__saturatef(d))           /**< clamp into [0.0..1.0]  */
+#define POW(d,e)    (__powf(d,e))              /**< power d^(e)            */
 #define ADD(x,y)    (__fadd_rn(x,y))           /**< addition               */
 #define SUB(x,y)    (__fsub_rn(x,y))           /**< addition               */
 #define MUL(x,y)    (__fmul_rn(x,y))           /**< multiplication         */
