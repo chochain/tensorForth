@@ -10,60 +10,14 @@
 #include "util.h"                // in ../mmu
 
 //================================================================
-///
-/// general data types
-///
-typedef enum {
-    GT_EMPTY = 0,
-    GT_INT,
-    GT_FLOAT,
-    GT_STR,
-    GT_OBJ,
-    GT_FMT,
-    GT_OPX
-} GT;
-///
-/// global opocode type
-///
-typedef enum {
-    OP_WORDS = 0,
-    OP_SEE,
-    OP_DUMP,
-    OP_SS,
-    OP_TSAVE,
-    OP_DATA,
-    OP_FETCH,
-    OP_NSAVE,
-    OP_NLOAD
-} OP;
-///
-/// file access mode
-///
-typedef enum {
-    FAM_WO  = 0,
-    FAM_RW  = 1,
-    FAM_RAW = 0x10,
-    FAM_REW = 0x100
-} FAM;
-
-//================================================================
 /*! printf internal version data container.
 */
-typedef struct {
-    U16 gt   : 4;
-    U16 id   : 12;
-    U16 sz;
-    U8  data[];      // different from *data
-} obuf_node;
-
 typedef struct {
     U8 base;
     U8 width;
     U8 prec;
     U8 fill;
 } obuf_fmt;
-
-#define NODE_SZ  sizeof(U32)
 ///
 /// implement kernel iomanip classes
 ///
@@ -82,14 +36,15 @@ struct _opx {
     union {
         U64 x;
         struct {
-            U16 op;       // 16-bit
-            U16 a;        // 16-bit
-            DU  n;        // 32-bit
+            U32 op : 4;   ///> max 16 ops
+            U32 m  : 8;   ///> mode - file access, format
+            U32 i  : 20;  ///> max 1M
+            DU  n;        ///> F32
         };
     };
-    __GPU__ _opx(OP op, int a, DU n) : op((U16)op), a((U16)a), n(n) {}
+    __GPU__ _opx(OP op0, U8 m0, DU n, int i0=0) : n(n) { op = op0; m = m0; i = i0; }
 };
-__GPU__ __INLINE__ _opx opx(OP op, int a=0, DU n=DU0) { return _opx(op, a, n); }
+__GPU__ __INLINE__ _opx opx(OP op, U8 m, DU n=DU0, int i=0) { return _opx(op, m, n, i); }
 ///
 /// Ostream class
 ///
@@ -99,44 +54,47 @@ class Ostream : public Managed {
     int      _idx = 0;
     obuf_fmt _fmt = { 10, 0, 0, ' '};
 
-    __GPU__ __INLINE__ void _debug(GT gt, U8 *v, int sz) {
-#if MMU_TRACE
-        printf("%d>> obuf[%d] << ", blockIdx.x, _idx);
+    __GPU__ __INLINE__ void _debug(GT gt, U8 *v, U32 sz) {
+#if T4_VERBOSE > 1
+        printf(" obuf[%d] << ", _idx);
         if (!sz) return;
         U8 d[T4_STRBUF_SZ];
         MEMCPY(d, v, sz);
         switch(gt) {
-        case GT_INT:   printf("%d\n", *(GI*)d);      break;
-        case GT_FLOAT: printf("%G\n", *(GF*)d);      break;
-        case GT_STR:   printf("%c\n", d);            break;
-        case GT_OBJ:   printf("Obj:%8x\n", DU2X(d);  break;
-        case GT_FMT:   printf("%8x\n", *(U16*)d);    break;
+        case GT_INT:   printf("%d\n", *(IU*)d);      break;
+        case GT_U32:   printf("%u\n", *(U32*)d);     break;
+        case GT_FLOAT: printf("%G\n", *(DU*)d);      break;
+        case GT_STR:   printf("%s\n", d);            break;
+        case GT_OBJ:   printf("Obj:%8x\n", DU2X(d)); break;
+        case GT_FMT:   printf("%8x\n", *(U32*)d);    break;
         case GT_OPX: {
             _opx *o = (_opx*)d;
             switch (o->op) {
+            case OP_DICT:  printf("dict_dump()\n");                   break;
             case OP_WORDS: printf("words()\n");                       break;
-            case OP_SEE:   printf("see(%d)\n", o->a);                 break;
-            case OP_DUMP:  printf("dump(%d, %d)\n", o->a, (U16)o->n); break;
-            case OP_SS:    printf("ss_dump(%d)\n", o->a);             break;
-            case OP_DATA:  printf("data(%d)\n", o->a);                break;
-            case OP_FETCH: printf("fetch(%d)\n", o->a);               break;
+            case OP_SEE:   printf("see(%d)\n", o->i);                 break;
+            case OP_DUMP:  printf("dump(%d, %d)\n", o->i, (U32)o->n); break;
+            case OP_SS:    printf("ss_dump(%d)\n", o->i);             break;
+            case OP_DATA:  printf("data(%d)\n", o->i);                break;
+            case OP_FETCH: printf("fetch(%d)\n", o->i);               break;
             }
         } break;
         default: printf("unknown type %d\n", gt);
         }
-#endif // MMU_TRACE
+#endif // T4_VERBOSE > 1
     }
-    __GPU__  void _write(GT gt, U8 *v, int sz) {
+        
+    __GPU__  void _write(GT gt, U8 *v, U32 sz) {
         if (threadIdx.x!=0) return;               // only thread 0 within a block can write
 
         //_LOCK;
-        obuf_node *n = (obuf_node*)&_buf[_idx];   // allocate next node
+        io_event *n = (io_event*)&_buf[_idx];     // allocate next node
 
         n->gt   = gt;                             // data type
         n->id   = blockIdx.x;                     // VM.id
-        n->sz   = ALIGN4(sz);                     // 32-bit alignment
+        n->sz   = ALIGN(sz);                      // data alignment (32-bit)
 
-        int inc = NODE_SZ + n->sz;                // calc node allocation size
+        int inc = EVENT_SZ + n->sz;               // calc node allocation size
 
         _debug(gt, v, sz);
 
@@ -149,7 +107,7 @@ class Ostream : public Managed {
     __GPU__ Ostream& _wfmt() { _write(GT_FMT, (U8*)&_fmt, sizeof(obuf_fmt)); return *this; }
 
 public:
-    Ostream(int sz=T4_OBUF_SZ) { MM_ALLOC(&_buf, _max=sz);  }
+    Ostream(U32 sz=T4_OBUF_SZ) { MM_ALLOC(&_buf, _max=sz);  }
     ~Ostream()                 { GPU_SYNC(); MM_FREE(_buf); }
     ///
     /// clear output buffer
@@ -179,6 +137,10 @@ public:
     }
     __GPU__ Ostream& operator<<(S32 i) {
         _write(GT_INT, (U8*)&i, sizeof(S32));
+        return *this;
+    }
+    __GPU__ Ostream& operator<<(U32 i) {
+        _write(GT_U32, (U8*)&i, sizeof(U32));
         return *this;
     }
     __GPU__ Ostream& operator<<(DU d) {

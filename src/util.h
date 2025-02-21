@@ -8,6 +8,7 @@
 #define TEN4_SRC_UTIL_H_
 #include <stdint.h>
 #include <stddef.h>
+#include "ten4_config.h"
 ///
 ///@name Alignment macros
 ///@{
@@ -31,6 +32,7 @@ typedef enum {
     SQRT,
     RCP,
     IDEN,
+    SAT,
     /// 1-operand + a constant
     FILL,
     GFILL,
@@ -43,29 +45,34 @@ typedef enum {
     DIV,
     MOD,
     MAX,
-    MIN
+    MIN,
+    MUL2,
+    MOD2
 } math_op;
 
-#define MATH_OP "abs","neg","exp","ln","log","tanh","relu","sigmoid","sqrt","rcp","iden","fill","gfill","scale","pow","+","-","*","/","mod","max","min"
+#define MATH_OP "abs","neg","exp","ln","log","tanh","relu","sigmoid","sqrt","rcp","iden","sat","fill","gfill","scale","pow","+","-","*","/","mod","max","min","mul2","mod2"
 
-#define ABS(d)      ((float)fabsf(d))          /**< absolute value         */
-#define NEG(d)      ((float)-(d))              /**< negate                 */
-#define EXP(d)      ((float)expf(d))           /**< exponential(float)     */
-#define LN(d)       ((float)logf(d))           /**< natural logrithm       */
-#define LOG(d)      ((float)log10f(d))         /**< log10                  */
-#define TANH(d)     ((float)tanhf(d))          /**< tanh(float)            */
+#define ABS(d)      (fabsf(d))                 /**< absolute value         */
+#define NEG(d)      (-d)                       /**< negate                 */
+#define EXP(d)      (__expf(d))                /**< exponential(float)     */
+#define LN(d)       (__logf(d))                /**< natural logrithm       */
+#define LOG(d)      (__log10f(d))              /**< log10                  */
+#define TANH(d)     (atanhf(d))                /**< tanh(float)            */
 #define RELU(d)     (MAX(0.0, d))              /**< relu(float)            */
 #define SIGMOID(d)  (RCP(1.0+EXP(-(d))))       /**< sigmoid(float)         */
-#define SQRT(d)     ((float)sqrtf(d))          /**< square root            */
-#define RCP(x)      ((float)(1.0/(x)))         /**< reciprocol 1/x         */
-#define POW(d,e)    ((float)powf(d,e))         /**< power d^(e)            */
-#define ADD(x,y)    ((float)(x)+(y))           /**< addition               */
-#define SUB(x,y)    ((float)(x)-(y))           /**< addition               */
-#define MUL(x,y)    ((float)(x)*(y))           /**< multiplication         */
-#define DIV(x,y)    ((float)(x)/(y))           /**< division               */
-#define MOD(t,n)    ((float)fmodf(t,n))        /**< fmod two floats        */
-#define MAX(x,y)    ((float)fmaxf(x,y))        /**< maximum of the two     */
-#define MIN(x,y)    ((float)fminf(x,y))        /**< minimum of the two     */
+#define SQRT(d)     (__fsqrt_rn(d))            /**< square root            */
+#define RCP(x)      (__frcp_rn(x))             /**< reciprocol 1/x         */
+#define POW(d,e)    (__powf(d,e))              /**< power d^(e)            */
+#define SAT(d)      (__saturatef(d))           /**< clamp into [0.0..1.0]  */
+#define ADD(x,y)    (__fadd_rn(x,y))           /**< addition               */
+#define SUB(x,y)    (__fsub_rn(x,y))           /**< addition               */
+#define MUL(x,y)    (__fmul_rn(x,y))           /**< multiplication         */
+#define DIV(x,y)    (__fdiv_rn(x,y))           /**< division               */
+#define MOD(t,n)    (fmodf(t,n))               /**< fmod two floats        */
+#define MAX(x,y)    (max(x,y))                 /**< maximum of the two     */
+#define MIN(x,y)    (min(x,y))                 /**< minimum of the two     */
+#define MUL2(x2,y2) (__dmul_rn(x2,y2))         /**< double precision mul   */
+#define MOD2(x2,y2) (fmod(x2,y2))              /**< double precision mod   */
 ///@}
 #ifdef __cplusplus
 extern "C" {
@@ -77,6 +84,7 @@ uint16_t hbin_to_u16(const void *bin);
 ///
 ///@name Endianess conversion
 ///@{
+#define __HOST__     __host__
 #define __KERN__     __global__
 #define __GPU__      __device__
 __GPU__ uint32_t     bin_to_u32(const void *bin);
@@ -131,11 +139,14 @@ __KERN__ void        k_tt_op(math_op op, float *A, float *B, float *O, int n); /
 #define STRLEN(s)       d_strlen((const char*)(s), false)
 #define STRLENB(s)      d_strlen((const char*)(s), true)
 #define STRCPY(t,s)     d_strcpy((char*)(t), (const char*)(s))
-#define STRCMP(t,s)     d_strcmp((const char*)(t), (const char*)(s))
-#define STRCASECMP(t,s) d_strcasecmp((const char*)(t), (const char*)(s))
-#define STRCHR(t,c)     d_strchr((char*)(t), (const char)(c))
+#define STRCHR(t,c)     d_strchr((char*)(t), (c))
 #define STRCAT(t,s)     d_strcat((char*)(t), (const char*)(s))
 #define STRCUT(s,n)     d_strcut((const char*)(s), (int)(n))
+#if T4_CASE_SENSITIVE    
+#define STRCMP(t,s)     d_strcmp((const char*)(t), (const char*)(s))
+#else  // T4_CASE_SENSITIVE
+#define STRCMP(t,s)     d_strcasecmp((const char*)(t), (const char*)(s))
+#endif // T4_CASE_SENSITIVE    
 ///@}
 ///@name Unified numeric conversion ops
 ///@{
@@ -158,11 +169,14 @@ __KERN__ void        k_tt_op(math_op op, float *A, float *B, float *O, int n); /
 #define STRLEN(s)       (int)strlen((char*)s)
 #define STRLENB(s)      STRLEN(s)
 #define STRCPY(t,s)     strcpy(t,s)
-#define STRCMP(t,s)     strcmp(t,s)
-#define STRCASECMP(t,s) strcasecmp(t,s)
 #define STRCHR(t,c)     strchr(t,c)
 #define STRCAT(t,s)     strcat(t,s)
 #define STRCUT(s,n)     substr(s,n)
+#if T4_CASE_SENSITIVE
+#define STRCMP(t,s)     strcmp(t,s)
+#else  // !T4_CASE_SENSITIVE
+#define STRCMP(t,s)     strcasecmp(t,s)
+#endif // T4_CASE_SENSITIVE
 ///@}
 ///@name Unified numeric conversion ops
 ///@{

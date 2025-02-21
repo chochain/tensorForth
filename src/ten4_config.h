@@ -15,27 +15,24 @@
 ///
 ///@name Debugging macros
 ///@{
-#define T4_APP_NAME         "tensorForth"
-#define T4_MAJOR_VER        "3"
-#define T4_MINOR_VER        "2"
-#define T4_VERBOSE          1        /**< system verbose print  */
-#define T4_MMU_DEBUG        0        /**< for mmu debug trace   */
-#define CC_DEBUG            0        /**< for my local testing  */
+#define T4_APP_NAME         "tensorForth v4.0"
+#define T4_VERBOSE          1        /**< system verbose 0|1|2  */
+#define T4_CASE_SENSITIVE   1        /**< interpreter case      */
+#define CC_DEBUG            1        /**< for my local testing  */
 ///@}
 ///@name CUDA cooperative dynamic parallelism support
 ///@{
-#define T4_ENABLE_OBJ       1        /**< enable tensor/matrix  */
-#define T4_ENABLE_NN        1        /**< enable neural network */
+#define T4_ENABLE_OBJ       0        /**< enable tensor/matrix  */
+#define T4_ENABLE_NN        0        /**< enable neural network */
 #define T4_ENABLE_CDP       0
 #define T4_USE_STRBUF       0
 #define T4_PER_THREAD_STACK 8*1024   /**< init() stack overflow */
 ///@}
 ///@name Virtual machine instance controls
 ///@{
-#define VM_MIN_COUNT        2
-#define VM_MAX_COUNT        16
-#define VM_EXP_STACK        8        /**< exception stack depth */
-#define VM_REGFILE_SZ       128      /**< register file size    */
+#define T4_VM_COUNT         4        /**< number of VMs         */
+#define T4_EXP_STACK        8        /**< exception stack depth */
+#define T4_REGFILE_SZ       128      /**< register file size    */
 ///@}
 /*
  * 32it alignment is required
@@ -55,9 +52,9 @@
 ///
 ///@name Storage sizing
 ///@{
-#define T4_32BIT_ALIGN_REQUIRED   1
-
+#define T4_ALIGN4    1         /**< data 32-bit aligned          */
 #define T4_PMEM_SZ   (48*1024) /**< parameter memory block size  */
+#define T4_USER_AREA (ALIGN16(T4_VM_COUNT))
 #define T4_RS_SZ     64        /**< depth of return stack        */
 #define T4_SS_SZ     64        /**< depth of data stack          */
 #define T4_NET_SZ    32        /**< size of network DAG          */

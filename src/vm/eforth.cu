@@ -7,384 +7,43 @@
 #include "eforth.h"
 ///
 /// Forth Virtual Machine operational macros to reduce verbosity
+/// Note:
+///    also we can change pmem implementation anytime without affecting opcodes defined below
 ///
-///@name Dictioanry access
+///@name parameter memory load/store macros
 ///@{
-#define PFA(w)    (dict[(IU)(w)].pfa)           /**< PFA of given word id                    */
-#define HERE      (mmu.here())                  /**< current context                         */
-#define SETJMP(a) (mmu.setjmp(a))               /**< address offset for branching opcodes    */
+#define PFA(w)    (dict[(IU)(w)].pfa)             /**< PFA of given word id                 */
+#define HERE      (mmu->here())                   /**< current context                      */
+#define MEM(a)    (mmu->pmem((IU)(a)))            /**< parameter memory by offset address   */
+#define CELL(a)   (*(DU*)mmu->pmem((IU)a))        /**< fetch a cell from parameter memory   */
+#define LAST      (mmu->dict(mmu->dict._didx-1))  /**< last colon word defined              */
+#define BASE      ((U8*)MEM(base))                /**< pointer to user area per VM          */
+#define SETJMP(a) (((Param*)MEM(a))->ioff = HERE) /**< set branch target                    */
 ///@}
-///@name Heap memory load/store macros
+///@name stack op macros
 ///@{
-#define LDi(a)    (mmu.ri((IU)(a)))             /**< read an instruction unit from pmem      */
-#define LDd(a)    (mmu.rd((IU)(a)))             /**< read a data unit from pmem              */
-#define LDp(a)    (mmu.pmem((IU)(a)))
-#define STi(a,d)  (mmu.wi((IU)(a), (IU)(d)))    /**< write a instruction unit to pmem        */
-#define STd(a,d)  (mmu.wd((IU)(a), (DU)(d)))    /**< write a data unit to pmem               */
-#define STc(a,c)  (*((char*)LDp(w))=(U8)INT(c)) /**< write a char to pmem                    */
+#define PUSH(v) (SS.push(TOS), TOS = v)
+#define POP()   ({ DU n=TOS; TOS=SS.pop(); n; })
+#define POPI()  (D2I(POP()))
+#define SS2I    ((id<<10)|(SS.idx>=0 ? SS.idx : 0)) /**< ss_dump parameter (composite)     */
+///@}
+
+__GPU__
+ForthVM::ForthVM(int id, System *sys) : VM(id, sys) {
+    dict = mmu->dict(0);
+    base = id;                                  /// * pmem[id], 0..USER_AREA-1 reserved
+    *MEM(base) = 10;
+    VLOG1("\\  ::ForthVM[%d] dict=%p\n", id, dict);
+}
 ///
 /// resume suspended task
 ///
 __GPU__ int
 ForthVM::resume() {
-    VLOG1("VM[%d] resumed at WP=%d, IP=%d\n", vid, WP, IP);
+    VLOG1("VM[%d] resumed at WP=%d, IP=%d\n", id, WP, IP);
     nest();           /// * will set state to VM_READY
     return 1;         /// * OK, continue to outer loop
 }
-/* Note: for debugging, add post() to eforth.h
-__GPU__ int
-ForthVM::post() {
-    cudaError_t code = cudaGetLastError();
-    
-    if (code == cudaSuccess) return 0;
-    
-    ERROR("VM ERROR: %s %s %d, IP=%d, w=%d\n",
-          cudaGetErrorString(code), __FILE__, __LINE__, IP, LDi(IP));
-    ss_dump();
-    state = VM_WAIT;
-    return 1;
-}
-*/
-///
-/// Forth inner interpreter (colon word handler)
-/// Note: nest is also used for resume where RS != 0
-///
-#if CC_DEBUG
-#define _log(hdr)  printf("%03d: %s.rs=%d\n", IP, hdr, rs.idx)
-#define _dlog(w)   printf("\t%03d: %s %d\n", IP, dict[w].name, w)
-#else
-#define _log(hdr)
-#define _dlog(w)
-#endif // CC_DEBUG
-__GPU__ void
-ForthVM::nest() {
-    ///
-    /// when IP != 0, it resumes paused VM
-    ///
-    _log("IN");
-    while (state == VM_RUN && IP) {                  /// * try no recursion
-        IU w = LDi(IP);                              ///< fetch opcode, and cache dataline hopefully
-        IP += sizeof(IU);
-        _dlog(w);
-        if (dict[w].colon) {                         ///< is it a colon word?
-            rs.push(WP);                             /// * ENTER
-            rs.push(IP);                             /// * setup call frame 
-            IP = dict[w].pfa;                        ///< jump to pfa of given colon word
-            _log("ENTER");
-        }
-        else if (w==EXIT) {                          /// * EXIT
-            IP = INT(rs.pop());                      /// * restore call frame
-            WP = INT(rs.pop());
-            yield();                                 /// * for multi-tasking
-            _log("EXIT");
-        }
-        else if (w==DONEXT && !IS_OBJ(rs[-1])) {     ///< DONEXT handler
-            /// save 600ms / 100M cycles on Intel
-            if (GT(rs[-1] -= 1, -DU1)) IP = LDi(IP); ///< decrement loop counter, and fetch target addr
-            else { IP += sizeof(IU); rs.pop(); }     ///< done loop, pop off loop counter
-            _log("DONEXT");
-        }
-        else (*dict[w].xt)();                        ///< execute primitive word
-    }
-    _log("OUT");
-    if (state == VM_RUN) state = VM_READY;           /// * READY for next input
-}
-__GPU__ __INLINE__ void ForthVM::call(IU w) {
-    Code &c = dict[w];                               /// * code reference
-    if (c.colon) {                                   /// * userd defined word
-//        printf("%03d WP=%d CALL[%d] %s\n", IP, WP, w, c.name);
-        rs.push(WP);                                 /// * setup call frame
-        rs.push(IP=0);
-        WP    = w;                                   /// * frame for new word
-        IP    = c.pfa;
-        state = VM_RUN;
-        nest();                                      /// * Forth inner loop
-    }
-    else {
-        UFP xt = (UFP)c.xt & ~CODE_ATTR_FLAG;        /// * strip off attribute bit
-        (*(FPTR)xt)();                               /// * execute function
-    }
-}
-///
-/// Dictionary compiler proxy macros to reduce verbosity
-///
-__GPU__ void ForthVM::add_w(IU w)  {
-    add_iu(w);
-    VLOG2("add_w(%d) => %s\n", w, dict[w].name);
-}
-__GPU__ void ForthVM::add_iu(IU i) { mmu.add((U8*)&i, sizeof(IU)); }
-__GPU__ void ForthVM::add_du(DU d) { mmu.add((U8*)&d, sizeof(DU)); }
-__GPU__ void ForthVM::add_str(const char *s, bool adv) {
-    int sz = STRLENB(s)+1; sz = ALIGN2(sz);           ///> calculate string length, then adjust alignment (combine?)
-    mmu.add((U8*)s, sz, adv);
-}
-///
-/// dictionary initializer
-///
-__GPU__ void
-ForthVM::init() {
-    VM::init();
-    ///
-    ///@defgroup Execution flow ops
-    ///@brief - DO NOT change the sequence here (see forth_opcode enum)
-    ///@{
-    CODE("exit",    {});       /// * quit word, handled in nest()
-    CODE("donext",  {});                                  /// * handled in nest(),
-    // if (GT(rs[-1] -= 1, -DU1)) IP = LDi(IP);           /// * also overwritten in netvm later
-    // else { IP += sizeof(IU); rs.pop(); });
-    CODE("dovar",   PUSH(IP); IP += sizeof(DU));
-    CODE("dolit",   PUSH(LDd(IP)); IP += sizeof(DU));
-    CODE("dostr",
-        char *s  = (char*)LDp(IP);                        // get string ptr & len
-        int   sz = STRLENB(s)+1;                          // '\0' terminated
-        PUSH(IP); PUSH(sz-1); IP += ALIGN2(sz));
-    CODE("dotstr",
-        char *s  = (char*)LDp(IP);                        // get string pointer
-        int  sz  = STRLENB(s)+1;
-        fout << s;  IP += ALIGN2(sz));                    // send to output console
-    CODE("branch" , IP = LDi(IP));                        // unconditional branch
-    CODE("0branch", IP = ZEQ(POP()) ? LDi(IP) : IP + sizeof(IU)); // conditional branch
-    CODE("does",                                          // CREATE...DOES... meta-program
-         IU ip = PFA(WP);
-         while (LDi(ip) != DOES) ip++;                    // find DOES
-         while (LDi(ip)) add_iu(LDi(ip)));                // copy&paste code
-    CODE(">r",   rs.push(POP()));
-    CODE("r>",   PUSH(rs.pop()));
-    CODE("r@",   PUSH(mmu.dup(rs[-1])));
-    ///@}
-    ///@defgroup Stack ops
-    ///@brief - opcode sequence can be changed below this line
-    ///@{
-    CODE("dup",  PUSH(mmu.dup(top)));                     // CC: new view created
-    CODE("drop", mmu.drop(top); top = ss.pop());          // free tensor or view
-    CODE("over", PUSH(mmu.dup(ss[-1])));                  // CC: new view created
-    CODE("swap", DU n = ss.pop(); PUSH(n));
-    CODE("rot",  DU n = ss.pop(); DU m = ss.pop(); ss.push(n); PUSH(m));
-    CODE("pick", int i = INT(top); top = mmu.dup(ss[-i]));
-    ///@}
-    ///@defgroup Stack double
-    ///@{
-    CODE("2dup", PUSH(mmu.dup(ss[-1])); PUSH(mmu.dup(ss[-1])));
-    CODE("2drop",
-         DU s = ss.pop(); mmu.drop(s); mmu.drop(top);
-         top = ss.pop());
-    CODE("2over",PUSH(mmu.dup(ss[-3])); PUSH(mmu.dup(ss[-3])));
-    CODE("2swap",
-        DU n = ss.pop(); DU m = ss.pop(); DU l = ss.pop();
-         ss.push(n); PUSH(l); PUSH(m));
-    ///@}
-    ///@defgroup FPU ops
-    ///@{
-    CODE("+",    top = ADD(top, ss.pop()); SCALAR(top));
-    CODE("*",    top = MUL(top, ss.pop()); SCALAR(top));
-    CODE("-",    top = SUB(ss.pop(), top); SCALAR(top));
-    CODE("/",    top = DIV(ss.pop(), top); SCALAR(top));
-    CODE("mod",  top = MOD(ss.pop(), top); SCALAR(top));  /// fmod = x - int(q)*y
-    CODE("/mod",
-        DU n = ss.pop();
-        DU m = MOD(n, top); ss.push(SCALAR(m));
-        top = DIV(n, top); SCALAR(top));
-    ///@}
-    ///@defgroup FPU double precision ops
-    ///@{
-    CODE("*/",   top = (DU2)ss.pop() * ss.pop() / top; SCALAR(top));
-    CODE("*/mod",
-        DU2 n = (DU2)ss.pop() * ss.pop();
-        DU  m = MOD(n, top); ss.push(SCALAR(m));
-        top = round(n / top));
-    ///@}
-    ///@defgroup Binary logic ops (convert to integer first)
-    ///@{
-    CODE("and",  top = I2D(INT(ss.pop()) & INT(top)));
-    CODE("or",   top = I2D(INT(ss.pop()) | INT(top)));
-    CODE("xor",  top = I2D(INT(ss.pop()) ^ INT(top)));
-    CODE("abs",  top = ABS(top));
-    CODE("negate", top = MUL(top, -DU1));
-    CODE("max",  DU n=ss.pop(); top = MAX(top, n));
-    CODE("min",  DU n=ss.pop(); top = MIN(top, n));
-    ///@}
-    ///@defgroup Data conversion ops
-    ///@{
-    CODE("int",  top = INT(top));    /// nearest-even 0.5 => 0, 1.5 => 2, 2.5 => 2
-    CODE("round",top = round(top));  /// 0.5 => 1, 1.5 => 2, 2.5 => 3, 1.5 => -2 
-    CODE("ceil", top = ceil(top));   /// 1.5 => 2, -1.5 => -1
-    CODE("floor",top = floor(top));  /// 1.5 => 1, -1.5 => -2
-    ///@}
-    ///@defgroup Logic ops
-    ///@{
-    CODE("0= ",  top = BOOL(ZEQ(top)));
-    CODE("0<",   top = BOOL(LT(top, DU0)));
-    CODE("0>",   top = BOOL(GT(top, DU0)));
-    CODE("=",    top = BOOL(EQ(ss.pop(), top)));
-    CODE("<",    top = BOOL(LT(ss.pop(), top)));
-    CODE(">",    top = BOOL(GT(ss.pop(), top)));
-    CODE("<>",   top = BOOL(!EQ(ss.pop(), top)));
-    CODE("<=",   top = BOOL(!GT(ss.pop(), top)));
-    CODE(">=",   top = BOOL(!LT(ss.pop(), top)));
-    ///@}
-    ///@defgroup IO ops
-    ///@{
-    CODE("base@",   PUSH(I2D(radix)));
-    CODE("base!",   fout << setbase(radix = POPi));
-    CODE("hex",     fout << setbase(radix = 16));
-    CODE("decimal", fout << setbase(radix = 10));
-    CODE("cr",      fout << ENDL);
-    CODE(".",       dot(POP()));
-    CODE(".r",      int n = POPi; dot_r(n, POP()));
-    CODE("u.r",     int n = POPi; dot_r(n, ABS(POP())));
-    CODE(".f",      int n = POPi; fout << setprec(n) << POP());
-    CODE("key",     PUSH(next_idiom()[0]));
-    CODE("emit",    fout << (char)POPi);
-    CODE("space",   fout << ' ');
-    CODE("spaces",
-         int n = POPi;
-         MEMSET(idiom, ' ', n); idiom[n] = '\0';
-         fout << idiom);
-    CODE("type",
-         int n = POPi; int idx = POPi;
-         fout << (char*)LDp(idx));          // get string pointer
-    ///@}
-    ///@defgroup Literal ops
-    ///@{
-    CODE("[",       compile = false);
-    CODE("]",       compile = true);
-    IMMD("(",       scan(')'));
-    IMMD(".(",      fout << scan(')'));
-    IMMD("\\",      scan('\n'));
-    IMMD("s\"",
-        const char *s = scan('"')+1;        // string skip first blank
-        if (compile) add_w(DOSTR);          // dostr, (+parameter field)
-        else {
-            PUSH(HERE);
-            PUSH(STRLENB(s)+1);
-        }
-        add_str(s, compile));               // string on PAD in interpreter mode
-    IMMD(".\"",
-        const char *s = scan('"')+1;        // string skip first blank
-        if (compile) {
-            add_w(DOTSTR);                  // dotstr, (+parameter field)
-            add_str(s);
-        }
-        else fout << s);                    // print right away
-    ///@}
-    ///@defgroup Branching ops
-    ///@brief - if...then, if...else...then
-    ///@{
-    IMMD("if", add_w(ZBRAN); PUSH(HERE); add_iu(0));        // if   ( -- here )
-    IMMD("else",                                            // else ( here -- there )
-        add_w(BRAN);
-        IU h = HERE; add_iu(0); SETJMP(POPi); PUSH(h));     // set forward jump
-    IMMD("then", SETJMP(POPi));                             // backfill jump address
-    ///@}
-    ///@defgroup Loop ops
-    ///@brief  - begin...again, begin...f until, begin...f while...repeat
-    ///@{
-    IMMD("begin",   PUSH(HERE));
-    IMMD("again",   add_w(BRAN);  add_iu(POPi));            // again    ( there -- )
-    IMMD("until",   add_w(ZBRAN); add_iu(POPi));            // until    ( there -- )
-    IMMD("while",   add_w(ZBRAN); PUSH(HERE); add_iu(0));   // while    ( there -- there here )
-    IMMD("repeat",  add_w(BRAN);                            // repeat    ( there1 there2 -- )
-        IU t=POPi; add_iu(POPi); SETJMP(t));                // set forward and loop back address
-    ///@}
-    ///@defgrouop For-loop ops
-    ///@brief  - for...next, for...aft...then...next
-    ///@{
-    IMMD("for" ,    add_w(TOR); PUSH(HERE));                // for ( -- here )
-    IMMD("next",    add_w(DONEXT); add_iu(POPi));           // next ( here -- )
-    IMMD("aft",                                             // aft ( here -- here there )
-        POP(); add_w(BRAN);
-        IU h=HERE; add_iu(0); PUSH(HERE); PUSH(h));
-    ///@}
-    ///@defgrouop Compiler ops
-    ///@{
-    CODE(":", mmu.colon(next_idiom()); compile=true);
-    IMMD(";", add_w(EXIT); compile = false);                // terminate a word
-    CODE("variable",                                        // create a variable
-        mmu.colon(next_idiom());                            // create a new word on dictionary
-        add_w(DOVAR);                                       // dovar (+parameter field)
-        add_du(DU0);                                        // data storage (32-bit float now)
-        add_w(EXIT));
-    CODE("constant",                                        // create a constant
-        mmu.colon(next_idiom());                            // create a new word on dictionary
-        add_w(DOLIT);                                       // dovar (+parameter field)
-        add_du(POP());
-        add_w(EXIT));
-    ///@}
-    ///@defgroup word defining words (DSL)
-    ///@brief - dict is directly used, instead of shield by macros
-    ///@{
-    CODE("exec",  call(POPi));                              // execute word
-    CODE("create",
-        mmu.colon(next_idiom());                            // create a new word on dictionary
-        add_w(DOVAR));                                      // dovar (+ parameter field)
-    CODE("to",              // 3 to x                       // alter the value of a constant
-        int w = FIND(next_idiom());                         // to save the extra @ of a variable
-        if (w < 0) { ERROR(" word not found"); return; }
-        IU  a = PFA(w) + sizeof(IU);
-        DU  d = POP();
-        if (a < T4_PMEM_SZ) STd(a, d);                      // store TOS to constant's pfa
-        else ERROR("to %x", a));
-    CODE("is",              // ' y is x                     // alias a word
-        int w = FIND(next_idiom());                         // can serve as a function pointer
-        if (w < 0) { ERROR(" word not found"); return; }
-        IU  a = PFA(POPi);
-        IU  i = PFA(w);
-        if (a < T4_PMEM_SZ) STi(a, i);                     // point x to y
-        else { ERROR("is %x", a); state = VM_STOP; });
-    CODE("[to]",            // : xx 3 [to] y ;              // alter constant in compile mode
-        IU w = LDi(IP); IP += sizeof(IU);                   // fetch constant pfa from 'here'
-        IU a = PFA(w) + sizeof(IU);
-        DU d = POP();
-        if (a < T4_PMEM_SZ) STd(a, d);                      // store TOS into constant pfa
-        else { ERROR("is %x", a); state = VM_STOP; });
-    ///
-    /// be careful with memory access, because
-    /// it could make access misaligned which cause exception
-    ///
-    CODE("C@",    IU w = POPi; PUSH(*(char*)LDp(w)));
-    CODE("C!",    IU w = POPi; DU n = POP(); STc(w, n));
-    CODE("@",     IU w = POPi; PUSH(LDd(w)));                                     // w -- n
-    CODE("!",     IU w = POPi; STd(w, POP()));                                    // n w --
-    CODE(",",     DU n = POP(); add_du(n));
-    CODE("allot", DU v = 0; for (IU n = POPi, i = 0; i < n; i++) add_du(v));      // n --
-    CODE("+!",    IU w = POPi; DU v = ADD(LDd(w), POP()); STd(w, SCALAR(v)));     // n w --
-    CODE("?",     IU w = POPi; fout << LDd(w) << " ");                            // w --
-    ///@}
-    ///@defgroup Debug ops
-    ///@{
-    CODE("here",  PUSH(HERE));
-    CODE("ucase", ucase = !ZEQ(POPi));
-    CODE("'",     int w = FIND(next_idiom()); PUSH(w));
-    CODE("didx",  IU w = POPi; PUSH(dict[w].didx));
-    CODE("pfa",   IU w = POPi; PUSH(PFA(w)));
-    CODE("nfa",   IU w = POPi; PUSH(dict[w].nfa));
-    CODE("trace", mmu.trace(POPi));                                               // turn tracing on/off
-    CODE(".s",    ss_dump());
-    CODE("words", fout << opx(OP_WORDS));
-    CODE("see",   int w = FIND(next_idiom()); fout << opx(OP_SEE, w));
-    CODE("dump",  DU n = POP(); int a = POPi; fout << opx(OP_DUMP, a, n));
-    CODE("forget",
-        int w = FIND(next_idiom());
-        if (w < 0) return;
-        IU b = FIND("boot")+1;
-        mmu.clear(w > b ? w : b));
-    ///@}
-    ///@defgroup System ops
-    ///@{
-    CODE("mstat",
-         int t = mmu.trace();
-         mmu.trace(1);
-         mmu.status();
-         mmu.trace(t));
-    CODE("clock", DU t = mmu.ms(); SCALAR(t); PUSH(t));
-    CODE("delay", delay(POPi));                  ///< TODO: change to VM_WAIT
-    CODE("pause", state = VM_WAIT);              ///< yield to other VM
-    CODE("bye",   state = VM_STOP);
-    ///@}
-    CODE("boot",  mmu.clear(FIND("boot") + 1));
-    
-    VLOG1("ForthVM::init ok\n");
-};
 ///
 /// ForthVM Outer interpreter
 /// @brief having outer() on device creates branch divergence but
@@ -397,46 +56,483 @@ ForthVM::init() {
 ///    + number() and find() can run in parallel
 ///    - however, find() can run in serial only
 ///
+__GPU__ int
+ForthVM::process(char *idiom) {
+    return parse(idiom) || number(idiom);
+}
+
+__GPU__ int
+ForthVM::post() {
+    DEBUG("%d> VM.state=%d\n", id, state);
+    if (state!=HOLD && !compile) {
+        sys->op(OP_SS, *BASE, TOS, SS2I);
+    }
+    return 0;
+}
+///
+///@name Forth Inter-Interpreter
+///@{
+#define DISPATCH(op) switch(op)
+#define CASE(op, g)  case op : { g; } break
+#define OTHER(g)     default : { g; } break
+#define UNNEST()     (IP=D2I(RS.pop()))
+
+__GPU__ void
+ForthVM::nest() {
+    state = NEST;
+    ///
+    /// when IP != 0, it resumes paused VM
+    ///
+    while (IP) {                                     /// * try no recursion
+        Param &ix = *(Param*)MEM(IP);
+        VM_HDR(":%x", ix.op);
+        IP += sizeof(IU);
+        DISPATCH(ix.op) {                            /// * opcode dispatcher
+        CASE(EXIT, UNNEST());
+        CASE(NEXT,
+             if (GT(RS[-1]-=DU1, -DU1)) {            ///> loop done?
+                 IP = ix.ioff;                       /// * no, loop back
+             }
+             else RS.pop());                         /// * yes, loop done!
+        CASE(LOOP,
+             if (GT(RS[-2], RS[-1] += DU1)) {        ///> loop done?
+                 IP = ix.ioff;                       /// * no, loop back
+             }
+             else { RS.pop(); RS.pop(); });          /// * yes, done, pop off counters
+        CASE(LIT,
+             SS.push(TOS);                           ///> push current TOS
+             TOS = *(DU*)MEM(IP);                    /// * fetch from next IU
+             IP += sizeof(DU);                       /// * advance IP
+             if (ix.exit) UNNEST());                 ///> constant/value
+        CASE(VAR,
+             PUSH(ALIGN(IP));                        ///> get var addr
+             if (ix.ioff) IP = ix.ioff;              /// * jmp to does>
+             else UNNEST());                         /// * 0: variable
+        CASE(STR,
+             PUSH(IP); PUSH(ix.ioff); IP += ix.ioff);
+        CASE(DOTQ,                                   /// ." ..."
+             const char *s = (const char*)MEM(IP);   ///< get string pointer
+             sys->pstr(s); IP += ix.ioff);           /// * send to output console
+        CASE(BRAN,  IP = ix.ioff);                   /// * unconditional branch
+        CASE(ZBRAN, if (ZEQ(POP())) IP = ix.ioff);   /// * conditional branch
+        CASE(FOR, RS.push(POP()));                   /// * setup FOR..NEXT call frame
+        CASE(DO,                                     /// * setup DO..LOOP call frame
+             RS.push(SS.pop()); SS.push(POP())); 
+        CASE(KEY, PUSH(sys->key()); UNNEST());       /// * fetch single keypress
+        OTHER(
+            if (ix.udf) {                            /// * user defined word?
+                RS.push(IP);                         /// * setup call frame
+                IP = ix.ioff;                        /// * IP = word.pfa
+            }
+            else (*mmu->XT(ix.ioff))());             /// * execute built-in word
+        }
+        VM_TLR(" => SS=%d, RS=%d, IP=%x", SS.idx, RS.idx, IP);
+    }
+}
+///
+///> CALL - inner-interpreter proxy (inline macro does not run faster)
+///
+__GPU__ __INLINE__ void ForthVM::call(IU w) {
+    Code &c = dict[w];                               /// * code reference
+    DEBUG(" => call(%s)\n", c.name);
+    if (c.udf) {                                     /// * userd defined word
+        RS.push(IP);
+        IP = c.pfa;
+        nest();                                      /// * Forth inner loop
+    }
+    else (*(FPTR)((UFP)c.xt & MSK_XT))();            /// * execute function
+}
+///
+/// dictionary initializer
+///
+__GPU__ void
+ForthVM::init() {
+    VM::init();
+    if (id != 0) return;  /// * done once only
+    
+    CODE("___ ",    {});  /// dict[0] not used, simplify find(), also keeps _XT0
+    CODE("nop",     {});  /// do nothing
+    ///
+    /// @defgroup Stack ops
+    /// @brief - opcode sequence can be changed below this line
+    /// @{
+    CODE("dup",     PUSH(TOS));
+    CODE("drop",    TOS = SS.pop());
+    CODE("over",    DU v = SS[-1]; PUSH(v));
+    CODE("swap",    DU n = SS.pop(); PUSH(n));
+    CODE("rot",     DU n = SS.pop(); DU m = SS.pop(); SS.push(n); PUSH(m));
+    CODE("-rot",    DU n = SS.pop(); DU m = SS.pop(); PUSH(m); PUSH(n));
+    CODE("pick",    IU i = D2I(TOS); TOS = SS[-i]);
+    CODE("nip",     SS.pop());
+    CODE("?dup",    if (TOS != DU0) PUSH(TOS));
+    /// @}
+    /// @defgroup Stack ops - double
+    /// @{
+    CODE("2dup",    DU v = SS[-1]; PUSH(v); v = SS[-1]; PUSH(v));
+    CODE("2drop",   SS.pop(); TOS = SS.pop());
+    CODE("2over",   DU v = SS[-3]; PUSH(v); v = SS[-3]; PUSH(v));
+    CODE("2swap",   DU n = SS.pop(); DU m = SS.pop(); DU l = SS.pop();
+                    SS.push(n); PUSH(l); PUSH(m));
+    /// @}
+    /// @defgroup ALU ops
+    /// @{
+    CODE("+",       TOS += SS.pop());
+    CODE("*",       TOS *= SS.pop());
+    CODE("-",       TOS =  SS.pop() - TOS);
+    CODE("/",       TOS =  SS.pop() / TOS);
+    CODE("mod",     TOS =  INT(MOD(SS.pop(), TOS)));            // ( a b -- c )   c=int(a%b)
+    CODE("fmod",    TOS =  MOD(SS.pop(), TOS));                 // ( a b -- c )   c=a%b      
+    CODE("*/",      TOS =  MUL2(SS.pop(), SS.pop()) / TOS);     // ( a b c -- d ) d= a*b / c 
+    CODE("/mod",    DU  n = SS.pop();                           // ( a b -- c d ) c=a%b, d=a/b
+                    DU  t = TOS;
+                    DU  m = MOD(n, t);
+                    SS.push(m); TOS = INT(n / t));
+    CODE("*/mod",   DU2 n = MUL2(SS.pop(), SS.pop());           // ( a b c -- d e ) d=(a*b)%c, e=(a*b)/c
+                    DU2 t = TOS;
+                    DU  m = MOD2(n, t);
+                    SS.push(m); TOS = INT(n / t));
+    CODE("and",     TOS = D2I(TOS) & D2I(SS.pop()));
+    CODE("or",      TOS = D2I(TOS) | D2I(SS.pop()));
+    CODE("xor",     TOS = D2I(TOS) ^ D2I(SS.pop()));
+    CODE("abs",     TOS = ABS(TOS));
+    CODE("negate",  TOS = -TOS);
+    CODE("invert",  TOS = ~D2I(TOS));
+    CODE("rshift",  TOS = D2I(SS.pop()) >> D2I(TOS));
+    CODE("lshift",  TOS = D2I(SS.pop()) << D2I(TOS));
+    CODE("max",     DU n=SS.pop(); TOS = (TOS>n) ? TOS : n);
+    CODE("min",     DU n=SS.pop(); TOS = (TOS<n) ? TOS : n);
+    CODE("2*",      TOS *= 2);
+    CODE("2/",      TOS /= 2);
+    CODE("1+",      TOS += 1);
+    CODE("1-",      TOS -= 1);
+    /// @}
+    /// @defgroup Data conversion ops
+    /// @{
+    CODE("f>s",     TOS = INT(TOS));     /// nearest-even 0.5 => 0, 1.5 => 2, 2.5 => 2
+    CODE("round",   TOS = round(TOS));   /// 0.5 => 1, 1.5 => 2, 2.5 => 3, 1.5 => -2 
+    CODE("ceil",    TOS = ceilf(TOS));   /// 1.5 => 2, -1.5 => -1
+    CODE("floor",   TOS = floorf(TOS));  /// 1.5 => 1, -1.5 => -2
+    ///@}
+    /// @defgroup Logic ops
+    /// @{
+    CODE("0=",      TOS = BOOL(ZEQ(TOS)));
+    CODE("0<",      TOS = BOOL(LT(TOS, DU0)));
+    CODE("0>",      TOS = BOOL(GT(TOS, DU0)));
+    CODE("=",       TOS = BOOL(EQ(SS.pop(), TOS)));
+    CODE(">",       TOS = BOOL(GT(SS.pop(), TOS)));
+    CODE("<",       TOS = BOOL(LT(SS.pop(), TOS)));
+    CODE("<>",      TOS = BOOL(!EQ(SS.pop(), TOS)));
+    CODE(">=",      TOS = BOOL(!LT(SS.pop(), TOS)));
+    CODE("<=",      TOS = BOOL(!GT(SS.pop(), TOS)));
+    CODE("u<",      TOS = BOOL(UINT(D2I(SS.pop())) < UINT(D2I(TOS))));
+    CODE("u>",      TOS = BOOL(UINT(D2I(SS.pop())) > UINT(D2I(TOS))));
+    /// @}
+    /// @defgroup IO ops
+    /// @{
+    CODE("base",    PUSH(base));
+    CODE("decimal", sys->dot(RDX, *BASE=10));
+    CODE("hex",     sys->dot(RDX, *BASE=16));
+    CODE("bl",      PUSH(0x20));
+    CODE("cr",      sys->dot(CR));
+    CODE(".",       sys->dot(DOT,  POP()));
+    CODE("u.",      sys->dot(UDOT, POP()));
+    CODE(".r",      IU i = POPI(); sys->dotr(i, POP(), *BASE));
+    CODE("u.r",     IU i = POPI(); sys->dotr(i, POP(), *BASE, true));
+    CODE("type",    POP(); sys->pstr((const char*)MEM(POPI())));     // pass string pointer
+    IMMD("key",     if (compile) add_p(KEY); else PUSH(sys->key()));
+    CODE("emit",    sys->dot(EMIT, POP()));
+    CODE("space",   sys->dot(SPCS, DU1));
+    CODE("spaces",  sys->dot(SPCS, POP()));
+    /// @}
+    /// @defgroup Literal ops
+    /// @{
+    IMMD("(",       sys->scan(')'));
+    IMMD(".(",      sys->pstr(sys->scan(')')));
+    IMMD("\\",      sys->scan('\n'));
+    IMMD("s\"",     _quote(STR));
+    IMMD(".\"",     _quote(DOTQ));
+    /// @}
+    /// @defgroup Branching ops
+    /// @brief - if...then, if...else...then
+    /// @{
+    IMMD("if",      PUSH(HERE); add_p(ZBRAN));             // if    ( -- here )
+    IMMD("else",    IU h=HERE;  add_p(BRAN);               // else ( here -- there )
+                    SETJMP(POPI()); PUSH(h));
+    IMMD("then",    SETJMP(POPI()));                       // backfill jump address
+    /// @}
+    /// @defgroup Loops
+    /// @brief  - begin...again, begin...f until, begin...f while...repeat
+    /// @{
+    IMMD("begin",   PUSH(HERE));
+    IMMD("again",   add_p(BRAN, POPI()));                  // again    ( there -- )
+    IMMD("until",   add_p(ZBRAN, POPI()));                 // until    ( there -- )
+    IMMD("while",   PUSH(HERE); add_p(ZBRAN));             // while    ( there -- there here )
+    IMMD("repeat",                                         // repeat    ( there1 there2 -- )
+         IU t=POPI(); add_p(BRAN, POPI()); SETJMP(t));     // set forward and loop back address
+    /// @}
+    /// @defgrouop FOR...NEXT loops
+    /// @brief  - for...next, for...aft...then...next
+    ///    3 for ." f" aft ." a" then i . next  ==> f3 a2 a1 a0 i.e. f once only
+    /// @{
+    IMMD("for" ,    add_p(FOR); PUSH(HERE));               // for ( -- here )
+    IMMD("next",    add_p(NEXT, POPI()));                  // next ( here -- )
+    IMMD("aft",                                            // aft ( here -- here there )
+         POP(); IU h=HERE; add_p(BRAN); PUSH(HERE); PUSH(h));
+    /// @}
+    /// @}
+    /// @defgrouop DO..LOOP loops
+    /// @{
+    IMMD("do" ,     add_p(DO); PUSH(HERE));                // do ( -- here )
+    CODE("i",       PUSH(RS[-1]));
+    CODE("leave",   RS.pop(); RS.pop(); UNNEST());         // quit DO..LOOP
+    IMMD("loop",    add_p(LOOP, POPI()));                  // next ( here -- )
+    /// @}
+    /// @defgrouop return stack ops
+    /// @{
+    CODE(">r",      RS.push(POP()));
+    CODE("r>",      PUSH(RS.pop()));
+    CODE("r@",      PUSH(RS[-1]));                              // same as I (the loop counter)
+    /// @}
+    /// @defgrouop Compiler ops
+    /// @{
+    CODE("[",       compile = false);
+    CODE("]",       compile = true);
+    CODE(":",       compile = _def_word());
+    IMMD(";",       add_p(EXIT); compile = false);
+    CODE("variable",                                            // create a variable
+         if (!_def_word()) return;
+         add_p(VAR, 0, true); add_du(DU0));                     // default DU0
+    CODE("constant",                                            // create a constant
+         if (!_def_word()) return;
+         add_lit(POP(), true));
+    CODE("value",   
+         if (!_def_word()) return;
+         add_p(LIT, 0, true, true);                             // forced extended, TO can update
+         add_du(POP()));             
+    IMMD("immediate", dict[-1].imm = true);
+    CODE("exit",    UNNEST());                                  // early exit the colon word
+    /// @}
+    /// @defgroup metacompiler
+    /// @brief - dict is directly used, instead of shield by macros
+    /// @{
+    CODE("exec",   IU w = POP(); call(w));                      // execute word
+    CODE("create",
+         if (!_def_word()) return;
+         add_p(VAR, 0, true));
+    CODE("does>",
+         IU pfa = mmu->last()->pfa;
+         while (((Param*)MEM(pfa))->op != VAR && (pfa < (IU)HERE)) {  // find that VAR
+             pfa += sizeof(IU);
+         }
+         SETJMP(pfa);                                           // set jmp target
+         add_p(BRAN, IP); UNNEST());                            // jmp to next IP
+    IMMD("to", _to_value());                                    // alter the value of a constant, i.e. 3 to x
+    IMMD("is", _is_alias());                                    // alias a word, i.e. ' y is x
+/*    
+    CODE("[to]",            // : xx 3 [to] y ;                  // alter constant in compile mode
+         IU w = LDi(IP); IP += sizeof(IU);                      // fetch constant pfa from 'here'
+         IU a = PFA(w) + sizeof(IU);
+         DU d = POP();
+         if (a < T4_PMEM_SZ) CELL(a) = d;                       // store TOS into constant pfa
+         else { ERROR("is %x", a); state = STOP; });
+*/         
+    ///
+    /// be careful with memory access, because
+    /// it could make access misaligned which cause exception
+    ///
+    CODE("@",     IU i = POPI(); PUSH((DU)CELL(i)));            // i -- n
+    CODE("!",     IU i = POPI(); CELL(i) = POP(););             // n i --
+    CODE("+!",    IU i = POPI(); CELL(i) += POP());             // n i --
+    CODE("?",     IU i = POPI(); sys->dot(DOT, CELL(i)));       // i --
+    CODE(",",     DU n = POP();  add_du(n));                    // n -- , compile a cell
+    CODE("cells", IU i = POPI(); PUSH(i * sizeof(DU)));         // n -- n'
+    CODE("allot",                                               // n --
+         IU n = POPI();                                         // number of bytes
+         for (IU i = 0; i < n; i+=sizeof(DU)) add_du(DU0));     // zero padding
+    CODE("th",    IU i = POPI(); TOS += i * sizeof(DU));        // w i -- w'
+    /// @}
+#if DO_MULTITASK    
+    /// @defgroup Multitasking ops
+    /// @}
+    CODE("task",                                                // w -- task_id
+         IU i = POPI(); Code &c = dict[i];                      ///< dictionary index
+         if (c.udf) PUSH(task_create(c.pfa));                   /// create a task starting on pfa
+         else pstr("  ?colon word only\n"));
+    CODE("rank",  PUSH(id));                                    /// ( -- task_id ) used insided a task
+    CODE("start", task_start(POPI()));                          /// ( task_id -- )
+    CODE("join",  join(POPI()));                                /// ( task_id -- )
+    CODE("lock",  io_lock());                                   /// wait for IO semaphore
+    CODE("unlock",io_unlock());                                 /// release IO semaphore
+    CODE("send",  IU t = POPI(); send(t, POPI()));              /// ( v1 v2 .. vn n tid -- ) pass values onto task's stack
+    CODE("recv",  recv());                                      /// ( -- v1 v2 .. vn ) waiting for values passed by sender
+    CODE("bcast", bcast(POPI()));                               /// ( v1 v2 .. vn -- )
+    CODE("pull",  IU t = POPI(); pull(t, POPI()));              /// ( n task_id -- v1 v2 .. vn )
+    /// @}
+#endif // DO_MULTITASK    
+    /// @defgroup Debug ops
+    /// @{
+    CODE("abort", TOS = -DU1; SS.clear(); RS.clear());          // clear ss, rs
+    CODE("here",  PUSH(HERE));
+    CODE("'",     IU w = FIND(sys->fetch()); if (w) PUSH(w));
+    CODE(".s",    sys->op(OP_SS, *BASE, TOS, SS2I));
+    CODE("depth", PUSH(SS.idx - 1));
+    CODE("words", sys->op(OP_WORDS));
+    CODE("dict",  sys->op(OP_DICT));                            // dict_dump in host mode
+    CODE("dict_dump", mmu->dict_dump());
+    CODE("see",   IU w = FIND(sys->fetch()); if (!w) return;
+                  sys->op(OP_SEE, *BASE, DU0, w));
+    CODE("dump",  DU n = POP(); IU a = POPI();
+                  sys->op(OP_DUMP, 0, n, a));
+    CODE("forget", _forget());
+    CODE("trace", sys->trace(POPI()));                          // set debug/trace level
+    /// @}
+    /// @defgroup OS ops
+    /// @{
+    CODE("mstat", mmu->status());
+    CODE("rnd",   PUSH(sys->rand(DU1, NORMAL)));                // generate random number
+    CODE("ms",    delay(POPI()));
+//    CODE("included",                                          // include external file
+//         POP();                                               // string length, not used
+//         sys->load(MEM(POP())));                              // include external file
+    CODE("clock", DU t = sys->ms(); SCALAR(t); PUSH(t));
+    CODE("bye",   state = STOP);                                // atomicExch(&state, STOP)
+    ///@}
+    CODE("boot",  mmu->clear(FIND((char*)"boot") + 1));
+#if 0  /* words TODO */
+    CODE("power",  {}); // power(2, 3)
+    CODE("?do",    {});
+    CODE("roll",   {});
+    CODE("u<",     {});
+    CODE("u>",     {});
+    CODE("within", {});
+#endif
+    VLOG1("ForthVM[%d]::init ok\n", id);
+};
+///======================================================================
+///
 /// parse input idiom as a word
 ///
 __GPU__ int
-ForthVM::parse(char *str) {
-    int w = FIND(str);                    /// * search through dictionary
-    if (w < 0) {                          /// * input word not found
-        VLOG2("'%s' not found\n", str);
+ForthVM::parse(char *idiom) {
+    state = QUERY;
+    IU w = FIND(idiom);                   /// * search through dictionary
+    if (!w) {                             /// * input word not found
+        DEBUG(" '%s' not found\n", idiom);
         return 0;                         /// * next, try as a number
     }
-    VLOG2("%4x:%p %s %d ",
-        dict[w].colon ? dict[w].pfa : 0, dict[w].xt, dict[w].name, w);
-    if (compile && !dict[w].immd) {       /// * in compile mode?
+    Code &c = dict[w];
+    DEBUG("%04x[%3x]%c%c %s",
+          c.udf ? c.pfa : mmu->XTOFF(c.xt), w,
+          c.imm ? '*' : ' ', c.udf ? 'u' : ' ',
+          c.name);
+    if (compile && !c.imm) {              /// * in compile mode?
         add_w((IU)w);                     /// * add found word to new colon word
     }
-    else {
-        VLOG2("=> call(%s)\n", dict[w].name);
-        call((IU)w);                      /// * execute forth word
-    }
+    else { IP = DU0; call((IU)w); }       /// * execute forth word
+    
     return 1;
 }
 ///
 /// parse input idiom as a number
 ///
 __GPU__ int
-ForthVM::number(char *str) {
+ForthVM::number(char *idiom) {
+    int b = *BASE;
+    switch (*idiom) {                     ///> base override
+    case '%': b = 2;  idiom++; break;
+    case '&':
+    case '#': b = 10; idiom++; break;
+    case '$': b = 16; idiom++; break;
+    }
     char *p;
-    DU n = (STRCHR(idiom, '.'))
+    DU2 n = (b==10 && STRCHR(idiom, '.'))
         ? STRTOF(idiom, &p)
-        : STRTOL(idiom, &p, radix);
-    if (*p != '\0') return 0;            /// * not a number, bail
+        : STRTOL(idiom, &p, b);
+    if (*p != '\0') {                     /// * not a number, bail
+        DEBUG(" number(%s) base=%d => error\n", idiom, b);
+        return 0;
+    }
     // is a number
-    if (compile) {                       /// * add literal when in compile mode
-        VLOG2("%d| %f\n", vid, n);
-        add_w(DOLIT);                    ///> dovar (+parameter field)
-        add_du(n);                       ///> store literal
+#if T4_VERBOSE > 1    
+    DU m = (DU)n;
+    p = (char*)&m;
+    for (int i=0; i<sizeof(DU); i++, p++) {
+        const char h2c[] = "0123456789abcdef";
+        DEBUG("%c%c ", h2c[((*p)>>4)&0xf], h2c[(*p)&0xf]);
     }
-    else {                               ///> or, add value onto data stack
-        VLOG2("%d| ss.push(%f)\n", vid, n);
-        PUSH(n);
-    }
+#endif // T4_VERBOSE > 1
+    if (compile) add_lit((DU)n);          /// * add literal when in compile mode
+    else         PUSH((DU)n);             ///> or, add value onto data stack
+    
     return 1;
 }
+///
+///@name misc eForth functions (in Standard::Core section)
+///@{
+__GPU__ int
+ForthVM::_def_word() {                    ///< display if redefined
+    char *name = sys->fetch();
+    if (name[0]=='\0') {                  /// * missing name?
+        sys->pstr(" name?", CR); return 0;
+    }
+    IU w = FIND(name);
+    DEBUG("_def_word(%s) => %d\n", name, w);
+    if (w) {                              /// * word redefined?
+        sys->pstr(name);
+        sys->pstr(" reDef? ", CR);
+    }
+    mmu->colon(name);                     /// * create a colon word
+    return 1;                             /// * created OK
+}
+__GPU__ void
+ForthVM::_forget() {
+    IU w = FIND(sys->fetch()); if (!w) return; /// bail, if not found
+    IU b = FIND((char*)"boot")+1;
+    mmu->clear(w > b ? w : b);
+}
+__GPU__ void
+ForthVM::_quote(prim_op op) {
+    const char *s = sys->scan('"')+1;     ///> string skip first blank
+    if (compile) {
+        add_p(op, ALIGN(STRLEN(s)+1));    ///> dostr, (+parameter field)
+        add_str(s);                       ///> byte0, byte1, byte2, ..., byteN
+    }
+    else {
+        IU h0  = HERE;                    ///> keep current memory addr
+        DU len = add_str(s);              ///> write string to PAD
+        switch (op) {
+        case STR:  PUSH(h0); PUSH(len);             break; ///> addr, len
+        case DOTQ: sys->pstr((const char*)MEM(h0)); break; ///> to console
+        default:   sys->pstr("_quote unknown op:");
+        }
+        mmu->set_here(h0);                ///> restore memory addr
+    }
+}
+__GPU__ void
+ForthVM::_to_value() {                    ///> update a constant/value
+    IU w = state==QUERY ? FIND(sys->fetch()) : POPI();     // constant addr
+    if (!w) return;
+    if (compile) {
+        add_lit((DU)w);                                    // save addr on stack
+        add_w(FIND((char*)"to"));                          // encode to opcode
+    }
+    else {
+        U8    *pfa = MEM(dict[w].pfa);                     // fetch constant pointer
+        Param &p   = *(Param*)(pfa);
+        if (p.op==LIT) {
+            *(DU*)(pfa + sizeof(IU)) = POP();              // update constant value
+        }
+    }
+}
+__GPU__ void
+ForthVM::_is_alias() {                                     // create alias function
+    IU w = state==QUERY ? FIND(sys->fetch()) : POPI();     // word addr
+    if (!w) return;
+    if (compile) {
+        add_lit((DU)w);                                    // save addr on stack
+        add_w(FIND((char*)"is"));
+    }
+    else dict[POPI()].xt = dict[w].xt;
+}
+///@}
 //=======================================================================================

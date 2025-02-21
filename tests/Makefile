@@ -16,9 +16,9 @@ TSTS0 := \
     t_ganvu
 
 TSTS := \
-	t_ganvu
+	t_event
 
-TOBJS := \
+TOBJS0 := \
 	src/mmu/util.o \
 	src/mmu/tlsf.o \
 	src/mmu/mmu.o \
@@ -29,7 +29,10 @@ TOBJS := \
 	src/ldr/mnist.o \
 	src/ldr/loader.o
 
-TST_LIBS:= -Isrc/ldr -Isrc/vu
+TOBJS0 :=
+
+#TST_LIBS:= -Isrc/ldr -Isrc/vu
+TST_LIBS:=
 
 .PHONY: test clean-test
 

@@ -18,11 +18,11 @@ struct StrBuf : public Vector<char>
     ///
     /// constructors
     ///
-    __GPU__ StrBuf(int asz=STRBUF_SIZE) : v(new char[max=ALIGN4(asz)]) {}
-    __GPU__ StrBuf(const char *s) : idx(STRLENB(s)), max(ALIGN4(idx+1), v(new char[max]) {
+    __GPU__ StrBuf(int asz=STRBUF_SIZE) : v(new char[max=ALIGN(asz)]) {}
+    __GPU__ StrBuf(const char *s) : idx(STRLENB(s)), max(ALIGN(idx+1), v(new char[max]) {
         MEMCPY(v, s, idx);
     }
-    __GPU__ StrBuf(StrBuf& s) idx(s.idx), max(ALIGN4(idx+1)), v(new char[max]) {
+    __GPU__ StrBuf(StrBuf& s) idx(s.idx), max(ALIGN(idx+1)), v(new char[max]) {
         MEMCPY(v, s.c_str(), idx);
     }
     ///

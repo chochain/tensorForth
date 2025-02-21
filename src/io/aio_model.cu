@@ -10,23 +10,15 @@
 #include "aio.h"
 
 #if (T4_ENABLE_OBJ && T4_ENABLE_NN)
-#include "dataset.h"     // in ../mmu
-#include "model.h"       // in ../mmu
-#include "loader.h"      // in ../ldr (include corpus.h)
-///
-/// AIO takes managed memory blocks as input and output buffers
-/// which can be access by both device and host
-///
-using namespace std;
 ///
 /// NN Model IO private methods
 ///
 __HOST__ void
-AIO::_print_model(std::ostream &fout, Model &m) {
+AIO::_print_model(Model &m) {
     auto tinfo = [this, &fout](Tensor &t, int i, int fn) { ///> layer info
         fout << "[" << std::setw(3) << i << "] "
              << Model::nname(fn) << ":";
-        _mmu->to_s(fout, t, false);
+        to_s(fout, t, false);
         int sz = 0;
         for (int n = 0; n < 4; n++) {
             sz += t.grad[n] ? t.grad[n]->numel : 0;
@@ -35,7 +27,7 @@ AIO::_print_model(std::ostream &fout, Model &m) {
     };
     auto finfo = [this, &fout](Tensor **g) {
         for (int i=0; g[i] && i < 2; i++) {
-            fout << " "; _mmu->to_s(fout, *g[i], false);
+            fout << " "; to_s(fout, *g[i], false);
         }
     };
     if (!m.is_model()) return;
@@ -54,7 +46,7 @@ AIO::_print_model(std::ostream &fout, Model &m) {
 /// print model layer parameters
 ///
 __HOST__ void
-AIO::_print_model_parm(std::ostream &fout, Tensor &in, Tensor &out) {
+AIO::_print_model_parm(Tensor &in, Tensor &out) {
     t4_layer fn = in.grad_fn;             ///< layer function
     DU       p  = 0.001 * in.parm;        ///< layer parameter
     switch(fn) {
@@ -105,14 +97,13 @@ AIO::_print_model_parm(std::ostream &fout, Tensor &in, Tensor &out) {
 ///   ds_name: NULL, following batch
 ///
 __HOST__ int
-AIO::_dsfetch(DU id, U16 mode, char *ds_name) {
-    Dataset &ds = (Dataset&)_mmu->du2obj(id);     ///< dataset ref
+AIO::_dsfetch(Dataset &ds, char *ds_name, bool rewind) {
+    Dataset &ds = (Dataset&)T4Base::du2obj(id);   ///< dataset ref
     U32     dsx = DU2X(id) & ~T4_TYPE_MSK;        ///< dataset mnemonic
     if (!ds.is_dataset()) {                       /// * indeed a dataset?
         ERROR("mmu#load id=%x is not a dataset\n", dsx);
         return -1;
     }
-    bool rewind = (mode & FAM_REW) != 0;
     ///
     /// search cache for top <=> dataset pair
     ///
@@ -159,9 +150,8 @@ AIO::_dsfetch(DU id, U16 mode, char *ds_name) {
 ///
 #include <fstream>
 __HOST__ int
-AIO::_nsave(DU top, U16 mode, char* fname) {
+AIO::_nsave(Model &m, U16 mode, char* fname) {
     printf("\nAIO::save model to '%s' =>", fname);
-    Model &m = (Model&)_mmu->du2obj(top);
     ofstream fout(fname, ios_base::binary);     ///< open an output file
     if (!fout.is_open()) {
         ERROR(" failed to open for output\n");
@@ -172,6 +162,7 @@ AIO::_nsave(DU top, U16 mode, char* fname) {
         // TODO: raw format (.npy, .petastorm, hdf5)
     }
     else {
+        Model &m = (Model&)T4Base::du2obj(top);
         _nsave_model(fout, m);                  /// * blank line as section break
         _nsave_param(fout, m);
     }
@@ -182,15 +173,15 @@ AIO::_nsave(DU top, U16 mode, char* fname) {
 }
 
 __HOST__ int
-AIO::_nload(DU top, U16 mode, char* fname) {
+AIO::_nload(Model &m, U16 mode, char* fname) {
     printf("\nAIO::load '%s' ", fname);
-    Model &m = (Model&)_mmu->du2obj(top);
     ifstream fin(fname, ios_base::binary);           ///< open an input file
     if (!fin.is_open()) {
         ERROR("=> failed to open for input\n");
         return 1;
     }
     /// TODO: handle raw data format
+    Model &m = (Model&)T4Base::du2obj(top);
     int err = 0;
     if (m.numel <= 2) {
         printf("NN model");
@@ -208,7 +199,7 @@ AIO::_nload(DU top, U16 mode, char* fname) {
 }
 
 __HOST__ int
-AIO::_nsave_model(std::ostream &fout, Model &m) {
+AIO::_nsave_model(Model &m) {
     for (U16 i = 1; i < m.numel - 1; i++) {
         Tensor &in = m[i], &out = m[i+1];
         _print_model_parm(fout, in, out);
@@ -224,7 +215,7 @@ AIO::_nsave_model(std::ostream &fout, Model &m) {
 }
 
 __HOST__ int
-AIO::_nsave_param(std::ostream &fout, Model &m) {
+AIO::_nsave_param(Model &m) {
     auto _dump = [&fout](const char pn, const char *nm, Tensor &t) {
         fout << "\n--- " << pn << "." << nm << endl;     /// * section marker
         fout.write((char*)t.data, t.numel * sizeof(DU));
@@ -247,7 +238,7 @@ AIO::_nsave_param(std::ostream &fout, Model &m) {
 }
 
 __HOST__ int
-AIO::_nload_model(std::istream &fin, Model &m, char *fname) {
+AIO::_nload_model(Model &m, char *fname) {
     std::string line;
     while (getline(fin, line) && line[0] == '\\') {    /// * TODO: check version
         cout << endl << line;
@@ -273,7 +264,7 @@ AIO::_nload_model(std::istream &fin, Model &m, char *fname) {
 }
 
 __HOST__ int
-AIO::_nload_param(std::istream &fin, Model &m) {
+AIO::_nload_param(Model &m) {
     auto _read = [&fin](const char *pn, const char *nm, Tensor &t) {
         std::string line;                              ///< input string
         printf("\n%s %s[%d,%d,%d,%d] ", nm, pn, t.N(), t.H(), t.W(), t.C());

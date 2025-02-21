@@ -24,7 +24,7 @@ __BOTH__ Tensor&
 Model::operator[](int i) {
     /// * model.data[0] = store
     /// so 1st layer starts from model.data[1]
-    return (Tensor&)_mmu->du2obj(data[(i < 0) ? numel + i : i]);
+    return (Tensor&)T4Base::du2obj(data[(i < 0) ? numel + i : i]);
 }
 __BOTH__ int
 Model::slots() { return _store->numel; }
@@ -48,7 +48,7 @@ Model::npush(DU v) {
     }
     return *this;
 }
-__GPU__ Model& Model::npush(Tensor &t) { return npush(_mmu->obj2du(t)); }
+__GPU__ Model& Model::npush(Tensor &t) { return npush(T4Base::obj2du(t)); }
 __GPU__ DU     Model::npop()           { return data[--numel];  }
 __GPU__ int    Model::batch_size()     { return (*this)[1].N(); }
 ///

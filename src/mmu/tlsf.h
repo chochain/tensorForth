@@ -56,16 +56,16 @@ typedef struct free_block {          //< 16-bytes (i.e. mininum allocation per b
 
 class TLSF : public Managed {
     U8         *_heap;                  ///> CUDA kernel tensor storage memory pool
-    U32        _heap_sz;                ///> size of tensor storage memory pool
+    U64        _heap_sz;                ///> size of tensor storage memory pool
     U32        _mutex  = 0;             ///> memory block mutex control
     U32        _l1_map = 0;             ///> 1st level (FLI) hit map
     U8         _l2_map[L1_BITS];        ///> 2nd level (SLI) hit map (8-bit)
     free_block *_free_list[FL_SLOTS];   ///> vector of free lists (head of linked list)
 
 public:
-    __BOTH__ void        init(U8 *mem, U32 sz, U32 off=0); ///> initialize storage pool
-    __GPU__  void*       malloc(U32 sz);                   ///> malloc from TLSF memory
-    __GPU__  void*       realloc(void *p0, U32 sz);        ///> resize allocated memory
+    __BOTH__ void        init(U8 *mem, U64 sz, U64 off=0); ///> initialize storage pool
+    __GPU__  void*       malloc(U64 sz);                   ///> malloc from TLSF memory
+    __GPU__  void*       realloc(void *p0, U64 sz);        ///> resize allocated memory
     __GPU__  void        free(void *ptr);                  ///> free memory block back to TLSF
     //
     // sanity check, JTAG
@@ -76,9 +76,9 @@ public:
     }
 
 private:
-    __GPU__  U32         _idx(U32 sz);                           ///> calc freemap index
-    __GPU__  S32         _find_free_index(U32 sz);               ///> find available index
-    __GPU__  void        _split(free_block *blk, U32 bsz);       ///> split a large block
+    __GPU__  U32         _idx(U64 sz);                           ///> calc freemap index
+    __GPU__  S32         _find_free_index(U64 sz);               ///> find available index
+    __GPU__  void        _split(free_block *blk, U64 bsz);       ///> split a large block
     __GPU__  void        _pack(free_block *b0, free_block *b1);  ///> pack adjacent blocks
     __GPU__  void        _unmap(free_block *blk);                ///> clear freemaps
 

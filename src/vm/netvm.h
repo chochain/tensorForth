@@ -48,7 +48,7 @@ private:
     /// @}
     /// @name Convolution, loss and Gradiant ops
     /// @{
-    __GPU__ void _conv(U16 k=3);                 ///< init convolution layer
+    __GPU__ void _conv(U32 k=3);                 ///< init convolution layer
     __GPU__ void _loss(t4_loss op);              ///< calculate loss
     /// @}
 };

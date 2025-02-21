@@ -7,8 +7,7 @@
 #ifndef TEN4_SRC_ISTREAM_H_
 #define TEN4_SRC_ISTREAM_H_
 #include "ten4_types.h"
-#include "util.h"
-#include "tensor.h"             /// in ../mmu include util.h
+#include "util.h"               /// in mmu
 ///
 /// istream class
 ///
@@ -16,14 +15,16 @@ class Istream : public Managed {
     char *_buf;                 /// input buffer
     int  _idx  = 0;             /// current buffer index
     int  _gn   = 0;             /// number of byte processed
-
+    ///
+    ///> process a token (separated by delimiter)
+    ///
     __GPU__ int _tok(char delim) {
-        char *p = &_buf[_idx];
+        char *p = &_buf[_idx];  ///< pointer to indexed buffer
         while (delim==' ' && (*p==' ' || *p=='\t')) (p++, _idx++); // skip leading blanks and tabs
         int nidx=_idx;
         while (*p && *p!=delim) (p++, nidx++);                     // advance pointers
         _gn = (delim!=' ' && *p!=delim) ? nidx=0 : nidx - _idx;    // not found or end of input string
-        return nidx;
+        return nidx;                                               // found at input string index (0 not found)
     }
 public:
     Istream(int sz=T4_IBUF_SZ) { MM_ALLOC(&_buf, sz);       }
@@ -58,17 +59,18 @@ public:
             MEMCPY(s, &_buf[_idx], _gn);    // CUDA memcpy
             _idx = nidx + (delim != ' ');   // advance index
             s[_gn] = '\0';                  // terminated with '\0'
-            WARN("%d>> ibuf[%d] >> '%s' (%d bytes)\n", blockIdx.x, _idx, s, _gn);
+            DEBUG("ibuf[%d] >> '%s' (%d bytes)\n", _idx, s, _gn);
         }
         else if (delim=='\n') {             // comment line
-            WARN("%d>> ibuf[%d] \\ at idx=%d\n", blockIdx.x, _idx, _gn);
             _buf[_idx] = '\0';              // blank out the reset of input buffer
+            DEBUG("ibuf[%d] \\ at idx=%d\n", _idx, _gn);
         }
         return *this;
     }
     __GPU__ Istream& getline(char *s, int sz, char delim='\n') {
         return get_idiom(s, delim);
     }
-    __GPU__ int operator>>(char *s)   { get_idiom(s); return _gn; }
+    __GPU__ int  operator>>(char *s) { get_idiom(s); return _gn; }
+    __GPU__ char operator>>(char &c) { return (*(&c) = _buf[_idx++]); }
 };
 #endif // TEN4_SRC_ISTREAM_H_

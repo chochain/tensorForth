@@ -1,19 +1,20 @@
 /** -*- c++ -*-
  * @file
- * @brief VM class - eForth Vritual Machine implementation
+ * @brief VM class - tensorForth Vritual Machine implementation
  *
  * <pre>Copyright (C) 2022- GreenII, this file is distributed under BSD 3-Clause License.</pre>
  */
 #include "vm.h"
 
-__GPU__
-VM::VM(int id, Istream *istr, Ostream *ostr, MMU *mmu0)
-    : vid(id), fin(*istr), fout(*ostr), mmu(*mmu0) {
-    ss.init(mmu.vmss(vid), T4_SS_SZ);  /// * point data stack to managed memory block
-    VLOG1("\\  VM[%d](mem=%p, vmss=%p)\n", vid, mmu.pmem(0), ss.v);
+__GPU__ 
+VM::VM(int id, System *sys) 
+    : id(id), state(STOP), sys(sys), mmu(sys->mu) {
+    SS.init(mmu->vmss(id), T4_SS_SZ);
+    RS.init(mmu->vmrs(id), T4_RS_SZ);
+    TRACE("\\ VM[%d] created, sys=%p ss=%p, rs=%p\n", id, sys, SS.v, RS.v);
 }
 ///
-/// ForthVM Outer interpreter
+/// VM Outer interpreter
 /// @brief having outer() on device creates branch divergence but
 ///    + can enable parallel VMs (with different tasks)
 ///    + can support parallel find()
@@ -26,20 +27,18 @@ VM::VM(int id, Istream *istr, Ostream *ostr, MMU *mmu0)
 ///
 __GPU__ void
 VM::outer() {
-    VLOG1("%d%c %s\n", vid, compile ? ':' : '{', fin.rdbuf()); /// * display input buffer
-    if (state == VM_RUN) resume();                 /// * resume from suspended VM
-    while (state == VM_READY && fin >> idiom) {    /// * loop throught tib
-        if (pre(idiom)) continue;                  /// * pre process
-        VLOG2("%d| >> %-10s => ", vid, idiom);
-        if (!parse(idiom) && !number(idiom)) {
-            fout << idiom << "? " << ENDL;         /// * display error prompt
-            compile = false;                       /// * reset to interpreter mode
+    char *idiom;
+    while ((idiom = sys->fetch())!=0) {              /// * loop throught tib
+        DEBUG("%d> idiom='%s' => ", id, idiom);
+        if (pre(idiom)) continue;                    /// * pre process (filter)
+        if (!process(idiom)) {
+            sys->perr(idiom, "? ");                  /// * display error prompt
+            sys->clrbuf();                           /// * flush input stream
+            compile = false;                         /// * reset to interpreter mode
+            state   = QUERY;                         /// * back to input mode
+            break;                                   /// * bail
         }
-        if (post()) break;                         /// * post process
     }
-    switch (state) {
-    case VM_WAIT: VLOG1("%d} VM[%d] wait\n", vid, vid); break;
-    case VM_READY: if (!compile) ss_dump();             break;
-    }
+    post();                                          /// * post process (debug)
 }
 //=======================================================================================

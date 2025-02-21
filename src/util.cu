@@ -144,7 +144,7 @@ _hash(const char *str, int bsz) {
 */
 __GPU__ uint32_t
 bin_to_u32(const void *s) {
-#if TEN4_32BIT_ALIGN_REQUIRED
+#if T4_ALIGN4
     char *p = (char*)s;
     return (uint32_t)(p[0]<<24) | (p[1]<<16) |  (p[2]<<8) | p[3];
 #else
@@ -162,7 +162,7 @@ bin_to_u32(const void *s) {
 */
 __GPU__ uint16_t
 bin_to_u16(const void *s) {
-#if TEN4_32BIT_ALIGN_REQUIRED
+#if T4_ALIGN4
     char *p = (char*)s;
     return (uint16_t)(p[0]<<8) | p[1];
 #else
@@ -242,7 +242,6 @@ d_strcmp(const char *t, const char *s) {
     for (; *p1 && *p0 && *p1==*p0; p1++, p0++);
     return *p1 - *p0;
 }
-
 __GPU__ int
 d_strcasecmp(const char *t, const char *s) {
     char *p1=(char*)t, *p0=(char*)s;
@@ -338,13 +337,15 @@ d_strtof(const char *s, char** p) {
     long v = 0L, f = 0L;
     auto digi = [](char c) { return c>='0' && c<='9'; };
     auto expo = [](char c) { return c=='e' || c=='E'; };
+    auto done = [](char c) { return c=='\0' || c=='\n' || c==' ' || c=='\t'; };
     
+//    printf("\nd_strtof(%s)\n", s);
     while (*s==' ' || *s=='\t') s++;
     if (*s=='+' || *s=='-') sign = *s++=='-' ? -1 : 1;
 
     *p = (char*)s;                                  // init to not NULL
     char c = *s;
-    while (c!='\0' && c!='\n' && c!=' ' && c!='\t') {
+    while (!done(c)) {
 //        printf("\n\nc,st,v,f,e=%x,%d:%ld,%ld[%d],%d", c, state, v, f, r, e);
         if (state==0) {
             if (digi(c)) {                          // integer
@@ -431,6 +432,7 @@ k_math(math_op op, float *A, int n, float v) {
         case SIGM:  A[k] = SIGMOID(ak);               break;
         case SQRT:  A[k] = SQRT(MAX(ak, 0.0));        break;  // guarded
         case RCP:   A[k] = RCP(ak);                   break;  // 1/x
+        case SAT:   A[k] = SAT(ak);                   break;  // [0.0..1.0]
         case FILL:  A[k] = v;                         break;
         case GFILL: A[k] = v * k / n;                 break;  // gradient fill
         case SCALE: A[k] *= v;                        break;

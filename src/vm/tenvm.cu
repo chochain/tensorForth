@@ -92,8 +92,8 @@ TensorVM::xop2(math_op op, t4_drop_opt x) {
         VLOG1("tenvm# A[%d,%d] %s B[%d,%d] => O[%d,%d]\n",
              TNOS.H(), TNOS.W(), opn[op], TTOS.H(), TTOS.W(), O.H(), O.W());
         if (x==DROP) {
-            mmu.drop(POP());
-            mmu.drop(POP());
+            drop(POP());
+            drop(POP());
         }
         PUSH(O);
     }
@@ -108,7 +108,7 @@ TensorVM::xop1t(t4_ten_op op) {
     ///
     /// single tensor handler
     ///
-    Tensor &t = (op == T_INV) ? A : mmu.copy(A); /// * hardcopy original matrix if needed
+    Tensor &t = (op == T_INV) ? A : copy(A);  /// * hardcopy original matrix if needed
     bool   tos = true;
     switch (op) {
     case T_INV: {
@@ -157,8 +157,8 @@ TensorVM::xop2t(t4_ten_op op, t4_drop_opt x) {
         Tensor &C = _tdot(A, B);
         if (C != B && C != A) {
             if (x==DROP) {
-                mmu.drop(POP());
-                mmu.drop(POP());
+                drop(POP());
+                drop(POP());
             }
             PUSH(C);
         }
@@ -196,7 +196,7 @@ __GPU__ __INLINE__ Tensor&
 TensorVM::_st_op(math_op op, t4_drop_opt x) { ///< scalar tensor op
     Tensor &A = TTOS;                         /// * Tensor on TOS
     DU     v  = ss[-1];                       /// * scalar as NOS
-    Tensor &O = x==KEEP ? mmu.copy(A) : A;    /// * make a hard copy (and parameters)
+    Tensor &O = x==KEEP ? copy(A) : A;        /// * make a hard copy (and parameters)
     if (op==DIV || op==SUB) {                 /// * op(scaler, tensor)
         Tensor &B = mmu.tensor(A.numel);      /// * working tensor
         B.map(FILL, v);                       /// * broadcast
@@ -211,7 +211,7 @@ TensorVM::_st_op(math_op op, t4_drop_opt x) { ///< scalar tensor op
 __GPU__ __INLINE__ Tensor&
 TensorVM::_ts_op(math_op op, t4_drop_opt x) { ///< tensor scalar op
     Tensor &A = TNOS;                         ///< tensor on NOS
-    Tensor &O = x==KEEP ? mmu.copy(A) : A;    ///< make a hard copy of A
+    Tensor &O = x==KEEP ? copy(A) : A;        ///< make a hard copy of A
     Tensor::ten_op(op, A, top, O);            /// * broadcast_op(tensor, scalar)
     
     return O;
@@ -239,7 +239,7 @@ TensorVM::_tt_op(math_op op) {                ///< tensor-tensor ops
     ///
     if (!A.is_same_shape(B)) return (ERROR("dim?\n"), B);
 
-    Tensor &O = mmu.copy(A);                  ///< make a hard copy
+    Tensor &O = COPY(A);                      ///< make a hard copy
     Tensor::ten_op(op, A, B, O);              /// * Hadamard ops
     if (A.rank==1) O.reshape(O.numel);
     
@@ -249,9 +249,9 @@ TensorVM::_tt_op(math_op op) {                ///< tensor-tensor ops
 __GPU__ Tensor&
 TensorVM::_tinv(Tensor &A) {                 ///< matrix inverse
     Tensor &I = mmu.tensor(A.H(), A.W()).identity();
-    Tensor &X = mmu.copy(A);                 ///< tmep, keep A untouched
+    Tensor &X = COPY(A);                     ///< tmep, keep A untouched
     Tensor::inverse(X, I);
-    mmu.free(X);                             /// * release temp 
+    FREE(X);                                 /// * release temp 
     return I;
 }
 
@@ -311,12 +311,12 @@ __GPU__ __INLINE__ void
 TensorVM::_gemm() {                          ///< blas GEMM
     if (!TOS3T) { ERROR("tensors?"); return; }
     
-    Tensor &O = TTOS, &B = TNOS, &A = (Tensor&)mmu.du2obj(ss[-2]);
+    Tensor &O = TTOS, &B = TNOS, &A = (Tensor&)T4Base::du2obj(ss[-2]);
     DU     b  = ss[-3];
     DU     a  = ss[-4];
     U16    m  = A.H(), k = A.W(), n = B.W();
     if (k == B.H() && m == O.H() && n == O.W()) {
-        Tensor &X = mmu.copy(O);             /// * hard copy O tensor
+        Tensor &X = COPY(O);                 /// * hard copy O tensor
         Tensor::gemm(A, B, X, a, b);
         PUSH(X);
     }
@@ -325,7 +325,7 @@ TensorVM::_gemm() {                          ///< blas GEMM
 
 __GPU__ void
 TensorVM::_pickle(bool save) {
-    IU   mode= FAM_WO;                      ///< file mode (W/O,R/W)|BIN
+    U8   mode= FAM_WO;                      ///< file mode (W/O,R/W)|BIN
     
     if (ss.idx > 1 && IS_OBJ(ss[-2])) { /* OK */ }
     else if (ss.idx > 2 && IS_OBJ(ss[-3])) mode |= POPi;
@@ -364,8 +364,8 @@ TensorVM::init() {
          IU w = POPi; IU h = POPi;
          PUSH(mmu.tensor(h, w));
          ten_off = 0; ten_lvl = 1);
-    CODE("view",   PUSH(mmu.dup(top)));  ///< create a view of a tensor
-    CODE("copy",   PUSH(mmu.copy(top))); ///< create a hardcopy of a tensor
+    CODE("view",   PUSH(DUP(top)));      ///< create a view of a tensor
+    CODE("copy",   PUSH(COPY(top)));     ///< create a hardcopy of a tensor
     ///@}
     ///@defgroup Tensor shape ops
     ///@brief - stick to PyTorch naming when possible
@@ -475,7 +475,7 @@ TensorVM::init() {
     CODE("boot", mmu.clear(FIND("load") + 1));
     CODE("dolit",
          DU v = mmu.rd(IP); IP += sizeof(DU);
-         PUSH(mmu.dup(v)));
+         PUSH(DUP(v)));
     CODE(".",
          DU v = POP();                    ///< print TOS
          if (!IS_OBJ(v) || IS_VIEW(v)) {
@@ -496,7 +496,7 @@ TensorVM::init() {
          if (TOS2T) xop2t(T_DOT);         ///< matrix @ product
          else {
              DU v = mmu.rd(POPi);
-             PUSH(mmu.dup(v));
+             PUSH(DUP(v));
          });
     CODE("max",
          if (IS_OBJ(top)) PUSH(TTOS.max());

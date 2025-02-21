@@ -4,59 +4,114 @@
  *
  * <pre>Copyright (C) 2022- GreenII, this file is distributed under BSD 3-Clause License.</pre>
  */
-#ifndef TEN4_SRC_EFORTH_H
-#define TEN4_SRC_EFORTH_H
-#include "vm.h"             // VM base class in ../vm
+#ifndef TEN4_SRC_VM_EFORTH_H
+#define TEN4_SRC_VM_EFORTH_H
+#include "vm.h"                         ///< VM base class in ../vm
+#include "param.h"                      ///< Parameter field
 ///
-///@name Data conversion
+///@name progress status macros
 ///@{
-#define POPi         (INT(POP()))                  /**< convert popped DU as an IU     */
-#define FIND(s)      (mmu.find(s, compile, ucase)) /**< find input idiom in dictionary */
+#define VM_HDR(fmt, ...)                     \
+    DEBUG("\e[%dm[%02d.%d]%-4x" fmt "\e[0m", \
+          (id&7) ? 38-(id&7) : 37, id, state, IP, ##__VA_ARGS__)
+#define VM_TLR(fmt, ...)                     \
+    DEBUG("\e[%dm" fmt "\e[0m\n",            \
+          (id&7) ? 38-(id&7) : 37, ##__VA_ARGS__)
+#define VM_LOG(fmt, ...)                     \
+    VM_HDR(fmt, ##__VA_ARGS__);              \
+    DEBUG("\n")
 ///@}
-///
-/// Forth Virtual Machine
-///
+///@name Dictionary Compiler macros
+///@note - a lambda without capture can degenerate into a function pointer
+///@{
+#define ADD_CODE(n, g, im) {           \
+    auto f = [this] __GPU__ (){ g; };  \
+    mmu->add_word(n, f, im);           \
+}
+#define CODE(n, g) ADD_CODE(n, g, false)
+#define IMMD(n, g) ADD_CODE(n, g, true)
+///@}
+///@name Forth Virtual Machine class
+///@{
 class ForthVM : public VM {
 public:
-    __GPU__ ForthVM(int id, Istream *istr, Ostream *ostr, MMU *mmu0)
-        : VM(id, istr, ostr, mmu0), dict(mmu0->dict()) {
-        VLOG1("\\  ::ForthVM[%d](dict=%p) sizeof(Code)=%ld\n", vid, dict, sizeof(Code));
-    }
-    __GPU__ virtual void init();            ///< override VM
+    __GPU__ ForthVM(int id, System *sys);
+    
+    __GPU__ virtual void init();      ///< override VM
     
 protected:
-    Code  *dict;                            ///< dictionary array
-    Vector<DU, T4_RS_SZ> rs;                ///< return stack
+    IU    WP     = 0;                 ///< word pointer
+    IU    IP     = 0;                 ///< instruction pointer
+    DU    TOS    = -DU1;              ///< cached top of stack
     
-    int   radix   = 10;                     ///< numeric radix
-    bool  ucase   = true;                   ///< case insensitive
-    IU    WP      = 0;                      ///< word and parameter pointers
-    IU    IP      = 0;                      ///< instruction pointer
-    ///
-    /// stack short hands
-    ///
-    __GPU__ __INLINE__ DU POP()           { DU n=top; top=ss.pop(); return n; }
-    __GPU__ __INLINE__ DU PUSH(DU v)      { ss.push(top); return top = v; }
-#if T4_ENABLE_OBJ    
-    __GPU__ __INLINE__ DU PUSH(T4Base &t) { ss.push(top); return top = mmu.obj2du(t); }
-#endif // T4_ENABLE_OBJ
+    bool  compile= false;
+    IU    base   = 0;
+    
+    Code  *dict  = 0;                 ///< dictionary array (cached)
+    U32   *ptos  = (U32*)&TOS;        ///< 32-bit mask for tos
     ///
     /// Forth outer interpreter
     ///
-    __GPU__ virtual int resume();           ///< resume suspended work
-    __GPU__ virtual int parse(char *str);   ///< parse command string
-    __GPU__ virtual int number(char *str);  ///< parse input as number
+    __GPU__ virtual int resume();             ///< resume suspended work
+    __GPU__ virtual int process(char *idiom); ///< process command string
+    __GPU__ virtual int post();               ///< for tracing
+    
+private:
+    ///
+    /// outer interpreter
+    ///
+    __GPU__ int  parse(char *idiom);          ///< parse command string
+    __GPU__ int  number(char *idiom);         ///< parse input as number
     ///
     /// Forth inner interpreter
     ///
-    __GPU__ void nest();                    ///< inner interpreter
-    __GPU__ void call(IU w);                ///< execute word by index
+    __GPU__ void nest();                      ///< inner interpreter
+    __GPU__ void call(IU w);                  ///< execute word by index
     ///
-    /// compiler proxy funtions to reduce verbosity
+    /// stack short hands
     ///
-    __GPU__ void add_w(IU w);               ///< append a word pfa to pmem
-    __GPU__ void add_iu(IU i);              ///< append an instruction unit to parameter memory
-    __GPU__ void add_du(DU d);              ///< append a data unit to pmem
-    __GPU__ void add_str(const char *s, bool adv=true); ///< append a string to pmem
+    __GPU__ __INLINE__ int FIND(char *name) { return mmu->find(name);  }
+    __GPU__ __INLINE__ DU  POP()            { DU n=TOS; TOS=SS.pop(); return n; }
+    __GPU__ __INLINE__ DU  PUSH(DU v)       { SS.push(TOS); return TOS = v;     }
+#if T4_ENABLE_OBJ    
+    __GPU__ __INLINE__ DU  PUSH(T4Base &t)  { ss.push(TOS); return TOS = T4Base::obj2du(t); }
+#endif // T4_ENABLE_OBJ
+    ///
+    /// Dictionary compiler proxy macros to reduce verbosity
+    ///
+    __GPU__ __INLINE__ void add_iu(IU i)   { mmu->add((U8*)&i, sizeof(IU)); }
+    __GPU__ __INLINE__ void add_du(DU d)   { mmu->add((U8*)&d, sizeof(DU)); }
+    __GPU__ __INLINE__ void add_w(Param p) { add_iu(p.pack); }
+    __GPU__ void add_w(IU w) {                ///< compile a word index into pmem
+        Code &c = dict[w];
+        IU   ip = c.udf ? c.pfa : mmu->XTOFF(c.xt);
+        DEBUG(" add_w(%d) => ioff=%x %s\n", w, ip, c.name);
+        Param p(MAX_OP, ip, c.udf);
+        add_w(p);
+    }
+    __GPU__ int  add_str(const char *s, bool adv=true) {
+        int sz = STRLENB(s)+1;                ///< calculate string length
+        sz = ALIGN(sz);                       /// * then adjust alignment (combine?)
+        mmu->add((U8*)s, sz, adv);
+        return sz;
+    }
+    __GPU__ void add_p(                       ///< add primitive word
+        prim_op op, IU ip=0, bool u=false, bool exit=false) {
+        Param p(op, ip, u, exit);
+        add_w(p);
+    };
+    __GPU__ void add_lit(DU v, bool exit=false) {  ///< add a literal/varirable
+        add_p(LIT, 0, false, exit);
+        add_du(v);                            /// * store in extended IU
+    }
+    ///
+    /// compiler helpers
+    ///
+    __GPU__ int  _def_word();                 ///< define a new word
+    __GPU__ void _forget();                   ///< clear dictionary
+    __GPU__ void _quote(prim_op op);          ///< string helper
+    __GPU__ void _to_value();                 ///< update a constant/value
+    __GPU__ void _is_alias();                 ///< create alias function
 };
-#endif // TEN4_SRC_EFORTH_H
+///@}
+#endif // TEN4_SRC_VM_EFORTH_H

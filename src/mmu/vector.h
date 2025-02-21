@@ -23,9 +23,10 @@ struct Vector {
     __GPU__ Vector()             { v = N ? new T[N] : NULL; }
     __GPU__ Vector(T a[], int n) { merge((T*)a, n); }
     __GPU__ Vector(Vector<T>& a) { merge(a); }
-    __GPU__ ~Vector()            { if (v) delete[] v; }
+    __GPU__ ~Vector()            {}
     
     __GPU__ __INLINE__ Vector& init(T *a, int n)  { v = a; max = n; return *this; }
+    __GPU__ __INLINE__ Vector& free() { if (v) delete[] v; }
     //
     // operator overloading
     //
@@ -56,16 +57,16 @@ struct Vector {
     __GPU__ __INLINE__ int size()  { return idx; }
     __GPU__ __INLINE__ T&  pop()   { return idx>0 ? v[--idx] : v[0]; }
     __GPU__ __INLINE__ Vector& clear(int i=0)  { if (i<idx) idx = i; return *this; }
-    __GPU__ Vector& resize(int nsz) {
+    __GPU__ Vector& resize(U32 nsz) {
 #if VECTOR_ENABLE_RESIZE
         int x = 0;
-        if      (nsz >  max) x = ALIGN4(nsz);      // need bigger?
-        else if (idx >= max) x = ALIGN4(idx + VECTOR_INC);  // allocate extra
-        if (x==0) return *this;                    // no resizing needed
+        if      (nsz >  max) x = ALIGN(nsz);               // need bigger?
+        else if (idx >= max) x = ALIGN(idx + VECTOR_INC);  // allocate extra
+        if (x==0) return *this;                            // no resizing needed
         // LOCK
-        T *nv = new T[x];                          // allocate new block of memory
+        T *nv = new T[x];                                  // allocate new block of memory
         if (v) {
-            memcpy(nv, v, sizeof(T)*idx);          // deep copy
+            memcpy(nv, v, sizeof(T)*idx);                  // deep copy
             delete[] v;
         }
         v   = nv;

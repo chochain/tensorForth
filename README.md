@@ -433,12 +433,14 @@ Tests v3.2 GAN ops
     - [tensorflow EventWriter](https://stackoverflow.com/questions/48610803/how-i-can-use-filewrite-summary-in-tensorflow-c-api-to-view-it-in-tensorboard/48702823#48702823)
     - [pytorch SummaryWriter](https://github.com/pytorch/pytorch/blob/main/torch/utils/tensorboard/writer.py)
     - [pytorch TensorBoard writer](https://github.com/pytorch/pytorch/blob/main/torch/utils/tensorboard/writer.py)
-  + Ollama
+  + Llama
+    - [llama2.c](https://www.signalpop.com/2024/02/10/understanding-llama2-c-and-chatgpt-a-visual-design-walkthrough/)
     - [Review](https://www.hostinger.com/tutorials/what-is-ollama). Local LLM environment with pre-train model.
     - [GGML Tensor library]( https://github.com/ggerganov/ggml). Host-oriented, review kernel code.
     - [GGUF](https://github.com/ggerganov/ggml/blob/master/docs/gguf.md). Optimized for GPU, cross-platform, structured model storage.
 * VM
-  + review CUDA HostFunc callback (requires CUDA Stream)
+  + review CUDA Stream Management (cudaStreamAddCallback) and Event Management
+  + review CUDA EventSync/LaunchHostFunc, flip calling from GPU=>CPU (requires CUDA Stream + event pool)
   + review CUDA dynamic Graph
   + review CUB (now part of CCCL) again
   + inter-VM communication (via CUDA stream)
