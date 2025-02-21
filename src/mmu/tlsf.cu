@@ -27,11 +27,11 @@
   @param  size    size. (max 4G)
 */
 __BOTH__ void
-TLSF::init(U8 *mptr, U32 sz, U32 off) {
-    DEBUG("tlsf#init(%p, 0x%x)\n", mptr, sz);
-    _heap    = mptr + off;                              // header offset (for Tensor0)
+TLSF::init(U8 *mem, U64 sz, U64 off) {
+    DEBUG("tlsf#init(%p, 0x%x)\n", mem, sz);
+    _heap    = mem + off;                               // header offset (for Tensor0)
     _heap_sz = sz - off;
-    U32 bsz  = _heap_sz - sizeof(used_block);           // minus end block
+    U64 bsz  = _heap_sz - sizeof(used_block);           // minus end block
     //
     // clean TLSF maps
     //
@@ -48,10 +48,10 @@ TLSF::init(U8 *mptr, U32 sz, U32 off) {
     //
     // get max available index
     //
-    int i = 31; for (U32 z = bsz, m = 1<<31; i && z && !(z & m); z<<=1) i--;
-    int j = (bsz >> (i - L2_BITS)) & L2_MASK;
+    long i = 31L; for (U64 z = bsz, m = 1L<<31; i && z && !(z & m); z<<=1) i--;
+    long j = (bsz >> (i - L2_BITS)) & L2_MASK;
     U32 index = INDEX(i, j);                            // last slot of map
-    DEBUG("%x => index(%x,%x)\n", bsz, i, j);
+    DEBUG("%x => index(%lx,%lx)\n", bsz, i, j);
     SET_MAP(index);                                     // set ticks for available maps
     _free_list[index] = head;
 
@@ -68,9 +68,9 @@ TLSF::init(U8 *mptr, U32 sz, U32 off) {
   @return void* pointer to a guru memory block.
 */
 __GPU__ void*
-TLSF::malloc(U32 sz) {
+TLSF::malloc(U64 sz) {
     DEBUG("tlsf#malloc(0x%x)\n", sz);
-    U32 bsz = ALIGN8(sz) + sizeof(used_block);  // logical => physical size
+    U64 bsz = ALIGN8(sz) + sizeof(used_block);  // logical => physical size
 
     _LOCK;
     U32 index       = _find_free_index(bsz);
@@ -82,7 +82,7 @@ TLSF::malloc(U32 sz) {
     ASSERT(blk->bsz >= bsz);                    // make sure it provides big enough a block
 
     void *data = BLK_DATA(blk);
-    DEBUG("tlsf#malloc(0x%x) => %p\n", sz, data);
+    DEBUG("tlsf#malloc(0x%lx) => %p\n", sz, data);
     return data;                                // pointer to raw space
 }
 
@@ -94,9 +94,9 @@ TLSF::malloc(U32 sz) {
   @return void* pointer to allocated memory.
 */
 __GPU__ void*
-TLSF::realloc(void *p0, U32 sz) {
+TLSF::realloc(void *p0, U64 sz) {
     ASSERT(p0);
-    U32 bsz = ALIGN8(sz) + sizeof(used_block);           // include the header
+    U64 bsz = ALIGN8(sz) + sizeof(used_block);           // include the header
 
     used_block *blk = (used_block *)BLK_HEAD(p0);
     ASSERT(IS_USED(blk));                                // make sure it is used
@@ -160,7 +160,7 @@ TLSF::free(void *ptr) {
 //================================================================
 // find last set bit, i.e. most significant bit (0-31)
 __GPU__ U32
-TLSF::_idx(U32 sz) {
+TLSF::_idx(U64 sz) {
     auto __fls = [](U32 x) {
         U32 n;
         asm("bfind.u32 %0, %1;\n\t" : "=r"(n) : "r"(x));
@@ -182,7 +182,7 @@ TLSF::_idx(U32 sz) {
   @retval index to available _free_list
 */
 __GPU__ S32
-TLSF::_find_free_index(U32 sz) {
+TLSF::_find_free_index(U64 sz) {
     U32 index = _idx(sz);                        // find free_list index by size
 
     if (_free_list[index]) return index;         // free block readily available
@@ -214,10 +214,10 @@ TLSF::_find_free_index(U32 sz) {
   @param  size    storage size
 */
 __GPU__ void
-TLSF::_split(free_block *blk, U32 bsz) {
+TLSF::_split(free_block *blk, U64 bsz) {
     ASSERT(IS_USED(blk));
 
-    U32 minsz = ALIGN8(bsz) + (1 << MN_BITS) + 2*sizeof(free_block);
+    U64 minsz = ALIGN8(bsz) + (1 << MN_BITS) + 2*sizeof(free_block);
     if (blk->bsz < minsz) return;                                     // too small to split
 
     // split block, free
@@ -384,6 +384,7 @@ TLSF::_mmu_ok()    {                         // mmu sanity check
 }
 __BOTH__ void
 TLSF::_show_stat() {
+#if T4_VERBOSE > 1    
     ///
     /// stat pre-adjusted for the stopper block
     ///
@@ -393,7 +394,7 @@ TLSF::_show_stat() {
     used_block *p = (used_block*)_heap;
     U32 f0 = IS_FREE(p);                  // starting block type
     while (p) {                           // walk the memory pool
-        U32 bsz = p->bsz;                 // current block size
+        U64 bsz = p->bsz;                 // current block size
         tot   += bsz;
         nblk  += 1;
         if (IS_FREE(p)) {
@@ -410,31 +411,34 @@ TLSF::_show_stat() {
     }
     float pct = 100.0*used/tot;
 
-    DEBUG(", obj#used[%d]=%d(0x%x) %.2f%% allocated", nused, used, used, pct);
-    DEBUG(" free[%d]=%d(0x%x), total=%d(0x%x) ", nfree, free, free, tot, tot);
-    DEBUG(" nblk=%d, nfrag=%d", nblk, nfrag);
-    DEBUG("\n");
+    INFO(", obj#used[%d]=%d(0x%x) %.2f%% allocated", nused, used, used, pct);
+    INFO(" free[%d]=%d(0x%x), total=%d(0x%x) ", nfree, free, free, tot, tot);
+    INFO(" nblk=%d, nfrag=%d", nblk, nfrag);
+    INFO("\n");
+#endif // T4_VERBOSE    
 }
 
 __BOTH__ void
 TLSF::_dump_freelist() {
-    DEBUG("tlsf#L1=%4x: ", _l1_map);
+#if T4_VERBOSE > 1    
+    INFO("tlsf#L1=%4x: ", _l1_map);
     for (int i=L1_BITS-1;  i>=0; i--) {
-        DEBUG("%02x%s", _l2_map[i], i%4==0 ? " " : "");
+        INFO("%02x%s", _l2_map[i], i%4==0 ? " " : "");
     }
     for (int i=FL_SLOTS-1; i>=0; i--) {
         if (!_free_list[i]) continue;
-        DEBUG("\n\t[%02x]=>[", i);
+        INFO("\n\t[%02x]=>[", i);
         for (free_block *b = _free_list[i]; b!=NULL; b=NEXT_FREE(b)) {
-            DEBUG(" %p:%04x", b, b->bsz);
+            INFO(" %p:%04x", b, b->bsz);
             if (IS_USED(b)) {
-                DEBUG("<-USED?");
+                INFO("<-USED?");
                 break;                // something is wrong (link is broken here)
             }
         }
-        DEBUG(" ] ");
+        INFO(" ] ");
     }
-    DEBUG("\n");
+    INFO("\n");
+#endif // T4_VERBOSE > 1    
 }
 
 #endif // T4_ENABLE_OBJ
