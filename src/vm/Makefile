@@ -10,6 +10,7 @@ VM_SRCS := \
 
 VM_INCS := \
 	src/vm/vm.h \
+	src/vm/param.h \
 	src/vm/eforth.h \
 	src/vm/tenvm.h \
 	src/vm/netvm.h
@@ -19,6 +20,8 @@ VM_OBJS := $(VM_SRCS:%.cu=%.o)
 OBJS += $(VM_OBJS)
 
 VM_EXT := \
+	src/ten4_config.h \
+	src/ten4_types.h \
 	src/io/aio.h \
 	src/mmu/tensor.h \
 	src/mmu/model.h \

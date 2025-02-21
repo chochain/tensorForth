@@ -16,7 +16,10 @@ IO_OBJS := $(IO_SRCS:%.cu=%.o)
 
 # extra include from other directries
 IO_EXT:= \
-	src/mmu/util.h \
+	src/ten4_config.h \
+	src/ten4_types.h \
+    src/tbase.h \
+	src/util.h \
 	src/mmu/mmu.h \
 	src/mmu/tensor.h \
 	src/mmu/model.h \

@@ -12,6 +12,7 @@ MMU_INCS := \
 	src/ten4_types.h \
 	src/debug.h \
 	src/t4base.h \
+	src/util.h \
 	src/mmu/vector.h \
 	src/mmu/tensor.h \
 	src/mmu/tlsf.h \
