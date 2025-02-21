@@ -101,10 +101,10 @@ System::process_event(io_event *ev) {
         _opx *o = (_opx*)v;
         DEBUG("OP=%d, m=%d, i=%d, n=0x%08x=%f\n", o->op, o->m, o->i, DU2X(o->n), o->n);
         switch (o->op) {
-        case OP_DICT:  db->dict_dump();                             break;
-        case OP_WORDS: db->words();                                 break;
-        case OP_SEE:   db->see((IU)o->i, (int)o->m);                break;
-        case OP_DUMP:  db->mem_dump((IU)o->i, UINT(o->n));          break;
+        case OP_DICT:  db->dict_dump();                   break;
+        case OP_WORDS: db->words();                       break;
+        case OP_SEE:   db->see((IU)o->i, (int)o->m);      break;
+        case OP_DUMP:  db->mem_dump((IU)o->i, D2I(o->n)); break;
         case OP_SS:    db->ss_dump((IU)o->i>>10, (int)o->i&0x3ff, o->n, (int)o->m); break;
 #if T4_ENABLE_OBJ // vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
         case OP_TSAVE:
