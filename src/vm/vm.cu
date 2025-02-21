@@ -7,11 +7,11 @@
 #include "vm.h"
 
 __GPU__ 
-VM::VM(int id, System *sys) 
-    : id(id), state(STOP), sys(sys), mmu(sys->mu) {
-    ss.init(mmu->vmss(id), T4_SS_SZ);
-    rs.init(mmu->vmrs(id), T4_RS_SZ);
-    TRACE("\\ VM[%d] created, sys=%p ss=%p, rs=%p\n", id, sys, ss.v, rs.v);
+VM::VM(int id, System &sys) 
+    : id(id), state(STOP), sys(sys), mmu(*sys.mu) {
+    ss.init(mmu.vmss(id), T4_SS_SZ);
+    rs.init(mmu.vmrs(id), T4_RS_SZ);
+    TRACE("\\ VM[%d] created, sys=%p ss=%p, rs=%p\n", id, &sys, ss.v, rs.v);
 }
 ///
 /// VM Outer interpreter
@@ -28,12 +28,12 @@ VM::VM(int id, System *sys)
 __GPU__ void
 VM::outer() {
     char *idiom;
-    while ((idiom = sys->fetch())!=0) {              /// * loop throught tib
+    while ((idiom = sys.fetch())!=0) {               /// * loop throught tib
         DEBUG("%d> idiom='%s' => ", id, idiom);
         if (pre(idiom)) continue;                    /// * pre process (filter)
         if (!process(idiom)) {
-            sys->perr(idiom, "? ");                  /// * display error prompt
-            sys->clrbuf();                           /// * flush input stream
+            sys.perr(idiom, "? ");                   /// * display error prompt
+            sys.clrbuf();                            /// * flush input stream
             compile = false;                         /// * reset to interpreter mode
             state   = QUERY;                         /// * back to input mode
             break;                                   /// * bail

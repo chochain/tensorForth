@@ -9,6 +9,21 @@
 #include "vm.h"                         ///< VM base class in ../vm
 #include "param.h"                      ///< Parameter field
 ///
+/// Forth Virtual Machine operational macros to reduce verbosity
+/// Note:
+///    also we can change pmem implementation anytime without affecting opcodes defined below
+///
+///@name parameter memory load/store macros
+///@{
+#define PFA(w)    (dict[(IU)(w)].pfa)                 /**< PFA of given word id                 */
+#define HERE      (mmu.here())                       /**< current context                      */
+#define MEM(a)    (mmu.pmem((IU)(a)))                /**< parameter memory by offset address   */
+#define CELL(a)   (*(DU*)MEM(a))                      /**< fetch a cell from parameter memory   */
+#define LAST      (mmu.dict(mmu.dict._didx-1))      /**< last colon word defined              */
+#define BASE      ((U8*)MEM(base))                    /**< pointer to user area per VM          */
+#define SETJMP(a) (((Param*)MEM(a))->ioff = HERE)     /**< set branch target                    */
+#define SS2I      ((id<<10)|(ss.idx>=0 ? ss.idx : 0)) /**< ss_dump parameter (composite)        */
+///@}
 ///@name progress status macros
 ///@{
 #define VM_HDR(fmt, ...)                     \
@@ -26,7 +41,7 @@
 ///@{
 #define ADD_CODE(n, g, im) {           \
     auto f = [this] __GPU__ (){ g; };  \
-    mmu->add_word(n, f, im);           \
+    mmu.add_word(n, f, im);           \
 }
 #define CODE(n, g) ADD_CODE(n, g, false)
 #define IMMD(n, g) ADD_CODE(n, g, true)
@@ -35,7 +50,7 @@
 ///@{
 class ForthVM : public VM {
 public:
-    __GPU__ ForthVM(int id, System *sys);
+    __GPU__ ForthVM(int id, System &sys);
     
     __GPU__ virtual void init();      ///< override VM
     
@@ -54,8 +69,18 @@ protected:
     __GPU__ virtual int resume();             ///< resume suspended work
     __GPU__ virtual int process(char *idiom); ///< process command string
     __GPU__ virtual int post();               ///< for tracing
+    ///
+    /// stack operator short hands
+    ///
+    __GPU__ __INLINE__ int FIND(char *name) { return mmu.find(name);  }
+    __GPU__ __INLINE__ DU  POP()            { DU n=tos; tos=ss.pop(); return n; }
+    __GPU__ __INLINE__ IU  POPI()           { return D2I(POP()); }
+    __GPU__ __INLINE__ DU  PUSH(DU v)       { ss.push(tos); return tos = v;     }
+#if T4_ENABLE_OBJ    
+    __GPU__ __INLINE__ DU  PUSH(T4Base &t)  { ss.push(tos); return tos = mmu.obj2du(t); }
+#endif // T4_ENABLE_OBJ
     
-private:
+private:    
     ///
     /// outer interpreter
     ///
@@ -67,23 +92,14 @@ private:
     __GPU__ void nest();                      ///< inner interpreter
     __GPU__ void call(IU w);                  ///< execute word by index
     ///
-    /// stack short hands
-    ///
-    __GPU__ __INLINE__ int FIND(char *name) { return mmu->find(name);  }
-    __GPU__ __INLINE__ DU  POP()            { DU n=tos; tos=ss.pop(); return n; }
-    __GPU__ __INLINE__ DU  PUSH(DU v)       { ss.push(tos); return tos = v;     }
-#if T4_ENABLE_OBJ    
-    __GPU__ __INLINE__ DU  PUSH(T4Base &t)  { ss.push(tos); return tos = T4Base::obj2du(t); }
-#endif // T4_ENABLE_OBJ
-    ///
     /// Dictionary compiler proxy macros to reduce verbosity
     ///
-    __GPU__ __INLINE__ void add_iu(IU i)   { mmu->add((U8*)&i, sizeof(IU)); }
-    __GPU__ __INLINE__ void add_du(DU d)   { mmu->add((U8*)&d, sizeof(DU)); }
+    __GPU__ __INLINE__ void add_iu(IU i)   { mmu.add((U8*)&i, sizeof(IU)); }
+    __GPU__ __INLINE__ void add_du(DU d)   { mmu.add((U8*)&d, sizeof(DU)); }
     __GPU__ __INLINE__ void add_w(Param p) { add_iu(p.pack); }
     __GPU__ void add_w(IU w) {                ///< compile a word index into pmem
         Code &c = dict[w];
-        IU   ix = c.udf ? c.pfa : mmu->XTOFF(c.xt);
+        IU   ix = c.udf ? c.pfa : mmu.XTOFF(c.xt);
         DEBUG(" add_w(%d) => ioff=%x %s\n", w, ix, c.name);
         Param p(MAX_OP, ix, c.udf);
         add_w(p);
@@ -91,7 +107,7 @@ private:
     __GPU__ int  add_str(const char *s, bool adv=true) {
         int sz = STRLENB(s)+1;                ///< calculate string length
         sz = ALIGN(sz);                       /// * then adjust alignment (combine?)
-        mmu->add((U8*)s, sz, adv);
+        mmu.add((U8*)s, sz, adv);
         return sz;
     }
     __GPU__ void add_p(                       ///< add primitive word

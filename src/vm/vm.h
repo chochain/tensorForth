@@ -11,9 +11,9 @@
 ///@name Cross platform support
 ///@{
 #define yield()            /**< TODO: multi-VM  */
-#define delay(ticks) {                            \
-        U64 t = clock64() + (ticks * sys->khz()); \
-        while ((U64)clock64()<t) yield();         \
+#define delay(ticks) {                           \
+        U64 t = clock64() + (ticks * sys.khz()); \
+        while ((U64)clock64()<t) yield();        \
 }
 ///@}
 ///@name virtual machine base class
@@ -24,32 +24,40 @@ public:
     IU        id;                     ///< VM id
     vm_state  state   = STOP;         ///< VM state
     
-    System    *sys;                   ///< system interface
-    MMU       *mmu;                   ///< cached MMU interface
+    System    &sys;                   ///< system interface
+    MMU       &mmu;                   ///< cached MMU interface
 
     Vector<DU, 0> ss;                 ///< parameter stack (setup in ten4.cu)
     Vector<DU, 0> rs;                 ///< return stack
 
-    __GPU__  VM(int id, System *sys);
+    __GPU__  VM(int id, System &sys);
     __GPU__  ~VM() { TRACE("%d ", id); }
     
-    __GPU__  virtual void    init() { TRACE("VM[%d]::init ok\n", id); }
-    __GPU__  virtual void    outer();
+    __GPU__  virtual void   init() { TRACE("VM[%d]::init ok\n", id); }
+    __GPU__  virtual void   outer();
     ///
-    /// proxy methods to MMU
+    /// Object ops (proxy methods to MMU)
     ///
-    __GPU__ __INLINE__ DU    DUP(DU d)  { return IS_OBJ(d) ? AS_VIEW(d) : d; }  ///< soft copy
-#if T4_ENABLE_OBJ        
-    __GPU__ __INLINE__ DU    COPY(DU d) {                                       ///< hard copy
+    __GPU__ __INLINE__ DU   DUP(DU d)  { return IS_OBJ(d) ? AS_VIEW(d) : d; }  ///< soft copy
+#if T4_ENABLE_OBJ
+    __GPU__ __INLINE__ DU   COPY(DU d) {                                       ///< hard copy
         return (IS_OBJ(d))
-            ? T4Base::obj2du(mmu->copy((Tensor&)mmu->du2obj(d)))
+            ? mmu.obj2du(mmu.copy((Tensor&)mmu.du2obj(d)))
             : d;
     }
-    __GPU__ __INLINE__ void  DROP(DU d) { mmu->drop(t); }                       ///< free obj
-#else  // !T4_ENABLE_OBJ    
-    __GPU__ __INLINE__ DU    COPY(DU d) { return d; }
-    __GPU__ __INLINE__ void  DROP(DU d) {}
-#endif // T4_ENABLE_OBJ
+    __GPU__ __INLINE__ void DROP(DU d) {
+        if (!IS_OBJ(d) || IS_VIEW(d)) return;              /// non-object, skip
+        T4Base &t = mmu.du2obj(d);                         /// check reference count
+#if T4_ENABLE_NN    
+        if (t.is_model()) { mmu.free((Model&)t); return; } /// release TLSF memory block
+#else  // !T4_ENABLE_NN
+        mmu.free((Tensor&)t);                              /// check reference count
+#endif  // T4_ENABLE_NN
+    }
+#else   // !T4_ENABLE_OBJ    
+    __GPU__ __INLINE__ DU   COPY(DU d) { return d; }
+    __GPU__ __INLINE__ void DROP(DU d) {}
+#endif  // T4_ENABLE_OBJ
     
 protected:
     bool  compile = false;            ///< compiling flag
