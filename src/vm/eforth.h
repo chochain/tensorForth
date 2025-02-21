@@ -13,7 +13,7 @@
 ///@{
 #define VM_HDR(fmt, ...)                     \
     DEBUG("\e[%dm[%02d.%d]%-4x" fmt "\e[0m", \
-          (id&7) ? 38-(id&7) : 37, id, state, IP, ##__VA_ARGS__)
+          (id&7) ? 38-(id&7) : 37, id, state, ip, ##__VA_ARGS__)
 #define VM_TLR(fmt, ...)                     \
     DEBUG("\e[%dm" fmt "\e[0m\n",            \
           (id&7) ? 38-(id&7) : 37, ##__VA_ARGS__)
@@ -40,8 +40,7 @@ public:
     __GPU__ virtual void init();      ///< override VM
     
 protected:
-    IU    WP     = 0;                 ///< word pointer
-    IU    IP     = 0;                 ///< instruction pointer
+    IU    ip     = 0;                 ///< instruction pointer
     DU    tos    = -DU1;              ///< cached top of stack
     
     bool  compile= false;

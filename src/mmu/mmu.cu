@@ -101,11 +101,11 @@ MMU::dict_dump() {
     Code *c = _dict;
     DEBUG("Built-in Dictionary [name0=0x%lx, xt0=0x%lx]\n", _NM0, _XT0);
     for (int i=0; i<_didx; i++, c++) {      ///< dump dictionary from device
-        IU  ip = c->udf ? c->pfa : (U32)(((UFP)c->xt & MSK_XT) - _XT0);
+        IU  ix = c->udf ? c->pfa : (U32)(((UFP)c->xt & MSK_XT) - _XT0);
         U32 sz = ALIGN(STRLEN(c->name) + 1);
         DEBUG("%4d|%03x> name=%6x, %s=%6x %s\n", i, i,
               c->udf ? (c->pfa - sz) : (U32)((UFP)c->name - _NM0),
-              c->udf ? "pf" : "xt", ip, c->name);
+              c->udf ? "pf" : "xt", ix, c->name);
     }
 }
 ///

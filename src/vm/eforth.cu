@@ -40,7 +40,7 @@ ForthVM::ForthVM(int id, System *sys) : VM(id, sys) {
 ///
 __GPU__ int
 ForthVM::resume() {
-    VLOG1("VM[%d] resumed at WP=%d, IP=%d\n", id, WP, IP);
+    VLOG1("VM[%d] resumed at ip=%x\n", id, ip);
     nest();           /// * will set state to VM_READY
     return 1;         /// * OK, continue to outer loop
 }
@@ -75,58 +75,58 @@ ForthVM::post() {
 #define DISPATCH(op) switch(op)
 #define CASE(op, g)  case op : { g; } break
 #define OTHER(g)     default : { g; } break
-#define UNNEST()     (IP=D2I(rs.pop()))
+#define UNNEST()     (ip=D2I(rs.pop()))
 
 __GPU__ void
 ForthVM::nest() {
     state = NEST;
     ///
-    /// when IP != 0, it resumes paused VM
+    /// when ip != 0, it resumes paused VM
     ///
-    while (IP) {                                     /// * try no recursion
-        Param &ix = *(Param*)MEM(IP);
+    while (ip) {                                     /// * try no recursion
+        Param &ix = *(Param*)MEM(ip);
         VM_HDR(":%x", ix.op);
-        IP += sizeof(IU);
+        ip += sizeof(IU);
         DISPATCH(ix.op) {                            /// * opcode dispatcher
         CASE(EXIT, UNNEST());
         CASE(NEXT,
              if (GT(rs[-1]-=DU1, -DU1)) {            ///> loop done?
-                 IP = ix.ioff;                       /// * no, loop back
+                 ip = ix.ioff;                       /// * no, loop back
              }
              else rs.pop());                         /// * yes, loop done!
         CASE(LOOP,
              if (GT(rs[-2], rs[-1] += DU1)) {        ///> loop done?
-                 IP = ix.ioff;                       /// * no, loop back
+                 ip = ix.ioff;                       /// * no, loop back
              }
              else { rs.pop(); rs.pop(); });          /// * yes, done, pop off counters
         CASE(LIT,
              ss.push(tos);                           ///> push current tos
-             tos = *(DU*)MEM(IP);                    /// * fetch from next IU
-             IP += sizeof(DU);                       /// * advance IP
+             tos = *(DU*)MEM(ip);                    /// * fetch from next IU
+             ip += sizeof(DU);                       /// * advance ip
              if (ix.exit) UNNEST());                 ///> constant/value
         CASE(VAR,
-             PUSH(ALIGN(IP));                        ///> get var addr
-             if (ix.ioff) IP = ix.ioff;              /// * jmp to does>
+             PUSH(ALIGN(ip));                        ///> get var addr
+             if (ix.ioff) ip = ix.ioff;              /// * jmp to does>
              else UNNEST());                         /// * 0: variable
         CASE(STR,
-             PUSH(IP); PUSH(ix.ioff); IP += ix.ioff);
+             PUSH(ip); PUSH(ix.ioff); ip += ix.ioff);
         CASE(DOTQ,                                   /// ." ..."
-             const char *s = (const char*)MEM(IP);   ///< get string pointer
-             sys->pstr(s); IP += ix.ioff);           /// * send to output console
-        CASE(BRAN,  IP = ix.ioff);                   /// * unconditional branch
-        CASE(ZBRAN, if (ZEQ(POP())) IP = ix.ioff);   /// * conditional branch
+             const char *s = (const char*)MEM(ip);   ///< get string pointer
+             sys->pstr(s); ip += ix.ioff);           /// * send to output console
+        CASE(BRAN,  ip = ix.ioff);                   /// * unconditional branch
+        CASE(ZBRAN, if (ZEQ(POP())) ip = ix.ioff);   /// * conditional branch
         CASE(FOR, rs.push(POP()));                   /// * setup FOR..NEXT call frame
         CASE(DO,                                     /// * setup DO..LOOP call frame
              rs.push(ss.pop()); ss.push(POP())); 
         CASE(KEY, PUSH(sys->key()); UNNEST());       /// * fetch single keypress
         OTHER(
             if (ix.udf) {                            /// * user defined word?
-                rs.push(IP);                         /// * setup call frame
-                IP = ix.ioff;                        /// * IP = word.pfa
+                rs.push(ip);                         /// * setup call frame
+                ip = ix.ioff;                        /// * ip = word.pfa
             }
             else (*mmu->XT(ix.ioff))());             /// * execute built-in word
         }
-        VM_TLR(" => SS=%d, RS=%d, IP=%x", ss.idx, rs.idx, IP);
+        VM_TLR(" => SS=%d, RS=%d, ip=%x", ss.idx, rs.idx, ip);
     }
 }
 ///
@@ -136,8 +136,8 @@ __GPU__ __INLINE__ void ForthVM::call(IU w) {
     Code &c = dict[w];                               /// * code reference
     DEBUG(" => call(%s)\n", c.name);
     if (c.udf) {                                     /// * userd defined word
-        rs.push(IP);
-        IP = c.pfa;
+        rs.push(ip);
+        ip = c.pfa;
         nest();                                      /// * Forth inner loop
     }
     else (*(FPTR)((UFP)c.xt & MSK_XT))();            /// * execute function
@@ -325,12 +325,12 @@ ForthVM::init() {
              pfa += sizeof(IU);
          }
          SETJMP(pfa);                                           // set jmp target
-         add_p(BRAN, IP); UNNEST());                            // jmp to next IP
+         add_p(BRAN, ip); UNNEST());                            // jmp to next ip
     IMMD("to", _to_value());                                    // alter the value of a constant, i.e. 3 to x
     IMMD("is", _is_alias());                                    // alias a word, i.e. ' y is x
 /*    
     CODE("[to]",            // : xx 3 [to] y ;                  // alter constant in compile mode
-         IU w = LDi(IP); IP += sizeof(IU);                      // fetch constant pfa from 'here'
+         IU w = LDi(ip); ip += sizeof(IU);                      // fetch constant pfa from 'here'
          IU a = PFA(w) + sizeof(IU);
          DU d = POP();
          if (a < T4_PMEM_SZ) CELL(a) = d;                       // store tos into constant pfa
@@ -428,7 +428,7 @@ ForthVM::parse(char *idiom) {
     if (compile && !c.imm) {              /// * in compile mode?
         add_w((IU)w);                     /// * add found word to new colon word
     }
-    else { IP = DU0; call((IU)w); }       /// * execute forth word
+    else { ip = DU0; call((IU)w); }       /// * execute forth word
     
     return 1;
 }
