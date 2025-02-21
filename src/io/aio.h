@@ -13,12 +13,10 @@
 #include "istream.h"
 #include "ostream.h"
 #include "t4base.h"
-
-#if (T4_ENABLE_OBJ && T4_ENABLE_NN)
+#include "tensor.h"
 #include "dataset.h"                  // in ../mmu
 #include "model.h"                    // in ../mmu
-#include "loader.h"                   // in ../ldr (include corpus.h)
-#endif // (T4_ENABLE_OBJ && T4_ENABLE_NN)
+#include "ldr/loader.h"               // in ../ldr (include corpus.h)
 
 typedef std::istream h_istr;          ///< host input stream
 typedef std::ostream h_ostr;          ///< host output ostream

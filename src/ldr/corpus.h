@@ -8,7 +8,7 @@
 #define T4_CORPUS_H
 #include "ten4_types.h"
 
-#if T4_ENABLE_OBJ
+#if (T4_ENABLE_OBJ && T4_ENABLE_NN)
 
 #define DS_LOG1(...)         if (trace > 0) printf(__VA_ARGS__)
 #define DS_ERROR(...)        fprintf(stderr, __VA_ARGS__)
@@ -63,6 +63,6 @@ struct Corpus {
     virtual U8 *operator [](int idx){ return &data[idx * dsize()]; }  ///< data point
 };
 
-#endif // T4_ENABLE_OBJ
+#endif // (T4_ENABLE_OBJ && T4_ENABLE_NN)
 #endif // T4_CORPUS_H
 

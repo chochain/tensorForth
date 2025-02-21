@@ -42,7 +42,7 @@ public:
 #if T4_ENABLE_OBJ        
     __GPU__ __INLINE__ DU    COPY(DU d) {                                       ///< hard copy
         return (IS_OBJ(d))
-            ? T4Base::obj2du(mmu->copy((Tensor&)T4Base::du2obj(d)))
+            ? T4Base::obj2du(mmu->copy((Tensor&)mmu->du2obj(d)))
             : d;
     }
     __GPU__ __INLINE__ void  DROP(DU d) { mmu->drop(t); }                       ///< free obj

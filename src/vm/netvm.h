@@ -7,9 +7,9 @@
 #ifndef TEN4_SRC_NETVM_H
 #define TEN4_SRC_NETVM_H
 #include "model.h"                // in ../mmu
-
-#if T4_ENABLE_NN
 #include "tenvm.h"                // extending TensorVM
+
+#if (T4_ENABLE_OBJ && T4_ENABLE_NN)
 
 #define MTOS     ((Model&)mmu.du2obj(top))                         /** Network Model on TOS   */
 #define MNOS     ((Model&)mmu.du2obj(ss[-1]))                      /** Network Model on NOS   */
@@ -53,5 +53,5 @@ private:
     /// @}
 };
 
-#endif // T4_ENABLE_NN
+#endif // (T4_ENABLE_OBJ && T4_ENABLE_NN)
 #endif // TEN4_SRC_NETVM_H
