@@ -69,8 +69,8 @@ typedef enum {
 #define MUL(x,y)    (__fmul_rn(x,y))           /**< multiplication         */
 #define DIV(x,y)    (__fdiv_rn(x,y))           /**< division               */
 #define MOD(t,n)    (fmodf(t,n))               /**< fmod two floats        */
-#define MAX(x,y)    (max(x,y))                 /**< maximum of the two     */
-#define MIN(x,y)    (min(x,y))                 /**< minimum of the two     */
+#define MAX(x,y)    (fmax(x,y))                 /**< maximum of the two     */
+#define MIN(x,y)    (fmin(x,y))                 /**< minimum of the two     */
 #define MUL2(x2,y2) (__dmul_rn(x2,y2))         /**< double precision mul   */
 #define MOD2(x2,y2) (fmod(x2,y2))              /**< double precision mod   */
 ///@}
