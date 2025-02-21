@@ -9,9 +9,9 @@
 __GPU__ 
 VM::VM(int id, System *sys) 
     : id(id), state(STOP), sys(sys), mmu(sys->mu) {
-    SS.init(mmu->vmss(id), T4_SS_SZ);
-    RS.init(mmu->vmrs(id), T4_RS_SZ);
-    TRACE("\\ VM[%d] created, sys=%p ss=%p, rs=%p\n", id, sys, SS.v, RS.v);
+    ss.init(mmu->vmss(id), T4_SS_SZ);
+    rs.init(mmu->vmrs(id), T4_RS_SZ);
+    TRACE("\\ VM[%d] created, sys=%p ss=%p, rs=%p\n", id, sys, ss.v, rs.v);
 }
 ///
 /// VM Outer interpreter

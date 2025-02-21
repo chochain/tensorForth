@@ -38,7 +38,7 @@ TensorVM::xop1(math_op op, DU v) {
     Tensor &A = TTOS;
     if (!A.is_tensor()) { ERROR("tensor?"); return; }
     
-    switch (op) {
+    switch (op) {        /// * defined in ~/src/util.h
     case ABS:
     case NEG:
     case EXP:
@@ -49,6 +49,7 @@ TensorVM::xop1(math_op op, DU v) {
     case SIGM:
     case SQRT:
     case RCP:
+    case SAT:
     case FILL:
     case GFILL:
     case SCALE:
@@ -181,13 +182,15 @@ TensorVM::xop2t(t4_ten_op op, t4_drop_opt x) {
 __GPU__ __INLINE__ void
 TensorVM::_ss_op(math_op op) {               ///< scalar-scalar ops
     switch (op) {
-    case ADD: top = ADD(ss.pop(), top); break;
-    case SUB: top = SUB(ss.pop(), top); break;
-    case MUL: top = MUL(ss.pop(), top); break;
-    case DIV: top = DIV(ss.pop(), top); break;
-    case MOD: top = MOD(ss.pop(), top); break;
-    case MAX: top = MAX(ss.pop(), top); break;
-    case MIN: top = MIN(ss.pop(), top); break;
+    case ADD:  top = ADD(ss.pop(), top); break;
+    case SUB:  top = SUB(ss.pop(), top); break;
+    case MUL:  top = MUL(ss.pop(), top); break;
+    case DIV:  top = DIV(ss.pop(), top); break;
+    case MOD:  top = MOD(ss.pop(), top); break;
+    case MAX:  top = MAX(ss.pop(), top); break;
+    case MIN:  top = MIN(ss.pop(), top); break;
+    case MUL2: top = MUL2(ss.pop(), top); break;
+    case MOD2: top = MOD2(ss.pop(), top); break;
     }
     SCALAR(top);                               /// * even +- can set LSB (rounding)
 }

@@ -30,8 +30,8 @@ public:
     System    *sys;                   ///< system interface
     MMU       *mmu;                   ///< cached MMU interface
 
-    Vector<DU, 0> SS;                 ///< parameter stack (setup in ten4.cu)
-    Vector<DU, 0> RS;                 ///< return stack
+    Vector<DU, 0> ss;                 ///< parameter stack (setup in ten4.cu)
+    Vector<DU, 0> rs;                 ///< return stack
 
     __GPU__  VM(int id, System *sys);
     __GPU__  ~VM() { VLOG1("%d ", id); }

@@ -42,13 +42,13 @@ public:
 protected:
     IU    WP     = 0;                 ///< word pointer
     IU    IP     = 0;                 ///< instruction pointer
-    DU    TOS    = -DU1;              ///< cached top of stack
+    DU    tos    = -DU1;              ///< cached top of stack
     
     bool  compile= false;
     IU    base   = 0;
     
     Code  *dict  = 0;                 ///< dictionary array (cached)
-    U32   *ptos  = (U32*)&TOS;        ///< 32-bit mask for tos
+    U32   *ptos  = (U32*)&tos;        ///< 32-bit mask for tos
     ///
     /// Forth outer interpreter
     ///
@@ -71,10 +71,10 @@ private:
     /// stack short hands
     ///
     __GPU__ __INLINE__ int FIND(char *name) { return mmu->find(name);  }
-    __GPU__ __INLINE__ DU  POP()            { DU n=TOS; TOS=SS.pop(); return n; }
-    __GPU__ __INLINE__ DU  PUSH(DU v)       { SS.push(TOS); return TOS = v;     }
+    __GPU__ __INLINE__ DU  POP()            { DU n=tos; tos=ss.pop(); return n; }
+    __GPU__ __INLINE__ DU  PUSH(DU v)       { ss.push(tos); return tos = v;     }
 #if T4_ENABLE_OBJ    
-    __GPU__ __INLINE__ DU  PUSH(T4Base &t)  { ss.push(TOS); return TOS = T4Base::obj2du(t); }
+    __GPU__ __INLINE__ DU  PUSH(T4Base &t)  { ss.push(tos); return tos = T4Base::obj2du(t); }
 #endif // T4_ENABLE_OBJ
     ///
     /// Dictionary compiler proxy macros to reduce verbosity
@@ -84,9 +84,9 @@ private:
     __GPU__ __INLINE__ void add_w(Param p) { add_iu(p.pack); }
     __GPU__ void add_w(IU w) {                ///< compile a word index into pmem
         Code &c = dict[w];
-        IU   ip = c.udf ? c.pfa : mmu->XTOFF(c.xt);
-        DEBUG(" add_w(%d) => ioff=%x %s\n", w, ip, c.name);
-        Param p(MAX_OP, ip, c.udf);
+        IU   ix = c.udf ? c.pfa : mmu->XTOFF(c.xt);
+        DEBUG(" add_w(%d) => ioff=%x %s\n", w, ix, c.name);
+        Param p(MAX_OP, ix, c.udf);
         add_w(p);
     }
     __GPU__ int  add_str(const char *s, bool adv=true) {
@@ -96,8 +96,8 @@ private:
         return sz;
     }
     __GPU__ void add_p(                       ///< add primitive word
-        prim_op op, IU ip=0, bool u=false, bool exit=false) {
-        Param p(op, ip, u, exit);
+        prim_op op, IU ix=0, bool u=false, bool exit=false) {
+        Param p(op, ix, u, exit);
         add_w(p);
     };
     __GPU__ void add_lit(DU v, bool exit=false) {  ///< add a literal/varirable

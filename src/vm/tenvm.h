@@ -23,9 +23,8 @@ typedef enum {
 
 class TensorVM : public ForthVM {
 public:
-    __GPU__ TensorVM(int id, Istream *istr, Ostream *ostr, MMU *mmu0)
-        : ForthVM(id, istr, ostr, mmu0) {
-        VLOG1("\\  ::TensorVM[%d](...) sizeof(Tensor)=%ld\n", id, sizeof(Tensor));
+    __GPU__ TensorVM(int id, System *sys) : ForthVM(id, sys) {
+        VLOG1("\\    ::TensorVM[%d](...) sizeof(Tensor)=%ld\n", id, sizeof(Tensor));
     }
     __GPU__ virtual void init();            ///< override ForthVM.init()
     

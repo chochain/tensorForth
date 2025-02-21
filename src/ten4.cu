@@ -75,19 +75,19 @@ k_vm_exec0(VM *vm) {
     /// * Note: single-threaded, dynamic parallelism when needed
     ///
     if (i == 0) {
-        DU *s0 = vm->SS.v;
-        DU *r0 = vm->RS.v;
+        DU *s0 = vm->ss.v;
+        DU *r0 = vm->rs.v;
         MEMCPY(ss, s0, sizeof(DU) * T4_SS_SZ);     /// * TODO: parallel sync issue
         MEMCPY(rs, r0, sizeof(DU) * T4_RS_SZ);     /// * see _exec1 below
-        vm->SS.v = ss;
-        vm->RS.v = rs;
+        vm->ss.v = ss;
+        vm->rs.v = rs;
         
         vm->outer();                               /// * enter VM outer loop
         
         MEMCPY(s0, ss, sizeof(DU) * T4_SS_SZ);
         MEMCPY(r0, rs, sizeof(DU) * T4_RS_SZ);
-        vm->SS.v = s0;
-        vm->RS.v = r0;
+        vm->ss.v = s0;
+        vm->rs.v = r0;
     }
 }
 
@@ -101,8 +101,8 @@ k_vm_exec1(VM *vm) {
     const auto g = cg::this_thread_block();       ///< all blocks
     const int  i = g.thread_rank();               ///< thread id -> ss[i]
 
-    DU *s0 = vm->SS.v;
-    DU *r0 = vm->RS.v;
+    DU *s0 = vm->ss.v;
+    DU *r0 = vm->rs.v;
     
     ///> copy stacks from global to shared mem
     for (int n=0; n < T4_SS_SZ; n+= WARP_SZ)      /// * TODO: parallel copy, sync issue
@@ -115,13 +115,13 @@ k_vm_exec1(VM *vm) {
     /// * Note: single-threaded, dynamic parallelism when needed
     ///
     if (i == 0) {
-        vm->SS.v = ss;                            /// * use shared memory ss, rs
-        vm->RS.v = rs;
+        vm->ss.v = ss;                            /// * use shared memory ss, rs
+        vm->rs.v = rs;
         
         vm->outer();                              /// * enter VM outer loop
 
-        vm->SS.v = s0;                            /// * restore stack pointers
-        vm->RS.v = r0;
+        vm->ss.v = s0;                            /// * restore stack pointers
+        vm->rs.v = r0;
     }
     g.sync();
     

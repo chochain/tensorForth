@@ -22,10 +22,10 @@
 ///@}
 ///@name stack op macros
 ///@{
-#define PUSH(v) (SS.push(TOS), TOS = v)
-#define POP()   ({ DU n=TOS; TOS=SS.pop(); n; })
+#define PUSH(v) (ss.push(tos), tos = v)
+#define POP()   ({ DU n=tos; tos=ss.pop(); n; })
 #define POPI()  (D2I(POP()))
-#define SS2I    ((id<<10)|(SS.idx>=0 ? SS.idx : 0)) /**< ss_dump parameter (composite)     */
+#define SS2I    ((id<<10)|(ss.idx>=0 ? ss.idx : 0)) /**< ss_dump parameter (composite)     */
 ///@}
 
 __GPU__
@@ -65,7 +65,7 @@ __GPU__ int
 ForthVM::post() {
     DEBUG("%d> VM.state=%d\n", id, state);
     if (state!=HOLD && !compile) {
-        sys->op(OP_SS, *BASE, TOS, SS2I);
+        sys->op(OP_SS, *BASE, tos, SS2I);
     }
     return 0;
 }
@@ -75,7 +75,7 @@ ForthVM::post() {
 #define DISPATCH(op) switch(op)
 #define CASE(op, g)  case op : { g; } break
 #define OTHER(g)     default : { g; } break
-#define UNNEST()     (IP=D2I(RS.pop()))
+#define UNNEST()     (IP=D2I(rs.pop()))
 
 __GPU__ void
 ForthVM::nest() {
@@ -90,18 +90,18 @@ ForthVM::nest() {
         DISPATCH(ix.op) {                            /// * opcode dispatcher
         CASE(EXIT, UNNEST());
         CASE(NEXT,
-             if (GT(RS[-1]-=DU1, -DU1)) {            ///> loop done?
+             if (GT(rs[-1]-=DU1, -DU1)) {            ///> loop done?
                  IP = ix.ioff;                       /// * no, loop back
              }
-             else RS.pop());                         /// * yes, loop done!
+             else rs.pop());                         /// * yes, loop done!
         CASE(LOOP,
-             if (GT(RS[-2], RS[-1] += DU1)) {        ///> loop done?
+             if (GT(rs[-2], rs[-1] += DU1)) {        ///> loop done?
                  IP = ix.ioff;                       /// * no, loop back
              }
-             else { RS.pop(); RS.pop(); });          /// * yes, done, pop off counters
+             else { rs.pop(); rs.pop(); });          /// * yes, done, pop off counters
         CASE(LIT,
-             SS.push(TOS);                           ///> push current TOS
-             TOS = *(DU*)MEM(IP);                    /// * fetch from next IU
+             ss.push(tos);                           ///> push current tos
+             tos = *(DU*)MEM(IP);                    /// * fetch from next IU
              IP += sizeof(DU);                       /// * advance IP
              if (ix.exit) UNNEST());                 ///> constant/value
         CASE(VAR,
@@ -115,18 +115,18 @@ ForthVM::nest() {
              sys->pstr(s); IP += ix.ioff);           /// * send to output console
         CASE(BRAN,  IP = ix.ioff);                   /// * unconditional branch
         CASE(ZBRAN, if (ZEQ(POP())) IP = ix.ioff);   /// * conditional branch
-        CASE(FOR, RS.push(POP()));                   /// * setup FOR..NEXT call frame
+        CASE(FOR, rs.push(POP()));                   /// * setup FOR..NEXT call frame
         CASE(DO,                                     /// * setup DO..LOOP call frame
-             RS.push(SS.pop()); SS.push(POP())); 
+             rs.push(ss.pop()); ss.push(POP())); 
         CASE(KEY, PUSH(sys->key()); UNNEST());       /// * fetch single keypress
         OTHER(
             if (ix.udf) {                            /// * user defined word?
-                RS.push(IP);                         /// * setup call frame
+                rs.push(IP);                         /// * setup call frame
                 IP = ix.ioff;                        /// * IP = word.pfa
             }
             else (*mmu->XT(ix.ioff))());             /// * execute built-in word
         }
-        VM_TLR(" => SS=%d, RS=%d, IP=%x", SS.idx, RS.idx, IP);
+        VM_TLR(" => SS=%d, RS=%d, IP=%x", ss.idx, rs.idx, IP);
     }
 }
 ///
@@ -136,7 +136,7 @@ __GPU__ __INLINE__ void ForthVM::call(IU w) {
     Code &c = dict[w];                               /// * code reference
     DEBUG(" => call(%s)\n", c.name);
     if (c.udf) {                                     /// * userd defined word
-        RS.push(IP);
+        rs.push(IP);
         IP = c.pfa;
         nest();                                      /// * Forth inner loop
     }
@@ -156,76 +156,76 @@ ForthVM::init() {
     /// @defgroup Stack ops
     /// @brief - opcode sequence can be changed below this line
     /// @{
-    CODE("dup",     PUSH(TOS));
-    CODE("drop",    TOS = SS.pop());
-    CODE("over",    DU v = SS[-1]; PUSH(v));
-    CODE("swap",    DU n = SS.pop(); PUSH(n));
-    CODE("rot",     DU n = SS.pop(); DU m = SS.pop(); SS.push(n); PUSH(m));
-    CODE("-rot",    DU n = SS.pop(); DU m = SS.pop(); PUSH(m); PUSH(n));
-    CODE("pick",    IU i = D2I(TOS); TOS = SS[-i]);
-    CODE("nip",     SS.pop());
-    CODE("?dup",    if (TOS != DU0) PUSH(TOS));
+    CODE("dup",     PUSH(tos));
+    CODE("drop",    tos = ss.pop());
+    CODE("over",    DU v = ss[-1]; PUSH(v));
+    CODE("swap",    DU n = ss.pop(); PUSH(n));
+    CODE("rot",     DU n = ss.pop(); DU m = ss.pop(); ss.push(n); PUSH(m));
+    CODE("-rot",    DU n = ss.pop(); DU m = ss.pop(); PUSH(m); PUSH(n));
+    CODE("pick",    IU i = D2I(tos); tos = ss[-i]);
+    CODE("nip",     ss.pop());
+    CODE("?dup",    if (tos != DU0) PUSH(tos));
     /// @}
     /// @defgroup Stack ops - double
     /// @{
-    CODE("2dup",    DU v = SS[-1]; PUSH(v); v = SS[-1]; PUSH(v));
-    CODE("2drop",   SS.pop(); TOS = SS.pop());
-    CODE("2over",   DU v = SS[-3]; PUSH(v); v = SS[-3]; PUSH(v));
-    CODE("2swap",   DU n = SS.pop(); DU m = SS.pop(); DU l = SS.pop();
-                    SS.push(n); PUSH(l); PUSH(m));
+    CODE("2dup",    DU v = ss[-1]; PUSH(v); v = ss[-1]; PUSH(v));
+    CODE("2drop",   ss.pop(); tos = ss.pop());
+    CODE("2over",   DU v = ss[-3]; PUSH(v); v = ss[-3]; PUSH(v));
+    CODE("2swap",   DU n = ss.pop(); DU m = ss.pop(); DU l = ss.pop();
+                    ss.push(n); PUSH(l); PUSH(m));
     /// @}
     /// @defgroup ALU ops
     /// @{
-    CODE("+",       TOS += SS.pop());
-    CODE("*",       TOS *= SS.pop());
-    CODE("-",       TOS =  SS.pop() - TOS);
-    CODE("/",       TOS =  SS.pop() / TOS);
-    CODE("mod",     TOS =  INT(MOD(SS.pop(), TOS)));            // ( a b -- c )   c=int(a%b)
-    CODE("fmod",    TOS =  MOD(SS.pop(), TOS));                 // ( a b -- c )   c=a%b      
-    CODE("*/",      TOS =  MUL2(SS.pop(), SS.pop()) / TOS);     // ( a b c -- d ) d= a*b / c 
-    CODE("/mod",    DU  n = SS.pop();                           // ( a b -- c d ) c=a%b, d=a/b
-                    DU  t = TOS;
+    CODE("+",       tos += ss.pop());
+    CODE("*",       tos *= ss.pop());
+    CODE("-",       tos =  ss.pop() - tos);
+    CODE("/",       tos =  ss.pop() / tos);
+    CODE("mod",     tos =  INT(MOD(ss.pop(), tos)));            // ( a b -- c )   c=int(a%b)
+    CODE("fmod",    tos =  MOD(ss.pop(), tos));                 // ( a b -- c )   c=a%b      
+    CODE("*/",      tos =  MUL2(ss.pop(), ss.pop()) / tos);     // ( a b c -- d ) d= a*b / c 
+    CODE("/mod",    DU  n = ss.pop();                           // ( a b -- c d ) c=a%b, d=a/b
+                    DU  t = tos;
                     DU  m = MOD(n, t);
-                    SS.push(m); TOS = INT(n / t));
-    CODE("*/mod",   DU2 n = MUL2(SS.pop(), SS.pop());           // ( a b c -- d e ) d=(a*b)%c, e=(a*b)/c
-                    DU2 t = TOS;
+                    ss.push(m); tos = INT(n / t));
+    CODE("*/mod",   DU2 n = MUL2(ss.pop(), ss.pop());           // ( a b c -- d e ) d=(a*b)%c, e=(a*b)/c
+                    DU2 t = tos;
                     DU  m = MOD2(n, t);
-                    SS.push(m); TOS = INT(n / t));
-    CODE("and",     TOS = D2I(TOS) & D2I(SS.pop()));
-    CODE("or",      TOS = D2I(TOS) | D2I(SS.pop()));
-    CODE("xor",     TOS = D2I(TOS) ^ D2I(SS.pop()));
-    CODE("abs",     TOS = ABS(TOS));
-    CODE("negate",  TOS = -TOS);
-    CODE("invert",  TOS = ~D2I(TOS));
-    CODE("rshift",  TOS = D2I(SS.pop()) >> D2I(TOS));
-    CODE("lshift",  TOS = D2I(SS.pop()) << D2I(TOS));
-    CODE("max",     DU n=SS.pop(); TOS = (TOS>n) ? TOS : n);
-    CODE("min",     DU n=SS.pop(); TOS = (TOS<n) ? TOS : n);
-    CODE("2*",      TOS *= 2);
-    CODE("2/",      TOS /= 2);
-    CODE("1+",      TOS += 1);
-    CODE("1-",      TOS -= 1);
+                    ss.push(m); tos = INT(n / t));
+    CODE("and",     tos = D2I(tos) & D2I(ss.pop()));
+    CODE("or",      tos = D2I(tos) | D2I(ss.pop()));
+    CODE("xor",     tos = D2I(tos) ^ D2I(ss.pop()));
+    CODE("abs",     tos = ABS(tos));
+    CODE("negate",  tos = -tos);
+    CODE("invert",  tos = ~D2I(tos));
+    CODE("rshift",  tos = D2I(ss.pop()) >> D2I(tos));
+    CODE("lshift",  tos = D2I(ss.pop()) << D2I(tos));
+    CODE("max",     DU n=ss.pop(); tos = (tos>n) ? tos : n);
+    CODE("min",     DU n=ss.pop(); tos = (tos<n) ? tos : n);
+    CODE("2*",      tos *= 2);
+    CODE("2/",      tos /= 2);
+    CODE("1+",      tos += 1);
+    CODE("1-",      tos -= 1);
     /// @}
     /// @defgroup Data conversion ops
     /// @{
-    CODE("f>s",     TOS = INT(TOS));     /// nearest-even 0.5 => 0, 1.5 => 2, 2.5 => 2
-    CODE("round",   TOS = round(TOS));   /// 0.5 => 1, 1.5 => 2, 2.5 => 3, 1.5 => -2 
-    CODE("ceil",    TOS = ceilf(TOS));   /// 1.5 => 2, -1.5 => -1
-    CODE("floor",   TOS = floorf(TOS));  /// 1.5 => 1, -1.5 => -2
+    CODE("f>s",     tos = INT(tos));     /// nearest-even 0.5 => 0, 1.5 => 2, 2.5 => 2
+    CODE("round",   tos = round(tos));   /// 0.5 => 1, 1.5 => 2, 2.5 => 3, 1.5 => -2 
+    CODE("ceil",    tos = ceilf(tos));   /// 1.5 => 2, -1.5 => -1
+    CODE("floor",   tos = floorf(tos));  /// 1.5 => 1, -1.5 => -2
     ///@}
     /// @defgroup Logic ops
     /// @{
-    CODE("0=",      TOS = BOOL(ZEQ(TOS)));
-    CODE("0<",      TOS = BOOL(LT(TOS, DU0)));
-    CODE("0>",      TOS = BOOL(GT(TOS, DU0)));
-    CODE("=",       TOS = BOOL(EQ(SS.pop(), TOS)));
-    CODE(">",       TOS = BOOL(GT(SS.pop(), TOS)));
-    CODE("<",       TOS = BOOL(LT(SS.pop(), TOS)));
-    CODE("<>",      TOS = BOOL(!EQ(SS.pop(), TOS)));
-    CODE(">=",      TOS = BOOL(!LT(SS.pop(), TOS)));
-    CODE("<=",      TOS = BOOL(!GT(SS.pop(), TOS)));
-    CODE("u<",      TOS = BOOL(UINT(D2I(SS.pop())) < UINT(D2I(TOS))));
-    CODE("u>",      TOS = BOOL(UINT(D2I(SS.pop())) > UINT(D2I(TOS))));
+    CODE("0=",      tos = BOOL(ZEQ(tos)));
+    CODE("0<",      tos = BOOL(LT(tos, DU0)));
+    CODE("0>",      tos = BOOL(GT(tos, DU0)));
+    CODE("=",       tos = BOOL(EQ(ss.pop(), tos)));
+    CODE(">",       tos = BOOL(GT(ss.pop(), tos)));
+    CODE("<",       tos = BOOL(LT(ss.pop(), tos)));
+    CODE("<>",      tos = BOOL(!EQ(ss.pop(), tos)));
+    CODE(">=",      tos = BOOL(!LT(ss.pop(), tos)));
+    CODE("<=",      tos = BOOL(!GT(ss.pop(), tos)));
+    CODE("u<",      tos = BOOL(UINT(D2I(ss.pop())) < UINT(D2I(tos))));
+    CODE("u>",      tos = BOOL(UINT(D2I(ss.pop())) > UINT(D2I(tos))));
     /// @}
     /// @defgroup IO ops
     /// @{
@@ -283,15 +283,15 @@ ForthVM::init() {
     /// @defgrouop DO..LOOP loops
     /// @{
     IMMD("do" ,     add_p(DO); PUSH(HERE));                // do ( -- here )
-    CODE("i",       PUSH(RS[-1]));
-    CODE("leave",   RS.pop(); RS.pop(); UNNEST());         // quit DO..LOOP
+    CODE("i",       PUSH(rs[-1]));
+    CODE("leave",   rs.pop(); rs.pop(); UNNEST());         // quit DO..LOOP
     IMMD("loop",    add_p(LOOP, POPI()));                  // next ( here -- )
     /// @}
     /// @defgrouop return stack ops
     /// @{
-    CODE(">r",      RS.push(POP()));
-    CODE("r>",      PUSH(RS.pop()));
-    CODE("r@",      PUSH(RS[-1]));                              // same as I (the loop counter)
+    CODE(">r",      rs.push(POP()));
+    CODE("r>",      PUSH(rs.pop()));
+    CODE("r@",      PUSH(rs[-1]));                              // same as I (the loop counter)
     /// @}
     /// @defgrouop Compiler ops
     /// @{
@@ -333,7 +333,7 @@ ForthVM::init() {
          IU w = LDi(IP); IP += sizeof(IU);                      // fetch constant pfa from 'here'
          IU a = PFA(w) + sizeof(IU);
          DU d = POP();
-         if (a < T4_PMEM_SZ) CELL(a) = d;                       // store TOS into constant pfa
+         if (a < T4_PMEM_SZ) CELL(a) = d;                       // store tos into constant pfa
          else { ERROR("is %x", a); state = STOP; });
 */         
     ///
@@ -349,7 +349,7 @@ ForthVM::init() {
     CODE("allot",                                               // n --
          IU n = POPI();                                         // number of bytes
          for (IU i = 0; i < n; i+=sizeof(DU)) add_du(DU0));     // zero padding
-    CODE("th",    IU i = POPI(); TOS += i * sizeof(DU));        // w i -- w'
+    CODE("th",    IU i = POPI(); tos += i * sizeof(DU));        // w i -- w'
     /// @}
 #if DO_MULTITASK    
     /// @defgroup Multitasking ops
@@ -371,11 +371,11 @@ ForthVM::init() {
 #endif // DO_MULTITASK    
     /// @defgroup Debug ops
     /// @{
-    CODE("abort", TOS = -DU1; SS.clear(); RS.clear());          // clear ss, rs
+    CODE("abort", tos = -DU1; ss.clear(); rs.clear());          // clear ss, rs
     CODE("here",  PUSH(HERE));
     CODE("'",     IU w = FIND(sys->fetch()); if (w) PUSH(w));
-    CODE(".s",    sys->op(OP_SS, *BASE, TOS, SS2I));
-    CODE("depth", PUSH(SS.idx - 1));
+    CODE(".s",    sys->op(OP_SS, *BASE, tos, SS2I));
+    CODE("depth", PUSH(ss.idx - 1));
     CODE("words", sys->op(OP_WORDS));
     CODE("dict",  sys->op(OP_DICT));                            // dict_dump in host mode
     CODE("dict_dump", mmu->dict_dump());
