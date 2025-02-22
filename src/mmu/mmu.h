@@ -93,7 +93,9 @@ public:
     }
     __GPU__  __INLINE__ void wd(U8 *c, DU d)   {
         DU v = rd(c);
-        drop(v);                                              /// * reduce obj ref counter
+#if T4_ENABLE_OBJ        
+        if (IS_OBJ(v)) drop(du2obj(v));                            /// * obj decref
+#endif // T4_ENABLE_OBJ        
         *(DU*)c = d;
 //        MEMCPY(c, &d, sizeof(DU));
     }
@@ -124,7 +126,7 @@ public:
     /// tensor object life-cycle methods
     ///
     __GPU__  void   sweep();                                ///< free marked tensor
-    __GPU__  void   drop(Tensor &t0);                       ///< reduce ref counter
+    __GPU__  void   drop(T4Base &t0);                       ///< reduce ref counter
     __GPU__  void   mark_free(DU v);                        ///< mark an object to be freed in host
     __GPU__  Tensor &talloc(U64 sz);                        ///< allocate from tensor space
     __GPU__  Tensor &tensor(U64 sz);                        ///< create an vector
@@ -141,7 +143,7 @@ public:
 #endif // T4_ENABLE_NN
 #else  // T4_ENABLE_OBJ ===========================================================
     __GPU__  void   sweep()    {}                           ///< holder for no object
-    __GPU__  void   drop(DU v) {}
+    __GPU__  void   drop(DU v) {}                           
     
 #endif // T4_ENABLE_OBJ ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 };

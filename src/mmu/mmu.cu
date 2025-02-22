@@ -148,7 +148,7 @@ MMU::sweep() {
     for (int i = 0; _fidx && i < _fidx; i++) {
         DU v = _mark[i];
         DEBUG("mmu#release T[%x] from free[%d]\n", DU2X(v) & ~T4_TT_OBJ, i);
-        drop(v);
+        drop(du2obj(v));
     }
     _fidx = 0;
 //  unlock();                      ///< TODO: CC: DEAD LOCK, now!
