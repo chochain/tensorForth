@@ -104,7 +104,7 @@ System::process_event(io_event *ev) {
              << std::setprecision(f->prec ? f->prec : -1)
              << std::setfill((char)f->fill);
     } break;
-    case GT_OBJ: io->print(*(DU*)v); break;
+    case GT_OBJ: io->print(mmu->du2obj(*(DU*)v));      break;
     case GT_OPX: {
         _opx *o = (_opx*)v;
         DEBUG("OP=%d, m=%d, i=%d, n=0x%08x=%f\n", o->op, o->m, o->i, DU2X(o->n), o->n);
@@ -117,7 +117,7 @@ System::process_event(io_event *ev) {
 #if T4_ENABLE_OBJ // vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
         case OP_TSAVE:
             ev = NEXT_EVENT(ev);
-            io->_tsave(o->n, (char*)ev->data, o->fam);
+            io->_tsave((Tensor&)mu->du2obj(o->n), (char*)ev->data, o->fam);
             break;
 #if T4_ENABLE_NN  //==========================================================
         case OP_DATA:
@@ -127,7 +127,7 @@ System::process_event(io_event *ev) {
         case OP_FETCH: io->_dsfetch(o->n, NULL, o->fam); break;  /// * fetch/rewind dataset batch
         case OP_NSAVE:
             ev = NEXT_EVENT(ev);                            ///< get dataset repo name
-            io->_nsave(o->n, (char*)ev->data, o->fam);
+            io->_nsave((Tensor&)mu->du2obj(o->n), (char*)ev->data, o->fam);
             break;
         case OP_NLOAD:
             ev = NEXT_EVENT(ev);
