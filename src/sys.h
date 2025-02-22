@@ -32,6 +32,7 @@ public:
     __HOST__ int       readline();
     __HOST__ io_event  *process_event(io_event *ev);
     __HOST__ void      flush();
+    __GPU__  __INLINE__ Ostream &ostr()     { return *_ostr; }
     ///
     /// debuging controls
     ///
