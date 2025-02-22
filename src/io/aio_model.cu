@@ -10,6 +10,126 @@
 #include "aio.h"
 
 #if (T4_ENABLE_OBJ && T4_ENABLE_NN)
+#include <fstream>
+///
+/// initial dataset setup
+/// init flow:
+///    netvm#dataset
+///    -> aio::process_node
+///    -> mmu::dataset          - set N=batch_sz, batch_id = -1
+///
+/// fetch flow:
+///    netvm#fetch
+///    -> aio::process_node
+///    -> aio::fetch
+///      -> corpus::fetch       - fetch host label/image blocks from files
+///      -> dataset::reshape    - set dimensions for the first batch (no alloc yet) 
+///      -> dataset::load_batch - transfer host blocks to device
+///         -> dataset::alloc   - alloc device memory blocks if needed
+/// Note:
+///   ds_name: dataset name (match in loader.cu), for initial dataset setup
+///   ds_name: NULL, following batch
+///
+__HOST__ int
+AIO::dsfetch(Dataset &ds, char *ds_name, bool rewind) {
+    Dataset &ds = (Dataset&)T4Base::du2obj(id);   ///< dataset ref
+    U32     dsx = DU2X(id) & ~T4_TYPE_MSK;        ///< dataset mnemonic
+    if (!ds.is_dataset()) {                       /// * indeed a dataset?
+        ERROR("mmu#load id=%x is not a dataset\n", dsx);
+        return -1;
+    }
+    ///
+    /// search cache for top <=> dataset pair
+    ///
+    IO_TRACE("\nAIO::%s dataset (id=%x) =>",
+           ds_name ? ds_name : (rewind ? "rewind" : "fetch"), dsx);
+    Corpus *cp = Loader::get(dsx, ds_name);      ///< Corpus/Dataset provider
+    if (!cp) {
+        ERROR(" dataset not found\n"); return -1;
+    }
+    int batch_sz = ds.N();                       ///< mini batch size
+    if (ds_name) {                               /// * init load
+        if (cp->init()==NULL) {
+            ERROR(" dataset setup failed!\n"); return -2;
+        }
+        ds.reshape(batch_sz, cp->H, cp->W, cp->C);/// * reshape ds to match Corpus
+    }
+    if (rewind) {
+        cp->rewind();
+        ds.batch_id = ds.done = 0;
+    }
+    else if ((ds.done=cp->eof)) {                /// * dataset exhausted?
+        IO_TRACE(" completed, no more data.\n"); return 0;
+    }
+    ///
+    /// load a mini-batch of data points
+    ///
+    if (!cp->fetch(ds.batch_id, batch_sz)) {     /// * fetch a batch from Corpus
+        ERROR("fetch failed\n");  return -3;
+    }
+    ///
+    /// transfer host into device memory
+    /// if needed, allocate Dataset device (managed) memory blocks
+    ///
+    ds.load_batch(cp->data, cp->label);
+    IO_TRACE("batch[%d] %d record(s) loaded\n", ds.batch_id, batch_sz);
+
+    ds.batch_id++;
+    ds.done = cp->eof;
+    
+    return 0;
+}
+///
+/// NN model persistence (i.e. serialization) methods
+///
+__HOST__ int
+AIO::nsave(Model &m, U16 mode, char* fname) {
+    printf("\nAIO::save model to '%s' =>", fname);
+    ofstream fout(fname, ios_base::binary);     ///< open an output file
+    if (!fout.is_open()) {
+        ERROR(" failed to open for output\n");
+        return 1;
+    }
+    fout << "\\ " << T4_APP_NAME << " model\n\\ version v" << T4_MAJOR_VER << "." << T4_MINOR_VER << "\n";
+    if (mode & FAM_RAW) {
+        // TODO: raw format (.npy, .petastorm, hdf5)
+    }
+    else {
+        Model &m = (Model&)T4Base::du2obj(top);
+        _nsave_model(fout, m);                  /// * blank line as section break
+        _nsave_param(fout, m);
+    }
+    fout << "\n---" << endl;
+    fout.close();
+    printf(" completed\n");
+    return 0;
+}
+
+__HOST__ int
+AIO::nload(Model &m, U16 mode, char* fname) {
+    printf("\nAIO::load '%s' ", fname);
+    ifstream fin(fname, ios_base::binary);           ///< open an input file
+    if (!fin.is_open()) {
+        ERROR("=> failed to open for input\n");
+        return 1;
+    }
+    /// TODO: handle raw data format
+    Model &m = (Model&)T4Base::du2obj(top);
+    int err = 0;
+    if (m.numel <= 2) {
+        printf("NN model");
+        err = _nload_model(fin, m, fname);           /// * load model layers
+    }
+    else {
+        std::string tmp;
+        while (getline(fin, tmp) && tmp.length());   /// * skip model section
+        printf("parameter tensors (i.e. state_dict)");
+        err = _nload_param(fin, m);           /// * load model layer tensors
+    }
+    fin.close();
+    printf(" => %s\n", err ? "error" : "completed");
+    return err;
+}
 ///
 /// NN Model IO private methods
 ///
@@ -77,127 +197,6 @@ AIO::_print_model_parm(Tensor &in, Tensor &out) {
     default: fout << "unknown layer=" << fn << " ";    break;
     }
 }
-///
-/// initial dataset setup
-/// init flow:
-///    netvm#dataset
-///    -> aio::process_node
-///    -> mmu::dataset          - set N=batch_sz, batch_id = -1
-///
-/// fetch flow:
-///    netvm#fetch
-///    -> aio::process_node
-///    -> aio::fetch
-///      -> corpus::fetch       - fetch host label/image blocks from files
-///      -> dataset::reshape    - set dimensions for the first batch (no alloc yet) 
-///      -> dataset::load_batch - transfer host blocks to device
-///         -> dataset::alloc   - alloc device memory blocks if needed
-/// Note:
-///   ds_name: dataset name (match in loader.cu), for initial dataset setup
-///   ds_name: NULL, following batch
-///
-__HOST__ int
-AIO::_dsfetch(Dataset &ds, char *ds_name, bool rewind) {
-    Dataset &ds = (Dataset&)T4Base::du2obj(id);   ///< dataset ref
-    U32     dsx = DU2X(id) & ~T4_TYPE_MSK;        ///< dataset mnemonic
-    if (!ds.is_dataset()) {                       /// * indeed a dataset?
-        ERROR("mmu#load id=%x is not a dataset\n", dsx);
-        return -1;
-    }
-    ///
-    /// search cache for top <=> dataset pair
-    ///
-    IO_TRACE("\nAIO::%s dataset (id=%x) =>",
-           ds_name ? ds_name : (rewind ? "rewind" : "fetch"), dsx);
-    Corpus *cp = Loader::get(dsx, ds_name);      ///< Corpus/Dataset provider
-    if (!cp) {
-        ERROR(" dataset not found\n"); return -1;
-    }
-    int batch_sz = ds.N();                       ///< mini batch size
-    if (ds_name) {                               /// * init load
-        if (cp->init()==NULL) {
-            ERROR(" dataset setup failed!\n"); return -2;
-        }
-        ds.reshape(batch_sz, cp->H, cp->W, cp->C);/// * reshape ds to match Corpus
-    }
-    if (rewind) {
-        cp->rewind();
-        ds.batch_id = ds.done = 0;
-    }
-    else if ((ds.done=cp->eof)) {                /// * dataset exhausted?
-        IO_TRACE(" completed, no more data.\n"); return 0;
-    }
-    ///
-    /// load a mini-batch of data points
-    ///
-    if (!cp->fetch(ds.batch_id, batch_sz)) {     /// * fetch a batch from Corpus
-        ERROR("fetch failed\n");  return -3;
-    }
-    ///
-    /// transfer host into device memory
-    /// if needed, allocate Dataset device (managed) memory blocks
-    ///
-    ds.load_batch(cp->data, cp->label);
-    IO_TRACE("batch[%d] %d record(s) loaded\n", ds.batch_id, batch_sz);
-
-    ds.batch_id++;
-    ds.done = cp->eof;
-    
-    return 0;
-}
-///
-/// NN model persistence (i.e. serialization) methods
-///
-#include <fstream>
-__HOST__ int
-AIO::_nsave(Model &m, U16 mode, char* fname) {
-    printf("\nAIO::save model to '%s' =>", fname);
-    ofstream fout(fname, ios_base::binary);     ///< open an output file
-    if (!fout.is_open()) {
-        ERROR(" failed to open for output\n");
-        return 1;
-    }
-    fout << "\\ " << T4_APP_NAME << " model\n\\ version v" << T4_MAJOR_VER << "." << T4_MINOR_VER << "\n";
-    if (mode & FAM_RAW) {
-        // TODO: raw format (.npy, .petastorm, hdf5)
-    }
-    else {
-        Model &m = (Model&)T4Base::du2obj(top);
-        _nsave_model(fout, m);                  /// * blank line as section break
-        _nsave_param(fout, m);
-    }
-    fout << "\n---" << endl;
-    fout.close();
-    printf(" completed\n");
-    return 0;
-}
-
-__HOST__ int
-AIO::_nload(Model &m, U16 mode, char* fname) {
-    printf("\nAIO::load '%s' ", fname);
-    ifstream fin(fname, ios_base::binary);           ///< open an input file
-    if (!fin.is_open()) {
-        ERROR("=> failed to open for input\n");
-        return 1;
-    }
-    /// TODO: handle raw data format
-    Model &m = (Model&)T4Base::du2obj(top);
-    int err = 0;
-    if (m.numel <= 2) {
-        printf("NN model");
-        err = _nload_model(fin, m, fname);           /// * load model layers
-    }
-    else {
-        std::string tmp;
-        while (getline(fin, tmp) && tmp.length());   /// * skip model section
-        printf("parameter tensors (i.e. state_dict)");
-        err = _nload_param(fin, m);           /// * load model layer tensors
-    }
-    fin.close();
-    printf(" => %s\n", err ? "error" : "completed");
-    return err;
-}
-
 __HOST__ int
 AIO::_nsave_model(Model &m) {
     for (U16 i = 1; i < m.numel - 1; i++) {
