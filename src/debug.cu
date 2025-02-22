@@ -115,7 +115,7 @@ Debug::to_s(Param *p, int nv, int base) {
     switch (w) {
     case LIT:
         DU v = *(DU*)ip;
-        if (IS_OBJ(v)) io->to_s(mu->du2obj(v), IS_VIEW(v), (int)o->m);
+        if (IS_OBJ(v)) io->to_s(mu->du2obj(v), IS_VIEW(v), p->m);
         else io->to_s(v);                           break;
     case STR:  fout << "s\" " << (char*)ip << '"';  break;
     case DOTQ: fout << ".\" " << (char*)ip << '"';  break;
