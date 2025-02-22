@@ -113,7 +113,10 @@ Debug::to_s(Param *p, int nv, int base) {
     }
     U8 *ip = (U8*)(p+1);                           ///< pointer to data
     switch (w) {
-    case LIT:  io->show(*(DU*)ip);                  break;
+    case LIT:
+        DU v = *(DU*)ip;
+        if (IS_OBJ(v)) io->to_s(mu->du2obj(v), IS_VIEW(v), (int)o->m);
+        else io->to_s(v);                           break;
     case STR:  fout << "s\" " << (char*)ip << '"';  break;
     case DOTQ: fout << ".\" " << (char*)ip << '"';  break;
     case VAR:
