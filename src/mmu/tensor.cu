@@ -216,7 +216,7 @@ Tensor::gemm(Tensor &A, Tensor &B, Tensor &O, DU alpha, DU beta) {
 }
 __GPU__ Tensor&
 Tensor::copy(Tensor &A, Tensor &O) {
-    DEBUG("Tensor::copy numel=%d\n", A.numel);
+    DEBUG("Tensor::copy numel=%ld\n", A.numel);
     int n = (A.numel + T4_WARP_SQ - 1) / T4_WARP_SQ;
     
     k_copy<<<n, T4_WARP_SQ>>>(A.data, O.data, A.numel);
