@@ -44,30 +44,46 @@ public:
     
     AIO(h_istr &i, h_ostr &o, int verbo) : fin(i), fout(o), trace(verbo) {}
 
-    __HOST__ void show(DU v, int rdx=10); ///< display value by ss_dump
-    __HOST__ void print(DU v);            ///< print object info to fout
-
+    __HOST__ void to_s(DU v, int rdx=10);      ///< display value by ss_dump
+    
+#if T4_ENABLE_OBJ
+    __HOST__ void to_s(T4Base &t, bool is_view, int rdx=10); ///< display value by ss_dump
+    __HOST__ void print(T4Base &t);            ///< display value by ss_dump
+    __HOST__ int  tsave(Tensor &t, U8 mode, char *fname);
+    
+#if T4_ENABLE_NN    
+    ///
+    /// dataset IO methods
+    ///
+    __HOST__ int  dsfetch(Dataset &ds, char *ds_name=NULL, bool rewind=0); ///< fetch a dataset batch (rewind=false load batch)
+    ///
+    /// NN model persistence (i.e. serialization) methods
+    ///
+    __HOST__ int  nsave(Model &m, char *fname, U8 mode);
+    __HOST__ int  nload(Model &m, char *fname, U8 mode);
+#endif // T4_ENABLE_NN    
+#endif // T4_ENABLE_OBJ
+    
 private:
-    int     _radix = 10;              ///< output stream radix
-    int     _thres = 10;              ///< max cell count for each dimension
-    int     _edge  = 3;               ///< number of tensor edge items
-    int     _prec  = 4;               ///< shown floating point precision
+    int     _radix = 10;                       ///< output stream radix
+    int     _thres = 10;                       ///< max cell count for each dimension
+    int     _edge  = 3;                        ///< number of tensor edge items
+    int     _prec  = 4;                        ///< shown floating point precision
 
 #if T4_ENABLE_OBJ // vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
     ///
     /// Tensor print methods
     ///
-    __HOST__ void _show_obj(T4Base &t, bool view);  ///< display object on ss_dump
-    __HOST__ void _print_vec(DU *vd, U32 W, U32 C);
-    __HOST__ void _print_mat(DU *md, U32 *shape);
-    __HOST__ void _print_tensor(Tensor &t);
+    __HOST__ int  _show_obj(T4Base &t, bool is_view, int rdx=10);  ///< display object on ss_dump
+    __HOST__ void _print_vec(h_ostr &fs, DU *vd, U32 W, U32 C);
+    __HOST__ void _print_mat(h_ostr &fs, DU *md, U32 *shape);
+    __HOST__ void _print_tensor(h_ostr &fs, Tensor &t);
     ///
     /// Tensor persistence (i.e. serialization) methods
     ///
-    __HOST__ int  _tsave(DU top, U8 mode, char *fname);
-    __HOST__ int  _tsave_txt(Tensor &t);
-    __HOST__ int  _tsave_raw(Tensor &t);
-    __HOST__ int  _tsave_npy(Tensor &t);
+    __HOST__ int  _tsave_txt(h_ostr &fs, Tensor &t);
+    __HOST__ int  _tsave_raw(h_ostr &fs, Tensor &t);
+    __HOST__ int  _tsave_npy(h_ostr &fs, Tensor &t);
     
 #if T4_ENABLE_NN
     ///
@@ -75,15 +91,6 @@ private:
     ///
     __HOST__ void _print_model(Model &m);
     __HOST__ void _print_model_parm(Tensor &in, Tensor &out);
-    ///
-    /// dataset IO methods
-    ///
-    __HOST__ int  _dsfetch(Dataset &ds, char *ds_name=NULL, bool rewind=0); ///< fetch a dataset batch (rewind=false load batch)
-    ///
-    /// NN model persistence (i.e. serialization) methods
-    ///
-    __HOST__ int  _nsave(Model &m, char *fname, U8 mode);
-    __HOST__ int  _nload(Model &m, char *fname, U8 mode);
     
     __HOST__ int  _nsave_model(Model &m);
     __HOST__ int  _nsave_param(Model &m);
