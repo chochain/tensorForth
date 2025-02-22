@@ -27,8 +27,10 @@ typedef enum {
 ///@name Tensor (multi-dimension array) class
 ///@{
 class TensorVM : public ForthVM {
+    Ostream &fout;                          ///< cached output stream
+    
 public:
-    __GPU__ TensorVM(int id, System &sys) : ForthVM(id, sys) {
+    __GPU__ TensorVM(int id, System &sys) : ForthVM(id, sys), fout(sys.ostr()) {
         VLOG1("\\    ::TensorVM[%d](...) sizeof(Tensor)=%ld\n", id, sizeof(Tensor));
     }
     __GPU__ virtual void init();            ///< override ForthVM.init()

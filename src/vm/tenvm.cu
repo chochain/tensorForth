@@ -336,7 +336,7 @@ TensorVM::_pickle(bool save) {
     IU    len   = POPi;                          ///< string length (not used for now)
     IU    adr   = POPi;                          ///< address to pmem
     char  *fn   = (char*)MEM(adr);               ///< pointer to string on PAD
-    sys.fout() << opx(OP_TSAVE, mode, tos) << fn;/// * issue save command
+    fout << opx(OP_TSAVE, mode, tos) << fn;      /// * issue save command
     state = HOLD;                                /// * return to CPU
 }
 ///
@@ -482,10 +482,10 @@ TensorVM::init() {
     CODE(".",
          DU v = POP();                    ///< print TOS
          if (!IS_OBJ(v) || IS_VIEW(v)) {
-             sys.fout() << " " << v;      /// * eForth has a space prefix
+             fout << " " << v;            /// * eForth has a space prefix
          }
          else {
-             sys.fout() << v;             /// * tensor, model, dataset
+             fout << v;                   /// * tensor, model, dataset
              mmu.mark_free(v);            /// * mark to release by host
              state = HOLD;                /// * forced flush (wasteful but no dangling objects)
          });
