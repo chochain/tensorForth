@@ -8,14 +8,13 @@
 #define TEN4_LOADER_H
 #include "corpus.h"
 
-#if T4_ENABLE_OBJ
-
 struct Loader {
     static void   init(bool trace=0);
+#if T4_ENABLE_OBJ
     static Corpus *get(int dset, const char *ds_name=NULL);
+#endif  // T4_ENABLE_OBJ
 };
 
-#endif  // T4_ENABLE_OBJ
 #endif  // TEN4_LOADER_H
 
 

@@ -8,8 +8,6 @@
 #define T4_CORPUS_H
 #include "ten4_types.h"
 
-#if (T4_ENABLE_OBJ && T4_ENABLE_NN)
-
 #define DS_LOG1(...)         if (trace > 0) printf(__VA_ARGS__)
 #define DS_ERROR(...)        fprintf(stderr, __VA_ARGS__)
 #define IO_ERROR(fn)         fprintf(stderr, "ERROR: open file %s failed\n", fn)
@@ -23,6 +21,7 @@
 typedef uint8_t U8;
 
 struct Corpus {
+#if (T4_ENABLE_OBJ && T4_ENABLE_NN)
     const char *ds_name;      ///< data source name
     const char *tg_name;      ///< target label name
 
@@ -61,8 +60,8 @@ struct Corpus {
     }
     virtual Corpus *rewind() { eof = 0; return this; }
     virtual U8 *operator [](int idx){ return &data[idx * dsize()]; }  ///< data point
+#endif // (T4_ENABLE_OBJ && T4_ENABLE_NN)
 };
 
-#endif // (T4_ENABLE_OBJ && T4_ENABLE_NN)
 #endif // T4_CORPUS_H
 
