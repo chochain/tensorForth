@@ -44,8 +44,8 @@ ForthVM::process(char *idiom) {
     DU n = number(idiom, &p);                 /// * parse it as numeral/literal
     if (*p!='\0') return 0;                   /// * failed, bail
     
-    if (compile) add_lit((DU)n);              /// * add literal when in compile mode
-    else         PUSH((DU)n);                 ///> or, add value onto data stack
+    if (compile) add_lit(n);                  /// * add literal when in compile mode
+    else         PUSH(n);                     ///> or, add value onto data stack
     
     return 1;                                 /// * success
 }
@@ -101,19 +101,19 @@ ForthVM::nest() {
              PUSH(ip); PUSH(ix.ioff); ip += ix.ioff);
         CASE(DOTQ,                                   /// ." ..."
              const char *s = (const char*)MEM(ip);   ///< get string pointer
-             sys.pstr(s); ip += ix.ioff);           /// * send to output console
+             sys.pstr(s); ip += ix.ioff);            /// * send to output console
         CASE(BRAN,  ip = ix.ioff);                   /// * unconditional branch
         CASE(ZBRAN, if (ZEQ(POP())) ip = ix.ioff);   /// * conditional branch
         CASE(FOR, rs.push(POP()));                   /// * setup FOR..NEXT call frame
         CASE(DO,                                     /// * setup DO..LOOP call frame
              rs.push(ss.pop()); ss.push(POP())); 
-        CASE(KEY, PUSH(sys.key()); UNNEST());       /// * fetch single keypress
+        CASE(KEY, PUSH(sys.key()); UNNEST());        /// * fetch single keypress
         OTHER(
             if (ix.udf) {                            /// * user defined word?
                 rs.push(ip);                         /// * setup call frame
                 ip = ix.ioff;                        /// * ip = word.pfa
             }
-            else (*mmu.XT(ix.ioff))());             /// * execute built-in word
+            else (*mmu.XT(ix.ioff))());              /// * execute built-in word
         }
         VM_TLR(" => SS=%d, RS=%d, ip=%x", ss.idx, rs.idx, ip);
     }
@@ -247,24 +247,24 @@ ForthVM::init() {
     IMMD("if",      PUSH(HERE); add_p(ZBRAN));             // if    ( -- here )
     IMMD("else",    IU h=HERE;  add_p(BRAN);               // else ( here -- there )
                     SETJMP(POPi); PUSH(h));
-    IMMD("then",    SETJMP(POPi));                       // backfill jump address
+    IMMD("then",    SETJMP(POPi));                         // backfill jump address
     /// @}
     /// @defgroup Loops
     /// @brief  - begin...again, begin...f until, begin...f while...repeat
     /// @{
     IMMD("begin",   PUSH(HERE));
-    IMMD("again",   add_p(BRAN, POPi));                  // again    ( there -- )
-    IMMD("until",   add_p(ZBRAN, POPi));                 // until    ( there -- )
+    IMMD("again",   add_p(BRAN, POPi));                    // again    ( there -- )
+    IMMD("until",   add_p(ZBRAN, POPi));                   // until    ( there -- )
     IMMD("while",   PUSH(HERE); add_p(ZBRAN));             // while    ( there -- there here )
     IMMD("repeat",                                         // repeat    ( there1 there2 -- )
-         IU t=POPi; add_p(BRAN, POPi); SETJMP(t));     // set forward and loop back address
+         IU t=POPi; add_p(BRAN, POPi); SETJMP(t));         // set forward and loop back address
     /// @}
     /// @defgrouop FOR...NEXT loops
     /// @brief  - for...next, for...aft...then...next
     ///    3 for ." f" aft ." a" then i . next  ==> f3 a2 a1 a0 i.e. f once only
     /// @{
     IMMD("for" ,    add_p(FOR); PUSH(HERE));               // for ( -- here )
-    IMMD("next",    add_p(NEXT, POPi));                  // next ( here -- )
+    IMMD("next",    add_p(NEXT, POPi));                    // next ( here -- )
     IMMD("aft",                                            // aft ( here -- here there )
          POP(); IU h=HERE; add_p(BRAN); PUSH(HERE); PUSH(h));
     /// @}
@@ -274,13 +274,13 @@ ForthVM::init() {
     IMMD("do" ,     add_p(DO); PUSH(HERE));                // do ( -- here )
     CODE("i",       PUSH(rs[-1]));
     CODE("leave",   rs.pop(); rs.pop(); UNNEST());         // quit DO..LOOP
-    IMMD("loop",    add_p(LOOP, POPi));                  // next ( here -- )
+    IMMD("loop",    add_p(LOOP, POPi));                    // next ( here -- )
     /// @}
     /// @defgrouop return stack ops
     /// @{
     CODE(">r",      rs.push(POP()));
     CODE("r>",      PUSH(rs.pop()));
-    CODE("r@",      PUSH(rs[-1]));                              // same as I (the loop counter)
+    CODE("r@",      PUSH(rs[-1]));                          // same as I (the loop counter)
     /// @}
     /// @defgrouop Compiler ops
     /// @{
@@ -288,23 +288,23 @@ ForthVM::init() {
     CODE("]",       compile = true);
     CODE(":",       compile = _def_word());
     IMMD(";",       add_p(EXIT); compile = false);
-    CODE("variable",                                            // create a variable
+    CODE("variable",                                        // create a variable
          if (!_def_word()) return;
-         add_p(VAR, 0, true); add_du(DU0));                     // default DU0
-    CODE("constant",                                            // create a constant
+         add_p(VAR, 0, true); add_du(DU0));                 // default DU0
+    CODE("constant",                                        // create a constant
          if (!_def_word()) return;
          add_lit(POP(), true));
     CODE("value",   
          if (!_def_word()) return;
-         add_p(LIT, 0, true, true);                             // forced extended, TO can update
+         add_p(LIT, 0, true, true);                         // forced extended, TO can update
          add_du(POP()));             
     IMMD("immediate", dict[-1].imm = true);
-    CODE("exit",    UNNEST());                                  // early exit the colon word
+    CODE("exit",    UNNEST());                              // early exit the colon word
     /// @}
     /// @defgroup metacompiler
     /// @brief - dict is directly used, instead of shield by macros
     /// @{
-    CODE("exec",   IU w = POP(); call(w));                      // execute word
+    CODE("exec",   IU w = POP(); call(w));                  // execute word
     CODE("create",
          if (!_def_word()) return;
          add_p(VAR, 0, true));
@@ -313,78 +313,78 @@ ForthVM::init() {
          while (((Param*)MEM(pfa))->op != VAR && (pfa < (IU)HERE)) {  // find that VAR
              pfa += sizeof(IU);
          }
-         SETJMP(pfa);                                           // set jmp target
-         add_p(BRAN, ip); UNNEST());                            // jmp to next ip
-    IMMD("to", _to_value());                                    // alter the value of a constant, i.e. 3 to x
-    IMMD("is", _is_alias());                                    // alias a word, i.e. ' y is x
+         SETJMP(pfa);                                       // set jmp target
+         add_p(BRAN, ip); UNNEST());                        // jmp to next ip
+    IMMD("to", _to_value());                                // alter the value of a constant, i.e. 3 to x
+    IMMD("is", _is_alias());                                // alias a word, i.e. ' y is x
 /*    
-    CODE("[to]",            // : xx 3 [to] y ;                  // alter constant in compile mode
-         IU w = LDi(ip); ip += sizeof(IU);                      // fetch constant pfa from 'here'
+    CODE("[to]",            // : xx 3 [to] y ;              // alter constant in compile mode
+         IU w = LDi(ip); ip += sizeof(IU);                  // fetch constant pfa from 'here'
          IU a = PFA(w) + sizeof(IU);
          DU d = POP();
-         if (a < T4_PMEM_SZ) CELL(a) = d;                       // store tos into constant pfa
+         if (a < T4_PMEM_SZ) CELL(a) = d;                   // store tos into constant pfa
          else { ERROR("is %x", a); state = STOP; });
 */         
     ///
     /// be careful with memory access, because
     /// it could make access misaligned which cause exception
     ///
-    CODE("@",     IU i = POPi; PUSH((DU)CELL(i)));            // i -- n
-    CODE("!",     IU i = POPi; CELL(i) = POP(););             // n i --
-    CODE("+!",    IU i = POPi; CELL(i) += POP());             // n i --
-    CODE("?",     IU i = POPi; sys.dot(DOT, CELL(i)));       // i --
-    CODE(",",     DU n = POP();  add_du(n));                    // n -- , compile a cell
-    CODE("cells", IU i = POPi; PUSH(i * sizeof(DU)));         // n -- n'
-    CODE("allot",                                               // n --
-         IU n = POPi;                                         // number of bytes
-         for (IU i = 0; i < n; i+=sizeof(DU)) add_du(DU0));     // zero padding
-    CODE("th",    IU i = POPi; tos += i * sizeof(DU));        // w i -- w'
+    CODE("@",     IU i = POPi; PUSH((DU)CELL(i)));          // i -- n
+    CODE("!",     IU i = POPi; CELL(i) = POP(););           // n i --
+    CODE("+!",    IU i = POPi; CELL(i) += POP());           // n i --
+    CODE("?",     IU i = POPi; sys.dot(DOT, CELL(i)));      // i --
+    CODE(",",     DU n = POP();  add_du(n));                // n -- , compile a cell
+    CODE("cells", IU i = POPi; PUSH(i * sizeof(DU)));       // n -- n'
+    CODE("allot",                                           // n --
+         IU n = POPi;                                       // number of bytes
+         for (IU i = 0; i < n; i+=sizeof(DU)) add_du(DU0)); // zero padding
+    CODE("th",    IU i = POPi; tos += i * sizeof(DU));      // w i -- w'
     /// @}
 #if DO_MULTITASK    
     /// @defgroup Multitasking ops
     /// @}
-    CODE("task",                                                // w -- task_id
-         IU i = POPi; Code &c = dict[i];                      ///< dictionary index
-         if (c.udf) PUSH(task_create(c.pfa));                   /// create a task starting on pfa
+    CODE("task",                                            // w -- task_id
+         IU i = POPi; Code &c = dict[i];                    ///< dictionary index
+         if (c.udf) PUSH(task_create(c.pfa));               /// create a task starting on pfa
          else pstr("  ?colon word only\n"));
-    CODE("rank",  PUSH(id));                                    /// ( -- task_id ) used insided a task
-    CODE("start", task_start(POPi));                          /// ( task_id -- )
-    CODE("join",  join(POPi));                                /// ( task_id -- )
-    CODE("lock",  io_lock());                                   /// wait for IO semaphore
-    CODE("unlock",io_unlock());                                 /// release IO semaphore
+    CODE("rank",  PUSH(id));                                /// ( -- task_id ) used insided a task
+    CODE("start", task_start(POPi));                        /// ( task_id -- )
+    CODE("join",  join(POPi));                              /// ( task_id -- )
+    CODE("lock",  io_lock());                               /// wait for IO semaphore
+    CODE("unlock",io_unlock());                             /// release IO semaphore
     CODE("send",  IU t = POPi; send(t, POPi));              /// ( v1 v2 .. vn n tid -- ) pass values onto task's stack
-    CODE("recv",  recv());                                      /// ( -- v1 v2 .. vn ) waiting for values passed by sender
-    CODE("bcast", bcast(POPi));                               /// ( v1 v2 .. vn -- )
+    CODE("recv",  recv());                                  /// ( -- v1 v2 .. vn ) waiting for values passed by sender
+    CODE("bcast", bcast(POPi));                             /// ( v1 v2 .. vn -- )
     CODE("pull",  IU t = POPi; pull(t, POPi));              /// ( n task_id -- v1 v2 .. vn )
     /// @}
 #endif // DO_MULTITASK    
     /// @defgroup Debug ops
     /// @{
-    CODE("abort", tos = -DU1; ss.clear(); rs.clear());          // clear ss, rs
+    CODE("abort", tos = -DU1; ss.clear(); rs.clear());      // clear ss, rs
     CODE("here",  PUSH(HERE));
     CODE("'",     IU w = FIND(sys.fetch()); if (w) PUSH(w));
     CODE(".s",    sys.op(OP_SS, *BASE, tos, SS2I));
     CODE("depth", PUSH(ss.idx - 1));
     CODE("words", sys.op(OP_WORDS));
-    CODE("dict",  sys.op(OP_DICT));                            // dict_dump in host mode
+    CODE("dict",  sys.op(OP_DICT));                         // dict_dump in host mode
     CODE("dict_dump", mmu.dict_dump());
     CODE("see",   IU w = FIND(sys.fetch()); if (!w) return;
                   sys.op(OP_SEE, *BASE, DU0, w));
     CODE("dump",  DU n = POP(); IU a = POPi;
                   sys.op(OP_DUMP, 0, n, a));
     CODE("forget", _forget());
-    CODE("trace", sys.trace(POPi));                          // set debug/trace level
+    CODE("trace", sys.trace(POPi));                         // set debug/trace level
     /// @}
     /// @defgroup OS ops
     /// @{
     CODE("mstat", mmu.status());
-    CODE("rnd",   PUSH(sys.rand(DU1, NORMAL)));                // generate random number
+    CODE("rnd",   PUSH(sys.rand(DU1, NORMAL)));             // generate random number
     CODE("ms",    delay(POPi));
-//    CODE("included",                                          // include external file
-//         POP();                                               // string length, not used
-//         sys.load(MEM(POP())));                              // include external file
+//    CODE("included",                                      // include external file
+//         POP();                                           // string length, not used
+//         sys.load(MEM(POP())));                           // include external file
     CODE("clock", DU t = sys.ms(); SCALAR(t); PUSH(t));
-    CODE("bye",   state = STOP);                                // atomicExch(&state, STOP)
+    CODE("bye",   state = STOP);                            // atomicExch(&state, STOP)
     ///@}
     CODE("boot",  mmu.clear(FIND((char*)"boot") + 1));
 #if 0  /* words TODO */
@@ -438,8 +438,8 @@ ForthVM::number(char *idiom, char **p) {
     DU2 d2 = (b==10 && STRCHR(idiom, '.'))
         ? STRTOF(idiom, p)
         : STRTOL(idiom, p, b);
-    if (*p != '\0') {                     /// * not a number, bail
-        DEBUG(" number(%s) base=%d => error\n", idiom, b);
+    if (**p != '\0') {                    /// * not a number, bail
+        TRACE(" number(%s) base=%d => error\n", idiom, b);
         return DU0;
     }
     // is a number
