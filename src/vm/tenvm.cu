@@ -353,6 +353,14 @@ TensorVM::_gemm() {                          ///< blas GEMM
 }
 
 __GPU__ void
+TensorVM::_tprint(DU v) {
+    sys.dot(DOT, v);                          /// * send v to output stream
+    if (IS_OBJ(v)) {
+        mmu.mark_free(v);                     /// * mark to release by host
+        state = HOLD;                         /// * forced flush (wasteful but no dangling objects)
+    }
+}    
+__GPU__ void
 TensorVM::_pickle(bool save) {
     U8   mode= FAM_WO;                        ///< file mode (W/O,R/W)|BIN
     
@@ -360,10 +368,12 @@ TensorVM::_pickle(bool save) {
     else if (ss.idx > 2 && IS_OBJ(ss[-3])) mode |= POPi;
     else { ERROR("tensor adr len [mode]?\n"); return; }
     
-    IU    len   = POPi;                       ///< string length (not used for now)
-    IU    adr   = POPi;                       ///< address to pmem
-    char  *fn   = (char*)MEM(adr);            ///< pointer to string on PAD
-    fout << opx(OP_TSAVE, mode, tos) << fn;   /// * issue save command
+    IU   len  = POPi;                         ///< string length (not used for now)
+    IU   adr  = POPi;                         ///< address to pmem
+    char *fn  = (char*)MEM(adr);              ///< pointer to string on PAD
+    
+    sys.op(OP_TSAVE, mode, tos);              /// * issue save command
+    sys.op_fn(fn);                            /// * append filename
     state = HOLD;                             /// * return to CPU
 }
 ///
@@ -503,25 +513,16 @@ TensorVM::init() {
     ///
     ///@defgroup redefined tensor ops
     ///@{
-    CODE("boot", mmu.clear(FIND((char*)"load") + 1));
-    CODE(".",
-         DU v = POP();                         ///< print TOS
-         if (!IS_OBJ(v) || IS_VIEW(v)) {
-             fout << " " << v;                 /// * eForth has a space prefix
-         }
-         else {
-             fout << v;                        /// * tensor, model, dataset
-             mmu.mark_free(v);                 /// * mark to release by host
-             state = HOLD;                     /// * forced flush (wasteful but no dangling objects)
-         });
-    CODE("+",      xop2(ADD, T_KEEP));
-    CODE("-",      xop2(SUB, T_KEEP));
-    CODE("*",      xop2(MUL, T_KEEP));
-    CODE("/",      xop2(DIV, T_KEEP));
-    CODE("abs",    xop1(ABS));
-    CODE("negate", xop1(NEG));
+    CODE("boot",      mmu.clear(FIND((char*)"load") + 1));
+    CODE(".",         _tprint(POP()));           ///< print TOS
+    CODE("+",         xop2(ADD, T_KEEP));
+    CODE("-",         xop2(SUB, T_KEEP));
+    CODE("*",         xop2(MUL, T_KEEP));
+    CODE("/",         xop2(DIV, T_KEEP));
+    CODE("abs",       xop1(ABS));
+    CODE("negate",    xop1(NEG));
     CODE("@",
-         if (TOS2T) xop2t(T_DOT);              ///< matrix @ product
+         if (TOS2T) xop2t(T_DOT);             ///< matrix @ product
          else {
              DU v = mmu.rd(POPi);
              PUSH(DUP(v));
@@ -533,7 +534,7 @@ TensorVM::init() {
          if (IS_OBJ(tos)) PUSH(TTOS.min());
          else xop2(MIN));
     ///@}
-    VLOG1("TensorVM[%id]::init ok sizeof(Tensor)=%ld\n", id, sizeof(Tensor));
+    VLOG1("TensorVM[%d]::init ok, sizeof(Tensor)=%ld\n", id, sizeof(Tensor));
 }
 #endif  // T4_ENABLE_OBJ
 //==========================================================================
