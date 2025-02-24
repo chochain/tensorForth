@@ -164,13 +164,13 @@ MMU::talloc(U64 sz) {
 }
 __GPU__ Tensor&                    ///< create a one-dimensional tensor
 MMU::tensor(U64 sz) {
-    DEBUG("mmu#tensor(%ld) numel=%ld", sz, sz);
+    DEBUG("mmu#tensor(%ld) numel=%ld ", sz, sz);
     return talloc(sz);
 }
 __GPU__ Tensor&                    ///< create a 2-dimensional tensor
 MMU::tensor(U32 h, U32 w) {
     U64 sz = (U64)h * w;
-    DEBUG("mmu#tensor(%d,%d) numel=%ld", h, w, sz);
+    DEBUG("mmu#tensor(%d,%d) numel=%ld ", h, w, sz);
     Tensor &t = talloc(sz);
     t.reshape(h, w);
     return t;
@@ -178,7 +178,7 @@ MMU::tensor(U32 h, U32 w) {
 __GPU__ Tensor&                    ///< create a NHWC tensor
 MMU::tensor(U32 n, U32 h, U32 w, U32 c) {
     U64 sz = (U64)n * h * w * c;
-    DEBUG("mmu#tensor(%d,%d,%d,%d) numel=%ld", n, h, w, c, sz);
+    DEBUG("mmu#tensor(%d,%d,%d,%d) numel=%ld ", n, h, w, c, sz);
     Tensor &t = talloc(sz);
     t.reshape(n, h, w, c);
     return t;
@@ -186,7 +186,7 @@ MMU::tensor(U32 n, U32 h, U32 w, U32 c) {
 __GPU__ void
 MMU::resize(Tensor &t, U64 sz) {
     if (t.rank != 1) { ERROR("mmu#resize rank==1 only\n"); return; }
-    DEBUG("mmu#resize numel=%ld (was %ld)", sz, t.numel);
+    DEBUG("mmu#resize numel=%ld (was %ld) ", sz, t.numel);
     DU *d0 = t.data;             /// * keep original memory block
     t.data = (DU*)_ostore.malloc(sz * sizeof(DU));
     ///
@@ -200,10 +200,10 @@ MMU::resize(Tensor &t, U64 sz) {
 }
 __GPU__ void                     ///< release tensor memory blocks
 MMU::free(Tensor &t) {
-    DEBUG("mmu#free(T%d) numel=%ld T[%x]", t.rank, t.numel, OBJ2X(t));
+    DEBUG("mmu#free(T%d) numel=%ld T[%x] ", t.rank, t.numel, OBJ2X(t));
     _ostore.free(t.data);        /// * free physical data
     if (t.grad_fn != L_NONE) {
-        DEBUG(" {\n");
+        DEBUG("{\n");
         for (int i=0; t.mtum[i] && i < 4; i++) {
             if (t.mtum[i] == t.grad[i]) continue;   /// * dummy pointers for SGD
             DEBUG("\t\t"); free(*t.mtum[i]);
@@ -211,7 +211,7 @@ MMU::free(Tensor &t) {
         for (int i=0; t.grad[i] && i < 4; i++) {
             DEBUG("\t\t"); free(*t.grad[i]);    /// recursive
         }
-        DEBUG("\t}");
+        DEBUG("\t} ");
     }
     _ostore.free(&t);              /// * free tensor object itself
     _ostore.status();
@@ -219,7 +219,7 @@ MMU::free(Tensor &t) {
 #if T4_ENABLE_NN
 __GPU__ Model&                     ///< create a NN model with NHWC input
 MMU::model(U64 sz) {
-    DEBUG("mmu#model layers=%ld", sz);
+    DEBUG("mmu#model layers=%ld ", sz);
     Model  *m = (Model*)_ostore.malloc(sizeof(Model));
     Tensor &t = talloc(sz);        /// * allocate tensor storage
     m->reset(this, t);
@@ -227,7 +227,7 @@ MMU::model(U64 sz) {
 }
 __GPU__ Dataset&                   ///< create a Dataset holder
 MMU::dataset(U32 batch_sz) {       /// * Note: data block is not allocated yet
-    DEBUG("mmu#dataset batch_sz=%d", batch_sz);
+    DEBUG("mmu#dataset batch_sz=%d ", batch_sz);
     Dataset *ds = (Dataset*)_ostore.malloc(sizeof(Dataset));
     ds->init(0, T4_DATASET, 4);
     ds->N()      = batch_sz;       /// * other members filled in host mode
@@ -241,7 +241,7 @@ MMU::free(Model &m) {
     for (int i = m.numel-1; i >= 0; i--) {
         DEBUG("\t"); free(m[i]);
     }
-    DEBUG("]");
+    DEBUG("] ");
     _ostore.free(&m);
     _ostore.status();
 }
@@ -269,7 +269,7 @@ MMU::copy(Tensor &t0) {
     t1.data = (DU*)_ostore.malloc(bsz);
     t1 = t0;                            /// * copy all tensor elements
     
-    DEBUG("mmu#copy(T%d) numel=%ld to T[%x]", t0.rank, t0.numel, OBJ2X(t1));
+    DEBUG("mmu#copy(T%d) numel=%ld to T[%x] ", t0.rank, t0.numel, OBJ2X(t1));
     _ostore.status();
     
     return t1;
@@ -310,7 +310,7 @@ MMU::slice(Tensor &t0, U32 x0, U32 x1, U32 y0, U32 y1) {
         }
     }
     DEBUG("mmu#slice(T%d)[%d:%d,%d:%d,] numel=%ld\n",
-              t0.rank, t0.numel, x0, x1, y0, y1);
+          t0.rank, x0, x1, y0, y1, t0.numel);
     return t1;
 }
 #endif // T4_ENABLE_OBJ // vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
