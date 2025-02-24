@@ -7,6 +7,12 @@
 #if !defined(TEN4_SRC_TLSF_H) && T4_ENABLE_OBJ 
 #define TEN4_SRC_TLSF_H
 
+#if MM_DEBUG
+#define MM_DB(...)  DEBUG(...)
+#else  // !MM_DEBUG
+#define MM_DB(...)
+#endif // MM_DEBUG
+
 typedef struct used_block {          //< 8-bytes
     U32 bsz;                         //< block size, header included (max 2G)
     U32 psz;                         //< prior adjacent memory block size
