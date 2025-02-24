@@ -31,7 +31,7 @@ class TensorVM : public ForthVM {
     
 public:
     __GPU__ TensorVM(int id, System &sys) : ForthVM(id, sys), fout(sys.ostr()) {
-        VLOG1("\\    ::TensorVM[%d]\n", id);
+        TRACE("\\    ::TensorVM[%d]\n", id);
     }
     __GPU__ virtual void init();            ///< override ForthVM.init()
     
@@ -69,6 +69,7 @@ private:
     ///
     /// tensor IO
     ///
+    __GPU__ void   _tprint(DU v);
     __GPU__ void   _pickle(bool save);                      ///< save/load a tensor to/from a file
 };
 ///@}
