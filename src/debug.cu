@@ -230,8 +230,12 @@ Debug::_to_s(Param *p, int nv, int base) {
     switch (w) {
     case LIT: {
         DU v = *(DU*)ip;
+#if T4_ENABLE_OBJ        
         if (IS_OBJ(v)) io->show(mu->du2obj(v), IS_VIEW(v), base);
         else io->show(v, base);
+#else  // !T4_ENABLE_OBJ
+        io->show(v, base);
+#endif // T4_ENABLE_OBJ
     } break;
     case STR:  fout << "s\" " << (char*)ip << '"';  break;
     case DOTQ: fout << ".\" " << (char*)ip << '"';  break;
@@ -260,7 +264,7 @@ Debug::_to_s(Param *p, int nv, int base) {
 ///@name methods for debug/tracing
 ///@{
 __HOST__ void Debug::self_tests() {
-//    dict_dump(10);
+//    dict_dump();
 //    words();
 //    mem_dump(0, 256, 10);
     ss_dump(0, 3, 10);
