@@ -7,7 +7,34 @@
 #include "tenvm.h"
 
 #if T4_ENABLE_OBJ
-#define POPi      POPI()
+///
+/// override with tensor handler
+///
+__GPU__ int
+TensorVM::process(char *idiom) {
+    state = QUERY;
+    IU w = parse(idiom);                      /// * parse it as a word
+    if (w) return 1;                          /// * success, done
+    
+    char *p;
+    DU n = number(idiom, &p);                 /// * parse it as a literal number
+    if (*p!='\0') return 0;                   /// * failed, bail
+    
+    SCALAR(n);                                /// * mask out object bit
+    if (compile) {                            /// * add literal when in compile mode
+        VLOG2("%d| %f\n", id, n);
+        add_lit(n);                           ///> dovar (+parameter field)
+    }
+    else if (ten_lvl > 0) {                   /// * append literal into tensor storage
+        VLOG2("%d| T[%d]=%f\n", id, ten_off, n);
+        TTOS.data[ten_off++] = n;             /// * append to tensor.data
+    }
+    else {                                    ///> or, add value onto data stack
+        VLOG2("%d| ss.push(%f)=%08x\n", id, n, DU2X(n));
+        PUSH(n);
+    }
+    return 1;
+}
 ///
 /// 1-operand self math ops (destructive)
 ///
@@ -109,7 +136,7 @@ TensorVM::xop1t(t4_ten_op op) {
     ///
     /// single tensor handler
     ///
-    Tensor &T = (op == T_INV) ? A.view() : A; /// * hardcopy original matrix if needed
+    Tensor &T = (op == T_INV) ? A : mmu.copy(A);  /// * hardcopy original matrix if needed
     bool   tos = true;
     switch (op) {
     case T_INV: {
@@ -119,12 +146,12 @@ TensorVM::xop1t(t4_ten_op op) {
     } break;
     case T_DET: {                             /// * TODO: use PLU
         int    ns;                            ///> number of row flipping
-        Tensor &P = mmu.tensor(A.H());       /// * dummy vector
+        Tensor &P = mmu.tensor(A.H());        /// * dummy vector
         Tensor::plu(T, P, &ns);               /// * decompose A to PLU
         DU     v  = T.det();                  /// * multiply diagnal
         PUSH(ns&1 ? -v : v);                  /// * return determinant on TOS
         mmu.free(P);
-        mmu.free(T);                         /// * not needed
+        mmu.free(T);                          /// * not needed
         tos = false;
     } break;
     case T_LU:  Tensor::lu(T);    break;      /// * decompose A to LU
@@ -192,19 +219,19 @@ TensorVM::_ss_op(math_op op) {               ///< scalar-scalar ops
     case MUL2: tos = MUL2(ss.pop(), tos); break;
     case MOD2: tos = MOD2(ss.pop(), tos); break;
     }
-    SCALAR(tos);                               /// * even +- can set LSB (rounding)
+    SCALAR(tos);                              /// * even +- can set LSB (rounding)
 }
 
 __GPU__ __INLINE__ Tensor&
 TensorVM::_st_op(math_op op, t4_drop_opt x) { ///< scalar tensor op
     Tensor &A = TTOS;                         /// * Tensor on TOS
     DU     v  = ss[-1];                       /// * scalar as NOS
-    Tensor &O = x==T_KEEP ? A : A.view();     /// * make a hard copy (and parameters)
+    Tensor &O = x==T_KEEP ? mmu.copy(A) : A;  /// * make a hard copy (and parameters)
     if (op==DIV || op==SUB) {                 /// * op(scaler, tensor)
-        Tensor &B = mmu.tensor(A.numel);     /// * working tensor
+        Tensor &B = mmu.tensor(A.numel);      /// * working tensor
         B.map(FILL, v);                       /// * broadcast
         Tensor::ten_op(op, B, A, O);          /// * Hadamard ops
-        mmu.free(B);                         /// * free working tensor
+        mmu.free(B);                          /// * free working tensor
     }
     else Tensor::ten_op(op, A, v, O);         /// * broadcast_op(tensor, scalar)
     
@@ -214,7 +241,7 @@ TensorVM::_st_op(math_op op, t4_drop_opt x) { ///< scalar tensor op
 __GPU__ __INLINE__ Tensor&
 TensorVM::_ts_op(math_op op, t4_drop_opt x) { ///< tensor scalar op
     Tensor &A = TNOS;                         ///< tensor on NOS
-    Tensor &O = x==T_KEEP ? A : A.view();     ///< make a hard copy of A
+    Tensor &O = x==T_KEEP ? mmu.copy(A) : A;  ///< make a hard copy of A
     Tensor::ten_op(op, A, tos, O);            /// * broadcast_op(tensor, scalar)
     return O;
 }
@@ -253,7 +280,7 @@ TensorVM::_tinv(Tensor &A) {                 ///< matrix inverse
     Tensor &I = mmu.tensor(A.H(), A.W()).identity();
     Tensor &X = A;                           ///< hardcopy temp, keep A untouched
     Tensor::inverse(X, I);
-    FREE(X);                                 /// * release temp 
+    mmu.free(X);                             /// * release temp 
     return I;
 }
 
@@ -295,14 +322,14 @@ TensorVM::_tdot(Tensor &A, Tensor &B) {      ///< A x B tensor dot product
 }
 
 __GPU__ __INLINE__ Tensor&
-TensorVM::_solv(Tensor &B, Tensor &A) {     /// Note: A, B flipped 
-    U16 m = A.H(), k = A.W(), n = B.H();    /// B[3,1] = A[3,3] * X
+TensorVM::_solv(Tensor &B, Tensor &A) {      /// Note: A, B flipped 
+    U16 m = A.H(), k = A.W(), n = B.H();     /// B[3,1] = A[3,3] * X
     VLOG1("tenvm# solv B[%d] = [%d,%d]*X\n", n, m, k);
     
     if (B.rank!=1 || m!=k || k!=n) return B;
     
     Tensor &I = _tinv(A);
-    Tensor &O = mmu.tensor(k);              /// resultant vector
+    Tensor &O = mmu.tensor(k);               /// resultant vector
     Tensor::mm(I, B, O);                     /// O = A^-1 x B
     mmu.free(I);
     
@@ -318,7 +345,7 @@ TensorVM::_gemm() {                          ///< blas GEMM
     DU     a  = ss[-4];
     U16    m  = A.H(), k = A.W(), n = B.W();
     if (k == B.H() && m == O.H() && n == O.W()) {
-        Tensor &X = O;                           /// * hard copy O tensor
+        Tensor &X = O;                        /// * hard copy O tensor
         Tensor::gemm(A, B, X, a, b);
         PUSH(X);
     }
@@ -327,58 +354,59 @@ TensorVM::_gemm() {                          ///< blas GEMM
 
 __GPU__ void
 TensorVM::_pickle(bool save) {
-    U8   mode= FAM_WO;                           ///< file mode (W/O,R/W)|BIN
+    U8   mode= FAM_WO;                        ///< file mode (W/O,R/W)|BIN
     
     if (ss.idx > 1 && IS_OBJ(ss[-2])) { /* OK */ }
     else if (ss.idx > 2 && IS_OBJ(ss[-3])) mode |= POPi;
     else { ERROR("tensor adr len [mode]?\n"); return; }
     
-    IU    len   = POPi;                          ///< string length (not used for now)
-    IU    adr   = POPi;                          ///< address to pmem
-    char  *fn   = (char*)MEM(adr);               ///< pointer to string on PAD
-    fout << opx(OP_TSAVE, mode, tos) << fn;      /// * issue save command
-    state = HOLD;                                /// * return to CPU
+    IU    len   = POPi;                       ///< string length (not used for now)
+    IU    adr   = POPi;                       ///< address to pmem
+    char  *fn   = (char*)MEM(adr);            ///< pointer to string on PAD
+    fout << opx(OP_TSAVE, mode, tos) << fn;   /// * issue save command
+    state = HOLD;                             /// * return to CPU
 }
 ///
 /// Tensor Vocabulary
 ///
 __GPU__ void
 TensorVM::init() {
+    if (id !=0) return;                       /// * only needed once
     ForthVM::init();
     ///
     ///@defgroup Tensor creation ops
     ///@brief - stick to PyTorch naming when possible
     ///@{
-    CODE("vector",                       ///< allocate a vector
+    CODE("vector",                            ///< allocate a vector
          IU sz = POPi;
          PUSH(mmu.tensor(sz)));
-    CODE("matrix",                       ///< allocate a matrix
+    CODE("matrix",                            ///< allocate a matrix
          IU w = POPi; IU h = POPi;
          PUSH(mmu.tensor(h, w)));
-    CODE("tensor",                       ///< allocate a NHWC tensor
+    CODE("tensor",                            ///< allocate a NHWC tensor
          IU c = POPi; IU w = POPi; IU h = POPi; IU n = POPi;
          PUSH(mmu.tensor(n, h, w, c)));
-    CODE("vector{",                      ///< create a vector with literals
+    CODE("vector{",                           ///< create a vector with literals
          IU sz = POPi;
          PUSH(mmu.tensor(sz));
          ten_off = 0; ten_lvl = 1);
-    CODE("matrix{",                      ///< create a matrix with literals
+    CODE("matrix{",                           ///< create a matrix with literals
          IU w = POPi; IU h = POPi;
          PUSH(mmu.tensor(h, w));
          ten_off = 0; ten_lvl = 1);
-    CODE("view",   PUSH(DUP(tos)));      ///< create a view of a tensor
-    CODE("copy",   PUSH(COPY(tos)));     ///< create a hardcopy of a tensor
+    CODE("view",   PUSH(DUP(tos)));           ///< create a view of a tensor
+    CODE("copy",   PUSH(COPY(tos)));          ///< create a hardcopy of a tensor
     ///@}
     ///@defgroup Tensor shape ops
     ///@brief - stick to PyTorch naming when possible
     ///@{
-    CODE("flatten",                      ///< reshape as a vector (1-D array)
+    CODE("flatten",                           ///< reshape as a vector (1-D array)
          Tensor &t = TTOS;
          t.reshape(t.numel));
-    CODE("reshape2",                     ///< reshape as matrix(h,w)
+    CODE("reshape2",                          ///< reshape as matrix(h,w)
          IU w = POPi; IU h = POPi;
          TTOS.reshape(h, w));
-    CODE("reshape4",                     ///< reshape as Tensor(NHWC)
+    CODE("reshape4",                          ///< reshape as Tensor(NHWC)
          IU c = POPi; IU w = POPi; IU h = POPi; IU n = POPi;
          TTOS.reshape(n, h, w, c));
     CODE("same_shape?",
@@ -390,16 +418,16 @@ TensorVM::init() {
     ///@defgroup Tensor fill ops
     ///@brief - stick to PyTorch naming when possible
     ///@{
-    CODE("={",                                    ///< (n -- ) or ( -- )
+    CODE("={",                                 ///< (n -- ) or ( -- )
          ten_off = IS_OBJ(tos) ? 0 : POPi;
          ten_lvl = IS_OBJ(tos) ? 1 : 0);
-    CODE("zeros", xop1(FILL, DU0));               ///< fill tensor with 0s
-    CODE("ones",  xop1(FILL, DU1));               ///< fill tensor with 1s
-    CODE("full",  xop1(FILL, POP()));             ///< fill tensor with a value
-    CODE("gradfill", xop1(GFILL, DU1));           ///< gradient fill a tensor
-    CODE("eye",   xop1(IDEN));                    ///< fill 1s in diag
-    CODE("rand",  tos = sys.rand(tos, UNIFORM)); ///< uniform randomize a tensor or number
-    CODE("randn", tos = sys.rand(tos, NORMAL));  ///< normal dist. randomize a tensor
+    CODE("zeros", xop1(FILL, DU0));            ///< fill tensor with 0s
+    CODE("ones",  xop1(FILL, DU1));            ///< fill tensor with 1s
+    CODE("full",  xop1(FILL, POP()));          ///< fill tensor with a value
+    CODE("gradfill", xop1(GFILL, DU1));        ///< gradient fill a tensor
+    CODE("eye",   xop1(IDEN));                 ///< fill 1s in diag
+    CODE("rand",  tos = sys.rand(tos, UNIFORM));   ///< uniform randomize a tensor or number
+    CODE("randn", tos = sys.rand(tos, NORMAL));    ///< normal dist. randomize a tensor
     ///@}
     ///@defgrup Tensor slice and dice
     ///@{
@@ -428,66 +456,63 @@ TensorVM::init() {
     ///@}
     ///@defgroup 1-tensor ops in-place (i.e. destructive, as in Forth)
     ///@{
-    CODE("exp",       xop1(EXP));                     ///< (A -- A')
+    CODE("exp",       xop1(EXP));             ///< (A -- A')
     CODE("ln",        xop1(LN));                      
     CODE("log",       xop1(LOG));                     
     CODE("tanh",      xop1(TANH));
     CODE("relu",      xop1(RELU));
     CODE("sigmoid",   xop1(SIGM));
     CODE("sqrt",      xop1(SQRT));
-    CODE("1/x",       xop1(RCP));                     ///< reciprocal
+    CODE("1/x",       xop1(RCP));             ///< reciprocal
     CODE("sat",       xop1(SAT));
-    CODE("pow",       xop1(POW, POP()));              ///< scale tensor with TOS
+    CODE("pow",       xop1(POW, POP()));      ///< scale tensor with TOS
     ///@}
     ///@defgroup 1-tensor ops that create new tensor
     ///@brief - stick to PyTorch naming when possible
     ///@{
-    CODE("inverse",   xop1t(T_INV));      ///< (A -- A Ai')   matrix inversion (GaussJordan)
-    CODE("det",       xop1t(T_DET));      ///< (A -- A d)     matrix determinant
-    CODE("lu",        xop1t(T_LU));       ///< (A -- A A')    LU decomposition
-    CODE("luinv",     xop1t(T_LUINV));    ///< (A -- A A')    inverse the LU matrix
-    CODE("upper",     xop1t(T_TRIU));     ///< (A -- A A')    upper triangle
-    CODE("lower",     xop1t(T_TRIL));     ///< (A -- A A')    lower triangle
-    CODE("transpose", xop1t(T_XPOS));     ///< (A -- A At)    matrix transpose
+    CODE("inverse",   xop1t(T_INV));          ///< (A -- A Ai')   matrix inversion (GaussJordan)
+    CODE("det",       xop1t(T_DET));          ///< (A -- A d)     matrix determinant
+    CODE("lu",        xop1t(T_LU));           ///< (A -- A A')    LU decomposition
+    CODE("luinv",     xop1t(T_LUINV));        ///< (A -- A A')    inverse the LU matrix
+    CODE("upper",     xop1t(T_TRIU));         ///< (A -- A A')    upper triangle
+    CODE("lower",     xop1t(T_TRIL));         ///< (A -- A A')    lower triangle
+    CODE("transpose", xop1t(T_XPOS));         ///< (A -- A At)    matrix transpose
     ///@}
     ///@defgroup 2-tensor matrix ops
     ///@{
-    CODE("+=",        xop2(ADD, T_DROP));   ///< (A B -- C)
+    CODE("+=",        xop2(ADD, T_DROP));     ///< (A B -- C)
     CODE("-=",        xop2(SUB, T_DROP));
     CODE("*=",        xop2(MUL, T_DROP));
     CODE("/=",        xop2(DIV, T_DROP));
-    CODE("@=",        xop2t(T_DOT, T_DROP));///< (A B -- C)
-    CODE("matmul",    xop2t(T_DOT));      ///< (A B -- A B C) matrix multiply
-    CODE("matdiv",    xop2t(T_DIV));      ///< (A B -- A B C) matrix divide
-    CODE("solve",     xop2t(T_SOLV));     ///< (B A -- B A X) solve B = AX
-    CODE("gemm",      _gemm());           ///< (a b A B C -- a b A B C') GEMM (C updated)
+    CODE("@=",        xop2t(T_DOT, T_DROP));  ///< (A B -- C)
+    CODE("matmul",    xop2t(T_DOT));          ///< (A B -- A B C) matrix multiply
+    CODE("matdiv",    xop2t(T_DIV));          ///< (A B -- A B C) matrix divide
+    CODE("solve",     xop2t(T_SOLV));         ///< (B A -- B A X) solve B = AX
+    CODE("gemm",      _gemm());               ///< (a b A B C -- a b A B C') GEMM (C updated)
     ///@}
     ///@defgroup Tensor persistance
     ///@brief - stick to PyTorch naming when possible
     ///@{
-    CODE("bin",       PUSH(FAM_RAW));     ///< raw/binary file
-    CODE("w/o",       PUSH(FAM_WO));      ///< write-only file
-    CODE("r/w",       PUSH(FAM_RW));      ///< read-write file
-    CODE("save",      _pickle(true));     ///< ( T fn len -- T ) save tensor to a file
-    CODE("load",      _pickle(false));    ///< ( T fn -- T' ) fill a tensor from file
+    CODE("bin",       PUSH(FAM_RAW));         ///< raw/binary file
+    CODE("w/o",       PUSH(FAM_WO));          ///< write-only file
+    CODE("r/w",       PUSH(FAM_RW));          ///< read-write file
+    CODE("save",      _pickle(true));         ///< ( T fn len -- T ) save tensor to a file
+    CODE("load",      _pickle(false));        ///< ( T fn -- T' ) fill a tensor from file
     ///
     /// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
     ///
     ///@defgroup redefined tensor ops
     ///@{
-    CODE("boot", mmu.clear(FIND("load") + 1));
-    CODE("dolit",
-         DU v = mmu.rd(ip); ip += sizeof(DU);
-         PUSH(DUP(v)));
+    CODE("boot", mmu.clear(FIND((char*)"load") + 1));
     CODE(".",
-         DU v = POP();                    ///< print TOS
+         DU v = POP();                         ///< print TOS
          if (!IS_OBJ(v) || IS_VIEW(v)) {
-             fout << " " << v;            /// * eForth has a space prefix
+             fout << " " << v;                 /// * eForth has a space prefix
          }
          else {
-             fout << v;                   /// * tensor, model, dataset
-             mmu.mark_free(v);            /// * mark to release by host
-             state = HOLD;                /// * forced flush (wasteful but no dangling objects)
+             fout << v;                        /// * tensor, model, dataset
+             mmu.mark_free(v);                 /// * mark to release by host
+             state = HOLD;                     /// * forced flush (wasteful but no dangling objects)
          });
     CODE("+",      xop2(ADD, T_KEEP));
     CODE("-",      xop2(SUB, T_KEEP));
@@ -496,7 +521,7 @@ TensorVM::init() {
     CODE("abs",    xop1(ABS));
     CODE("negate", xop1(NEG));
     CODE("@",
-         if (TOS2T) xop2t(T_DOT);         ///< matrix @ product
+         if (TOS2T) xop2t(T_DOT);              ///< matrix @ product
          else {
              DU v = mmu.rd(POPi);
              PUSH(DUP(v));
@@ -508,34 +533,7 @@ TensorVM::init() {
          if (IS_OBJ(tos)) PUSH(TTOS.min());
          else xop2(MIN));
     ///@}
-
-    VLOG1("TensorVM::init ok\n");
-};
-///
-/// override with tensor handler
-///
-__GPU__ int
-TensorVM::number(char *idiom) {
-    char *p;
-    DU n = (STRCHR(idiom, '.'))
-        ? STRTOF(idiom, &p)
-        : STRTOL(idiom, &p, *mmu.pmem(id));
-    if (*p != '\0') return 0;
-    SCALAR(n);                           /// * mask out object bit
-    if (compile) {                       /// * add literal when in compile mode
-        VLOG2("%d| %f\n", id, n);
-        add_lit(n);                      ///> dovar (+parameter field)
-    }
-    else if (ten_lvl > 0) {              /// * append literal into tensor storage
-        VLOG2("%d| T[%d]=%f\n", id, ten_off, n);
-        TTOS.data[ten_off++] = n;        /// * append to tensor.data
-    }
-    else {                               ///> or, add value onto data stack
-        VLOG2("%d| ss.push(%f)=%08x\n", id, n, DU2X(n));
-        PUSH(n);
-    }
-    return 1;
+    VLOG1("TensorVM[%id]::init ok sizeof(Tensor)=%ld\n", id, sizeof(Tensor));
 }
-
 #endif  // T4_ENABLE_OBJ
 //==========================================================================
