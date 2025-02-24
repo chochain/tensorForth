@@ -28,7 +28,7 @@
 */
 __BOTH__ void
 TLSF::init(U8 *mem, U64 sz, U64 off) {
-    DEBUG("tlsf#init(%p, 0x%x)\n", mem, sz);
+    DEBUG("tlsf#init(%p, 0x%lx)\n", mem, sz);
     _heap    = mem + off;                               // header offset (for Tensor0)
     _heap_sz = sz - off;
     U64 bsz  = _heap_sz - sizeof(used_block);           // minus end block
@@ -51,7 +51,7 @@ TLSF::init(U8 *mem, U64 sz, U64 off) {
     long i = 31L; for (U64 z = bsz, m = 1L<<31; i && z && !(z & m); z<<=1) i--;
     long j = (bsz >> (i - L2_BITS)) & L2_MASK;
     U32 index = INDEX(i, j);                            // last slot of map
-    DEBUG("%x => index(%lx,%lx)\n", bsz, i, j);
+    DEBUG("%lx => index(%lx,%lx)\n", bsz, i, j);
     SET_MAP(index);                                     // set ticks for available maps
     _free_list[index] = head;
 
@@ -69,7 +69,7 @@ TLSF::init(U8 *mem, U64 sz, U64 off) {
 */
 __GPU__ void*
 TLSF::malloc(U64 sz) {
-    DEBUG("tlsf#malloc(0x%x)\n", sz);
+    DEBUG("tlsf#malloc(0x%lx)\n", sz);
     U64 bsz = ALIGN8(sz) + sizeof(used_block);  // logical => physical size
 
     _LOCK;
@@ -169,7 +169,7 @@ TLSF::_idx(U64 sz) {
     U32 l1 = __fls(sz);
     U32 l2 = (sz >> (l1 - L2_BITS)) & L2_MASK;    // 1 shift, 1 minus, 1 and
 
-    DEBUG("tlsf#idx(%x): INDEX(%x,%x) => %x\n", sz, l1, l2, INDEX(l1, l2));
+    DEBUG("tlsf#idx(%lx): INDEX(%x,%x) => %x\n", sz, l1, l2, INDEX(l1, l2));
 
     return INDEX(l1, l2);
 }
@@ -191,7 +191,7 @@ TLSF::_find_free_index(U64 sz) {
     U32 l1 = L1(index);
     U32 l2 = L2(index);
     U32 m1, m2 = _l2_map[l1] >> (l2+1);          // get SLI one size bigger
-    DEBUG("tlsf#find(%04x):%x, _l2_map[%x]=%x", sz, index, l1, _l2_map[l1]);
+    DEBUG("tlsf#find(%lx):%x, _l2_map[%x]=%x", sz, index, l1, _l2_map[l1]);
     if (m2) {                                    // check if any 2nd level slot available
         l2 = __ffs(m2 << l2);                    // MSB represent the smallest slot that fits
     }
@@ -227,7 +227,7 @@ TLSF::_split(free_block *blk, U64 bsz) {
     free->bsz = blk->bsz - bsz;                                       // carve out the acquired block
     free->psz = U8POFF(free, blk);                                    // positive offset to previous block
     blk->bsz  = bsz;                                                  // allocate target block
-    DEBUG("%x + (%p:%x)\n", bsz, free, free->bsz);
+    DEBUG("%lx + (%p:%x)\n", bsz, free, free->bsz);
 
     free_block *aft  = (free_block *)BLK_AFTER(blk);                  // next adjacent block
     if (aft) {
