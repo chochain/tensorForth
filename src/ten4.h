@@ -11,11 +11,11 @@
 #include "ldr/loader.h"      // default dataset loader
 
 #if T4_ENABLE_NN
-typedef NetVM   VM_TYPE;
+typedef NetVM     VM_TYPE;
 #elif T4_ENABLE_OBJ
-typedef TenVM   VM_TYPE;
+typedef TensorVM  VM_TYPE;
 #else
-typedef ForthVM VM_TYPE;
+typedef ForthVM   VM_TYPE;
 #endif
 
 #define WARP_SZ   32                        /** threads per warp       */
