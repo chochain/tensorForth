@@ -25,7 +25,7 @@ k_vm_init(System *sys, VM_Handle *pool) {
     const auto g  = cg::this_thread_block();   ///< all blocks in grid
     const int  id = g.thread_rank();           ///< VM id
     if (id < T4_VM_COUNT) {
-        VM *vm = pool[id].vm = new VM_TYPE(id, sys);
+        VM *vm = pool[id].vm = new VM_TYPE(id, *sys);
         vm->init();
     }
     if (id==0) {
