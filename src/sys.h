@@ -48,6 +48,7 @@ public:
     __GPU__  void op(OP op, U8 m=0, DU n=DU0, int i=0) {  ///< print operator
         *_ostr << opx(op, m, n, i);
     }
+    __GPU__  void op_fn(char *fname) { *_ostr << fname; } ///< print filename
     __GPU__  DU   ms() { return static_cast<double>(clock64()) / _khz; }
     __GPU__  DU   rand(DU d, rand_opt n) {                ///< randomize a tensor
         return d * curand_uniform(&_seed[0]);
