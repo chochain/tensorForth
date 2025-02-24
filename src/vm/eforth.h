@@ -23,6 +23,7 @@
 #define BASE      ((U8*)MEM(base))                    /**< pointer to user area per VM          */
 #define SETJMP(a) (((Param*)MEM(a))->ioff = HERE)     /**< set branch target                    */
 #define SS2I      ((id<<10)|(ss.idx>=0 ? ss.idx : 0)) /**< ss_dump parameter (composite)        */
+#define POPi      (D2I(POP()))
 ///@}
 ///@name progress status macros
 ///@{
@@ -70,27 +71,24 @@ protected:
     __GPU__ virtual int process(char *idiom); ///< process command string
     __GPU__ virtual int post();               ///< for tracing
     ///
-    /// stack operator short hands
-    ///
-    __GPU__ __INLINE__ int FIND(char *name) { return mmu.find(name);  }
-    __GPU__ __INLINE__ DU  POP()            { DU n=tos; tos=ss.pop(); return n; }
-    __GPU__ __INLINE__ IU  POPI()           { return D2I(POP()); }
-    __GPU__ __INLINE__ DU  PUSH(DU v)       { ss.push(tos); return tos = v;     }
-#if T4_ENABLE_OBJ    
-    __GPU__ __INLINE__ DU  PUSH(T4Base &t)  { ss.push(tos); return tos = mmu.obj2du(t); }
-#endif // T4_ENABLE_OBJ
-    
-private:    
-    ///
     /// outer interpreter
     ///
-    __GPU__ int  parse(char *idiom);          ///< parse command string
-    __GPU__ int  number(char *idiom);         ///< parse input as number
+    __GPU__ IU parse(char *idiom);            ///< parse command string
+    __GPU__ DU number(char *idiom, char **p); ///< parse input as number
     ///
     /// Forth inner interpreter
     ///
     __GPU__ void nest();                      ///< inner interpreter
     __GPU__ void call(IU w);                  ///< execute word by index
+    ///
+    /// stack operator short hands
+    ///
+    __GPU__ __INLINE__ IU  FIND(char *name) { return mmu.find(name);  }
+    __GPU__ __INLINE__ DU  POP()            { DU n=tos; tos=ss.pop(); return n; }
+    __GPU__ __INLINE__ DU  PUSH(DU v)       { ss.push(tos); return tos = v;     }
+#if T4_ENABLE_OBJ    
+    __GPU__ __INLINE__ DU  PUSH(T4Base &t)  { ss.push(tos); return tos = mmu.obj2du(t); }
+#endif // T4_ENABLE_OBJ
     ///
     /// Dictionary compiler proxy macros to reduce verbosity
     ///
@@ -119,6 +117,8 @@ private:
         add_p(LIT, 0, false, exit);
         add_du(v);                            /// * store in extended IU
     }
+    
+private:    
     ///
     /// compiler helpers
     ///
