@@ -44,12 +44,12 @@ public:
     
     AIO(h_istr &i, h_ostr &o, int verbo) : fin(i), fout(o), trace(verbo) {}
 
-    __HOST__ void to_s(DU v, int rdx=10);      ///< display value by ss_dump
+    __HOST__ void show(DU v, int rdx=10);      ///< display value by ss_dump
     
 #if T4_ENABLE_OBJ
-    __HOST__ void to_s(T4Base &t, bool is_view, int rdx=10); ///< display value by ss_dump
+    __HOST__ void show(T4Base &t, bool is_view, int rdx=10); ///< display value by ss_dump
     __HOST__ void print(T4Base &t);            ///< display value by ss_dump
-    __HOST__ int  tsave(Tensor &t, U8 mode, char *fname);
+    __HOST__ int  tsave(Tensor &t, char *fname, U8 mode);
     
 #if T4_ENABLE_NN    
     ///
