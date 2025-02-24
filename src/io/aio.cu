@@ -10,15 +10,15 @@
 #include "aio.h"
 
 __HOST__ void
-AIO::to_s(DU v, int rdx) {
+AIO::show(DU v, int rdx) {                     ///< display value by ss_dump
     fout << std::setbase(rdx) << v << std::setbase(_radix);
 }
 ///
 /// Object debugging methods
 ///
 #if T4_ENABLE_OBJ
-__HOST__ void
-AIO::to_s(T4Base &t, bool is_view, int rdx) {
+__HOST__ void                                  ///< display value by ss_dump
+AIO::show(T4Base &t, bool is_view, int rdx) {
     _show_obj(t, is_view, rdx);
 }
 

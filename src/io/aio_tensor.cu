@@ -15,7 +15,7 @@ using namespace std;
 ///
 #include <fstream>
 __HOST__ int
-AIO::tsave(Tensor &t, U8 mode, char *fname) {
+AIO::tsave(Tensor &t, char *fname, U8 mode) {
     printf("\nAIO::save tensor to '%s' =>", fname);
     
     ios_base::openmode m = (mode & FAM_RW) ? ios_base::in : ios_base::out;
