@@ -564,7 +564,7 @@ Tensor::reset(void *mem, U64 sz, t4_obj tt, t4_layer fn) {
     init(sz, tt, 1);                                   /// T4Base attributes
 
     const U64 GB   = 1L << 30;
-    const U32 s[4] = { 1, 1, 1, 1 };
+    const U16 s[4] = { 1, 1, 1, 1 };
     const U32 h[4] = {
         (U32)(sz > GB ? (sz>>30) : sz),
         (U32)(sz > GB ? GB : 1L),
@@ -595,7 +595,8 @@ Tensor::reshape(U64 sz) {
 
 __BOTH__ Tensor&
 Tensor::reshape(U32 h, U32 w) {
-    const U32 s[4] = { 1, 1, 1, 1 }, t[4] = { h, w, 1, 1 };
+    const U16 s[4] = { 1, 1, 1, 1 };
+    const U32 t[4] = { h, w, 1, 1 };
     U64 sz = (U64)h * w;
     if (sz == numel) {
         rank = 2;
@@ -611,7 +612,8 @@ Tensor::reshape(U32 h, U32 w) {
 
 __BOTH__ Tensor&
 Tensor::reshape(U32 n, U32 h, U32 w, U32 c) {
-    const U32 s[4] = { 1, 1, 1, 1 }, t[4] = { h, w, c, n };
+    const U16 s[4] = { 1, 1, 1, 1 };
+    const U32 t[4] = { h, w, c, n };
     U64 sz = (U64)n * h * w * c;
     if (sz == numel) {
         rank = 4;
@@ -626,7 +628,8 @@ Tensor::reshape(U32 n, U32 h, U32 w, U32 c) {
 }
 __BOTH__ Tensor&
 Tensor::reshape(U32 c1, U32 n, U32 h, U32 w, U32 c) {
-    const U32 s[4] = { 1, 1, 1, 1 }, t[4] = { h, w, c, n };
+    const U16 s[4] = { 1, 1, 1, 1 };
+    const U32 t[4] = { h, w, c, n };
     U64 sz = (U64)c1 * n * h * w * c;
     if (sz == numel) {
         rank = 5;

@@ -64,7 +64,7 @@ public:
         IU   w  = find(name);                                      ///< check whether word exists
         Code &c = _dict[w ? w : _didx++];                          ///< new or exist Code object
         c.set(name, f, im);                                        /// * hardcopy Code object
-        if (w) TRACE("*** word redefined: %s\n", c.name);
+        if (w) TRACE("*** refind: %s\n", c.name);
     }           
     __GPU__  IU   find(const char *s);                             ///< dictionary search
     ///
@@ -111,7 +111,7 @@ public:
     
 #if T4_ENABLE_OBJ // vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
     ///
-    /// static short hands for eforth tensor ucodes (for DU <-> Tensor conversion)
+    /// short hands for eforth tensor ucodes (for DU <-> Tensor conversion)
     ///
     __BOTH__ T4Base &du2obj(DU d) {                          ///< DU to Obj convertion
         U32    off = DU2X(d) & ~T4_TYPE_MSK;
