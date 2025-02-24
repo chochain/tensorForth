@@ -21,8 +21,6 @@ class Debug {                                             ///< friend class to M
     AIO      *io;                                         ///< async IO unit
     char     tmp[256];                                    ///< tmp string buffer
     
-    __HOST__ char *_h(const char *d_str);                 ///< convert from device string
-    
 public:
     __HOST__ Debug(MMU *mmu, AIO *aio) : mu(mmu), io(aio) {}
     __HOST__ ~Debug() {}
@@ -31,9 +29,6 @@ public:
     __HOST__ void reset_fmt();
     
     __HOST__ void ss_dump(IU id, int sz, DU tos, int base=10); ///< show data stack content
-    __HOST__ int  p2didx(Param *p);                       ///< reverse lookup
-    __HOST__ int  to_s(IU w, int base=10);                ///< show dictionary info from descriptor
-    __HOST__ int  to_s(Param *p, int nv, int base);
     __HOST__ void words();                                ///< list dictionary words
     __HOST__ void mem_dump(IU addr, int sz);              ///< dump memory frm addr...addr+sz
     __HOST__ void see(IU w, int base=10);                 ///< disassemble user defined word
@@ -43,6 +38,15 @@ public:
     /// self tests
     ///
     __HOST__ void self_tests();
+
+private:
+    ///
+    /// methods for supporting see
+    ///
+    __HOST__ char *_d2h(const char *d_str);               ///< convert from device string
+    __HOST__ int  _p2didx(Param *p);                      ///< reverse lookup
+    __HOST__ int  _to_s(IU w, int base);                  ///< show dictionary entry
+    __HOST__ int  _to_s(Param *p, int nv, int base);      ///< show by parameter memory pointer
 };
 ///@}
 #endif // TEN4_SRC_DEBUG_H

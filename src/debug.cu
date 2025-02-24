@@ -23,18 +23,10 @@ Code prim[] = {
 };
 std::ios _fmt0(NULL);                     ///< static format storage
 ///@}
+///@name 
+///@brief AIO takes managed memory blocks as input and output buffers
+///       which can be access by both device and host
 ///
-/// AIO takes managed memory blocks as input and output buffers
-/// which can be access by both device and host
-///
-__HOST__ char*                            ///< convert device string to host
-Debug::_h(const char *d_str) {
-    int i = 0;
-    do {
-        cudaMemcpy(tmp+i, d_str+i, 1, cudaMemcpyDeviceToHost);
-    } while (tmp[i++]);
-    return tmp;
-}
 __HOST__ void
 Debug::keep_fmt() { _fmt0.copyfmt(io->fout); }
 
@@ -68,77 +60,6 @@ Debug::ss_dump(IU id, int sz, DU tos, int base) {
     }
     fout << tos << " -> ok" << std::endl;
 }
-__HOST__ int
-Debug::p2didx(Param *p) {
-    UFP xt0 = XT0;
-    IU  pfa = p->ioff;
-    for (int i = DIDX - 1; i > 0; --i) {
-        Code &c  = DICT(i);
-        bool hit = p->udf
-            ? (c.udf  && pfa==c.pfa)
-            : (!c.udf && pfa==(IU)((UFP)c.xt - xt0));
-        if (hit) return i;
-    }
-    return -1;                                     /// * not found
-}
-
-__HOST__ int
-Debug::to_s(IU w, int base) {
-    Param *p = (Param*)MEM(DICT(w).pfa);
-    return to_s(p, 0, base);
-}
-__HOST__ int
-Debug::to_s(Param *p, int nv, int base) {
-    bool pm = p->op != MAX_OP;                     ///< is prim
-    int  w  = pm ? p->op : p2didx(p);              ///< fetch word index by pfa
-    if (w < 0) return -1;                          ///> loop guard
-    
-    h_ostr &fout = io->fout;
-    Code   &code = DICT(w);
-    
-    keep_fmt();
-    fout << "  ";                                  /// * indent
-    if (io->trace) {                               /// * header
-        fout << std::hex
-             << std::setfill('0') << "( "
-             << std::setw(4) << ((U8*)p - MEM(0))  ///> addr
-             << std::setfill(' ') << '['
-             << std::setw(3) << w << "] ) "        ///> word ref
-             << std::setbase(base);
-    }
-    if (!pm) {                                     ///> built-in
-        fout << _h(code.name) << "  ";
-        reset_fmt();                               /// * restore format
-        return 0;
-    }
-    U8 *ip = (U8*)(p+1);                           ///< pointer to data
-    switch (w) {
-    case LIT:
-        DU v = *(DU*)ip;
-        if (IS_OBJ(v)) io->to_s(mu->du2obj(v), IS_VIEW(v), p->m);
-        else io->to_s(v);                           break;
-    case STR:  fout << "s\" " << (char*)ip << '"';  break;
-    case DOTQ: fout << ".\" " << (char*)ip << '"';  break;
-    case VAR:
-        for (int i=0; i < nv; i+=sizeof(DU)) {
-            fout << *(DU*)(ip + i) << ' ';
-        }
-        /* no break */
-    default: fout << prim[w].name; break;
-    }
-    switch (w) {
-    case NEXT: case LOOP:
-    case BRAN: case ZBRAN:                   ///> display jmp target
-        fout << " \\ $" << std::hex
-             << std::setfill('0') << std::setw(4) << p->ioff;
-        break;
-    }
-    reset_fmt();                             /// * restore format
-    return
-        w==EXIT ||                           /// * end of word
-        (w==LIT && p->exit) ||               /// * constant
-        (w==VAR && !p->ioff);                /// * variable
-}
 ///
 /// display dictionary word (wastefully one byte at a time)
 ///
@@ -150,7 +71,7 @@ Debug::words() {
     keep_fmt();
     fout << std::dec;
     for (int i=1, sz=0; i < DIDX; i++) {
-        char *name = _h(DICT(i).name);
+        char *name = _d2h(DICT(i).name);
         fout << "  " << name;
         sz += strlen(name) + 2;
 
@@ -205,7 +126,7 @@ Debug::see(IU w, int base) {
     h_ostr &fout = io->fout;
     Code   &c    = DICT(w);
 
-    fout << ": " << _h(c.name) << ENDL;
+    fout << ": " << _d2h(c.name) << ENDL;
     if (!c.udf) {
         fout << " ( built-ins ) ;" << std::endl;
         return;
@@ -214,7 +135,7 @@ Debug::see(IU w, int base) {
     while (1) {
         Param *p = (Param*)ip;
         int   nv = p->op==VAR ? nvar(w, p->ioff, ip) : 0;  ///< VAR number of elements
-        if (to_s(p, nv, base) != 0) break;                 ///< display Parameter
+        if (_to_s(p, nv, base) != 0) break;                ///< display Parameter
         fout << ENDL;
         ///
         /// advance ip to next Param
@@ -228,10 +149,10 @@ Debug::see(IU w, int base) {
     }
     fout << std::endl;
 }
+///@}
 ///====================================================================
-///
-///> System statistics - for heap, stack, external memory debugging
-///
+///@name System statistics - for heap, stack, external memory debugging
+///@{
 __HOST__ void
 Debug::dict_dump() {
     h_ostr &fout = io->fout;
@@ -248,14 +169,100 @@ Debug::dict_dump() {
              << (c.udf ? " pf=" : " xt=")
              << std::setw(6) << ip
 			 << (c.imm ? '*' : ' ') << ' '
-             << _h(c.name) << std::endl;
+             << _d2h(c.name) << std::endl;
     }
     reset_fmt();
 }
-
+///@}
+///@name methods for supporting words and see
+///@{
+__HOST__ char*                            ///< convert device string to host
+Debug::_d2h(const char *d_str) {
+    int i = 0;
+    do {
+        cudaMemcpy(tmp+i, d_str+i, 1, cudaMemcpyDeviceToHost);
+    } while (tmp[i++]);
+    return tmp;
+}
+__HOST__ int
+Debug::_p2didx(Param *p) {
+    UFP xt0 = XT0;
+    IU  pfa = p->ioff;
+    for (int i = DIDX - 1; i > 0; --i) {
+        Code &c  = DICT(i);
+        bool hit = p->udf
+            ? (c.udf  && pfa==c.pfa)
+            : (!c.udf && pfa==(IU)((UFP)c.xt - xt0));
+        if (hit) return i;
+    }
+    return -1;                                     /// * not found
+}
+__HOST__ int
+Debug::_to_s(IU w, int base) {
+    Param *p = (Param*)MEM(DICT(w).pfa);
+    return _to_s(p, 0, base);
+}
+__HOST__ int
+Debug::_to_s(Param *p, int nv, int base) {
+    bool pm = p->op != MAX_OP;                     ///< is prim
+    int  w  = pm ? p->op : _p2didx(p);             ///< fetch word index by pfa
+    if (w < 0) return -1;                          ///> loop guard
+    
+    h_ostr &fout = io->fout;
+    Code   &code = DICT(w);
+    
+    keep_fmt();
+    fout << "  ";                                  /// * indent
+    if (io->trace) {                               /// * header
+        fout << std::hex
+             << std::setfill('0') << "( "
+             << std::setw(4) << ((U8*)p - MEM(0))  ///> addr
+             << std::setfill(' ') << '['
+             << std::setw(3) << w << "] ) "        ///> word ref
+             << std::setbase(base);
+    }
+    if (!pm) {                                     ///> built-in
+        fout << _d2h(code.name) << "  ";
+        reset_fmt();                               /// * restore format
+        return 0;
+    }
+    U8 *ip = (U8*)(p+1);                           ///< pointer to data
+    switch (w) {
+    case LIT: {
+        DU v = *(DU*)ip;
+        if (IS_OBJ(v)) io->show(mu->du2obj(v), IS_VIEW(v), base);
+        else io->show(v, base);
+    } break;
+    case STR:  fout << "s\" " << (char*)ip << '"';  break;
+    case DOTQ: fout << ".\" " << (char*)ip << '"';  break;
+    case VAR:
+        for (int i=0; i < nv; i+=sizeof(DU)) {
+            fout << *(DU*)(ip + i) << ' ';
+        }
+        /* no break */
+    default: fout << prim[w].name; break;
+    }
+    switch (w) {
+    case NEXT: case LOOP:
+    case BRAN: case ZBRAN:                   ///> display jmp target
+        fout << " \\ $" << std::hex
+             << std::setfill('0') << std::setw(4) << p->ioff;
+        break;
+    }
+    reset_fmt();                             /// * restore format
+    return
+        w==EXIT ||                           /// * end of word
+        (w==LIT && p->exit) ||               /// * constant
+        (w==VAR && !p->ioff);                /// * variable
+}
+///@}
+///============================================================================
+///@name methods for debug/tracing
+///@{
 __HOST__ void Debug::self_tests() {
 //    dict_dump(10);
 //    words();
 //    mem_dump(0, 256, 10);
     ss_dump(0, 3, 10);
 }
+///@}
