@@ -34,8 +34,8 @@ public:
     __GPU__ virtual void init();            ///< override ForthVM.init()
     
 protected:
+    U32    ten_off = 0;                     ///< tensor offset (storage index)
     int    ten_lvl = 0;                     ///< tensor input level
-    int    ten_off = 0;                     ///< tensor offset (storage index)
     ///
     /// override literal handler
     ///

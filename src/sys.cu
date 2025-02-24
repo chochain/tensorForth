@@ -104,12 +104,12 @@ System::process_event(io_event *ev) {
              << std::setprecision(f->prec ? f->prec : -1)
              << std::setfill((char)f->fill);
     } break;
-#if T4_ENABLE_OBJ        
+#if T4_ENABLE_OBJ
     case GT_OBJ: io->print(mu->du2obj(*(DU*)v));      break;
 #endif // T4_ENABLE_OBJ        
     case GT_OPX: {
         _opx *o = (_opx*)v;
-        DEBUG("OP=%d, m=%d, i=%d, n=0x%08x=%f\n", o->op, o->m, o->i, DU2X(o->n), o->n);
+        DEBUG("OP=%d, m=%d, i=%d, n=0x%08x=%g\n", o->op, o->m, o->i, DU2X(o->n), o->n);
         switch (o->op) {
         case OP_DICT:  db->dict_dump();                    break;
         case OP_WORDS: db->words();                        break;

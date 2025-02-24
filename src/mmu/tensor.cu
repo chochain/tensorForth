@@ -204,7 +204,7 @@ Tensor::gemm(Tensor &A, Tensor &B, Tensor &O, DU alpha, DU beta) {
         ERROR("Tensor#gemm ka(%d)!=kb(%d) or N, C diff\n", Ka, Kb);
         return O;
     }
-    DEBUG("GEMM N=%d, C=%d, H=%d, W=%d, K=%d a=%f, b=%f\n", N, C, H, W, Ka, alpha, beta);
+    DEBUG("GEMM N=%d, C=%d, H=%d, W=%d, K=%d a=%g, b=%g\n", N, C, H, W, Ka, alpha, beta);
     dim3 blk(T4_WARP_SZ, T4_WARP_SZ, 1);
     dim3 grd(NGRID(W, H, C, blk));
 
@@ -658,7 +658,7 @@ Tensor::identity() {
 __BOTH__ Tensor&
 Tensor::map(math_op op, DU v) {
     OPN(MATH_OP);
-    DEBUG("Tensor#%s v=%f\n", opn[op], v);
+    DEBUG("Tensor#%s v=%g\n", opn[op], v);
     U32 g = (numel + T4_WARP_SQ - 1) / T4_WARP_SQ;
     
     k_math<<<g, T4_WARP_SQ>>>(op, data, numel, v);

@@ -19,18 +19,18 @@ TensorVM::process(char *idiom) {
     char *p;
     DU n = number(idiom, &p);                 /// * parse it as a literal number
     if (*p!='\0') return 0;                   /// * failed, bail
-    
+
     SCALAR(n);                                /// * mask out object bit
     if (compile) {                            /// * add literal when in compile mode
-        VLOG2("%d| %f\n", id, n);
+        VLOG2("%d> %g\n", id, n);
         add_lit(n);                           ///> dovar (+parameter field)
     }
     else if (ten_lvl > 0) {                   /// * append literal into tensor storage
-        VLOG2("%d| T[%d]=%f\n", id, ten_off, n);
-        TTOS.data[ten_off++] = n;             /// * append to tensor.data
+        VLOG2("%d> T[%d]=%g\n", id, ten_off, n);
+        TTOS.data[ten_off++] = n;             /// * append to tensor.data (no stack used)
     }
     else {                                    ///> or, add value onto data stack
-        VLOG2("%d| ss.push(%f)=%08x\n", id, n, DU2X(n));
+        VLOG2("%d> ss.push(%g)=%08x\n", id, n, DU2X(n));
         PUSH(n);
     }
     return 1;
@@ -100,7 +100,7 @@ TensorVM::xop2(math_op op, t4_drop_opt x) {
     if (s0 && s1) return _ss_op(op);              /// * scalar scalar op
     if (s0) {                                     /// * tensor scaler op
         Tensor &O = _ts_op(op, x);
-        VLOG1("tenvm# A[%d,%d] %s %f => O[%d,%d]\n",
+        VLOG2("tenvm# A[%d,%d] %s %g => O[%d,%d]\n",
               TNOS.H(), TNOS.W(), opn[op], tos, O.H(), O.W());
         if (x==T_KEEP) PUSH(O);
         else           POP();
@@ -108,7 +108,7 @@ TensorVM::xop2(math_op op, t4_drop_opt x) {
     }
     if (s1) {                                     /// * scalar tensor op
         Tensor &O = _st_op(op, x);
-        VLOG1("tenvm# %f %s A[%d,%d] => O[%d,%d]\n",
+        VLOG2("tenvm# %g %s A[%d,%d] => O[%d,%d]\n",
               ss[-1], opn[op], TTOS.H(), TTOS.W(), O.H(), O.W());
         if (x==T_KEEP) PUSH(O);
         else           ss.pop();
@@ -117,7 +117,7 @@ TensorVM::xop2(math_op op, t4_drop_opt x) {
 
     Tensor &O = _tt_op(op);                       /// * tensor tensor op
     if (O != TTOS) {
-        VLOG1("tenvm# A[%d,%d] %s B[%d,%d] => O[%d,%d]\n",
+        VLOG2("tenvm# A[%d,%d] %s B[%d,%d] => O[%d,%d]\n",
              TNOS.H(), TNOS.W(), opn[op], TTOS.H(), TTOS.W(), O.H(), O.W());
         if (x==T_DROP) {
             DROP(POP());
@@ -303,7 +303,7 @@ TensorVM::_tdot(Tensor &A, Tensor &B) {      ///< A x B tensor dot product
         A.rank==1 && A.numel==B.numel) {
         DU v = A.dot(B);
         PUSH(v);
-        VLOG1("tenvm# A[%d] · B[%d] => %f\n", A.H(), B.H(), v);
+        VLOG1("tenvm# A[%d] · B[%d] => %g\n", A.H(), B.H(), v);
         return B;                            /// * non-tensor
     }
     if (B.rank==1 && A.W()==B.numel) {       ///> inner(tensor, vector)
@@ -534,7 +534,7 @@ TensorVM::init() {
          if (IS_OBJ(tos)) PUSH(TTOS.min());
          else xop2(MIN));
     ///@}
-    VLOG1("TensorVM[%d]::init ok, sizeof(Tensor)=%ld\n", id, sizeof(Tensor));
+    TRACE("TensorVM[%d]::init ok, sizeof(Tensor)=%ld\n", id, sizeof(Tensor));
 }
 #endif  // T4_ENABLE_OBJ
 //==========================================================================
