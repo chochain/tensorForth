@@ -31,7 +31,7 @@ class TensorVM : public ForthVM {
     
 public:
     __GPU__ TensorVM(int id, System &sys) : ForthVM(id, sys), fout(sys.ostr()) {
-        VLOG1("\\    ::TensorVM[%d](...) sizeof(Tensor)=%ld\n", id, sizeof(Tensor));
+        VLOG1("\\    ::TensorVM[%d]\n", id);
     }
     __GPU__ virtual void init();            ///< override ForthVM.init()
     
@@ -41,7 +41,7 @@ protected:
     ///
     /// override literal handler
     ///
-    __GPU__ virtual int number(char *str);  ///< TODO: CC - worked without 'final', why?
+    __GPU__ virtual int process(char *str); ///< TODO: CC - worked without 'final', why?
     ///
     /// tensor ops based on number of operands
     ///
