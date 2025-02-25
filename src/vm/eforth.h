@@ -86,9 +86,6 @@ protected:
     __GPU__ __INLINE__ IU  FIND(char *name) { return mmu.find(name);  }
     __GPU__ __INLINE__ DU  POP()            { DU n=tos; tos=ss.pop(); return n; }
     __GPU__ __INLINE__ DU  PUSH(DU v)       { ss.push(tos); return tos = v;     }
-#if T4_ENABLE_OBJ    
-    __GPU__ __INLINE__ DU  PUSH(T4Base &t)  { ss.push(tos); return tos = mmu.obj2du(t); }
-#endif // T4_ENABLE_OBJ
     ///
     /// Dictionary compiler proxy macros to reduce verbosity
     ///

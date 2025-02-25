@@ -41,6 +41,11 @@ protected:
     ///
     __GPU__ virtual int process(char *str); ///< TODO: CC - worked without 'final', why?
     ///
+    /// stack operator short hands (override eforth.h)
+    ///
+    __GPU__ __INLINE__ DU PUSH(T4Base &t)  { ss.push(tos); return tos = mmu.obj2du(t); }
+    __GPU__ __INLINE__ DU PUSH(DU v)       { ss.push(tos); return tos = v; }
+    ///
     /// tensor ops based on number of operands
     ///
     __GPU__ void xop1(math_op op, DU v=DU0);                ///< 1-operand ops in-place
