@@ -7,6 +7,18 @@
 #include <iomanip>
 #include "debug.h"
 ///
+///@name singleton constructor
+///@{
+Debug *_db = NULL;                            ///< singleton Debug controller
+
+__HOST__ Debug*
+Debug::get_db(MMU *mmu, AIO *aio) {
+    if (!_db) _db = new Debug(mmu, aio);
+    return _db;
+}
+__HOST__ Debug *Debug::get_db() { return _db; }
+__HOST__ void  Debug::free_db() { if (_db) delete _db; }
+///@}
 ///@name memory macros to reduce verbosity
 ///@{
 #define MEM(a)   ((U8*)&mu->_pmem[a])         /** memory pointer by offset           */

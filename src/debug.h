@@ -21,10 +21,14 @@ class Debug {                                             ///< friend class to M
     AIO      *io;                                         ///< async IO unit
     char     tmp[256];                                    ///< tmp string buffer
     
-public:
     __HOST__ Debug(MMU *mmu, AIO *aio) : mu(mmu), io(aio) {}
-    __HOST__ ~Debug() {}
-
+    __HOST__ ~Debug() { TRACE("\\   Debug: instance freed\n"); }
+    
+public:
+    static __HOST__ Debug *get_db(MMU *mmu, AIO *aio);    ///< singleton contructor
+    static __HOST__ Debug *get_db();                      ///< singleton getter
+    static __HOST__ void  free_db();                      ///< singleton destructor
+    
     __HOST__ void keep_fmt();
     __HOST__ void reset_fmt();
     

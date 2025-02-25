@@ -31,10 +31,14 @@ class MMU : public Managed {
     TLSF           _ostore;         ///< object storage manager
 #endif // T4_ENABLE_OBJ    
 
-public:
-    friend class Debug;             ///< Debug can access my private members
     __HOST__ MMU();
     __HOST__ ~MMU();
+    
+public:
+    friend class Debug;             ///< Debug can access my private members
+    
+    static __HOST__ MMU *get_mmu(); ///< singleton constructor/getter
+    static __HOST__ void free_mmu();///< singleton destructor
     ///
     /// function pointer conversion
     ///

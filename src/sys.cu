@@ -6,6 +6,8 @@
  */
 #include "sys.h"
 #include "ldr/loader.h"
+
+System *_sys = NULL;
 ///
 /// random number generator setup
 /// Note: kept here because curandStates stays in CUDA memory
@@ -37,9 +39,9 @@ k_rand(DU *mat, int sz, DU bias, DU scale, curandState *st, rand_opt ntype) {
 __HOST__
 System::System(h_istr &i, h_ostr &o, int khz, int verbo)
     : _khz(khz), _istr(new Istream()), _ostr(new Ostream()), _trace(verbo) {
-    mu = new MMU();                  ///> instantiate memory manager
-    io = new AIO(i, o, verbo);       ///> instantiate async IO manager
-    db = new Debug(mu, io);          ///> tracing instrumentation
+    mu = MMU::get_mmu();             ///> instantiate memory manager
+    io = AIO::get_io(i, o, verbo);   ///> instantiate async IO manager
+    db = Debug::get_db(mu, io);      ///> tracing instrumentation
         
 #if (T4_ENABLE_OBJ && T4_ENABLE_NN)
     Loader::init(verbo);
@@ -54,15 +56,24 @@ System::System(h_istr &i, h_ostr &o, int khz, int verbo)
     INFO("\\ System OK\n");
 }
 
+__HOST__
 System::~System() {
     GPU_SYNC();
     
     MM_FREE(_seed);
-    delete io;
-    delete db;
-    delete mu;
-    INFO("\\ System freed\n");
+    AIO::free_io();
+    Debug::free_db();
+    MMU::free_mmu();
+    INFO("\\ System: instance freed\n");
 }
+
+__HOST__ System*
+System::get_sys(h_istr &i, h_ostr &o, int khz, int verbo) {
+    if (!_sys) _sys = new System(i, o, khz, verbo);
+    return _sys;
+}
+__HOST__ System *System::get_sys()  { return _sys; }
+__HOST__ void    System::free_sys() { if (_sys) delete _sys; }
 
 __GPU__ void
 System::rand(DU *d, U64 sz, rand_opt n, DU bias, DU scale) {
@@ -105,7 +116,9 @@ System::process_event(io_event *ev) {
              << std::setfill((char)f->fill);
     } break;
 #if T4_ENABLE_OBJ
-    case GT_OBJ: io->print(mu->du2obj(*(DU*)v));      break;
+    case GT_OBJ:
+        printf("GT_OBJ %x\n", DU2X(v));
+        io->print(mu->du2obj(*(DU*)v));      break;
 #endif // T4_ENABLE_OBJ        
     case GT_OPX: {
         _opx *o = (_opx*)v;

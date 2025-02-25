@@ -10,6 +10,7 @@
 ///@name static class member
 ///@note: CUDA does not support device static data
 ///@{
+MMU *_mmu = NULL;              ///< singleton MMU controler
 __GPU__  UFP _XT0;
 __GPU__  UFP _NM0;
 ///@}
@@ -49,7 +50,16 @@ MMU::~MMU() {
     MM_FREE(_vmrs);
     MM_FREE(_vmss);
     MM_FREE(_dict);
-    TRACE("\\ MMU: CUDA Managed Memory freed\n");
+    TRACE("\\   MMU: CUDA Managed Memory freed\n");
+}
+__HOST__ MMU*
+MMU::get_mmu() {
+    if (!_mmu) _mmu = new MMU();
+    return _mmu;
+}
+__HOST__ void
+MMU::free_mmu() {
+    if (_mmu) delete _mmu;
 }
 ///
 /// static functions (for type conversion)

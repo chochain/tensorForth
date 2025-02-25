@@ -19,13 +19,17 @@ class System : public Managed {                 ///< singleton class
     int            _trace;
     char           _pad[T4_STRBUF_SZ];          ///< terminal input buffer
     
+    __HOST__ System(h_istr &i, h_ostr &o, int khz, int verbo);
+    __HOST__ ~System();
+    
 public:
     MMU            *mu;                         ///< memory management unit
     AIO            *io;                         ///< HOST IO manager
     Debug          *db;
     
-    __HOST__ System(h_istr &i, h_ostr &o, int khz, int verbo);
-    __HOST__ ~System();
+    static __HOST__ System *get_sys(h_istr &i, h_ostr &o, int khz, int verbo);
+    static __HOST__ System *get_sys();          ///< singleton getter
+    static __HOST__ void   free_sys();          ///< singleton destructor
     ///
     /// System functions
     ///

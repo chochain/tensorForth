@@ -160,7 +160,7 @@ TensorForth::TensorForth(int device, int verbose) {
     ///
     /// allocate tensorForth system memory blocks
     ///
-    sys = new System(cin, cout, khz, T4_VERBOSE);
+    sys = System::get_sys(cin, cout, khz, T4_VERBOSE);
     ///
     /// allocate VM handle pool
     ///
@@ -256,8 +256,8 @@ TensorForth::teardown(int sig) {
     }
     MM_FREE(vmst_cnt);           /// * release ten4 Managed memory
     MM_FREE(vm_pool);
-    delete sys;                  /// * release system
     
+    System::free_sys();          /// * release system
     cudaDeviceReset();
 }
 ///
