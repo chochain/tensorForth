@@ -16,7 +16,7 @@ using namespace std;
 #include <fstream>
 __HOST__ int
 AIO::tsave(Tensor &t, char *fname, U8 mode) {
-    printf("\nAIO::save tensor to '%s' =>", fname);
+    IO_DB("\nAIO::save tensor to '%s' =>", fname);
     
     ios_base::openmode m = (mode & FAM_RW) ? ios_base::in : ios_base::out;
     if (mode & FAM_RAW) m |= ios_base::binary;
@@ -30,7 +30,7 @@ AIO::tsave(Tensor &t, char *fname, U8 mode) {
     else                _tsave_txt(fs, t);        /// * write in text format
     
     fs.close();
-    printf(" completed\n");
+    IO_DB(" completed\n");
     return 0;
 }
 ///
@@ -82,7 +82,7 @@ AIO::_print_mat(h_ostr &fs, DU *td, U32 *shape) {
 __HOST__ void
 AIO::_print_tensor(h_ostr &fs, Tensor &t) {
     DU *td = t.data;                        /// * short hand
-    DEBUG("aio#print_tensor::T=%p data=%p\n", &t, td);
+    IO_DB("aio#print_tensor::T=%p data=%p\n", &t, td);
 
     ios::fmtflags fmt0 = fs.flags();
     fs << setprecision(-1);                 /// * standard format
