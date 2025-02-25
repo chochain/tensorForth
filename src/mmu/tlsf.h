@@ -8,9 +8,9 @@
 #define TEN4_SRC_TLSF_H
 
 #if MM_DEBUG
-#define MM_DB(...)  DEBUG(...)
+#define MM_DB(x,...)  DEBUG(x,##__VA_ARGS__)
 #else  // !MM_DEBUG
-#define MM_DB(...)
+#define MM_DB(x,...)
 #endif // MM_DEBUG
 
 typedef struct used_block {          //< 8-bytes
