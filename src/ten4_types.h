@@ -184,13 +184,12 @@ typedef enum {
 ///@}
 ///>name IO Event
 typedef struct {
-    U32 gt : 4;    // 16 io event types
-    U32 id : 8;    // max 256 VMs
-    U32 sz : 20;   // max 1G payload
-    U8  data[];    // different from *data
+    U32 gt : 4;     // 16 io event types
+    U32 sz : 28;    // max 256M payload
+    U8  data[];     // data array
 } io_event;
 
-#define EVENT_SZ  sizeof(U32)
+#define EVENT_HDR  sizeof(U32)
 ///@}
 ///>name Random Number Generator
 ///@{
