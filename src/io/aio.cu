@@ -8,14 +8,26 @@
 #include <iostream>      // cin, cout
 #include <iomanip>       // setbase, setprecision
 #include "aio.h"
+///
+///@name singleton and contructor
+///@{
+AIO *_io = NULL;         ///< singleton Async IO controller
 
+__HOST__ AIO*
+AIO::get_io(h_istr &i, h_ostr &o, int verbo) {
+    if (!_io) _io = new AIO(i, o, verbo);
+    return _io;
+}
+__HOST__ AIO *AIO::get_io()  { return _io; }
+__HOST__ void AIO::free_io() { if (_io) delete _io; }
+///@}
+///@name simple value and object debugging method
+///@{
 __HOST__ void
 AIO::show(DU v, int rdx) {                     ///< display value by ss_dump
     fout << std::setbase(rdx) << v << std::setbase(_radix);
 }
-///
-/// Object debugging methods
-///
+
 #if T4_ENABLE_OBJ
 __HOST__ void                                  ///< display value by ss_dump
 AIO::show(T4Base &t, bool is_view, int rdx) {
@@ -33,7 +45,10 @@ AIO::print(T4Base &t) {
     case T4_XXX:     /* reserved */                   break;
     }
 }
-
+///@}
+///==========================================================================
+///@name private methods
+///@{
 __HOST__ int
 AIO::_show_obj(T4Base &t, bool is_view, int rdx) {
     static const char tn[2][4] = {                   ///< sync with t4_obj
@@ -54,6 +69,7 @@ AIO::_show_obj(T4Base &t, bool is_view, int rdx) {
     fout << std::setbase(_radix);
     return 1;
 }
+///@}
 #endif // T4_ENABLE_OBJ    
 
 

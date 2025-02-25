@@ -24,6 +24,9 @@ typedef std::ostream h_ostr;          ///< host output ostream
 #define IO_TRACE(...)      { if (trace) INFO(__VA_ARGS__); }
 
 class AIO {                           ///< create in host mode
+    __HOST__ AIO(h_istr &i, h_ostr &o, int verbo) : fin(i), fout(o), trace(verbo) {}
+    __HOST__ ~AIO() { TRACE("\\   AIO: instance freed\n"); }
+
 public:
     friend class Debug;               ///< Debug can access my private members
     
@@ -41,9 +44,11 @@ public:
     static void io_lock();            ///< lock IO
     static void io_unlock();          ///< unlock IO
 #endif // DO_MULTITASK
-    
-    AIO(h_istr &i, h_ostr &o, int verbo) : fin(i), fout(o), trace(verbo) {}
 
+    static __HOST__ AIO *get_io(h_istr &i, h_ostr &o, int verbo);
+    static __HOST__ AIO *get_io();
+    static __HOST__ void free_io();
+    
     __HOST__ void show(DU v, int rdx=10);      ///< display value by ss_dump
     
 #if T4_ENABLE_OBJ
