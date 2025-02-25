@@ -21,7 +21,7 @@
 typedef std::istream h_istr;          ///< host input stream
 typedef std::ostream h_ostr;          ///< host output ostream
 
-#define IO_TRACE(...)      { if (trace) INFO(__VA_ARGS__); }
+#define IO_DB(...)      { if (trace) INFO(__VA_ARGS__); }
 
 class AIO {                           ///< create in host mode
     __HOST__ AIO(h_istr &i, h_ostr &o, int verbo) : fin(i), fout(o), trace(verbo) {}
@@ -52,8 +52,8 @@ public:
     __HOST__ void show(DU v, int rdx=10);      ///< display value by ss_dump
     
 #if T4_ENABLE_OBJ
-    __HOST__ void show(T4Base &t, bool is_view, int rdx=10); ///< display value by ss_dump
-    __HOST__ void print(T4Base &t);            ///< display value by ss_dump
+    __HOST__ void show(T4Base &t, bool is_view, int rdx=10); ///< display tensor token (for ss_dump)
+    __HOST__ void print(T4Base &t);                          ///< display in matrix format
     __HOST__ int  tsave(Tensor &t, char *fname, U8 mode);
     
 #if T4_ENABLE_NN    
