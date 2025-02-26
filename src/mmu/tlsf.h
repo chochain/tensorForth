@@ -7,12 +7,6 @@
 #if !defined(TEN4_SRC_TLSF_H) && T4_ENABLE_OBJ 
 #define TEN4_SRC_TLSF_H
 
-#if MM_DEBUG
-#define MM_DB(fmt,...)  INFO(fmt,##__VA_ARGS__)
-#else  // !MM_DEBUG
-#define MM_DB(fmt,...)
-#endif // MM_DEBUG
-
 typedef struct used_block {          //< 8-bytes
     U32 bsz;                         //< block size, header included (max 2G)
     U32 psz;                         //< prior adjacent memory block size
@@ -85,8 +79,8 @@ private:
     __GPU__  void        _pack(free_block *b0, free_block *b1);  ///> pack adjacent blocks
     __GPU__  void        _unmap(free_block *blk);                ///> clear freemaps
 
-    __GPU__  void        _mark_free(free_block *blk);            ///> mark a block free
-    __GPU__  free_block* _mark_used(U32 index);                  ///> set maps free by index 
+    __GPU__  void        _set_free(free_block *blk);             ///> mark a block free
+    __GPU__  free_block* _set_used(U32 index);                   ///> set maps free by index 
     __GPU__  void        _try_merge_next(free_block *b0);        ///> merge next free block
     __GPU__  free_block* _try_merge_prev(free_block *b1);        ///> merge previous free block
 
