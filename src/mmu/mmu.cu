@@ -285,17 +285,6 @@ MMU::copy(Tensor &t0) {
     
     return t1;
 }
-/*
-__GPU__ Tensor&
-MMU::random(Tensor &t, rand_opt ntype, DU bias, DU scale) {
-    MM_DB("mmu#random(T%d) numel=%ld bias=%.2f, scale=%.2f\n",
-              t.rank, t.numel, bias, scale);
-    k_rand<<<1, T4_RAND_SZ>>>(t.data, t.numel, bias, scale, _seed, ntype);
-    GPU_SYNC();
-    
-    return t;
-}
-*/
 ///
 /// tensor slice & dice
 /// TODO: CDP
