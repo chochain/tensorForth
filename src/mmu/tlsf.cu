@@ -169,7 +169,7 @@ TLSF::_idx(U64 sz) {
     U32 l1 = __fls(sz);
     U32 l2 = (sz >> (l1 - L2_BITS)) & L2_MASK;    // 1 shift, 1 minus, 1 and
 
-    MM_DB("  tlsf#idx(%lx): INDEX(%x,%x) => %x\n", sz, l1, l2, INDEX(l1, l2));
+    MM_DB("  tlsf#idx(%lx) INDEX(%x,%x) => %x\n", sz, l1, l2, INDEX(l1, l2));
 
     return INDEX(l1, l2);
 }
@@ -191,7 +191,7 @@ TLSF::_find_free_index(U64 sz) {
     U32 l1 = L1(index);
     U32 l2 = L2(index);
     U32 m1, m2 = _l2_map[l1] >> (l2+1);          // get SLI one size bigger
-    MM_DB("  tlsf#find(%lx):%x, _l2_map[%x]=%x", sz, index, l1, _l2_map[l1]);
+    MM_DB("  tlsf#find(%x) l2_map[%x]=%x", index, l1, _l2_map[l1]);
     if (m2) {                                    // check if any 2nd level slot available
         l2 = __ffs(m2 << l2);                    // MSB represent the smallest slot that fits
     }
@@ -202,7 +202,7 @@ TLSF::_find_free_index(U64 sz) {
     else {
         l1 = l2 = 0xff;                          // out of memory
     }
-    MM_DB(", (m1,m2)=%x,%x => INDEX(%x,%x):%x\n", m1, m2, l1, l2, INDEX(l1, l2));
+    MM_DB(", (m1,m2)=%x,%x, INDEX(%x,%x) => %x\n", m1, m2, l1, l2, INDEX(l1, l2));
 
     return INDEX(l1, l2);                        // index to freelist head
 }
@@ -267,10 +267,11 @@ TLSF::_pack(free_block *b0, free_block *b1) {
   @param  blk    pointer to free block.
 */
 __GPU__ void
-TLSF::_unmap(free_block *blk) {
+TLSF::_unmap(free_block *blk, U32 bidx) {
+    MM_DB("  tlsf#unmap(%x:%x, %x)\n", TADDR(blk), blk->bsz, bidx);
     ASSERT(IS_FREE(blk));                        // ensure block is free
 
-    U32 index = _idx(blk->bsz);
+    U32 index = bidx ? bidx : _idx(blk->bsz);
     free_block *n = _free_list[index] = NEXT_FREE(blk);
     free_block *p = blk->prev ? PREV_FREE(blk) : NULL;
     if (n) {                                     // up link
@@ -311,8 +312,7 @@ TLSF::_set_free(free_block *blk) {
 
     // update block attributes
     free_block *head = _free_list[index];
-    MM_DB("  tlsf#set_free(%x:%x) [%x]=%x\n",
-          TADDR(blk), blk->bsz, index, TADDR(head));
+    MM_DB("  tlsf#set_free(<%x> => %x:%x)\n", index, TADDR(blk), blk->bsz);
 
     SET_FREE(blk);
     blk->next = head ? U8POFF(head, blk) : 0;     // setup linked list
@@ -326,12 +326,12 @@ TLSF::_set_free(free_block *blk) {
 
 __GPU__ free_block*
 TLSF::_set_used(U32 index) {
-    MM_DB("  tlsf#set_used [%x]\n", index);
+    MM_DB("  tlsf#set_used(<%x>)\n", index);
     free_block *blk  = _free_list[index];
     ASSERT(blk);
     ASSERT(IS_FREE(blk));
 
-    _unmap(blk);
+    _unmap(blk, index);
     SET_USED(blk);
 
     return blk;
@@ -352,9 +352,11 @@ TLSF::_merge_next(free_block *b0) {
 __GPU__ free_block*
 TLSF::_merge_prev(free_block *b1) {
     free_block *b0 = (free_block *)BLK_BEFORE(b1);
-    MM_DB("  tlsf#merge_prev %x:%x:%x + ", TADDR(b1), b1->bsz, b1->psz);
-    if (b0) MM_DB("%x:%x.%s\n", TADDR(b0), b0->bsz, IS_FREE(b0) ? "free" : "used");
-    else    MM_DB("%x.head\n", 0);
+    MM_DB("  tlsf#merge_prev %x:%x.%s + %x:%x:%x\n",
+          b0 ? TADDR(b0) : 0,
+          b0 ? b0->bsz   : 0,
+          b0 ? (IS_FREE(b0) ? "free" : "used") : "head",
+          TADDR(b1), b1->bsz, b1->psz);
 
     if (b0==NULL || IS_USED(b0)) return b1;
     _unmap(b0);                              // take it out of free_list before merge
@@ -414,9 +416,8 @@ TLSF::_show_stat() {
     float pct = 100.0*used/tot;
 
     INFO("\\ OBJ: used[%d]=%d(0x%x) %.2f%% allocated", nused, used, used, pct);
-    INFO(" free[%d]=%d(0x%x), total=%d(0x%x) ", nfree, free, free, tot, tot);
-    INFO(" nblk=%d, nfrag=%d", nblk, nfrag);
-    INFO("\n");
+    INFO(" free[%d]=%d(0x%x), total=%d(0x%x)", nfree, free, free, tot, tot);
+    INFO(" nblk=%d, nfrag=%d\n", nblk, nfrag);
 #endif // MM_DEBUG
 }
 
@@ -429,7 +430,7 @@ TLSF::_dump_freelist() {
     }
     for (int i=FL_SLOTS-1; i>=0; i--) {
         if (!_free_list[i]) continue;
-        INFO("\n\t[%02x]=>[", i);
+        INFO("\n\t<%02x>=>[", i);
         for (free_block *b = _free_list[i]; b!=NULL; b=NEXT_FREE(b)) {
             INFO(" %x:%x", TADDR(b), b->bsz);
             if (IS_USED(b)) {
