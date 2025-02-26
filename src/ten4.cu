@@ -48,10 +48,13 @@ k_vm_done(VM_Handle *pool) {
 ///
 
 __KERN__ void
-k_ten4_tally(int *vmst_cnt, VM_Handle *pool) {
+k_ten4_tally(System *sys, int *vmst_cnt, VM_Handle *pool) {
     const auto g  = cg::this_thread_block();   ///< all blocks in grid
     const int  id = g.thread_rank();           ///< VM id
 
+    if (id==0) sys->mu->sweep();               ///< clear marked free tensors
+    g.sync();
+    
     if (id < 4) vmst_cnt[id] = 0;
     g.sync();
 
@@ -184,7 +187,7 @@ TensorForth::setup() {
 ///
 __HOST__ int
 TensorForth::more_job() {
-    k_ten4_tally<<<1, WARP(T4_VM_COUNT)>>>(vmst_cnt, vm_pool);
+    k_ten4_tally<<<1, WARP(T4_VM_COUNT)>>>(sys, vmst_cnt, vm_pool);
     GPU_CHK();
     return vmst_cnt[STOP] < T4_VM_COUNT;          /// * number of STOP VM
 }
@@ -236,7 +239,6 @@ TensorForth::main_loop() {
         run();
         sys->flush();                          /// * flush output buffer
         profile();
-//    sys->mu->sweep();       /// * CC: device function call
     }
     return 0;
 }
