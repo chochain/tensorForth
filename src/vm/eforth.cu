@@ -90,7 +90,7 @@ ForthVM::nest() {
              else { rs.pop(); rs.pop(); });          /// * yes, done, pop off counters
         CASE(LIT,
              ss.push(tos);                           ///> push current tos
-             tos = *(DU*)MEM(ip);                    /// * fetch from next IU
+             tos = DUP(*(DU*)MEM(ip));               /// * fetch from next IU
              ip += sizeof(DU);                       /// * advance ip
              if (ix.exit) UNNEST());                 ///> constant/value
         CASE(VAR,
@@ -145,55 +145,62 @@ ForthVM::init() {
     /// @defgroup Stack ops
     /// @brief - opcode sequence can be changed below this line
     /// @{
-    CODE("dup",     PUSH(tos));
-    CODE("drop",    tos = ss.pop());
-    CODE("over",    DU v = ss[-1]; PUSH(v));
+    CODE("dup",     PUSH(DUP(tos)));
+    CODE("drop",    DROP(tos); tos = ss.pop());
+    CODE("over",    DU v = DUP(ss[-1]); PUSH(v));
     CODE("swap",    DU n = ss.pop(); PUSH(n));
     CODE("rot",     DU n = ss.pop(); DU m = ss.pop(); ss.push(n); PUSH(m));
     CODE("-rot",    DU n = ss.pop(); DU m = ss.pop(); PUSH(m); PUSH(n));
-    CODE("pick",    IU i = D2I(tos); tos = ss[-i]);
+    CODE("pick",    IU i = D2I(tos); tos = DUP(ss[-i]));
     CODE("nip",     ss.pop());
     CODE("?dup",    if (tos != DU0) PUSH(tos));
     /// @}
     /// @defgroup Stack ops - double
     /// @{
-    CODE("2dup",    DU v = ss[-1]; PUSH(v); v = ss[-1]; PUSH(v));
-    CODE("2drop",   ss.pop(); tos = ss.pop());
-    CODE("2over",   DU v = ss[-3]; PUSH(v); v = ss[-3]; PUSH(v));
+    CODE("2dup",    DU v = DUP(ss[-1]); PUSH(v); v = DUP(ss[-1]); PUSH(v));
+    CODE("2drop",   DU s = ss.pop(); DROP(s); DROP(tos); tos = ss.pop());
+    CODE("2over",   DU v = DUP(ss[-3]); PUSH(v); v = DUP(ss[-3]); PUSH(v));
     CODE("2swap",   DU n = ss.pop(); DU m = ss.pop(); DU l = ss.pop();
                     ss.push(n); PUSH(l); PUSH(m));
     /// @}
-    /// @defgroup ALU ops
-    /// @{
-    CODE("+",       tos += ss.pop());
-    CODE("*",       tos *= ss.pop());
-    CODE("-",       tos =  ss.pop() - tos);
-    CODE("/",       tos =  ss.pop() / tos);
-    CODE("mod",     tos =  INT(MOD(ss.pop(), tos)));            // ( a b -- c )   c=int(a%b)
-    CODE("fmod",    tos =  MOD(ss.pop(), tos));                 // ( a b -- c )   c=a%b      
-    CODE("*/",      tos =  MUL2(ss.pop(), ss.pop()) / tos);     // ( a b c -- d ) d= a*b / c 
-    CODE("/mod",    DU  n = ss.pop();                           // ( a b -- c d ) c=a%b, d=a/b
-                    DU  t = tos;
-                    DU  m = MOD(n, t);
-                    ss.push(m); tos = INT(n / t));
-    CODE("*/mod",   DU2 n = MUL2(ss.pop(), ss.pop());           // ( a b c -- d e ) d=(a*b)%c, e=(a*b)/c
-                    DU2 t = tos;
-                    DU  m = MOD2(n, t);
-                    ss.push(m); tos = INT(n / t));
-    CODE("and",     tos = D2I(tos) & D2I(ss.pop()));
-    CODE("or",      tos = D2I(tos) | D2I(ss.pop()));
-    CODE("xor",     tos = D2I(tos) ^ D2I(ss.pop()));
+    ///@defgroup FPU ops
+    ///@{
+    CODE("+",       tos = ADD(tos, ss.pop()); SCALAR(tos));
+    CODE("*",       tos = MUL(tos, ss.pop()); SCALAR(tos));
+    CODE("-",       tos = SUB(ss.pop(), tos); SCALAR(tos));
+    CODE("/",       tos = DIV(ss.pop(), tos); SCALAR(tos));
+    CODE("mod",     tos = INT(MOD(ss.pop(), tos)); SCALAR(tos));  /// ( a b -- c )
+    CODE("fmod",    tos = MOD(ss.pop(), tos); SCALAR(tos));       /// ( a b -- c ) fmod = x - int(q)*y
+    CODE("/mod",                                                  /// ( a b -- c d ) c=a%b, d=a/b
+         DU n = ss.pop();
+         DU m = MOD(n, tos); ss.push(SCALAR(m));
+         tos = DIV(n, tos); SCALAR(tos));
+    ///@}
+    ///@defgroup FPU double precision ops
+    ///@{
+    CODE("*/",      tos = MUL2(ss.pop(), ss.pop()) / tos; SCALAR(tos)); /// ( a b c -- d ) c= a*b / c
+    CODE("*/mod",                                                 /// ( a b c -- d e )
+         DU2 n = MUL2(ss.pop(), ss.pop());
+         DU2 t = tos;
+         DU  m = MOD2(n, tos); ss.push(SCALAR(m));
+         tos = INT(n / t));
+    ///@}
+    ///@defgroup Binary logic ops (convert to integer first)
+    ///@{
+    CODE("and",     tos = I2D(D2I(tos) & D2I(ss.pop())));
+    CODE("or",      tos = I2D(D2I(tos) | D2I(ss.pop())));
+    CODE("xor",     tos = I2D(D2I(tos) ^ D2I(ss.pop())));
     CODE("abs",     tos = ABS(tos));
-    CODE("negate",  tos = -tos);
-    CODE("invert",  tos = ~D2I(tos));
-    CODE("rshift",  tos = D2I(ss.pop()) >> D2I(tos));
-    CODE("lshift",  tos = D2I(ss.pop()) << D2I(tos));
+    CODE("negate",  tos = MUL(tos, -DU1));
+    CODE("invert",  tos = I2D(~D2I(tos)));
+    CODE("rshift",  tos = I2D(D2I(ss.pop()) >> D2I(tos)));
+    CODE("lshift",  tos = I2D(D2I(ss.pop()) << D2I(tos)));
     CODE("max",     DU n=ss.pop(); tos = (tos>n) ? tos : n);
     CODE("min",     DU n=ss.pop(); tos = (tos<n) ? tos : n);
-    CODE("2*",      tos *= 2);
-    CODE("2/",      tos /= 2);
-    CODE("1+",      tos += 1);
-    CODE("1-",      tos -= 1);
+    CODE("2*",      tos *= DU1*2);
+    CODE("2/",      tos /= DU1*2);
+    CODE("1+",      tos += DU1);
+    CODE("1-",      tos -= DU1);
     /// @}
     /// @defgroup Data conversion ops
     /// @{
@@ -280,7 +287,7 @@ ForthVM::init() {
     /// @{
     CODE(">r",      rs.push(POP()));
     CODE("r>",      PUSH(rs.pop()));
-    CODE("r@",      PUSH(rs[-1]));                          // same as I (the loop counter)
+    CODE("r@",      PUSH(DUP(rs[-1])));                    // same as I (the loop counter)
     /// @}
     /// @defgrouop Compiler ops
     /// @{
