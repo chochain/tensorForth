@@ -102,7 +102,7 @@ TLSF::realloc(void *p0, U64 sz) {
     ASSERT(IS_USED(blk));                                // make sure it is used
 
     if (bsz > blk->bsz) {
-        _try_merge_next((free_block *)blk);              // try to get the block bigger
+        _merge_next((free_block *)blk);                  // try to get the block bigger
     }
     if (bsz == blk->bsz) return p0;                      // fits right in
     if ((blk->bsz > bsz) &&
@@ -133,12 +133,12 @@ TLSF::free(void *ptr) {
 
     _LOCK;
     free_block *blk = (free_block *)BLK_HEAD(ptr);       // get block header
-    MM_DB("  tlsf#free(%x) => %x:%x\n", TADDR(ptr), TADDR(blk), blk->bsz);
-    _try_merge_next(blk);
+    MM_DB("  tlsf#free(%x => %x:%x)\n", TADDR(ptr), TADDR(blk), blk->bsz);
+    _merge_next(blk);
     _set_free(blk);
 
     // the block is free now, try to merge a free block before if exists
-    _try_merge_prev(blk);
+    _merge_prev(blk);
     _UNLOCK;
 }
 
@@ -232,10 +232,9 @@ TLSF::_split(free_block *blk, U64 bsz) {
     free_block *aft  = (free_block *)BLK_AFTER(blk);                  // next adjacent block
     if (aft) {
         aft->psz = U8POFF(aft, free) | (aft->psz & FREE_FLAG);        // backward offset (positive)
-        _try_merge_next(free);                                        // _combine if possible
+        _merge_next(free);                                            // _combine if possible
     }
     _set_free(free);            // add to free_list and set (free, tail, next, prev) fields
-
 }
 
 //================================================================
@@ -253,13 +252,13 @@ TLSF::_pack(free_block *b0, free_block *b1) {
     // remove b0, b1 from free list first (sizes will not change)
     _unmap(b1);
 
-    MM_DB("  tlsf#pack(%x + %x) => ", b0->bsz, b1->bsz);
+    MM_DB("  tlsf#pack(%x:%x + %x:%x) => ", TADDR(b0), b0->bsz, TADDR(b1), b1->bsz);
     // merge b0 and b1, retain b0.FREE_FLAG
     used_block *b2 = (used_block *)BLK_AFTER(b1);
     b2->psz += b1->psz & ~FREE_FLAG;    // watch for the block->flag
     b0->bsz += b1->bsz;                 // include the block header
 
-    MM_DB(" %x\n", b0->bsz);
+    MM_DB("%x:%x\n", TADDR(b0), b0->bsz);
 }
 
 //================================================================
@@ -312,7 +311,7 @@ TLSF::_set_free(free_block *blk) {
 
     // update block attributes
     free_block *head = _free_list[index];
-    MM_DB("  tlsf#mark_free(%x:%x) _free_list[%x]=%x\n",
+    MM_DB("  tlsf#set_free(%x:%x) [%x]=%x\n",
           TADDR(blk), blk->bsz, index, TADDR(head));
 
     SET_FREE(blk);
@@ -327,7 +326,7 @@ TLSF::_set_free(free_block *blk) {
 
 __GPU__ free_block*
 TLSF::_set_used(U32 index) {
-    MM_DB("  tlsf#mark_used _free_list[%x]\n", index);
+    MM_DB("  tlsf#set_used [%x]\n", index);
     free_block *blk  = _free_list[index];
     ASSERT(blk);
     ASSERT(IS_FREE(blk));
@@ -339,7 +338,7 @@ TLSF::_set_used(U32 index) {
 }
 
 __GPU__ void
-TLSF::_try_merge_next(free_block *b0) {
+TLSF::_merge_next(free_block *b0) {
     free_block *b1 = (free_block *)BLK_AFTER(b0);
     MM_DB("  tlsf#merge_next %x:%x + %x:%x.%s\n",
           TADDR(b0), b0->bsz, TADDR(b1), b1->bsz,
@@ -351,7 +350,7 @@ TLSF::_try_merge_next(free_block *b0) {
 }
 
 __GPU__ free_block*
-TLSF::_try_merge_prev(free_block *b1) {
+TLSF::_merge_prev(free_block *b1) {
     free_block *b0 = (free_block *)BLK_BEFORE(b1);
     MM_DB("  tlsf#merge_prev %x:%x:%x + ", TADDR(b1), b1->bsz, b1->psz);
     if (b0) MM_DB("%x:%x.%s\n", TADDR(b0), b0->bsz, IS_FREE(b0) ? "free" : "used");

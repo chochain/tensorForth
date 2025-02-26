@@ -81,8 +81,8 @@ private:
 
     __GPU__  void        _set_free(free_block *blk);             ///> mark a block free
     __GPU__  free_block* _set_used(U32 index);                   ///> set maps free by index 
-    __GPU__  void        _try_merge_next(free_block *b0);        ///> merge next free block
-    __GPU__  free_block* _try_merge_prev(free_block *b1);        ///> merge previous free block
+    __GPU__  void        _merge_next(free_block *b0);            ///> try merge next free block
+    __GPU__  free_block* _merge_prev(free_block *b1);            ///> try merge previous free block
 
     /// mmu sanity check
     __BOTH__ int         _mmu_ok();
