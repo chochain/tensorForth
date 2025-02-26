@@ -66,7 +66,7 @@ AIO::_show_obj(T4Base &t, bool is_view, int rdx) {
     case 4: fout << "4["; t4((Tensor&)t);         break;
     case 5: fout << "5[" << t.parm << "]["; t4((Tensor&)t); break;
     }
-    fout << std::setbase(_radix);
+    fout << ' ' << std::setbase(_radix);
     return 1;
 }
 ///@}
