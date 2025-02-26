@@ -14,7 +14,9 @@
 #define INFO(...)           printf(__VA_ARGS__)
 #define ERROR(...)          printf(__VA_ARGS__)
 #define NA(msg)             ({ ERROR("method not supported: %s\n", msg); })
-
+///
+/// Tracer by verbosity level
+///
 #if   T4_VERBOSE > 1
 #define TRACE(...)          printf(__VA_ARGS__)
 #define DEBUG(...)          printf(__VA_ARGS__)
@@ -25,6 +27,14 @@
 #define TRACE(...)
 #define DEBUG(...)
 #endif // T4_VERBOSE
+///
+/// Memory tracing specific
+///
+#if MM_DEBUG
+#define MM_DB(...)          printf(__VA_ARGS__)
+#else  // !MM_DEBUG
+#define MM_DB(...)
+#endif // MM_DEBUG
 ///@}
 ///@name CUDA support macros
 ///@{
