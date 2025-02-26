@@ -47,32 +47,17 @@ Debug::reset_fmt() { io->fout.copyfmt(_fmt0); }
     
 __HOST__ void
 Debug::ss_dump(IU id, int sz, DU tos, int base) {
-    static char buf[34];                  ///< static buffer
     auto show = [this, base](DU v) {
-        auto rdx = [](DU v, int b) {          ///< display v by radix
-            DU t, f = modf(v, &t);            ///< integral, fraction
-            if (ABS(f) > DU_EPS) {
-                sprintf(buf, "%0.6g", v);
-                return buf;
-            }
-            int i   = 33;  buf[i]='\0';       /// * C++ can do only base=8,10,16
-            int dec = b==10;
-            U32 n   = dec ? (U32)(ABS(v)) : (U32)(v);  ///< handle negative
-            do {                              ///> digit-by-digit
-                U8 d = (U8)MOD(n,b);  n /= b;
-                buf[--i] = d > 9 ? (d-10)+'a' : d+'0';
-            } while (n && i);
-            if (dec && v < DU0) buf[--i]='-';
-            return &buf[i];
-        };
+#if T4_ENABLE_OBJ        
         if (IS_OBJ(v)) io->show(mu->du2obj(v), IS_VIEW(v), base);
-        else           io->fout << rdx(v, base) << ' ';
+        else io->show(v, base);
+#else  // T4_ENABLE_OBJ
+        io->show(v, base);
+#endif // T4_ENABLE_OBJ        
     };
     DU *ss = mu->vmss(id);                ///< retrieve VM SS
-
     for (int i=0; i < sz; i++) show(*ss++);
     show(tos);
-    
     io->fout << "-> ok" << std::endl;
 }
 ///
