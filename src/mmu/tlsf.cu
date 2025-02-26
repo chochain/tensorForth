@@ -9,7 +9,6 @@
 #include "tlsf.h"
 
 #if T4_ENABLE_OBJ
-
 // TLSF: Two-Level Segregated Fit allocator with O(1) time complexity.
 // Layer 1st(f), 2nd(s) model, smallest block 16-bytes, 16-byte alignment
 // TODO: multiple-pool, thread-safe
@@ -75,7 +74,7 @@ TLSF::malloc(U64 sz) {
 
     _LOCK;
     U32 index       = _find_free_index(bsz);
-    free_block *blk = _mark_used(index);        // take the indexed block off free list
+    free_block *blk = _set_used(index);         // take the indexed block off free list
 
     _split(blk, bsz);                           // allocate the block, free up the rest
     _UNLOCK;
@@ -134,9 +133,9 @@ TLSF::free(void *ptr) {
 
     _LOCK;
     free_block *blk = (free_block *)BLK_HEAD(ptr);       // get block header
-    MM_DB("  tlsf#free(%x) => %x:0x%x\n", TADDR(ptr), TADDR(blk), blk->bsz);
+    MM_DB("  tlsf#free(%x) => %x:%x\n", TADDR(ptr), TADDR(blk), blk->bsz);
     _try_merge_next(blk);
-    _mark_free(blk);
+    _set_free(blk);
 
     // the block is free now, try to merge a free block before if exists
     _try_merge_prev(blk);
@@ -235,7 +234,7 @@ TLSF::_split(free_block *blk, U64 bsz) {
         aft->psz = U8POFF(aft, free) | (aft->psz & FREE_FLAG);        // backward offset (positive)
         _try_merge_next(free);                                        // _combine if possible
     }
-    _mark_free(free);            // add to free_list and set (free, tail, next, prev) fields
+    _set_free(free);            // add to free_list and set (free, tail, next, prev) fields
 
 }
 
@@ -301,7 +300,7 @@ TLSF::_unmap(free_block *blk) {
   TODO: check thread safety
 */
 __GPU__ void
-TLSF::_mark_free(free_block *blk) {
+TLSF::_set_free(free_block *blk) {
     ASSERT(IS_USED(blk));
 
     U32 index = _idx(blk->bsz);
@@ -327,7 +326,7 @@ TLSF::_mark_free(free_block *blk) {
 }
 
 __GPU__ free_block*
-TLSF::_mark_used(U32 index) {
+TLSF::_set_used(U32 index) {
     MM_DB("  tlsf#mark_used _free_list[%x]\n", index);
     free_block *blk  = _free_list[index];
     ASSERT(blk);
@@ -354,17 +353,16 @@ TLSF::_try_merge_next(free_block *b0) {
 __GPU__ free_block*
 TLSF::_try_merge_prev(free_block *b1) {
     free_block *b0 = (free_block *)BLK_BEFORE(b1);
-    MM_DB("  tlsf#merge_prev %x:%x:%x + %x:%x",
-          TADDR(b1), b1->bsz, b1->psz, TADDR(b0), b0->bsz);
-    if (b0) MM_DB("%x.%s\n", b0->bsz, IS_FREE(b0) ? "free" : "used");
-    else    MM_DB("%x.empty\n", 0);
+    MM_DB("  tlsf#merge_prev %x:%x:%x + ", TADDR(b1), b1->bsz, b1->psz);
+    if (b0) MM_DB("%x:%x.%s\n", TADDR(b0), b0->bsz, IS_FREE(b0) ? "free" : "used");
+    else    MM_DB("%x.head\n", 0);
 
     if (b0==NULL || IS_USED(b0)) return b1;
     _unmap(b0);                              // take it out of free_list before merge
     _pack(b0, b1);                           // take b1 out and merge with b0
 
-    SET_USED(b0);                            // _mark_free assume b0 to be a USED block
-    _mark_free(b0);
+    SET_USED(b0);                            // _set_free assume b0 to be a USED block
+    _set_free(b0);
 
     return b0;
 }
