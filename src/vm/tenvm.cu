@@ -136,7 +136,7 @@ TensorVM::xop1t(t4_ten_op op) {
     ///
     /// single tensor handler
     ///
-    Tensor &T = (op == T_INV) ? A : mmu.copy(A);  /// * hardcopy original matrix if needed
+    Tensor &T = (op == T_INV) ? A : COPY(A);  /// * hardcopy original matrix if needed
     bool   tos = true;
     switch (op) {
     case T_INV: {
@@ -150,8 +150,8 @@ TensorVM::xop1t(t4_ten_op op) {
         Tensor::plu(T, P, &ns);               /// * decompose A to PLU
         DU     v  = T.det();                  /// * multiply diagnal
         PUSH(ns&1 ? -v : v);                  /// * return determinant on TOS
-        mmu.free(P);
-        mmu.free(T);                          /// * not needed
+        FREE(P);
+        FREE(T);                          /// * not needed
         tos = false;
     } break;
     case T_LU:  Tensor::lu(T);    break;      /// * decompose A to LU
@@ -165,7 +165,7 @@ TensorVM::xop1t(t4_ten_op op) {
         Tensor::transpose(A, T);  break;
     default:
         ERROR("tenvm#xop1t(%d) not supported\n", op);
-        mmu.free(T);
+        FREE(T);
         tos = false;
     }
     if (tos) PUSH(T);
@@ -226,12 +226,12 @@ __GPU__ __INLINE__ Tensor&
 TensorVM::_st_op(math_op op, t4_drop_opt x) { ///< scalar tensor op
     Tensor &A = TTOS;                         /// * Tensor on TOS
     DU     v  = ss[-1];                       /// * scalar as NOS
-    Tensor &O = x==T_KEEP ? mmu.copy(A) : A;  /// * make a hard copy (and parameters)
+    Tensor &O = x==T_KEEP ? COPY(A) : A;      /// * make a hard copy (and parameters)
     if (op==DIV || op==SUB) {                 /// * op(scaler, tensor)
         Tensor &B = mmu.tensor(A.numel);      /// * working tensor
         B.map(FILL, v);                       /// * broadcast
         Tensor::ten_op(op, B, A, O);          /// * Hadamard ops
-        mmu.free(B);                          /// * free working tensor
+        FREE(B);                              /// * free working tensor
     }
     else Tensor::ten_op(op, A, v, O);         /// * broadcast_op(tensor, scalar)
     
@@ -241,7 +241,7 @@ TensorVM::_st_op(math_op op, t4_drop_opt x) { ///< scalar tensor op
 __GPU__ __INLINE__ Tensor&
 TensorVM::_ts_op(math_op op, t4_drop_opt x) { ///< tensor scalar op
     Tensor &A = TNOS;                         ///< tensor on NOS
-    Tensor &O = x==T_KEEP ? mmu.copy(A) : A;  ///< make a hard copy of A
+    Tensor &O = x==T_KEEP ? COPY(A) : A;      ///< make a hard copy of A
     Tensor::ten_op(op, A, tos, O);            /// * broadcast_op(tensor, scalar)
     return O;
 }
@@ -268,7 +268,7 @@ TensorVM::_tt_op(math_op op) {                ///< tensor-tensor ops
     ///
     if (!A.is_same_shape(B)) return (ERROR("dim?\n"), B);
 
-    Tensor &O = A;                            ///< make a hard copy
+    Tensor &O = COPY(A);                      ///< make a hard copy
     Tensor::ten_op(op, A, B, O);              /// * Hadamard ops
     if (A.rank==1) O.reshape(O.numel);
     
@@ -278,9 +278,9 @@ TensorVM::_tt_op(math_op op) {                ///< tensor-tensor ops
 __GPU__ Tensor&
 TensorVM::_tinv(Tensor &A) {                 ///< matrix inverse
     Tensor &I = mmu.tensor(A.H(), A.W()).identity();
-    Tensor &X = A;                           ///< hardcopy temp, keep A untouched
+    Tensor &X = COPY(A);                     ///< hardcopy temp, keep A untouched
     Tensor::inverse(X, I);
-    mmu.free(X);                             /// * release temp 
+    FREE(X);                                 /// * release temp 
     return I;
 }
 
@@ -292,7 +292,7 @@ TensorVM::_tdiv(Tensor &A, Tensor &B) {      ///< tensor division
     Tensor &I = _tinv(B);
     Tensor &O = mmu.tensor(m, n);
     Tensor::mm(A, I, O);                     /// A * B^-1
-    mmu.free(I);
+    FREE(I);
     
     return O;
 }
@@ -331,7 +331,7 @@ TensorVM::_solv(Tensor &B, Tensor &A) {      /// Note: A, B flipped
     Tensor &I = _tinv(A);
     Tensor &O = mmu.tensor(k);               /// resultant vector
     Tensor::mm(I, B, O);                     /// O = A^-1 x B
-    mmu.free(I);
+    FREE(I);
     
     return O;
 }
@@ -345,7 +345,7 @@ TensorVM::_gemm() {                          ///< blas GEMM
     DU     a  = ss[-4];
     U16    m  = A.H(), k = A.W(), n = B.W();
     if (k == B.H() && m == O.H() && n == O.W()) {
-        Tensor &X = O;                        /// * hard copy O tensor
+        Tensor &X = COPY(O);                 /// * hard copy O tensor
         Tensor::gemm(A, B, X, a, b);
         PUSH(X);
     }
