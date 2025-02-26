@@ -24,14 +24,33 @@ __HOST__ void AIO::free_io() { if (_io) delete _io; }
 ///@name simple value and object debugging method
 ///@{
 __HOST__ void
-AIO::show(DU v, int rdx) {                     ///< display value by ss_dump
-    fout << std::setbase(rdx) << v << std::setbase(_radix);
+AIO::show(DU v, int base) {               ///< display value by ss_dump
+    static char buf[34];                  ///< static buffer
+    auto pp = [](DU v, int b) {           ///< display v by radix
+        DU t, f = modf(v, &t);            ///< integral, fraction
+        if (ABS(f) > DU_EPS) {
+            sprintf(buf, "%0.6g", v);
+            return buf;
+        }
+        int i   = 33;  buf[i]='\0';       /// * C++ can do only base=8,10,16
+        int dec = b==10;
+        U32 n   = dec ? (U32)(ABS(v)) : (U32)(v);  ///< handle negative
+        do {                              ///> digit-by-digit
+            U8 d = (U8)MOD(n,b);  n /= b;
+            buf[--i] = d > 9 ? (d-10)+'a' : d+'0';
+        } while (n && i);
+        if (dec && v < DU0) buf[--i]='-';
+        return &buf[i];
+    };
+    fout << std::setbase(base)
+         << pp(v, base) << ' '
+         << std::setbase(_radix);
 }
 
 #if T4_ENABLE_OBJ
 __HOST__ void                                  ///< display value by ss_dump
-AIO::show(T4Base &t, bool is_view, int rdx) {
-    _show_obj(t, is_view, rdx);
+AIO::show(T4Base &t, bool is_view, int base) {
+    _show_obj(t, is_view, base);
 }
 
 __HOST__ void
@@ -50,7 +69,7 @@ AIO::print(T4Base &t) {
 ///@name private methods
 ///@{
 __HOST__ int
-AIO::_show_obj(T4Base &t, bool is_view, int rdx) {
+AIO::_show_obj(T4Base &t, bool is_view, int base) {
     static const char tn[2][4] = {                   ///< sync with t4_obj
         { 'T', 'N', 'D', 'X' }, { 't', 'n', 'd', 'x' }
     };
@@ -58,7 +77,7 @@ AIO::_show_obj(T4Base &t, bool is_view, int rdx) {
     auto t4 = [this](Tensor &t) {
         fout << t.N() << ',' << t.H() << ',' << t.W() << ',' << t.C() << ']';
     };
-    fout << std::setbase(rdx) << tn[is_view][t.ttype];
+    fout << std::setbase(base) << tn[is_view][t.ttype];
     switch(t.rank) {
     case 0: fout << "["  << (t.numel - 1) << "]"; break; // network model
     case 1: fout << "1[" << t.numel << "]";       break;
