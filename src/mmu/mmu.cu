@@ -146,7 +146,7 @@ __GPU__ void
 MMU::mark_free(DU v) {            ///< mark a tensor free for release
     if (IS_VIEW(v)) return;
     T4Base &t = du2obj(v);
-    MM_DB("mmu#mark T[%x] to free[%d]\n", OBJ2X(t), _fidx);
+    MM_DB("mmu#mark T:%x to free[%d]\n", OBJ2X(t), _fidx);
 //    lock();                     ///< TODO: CC: DEAD LOCK, now!
     if (_fidx < T4_TFREE_SZ) _mark[_fidx++] = obj2du(t);
     else ERROR("ERR: tfree store full, increase T4_TFREE_SZ!");
@@ -158,7 +158,7 @@ MMU::sweep() {
 //    lock();                       /// * dead locked now
     for (int i = 0, n=_fidx; n && i < n; i++) {
         DU v = _mark[i];
-        MM_DB("mmu#release T[%x] from free[%d]\n", DU2X(v) & ~T4_TT_OBJ, i);
+        MM_DB("mmu#release T:%x from free[%d]\n", DU2X(v) & ~T4_TT_OBJ, i);
         drop(du2obj(v));
     }
     _fidx = 0;
@@ -176,7 +176,7 @@ MMU::drop(T4Base &t) {
 __GPU__ Tensor&                    ///< allocate a tensor from tensor space
 MMU::talloc(U64 sz) {
     Tensor &t = *(Tensor*)_ostore.malloc(sizeof(Tensor));
-    MM_DB("=> mmu#talloc T[%x]\n", OBJ2X(t));
+    MM_DB("=> mmu#talloc T:%x\n", OBJ2X(t));
     void   *d = _ostore.malloc(sz * sizeof(DU));
     MM_DB("\n");
     _ostore.status();
@@ -221,7 +221,7 @@ MMU::resize(Tensor &t, U64 sz) {
 }
 __GPU__ void                     ///< release tensor memory blocks
 MMU::free(Tensor &t) {
-    MM_DB("mmu#free(T%d) numel=%ld T[%x] ", t.rank, t.numel, OBJ2X(t));
+    MM_DB("mmu#free(T%d) numel=%ld T:%x ", t.rank, t.numel, OBJ2X(t));
     _ostore.free(t.data);        /// * free physical data
     if (t.grad_fn != L_NONE) {
         MM_DB("{\n");
@@ -290,7 +290,7 @@ MMU::copy(Tensor &t0) {
     t1.data = (DU*)_ostore.malloc(bsz);
     t1 = t0;                            /// * copy all tensor elements
     
-    MM_DB("mmu#copy(T%d) numel=%ld to T[%x] ", t0.rank, t0.numel, OBJ2X(t1));
+    MM_DB("mmu#copy(T%d) numel=%ld to T:%x ", t0.rank, t0.numel, OBJ2X(t1));
     _ostore.status();
     
     return t1;
