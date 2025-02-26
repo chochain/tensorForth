@@ -54,9 +54,7 @@ public:
     }
     __GPU__  void op_fn(char *fname) { *_ostr << fname; } ///< print filename
     __GPU__  DU   ms() { return static_cast<double>(clock64()) / _khz; }
-    __GPU__  DU   rand(DU d, rand_opt n) {                ///< randomize a tensor
-        return d * curand_uniform(&_seed[0]);
-    }
+    __GPU__  DU   rand(DU d, rand_opt n);                 ///< randomize a tensor
     __GPU__ void  rand(DU *d, U64 sz, rand_opt n, DU bias=DU0, DU scale=DU1);
     ///
     /// input stream handler

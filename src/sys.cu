@@ -75,11 +75,19 @@ System::get_sys(h_istr &i, h_ostr &o, int khz, int verbo) {
 __HOST__ System *System::get_sys()  { return _sys; }
 __HOST__ void    System::free_sys() { if (_sys) delete _sys; }
 
+__GPU__ DU
+System::rand(DU d, rand_opt n) {
+    if (!IS_OBJ(d)) return d * curand_uniform(&_seed[threadIdx.x]);
+#if T4_ENABLE_OBJ
+    T4Base &t = mu->du2obj(d);
+    rand(t.data, t.numel, n);
+    return d;
+#endif // T4_ENABLE_OBJ
+}
 __GPU__ void
 System::rand(DU *d, U64 sz, rand_opt n, DU bias, DU scale) {
-//    DEBUG("mmu#random(T%d) numel=%ld bias=%.2f, scale=%.2f\n",
-//          t.rank, t.numel, bias, scale);
-//    k_rand<<<1, T4_RAND_SZ>>>(t.data, t.numel, bias, scale, _seed, ntype);
+    DEBUG("sys#rand(T%d) numel=%ld bias=%.2f, scale=%.2f\n",
+          t.rank, t.numel, bias, scale);
     k_rand<<<1, T4_RAND_SZ>>>(d, sz, bias, scale, _seed, n);
 }
 ///
@@ -116,9 +124,7 @@ System::process_event(io_event *ev) {
              << std::setfill((char)f->fill);
     } break;
 #if T4_ENABLE_OBJ
-    case GT_OBJ:
-        printf("GT_OBJ %x\n", DU2X(v));
-        io->print(mu->du2obj(*(DU*)v));      break;
+    case GT_OBJ: io->print(mu->du2obj(*(DU*)v));       break;
 #endif // T4_ENABLE_OBJ        
     case GT_OPX: {
         _opx *o = (_opx*)v;
