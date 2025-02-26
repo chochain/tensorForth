@@ -46,6 +46,12 @@ protected:
     __GPU__ __INLINE__ void FREE(Tensor &t)  { mmu.free(t); }
     __GPU__ __INLINE__ DU   PUSH(T4Base &t)  { ss.push(tos); return tos = mmu.obj2du(t); }
     __GPU__ __INLINE__ DU   PUSH(DU v)       { ss.push(tos); return tos = v; }
+    __GPU__ __INLINE__ DU   COPY(DU d) {                 ///< hard copy
+        return (IS_OBJ(d))
+            ? mmu.obj2du(COPY((Tensor&)mmu.du2obj(d)))
+            : d;
+    }
+    __GPU__ __INLINE__ Tensor &COPY(Tensor &t) { return mmu.copy(t); }
     ///
     /// tensor ops based on number of operands
     ///

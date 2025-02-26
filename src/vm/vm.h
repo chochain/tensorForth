@@ -51,20 +51,14 @@ protected:
     /// Object ops (proxy methods to MMU)
     /// Note: kept here instead of tenvm.h because eforth.cu needs them
     ///
-    __GPU__ __INLINE__ void FREE(Tensor &t)  { mmu.free(t); }
     __GPU__ __INLINE__ DU   DUP(DU d)  { return IS_OBJ(d) ? AS_VIEW(d) : d; }  ///< soft copy
-    __GPU__ __INLINE__ DU   COPY(DU d) {                                       ///< hard copy
-        return (IS_OBJ(d))
-            ? mmu.obj2du(mmu.copy((Tensor&)mmu.du2obj(d)))
-            : d;
-    }
     __GPU__ __INLINE__ void DROP(DU d) {
         if (!IS_OBJ(d) || IS_VIEW(d)) return;              /// non-object, skip
         T4Base &t = mmu.du2obj(d);                         /// check reference count
 #if T4_ENABLE_NN    
         if (t.is_model()) { mmu.free((Model&)t); return; } /// release TLSF memory block
 #else   // !T4_ENABLE_NN
-        FREE((Tensor&)t);                                  /// check reference count
+        mmu.free((Tensor&)t);                              /// check reference count
 #endif  // T4_ENABLE_NN
     }
 #else   // !T4_ENABLE_OBJ
