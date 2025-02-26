@@ -424,6 +424,9 @@ Tests v3.2 GAN ops
 
 ### TODO - by priorities
 * Design & Instrumentation
+  + Auto Differentiation i.e. JVP (forward), VJP (backward)
+    - [autograd](https://github.com/HIPS/autograd)
+    - [Jax](https://docs.jax.dev/en/latest/quickstart.html)
   + Visulization via TensorBoard
     - output tensor in HWC format
     - util from raw to png (with STB)
