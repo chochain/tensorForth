@@ -33,8 +33,8 @@
 #define VM_TLR(fmt, ...)                     \
     DEBUG("\e[%dm" fmt "\e[0m\n",            \
           (id&7) ? 38-(id&7) : 37, ##__VA_ARGS__)
-#define VM_LOG(fmt, ...)                     \
-    VM_HDR(fmt, ##__VA_ARGS__);              \
+#define VM_LOG(...)                          \
+    VM_HDR(__VA_ARGS__);                     \
     DEBUG("\n")
 ///@}
 ///@name Dictionary Compiler macros
