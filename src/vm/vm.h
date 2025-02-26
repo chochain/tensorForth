@@ -46,26 +46,6 @@ protected:
     __GPU__ virtual int process(char *str) { return 0; }
     __GPU__ virtual int post()             { return 0; }
     
-#if T4_ENABLE_OBJ
-    ///
-    /// Object ops (proxy methods to MMU)
-    /// Note: kept here instead of tenvm.h because eforth.cu needs them
-    ///
-    __GPU__ __INLINE__ DU   DUP(DU d)  { return IS_OBJ(d) ? AS_VIEW(d) : d; }  ///< soft copy
-    __GPU__ __INLINE__ void DROP(DU d) {
-        if (!IS_OBJ(d) || IS_VIEW(d)) return;              /// non-object, skip
-        T4Base &t = mmu.du2obj(d);                         /// check reference count
-#if T4_ENABLE_NN    
-        if (t.is_model()) { mmu.free((Model&)t); return; } /// release TLSF memory block
-#else   // !T4_ENABLE_NN
-        mmu.free((Tensor&)t);                              /// check reference count
-#endif  // T4_ENABLE_NN
-    }
-#else   // !T4_ENABLE_OBJ
-    __GPU__ __INLINE__ DU   DUP(DU d)  { return d; }
-    __GPU__ __INLINE__ void DROP(DU d) {}
-#endif  // T4_ENABLE_OBJ
-    
 #if DO_MULTITASK    
     static MUTEX    tsk;              ///< mutex for tasker
     static COND_VAR cv_tsk;           ///< tasker control

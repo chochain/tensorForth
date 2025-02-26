@@ -83,9 +83,16 @@ protected:
     ///
     /// stack operator short hands
     ///
-    __GPU__ __INLINE__ IU  FIND(char *name) { return mmu.find(name);  }
-    __GPU__ __INLINE__ DU  POP()            { DU n=tos; tos=ss.pop(); return n; }
-    __GPU__ __INLINE__ DU  PUSH(DU v)       { ss.push(tos); return tos = v;     }
+    __GPU__ __INLINE__ IU   FIND(char *name) { return mmu.find(name);  }
+    __GPU__ __INLINE__ DU   POP()      { DU n=tos; tos=ss.pop(); return n; }
+    __GPU__ __INLINE__ DU   PUSH(DU v) { ss.push(tos); return tos = v;     }
+#if T4_ENABLE_OBJ    
+    __GPU__ __INLINE__ DU   DUP(DU d)  { return IS_OBJ(d) ? AS_VIEW(d) : d; }  ///< soft copy
+    __GPU__ __INLINE__ void DROP(DU d) { if (IS_OBJ(d)) mmu.drop(mmu.du2obj(d)); }
+#else  // !T4_ENABLE_OBJ
+    __GPU__ __INLINE__ DU   DUP(DU d)  { return d; }
+    __GPU__ __INLINE__ void DROP(DU d) {}
+#endif // T4_ENABLE_OBJ
     ///
     /// Dictionary compiler proxy macros to reduce verbosity
     ///
