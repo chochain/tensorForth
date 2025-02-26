@@ -147,22 +147,32 @@ MMU::mark_free(DU v) {            ///< mark a tensor free for release
     if (IS_VIEW(v)) return;
     T4Base &t = du2obj(v);
     MM_DB("mmu#mark T[%x] to free[%d]\n", OBJ2X(t), _fidx);
-//    lock();
+//    lock();                     ///< TODO: CC: DEAD LOCK, now!
     if (_fidx < T4_TFREE_SZ) _mark[_fidx++] = obj2du(t);
     else ERROR("ERR: tfree store full, increase T4_TFREE_SZ!");
-//    unlock();                   ///< TODO: CC: DEAD LOCK, now!
+//    unlock();
 }
+#if T4_ENABLE_OBJ
 __GPU__ void                      ///< release marked free tensor
 MMU::sweep() {
-//    lock();
-    for (int i = 0; _fidx && i < _fidx; i++) {
+//    lock();                       /// * dead locked now
+    for (int i = 0, n=_fidx; n && i < n; i++) {
         DU v = _mark[i];
         MM_DB("mmu#release T[%x] from free[%d]\n", DU2X(v) & ~T4_TT_OBJ, i);
         drop(du2obj(v));
     }
     _fidx = 0;
-//  unlock();                      ///< TODO: CC: DEAD LOCK, now!
+//    unlock();
 }
+__GPU__ void
+MMU::drop(T4Base &t) {
+#if T4_ENABLE_NN
+    if (t.is_model())  { free((Model&)t); return;  }   /// release TLSF memory block
+#endif  // T4_ENABLE_NN
+    free((Tensor&)t);                                  /// check reference count
+}
+#endif  // T4_ENABLE_OBJ
+
 __GPU__ Tensor&                    ///< allocate a tensor from tensor space
 MMU::talloc(U64 sz) {
     Tensor &t = *(Tensor*)_ostore.malloc(sizeof(Tensor));

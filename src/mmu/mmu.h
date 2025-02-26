@@ -147,7 +147,6 @@ public:
 #endif // T4_ENABLE_NN
 #else  // T4_ENABLE_OBJ ===========================================================
     __GPU__  void   sweep()    {}                           ///< holder for no object
-    __GPU__  void   drop(DU v) {}                           
     
 #endif // T4_ENABLE_OBJ ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 };
