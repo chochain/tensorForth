@@ -49,11 +49,11 @@ public:
     static __HOST__ AIO *get_io();
     static __HOST__ void free_io();
     
-    __HOST__ void show(DU v, int rdx=10);      ///< display value by ss_dump
+    __HOST__ void show(DU v, int base=10);      ///< display value by ss_dump
     
 #if T4_ENABLE_OBJ
-    __HOST__ void show(T4Base &t, bool is_view, int rdx=10); ///< display tensor token (for ss_dump)
-    __HOST__ void print(T4Base &t);                          ///< display in matrix format
+    __HOST__ void show(T4Base &t, bool is_view, int base=10); ///< display tensor token (for ss_dump)
+    __HOST__ void print(T4Base &t);                           ///< display in matrix format
     __HOST__ int  tsave(Tensor &t, char *fname, U8 mode);
     
 #if T4_ENABLE_NN    
