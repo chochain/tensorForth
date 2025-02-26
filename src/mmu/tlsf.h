@@ -77,7 +77,7 @@ private:
     __GPU__  S32         _find_free_index(U64 sz);               ///> find available index
     __GPU__  void        _split(free_block *blk, U64 bsz);       ///> split a large block
     __GPU__  void        _pack(free_block *b0, free_block *b1);  ///> pack adjacent blocks
-    __GPU__  void        _unmap(free_block *blk);                ///> clear freemaps
+    __GPU__  void        _unmap(free_block *blk, U32 index=0);   ///> clear freemaps
 
     __GPU__  void        _set_free(free_block *blk);             ///> mark a block free
     __GPU__  free_block* _set_used(U32 index);                   ///> set maps free by index 
