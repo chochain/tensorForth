@@ -157,8 +157,6 @@ TensorForth::TensorForth(int device, int verbose) {
          << ", ostor=" << T4_OSTORE_SZ/1024/1024 << "M"
          << ", vmss["  << T4_SS_SZ << "*" << T4_VM_COUNT << "]"
          << ", vmrs["  << T4_RS_SZ << "*" << T4_VM_COUNT << "]"
-         << ", sizeof(Code)="  << sizeof(Code)
-         << ", sizeof(Param)=" << sizeof(Param)
          << endl;
     ///
     /// allocate tensorForth system memory blocks
