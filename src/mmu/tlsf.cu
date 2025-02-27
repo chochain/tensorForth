@@ -82,7 +82,7 @@ TLSF::malloc(U64 sz) {
     ASSERT(blk->bsz >= bsz);                    // make sure it provides big enough a block
 
     void *data = BLK_DATA(blk);
-    MM_DB("tlsf#malloc => %x:%lx ", TADDR(data), sz);
+    MM_DB("tlsf#malloc => %x:%lx\n", TADDR(data), sz);
     return data;                                // pointer to raw space
 }
 
@@ -202,7 +202,7 @@ TLSF::_find_free_index(U64 sz) {
     else {
         l1 = l2 = 0xff;                          // out of memory
     }
-    MM_DB(", (m1,m2)=%x,%x, INDEX(%x,%x) => %x\n", m1, m2, l1, l2, INDEX(l1, l2));
+    MM_DB(", (m1|m2)=%x|%x, INDEX(%x,%x) => %x\n", m1, m2, l1, l2, INDEX(l1, l2));
 
     return INDEX(l1, l2);                        // index to freelist head
 }
@@ -268,7 +268,7 @@ TLSF::_pack(free_block *b0, free_block *b1) {
 */
 __GPU__ void
 TLSF::_unmap(free_block *blk, U32 bidx) {
-    MM_DB("  tlsf#unmap(%x:%x, %x)\n", TADDR(blk), blk->bsz, bidx);
+    MM_DB("  tlsf#unmap(%x:%x,%x)\n", TADDR(blk), blk->bsz, bidx);
     ASSERT(IS_FREE(blk));                        // ensure block is free
 
     U32 index = bidx ? bidx : _idx(blk->bsz);
