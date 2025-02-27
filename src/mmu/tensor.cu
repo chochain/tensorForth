@@ -7,7 +7,7 @@
 #include "tensor.h"
 #if T4_ENABLE_OBJ
 
-#if T4_VERBOSE > 1
+#if T4_VERBOSE > 0
 #define OPN(...)   static const char *opn[] = { __VA_ARGS__ }
 #else 
 #define OPN(...)
@@ -147,7 +147,7 @@ __GPU__ Tensor&
 Tensor::ten_op(math_op op, Tensor &A, DU v, Tensor &O) {
     U32 N = A.N(), H = A.H(), W = A.W(), C = A.C();
     OPN(MATH_OP);
-    DEBUG("Tensor::mat_%s[%d,%d,%d,%d] %6.2f\n", opn[op], N, H, W, C, v);
+    MM_DB("tensor#k_ts_op(%s)[%d,%d,%d,%d] %6.2f\n", opn[op], N, H, W, C, v);
 
     dim3 blk(T4_WARP_SQ, 1, 1);
     dim3 grd((A.numel + blk.x - 1) / blk.x, 1, 1);
@@ -162,7 +162,7 @@ __GPU__ Tensor&
 Tensor::ten_op(math_op op, Tensor &A, Tensor &B, Tensor &O) {
     U32 N = A.N(), H = A.H(), W = A.W(), C = A.C();
     OPN(MATH_OP);
-    DEBUG("Tensor::mat_%s[%d,%d,%d,%d]\n", opn[op], N, H, W, C);
+    MM_DB("tensor#k_tt_op(%s)[%d,%d,%d,%d]\n", opn[op], N, H, W, C);
     
     dim3 blk(T4_WARP_SQ, 1, 1);
     dim3 grd((A.numel + blk.x - 1) / blk.x, 1, 1);
@@ -179,10 +179,10 @@ Tensor::mm(
     U32 Kb = opt & MM_B_TXP ? B.W() : B.H();
     U32 N  = B.N(), C = B.C();                     /// B, O common dimensions
     if (Ka != Kb || N != O.N() || C != O.C()) {
-        ERROR("Tensor#mm Ka(%d)!=Kb(%d) or N, C diff\n", Ka, Kb);
+        ERROR("tensor#mm Ka(%d)!=Kb(%d) or N, C diff\n", Ka, Kb);
         return O;
     }
-    DEBUG("Tensor#matmul N=%d, C=%d, H=%d, W=%d, K=%d\n", N, C, H, W, Ka);
+    MM_DB("tensor#matmul K=%d => NHWC=[%d,%d,%d,%d]\n", Ka, N, H, W, C);
     
     dim3 blk(T4_WARP_SZ, T4_WARP_SZ, 1);
     dim3 grd(NGRID(W, H, C, blk));
@@ -201,10 +201,10 @@ Tensor::gemm(Tensor &A, Tensor &B, Tensor &O, DU alpha, DU beta) {
     U32 H = A.H(), W = B.W(), Ka = A.W(), Kb = B.H();
     U32 N = B.N(), C = B.C();
     if (Ka != Kb || N != O.N() || C != O.C()) {
-        ERROR("Tensor#gemm ka(%d)!=kb(%d) or N, C diff\n", Ka, Kb);
+        ERROR("tensor#gemm ka(%d)!=kb(%d) or N, C diff\n", Ka, Kb);
         return O;
     }
-    DEBUG("GEMM N=%d, C=%d, H=%d, W=%d, K=%d a=%g, b=%g\n", N, C, H, W, Ka, alpha, beta);
+    MM_DB("GEMM K=%d, a=%g, b=%g => NHWC=[%d,%d,%d,%d]\n", Ka, alpha, beta, N, H, W, C);
     dim3 blk(T4_WARP_SZ, T4_WARP_SZ, 1);
     dim3 grd(NGRID(W, H, C, blk));
 
@@ -216,7 +216,7 @@ Tensor::gemm(Tensor &A, Tensor &B, Tensor &O, DU alpha, DU beta) {
 }
 __GPU__ Tensor&
 Tensor::copy(Tensor &A, Tensor &O) {
-    DEBUG("Tensor::copy numel=%ld\n", A.numel);
+    MM_DB("tensor#copy numel=%ld\n", A.numel);
     int n = (A.numel + T4_WARP_SQ - 1) / T4_WARP_SQ;
     
     k_copy<<<n, T4_WARP_SQ>>>(A.data, O.data, A.numel);
@@ -225,7 +225,7 @@ Tensor::copy(Tensor &A, Tensor &O) {
 __GPU__ Tensor&
 Tensor::transpose(Tensor &A, Tensor &T) {
     U32 N = A.N(), H = A.H(), W = A.W(), C = A.C();
-    DEBUG("Tensor::transpose A[%d,%d,%d,%d]\n", N, H, W, C);
+    MM_DB("tensor#transpose A[%d,%d,%d,%d]\n", N, H, W, C);
     
     dim3 blk(T4_WARP_SZ, T4_WARP_SZ, 1);
     dim3 grd(NGRID(W, H, C, blk));
@@ -244,7 +244,7 @@ Tensor::transpose(Tensor &A, Tensor &T) {
 __GPU__ Tensor&
 Tensor::inverse(Tensor &A, Tensor &I) {
     U32 m = A.H(), n = A.W();
-    DEBUG("Tensor::inverse[%d,%d]\n", m, n);
+    MM_DB("tensor#inverse[%d,%d]\n", m, n);
     if (m != n) { ERROR("square matrix?"); return I; }
     DU *da = A.data, *di = I.data;
     auto swap_rows = [da, di, n](U32 u, U32 z) {
@@ -260,7 +260,7 @@ Tensor::inverse(Tensor &A, Tensor &I) {
             if (ABS(da[z + i * n]) > ABS(da[z + u * n])) u = i;
         }
         if (ABS(da[z + u * n]) < DU_EPS) {
-            ERROR("Tensor::inverse sigular!\n");
+            ERROR("tensor#inverse sigular!\n");
             return -1;
         }
         return u;
@@ -299,7 +299,7 @@ Tensor::inverse(Tensor &A, Tensor &I) {
 __GPU__ Tensor&
 Tensor::lu(Tensor &A) {
     U32 m = A.H(), n = A.W();
-    DEBUG("Tensor::lu[%d,%d]\n", m, n);
+    MM_DB("tensor#lu[%d,%d]\n", m, n);
     if (m != n) { ERROR("square matrix?"); return A; }
 
     DU *da = A.data;
@@ -365,7 +365,7 @@ Tensor::lu_inverse(Tensor &LU) {
 __GPU__ Tensor&
 Tensor::plu(Tensor &A, Tensor &P, int *ns) {
     U32 m = A.H(), n = A.W();
-    DEBUG("Tensor::plu[%d,%d]\n", m, n);
+    MM_DB("tensor#plu[%d,%d]\n", m, n);
     if (m != n) { ERROR("square matrix?"); return A; }
 
     DU *da = A.data, *dp = P.data;
@@ -384,7 +384,7 @@ Tensor::plu(Tensor &A, Tensor &P, int *ns) {
             if (ABS(da[z + i * n]) > ABS(da[z + u * n])) u = i;
         }
         if (ABS(da[z + u * n]) < DU_EPS) {
-            DEBUG("Tensor::lu sigular!\n");
+            MM_DB("tensor#lu sigular!\n");
             return -1;
         }
         return u;
@@ -517,7 +517,7 @@ Tensor::loss(t4_loss op, Tensor &tgt) {
 __GPU__ DU
 Tensor::det() {
     U32 m = H(), n = W();
-    DEBUG("Tensor::det[%d,%d]\n", m, n);
+    MM_DB("tensor#det[%d,%d]\n", m, n);
 
     DU v = DU1;
     for (U32 z = 0; z < m; z++) v *= data[z + z * n];
@@ -530,7 +530,7 @@ Tensor::det() {
 __GPU__ Tensor&
 Tensor::triu() {
     U32 m = H(), n = W();
-    DEBUG("Tensor::upper[%d,%d]\n", m, n);
+    MM_DB("tensor#upper[%d,%d]\n", m, n);
 
     for (U32 z = 1; z < m; z++) {
         for (U32 k = 0; k < z; k++) {
@@ -545,7 +545,7 @@ Tensor::triu() {
 __GPU__ Tensor&
 Tensor::tril() {
     U32 m = H(), n = W();
-    DEBUG("Tensor::lower[%d,%d]\n", m, n);
+    MM_DB("tensor#lower[%d,%d]\n", m, n);
 
     for (U32 z = 0; z < m; z++) {
         data[z + z * n] = DU1;
@@ -560,7 +560,7 @@ Tensor::tril() {
 ///
 __BOTH__ Tensor&
 Tensor::reset(void *mem, U64 sz, t4_obj tt, t4_layer fn) {
-    DEBUG("Tensor::reset(%p, %ld)\n", mem, sz);
+    MM_DB("tensor#reset(%p, %ld)\n", mem, sz);
     init(sz, tt, 1);                                   /// T4Base attributes
 
     const U64 GB   = 1L << 30;
@@ -585,10 +585,10 @@ __BOTH__ Tensor&
 Tensor::reshape(U64 sz) {
     if (sz == numel) {
         reset(data, numel, (t4_obj)ttype, grad_fn);   /// preserve ttype and fn
-        DEBUG("Tensor::reshaped(%ld)\n", numel);
+        MM_DB("tensor#reshaped(%ld)\n", numel);
     }
     else {
-        ERROR("Tensor::reshape sz != numel (%ld != %ld)\n", sz, numel);
+        ERROR("tensor#reshape sz != numel (%ld != %ld)\n", sz, numel);
     }
     return *this;
 }
@@ -602,10 +602,10 @@ Tensor::reshape(U32 h, U32 w) {
         rank = 2;
         memcpy(stride, s, sizeof(s));
         memcpy(shape,  t, sizeof(t));
-        DEBUG("Tensor::reshaped(%d,%d)\n", H(), W());
+        MM_DB("tensor#reshaped(%d,%d)\n", H(), W());
     }
     else {
-        ERROR("Tensor::reshape sz != numel (%ld != %ld)\n", sz, numel);
+        ERROR("tensor#reshape sz != numel (%ld != %ld)\n", sz, numel);
     }
     return *this;
 }
@@ -619,10 +619,10 @@ Tensor::reshape(U32 n, U32 h, U32 w, U32 c) {
         rank = 4;
         memcpy(stride, s, sizeof(s));
         memcpy(shape,  t, sizeof(t));
-        DEBUG("Tensor::reshaped(%d,%d,%d,%d)\n", N(), H(), W(), C());
+        MM_DB("tensor#reshaped(%d,%d,%d,%d)\n", N(), H(), W(), C());
     }
     else {
-        ERROR("Tensor::reshape sz != numel (%ld != %ld)\n", sz, numel);
+        ERROR("tensor#reshape sz != numel (%ld != %ld)\n", sz, numel);
     }
     return *this;
 }
@@ -636,10 +636,10 @@ Tensor::reshape(U32 c1, U32 n, U32 h, U32 w, U32 c) {
         parm = c1;        /// use parm field, so we don't need s[5]
         memcpy(stride, s, sizeof(s));
         memcpy(shape,  t, sizeof(t));
-        DEBUG("Tensor::reshaped(%d,%d,%d,%d,%d)\n", c1, N(), H(), W(), C());
+        MM_DB("tensor#reshaped(%d,%d,%d,%d,%d)\n", c1, N(), H(), W(), C());
     }
     else {
-        ERROR("Tensor::reshape sz != numel (%ld != %ld)\n", sz, numel);
+        ERROR("tensor#reshape sz != numel (%ld != %ld)\n", sz, numel);
     }
     return *this;
 }
@@ -658,7 +658,7 @@ Tensor::identity() {
 __BOTH__ Tensor&
 Tensor::map(math_op op, DU v) {
     OPN(MATH_OP);
-    DEBUG("Tensor#%s v=%g\n", opn[op], v);
+    MM_DB("tensor#%s v=%g\n", opn[op], v);
     U32 g = (numel + T4_WARP_SQ - 1) / T4_WARP_SQ;
     
     k_math<<<g, T4_WARP_SQ>>>(op, data, numel, v);
