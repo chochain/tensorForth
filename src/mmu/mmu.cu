@@ -176,9 +176,8 @@ MMU::drop(T4Base &t) {
 __GPU__ Tensor&                    ///< allocate a tensor from tensor space
 MMU::talloc(U64 sz) {
     Tensor &t = *(Tensor*)_ostore.malloc(sizeof(Tensor));
-    MM_DB("=> mmu#talloc T:%x\n", OBJ2X(t));
     void   *d = _ostore.malloc(sz * sizeof(DU));
-    MM_DB("\n");
+    MM_DB("mmu#talloc => T:%x+%x\n", OBJ2X(t), (U32)((U8*)d - _obj));
     _ostore.status();
     t.reset(d, sz);
     return t;
@@ -290,7 +289,7 @@ MMU::copy(Tensor &t0) {
     t1.data = (DU*)_ostore.malloc(bsz);
     t1 = t0;                            /// * copy all tensor elements
     
-    MM_DB("mmu#copy(T%d) numel=%ld to T:%x ", t0.rank, t0.numel, OBJ2X(t1));
+    MM_DB("mmu#copy(T%d) numel=%ld to T:%x\n", t0.rank, t0.numel, OBJ2X(t1));
     _ostore.status();
     
     return t1;
