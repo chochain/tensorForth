@@ -100,7 +100,7 @@ TensorVM::xop2(math_op op, t4_drop_opt x) {
     if (s0 && s1) return _ss_op(op);              /// * scalar scalar op
     if (s0) {                                     /// * tensor scaler op
         Tensor &O = _ts_op(op, x);
-        VLOG2("tenvm# A[%d,%d] %s %g => O[%d,%d]\n",
+        VLOG2("tenvm#_ts_op A[%d,%d] %s %g => O[%d,%d]\n",
               TNOS.H(), TNOS.W(), opn[op], tos, O.H(), O.W());
         if (x==T_KEEP) PUSH(O);
         else           POP();
@@ -108,16 +108,16 @@ TensorVM::xop2(math_op op, t4_drop_opt x) {
     }
     if (s1) {                                     /// * scalar tensor op
         Tensor &O = _st_op(op, x);
-        VLOG2("tenvm# %g %s A[%d,%d] => O[%d,%d]\n",
+        VLOG2("tenvm#_st_op %g %s A[%d,%d] => O[%d,%d]\n",
               ss[-1], opn[op], TTOS.H(), TTOS.W(), O.H(), O.W());
         if (x==T_KEEP) PUSH(O);
         else           ss.pop();
         return;
     }
 
-    Tensor &O = _tt_op(op);                       /// * tensor tensor op
+    Tensor &O = _tt_op(op);                       /// * tensor tensor hadamard op
     if (O != TTOS) {
-        VLOG2("tenvm# A[%d,%d] %s B[%d,%d] => O[%d,%d]\n",
+        VLOG2("tenvm#_tt_op A[%d,%d] %s B[%d,%d] => O[%d,%d]\n",
              TNOS.H(), TNOS.W(), opn[op], TTOS.H(), TTOS.W(), O.H(), O.W());
         if (x==T_DROP) {
             DROP(POP());
@@ -131,8 +131,11 @@ TensorVM::xop2(math_op op, t4_drop_opt x) {
 ///
 __GPU__ void
 TensorVM::xop1t(t4_ten_op op) {
+    OPN(TENSOR_OP);
     Tensor &A  = TTOS;
     if (!A.is_tensor() || A.rank != 2) { ERROR("tensor2?"); return; }
+    
+    VLOG2("tenvm#xop1t %s(A[%d,%d])\n", opn[op], A.H(), A.W());
     ///
     /// single tensor handler
     ///
@@ -175,11 +178,14 @@ TensorVM::xop1t(t4_ten_op op) {
 ///
 __GPU__ void
 TensorVM::xop2t(t4_ten_op op, t4_drop_opt x) {
+    OPN(TENSOR_OP);
     if (!TOS2T) {
         ERROR("tenvm#xop2t TNOS TTOS required!\n");
         return;
     }
     Tensor &A = TNOS, &B = TTOS;
+    VLOG2("tenvm#xop2t A[%d,%d] %s B[%d,%d] => ",
+          A.H(), A.W(), opn[op], B.H(), B.W());
     switch (op){
     case T_DOT: {               ///< C = A @ B
         Tensor &C = _tdot(A, B);
@@ -190,17 +196,20 @@ TensorVM::xop2t(t4_ten_op op, t4_drop_opt x) {
             }
             PUSH(C);
         }
+        VLOG2("C[%d,%d]\n", C.H(), C.W());
     } break;
     case T_DIV: {               ///< C = A @ inverse(B)
         Tensor &C = _tdiv(A, B);
         if (C != B) PUSH(C);
+        VLOG2("C[%d,%d]\n", C.H(), C.W());
     } break;
     case T_SOLV: {              ///< solve B = AX
         Tensor &X = _solv(A, B);
         PUSH(X);
+        VLOG2("X[%d,%d]\n", X.H(), X.W());
     } break;
     default:
-        ERROR("tenvm#xop2t(%d) not supported\n", op);
+        ERROR("opn(%d) not supported\n", op);
     }
 }
 ///
@@ -303,7 +312,7 @@ TensorVM::_tdot(Tensor &A, Tensor &B) {      ///< A x B tensor dot product
         A.rank==1 && A.numel==B.numel) {
         DU v = A.dot(B);
         PUSH(v);
-        VLOG1("tenvm# A[%d] · B[%d] => %g\n", A.H(), B.H(), v);
+        VLOG2("tenvm# A[%d] · B[%d] => %g\n", A.H(), B.H(), v);
         return B;                            /// * non-tensor
     }
     if (B.rank==1 && A.W()==B.numel) {       ///> inner(tensor, vector)
@@ -324,7 +333,7 @@ TensorVM::_tdot(Tensor &A, Tensor &B) {      ///< A x B tensor dot product
 __GPU__ __INLINE__ Tensor&
 TensorVM::_solv(Tensor &B, Tensor &A) {      /// Note: A, B flipped 
     U16 m = A.H(), k = A.W(), n = B.H();     /// B[3,1] = A[3,3] * X
-    VLOG1("tenvm# solv B[%d] = [%d,%d]*X\n", n, m, k);
+    VLOG2("tenvm# solv B[%d] = [%d,%d]*X\n", n, m, k);
     
     if (B.rank!=1 || m!=k || k!=n) return B;
     
@@ -515,14 +524,14 @@ TensorVM::init() {
     ///@{
     CODE("boot",      mmu.clear(FIND((char*)"load") + 1));
     CODE(".",         _tprint(POP()));           ///< print TOS
-    CODE("+",         xop2(ADD, T_KEEP));
-    CODE("-",         xop2(SUB, T_KEEP));
-    CODE("*",         xop2(MUL, T_KEEP));
-    CODE("/",         xop2(DIV, T_KEEP));
+    CODE("+",         xop2(ADD));
+    CODE("-",         xop2(SUB));
+    CODE("*",         xop2(MUL));
+    CODE("/",         xop2(DIV));
     CODE("abs",       xop1(ABS));
     CODE("negate",    xop1(NEG));
     CODE("@",
-         if (TOS2T) xop2t(T_DOT);             ///< matrix @ product
+         if (TOS2T) xop2t(T_DOT);                ///< matrix @ product
          else {
              DU v = mmu.rd(POPi);
              PUSH(DUP(v));
