@@ -54,9 +54,9 @@ class Ostream : public Managed {
     int      _idx = 0;
     obuf_fmt _fmt = { 10, 0, 0, ' '};
 
-    __GPU__ __INLINE__ void _debug(GT gt, U8 *v, U32 sz) {
-#if T4_VERBOSE > 1
-        printf(" obuf[%d] << ", _idx);
+__GPU__ __INLINE__ void _debug(GT gt, U8 *v, U32 sz) {
+#if T4_VERBOSE > 0
+        printf("ostr#_debug(gt=%x,sz=%d) obuf[%d] << ", gt, sz, _idx);
         if (!sz) return;
         U8 d[T4_STRBUF_SZ];
         MEMCPY(d, v, sz);
@@ -65,8 +65,8 @@ class Ostream : public Managed {
         case GT_U32:   printf("%u\n", *(U32*)d);     break;
         case GT_FLOAT: printf("%G\n", *(DU*)d);      break;
         case GT_STR:   printf("%s\n", d);            break;
-        case GT_OBJ:   printf("Obj:%8x\n", DU2X(d)); break;
-        case GT_FMT:   printf("%8x\n", *(U32*)d);    break;
+        case GT_OBJ:   printf("Obj[%x]\n", DU2X(d)); break;
+        case GT_FMT:   printf("%08x\n", *(U32*)d);   break;
         case GT_OPX: {
             _opx *o = (_opx*)d;
             switch (o->op) {
@@ -81,25 +81,24 @@ class Ostream : public Managed {
         } break;
         default: printf("unknown type %d\n", gt);
         }
-#endif // T4_VERBOSE > 1
+#endif // T4_VERBOSE > 0
     }
         
     __GPU__  void _write(GT gt, U8 *v, U32 sz) {
         if (threadIdx.x!=0) return;               // only thread 0 within a block can write
 
         //_LOCK;
-        io_event *n = (io_event*)&_buf[_idx];     // allocate next node
+        io_event *e = (io_event*)&_buf[_idx];     // allocate next node
 
-        n->gt   = gt;                             // data type
-        n->id   = blockIdx.x;                     // VM.id
-        n->sz   = ALIGN(sz);                      // data alignment (32-bit)
+        e->gt   = gt;                             // data type
+        e->sz   = ALIGN(sz);                      // data alignment (32-bit)
 
-        int inc = EVENT_SZ + n->sz;               // calc node allocation size
+        int inc = EVENT_HDR + e->sz;              // calc node allocation size
 
         _debug(gt, v, sz);
 
         if ((_idx + inc) > _max) inc = 0;         // overflow, skip
-        else MEMCPY(n->data, v, sz);              // deep copy, TODO: shallow copy via managed memory
+        else MEMCPY(e->data, v, sz);              // deep copy, TODO: shallow copy via managed memory
 
         _buf[(_idx += inc)] = (char)GT_EMPTY;     // advance index and mark end of stream
         //_UNLOCK;
@@ -132,28 +131,34 @@ public:
     ///
     __GPU__ Ostream& operator<<(char c) {
         char buf[2] = { c, '\0' };
+        MM_DB("ostr#_write(char %c)\n", c);
         _write(GT_STR, (U8*)buf, 2);
         return *this;
     }
     __GPU__ Ostream& operator<<(S32 i) {
+        MM_DB("ostr#_write(S32) %d\n", i);
         _write(GT_INT, (U8*)&i, sizeof(S32));
         return *this;
     }
     __GPU__ Ostream& operator<<(U32 i) {
+        MM_DB("ostr#_write(U32) %d\n", i);
         _write(GT_U32, (U8*)&i, sizeof(U32));
         return *this;
     }
     __GPU__ Ostream& operator<<(DU d) {
         GT t = IS_OBJ(d) ? GT_OBJ : GT_FLOAT;
+        MM_DB("ostr#_write(DU) %d, %g\n", t, d);
         _write(t, (U8*)&d, sizeof(DU));
         return *this;
     }
     __GPU__ Ostream& operator<<(const char *s) {
+        MM_DB("ostr#_write(%s)\n", s);
         int len = STRLENB(s)+1;
         _write(GT_STR, (U8*)s, len);
         return *this;
     }
     __GPU__ Ostream& operator<<(_opx o) {
+        MM_DB("ostr#_write(_opx)\n");
         _write(GT_OPX, (U8*)&o, sizeof(o));
         return *this;
     }
