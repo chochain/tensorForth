@@ -10,6 +10,13 @@
 #include "t4base.h"
 
 #if T4_ENABLE_OBJ
+
+#if T4_VERBOSE > 0
+#define OPN(...)   static const char *opn[] = { __VA_ARGS__ }
+#else 
+#define OPN(...)
+#endif // T4_VERBOSE
+
 //===============================================================================
 /// tensorForth tensor class
 /// @brief - Tensor at rank=4, row-major, F32 only storage

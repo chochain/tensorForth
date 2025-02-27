@@ -5,14 +5,8 @@
  * <pre>Copyright (C) 2022- GreenII, this file is distributed under BSD 3-Clause License.</pre>
  */
 #include "tensor.h"
+
 #if T4_ENABLE_OBJ
-
-#if T4_VERBOSE > 0
-#define OPN(...)   static const char *opn[] = { __VA_ARGS__ }
-#else 
-#define OPN(...)
-#endif // T4_VERBOSE
-
 ///=======================================================================
 /// static methods
 ///
