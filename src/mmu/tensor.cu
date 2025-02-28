@@ -141,7 +141,7 @@ __GPU__ Tensor&
 Tensor::ten_op(math_op op, Tensor &A, DU v, Tensor &O) {
     U32 N = A.N(), H = A.H(), W = A.W(), C = A.C();
     OPN(MATH_OP);
-    MM_DB("tensor#k_ts_op(%s)[%d,%d,%d,%d] %6.2f\n", opn[op], N, H, W, C, v);
+    MM_DB("tensor#ten_op [%d,%d,%d,%d] %s %6.2f\n", N, H, W, C, opn[op], v);
 
     dim3 blk(T4_WARP_SQ, 1, 1);
     dim3 grd((A.numel + blk.x - 1) / blk.x, 1, 1);
@@ -156,7 +156,7 @@ __GPU__ Tensor&
 Tensor::ten_op(math_op op, Tensor &A, Tensor &B, Tensor &O) {
     U32 N = A.N(), H = A.H(), W = A.W(), C = A.C();
     OPN(MATH_OP);
-    MM_DB("tensor#k_tt_op(%s)[%d,%d,%d,%d]\n", opn[op], N, H, W, C);
+    MM_DB("tensor#ten_op  %s([%d,%d,%d,%d])\n", opn[op], N, H, W, C);
     
     dim3 blk(T4_WARP_SQ, 1, 1);
     dim3 grd((A.numel + blk.x - 1) / blk.x, 1, 1);
@@ -554,7 +554,7 @@ Tensor::tril() {
 ///
 __BOTH__ Tensor&
 Tensor::reset(void *mem, U64 sz, t4_obj tt, t4_layer fn) {
-    MM_DB("tensor#reset(%p, %ld)\n", mem, sz);
+    MM_DB("tensor#reset(%p,%ld)\n", mem, sz);
     init(sz, tt, 1);                                   /// T4Base attributes
 
     const U64 GB   = 1L << 30;
