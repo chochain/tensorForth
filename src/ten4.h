@@ -2,8 +2,8 @@
   @file
   @brief TensorForth class - macros and internal class definitions
 */
-#ifndef TEN4_SRC_TEN4_H_
-#define TEN4_SRC_TEN4_H_
+#ifndef __TEN4_H_
+#define __TEN4_H_
 #include "vm/vm.h"           // proxy to sys.h
 #include "vm/eforth.h"       // just eForth
 #include "vm/tenvm.h"        // tensor/matrix set, or
@@ -44,4 +44,4 @@ public:
     __HOST__ int   main_loop();              ///< execute tensorForth main loop
     __HOST__ void  teardown(int sig=0);
 };
-#endif // TEN4_SRC_TEN4_H_
+#endif // __TEN4_H_

@@ -4,8 +4,8 @@
  *
  * <pre>Copyright (C) 2022- GreenII, this file is distributed under BSD 3-Clause License.</pre>
  */
-#ifndef TEN4_SRC_T4BASE_H
-#define TEN4_SRC_T4BASE_H
+#ifndef __T4BASE_H
+#define __T4BASE_H
 #include "ten4_types.h"
 
 #if T4_ENABLE_OBJ
@@ -89,5 +89,5 @@ struct T4Base : public Managed {
 class T4Base {};
 #endif // T4_ENABLE_OBJ
 
-#endif // TEN4_SRC_T4BASE_H
+#endif // __T4BASE_H
 

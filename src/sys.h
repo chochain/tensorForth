@@ -4,8 +4,8 @@
  *
  * <pre>Copyright (C) 2022- GreenII, this file is distributed under BSD 3-Clause License.</pre>
  */
-#ifndef TEN4_SRC_SYS_H
-#define TEN4_SRC_SYS_H
+#ifndef __SYS_H
+#define __SYS_H
 #include <curand_kernel.h>
 #include "debug.h"                              ///< include mmu/mmu.h, io/aio.h
 ///
@@ -99,5 +99,5 @@ public:
     }
 };
 ///@}
-#endif // TEN4_SRC_SYS_H
+#endif // __SYS_H
 

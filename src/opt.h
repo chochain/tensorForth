@@ -1,8 +1,8 @@
 /*! @file
   @brief tensorForth command line options
 */
-#ifndef TEN4_SRC_OPT_H_
-#define TEN4_SRC_OPT_H_
+#ifndef __OPT_H_
+#define __OPT_H_
 
 #include <getopt.h>            ///< GNU option parser
 ///////////////////////////////////////////////////////////////////////////////////////////////////
@@ -188,7 +188,7 @@ struct Options {
         return out;
     }
 };
-#endif // TEN4_SRC_OPT_H_
+#endif // __OPT_H_
 #if 0
 $ ./tests/ten4 -n 7 -y 1024 -x 512 -k 2048 -a 2.0 -b 0.707
             << "  -y <int>  GEMM M dimension\n"

@@ -4,8 +4,8 @@
  *
  * <pre>Copyright (C) 2022- GreenII, this file is distributed under BSD 3-Clause License.</pre>
  */
-#ifndef TEN4_SRC_TEN4_CONFIG_H_
-#define TEN4_SRC_TEN4_CONFIG_H_
+#ifndef __TEN4_CONFIG_H_
+#define __TEN4_CONFIG_H_
 
 /* debugging flags
  *   t4  : general debugging controlled by -t option, default 1
@@ -68,4 +68,4 @@
 #define T4_WARP_SZ   16        /**< CUDA GPU warp 16x16 threads  */
 #define T4_WARP_SQ   (T4_WARP_SZ * T4_WARP_SZ)
 ///@}
-#endif // TEN4_SRC_TEN4_CONFIG_H_
+#endif // __TEN4_CONFIG_H_

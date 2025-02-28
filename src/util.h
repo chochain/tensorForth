@@ -4,8 +4,8 @@
  *
  * <pre>Copyright (C) 2021- GreenII, this file is distributed under BSD 3-Clause License.</pre>
  */
-#ifndef TEN4_SRC_UTIL_H_
-#define TEN4_SRC_UTIL_H_
+#ifndef __UTIL_H_
+#define __UTIL_H_
 #include <stdint.h>
 #include <stddef.h>
 #include "ten4_config.h"
@@ -190,4 +190,4 @@ __KERN__ void        k_tt_op(math_op op, float *A, float *B, float *O, int n); /
 #ifdef __cplusplus
 }
 #endif
-#endif // TEN4_SRC_UTIL_H_
+#endif // __UTIL_H_

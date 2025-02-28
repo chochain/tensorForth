@@ -4,8 +4,8 @@
  *
  * <pre>Copyright (C) 2022- GreenII, this file is distributed under BSD 3-Clause License.</pre>
  */
-#ifndef TEN4_SRC_TEN4_TYPES_H_
-#define TEN4_SRC_TEN4_TYPES_H_
+#ifndef __TEN4_TYPES_H_
+#define __TEN4_TYPES_H_
 #include "ten4_config.h"
 ///
 ///@name Debug/Tracing options
@@ -235,4 +235,4 @@ struct Managed {
     }
     void operator delete(void *ptr) { MM_FREE(ptr); }
 };
-#endif // TEN4_SRC_TEN4_TYPES_H_
+#endif // __TEN4_TYPES_H_

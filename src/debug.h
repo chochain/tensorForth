@@ -4,8 +4,8 @@
  *
  * <pre>Copyright (C) 2022- GreenII, this file is distributed under BSD 3-Clause License.</pre>
  */
-#ifndef TEN4_SRC_DEBUG_H
-#define TEN4_SRC_DEBUG_H
+#ifndef __DEBUG_H
+#define __DEBUG_H
 #include <iomanip>                                        /// setw, setprec, setbase...
 #include "t4base.h"                                       ///< include ten4_types.h
 #include "io/aio.h"
@@ -53,4 +53,4 @@ private:
     __HOST__ int  _to_s(Param *p, int nv, int base);      ///< show by parameter memory pointer
 };
 ///@}
-#endif // TEN4_SRC_DEBUG_H
+#endif // __DEBUG_H
