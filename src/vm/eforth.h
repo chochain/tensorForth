@@ -4,8 +4,8 @@
  *
  * <pre>Copyright (C) 2022- GreenII, this file is distributed under BSD 3-Clause License.</pre>
  */
-#ifndef TEN4_SRC_VM_EFORTH_H
-#define TEN4_SRC_VM_EFORTH_H
+#ifndef __VM_EFORTH_H
+#define __VM_EFORTH_H
 #include "vm.h"                         ///< VM base class in ../vm
 #include "param.h"                      ///< Parameter field
 ///
@@ -133,4 +133,4 @@ private:
     __GPU__ void _is_alias();                 ///< create alias function
 };
 ///@}
-#endif // TEN4_SRC_VM_EFORTH_H
+#endif // __VM_EFORTH_H

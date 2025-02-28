@@ -4,8 +4,8 @@
  *
  * <pre>Copyright (C) 2022- GreenII, this file is distributed under BSD 3-Clause License.</pre>
  */
-#ifndef TEN4_SRC_VM_VM_H
-#define TEN4_SRC_VM_VM_H
+#ifndef __VM_VM_H
+#define __VM_VM_H
 #include "sys.h"                    /// system interface
 ///
 ///@name Cross platform support
@@ -70,4 +70,4 @@ protected:
 #endif // DO_MULTITASK    
 };
 ///@}
-#endif // TEN4_SRC_VM_VM_H
+#endif // __VM_VM_H

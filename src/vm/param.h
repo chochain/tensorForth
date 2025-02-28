@@ -4,8 +4,8 @@
  *
  * <pre>Copyright (C) 2022- GreenII, this file is distributed under BSD 3-Clause License.</pre>
  */
-#ifndef TEN4_SRC_VM_PARAM_H
-#define TEN4_SRC_VM_PARAM_H
+#ifndef __VM_PARAM_H
+#define __VM_PARAM_H
 #include "ten4_types.h"
 ///
 ///@name Parameter Structure
@@ -26,4 +26,4 @@ struct Param : public Managed {
     }
 };
 ///@}
-#endif  // TEN4_SRC_VM_PARAM_H
+#endif  // __VM_PARAM_H
