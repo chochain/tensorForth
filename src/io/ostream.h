@@ -131,34 +131,34 @@ public:
     ///
     __GPU__ Ostream& operator<<(char c) {
         char buf[2] = { c, '\0' };
-        MM_DB("ostr#_write(char %c)\n", c);
+        DEBUG("ostr#_write(char %c)\n", c);
         _write(GT_STR, (U8*)buf, 2);
         return *this;
     }
     __GPU__ Ostream& operator<<(S32 i) {
-        MM_DB("ostr#_write(S32) %d\n", i);
+        DEBUG("ostr#_write(S32) %d\n", i);
         _write(GT_INT, (U8*)&i, sizeof(S32));
         return *this;
     }
     __GPU__ Ostream& operator<<(U32 i) {
-        MM_DB("ostr#_write(U32) %d\n", i);
+        DEBUG("ostr#_write(U32) %d\n", i);
         _write(GT_U32, (U8*)&i, sizeof(U32));
         return *this;
     }
     __GPU__ Ostream& operator<<(DU d) {
         GT t = IS_OBJ(d) ? GT_OBJ : GT_FLOAT;
-        MM_DB("ostr#_write(DU) %d, %g\n", t, d);
+        DEBUG("ostr#_write(DU) %d, %g\n", t, d);
         _write(t, (U8*)&d, sizeof(DU));
         return *this;
     }
     __GPU__ Ostream& operator<<(const char *s) {
-        MM_DB("ostr#_write(%s)\n", s);
+        DEBUG("ostr#_write(%s)\n", s);
         int len = STRLENB(s)+1;
         _write(GT_STR, (U8*)s, len);
         return *this;
     }
     __GPU__ Ostream& operator<<(_opx o) {
-        MM_DB("ostr#_write(_opx)\n");
+        DEBUG("ostr#_write(_opx)\n");
         _write(GT_OPX, (U8*)&o, sizeof(o));
         return *this;
     }
