@@ -39,7 +39,7 @@ AIO::tsave(Tensor &t, char *fname, U8 mode) {
 __HOST__ void
 AIO::_print_vec(h_ostr &fs, DU *vd, U32 W, U32 C) {
     U32 rw = (W <= _thres) ? W : (W < _edge ? W : _edge);
-    fs << setprecision(_prec) << "{";                 /// set precision
+    fs << setprecision(_prec) << "{";             /// set precision
     for (U32 j=0; j < rw; j++) {
         DU *dx = vd + j * C;
         for (U32 k=0; k < C; k++) {
@@ -81,11 +81,11 @@ AIO::_print_mat(h_ostr &fs, DU *td, U32 *shape) {
 }
 __HOST__ void
 AIO::_print_tensor(h_ostr &fs, Tensor &t) {
-    DU *td = t.data;                        /// * short hand
+    DU *td = t.data;                                    /// * short hand
     IO_DB("aio#print_tensor::T=%p data=%p\n", &t, td);
 
     ios::fmtflags fmt0 = fs.flags();
-    fs << setprecision(-1);                 /// * standard format
+    fs << setprecision(-1);                             /// * standard format
     switch (t.rank) {
     case 1: {
         fs << "vector[" << t.numel << "] = ";
@@ -123,7 +123,7 @@ AIO::_print_tensor(h_ostr &fs, Tensor &t) {
 __HOST__ int
 AIO::_tsave_txt(h_ostr &fs, Tensor &t) {
     int tmp = _thres;
-    _thres  = 1024;                              /// * allow 1K*1K cells
+    _thres  = 1024;                                     /// * allow 1K*1K cells
     _print_tensor(fs, t);              
     _thres  = tmp;
     return 0;
@@ -133,14 +133,14 @@ __HOST__ int
 AIO::_tsave_raw(h_ostr &fs, Tensor &t) {
     const char hdr[2] = { 'T', '4' };
     const int N = t.N(), HWC = t.HWC();
-    U8 *buf = (U8*)malloc(HWC);                       ///< buffer for one slice
+    U8 *buf = (U8*)malloc(HWC);                         ///< buffer for one slice
 
     fs.write(hdr, sizeof(hdr));
     fs.write((const char*)t.shape, sizeof(t.shape));
     for (int n=0; n < N; n++) {
-        DU *p = &t.data[n * HWC];                    ///< slice-by-slice
+        DU *p = &t.data[n * HWC];                       ///< slice-by-slice
         for (int i=0; i < HWC; i++) {
-            buf[i] = static_cast<U8>(*p++ * 256.0);  /// * [0,1)=>[0,256)
+            buf[i] = static_cast<U8>(*p++ * 256.0);     /// * [0,1)=>[0,256)
         }
         fs.write((const char*)buf, HWC);
     }
