@@ -175,9 +175,10 @@ MMU::drop(T4Base &t) {
 
 __GPU__ Tensor&                    ///< allocate a tensor from tensor space
 MMU::talloc(U64 sz) {
+    MM_DB("mmu#talloc(%lx) => {\n", sz);
     Tensor &t = *(Tensor*)_ostore.malloc(sizeof(Tensor));
     void   *d = _ostore.malloc(sz * sizeof(DU));
-    MM_DB("mmu#talloc => T:%x+%x\n", OBJ2X(t), (U32)((U8*)d - _obj));
+    MM_DB("} mmu#talloc => T:%x+%x\n", OBJ2X(t), (U32)((U8*)d - _obj));
     _ostore.status();
     t.reset(d, sz);
     return t;
@@ -220,7 +221,8 @@ MMU::resize(Tensor &t, U64 sz) {
 }
 __GPU__ void                     ///< release tensor memory blocks
 MMU::free(Tensor &t) {
-    MM_DB("mmu#free(T%d) numel=%ld T:%x ", t.rank, t.numel, OBJ2X(t));
+    int n = t.rank;
+    MM_DB("mmu#free(T%d) numel=%ld T:%x => {\n", n, t.numel, OBJ2X(t));
     _ostore.free(t.data);        /// * free physical data
     if (t.grad_fn != L_NONE) {
         MM_DB("{\n");
@@ -234,6 +236,7 @@ MMU::free(Tensor &t) {
         MM_DB("\t} ");
     }
     _ostore.free(&t);              /// * free tensor object itself
+    MM_DB("} mmu#free(T%d)\n", n);
     _ostore.status();
 }
 #if T4_ENABLE_NN
@@ -274,6 +277,7 @@ __GPU__ Tensor&
 MMU::copy(Tensor &t0) {
     if (!t0.is_tensor()) return t0;    ///> skip, TODO: copy model
 
+    MM_DB("mmu#copy(T%d:%x) numel=%ld => {\n", t0.rank, OBJ2X(t0), t0.numel);
     Tensor &t1  = *(Tensor*)_ostore.malloc(sizeof(Tensor));
     memcpy(&t1, &t0, sizeof(Tensor));   /// * copy attributes
     ///
@@ -289,9 +293,7 @@ MMU::copy(Tensor &t0) {
     t1.data = (DU*)_ostore.malloc(bsz);
     t1 = t0;                            /// * copy all tensor elements
     
-    MM_DB("mmu#copy(T%d) numel=%ld to T:%x\n", t0.rank, t0.numel, OBJ2X(t1));
-    _ostore.status();
-    
+    MM_DB("} mmu#copy(T%d) to T%d:%x\n", t0.rank, t1.rank, OBJ2X(t1));
     return t1;
 }
 ///
