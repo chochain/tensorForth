@@ -4,8 +4,8 @@
  *
  * <pre>Copyright (C) 2022- GreenII, this file is distributed under BSD 3-Clause License.</pre>
  */
-#ifndef TEN4_SRC_STRBUF_H
-#define TEN4_SRC_STRBUF_H
+#ifndef __IO_STRBUF_H
+#define __IO_STRBUF_H
 #include "vector.h"
 
 #define TEN4_FLOAT_PRECISION  1000000     /* 6-digit */
@@ -64,4 +64,4 @@ struct StrBuf : public Vector<char>
     __GPU__ int   to_i(char **p, int base=10) { return (int)STRTOL((char*)v, p, base); }
     __GPU__ float to_f(char **p)              { return (float)STRTOF((char*)v, p);     }
 };
-#endif // TEN4_SRC_STRBUF_H
+#endif // _IO_STRBUF_H

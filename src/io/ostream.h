@@ -4,8 +4,8 @@
  *
  * <pre>Copyright (C) 2022- GreenII, this file is distributed under BSD 3-Clause License.</pre>
  */
-#ifndef TEN4_SRC_OSTREAM_H_
-#define TEN4_SRC_OSTREAM_H_
+#ifndef __IO_OSTREAM_H_
+#define __IO_OSTREAM_H_
 #include "ten4_types.h"
 #include "util.h"                // in ../mmu
 
@@ -163,4 +163,4 @@ public:
         return *this;
     }
 };
-#endif // TEN4_SRC_OSTREAM_H_
+#endif // __IO_OSTREAM_H_

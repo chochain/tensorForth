@@ -4,8 +4,8 @@
  *
  * <pre>Copyright (C) 2022- GreenII, this file is distributed under BSD 3-Clause License.</pre>
  */
-#ifndef TEN4_SRC_ISTREAM_H_
-#define TEN4_SRC_ISTREAM_H_
+#ifndef __IO_ISTREAM_H_
+#define __IO_ISTREAM_H_
 #include "ten4_types.h"
 #include "util.h"               /// in mmu
 ///
@@ -73,4 +73,4 @@ public:
     __GPU__ int  operator>>(char *s) { get_idiom(s); return _gn; }
     __GPU__ char operator>>(char &c) { return (*(&c) = _buf[_idx++]); }
 };
-#endif // TEN4_SRC_ISTREAM_H_
+#endif // __IO_ISTREAM_H_

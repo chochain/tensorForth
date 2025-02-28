@@ -8,11 +8,10 @@
  * <pre>Copyright (C) 2021 GreenII, this file is distributed under BSD 3-Clause License.</pre>
  *
  */
-#ifndef TEN4_SRC_AIO_H
-#define TEN4_SRC_AIO_H
+#ifndef __IO_AIO_H
+#define __IO_AIO_H
 #include "istream.h"
 #include "ostream.h"
-#include "t4base.h"
 #include "tensor.h"
 #include "dataset.h"                  // in ../mmu
 #include "model.h"                    // in ../mmu
@@ -106,4 +105,4 @@ private:
 #endif // T4_ENABLE_OBJ ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 };
 
-#endif // TEN4_SRC_AIO_H
+#endif // __IO_AIO_H
