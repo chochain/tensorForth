@@ -9,8 +9,8 @@
 #include "eforth.h"                         /// extending ForthVM
 
 #if T4_ENABLE_OBJ
-#define VLOG1(...) if (sys.trace() > 0) INFO(__VA_ARGS__);
-#define VLOG2(...) if (sys.trace() > 1) INFO(__VA_ARGS__);
+#define VLOG1(...) if (sys.trace() > 0) { INFO(__VA_ARGS__); }
+#define VLOG2(...) if (sys.trace() > 1) { INFO(__VA_ARGS__); }
 ///
 ///@name multi-dispatch checker macros
 ///@{
@@ -57,8 +57,8 @@ protected:
     ///
     __GPU__ void xop1(math_op op, DU v=DU0);                ///< 1-operand ops in-place
     __GPU__ void xop2(math_op op, t4_drop_opt x=T_KEEP);    ///< 2-operand ops
-    __GPU__ void xop1t(t4_ten_op op);                       ///< 1-operand ops with new tensor
-    __GPU__ void xop2t(t4_ten_op op, t4_drop_opt x=T_KEEP); ///< 2-operand tensor ops
+    __GPU__ void blas1(t4_ten_op op);                       ///< 1-operand ops with new tensor
+    __GPU__ void blas2(t4_ten_op op, t4_drop_opt x=T_KEEP); ///< 2-operand tensor ops
     
 private:
     ///

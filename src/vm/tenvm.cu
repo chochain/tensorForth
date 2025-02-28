@@ -66,7 +66,9 @@ TensorVM::xop1(math_op op, DU v) {
     ///
     Tensor &A = TTOS;
     if (!A.is_tensor()) { ERROR("tensor?"); return; }
-    
+
+    OPN(MATH_OP);
+    VLOG2("tenvm#xop1 %s(A[%d,%d]) => ", opn[op], A.H(), A.W());
     switch (op) {        /// * defined in ~/src/util.h
     case ABS:
     case NEG:
@@ -84,7 +86,7 @@ TensorVM::xop1(math_op op, DU v) {
     case SCALE:
     case POW:   A.map(op, v);   break;
     case IDEN:  A.identity();   break;
-    default: ERROR("tenvm#xop1(%d) not supprted\n", op);
+    default: ERROR("opn[%d] not supprted\n", op);
     }
 }
 ///
@@ -92,50 +94,51 @@ TensorVM::xop1(math_op op, DU v) {
 ///
 __GPU__ void
 TensorVM::xop2(math_op op, t4_drop_opt x) {
-    static const char *opn[] = { MATH_OP };
+    OPN(MATH_OP);
     ///
     /// 2-operand operator (broadcasting)
     ///
-    bool s0 = !IS_OBJ(tos), s1 = !IS_OBJ(ss[-1]); /// * scalar flags
-    if (s0 && s1) return _ss_op(op);              /// * scalar scalar op
-    if (s0) {                                     /// * tensor scaler op
-        Tensor &O = _ts_op(op, x);
-        VLOG2("tenvm#_ts_op A[%d,%d] %s %g => O[%d,%d]\n",
-              TNOS.H(), TNOS.W(), opn[op], tos, O.H(), O.W());
-        if (x==T_KEEP) PUSH(O);
-        else           POP();
-        return;
-    }
-    if (s1) {                                     /// * scalar tensor op
+    int tt = (IS_OBJ(ss[-1]) ? 2 : 0) | (IS_OBJ(tos) ? 1 : 0); 
+    switch (tt) {                                 /// tensor flags
+    case 0 /* ss */: _ss_op(op); break;           /// * scalar-scalar op ( a b -- c  )
+    case 1 /* st */: {                            /// * scalar-tensor op ( n T -- T' )
         Tensor &O = _st_op(op, x);
-        VLOG2("tenvm#_st_op %g %s A[%d,%d] => O[%d,%d]\n",
+        VLOG2("tenvm#xop2 %g %s A[%d,%d] => O[%d,%d]\n",
               ss[-1], opn[op], TTOS.H(), TTOS.W(), O.H(), O.W());
         if (x==T_KEEP) PUSH(O);
         else           ss.pop();
-        return;
-    }
-
-    Tensor &O = _tt_op(op);                       /// * tensor tensor hadamard op
-    if (O != TTOS) {
-        VLOG2("tenvm#_tt_op A[%d,%d] %s B[%d,%d] => O[%d,%d]\n",
-             TNOS.H(), TNOS.W(), opn[op], TTOS.H(), TTOS.W(), O.H(), O.W());
-        if (x==T_DROP) {
-            DROP(POP());
-            DROP(POP());
+    } break;
+    case 2 /* ts */: {                            /// * tensor-scalar op ( T n -- T n T' )
+        Tensor &O = _ts_op(op, x);
+        VLOG2("tenvm#xop2 A[%d,%d] %s %g => O[%d,%d]\n",
+              TNOS.H(), TNOS.W(), opn[op], tos, O.H(), O.W());
+        if (x==T_KEEP) PUSH(O);
+        else           POP();
+    } break;
+    case 3 /* tt */: {
+        Tensor &O = _tt_op(op);                   /// * tensor-tensor element op ( A B -- A B C )
+        if (O != TTOS) {
+            VLOG2("tenvm#xop2 A[%d,%d] %s B[%d,%d] => O[%d,%d]\n",
+                  TNOS.H(), TNOS.W(), opn[op], TTOS.H(), TTOS.W(), O.H(), O.W());
+            if (x==T_DROP) {
+                DROP(POP());
+                DROP(POP());
+            }
+            PUSH(O);
         }
-        PUSH(O);
+    } break;
     }
 }
 ///
 /// 1-operand ops with new tensor created (on TOS)
 ///
 __GPU__ void
-TensorVM::xop1t(t4_ten_op op) {
+TensorVM::blas1(t4_ten_op op) {
     OPN(TENSOR_OP);
     Tensor &A  = TTOS;
     if (!A.is_tensor() || A.rank != 2) { ERROR("tensor2?"); return; }
     
-    VLOG2("tenvm#xop1t %s(A[%d,%d])\n", opn[op], A.H(), A.W());
+    VLOG2("tenvm#blas %s(A[%d,%d]) => ", opn[op], A.H(), A.W());
     ///
     /// single tensor handler
     ///
@@ -154,7 +157,7 @@ TensorVM::xop1t(t4_ten_op op) {
         DU     v  = T.det();                  /// * multiply diagnal
         PUSH(ns&1 ? -v : v);                  /// * return determinant on TOS
         FREE(P);
-        FREE(T);                          /// * not needed
+        FREE(T);                              /// * not needed
         tos = false;
     } break;
     case T_LU:  Tensor::lu(T);    break;      /// * decompose A to LU
@@ -167,24 +170,24 @@ TensorVM::xop1t(t4_ten_op op) {
         T.reshape(A.W(), A.H());
         Tensor::transpose(A, T);  break;
     default:
-        ERROR("tenvm#xop1t(%d) not supported\n", op);
+        ERROR("opn[%d] not supported\n", op);
         FREE(T);
         tos = false;
     }
-    if (tos) PUSH(T);
+    if (tos) PUSH(T);                         /// ( T -- T T' )
 }
 ///
 /// 2-operand tensor ops
 ///
 __GPU__ void
-TensorVM::xop2t(t4_ten_op op, t4_drop_opt x) {
+TensorVM::blas2(t4_ten_op op, t4_drop_opt x) {
     OPN(TENSOR_OP);
     if (!TOS2T) {
-        ERROR("tenvm#xop2t TNOS TTOS required!\n");
+        ERROR("tenvm#blas2 TNOS TTOS required!\n");
         return;
     }
     Tensor &A = TNOS, &B = TTOS;
-    VLOG2("tenvm#xop2t A[%d,%d] %s B[%d,%d] => ",
+    VLOG2("tenvm#blas2 A[%d,%d] %s B[%d,%d] => ",
           A.H(), A.W(), opn[op], B.H(), B.W());
     switch (op){
     case T_DOT: {               ///< C = A @ B
@@ -486,16 +489,16 @@ TensorVM::init() {
     CODE("sat",       xop1(SAT));
     CODE("pow",       xop1(POW, POP()));      ///< scale tensor with TOS
     ///@}
-    ///@defgroup 1-tensor ops that create new tensor
+    ///@defgroup BLAS, 1-tensor ops, that create new tensor
     ///@brief - stick to PyTorch naming when possible
     ///@{
-    CODE("inverse",   xop1t(T_INV));          ///< (A -- A Ai')   matrix inversion (GaussJordan)
-    CODE("det",       xop1t(T_DET));          ///< (A -- A d)     matrix determinant
-    CODE("lu",        xop1t(T_LU));           ///< (A -- A A')    LU decomposition
-    CODE("luinv",     xop1t(T_LUINV));        ///< (A -- A A')    inverse the LU matrix
-    CODE("upper",     xop1t(T_TRIU));         ///< (A -- A A')    upper triangle
-    CODE("lower",     xop1t(T_TRIL));         ///< (A -- A A')    lower triangle
-    CODE("transpose", xop1t(T_XPOS));         ///< (A -- A At)    matrix transpose
+    CODE("inverse",   blas1(T_INV));          ///< (A -- A Ai')   matrix inversion (GaussJordan)
+    CODE("det",       blas1(T_DET));          ///< (A -- A d)     matrix determinant
+    CODE("lu",        blas1(T_LU));           ///< (A -- A A')    LU decomposition
+    CODE("luinv",     blas1(T_LUINV));        ///< (A -- A A')    inverse the LU matrix
+    CODE("upper",     blas1(T_TRIU));         ///< (A -- A A')    upper triangle
+    CODE("lower",     blas1(T_TRIL));         ///< (A -- A A')    lower triangle
+    CODE("transpose", blas1(T_XPOS));         ///< (A -- A At)    matrix transpose
     ///@}
     ///@defgroup 2-tensor matrix ops
     ///@{
@@ -503,10 +506,13 @@ TensorVM::init() {
     CODE("-=",        xop2(SUB, T_DROP));
     CODE("*=",        xop2(MUL, T_DROP));
     CODE("/=",        xop2(DIV, T_DROP));
-    CODE("@=",        xop2t(T_DOT, T_DROP));  ///< (A B -- C)
-    CODE("matmul",    xop2t(T_DOT));          ///< (A B -- A B C) matrix multiply
-    CODE("matdiv",    xop2t(T_DIV));          ///< (A B -- A B C) matrix divide
-    CODE("solve",     xop2t(T_SOLV));         ///< (B A -- B A X) solve B = AX
+    ///@}
+    ///@defgroup BLAS, 2-tensor matrix ops
+    ///@{
+    CODE("@=",        blas2(T_DOT, T_DROP));  ///< (A B -- C)
+    CODE("matmul",    blas2(T_DOT));          ///< (A B -- A B C) matrix multiply
+    CODE("matdiv",    blas2(T_DIV));          ///< (A B -- A B C) matrix divide
+    CODE("solve",     blas2(T_SOLV));         ///< (B A -- B A X) solve B = AX
     CODE("gemm",      _gemm());               ///< (a b A B C -- a b A B C') GEMM (C updated)
     ///@}
     ///@defgroup Tensor persistance
@@ -531,7 +537,7 @@ TensorVM::init() {
     CODE("abs",       xop1(ABS));
     CODE("negate",    xop1(NEG));
     CODE("@",
-         if (TOS2T) xop2t(T_DOT);                ///< matrix @ product
+         if (TOS2T) blas2(T_DOT);                ///< matrix @ product
          else {
              DU v = mmu.rd(POPi);
              PUSH(DUP(v));
