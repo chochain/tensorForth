@@ -41,7 +41,7 @@ AIO::dsfetch(Dataset &ds, char *ds_name, bool rewind) {
     ///
     /// search cache for top <=> dataset pair
     ///
-    IO_TRACE("\nAIO::%s dataset (id=%x) =>",
+    IO_DB("\nAIO::%s dataset (id=%x) =>",
            ds_name ? ds_name : (rewind ? "rewind" : "fetch"), dsx);
     Corpus *cp = Loader::get(dsx, ds_name);      ///< Corpus/Dataset provider
     if (!cp) {
@@ -59,7 +59,7 @@ AIO::dsfetch(Dataset &ds, char *ds_name, bool rewind) {
         ds.batch_id = ds.done = 0;
     }
     else if ((ds.done=cp->eof)) {                /// * dataset exhausted?
-        IO_TRACE(" completed, no more data.\n"); return 0;
+        IO_DB(" completed, no more data.\n"); return 0;
     }
     ///
     /// load a mini-batch of data points
@@ -72,7 +72,7 @@ AIO::dsfetch(Dataset &ds, char *ds_name, bool rewind) {
     /// if needed, allocate Dataset device (managed) memory blocks
     ///
     ds.load_batch(cp->data, cp->label);
-    IO_TRACE("batch[%d] %d record(s) loaded\n", ds.batch_id, batch_sz);
+    IO_DB("batch[%d] %d record(s) loaded\n", ds.batch_id, batch_sz);
 
     ds.batch_id++;
     ds.done = cp->eof;
@@ -84,7 +84,7 @@ AIO::dsfetch(Dataset &ds, char *ds_name, bool rewind) {
 ///
 __HOST__ int
 AIO::nsave(Model &m, U16 mode, char* fname) {
-    printf("\nAIO::save model to '%s' =>", fname);
+    IO_DB("\nAIO::save model to '%s' =>", fname);
     ofstream fout(fname, ios_base::binary);     ///< open an output file
     if (!fout.is_open()) {
         ERROR(" failed to open for output\n");
@@ -101,13 +101,13 @@ AIO::nsave(Model &m, U16 mode, char* fname) {
     }
     fout << "\n---" << endl;
     fout.close();
-    printf(" completed\n");
+    IO_DB(" completed\n");
     return 0;
 }
 
 __HOST__ int
 AIO::nload(Model &m, U16 mode, char* fname) {
-    printf("\nAIO::load '%s' ", fname);
+    IO_DB("\nAIO::load '%s' ", fname);
     ifstream fin(fname, ios_base::binary);           ///< open an input file
     if (!fin.is_open()) {
         ERROR("=> failed to open for input\n");
@@ -117,17 +117,17 @@ AIO::nload(Model &m, U16 mode, char* fname) {
     Model &m = (Model&)T4Base::du2obj(top);
     int err = 0;
     if (m.numel <= 2) {
-        printf("NN model");
+        IO_DB("NN model");
         err = _nload_model(fin, m, fname);           /// * load model layers
     }
     else {
         std::string tmp;
         while (getline(fin, tmp) && tmp.length());   /// * skip model section
-        printf("parameter tensors (i.e. state_dict)");
+        IO_DB("parameter tensors (i.e. state_dict)");
         err = _nload_param(fin, m);           /// * load model layer tensors
     }
     fin.close();
-    printf(" => %s\n", err ? "error" : "completed");
+    IO_DB(" => %s\n", err ? "error" : "completed");
     return err;
 }
 ///
@@ -206,7 +206,7 @@ AIO::_nsave_model(Model &m) {
         const char *nm = Model::nname(in.grad_fn);
         fout << nm << endl;                   /// * one blank line serves
                                               /// * as the sectional break
-        printf("\n%2d> %s [%d,%d,%d,%d]\tp=%-2d => out[%d,%d,%d,%d]",
+        IO_DB("\n%2d> %s [%d,%d,%d,%d]\tp=%-2d => out[%d,%d,%d,%d]",
             i, nm, in.N(), in.H(), in.W(), in.C(), in.parm,
             out.N(), out.H(), out.W(), out.C());
     }
@@ -266,14 +266,14 @@ __HOST__ int
 AIO::_nload_param(Model &m) {
     auto _read = [&fin](const char *pn, const char *nm, Tensor &t) {
         std::string line;                              ///< input string
-        printf("\n%s %s[%d,%d,%d,%d] ", nm, pn, t.N(), t.H(), t.W(), t.C());
+        IO_DB("\n%s %s[%d,%d,%d,%d] ", nm, pn, t.N(), t.H(), t.W(), t.C());
         while (getline(fin, line) && !line.length());  /// * skip blank lines
         if (line[0]!='-' || line[1]!='-' || line[2]!='-') {
-            printf(" model format error");
+            IO_DB(" model format error");
             return 1;
         }
         fin.read((char*)t.data, t.numel * sizeof(DU)); /// * load parameters
-        printf("= %ld bytes", fin.gcount());
+        IO_DB("= %ld bytes", fin.gcount());
         return 0;
     };
     for (int i = 1; i < m.numel - 1; i++) {
