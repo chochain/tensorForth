@@ -4,8 +4,8 @@
  *
  * <pre>Copyright (C) 2022- GreenII, this file is distributed under BSD 3-Clause License.</pre>
  */
-#ifndef TEN4_SRC_MMU_H
-#define TEN4_SRC_MMU_H
+#ifndef __MMU_MMU_H
+#define __MMU_MMU_H
 #include "vector.h"
 #include "tensor.h"
 #include "tlsf.h"
@@ -145,9 +145,9 @@ public:
     __GPU__  Model  &model(U32 sz=T4_NET_SZ);               ///< create a NN model
     __GPU__  void   free(Model &m);
 #endif // T4_ENABLE_NN
-#else  // T4_ENABLE_OBJ ===========================================================
+#else  // !T4_ENABLE_OBJ ==========================================================
     __GPU__  void   sweep()    {}                           ///< holder for no object
     
 #endif // T4_ENABLE_OBJ ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 };
-#endif // TEN4_SRC_MMU_H
+#endif // __MMU_MMU_H

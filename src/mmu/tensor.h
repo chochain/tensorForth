@@ -4,12 +4,11 @@
  *
  * <pre>Copyright (C) 2022- GreenII, this file is distributed under BSD 3-Clause License.</pre>
  */
-#ifndef TEN4_SRC_TENSOR_H
-#define TEN4_SRC_TENSOR_H
 #include "util.h"
 #include "t4base.h"
 
-#if T4_ENABLE_OBJ
+#if (!defined(__MMU_TENSOR_H) && T4_ENABLE_OBJ)
+#define __MMU_TENSOR_H
 
 #if T4_VERBOSE > 0
 #define OPN(...)   static const char *opn[] = { __VA_ARGS__ }
@@ -207,5 +206,4 @@ struct Tensor : public T4Base {
     __GPU__ __INLINE__ bool   operator==(Tensor &t) { return (UFP)this==(UFP)&t; }
 };
 
-#endif // T4_ENABLE_OBJ
-#endif // TEN4_SRC_TENSOR_H
+#endif // __MMU_TENSOR_H

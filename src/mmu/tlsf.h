@@ -4,8 +4,8 @@
 
   <pre>Copyright (C) 2019 GreenII. This file is distributed under BSD 3-Clause License.</pre>
 */
-#if !defined(TEN4_SRC_TLSF_H) && T4_ENABLE_OBJ 
-#define TEN4_SRC_TLSF_H
+#if !defined(__MMU_TLSF_H) && T4_ENABLE_OBJ 
+#define __MMU_TLSF_H
 
 typedef struct used_block {          //< 8-bytes
     U32 bsz;                         //< block size, header included (max 2G)
@@ -90,4 +90,4 @@ private:
     __BOTH__ void        _dump_freelist();
 };
 
-#endif // !defined(TEN4_SRC_TLSF_H) && T4_ENABLE_OBJ
+#endif // __MMU_TLSF_H

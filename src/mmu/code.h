@@ -4,8 +4,8 @@
  *
  * <pre>Copyright (C) 2022- GreenII, this file is distributed under BSD 3-Clause License.</pre>
  */
-#ifndef TEN4_SRC_CODE_H
-#define TEN4_SRC_CODE_H
+#ifndef __MMU_CODE_H
+#define __MMU_CODE_H
 ///
 /// CUDA functor (device only)
 /// Note: nvstd::function is generic and smaller (at 56-byte)
@@ -61,4 +61,4 @@ struct Code : public Managed {
         DEBUG("%cCode(name=%p, xt=%p) %s\n", im ? '*' : ' ', name, xt, n);
     }
 };
-#endif // TEN4_SRC_CODE_H
+#endif // __MMU_CODE_H

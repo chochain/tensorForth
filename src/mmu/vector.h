@@ -4,8 +4,8 @@
  *
  * <pre>Copyright (C) 2021 GreenII, this file is distributed under BSD 3-Clause License.</pre>
  */
-#ifndef TEN4_SRC_VECTOR_H
-#define TEN4_SRC_VECTOR_H
+#ifndef __MMU_VECTOR_H
+#define __MMU_VECTOR_H
 #include "ten4_types.h"
 #include "util.h"            /// also defined __GPU__
 
@@ -76,4 +76,4 @@ struct Vector {
         return *this;
     }
 };
-#endif // TEN4_SRC_VECTOR_H
+#endif // __MMU_VECTOR_H
