@@ -103,23 +103,23 @@ TensorVM::xop2(math_op op, t4_drop_opt x) {
     switch (tt) {                                 /// tensor flags
     case 0 /* ss */: _ss_op(op); break;           /// * scalar-scalar op ( a b -- c  )
     case 1 /* st */: {                            /// * scalar-tensor op ( n T -- T' )
-        VLOG2("%s %g %s A[%d,%d] => {\n",
+        VLOG2("%s %g %s A[%d,%d] {\n",
               fn, ss[-1], opn[op], TTOS.H(), TTOS.W());
         Tensor &O = _st_op(op, x);
         if (x==T_KEEP) PUSH(O);
         else           ss.pop();
-        VLOG2("} %s O[%d,%d]\n", fn, O.H(), O.W());
+        VLOG2("} %s => O[%d,%d]\n", fn, O.H(), O.W());
     } break;
     case 2 /* ts */: {                            /// * tensor-scalar op ( T n -- T n T' )
-        VLOG2("%s A[%d,%d] %s %g => {\n",
+        VLOG2("%s A[%d,%d] %s %g {\n",
               fn, TNOS.H(), TNOS.W(), opn[op], tos);
         Tensor &O = _ts_op(op, x);
         if (x==T_KEEP) PUSH(O);
         else           POP();
-        VLOG2("} %s O[%d,%d]\n", fn, O.H(), O.W());
+        VLOG2("} %s => O[%d,%d]\n", fn, O.H(), O.W());
     } break;
     case 3 /* tt */: {
-        VLOG2("%s A[%d,%d] %s B[%d,%d] => {\n",
+        VLOG2("%s A[%d,%d] %s B[%d,%d] {\n",
               fn, TNOS.H(), TNOS.W(), opn[op], TTOS.H(), TTOS.W());
         Tensor &O = _tt_op(op);                   /// * tensor-tensor element op ( A B -- A B C )
         if (O != TTOS) {
@@ -129,7 +129,7 @@ TensorVM::xop2(math_op op, t4_drop_opt x) {
             }
             PUSH(O);
         }
-        VLOG2("} %s O[%d,%d]\n", fn, O.H(), O.W());
+        VLOG2("} %s => O[%d,%d]\n", fn, O.H(), O.W());
     } break;
     }
 }
@@ -194,7 +194,7 @@ TensorVM::blas2(t4_ten_op op, t4_drop_opt x) {
         return;
     }
     Tensor &A = TNOS, &B = TTOS;
-    VLOG2("%s A[%d,%d] %s B[%d,%d] => {\n",
+    VLOG2("%s A[%d,%d] %s B[%d,%d] {\n",
           fn, A.H(), A.W(), opn[op], B.H(), B.W());
     switch (op){
     case T_DOT: {               ///< C = A @ B

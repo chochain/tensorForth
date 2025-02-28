@@ -69,7 +69,7 @@ TLSF::init(U8 *mem, U64 sz, U64 off) {
 */
 __GPU__ void*
 TLSF::malloc(U64 sz) {
-    MM_DB("  tlsf#malloc(0x%lx) => {\n", sz);
+    MM_DB("  tlsf#malloc(0x%lx) {\n", sz);
     U64 bsz = ALIGN8(sz) + sizeof(used_block);  // logical => physical size
 
     _LOCK;
@@ -134,7 +134,7 @@ TLSF::free(void *ptr) {
     _LOCK;
     const U32 addr  = TADDR(ptr);
     free_block *blk = (free_block *)BLK_HEAD(ptr);       // get block header
-    MM_DB("  tlsf#free(%x) %x:%x => {\n", addr, TADDR(blk), blk->bsz);
+    MM_DB("  tlsf#free(%x) %x:%x {\n", addr, TADDR(blk), blk->bsz);
     _merge_next(blk);
     _set_free(blk);
 
