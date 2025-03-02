@@ -131,6 +131,13 @@ private:
     __GPU__ void _quote(prim_op op);          ///< string helper
     __GPU__ void _to_value();                 ///< update a constant/value
     __GPU__ void _is_alias();                 ///< create alias function
+    
+#if (T4_ENABLE_OBJ && T4_ENABLE_NN)    
+    ///
+    /// dataset looper
+    ///
+    __GPU__ int  _ds_next(U32 ioff);          ///< dataset loop controller
+#endif // (T4_ENABLE_OBJ && T4_ENABLE_NN)
 };
 ///@}
 #endif // __VM_EFORTH_H
