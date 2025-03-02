@@ -4,13 +4,11 @@
  *
  * <pre>Copyright (C) 2022- GreenII, this file is distributed under BSD 3-Clause License.</pre>
  */
-#ifndef TEN4_SRC_LDR_MNIST_H
-#define TEN4_SRC_LDR_MNIST_H
+#if (!defined(__LDR_MNIST_H) && T4_ENABLE_OBJ && T4_ENABLE_NN)
+#define __LDR_MNIST_H
 #include <iostream>
 #include <fstream>            // std::ifstream
 #include "corpus.h"
-
-#if (T4_ENABLE_OBJ && T4_ENABLE_NN)
 
 using namespace std;
 
@@ -41,6 +39,5 @@ private:
     int _get_images(int bid, int bsz);
 };
 
-#endif // (T4_ENABLE_OBJ && T4_ENABLE_NN)
-#endif // TEN4_SRC_LDR_MNIST_H
+#endif // (!defined(__LDR_MNIST_H) && T4_ENABLE_OBJ && T4_ENABLE_NN)
 
