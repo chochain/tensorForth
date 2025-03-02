@@ -45,7 +45,7 @@ T4_LIBS := $(SUBDIRS:%=-Isrc/%)
 -include src/mmu/Makefile
 -include src/io/Makefile
 -include src/vm/Makefile
-#-include src/ldr/Makefile
+-include src/ldr/Makefile
 #-include src/vu/Makefile
 #-include src/nn/Makefile
 
