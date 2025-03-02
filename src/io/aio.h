@@ -48,11 +48,9 @@ public:
     static __HOST__ AIO *get_io();
     static __HOST__ void free_io();
     
-    __HOST__ void show(DU v, int base=10);      ///< display value by ss_dump
-    
 #if T4_ENABLE_OBJ
-    __HOST__ void show(T4Base &t, bool is_view, int base=10); ///< display tensor token (for ss_dump)
-    __HOST__ void print(T4Base &t);                           ///< display in matrix format
+    __HOST__ void print(h_ostr &fs, T4Base &t);                        ///< display in matrix format
+    __HOST__ int  hint(h_ostr &fs, T4Base &t, bool view, int base=10); ///< display object on ss_dump
     __HOST__ int  tsave(Tensor &t, char *fname, U8 mode);
     
 #if T4_ENABLE_NN    
@@ -78,7 +76,6 @@ private:
     ///
     /// Tensor print methods
     ///
-    __HOST__ int  _show_obj(T4Base &t, bool is_view, int rdx=10);  ///< display object on ss_dump
     __HOST__ void _print_vec(h_ostr &fs, DU *vd, U32 W, U32 C);
     __HOST__ void _print_mat(h_ostr &fs, DU *md, U32 *shape);
     __HOST__ void _print_tensor(h_ostr &fs, Tensor &t);
@@ -93,13 +90,13 @@ private:
     ///
     /// NN model print methods
     ///
-    __HOST__ void _print_model(Model &m);
-    __HOST__ void _print_model_parm(Tensor &in, Tensor &out);
+    __HOST__ void _print_model(h_ostr &fs, Model &m);
+    __HOST__ void _print_model_parm(h_ostr &fs, Tensor &in, Tensor &out);
     
-    __HOST__ int  _nsave_model(Model &m);
-    __HOST__ int  _nsave_param(Model &m);
-    __HOST__ int  _nload_model(Model &m, char *fname);
-    __HOST__ int  _nload_param(Model &m);
+    __HOST__ int  _nsave_model(h_ostr &fs, Model &m);
+    __HOST__ int  _nsave_param(h_ostr &fs, Model &m);
+    __HOST__ int  _nload_model(h_istr &fs, Model &m, char *fname);
+    __HOST__ int  _nload_param(h_istr &fs, Model &m);
 
 #endif // T4_ENABLE_NN
 #endif // T4_ENABLE_OBJ ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
