@@ -241,32 +241,33 @@ MMU::free(Tensor &t) {
 }
 #if T4_ENABLE_NN
 __GPU__ Model&                     ///< create a NN model with NHWC input
-MMU::model(U64 sz) {
-    MM_DB("mmu#model layers=%ld ", sz);
+MMU::model(U32 sz) {
+    MM_DB("mmu#model layers=%d {\n", sz);
     Model  *m = (Model*)_ostore.malloc(sizeof(Model));
     Tensor &t = talloc(sz);        /// * allocate tensor storage
     m->reset(this, t);
+    MM_DB("} mmu#model => M:%x\n", OBJ2X(m));
     return *m;
 }
 __GPU__ Dataset&                   ///< create a Dataset holder
 MMU::dataset(U32 batch_sz) {       /// * Note: data block is not allocated yet
-    MM_DB("mmu#dataset batch_sz=%d ", batch_sz);
+    MM_DB("mmu#dataset batch_sz=%d {", batch_sz);
     Dataset *ds = (Dataset*)_ostore.malloc(sizeof(Dataset));
     ds->init(0, T4_DATASET, 4);
     ds->N()      = batch_sz;       /// * other members filled in host mode
     ds->batch_id = 0;              /// * setup control flag
-    _ostore.status();
+    MM_DB("} mmu#dataset => D:%x\n", OBJ2X(ds));
     return *ds;
 }
 __GPU__ void                     ///< release tensor memory blocks
 MMU::free(Model &m) {
-    MM_DB("mmu#free(N%d) [\n", m.numel);
+    int n = m.numel;
+    MM_DB("mmu#free(N%d) N:%x {\n", n, OBJ2X(m));
     for (int i = m.numel-1; i >= 0; i--) {
         MM_DB("\t"); free(m[i]);
     }
-    MM_DB("] ");
     _ostore.free(&m);
-    _ostore.status();
+    MM_DB("} mmu#free(N%d)\n", n);
 }
 #endif // T4_ENABLE_NN
 ///
