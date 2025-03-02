@@ -16,7 +16,7 @@
 ///   We have only a few, so not too bad. Also we cache top <=> dataset
 ///
 typedef std::map<std::string, Corpus*> CorpusMap;
-typedef std::map<int, Corpus*> DsetMap;
+typedef std::map<Dataset&, Corpus*> DsetMap;
 CorpusMap cp_map;                          ///< string name, Corpus pair
 DsetMap   ds_map;                          ///< Dataset, Corpus pair (cache)
 ///
@@ -33,8 +33,8 @@ void Loader::init(bool trace) {
             "../data/MNIST/raw/t10k-labels-idx1-ubyte", trace);
 }
 
-Corpus *Loader::get(int dset, const char *ds_name) {
-    DsetMap::iterator dsi = ds_map.find(dset);          /// * cache hit?
+Corpus *Loader::get(Dataset &ds, const char *ds_name) {
+    DsetMap::iterator dsi = ds_map.find(ds);            /// * cache hit?
     if (dsi != ds_map.end()) return dsi->second;
 
     if (!ds_name) return NULL;                          /// * no name given
@@ -42,7 +42,7 @@ Corpus *Loader::get(int dset, const char *ds_name) {
     CorpusMap::iterator cpi = cp_map.find(ds_name);     /// * create new entry
     if (cpi == cp_map.end()) return NULL;
 
-    return ds_map[dset] = cpi->second;
+    return ds_map[ds] = cpi->second;
 }
 
 #endif // (T4_ENABLE_OBJ && T4_ENABLE_NN)
