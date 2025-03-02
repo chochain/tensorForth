@@ -4,8 +4,8 @@
  *
  * <pre>Copyright (C) 2022- GreenII, this file is distributed under BSD 3-Clause License.</pre>
  */
-#ifndef T4_CORPUS_H
-#define T4_CORPUS_H
+#if (!defined(__LDR_CORPUS_H) && T4_ENABLE_OBJ)
+#define __LDR_CORPUS_H
 #include "ten4_types.h"
 
 #define DS_LOG1(...)         if (trace > 0) printf(__VA_ARGS__)
@@ -21,7 +21,6 @@
 typedef uint8_t U8;
 
 struct Corpus {
-#if (T4_ENABLE_OBJ && T4_ENABLE_NN)
     const char *ds_name;      ///< data source name
     const char *tg_name;      ///< target label name
 
@@ -60,8 +59,7 @@ struct Corpus {
     }
     virtual Corpus *rewind() { eof = 0; return this; }
     virtual U8 *operator [](int idx){ return &data[idx * dsize()]; }  ///< data point
-#endif // (T4_ENABLE_OBJ && T4_ENABLE_NN)
 };
 
-#endif // T4_CORPUS_H
+#endif // (!defined(__CORPUS_H) && T4_ENABLE_OBJ)
 
