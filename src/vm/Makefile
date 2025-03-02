@@ -5,8 +5,8 @@
 VM_SRCS := \
 	src/vm/vm.cu \
 	src/vm/eforth.cu \
-	src/vm/tenvm.cu
-#	src/vm/netvm.cu
+	src/vm/tenvm.cu \
+	src/vm/netvm.cu
 
 VM_INCS := \
 	src/vm/vm.h \
