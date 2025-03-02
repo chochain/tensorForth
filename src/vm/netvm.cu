@@ -7,21 +7,24 @@
 #include "dataset.h"           // in ../mmu
 #include "netvm.h"
 
-#if T4_ENABLE_NN
+#if (T4_ENABLE_OBJ && T4_ENABLE_NN)
 
 __GPU__ void
-NetVM::predict(Tensor &I, Tensor &P) {
-}
+NetVM::predict(Tensor &I, Tensor &P) {}
+
 ///===================================================================
 /// private methods
 ///
 __GPU__ void
 NetVM::_nnop(t4_layer op) {     /// vtable dispatcher
+    OPN(LAYER_OP);
     ///
     /// handle tensor ops (destructive)
     ///
+    VLOG2("netvm#nnop %s", opn[op]);
     if (TOS1T) {
         Tensor &t = TTOS;
+        VLOG2(" T%d", t.rank);
         switch (op) {
         case L_FLATTEN: t.reshape(t.numel); return;
         case L_RELU:    t.map(RELU);        return;
@@ -40,8 +43,9 @@ NetVM::_nnop(t4_layer op) {     /// vtable dispatcher
     ///
     /// zero parameter layers
     ///
-    if (IS_M(top)) {
+    if (IS_M(tos)) {
         Model &m = MTOS;
+        VLOG2(" N%d {\n", m.numel);
         switch (op) {
         case L_FLATTEN:
         case L_RELU:
@@ -62,6 +66,7 @@ NetVM::_nnop(t4_layer op) {     /// vtable dispatcher
     if (M1V) {
         DU    a  = POP();
         Model &m = MTOS;
+        VLOG2(" N%d %g {\n", m.numel, a);
         switch (op) {
         case L_LINEAR:  m.add(op, INT(a), DU1);        return; /* bias = 1.0 */
         case L_LEAKYRL:
@@ -73,7 +78,7 @@ NetVM::_nnop(t4_layer op) {     /// vtable dispatcher
         case L_BATCHNM: m.add(op, 0, a);               return;
         case L_USAMPLE: m.add(op, INT(a), UP_NEAREST); return;
         }
-        PUSH(a);                                   /// * restore top
+        PUSH(a);                                   /// * restore tos
         /// continue to error handling cases
     }
     switch (op) {
@@ -105,7 +110,7 @@ NetVM::_nnop(t4_layer op) {     /// vtable dispatcher
         else ERROR("( N [mtum] n -- ) for upsample required?");
         break;
     default:
-        if (!IS_OBJ(top)) {
+        if (!IS_OBJ(tos)) {
             switch (op) {
             case L_RELU:    xop1(RELU, DU0); break;
             case L_TANH:    xop1(TANH);      break;
@@ -114,31 +119,7 @@ NetVM::_nnop(t4_layer op) {     /// vtable dispatcher
         }
         else ERROR("NetVM::nnop layer %d not supported(2)\n", op);
     }
-}
-
-__GPU__ void
-NetVM::_donext() {                                ///< overwrite eforth::init
-    if (IS_M(top) && IS_OBJ(rs[-1])) {
-        Model   &m = (Model&)T4Base::du2obj(top);
-        Dataset &d = (Dataset&)T4Base::du2obj(rs[-1]);
-        if (!d.is_dataset()) {
-            ERROR("not a dataset on RS?\n"); return;
-        }
-        if (d.done) {
-            DU v = rs.pop();                  /// * pop off dataset
-            DROP(v);                          /// * free memory if a physical dataset
-            m.epoch++;                        /// * bump epoch counter
-            IP += sizeof(IU);                 /// * skip over to next word
-        }
-        else {
-            _fetch(rs[-1], false);            /// * issue a dataset fetch
-            IP = mmu.ri(IP);                  /// * loop branch target address
-        }
-    }
-    else if ((rs[-1] -= 1) >= -DU_EPS) {
-        IP = mmu.ri(IP);                      /// * handle numeric for loop
-    }
-    else { rs.pop(); IP += sizeof(IU); }
+    VLOG2("} netvm#nnop\n");
 }
 ///
 /// dataset ops
@@ -154,22 +135,10 @@ NetVM::_pickle(bool save) {
     IU   len = POPi;                        ///< string length (not used for now)
     IU   adr = POPi;                        ///< address to pmem
     char *fn = (char*)mmu.pmem(adr);        ///< pointer to string on PAD
-    _opx op  = IS_M(top)
-        ? opx(save ? OP_NSAVE : OP_NLOAD, mode, top)
-        : opx(OP_TSAVE, mode, top);
-    fout << op << fn;                       /// * issue pickle command
-    state = VM_WAIT;                        /// * return to CPU
+    sys.op(IS_M(tos) ? (save ? OP_NSAVE : OP_NLOAD) : OP_TSAVE, mode, tos);
+    state = HOLD;                           /// * return to CPU
 }
 
-__GPU__ void
-NetVM::_fetch(DU d, bool rewind) {
-    if (!((Dataset&)T4Base::du2obj(d)).is_dataset()) {
-        ERROR("TOS=%08x not dataset?\n", DU2X(d));
-        return;
-    }
-    fout << opx(OP_FETCH, (U8)rewind, d);   /// * issue a fetch or rewind
-    state = VM_WAIT;                        /// * return to CPU
-}
 ///
 /// fetch parameters onto TOS
 /// n=0:W, 1:B, 2:dW, 3:dB
@@ -181,7 +150,7 @@ NetVM::_get_parm(int n) {
     S16 i = POPi;
     Tensor *p = MTOS[i].grad[n];
     if (p) {
-        DU v = T4Base::obj2du(*p);
+        DU v = mmu.obj2du(*p);
         PUSH(DUP(v));
     }
     else PUSH(DU0);
@@ -240,11 +209,11 @@ NetVM::_loss(t4_loss op) {
     }
     else if (TOS1T && IS_M(ss[-1])) {   /// * model loss
         DU y = POP();
-        DU n = MTOS.loss(op, (Tensor&)T4Base::du2obj(y));
+        DU n = MTOS.loss(op, (Tensor&)mmu::du2obj(y));
         PUSH(n);                        /// * loss on TOS
         DROP(y);                        /// * pop off t
     }
-    else if (IS_M(top)) PUSH(MTOS.loss(op));
+    else if (IS_M(tos)) PUSH(MTOS.loss(op));
     else ERROR("model?\n");
 }
 ///===================================================================
@@ -253,13 +222,14 @@ NetVM::_loss(t4_loss op) {
 ///
 __GPU__ void
 NetVM::init() {
+    if (id!=0) return;                        /// * singleton
     TensorVM::init();
     ///
     ///@defgroup Model creation and persistence
     ///@{
     CODE("nn.model",                          ///> (n h w c -- N)
          if (ss.idx < 4 ||                    /// * param check
-             IS_OBJ(top) || IS_OBJ(ss[-1]) ||
+             IS_OBJ(tos) || IS_OBJ(ss[-1]) ||
              IS_OBJ(ss[-2]) || IS_OBJ(ss[-3])) {
              ERROR("n h w c?\n"); return;
          }
@@ -302,8 +272,8 @@ NetVM::init() {
     CODE("loss.ce",   _loss(LOSS_CE));        ///> (N T -- N T n) cross-entropy
     CODE("loss.nll",  _loss(LOSS_NLL));       ///> (N T -- N T n) negative log-likelihood
     CODE("nn.loss",                           ///> (N T -- N T n) auto select loss function
-         if (IS_M(top) || (TOS1T && IS_M(ss[-1]))) {
-             Model &m = IS_M(top) ? MTOS : (Model&)T4Base::du2obj(ss[-1]);
+         if (IS_M(tos) || (TOS1T && IS_M(ss[-1]))) {
+             Model &m = IS_M(tos) ? MTOS : (Model&)mmu.du2obj(ss[-1]);
              switch (m[-2].grad_fn) {
              case L_TANH:
              case L_SIGMOID: _loss(LOSS_BCE); break;
@@ -317,7 +287,7 @@ NetVM::init() {
     ///@defgroup Gradiant ops
     ///@{
     CODE("nn.zero",
-         if (IS_M(top)) MTOS.grad_zero();
+         if (IS_M(tos)) MTOS.grad_zero();
          else ERROR("TOS is not a model!\n"));
     CODE("nn.sgd",                            
          if (M2V) {                           ///> (N p m -- N')
@@ -342,14 +312,14 @@ NetVM::init() {
          }
          else ERROR("rate beta1 nn.adam?\n"));
     CODE("nn.onehot",                         /// * current onehot vector
-         if (IS_M(top)) {
+         if (IS_M(tos)) {
              Tensor &hot = MTOS.onehot();
-             DU v = T4Base::obj2du(hot);
+             DU v = mmu.obj2du(hot);
              PUSH(DUP(v));
          }
          else ERROR("TOS is not a model!\n"));
     CODE("nn.hit", 
-         if (IS_M(top)) PUSH(I2D(MTOS.hit()));
+         if (IS_M(tos)) PUSH(I2D(MTOS.hit()));
          else ERROR("TOS is not a model!\n"));
     ///@}
     ///@defgroup Batch Control ops
@@ -358,24 +328,25 @@ NetVM::init() {
          if (M1V) { bool on = POPi; MTOS.train = on; }
          else ERROR("N [1|0] required\n"));
     CODE("batchsize",
-         if (IS_M(top)) PUSH(MTOS.batch_size());
+         if (IS_M(tos)) PUSH(MTOS.batch_size());
          else ERROR("TOS is not a model?\n"));
     CODE("dataset",                             /// * create a dataset
          char *dsn = next_idiom();              ///< retrieve dataset name
          S16   bsz = POPi;                      ///< batch size
          PUSH(mmu.dataset(bsz));                /// * create a dataset as TOS
-         fout << opx(OP_DATA, 0, top) << dsn;   /// * issue a dataset init command
-         state = VM_WAIT);
-    CODE("fetch",   _fetch(top, false));        /// * fetch a dataset batch
-    CODE("rewind",  _fetch(top, true));         /// * rewind a dataset (batch_id=0)
+         sys.op(OP_DATA, 0, tos);
+         sys.op_fn(dsn);                        /// * issue a dataset init command
+         state = HOLD);
+    CODE("fetch",   _fetch(tos, false));        /// * fetch a dataset batch
+    CODE("rewind",  _fetch(tos, true));         /// * rewind a dataset (batch_id=0)
     CODE("forward",                             /// * forward process
          if (IS_M(ss[-1]) && TOS1D) {           /// * TOS is a dataset
              DU x = POP();                      /// * NOS is the model
-             MTOS.forward((Tensor&)T4Base::du2obj(x));     /// * exec forward path
+             MTOS.forward((Tensor&)mmu.du2obj(x));     /// * exec forward path
              DROP(x);                           /// * release reference
          }
-         else if (IS_M(top) && IS_OBJ(rs[-1])) {       /// * in a for/next loop
-             Tensor &t = (Tensor&)T4Base::du2obj(rs[-1]);  /// * rs[-1] is a dataset
+         else if (IS_M(tos) && IS_OBJ(rs[-1])) {       /// * in a for/next loop
+             Tensor &t = (Tensor&)mmu.du2obj(rs[-1]);  /// * rs[-1] is a dataset
              if (t.is_dataset()) MTOS.forward(t);
              else ERROR("rs[-1] is not a dataset?\n");
          }
@@ -383,15 +354,15 @@ NetVM::init() {
     CODE("backprop",
          if (IS_M(ss[-1]) && TOS1T) {                  /// * TOS is a onehot vector
              DU y = POP();                     
-             MTOS.backprop((Tensor&)T4Base::du2obj(y));    /// * backprop(target vector)
+             MTOS.backprop((Tensor&)mmu.du2obj(y));    /// * backprop(target vector)
              DROP(y);
          }
-         else if (IS_M(top)) MTOS.backprop();          /// * use default output
+         else if (IS_M(tos)) MTOS.backprop();          /// * use default output
          else ERROR("TOS not a model?\n"));
     CODE("broadcast",
          if (IS_M(ss[-1]) && TOS1T) {                  /// * TOS is a onehot vector
              DU y = POP();
-             MTOS.broadcast((Tensor&)T4Base::du2obj(y));
+             MTOS.broadcast((Tensor&)mmu.du2obj(y));
              DROP(y);
          }
          else ERROR("TOS not a tensor nor NOS a model?\n"));
@@ -402,7 +373,7 @@ NetVM::init() {
     CODE("n@",      if (!M1V) return;
          S16    i  = POPi;
          Tensor &t = MTOS[i];
-         DU     v  = T4Base::obj2du(t);
+         DU     v  = mmu.obj2du(t);
          PUSH(DUP(v)));
     CODE("nn.w",    _get_parm(0));                 ///< tensor.weight
     CODE("nn.b",    _get_parm(1));                 ///< tensor.bias
@@ -410,7 +381,7 @@ NetVM::init() {
     CODE("nn.db",   _get_parm(3));                 ///< tensor.bias.grad
     CODE("nn.w=",   _set_parm(0));                 ///< populate tensor.weight
     CODE("nn.b=",   _set_parm(1));                 ///< populate tensor.bias
-    CODE("network", if (IS_M(top)) fout << top);
+    CODE("network", if (IS_M(tos)) fout << tos);
     ///
     /// ===========================================================================
     ///
@@ -425,5 +396,5 @@ NetVM::init() {
     VLOG1("NetVM::init ok\n");
 };
 
-#endif  // T4_ENABLE_NN
+#endif  // (T4_ENABLE_OBJ && T4_ENABLE_NN)
 //===========================================================================
