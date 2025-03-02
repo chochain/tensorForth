@@ -23,7 +23,7 @@
 ///@name CUDA cooperative dynamic parallelism support
 ///@{
 #define T4_ENABLE_OBJ       1        /**< enable tensor/matrix  */
-#define T4_ENABLE_NN        0        /**< enable neural network */
+#define T4_ENABLE_NN        1        /**< enable neural network */
 #define T4_ENABLE_CDP       0
 #define T4_USE_STRBUF       0
 #define T4_PER_THREAD_STACK 8*1024   /**< init() stack overflow */
@@ -57,7 +57,7 @@
 #define T4_USER_AREA (ALIGN16(T4_VM_COUNT))
 #define T4_RS_SZ     64        /**< depth of return stack        */
 #define T4_SS_SZ     64        /**< depth of data stack          */
-#define T4_NET_SZ    32        /**< size of network DAG          */
+#define T4_NET_SZ    128       /**< size of network DAG          */
 #define T4_DICT_SZ   1024      /**< number of dictionary entries */
 #define T4_IBUF_SZ   1024      /**< host input buffer size       */
 #define T4_OBUF_SZ   8192      /**< device output buffer size    */
