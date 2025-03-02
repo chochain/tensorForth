@@ -79,10 +79,15 @@ ForthVM::nest() {
         DISPATCH(ix.op) {                            /// * opcode dispatcher
         CASE(EXIT, UNNEST());
         CASE(NEXT,
+#if (T4_ENABLE_OBJ && T4_ENABLE_NN)
+             bool oo = IS_OBJ(tos) && IS_OBJ(rs[-1]);
+             if (oo && _ds_next(ix.ioff)) { /* continue */ }
+             else
+#endif // (T4_ENABLE_OBJ && T4_ENABLE_NN)                 
              if (GT(rs[-1]-=DU1, -DU1)) {            ///> loop done?
                  ip = ix.ioff;                       /// * no, loop back
              }
-             else rs.pop());                         /// * yes, loop done!
+             else rs.pop());                         /// * yes, loop done
         CASE(LOOP,
              if (GT(rs[-2], rs[-1] += DU1)) {        ///> loop done?
                  ip = ix.ioff;                       /// * no, loop back
@@ -528,5 +533,29 @@ ForthVM::_is_alias() {                                     // create alias funct
     }
     else dict[POPi].xt = dict[w].xt;
 }
+
+#if (T4_ENABLE_OBJ && T4_ENABLE_NN)
+__GPU__ int
+ForthVM::_ds_next(U32 ioff) {
+    T4Base &m = mmu.du2obj(tos);
+    if (!m.is_model()) return 0;
+    
+    T4Base &d = mmu.du2obj(rs[-1]);
+    if (!d.is_dataset()) {
+        ERROR("not a dataset on RS?\n"); return 0;
+    }
+    if (((Dataset&)d).done) {
+        DU v = rs.pop();                /// * pop off dataset
+        DROP(v);                        /// * free memory if a physical dataset
+        ((Model&)m).epoch++;            /// * bump epoch counter
+    }
+    else {
+        sys.op(OP_FETCH, 0, rs[-1]);    /// * issue a dataset fetch
+        ip = ioff;                      /// * loop branch target address
+        state = HOLD;
+    }
+    return 1;
+}
+#endif // (T4_ENABLE_OBJ && T4_ENABLE_NN)
 ///@}
 //=======================================================================================
