@@ -124,7 +124,7 @@ System::process_event(io_event *ev) {
              << std::setfill((char)f->fill);
     } break;
 #if T4_ENABLE_OBJ
-    case GT_OBJ: io->print(mu->du2obj(*(DU*)v));       break;
+    case GT_OBJ: io->print(fout, mu->du2obj(*(DU*)v));     break;
 #endif // T4_ENABLE_OBJ        
     case GT_OPX: {
         _opx *o = (_opx*)v;
@@ -136,24 +136,46 @@ System::process_event(io_event *ev) {
         case OP_DUMP:  db->mem_dump((IU)o->i, UINT(o->n)); break;
         case OP_SS:    db->ss_dump((IU)o->i>>10, (int)o->i&0x3ff, o->n, (int)o->m); break;
 #if T4_ENABLE_OBJ // vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
-        case OP_TSAVE:
-            ev = NEXT_EVENT(ev);
-            io->tsave((Tensor&)mu->du2obj(o->n), (char*)ev->data, o->m);
-            break;
+        case OP_TSAVE: {
+            Tensor &t = (Tensor&)mu->du2obj(o->n);
+            if (t.is_tensor()) {
+                ev = NEXT_EVENT(ev);
+                io->tsave(t, (char*)ev->data, o->m);
+            }
+            else ERROR("%x is not a tensor\n", DU2X(o->n));
+        } break;
 #if T4_ENABLE_NN  //==========================================================
-        case OP_DATA:
-            ev = NEXT_EVENT(ev);                              ///< get dataset repo name
-            io->dsfetch(o->n, (char*)ev->data, o->m);         /// * fetch first batch
-            break;
-        case OP_FETCH: io->dsfetch(o->n, NULL, o->m); break;  /// * fetch/rewind dataset batch
-        case OP_NSAVE:
-            ev = NEXT_EVENT(ev);                              ///< get dataset repo name
-            io->nsave((Tensor&)mu->du2obj(o->n), (char*)ev->data, o->m);
-            break;
-        case OP_NLOAD:
-            ev = NEXT_EVENT(ev);
-            io->nload(o->n, (char*)ev->data, o->m);
-            break;
+        case OP_DATA: {
+            Dataset &ds = (Dataset&)mu->du2obj(o->n);
+            if (ds.is_dataset()) {                                         /// * indeed a dataset?
+                ev = NEXT_EVENT(ev);                                            ///< get dataset repo name
+                io->dsfetch(ds, (char*)ev->data, o->m); /// * fetch first batch
+            }
+            else ERROR("%x is not a dataset\n", DU2X(o->n));
+        } break;
+        case OP_FETCH: {
+            Dataset &ds = (Dataset&)mu->du2obj(o->n);
+            if (ds.is_dataset()) {
+                io->dsfetch(ds, NULL, o->m);            /// * fetch/rewind dataset batch
+            }
+            else ERROR("%x is not a dataset\n", DU2X(o->n));
+        } break;  
+        case OP_NSAVE: {
+            Model &m = (Model&)mu->du2obj(o->n);
+            if (m.is_model()) {
+                ev = NEXT_EVENT(ev);                                            ///< get dataset repo name
+                io->nsave(m, (char*)ev->data, o->m);
+            }
+            else ERROR("%x is not a model\n", DU2X(o->n));
+        } break;
+        case OP_NLOAD: {
+            Model &m = (Model&)mu->du2obj(o->n);
+            if (m.is_model()) {
+                ev = NEXT_EVENT(ev);
+                io->nload(m, (char*)ev->data, o->m);
+            }
+            else ERROR("%x is not a model\n", DU2X(o->n));
+        } break;
 #endif // T4_ENABLE_NN =======================================================
 #endif // T4_ENABLE_OBJ ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
         }
