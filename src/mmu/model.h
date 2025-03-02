@@ -71,7 +71,7 @@ public:
     /// @}
     /// @name gradient descent functions
     /// @{
-    __GPU__ Model  &grad_zero() { _iter = _hit = 0; }
+    __GPU__ Model  &grad_zero() { _iter = _hit = 0; return *this; }
     __GPU__ Model  &grad_alloc(t4_optimizer op);        ///< allocate gradient vectors
     __GPU__ Model  &gradient(const char *nm,            ///< gradient descent functor
                              GdFunc fn,                 
