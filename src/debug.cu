@@ -49,10 +49,10 @@ __HOST__ void
 Debug::ss_dump(IU id, int sz, DU tos, int base) {
     auto show = [this, base](DU v) {
 #if T4_ENABLE_OBJ        
-        if (IS_OBJ(v)) io->show(mu->du2obj(v), IS_VIEW(v), base);
-        else io->show(v, base);
+        if (IS_OBJ(v)) io->hint(io->fout, mu->du2obj(v), IS_VIEW(v), base);
+        else           _ss(v, base);
 #else  // T4_ENABLE_OBJ
-        io->show(v, base);
+        _ss(v, base);
 #endif // T4_ENABLE_OBJ        
     };
     DU *ss = mu->vmss(id);                ///< retrieve VM SS
@@ -231,10 +231,10 @@ Debug::_to_s(Param *p, int nv, int base) {
     case LIT: {
         DU v = *(DU*)ip;
 #if T4_ENABLE_OBJ        
-        if (IS_OBJ(v)) io->show(mu->du2obj(v), IS_VIEW(v), base);
-        else io->show(v, base);
+        if (IS_OBJ(v)) io->hint(fout, mu->du2obj(v), IS_VIEW(v), base);
+        else           _ss(v, base);
 #else  // !T4_ENABLE_OBJ
-        io->show(v, base);
+        _ss(v, base);
 #endif // T4_ENABLE_OBJ
     } break;
     case STR:  fout << "s\" " << (char*)ip << '"';  break;
@@ -259,11 +259,35 @@ Debug::_to_s(Param *p, int nv, int base) {
         (w==LIT && p->exit) ||               /// * constant
         (w==VAR && !p->ioff);                /// * variable
 }
+///@name simple value debugging method
+///@{
+__HOST__ void
+Debug::_ss(DU v, int base) {                   ///< display value by ss_dump
+    static char buf[34];                     ///< static buffer
+    auto pp = [](DU v, int b) {              ///< display v by radix
+        DU t, f = modf(v, &t);               ///< integral, fraction
+        if (ABS(f) > DU_EPS) {
+            sprintf(buf, "%0.6g", v);
+            return buf;
+        }
+        int i   = 33;  buf[i]='\0';          /// * C++ can do only base=8,10,16
+        int dec = b==10;
+        U32 n   = dec ? (U32)(ABS(v)) : (U32)(v);  ///< handle negative
+        do {                                 ///> digit-by-digit
+            U8 d = (U8)MOD(n,b);  n /= b;
+            buf[--i] = d > 9 ? (d-10)+'a' : d+'0';
+        } while (n && i);
+        if (dec && v < DU0) buf[--i]='-';
+        return &buf[i];
+    };
+    io->fout << std::setbase(base) << pp(v, base) << ' ';
+}
 ///@}
 ///============================================================================
 ///@name methods for debug/tracing
 ///@{
-__HOST__ void Debug::self_tests() {
+__HOST__ void
+Debug::self_tests() {
 //    dict_dump();
 //    words();
 //    mem_dump(0, 256, 10);

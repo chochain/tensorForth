@@ -51,6 +51,7 @@ private:
     __HOST__ int  _p2didx(Param *p);                      ///< reverse lookup
     __HOST__ int  _to_s(IU w, int base);                  ///< show dictionary entry
     __HOST__ int  _to_s(Param *p, int nv, int base);      ///< show by parameter memory pointer
+    __HOST__ void _ss(DU v, int base);                    ///< display value by ss_dump
 };
 ///@}
 #endif // __DEBUG_H
