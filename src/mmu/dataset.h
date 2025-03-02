@@ -18,14 +18,14 @@ struct Dataset : public Tensor {
     __HOST__ Dataset(U32 n, U32 h, U32 w, U32 c)
         : Tensor(n, h, w, c) {
         MM_ALLOC(&label, n * sizeof(U32));
-        WARN("Dataset[%d,%d,%d,%d] created\n", n, h, w, c);
+        TRACE("Dataset[%d,%d,%d,%d] created\n", n, h, w, c);
     }
     __HOST__ ~Dataset() {
         if (!label) return;
         MM_FREE((void*)label);
     }
     __HOST__ Dataset &reshape(U32 n, U32 h, U32 w, U32 c) {
-        WARN("Dataset::setup(%d, %d, %d, %d)\n", n, h, w, c);
+        TRACE("Dataset::setup(%d, %d, %d, %d)\n", n, h, w, c);
         ///
         /// set dimensions
         ///
