@@ -424,6 +424,7 @@ Tests v3.2 GAN ops
 
 ### TODO - by priorities
 * Design & Instrumentation
+  + TLSF using floating point [FP in Allocator](https://brnz.org/hbr/?p=1735)
   + Auto Differentiation i.e. JVP (forward), VJP (backward)
     - [autograd](https://github.com/HIPS/autograd)
     - [Jax](https://docs.jax.dev/en/latest/quickstart.html)
