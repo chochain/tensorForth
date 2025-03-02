@@ -57,7 +57,7 @@ typedef enum {
     L_USAMPLE       //> UpSample
 } t4_layer;
 
-#define T4_LAYER_LIST \
+#define LAYER_OP \
     "output ", "conv2d ", "linear ", "flatten", "relu   ", \
     "tanh   ", "sigmoid", "selu   ", "leakyrl", "elu    ", \
     "dropout", "softmax", "logsmax", "avgpool", "maxpool", \
