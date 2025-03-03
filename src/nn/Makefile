@@ -16,7 +16,7 @@ NN_OBJS := $(NN_SRCS:%.cu=%.o)
 OBJS += $(NN_OBJS)
 
 NN_EXT := \
-	src/mmu/t4base.h \
+	src/t4base.h \
 	src/mmu/tensor.h \
 	src/mmu/mmu.h \
 	src/mmu/model.h \
