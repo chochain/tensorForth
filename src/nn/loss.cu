@@ -21,21 +21,22 @@ Model::onehot() {
 ///
 __GPU__ Tensor&
 Model::onehot(Dataset &dset) {
-    auto show = [](DU *h, int n, int sz) {
+    auto show = [](DU *h, U32 n, U64 sz) {
         printf("Model::onehot[%d]={", n);
-        for (int i = 0; i < sz; i++) {
+        for (U64 i = 0; i < sz; i++) {
             printf("%2.0f", h[i]);
         }
         printf(" }\n");
     };
     Tensor &out = (*this)[-1];                      ///< model output
-    int    N    = out.N(), HWC = out.HWC();         ///< sample size
+    U32    N    = out.N();
+    U64    HWC  = out.HWC();                        ///< sample size
     Tensor &hot = _t4(N, HWC).fill(DU0);            ///< one-hot vector
-    for (int n = 0; n < N; n++) {                   /// * loop through batch
+    for (U32 n = 0; n < N; n++) {                   /// * loop through batch
         DU *h = hot.slice(n);                       ///< take a sample
-        U16 i = dset.label[n];                      ///< label index
-        h[i < HWC ? i : 0] = DU1;                   /// * mark hot by index
-        if (_mmu->trace() > 1) show(h, n, HWC);
+        U32 i = dset.label[n];                      ///< label index
+        h[(U64)i < HWC ? i : 0] = DU1;              /// * mark hot by index
+        if (_mmu->trace() > 1) show(h, n, HWC);     /// * might need U32 partition
     }
     return hot;
 }
@@ -44,18 +45,18 @@ __GPU__ int
 Model::hit(bool recalc) {
     if (!recalc) { return _hit; }                   /// * return current hit count
     
-    auto argmax = [](DU *h, int sz) {
+    auto argmax = [](DU *h, U64 sz) {
         DU  mx = *h;
-        int m  = 0;
-        for (int i = 1; i < sz; i++) {              /// * CDP 
+        U32 m  = 0;
+        for (U64 i = 1; i < sz; i++) {              /// * CDP 
             if (h[i] > mx) { mx = h[i]; m = i; }
         }
         return m;
     };
     Tensor &out = (*this)[-1];                      ///< model output
-    int cnt = 0;
-    for (int n = 0; n < out.N(); n++) {             ///< loop through batch
-        int  m = argmax(out.slice(n), out.HWC());
+    U32 cnt = 0;
+    for (U32 n = 0; n < out.N(); n++) {             ///< loop through batch
+        U32  m = argmax(out.slice(n), out.HWC());
         cnt += INT(_hot->slice(n)[m]);              /// * compare to onehot vector
     }
     TRACE1("Model::hit=%d\n", cnt);

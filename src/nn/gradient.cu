@@ -11,10 +11,10 @@
 
 __KERN__ void k_sgd(
     DU *G, DU *DG, DU *M,                    ///< w, dw, and momemtum tensors
-    int N, int numel,                        ///< batch size and HWC
+    U32 N, U64 numel,                        ///< batch size and HWC
     DU lr, DU b                              ///< learn rate, beta(momemtum)
     ) {
-    const int i = threadIdx.x + blockIdx.x * blockDim.x;   ///< element index
+    const U64 i = (U64)blockIdx.x * blockDim.x + threadIdx.x;   ///< element index
     
     if (i < numel) {
         if (ABS(b) < DU_EPS) G[i] -= lr * DG[i] / N;
@@ -29,10 +29,10 @@ __KERN__ void k_sgd(
 
 __KERN__ void k_adam(
     DU *G, DU *DG, DU *M, DU *V,            ///< w, dw, and momemtum tensors
-    int N, int numel,                       ///< batch size and HWC
+    U32 N, U64 numel,                       ///< batch size and HWC
     DU lrc, DU b1, DU b2                    ///< corrected learn rate, beta(momemtum)
     ) {
-    const int i = threadIdx.x + blockIdx.x * blockDim.x;   ///< element index
+    const U64 i = (U64)blockIdx.x * blockDim.x + threadIdx.x;   ///< element index
     
     if (i < numel) {
         DU dg = DG[i];                                     ///< dG (no batch avg)
@@ -109,7 +109,7 @@ Model::gradient(const char *nm, GdFunc fn, DU *parm, t4_optimizer op) {
     /// cascade execution layer by layer forward
     ///
     DU t0 = _mmu->ms();                           ///< performance measurement
-    for (U16 i = 1; i < numel - 1; i++) {         /// TODO: parallel layer update
+    for (int i = 1; i < numel - 1; i++) {         /// TODO: parallel layer update
         Tensor &in = (*this)[i];
         Tensor *w  = in.grad[0], *dw = in.grad[2];
         Tensor *b  = in.grad[1], *db = in.grad[3];
@@ -129,7 +129,7 @@ Model::gradient(const char *nm, GdFunc fn, DU *parm, t4_optimizer op) {
 __GPU__ Model&
 Model::sgd(DU lr, DU b) {                          /// a=momentum
     auto update = [](DU *parm, Tensor *g, Tensor *dg, Tensor *m, Tensor *v) {
-        const int numel = g->numel;
+        const U64 numel = g->numel;
         const dim3 blk(T4_WARP_SQ, 1, 1);          ///< default blocks
         const dim3 grd((numel + blk.x - 1) / blk.x, 1, 1);
 
@@ -146,7 +146,7 @@ Model::sgd(DU lr, DU b) {                          /// a=momentum
 __GPU__ Model&
 Model::adam(DU lr, DU b1, DU b2) {
     auto update = [](DU *parm, Tensor *g, Tensor *dg, Tensor *m, Tensor *v) {
-        const int numel = g->numel;
+        const U64 numel = g->numel;
         const dim3 blk(T4_WARP_SQ, 1, 1);         ///< default blocks
         const dim3 grd((numel + blk.x - 1) / blk.x, 1, 1);
 
