@@ -12,8 +12,8 @@
 Debug *_db = NULL;                            ///< singleton Debug controller
 
 __HOST__ Debug*
-Debug::get_db(MMU *mmu, AIO *aio) {
-    if (!_db) _db = new Debug(mmu, aio);
+Debug::get_db(h_ostr &o, int verbo) {
+    if (!_db) _db = new Debug(o, verbo);
     return _db;
 }
 __HOST__ Debug *Debug::get_db() { return _db; }
@@ -40,25 +40,72 @@ std::ios _fmt0(NULL);                     ///< static format storage
 ///       which can be access by both device and host
 ///
 __HOST__ void
-Debug::keep_fmt() { _fmt0.copyfmt(io->fout); }
+Debug::keep_fmt() { _fmt0.copyfmt(fout); }
 
 __HOST__ void
-Debug::reset_fmt() { io->fout.copyfmt(_fmt0); }
-    
+Debug::reset_fmt() { fout.copyfmt(_fmt0); }
+///
+///@name show simple value and object token for ss_dump
+///@{
+__HOST__ void
+Debug::print(DU v, int base) {               ///< display value by ss_dump
+    static char buf[34];                     ///< static buffer
+    if (IS_OBJ(v)) {                         ///< display v by radix
+#if T4_ENABLE_OBJ
+        static const char tn[2][4] = {       ///< sync with t4_obj
+            { 'T', 'N', 'D', 'X' }, { 't', 'n', 'd', 'x' }
+        };
+        auto t2 = [this](Tensor &t) { fout << t.H() << ',' << t.W() << ']'; };
+        auto t4 = [this](Tensor &t) {
+            fout << t.N() << ',' << t.H() << ',' << t.W() << ',' << t.C() << ']';
+        };
+        T4Base &t = mu->du2obj(v);
+        int view  = IS_VIEW(v) ? 1 : 0;
+        fout << std::setbase(base) << tn[view][t.ttype];
+        switch(t.rank) {
+        case 0: fout << "["  << (t.numel - 1) << ']';           break; // network model
+        case 1: fout << "1[" << t.numel << ']';                 break;
+        case 2: fout << "2["; t2((Tensor&)t);                   break;
+        case 3: fout << "3[na]";                                break;
+        case 4: fout << "4["; t4((Tensor&)t);                   break;
+        case 5: fout << "5[" << t.parm << "]["; t4((Tensor&)t); break;
+        }
+#endif // T4_ENABLE_OBJ
+    }
+    else {                                             ///< build literal
+        DU t, f = modf(v, &t);                         ///< integral, fraction
+        int i = 0;                                     
+        if (ABS(f) > DU_EPS) {
+            sprintf(buf, "%0.6g", v);
+        }
+        else {                                         ///< by-digit (Forth's <# #S #>)
+            int dec = base==10;                        ///< C++ can do only base=8,10,16
+            U32 n   = dec ? (U32)(ABS(v)) : (U32)(v);  ///< handle negative
+            i = 33;  buf[i]='\0';                      /// * C++ can do only base=8,10,16
+            do {                                       ///> digit-by-digit
+                U8 d = (U8)MOD(n,base);  n /= base;
+                buf[--i] = d > 9 ? (d-10)+'a' : d+'0';
+            } while (n && i);
+            if (dec && v < DU0) buf[--i]='-';
+        }
+        fout << &buf[i];
+    }
+    fout << ' ';
+}
+__HOST__ void
+Debug::print(void *vp, U8 gt) {
+#if T4_ENABLE_OBJ
+    DU v = *(DU*)vp;
+    if (gt==GT_OBJ) { io->print(fout, mu->du2obj(v)); return; }
+#endif
+    io->print(fout, vp, gt);
+}
 __HOST__ void
 Debug::ss_dump(IU id, int sz, DU tos, int base) {
-    auto show = [this, base](DU v) {
-#if T4_ENABLE_OBJ        
-        if (IS_OBJ(v)) io->hint(io->fout, mu->du2obj(v), IS_VIEW(v), base);
-        else           _ss(v, base);
-#else  // T4_ENABLE_OBJ
-        _ss(v, base);
-#endif // T4_ENABLE_OBJ        
-    };
     DU *ss = mu->vmss(id);                ///< retrieve VM SS
-    for (int i=0; i < sz; i++) show(*ss++);
-    show(tos);
-    io->fout << "-> ok" << std::endl;
+    for (int i=0; i < sz; i++) print(*ss++, base);
+    print(tos, base);
+    fout << "-> ok" << std::endl;
 }
 ///
 /// display dictionary word (wastefully one byte at a time)
@@ -66,7 +113,6 @@ Debug::ss_dump(IU id, int sz, DU tos, int base) {
 __HOST__ void
 Debug::words() {
     const int WIDTH = 60;
-    h_ostr &fout = io->fout;
     
     keep_fmt();
     fout << std::dec;
@@ -92,7 +138,6 @@ __HOST__ void
 Debug::mem_dump(IU p0, int sz) {
     const char i2h[] = "0123456789abcdef";
     char buf[80];
-    h_ostr &fout = io->fout;
 
     keep_fmt();
     fout << std::hex << std::setfill('0');
@@ -123,9 +168,7 @@ Debug::see(IU w, int base) {
         IU nfa1 = (i0+1) < DIDX ? NFA(i0+1) : mu->_midx;
         return (nfa1 - pfa0 - sizeof(IU));                 ///> variable, create ,
     };
-    h_ostr &fout = io->fout;
-    Code   &c    = DICT(w);
-
+    Code &c = DICT(w);
     fout << ": " << _d2h(c.name) << ENDL;
     if (!c.udf) {
         fout << " ( built-ins ) ;" << std::endl;
@@ -155,9 +198,7 @@ Debug::see(IU w, int base) {
 ///@{
 __HOST__ void
 Debug::dict_dump() {
-    h_ostr &fout = io->fout;
     UFP xt0 = XT0;
-
     keep_fmt();
     fout << "Built-in Dictionary: _XT0="
          << std::hex << xt0 << std::setfill('0') << ENDL;
@@ -208,12 +249,10 @@ Debug::_to_s(Param *p, int nv, int base) {
     int  w  = pm ? p->op : _p2didx(p);             ///< fetch word index by pfa
     if (w < 0) return -1;                          ///> loop guard
     
-    h_ostr &fout = io->fout;
-    Code   &code = DICT(w);
-    
+    Code &code = DICT(w);
     keep_fmt();
     fout << "  ";                                  /// * indent
-    if (io->trace) {                               /// * header
+    if (trace) {                                   /// * header
         fout << std::hex
              << std::setfill('0') << "( "
              << std::setw(4) << ((U8*)p - MEM(0))  ///> addr
@@ -228,15 +267,7 @@ Debug::_to_s(Param *p, int nv, int base) {
     }
     U8 *ip = (U8*)(p+1);                           ///< pointer to data
     switch (w) {
-    case LIT: {
-        DU v = *(DU*)ip;
-#if T4_ENABLE_OBJ        
-        if (IS_OBJ(v)) io->hint(fout, mu->du2obj(v), IS_VIEW(v), base);
-        else           _ss(v, base);
-#else  // !T4_ENABLE_OBJ
-        _ss(v, base);
-#endif // T4_ENABLE_OBJ
-    } break;
+    case LIT:  print(*(DU*)ip, base);               break;
     case STR:  fout << "s\" " << (char*)ip << '"';  break;
     case DOTQ: fout << ".\" " << (char*)ip << '"';  break;
     case VAR:
@@ -258,29 +289,6 @@ Debug::_to_s(Param *p, int nv, int base) {
         w==EXIT ||                           /// * end of word
         (w==LIT && p->exit) ||               /// * constant
         (w==VAR && !p->ioff);                /// * variable
-}
-///@name simple value debugging method
-///@{
-__HOST__ void
-Debug::_ss(DU v, int base) {                   ///< display value by ss_dump
-    static char buf[34];                     ///< static buffer
-    auto pp = [](DU v, int b) {              ///< display v by radix
-        DU t, f = modf(v, &t);               ///< integral, fraction
-        if (ABS(f) > DU_EPS) {
-            sprintf(buf, "%0.6g", v);
-            return buf;
-        }
-        int i   = 33;  buf[i]='\0';          /// * C++ can do only base=8,10,16
-        int dec = b==10;
-        U32 n   = dec ? (U32)(ABS(v)) : (U32)(v);  ///< handle negative
-        do {                                 ///> digit-by-digit
-            U8 d = (U8)MOD(n,b);  n /= b;
-            buf[--i] = d > 9 ? (d-10)+'a' : d+'0';
-        } while (n && i);
-        if (dec && v < DU0) buf[--i]='-';
-        return &buf[i];
-    };
-    io->fout << std::setbase(base) << pp(v, base) << ' ';
 }
 ///@}
 ///============================================================================
