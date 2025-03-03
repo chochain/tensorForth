@@ -14,15 +14,31 @@
 AIO *_io = NULL;         ///< singleton Async IO controller
 
 __HOST__ AIO*
-AIO::get_io(h_istr &i, h_ostr &o, int verbo) {
-    if (!_io) _io = new AIO(i, o, verbo);
+AIO::get_io() {
+    if (!_io) _io = new AIO();
     return _io;
 }
-__HOST__ AIO *AIO::get_io()  { return _io; }
 __HOST__ void AIO::free_io() { if (_io) delete _io; }
 ///@}
 ///@name object debugging method
 ///@{
+__HOST__ void
+AIO::print(h_ostr &fs, void *v, U8 gt) {
+    switch (gt) {
+    case GT_INT:   fs << (*(S32*)v); break;
+    case GT_U32:   fs << (*(U32*)v); break;
+    case GT_FLOAT: fs << (*(DU*)v);  break;
+    case GT_STR:   fs << (char*)v;   break;
+    case GT_FMT:   {
+        obuf_fmt *f = (obuf_fmt*)v;
+        DEBUG("FMT: b=%d, w=%d, p=%d, f='%c'\n", f->base, f->width, f->prec, f->fill);
+        fs << std::setbase(f->base)
+           << std::setw(f->width)
+           << std::setprecision(f->prec ? f->prec : -1)
+           << std::setfill((char)f->fill);
+    } break;
+    }
+}
 #if T4_ENABLE_OBJ
 __HOST__ void
 AIO::print(h_ostr &fs, T4Base &t) {
@@ -34,26 +50,6 @@ AIO::print(h_ostr &fs, T4Base &t) {
 #endif // T4_ENABLE_NN        
     case T4_XXX:     /* reserved */                   break;
     }
-}
-__HOST__ int
-AIO::hint(h_ostr &fs, T4Base &t, bool view, int base) {
-    static const char tn[2][4] = {                   ///< sync with t4_obj
-        { 'T', 'N', 'D', 'X' }, { 't', 'n', 'd', 'x' }
-    };
-    auto t2 = [&fs](Tensor &t) { fs << t.H() << ',' << t.W() << ']'; };
-    auto t4 = [&fs](Tensor &t) {
-        fs << t.N() << ',' << t.H() << ',' << t.W() << ',' << t.C() << ']';
-    };
-    fs << std::setbase(base) << tn[view][t.ttype];
-    switch(t.rank) {
-    case 0: fs << "["  << (t.numel - 1) << "]"; break; // network model
-    case 1: fs << "1[" << t.numel << "]";       break;
-    case 2: fs << "2["; t2((Tensor&)t);         break;
-    case 4: fs << "4["; t4((Tensor&)t);         break;
-    case 5: fs << "5[" << t.parm << "]["; t4((Tensor&)t); break;
-    }
-    fs << ' ' << std::setbase(_radix);
-    return 1;
 }
 ///@}
 #endif // T4_ENABLE_OBJ    
