@@ -18,16 +18,18 @@ MMU_INCS := \
 	src/mmu/tlsf.h \
 	src/mmu/code.h \
 	src/mmu/mmu.h \
-	src/mmu/model.h \
-	src/mmu/dataset.h
+	src/mmu/dataset.h \
+	src/nn/model.h
 
 MMU_OBJS := $(MMU_SRCS:%.cu=%.o)
 
 OBJS += $(MMU_OBJS)
 
 MMU_EXT := \
+	src/nn/model.h \
 	src/ldr/loader.h
 
+#MMU_LIBS := -Isrc/nn
 MMU_LIBS :=
 
 .PHONY: src-mmu clean-src-mmu

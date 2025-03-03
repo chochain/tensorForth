@@ -4,11 +4,11 @@
 # Add inputs and outputs from these tool invocations to the build variables
 NN_SRCS := \
 	src/nn/model.cu \
-    src/nn/debug.cu \
+	src/nn/debug.cu \
 	src/nn/forward.cu \
 	src/nn/backprop.cu \
 	src/nn/loss.cu \
-    src/nn/gradient.cu
+	src/nn/gradient.cu
 
 NN_INCS :=
 NN_OBJS := $(NN_SRCS:%.cu=%.o)
@@ -19,8 +19,8 @@ NN_EXT := \
 	src/t4base.h \
 	src/mmu/tensor.h \
 	src/mmu/mmu.h \
-	src/mmu/model.h \
-	src/mmu/dataset.h
+	src/mmu/dataset.h \
+	src/nn/model.h
 
 NN_LIBS := -Isrc/mmu
 

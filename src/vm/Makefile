@@ -24,10 +24,11 @@ VM_EXT := \
 	src/ten4_types.h \
 	src/io/aio.h \
 	src/mmu/tensor.h \
-	src/mmu/model.h \
-	src/mmu/dataset.h
+	src/mmu/dataset.h \
+	src/nn/model.h
 
-VM_LIBS:= -Isrc/io -Isrc/mmu
+#VM_LIBS:= -Isrc/io -Isrc/mmu -Isrc/nn
+VM_LIBS:=
 
 .PHONY: src-vm clean-src-vm
 
