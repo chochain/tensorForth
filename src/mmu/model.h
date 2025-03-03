@@ -84,14 +84,14 @@ public:
 private:
     /// @name internal tensor constructors
     /// @{
-    __GPU__ Tensor &_vec(U16 sz);
-    __GPU__ Tensor &_t4(U16 n, U16 h);
-    __GPU__ Tensor &_t4(U16 n, U16 h, U16 w, U16 c);
+    __GPU__ Tensor &_vec(U64 sz);
+    __GPU__ Tensor &_t4(U32 n, U32 h);
+    __GPU__ Tensor &_t4(U32 n, U32 h, U32 w, U32 c);
     /// @}
     /// @name Convolution and Linear initializer
     /// @{
-    __GPU__ void   _iconv(Tensor &in, U16 c, DU bias, U16 *opt);    ///< 2D convolution
-    __GPU__ void   _ilinear(Tensor &in, U16 n, DU bias);            ///< linearize (Dense) with n outputa
+    __GPU__ void   _iconv(Tensor &in, U32 c, DU bias, U32 *opt);    ///< 2D convolution
+    __GPU__ void   _ilinear(Tensor &in, U32 n, DU bias);            ///< linearize (Dense) with n output
     __GPU__ void   _iflatten(Tensor &in);                           ///< flatten
     /// @}
     /// @name Activation ops
@@ -101,7 +101,7 @@ private:
     /// @}
     /// @name Pooling and Dropout ops
     /// @{
-    __GPU__ void   _ipool(Tensor &in, U16 n, t4_layer fn);          ///< pooling with nxn filter
+    __GPU__ void   _ipool(Tensor &in, U16 f, t4_layer fn);          ///< pooling with nxn filter
     __GPU__ void   _ibatchnorm(Tensor &in, DU m);   ///< batch norm with momentum=m
     __GPU__ void   _iup(Tensor &in, U16 f, DU m);   ///< upsample with nxn filter
     /// @}
