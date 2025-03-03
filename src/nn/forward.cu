@@ -21,7 +21,7 @@ __KERN__ void k_conv2d(
     const U32 tx = threadIdx.x, j0 = tx + blockIdx.x * TS;   ///< output coordinates
     const U32 ty = threadIdx.y, i0 = ty + blockIdx.y * TS;   /// * i0,j0=0:29
     const U32 c0 = blockIdx.z,  C0 = gridDim.z;      ///< channel deep
-    const U64 z0 = (U64)C0 * ((U64)W * i0 + j0) + c0;///< output array index
+    const U64 z0 = ((U64)W * i0 + j0) * C0 + c0;     ///< output array index
     const U32 xy = tx + ty * T4_WARP_SZ;             ///< tile index
     ///
     /// process z0, i.e. [TS, TS, C] cells per kernel call
@@ -32,7 +32,7 @@ __KERN__ void k_conv2d(
 
     auto g = cg::this_thread_block();                ///< all threads of block
     for (U32 c1 = 0; c1 < C1; c1++) {                ///< each input channel
-        const U64 z1 = (U64)C1 * ((U64)W * i1 + j1) + c1; ///< one channel at a time
+        const U64 z1 = ((U64)W * i1 + j1) * C1 + c1; ///< one channel at a time
         _I[xy] =                                     /// * cache input data
             (i1 >= 0 && i1 < H && j1 >= 0 && j1 < W) /// * with zero padding
             ? I[z1] : DU0;                           /// * by channel
