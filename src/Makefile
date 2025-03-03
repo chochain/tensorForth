@@ -37,10 +37,10 @@ OBJS += $(T4_OBJS)
 
 # Every subdirectory with source files must be described here
 #SUBDIRS := nn vu ldr vm io mmu  # vu excluded after v4.x
-#SUBDIRS := nn ldr vm io mmu
-SUBDIRS := vm io mmu      # stream devel
+SUBDIRS := nn ldr vm io mmu      # stream devel
 
-T4_LIBS := $(SUBDIRS:%=-Isrc/%)
+#T4_LIBS := $(SUBDIRS:%=-Isrc/%)
+T4_LIBS :=
 
 -include src/mmu/Makefile
 -include src/io/Makefile
