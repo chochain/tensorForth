@@ -46,8 +46,8 @@ T4_LIBS := $(SUBDIRS:%=-Isrc/%)
 -include src/io/Makefile
 -include src/vm/Makefile
 -include src/ldr/Makefile
+-include src/nn/Makefile
 #-include src/vu/Makefile
-#-include src/nn/Makefile
 
 .PHONY: src clean clean-src
 
