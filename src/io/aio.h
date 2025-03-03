@@ -20,19 +20,17 @@
 typedef std::istream h_istr;          ///< host input stream
 typedef std::ostream h_ostr;          ///< host output ostream
 
-#define IO_DB(...)      { if (trace) INFO(__VA_ARGS__); }
+#if    T4_VERBOSE > 0
+#define IO_DB(...)      INFO(__VA_ARGS__)
+#else  // !(T4_VERBOSE > 0)
+#define IO_DB(...)
+#endif // T4_VERBOSE > 0
 
 class AIO {                           ///< create in host mode
-    __HOST__ AIO(h_istr &i, h_ostr &o, int verbo) : fin(i), fout(o), trace(verbo) {}
+    __HOST__ AIO() {}
     __HOST__ ~AIO() { TRACE("\\   AIO: instance freed\n"); }
 
 public:
-    friend class Debug;               ///< Debug can access my private members
-    
-    h_istr &fin;                      ///< host input stream
-    h_ostr &fout;                     ///< host output stream
-    int    trace;                     ///< debug tracing verbosity level
-    
 #if DO_MULTITASK
     static bool     io_busy;          ///< IO locking control
     static MUTEX    io;               ///< mutex for io access
@@ -44,13 +42,12 @@ public:
     static void io_unlock();          ///< unlock IO
 #endif // DO_MULTITASK
 
-    static __HOST__ AIO *get_io(h_istr &i, h_ostr &o, int verbo);
     static __HOST__ AIO *get_io();
     static __HOST__ void free_io();
-    
+
+    __HOST__ void print(h_ostr &fs, void *vp, U8 gt);
 #if T4_ENABLE_OBJ
     __HOST__ void print(h_ostr &fs, T4Base &t);                        ///< display in matrix format
-    __HOST__ int  hint(h_ostr &fs, T4Base &t, bool view, int base=10); ///< display object on ss_dump
     __HOST__ int  tsave(Tensor &t, char *fname, U8 mode);
     
 #if T4_ENABLE_NN    
@@ -62,7 +59,7 @@ public:
     /// NN model persistence (i.e. serialization) methods
     ///
     __HOST__ int  nsave(Model &m, char *fname, U8 mode);
-    __HOST__ int  nload(Model &m, char *fname, U8 mode);
+    __HOST__ int  nload(Model &m, char *fname, U8 mode, char *tib);
 #endif // T4_ENABLE_NN    
 #endif // T4_ENABLE_OBJ
     
@@ -95,7 +92,7 @@ private:
     
     __HOST__ int  _nsave_model(h_ostr &fs, Model &m);
     __HOST__ int  _nsave_param(h_ostr &fs, Model &m);
-    __HOST__ int  _nload_model(h_istr &fs, Model &m, char *fname);
+    __HOST__ int  _nload_model(h_istr &fs, Model &m, char *fname, char *tib);
     __HOST__ int  _nload_param(h_istr &fs, Model &m);
 
 #endif // T4_ENABLE_NN
