@@ -138,8 +138,8 @@ MMU::colon(const char *name) {
 /// tensor life-cycle methods
 ///
 #if T4_ENABLE_OBJ // vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
-#include "model.h"             // in ../nn, include ../mmu/mmu.h
-#include "dataset.h"           // in ../nn
+#include "dataset.h"
+#include "nn/model.h"
 
 #define OBJ2X(t)  ((U32)((U8*)&(t) - _obj))
 __GPU__ void
