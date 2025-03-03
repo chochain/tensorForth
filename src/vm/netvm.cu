@@ -4,7 +4,7 @@
  *
  * <pre>Copyright (C) 2022- GreenII, this file is distributed under BSD 3-Clause License.</pre>
  */
-#include "dataset.h"           // in ../mmu
+#include "mmu/dataset.h"
 #include "netvm.h"
 
 #if (T4_ENABLE_OBJ && T4_ENABLE_NN)

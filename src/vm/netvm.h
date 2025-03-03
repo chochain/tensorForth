@@ -6,7 +6,7 @@
  */
 #if (!defined(__VM_NETVM_H) && T4_ENABLE_OBJ && T4_ENABLE_NN)
 #define __VM_NETVM_H
-#include "model.h"                // in ../mmu
+#include "nn/model.h"
 #include "tenvm.h"                // extending TensorVM
 
 #define MTOS     ((Model&)mmu.du2obj(tos))                                       /** Network Model on TOS   */

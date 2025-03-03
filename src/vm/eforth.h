@@ -6,8 +6,8 @@
  */
 #ifndef __VM_EFORTH_H
 #define __VM_EFORTH_H
-#include "vm.h"                         ///< VM base class in ../vm
 #include "param.h"                      ///< Parameter field
+#include "vm.h"                         ///< VM base class
 ///
 /// Forth Virtual Machine operational macros to reduce verbosity
 /// Note:
