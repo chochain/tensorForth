@@ -16,6 +16,7 @@ class System : public Managed {                 ///< singleton class
     curandState    *_seed;                      ///< for random number generator
     Istream        *_istr;                      ///< managed input stream
     Ostream        *_ostr;                      ///< managed output stream
+    h_istr         &fin;                        ///< host input stream
     int            _trace;
     char           _pad[T4_STRBUF_SZ];          ///< terminal input buffer
     
