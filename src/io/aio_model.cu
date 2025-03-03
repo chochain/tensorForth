@@ -100,7 +100,7 @@ AIO::nsave(Model &m, char* fname, U8 mode) {
 }
 
 __HOST__ int
-AIO::nload(Model &m, char* fname, U8 mode) {
+AIO::nload(Model &m, char* fname, U8 mode, char *tib) {
     IO_DB("\nAIO::load '%s' ", fname);
     ifstream fs(fname, ios_base::binary);            ///< open an input file
     if (!fs.is_open()) {
@@ -111,13 +111,13 @@ AIO::nload(Model &m, char* fname, U8 mode) {
     int err = 0;
     if (m.numel <= 2) {
         IO_DB("NN model");
-        err = _nload_model(fs, m, fname);           /// * load model layers
+        err = _nload_model(fs, m, fname, tib);      /// * load model layers
     }
     else {
         std::string tmp;
         while (getline(fs, tmp) && tmp.length());   /// * skip model section
         IO_DB("parameter tensors (i.e. state_dict)");
-        err = _nload_param(fs, m);           /// * load model layer tensors
+        err = _nload_param(fs, m);                  /// * load model layer tensors
     }
     fs.close();
     IO_DB(" => %s\n", err ? "error" : "completed");
@@ -131,7 +131,7 @@ AIO::_print_model(h_ostr &fs, Model &m) {
     auto tinfo = [this,&fs](Tensor &t, int i, int fn) { ///> layer info
         fs << "[" << std::setw(3) << i << "] "
            << Model::nname(fn) << ":";
-        hint(fs, t, IS_VIEW(t), 10);
+        print(fs, t);
         int sz = 0;
         for (int n = 0; n < 4; n++) {
             sz += t.grad[n] ? t.grad[n]->numel : 0;
@@ -140,7 +140,7 @@ AIO::_print_model(h_ostr &fs, Model &m) {
     };
     auto finfo = [this,&fs](Tensor **g) {
         for (int i=0; g[i] && i < 2; i++) {
-            fs << " "; hint(fs, *g[i], false);
+            fs << " "; print(fs, *g[i]);
         }
     };
     if (!m.is_model()) return;
@@ -231,9 +231,9 @@ AIO::_nsave_param(h_ostr &fs, Model &m) {
 }
 
 __HOST__ int
-AIO::_nload_model(h_istr &fs, Model &m, char *fname) {
+AIO::_nload_model(h_istr &fs, Model &m, char *fname, char *tib) {
     std::string line;
-    while (getline(fs, line) && line[0] == '\\') {    /// * TODO: check version
+    while (getline(fs, line) && line[0] == '\\') {     /// * TODO: check version
         IO_DB("\n%s", line.c_str());
     }
     if (m.numel > 2) return 0;                         /// * model already loaded
@@ -245,8 +245,6 @@ AIO::_nload_model(h_istr &fs, Model &m, char *fname) {
     }
     cmd.append(" nn.load ").append(fname);             /// * add parameter reload command
     
-    _istr.clear();                                     /// * setup input command buffer
-    char *tib = _istr->rdbuf();
     if (cmd.length() >= T4_IBUF_SZ) {                  /// * check buffer size
         *tib = '\0';
         ERROR(" input buffer (T4_IBUF_SZ) overflow!\n");
