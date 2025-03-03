@@ -9,12 +9,12 @@
 
 __HOST__ const char*                ///< host network layer name 
 Model::nname(int i) {
-    static const char *name[] = { T4_LAYER_LIST };
+    static const char *name[] = { LAYER_OP };
     return name[i];
 }
 __GPU__ const char*                ///< device network layer name 
 Model::d_nname(int i) {
-    static const char* name[] = { T4_LAYER_LIST };
+    static const char* name[] = { LAYER_OP };
     return name[i];
 }
 ///
@@ -55,7 +55,7 @@ __GPU__ int    Model::batch_size()     { return (*this)[1].N(); }
 /// NN layer factory
 ///
 __GPU__ Model&
-Model::add(t4_layer fn, U16 n, DU bias, U16 *opt) {
+Model::add(t4_layer fn, int n, DU bias, U16 *opt) {
     Tensor &in = (*this)[-1];
     if (in.grad_fn != L_NONE) return *this;    /// * tensor already setup
 
@@ -88,17 +88,17 @@ Model::add(t4_layer fn, U16 n, DU bias, U16 *opt) {
 /// internal tensor constructors
 /// 
 __GPU__ Tensor&
-Model::_vec(U16 sz)       { return _mmu->tensor(sz); }
+Model::_vec(U64 sz)       { return _mmu->tensor(sz); }
 __GPU__ Tensor&
-Model::_t4(U16 n, U16 h)  { return _mmu->tensor(n, h, 1, 1); }
+Model::_t4(U32 n, U32 h)  { return _mmu->tensor(n, h, 1, 1); }
 __GPU__ Tensor&
-Model::_t4(U16 n, U16 h, U16 w, U16 c) { return _mmu->tensor(n, h, w, c); }
+Model::_t4(U32 n, U32 h, U32 w, U32 c) { return _mmu->tensor(n, h, w, c); }
 ///
 /// Convolution and Linear ops
 ///
 __GPU__ void
-Model::_iconv(Tensor &in, U16 C0, DU bias, U16 *opt) {
-    U16 N1 = in.N(), C1 = in.C();                     ///> batch_sz, channels
+Model::_iconv(Tensor &in, U32 C0, DU bias, U16 *opt) {
+    U32 N1 = in.N(), C1 = in.C();                     ///> batch_sz, channels
     U16 Hf = opt[0], Wf = opt[1];                     ///> filter sizing
     U16 p  = (Hf>1&&opt[2]) ? opt[2] : INT((Hf-1)/2); ///> padding
     U16 s  = opt[3], d = opt[4];                      ///> stride, dilation
@@ -131,8 +131,9 @@ Model::_iconv(Tensor &in, U16 C0, DU bias, U16 *opt) {
     npush(out);                                  /// * stage for next stage
 }
 __GPU__ void
-Model::_ilinear(Tensor &in, U16 C0, DU bias) {
-    U16 N1 = in.N(), C1 = in.HWC();
+Model::_ilinear(Tensor &in, U32 C0, DU bias) {
+    U32 N1 = in.N();
+    U64 C1 = in.HWC();
     Tensor *w  = in.grad[0] = &_t4(1, C0, C1, 1);                 ///> w
     Tensor *dw = in.grad[2] = &_t4(1, C0, C1, 1).map(FILL, DU0);  ///> dw
     Tensor *b  = in.grad[1] = &_vec(C0);                          ///> b
@@ -191,11 +192,11 @@ Model::_ipool(Tensor &in, U16 f, t4_layer fn) {
         ERROR("pooling f=%dx%d? 2x2 and 3x3 supported only\n", f, f);
         return;
     }
-    in.parm = f;                                 /// * keep kernel size
+    in.parm = n;                                 /// * keep kernel size
     TRACE1("model#add %s %dx%d\n", d_nname(fn), f, f);
                                                  /// * used by backprop
-    U16 H0 = INT((in.H() - f) / f) + 1;
-    U16 W0 = INT((in.W() - f) / f) + 1;
+    U32 H0 = INT((in.H() - f) / f) + 1;
+    U32 W0 = INT((in.W() - f) / f) + 1;
     U16 s[4] = { f, f, 1, 1 }; memcpy(in.stride, s, sizeof(s));  // stride
     
     Tensor &out = _t4(in.N(), H0, W0, in.C());
@@ -229,8 +230,8 @@ Model::_iup(Tensor &in, U16 f, DU method) {
     in.parm = (INT(method)<<8) | f;              /// * keep (method<<8) | kernel size
     TRACE1("model#add upsample %dx%d\n", f, f);
                                                  /// * used by backprop
-    U16 H0 = in.H() * f;
-    U16 W0 = in.W() * f;
+    U32 H0 = in.H() * f;
+    U32 W0 = in.W() * f;
     U16 s[4] = { f, f, 1, 1 }; memcpy(in.stride, s, sizeof(s));  // stride
     
     Tensor &out = _t4(in.N(), H0, W0, in.C());
