@@ -12,10 +12,10 @@
 #define __IO_AIO_H
 #include "istream.h"
 #include "ostream.h"
-#include "tensor.h"
-#include "dataset.h"                  // in ../mmu
-#include "model.h"                    // in ../mmu
-#include "ldr/loader.h"               // in ../ldr (include corpus.h)
+#include "mmu/tensor.h"
+#include "mmu/dataset.h"
+#include "ldr/loader.h"               // include corpus.h
+#include "nn/model.h"
 
 typedef std::istream h_istr;          ///< host input stream
 typedef std::ostream h_ostr;          ///< host output ostream

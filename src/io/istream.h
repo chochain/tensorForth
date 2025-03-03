@@ -7,7 +7,7 @@
 #ifndef __IO_ISTREAM_H_
 #define __IO_ISTREAM_H_
 #include "ten4_types.h"
-#include "util.h"               /// in mmu
+#include "util.h"
 ///
 /// istream class
 ///

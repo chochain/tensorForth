@@ -7,7 +7,7 @@
 #ifndef __IO_OSTREAM_H_
 #define __IO_OSTREAM_H_
 #include "ten4_types.h"
-#include "util.h"                // in ../mmu
+#include "util.h"
 
 //================================================================
 /*! printf internal version data container.
