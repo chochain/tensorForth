@@ -13,9 +13,6 @@
 #include "istream.h"
 #include "ostream.h"
 #include "mmu/tensor.h"
-#include "mmu/dataset.h"
-#include "ldr/loader.h"               // include corpus.h
-#include "nn/model.h"
 
 typedef std::istream h_istr;          ///< host input stream
 typedef std::ostream h_ostr;          ///< host output ostream
@@ -26,6 +23,8 @@ typedef std::ostream h_ostr;          ///< host output ostream
 #define IO_DB(...)
 #endif // T4_VERBOSE > 0
 
+class Model;
+class Dataset;
 class AIO {                           ///< create in host mode
     __HOST__ AIO() {}
     __HOST__ ~AIO() { TRACE("\\   AIO: instance freed\n"); }
