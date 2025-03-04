@@ -14,6 +14,8 @@ using namespace std;
 /// Tensor & NN model persistence (i.e. serialization) methods
 ///
 #include <fstream>
+#include "mmu/tensor.h"
+
 __HOST__ int
 AIO::tsave(Tensor &t, char *fname, U8 mode) {
     IO_DB("\nAIO::save tensor to '%s' =>", fname);

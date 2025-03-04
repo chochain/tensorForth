@@ -11,13 +11,17 @@
 
 #if (T4_ENABLE_OBJ && T4_ENABLE_NN)
 #include <fstream>
+#include "nn/dataset.h"
+#include "nn/model.h"
+#include "ldr/loader.h"  // includes Corpus
+
 using namespace std;
 ///
 /// initial dataset setup
 /// init flow:
 ///    netvm#dataset
 ///    -> aio::process_node
-///    -> mmu::dataset          - set N=batch_sz, batch_id = -1
+///    -> nn::dataset           - set N=batch_sz, batch_id = -1
 ///
 /// fetch flow:
 ///    netvm#fetch
