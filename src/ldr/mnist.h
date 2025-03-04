@@ -22,7 +22,7 @@ class Mnist : public Corpus {
     ifstream t_in;       ///< target label file handle
     
 public:
-    Mnist(const char *data_name, const char *label_name, bool trace)
+    Mnist(const char *data_name, const char *label_name, int trace)
         : Corpus(data_name, label_name, trace) {}
     ~Mnist() { _close(); }
 
