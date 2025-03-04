@@ -8,7 +8,6 @@
 #include "vm/eforth.h"       // just eForth
 #include "vm/tenvm.h"        // tensor/matrix set, or
 #include "vm/netvm.h"        // neural network set,
-#include "ldr/loader.h"      // default dataset loader
 
 #if T4_ENABLE_NN
 typedef NetVM     VM_TYPE;

@@ -138,7 +138,7 @@ MMU::colon(const char *name) {
 /// tensor life-cycle methods
 ///
 #if T4_ENABLE_OBJ // vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
-#include "dataset.h"
+#include "nn/dataset.h"
 #include "nn/model.h"
 
 #define OBJ2X(t)  ((U32)((U8*)&(t) - _obj))
