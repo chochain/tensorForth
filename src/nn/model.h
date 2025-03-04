@@ -6,7 +6,7 @@
  */
 #if (!defined(__NN_MODEL_H) && T4_ENABLE_OBJ && T4_ENABLE_NN)
 #define __NN_MODEL_H
-#include "mmu/mmu.h"             // in ../mmu
+#include "mmu/mmu.h"
 
 typedef enum {
     UP_NEAREST = 0,
