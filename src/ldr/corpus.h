@@ -4,11 +4,11 @@
  *
  * <pre>Copyright (C) 2022- GreenII, this file is distributed under BSD 3-Clause License.</pre>
  */
-#if (!defined(__LDR_CORPUS_H) && T4_ENABLE_OBJ)
+#if (!defined(__LDR_CORPUS_H) && T4_ENABLE_OBJ && T4_ENABLE_NN)
 #define __LDR_CORPUS_H
 #include "ten4_types.h"
 
-#define DS_LOG1(...)         if (trace > 0) printf(__VA_ARGS__)
+#define DS_LOG1(...)         { if (trace > 0) INFO(__VA_ARGS__); }
 #define DS_ERROR(...)        fprintf(stderr, __VA_ARGS__)
 #define IO_ERROR(fn)         fprintf(stderr, "ERROR: open file %s failed\n", fn)
 
@@ -18,19 +18,23 @@
         exit(-1); \
     }
 
-typedef uint8_t U8;
-
 struct Corpus {
-    const char *ds_name;      ///< data source name
-    const char *tg_name;      ///< target label name
+    const char *ds_name;     ///< data source name
+    const char *tg_name;     ///< target label name
 
-    int   N, H, W, C;         ///< set dimensions and channel size
-    int   eof    = 0;
-    bool  trace  = false;
-    U8    *data  = NULL;      ///< source data pointer
-    U8    *label = NULL;      ///< label data pointer
+    U32 N, H, W, C;          ///< set dimensions and channel size
+    union {
+        U32 ctrl = 0;        ///< corpus control 
+        struct {
+            U32   eof  : 1;  ///< end of file control
+            U32   trace: 2;  ///< tracing level
+            U32   xx   : 29; ///< reserved
+        };
+    };
+    U8 *data  = NULL;        ///< source data pointer
+    U8 *label = NULL;        ///< label data pointer
     
-    Corpus(const char *data_name, const char *label_name, bool trace)
+    Corpus(const char *data_name, const char *label_name, int trace)
        : ds_name(data_name), tg_name(label_name), trace(trace), N(0) {}
     
     ~Corpus() {
@@ -61,5 +65,5 @@ struct Corpus {
     virtual U8 *operator [](int idx){ return &data[idx * dsize()]; }  ///< data point
 };
 
-#endif // (!defined(__CORPUS_H) && T4_ENABLE_OBJ)
+#endif // (!defined(__LDR_CORPUS_H) && T4_ENABLE_OBJ && T4_ENABLE_NN)
 
