@@ -18,14 +18,13 @@ MMU_INCS := \
 	src/mmu/tlsf.h \
 	src/mmu/code.h \
 	src/mmu/mmu.h \
-	src/mmu/dataset.h \
-	src/nn/model.h
 
 MMU_OBJS := $(MMU_SRCS:%.cu=%.o)
 
 OBJS += $(MMU_OBJS)
 
 MMU_EXT := \
+	src/nn/dataset.h \
 	src/nn/model.h \
 	src/ldr/loader.h
 
