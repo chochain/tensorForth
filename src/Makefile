@@ -31,6 +31,16 @@ T4_INCS := \
 	./src/t4base.h \
 	./src/ten4.h
 
+T4_EXT := \
+	./src/io/aio.h \
+	./src/mmu/mmu.h \
+	./src/vm/param.h \
+	./src/vm/vm.h \
+	./src/vm/eforth.h \
+	./src/vm/tenvm.h \
+	./src/vm/netvm.h \
+	./src/nn/dataset.h 
+
 T4_OBJS := $(T4_SRCS:%.cu=%.o)
 
 OBJS += $(T4_OBJS)
@@ -53,7 +63,7 @@ T4_LIBS :=
 
 src: $(SUBDIR:%=src-%)
 
-src-t4: $(T4_OBJS) $(T4_INCS)
+src-t4: $(T4_OBJS) $(T4_INCS) $(T4_EXT)
 
 # Each subdirectory must supply rules for building sources it contributes
 src/%.o: src/%.cu
