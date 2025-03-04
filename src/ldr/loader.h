@@ -4,17 +4,15 @@
  *
  * <pre>Copyright (C) 2022- GreenII, this file is distributed under BSD 3-Clause License.</pre>
  */
-#ifndef __LDR_LOADER_H
+#if (!defined(__LDR_LOADER_H) && T4_ENABLE_OBJ && T4_ENABLE_NN)
 #define __LDR_LOADER_H
 #include "corpus.h"
 
 struct Loader {
-    static void   init(bool trace=0);
-#if T4_ENABLE_OBJ
+    static void   init(int trace);
     static Corpus *get(Dataset &ds, const char *ds_name=NULL);
-#endif  // T4_ENABLE_OBJ
 };
 
-#endif  // __LDR_LOADER_H
+#endif  // (!defined(__LDR_LOADER_H) && T4_ENABLE_OBJ && T4_ENABLE_NN)
 
 
