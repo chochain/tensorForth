@@ -146,15 +146,15 @@ constexpr U32 EXT_FLAG    = 0x80000000;              /**< extention flag */
 #define DU2X(v)     (*(U32*)&(v))                    /**< to U32 ptr     */
 #define SCALAR(v)   ((DU2X(v) &= ~T4_TT_OBJ), (v))   /**< set DU flag    */
 
-#if T4_ENABLE_OBJ
+#if T4_DO_OBJ
 #define IS_OBJ(v)   ((DU2X(v) & T4_TT_OBJ)!=0)             /**< if is an obj   */
 #define IS_VIEW(v)  ((DU2X(v) & T4_TYPE_MSK)==T4_TT_VIEW)
 #define AS_VIEW(v)  ((DU2X(v) |= T4_TT_VIEW), (v))
-#else  // !T4_ENABLE_OBJ
+#else  // !T4_DO_OBJ
 #define IS_OBJ(v)   (0)
 #define IS_VIEW(v)  (0)
 #define AS_VIEW(v)  (0)
-#endif // T4_ENABLE_OBJ
+#endif // T4_DO_OBJ
 ///@}
 ///>name General Data Types for IO Event
 ///@{

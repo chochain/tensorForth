@@ -6,7 +6,7 @@
  */
 #include "mnist.h"
 
-#if (T4_ENABLE_OBJ && T4_ENABLE_NN)
+#if (T4_DO_OBJ && T4_DO_NN)
 
 #define LOG_COUNT 1000       /**< debug dump frequency */
 #define MAX_BATCH 0          /**< debug, limit number of mini-batches */
@@ -147,4 +147,4 @@ int Mnist::_get_images(int bid, int bsz) {
     return cnt;
 }
 
-#endif // (T4_ENABLE_OBJ && T4_ENABLE_NN)
+#endif // (T4_DO_OBJ && T4_DO_NN)

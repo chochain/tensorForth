@@ -24,11 +24,11 @@ MMU::MMU() {
     MM_ALLOC(&_vmrs, sizeof(DU) * T4_RS_SZ * T4_VM_COUNT);
     MM_ALLOC(&_pmem, T4_PMEM_SZ);
     
-#if T4_ENABLE_OBJ    
+#if T4_DO_OBJ    
     MM_ALLOC(&_mark, sizeof(DU) * T4_TFREE_SZ);
     MM_ALLOC(&_obj,  T4_OSTORE_SZ);
     _ostore.init(_obj, T4_OSTORE_SZ);
-#endif // T4_ENABLE_OBJ
+#endif // T4_DO_OBJ
 
     _midx = T4_USER_AREA;      // set aside user area (for base and maybe compile)
     
@@ -101,9 +101,9 @@ MMU::status() {
     ///
     /// display object store statistics
     ///
-#if T4_ENABLE_OBJ    
+#if T4_DO_OBJ    
     _ostore.status();
-#endif // T4_ENABLE_OBJ
+#endif // T4_DO_OBJ
 }
 
 __GPU__ void
@@ -137,7 +137,7 @@ MMU::colon(const char *name) {
 ///
 /// tensor life-cycle methods
 ///
-#if T4_ENABLE_OBJ // vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
+#if T4_DO_OBJ // vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
 #include "nn/dataset.h"
 #include "nn/model.h"
 
@@ -152,7 +152,7 @@ MMU::mark_free(DU v) {            ///< mark a tensor free for release
     else ERROR("ERR: tfree store full, increase T4_TFREE_SZ!");
 //    unlock();
 }
-#if T4_ENABLE_OBJ
+#if T4_DO_OBJ
 __GPU__ void                      ///< release marked free tensor
 MMU::sweep() {
 //    lock();                       /// * dead locked now
@@ -166,12 +166,12 @@ MMU::sweep() {
 }
 __GPU__ void
 MMU::drop(T4Base &t) {
-#if T4_ENABLE_NN
+#if T4_DO_NN
     if (t.is_model())  { free((Model&)t); return;  }   /// release TLSF memory block
-#endif  // T4_ENABLE_NN
+#endif  // T4_DO_NN
     free((Tensor&)t);                                  /// check reference count
 }
-#endif  // T4_ENABLE_OBJ
+#endif  // T4_DO_OBJ
 
 __GPU__ Tensor&                    ///< allocate a tensor from tensor space
 MMU::talloc(U64 sz) {
@@ -239,7 +239,7 @@ MMU::free(Tensor &t) {
     MM_DB("} mmu#free(T%d)\n", n);
     _ostore.status();
 }
-#if T4_ENABLE_NN
+#if T4_DO_NN
 __GPU__ Model&                     ///< create a NN model with NHWC input
 MMU::model(U32 sz) {
     MM_DB("mmu#model layers=%d {\n", sz);
@@ -269,7 +269,7 @@ MMU::free(Model &m) {
     _ostore.free(&m);
     MM_DB("} mmu#free(N%d)\n", n);
 }
-#endif // T4_ENABLE_NN
+#endif // T4_DO_NN
 ///
 /// deep copy a tensor
 /// TODO: CDP
@@ -325,4 +325,4 @@ MMU::slice(Tensor &t0, U32 x0, U32 x1, U32 y0, U32 y1) {
           t0.rank, x0, x1, y0, y1, t0.numel);
     return t1;
 }
-#endif // T4_ENABLE_OBJ // vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
+#endif // T4_DO_OBJ // vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv

@@ -77,11 +77,11 @@ __HOST__ void    System::free_sys() { if (_sys) delete _sys; }
 __GPU__ DU
 System::rand(DU d, rand_opt n) {
     if (!IS_OBJ(d)) return d * curand_uniform(&_seed[threadIdx.x]);
-#if T4_ENABLE_OBJ
+#if T4_DO_OBJ
     T4Base &t = mu->du2obj(d);
     rand(t.data, t.numel, n);
     return d;
-#endif // T4_ENABLE_OBJ
+#endif // T4_DO_OBJ
 }
 __GPU__ void
 System::rand(DU *d, U64 sz, rand_opt n, DU bias, DU scale) {
@@ -125,7 +125,7 @@ System::process_event(io_event *ev) {
         case OP_SEE:   db->see((IU)o->i, (int)o->m);       break;
         case OP_DUMP:  db->mem_dump((IU)o->i, UINT(o->n)); break;
         case OP_SS:    db->ss_dump((IU)o->i>>10, (int)o->i&0x3ff, o->n, (int)o->m); break;
-#if T4_ENABLE_OBJ // vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
+#if T4_DO_OBJ // vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
         case OP_TSAVE: {
             Tensor &t = (Tensor&)mu->du2obj(o->n);
             if (t.is_tensor()) {
@@ -134,7 +134,7 @@ System::process_event(io_event *ev) {
             }
             else ERROR("%x is not a tensor\n", DU2X(o->n));
         } break;
-#if T4_ENABLE_NN  //==========================================================
+#if T4_DO_NN  //==========================================================
         case OP_DATA: {
             Dataset &ds = (Dataset&)mu->du2obj(o->n);
             if (ds.is_dataset()) {                                         /// * indeed a dataset?
@@ -167,8 +167,8 @@ System::process_event(io_event *ev) {
             }
             else ERROR("%x is not a model\n", DU2X(o->n));
         } break;
-#endif // T4_ENABLE_NN =======================================================
-#endif // T4_ENABLE_OBJ ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+#endif // T4_DO_NN =======================================================
+#endif // T4_DO_OBJ ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
         }
     } break;
     default: ERROR("event type not supported: %d\n", (int)ev->gt); break;

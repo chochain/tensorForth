@@ -27,9 +27,9 @@ class MMU : public Managed {
     U8             *_pmem;          ///< parameter memory block
     DU             *_mark = 0;      ///< list for tensors that marked free
     U8             *_obj  = 0;      ///< object storage block
-#if T4_ENABLE_OBJ    
+#if T4_DO_OBJ    
     TLSF           _ostore;         ///< object storage manager
-#endif // T4_ENABLE_OBJ    
+#endif // T4_DO_OBJ    
 
     __HOST__ MMU();
     __HOST__ ~MMU();
@@ -97,9 +97,9 @@ public:
     }
     __GPU__  __INLINE__ void wd(U8 *c, DU d)   {
         DU v = rd(c);
-#if T4_ENABLE_OBJ        
+#if T4_DO_OBJ        
         if (IS_OBJ(v)) drop(du2obj(v));                            /// * obj decref
-#endif // T4_ENABLE_OBJ        
+#endif // T4_DO_OBJ        
         *(DU*)c = d;
 //        MEMCPY(c, &d, sizeof(DU));
     }
@@ -113,7 +113,7 @@ public:
         else ERROR("\nmmu.wi[%d]", i);
     }
     
-#if T4_ENABLE_OBJ // vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
+#if T4_DO_OBJ // vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
     ///
     /// short hands for eforth tensor ucodes (for DU <-> Tensor conversion)
     ///
@@ -140,14 +140,14 @@ public:
     __GPU__  void   free(Tensor &t);                        ///< free the tensor
     __GPU__  Tensor &copy(Tensor &t0);                      ///< hard copy a tensor
     __GPU__  Tensor &slice(Tensor &t0, IU x0, IU x1, IU y0, IU y1);     ///< a slice of a tensor
-#if T4_ENABLE_NN    
+#if T4_DO_NN    
     __GPU__  Dataset&dataset(U32 batch_sz);                 ///< create a NN dataset
     __GPU__  Model  &model(U32 sz=T4_NET_SZ);               ///< create a NN model
     __GPU__  void   free(Model &m);
-#endif // T4_ENABLE_NN
-#else  // !T4_ENABLE_OBJ ==========================================================
+#endif // T4_DO_NN
+#else  // !T4_DO_OBJ ==========================================================
     __GPU__  void   sweep()    {}                           ///< holder for no object
     
-#endif // T4_ENABLE_OBJ ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+#endif // T4_DO_OBJ ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 };
 #endif // __MMU_MMU_H

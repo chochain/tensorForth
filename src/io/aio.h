@@ -45,11 +45,11 @@ public:
     static __HOST__ void free_io();
 
     __HOST__ void print(h_ostr &fs, void *vp, U8 gt);
-#if T4_ENABLE_OBJ
+#if T4_DO_OBJ
     __HOST__ void print(h_ostr &fs, T4Base &t);                        ///< display in matrix format
     __HOST__ int  tsave(Tensor &t, char *fname, U8 mode);
     
-#if T4_ENABLE_NN    
+#if T4_DO_NN    
     ///
     /// dataset IO methods
     ///
@@ -59,8 +59,8 @@ public:
     ///
     __HOST__ int  nsave(Model &m, char *fname, U8 mode);
     __HOST__ int  nload(Model &m, char *fname, U8 mode, char *tib);
-#endif // T4_ENABLE_NN    
-#endif // T4_ENABLE_OBJ
+#endif // T4_DO_NN    
+#endif // T4_DO_OBJ
     
 private:
     int     _radix = 10;                       ///< output stream radix
@@ -68,7 +68,7 @@ private:
     int     _edge  = 3;                        ///< number of tensor edge items
     int     _prec  = 4;                        ///< shown floating point precision
 
-#if T4_ENABLE_OBJ // vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
+#if T4_DO_OBJ // vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
     ///
     /// Tensor print methods
     ///
@@ -82,7 +82,7 @@ private:
     __HOST__ int  _tsave_raw(h_ostr &fs, Tensor &t);
     __HOST__ int  _tsave_npy(h_ostr &fs, Tensor &t);
     
-#if T4_ENABLE_NN
+#if T4_DO_NN
     ///
     /// NN model print methods
     ///
@@ -94,8 +94,8 @@ private:
     __HOST__ int  _nload_model(h_istr &fs, Model &m, char *fname, char *tib);
     __HOST__ int  _nload_param(h_istr &fs, Model &m);
 
-#endif // T4_ENABLE_NN
-#endif // T4_ENABLE_OBJ ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+#endif // T4_DO_NN
+#endif // T4_DO_OBJ ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 };
 
 #endif // __IO_AIO_H

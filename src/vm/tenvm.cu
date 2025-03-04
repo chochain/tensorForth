@@ -6,7 +6,7 @@
  */
 #include "tenvm.h"
 
-#if T4_ENABLE_OBJ
+#if T4_DO_OBJ
 ///
 /// override with tensor handler
 ///
@@ -562,5 +562,5 @@ TensorVM::init() {
     ///@}
     TRACE("TensorVM[%d]::init ok, sizeof(Tensor)=%ld\n", id, sizeof(Tensor));
 }
-#endif  // T4_ENABLE_OBJ
+#endif  // T4_DO_OBJ
 //==========================================================================

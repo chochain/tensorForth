@@ -4,7 +4,7 @@
  *
  * <pre>Copyright (C) 2022- GreenII, this file is distributed under BSD 3-Clause License.</pre>
  */
-#if (!defined(__LDR_CORPUS_H) && T4_ENABLE_OBJ && T4_ENABLE_NN)
+#if (!defined(__LDR_CORPUS_H) && T4_DO_OBJ && T4_DO_NN)
 #define __LDR_CORPUS_H
 #include "ten4_types.h"
 
@@ -65,5 +65,5 @@ struct Corpus {
     virtual U8 *operator [](int idx){ return &data[idx * dsize()]; }  ///< data point
 };
 
-#endif // (!defined(__LDR_CORPUS_H) && T4_ENABLE_OBJ && T4_ENABLE_NN)
+#endif // (!defined(__LDR_CORPUS_H) && T4_DO_OBJ && T4_DO_NN)
 

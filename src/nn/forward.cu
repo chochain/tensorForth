@@ -5,7 +5,7 @@
  * <pre>Copyright (C) 2022- GreenII, this file is distributed under BSD 3-Clause License.</pre>
  */
 #include "model.h"
-#if (T4_ENABLE_OBJ && T4_ENABLE_NN)
+#if (T4_DO_OBJ && T4_DO_NN)
 
 ///
 /// convolution filter
@@ -468,5 +468,5 @@ Model::_fupsample(Tensor &in, Tensor &out) {
     //_dump(out.data, out.H(), out.W(), out.C());
     return 0;
 }
-#endif  // (T4_ENABLE_OBJ && T4_ENABLE_NN)
+#endif  // (T4_DO_OBJ && T4_DO_NN)
 //==========================================================================

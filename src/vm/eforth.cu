@@ -79,11 +79,11 @@ ForthVM::nest() {
         DISPATCH(ix.op) {                            /// * opcode dispatcher
         CASE(EXIT, UNNEST());
         CASE(NEXT,
-#if (T4_ENABLE_OBJ && T4_ENABLE_NN)
+#if (T4_DO_OBJ && T4_DO_NN)
              bool oo = IS_OBJ(tos) && IS_OBJ(rs[-1]);
              if (oo && _ds_next(ix.ioff)) { /* continue */ }
              else
-#endif // (T4_ENABLE_OBJ && T4_ENABLE_NN)                 
+#endif // (T4_DO_OBJ && T4_DO_NN)                 
              if (GT(rs[-1]-=DU1, -DU1)) {            ///> loop done?
                  ip = ix.ioff;                       /// * no, loop back
              }
@@ -534,7 +534,7 @@ ForthVM::_is_alias() {                                     // create alias funct
     else dict[POPi].xt = dict[w].xt;
 }
 
-#if (T4_ENABLE_OBJ && T4_ENABLE_NN)
+#if (T4_DO_OBJ && T4_DO_NN)
 #include "nn/dataset.h"
 #include "nn/model.h"
 
@@ -559,6 +559,6 @@ ForthVM::_ds_next(U32 ioff) {
     }
     return 1;
 }
-#endif // (T4_ENABLE_OBJ && T4_ENABLE_NN)
+#endif // (T4_DO_OBJ && T4_DO_NN)
 ///@}
 //=======================================================================================

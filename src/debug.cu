@@ -51,7 +51,7 @@ __HOST__ void
 Debug::print(DU v, int base) {               ///< display value by ss_dump
     static char buf[34];                     ///< static buffer
     if (IS_OBJ(v)) {                         ///< display v by radix
-#if T4_ENABLE_OBJ
+#if T4_DO_OBJ
         static const char tn[2][4] = {       ///< sync with t4_obj
             { 'T', 'N', 'D', 'X' }, { 't', 'n', 'd', 'x' }
         };
@@ -70,7 +70,7 @@ Debug::print(DU v, int base) {               ///< display value by ss_dump
         case 4: fout << "4["; t4((Tensor&)t);                   break;
         case 5: fout << "5[" << t.parm << "]["; t4((Tensor&)t); break;
         }
-#endif // T4_ENABLE_OBJ
+#endif // T4_DO_OBJ
     }
     else {                                             ///< build literal
         DU t, f = modf(v, &t);                         ///< integral, fraction
@@ -94,7 +94,7 @@ Debug::print(DU v, int base) {               ///< display value by ss_dump
 }
 __HOST__ void
 Debug::print(void *vp, U8 gt) {
-#if T4_ENABLE_OBJ
+#if T4_DO_OBJ
     DU v = *(DU*)vp;
     if (gt==GT_OBJ) { io->print(fout, mu->du2obj(v)); return; }
 #endif

@@ -39,20 +39,20 @@ AIO::print(h_ostr &fs, void *v, U8 gt) {
     } break;
     }
 }
-#if T4_ENABLE_OBJ
+#if T4_DO_OBJ
 __HOST__ void
 AIO::print(h_ostr &fs, T4Base &t) {
     switch (t.ttype) {
     case T4_TENSOR:
     case T4_DATASET: _print_tensor(fs, (Tensor&)t); break;
-#if T4_ENABLE_NN        
+#if T4_DO_NN        
     case T4_MODEL:   _print_model(fs, (Model&)t);   break;
-#endif // T4_ENABLE_NN        
+#endif // T4_DO_NN        
     case T4_XXX:     /* reserved */                   break;
     }
 }
 ///@}
-#endif // T4_ENABLE_OBJ    
+#endif // T4_DO_OBJ    
 
 
 

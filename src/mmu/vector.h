@@ -9,8 +9,8 @@
 #include "ten4_types.h"
 #include "util.h"            /// also defined __GPU__
 
-#define VECTOR_ENABLE_RESIZE  0
-#define VECTOR_INC            4
+#define VECTOR_DO_RESIZE  0
+#define VECTOR_INC        4
 ///
 /// Vector (device memory only) template class
 ///
@@ -32,9 +32,9 @@ struct Vector {
     //
     __GPU__ __INLINE__ T& operator[](int i) { return i < 0 ? v[idx + i] : v[i]; }
     __GPU__ __INLINE__ Vector& push(T t)   {
-#if VECTOR_ENABLE_RESIZE
+#if VECTOR_DO_RESIZE
         if ((idx+1) > max) resize(idx + VECTOR_INC);
-#endif // VECTOR_ENABLE_RESIZE
+#endif // VECTOR_DO_RESIZE
         v[idx++] = t;                              /// deep copy
         return *this;
     }
@@ -58,7 +58,7 @@ struct Vector {
     __GPU__ __INLINE__ T&  pop()   { return idx>0 ? v[--idx] : v[0]; }
     __GPU__ __INLINE__ Vector& clear(int i=0)  { if (i<idx) idx = i; return *this; }
     __GPU__ Vector& resize(U32 nsz) {
-#if VECTOR_ENABLE_RESIZE
+#if VECTOR_DO_RESIZE
         int x = 0;
         if      (nsz >  max) x = ALIGN(nsz);               // need bigger?
         else if (idx >= max) x = ALIGN(idx + VECTOR_INC);  // allocate extra
@@ -72,7 +72,7 @@ struct Vector {
         v   = nv;
         max = x;
         // UNLOCK
-#endif // VECTOR_ENABLE_RESIZE        
+#endif // VECTOR_DO_RESIZE        
         return *this;
     }
 };

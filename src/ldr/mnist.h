@@ -4,7 +4,7 @@
  *
  * <pre>Copyright (C) 2022- GreenII, this file is distributed under BSD 3-Clause License.</pre>
  */
-#if (!defined(__LDR_MNIST_H) && T4_ENABLE_OBJ && T4_ENABLE_NN)
+#if (!defined(__LDR_MNIST_H) && T4_DO_OBJ && T4_DO_NN)
 #define __LDR_MNIST_H
 #include <iostream>
 #include <fstream>            // std::ifstream
@@ -39,5 +39,5 @@ private:
     int _get_images(int bid, int bsz);
 };
 
-#endif // (!defined(__LDR_MNIST_H) && T4_ENABLE_OBJ && T4_ENABLE_NN)
+#endif // (!defined(__LDR_MNIST_H) && T4_DO_OBJ && T4_DO_NN)
 

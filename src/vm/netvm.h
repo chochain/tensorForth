@@ -4,7 +4,7 @@
  *
  * <pre>Copyright (C) 2022- GreenII, this file is distributed under BSD 3-Clause License.</pre>
  */
-#if (!defined(__VM_NETVM_H) && T4_ENABLE_OBJ && T4_ENABLE_NN)
+#if (!defined(__VM_NETVM_H) && T4_DO_OBJ && T4_DO_NN)
 #define __VM_NETVM_H
 #include "nn/model.h"
 #include "tenvm.h"                // extending TensorVM
@@ -46,4 +46,4 @@ private:
     /// @}
 };
 
-#endif // __VM_NETVM_H
+#endif // (!defined(__VM_NETVM_H) && T4_DO_OBJ && T4_DO_NN)

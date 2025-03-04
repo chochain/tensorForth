@@ -5,7 +5,7 @@
  * <pre>Copyright (C) 2022- GreenII, this file is distributed under BSD 3-Clause License.</pre>
  */
 #include "eforth.h"                         /// extending ForthVM
-#if (!defined(__VM_TENVM_H) && T4_ENABLE_OBJ)
+#if (!defined(__VM_TENVM_H) && T4_DO_OBJ)
 #define __VM_TENVM_H
 
 #define VLOG1(...) if (sys.trace() > 0) { INFO(__VA_ARGS__); }
@@ -83,4 +83,4 @@ private:
 };
 ///@}
 
-#endif // __VM_TENVM_H
+#endif // (!defined(__VM_TENVM_H) && T4_DO_OBJ)

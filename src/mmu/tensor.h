@@ -7,7 +7,7 @@
 #include "util.h"
 #include "t4base.h"
 
-#if (!defined(__MMU_TENSOR_H) && T4_ENABLE_OBJ)
+#if (!defined(__MMU_TENSOR_H) && T4_DO_OBJ)
 #define __MMU_TENSOR_H
 
 #if T4_VERBOSE > 0
@@ -206,4 +206,4 @@ struct Tensor : public T4Base {
     __GPU__ __INLINE__ bool   operator==(Tensor &t) { return (UFP)this==(UFP)&t; }
 };
 
-#endif // __MMU_TENSOR_H
+#endif // (!defined(__MMU_TENSOR_H) && T4_DO_OBJ)

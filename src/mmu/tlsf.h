@@ -4,7 +4,7 @@
 
   <pre>Copyright (C) 2019 GreenII. This file is distributed under BSD 3-Clause License.</pre>
 */
-#if !defined(__MMU_TLSF_H) && T4_ENABLE_OBJ 
+#if (!defined(__MMU_TLSF_H) && T4_DO_OBJ)
 #define __MMU_TLSF_H
 
 typedef struct used_block {          //< 8-bytes
@@ -90,4 +90,4 @@ private:
     __BOTH__ void        _dump_freelist();
 };
 
-#endif // __MMU_TLSF_H
+#endif // (!defined(__MMU_TLSF_H) && T4_DO_OBJ)

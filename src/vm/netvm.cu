@@ -6,7 +6,7 @@
  */
 #include "netvm.h"
 
-#if (T4_ENABLE_OBJ && T4_ENABLE_NN)
+#if (T4_DO_OBJ && T4_DO_NN)
 
 __GPU__ void
 NetVM::predict(Tensor &I, Tensor &P) {}
@@ -395,5 +395,5 @@ NetVM::init() {
     VLOG1("NetVM::init ok\n");
 };
 
-#endif  // (T4_ENABLE_OBJ && T4_ENABLE_NN)
+#endif  // (T4_DO_OBJ && T4_DO_NN)
 //===========================================================================

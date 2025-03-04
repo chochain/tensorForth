@@ -86,13 +86,13 @@ protected:
     __GPU__ __INLINE__ IU   FIND(char *name) { return mmu.find(name);  }
     __GPU__ __INLINE__ DU   POP()      { DU n=tos; tos=ss.pop(); return n; }
     __GPU__ __INLINE__ DU   PUSH(DU v) { ss.push(tos); return tos = v;     }
-#if T4_ENABLE_OBJ    
+#if T4_DO_OBJ    
     __GPU__ __INLINE__ DU   DUP(DU d)  { return IS_OBJ(d) ? AS_VIEW(d) : d; }  ///< soft copy
     __GPU__ __INLINE__ void DROP(DU d) { if (IS_OBJ(d)) mmu.drop(mmu.du2obj(d)); }
-#else  // !T4_ENABLE_OBJ
+#else  // !T4_DO_OBJ
     __GPU__ __INLINE__ DU   DUP(DU d)  { return d; }
     __GPU__ __INLINE__ void DROP(DU d) {}
-#endif // T4_ENABLE_OBJ
+#endif // T4_DO_OBJ
     ///
     /// Dictionary compiler proxy macros to reduce verbosity
     ///
@@ -132,12 +132,12 @@ private:
     __GPU__ void _to_value();                 ///< update a constant/value
     __GPU__ void _is_alias();                 ///< create alias function
     
-#if (T4_ENABLE_OBJ && T4_ENABLE_NN)    
+#if (T4_DO_OBJ && T4_DO_NN)    
     ///
     /// dataset looper
     ///
     __GPU__ int  _ds_next(U32 ioff);          ///< dataset loop controller
-#endif // (T4_ENABLE_OBJ && T4_ENABLE_NN)
+#endif // (T4_DO_OBJ && T4_DO_NN)
 };
 ///@}
 #endif // __VM_EFORTH_H

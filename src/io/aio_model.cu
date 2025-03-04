@@ -9,7 +9,7 @@
 #include <iomanip>       // setbase, setprecision
 #include "aio.h"
 
-#if (T4_ENABLE_OBJ && T4_ENABLE_NN)
+#if (T4_DO_OBJ && T4_DO_NN)
 #include <fstream>
 #include "nn/dataset.h"
 #include "nn/model.h"
@@ -289,4 +289,4 @@ AIO::_nload_param(h_istr &fs, Model &m) {
     return 0;
 }
 
-#endif // (T4_ENABLE_OBJ && T4_ENABLE_NN)
+#endif // (T4_DO_OBJ && T4_DO_NN)

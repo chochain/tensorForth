@@ -8,10 +8,10 @@
  */
 #include "util.h"
 
-#if TEN4_ENABLE_CDP
+#if TEN4_DO_CDP
 #include <cooperative_groups.h>
 namespace cg = cooperative_groups;
-#endif // TEN4_ENABLE_CDP
+#endif // TEN4_DO_CDP
 
 typedef int           WORD;
 #define WSIZE         (sizeof(WORD))
@@ -66,7 +66,7 @@ _loop_hash(const char *str, int bsz) {
     return h;
 }
 
-#if TEN4_ENABLE_CDP
+#if TEN4_DO_CDP
 //================================================================
 /*! Calculate hash value
 
@@ -105,7 +105,7 @@ _dyna_hash2d(int *hash, const char *str, int bsz) {
     }
     *hash = h[0];
 }
-#endif // TEN4_ENABLE_CDP
+#endif // TEN4_DO_CDP
 __GPU__ int _warp_h[32];            // each thread takes a slot
 __GPU__ int
 _hash(const char *str, int bsz) {
@@ -114,7 +114,7 @@ _hash(const char *str, int bsz) {
     int x  = threadIdx.x;
     int *h = &_warp_h[x];   *h=0;                           // each calling thread takes a slot
 
-#if CUDA_ENABLE_CDP
+#if CUDA_DO_CDP
     cudaStream_t st;
     cudaStreamCreateWithFlags(&st, cudaStreamNonBlocking);  // wrapper overhead ~= 84us
 
@@ -130,7 +130,7 @@ _hash(const char *str, int bsz) {
     GPU_SYNC();
 
     cudaStreamDestroy(st);
-#endif // CUDA_ENABLE_CDP
+#endif // CUDA_DO_CDP
 
     return *h;
 }

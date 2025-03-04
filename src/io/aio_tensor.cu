@@ -8,7 +8,7 @@
 #include <iomanip>       // setbase, setprecision
 #include "aio.h"
 
-#if T4_ENABLE_OBJ
+#if T4_DO_OBJ
 using namespace std;
 ///
 /// Tensor & NN model persistence (i.e. serialization) methods
@@ -155,5 +155,5 @@ AIO::_tsave_npy(h_ostr &fs, Tensor &t) {
     // TODO:
     return 0;
 }
-#endif // T4_ENABLE_OBJ
+#endif // T4_DO_OBJ
 

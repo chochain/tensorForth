@@ -6,7 +6,7 @@
  */
 #include "model.h"
 
-#if (T4_ENABLE_OBJ && T4_ENABLE_NN)
+#if (T4_DO_OBJ && T4_DO_NN)
 #include "dataset.h"
 
 __KERN__ void k_sgd(
@@ -162,5 +162,5 @@ Model::adam(DU lr, DU b1, DU b2) {
     };
     return gradient("adam", update, parm, OPTI_ADAM);
 }
-#endif  // (T4_ENABLE_OBJ && T4_ENABLE_NN)
+#endif  // (T4_DO_OBJ && T4_DO_NN)
 //==========================================================================

@@ -4,11 +4,10 @@
  *
  * <pre>Copyright (C) 2022- GreenII, this file is distributed under BSD 3-Clause License.</pre>
  */
-#ifndef __T4BASE_H
-#define __T4BASE_H
 #include "ten4_types.h"
 
-#if T4_ENABLE_OBJ
+#if (!defined(__T4BASE_H) && T4_DO_OBJ)
+#define __T4BASE_H
 ///
 /// tensorForth object types
 ///
@@ -85,9 +84,5 @@ struct T4Base : public Managed {
     __BOTH__ __INLINE__ bool is_dataset() { return ttype == T4_DATASET; }
 };
 
-#else  // !T4_ENABLE_OBJ
-class T4Base {};
-#endif // T4_ENABLE_OBJ
-
-#endif // __T4BASE_H
+#endif // (!defined(__T4BASE_H) && T4_DO_OBJ)
 

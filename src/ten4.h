@@ -9,9 +9,9 @@
 #include "vm/tenvm.h"        // tensor/matrix set, or
 #include "vm/netvm.h"        // neural network set,
 
-#if T4_ENABLE_NN
+#if T4_DO_NN
 typedef NetVM     VM_TYPE;
-#elif T4_ENABLE_OBJ
+#elif T4_DO_OBJ
 typedef TensorVM  VM_TYPE;
 #else
 typedef ForthVM   VM_TYPE;

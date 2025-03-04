@@ -6,7 +6,7 @@
  */
 #include "model.h"
 
-#if (T4_ENABLE_OBJ && T4_ENABLE_NN)
+#if (T4_DO_OBJ && T4_DO_NN)
 #include "dataset.h"
 
 __GPU__ Tensor&
@@ -86,5 +86,5 @@ Model::loss(t4_loss op, Tensor &tgt) {              ///< loss against target vec
     
     return sum;
 }
-#endif  // (T4_ENABLE_OBJ && T4_ENABLE_NN)
+#endif  // (T4_DO_OBJ && T4_DO_NN)
 //==========================================================================

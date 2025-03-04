@@ -4,7 +4,7 @@
  *
  * <pre>Copyright (C) 2022- GreenII, this file is distributed under BSD 3-Clause License.</pre>
  */
-#if (!defined(__NN_MODEL_H) && T4_ENABLE_OBJ && T4_ENABLE_NN)
+#if (!defined(__NN_MODEL_H) && T4_DO_OBJ && T4_DO_NN)
 #define __NN_MODEL_H
 #include "mmu/mmu.h"
 
@@ -136,4 +136,4 @@ private:
     /// @}
 };
 
-#endif // __NN_MODEL_H
+#endif // (!defined(__NN_MODEL_H) && T4_DO_OBJ && T4_DO_NN)

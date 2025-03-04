@@ -6,7 +6,7 @@
  */
 #include "model.h"
 
-#if (T4_ENABLE_OBJ && T4_ENABLE_NN)
+#if (T4_DO_OBJ && T4_DO_NN)
 #include "dataset.h"
 
 __GPU__ void
@@ -58,5 +58,5 @@ Model::_dump_dw(Tensor &dw, bool full) {
     }
     if (H > 1) printf("%sΣΣ=%6.3f", full ? "\n\t" : " ", hsum);
 }
-#endif  // (T4_ENABLE_OBJ && T4_ENABLE_NN)
+#endif  // (T4_DO_OBJ && T4_DO_NN)
 //==========================================================================
