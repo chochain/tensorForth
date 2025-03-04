@@ -137,16 +137,16 @@ System::process_event(io_event *ev) {
 #if T4_DO_NN  //==========================================================
         case OP_DATA: {
             Dataset &ds = (Dataset&)mu->du2obj(o->n);
-            if (ds.is_dataset()) {                                         /// * indeed a dataset?
-                ev = NEXT_EVENT(ev);                                            ///< get dataset repo name
-                io->dsfetch(ds, (char*)ev->data, o->m); /// * fetch first batch
+            if (ds.is_dataset()) {                              /// * indeed a dataset?
+                ev = NEXT_EVENT(ev);                            ///< get dataset repo name
+                io->dsfetch(ds, (char*)ev->data, o->m);         /// * fetch first batch
             }
             else ERROR("%x is not a dataset\n", DU2X(o->n));
         } break;
         case OP_FETCH: {
             Dataset &ds = (Dataset&)mu->du2obj(o->n);
             if (ds.is_dataset()) {
-                io->dsfetch(ds, NULL, o->m);            /// * fetch/rewind dataset batch
+                io->dsfetch(ds, NULL, o->m);                    /// * fetch/rewind dataset batch
             }
             else ERROR("%x is not a dataset\n", DU2X(o->n));
         } break;  
