@@ -14,8 +14,8 @@
 /// Forth memory manager
 /// TODO: compare TLSF to RMM (Rapids Memory Manager)
 ///
-struct Model;
-struct Dataset;
+class Model;
+class Dataset;
 class MMU : public Managed {
     IU             _mutex = 0;      ///< lock (first so address aligned)
     IU             _didx  = 0;      ///< dictionary index
@@ -126,6 +126,14 @@ public:
         U32 o = ((U32)((U8*)&t - _obj)) | T4_TT_OBJ;
         return *(DU*)&o;
     }
+#if T4_DO_NN
+    ///
+    /// neaural network objects
+    ///
+    __GPU__  Dataset&dataset(U32 batch_sz);                 ///< create a NN dataset
+    __GPU__  Model  &model(U32 sz=T4_NET_SZ);               ///< create a NN model
+    __GPU__  void   free(Model &m);
+#endif // T4_DO_NN
     ///
     /// tensor object life-cycle methods
     ///
@@ -140,11 +148,6 @@ public:
     __GPU__  void   free(Tensor &t);                        ///< free the tensor
     __GPU__  Tensor &copy(Tensor &t0);                      ///< hard copy a tensor
     __GPU__  Tensor &slice(Tensor &t0, IU x0, IU x1, IU y0, IU y1);     ///< a slice of a tensor
-#if T4_DO_NN    
-    __GPU__  Dataset&dataset(U32 batch_sz);                 ///< create a NN dataset
-    __GPU__  Model  &model(U32 sz=T4_NET_SZ);               ///< create a NN model
-    __GPU__  void   free(Model &m);
-#endif // T4_DO_NN
 #else  // !T4_DO_OBJ ==========================================================
     __GPU__  void   sweep()    {}                           ///< holder for no object
     

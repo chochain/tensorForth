@@ -138,21 +138,44 @@ MMU::colon(const char *name) {
 /// tensor life-cycle methods
 ///
 #if T4_DO_OBJ // vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
+#if T4_DO_NN
 #include "nn/dataset.h"
 #include "nn/model.h"
-
 #define OBJ2X(t)  ((U32)((U8*)&(t) - _obj))
-__GPU__ void
-MMU::mark_free(DU v) {            ///< mark a tensor free for release
-    if (IS_VIEW(v)) return;
-    T4Base &t = du2obj(v);
-    MM_DB("mmu#mark T:%x to free[%d]\n", OBJ2X(t), _fidx);
-//    lock();                     ///< TODO: CC: DEAD LOCK, now!
-    if (_fidx < T4_TFREE_SZ) _mark[_fidx++] = obj2du(t);
-    else ERROR("ERR: tfree store full, increase T4_TFREE_SZ!");
-//    unlock();
+
+__GPU__ Dataset&                   ///< create a Dataset holder
+MMU::dataset(U32 batch_sz) {       /// * Note: data block is not allocated yet
+    MM_DB("mmu#dataset batch_sz=%d {", batch_sz);
+    Dataset *ds = (Dataset*)_ostore.malloc(sizeof(Dataset));
+    ds->init(0, T4_DATASET, 4);
+    ds->N()      = batch_sz;       /// * other members filled in host mode
+    ds->batch_id = 0;              /// * setup control flag
+    MM_DB("} mmu#dataset => D:%x\n", OBJ2X(ds));
+    return *ds;
 }
-#if T4_DO_OBJ
+
+__GPU__ Model&                     ///< create a NN model with NHWC input
+MMU::model(U32 sz) {
+    MM_DB("mmu#model layers=%d {\n", sz);
+    Model  *m = (Model*)_ostore.malloc(sizeof(Model));
+    Tensor &t = talloc(sz);        /// * allocate tensor storage
+    m->reset(this, t);
+    MM_DB("} mmu#model => M:%x\n", OBJ2X(m));
+    return *m;
+}
+
+__GPU__ void                     ///< release tensor memory blocks
+MMU::free(Model &m) {
+    int n = m.numel;
+    MM_DB("mmu#free(N%d) N:%x {\n", n, OBJ2X(m));
+    for (int i = m.numel-1; i >= 0; i--) {
+        MM_DB("\t"); free(m[i]);
+    }
+    _ostore.free(&m);
+    MM_DB("} mmu#free(N%d)\n", n);
+}
+#endif // T4_DO_NN
+
 __GPU__ void                      ///< release marked free tensor
 MMU::sweep() {
 //    lock();                       /// * dead locked now
@@ -171,7 +194,17 @@ MMU::drop(T4Base &t) {
 #endif  // T4_DO_NN
     free((Tensor&)t);                                  /// check reference count
 }
-#endif  // T4_DO_OBJ
+
+__GPU__ void
+MMU::mark_free(DU v) {            ///< mark a tensor free for release
+    if (IS_VIEW(v)) return;
+    T4Base &t = du2obj(v);
+    MM_DB("mmu#mark T:%x to free[%d]\n", OBJ2X(t), _fidx);
+//    lock();                     ///< TODO: CC: DEAD LOCK, now!
+    if (_fidx < T4_TFREE_SZ) _mark[_fidx++] = obj2du(t);
+    else ERROR("ERR: tfree store full, increase T4_TFREE_SZ!");
+//    unlock();
+}
 
 __GPU__ Tensor&                    ///< allocate a tensor from tensor space
 MMU::talloc(U64 sz) {
@@ -239,37 +272,6 @@ MMU::free(Tensor &t) {
     MM_DB("} mmu#free(T%d)\n", n);
     _ostore.status();
 }
-#if T4_DO_NN
-__GPU__ Model&                     ///< create a NN model with NHWC input
-MMU::model(U32 sz) {
-    MM_DB("mmu#model layers=%d {\n", sz);
-    Model  *m = (Model*)_ostore.malloc(sizeof(Model));
-    Tensor &t = talloc(sz);        /// * allocate tensor storage
-    m->reset(this, t);
-    MM_DB("} mmu#model => M:%x\n", OBJ2X(m));
-    return *m;
-}
-__GPU__ Dataset&                   ///< create a Dataset holder
-MMU::dataset(U32 batch_sz) {       /// * Note: data block is not allocated yet
-    MM_DB("mmu#dataset batch_sz=%d {", batch_sz);
-    Dataset *ds = (Dataset*)_ostore.malloc(sizeof(Dataset));
-    ds->init(0, T4_DATASET, 4);
-    ds->N()      = batch_sz;       /// * other members filled in host mode
-    ds->batch_id = 0;              /// * setup control flag
-    MM_DB("} mmu#dataset => D:%x\n", OBJ2X(ds));
-    return *ds;
-}
-__GPU__ void                     ///< release tensor memory blocks
-MMU::free(Model &m) {
-    int n = m.numel;
-    MM_DB("mmu#free(N%d) N:%x {\n", n, OBJ2X(m));
-    for (int i = m.numel-1; i >= 0; i--) {
-        MM_DB("\t"); free(m[i]);
-    }
-    _ostore.free(&m);
-    MM_DB("} mmu#free(N%d)\n", n);
-}
-#endif // T4_DO_NN
 ///
 /// deep copy a tensor
 /// TODO: CDP
