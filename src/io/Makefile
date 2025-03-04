@@ -22,7 +22,9 @@ IO_EXT:= \
 	src/util.h \
 	src/mmu/mmu.h \
 	src/mmu/tensor.h \
+	src/nn/dataset.h \
 	src/nn/model.h \
+	src/ldr/corpus.h \
     src/ldr/loader.h
 
 #IO_LIBS := -Isrc/mmu -Isrc/ldr -I/src/nn
