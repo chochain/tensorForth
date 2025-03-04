@@ -535,6 +535,9 @@ ForthVM::_is_alias() {                                     // create alias funct
 }
 
 #if (T4_ENABLE_OBJ && T4_ENABLE_NN)
+#include "nn/dataset.h"
+#include "nn/model.h"
+
 __GPU__ int
 ForthVM::_ds_next(U32 ioff) {
     T4Base &m = mmu.du2obj(tos);
