@@ -6,7 +6,9 @@
  */
 #include <iostream>
 #include "sys.h"
-#include "ldr/loader.h"
+#include "mmu/tensor.h"
+#include "nn/dataset.h"
+#include "nn/model.h"
 
 System *_sys = NULL;
 ///
@@ -43,10 +45,6 @@ System::System(h_istr &i, h_ostr &o, int khz, int verbo)
     mu = MMU::get_mmu();             ///> instantiate memory controller
     io = AIO::get_io();              ///> instantiate async IO controler
     db = Debug::get_db(o, verbo);    ///> tracing instrumentation
-        
-#if (T4_ENABLE_OBJ && T4_ENABLE_NN)
-    Loader::init(verbo);
-#endif
     ///
     ///> setup randomizer
     ///
