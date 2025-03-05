@@ -57,6 +57,13 @@ public:
     __GPU__  DU     npop();
     __GPU__  int    batch_size();
     /// @}
+    /// @name Tensor constructors and randomizer
+    /// @{
+    __GPU__ Tensor &vec(U64 sz);                        ///< proxy to MMU::tensor
+    __GPU__ Tensor &t4(U32 n, U32 h);
+    __GPU__ Tensor &t4(U32 n, U32 h, U32 w, U32 c);
+    __GPU__  void  rand(Tensor &t, DU scale);           ///< proxy to System::rand
+    /// @}
     /// @name main NN methods
     /// @{
     __GPU__ Model  &add(t4_layer fn, U32 n=0, DU alpha=DU0, U16 *opt=NULL);
@@ -86,12 +93,6 @@ public:
     /// @}
     
 private:
-    /// @name internal tensor constructors
-    /// @{
-    __GPU__ Tensor &_vec(U64 sz);
-    __GPU__ Tensor &_t4(U32 n, U32 h);
-    __GPU__ Tensor &_t4(U32 n, U32 h, U32 w, U32 c);
-    /// @}
     /// @name Convolution and Linear initializer
     /// @{
     __GPU__ void   _iconv(Tensor &in, U32 c, DU bias, U16 *opt);    ///< 2D convolution
