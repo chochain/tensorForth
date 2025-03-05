@@ -391,11 +391,11 @@ ForthVM::init() {
     /// @{
     CODE("mstat", mmu.status());
     CODE("rnd",   PUSH(sys.rand(DU1, NORMAL)));             // generate random number
-    CODE("ms",    delay(POPi));
+    CODE("ms",    System::delay(POPi));
 //    CODE("included",                                      // include external file
 //         POP();                                           // string length, not used
 //         sys.load(MEM(POP())));                           // include external file
-    CODE("clock", DU t = sys.ms(); SCALAR(t); PUSH(t));
+    CODE("clock", DU t = System::ms(); SCALAR(t); PUSH(t));
     CODE("bye",   state = STOP);                            // atomicExch(&state, STOP)
     ///@}
     CODE("boot",  mmu.clear(FIND((char*)"boot") + 1));
