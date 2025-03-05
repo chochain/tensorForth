@@ -59,15 +59,15 @@ __GPU__ int    Model::batch_size()     { return (*this)[1].N(); }
 /// @{
 /// @name Tensor constructors and randomizer
 /// @{
-__GPU__ Tensor&
+__GPU__ __INLINE__ Tensor&
 Model::COPY(Tensor &t)   { return _mmu->copy(t); }
-__GPU__ void
+__GPU__ __INLINE__ void
 Model::FREE(Tensor &t)   { _mmu->free(t); }
-__GPU__ Tensor&
+__GPU__ __INLINE__ Tensor&
 Model::VEC(U64 sz)       { return _mmu->tensor(sz); }
-__GPU__ Tensor&
+__GPU__ __INLINE__ Tensor&
 Model::T4(U32 n, U32 h)  { return _mmu->tensor(n, h, 1, 1); }
-__GPU__ Tensor&
+__GPU__ __INLINE__ Tensor&
 Model::T4(U32 n, U32 h, U32 w, U32 c) { return _mmu->tensor(n, h, w, c); }
 __GPU__ void
 Model::RAND(Tensor &t, DU scale) {           ///< short hand to System::rand
