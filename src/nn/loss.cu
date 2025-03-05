@@ -36,7 +36,7 @@ Model::onehot(Dataset &dset) {
         DU *h = hot.slice(n);                       ///< take a sample
         U32 i = dset.label[n];                      ///< label index
         h[(U64)i < HWC ? i : 0] = DU1;              /// * mark hot by index
-        if (_mmu->trace() > 1) show(h, n, HWC);     /// * might need U32 partition
+        if (_trace > 1) show(h, n, HWC);            /// * might need U32 partition
     }
     return hot;
 }
@@ -59,7 +59,7 @@ Model::hit(bool recalc) {
         U32  m = argmax(out.slice(n), out.HWC());
         cnt += INT(_hot->slice(n)[m]);              /// * compare to onehot vector
     }
-    TRACE1("Model::hit=%d\n", cnt);
+    MM_DB("Model::hit=%d\n", cnt);
     return cnt;
 }
 
@@ -82,7 +82,7 @@ Model::loss(t4_loss op, Tensor &tgt) {              ///< loss against target vec
     DU sum = tmp.loss(op, tgt);                    /// * calculate loss per op
     _mmu->free(tmp);                               /// * free memory
     
-    TRACE1("Model#loss: %s=%6.3f\n", opn[op], sum);
+    MM_DB("Model#loss: %s=%6.3f\n", opn[op], sum);
     
     return sum;
 }
