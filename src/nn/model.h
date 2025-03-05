@@ -4,8 +4,11 @@
  *
  * <pre>Copyright (C) 2022- GreenII, this file is distributed under BSD 3-Clause License.</pre>
  */
+#include "ten4_config.h"
+
 #if (!defined(__NN_MODEL_H) && T4_DO_OBJ && T4_DO_NN)
 #define __NN_MODEL_H
+#include "sys.h"             /// * ms, rand
 #include "mmu/mmu.h"
 
 typedef enum {
@@ -29,11 +32,12 @@ typedef void (*GdFunc)(
 ///< Neural Network Model class
 ///
 class Model : public T4Base {
-    MMU    *_mmu;              ///< tensor storage base
+    MMU    *_mmu;              ///< memory controller
     Tensor *_store;            ///< model storage - Sequential, TODO: DAG
     Tensor *_hot  = NULL;      ///< cached dataset one-hot vector
     int    _hit   = 0;         ///< hit counter
     int    _iter  = 0;         ///< iteration counter (for Adam)
+    int    _trace = 0;
     
 public:
     int    epoch  = 0;         ///< TODO: for learning rate decay
@@ -55,7 +59,7 @@ public:
     /// @}
     /// @name main NN methods
     /// @{
-    __GPU__ Model  &add(t4_layer fn, U32 n=0, DU alpha=DU0, U32 *opt=NULL);
+    __GPU__ Model  &add(t4_layer fn, U32 n=0, DU alpha=DU0, U16 *opt=NULL);
     __GPU__ Model  &forward(Tensor &input);             ///< network feed forward
     __GPU__ Model  &broadcast(Tensor &tgt);
     __GPU__ Model  &backprop();                         ///< back propegation with default onehot vector (built during forward pass from dataset labels)
@@ -90,7 +94,7 @@ private:
     /// @}
     /// @name Convolution and Linear initializer
     /// @{
-    __GPU__ void   _iconv(Tensor &in, U32 c, DU bias, U32 *opt);    ///< 2D convolution
+    __GPU__ void   _iconv(Tensor &in, U32 c, DU bias, U16 *opt);    ///< 2D convolution
     __GPU__ void   _ilinear(Tensor &in, U32 n, DU bias);            ///< linearize (Dense) with n output
     __GPU__ void   _iflatten(Tensor &in);                           ///< flatten
     /// @}
@@ -135,5 +139,4 @@ private:
     __GPU__ void   _dump_dw(Tensor &dw, bool full=true);
     /// @}
 };
-
 #endif // (!defined(__NN_MODEL_H) && T4_DO_OBJ && T4_DO_NN)
