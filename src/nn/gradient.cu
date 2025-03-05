@@ -83,7 +83,7 @@ Model::grad_alloc(t4_optimizer op) {
             }
             break;
         }
-        TRACE1("Model::grad_alloc %2d> %s do_w,b[%d,%d] mtum=%p,%p,%p,%p\n",
+        MM_DB("Model::grad_alloc %2d> %s do_w,b[%d,%d] mtum=%p,%p,%p,%p\n",
             i, d_nname(in.grad_fn), do_w, do_b,
             in.mtum[0], in.mtum[1], in.mtum[2], in.mtum[3]);
     }
@@ -96,29 +96,29 @@ __GPU__ Model&
 Model::gradient(const char *nm, GdFunc fn, DU *parm, t4_optimizer op) {
     auto step = [this, fn, parm](const char n,
             Tensor *g, Tensor *dg, Tensor *m, Tensor *v) {
-            TRACE1("\n    %c[%d,%d,%d,%d] Σ=%6.3f - %6.3f",
+            MM_DB("\n    %c[%d,%d,%d,%d] Σ=%6.3f - %6.3f",
                    n, g->N(), g->H(), g->W(), g->C(), g->sum(), dg->sum());
             fn(parm, g, dg, m, v);
-            TRACE1(" => %cΣ=%6.3f", n, g->sum());
+            MM_DB(" => %cΣ=%6.3f", n, g->sum());
     };
-    TRACE1("\nModel::%s batch_sz=%d, lr=%7.4f, mtum/b1=%6.3f, b2=%6.3f\n",
+    MM_DB("\nModel::%s batch_sz=%d, lr=%7.4f, mtum/b1=%6.3f, b2=%6.3f\n",
            nm, (*this)[1].N(), parm[0], parm[1], parm[2]);
     if (_iter++==0) grad_alloc(op);               /// * allocate m & v tensors
     if (!train) return *this;                     /// * bail if not in trainning
     ///
     /// cascade execution layer by layer forward
     ///
-    DU t0 = _mmu->ms();                           ///< performance measurement
+    DU t0 = System::ms();                         ///< performance measurement
     for (int i = 1; i < numel - 1; i++) {         /// TODO: parallel layer update
         Tensor &in = (*this)[i];
         Tensor *w  = in.grad[0], *dw = in.grad[2];
         Tensor *b  = in.grad[1], *db = in.grad[3];
         
-        TRACE1("\n  %2d> %s", i, d_nname(in.grad_fn));
+        MM_DB("\n  %2d> %s", i, d_nname(in.grad_fn));
         if (in.mtum[0]) step('w', w, dw, in.mtum[0], in.mtum[2]);
         if (in.mtum[1]) step('b', b, db, in.mtum[1], in.mtum[3]);
     }
-    TRACE1("\nModel::%s %5.2f ms\n", nm, _mmu->ms() - t0);
+    MM_DB("\nModel::%s %5.2f ms\n", nm, System::ms() - t0);
     return *this;
 }
 ///
@@ -136,7 +136,7 @@ Model::sgd(DU lr, DU b) {                          /// a=momentum
         k_sgd<<<grd,blk>>>(
             g->data, dg->data, m->data,
             g->N(), numel, parm[0], parm[1]);
-        GPU_SYNC();
+        // GPU_SYNC();
     };
     DU parm[2] = { lr, _iter ? b : DU0 };
 
@@ -153,7 +153,7 @@ Model::adam(DU lr, DU b1, DU b2) {
         k_adam<<<grd,blk>>>(
             g->data, dg->data, m->data, v->data,
             g->N(), numel, parm[0], parm[1], parm[2]);
-        GPU_SYNC();
+        // GPU_SYNC();
     };
     DU parm[3] = {
         lr * SQRT(DU1 - POW(b2, _iter+1)) / (DU1 - POW(b1, _iter+1)),
