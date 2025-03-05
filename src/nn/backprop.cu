@@ -5,6 +5,7 @@
  * <pre>Copyright (C) 2022- GreenII, this file is distributed under BSD 3-Clause License.</pre>
  */
 #include "model.h"
+
 #if (T4_DO_OBJ && T4_DO_NN)
 ///
 /// convolution filter derivatives
@@ -27,8 +28,8 @@ __KERN__ void k_dconv2d(
     ///
     /// process z1, i.e. [TS, TS, C1] cells per kernel call
     ///
-    const U32 i0 = i1 - INT(KS / 2);                 ///< dY coordinates
-    const U32 j0 = j1 - INT(KS / 2);
+    const int i0 = i1 - INT(KS / 2);                 ///< dY coordinates
+    const int j0 = j1 - INT(KS / 2);
 
     auto g = cg::this_thread_block();                ///< group all threads
 
@@ -44,7 +45,7 @@ __KERN__ void k_dconv2d(
         if (train && c1 == 0) {
             atomicAdd(&DB[c0], _O[xy]);              /// * dB += dY
         }
-        const U64 zf = (U64)KSQ * C0 * c1 + c0;      ///< filter index F[C1,KS,KS,C0]
+        const U64 zf = (U64)C0 * KSQ * c1 + c0;      ///< filter index F[C1,KS,KS,C0]
         if (tx < TS && ty < TS) {                    /// * within tile [12x12]
             DU *fx = &F[zf + (KSQ - 1) * C0];        ///< F[c1,KS-1,KS-1,c0] i.e. rot180
             DU *dfx= &DF[zf], *ox = &_O[xy];         ///< DF[c1,0,0,c0], dY
@@ -215,18 +216,18 @@ Model::backprop(Tensor &tgt) {
     };
     if (_bloss(tgt)) return *this;                 /// * pre-calculate dLoss
     
-    TRACE("\nModel#backprop starts");
-    DU  t0 = _mmu->ms(), t1 = t0, tt;                     ///< performance measurement
+    MM_DB("\nModel#backprop starts");
+    DU  t0 = System::ms(), t1 = t0, tt;                   ///< performance measurement
     for (int i = numel - 2, j = 0; i > 0; i--, j++) {     /// numel=number of layers
         Tensor &in = (*this)[i], &out = (*this)[i + 1];
-        if (_mmu->trace()) {
-            trace((tt=_mmu->ms()) - t1, i, in, out); t1 = tt;
+        if (_trace) {
+            trace((tt=System::ms()) - t1, i, in, out); t1 = tt;
             _bstep(in, out);
             in.show();
         }
         else _bstep(in, out);
     }
-    TRACE("\nModel::backprop %5.2f ms\n", _mmu->ms() - t0);
+    MM_DB("\nModel::backprop %5.2f ms\n", System::ms() - t0);
     return *this;
 }
 /// ========================================================================
@@ -241,7 +242,7 @@ Model::_bloss(Tensor &tgt) {                     ///> pre-calc dLoss
               out.N(), out.H(), out.W(), out.C());
         return 1;
     }
-    TRACE("\nModel#backprop: input dimensions OK, calculate dLoss");
+    MM_DB("\nModel#backprop: input dimensions OK, calculate dLoss");
     t4_layer fn = (*this)[-2].grad_fn;           ///< final activation layer
     switch (fn) {
     case L_SIGMOID:                              /// * sigmoid + BCE
@@ -249,7 +250,7 @@ Model::_bloss(Tensor &tgt) {                     ///> pre-calc dLoss
     case L_LOGSMAX: out -= tgt;  break;          /// * log-softmax + NLL
     default:        out  = tgt;  break;          /// * pre-calc dLoss (pass thru)
     }
-    if (_mmu->trace()) out.show();               /// * display loss if trace on
+    if (_trace) out.show();                      /// * display loss if trace on
 
     return 0;
 }
@@ -291,7 +292,7 @@ Model::_bconv(Tensor &in, Tensor &out) {
     Tensor &w = *in.grad[0], &dw = *in.grad[2];      ///< filter tensor
     Tensor &b = *in.grad[1], &db = *in.grad[3];      ///< bias tensor
 
-    TRACE(" f[%d,%d,%d,%d], b[%ld]", w.N(), w.H(), w.W(), w.C(), b.numel);
+    MM_DB(" f[%d,%d,%d,%d], b[%ld]", w.N(), w.H(), w.W(), w.C(), b.numel);
 
     const U32 N = in.N(), H = in.H(), W = in.W();    ///< input dimensions
     const U32 C1 = in.C(), C0 = out.C();
@@ -315,9 +316,9 @@ Model::_bconv(Tensor &in, Tensor &out) {
             ERROR("model_back#conv kernel_size %d not supported\n", ks);
             return -1;
         }
-        GPU_SYNC();
+        // GPU_SYNC();
     }
-    if (_mmu->trace() > 1) _dump_dbdf(db, dw);
+    if (_trace > 1) _dump_dbdf(db, dw);
     return 0;
 }
 
@@ -355,11 +356,11 @@ Model::_blinear(Tensor &in, Tensor &out) {
     const U32 C0 = w.H(), C1 = w.W();               ///< weight tensor dimensions
     const U64 E1 = in.HWC(), E0 = out.HWC();        ///< input, output element count
 
-    TRACE("\n\tdw[%d,%d] += out'[%ld,1] @ in^t[1,%ld]", C0, C1, E0, E1);
-    TRACE("\n\tin[%ld, 1] = w^t[%d,%d] @ out'[%ld,1]", E1, C1, C0, E0);
+    MM_DB("\n\tdw[%d,%d] += out'[%ld,1] @ in^t[1,%ld]", C0, C1, E0, E1);
+    MM_DB("\n\tin[%ld, 1] = w^t[%d,%d] @ out'[%ld,1]", E1, C1, C0, E0);
 
     if (w.numel < T4_WARP_SQ) {                     /// * threshold control
-        TRACE("*");
+        MM_DB("*");
         qa_calc(w, dw, db, train);                  /// * serial mode (validation)
     }
     else {
@@ -369,15 +370,15 @@ Model::_blinear(Tensor &in, Tensor &out) {
             k_dlinear_dwdb<<<grd, blk>>>(           /// * update dB, dW
                 in.data, out.data, dw.data, db.data,
                 C1, C0, E1, E0);
+            // GPU_SYNC();
         }
         /// barrier for X (because we did N samples in one grid)
         in.map(FILL, DU0);                          /// * zero out dX
         k_dlinear_dx<<<grd, blk>>>(                 /// * update dX
             in.data, out.data, w.data,
             C1, C0, E1, E0);
-        GPU_SYNC();
     }
-    if (train && _mmu->trace() > 1) {
+    if (train && _trace > 1) {
          _dump_db(db);
          _dump_dw(dw, true);
     }
@@ -405,8 +406,7 @@ Model::_bpool(Tensor &in, Tensor &out, t4_layer fn) {
         ERROR("model#pooling kernel_size=%d not supported\n", ks);
         return -1;
     }
-    GPU_SYNC();
-
+    // GPU_SYNC();
     return 0;
 }
 ///
@@ -430,8 +430,7 @@ Model::_bupsample(Tensor &in, Tensor &out, t4_layer fn) {
         ERROR("model#upsample size=%d not supported\n", ks);
         return -1;
     }
-    GPU_SYNC();
-
+    // GPU_SYNC();
     return 0;
 }
 ///
@@ -461,27 +460,27 @@ Model::_bbatchnorm(Tensor &in, Tensor &out) {
 
     for (U32 c=0; c < C; c++) sum[c] = DU0;            /// * zero
     k_sum<<<grd, blk>>>(out.data, sum, HW);            /// * capture out sum(dout)
-    GPU_SYNC();
-
+    // GPU_SYNC();
+    
     for (U32 c=0; c < C; c++) {
         if (train) db[c] += (sum[c] /= HW);            /// * collect dbeta = sum(dout) (/ HW?)
         var[c] *= w[c];                                /// * var <= gamma * ivar
     }
     k_dbatchnorm_1<<<grd, blk>>>(                      /// * dX = gamma * ivar * (dout - sum(dout)/N)
         in.data, out.data, xht, sum, var, HW);         /// * also, dout *= x_hat
-    GPU_SYNC();
-
+    // GPU_SYNC();
+    
     for (U32 c=0; c < C; c++) sum[c] = DU0;            /// * zero
     k_sum<<<grd, blk>>>(out.data, sum, HW);            /// * capture sum(dout * x_hat)
-    GPU_SYNC();
+    // GPU_SYNC();
 
     for (U32 c=0; c < C; c++) {
         if (train) dw[c]  += (sum[c] /= HW);           /// * collect dgamma = sum(dout * x_hat)( / HW?)
         sum[c] *= var[c] / N;                          /// * scale sum
     }
     k_dbatchnorm_2<<<grd, blk>>>(in.data, xht, sum, HW);/// * dX -= gamma * ivar * x_hat * sum(dout * x_hat) / N
-    GPU_SYNC();
-
+    // GPU_SYNC();
+    
     return 0;
 }
 
