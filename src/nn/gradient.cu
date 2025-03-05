@@ -64,22 +64,22 @@ Model::grad_alloc(t4_optimizer op) {
             break;
         case OPTI_SGDM:
             if (do_w && !in.mtum[0]) {
-                in.mtum[0] = &_mmu->copy(*dw).fill(DU0); ///< m of w (zero filled)
+                in.mtum[0] = &COPY(*dw).fill(DU0);       ///< m of w (zero filled)
                 in.mtum[2] = NULL;                       ///< dummy
             }
             if (do_b && !in.mtum[1]) {
-                in.mtum[1] = &_mmu->copy(*db).fill(DU0); ///< m of b (zero filled)
+                in.mtum[1] = &COPY(*db).fill(DU0);       ///< m of b (zero filled)
                 in.mtum[3] = NULL;                       ///< dummy
             }
             break;
         case OPTI_ADAM:
             if (do_w && !in.mtum[0]) {
-                in.mtum[0] = &_mmu->copy(*dw).fill(DU0); ///< m of w (zeor filled)
-                in.mtum[2] = &_mmu->copy(*dw).fill(DU0); ///< v of w (zero filled)
+                in.mtum[0] = &COPY(*dw).fill(DU0);       ///< m of w (zeor filled)
+                in.mtum[2] = &COPY(*dw).fill(DU0);       ///< v of w (zero filled)
             }
             if (do_b && !in.mtum[1]) {
-                in.mtum[1] = &_mmu->copy(*db).fill(DU0); ///< m of b (zero filled)
-                in.mtum[3] = &_mmu->copy(*db).fill(DU0); ///< v of b (zero filled)
+                in.mtum[1] = &COPY(*db).fill(DU0);       ///< m of b (zero filled)
+                in.mtum[3] = &COPY(*db).fill(DU0);       ///< v of b (zero filled)
             }
             break;
         }

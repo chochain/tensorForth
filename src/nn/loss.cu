@@ -31,7 +31,7 @@ Model::onehot(Dataset &dset) {
     Tensor &out = (*this)[-1];                      ///< model output
     U32    N    = out.N();
     U64    HWC  = out.HWC();                        ///< sample size
-    Tensor &hot = _t4(N, HWC).fill(DU0);            ///< one-hot vector
+    Tensor &hot = T4(N, HWC).fill(DU0);             ///< one-hot vector
     for (U32 n = 0; n < N; n++) {                   /// * loop through batch
         DU *h = hot.slice(n);                       ///< take a sample
         U32 i = dset.label[n];                      ///< label index
@@ -78,9 +78,9 @@ Model::loss(t4_loss op, Tensor &tgt) {              ///< loss against target vec
             tgt.N(), tgt.H(), tgt.W(), tgt.C());
         return DU0;
     }
-    Tensor &tmp = _mmu->copy(out);                 ///< non-destructive
+    Tensor &tmp = COPY(out);                       ///< non-destructive
     DU sum = tmp.loss(op, tgt);                    /// * calculate loss per op
-    _mmu->free(tmp);                               /// * free memory
+    FREE(tmp);                                     /// * free memory
     
     MM_DB("Model#loss: %s=%6.3f\n", opn[op], sum);
     

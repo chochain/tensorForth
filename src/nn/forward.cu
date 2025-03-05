@@ -216,7 +216,7 @@ Model::forward(Tensor &input) {
     /// collect onehot vector and hit count
     ///
     if (input.is_dataset()) {
-        if (_hot) _mmu->drop((T4Base&)_hot);     /// * release if previously alloc
+        if (_hot) FREE(*_hot);                   /// * release if previously alloc
         _hot = &onehot((Dataset&)input);         /// * create/cache onehot vector
         _hit = hit(true);                        /// * recalc/cache hit count
     }
@@ -371,7 +371,7 @@ __GPU__ int
 Model::_fsoftmax(Tensor &in, Tensor &out) {
     out = in;                                   /// copy content for exe calc
     out.map(EXP);                               /// *
-    Tensor &t = _t4(1, in.H(), in.W(), in.C()); ///< create temp tensor for calc
+    Tensor &t = T4(1, in.H(), in.W(), in.C());  ///< create temp tensor for calc
     DU     *d = t.data;                         ///< cached tensor data
     for (U32 n = 0; n < in.N(); n++) {          ///< loop thru mini-batch
         t.data = out.slice(n);                  /// * point to output data slice
@@ -379,7 +379,7 @@ Model::_fsoftmax(Tensor &in, Tensor &out) {
         t.map(MUL, RCP(sum + DU_EPS));          /// * softmax = exp(xi)/sum(exp(xi))
     }
     t.data = d;                                 /// * restore tensor data
-    _mmu->free(t);                              /// * release memory
+    FREE(t);                                    /// * release memory
     return 0;
 }
 
@@ -387,7 +387,7 @@ __GPU__ int
 Model::_flogsoftmax(Tensor &in, Tensor &out) {  /// * TODO: DCP
     out = in;                                   /// * copy in data to out
     out.map(EXP);
-    Tensor &t = _t4(1, in.H(), in.W(), in.C()); ///< create tmp tensor
+    Tensor &t = T4(1, in.H(), in.W(), in.C());  ///< create tmp tensor
     DU     *d = t.data;                         ///< cache tensor data
     for (U32 n = 0; n < in.N(); n++) {          /// * loop throught mini-batch
         t.data = out.slice(n);
@@ -396,7 +396,7 @@ Model::_flogsoftmax(Tensor &in, Tensor &out) {  /// * TODO: DCP
         t -= logsum;                            ///< xi - log(sum(exp(xi)))
     }
     t.data = d;                                 /// * restore tensor data pointer
-    _mmu->free(t);                              /// * release memory
+    FREE(t);                                    /// * release memory
     return 0;
 }
 ///

@@ -188,7 +188,7 @@ Model::broadcast(Tensor &tgt) {
     Tensor &out = (*this)[-1];                   ///< model output
     U64    HWC  = out.HWC();                     ///< sample size
     U32    N    = out.N();
-    if (!_hot) _hot = &_t4(N, HWC);              ///< allocate onehot vector if needed
+    if (!_hot) _hot = &T4(N, HWC);               ///< allocate onehot vector if needed
     for (U32 n = 0; n < N; n++) {                /// * loop through batch, TODO: Kernel
         DU  v = tgt.data[n];                     ///< target vector
         DU *h = _hot->slice(n);                  ///< take a sample
