@@ -44,7 +44,7 @@ NetVM::_nnop(t4_layer op) {     /// vtable dispatcher
     ///
     if (IS_M(tos)) {
         Model &m = MTOS;
-        VLOG2(" N%d {\n", m.numel);
+        VLOG2(" N%ld {\n", m.numel);
         switch (op) {
         case L_FLATTEN:
         case L_RELU:
@@ -65,7 +65,7 @@ NetVM::_nnop(t4_layer op) {     /// vtable dispatcher
     if (M1V) {
         DU    a  = POP();
         Model &m = MTOS;
-        VLOG2(" N%d %g {\n", m.numel, a);
+        VLOG2(" N%ld %g {\n", m.numel, a);
         switch (op) {
         case L_LINEAR:  m.add(op, INT(a), DU1);        return; /* bias = 1.0 */
         case L_LEAKYRL:
@@ -83,7 +83,7 @@ NetVM::_nnop(t4_layer op) {     /// vtable dispatcher
     switch (op) {
     case L_LINEAR:
         if (M2V) {                                 /// * param checking
-            U16 n    = POPi;                       ///> number of output channels
+            U32 n    = POPi;                       ///> number of output channels
             DU  bias = POP();                      ///> bias range [-bias, bias)
             MTOS.add(op, n, bias);                 /// * (N b c -- N')
         }
@@ -191,7 +191,7 @@ NetVM::_conv(U16 k) {
         else { ERROR("vec?"); return; }
     }
     if (!M2V) { ERROR("Model#add bias c for conv2d required!"); return; }
-    U16 c    = POPi;                    ///> number of output channels
+    U32 c    = POPi;                    ///> number of output channels
     DU  bias = POP();                   ///> convolution bias
     MTOS.add(L_CONV, c, bias, opt);
 }
@@ -202,13 +202,13 @@ __GPU__ void
 NetVM::_loss(t4_loss op) {
     if (TOS2T) {                        /// * calculate loss of two tensors
         DU y = POP();                   /// * pop off target tensor
-        DU n = TTOS.loss(op, (Tensor&)T4Base::du2obj(y));
+        DU n = TTOS.loss(op, (Tensor&)mmu.du2obj(y));
         PUSH(n);
         DROP(y);                        /// * free target tensor
     }
     else if (TOS1T && IS_M(ss[-1])) {   /// * model loss
         DU y = POP();
-        DU n = MTOS.loss(op, (Tensor&)mmu::du2obj(y));
+        DU n = MTOS.loss(op, (Tensor&)mmu.du2obj(y));
         PUSH(n);                        /// * loss on TOS
         DROP(y);                        /// * pop off t
     }
@@ -232,7 +232,7 @@ NetVM::init() {
              IS_OBJ(ss[-2]) || IS_OBJ(ss[-3])) {
              ERROR("n h w c?\n"); return;
          }
-         U16 c=POPi; U16 w=POPi; U16 h=POPi; U16 n=POPi;
+         U32 c=POPi; U32 w=POPi; U32 h=POPi; U32 n=POPi;
          Model  &m = mmu.model();             /// * create NN model
          Tensor &t = mmu.tensor(n,h,w,c);     /// * create input tensor
          m.npush(t);                          /// * serves as the 1st layer
@@ -330,14 +330,14 @@ NetVM::init() {
          if (IS_M(tos)) PUSH(MTOS.batch_size());
          else ERROR("TOS is not a model?\n"));
     CODE("dataset",                             /// * create a dataset
-         char *dsn = next_idiom();              ///< retrieve dataset name
-         S16   bsz = POPi;                      ///< batch size
-         PUSH(mmu.dataset(bsz));                /// * create a dataset as TOS
-         sys.op(OP_DATA, 0, tos);
-         sys.op_fn(dsn);                        /// * issue a dataset init command
+         char    *dsn = sys.fetch();            ///< retrieve dataset name
+         Dataset &ds  = mmu.dataset(POPi);      ///< batch size
+         PUSH(mmu.obj2du((T4Base&)ds));         /// * create a dataset as TOS
+         sys.op(OP_DATA, 0, tos);               /// * issue a dataset init
+         sys.op_fn(dsn);                        /// * send dataset name
          state = HOLD);
-    CODE("fetch",   _fetch(tos, false));        /// * fetch a dataset batch
-    CODE("rewind",  _fetch(tos, true));         /// * rewind a dataset (batch_id=0)
+    CODE("fetch",  sys.op(OP_FETCH, 0, tos));   /// * fetch a dataset batch
+    CODE("rewind", sys.op(OP_FETCH, 1, tos));   /// * rewind a dataset (batch_id=0)
     CODE("forward",                             /// * forward process
          if (IS_M(ss[-1]) && TOS1D) {           /// * TOS is a dataset
              DU x = POP();                      /// * NOS is the model
@@ -370,7 +370,7 @@ NetVM::init() {
     ///@{
     CODE(">n",      if (M1V) { DU t = POP(); MTOS.npush(t); });
     CODE("n@",      if (!M1V) return;
-         S16    i  = POPi;
+         S32    i  = POPi;
          Tensor &t = MTOS[i];
          DU     v  = mmu.obj2du(t);
          PUSH(DUP(v)));
@@ -380,14 +380,13 @@ NetVM::init() {
     CODE("nn.db",   _get_parm(3));                 ///< tensor.bias.grad
     CODE("nn.w=",   _set_parm(0));                 ///< populate tensor.weight
     CODE("nn.b=",   _set_parm(1));                 ///< populate tensor.bias
-    CODE("network", if (IS_M(tos)) fout << tos);
+    CODE("network", if (IS_M(tos)) sys.dot(DOT, tos));  ///< non destructive
     ///
     /// ===========================================================================
     ///
     /// * overwrite/extended word
     ///
-    CODE("boot",      mmu.clear(FIND("network") + 1));
-    CODE("donext",    _donext());                  /// * overwrite eforth.cu
+    CODE("boot",      mmu.clear(FIND((char*)"network") + 1));
     CODE("flatten",   _nnop(L_FLATTEN));
     CODE("save",      _pickle(true));              /// * save trainned model
     CODE("load",      _pickle(false));             /// * load trainned model
