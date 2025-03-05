@@ -118,7 +118,7 @@ System::readline() {                         ///< feed a line into device input 
     _istr->clear();                          /// * clear device inpugt stream
     char *tib = _istr->rdbuf();              ///< set device input buffer
     fin.getline(tib, T4_IBUF_SZ, '\n');      /// * feed input from host to device
-    return fin.eof();                        /// * end of input flag
+    return !fin.eof();                       /// * more to read?
 }
 
 #define NEXT_EVENT(n) ((io_event*)((char*)&ev->data[0] + ev->sz))
