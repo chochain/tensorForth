@@ -4,8 +4,10 @@
  *
  * <pre>Copyright (C) 2022- GreenII, this file is distributed under BSD 3-Clause License.</pre>
  */
-#include "model.h"
+#include "ten4_config.h"
+
 #if (T4_DO_OBJ && T4_DO_NN)
+#include "model.h"
 
 __HOST__ const char*                ///< host network layer name 
 Model::nname(int i) {
@@ -21,10 +23,10 @@ Model::d_nname(int i) {
 /// layer access methods
 ///
 __BOTH__ Tensor&
-Model::operator[](int i) {
+Model::operator[](S64 i) {
     /// * model.data[0] = store
     /// so 1st layer starts from model.data[1]
-    return (Tensor&)T4Base::du2obj(data[(i < 0) ? numel + i : i]);
+    return (Tensor&)_mmu->du2obj(data[(i < 0L) ? numel + i : i]);
 }
 __BOTH__ int
 Model::slots() { return _store->numel; }
@@ -32,8 +34,9 @@ Model::slots() { return _store->numel; }
 __GPU__  void
 Model::reset(MMU *mmu, Tensor &store) {
     init(0, T4_MODEL, 0);                   /// * T4Base attributes
-    _mmu   = mmu;
+    _mmu   = mmu;                           /// * cached memory controller
     _store = &store;
+    _trace = T4_VERBOSE;
     data   = store.data;                    /// * cached entries
     train  = 1;
     npush(store);                           /// * model.data[0] = store
@@ -48,14 +51,14 @@ Model::npush(DU v) {
     }
     return *this;
 }
-__GPU__ Model& Model::npush(Tensor &t) { return npush(T4Base::obj2du(t)); }
+__GPU__ Model& Model::npush(Tensor &t) { return npush(_mmu->obj2du(t)); }
 __GPU__ DU     Model::npop()           { return data[--numel];  }
 __GPU__ int    Model::batch_size()     { return (*this)[1].N(); }
 ///
 /// NN layer factory
 ///
 __GPU__ Model&
-Model::add(t4_layer fn, int n, DU bias, U16 *opt) {
+Model::add(t4_layer fn, U32 n, DU bias, U16 *opt) {
     Tensor &in = (*this)[-1];
     if (in.grad_fn != L_NONE) return *this;    /// * tensor already setup
 
@@ -119,11 +122,11 @@ Model::_iconv(Tensor &in, U32 C0, DU bias, U16 *opt) {
     Tensor *b  = in.grad[1] = &_vec(C0);                           ///> b
     Tensor *db = in.grad[3] = &_vec(C0).map(FILL, DU0);            ///> db
 
-    DU k = SQRT(RCP(Hf * Wf * C1));              /// * filter default range
-    _mmu->random(*f, UNIFORM, -0.5, 2.0 * k);    /// * randomize f [-k, k)
-    _mmu->random(*b, UNIFORM, -0.5, 2.0 * bias); /// * randomize b [-bias, bias)
-    TRACE1("model#add conv2d %dx%d bias=%4.2f, k=%6.3f, f.std=%6.3f\n",
-           Hf, Wf, bias, k, f->std());
+    DU k = SQRT(RCP(Hf * Wf * C1));                                /// * filter default range
+    System::rand(f->data, f->numel, UNIFORM, -0.5, 2.0 * k);       /// * randomize f [-k, k)
+    System::rand(b->data, b->numel, UNIFORM, -0.5, 2.0 * bias);    /// * randomize b [-bias, bias)
+    MM_DB("model#add conv2d %dx%d bias=%4.2f, k=%6.3f, f.std=%6.3f\n",
+          Hf, Wf, bias, k, f->std());
     
     // for (int i=0; i<f->numel; i++) printf("%6.3f", f->data[i]);
     
@@ -139,27 +142,27 @@ Model::_ilinear(Tensor &in, U32 C0, DU bias) {
     Tensor *b  = in.grad[1] = &_vec(C0);                          ///> b
     Tensor *db = in.grad[3] = &_vec(C0).map(FILL, DU0);           ///> db
     
-    in.parm = INT(bias * 1000.0);                /// * keep for persistence
+    in.parm = INT(bias * 1000.0);                                 /// * keep for persistence
     
-    DU k = SQRT(RCP(C1));                        /// * default weight
-    _mmu->random(*w, UNIFORM, -0.5, 2.0 * k);    /// * randomize w [-k, k)
-    _mmu->random(*b, UNIFORM, -0.5, 2.0 * bias); /// * randomize b [-bias, bias)
-    TRACE1("model#add linear bias=%4.2f, k=%6.3f, w.std=%6.3f\n", bias, k, w->std());
+    DU k = SQRT(RCP(C1));                                         /// * default weight
+    System::rand(w->data, w->numel, UNIFORM, -0.5, 2.0 * k);      /// * randomize w [-k, k)
+    System::rand(b->data, b->numel, UNIFORM, -0.5, 2.0 * bias);   /// * randomize b [-bias, bias)
+    MM_DB("model#add linear bias=%4.2f, k=%6.3f, w.std=%6.3f\n", bias, k, w->std());
     /*
     for (int c0=0; c0<C0; c0++) {
-        TRACE1("\nw.c0=%d ", c0);
+        MM_DB("\nw.c0=%d ", c0);
         for (int c1=0; c1<C1; c1++) {
-            TRACE1("%5.2f", w->data[c1 + c0*C1]);
+            MM_DB("%5.2f", w->data[c1 + c0*C1]);
         }
     }
     */
     Tensor &out = _t4(N1, C0);                   ///> output tensor sizing
-    TRACE1(" out[%d,%d,%d,%d]", out.N(), out.H(), out.W(), out.C());
+    MM_DB(" out[%d,%d,%d,%d]", out.N(), out.H(), out.W(), out.C());
     npush(out);                                  /// * stage for next stage
 }
 __GPU__ void
 Model::_iflatten(Tensor &in) {
-    TRACE1("model#add flatten\n");
+    MM_DB("model#add flatten\n");
     Tensor &out = _t4(in.N(), in.HWC());         /// * for backprop
     npush(out);
 }
@@ -169,7 +172,7 @@ Model::_iflatten(Tensor &in) {
 __GPU__ void
 Model::_icopy(Tensor &in, t4_layer fn) {
     Tensor &out = _mmu->copy(in);                ///> output tensor sizing
-    TRACE1("model#add %s\n", d_nname(fn));
+	MM_DB("model#add %s\n", d_nname(fn));
     npush(out);                                  /// * stage for next stage
 }
 
@@ -179,7 +182,7 @@ Model::_iactivate(Tensor &in, DU alpha, t4_layer fn) {
     Tensor *msk = in.grad[0] = &_mmu->copy(in);  ///> activation mask
 
     in.parm = INT(1000.0 * alpha);               /// * bias * 1000
-    TRACE1("model#add %s (alpha=%6.3f)\n", d_nname(fn), alpha);
+    MM_DB("model#add %s (alpha=%6.3f)\n", d_nname(fn), alpha);
     
     npush(out);
 }
@@ -192,8 +195,8 @@ Model::_ipool(Tensor &in, U16 f, t4_layer fn) {
         ERROR("pooling f=%dx%d? 2x2 and 3x3 supported only\n", f, f);
         return;
     }
-    in.parm = n;                                 /// * keep kernel size
-    TRACE1("model#add %s %dx%d\n", d_nname(fn), f, f);
+    in.parm = f;                                 /// * keep kernel size
+    MM_DB("model#add %s %dx%d\n", d_nname(fn), f, f);
                                                  /// * used by backprop
     U32 H0 = INT((in.H() - f) / f) + 1;
     U32 W0 = INT((in.W() - f) / f) + 1;
@@ -215,7 +218,7 @@ Model::_ibatchnorm(Tensor &in, DU m) {
         in.grad[0]->data[c] = DU1;
     }
     in.parm = INT(1000.0 * m);                   ///> default EMA momentum = 0.1
-    TRACE1("model#add batchnorm m=%5.3f\n", m);
+    MM_DB("model#add batchnorm m=%5.3f\n", m);
     
     Tensor &out = _mmu->copy(in);                /// * retain dimensions
     npush(out);
@@ -228,7 +231,7 @@ Model::_iup(Tensor &in, U16 f, DU method) {
         return;
     }
     in.parm = (INT(method)<<8) | f;              /// * keep (method<<8) | kernel size
-    TRACE1("model#add upsample %dx%d\n", f, f);
+    MM_DB("model#add upsample %dx%d\n", f, f);
                                                  /// * used by backprop
     U32 H0 = in.H() * f;
     U32 W0 = in.W() * f;
