@@ -148,13 +148,13 @@ AIO::_print_model(h_ostr &fs, Model &m) {
         }
     };
     if (!m.is_model()) return;
-    int n = m.numel;
+    U64 n = m.numel;
     
     fs << "NN model[" << n-1 << "/" << m.slots() << "]"
        << std::endl;
-    for (int i = 1; i < n; i++) {              /// skip root[0]
+    for (U64 i = 1; i < n; i++) {         /// skip root[0]
         Tensor &in = m[i], &out = m[i+1];
-        tinfo(in, i, in.grad_fn);
+        tinfo(in, (int)i, in.grad_fn);
         finfo(in.grad);
         _print_model_parm(fs, in, out);
         fs << std::endl;
