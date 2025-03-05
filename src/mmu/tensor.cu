@@ -13,11 +13,11 @@
 ///> array sum
 /// Note: tiled_partition<32> used
 ///
-__KERN__ void k_sum(DU *I, DU *sum, int HW) {
-    const int i  = threadIdx.x + blockIdx.x * blockDim.x;  ///< element index
-    const int c  = blockIdx.y, C = gridDim.y;              ///< channel
-    const int ns = blockIdx.z * HW * C;                    ///< batch slice index
-    DU vi = i < HW ? I[c + i * C + ns] : DU0;              ///< keep v for shuffle
+__KERN__ void k_sum(DU *I, DU *sum, U64 HW) {
+    const U64 i  = (U64)blockIdx.x * blockDim.x + threadIdx.x;  ///< element index
+    const U32 c  = blockIdx.y, C = gridDim.y;                   ///< channel
+    const U64 ns = HW * C * blockIdx.z;                         ///< batch slice index
+    DU vi = i < HW ? I[(U64)C * i + ns + c] : DU0;              ///< keep v for shuffle
     ///
     /// prefix sum (32-threaded tile)
     ///
@@ -38,11 +38,11 @@ __KERN__ void k_sum(DU *I, DU *sum, int HW) {
 ///> variance
 ///
 __KERN__ void
-k_var(DU *I, DU *avg, DU *var, int HW) {
-    const int i  = threadIdx.x + blockIdx.x * blockDim.x;  ///< element index
-    const int c  = blockIdx.y, C = gridDim.y;              ///< channel
-    const int ns = blockIdx.z * HW * C;                    ///< batch slice index
-    DU v0 = i < HW ? I[c + i * C + ns] - avg[c] : DU0;
+k_var(DU *I, DU *avg, DU *var, U64 HW) {
+    const U64 i  = (U64)blockIdx.x * blockDim.x + threadIdx.x;  ///< element index
+    const U32 c  = blockIdx.y, C = gridDim.y;                   ///< channel
+    const U64 ns = HW * C * blockIdx.z;                         ///< batch slice index
+    DU v0 = i < HW ? I[(U64)C * i + ns + c] - avg[c] : DU0;
     DU vi = v0 * v0;
     ///
     /// prefix sum every 32-threaded tile
