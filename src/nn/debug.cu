@@ -41,7 +41,7 @@ Model::_dump_db(Tensor &db) {
 
 __GPU__ void
 Model::_dump_dw(Tensor &dw, bool full) {
-    const U32 = dw.H(), W = dw.W();
+    const U32 H = dw.H(), W = dw.W();
     DU hsum = DU0, *p = dw.data;
     if (full) printf("\ndw[%d,%d]=", W, H);
     else      printf("\n\tdwΣ=");
