@@ -49,7 +49,7 @@ public:
     /// @}
     /// @name layer access methods
     /// @{
-    __BOTH__ Tensor &operator[](int i);
+    __BOTH__ Tensor &operator[](S64 i);          ///< 64-bit indexing (negative possible)
     __BOTH__ int    slots();
     __GPU__  void   reset(MMU *mmu, Tensor &store);
     __GPU__  Model  &npush(DU v);
