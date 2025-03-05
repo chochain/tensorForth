@@ -23,7 +23,7 @@
 class NetVM : public TensorVM {
 public:
     __GPU__ NetVM(int id, System &sys) : TensorVM(id, sys) {
-        VLOG1("\\    ::NetVM[%d](...) sizeof(Model)=%d\n", id, (int)sizeof(Model));
+        TRACE("\\      ::NetVM[%d]\n", id);
     }
     ///
     /// @name Class Object Constructor

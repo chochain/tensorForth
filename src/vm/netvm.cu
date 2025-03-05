@@ -391,7 +391,7 @@ NetVM::init() {
     CODE("save",      _pickle(true));              /// * save trainned model
     CODE("load",      _pickle(false));             /// * load trainned model
     
-    VLOG1("NetVM::init ok\n");
+    TRACE("NetVM::init ok, sizeof(Model)=%ld\n", sizeof(Model));
 };
 
 #endif  // (T4_DO_OBJ && T4_DO_NN)
