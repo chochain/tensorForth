@@ -4,9 +4,11 @@
  *
  * <pre>Copyright (C) 2022- GreenII, this file is distributed under BSD 3-Clause License.</pre>
  */
-#include "eforth.h"                         /// extending ForthVM
+#include "ten4_config.h"
+
 #if (!defined(__VM_TENVM_H) && T4_DO_OBJ)
 #define __VM_TENVM_H
+#include "eforth.h"                         /// extending ForthVM
 
 #define VLOG1(...) if (sys.trace() > 0) { INFO(__VA_ARGS__); }
 #define VLOG2(...) if (sys.trace() > 1) { INFO(__VA_ARGS__); }
