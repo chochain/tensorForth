@@ -4,10 +4,12 @@
  *
  * <pre>Copyright (C) 2022- GreenII, this file is distributed under BSD 3-Clause License.</pre>
  */
+#include "ten4_config.h"
+
 #if (!defined(__VM_NETVM_H) && T4_DO_OBJ && T4_DO_NN)
 #define __VM_NETVM_H
-#include "nn/model.h"
 #include "tenvm.h"                // extending TensorVM
+#include "nn/model.h"
 
 #define MTOS     ((Model&)mmu.du2obj(tos))                                       /** Network Model on TOS   */
 #define MNOS     ((Model&)mmu.du2obj(ss[-1]))                                    /** Network Model on NOS   */
@@ -41,7 +43,7 @@ private:
     /// @}
     /// @name Convolution, loss and Gradiant ops
     /// @{
-    __GPU__ void _conv(U32 k=3);                 ///< init convolution layer
+    __GPU__ void _conv(U16 k=3);                 ///< init convolution layer
     __GPU__ void _loss(t4_loss op);              ///< calculate loss
     /// @}
 };
