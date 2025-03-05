@@ -4,6 +4,8 @@
  *
  * <pre>Copyright (C) 2022- GreenII, this file is distributed under BSD 3-Clause License.</pre>
  */
+#include "ten4_config.h"
+
 #if (!defined(__LDR_MNIST_H) && T4_DO_OBJ && T4_DO_NN)
 #define __LDR_MNIST_H
 #include <iostream>

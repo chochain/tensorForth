@@ -4,9 +4,10 @@
  *
  * <pre>Copyright (C) 2022- GreenII, this file is distributed under BSD 3-Clause License.</pre>
  */
+#include "ten4_types.h"
+
 #if (!defined(__LDR_CORPUS_H) && T4_DO_OBJ && T4_DO_NN)
 #define __LDR_CORPUS_H
-#include "ten4_types.h"
 
 #define DS_LOG1(...)         { if (trace > 0) INFO(__VA_ARGS__); }
 #define DS_ERROR(...)        fprintf(stderr, __VA_ARGS__)

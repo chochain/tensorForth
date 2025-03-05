@@ -4,9 +4,10 @@
  *
  * <pre>Copyright (C) 2022- GreenII, this file is distributed under BSD 3-Clause License.</pre>
  */
-#include "mnist.h"
+#include "ten4_config.h"
 
 #if (T4_DO_OBJ && T4_DO_NN)
+#include "mnist.h"
 
 #define LOG_COUNT 1000       /**< debug dump frequency */
 #define MAX_BATCH 0          /**< debug, limit number of mini-batches */
