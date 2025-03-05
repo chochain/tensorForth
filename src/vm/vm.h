@@ -8,14 +8,6 @@
 #define __VM_VM_H
 #include "sys.h"                    /// system interface
 ///
-///@name Cross platform support
-///@{
-#define yield()            /**< TODO: multi-VM  */
-#define delay(ticks) {                           \
-        U64 t = clock64() + (ticks * sys.khz()); \
-        while ((U64)clock64()<t) yield();        \
-}
-///@}
 ///@name virtual machine base class
 ///@{
 typedef enum { STOP=0, HOLD, QUERY, NEST } vm_state;   ///< ten4 states
