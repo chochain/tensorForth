@@ -59,10 +59,12 @@ public:
     /// @}
     /// @name Tensor constructors and randomizer
     /// @{
-    __GPU__ Tensor &vec(U64 sz);                        ///< proxy to MMU::tensor
-    __GPU__ Tensor &t4(U32 n, U32 h);
-    __GPU__ Tensor &t4(U32 n, U32 h, U32 w, U32 c);
-    __GPU__  void  rand(Tensor &t, DU scale);           ///< proxy to System::rand
+    __GPU__ Tensor &COPY(Tensor &t);                    ///< hardcopy a tensor (proxy to mmu)
+    __GPU__ void   FREE(Tensor &t);
+    __GPU__ Tensor &VEC(U64 sz);                        ///< proxy to MMU::tensor
+    __GPU__ Tensor &T4(U32 n, U32 h);
+    __GPU__ Tensor &T4(U32 n, U32 h, U32 w, U32 c);
+    __GPU__ void   RAND(Tensor &t, DU scale);           ///< proxy to System::rand
     /// @}
     /// @name main NN methods
     /// @{
