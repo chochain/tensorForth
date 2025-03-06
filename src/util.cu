@@ -388,26 +388,26 @@ d_hash(const char *s) {
   Tensor basic ops
 */
 __KERN__ void
-k_copy(float *src, float *dst, U64 n) {                    ///< Note: (src, dst)
-    U64 k = (U64)blockIdx.x * blockDim.x + threadIdx.x;
+k_copy(float *src, float *dst, U64 n) {                       ///< Note: (src, dst)
+    const U64 k = (U64)blockIdx.x * blockDim.x + threadIdx.x; ///< numel range 2G * 1K = 2T, U41
     if (k < n) dst[k] = src[k];
 }
 __KERN__ void
-k_transpose(float *src, float *dst, U32 H, U32 W) {        ///< Note: (src, dst)
-    const U32 i = blockIdx.y * blockDim.y + threadIdx.y;
-    const U32 j = blockIdx.x * blockDim.x + threadIdx.x;
-    const U32 c = blockIdx.z, C = gridDim.z;               ///< channel deep
+k_transpose(float *src, float *dst, U32 H, U32 W) {           ///< Note: (src, dst)
+    const U32 i = blockIdx.y * blockDim.y + threadIdx.y;      ///< H range 65K * 1K = 65M, U26
+    const U32 j = blockIdx.x * blockDim.x + threadIdx.x;      ///< W range 2G  * 1K = 2T,  U41
+    const U32 c = blockIdx.z, C = gridDim.z;                  ///< channel deep
 
     if (i < H && j < W && c < C) {
         dst[((U64)H * j + i) * C + c] = src[((U64)W * i + j) * C + c];
     }
 }
 __KERN__ void
-k_identity(float *t, U32 H, U32 W) {
+k_identity(float *t, U32 H, U32 W) {                          ///< identity matrix (tensor)
     const float i01[2] = { 0.0f, 1.0f };
     const U32 i = blockIdx.y * blockDim.y + threadIdx.y;
     const U32 j = blockIdx.x * blockDim.x + threadIdx.x;
-    const U32 c = blockIdx.z, C = gridDim.z;               ///< channel deep
+    const U32 c = blockIdx.z, C = gridDim.z;                  ///< channel deep
 
     if (i < H && j < W && c < C) {
         t[((U64)W * i + j) * C + c] = i01[i==j];
@@ -416,30 +416,30 @@ k_identity(float *t, U32 H, U32 W) {
 
 #define DU_LNX   1.0e-12                                      /* log clamp */
 __KERN__ void
-k_math(math_op op, float *A, U64 n, float v) {
-    const U64 k = (U64)blockIdx.x * blockDim.x + threadIdx.x;
-    float ak = A[k];                             ///< cache value
-    if (k < n) {
+k_math(math_op op, float *A, float v, U64 n) {                ///< self modifying ops
+    const U64 j = (U64)blockIdx.x * blockDim.x + threadIdx.x; ///< numel range 2G * 1K = 2T, U41
+    float ak = A[j];                                          ///< cache value
+    if (j < n) {
         switch(op) {
-        case ABS:   A[k] = ABS(ak);                   break;
-        case NEG:   A[k] = NEG(ak);                   break;
-        case EXP:   A[k] = EXP(ak);                   break;
-        case LN:    A[k] = LN(MAX(ak, DU_LNX));       break;  // clamped
-        case LOG:   A[k] = LOG(MAX(ak, DU_LNX));      break;  // clamped
-        case TANH:  A[k] = TANH(ak);                  break;
-        case RELU:  A[k] = RELU(ak);                  break;
-        case SIGM:  A[k] = SIGMOID(ak);               break;
-        case SQRT:  A[k] = SQRT(MAX(ak, 0.0));        break;  // guarded
-        case RCP:   A[k] = RCP(ak);                   break;  // 1/x
-        case SAT:   A[k] = SAT(ak);                   break;  // [0.0..1.0]
-        case FILL:  A[k] = v;                         break;
-        case GFILL: A[k] = v * k / n;                 break;  // gradient fill
-        case SCALE: A[k] *= v;                        break;
-        case POW:   A[k] = POW(ak, v);                break;  // x^v
-        case ADD:   A[k] += v;                        break;
-        case SUB:   A[k] -= v;                        break;
-        case MUL:   A[k] *= v;                        break;
-        case DIV:   A[k] /= v;                        break;
+        case ABS:   A[j] = ABS(ak);                   break;
+        case NEG:   A[j] = NEG(ak);                   break;
+        case EXP:   A[j] = EXP(ak);                   break;
+        case LN:    A[j] = LN(MAX(ak, DU_LNX));       break;  /// * clamped
+        case LOG:   A[j] = LOG(MAX(ak, DU_LNX));      break;  /// * clamped
+        case TANH:  A[j] = TANH(ak);                  break;
+        case RELU:  A[j] = RELU(ak);                  break;
+        case SIGM:  A[j] = SIGMOID(ak);               break;
+        case SQRT:  A[j] = SQRT(MAX(ak, 0.0));        break;  /// * guarded
+        case RCP:   A[j] = RCP(ak);                   break;  /// 1/x
+        case SAT:   A[j] = SAT(ak);                   break;  /// [0.0..1.0]
+        case FILL:  A[j] = v;                         break;
+        case GFILL: A[j] = v * j / n;                 break;  /// gradient fill
+        case SCALE: A[j] *= v;                        break;
+        case POW:   A[j] = POW(ak, v);                break;  /// x^v
+        case ADD:   A[j] += v;                        break;
+        case SUB:   A[j] -= v;                        break;
+        case MUL:   A[j] *= v;                        break;
+        case DIV:   A[j] /= v;                        break;
         default: printf("k_math op=%d not supported\n", op);
         }
     }
@@ -449,13 +449,13 @@ k_math(math_op op, float *A, U64 n, float v) {
 ///
 __KERN__ void
 k_tt_op(math_op op, float *A, float *B, float *O, U64 n) {
-    const U64 k = (U64)blockIdx.x * blockDim.x + threadIdx.x;
-    if (k < n) {
-        switch (op) {                                     /// no divergence
-        case ADD: O[k] = A[k] + B[k]; break;
-        case SUB: O[k] = A[k] - B[k]; break;
-        case MUL: O[k] = A[k] * B[k]; break;              /// * convolution
-        case DIV: O[k] = A[k] / B[k]; break;
+    const U64 j = (U64)blockIdx.x * blockDim.x + threadIdx.x; ///< numel range 2G * 1K = 2T, U41
+    if (j < n) {
+        switch (op) {                                         /// no divergence
+        case ADD: O[j] = A[j] + B[j]; break;
+        case SUB: O[j] = A[j] - B[j]; break;
+        case MUL: O[j] = A[j] * B[j]; break;                  /// * convolution
+        case DIV: O[j] = A[j] / B[j]; break;
         }
     }
 }
@@ -464,13 +464,13 @@ k_tt_op(math_op op, float *A, float *B, float *O, U64 n) {
 ///
 __KERN__ void
 k_ts_op(math_op op, float *A, float v, float *O, U64 n) {
-    const U64 k = (U64)blockIdx.x * blockDim.x + threadIdx.x;
-    if (k < n) {
-        switch (op) {                                      /// no divergence
-        case ADD: O[k] = A[k] + v; break;
-        case SUB: O[k] = A[k] - v; break;
-        case MUL: O[k] = A[k] * v; break;                  /// * convolution
-        case DIV: O[k] = A[k] / v; break;
+    const U64 j = (U64)blockIdx.x * blockDim.x + threadIdx.x; ///< numel range 2G * 1K = 2T, U41
+    if (j < n) {
+        switch (op) {                                         /// no divergence
+        case ADD: O[j] = A[j] + v; break;
+        case SUB: O[j] = A[j] - v; break;
+        case MUL: O[j] = A[j] * v; break;                     /// * convolution
+        case DIV: O[j] = A[j] / v; break;
         }
     }
 }
