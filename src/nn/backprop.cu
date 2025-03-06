@@ -147,9 +147,9 @@ __KERN__ void k_dactivate(
     DU *I, DU *F, DU *O,                   ///< input, filter, output
     U64 numel                              ///< tensor element count
     ) {
-    const U64 k = (U64)blockIdx.x * blockDim.x + threadIdx.x;   ///< element index
+    const U64 j = (U64)blockIdx.x * blockDim.x + threadIdx.x;   ///< element index
 
-    if (k < numel) I[k] = O[k] * F[k];     /// * Harmand product
+    if (j < numel) I[j] = O[j] * F[j];     /// * Harmand product
 }
 
 __KERN__ void k_dbatchnorm_1(
@@ -157,13 +157,13 @@ __KERN__ void k_dbatchnorm_1(
     DU *sum, DU *g_var,                    ///< sum(x_hat), gamma/(stdvar+e)
     U64 HW                                 ///< H0=H1, W0==W1 (C0==C1)
     ) {
-    const U64 i  = (U64)threadIdx.x + blockIdx.x * blockDim.x;  ///< element index
+    const U64 j  = (U64)threadIdx.x + blockIdx.x * blockDim.x;  ///< element index
     const U32 c  = blockIdx.y, C = gridDim.y;              ///< channel deep
     const U64 ns = HW * blockIdx.z * C;                    ///< batch slice index
-    const U64 k  = (U64)C * i + ns + c;                    ///< output tensor index
+    const U64 k  = (U64)C * j + ns + c;                    ///< output tensor index
     const DU  _N = 1.0 / gridDim.z;                        ///< 1.0/HWN
 
-    if (i < HW) {
+    if (j < HW) {
         I[k] = (O[k] - sum[c] * _N) * g_var[c];            /// * dX = g_var * (dout - sum(dout) / N)
         O[k] *= X[k];                                      /// * dout * x_hat
     }
@@ -172,12 +172,12 @@ __KERN__ void k_dbatchnorm_2(
     DU *I, DU *X, DU *sum,                 ///< input, x_hat
     U64 HW                                 ///< H0=H1, W0==W1 (C0==C1)
     ) {
-    const U64 i  = (U64)blockIdx.x * blockDim.x + threadIdx.x;  ///< element index
+    const U64 j  = (U64)blockIdx.x * blockDim.x + threadIdx.x;  ///< element index
     const U32 c  = blockIdx.y, C = gridDim.y;              ///< channel deep
     const U64 ns = HW * C * blockIdx.z;                    ///< batch slice index
-    const U64 k  = (U64)C * i + ns + c;                    ///< output tensor index
+    const U64 k  = (U64)C * j + ns + c;                    ///< output tensor index
 
-    if (i < HW) I[k] -= X[k] * sum[c];
+    if (j < HW) I[k] -= X[k] * sum[c];
 }
 ///
 /// backprop: Neural Network back propegation
