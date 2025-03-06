@@ -388,37 +388,36 @@ d_hash(const char *s) {
   Tensor basic ops
 */
 __KERN__ void
-k_copy(float *src, float *dst, int n) {                    ///< Note: (src, dst)
-    int k = threadIdx.x + blockIdx.x * blockDim.x;
+k_copy(float *src, float *dst, U64 n) {                    ///< Note: (src, dst)
+    U64 k = (U64)blockIdx.x * blockDim.x + threadIdx.x;
     if (k < n) dst[k] = src[k];
 }
 __KERN__ void
-k_transpose(float *src, float *dst, int H, int W) {        ///< Note: (src, dst)
-    const int i = threadIdx.y + blockIdx.y * blockDim.y;
-    const int j = threadIdx.x + blockIdx.x * blockDim.x;
-    const int c = blockIdx.z, C = gridDim.z;               ///< channel deep
+k_transpose(float *src, float *dst, U32 H, U32 W) {        ///< Note: (src, dst)
+    const U32 i = blockIdx.y * blockDim.y + threadIdx.y;
+    const U32 j = blockIdx.x * blockDim.x + threadIdx.x;
+    const U32 c = blockIdx.z, C = gridDim.z;               ///< channel deep
 
     if (i < H && j < W && c < C) {
-        dst[c + (i + j * H) * C] = src[c + (j + i * W) * C];
+        dst[((U64)H * j + i) * C + c] = src[((U64)W * i + j) * C + c];
     }
 }
 __KERN__ void
-k_identity(float *t, int H, int W, int sz) {
+k_identity(float *t, U32 H, U32 W) {
     const float i01[2] = { 0.0f, 1.0f };
-    
-    const int i = threadIdx.y + blockIdx.y * blockDim.y;
-    const int j = threadIdx.x + blockIdx.x * blockDim.x;
-    const int c = blockIdx.z, C = gridDim.z;               ///< channel deep
+    const U32 i = blockIdx.y * blockDim.y + threadIdx.y;
+    const U32 j = blockIdx.x * blockDim.x + threadIdx.x;
+    const U32 c = blockIdx.z, C = gridDim.z;               ///< channel deep
 
     if (i < H && j < W && c < C) {
-        t[c + (j + i * W) * C] = i01[i==j];
+        t[((U64)W * i + j) * C + c] = i01[i==j];
     }
 }
 
 #define DU_LNX   1.0e-12                                      /* log clamp */
 __KERN__ void
-k_math(math_op op, float *A, int n, float v) {
-    const int k = threadIdx.x + blockIdx.x * blockDim.x;
+k_math(math_op op, float *A, U64 n, float v) {
+    const U64 k = (U64)blockIdx.x * blockDim.x + threadIdx.x;
     float ak = A[k];                             ///< cache value
     if (k < n) {
         switch(op) {
@@ -449,9 +448,8 @@ k_math(math_op op, float *A, int n, float v) {
 /// tensor-tensor element-wise ops
 ///
 __KERN__ void
-k_tt_op(math_op op, float *A, float *B, float *O, int n) {
-    const int k = threadIdx.x + blockIdx.x * blockDim.x;  ///< element index
-
+k_tt_op(math_op op, float *A, float *B, float *O, U64 n) {
+    const U64 k = (U64)blockIdx.x * blockDim.x + threadIdx.x;
     if (k < n) {
         switch (op) {                                     /// no divergence
         case ADD: O[k] = A[k] + B[k]; break;
@@ -465,8 +463,8 @@ k_tt_op(math_op op, float *A, float *B, float *O, int n) {
 /// tensor-scalar element-wise ops
 ///
 __KERN__ void
-k_ts_op(math_op op, float *A, float v, float *O, int n) {
-    const int k = threadIdx.x + blockIdx.x * blockDim.x;   ///< element index
+k_ts_op(math_op op, float *A, float v, float *O, U64 n) {
+    const U64 k = (U64)blockIdx.x * blockDim.x + threadIdx.x;
     if (k < n) {
         switch (op) {                                      /// no divergence
         case ADD: O[k] = A[k] + v; break;

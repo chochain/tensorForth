@@ -10,6 +10,11 @@
 #include <stddef.h>
 #include "ten4_config.h"
 ///
+///@name common size
+///@{
+typedef uint32_t U32;
+typedef uint64_t U64;
+///
 ///@name Alignment macros
 ///@{
 #define ALIGN2(sz)  ((sz) + (sz & 0x1))
@@ -120,12 +125,12 @@ __GPU__ int          d_hash(const char *s);
 ///@}
 ///@name Tensor ops (kernel mode)
 ///@{
-__KERN__ void        k_copy(float *src, float *dst, int n);                    ///< Note: (src, dst)
-__KERN__ void        k_transpose(float *src, float *dst, int h, int w);        ///< Note: (src, dst), TODO: CDP
-__KERN__ void        k_identity(float *t, int h, int w, int c);
-__KERN__ void        k_math(math_op op, float *dst, int n, float v=0.0);       ///< tensor math ops
-__KERN__ void        k_ts_op(math_op op, float *A, float v, float *O, int n);  ///< tensor-scalar ops
-__KERN__ void        k_tt_op(math_op op, float *A, float *B, float *O, int n); ///< tensor-tensor ops
+__KERN__ void        k_copy(float *src, float *dst, U64 n);                    ///< Note: (src, dst)
+__KERN__ void        k_transpose(float *src, float *dst, U32 h, U32 w);        ///< Note: (src, dst), TODO: CDP
+__KERN__ void        k_identity(float *t, U32 h, U32 w);
+__KERN__ void        k_math(math_op op, float *dst, U64 n, float v=0.0);       ///< tensor math ops
+__KERN__ void        k_ts_op(math_op op, float *A, float v, float *O, U64 n);  ///< tensor-scalar ops
+__KERN__ void        k_tt_op(math_op op, float *A, float *B, float *O, U64 n); ///< tensor-tensor ops
 ///@}
 ///==========================================================================
 ///@name Unified memory ops
