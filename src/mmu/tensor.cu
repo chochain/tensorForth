@@ -14,10 +14,10 @@
 /// Note: tiled_partition<32> used
 ///
 __KERN__ void k_sum(DU *I, DU *sum, U64 HW) {
-    const U64 i  = (U64)blockIdx.x * blockDim.x + threadIdx.x;  ///< element index
+    const U64 j  = (U64)blockIdx.x * blockDim.x + threadIdx.x;  ///< element index
     const U32 c  = blockIdx.y, C = gridDim.y;                   ///< channel
     const U64 ns = HW * C * blockIdx.z;                         ///< batch slice index
-    DU vi = i < HW ? I[(U64)C * i + ns + c] : DU0;              ///< keep v for shuffle
+    DU vi = j < HW ? I[(U64)C * j + ns + c] : DU0;              ///< keep v for shuffle
     ///
     /// prefix sum (32-threaded tile)
     ///
@@ -63,33 +63,33 @@ k_var(DU *I, DU *avg, DU *var, U64 HW) {
 
 __KERN__ void
 k_matmul(
-    DU *A, DU *B, DU *O,   /* O[NxHxWxC] = A[NxHxKxC] @ B[NxKxWxC] */
-    int H, int W, int K,
-    t4_mm_opt opt)
+    DU *A, DU *B, DU *O,   /* O[N*H*W*C] = A[N*H*K*C] @ B[N*K*W*C] */
+    t4_mm_opt opt,
+    U32 K, U32 H, U32 W)
 {
-    const int i  = threadIdx.y + blockIdx.y * blockDim.y;  ///< H
-    const int j  = threadIdx.x + blockIdx.x * blockDim.x;  ///< W
-    const int c  = blockIdx.z,  C = gridDim.z;             ///< C
-    const int z0 = c + (j + i * W) * C;                    ///< output matrix index
+    const U32 i  = blockIdx.y * blockDim.y + threadIdx.y;  ///< H  65M range
+    const U32 j  = blockIdx.x * blockDim.x + threadIdx.x;  ///< W  2T  range
+    const U32 c  = blockIdx.z,  C = gridDim.z;             ///< C
+    const U64 z0 = ((U64)W * i + j) * C + c;               ///< output matrix index
     
     if (i < H && j < W && c < C) {                         /// * TODO: tiled
         DU  *ax, *bx;
-        int ai, bi;
+        U64 ai, bi;
         if (opt & MM_A_TXP) {                              /// * transpose A
-            ax = &A[c + i * C];     ai = H * C;
-            bx = &B[c + j * C];     bi = W * C;
+            ax = &A[(U64)C * i + c]; ai = (U64)H * C;
+            bx = &B[(U64)C * j + c]; bi = (U64)W * C;
         }
         else if (opt & MM_B_TXP) {                         /// * transpose B
-            ax = &A[c + i * K * C]; ai = C;
-            bx = &B[c + j * K * C]; bi = C;
+            ax = &A[(U64)C * K * i + c]; ai = (U64)C;
+            bx = &B[(U64)C * K * j + c]; bi = (U64)C;
         }
         else {                                             /// * no tranposition
-            ax = &A[c + i * K * C]; ai = C;
-            bx = &B[c + j * C];     bi = W * C;
+            ax = &A[(U64)C * K * i + c]; ai = (U64)C;
+            bx = &B[(U64)C * j + c];     bi = (U64)W * C;
         }
         DU2 acc = DU0;                                     /// * TODO: suffle sum
 //      acc += ax[k * C] * bx[k * N * C];                  /// * 8.1 ms 1Kx1K
-        for (int k = 0; k < K; k++, ax += ai, bx += bi) {
+        for (U32 k = 0; k < K; k++, ax += ai, bx += bi) {
             acc += (*ax) * (*bx);                          /// * 6.2 ms 1Kx1K
         }
         if (opt & MM_INC) O[z0] += acc;                    /// * increment O
@@ -103,21 +103,21 @@ k_matmul(
 ///
 __KERN__ void
 k_gemm(
-    DU *A, DU *B, DU *O,  /* O[HxWxC] = a * A[HxKxC] @ B[KxWxC] + b * O[HxWxC] */
-    int H, int W, int K,
-    DU alpha, DU beta)
+    DU *A, DU *B, DU *O,  /* O[H*W*C] = a * A[H*K*C] @ B[K*W*C] + b * O[H*W*C] */
+    DU alpha, DU beta,
+    U32 K, U32 H, U32 W)
 {
-    const int i = threadIdx.y + blockIdx.y * blockDim.y;   ///< H
-    const int j = threadIdx.x + blockIdx.x * blockDim.x;   ///< W
-    const int c = blockIdx.z, C = gridDim.z;               ///< channel deep
-    const int WC= W * C;
-    const int z0= c + (j + i * W) * C;                     ///< output index
+    const U32 i = threadIdx.y + blockIdx.y * blockDim.y;   ///< H
+    const U32 j = threadIdx.x + blockIdx.x * blockDim.x;   ///< W
+    const U32 c = blockIdx.z, C = gridDim.z;               ///< channel deep
+    const U64 WC= W * C;
+    const U64 z0= ((U64)W * i + j) * C + c;                ///< output index
 
     if (i < H && j < W && c < C) {                         /// * TODO: tiled
-        DU *ax = &A[c + i * K * C];
-        DU *bx = &B[c + j * C];
+        DU *ax = &A[(U64)C * K * i + c];
+        DU *bx = &B[(U64)C * j + c];
         DU2 acc = DU0;                                     /// * TODO: suffle sum
-        for (int k = 0; k < K; k++, ax += C, bx += WC) {
+        for (U32 k = 0; k < K; k++, ax += C, bx += WC) {
             acc += (*ax) * (*bx);
         }
         O[z0] = alpha * acc + beta * O[z0];                /// * scaling
@@ -127,11 +127,11 @@ k_gemm(
 /// Binary Cross-Entropy (clamps output to >= -100)
 ///
 __KERN__ void
-k_bce(DU *O, DU *T, int numel) {
-    const int i = threadIdx.x + blockIdx.x * blockDim.x;  ///< element index
-    if (i < numel) {
+k_bce(DU *O, DU *T, U64 numel) {
+    const U64 j = (U64)blockIdx.x * blockDim.x + threadIdx.x;  ///< element index
+    if (j < numel) {
 //        O[i] = ABS(T[i]) < DU_EPS ? LN(DU1 - O[i] + DU_EPS) : LN(O[i] + DU_EPS);
-        O[i] = T[i] * LN(O[i] + DU_EPS) + (DU1 - T[i]) * LN(DU1 - O[i] + DU_EPS);
+        O[j] = T[j] * LN(O[j] + DU_EPS) + (DU1 - T[j]) * LN(DU1 - O[j] + DU_EPS);
     }
 }
 ///
@@ -143,10 +143,7 @@ Tensor::ten_op(math_op op, Tensor &A, DU v, Tensor &O) {
     OPN(MATH_OP);
     MM_DB("  tensor#ten_op [%d,%d,%d,%d] %s %6.2f\n", N, H, W, C, opn[op], v);
 
-    dim3 blk(T4_WARP_SQ, 1, 1);
-    dim3 grd((A.numel + blk.x - 1) / blk.x, 1, 1);
-    
-    k_ts_op<<<grd, blk>>>(op, A.data, v, O.data, A.numel);
+    FORK(k_ts_op, A.numel, op, A.data, v, O.data);
     return O;
 }
 ///
@@ -158,10 +155,7 @@ Tensor::ten_op(math_op op, Tensor &A, Tensor &B, Tensor &O) {
     OPN(MATH_OP);
     MM_DB("  tensor#ten_op  %s([%d,%d,%d,%d])\n", opn[op], N, H, W, C);
     
-    dim3 blk(T4_WARP_SQ, 1, 1);
-    dim3 grd((A.numel + blk.x - 1) / blk.x, 1, 1);
-    
-    k_tt_op<<<grd, blk>>>(op, A.data, B.data, O.data, A.numel);
+    FORK(k_tt_op, A.numel, op, A.data, B.data, O.data);
     return O;
 }
 __GPU__ Tensor&
@@ -178,12 +172,9 @@ Tensor::mm(
     }
     MM_DB("  tensor#matmul K=%d => NHWC=[%d,%d,%d,%d]\n", Ka, N, H, W, C);
     
-    dim3 blk(T4_WARP_SZ, T4_WARP_SZ, 1);
-    dim3 grd(NGRID(W, H, C, blk));
-
-    for (int n = 0; n < N; n++) {
+    for (U32 n = 0; n < N; n++) {
         DU *da = A.data, *db = B.slice(n), *dx = O.slice(n);
-        k_matmul<<<grd,blk>>>(da, db, dx, H, W, Ka, opt);
+        FORK3(k_matmul, H, W, C, da, db, dx, opt, Ka);
     }
     return O;
 }
@@ -200,21 +191,17 @@ Tensor::gemm(Tensor &A, Tensor &B, Tensor &O, DU alpha, DU beta) {
     }
     MM_DB("  tensor#gemm K=%d, a=%g, b=%g => NHWC=[%d,%d,%d,%d]\n",
           Ka, alpha, beta, N, H, W, C);
-    dim3 blk(T4_WARP_SZ, T4_WARP_SZ, 1);
-    dim3 grd(NGRID(W, H, C, blk));
 
-    for (int n = 0; n < N; n++) {
+    for (U32 n = 0; n < N; n++) {
         DU *da = A.data, *db = B.slice(n), *dx = O.slice(n);
-        k_gemm<<<grd, blk>>>(da, db, dx, H, W, Ka, alpha, beta);
+        FORK3(k_gemm, H, W, C, da, db, dx, alpha, beta, Ka);
     }
     return O;
 }
 __GPU__ Tensor&
 Tensor::copy(Tensor &A, Tensor &O) {
     MM_DB("  tensor#copy %p to %p numel=%ld\n", A.data, O.data, A.numel);
-    int n = (A.numel + T4_WARP_SQ - 1) / T4_WARP_SQ;
-    
-    k_copy<<<n, T4_WARP_SQ>>>(A.data, O.data, A.numel);
+    FORK(k_copy, A.numel, A.data, O.data);
     return O;
 }
 __GPU__ Tensor&
@@ -222,12 +209,9 @@ Tensor::transpose(Tensor &A, Tensor &T) {
     U32 N = A.N(), H = A.H(), W = A.W(), C = A.C();
     MM_DB("  tensor#transpose A[%d,%d,%d,%d]\n", N, H, W, C);
     
-    dim3 blk(T4_WARP_SZ, T4_WARP_SZ, 1);
-    dim3 grd(NGRID(W, H, C, blk));
-
-    for (int n = 0; n < N; n++) {
+    for (U32 n = 0; n < N; n++) {
         DU *da = A.slice(n), *dt = T.slice(n);
-        k_transpose<<<grd, blk>>>(da, dt, H, W);
+        FORK3(k_transpose, H, W, C, da, dt);
     }
     return T;
 }
@@ -415,11 +399,8 @@ Tensor::plu(Tensor &A, Tensor &P, int *ns) {
 __GPU__ DU
 Tensor::sum() {
     static DU sum; sum = DU0; ///< static shared memory
-
-    dim3 blk(T4_WARP_SQ, 1, 1);
-    dim3 grd((numel + blk.x - 1)/blk.x, 1, 1);
-
-    k_sum<<<grd, blk>>>(data, &sum, numel);  /// * 8x straight loop
+    
+    FORK(k_sum, numel, data, &sum);               /// * 8x straight loop
     return SCALAR(sum);
 }
 __GPU__ DU
@@ -432,10 +413,7 @@ Tensor::std() {
     static DU sum, avg;
     sum = DU0; avg = this->avg();
 
-    dim3 blk(T4_WARP_SQ, 1, 1);
-    dim3 grd((numel + blk.x - 1)/blk.x, 1, 1);
-
-    k_var<<<grd, blk>>>(data, &avg, &sum, numel);  /// * 8x straight loop
+    FORK(k_var, numel, data, &avg, &sum);        /// * 8x straight loop
     
     DU v = numel ? SQRT(sum / numel) : DU0;
     return SCALAR(v);
@@ -487,9 +465,7 @@ Tensor::loss(t4_loss op, Tensor &tgt) {
         sum = 0.5 * this->sum();
         break;
     case LOSS_BCE: {                 /// * binary cross_entropy, input from sigmoid
-        dim3 blk(T4_WARP_SQ, 1, 1);
-        dim3 grd((numel + blk.x - 1)/blk.x, 1, 1);
-        k_bce<<<grd, blk>>>(data, tgt.data, numel);
+        FORK(k_bce, numel, data, tgt.data);
         sum = -this->sum();          /// * -(y * ln(out_i) + (1-y) * ln(1-out_i))
     } break;
     case LOSS_CE:                    /// * cross_entropy, input from softmax
@@ -642,11 +618,9 @@ Tensor::reshape(U32 c1, U32 n, U32 h, U32 w, U32 c) {
 
 __BOTH__ Tensor&
 Tensor::identity() {
-    dim3 blk(T4_WARP_SZ, T4_WARP_SZ, 1);
-    dim3 grd(NGRID(W(), H(), C(), blk));
-
+    const U32 W = this->W(), H = this->H(), C = this->C();
     for (U32 n = 0; n < N(); n++) {
-        k_identity<<<grd, blk>>>(slice(n), H(), W());
+        FORK3(k_identity, H, W, C, slice(n));
     }
     return *this;
 }
@@ -655,20 +629,14 @@ __BOTH__ Tensor&
 Tensor::map(math_op op, DU v) {
     OPN(MATH_OP);
     MM_DB("  tensor#%s v=%g\n", opn[op], v);
-    U32 g = (numel + T4_WARP_SQ - 1) / T4_WARP_SQ;
-    
-    k_math<<<g, T4_WARP_SQ>>>(op, data, numel, v);
+    FORK(k_math, numel, op, data, v);
     return *this;
 }
 
 __BOTH__ Tensor&
 Tensor::normalize(DU avg, DU std) {
-    dim3 blk(T4_WARP_SQ, 1, 1);
-    dim3 grd((numel + blk.x - 1) / blk.x, 1, 1);
-    
-    k_ts_op<<<grd, blk>>>(SUB, data, avg, data, numel);
-    k_ts_op<<<grd, blk>>>(DIV, data, std, data, numel);
-    
+    FORK(k_ts_op, numel, SUB, data, avg, data);
+    FORK(k_ts_op, numel, DIV, data, std, data);
     return *this;
 }
 ///=======================================================================
