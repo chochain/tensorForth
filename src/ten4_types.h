@@ -105,8 +105,23 @@ typedef float       F32;                    ///< single precision float
 ///@}
 ///@name CUDA specific macros
 ///@{
-#define ALIGN(sz)       ALIGN4(sz)
-#define NGRID(w,h,n,b)  ((w)+(b).x-1)/(b).x,((h)+(b).y-1)/(b).y,(n)
+#define ALIGN(sz) ALIGN4(sz)
+#define FORK(fn,n,...) {                                    \
+    const dim3 _b(T4_WARP_SQ, 1, 1);                        \
+    const dim3 _g(((n) + _b.x - 1) / _b.x, 1, 1);           \
+    fn<<<_g,_b,0,cudaStreamTailLaunch>>>(__VA_ARGS__,n);    \
+}
+#define FORK3(fn,h,w,c,...) {                               \
+    const dim3 _b(T4_WARP_SZ, T4_WARP_SZ, 1);               \
+    const dim3 _g(((w) + _b.x - 1) / _b.x,                  \
+                  ((h) + _b.y - 1) / _b.y, c);              \
+    fn<<<_g,_b,0,cudaStreamTailLaunch>>>(__VA_ARGS__,h,w);  \
+}
+#define FORK4(fn,...) { /** N,H,W,C (default param) */      \
+    const dim3 _b(T4_WARP_SQ, 1, 1);                        \
+    const dim3 _g(((U64)(W)*(H) + _b.x - 1) / _b.x, C, N);  \
+    fn<<<_g,_b,0,cudaStreamTailLaunch>>>(__VA_ARGS__);      \
+}
 ///@}
 //===============================================================================
 /// tensorForth common data types
