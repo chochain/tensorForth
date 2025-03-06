@@ -9,8 +9,8 @@
 #include "nn/dataset.h"
 #include "nn/model.h"
 
-System  *_sys = NULL;                  ///< singleton controller on host
-__GPU__ curandState *_rand_st;         ///< for random number generator
+System  *_sys = NULL;                ///< singleton controller on host
+__GPU__ curandState *_rand_st;       ///< for random number generator
 __GPU__ int _khz  = 0;
 ///
 /// random number generator setup
@@ -28,12 +28,13 @@ k_rand_init(U64 seed, int khz) {
 }
 
 __KERN__ void
-k_rand(DU *mat, int sz, DU bias, DU scale, rand_opt ntype) {
-    int tx = threadIdx.x;             ///< thread idx
-    int n  = (sz / blockDim.x) + 1;   ///< loop counter
+k_rand(DU *mat, U64 sz, DU bias, DU scale, rand_opt ntype) {
+    U32 n  = (sz / blockDim.x) + 1;  ///< loop counter
+    U32 tx = threadIdx.x;            ///< thread idx (T4_RAN_SZ)
+    U64 x  = (U64)tx;                 
     
-    curandState s = _rand_st[tx];     /// * cache state into local register
-    for (int i=0, x=tx; i<n; i++, x+=blockDim.x) {  /// * scroll through pages
+    curandState s = _rand_st[tx];    /// * cache state into local register
+    for (U32 i=0; i<n; i++, x+=blockDim.x) {  /// * scroll through pages
         if (x < sz) {
             mat[x]= scale * (
                 bias + (ntype==NORMAL ? curand_normal(&s) : curand_uniform(&s))
@@ -96,6 +97,7 @@ System::delay(int ticks) {
 
 __GPU__ void
 System::rand(DU *d, U64 sz, rand_opt n, DU bias, DU scale) {
+    /// rand states are dependent, cannot run parallel with multi-blocks
     k_rand<<<1, T4_RAND_SZ>>>(d, sz, bias, scale, n);
 }
 
