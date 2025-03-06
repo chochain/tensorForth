@@ -64,7 +64,7 @@ __KERN__ void k_conv2d(
 
 __KERN__ void k_linear(
     DU *I, DU *O, DU *W, DU *B,
-    U32 C1, U32 C0, U64 HWC1, U64 HWC0
+    U64 HWC1, U64 HWC0, U32 C1, U32 C0
     ) {
     const U64 c1 = (U64)blockIdx.x * blockDim.x + threadIdx.x;
     const U64 c0 = (U64)blockIdx.y * blockDim.y + threadIdx.y;
@@ -324,12 +324,9 @@ Model::_flinear(Tensor &in, Tensor &out) {
         qa_calc(tw, tb);                              /// * serial code
     }
     else {                                            
-        dim3 blk(T4_WARP_SZ, T4_WARP_SZ, 1);          ///< default blocks
-        dim3 grd(NGRID(C1, C0, N, blk));              ///< default grids
-
-        k_linear<<<grd,blk>>>(
-            in.data, out.data, tw.data, tb.data,
-            C1, C0, in.HWC(), out.HWC());
+        FORK3(k_linear, C1, C0, N,
+              in.data, out.data, tw.data, tb.data,
+              in.HWC(), out.HWC());
         // GPU_SYNC();
     }
     return 0;
@@ -337,13 +334,9 @@ Model::_flinear(Tensor &in, Tensor &out) {
 
 __GPU__ int
 Model::_factivate(Tensor &in, Tensor &out, t4_layer fn) {
-    dim3 blk(T4_WARP_SQ, 1, 1);                        ///< default blocks
-    dim3 grd((in.numel + blk.x - 1)/blk.x, 1, 1);
-
     DU alpha = 0.001 * in.parm;
-
-    k_activate<<<grd, blk>>>(
-        fn, in.data, in.grad[0]->data, out.data, alpha, in.numel);
+    FORK(k_activate, in.numel, 
+         fn, in.data, in.grad[0]->data, out.data, alpha);
     // GPU_SYNC();
     return 0;
 }
@@ -351,14 +344,12 @@ Model::_factivate(Tensor &in, Tensor &out, t4_layer fn) {
 __GPU__ int
 Model::_fpool(Tensor &in, Tensor &out, t4_layer fn) {
     const U32 W  = out.W(), H = out.H();                ///< output dimensions
+    const U32 C  = out.C(), N = out.N();
     const int ks = in.parm;                             ///< kernel size
 
-    dim3 blk(T4_WARP_SQ, 1, 1);                         ///< default blocks
-    dim3 grd(((U64)H * W + blk.x - 1) / blk.x, out.C(), out.N());
-
     switch(ks) {                                        /// pooling kernel size
-    case 2: k_pool<2><<<grd,blk>>>(fn, in.data, out.data, H, W); break;
-    case 3: k_pool<3><<<grd,blk>>>(fn, in.data, out.data, H, W); break;
+    case 2: FORK4(k_pool<2>, fn, in.data, out.data, H, W); break;
+    case 3: FORK4(k_pool<3>, fn, in.data, out.data, H, W); break;
     default:
         ERROR("model#pooling kernel_size=%d not supported\n", ks);
         return -1;
@@ -407,8 +398,8 @@ extern __KERN__ void k_sum(DU *I, DU *sum, U64 HW);
 extern __KERN__ void k_var(DU *I, DU *avg, DU *var, U64 HW);
 __GPU__ int
 Model::_fbatchnorm(Tensor &in, Tensor &out) {
-    const U32 N   = out.N(), C = out.C(), W = out.W(); ///< C0==C1
-    const U64 HW  = (U64)W * out.H();
+    const U32 N   = out.N(), C = out.C(), H = out.H(), W = out.W(); ///< C0==C1
+    const U64 HW  = (U64)H * W;
     const U64 NHW = HW * N;
 
     DU *w   = &in.grad[0]->data[0];                    ///< weight/gamma
@@ -417,25 +408,20 @@ Model::_fbatchnorm(Tensor &in, Tensor &out) {
     DU *var = &in.grad[1]->data[C];                    ///< 1.0/(var+e)^0.5
     DU *xht = in.grad[3]->data;                        ///< x_hat
 
-    dim3 blk(T4_WARP_SQ, 1, 1);                        ///< default blocks
-    dim3 grd((HW + blk.x - 1)/blk.x, C, N);
-
     for (U32 c=0; c < C; c++) avg[c] = var[c] = DU0;   /// * zero
-    k_sum<<<grd, blk>>>(in.data, avg, HW);             /// * capture sum
+    FORK4(k_sum, in.data, avg, HW);                    /// * capture sum
     // GPU_SYNC();
     
     for (U32 c=0; c < C; c++) avg[c] /= NHW;           /// * calc mean per channel
-    k_var<<<grd, blk>>>(in.data, avg, var, HW);        /// * capture variance
+    FORK4(k_var, in.data, avg, var, HW);               /// * capture variance
     // GPU_SYNC();
 
     const DU m = 0.001 * in.parm;                      ///< ETA momentum, TODO:
     for (U32 c=0; c < C; c++) {
         var[c] = 1.0 / SQRT(var[c] / NHW + DU_EPS);    ///< calc population stdvar
     }
-
-    k_batchnorm<<<grd, blk>>>(                         /// * O = x_hat*gamma + beta
-        in.data, out.data, xht, avg, var, w, b, HW
-    );
+    
+    FORK4(k_batchnorm, in.data, out.data, xht, avg, var, w, b, HW); /// * O = x_hat*gamma + beta
     // GPU_SYNC();
     return 0;
 }
@@ -447,15 +433,13 @@ __KERN__ void k_dpool(t4_layer op, DU *I, DU *O, U32 H, U32 W);
 __GPU__ int
 Model::_fupsample(Tensor &in, Tensor &out) {
     const U32 W  = in.W(), H = in.H();                  ///< input dimensions (reversed pool)
+    const U32 C  = in.C(), N = in.N();
     const int me = (in.parm >> 8);                      ///< upsample method, TODO
     const int ks = in.parm & 0xff;                      ///< upsampling size
 
-    dim3 blk(T4_WARP_SQ, 1, 1);
-    dim3 grd(((U64)H * W + blk.x - 1) / blk.x, in.C(), in.N());
-
     switch(ks) {
-    case 2: k_dpool<2><<<grd,blk>>>(L_USAMPLE, out.data, in.data, H, W); break;
-    case 3: k_dpool<3><<<grd,blk>>>(L_USAMPLE, out.data, in.data, H, W); break;
+    case 2: FORK4(k_dpool<2>, L_USAMPLE, out.data, in.data, H, W); break;
+    case 3: FORK4(k_dpool<3>, L_USAMPLE, out.data, in.data, H, W); break;
     default:
         ERROR("model#upsample size=%d not supported\n", ks);
         return -1;
