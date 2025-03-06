@@ -130,32 +130,32 @@ __KERN__ void k_activate(
     t4_layer op, DU *I, DU *F, DU *O,      ///< func, input, filter, output tensors
     DU alpha, U64 numel                    ///< number of tensor elements
     ) {
-    const U64 k = (U64)blockIdx.x * blockDim.x + threadIdx.x;   ///< element index
+    const U64 j = (U64)blockIdx.x * blockDim.x + threadIdx.x;   ///< element index
 
-    if (k < numel) {
-        DU ik = I[k];                                      ///< use register
+    if (j < numel) {
+        DU k = I[j];                                       ///< use register
         switch (op) {
         case L_RELU:
-            O[k] = ik > DU0
-                ? (F[k]=DU1, ik) : (F[k]=DU0);      break; /// * 1|0
+            O[j] = k > DU0
+                ? (F[j]=DU1, k) : (F[j]=DU0);      break;  /// * 1|0
         case L_TANH:
-            O[k] = 0.5 * (DU1 + (ik=TANH(ik)));            /// * scaled to [0,1)
-            F[k] = DU1 - ik*ik;                     break; /// * (1 - tanh^2)
+            O[j] = 0.5 * (DU1 + (k=TANH(k)));              /// * scaled to [0,1)
+            F[j] = DU1 - k*k;                      break;  /// * (1 - tanh^2)
         case L_SIGMOID:
-            O[k] = ik = SIGMOID(ik);
-            F[k] = ik * (DU1 - ik);                 break; /// * sig*(1 - sig)
-        case L_SELU: O[k] = ik > DU0                       /// * selu
-            ? (F[k] = SELU_L, ik)
-            : (F[k] = SELU_LA * EXP(ik)) - SELU_LA; break;
-        case L_LEAKYRL: O[k] = ik > DU0
-            ? (F[k] = DU1, ik)
-            : (F[k] = alpha) * ik;                  break;
-        case L_ELU:     O[k] = ik > DU0
-            ? (F[k] = DU1, ik)
-            : (F[k] = alpha * EXP(ik)) - alpha;     break;
+            O[j] = k = SIGMOID(k);
+            F[j] = k * (DU1 - k);                  break;  /// * sig*(1 - sig)
+        case L_SELU: O[j] = k > DU0                        /// * selu
+            ? (F[j] = SELU_L, k)
+            : (F[j] = SELU_LA * EXP(k)) - SELU_LA; break;
+        case L_LEAKYRL: O[j] = k > DU0
+            ? (F[j] = DU1, k)
+            : (F[j] = alpha) * k;                  break;
+        case L_ELU:     O[j] = k > DU0
+            ? (F[j] = DU1, k)
+            : (F[j] = alpha * EXP(k)) - alpha;     break;
         case L_DROPOUT:
-            O[k] = F[k] > alpha
-            ? (F[k]=DU1, ik) : (F[k]=DU0);          break; /// * 1|0
+            O[j] = F[j] > alpha
+            ? (F[j]=DU1, k) : (F[j]=DU0);          break;  /// * 1|0
         }
     }
 }
@@ -166,12 +166,12 @@ __KERN__ void k_batchnorm(
     DU *gamma, DU *beta,
     U64 HW                                 ///< H0=H1, W0==W1 (C0==C1)
     ) {
-    const U64 i  = (U64)blockIdx.x * blockDim.x + threadIdx.x;  ///< element index
+    const U64 j  = (U64)blockIdx.x * blockDim.x + threadIdx.x;  ///< element index
     const U32 c  = blockIdx.y, C = gridDim.y;                   ///< channel deep
     const U64 ns = HW * C * blockIdx.z;                         ///< batch slice index
-    const U64 k  = (U64)C * i + ns + c;                         ///< output tensor index
+    const U64 k  = (U64)C * j + ns + c;                         ///< output tensor index
 
-    if (i < HW) {
+    if (j < HW) {
         O[k] = (X[k] = (I[k] - avg[c]) * ivar[c]) * gamma[c] + beta[c];
     }
 }
