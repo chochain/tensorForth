@@ -10,36 +10,36 @@
 #include "dataset.h"
 
 __KERN__ void k_sgd(
-    DU *G, DU *DG, DU *M,                    ///< w, dw, and momemtum tensors
-    U32 N, U64 numel,                        ///< batch size and HWC
-    DU lr, DU b                              ///< learn rate, beta(momemtum)
+    DU *G, DU *DG, DU *M,                   ///< w, dw, and momemtum tensors
+    U32 N, DU lr, DU b,                     ///< batch size, learn rate, beta(momemtum)
+    U64 numel                               ///< HWC
     ) {
-    const U64 i = (U64)blockIdx.x * blockDim.x + threadIdx.x;   ///< element index
+    const U64 j = (U64)blockIdx.x * blockDim.x + threadIdx.x;   ///< element index
     
-    if (i < numel) {
-        if (ABS(b) < DU_EPS) G[i] -= lr * DG[i] / N;
+    if (j < numel) {
+        if (ABS(b) < DU_EPS) G[j] -= lr * DG[j] / N;
         else {
-            DU dg = DG[i] / N;                             ///< dG batch avg
-            DU mi = M[i] = b * M[i] + (1.0 - b) * dg;      ///< momentum
-            G[i] -= lr * mi;                               /// * update gradient
+            DU dg = DG[j] / N;                             ///< dG batch avg
+            DU mi = M[j] = b * M[j] + (1.0 - b) * dg;      ///< momentum
+            G[j] -= lr * mi;                               /// * update gradient
         }
-        DG[i] = DU0;                                       /// * zero after batch
+        DG[j] = DU0;                                       /// * zero after batch
     }
 }
 
 __KERN__ void k_adam(
     DU *G, DU *DG, DU *M, DU *V,            ///< w, dw, and momemtum tensors
-    U32 N, U64 numel,                       ///< batch size and HWC
-    DU lrc, DU b1, DU b2                    ///< corrected learn rate, beta(momemtum)
+    U32 N, DU lrc, DU b1, DU b2,            ///< batch size,corrected learn rate, beta(momemtum)
+    U64 numel                               ///< HWC
     ) {
-    const U64 i = (U64)blockIdx.x * blockDim.x + threadIdx.x;   ///< element index
+    const U64 j = (U64)blockIdx.x * blockDim.x + threadIdx.x;   ///< element index
     
-    if (i < numel) {
-        DU dg = DG[i];                                     ///< dG (no batch avg)
-        DU mi = M[i] = b1 * M[i] + (DU1 - b1) * dg;        ///< momentum
-        DU vi = V[i] = b2 * V[i] + (DU1 - b2) * dg * dg;   ///< velocity
-        G[i] -= lrc * mi / (SQRT(vi) + DU_EPS);            /// * update gradient
-        DG[i] = DU0;                                       /// * zero out dG
+    if (j < numel) {
+        DU dg = DG[j];                                     ///< dG (no batch avg)
+        DU mi = M[j] = b1 * M[j] + (DU1 - b1) * dg;        ///< momentum
+        DU vi = V[j] = b2 * V[j] + (DU1 - b2) * dg * dg;   ///< velocity
+        G[j] -= lrc * mi / (SQRT(vi) + DU_EPS);            /// * update gradient
+        DG[j] = DU0;                                       /// * zero out dG
     }
 }
 
@@ -130,12 +130,9 @@ __GPU__ Model&
 Model::sgd(DU lr, DU b) {                          /// a=momentum
     auto update = [](DU *parm, Tensor *g, Tensor *dg, Tensor *m, Tensor *v) {
         const U64 numel = g->numel;
-        const dim3 blk(T4_WARP_SQ, 1, 1);          ///< default blocks
-        const dim3 grd((numel + blk.x - 1) / blk.x, 1, 1);
-
-        k_sgd<<<grd,blk>>>(
-            g->data, dg->data, m->data,
-            g->N(), numel, parm[0], parm[1]);
+        FORK(k_sgd, numel, 
+             g->data, dg->data, m->data,
+             g->N(), parm[0], parm[1]);
         // GPU_SYNC();
     };
     DU parm[2] = { lr, _iter ? b : DU0 };
@@ -147,12 +144,9 @@ __GPU__ Model&
 Model::adam(DU lr, DU b1, DU b2) {
     auto update = [](DU *parm, Tensor *g, Tensor *dg, Tensor *m, Tensor *v) {
         const U64 numel = g->numel;
-        const dim3 blk(T4_WARP_SQ, 1, 1);         ///< default blocks
-        const dim3 grd((numel + blk.x - 1) / blk.x, 1, 1);
-
-        k_adam<<<grd,blk>>>(
-            g->data, dg->data, m->data, v->data,
-            g->N(), numel, parm[0], parm[1], parm[2]);
+        FORK(k_adam, numel,
+             g->data, dg->data, m->data, v->data,
+             g->N(), parm[0], parm[1], parm[2]);
         // GPU_SYNC();
     };
     DU parm[3] = {
