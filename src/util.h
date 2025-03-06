@@ -128,7 +128,7 @@ __GPU__ int          d_hash(const char *s);
 __KERN__ void        k_copy(float *src, float *dst, U64 n);                    ///< Note: (src, dst)
 __KERN__ void        k_transpose(float *src, float *dst, U32 h, U32 w);        ///< Note: (src, dst), TODO: CDP
 __KERN__ void        k_identity(float *t, U32 h, U32 w);
-__KERN__ void        k_math(math_op op, float *dst, U64 n, float v=0.0);       ///< tensor math ops
+__KERN__ void        k_math(math_op op, float *dst, float v, U64 n);           ///< tensor math ops
 __KERN__ void        k_ts_op(math_op op, float *A, float v, float *O, U64 n);  ///< tensor-scalar ops
 __KERN__ void        k_tt_op(math_op op, float *A, float *B, float *O, U64 n); ///< tensor-tensor ops
 ///@}
