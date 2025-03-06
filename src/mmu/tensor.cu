@@ -39,10 +39,10 @@ __KERN__ void k_sum(DU *I, DU *sum, U64 HW) {
 ///
 __KERN__ void
 k_var(DU *I, DU *avg, DU *var, U64 HW) {
-    const U64 i  = (U64)blockIdx.x * blockDim.x + threadIdx.x;  ///< element index
+    const U64 j  = (U64)blockIdx.x * blockDim.x + threadIdx.x;  ///< element index
     const U32 c  = blockIdx.y, C = gridDim.y;                   ///< channel
     const U64 ns = HW * C * blockIdx.z;                         ///< batch slice index
-    DU v0 = i < HW ? I[(U64)C * i + ns + c] - avg[c] : DU0;
+    DU v0 = j < HW ? I[(U64)C * j + ns + c] - avg[c] : DU0;
     DU vi = v0 * v0;
     ///
     /// prefix sum every 32-threaded tile
@@ -67,8 +67,8 @@ k_matmul(
     t4_mm_opt opt,
     U32 K, U32 H, U32 W)
 {
-    const U32 i  = blockIdx.y * blockDim.y + threadIdx.y;  ///< H  65M range
     const U32 j  = blockIdx.x * blockDim.x + threadIdx.x;  ///< W  2T  range
+    const U32 i  = blockIdx.y * blockDim.y + threadIdx.y;  ///< H  65M range
     const U32 c  = blockIdx.z,  C = gridDim.z;             ///< C
     const U64 z0 = ((U64)W * i + j) * C + c;               ///< output matrix index
     
@@ -107,8 +107,8 @@ k_gemm(
     DU alpha, DU beta,
     U32 K, U32 H, U32 W)
 {
-    const U32 i = threadIdx.y + blockIdx.y * blockDim.y;   ///< H
     const U32 j = threadIdx.x + blockIdx.x * blockDim.x;   ///< W
+    const U32 i = threadIdx.y + blockIdx.y * blockDim.y;   ///< H
     const U32 c = blockIdx.z, C = gridDim.z;               ///< channel deep
     const U64 WC= W * C;
     const U64 z0= ((U64)W * i + j) * C + c;                ///< output index
