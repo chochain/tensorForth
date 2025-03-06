@@ -389,13 +389,13 @@ d_hash(const char *s) {
 */
 __KERN__ void
 k_copy(float *src, float *dst, U64 n) {                       ///< Note: (src, dst)
-    const U64 k = (U64)blockIdx.x * blockDim.x + threadIdx.x; ///< numel range 2G * 1K = 2T, U41
-    if (k < n) dst[k] = src[k];
+    const U64 j = (U64)blockIdx.x * blockDim.x + threadIdx.x; ///< numel range 2G * 1K = 2T, U41
+    if (j < n) dst[j] = src[j];
 }
 __KERN__ void
 k_transpose(float *src, float *dst, U32 H, U32 W) {           ///< Note: (src, dst)
-    const U32 i = blockIdx.y * blockDim.y + threadIdx.y;      ///< H range 65K * 1K = 65M, U26
     const U32 j = blockIdx.x * blockDim.x + threadIdx.x;      ///< W range 2G  * 1K = 2T,  U41
+    const U32 i = blockIdx.y * blockDim.y + threadIdx.y;      ///< H range 65K * 1K = 65M, U26
     const U32 c = blockIdx.z, C = gridDim.z;                  ///< channel deep
 
     if (i < H && j < W && c < C) {
@@ -405,8 +405,8 @@ k_transpose(float *src, float *dst, U32 H, U32 W) {           ///< Note: (src, d
 __KERN__ void
 k_identity(float *t, U32 H, U32 W) {                          ///< identity matrix (tensor)
     const float i01[2] = { 0.0f, 1.0f };
-    const U32 i = blockIdx.y * blockDim.y + threadIdx.y;
     const U32 j = blockIdx.x * blockDim.x + threadIdx.x;
+    const U32 i = blockIdx.y * blockDim.y + threadIdx.y;
     const U32 c = blockIdx.z, C = gridDim.z;                  ///< channel deep
 
     if (i < H && j < W && c < C) {
