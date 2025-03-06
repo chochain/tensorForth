@@ -200,7 +200,7 @@ TensorForth::run() {
         VM        *vm = h->vm;
         
         cudaEventRecord(h->t0, h->st);            /// * record start clock
-        k_vm_exec0<<<1, 1, 0, h->st>>>(vm);
+        k_vm_exec0<<<1, 1, 0, h->st>>>(vm);       /// * each VM on their own stream
         cudaEventRecord(h->t1, h->st);            /// * record end clock
     }
     GPU_CHK();
