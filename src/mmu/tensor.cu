@@ -646,7 +646,7 @@ Tensor::identity() {
     dim3 grd(NGRID(W(), H(), C(), blk));
 
     for (U32 n = 0; n < N(); n++) {
-        k_identity<<<grd, blk>>>(slice(n), H(), W(), sizeof(DU));
+        k_identity<<<grd, blk>>>(slice(n), H(), W());
     }
     return *this;
 }
