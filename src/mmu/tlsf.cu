@@ -425,25 +425,23 @@ TLSF::_show_stat() {
 
 __BOTH__ void
 TLSF::_dump_freelist() {
-#if MM_DEBUG
-    INFO("  tlsf#L1=%4x: ", _l1_map);
-    for (int i=L1_BITS-1;  i>=0; i--) {
-        INFO("%02x%s", _l2_map[i], i%4==0 ? " " : "");
+    MM_DB("  tlsf#L1=%4x: ", _l1_map);
+    for (int i=L1_BITS-1; i>=0; i--) {
+        MM_DB("%02x%s", _l2_map[i], i%4==0 ? " " : "");
     }
     for (int i=FL_SLOTS-1; i>=0; i--) {
         if (!_free_list[i]) continue;
-        INFO("\n\t<%02x>=>[", i);
+        MM_DB("\n\t<%02x>=>[", i);
         for (free_block *b = _free_list[i]; b!=NULL; b=NEXT_FREE(b)) {
-            INFO(" %x:%x", TADDR(b), b->bsz);
+            MM_DB(" %x:%x", TADDR(b), b->bsz);
             if (IS_USED(b)) {
-                INFO("<-USED?");
+                MM_DB("<-USED?");
                 break;                // something is wrong (link is broken here)
             }
         }
-        INFO(" ] ");
+        MM_DB(" ] ");
     }
-    INFO("\n");
-#endif // MM_DEBUG
+    MM_DB("\n");
 }
 
 #endif // T4_DO_OBJ
