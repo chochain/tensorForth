@@ -20,10 +20,10 @@ NetVM::_nnop(t4_layer op) {     /// vtable dispatcher
     ///
     /// handle tensor ops (destructive)
     ///
-    VLOG2("netvm#nnop %s", opn[op]);
+    VLOG("netvm#nnop %s", opn[op]);
     if (TOS1T) {
         Tensor &t = TTOS;
-        VLOG2(" T%d", t.rank);
+        VLOG(" T%d", t.rank);
         switch (op) {
         case L_FLATTEN: t.reshape(t.numel); return;
         case L_RELU:    t.map(RELU);        return;
@@ -44,7 +44,7 @@ NetVM::_nnop(t4_layer op) {     /// vtable dispatcher
     ///
     if (IS_M(tos)) {
         Model &m = MTOS;
-        VLOG2(" N%ld {\n", m.numel);
+        VLOG(" N%ld {\n", m.numel);
         switch (op) {
         case L_FLATTEN:
         case L_RELU:
@@ -65,7 +65,7 @@ NetVM::_nnop(t4_layer op) {     /// vtable dispatcher
     if (M1V) {
         DU    a  = POP();
         Model &m = MTOS;
-        VLOG2(" N%ld %g {\n", m.numel, a);
+        VLOG(" N%ld %g {\n", m.numel, a);
         switch (op) {
         case L_LINEAR:  m.add(op, INT(a), DU1);        return; /* bias = 1.0 */
         case L_LEAKYRL:
@@ -118,7 +118,7 @@ NetVM::_nnop(t4_layer op) {     /// vtable dispatcher
         }
         else ERROR("NetVM::nnop layer %d not supported(2)\n", op);
     }
-    VLOG2("} netvm#nnop\n");
+    VLOG("} netvm#nnop\n");
 }
 ///
 /// dataset ops
