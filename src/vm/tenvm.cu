@@ -22,15 +22,15 @@ TensorVM::process(char *idiom) {
 
     SCALAR(n);                                /// * mask out object bit
     if (compile) {                            /// * add literal when in compile mode
-        VLOG2("%d> %g\n", id, n);
+        VLOG("%d> %g\n", id, n);
         add_lit(n);                           ///> dovar (+parameter field)
     }
     else if (ten_lvl > 0) {                   /// * append literal into tensor storage
-        VLOG2("%d> T[%d]=%g\n", id, ten_off, n);
+        VLOG("%d> T[%d]=%g\n", id, ten_off, n);
         TTOS.data[ten_off++] = n;             /// * append to tensor.data (no stack used)
     }
     else {                                    ///> or, add value onto data stack
-        VLOG2("%d> ss.push(%g)=%08x\n", id, n, DU2X(n));
+        VLOG("%d> ss.push(%g)=%08x\n", id, n, DU2X(n));
         PUSH(n);
     }
     return 1;
@@ -68,7 +68,7 @@ TensorVM::xop1(math_op op, DU v) {
     if (!A.is_tensor()) { ERROR("tensor?"); return; }
 
     OPN(MATH_OP);
-    VLOG2("tenvm#xop1 %s(A[%d,%d])\n", opn[op], A.H(), A.W());
+    VLOG("tenvm#xop1 %s(A[%d,%d], %g)\n", opn[op], A.H(), A.W(), v);
     switch (op) {        /// * defined in ~/src/util.h
     case ABS:
     case NEG:
@@ -103,23 +103,23 @@ TensorVM::xop2(math_op op, t4_drop_opt x) {
     switch (tt) {                                 /// tensor flags
     case 0 /* ss */: _ss_op(op); break;           /// * scalar-scalar op ( a b -- c  )
     case 1 /* st */: {                            /// * scalar-tensor op ( n T -- T' )
-        VLOG2("%s %g %s A[%d,%d] {\n",
-              fn, ss[-1], opn[op], TTOS.H(), TTOS.W());
+        VLOG("%s %g %s A[%d,%d] {\n",
+             fn, ss[-1], opn[op], TTOS.H(), TTOS.W());
         Tensor &O = _st_op(op, x);
         if (x==T_KEEP) PUSH(O);
         else           ss.pop();
-        VLOG2("} %s => O[%d,%d]\n", fn, O.H(), O.W());
+        VLOG("} %s => O[%d,%d]\n", fn, O.H(), O.W());
     } break;
     case 2 /* ts */: {                            /// * tensor-scalar op ( T n -- T n T' )
-        VLOG2("%s A[%d,%d] %s %g {\n",
-              fn, TNOS.H(), TNOS.W(), opn[op], tos);
+        VLOG("%s A[%d,%d] %s %g {\n",
+             fn, TNOS.H(), TNOS.W(), opn[op], tos);
         Tensor &O = _ts_op(op, x);
         if (x==T_KEEP) PUSH(O);
         else           POP();
-        VLOG2("} %s => O[%d,%d]\n", fn, O.H(), O.W());
+        VLOG("} %s => O[%d,%d]\n", fn, O.H(), O.W());
     } break;
     case 3 /* tt */: {
-        VLOG2("%s A[%d,%d] %s B[%d,%d] {\n",
+        VLOG("%s A[%d,%d] %s B[%d,%d] {\n",
               fn, TNOS.H(), TNOS.W(), opn[op], TTOS.H(), TTOS.W());
         Tensor &O = _tt_op(op);                   /// * tensor-tensor element op ( A B -- A B C )
         if (O != TTOS) {
@@ -129,7 +129,7 @@ TensorVM::xop2(math_op op, t4_drop_opt x) {
             }
             PUSH(O);
         }
-        VLOG2("} %s => O[%d,%d]\n", fn, O.H(), O.W());
+        VLOG("} %s => O[%d,%d]\n", fn, O.H(), O.W());
     } break;
     }
 }
@@ -143,7 +143,7 @@ TensorVM::blas1(t4_ten_op op) {
     Tensor &A  = TTOS;
     if (!A.is_tensor() || A.rank != 2) { ERROR("tensor2?"); return; }
     
-    VLOG2("%s %s(A[%d,%d]) =>{\n", fn, opn[op], A.H(), A.W());
+    VLOG("%s %s(A[%d,%d]) =>{\n", fn, opn[op], A.H(), A.W());
     ///
     /// single tensor handler
     ///
@@ -180,7 +180,7 @@ TensorVM::blas1(t4_ten_op op) {
         tx = false;
     }
     if (tx) PUSH(T);                          /// ( T -- T T' )
-    VLOG2("} %s\n", fn);
+    VLOG("} %s\n", fn);
 }
 ///
 /// 2-operand tensor ops
@@ -194,7 +194,7 @@ TensorVM::blas2(t4_ten_op op, t4_drop_opt x) {
         return;
     }
     Tensor &A = TNOS, &B = TTOS;
-    VLOG2("%s A[%d,%d] %s B[%d,%d] {\n",
+    VLOG("%s A[%d,%d] %s B[%d,%d] {\n",
           fn, A.H(), A.W(), opn[op], B.H(), B.W());
     switch (op){
     case T_DOT: {               ///< C = A @ B
@@ -206,21 +206,41 @@ TensorVM::blas2(t4_ten_op op, t4_drop_opt x) {
             }
             PUSH(C);
         }
-        VLOG2("} %s => C[%d,%d]\n", fn, C.H(), C.W());
+        VLOG("} %s => C[%d,%d]\n", fn, C.H(), C.W());
     } break;
     case T_DIV: {               ///< C = A @ inverse(B)
         Tensor &C = _tdiv(A, B);
         if (C != B) PUSH(C);
-        VLOG2("} %s => C[%d,%d]\n", fn, C.H(), C.W());
+        VLOG("} %s => C[%d,%d]\n", fn, C.H(), C.W());
     } break;
     case T_SOLV: {              ///< solve B = AX
         Tensor &X = _solv(A, B);
         PUSH(X);
-        VLOG2("} %s => X[%d,%d]\n", fn, X.H(), X.W());
+        VLOG("} %s => X[%d,%d]\n", fn, X.H(), X.W());
     } break;
     default:
         ERROR("} %s opn(%d) not supported\n", fn, op);
     }
+}
+
+__GPU__ __INLINE__ void
+TensorVM::gemm() {                           ///< GEMM ( a b A B C -- a b A B C O )
+    if (!TOS3T) { ERROR("tensors?"); return; }
+    
+    Tensor &C = TTOS, &B = TNOS, &A = (Tensor&)mmu.du2obj(ss[-2]);
+    DU     b  = ss[-3];                      ///< beta
+    DU     a  = ss[-4];                      ///< alpha
+    U16    m  = A.H(), k = A.W(), n = B.W(); ///< dimensions
+    VLOG("tenvm#gemm %g * A[%d,%d] @ B[%d,%d] + %g * C[%d, %d] {\n",
+         a, m, k, B.H(), n, b, C.H(), C.W());
+
+    if (k == B.H() && m == C.H() && n == C.W()) {
+        Tensor &O = COPY(C);                 ///< hard copy C tensor
+        Tensor::gemm(A, B, O, a, b);         /// * O = a*AB + b*C
+        PUSH(O);
+        VLOG("} tenvm#gemm => O[%d,%d]\n", O.H(), O.W());
+    }
+    else ERROR("dim?");
 }
 ///
 /// scalar-scalar ops
@@ -321,21 +341,21 @@ TensorVM::_tdot(Tensor &A, Tensor &B) {      ///< A x B tensor dot product
     if (B.rank==1 &&                         ///> dot(vector, vector)
         A.rank==1 && A.numel==B.numel) {
         DU v = A.dot(B);
-        VLOG2("tenvm#_tdot A[%d] · B[%d] => %g\n", A.H(), B.H(), v);
+        VLOG("  tenvm#_tdot A[%d] · B[%d] => %g\n", A.H(), B.H(), v);
         PUSH(v);
         return B;                            /// * non-tensor
     }
     if (B.rank==1 && A.W()==B.numel) {       ///> inner(tensor, vector)
         Tensor &C = mmu.tensor(A.H());
         Tensor::mm(A, B, C);
-        VLOG2("tenvm#_tdot A[%d,%d] · B[%d] => C[%d]\n",
+        VLOG("  tenvm#_tdot A[%d,%d] · B[%d] => C[%d]\n",
               A.H(), A.W(), B.H(), C.H());
         return C;
     }
     if (A.W()==B.H()) {                      /// * tensor @ tensor
         Tensor &C = mmu.tensor(A.H(), B.W());
         Tensor::mm(A, B, C);
-        VLOG2("tenvm#_tdot A[%d,%d] · B[%d,%d] => C[%d,%d]\n",
+        VLOG("  tenvm#_tdot A[%d,%d] · B[%d,%d] => C[%d,%d]\n",
               A.H(), A.W(), B.H(), B.W(), C.H(), C.W());
         return C;
     }
@@ -347,7 +367,7 @@ TensorVM::_tdot(Tensor &A, Tensor &B) {      ///< A x B tensor dot product
 __GPU__ __INLINE__ Tensor&
 TensorVM::_solv(Tensor &B, Tensor &A) {      /// Note: A, B flipped 
     U16 m = A.H(), k = A.W(), n = B.H();     /// B[3,1] = A[3,3] * X
-    VLOG2("tenvm#_solv B[%d] = [%d,%d] * X\n", n, m, k);
+    VLOG("  tenvm#_solv B[%d] = [%d,%d] * X\n", n, m, k);
     
     if (B.rank!=1 || m!=k || k!=n) return B;
 
@@ -357,22 +377,6 @@ TensorVM::_solv(Tensor &B, Tensor &A) {      /// Note: A, B flipped
     FREE(I);
     
     return O;
-}
-
-__GPU__ __INLINE__ void
-TensorVM::_gemm() {                          ///< blas GEMM
-    if (!TOS3T) { ERROR("tensors?"); return; }
-    
-    Tensor &O = TTOS, &B = TNOS, &A = (Tensor&)mmu.du2obj(ss[-2]);
-    DU     b  = ss[-3];
-    DU     a  = ss[-4];
-    U16    m  = A.H(), k = A.W(), n = B.W();
-    if (k == B.H() && m == O.H() && n == O.W()) {
-        Tensor &X = COPY(O);                 /// * hard copy O tensor
-        Tensor::gemm(A, B, X, a, b);
-        PUSH(X);
-    }
-    else ERROR("dim?");
 }
 
 __GPU__ void
@@ -451,27 +455,27 @@ TensorVM::init() {
     ///@defgroup Tensor fill ops
     ///@brief - stick to PyTorch naming when possible
     ///@{
-    CODE("={",                                 ///< (n -- ) or ( -- )
+    CODE("={",                                ///< (n -- ) or ( -- )
          ten_off = IS_OBJ(tos) ? 0 : POPi;
          ten_lvl = IS_OBJ(tos) ? 1 : 0);
-    CODE("zeros", xop1(FILL, DU0));            ///< fill tensor with 0s
-    CODE("ones",  xop1(FILL, DU1));            ///< fill tensor with 1s
-    CODE("full",  xop1(FILL, POP()));          ///< fill tensor with a value
-    CODE("gradfill", xop1(GFILL, DU1));        ///< gradient fill a tensor
-    CODE("eye",   xop1(IDEN));                 ///< fill 1s in diag
-    CODE("rand",  tos = sys.rand(tos, UNIFORM));   ///< uniform randomize a tensor or number
-    CODE("randn", tos = sys.rand(tos, NORMAL));    ///< normal dist. randomize a tensor
+    CODE("zeros",     xop1(FILL, DU0));       ///< fill tensor with 0s
+    CODE("ones",      xop1(FILL, DU1));       ///< fill tensor with 1s
+    CODE("full",      xop1(FILL, POP()));     ///< fill tensor with a value
+    CODE("gradfill",  xop1(GFILL, DU1));      ///< gradient fill a tensor
+    CODE("eye",       xop1(IDEN));            ///< fill 1s in diag
+    CODE("rand",      tos = sys.rand(tos, UNIFORM));   ///< uniform randomize a tensor or number
+    CODE("randn",     tos = sys.rand(tos, NORMAL));    ///< normal dist. randomize a tensor
     ///@}
     ///@defgrup Tensor slice and dice
     ///@{
     CODE("normalize",
          DU std = POP(); DU avg = POP();
          if (TOS1T) { TTOS.normalize(std, avg); });
-    CODE("sum", if (TOS1T) PUSH(TTOS.sum()));
-    CODE("avg", if (TOS1T) PUSH(TTOS.avg()));
-    CODE("std", if (TOS1T) PUSH(TTOS.std()));
-    CODE("{",   if (TOS1T && ten_lvl > 0) ++ten_lvl);
-    CODE("}",   if (TOS1T && ten_lvl > 0) --ten_lvl);
+    CODE("sum",       if (TOS1T) PUSH(TTOS.sum()));
+    CODE("avg",       if (TOS1T) PUSH(TTOS.avg()));
+    CODE("std",       if (TOS1T) PUSH(TTOS.std()));
+    CODE("{",         if (TOS1T && ten_lvl > 0) ++ten_lvl);
+    CODE("}",         if (TOS1T && ten_lvl > 0) --ten_lvl);
     CODE("slice",
          IU y1 = POPi; IU y0 = POPi; IU x1 = POPi; IU x0 = POPi;
          if (TOS1T) {
@@ -518,13 +522,13 @@ TensorVM::init() {
     CODE("*=",        xop2(MUL, T_DROP));
     CODE("/=",        xop2(DIV, T_DROP));
     ///@}
-    ///@defgroup BLAS, 2-tensor matrix ops
+    ///@defgroup BLAS, 2-tensor and GEMM matrix ops
     ///@{
     CODE("@=",        blas2(T_DOT, T_DROP));  ///< (A B -- C)
     CODE("matmul",    blas2(T_DOT));          ///< (A B -- A B C) matrix multiply
     CODE("matdiv",    blas2(T_DIV));          ///< (A B -- A B C) matrix divide
     CODE("solve",     blas2(T_SOLV));         ///< (B A -- B A X) solve B = AX
-    CODE("gemm",      _gemm());               ///< (a b A B C -- a b A B C') GEMM (C updated)
+    CODE("gemm",      gemm());                ///< (a b A B C -- a b A B C O) GEMM
     ///@}
     ///@defgroup Tensor persistance
     ///@brief - stick to PyTorch naming when possible
