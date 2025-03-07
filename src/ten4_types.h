@@ -18,10 +18,10 @@
 /// Tracer by verbosity level
 ///
 #if   T4_VERBOSE > 1
-#define TRACE(...)          printf(__VA_ARGS__)
-#define DEBUG(...)          printf(__VA_ARGS__)
+#define TRACE(...)          INFO(__VA_ARGS__)
+#define DEBUG(...)          INFO(__VA_ARGS__)
 #elif T4_VERBOSE > 0
-#define TRACE(...)          printf(__VA_ARGS__)
+#define TRACE(...)          INFO(__VA_ARGS__)
 #define DEBUG(...)
 #else  // T4_VERBOSE==0
 #define TRACE(...)
@@ -31,9 +31,11 @@
 /// Memory tracing specific
 ///
 #if MM_DEBUG
-#define MM_DB(...)          printf(__VA_ARGS__)
+#define MM_DB(...)          DEBUG(__VA_ARGS__)
+#define NN_DB(...)          TRACE(__VA_ARGS__)
 #else  // !MM_DEBUG
 #define MM_DB(...)
+#define NN_DB(...)
 #endif // MM_DEBUG
 ///@}
 ///@name CUDA support macros
