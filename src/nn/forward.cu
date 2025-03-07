@@ -201,7 +201,7 @@ Model::forward(Tensor &input) {
             in.N(), in.H(), in.W(), in.C(), 0.001*in.parm,
             out.N(), out.H(), out.W(), out.C());
     };
-    MM_DB("\nModel::forward starts");
+    NN_DB("\nModel::forward starts");
     DU t0 = System::ms(), t1 = t0, tt;             ///< performance measurement
     for (U16 i = 1; i < numel - 1; i++) {
         Tensor &in = (*this)[i], &out = (*this)[i + 1];
@@ -220,7 +220,7 @@ Model::forward(Tensor &input) {
         _hot = &onehot((Dataset&)input);         /// * create/cache onehot vector
         _hit = hit(true);                        /// * recalc/cache hit count
     }
-    MM_DB("\nModel::forward %5.2f ms\n", System::ms() - t0);
+    NN_DB("\nModel::forward %5.2f ms\n", System::ms() - t0);
 
     return *this;
 }
@@ -268,7 +268,7 @@ Model::_fconv(Tensor &in, Tensor &out) {
     Tensor &tf = *in.grad[0];                             ///< filter tensor
     Tensor &tb = *in.grad[1];                             ///< bias tensor
 
-    MM_DB(" f[%d,%d,%d,%d], b[%ld]", tf.N(), tf.H(), tf.W(), tf.C(), tb.numel);
+    NN_DB(" f[%d,%d,%d,%d], b[%ld]", tf.N(), tf.H(), tf.W(), tf.C(), tb.numel);
 
     const U32 N = out.N(), H = out.H(), W = out.W();      ///< outpt dimensions
     const U32 C0 = out.C(), C1 = in.C();                  ///< output, input channel deep
@@ -316,11 +316,11 @@ Model::_flinear(Tensor &in, Tensor &out) {
     const U32 N  = out.N();                           ///< batch size (N1 == N0)
     const U32 C0 = tw.H(), C1 = tw.W();               ///< dense layer dims
 
-    MM_DB(" = w[%d,%d] @ in[%d,%d,%d,%d] + b[%ld]",
+    NN_DB(" = w[%d,%d] @ in[%d,%d,%d,%d] + b[%ld]",
         C0, C1, in.N(), in.H(), in.W(), in.C(), tb.numel);
 
     if (tw.numel < T4_WARP_SQ) {                      /// * threshold control
-        MM_DB("*");
+        NN_DB("*");
         qa_calc(tw, tb);                              /// * serial code
     }
     else {                                            

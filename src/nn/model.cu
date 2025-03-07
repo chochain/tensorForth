@@ -71,7 +71,7 @@ __GPU__ Tensor&
 Model::T4(U32 n, U32 h, U32 w, U32 c) { return _mmu->tensor(n, h, w, c); }
 __GPU__ void
 Model::RAND(Tensor &t, DU scale) {           ///< short hand to System::rand
-    MM_DB("sys#rand(T%d) numel=%ld bias=%.2f, scale=%.2f\n",
+    NN_DB("sys#rand(T%d) numel=%ld bias=%.2f, scale=%.2f\n",
           t.rank, t.numel, -0.5, scale*2.0);
     System::rand(t.data, t.numel, UNIFORM, -0.5, scale * 2.0); /// * range=>[-scale, scale)
 }
@@ -137,7 +137,7 @@ Model::_iconv(Tensor &in, U32 C0, DU bias, U16 *opt) {
     DU k = SQRT(RCP(Hf * Wf * C1));                                /// * filter default range
     RAND(*f, k);                                 /// * randomize f [-k, k)
     RAND(*b, bias);                              /// * randomize b [-bias, bias)
-    MM_DB("model#add conv2d %dx%d bias=%4.2f, k=%6.3f, f.std=%6.3f\n",
+    NN_DB("model#add conv2d %dx%d bias=%4.2f, k=%6.3f, f.std=%6.3f\n",
           Hf, Wf, bias, k, f->std());
     
     // for (int i=0; i<f->numel; i++) printf("%6.3f", f->data[i]);
@@ -159,22 +159,22 @@ Model::_ilinear(Tensor &in, U32 C0, DU bias) {
     DU k = SQRT(RCP(C1));                                         /// * default weight
     RAND(*w, k);                                  /// * randomize w [-k, k)
     RAND(*b, bias);                               /// * randomize b [-bias, bias)
-    MM_DB("model#add linear bias=%4.2f, k=%6.3f, w.std=%6.3f\n", bias, k, w->std());
+    NN_DB("model#add linear bias=%4.2f, k=%6.3f, w.std=%6.3f\n", bias, k, w->std());
     /*
     for (int c0=0; c0<C0; c0++) {
-        MM_DB("\nw.c0=%d ", c0);
+        NN_DB("\nw.c0=%d ", c0);
         for (int c1=0; c1<C1; c1++) {
-            MM_DB("%5.2f", w->data[c1 + c0*C1]);
+            NN_DB("%5.2f", w->data[c1 + c0*C1]);
         }
     }
     */
     Tensor &out = T4(N1, C0);                    ///> output tensor sizing
-    MM_DB(" out[%d,%d,%d,%d]", out.N(), out.H(), out.W(), out.C());
+    NN_DB(" out[%d,%d,%d,%d]", out.N(), out.H(), out.W(), out.C());
     npush(out);                                  /// * stage for next stage
 }
 __GPU__ void
 Model::_iflatten(Tensor &in) {
-    MM_DB("model#add flatten\n");
+    NN_DB("model#add flatten\n");
     Tensor &out = T4(in.N(), in.HWC());          /// * for backprop
     npush(out);
 }
@@ -184,7 +184,7 @@ Model::_iflatten(Tensor &in) {
 __GPU__ void
 Model::_icopy(Tensor &in, t4_layer fn) {
     Tensor &out = COPY(in);                      ///> output tensor sizing
-	MM_DB("model#add %s\n", d_nname(fn));
+	NN_DB("model#add %s\n", d_nname(fn));
     npush(out);                                  /// * stage for next stage
 }
 
@@ -194,7 +194,7 @@ Model::_iactivate(Tensor &in, DU alpha, t4_layer fn) {
     Tensor *msk = in.grad[0] = &COPY(in);        ///> activation mask
 
     in.parm = INT(1000.0 * alpha);               /// * bias * 1000
-    MM_DB("model#add %s (alpha=%6.3f)\n", d_nname(fn), alpha);
+    NN_DB("model#add %s (alpha=%6.3f)\n", d_nname(fn), alpha);
     
     npush(out);
 }
@@ -208,7 +208,7 @@ Model::_ipool(Tensor &in, U16 f, t4_layer fn) {
         return;
     }
     in.parm = f;                                 /// * keep kernel size
-    MM_DB("model#add %s %dx%d\n", d_nname(fn), f, f);
+    NN_DB("model#add %s %dx%d\n", d_nname(fn), f, f);
                                                  /// * used by backprop
     U32 H0 = INT((in.H() - f) / f) + 1;
     U32 W0 = INT((in.W() - f) / f) + 1;
@@ -230,7 +230,7 @@ Model::_ibatchnorm(Tensor &in, DU m) {
         in.grad[0]->data[c] = DU1;
     }
     in.parm = INT(1000.0 * m);                   ///> default EMA momentum = 0.1
-    MM_DB("model#add batchnorm m=%5.3f\n", m);
+    NN_DB("model#add batchnorm m=%5.3f\n", m);
     
     Tensor &out = COPY(in);                      /// * retain dimensions
     npush(out);
@@ -243,7 +243,7 @@ Model::_iup(Tensor &in, U16 f, DU method) {
         return;
     }
     in.parm = (INT(method)<<8) | f;              /// * keep (method<<8) | kernel size
-    MM_DB("model#add upsample %dx%d\n", f, f);
+    NN_DB("model#add upsample %dx%d\n", f, f);
                                                  /// * used by backprop
     U32 H0 = in.H() * f;
     U32 W0 = in.W() * f;

@@ -59,7 +59,7 @@ Model::hit(bool recalc) {
         U32  m = argmax(out.slice(n), out.HWC());
         cnt += INT(_hot->slice(n)[m]);              /// * compare to onehot vector
     }
-    MM_DB("Model::hit=%d\n", cnt);
+    NN_DB("Model::hit=%d\n", cnt);
     return cnt;
 }
 
@@ -82,7 +82,7 @@ Model::loss(t4_loss op, Tensor &tgt) {              ///< loss against target vec
     DU sum = tmp.loss(op, tgt);                    /// * calculate loss per op
     FREE(tmp);                                     /// * free memory
     
-    MM_DB("Model#loss: %s=%6.3f\n", opn[op], sum);
+    NN_DB("Model#loss: %s=%6.3f\n", opn[op], sum);
     
     return sum;
 }

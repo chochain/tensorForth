@@ -83,7 +83,7 @@ Model::grad_alloc(t4_optimizer op) {
             }
             break;
         }
-        MM_DB("Model::grad_alloc %2d> %s do_w,b[%d,%d] mtum=%p,%p,%p,%p\n",
+        NN_DB("Model::grad_alloc %2d> %s do_w,b[%d,%d] mtum=%p,%p,%p,%p\n",
             i, d_nname(in.grad_fn), do_w, do_b,
             in.mtum[0], in.mtum[1], in.mtum[2], in.mtum[3]);
     }
@@ -96,12 +96,12 @@ __GPU__ Model&
 Model::gradient(const char *nm, GdFunc fn, DU *parm, t4_optimizer op) {
     auto step = [this, fn, parm](const char n,
             Tensor *g, Tensor *dg, Tensor *m, Tensor *v) {
-            MM_DB("\n    %c[%d,%d,%d,%d] Σ=%6.3f - %6.3f",
+            NN_DB("\n    %c[%d,%d,%d,%d] Σ=%6.3f - %6.3f",
                    n, g->N(), g->H(), g->W(), g->C(), g->sum(), dg->sum());
             fn(parm, g, dg, m, v);
-            MM_DB(" => %cΣ=%6.3f", n, g->sum());
+            NN_DB(" => %cΣ=%6.3f", n, g->sum());
     };
-    MM_DB("\nModel::%s batch_sz=%d, lr=%7.4f, mtum/b1=%6.3f, b2=%6.3f\n",
+    NN_DB("\nModel::%s batch_sz=%d, lr=%7.4f, mtum/b1=%6.3f, b2=%6.3f\n",
            nm, (*this)[1].N(), parm[0], parm[1], parm[2]);
     if (_iter++==0) grad_alloc(op);               /// * allocate m & v tensors
     if (!train) return *this;                     /// * bail if not in trainning
@@ -114,11 +114,11 @@ Model::gradient(const char *nm, GdFunc fn, DU *parm, t4_optimizer op) {
         Tensor *w  = in.grad[0], *dw = in.grad[2];
         Tensor *b  = in.grad[1], *db = in.grad[3];
         
-        MM_DB("\n  %2d> %s", i, d_nname(in.grad_fn));
+        NN_DB("\n  %2d> %s", i, d_nname(in.grad_fn));
         if (in.mtum[0]) step('w', w, dw, in.mtum[0], in.mtum[2]);
         if (in.mtum[1]) step('b', b, db, in.mtum[1], in.mtum[3]);
     }
-    MM_DB("\nModel::%s %5.2f ms\n", nm, System::ms() - t0);
+    NN_DB("\nModel::%s %5.2f ms\n", nm, System::ms() - t0);
     return *this;
 }
 ///

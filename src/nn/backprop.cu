@@ -216,7 +216,7 @@ Model::backprop(Tensor &tgt) {
     };
     if (_bloss(tgt)) return *this;                 /// * pre-calculate dLoss
     
-    MM_DB("\nModel#backprop starts");
+    NN_DB("\nModel#backprop starts");
     DU  t0 = System::ms(), t1 = t0, tt;                   ///< performance measurement
     for (int i = numel - 2, j = 0; i > 0; i--, j++) {     /// numel=number of layers
         Tensor &in = (*this)[i], &out = (*this)[i + 1];
@@ -227,7 +227,7 @@ Model::backprop(Tensor &tgt) {
         }
         else _bstep(in, out);
     }
-    MM_DB("\nModel::backprop %5.2f ms\n", System::ms() - t0);
+    NN_DB("\nModel::backprop %5.2f ms\n", System::ms() - t0);
     return *this;
 }
 /// ========================================================================
@@ -242,7 +242,7 @@ Model::_bloss(Tensor &tgt) {                     ///> pre-calc dLoss
               out.N(), out.H(), out.W(), out.C());
         return 1;
     }
-    MM_DB("\nModel#backprop: input dimensions OK, calculate dLoss");
+    NN_DB("\nModel#backprop: input dimensions OK, calculate dLoss");
     t4_layer fn = (*this)[-2].grad_fn;           ///< final activation layer
     switch (fn) {
     case L_SIGMOID:                              /// * sigmoid + BCE
@@ -292,7 +292,7 @@ Model::_bconv(Tensor &in, Tensor &out) {
     Tensor &w = *in.grad[0], &dw = *in.grad[2];      ///< filter tensor
     Tensor &b = *in.grad[1], &db = *in.grad[3];      ///< bias tensor
 
-    MM_DB(" f[%d,%d,%d,%d], b[%ld]", w.N(), w.H(), w.W(), w.C(), b.numel);
+    NN_DB(" f[%d,%d,%d,%d], b[%ld]", w.N(), w.H(), w.W(), w.C(), b.numel);
 
     const U32 N = in.N(), H = in.H(), W = in.W();    ///< input dimensions
     const U32 C1 = in.C(), C0 = out.C();
@@ -356,11 +356,11 @@ Model::_blinear(Tensor &in, Tensor &out) {
     const U32 C0 = w.H(), C1 = w.W();               ///< weight tensor dimensions
     const U64 E1 = in.HWC(), E0 = out.HWC();        ///< input, output element count
 
-    MM_DB("\n\tdw[%d,%d] += out'[%ld,1] @ in^t[1,%ld]", C0, C1, E0, E1);
-    MM_DB("\n\tin[%ld, 1] = w^t[%d,%d] @ out'[%ld,1]", E1, C1, C0, E0);
+    NN_DB("\n\tdw[%d,%d] += out'[%ld,1] @ in^t[1,%ld]", C0, C1, E0, E1);
+    NN_DB("\n\tin[%ld, 1] = w^t[%d,%d] @ out'[%ld,1]", E1, C1, C0, E0);
 
     if (w.numel < T4_WARP_SQ) {                     /// * threshold control
-        MM_DB("*");
+        NN_DB("*");
         qa_calc(w, dw, db, train);                  /// * serial mode (validation)
     }
     else {
