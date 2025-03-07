@@ -10,8 +10,7 @@
 #define __VM_TENVM_H
 #include "eforth.h"                         /// extending ForthVM
 
-#define VLOG1(...) if (sys.trace() > 0) { INFO(__VA_ARGS__); }
-#define VLOG2(...) if (sys.trace() > 1) { INFO(__VA_ARGS__); }
+#define VLOG(...) if (sys.trace()) { INFO(__VA_ARGS__); }
 ///
 ///@name multi-dispatch checker macros
 ///@{
@@ -60,6 +59,7 @@ protected:
     __GPU__ void xop2(math_op op, t4_drop_opt x=T_KEEP);    ///< 2-operand ops
     __GPU__ void blas1(t4_ten_op op);                       ///< 1-operand ops with new tensor
     __GPU__ void blas2(t4_ten_op op, t4_drop_opt x=T_KEEP); ///< 2-operand tensor ops
+    __GPU__ void gemm();                                    ///< GEMM C' = alpha * A x B + beta * C
     
 private:
     ///
@@ -76,7 +76,6 @@ private:
     __GPU__ Tensor &_tdot(Tensor &A, Tensor &B);            ///< matrix-matrix multiplication @
     __GPU__ Tensor &_tdiv(Tensor &A, Tensor &B);            ///< matrix-matrix division (no broadcast)
     __GPU__ Tensor &_solv(Tensor &A, Tensor &B);            ///< solve linear equation Ax = b
-    __GPU__ void   _gemm();                                 ///< GEMM C' = alpha * A x B + beta * C
     ///
     /// tensor IO
     ///
