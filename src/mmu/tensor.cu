@@ -13,26 +13,14 @@
 ///> array sum
 /// Note: tiled_partition<32> used
 ///
-__KERN__ void k_sum(DU *I, DU *sum, U64 HW) {
-    const U64 j  = (U64)blockIdx.x * blockDim.x + threadIdx.x;  ///< element index
-    const U32 c  = blockIdx.y, C = gridDim.y;                   ///< channel
-    const U64 ns = HW * C * blockIdx.z;                         ///< batch slice index
-    DU vi = j < HW ? I[(U64)C * j + ns + c] : DU0;              ///< keep v for shuffle
-    ///
-    /// prefix sum (32-threaded tile)
-    ///
-    auto t = cg::tiled_partition<32>(cg::this_thread_block());
-    auto shfl_sum = [](cg::thread_block_tile<32> t, DU v) {
-        for (int k = 16; k > 0; k >>= 1) {
-            v += t.shfl_down(v, k);
-        }
-        return v;
-    };
-    DU tt = shfl_sum(t, vi);
-    ///
-    /// sum up atomically (per channel for batchnorm)
-    ///
-    if (t.thread_rank() == 0) atomicAdd(&sum[c], tt);
+///<<<1,256>>>  HW=32*32=1024 => 4 blocks
+__KERN__ void
+k_sum(DU *in, DU *out, U64 HW) {
+    U32 const N = blockIdx.z;
+    DU  const sum { d_sum(in + HW * N, HW) };   ///< sum HWC
+    if (blockIdx.x == 0 && threadIdx.x == 0) {
+        out[blockIdx.x] = sum;
+    }
 }
 ///
 ///> variance
@@ -144,6 +132,7 @@ Tensor::ten_op(math_op op, Tensor &A, DU v, Tensor &O) {
     MM_DB("  tensor#ten_op [%d,%d,%d,%d] %s %6.2f\n", N, H, W, C, opn[op], v);
 
     FORK(k_ts_op, A.numel, op, A.data, v, O.data);
+    CDP_SYNC();
     return O;
 }
 ///
@@ -153,9 +142,10 @@ __GPU__ Tensor&
 Tensor::ten_op(math_op op, Tensor &A, Tensor &B, Tensor &O) {
     U32 N = A.N(), H = A.H(), W = A.W(), C = A.C();
     OPN(MATH_OP);
-    MM_DB("  tensor#ten_op  %s([%d,%d,%d,%d])\n", opn[op], N, H, W, C);
+    INFO("  tensor#ten_op  O = A %s B [%d,%d,%d,%d]\n", opn[op], N, H, W, C);
     
     FORK(k_tt_op, A.numel, op, A.data, B.data, O.data);
+    CDP_SYNC();
     return O;
 }
 __GPU__ Tensor&
@@ -176,6 +166,7 @@ Tensor::mm(
         DU *da = A.data, *db = B.slice(n), *dx = O.slice(n);
         FORK3(k_matmul, H, W, C, da, db, dx, opt, Ka);
     }
+    CDP_SYNC();
     return O;
 }
 ///
@@ -196,12 +187,14 @@ Tensor::gemm(Tensor &A, Tensor &B, Tensor &O, DU alpha, DU beta) {
         DU *da = A.data, *db = B.slice(n), *dx = O.slice(n);
         FORK3(k_gemm, H, W, C, da, db, dx, alpha, beta, Ka);
     }
+    CDP_SYNC();
     return O;
 }
 __GPU__ Tensor&
 Tensor::copy(Tensor &A, Tensor &O) {
     MM_DB("  tensor#copy %p to %p numel=%ld\n", A.data, O.data, A.numel);
     FORK(k_copy, A.numel, A.data, O.data);
+    CDP_SYNC();
     return O;
 }
 __GPU__ Tensor&
@@ -213,6 +206,7 @@ Tensor::transpose(Tensor &A, Tensor &T) {
         DU *da = A.slice(n), *dt = T.slice(n);
         FORK3(k_transpose, H, W, C, da, dt);
     }
+    CDP_SYNC();
     return T;
 }
 ///
@@ -398,10 +392,15 @@ Tensor::plu(Tensor &A, Tensor &P, int *ns) {
 ///
 __GPU__ DU
 Tensor::sum() {
-    static DU sum; sum = DU0; ///< static shared memory
-    
-    FORK(k_sum, numel, data, &sum);               /// * 8x straight loop
-    return SCALAR(sum);
+    /// num_threads = 256
+    /// numel       = num_elements_per_batch (1024x1024)
+    /// n           = batch_size (64)
+    /// num_block_elements    = 256 * 1024
+    /// num_threads_per_batch = 512
+    static DU z; z = DU0;                        ///< static shared memory
+    FORK(k_sum, numel, data, &z);                /// * 8x straight loop
+    CDP_SYNC();
+    return SCALAR(z);
 }
 __GPU__ DU
 Tensor::avg() {
@@ -414,6 +413,7 @@ Tensor::std() {
     sum = DU0; avg = this->avg();
 
     FORK(k_var, numel, data, &avg, &sum);        /// * 8x straight loop
+    CDP_SYNC();
     
     DU v = numel ? SQRT(sum / numel) : DU0;
     return SCALAR(v);
@@ -457,29 +457,30 @@ Tensor::loss(t4_loss op, Tensor &tgt) {
         return -sum;
     };
     */
-    DU sum = DU0;                    ///> result loss value
+    DU z = DU0;                      ///> result loss value
     switch (op) {
     case LOSS_MSE:                   /// * mean squared error, input from linear
         *this -= tgt;                /// * (output - predict)
         *this *= *this;              /// * (output - predict)^2
-        sum = 0.5 * this->sum();
+        z = 0.5 * sum();
         break;
     case LOSS_BCE: {                 /// * binary cross_entropy, input from sigmoid
         FORK(k_bce, numel, data, tgt.data);
-        sum = -this->sum();          /// * -(y * ln(out_i) + (1-y) * ln(1-out_i))
+        CDP_SYNC();
+        z = -sum();                  /// * -(y * ln(out_i) + (1-y) * ln(1-out_i))
     } break;
     case LOSS_CE:                    /// * cross_entropy, input from softmax
         map(LN);                     /// * log(out_i)
         /* no break */
     case LOSS_NLL:                   /// * negative log likelihood, input from log-softmax
         *this *= tgt;                /// * out_i * tgt_i
-        sum = -this->sum();          /// * sum for mini-batch samples
+        z = -sum();                  /// * sum for mini-batch samples
         break;
     default: ERROR("Model#loss op=%d not supported!\n", op);
     }
-    sum /= N();                      /// * mini-batch average
+    z /= N();                        /// * mini-batch average
     
-    return SCALAR(sum);              /// make sum a scalar value (not object)
+    return SCALAR(z);                /// make sum a scalar value (not object)
 }
 ///=======================================================================
 /// linear algebra methods
@@ -622,6 +623,7 @@ Tensor::identity() {
     for (U32 n = 0; n < N(); n++) {
         FORK3(k_identity, H, W, C, slice(n));
     }
+    CDP_SYNC();
     return *this;
 }
 
@@ -630,6 +632,7 @@ Tensor::map(math_op op, DU v) {
     OPN(MATH_OP);
     MM_DB("  tensor#%s v=%g\n", opn[op], v);
     FORK(k_math, numel, op, data, v);
+    CDP_SYNC();
     return *this;
 }
 
@@ -637,6 +640,7 @@ __BOTH__ Tensor&
 Tensor::normalize(DU avg, DU std) {
     FORK(k_ts_op, numel, SUB, data, avg, data);
     FORK(k_ts_op, numel, DIV, data, std, data);
+    CDP_SYNC();
     return *this;
 }
 ///=======================================================================
