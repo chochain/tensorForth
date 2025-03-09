@@ -114,21 +114,20 @@ _hash(const char *str, int bsz) {
     int x  = threadIdx.x;
     int *h = &_warp_h[x];   *h=0;                           // each calling thread takes a slot
 
-#if T4_DO_CDP
+#if 0 && T4_DO_CDP
     cudaStream_t st;
     cudaStreamCreateWithFlags(&st, cudaStreamNonBlocking);  // wrapper overhead ~= 84us
 
     for (int i=0; i<bsz; i+=32) {
         _dyna_hash<<<1,32,0,st>>>(h, &str[i], bsz-i);
-        GPU_SYNC();                                         // sync all children threads
+        CDP_SYNC();                                         // sync all children threads
     }
 
     dim3 xyz(32, (bsz>>5)+1);
     int  blk = bsz+(-bsz&0x1f);
     _dyna_hash2d<<<1,xyz,blk*sizeof(int)>>>(h, str, bsz);
 
-    GPU_SYNC();
-
+    CDP_SYNC();
     cudaStreamDestroy(st);
 #endif // T4_DO_CDP
 
@@ -384,40 +383,81 @@ __GPU__ int
 d_hash(const char *s) {
     return _hash(s, STRLENB(s));
 }
+
+constexpr int T4_NUM_WARP { T4_WARP_SQ>>5 };
+__GPU__ float
+d_sum(float *src, long numel) {
+    __shared__ float _sum[T4_NUM_WARP];
+    ///
+    /// sum up by stride
+    ///
+    auto step_sum = [src, numel](long i0) {         ///< handle blockIdx.x strides
+        float v { 0.0f };
+        for (long i=i0; i < numel; i+=T4_WARP_SQ) v += src[i];
+        return v;
+    };
+    auto const g   { cg::this_thread_block() };     /// total threads
+    auto const tid { g.thread_rank() };             /// tid 0~255
+    float sum { step_sum(tid) };                    /// sum[256]
+    ///
+    /// shuffle sum 32 to 1
+    ///
+    auto tp { cg::tiled_partition<32>(g) };
+    auto shfl_sum = [](cg::thread_block_tile<32> tp, float v) {
+        #pragma unroll
+        for (int k = tp.size()>>1; k > 0; k >>= 1) {
+            v += tp.shfl_down(v, k);
+        }
+        return v;
+    };
+    sum = shfl_sum(tp, sum);
+    if (tp.thread_rank() == 0) _sum[tid >> 5] = sum;         /// collection from each warp 
+    g.sync();
+    ///
+    /// sum all warps
+    ///
+    auto warp_sum = [](float *v0) {
+        float v { 0.0f };
+        #pragma unroll
+        for (int i = 0; i < T4_NUM_WARP; i++) v += v0[i];
+        return v;
+    };
+    return warp_sum(_sum);
+}
 /*!@brief
   Tensor basic ops
 */
 __KERN__ void
-k_copy(float *src, float *dst, U64 n) {                       ///< Note: (src, dst)
-    const U64 j = (U64)blockIdx.x * blockDim.x + threadIdx.x; ///< numel range 2G * 1K = 2T, U41
+k_copy(float *src, float *dst, long n) {                      ///< Note: (src, dst)
+    const long j = (long)blockIdx.x*blockDim.x + threadIdx.x; ///< numel range 2G * 1K = 2T, U41
     if (j < n) dst[j] = src[j];
 }
 __KERN__ void
-k_transpose(float *src, float *dst, U32 H, U32 W) {           ///< Note: (src, dst)
-    const U32 j = blockIdx.x * blockDim.x + threadIdx.x;      ///< W range 2G  * 1K = 2T,  U41
-    const U32 i = blockIdx.y * blockDim.y + threadIdx.y;      ///< H range 65K * 1K = 65M, U26
-    const U32 c = blockIdx.z, C = gridDim.z;                  ///< channel deep
+k_transpose(float *src, float *dst, int H, int W) {           ///< Note: (src, dst)
+    const int j = blockIdx.x * blockDim.x + threadIdx.x;      ///< W range 2G  * 1K = 2T,  U41
+    const int i = blockIdx.y * blockDim.y + threadIdx.y;      ///< H range 65K * 1K = 65M, U26
+    const int c = blockIdx.z, C = gridDim.z;                  ///< channel deep
 
     if (i < H && j < W && c < C) {
-        dst[((U64)H * j + i) * C + c] = src[((U64)W * i + j) * C + c];
+        dst[((long)H * j + i) * C + c] = src[((long)W * i + j) * C + c];
     }
 }
 __KERN__ void
-k_identity(float *t, U32 H, U32 W) {                          ///< identity matrix (tensor)
+k_identity(float *t, int H, int W) {                          ///< identity matrix (tensor)
     const float i01[2] = { 0.0f, 1.0f };
-    const U32 j = blockIdx.x * blockDim.x + threadIdx.x;
-    const U32 i = blockIdx.y * blockDim.y + threadIdx.y;
-    const U32 c = blockIdx.z, C = gridDim.z;                  ///< channel deep
+    const int j = blockIdx.x * blockDim.x + threadIdx.x;
+    const int i = blockIdx.y * blockDim.y + threadIdx.y;
+    const int c = blockIdx.z, C = gridDim.z;                  ///< channel deep
 
     if (i < H && j < W && c < C) {
-        t[((U64)W * i + j) * C + c] = i01[i==j];
+        t[((long)W * i + j) * C + c] = i01[i==j];
     }
 }
 
 #define DU_LNX   1.0e-12                                      /* log clamp */
 __KERN__ void
-k_math(math_op op, float *A, float v, U64 n) {                ///< self modifying ops
-    const U64 j = (U64)blockIdx.x * blockDim.x + threadIdx.x; ///< numel range 2G * 1K = 2T, U41
+k_math(math_op op, float *A, float v, long n) {               ///< self modifying ops
+    const long j = (long)blockIdx.x*blockDim.x + threadIdx.x; ///< numel range 2G * 1K = 2T, U41
     float ak = A[j];                                          ///< cache value
     if (j < n) {
         switch(op) {
@@ -448,8 +488,8 @@ k_math(math_op op, float *A, float v, U64 n) {                ///< self modifyin
 /// tensor-tensor element-wise ops
 ///
 __KERN__ void
-k_tt_op(math_op op, float *A, float *B, float *O, U64 n) {
-    const U64 j = (U64)blockIdx.x * blockDim.x + threadIdx.x; ///< numel range 2G * 1K = 2T, U41
+k_tt_op(math_op op, float *A, float *B, float *O, long n) {
+    const long j = (long)blockIdx.x*blockDim.x + threadIdx.x; ///< numel range 2G * 1K = 2T, U41
     if (j < n) {
         switch (op) {                                         /// no divergence
         case ADD: O[j] = A[j] + B[j]; break;
@@ -463,8 +503,8 @@ k_tt_op(math_op op, float *A, float *B, float *O, U64 n) {
 /// tensor-scalar element-wise ops
 ///
 __KERN__ void
-k_ts_op(math_op op, float *A, float v, float *O, U64 n) {
-    const U64 j = (U64)blockIdx.x * blockDim.x + threadIdx.x; ///< numel range 2G * 1K = 2T, U41
+k_ts_op(math_op op, float *A, float v, float *O, long n) {
+    const long j = (long)blockIdx.x*blockDim.x + threadIdx.x; ///< numel range 2G * 1K = 2T, U41
     if (j < n) {
         switch (op) {                                         /// no divergence
         case ADD: O[j] = A[j] + v; break;
