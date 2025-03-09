@@ -13,10 +13,11 @@ TSTS0 := \
 	t_bmpvu	\
 	t_imgvu \
 	t_mnist \
-    t_ganvu
+    t_ganvu \
+	t_event
 
 TSTS := \
-	t_event
+	t_cdp_sum
 
 TOBJS0 := \
 	src/mmu/util.o \
