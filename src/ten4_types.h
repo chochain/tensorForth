@@ -58,6 +58,7 @@ typedef cudaEvent_t         EVENT;
 #define ASSERT(X) \
     if (!(X)) ERROR("ASSERT tid %d: line %d in %s\n", threadIdx.x, __LINE__, __FILE__);
 #define GPU_SYNC() { cudaDeviceSynchronize(); }
+#define CDP_SYNC() { cudaDeviceSynchronize(); }      /** for CDP1 retention */
 #define GPU_ERR(c) {             \
     cudaError_t code = (c);      \
     if (code != cudaSuccess) {   \
@@ -106,23 +107,24 @@ typedef double      F64;                    ///< double precision float
 typedef float       F32;                    ///< single precision float
 ///@}
 ///@name CUDA specific macros
+///@note: consider use of fn<<<_g,_b,0,cudaStreamTailLaunch>>>(...)
 ///@{
 #define ALIGN(sz) ALIGN4(sz)
 #define FORK(fn,n,...) {                                    \
     const dim3 _b(T4_WARP_SQ, 1, 1);                        \
     const dim3 _g(((n) + _b.x - 1) / _b.x, 1, 1);           \
-    fn<<<_g,_b,0,cudaStreamTailLaunch>>>(__VA_ARGS__,n);    \
+    fn<<<_g,_b>>>(__VA_ARGS__,n);                           \
 }
 #define FORK3(fn,h,w,c,...) {                               \
     const dim3 _b(T4_WARP_SZ, T4_WARP_SZ, 1);               \
     const dim3 _g(((w) + _b.x - 1) / _b.x,                  \
                   ((h) + _b.y - 1) / _b.y, c);              \
-    fn<<<_g,_b,0,cudaStreamTailLaunch>>>(__VA_ARGS__,h,w);  \
+    fn<<<_g,_b>>>(__VA_ARGS__,h,w);                         \
 }
-#define FORK4(fn,...) { /** N,H,W,C (default param) */      \
+#define FORK4(fn,...) { /** N,H,W,C (default params) */     \
     const dim3 _b(T4_WARP_SQ, 1, 1);                        \
     const dim3 _g(((U64)(W)*(H) + _b.x - 1) / _b.x, C, N);  \
-    fn<<<_g,_b,0,cudaStreamTailLaunch>>>(__VA_ARGS__);      \
+    fn<<<_g,_b>>>(__VA_ARGS__);                             \
 }
 ///@}
 //===============================================================================
