@@ -6,6 +6,7 @@
 NVCC_FLAGS:= \
 	-ccbin g++ \
 	-D__CUDACC__ \
+	-DCUDA_FORCE_CDP1_IF_SUPPORTED \
 	-D__CDPRT_SUPPRESS_SYNC_DEPRECATION_WARNING \
 	-Isrc $(GL_INCS:%=-I%) \
 	-t=0 -c -std=c++17 -O3 \
