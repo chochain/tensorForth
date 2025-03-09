@@ -10,16 +10,15 @@
 ///=======================================================================
 /// static methods
 ///
-///> array sum
-/// Note: tiled_partition<32> used
+/// k_sum1 (4x faster than k_sum)
+/// use stride adding in parallel, instead of atomicAdd
+/// batch_id = blockIdx.z, channel_id = blockIdx.y
 ///
-///<<<1,256>>>  HW=32*32=1024 => 4 blocks
 __KERN__ void
-k_sum(DU *in, DU *out, U64 HW) {
-    U32 const N = blockIdx.z;
-    DU  const sum { d_sum(in + HW * N, HW) };   ///< sum HWC
+k_sum1(DU *I, DU *O, U64 HW) {
+    DU  const sum { d_sum(I + HW * blockIdx.z, HW) };          ///< sum HW
     if (blockIdx.x == 0 && threadIdx.x == 0) {
-        out[blockIdx.x] = sum;
+        O[blockIdx.y] = sum;
     }
 }
 ///
@@ -398,7 +397,7 @@ Tensor::sum() {
     /// num_block_elements    = 256 * 1024
     /// num_threads_per_batch = 512
     static DU z; z = DU0;                        ///< static shared memory
-    FORK(k_sum, numel, data, &z);                /// * 8x straight loop
+    FORK1(k_sum1, numel, data, &z);              /// * FORK1 for strides
     CDP_SYNC();
     return SCALAR(z);
 }
