@@ -115,6 +115,9 @@ typedef float       F32;                    ///< single precision float
     const dim3 _g(((n) + _b.x - 1) / _b.x, 1, 1);           \
     fn<<<_g,_b>>>(__VA_ARGS__,n);                           \
 }
+#define FORK1(fn,n,...) {                                   \
+    fn<<<1,T4_WARP_SQ>>>(__VA_ARGS__,n);                    \
+}
 #define FORK3(fn,h,w,c,...) {                               \
     const dim3 _b(T4_WARP_SZ, T4_WARP_SZ, 1);               \
     const dim3 _g(((w) + _b.x - 1) / _b.x,                  \
