@@ -133,7 +133,7 @@ Model::sgd(DU lr, DU b) {                          /// a=momentum
         FORK(k_sgd, numel, 
              g->data, dg->data, m->data,
              g->N(), parm[0], parm[1]);
-        // GPU_SYNC();
+        CDP_SYNC();
     };
     DU parm[2] = { lr, _iter ? b : DU0 };
 
@@ -147,7 +147,7 @@ Model::adam(DU lr, DU b1, DU b2) {
         FORK(k_adam, numel,
              g->data, dg->data, m->data, v->data,
              g->N(), parm[0], parm[1], parm[2]);
-        // GPU_SYNC();
+        CDP_SYNC();
     };
     DU parm[3] = {
         lr * SQRT(DU1 - POW(b2, _iter+1)) / (DU1 - POW(b1, _iter+1)),

@@ -306,17 +306,17 @@ Model::_bconv(Tensor &in, Tensor &out) {
         DU *d1 = in.slice(n), *d0 = out.slice(n);
         const U32 ks = w.H();                       ///< kernel size
         switch (ks) {
-        case 1: k_dconv2d<TILE1,1><<<g1,blk,0,cudaStreamTailLaunch>>>(
+        case 1: k_dconv2d<TILE1,1><<<g1,blk>>>(
                     d1, w.data, dw.data, db.data, d0, H, W, C0, train); break;
-        case 3: k_dconv2d<TILE3,3><<<g3,blk,0,cudaStreamTailLaunch>>>(
+        case 3: k_dconv2d<TILE3,3><<<g3,blk>>>(
                     d1, w.data, dw.data, db.data, d0, H, W, C0, train); break;
-        case 5: k_dconv2d<TILE5,5><<<g5,blk,0,cudaStreamTailLaunch>>>(
+        case 5: k_dconv2d<TILE5,5><<<g5,blk>>>(
                     d1, w.data, dw.data, db.data, d0, H, W, C0, train); break;
         default:
             ERROR("model_back#conv kernel_size %d not supported\n", ks);
             return -1;
         }
-        // GPU_SYNC();
+        CDP_SYNC();
     }
     if (_trace > 1) _dump_dbdf(db, dw);
     return 0;
@@ -368,12 +368,13 @@ Model::_blinear(Tensor &in, Tensor &out) {
             FORK3(k_dlinear_dwdb, C1, C0, N,        /// * update dB, dW
                   in.data, out.data,
                   dw.data, db.data, E1, E0);
-            // GPU_SYNC();
+            CDP_SYNC();
         }
         /// barrier for X (because we did N samples in one grid)
         in.map(FILL, DU0);                          /// * zero out dX
         FORK3(k_dlinear_dx, C1, C0, N,              /// * update dX
               in.data, out.data, w.data, E1, E0);
+        CDP_SYNC();
     }
     if (train && _trace > 1) {
          _dump_db(db);
@@ -400,7 +401,7 @@ Model::_bpool(Tensor &in, Tensor &out, t4_layer fn) {
         ERROR("model#pooling kernel_size=%d not supported\n", ks);
         return -1;
     }
-    // GPU_SYNC();
+    CDP_SYNC();
     return 0;
 }
 ///
@@ -422,7 +423,7 @@ Model::_bupsample(Tensor &in, Tensor &out, t4_layer fn) {
         ERROR("model#upsample size=%d not supported\n", ks);
         return -1;
     }
-    // GPU_SYNC();
+    CDP_SYNC();
     return 0;
 }
 ///
@@ -449,7 +450,7 @@ Model::_bbatchnorm(Tensor &in, Tensor &out) {
 
     for (U32 c=0; c < C; c++) sum[c] = DU0;            /// * zero
     FORK4(k_sum, out.data, sum, HW);                   /// * capture out sum(dout)     
-    // GPU_SYNC();
+    CDP_SYNC();
     
     for (U32 c=0; c < C; c++) {
         if (train) db[c] += (sum[c] /= HW);            /// * collect dbeta = sum(dout) (/ HW?)
@@ -457,18 +458,18 @@ Model::_bbatchnorm(Tensor &in, Tensor &out) {
     }
     FORK4(k_dbatchnorm_1,                              /// * dX = gamma*ivar*(dout - sum(dout)/N)
         in.data, out.data, xht, sum, var, HW);         /// * also, dout *= x_hat
-    // GPU_SYNC();
+    CDP_SYNC();
     
     for (U32 c=0; c < C; c++) sum[c] = DU0;            /// * zero
     FORK4(k_sum, out.data, sum, HW);                   /// * capture sum(dout * x_hat)
-    // GPU_SYNC();
+    CDP_SYNC();
 
     for (U32 c=0; c < C; c++) {
         if (train) dw[c]  += (sum[c] /= HW);           /// * collect dgamma = sum(dout * x_hat)( / HW?)
         sum[c] *= var[c] / N;                          /// * scale sum
     }
     FORK4(k_dbatchnorm_2, in.data, xht, sum, HW);      /// * dX -= gamma*ivar*x_hat*sum(dout * x_hat) / N
-    // GPU_SYNC();
+    CDP_SYNC();
     
     return 0;
 }
