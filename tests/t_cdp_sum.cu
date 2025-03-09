@@ -83,7 +83,47 @@ string std_string_centered(
     string const s_centered { string(left_pad, pad) + s + string(right_pad, pad) };
     return s_centered;
 }
-
+///
+/// sum, skip by stride
+///
+__device__ DU
+thread_reduce_sum(
+    DU const* __restrict__ input_data,
+    size_t start_offset,
+    size_t num_elements,
+    size_t stride
+    ) {
+    DU sum { 0.0f };
+    for (size_t i{start_offset}; i < num_elements; i += stride) {
+        sum += input_data[i];
+    }
+    return sum;
+}
+///
+/// sum everything in a thread_block
+///
+__device__ DU
+block_reduce_sum(
+    cg::thread_block group,
+    DU* shared_data,
+    DU  val
+    ) {
+    size_t const thread_idx { group.thread_rank() };
+    shared_data[thread_idx] = val;
+    group.sync();
+    for (size_t stride{group.size() / 2}; stride > 0; stride /= 2) {
+        if (thread_idx < stride) {
+            shared_data[thread_idx] += shared_data[thread_idx + stride];
+        }
+        group.sync();
+    }
+    return shared_data[0];
+}
+///
+/// sum all in fixed num_threads with tile (hopefully better than above)
+/// however, this method does not work yet in CUDA 12.6
+/// it compiles but runtime error
+///
 template <size_t NUM_THREADS>
 __device__ DU
 block_reduce_sum(
@@ -107,51 +147,19 @@ block_reduce_sum(
     // location, resulting in a broadcast.
     return shared_data[0];
 }
-
-__device__ DU
-block_reduce_sum(
-    cg::thread_block group,
-    DU* shared_data,
-    DU  val
-    ) {
-    size_t const thread_idx { group.thread_rank() };
-    shared_data[thread_idx] = val;
-    group.sync();
-    for (size_t stride{group.size() / 2}; stride > 0; stride /= 2) {
-        if (thread_idx < stride) {
-            shared_data[thread_idx] += shared_data[thread_idx + stride];
-        }
-        group.sync();
-    }
-    return shared_data[0];
-}
-
+///
+/// sum everythig from num_warp (i.e. num_threads/32)
+///
 template <size_t NUM_WARPS>
 __device__ DU
-block_reduce_sum(DU shared_data[NUM_WARPS])
-{
-    DU sum {0.0f};
+block_reduce_sum(DU shared_data[NUM_WARPS]) {
+    DU sum { 0.0f };
 #pragma unroll
     for (size_t i{0}; i < NUM_WARPS; ++i) {
         // There will be no shared memory bank conflicts here.
         // Because multiple threads in a warp address the same shared memory
         // location, resulting in a broadcast.
         sum += shared_data[i];
-    }
-    return sum;
-}
-
-__device__ DU
-thread_reduce_sum(
-    DU const* __restrict__ input_data,
-    size_t start_offset,
-    size_t num_elements,
-    size_t stride
-    ) {
-    DU sum{0.0f};
-    for (size_t i{start_offset}; i < num_elements; i += stride)
-    {
-        sum += input_data[i];
     }
     return sum;
 }
@@ -162,19 +170,25 @@ template <size_t NUM_THREADS>
 __device__ DU
 block_reduce_sum_v1(
     DU const* __restrict__ input_data,
-    size_t num_elements
+    size_t                 num_elements   // 1M
     ) {
     ASSERT(NUM_THREADS % 32 == 0, "NUM_THREADS must be a multiple of 32");
     __shared__ DU shared_data[NUM_THREADS];
-    size_t const thread_idx { cg::this_thread_block().thread_index().x };
+//    size_t const thread_idx { cg::this_thread_block().thread_index().x };  // 0~511
+    size_t const thread_idx { tid };      // 0~511
     DU sum { thread_reduce_sum(input_data, thread_idx, num_elements, NUM_THREADS) };
     shared_data[thread_idx] = sum;
-    // This somehow does not work.
-    // static thread block cooperative groups is still not supported.
-    // cg::thread_block_tile<NUM_THREADS> const
-    //    thread_block{ cg::tiled_partition<NUM_THREADS>(cg::this_thread_block()) };
+    // This still not work in CUDA 12.6 (compiled but runtime error).
+    // {
+    //     static thread block cooperative groups is still not supported.
+    //     cg::thread_block_tile<NUM_THREADS> const
+    //         group{ cg::tiled_partition<NUM_THREADS>(cg::this_thread_block()) };
+    //     DU const block_sum {
+    //         block_reduce_sum<NUM_THREADS>(group, shared_data, sum) };
+    // }
     // But, the following works
-    DU const block_sum { block_reduce_sum(cg::this_thread_block(), shared_data, sum) };
+    DU const block_sum {
+        block_reduce_sum(cg::this_thread_block(), shared_data, sum) };
     return block_sum;
 }
 ///
@@ -184,20 +198,22 @@ template <size_t NUM_THREADS, size_t NUM_WARPS = NUM_THREADS / 32>
 __device__ DU
 block_reduce_sum_v2(
     DU const* __restrict__ input_data,
-    size_t num_elements
+    size_t                 num_elements
     ) {
     ASSERT(NUM_THREADS % 32 == 0, "NUM_THREADS must be a multiple of 32");
     __shared__ DU shared_data[NUM_WARPS];
     
-    size_t const thread_idx { cg::this_thread_block().thread_index().x };
+//    size_t const thread_idx { cg::this_thread_block().thread_index().x };
+    size_t const thread_idx { tid };
     DU sum { thread_reduce_sum(input_data, thread_idx, num_elements, NUM_THREADS) };
-    
+    ///
+    /// extra shuffle sum makes it a little bit faster than v1
+    ///
     cg::thread_block_tile<32>
     const warp{ cg::tiled_partition<32>(cg::this_thread_block()) };
-    
     auto warp_reduce_sum = [](cg::thread_block_tile<32> group, DU val) {
 #pragma unroll
-        for (size_t offset{group.size() / 2}; offset > 0; offset /= 2) {
+        for (size_t offset{ group.size() / 2}; offset > 0; offset /= 2) {
             // The shfl_down function is a warp shuffle operation that only exists
             // for thread block tiles of size 32.
             val += group.shfl_down(val, offset);
@@ -218,13 +234,13 @@ block_reduce_sum_v2(
 template <size_t NUM_THREADS>
 __global__ void
 batched_reduce_sum_v1(
-    DU* __restrict__ output_data,
+    DU* __restrict__       output_data,
     DU const* __restrict__ input_data,
-    size_t num_elements_per_batch
+    size_t                 num_elements_per_batch
     ) {
     ASSERT(NUM_THREADS % 32 == 0, "NUM_THREADS must be a multiple of 32");
-    size_t const block_idx  { bid };
-    size_t const thread_idx { tid };
+    size_t const block_idx  { bid };   // 0~63
+    size_t const thread_idx { tid };   // 0~511
     DU  const block_sum  {
         block_reduce_sum_v1<NUM_THREADS>(
             input_data + block_idx * num_elements_per_batch, num_elements_per_batch) };
@@ -236,15 +252,15 @@ batched_reduce_sum_v1(
 template <size_t NUM_THREADS>
 __global__ void
 batched_reduce_sum_v2(
-    DU* __restrict__ output_data,
+    DU* __restrict__       output_data,
     DU const* __restrict__ input_data,
-    size_t num_elements_per_batch
+    size_t                 num_elements_per_batch
     ) {
     ASSERT(NUM_THREADS % 32 == 0,"NUM_THREADS must be a multiple of 32");
     constexpr size_t NUM_WARPS { NUM_THREADS / 32 };
     size_t const block_idx  { bid };
     size_t const thread_idx { tid };
-    DU  const block_sum  {
+    DU const block_sum  {
         block_reduce_sum_v2<NUM_THREADS, NUM_WARPS>(
             input_data + block_idx * num_elements_per_batch, num_elements_per_batch) };
     if (thread_idx == 0) {
@@ -347,13 +363,13 @@ launch_batched_reduce_sum_v1(
     LAST_ERR();
 }
 
-template <size_t NUM_THREADS>
+template <size_t NUM_THREADS>             // 512 or 256
 __host__ void
 launch_batched_reduce_sum_v2(
-    DU*          output_data,
+    DU*          output_data,             // vec[batch_size]
     DU const*    input_data,
-    size_t       batch_size,
-    size_t       num_elements_per_batch,
+    size_t       batch_size,              // 64
+    size_t       num_elements_per_batch,  // 1024x1024
     cudaStream_t stream
     ) {
     size_t const num_blocks{ batch_size };
@@ -408,7 +424,7 @@ profile_reduce_sum_full(
 
     constexpr DU element_value {1.0f};
     vector<DU> input_data(num_elements, element_value);
-    DU output {0.0f};
+    DU output { 0.0f };
 
     DU* d_input_data;
     DU* d_workspace;
@@ -552,10 +568,9 @@ int main()
          << "Number of Elements Per Batch: " << num_elements_per_batch << endl
          << std_string_centered("", string_width, '=') << endl;
     
+    constexpr size_t NUM_THREADS { 512 };
     {
-        constexpr size_t NUM_THREADS { 256 };
         constexpr size_t NUM_BLOCK_ELEMENTS { NUM_THREADS * 1024 };
-    
         cout << "Full Reduce Sum" << endl;
         DU const latency_full {
             profile_reduce_sum_full(
@@ -564,7 +579,7 @@ int main()
         cout << std_string_centered("", string_width, '-') << endl;
     }
     
-    constexpr size_t NUM_THREADS_PER_BATCH { 512 };
+    constexpr size_t NUM_THREADS_PER_BATCH { NUM_THREADS };
     ASSERT(NUM_THREADS_PER_BATCH % 32 == 0,
            "NUM_THREADS_PER_BATCH must be a multiple of 32");
     ASSERT(NUM_THREADS_PER_BATCH <= 1024,
