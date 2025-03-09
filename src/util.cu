@@ -427,6 +427,33 @@ d_sum(float *src, long numel) {
 /*!@brief
   Tensor basic ops
 */
+///> array sum
+/// Note: tiled_partition<32> used
+/// slower than d_sum version when blocks counts high
+///
+__KERN__ void
+k_sum(float *src, float *dst, long HW) {
+    const long j  = (long)blockIdx.x*blockDim.x + threadIdx.x; ///< element index
+    const int  c  = blockIdx.y, C = gridDim.y;                 ///< channel
+    const long ns = HW * C * blockIdx.z;                       ///< batch slice index
+    float vi = j < HW ? src[(long)C * j + ns + c] : 0.0f;
+    ///
+    /// prefix sum every 32-threaded tile
+    ///
+    auto t = cg::tiled_partition<32>(cg::this_thread_block());
+    auto shfl_sum = [](cg::thread_block_tile<32> t, float v) {
+        for (int k = 16; k > 0; k >>= 1) {
+            v += t.shfl_down(v, k);
+        }
+        return v;
+    };
+    float tt = shfl_sum(t, vi);
+    ///
+    /// sum up atomically (per channel, for batchnorm)
+    /// slower than looper when blocks are many
+    ///
+    if (t.thread_rank() == 0) atomicAdd_block(&dst[c], tt);   ///< serialize sum
+}
 __KERN__ void
 k_copy(float *src, float *dst, long n) {                      ///< Note: (src, dst)
     const long j = (long)blockIdx.x*blockDim.x + threadIdx.x; ///< numel range 2G * 1K = 2T, U41

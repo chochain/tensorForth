@@ -122,6 +122,7 @@ __GPU__ float        d_sum(float *src, long numel);
 ///@}
 ///@name Tensor ops (kernel mode)
 ///@{
+__KERN__ void        k_sum(float *src, float *dst, long numel);
 __KERN__ void        k_copy(float *src, float *dst, long n);                   ///< Note: (src, dst)
 __KERN__ void        k_transpose(float *src, float *dst, int h, int w);        ///< Note: (src, dst), TODO: CDP
 __KERN__ void        k_identity(float *t, int h, int w);
