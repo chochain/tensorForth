@@ -9,12 +9,7 @@
 #include <stdint.h>
 #include <stddef.h>
 #include "ten4_config.h"
-///
-///@name common size
-///@{
-typedef uint32_t U32;
-typedef uint64_t U64;
-///
+///@}
 ///@name Alignment macros
 ///@{
 #define ALIGN2(sz)  ((sz) + (sz & 0x1))
@@ -79,6 +74,10 @@ typedef enum {
 #define MUL2(x2,y2) (__dmul_rn(x2,y2))         /**< double precision mul   */
 #define MOD2(x2,y2) (fmod(x2,y2))              /**< double precision mod   */
 ///@}
+#define __HOST__     __host__
+#define __KERN__     __global__
+#define __GPU__      __device__
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -89,9 +88,6 @@ uint16_t hbin_to_u16(const void *bin);
 ///
 ///@name Endianess conversion
 ///@{
-#define __HOST__     __host__
-#define __KERN__     __global__
-#define __GPU__      __device__
 __GPU__ uint32_t     bin_to_u32(const void *bin);
 __GPU__ uint16_t     bin_to_u16(const void *bin);
 
@@ -122,15 +118,16 @@ __GPU__ int          d_itoa(int v, char *s, int base=10);
 __GPU__ long         d_strtol(const char *s, char **p, int base=10);
 __GPU__ double       d_strtof(const char *s, char **p);
 __GPU__ int          d_hash(const char *s);
+__GPU__ float        d_sum(float *src, long numel);
 ///@}
 ///@name Tensor ops (kernel mode)
 ///@{
-__KERN__ void        k_copy(float *src, float *dst, U64 n);                    ///< Note: (src, dst)
-__KERN__ void        k_transpose(float *src, float *dst, U32 h, U32 w);        ///< Note: (src, dst), TODO: CDP
-__KERN__ void        k_identity(float *t, U32 h, U32 w);
-__KERN__ void        k_math(math_op op, float *dst, float v, U64 n);           ///< tensor math ops
-__KERN__ void        k_ts_op(math_op op, float *A, float v, float *O, U64 n);  ///< tensor-scalar ops
-__KERN__ void        k_tt_op(math_op op, float *A, float *B, float *O, U64 n); ///< tensor-tensor ops
+__KERN__ void        k_copy(float *src, float *dst, long n);                   ///< Note: (src, dst)
+__KERN__ void        k_transpose(float *src, float *dst, int h, int w);        ///< Note: (src, dst), TODO: CDP
+__KERN__ void        k_identity(float *t, int h, int w);
+__KERN__ void        k_math(math_op op, float *dst, float v, long n);          ///< tensor math ops
+__KERN__ void        k_ts_op(math_op op, float *A, float v, float *O, long n); ///< tensor-scalar ops
+__KERN__ void        k_tt_op(math_op op, float *A, float *B, float *O, long n);///< tensor-tensor ops
 ///@}
 ///==========================================================================
 ///@name Unified memory ops
