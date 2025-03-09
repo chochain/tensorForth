@@ -9,7 +9,7 @@
  *    + 21.1 ms - without NXT cache in nest()            => branch is slow
  *    + 19.1 ms - without push/pop WP                    => static ram access is fast
  *    + 20.3 ms - 16-bit IU, token indirect threading    => not that much worse but portable
- *    + 14.1 ms - 32-bit IU, nest with primitive, indirect threading (with offset)
+ *    + 17.2 ms - 32-bit IU, nest with primitive, indirect threading (with offset)
  */
 #include <iostream>          // cin, cout
 #include <signal.h>
@@ -201,6 +201,7 @@ TensorForth::run() {
         
         cudaEventRecord(h->t0, h->st);            /// * record start clock
         k_vm_exec0<<<1, 1, 0, h->st>>>(vm);       /// * each VM on their own stream
+        cudaStreamSynchronize(h->st);
         cudaEventRecord(h->t1, h->st);            /// * record end clock
     }
     GPU_CHK();
