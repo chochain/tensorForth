@@ -130,6 +130,7 @@ System::process_event(io_event *ev) {
     GPU_SYNC();                     /// * make sure data is completely written
 
     void *v = (void*)ev->data;      ///< fetch payload in buffered print node
+    DEBUG("System::process(gt=%x) {\n", ev->gt);
     switch (ev->gt) {
     case GT_INT:
     case GT_U32:
@@ -139,7 +140,7 @@ System::process_event(io_event *ev) {
     case GT_OBJ: db->print(v, ev->gt);                     break;
     case GT_OPX: {
         _opx *o = (_opx*)v;
-        DEBUG("OP=%d, m=%d, i=%d, n=0x%08x=%g\n", o->op, o->m, o->i, DU2X(o->n), o->n);
+        DEBUG("  _opx(OP=%d, m=%d, i=%d, n=0x%08x=%g)\n", o->op, o->m, o->i, DU2X(o->n), o->n);
         switch (o->op) {
         case OP_DICT:  db->dict_dump();                    break;
         case OP_WORDS: db->words();                        break;
@@ -194,6 +195,7 @@ System::process_event(io_event *ev) {
     } break;
     default: ERROR("event type not supported: %d\n", (int)ev->gt); break;
     }
+    DEBUG("} System::process(gt=%x)\n", ev->gt);
     return NEXT_EVENT(ev);
 }
 
