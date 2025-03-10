@@ -141,7 +141,6 @@ MMU::colon(const char *name) {
 #if T4_DO_NN
 #include "nn/dataset.h"
 #include "nn/model.h"
-#define OBJ2X(t)  ((U32)((U8*)&(t) - _obj))
 
 __GPU__ Dataset&                   ///< create a Dataset holder
 MMU::dataset(U32 batch_sz) {       /// * Note: data block is not allocated yet
@@ -150,7 +149,7 @@ MMU::dataset(U32 batch_sz) {       /// * Note: data block is not allocated yet
     ds->init(0, T4_DATASET, 4);
     ds->N()      = batch_sz;       /// * other members filled in host mode
     ds->batch_id = 0;              /// * setup control flag
-    MM_DB("} mmu#dataset => D:%x\n", OBJ2X(ds));
+    MM_DB("} mmu#dataset => D:%x\n", OBJ2X(*ds));
     return *ds;
 }
 
@@ -160,7 +159,7 @@ MMU::model(U32 sz) {
     Model  *m = (Model*)_ostore.malloc(sizeof(Model));
     Tensor &t = talloc(sz);        /// * allocate tensor storage
     m->reset(this, t);
-    MM_DB("} mmu#model => M:%x\n", OBJ2X(m));
+    MM_DB("} mmu#model => M:%x\n", OBJ2X(*m));
     return *m;
 }
 
