@@ -123,10 +123,7 @@ TensorVM::xop2(math_op op, t4_drop_opt x) {
               fn, TNOS.H(), TNOS.W(), opn[op], TTOS.H(), TTOS.W());
         Tensor &O = _tt_op(op);                   /// * tensor-tensor element op ( A B -- A B C )
         if (O != TTOS) {
-            if (x==T_DROP) {
-                DROP(POP());
-                DROP(POP());
-            }
+            if (x==T_DROP) { DROP(POP()); DROP(POP()); }
             PUSH(O);
         }
         VLOG("} %s => O[%d,%d]\n", fn, O.H(), O.W());
@@ -200,10 +197,7 @@ TensorVM::blas2(t4_ten_op op, t4_drop_opt x) {
     case T_DOT: {               ///< C = A @ B
         Tensor &C = _tdot(A, B);
         if (C != B && C != A) {
-            if (x==T_DROP) {
-                DROP(POP());
-                DROP(POP());
-            }
+            if (x==T_DROP) { DROP(POP()); DROP(POP()); }
             PUSH(C);
         }
         VLOG("} %s => C[%d,%d]\n", fn, C.H(), C.W());
@@ -385,7 +379,7 @@ TensorVM::_tprint(DU v) {
     if (IS_OBJ(v)) {
         mmu.mark_free(v);                     /// * mark to release by host
         state = HOLD;                         /// * forced flush (wasteful but no dangling objects)
-    }
+    }        
 }    
 __GPU__ void
 TensorVM::_pickle(bool save) {
