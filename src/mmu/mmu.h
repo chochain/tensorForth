@@ -117,14 +117,15 @@ public:
     ///
     /// short hands for eforth tensor ucodes (for DU <-> Tensor conversion)
     ///
+    __BOTH__ U32    OBJ2X(T4Base &t) { return (U8*)&t - _obj; }  ///< object offset in _ospace
     __BOTH__ T4Base &du2obj(DU d) {                          ///< DU to Obj convertion
-        U32    off = DU2X(d) & ~T4_TYPE_MSK;
-        T4Base *t  = (T4Base*)(_obj + off);
+        U32    off = DU2X(d) & ~T4_TYPE_MSK;                 ///< clear object bit
+        T4Base *t  = (T4Base*)(_obj + off);                  ///< convert to object pointer
         return *t;
     }
     __BOTH__ DU     obj2du(T4Base &t) {                      ///< conver Obj to DU
-        U32 o = ((U32)((U8*)&t - _obj)) | T4_TT_OBJ;
-        return *(DU*)&o;
+        U32 o = OBJ2X(t) | T4_TT_OBJ;                        ///< mark object bit
+        return *(DU*)&o;                                     ///< convert to DU value
     }
 #if T4_DO_NN
     ///
