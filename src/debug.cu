@@ -45,53 +45,6 @@ Debug::keep_fmt() { _fmt0.copyfmt(fout); }
 __HOST__ void
 Debug::reset_fmt() { fout.copyfmt(_fmt0); }
 ///
-///@name show simple value and object token for ss_dump
-///@{
-__HOST__ void
-Debug::print(DU v, int base) {               ///< display value by ss_dump
-    static char buf[34];                     ///< static buffer
-    if (IS_OBJ(v)) {                         ///< display v by radix
-#if T4_DO_OBJ
-        static const char tn[2][4] = {       ///< sync with t4_obj
-            { 'T', 'N', 'D', 'X' }, { 't', 'n', 'd', 'x' }
-        };
-        auto t2 = [this](Tensor &t) { fout << t.H() << ',' << t.W() << ']'; };
-        auto t4 = [this](Tensor &t) {
-            fout << t.N() << ',' << t.H() << ',' << t.W() << ',' << t.C() << ']';
-        };
-        T4Base &t = mu->du2obj(v);
-        int view  = IS_VIEW(v) ? 1 : 0;
-        fout << std::setbase(base) << tn[view][t.ttype];
-        switch(t.rank) {
-        case 0: fout << "["  << (t.numel - 1) << ']';           break; // network model
-        case 1: fout << "1[" << t.numel << ']';                 break;
-        case 2: fout << "2["; t2((Tensor&)t);                   break;
-        case 3: fout << "3[na]";                                break;
-        case 4: fout << "4["; t4((Tensor&)t);                   break;
-        case 5: fout << "5[" << t.parm << "]["; t4((Tensor&)t); break;
-        }
-#endif // T4_DO_OBJ
-    }
-    else {                                             ///< build literal
-        DU t, f = modf(v, &t);                         ///< integral, fraction
-        int i = 0;                                     
-        if (ABS(f) > DU_EPS) {
-            sprintf(buf, "%0.6g", v);
-        }
-        else {                                         ///< by-digit (Forth's <# #S #>)
-            int dec = base==10;                        ///< C++ can do only base=8,10,16
-            U32 n   = dec ? (U32)(ABS(v)) : (U32)(v);  ///< handle negative
-            i = 33;  buf[i]='\0';                      /// * C++ can do only base=8,10,16
-            do {                                       ///> digit-by-digit
-                U8 d = (U8)MOD(n,base);  n /= base;
-                buf[--i] = d > 9 ? (d-10)+'a' : d+'0';
-            } while (n && i);
-            if (dec && v < DU0) buf[--i]='-';
-        }
-        fout << &buf[i];
-    }
-    fout << ' ';
-}
 __HOST__ void
 Debug::print(void *vp, U8 gt) {
 #if T4_DO_OBJ
@@ -103,8 +56,13 @@ Debug::print(void *vp, U8 gt) {
 __HOST__ void
 Debug::ss_dump(IU id, int sz, DU tos, int base) {
     DU *ss = mu->vmss(id);                ///< retrieve VM SS
-    for (int i=0; i < sz; i++) print(*ss++, base);
-    print(tos, base);
+    auto to_s = [this, base](DU v) {
+        if (IS_OBJ(v)) io->to_s(fout, mu->du2obj(v), IS_VIEW(v));
+        else           io->to_s(fout, v, base);
+        fout << ' ';
+    };
+    for (int i=0; i < sz; i++) to_s(*ss++);
+    to_s(tos);
     fout << "-> ok" << std::endl;
 }
 ///
@@ -267,7 +225,7 @@ Debug::_to_s(Param *p, int nv, int base) {
     }
     U8 *ip = (U8*)(p+1);                           ///< pointer to data
     switch (w) {
-    case LIT:  print(*(DU*)ip, base);               break;
+    case LIT:  io->print(fout, ip, base);           break;
     case STR:  fout << "s\" " << (char*)ip << '"';  break;
     case DOTQ: fout << ".\" " << (char*)ip << '"';  break;
     case VAR:
