@@ -38,7 +38,6 @@ public:
     __HOST__ void keep_fmt();
     __HOST__ void reset_fmt();
 
-    __HOST__ void print(DU v, int base);                       ///< show value and obj token for ss_dump
     __HOST__ void print(void *vp, U8 gt);                      ///< display value, io proxy
     __HOST__ void ss_dump(IU id, int sz, DU tos, int base=10); ///< show data stack content
     __HOST__ void words();                                     ///< list dictionary words

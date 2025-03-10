@@ -44,9 +44,11 @@ public:
     static __HOST__ AIO *get_io();
     static __HOST__ void free_io();
 
+    __HOST__ void to_s(h_ostr &fs, DU v, int base);        ///< display value by ss_dump
     __HOST__ void print(h_ostr &fs, void *vp, U8 gt);
 #if T4_DO_OBJ
-    __HOST__ void print(h_ostr &fs, T4Base &t);                        ///< display in matrix format
+    __HOST__ void to_s(h_ostr &fs, T4Base &t, bool view);  ///< display tensor by ss_dump
+    __HOST__ void print(h_ostr &fs, T4Base &t);            ///< display in matrix format
     __HOST__ int  tsave(Tensor &t, char *fname, U8 mode);
     
 #if T4_DO_NN    
