@@ -40,16 +40,16 @@ AIO::dsfetch(Dataset &ds, char *ds_name, bool rewind) {
     ///
     /// search cache for top <=> dataset pair
     ///
-    IO_DB("\nAIO::%s dataset (batch_id=%d) =>",
+    IO_DB("\nAIO::%s dataset (batch_id=%d) {\n",
           ds_name ? ds_name : (rewind ? "rewind" : "fetch"), ds.batch_id);
     Corpus *cp = Loader::get(ds, ds_name);       ///< Corpus/Dataset provider
     if (!cp) {
-        ERROR(" dataset not found\n"); return -1;
+        ERROR("} => dataset not found\n"); return -1;
     }
     int batch_sz = ds.N();                       ///< mini batch size
     if (ds_name) {                               /// * init load
         if (cp->init()==NULL) {
-            ERROR(" dataset setup failed!\n"); return -2;
+            ERROR("} => dataset setup failed!\n"); return -2;
         }
         ds.reshape(batch_sz, cp->H, cp->W, cp->C);/// * reshape ds to match Corpus
     }
@@ -58,20 +58,20 @@ AIO::dsfetch(Dataset &ds, char *ds_name, bool rewind) {
         ds.batch_id = ds.done = 0;
     }
     else if ((ds.done=cp->eof)) {                /// * dataset exhausted?
-        IO_DB(" completed, no more data.\n"); return 0;
+        IO_DB("} => completed, no more data.\n"); return 0;
     }
     ///
     /// load a mini-batch of data points
     ///
     if (!cp->fetch(ds.batch_id, batch_sz)) {     /// * fetch a batch from Corpus
-        ERROR("fetch failed\n");  return -3;
+        ERROR("} => fetch failed\n");  return -3;
     }
     ///
     /// transfer host into device memory
     /// if needed, allocate Dataset device (managed) memory blocks
     ///
     ds.load_batch(cp->data, cp->label);
-    IO_DB("batch[%d] %d record(s) loaded\n", ds.batch_id, batch_sz);
+    IO_DB("} => batch[%d] %d record(s) loaded\n", ds.batch_id, batch_sz);
 
     ds.batch_id++;
     ds.done = cp->eof;
@@ -83,10 +83,10 @@ AIO::dsfetch(Dataset &ds, char *ds_name, bool rewind) {
 ///
 __HOST__ int
 AIO::nsave(Model &m, char* fname, U8 mode) {
-    IO_DB("\nAIO::save model to '%s' =>", fname);
+    IO_DB("\nAIO::save model to '%s' {\n", fname);
     ofstream fs(fname, ios_base::binary);     ///< open an output file
     if (!fs.is_open()) {
-        ERROR(" failed to open for output\n");
+        ERROR("} => failed to open for output\n");
         return 1;
     }
     fs << "\\ " << T4_APP_NAME << " model\n";
@@ -99,16 +99,16 @@ AIO::nsave(Model &m, char* fname, U8 mode) {
     }
     fs << "\n---" << std::endl;
     fs.close();
-    IO_DB(" completed\n");
+    IO_DB("} => completed\n");
     return 0;
 }
 
 __HOST__ int
 AIO::nload(Model &m, char* fname, U8 mode, char *tib) {
-    IO_DB("\nAIO::load '%s' ", fname);
+    IO_DB("\nAIO::load '%s' {\n", fname);
     ifstream fs(fname, ios_base::binary);            ///< open an input file
     if (!fs.is_open()) {
-        ERROR("=> failed to open for input\n");
+        ERROR("} => failed to open for input\n");
         return 1;
     }
     /// TODO: handle raw data format
@@ -120,11 +120,11 @@ AIO::nload(Model &m, char* fname, U8 mode, char *tib) {
     else {
         std::string tmp;
         while (getline(fs, tmp) && tmp.length());   /// * skip model section
-        IO_DB("parameter tensors (i.e. state_dict)");
+        IO_DB("  parameter tensors (i.e. state_dict)");
         err = _nload_param(fs, m);                  /// * load model layer tensors
     }
     fs.close();
-    IO_DB(" => %s\n", err ? "error" : "completed");
+    IO_DB("} => %s\n", err ? "error" : "completed");
     return err;
 }
 ///
@@ -135,7 +135,7 @@ AIO::_print_model(h_ostr &fs, Model &m) {
     auto tinfo = [this,&fs](Tensor &t, int i, int fn) { ///> layer info
         fs << "[" << std::setw(3) << i << "] "
            << Model::nname(fn) << ":";
-        print(fs, t);
+        to_s(fs, t, false);
         int sz = 0;
         for (int n = 0; n < 4; n++) {
             sz += t.grad[n] ? t.grad[n]->numel : 0;
