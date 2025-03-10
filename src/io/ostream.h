@@ -55,35 +55,35 @@ class Ostream : public Managed {
     obuf_fmt _fmt = { 10, 0, 0, ' '};
 
 __GPU__ __INLINE__ void _debug(GT gt, U8 *v, U32 sz) {
-#if T4_VERBOSE > 0
-        printf("ostr#_debug(gt=%x,sz=%d) obuf[%d] << ", gt, sz, _idx);
+#if T4_VERBOSE > 1
+        printf("  ostr#_debug(gt=%x,sz=%d) obuf[%d] << ", gt, sz, _idx);
         if (!sz) return;
         U8 d[T4_STRBUF_SZ];
         MEMCPY(d, v, sz);
         switch(gt) {
-        case GT_INT:   printf("%d\n", *(IU*)d);      break;
-        case GT_U32:   printf("%u\n", *(U32*)d);     break;
-        case GT_FLOAT: printf("%G\n", *(DU*)d);      break;
-        case GT_STR:   printf("%s\n", d);            break;
-        case GT_OBJ:   printf("Obj[%x]\n", DU2X(d)); break;
-        case GT_FMT:   printf("%08x\n", *(U32*)d);   break;
+        case GT_INT:   printf("%d",      *(IU*)d);  break;
+        case GT_U32:   printf("%u",      *(U32*)d); break;
+        case GT_FLOAT: printf("%G",      *(DU*)d);  break;
+        case GT_STR:   printf("%s",      d);        break;
+        case GT_OBJ:   printf("Obj[%x]", DU2X(d));  break;
+        case GT_FMT:   printf("%08x",    *(U32*)d); break;
         case GT_OPX: {
             _opx *o = (_opx*)d;
             switch (o->op) {
-            case OP_DICT:  printf("dict_dump()\n");                   break;
-            case OP_WORDS: printf("words()\n");                       break;
-            case OP_SEE:   printf("see(%d)\n", o->i);                 break;
-            case OP_DUMP:  printf("dump(%d, %d)\n", o->i, (U32)o->n); break;
-            case OP_SS:    printf("ss_dump(%d)\n", o->i);             break;
-            case OP_DATA:  printf("data(%d)\n", o->i);                break;
-            case OP_FETCH: printf("fetch(%d)\n", o->i);               break;
+            case OP_DICT:  printf("dict_dump()");                   break;
+            case OP_WORDS: printf("words()");                       break;
+            case OP_SEE:   printf("see(%d)",      o->i);            break;
+            case OP_DUMP:  printf("dump(%d, %d)", o->i, (U32)o->n); break;
+            case OP_SS:    printf("ss_dump(%d)",  o->i);            break;
+            case OP_DATA:  printf("data(%d)",     o->i);            break;
+            case OP_FETCH: printf("fetch(%d)",    o->i);            break;
             }
         } break;
-        default: printf("unknown type %d\n", gt);
+        default: printf("unknown type %d", gt);
         }
-#endif // T4_VERBOSE > 0
+        printf("\n");
+#endif // T4_VERBOSE > 1
     }
-        
     __GPU__  void _write(GT gt, U8 *v, U32 sz) {
         if (threadIdx.x!=0) return;               // only thread 0 within a block can write
 
@@ -131,34 +131,34 @@ public:
     ///
     __GPU__ Ostream& operator<<(char c) {
         char buf[2] = { c, '\0' };
-        DEBUG("ostr#_write(char %c)\n", c);
+        DEBUG("  ostr#_write(char %c)\n", c);
         _write(GT_STR, (U8*)buf, 2);
         return *this;
     }
     __GPU__ Ostream& operator<<(S32 i) {
-        DEBUG("ostr#_write(S32) %d\n", i);
+        DEBUG("  ostr#_write(S32) %d\n", i);
         _write(GT_INT, (U8*)&i, sizeof(S32));
         return *this;
     }
     __GPU__ Ostream& operator<<(U32 i) {
-        DEBUG("ostr#_write(U32) %d\n", i);
+        DEBUG("  ostr#_write(U32) %d\n", i);
         _write(GT_U32, (U8*)&i, sizeof(U32));
         return *this;
     }
     __GPU__ Ostream& operator<<(DU d) {
         GT t = IS_OBJ(d) ? GT_OBJ : GT_FLOAT;
-        DEBUG("ostr#_write(DU) %d, %g\n", t, d);
+        DEBUG("  ostr#_write(DU) %d, %g\n", t, d);
         _write(t, (U8*)&d, sizeof(DU));
         return *this;
     }
     __GPU__ Ostream& operator<<(const char *s) {
-        DEBUG("ostr#_write(%s)\n", s);
+        DEBUG("  ostr#_write(%s)\n", s);
         int len = STRLENB(s)+1;
         _write(GT_STR, (U8*)s, len);
         return *this;
     }
     __GPU__ Ostream& operator<<(_opx o) {
-        DEBUG("ostr#_write(_opx)\n");
+        DEBUG("  ostr#_write(_opx)\n");
         _write(GT_OPX, (U8*)&o, sizeof(o));
         return *this;
     }
