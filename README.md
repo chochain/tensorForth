@@ -306,8 +306,9 @@ Tests v3.2 GAN ops
 
 ### Tensor/View print (destructive as in Forth)
 <pre>
-   . (dot)   (Ta -- Ta)      - print a vector, matrix, or tensor
-   . (dot)   (Va -- Va)      - print a view of a tensor
+   . (dot)   (Va -- )        - print a view of a tensor
+   . (dot)   (Ta -- )        - print a vector, matrix, or tensor
+   . (dot)   (Ma -- )        - print a neaural network model
 </pre>
 
 ### Shape adjustment (change shape of original tensor or view)
