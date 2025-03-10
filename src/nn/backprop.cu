@@ -435,7 +435,7 @@ Model::_bupsample(Tensor &in, Tensor &out, t4_layer fn) {
 ///    which is different from original document by does better
 ///    in preventing gradient explosion
 ///
-extern __KERN__ void k_sum(DU *I, DU *sum, U64 HW);
+extern __KERN__ void k_sum1(DU *I, DU *sum, U64 HW);
 __GPU__ int
 Model::_bbatchnorm(Tensor &in, Tensor &out) {
     const U32 C = out.C(), N = out.N(), W = out.W(), H = out.H();   ///< C0==C1, N1=N0
@@ -449,7 +449,7 @@ Model::_bbatchnorm(Tensor &in, Tensor &out) {
     DU *xht = in.grad[3]->data;                        ///< x_hat
 
     for (U32 c=0; c < C; c++) sum[c] = DU0;            /// * zero
-    FORK4(k_sum, out.data, sum, HW);                   /// * capture out sum(dout)     
+    FORK4(k_sum1, out.data, sum, HW);                  /// * capture out sum(dout)     
     CDP_SYNC();
     
     for (U32 c=0; c < C; c++) {
