@@ -207,8 +207,8 @@ Model::backprop() {
 
 __GPU__ Model&
 Model::backprop(Tensor &tgt) {
-    auto trace = [](DU t, int i, Tensor &in, Tensor &out) {
-        printf("\n%6.2f:%2d> %s [%d,%d,%d,%d]\tp=%-2d <= out'Σ/n=%6.2f [%d,%d,%d,%d] ",
+    auto log = [](DU t, int i, Tensor &in, Tensor &out) {
+        INFO("\n%6.2f:%2d> %s [%d,%d,%d,%d]\tp=%-2d <= out'Σ/n=%6.2f [%d,%d,%d,%d] ",
             t, i, d_nname(in.grad_fn),
             in.N(), in.H(), in.W(), in.C(), in.parm,
             out.sum() / out.N() / out.C(),
@@ -220,8 +220,8 @@ Model::backprop(Tensor &tgt) {
     DU  t0 = System::ms(), t1 = t0, tt;                   ///< performance measurement
     for (int i = numel - 2, j = 0; i > 0; i--, j++) {     /// numel=number of layers
         Tensor &in = (*this)[i], &out = (*this)[i + 1];
-        if (_trace) {
-            trace((tt=System::ms()) - t1, i, in, out); t1 = tt;
+        if (*_trace) {
+            log((tt=System::ms()) - t1, i, in, out); t1 = tt;
             _bstep(in, out);
             in.show();
         }
@@ -250,7 +250,7 @@ Model::_bloss(Tensor &tgt) {                     ///> pre-calc dLoss
     case L_LOGSMAX: out -= tgt;  break;          /// * log-softmax + NLL
     default:        out  = tgt;  break;          /// * pre-calc dLoss (pass thru)
     }
-    if (_trace) out.show();                      /// * display loss if trace on
+    if (*_trace) out.show();                     /// * display loss if trace on
 
     return 0;
 }
@@ -318,7 +318,7 @@ Model::_bconv(Tensor &in, Tensor &out) {
         }
         CDP_SYNC();
     }
-    if (_trace > 1) _dump_dbdf(db, dw);
+    if (*_trace > 1) _dump_dbdf(db, dw);
     return 0;
 }
 
@@ -376,7 +376,7 @@ Model::_blinear(Tensor &in, Tensor &out) {
               in.data, out.data, w.data, E1, E0);
         CDP_SYNC();
     }
-    if (train && _trace > 1) {
+    if (train && *_trace > 1) {
          _dump_db(db);
          _dump_dw(dw, true);
     }
