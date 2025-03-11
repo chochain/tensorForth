@@ -182,7 +182,7 @@ __KERN__ void k_batchnorm(
 __GPU__ Model&
 Model::forward(Tensor &input) {
     Tensor &n1 = (*this)[1];    ///< reference model input layer
-    if (_trace) input.show();   /// * preview input data
+    if (*_trace) input.show();  /// * preview input data
 
     if (input.numel != n1.numel) {
         ERROR("Model::forward dataset wrong shape[%d,%d,%d,%d] != model input[[%d,%d,%d,%d]\n",
@@ -195,8 +195,8 @@ Model::forward(Tensor &input) {
     /// cascade execution layer by layer forward
     /// TODO: model execution becomes a superscalar pipeline
     ///
-    auto trace = [](DU t, int i, Tensor &in, Tensor &out) {
-        printf("\n%6.2f:%2d> %s Σ/n=%6.2f [%d,%d,%d,%d]\tp=%6.3f => out[%d,%d,%d,%d]",
+    auto log = [](DU t, int i, Tensor &in, Tensor &out) {
+        INFO("\n%6.2f:%2d> %s Σ/n=%6.2f [%d,%d,%d,%d]\tp=%6.3f => out[%d,%d,%d,%d]",
             t, i, d_nname(in.grad_fn), in.sum() / in.N() / in.C(),
             in.N(), in.H(), in.W(), in.C(), 0.001*in.parm,
             out.N(), out.H(), out.W(), out.C());
@@ -205,12 +205,12 @@ Model::forward(Tensor &input) {
     DU t0 = System::ms(), t1 = t0, tt;             ///< performance measurement
     for (U16 i = 1; i < numel - 1; i++) {
         Tensor &in = (*this)[i], &out = (*this)[i + 1];
-        if (_trace) {
-            trace((tt=System::ms()) - t1, i, in, out);
+        if (*_trace) {
+            log((tt=System::ms()) - t1, i, in, out);
             t1 = tt;
         }
         _fstep(in, out);
-        if (_trace) out.show();
+        if (*_trace) out.show();
     }
     ///
     /// collect onehot vector and hit count
