@@ -330,14 +330,12 @@ ForthVM::init() {
          add_p(BRAN, ip); UNNEST());                        // jmp to next ip
     IMMD("to", _to_value());                                // alter the value of a constant, i.e. 3 to x
     IMMD("is", _is_alias());                                // alias a word, i.e. ' y is x
-/*    
     CODE("[to]",            // : xx 3 [to] y ;              // alter constant in compile mode
-         IU w = LDi(ip); ip += sizeof(IU);                  // fetch constant pfa from 'here'
-         IU a = PFA(w) + sizeof(IU);
-         DU d = POP();
+         IU a = ((Param*)MEM(ip))->ioff + sizeof(IU);       // address of constant
+         DU d = POP();                                      // constant value to be
+         ip += sizeof(IU);                                  // skip to next instruction
          if (a < T4_PMEM_SZ) CELL(a) = d;                   // store tos into constant pfa
          else { ERROR("is %x", a); state = STOP; });
-*/         
     ///
     /// be careful with memory access, because
     /// it could make access misaligned which cause exception
