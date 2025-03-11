@@ -22,11 +22,11 @@ Model::onehot() {
 __GPU__ Tensor&
 Model::onehot(Dataset &dset) {
     auto show = [](DU *h, U32 n, U64 sz) {
-        printf("Model::onehot[%d]={", n);
+        INFO("Model::onehot[%d]={", n);
         for (U64 i = 0; i < sz; i++) {
-            printf("%2.0f", h[i]);
+            INFO("%2.0f", h[i]);
         }
-        printf(" }\n");
+        INFO(" }\n");
     };
     Tensor &out = (*this)[-1];                      ///< model output
     U32    N    = out.N();
@@ -36,7 +36,7 @@ Model::onehot(Dataset &dset) {
         DU *h = hot.slice(n);                       ///< take a sample
         U32 i = dset.label[n];                      ///< label index
         h[(U64)i < HWC ? i : 0] = DU1;              /// * mark hot by index
-        if (_trace > 1) show(h, n, HWC);            /// * might need U32 partition
+        if (*_trace > 1) show(h, n, HWC);           /// * might need U32 partition
     }
     return hot;
 }
