@@ -128,13 +128,14 @@ ForthVM::nest() {
 ///
 __GPU__ __INLINE__ void ForthVM::call(IU w) {
     Code &c = dict[w];                               /// * code reference
-    DEBUG(" => cal(%s)\n", c.name);
+    DEBUG(" => call(%s) {\n", c.name);
     if (c.udf) {                                     /// * userd defined word
         rs.push(ip);
         ip = c.pfa;
         nest();                                      /// * Forth inner loop
     }
     else (*(FPTR)((UFP)c.xt & MSK_XT))();            /// * execute function
+    DEBUG("} call(%s)\n", c.name);
 }
 ///
 /// dictionary initializer
