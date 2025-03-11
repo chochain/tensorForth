@@ -17,16 +17,14 @@
 typedef std::istream h_istr;          ///< host input stream
 typedef std::ostream h_ostr;          ///< host output ostream
 
-#if    T4_VERBOSE > 0
-#define IO_DB(...)      INFO(__VA_ARGS__)
-#else  // !(T4_VERBOSE > 0)
-#define IO_DB(...)
-#endif // T4_VERBOSE > 0
+#define IO_DB(...)  { if (trace) INFO(__VA_ARGS__); }
 
 class Model;
 class Dataset;
 class AIO {                           ///< create in host mode
-    __HOST__ AIO() {}
+    int &trace;
+    
+    __HOST__ AIO(int *verbo) : trace(*verbo) {}
     __HOST__ ~AIO() { TRACE("\\   AIO: instance freed\n"); }
 
 public:
@@ -41,7 +39,7 @@ public:
     static void io_unlock();          ///< unlock IO
 #endif // DO_MULTITASK
 
-    static __HOST__ AIO *get_io();
+    static __HOST__ AIO *get_io(int *verbo=NULL);          ///< assume AIO is instantiated
     static __HOST__ void free_io();
 
     __HOST__ void to_s(h_ostr &fs, DU v, int base);        ///< display value by ss_dump
