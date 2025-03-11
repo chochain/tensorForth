@@ -144,7 +144,7 @@ AIO::_print_model(h_ostr &fs, Model &m) {
     };
     auto finfo = [this,&fs](Tensor **g) {
         for (int i=0; g[i] && i < 2; i++) {
-            fs << " "; print(fs, *g[i]);
+            fs << " "; to_s(fs, *g[i], false);
         }
     };
     if (!m.is_model()) return;
@@ -265,7 +265,7 @@ AIO::_nload_param(h_istr &fs, Model &m) {
         IO_DB("\n%s %s[%d,%d,%d,%d] ", nm, pn, t.N(), t.H(), t.W(), t.C());
         while (getline(fs, line) && !line.length());   /// * skip blank lines
         if (line[0]!='-' || line[1]!='-' || line[2]!='-') {
-            IO_DB(" model format error");
+            ERROR(" model format error");
             return 1;
         }
         fs.read((char*)t.data, t.numel * sizeof(DU));  /// * load parameters
