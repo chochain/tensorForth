@@ -48,7 +48,7 @@ public:
     ///
     /// debuging controls
     ///
-    __BOTH__ __INLINE__ int  trace()        { return _trace; }
+    __BOTH__ __INLINE__ int  &trace()       { return _trace; }
     __BOTH__ __INLINE__ void trace(int lvl) { _trace = lvl;  }
     
     ///==============================================================================
