@@ -50,8 +50,8 @@ __HOST__
 System::System(h_istr &i, h_ostr &o, int khz, int verbo)
     : fin(i), _istr(new Istream()), _ostr(new Ostream()), _trace(verbo) {
     mu = MMU::get_mmu();             ///> instantiate memory controller
-    io = AIO::get_io();              ///> instantiate async IO controler
-    db = Debug::get_db(o, verbo);    ///> tracing instrumentation
+    io = AIO::get_io(&_trace);       ///> instantiate async IO controler
+    db = Debug::get_db(o);           ///> tracing instrumentation
     ///
     ///> setup randomizer
     ///
@@ -137,15 +137,15 @@ System::process_event(io_event *ev) {
     case GT_FLOAT:
     case GT_STR:
     case GT_FMT:
-    case GT_OBJ: db->print(v, ev->gt);                     break;
+    case GT_OBJ: db->print(v, ev->gt);                       break;
     case GT_OPX: {
         _opx *o = (_opx*)v;
         DEBUG("  _opx(OP=%d, m=%d, i=%d, n=0x%08x=%g)\n", o->op, o->m, o->i, DU2X(o->n), o->n);
         switch (o->op) {
-        case OP_DICT:  db->dict_dump();                    break;
-        case OP_WORDS: db->words();                        break;
-        case OP_SEE:   db->see((IU)o->i, (int)o->m);       break;
-        case OP_DUMP:  db->mem_dump((IU)o->i, UINT(o->n)); break;
+        case OP_DICT:  db->dict_dump();                      break;
+        case OP_WORDS: db->words();                          break;
+        case OP_SEE:   db->see((IU)o->i, (int)o->m, _trace); break;
+        case OP_DUMP:  db->mem_dump((IU)o->i, UINT(o->n));   break;
         case OP_SS:    db->ss_dump((IU)o->i>>10, (int)o->i&0x3ff, o->n, (int)o->m); break;
 #if T4_DO_OBJ // vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
         case OP_TSAVE: {
