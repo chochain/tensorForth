@@ -84,7 +84,7 @@ AIO::_print_mat(h_ostr &fs, DU *td, U32 *shape) {
 __HOST__ void
 AIO::_print_tensor(h_ostr &fs, Tensor &t) {
     DU *td = t.data;                                    /// * short hand
-    IO_DB("  aio#print_tensor T=%p data=%p\n", &t, td);
+    DEBUG("  aio#print_tensor T=%p data=%p\n", &t, td);
 
     ios::fmtflags fmt0 = fs.flags();
     fs << setprecision(-1);                             /// * standard format
