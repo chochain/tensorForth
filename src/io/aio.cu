@@ -14,8 +14,8 @@
 AIO *_io = NULL;         ///< singleton Async IO controller
 
 __HOST__ AIO*
-AIO::get_io() {
-    if (!_io) _io = new AIO();
+AIO::get_io(int *verbo) {
+    if (!_io) _io = new AIO(verbo);
     return _io;
 }
 __HOST__ void AIO::free_io() { if (_io) delete _io; }
