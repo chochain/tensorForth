@@ -18,12 +18,9 @@ template<typename F>                                    ///< template functor cl
 struct functor : fop {
     F op;                                               ///< reference to lambda
     __GPU__ __INLINE__ functor(const F f) : op(f) {     ///< constructor
-        DEBUG("fop:%p => ", this);
+        DEBUG("code#fop:%p => ", this);
     }
-    __GPU__ __INLINE__ void operator()() {              ///< lambda invoke
-        DEBUG("op(%p) => ", this);
-        op();
-    }
+    __GPU__ __INLINE__ void operator()() { op(); }      ///< lambda invoke
 };
 typedef fop* FPTR;                ///< lambda function pointer
 ///@}
