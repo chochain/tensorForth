@@ -235,6 +235,7 @@ NetVM::init() {
          U32 c=POPi; U32 w=POPi; U32 h=POPi; U32 n=POPi;
          Model  &m = mmu.model();             /// * create NN model
          Tensor &t = mmu.tensor(n,h,w,c);     /// * create input tensor
+         m.trace(sys.trace());                /// * set model tracing control
          m.npush(t);                          /// * serves as the 1st layer
          PUSH(m));
     ///@}
