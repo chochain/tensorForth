@@ -12,8 +12,8 @@
 Debug *_db = NULL;                            ///< singleton Debug controller
 
 __HOST__ Debug*
-Debug::get_db(h_ostr &o, int verbo) {
-    if (!_db) _db = new Debug(o, verbo);
+Debug::get_db(h_ostr &o) {
+    if (!_db) _db = new Debug(o);
     return _db;
 }
 __HOST__ Debug *Debug::get_db() { return _db; }
@@ -119,7 +119,7 @@ Debug::mem_dump(IU p0, int sz) {
 
 #define NFA(w) (DICT(w).pfa - ALIGN(strlen(DICT(w).name)))
 __HOST__ void
-Debug::see(IU w, int base) {
+Debug::see(IU w, int base, int trace) {
     auto nvar = [this](IU i0, IU ioff, U8 *ip) {           /// * calculate # of elements
         if (ioff) return MEM(ioff) - ip - sizeof(IU);      /// create...does>
         IU pfa0 = DICT(i0).pfa;
@@ -136,7 +136,7 @@ Debug::see(IU w, int base) {
     while (1) {
         Param *p = (Param*)ip;
         int   nv = p->op==VAR ? nvar(w, p->ioff, ip) : 0;  ///< VAR number of elements
-        if (_to_s(p, nv, base) != 0) break;                ///< display Parameter
+        if (_to_s(p, nv, base, trace) != 0) break;         ///< display Parameter
         fout << ENDL;
         ///
         /// advance ip to next Param
@@ -197,12 +197,12 @@ Debug::_p2didx(Param *p) {
     return -1;                                     /// * not found
 }
 __HOST__ int
-Debug::_to_s(IU w, int base) {
+Debug::_to_s(IU w, int base, int trace) {
     Param *p = (Param*)MEM(DICT(w).pfa);
-    return _to_s(p, 0, base);
+    return _to_s(p, 0, base, trace);
 }
 __HOST__ int
-Debug::_to_s(Param *p, int nv, int base) {
+Debug::_to_s(Param *p, int nv, int base, int trace) {
     bool pm = p->op != MAX_OP;                     ///< is prim
     int  w  = pm ? p->op : _p2didx(p);             ///< fetch word index by pfa
     if (w < 0) return -1;                          ///> loop guard

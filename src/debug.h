@@ -20,18 +20,17 @@ class Debug {                                             ///< friend class to M
     MMU      *mu;                                         ///< memory controller
     AIO      *io;                                         ///< streaming io controller
     h_ostr   &fout;                                       ///< host output stream
-    int      trace;                                       ///< debug tracing verbosity level
     
     char     tmp[256];                                    ///< tmp string buffer
     
-    __HOST__ Debug(h_ostr &o, int verbo) : fout(o), trace(verbo) {
+    __HOST__ Debug(h_ostr &o) : fout(o) {
         mu = MMU::get_mmu();
         io = AIO::get_io();
     }
     __HOST__ ~Debug() { TRACE("\\   Debug: instance freed\n"); }
     
 public:
-    static __HOST__ Debug *get_db(h_ostr &o, int verbo);  ///< singleton contructor
+    static __HOST__ Debug *get_db(h_ostr &o);             ///< singleton contructor
     static __HOST__ Debug *get_db();                      ///< singleton getter
     static __HOST__ void  free_db();                      ///< singleton destructor
     
@@ -42,7 +41,7 @@ public:
     __HOST__ void ss_dump(IU id, int sz, DU tos, int base=10); ///< show data stack content
     __HOST__ void words();                                     ///< list dictionary words
     __HOST__ void mem_dump(IU addr, int sz);                   ///< dump memory frm addr...addr+sz
-    __HOST__ void see(IU w, int base=10);                      ///< disassemble user defined word
+    __HOST__ void see(IU w, int base, int trace=0);            ///< disassemble user defined word
     __HOST__ void dict_dump();                                 ///< dump dictionary
     __HOST__ void mem_stat();                                  ///< display memory statistics
     ///
@@ -56,8 +55,8 @@ private:
     ///
     __HOST__ char *_d2h(const char *d_str);                   ///< convert from device string
     __HOST__ int  _p2didx(Param *p);                          ///< reverse lookup
-    __HOST__ int  _to_s(IU w, int base);                      ///< show dictionary entry
-    __HOST__ int  _to_s(Param *p, int nv, int base);          ///< show by parameter memory pointer
+    __HOST__ int  _to_s(IU w, int base, int trace=0);         ///< show dictionary entry
+    __HOST__ int  _to_s(Param *p, int nv, int base, int trace=0); ///< show by parameter memory pointer
 };
 ///@}
 #endif // __DEBUG_H
