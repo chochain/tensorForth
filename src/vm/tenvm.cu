@@ -103,24 +103,24 @@ TensorVM::xop2(math_op op, t4_drop_opt x) {
     switch (tt) {                                 /// tensor flags
     case 0 /* ss */: _ss_op(op); break;           /// * scalar-scalar op ( a b -- c  )
     case 1 /* st */: {                            /// * scalar-tensor op ( n T -- T' )
-        VLOG("%s %g %s A[%d,%d] {\n",
-             fn, ss[-1], opn[op], TTOS.H(), TTOS.W());
+        VLOG("%d> %s %g %s A[%d,%d] {\n",
+             id, fn, ss[-1], opn[op], TTOS.H(), TTOS.W());
         Tensor &O = _st_op(op, x);
         if (x==T_KEEP) PUSH(O);
         else           ss.pop();
         VLOG("} %s => O[%d,%d]\n", fn, O.H(), O.W());
     } break;
     case 2 /* ts */: {                            /// * tensor-scalar op ( T n -- T n T' )
-        VLOG("%s A[%d,%d] %s %g {\n",
-             fn, TNOS.H(), TNOS.W(), opn[op], tos);
+        VLOG("%d> %s A[%d,%d] %s %g {\n",
+             id, fn, TNOS.H(), TNOS.W(), opn[op], tos);
         Tensor &O = _ts_op(op, x);
         if (x==T_KEEP) PUSH(O);
         else           POP();
         VLOG("} %s => O[%d,%d]\n", fn, O.H(), O.W());
     } break;
     case 3 /* tt */: {
-        VLOG("%s A[%d,%d] %s B[%d,%d] {\n",
-              fn, TNOS.H(), TNOS.W(), opn[op], TTOS.H(), TTOS.W());
+        VLOG("%d> %s A[%d,%d] %s B[%d,%d] {\n",
+             id, fn, TNOS.H(), TNOS.W(), opn[op], TTOS.H(), TTOS.W());
         Tensor &O = _tt_op(op);                   /// * tensor-tensor element op ( A B -- A B C )
         if (O != TTOS) {
             if (x==T_DROP) { DROP(POP()); DROP(POP()); }
@@ -140,7 +140,7 @@ TensorVM::blas1(t4_ten_op op) {
     Tensor &A  = TTOS;
     if (!A.is_tensor() || A.rank != 2) { ERROR("tensor2?"); return; }
     
-    VLOG("%s %s(A[%d,%d]) =>{\n", fn, opn[op], A.H(), A.W());
+    VLOG("%d> %s %s(A[%d,%d]) =>{\n", id, fn, opn[op], A.H(), A.W());
     ///
     /// single tensor handler
     ///
@@ -191,8 +191,8 @@ TensorVM::blas2(t4_ten_op op, t4_drop_opt x) {
         return;
     }
     Tensor &A = TNOS, &B = TTOS;
-    VLOG("%s A[%d,%d] %s B[%d,%d] {\n",
-          fn, A.H(), A.W(), opn[op], B.H(), B.W());
+    VLOG("%d> %s A[%d,%d] %s B[%d,%d] {\n",
+         id, fn, A.H(), A.W(), opn[op], B.H(), B.W());
     switch (op){
     case T_DOT: {               ///< C = A @ B
         Tensor &C = _tdot(A, B);
@@ -225,8 +225,8 @@ TensorVM::gemm() {                           ///< GEMM ( a b A B C -- a b A B C 
     DU     b  = ss[-3];                      ///< beta
     DU     a  = ss[-4];                      ///< alpha
     U16    m  = A.H(), k = A.W(), n = B.W(); ///< dimensions
-    VLOG("tenvm#gemm %g * A[%d,%d] @ B[%d,%d] + %g * C[%d, %d] {\n",
-         a, m, k, B.H(), n, b, C.H(), C.W());
+    VLOG("%d> tenvm#gemm %g * A[%d,%d] @ B[%d,%d] + %g * C[%d, %d] {\n",
+         id, a, m, k, B.H(), n, b, C.H(), C.W());
 
     if (k == B.H() && m == C.H() && n == C.W()) {
         Tensor &O = COPY(C);                 ///< hard copy C tensor
