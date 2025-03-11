@@ -225,7 +225,7 @@ Debug::_to_s(Param *p, int nv, int base, int trace) {
     }
     U8 *ip = (U8*)(p+1);                           ///< pointer to data
     switch (w) {
-    case LIT:  io->print(fout, ip, base);           break;
+    case LIT:  io->to_s(fout, *(DU*)ip, base);      break;
     case STR:  fout << "s\" " << (char*)ip << '"';  break;
     case DOTQ: fout << ".\" " << (char*)ip << '"';  break;
     case VAR:
