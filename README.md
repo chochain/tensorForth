@@ -425,10 +425,6 @@ Tests v3.2 GAN ops
 
 ### TODO - by priorities
 * Design & Instrumentation
-  + TLSF using floating point [FP in Allocator](https://brnz.org/hbr/?p=1735)
-  + Auto Differentiation i.e. JVP (forward), VJP (backward)
-    - [autograd](https://github.com/HIPS/autograd)
-    - [Jax](https://docs.jax.dev/en/latest/quickstart.html)
   + Visulization via TensorBoard
     - output tensor in HWC format
     - util from raw to png (with STB)
@@ -444,6 +440,10 @@ Tests v3.2 GAN ops
     - [GGML Tensor library]( https://github.com/ggerganov/ggml). Host-oriented, review kernel code.
     - [GGUF](https://github.com/ggerganov/ggml/blob/master/docs/gguf.md). Optimized for GPU, cross-platform, structured model storage.
 * VM
+  + TLSF using floating point [FP in Allocator](https://brnz.org/hbr/?p=1735)
+  + Auto Differentiation i.e. JVP (forward), VJP (backward)
+    - [autograd](https://github.com/HIPS/autograd)
+    - [Jax](https://docs.jax.dev/en/latest/quickstart.html)
   + review CUDA Stream Management (cudaStreamAddCallback) and Event Management
   + review CUDA EventSync/LaunchHostFunc, flip calling from GPU=>CPU (requires CUDA Stream + event pool)
   + review CUDA dynamic Graph
