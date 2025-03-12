@@ -38,6 +38,7 @@ VM::outer() {
             state   = QUERY;                         /// * back to input mode
             break;                                   /// * bail
         }
+        if (state==HOLD) break;
     }
     post();                                          /// * post process (debug)
 }
