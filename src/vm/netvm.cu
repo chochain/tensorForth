@@ -14,28 +14,29 @@ NetVM::predict(Tensor &I, Tensor &P) {}
 ///===================================================================
 /// private methods
 ///
-__GPU__ void
+__GPU__ int
 NetVM::_nnop(t4_layer op) {     /// vtable dispatcher
     OPN(LAYER_OP);
+    auto ok = [this,op]() { VLOG(" } %s\n", opn[op]); return 0; };
     ///
     /// handle tensor ops (destructive)
     ///
-    VLOG("netvm#nnop %s", opn[op]);
+    VLOG("netvm#nnop %s {", opn[op]);
     if (TOS1T) {
         Tensor &t = TTOS;
         VLOG(" T%d", t.rank);
         switch (op) {
-        case L_FLATTEN: t.reshape(t.numel); return;
-        case L_RELU:    t.map(RELU);        return;
-        case L_TANH:    t.map(TANH);        return;
-        case L_SIGMOID: t.map(SIGM);        return;
+        case L_FLATTEN: t.reshape(t.numel);    return ok();
+        case L_RELU:    t.map(RELU);           return ok();
+        case L_TANH:    t.map(TANH);           return ok();
+        case L_SIGMOID: t.map(SIGM);           return ok();
         case L_SOFTMAX:
-            t.map(MUL, RCP(t.sum() + DU_EPS)); return;
+            t.map(MUL, RCP(t.sum() + DU_EPS)); return ok();
         case L_LOGSMAX:
             DU sum = t.sum();
             if (sum > DU_EPS) t -= LOG(sum);
             else ERROR("logsoftmax tensor sum < 0!");
-            return;
+            return ok();
         }
         // * continue to zero param
     }
@@ -44,18 +45,18 @@ NetVM::_nnop(t4_layer op) {     /// vtable dispatcher
     ///
     if (IS_M(tos)) {
         Model &m = MTOS;
-        VLOG(" N%ld {\n", m.numel);
+        VLOG(" N%ld", m.numel);
         switch (op) {
         case L_FLATTEN:
         case L_RELU:
         case L_TANH:
         case L_SIGMOID:
-        case L_SELU:    m.add(op);           return;
-        case L_LEAKYRL: m.add(op, 0, 0.01);  return;
-        case L_ELU:     m.add(op, 0, DU1);   return;
+        case L_SELU:    m.add(op);           return ok();
+        case L_LEAKYRL: m.add(op, 0, 0.01);  return ok();
+        case L_ELU:     m.add(op, 0, DU1);   return ok();
         case L_SOFTMAX:
-        case L_LOGSMAX: m.add(op);           return;
-        case L_BATCHNM: m.add(op, 0, 0.1);   return; /// * default momentum=0.1
+        case L_LOGSMAX: m.add(op);           return ok();
+        case L_BATCHNM: m.add(op, 0, 0.1);   return ok(); /// * default momentum=0.1
         }
         // * continue to one param
     }
@@ -65,17 +66,17 @@ NetVM::_nnop(t4_layer op) {     /// vtable dispatcher
     if (M1V) {
         DU    a  = POP();
         Model &m = MTOS;
-        VLOG(" N%ld %g {\n", m.numel, a);
+        VLOG(" N%ld %g", m.numel, a);
         switch (op) {
-        case L_LINEAR:  m.add(op, INT(a), DU1);        return; /* bias = 1.0 */
+        case L_LINEAR:  m.add(op, INT(a), DU1);        return ok(); /* bias = 1.0 */
         case L_LEAKYRL:
         case L_ELU:     
-        case L_DROPOUT: m.add(op, 0, a);               return;
+        case L_DROPOUT: m.add(op, 0, a);               return ok();
         case L_AVGPOOL:
         case L_MAXPOOL: 
-        case L_MINPOOL: m.add(op, INT(a));             return;
-        case L_BATCHNM: m.add(op, 0, a);               return;
-        case L_USAMPLE: m.add(op, INT(a), UP_NEAREST); return;
+        case L_MINPOOL: m.add(op, INT(a));             return ok();
+        case L_BATCHNM: m.add(op, 0, a);               return ok();
+        case L_USAMPLE: m.add(op, INT(a), UP_NEAREST); return ok();
         }
         PUSH(a);                                   /// * restore tos
         /// continue to error handling cases
@@ -83,9 +84,10 @@ NetVM::_nnop(t4_layer op) {     /// vtable dispatcher
     switch (op) {
     case L_LINEAR:
         if (M2V) {                                 /// * param checking
-            U32 n    = POPi;                       ///> number of output channels
+            U32 c    = POPi;                       ///> number of output channels
             DU  bias = POP();                      ///> bias range [-bias, bias)
-            MTOS.add(op, n, bias);                 /// * (N b c -- N')
+            VLOG(" N%ld c=%d bias=%g", MTOS.numel, c, bias);
+            MTOS.add(op, c, bias);                 /// * (N b c -- N')
         }
         else ERROR("( N [bias] n -- ) for linear required!");
         break;
@@ -104,6 +106,7 @@ NetVM::_nnop(t4_layer op) {     /// vtable dispatcher
         if (M2V) {
             U16 n = POPi;
             DU  m = POP();
+            VLOG(" N%ld n=%d m=%g", MTOS.numel, n, m);
             MTOS.add(op, n, m);
         }
         else ERROR("( N [mtum] n -- ) for upsample required?");
@@ -116,9 +119,9 @@ NetVM::_nnop(t4_layer op) {     /// vtable dispatcher
             case L_SIGMOID: xop1(SIGM);      break;
             }
         }
-        else ERROR("NetVM::nnop layer %d not supported(2)\n", op);
+        else ERROR("layer %d not supported(2)\n", op);
     }
-    VLOG("} netvm#nnop\n");
+    return ok();
 }
 ///
 /// dataset ops
@@ -193,7 +196,9 @@ NetVM::_conv(U16 k) {
     if (!M2V) { ERROR("Model#add bias c for conv2d required!"); return; }
     U32 c    = POPi;                    ///> number of output channels
     DU  bias = POP();                   ///> convolution bias
+    VLOG("netvm#conv { N%ld k=%d c=%d bias=%g", MTOS.numel, k, c, bias);
     MTOS.add(L_CONV, c, bias, opt);
+    VLOG(" } conv\n");
 }
 ///
 /// loss functions
