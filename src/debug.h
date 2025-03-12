@@ -55,8 +55,8 @@ private:
     ///
     __HOST__ char *_d2h(const char *d_str);                   ///< convert from device string
     __HOST__ int  _p2didx(Param *p);                          ///< reverse lookup
-    __HOST__ int  _to_s(IU w, int base, int trace=0);         ///< show dictionary entry
-    __HOST__ int  _to_s(Param *p, int nv, int base, int trace=0); ///< show by parameter memory pointer
+    __HOST__ int  _to_s(IU w, int base);                      ///< show dictionary entry
+    __HOST__ int  _to_s(Param *p, int nv, int base);          ///< show by parameter memory pointer
 };
 ///@}
 #endif // __DEBUG_H
