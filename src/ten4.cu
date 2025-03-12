@@ -55,7 +55,7 @@ k_ten4_tally(System *sys, int *vmst_cnt, VM_Handle *pool) {
     if (id==0) sys->mu->sweep();               ///< clear marked free tensors
     g.sync();
     
-    if (id < 4) vmst_cnt[id] = 0;
+    if (id < VM_STATE_SZ) vmst_cnt[id] = 0;
     g.sync();
 
     if (id < T4_VM_COUNT) {
@@ -85,7 +85,8 @@ k_vm_exec0(VM *vm) {
         vm->ss.v = ss;
         vm->rs.v = rs;
         
-        vm->outer();                               /// * enter VM outer loop
+        if (vm->state==HOLD) vm->resume();         /// * resume holding work
+        else                 vm->outer();          /// * enter VM outer loop
         
         MEMCPY(s0, ss, sizeof(DU) * T4_SS_SZ);
         MEMCPY(r0, rs, sizeof(DU) * T4_RS_SZ);
@@ -98,21 +99,20 @@ __KERN__ void
 k_vm_exec1(VM *vm) {
     __shared__ DU ss[T4_SS_SZ];      ///< shared mem for ss, rs (much faster)
     __shared__ DU rs[T4_RS_SZ];
-    
+
     if (vm->state == STOP) return;
     
     const auto g = cg::this_thread_block();       ///< all blocks
     const int  i = g.thread_rank();               ///< thread id -> ss[i]
-
+    auto cpy = [i](DU *dst, DU *src) {
+        for (int n=i; n < T4_SS_SZ; n+= WARP_SZ)
+            if (n < T4_SS_SZ) dst[n] = src[n];
+    };
     DU *s0 = vm->ss.v;
     DU *r0 = vm->rs.v;
     
     ///> copy stacks from global to shared mem
-    for (int n=0; n < T4_SS_SZ; n+= WARP_SZ)      /// * TODO: parallel copy, sync issue
-        if ((n+i) < T4_SS_SZ) ss[n+i] = s0[n+i];  /// * see _exec0 above
-    for (int n=0; n < T4_RS_SZ; n+= WARP_SZ)      
-        if ((n+i) < T4_RS_SZ) rs[n+i] = r0[n+i];
-    g.sync();
+    cpy(ss, s0); cpy(rs, r0); g.sync();
     ///
     /// * enter ForthVM outer loop
     /// * Note: single-threaded, dynamic parallelism when needed
@@ -120,19 +120,14 @@ k_vm_exec1(VM *vm) {
     if (i == 0) {
         vm->ss.v = ss;                            /// * use shared memory ss, rs
         vm->rs.v = rs;
-        
-        vm->outer();                              /// * enter VM outer loop
+
+        if (vm->state==HOLD) vm->resume();        /// * resume holding work
+        else                 vm->outer();         /// * enter VM outer loop
 
         vm->ss.v = s0;                            /// * restore stack pointers
         vm->rs.v = r0;
     }
-    g.sync();
-    
-    ///> copy updated stacks back to global mem
-    for (int n=0; n < T4_SS_SZ; n+= WARP_SZ)
-        if ((n+i) < T4_SS_SZ) s0[n+i] = ss[n+i];
-    for (int n=0; n < T4_RS_SZ; n+= WARP_SZ)
-        if ((n+i) < T4_RS_SZ) r0[n+i] = rs[n+i];
+    g.sync(); cpy(s0, ss); cpy(r0, rs);           ///> copy updated stacks back to global mem
 }
 
 TensorForth::TensorForth(int device, int verbose) {
@@ -166,7 +161,7 @@ TensorForth::TensorForth(int device, int verbose) {
     /// allocate VM handle pool
     ///
     MM_ALLOC(&vm_pool, sizeof(VM_Handle) * T4_VM_COUNT);
-    MM_ALLOC(&vmst_cnt, sizeof(int) * 4);
+    MM_ALLOC(&vmst_cnt, sizeof(int) * VM_STATE_SZ); /// * 4 states + 1 VM[0].hold
 }
 
 __HOST__ void
@@ -233,8 +228,8 @@ __HOST__ int
 TensorForth::main_loop() {
 //    sys->db->self_tests();
     int i = 0;
-    while (more_job() && sys->readline()) {    /// * with loop guard
-        if (++i > 200) break;
+    while (more_job() && sys->readline(vmst_cnt[HOLD])) {
+        if (++i > 200) break;                  /// * runaway loop guard TODO: CC
         run();
         sys->flush();                          /// * flush output buffer
         profile();
