@@ -16,15 +16,15 @@ __KERN__ void k_dconv2d(
     DU *I, DU *F, DU *DF, DU *DB, DU *O,   ///< input I[HxW], F,DF[KSxKS], output O[HxW]
     int H, int W, int C0, bool train       ///< H1==H0, W1==W0, output Channels
     ) {
-    __shared__ DU _I[T4_WARP_SQ];                    ///< input cache tile [16x16]
-    __shared__ DU _O[T4_WARP_SQ];                    ///< output cache tile [16x16]
+    __shared__ DU _I[T4_DIM_SQ];                     ///< input cache tile [16x16]
+    __shared__ DU _O[T4_DIM_SQ];                     ///< output cache tile [16x16]
 
     const U32 KSQ= KS * KS;                          ///< save some muliplications
     const U32 tx = threadIdx.x, j1 = tx + blockIdx.x * TS;
     const U32 ty = threadIdx.y, i1 = ty + blockIdx.y * TS;
     const U32 c1 = blockIdx.z,  C1 = gridDim.z;      ///< channel deep
     const U64 z1 = ((U64)W * i1 + j1) * C1 + c1;     ///< input array index
-    const U64 xy = (U64)T4_WARP_SZ * ty + tx;        ///< offset in cache window
+    const U64 xy = (U64)T4_DIM_SZ * ty + tx;         ///< offset in cache window
     ///
     /// process z1, i.e. [TS, TS, C1] cells per kernel call
     ///
@@ -58,7 +58,7 @@ __KERN__ void k_dconv2d(
                     atomicAdd(dfx, ox[x] * _I[xy]);  /// * dF += dY * X (TSxTS threads)
                     dfx += C0;                       /// * DF[c1,0,1,c0]
                 }
-                ox += T4_WARP_SZ;
+                ox += T4_DIM_SZ;
             }
             if (i1 < H && j1 < W) {                  /// * update input matrix
                 if (c0 == 0) I[z1] = sum;            /// * update I (per C1)
@@ -284,9 +284,9 @@ Model::_bstep(Tensor &in, Tensor &out) {
     }
 }
 
-#define TILE1    (T4_WARP_SZ)              /** 16, 1x1 conv */
-#define TILE3    (T4_WARP_SZ - 3 + 1)      /** 14, 3x3 conv */
-#define TILE5    (T4_WARP_SZ - 5 + 1)      /** 12, 5x5 conv */
+#define TILE1    (T4_DIM_SZ)              /** 16, 1x1 conv */
+#define TILE3    (T4_DIM_SZ - 3 + 1)      /** 14, 3x3 conv */
+#define TILE5    (T4_DIM_SZ - 5 + 1)      /** 12, 5x5 conv */
 
 __GPU__ int
 Model::_bconv(Tensor &in, Tensor &out) {
@@ -298,7 +298,7 @@ Model::_bconv(Tensor &in, Tensor &out) {
     const U32 N = in.N(), H = in.H(), W = in.W();    ///< input dimensions
     const U32 C1 = in.C(), C0 = out.C();
 
-    dim3 blk(T4_WARP_SZ, T4_WARP_SZ, 1);
+    dim3 blk(T4_DIM_SZ, T4_DIM_SZ, 1);
     dim3 g1((W + TILE1 - 1) / TILE1, (H + TILE1 - 1) / TILE1, C1);
     dim3 g3((W + TILE3 - 1) / TILE3, (H + TILE3 - 1) / TILE3, C1);
     dim3 g5((W + TILE5 - 1) / TILE5, (H + TILE5 - 1) / TILE5, C1);
@@ -360,7 +360,7 @@ Model::_blinear(Tensor &in, Tensor &out) {
     NN_DB("\n\tdw[%d,%d] += out'[%ld,1] @ in^t[1,%ld]", C0, C1, E0, E1);
     NN_DB("\n\tin[%ld, 1] = w^t[%d,%d] @ out'[%ld,1]", E1, C1, C0, E0);
 
-    if (w.numel < T4_WARP_SQ) {                     /// * threshold control
+    if (w.numel < T4_DIM_SQ) {                      /// * threshold control
         NN_DB("*");
         qa_calc(w, dw, db, train);                  /// * serial mode (validation)
     }
