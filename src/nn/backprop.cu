@@ -207,27 +207,28 @@ Model::backprop() {
 
 __GPU__ Model&
 Model::backprop(Tensor &tgt) {
-    auto log = [](DU t, int i, Tensor &in, Tensor &out) {
-        INFO("\n%6.2f:%2d> %s [%d,%d,%d,%d]\tp=%-2d <= out'Σ/n=%6.2f [%d,%d,%d,%d] ",
+    auto trace = [](DU t, int i, Tensor &in, Tensor &out) {
+        INFO("\n%6.2f:%2d> %s [%2d,%2d,%2d,%d]\tp=%6.3f <= out'Σ/n=%6.2f [%2d,%2d,%2d,%2d]",
             t, i, d_nname(in.grad_fn),
-            in.N(), in.H(), in.W(), in.C(), in.parm,
+            in.N(), in.H(), in.W(), in.C(), 0.001*in.parm,
             out.sum() / out.N() / out.C(),
             out.N(), out.H(), out.W(), out.C());
     };
     if (_bloss(tgt)) return *this;                 /// * pre-calculate dLoss
     
-    NN_DB("\nModel#backprop starts");
+    NLOG("\nModel#backprop starts {");
     DU  t0 = System::ms(), t1 = t0, tt;                   ///< performance measurement
     for (int i = numel - 2, j = 0; i > 0; i--, j++) {     /// numel=number of layers
         Tensor &in = (*this)[i], &out = (*this)[i + 1];
         if (*_trace) {
-            log((tt=System::ms()) - t1, i, in, out); t1 = tt;
-            _bstep(in, out);
-            in.show();
+            trace((tt=System::ms()) - t1, i, in, out);
+            t1 = tt;
         }
-        else _bstep(in, out);
+        _bstep(in, out);
+        
+        if (*_trace > 1) in.show();
     }
-    NN_DB("\nModel::backprop %5.2f ms\n", System::ms() - t0);
+    NLOG("\n} Model::backprop %5.2f ms\n", System::ms() - t0);
     return *this;
 }
 /// ========================================================================
@@ -237,12 +238,12 @@ __GPU__ int
 Model::_bloss(Tensor &tgt) {                     ///> pre-calc dLoss
     Tensor &out = (*this)[-1];                   ///< output layer, used as dLoss
     if (tgt.numel != out.numel) {                /// * check dimensions of target vector
-        ERROR("\nERROR: Onehot wrong shape[%d,%d,%d,%d] != [%d,%d,%d,%d]\n",
+        ERROR("nn#_bloss: Onehot wrong shape[%d,%d,%d,%d] != [%d,%d,%d,%d]",
               tgt.N(), tgt.H(), tgt.W(), tgt.C(),
               out.N(), out.H(), out.W(), out.C());
         return 1;
     }
-    NN_DB("\nModel#backprop: input dimensions OK, calculate dLoss");
+    NN_DB(" input dimensions OK, calculate dLoss");
     t4_layer fn = (*this)[-2].grad_fn;           ///< final activation layer
     switch (fn) {
     case L_SIGMOID:                              /// * sigmoid + BCE
@@ -279,7 +280,7 @@ Model::_bstep(Tensor &in, Tensor &out) {
     case L_MINPOOL: _bpool(in, out, fn);     break;
     case L_BATCHNM: _bbatchnorm(in, out);    break;
     case L_USAMPLE: _bupsample(in, out, fn); break;
-    default: ERROR("Model#backprop layer=%d not supported\n", fn);
+    default: ERROR("nn#_bstep layer=%d not supported\n", fn);
     }
 }
 
@@ -398,7 +399,7 @@ Model::_bpool(Tensor &in, Tensor &out, t4_layer fn) {
     case 2: FORK4(k_dpool<2>, fn, in.data, out.data, H, W); break;
     case 3: FORK4(k_dpool<3>, fn, in.data, out.data, H, W); break;
     default:
-        ERROR("model#pooling kernel_size=%d not supported\n", ks);
+        ERROR("nn#_bpool kernel_size=%d not supported\n", ks);
         return -1;
     }
     CDP_SYNC();
@@ -420,7 +421,7 @@ Model::_bupsample(Tensor &in, Tensor &out, t4_layer fn) {
     case 2: FORK4(k_pool<2>, fn, out.data, in.data, H, W); break;
     case 3: FORK4(k_pool<3>, fn, out.data, in.data, H, W); break;
     default:
-        ERROR("model#upsample size=%d not supported\n", ks);
+        ERROR("nn#_bupsample size=%d not supported\n", ks);
         return -1;
     }
     CDP_SYNC();
