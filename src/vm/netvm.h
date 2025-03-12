@@ -36,7 +36,7 @@ private:
     ///
     /// @name model and dataset ops
     /// @{
-    __GPU__ void _nnop(t4_layer op);
+    __GPU__ int  _nnop(t4_layer op);
     __GPU__ void _pickle(bool save);             ///< override TenVM::_pickle
     __GPU__ void _get_parm(int n);               ///< fetch tensor parameters n=0:W, 1:B, 2:dW, 3:dB
     __GPU__ void _set_parm(int n);               ///< set tensor parameters (for debugging)
