@@ -12,19 +12,19 @@
 ///@name System Manager Class
 ///@{
 class System : public Managed {                 ///< singleton class
-    Istream        *_istr;                      ///< managed input stream
-    Ostream        *_ostr;                      ///< managed output stream
-    h_istr         &fin;                        ///< host input stream
-    int            _trace;
-    char           _pad[T4_STRBUF_SZ];          ///< terminal input buffer
+    Istream  *_istr;                            ///< managed input stream
+    Ostream  *_ostr;                            ///< managed output stream
+    h_istr   &fin;                              ///< host input stream
+    int      _trace;
+    char     _pad[T4_STRBUF_SZ];                ///< terminal input buffer
     
     __HOST__ System(h_istr &i, h_ostr &o, int khz, int verbo);
     __HOST__ ~System();
     
 public:
-    MMU            *mu;                         ///< memory management unit
-    AIO            *io;                         ///< HOST IO manager
-    Debug          *db;
+    MMU      *mu;                               ///< memory management unit
+    AIO      *io;                               ///< HOST IO manager
+    Debug    *db;                               ///< tracer (i.e. JTAG)
     ///
     /// singleton System controller
     ///
@@ -35,13 +35,12 @@ public:
     /// static System timing interfaces
     ///
     static __GPU__ DU   ms();
-    static __GPU__ void yield();
     static __GPU__ void delay(int ticks);
     static __GPU__ void rand(DU *d, U64 sz, rand_opt n, DU bias=DU0, DU scale=DU1);
     ///
     /// System functions
     ///
-    __HOST__ int       readline();
+    __HOST__ int       readline(int hold);
     __HOST__ io_event  *process_event(io_event *ev);
     __HOST__ void      flush();
     __GPU__  __INLINE__ Ostream &ostr()     { return *_ostr; }
