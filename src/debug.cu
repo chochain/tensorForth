@@ -136,7 +136,7 @@ Debug::see(IU w, int base, int trace) {
     while (1) {
         Param *p = (Param*)ip;
         int   nv = p->op==VAR ? nvar(w, p->ioff, ip) : 0;  ///< VAR number of elements
-        if (_to_s(p, nv, base, trace) != 0) break;         ///< display Parameter
+        if (_to_s(p, nv, base) != 0) break;                ///< display Parameter
         fout << ENDL;
         ///
         /// advance ip to next Param
@@ -197,27 +197,25 @@ Debug::_p2didx(Param *p) {
     return -1;                                     /// * not found
 }
 __HOST__ int
-Debug::_to_s(IU w, int base, int trace) {
+Debug::_to_s(IU w, int base) {
     Param *p = (Param*)MEM(DICT(w).pfa);
-    return _to_s(p, 0, base, trace);
+    return _to_s(p, 0, base);
 }
 __HOST__ int
-Debug::_to_s(Param *p, int nv, int base, int trace) {
+Debug::_to_s(Param *p, int nv, int base) {
     bool pm = p->op != MAX_OP;                     ///< is prim
     int  w  = pm ? p->op : _p2didx(p);             ///< fetch word index by pfa
     if (w < 0) return -1;                          ///> loop guard
     
     Code &code = DICT(w);
     keep_fmt();
-    fout << "  ";                                  /// * indent
-    if (trace) {                                   /// * header
-        fout << std::hex
-             << std::setfill('0') << "( "
-             << std::setw(4) << ((U8*)p - MEM(0))  ///> addr
-             << std::setfill(' ') << '['
-             << std::setw(3) << w << "] ) "        ///> word ref
-             << std::setbase(base);
-    }
+    fout << "  "                                   /// * indent
+         << std::hex
+         << std::setfill('0') << "( "
+         << std::setw(4) << ((U8*)p - MEM(0))      ///> addr
+         << std::setfill(' ') << '['
+         << std::setw(3) << w << "] ) "            ///> word ref
+         << std::setbase(base);
     if (!pm) {                                     ///> built-in
         fout << _d2h(code.name) << "  ";
         reset_fmt();                               /// * restore format
