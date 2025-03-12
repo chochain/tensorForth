@@ -384,7 +384,7 @@ d_hash(const char *s) {
     return _hash(s, STRLENB(s));
 }
 
-constexpr int T4_NUM_WARP { T4_WARP_SQ>>5 };
+constexpr int T4_NUM_WARP { T4_DIM_SQ>>5 };
 __GPU__ float
 d_sum(float *src, long numel) {
     __shared__ float _sum[T4_NUM_WARP];
@@ -393,7 +393,7 @@ d_sum(float *src, long numel) {
     ///
     auto step_sum = [src, numel](long i0) {         ///< handle blockIdx.x strides
         float v { 0.0f };
-        for (long i=i0; i < numel; i+=T4_WARP_SQ) v += src[i];
+        for (long i=i0; i < numel; i+=T4_DIM_SQ) v += src[i];
         return v;
     };
     auto const g   { cg::this_thread_block() };     /// total threads
