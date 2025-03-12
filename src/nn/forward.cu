@@ -195,22 +195,23 @@ Model::forward(Tensor &input) {
     /// cascade execution layer by layer forward
     /// TODO: model execution becomes a superscalar pipeline
     ///
-    auto log = [](DU t, int i, Tensor &in, Tensor &out) {
-        INFO("\n%6.2f:%2d> %s Σ/n=%6.2f [%d,%d,%d,%d]\tp=%6.3f => out[%d,%d,%d,%d]",
-            t, i, d_nname(in.grad_fn), in.sum() / in.N() / in.C(),
-            in.N(), in.H(), in.W(), in.C(), 0.001*in.parm,
+    auto trace = [](DU t, int i, Tensor &in, Tensor &out) {
+        INFO("\n%6.2f:%2d> %s [%2d,%2d,%2d,%2d] Σ/n=%6.2f\tp=%6.3f => out[%2d,%2d,%2d,%2d]",
+            t, i, d_nname(in.grad_fn), in.N(), in.H(), in.W(), in.C(),
+            in.sum() / in.N() / in.C(), 0.001*in.parm,
             out.N(), out.H(), out.W(), out.C());
     };
-    NN_DB("\nModel::forward starts");
+    NLOG("\nModel::forward starts {");
     DU t0 = System::ms(), t1 = t0, tt;             ///< performance measurement
     for (U16 i = 1; i < numel - 1; i++) {
         Tensor &in = (*this)[i], &out = (*this)[i + 1];
         if (*_trace) {
-            log((tt=System::ms()) - t1, i, in, out);
+            trace((tt=System::ms()) - t1, i, in, out);
             t1 = tt;
         }
         _fstep(in, out);
-        if (*_trace) out.show();
+        
+        if (*_trace > 1) out.show();
     }
     ///
     /// collect onehot vector and hit count
@@ -220,7 +221,7 @@ Model::forward(Tensor &input) {
         _hot = &onehot((Dataset&)input);         /// * create/cache onehot vector
         _hit = hit(true);                        /// * recalc/cache hit count
     }
-    NN_DB("\nModel::forward %5.2f ms\n", System::ms() - t0);
+    NLOG("\n} Model::forward %5.2f ms\n", System::ms() - t0);
 
     return *this;
 }
@@ -255,7 +256,7 @@ Model::_fstep(Tensor &in, Tensor &out) {
     case L_MINPOOL: _fpool(in, out, fn);     break;
     case L_BATCHNM: _fbatchnorm(in, out);    break;
     case L_USAMPLE: _fupsample(in, out);     break;
-    default: ERROR("Model::forward layer=%d not supported\n", fn);
+    default: ERROR("nn#_fstep layer=%d not supported\n", fn);
     }
 }
 
@@ -268,7 +269,7 @@ Model::_fconv(Tensor &in, Tensor &out) {
     Tensor &tf = *in.grad[0];                             ///< filter tensor
     Tensor &tb = *in.grad[1];                             ///< bias tensor
 
-    NN_DB(" f[%d,%d,%d,%d], b[%ld]", tf.N(), tf.H(), tf.W(), tf.C(), tb.numel);
+    NN_DB(" nn#_fconv f[%d,%d,%d,%d], b[%ld]\n", tf.N(), tf.H(), tf.W(), tf.C(), tb.numel);
 
     const U32 N = out.N(), H = out.H(), W = out.W();      ///< outpt dimensions
     const U32 C0 = out.C(), C1 = in.C();                  ///< output, input channel deep
@@ -287,7 +288,7 @@ Model::_fconv(Tensor &in, Tensor &out) {
         case 3: k_conv2d<TILE3,3><<<g3,blk>>>(d1, f, b, d0, H, W, C1); break;
         case 5: k_conv2d<TILE5,5><<<g5,blk>>>(d1, f, b, d0, H, W, C1); break;
         default:
-            ERROR("model_fwd#conv kernel_size=%d not supported\n", ks);
+            ERROR("nn#_fconv kernel_size=%d not supported\n", ks);
             return -1;
         }
         CDP_SYNC();
@@ -351,7 +352,7 @@ Model::_fpool(Tensor &in, Tensor &out, t4_layer fn) {
     case 2: FORK4(k_pool<2>, fn, in.data, out.data, H, W); break;
     case 3: FORK4(k_pool<3>, fn, in.data, out.data, H, W); break;
     default:
-        ERROR("model#pooling kernel_size=%d not supported\n", ks);
+        ERROR("nn#_fpool kernel_size=%d not supported\n", ks);
         return -1;
     }
     CDP_SYNC();
