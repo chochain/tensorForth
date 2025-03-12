@@ -10,7 +10,7 @@
 ///
 ///@name virtual machine base class
 ///@{
-typedef enum { STOP=0, HOLD, QUERY, NEST } vm_state;   ///< ten4 states
+typedef enum { STOP=0, HOLD, QUERY, NEST, VM_STATE_SZ } vm_state;   ///< ten4 states
 class VM {                            ///< VM (created in kernal mode)
 public:
     IU        id;                     ///< VM id
@@ -25,7 +25,8 @@ public:
     __GPU__  VM(int id, System &sys);
     __GPU__  ~VM() { TRACE("%d ", id); }
     
-    __GPU__  virtual void   init() { TRACE("VM[%d]::init ok\n", id); }
+    __GPU__  virtual void   init()   { TRACE("VM[%d]::init ok\n", id); }
+    __GPU__  virtual void   resume() {}
     __GPU__  virtual void   outer();
     
 protected:
@@ -33,7 +34,6 @@ protected:
     ///
     /// inner interpreter handlers
     ///
-    __GPU__ virtual int resume()           { return 0; }
     __GPU__ virtual int pre(char *str)     { return 0; }
     __GPU__ virtual int process(char *str) { return 0; }
     __GPU__ virtual int post()             { return 0; }

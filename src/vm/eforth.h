@@ -54,6 +54,7 @@ public:
     __GPU__ ForthVM(int id, System &sys);
     
     __GPU__ virtual void init();      ///< override VM
+    __GPU__ virtual void resume();    ///< resume suspended work
     
 protected:
     IU    ip     = 0;                 ///< instruction pointer
@@ -67,7 +68,6 @@ protected:
     ///
     /// Forth outer interpreter
     ///
-    __GPU__ virtual int resume();             ///< resume suspended work
     __GPU__ virtual int process(char *idiom); ///< process command string
     __GPU__ virtual int post();               ///< for tracing
     ///
