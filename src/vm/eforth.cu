@@ -9,18 +9,18 @@
 __GPU__
 ForthVM::ForthVM(int id, System &sys) : VM(id, sys) {
     dict = mmu.dict(0);
-    base = id;                                  /// * pmem[id], 0..USER_AREA-1 reserved
+    base = id;                                 /// * pmem[id], 0..USER_AREA-1 reserved
     *MEM(base) = 10;
     TRACE("\\  ::ForthVM[%d]\n", id);
 }
 ///
 /// resume suspended task
 ///
-__GPU__ int
+__GPU__ void
 ForthVM::resume() {
     TRACE("VM[%d] resumed at ip=%x\n", id, ip);
-    nest();           /// * will set state to VM_READY
-    return 1;         /// * OK, continue to outer loop
+    nest();                                    /// * will set state to VM_READY
+    post();
 }
 ///
 /// ForthVM Outer interpreter
@@ -72,7 +72,7 @@ ForthVM::nest() {
     ///
     /// when ip != 0, it resumes paused VM
     ///
-    while (ip) {                                     /// * try no recursion
+    while (ip && state==NEST) {                      /// * try no recursion
         Param &ix = *(Param*)MEM(ip);
         VM_HDR(":%x", ix.op);
         ip += sizeof(IU);
@@ -81,7 +81,7 @@ ForthVM::nest() {
         CASE(NEXT,
 #if (T4_DO_OBJ && T4_DO_NN)
              bool oo = IS_OBJ(tos) && IS_OBJ(rs[-1]);
-             if (oo && _ds_next(ix.ioff)) { /* continue */ }
+             if (oo && _ds_next(ix.ioff)) break;
              else
 #endif // (T4_DO_OBJ && T4_DO_NN)                 
              if (GT(rs[-1]-=DU1, -DU1)) {            ///> loop done?
@@ -112,7 +112,7 @@ ForthVM::nest() {
         CASE(FOR, rs.push(POP()));                   /// * setup FOR..NEXT call frame
         CASE(DO,                                     /// * setup DO..LOOP call frame
              rs.push(ss.pop()); ss.push(POP())); 
-        CASE(KEY, PUSH(sys.key()); UNNEST());        /// * fetch single keypress
+        CASE(KEY, PUSH(sys.key()); state=HOLD);      /// * fetch single keypress
         OTHER(
             if (ix.udf) {                            /// * user defined word?
                 rs.push(ip);                         /// * setup call frame
@@ -128,14 +128,14 @@ ForthVM::nest() {
 ///
 __GPU__ __INLINE__ void ForthVM::call(IU w) {
     Code &c = dict[w];                               /// * code reference
-    DEBUG(" => call(%s) {\n", c.name);
+    DEBUG(" => call(%s) state=%d {\n", c.name, state);
     if (c.udf) {                                     /// * userd defined word
         rs.push(ip);
         ip = c.pfa;
         nest();                                      /// * Forth inner loop
     }
     else (*(FPTR)((UFP)c.xt & MSK_XT))();            /// * execute function
-    DEBUG("} call(%s)\n", c.name);
+    DEBUG("} call(%s) state=%d\n", c.name, state);
 }
 ///
 /// dictionary initializer
@@ -421,12 +421,10 @@ ForthVM::parse(char *idiom) {
         return 0;                         /// * next, try as a number
     }
     Code &c = dict[w];
-#if T4_VERBOSE > 1    
-    INFO("%04x[%3x]%c%c %s",
+    DEBUG("%04x[%3x]%c%c %s",
          c.udf ? c.pfa : mmu.XTOFF(c.xt), w,
          c.imm ? '*' : ' ', c.udf ? 'u' : ' ',
          c.name);
-#endif // T4_VERBOSE     > 1
     if (compile && !c.imm) {              /// * in compile mode?
         add_w(w);                         /// * add found word to new colon word
     }
