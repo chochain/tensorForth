@@ -140,11 +140,11 @@ AIO::_print_model(h_ostr &fs, Model &m) {
         for (int n = 0; n < 4; n++) {
             sz += t.grad[n] ? t.grad[n]->numel : 0;
         }
-        fs << ", #param=" << sz;
+        fs << " #p=" << sz << ' ';
     };
     auto finfo = [this,&fs](Tensor **g) {
         for (int i=0; g[i] && i < 2; i++) {
-            fs << " "; to_s(fs, *g[i], false);
+            to_s(fs, *g[i], false); fs << ' ';
         }
     };
     if (!m.is_model()) return;
@@ -169,30 +169,30 @@ AIO::_print_model_parm(h_ostr &fs, Tensor &in, Tensor &out) {
     DU       p  = 0.001 * in.parm;        ///< layer parameter
     switch(fn) {
     case L_NONE:    /* do nothing  */                  break;
-    case L_CONV:   fs << " bias=" << p << ", C="
-                      << out.C() << " ";               break;
-    case L_LINEAR: fs << " bias=" << p << ", H="
-                      << in.grad[0]->H() << " ";       break;
+    case L_CONV:   fs << "bias=" << p << ", C="
+                      << out.C();                      break;
+    case L_LINEAR: fs << "bias=" << p << ", H="
+                      << in.grad[0]->H();              break;
     case L_FLATTEN:
     case L_RELU:
     case L_TANH:
     case L_SIGMOID: /* do nothing */                   break;
     case L_SELU:
     case L_LEAKYRL:
-    case L_ELU:     fs << " bias=" << p << " ";        break;
-    case L_DROPOUT: fs << " rate=" << p*100.0 << "% "; break;
+    case L_ELU:     fs << "bias=" << p;                break;
+    case L_DROPOUT: fs << "rate=" << p*100.0 << '%';   break;
     case L_SOFTMAX:
     case L_LOGSMAX: /* do nothing */                   break;
     case L_AVGPOOL:
     case L_MAXPOOL:
-    case L_MINPOOL: fs << " n=" << in.parm << " ";     break;
-    case L_BATCHNM: fs << " mtum=" << p << " ";        break;
+    case L_MINPOOL: fs << "n=" << in.parm;             break;
+    case L_BATCHNM: fs << "mtum=" << p;                break;
     case L_USAMPLE: {
         const char *nm[] = { "nearest", "linear", "bilinear", "cubic" };
         int n = in.parm & 0xff;
-        fs << " " << n << "x" << n << " " << nm[in.parm>>8];
+        fs << n << "x" << n << " " << nm[in.parm>>8];
     } break;
-    default: fs << "unknown layer=" << fn << " ";      break;
+    default: fs << "unknown layer=" << fn;      break;
     }
 }
 __HOST__ int
