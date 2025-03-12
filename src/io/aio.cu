@@ -58,8 +58,7 @@ AIO::print(h_ostr &fs, void *v, U8 gt) {
            << std::setfill((char)f->fill);
     } break;
     }
-    DU n = *(DU*)v;
-    DEBUG("  aio#print(fs, *v=0x%08x=%g, gt=%x)\n", DU2X(n), n, gt);
+    DEBUG("  aio#print(fs, *v=0x%08x=%g, gt=%x)\n", DU2X(*(DU*)v), *(DU*)v, gt);
 }
 #if T4_DO_OBJ
 ///@}
