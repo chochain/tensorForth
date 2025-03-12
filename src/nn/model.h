@@ -31,6 +31,8 @@ typedef void (*GdFunc)(
 ///
 ///< Neural Network Model class
 ///
+#define NLOG(...)             { if (*_trace) INFO(__VA_ARGS__); }
+
 class Model : public T4Base {
     MMU    *_mmu;              ///< memory controller
     Tensor *_store;            ///< model storage - Sequential, TODO: DAG
