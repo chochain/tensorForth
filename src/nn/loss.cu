@@ -70,7 +70,7 @@ Model::loss(t4_loss op) {
 
 __GPU__ DU
 Model::loss(t4_loss op, Tensor &tgt) {              ///< loss against target vector
-    static const char *opn[] = { "MSE", "BCE", "CE", "NLL" };
+    static const char *_op[] = { "MSE", "BCE", "CE", "NLL" };
     Tensor &out = (*this)[-1];                      ///< model output
     if (out.numel != tgt.numel) {                   /// * check dimensions
         ERROR("Model::loss model output shape[%d,%d,%d,%d] != tgt[%d,%d,%d,%d]\n",
@@ -78,11 +78,11 @@ Model::loss(t4_loss op, Tensor &tgt) {              ///< loss against target vec
             tgt.N(), tgt.H(), tgt.W(), tgt.C());
         return DU0;
     }
-    Tensor &tmp = COPY(out);                       ///< non-destructive
-    DU sum = tmp.loss(op, tgt);                    /// * calculate loss per op
-    FREE(tmp);                                     /// * free memory
+    Tensor &tmp = COPY(out);                        ///< non-destructive
+    DU sum = tmp.loss(op, tgt);                     /// * calculate loss per op
+    FREE(tmp);                                      /// * free memory
     
-    NN_DB("Model#loss: %s=%6.3f\n", opn[op], sum);
+    NN_DB("Model#loss: %s=%6.3f\n", _op[op], sum);
     
     return sum;
 }
