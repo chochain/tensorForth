@@ -5,7 +5,7 @@
  * <pre>Copyright (C) 2022- GreenII, this file is distributed under BSD 3-Clause License.</pre>
  */
 #include <iostream>
-#include "sys.h"             // include mmu/tensor.h
+#include "sys.h"                     /// include mmu/tensor.h
 #include "nn/dataset.h"
 #include "nn/model.h"
 
@@ -48,7 +48,7 @@ k_rand(DU *mat, U64 sz, DU bias, DU scale, rand_opt ntype) {
 ///
 __HOST__
 System::System(h_istr &i, h_ostr &o, int khz, int verbo)
-    : fin(i), _istr(new Istream()), _ostr(new Ostream()), _trace(verbo) {
+    : fin(i), fout(o), _istr(new Istream()), _ostr(new Ostream()), _trace(verbo) {
     mu = MMU::get_mmu();             ///> instantiate memory controller
     io = AIO::get_io(&_trace);       ///> instantiate async IO controler
     db = Debug::get_db(o);           ///> tracing instrumentation
@@ -201,9 +201,10 @@ System::process_event(io_event *ev) {
 __HOST__ void
 System::flush() {
     io_event *e = (io_event*)_ostr->rdbuf();
-    while (e->gt != GT_EMPTY) {          // 0
+    while (e->gt != GT_EMPTY) {          // walk linked-list
         e = process_event(e);
     }
+    fout << std::flush;
     _ostr->clear();
 }
 ///@}

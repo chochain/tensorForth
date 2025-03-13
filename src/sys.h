@@ -12,9 +12,10 @@
 ///@name System Manager Class
 ///@{
 class System : public Managed {                 ///< singleton class
+    h_istr   &fin;                              ///< host input stream
+    h_ostr   &fout;
     Istream  *_istr;                            ///< managed input stream
     Ostream  *_ostr;                            ///< managed output stream
-    h_istr   &fin;                              ///< host input stream
     int      _trace;
     char     _pad[T4_STRBUF_SZ];                ///< terminal input buffer
     
@@ -43,7 +44,6 @@ public:
     __HOST__ int       readline(int hold);
     __HOST__ io_event  *process_event(io_event *ev);
     __HOST__ void      flush();
-    __GPU__  __INLINE__ Ostream &ostr()     { return *_ostr; }
     ///
     /// debuging controls
     ///
