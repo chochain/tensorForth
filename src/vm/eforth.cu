@@ -18,7 +18,7 @@ ForthVM::ForthVM(int id, System &sys) : VM(id, sys) {
 ///
 __GPU__ void
 ForthVM::resume() {
-    TRACE("VM[%d] resumed at ip=%x\n", id, ip);
+    DEBUG("VM[%d] resumed at ip=%x\n", id, ip);
     nest();                                    /// * will set state to VM_READY
     post();
 }
@@ -81,7 +81,7 @@ ForthVM::nest() {
         CASE(NEXT,
 #if (T4_DO_OBJ && T4_DO_NN)
              bool oo = IS_OBJ(tos) && IS_OBJ(rs[-1]);
-             if (oo && _ds_next(ix.ioff)) break;
+             if (oo && _ds_next(ix.ioff)) { /* break */ }
              else
 #endif // (T4_DO_OBJ && T4_DO_NN)                 
              if (GT(rs[-1]-=DU1, -DU1)) {            ///> loop done?
@@ -391,6 +391,7 @@ ForthVM::init() {
     CODE("mstat", mmu.status());
     CODE("rnd",   PUSH(sys.rand(DU1, NORMAL)));             // generate random number
     CODE("ms",    System::delay(POPi));
+    CODE("flush", sys.op(OP_FLUSH));                        // flush output stream
 //    CODE("included",                                      // include external file
 //         POP();                                           // string length, not used
 //         sys.load(MEM(POP())));                           // include external file
