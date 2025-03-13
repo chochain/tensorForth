@@ -48,7 +48,7 @@ AIO::dsfetch(Dataset &ds, char *ds_name, bool rewind) {
     }
     int batch_sz = ds.N();                       ///< mini batch size
     if (ds_name) {                               /// * init load
-        if (cp->init()==NULL) {
+        if (cp->init(trace)==NULL) {
             ERROR("} => dataset setup failed!\n"); return -2;
         }
         ds.reshape(batch_sz, cp->H, cp->W, cp->C);/// * reshape ds to match Corpus
@@ -63,7 +63,7 @@ AIO::dsfetch(Dataset &ds, char *ds_name, bool rewind) {
     ///
     /// load a mini-batch of data points
     ///
-    if (!cp->fetch(ds.batch_id, batch_sz)) {     /// * fetch a batch from Corpus
+    if (!cp->fetch(ds.batch_id, batch_sz, trace)) {     /// * fetch a batch from Corpus
         ERROR("} => fetch failed\n");  return -3;
     }
     ///
