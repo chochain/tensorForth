@@ -24,19 +24,19 @@ Loader    _ldr;                             ///< loader
 ///
 /// TODO: to read from YAML config file
 ///
-void Loader::init(int trace) {
+void Loader::init() {
     _cp_map["mnist_train"] =
         new Mnist(
             "../data/MNIST/raw/train-images-idx3-ubyte",
-            "../data/MNIST/raw/train-labels-idx1-ubyte", trace);
+            "../data/MNIST/raw/train-labels-idx1-ubyte");
     _cp_map["mnist_test"] =
         new Mnist(
             "../data/MNIST/raw/t10k-images-idx3-ubyte",
-            "../data/MNIST/raw/t10k-labels-idx1-ubyte", trace);
+            "../data/MNIST/raw/t10k-labels-idx1-ubyte");
 }
 
 Corpus *Loader::get(Dataset &ds, const char *ds_name) {
-    if (_cp_map.size()==0) init(T4_VERBOSE);            /// * intialize if needed
+    if (_cp_map.size()==0) init();                      /// * intialize if needed
     
     DsetMap::iterator dsi = _ds_map.find(&ds);          /// * cache hit?
     if (dsi != _ds_map.end()) return dsi->second;

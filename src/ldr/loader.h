@@ -12,7 +12,7 @@
 #include "nn/dataset.h"
 
 struct Loader {
-    static void   init(int trace);
+    static void   init();
     static Corpus *get(Dataset &ds, const char *ds_name=NULL);
 };
 
