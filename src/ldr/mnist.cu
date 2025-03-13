@@ -10,9 +10,10 @@
 #include "mnist.h"
 
 #define LOG_COUNT 1000       /**< debug dump frequency */
-#define MAX_BATCH 0          /**< debug, limit number of mini-batches */
+//#define MAX_BATCH 0          /**< debug, limit number of mini-batches */
+#define MAX_BATCH 4          /**< debug, limit number of mini-batches */
 
-Corpus *Mnist::init() {
+Corpus *Mnist::init(int trace) {
     auto _u32 = [this](std::ifstream &fs) {
         U32 v = 0;
         char x;
@@ -29,7 +30,7 @@ Corpus *Mnist::init() {
     if (t_in) {
         X1 = _u32(t_in);    ///< label magic number 0x0801
         N1 = _u32(t_in);
-        DS_LOG1("\n\tMNIST label: magic=%08x => [%d]", X1, N1);
+        if (trace) INFO("\n\tMNIST label: magic=%08x => [%d]", X1, N1);
     }
     if (d_in) {
         X0 = _u32(d_in);    ///< image magic number 0x0803
@@ -37,17 +38,18 @@ Corpus *Mnist::init() {
         H  = _u32(d_in);
         W  = _u32(d_in);
         C  = 1;
-        DS_LOG1("\n\tMNIST image: magic=%08x => [%d][%d,%d,%d]",
-               X0, N, H, W, C);
+        if (trace)
+            INFO("\n\tMNIST image: magic=%08x => [%d][%d,%d,%d]",
+                 X0, N, H, W, C);
     }
     if (N != N1) {
-        DS_ERROR("ERROR: Mnist label count %d != image count %d\n", N1, N);
+        ERROR("Mnist::init label count %d != image count %d\n", N1, N);
         return NULL;
     }
     return this;
 }
 
-Corpus *Mnist::fetch(int batch_id, int batch_sz) {
+Corpus *Mnist::fetch(int batch_id, int batch_sz, int trace) {
     static int tick = 0;
     int bsz = batch_sz ? batch_sz : N;       ///< batch_sz==0 => entire batch
     if (bsz==0 || (bsz * batch_id) >= N) {   ///< beyond total sample count
@@ -60,11 +62,11 @@ Corpus *Mnist::fetch(int batch_id, int batch_sz) {
     int b0  = _get_labels(batch_id, bsz);    ///< load batch labels
     int b1  = _get_images(batch_id, bsz);    ///< load batch images
     if (b0 != b1) {
-        DS_ERROR("ERROR: Mnist::fetch #label=%d != #image=%d\n", b0, b1);
+        ERROR("Mnist::fetch #label=%d != #image=%d\n", b0, b1);
         return NULL;
     }
-    if ((++tick % LOG_COUNT) == 0) {
-        DS_LOG1("\n\tMnist batch[%d] loaded (size=%d)\n", batch_id, b0);
+    if (trace && (++tick % LOG_COUNT) == 0) {
+        INFO("\n\tMnist batch[%d] loaded (size=%d)\n", batch_id, b0);
         _preview(bsz < 3 ? bsz : 3);          /// * debug print
     }
     if (MAX_BATCH && (batch_id >= MAX_BATCH)) eof |= 1; /// forced stop (debug)
@@ -99,18 +101,18 @@ int Mnist::_preview(int N) {
             for (int j = 0; j < W; j++, img++) {
                 char c  = map[*img / 26];
                 char c1 = map[((int)*img + (int)*(img+1)) / 52];
-                DS_LOG1("%c%c", c, c1);                 // double width
+                INFO("%c%c", c, c1);                 // double width
             }
-            DS_LOG1("|");
+            INFO("|");
         }
-        DS_LOG1("\n");
+        INFO("\n");
     }
     for (int n = 0; n < N; n++) {
-        DS_LOG1(" label=%-2d ", (int)label[n]);
-        for (int j = 0; j < W*2 - 10; j++) DS_LOG1("-");
-        DS_LOG1("+");
+        INFO(" label=%-2d ", (int)label[n]);
+        for (int j = 0; j < W*2 - 10; j++) INFO("-");
+        INFO("+");
     }
-    DS_LOG1("\n");
+    INFO("\n");
 
     return 0;
 }
