@@ -9,14 +9,11 @@
 #if (!defined(__LDR_CORPUS_H) && T4_DO_OBJ && T4_DO_NN)
 #define __LDR_CORPUS_H
 
-#define DS_LOG1(...)         { if (trace > 0) INFO(__VA_ARGS__); }
-#define DS_ERROR(...)        fprintf(stderr, __VA_ARGS__)
 #define IO_ERROR(fn)         fprintf(stderr, "ERROR: open file %s failed\n", fn)
-
-#define DS_ALLOC(p, sz) \
-    if (cudaMallocManaged(p, sz) != cudaSuccess) { \
-        fprintf(stderr, "ERROR: Corpus malloc %d\n", (int)(sz)); \
-        exit(-1); \
+#define DS_ALLOC(p, sz)                                             \
+    if (cudaMallocManaged(p, sz) != cudaSuccess) {                  \
+        fprintf(stderr, "ERROR: Corpus malloc(%d) failed.\n", sz);  \
+        exit(-1);                                                   \
     }
 
 struct Corpus {
@@ -28,42 +25,41 @@ struct Corpus {
         U32 ctrl = 0;        ///< corpus control 
         struct {
             U32   eof  : 1;  ///< end of file control
-            U32   trace: 2;  ///< tracing level
-            U32   xx   : 29; ///< reserved
+            U32   xx   : 31; ///< reserved
         };
     };
     U8 *data  = NULL;        ///< source data pointer
     U8 *label = NULL;        ///< label data pointer
     
-    Corpus(const char *data_name, const char *label_name, int trace)
-       : ds_name(data_name), tg_name(label_name), trace(trace), N(0) {}
+    Corpus(const char *data_name, const char *label_name)
+        : ds_name(data_name), tg_name(label_name), N(0) {}
     
     ~Corpus() {
         if (!data) return;
-        
+
         cudaPointerAttributes attr;
         cudaPointerGetAttributes(&attr, data);
-        if (attr.devicePointer != NULL) {
-            DS_LOG1("free CUDA managed memory\n");
-            cudaFree(data);
-            if (label) cudaFree(label);
-        }
-        else {
-            DS_LOG1("free HOST memory\n");
-            free(data);
-            if (label) free(label);
-        }
+        int host = attr.devicePointer==NULL;
+        
+        auto ds_free = [this, host](const char *name, U8 *p) {
+            static const char *dev[] = { "CUDA Managed" , "HOST" };
+            if (host) free(p);
+            else      cudaFree(p);
+            INFO("%s freed from %s memory", name, dev[host]);
+        };
+        ds_free(ds_name, data);
+        if (label) ds_free(tg_name, label);
     }
     int dsize()   { return H * W * C; }                    ///< size of each point of data
     int len()     { return N; }                            ///< number of data point
     
-    virtual Corpus *init() { return NULL; }                /// * initialize dimensions
-    virtual Corpus *fetch(int batch_id, int batch_sz=0) {  /// * bsz=0 => load entire set
-        DS_LOG1("batch(U8*) implemented?\n");
+    virtual Corpus *init(int trace) { return NULL; }                 /// * initialize dimensions
+    virtual Corpus *fetch(int batch_id, int batch_sz, int trace) {   /// * bsz=0 => load entire set
+        INFO("batch(U8*) implemented?\n");
         return this;
     }
     virtual Corpus *rewind() { eof = 0; return this; }
-    virtual U8 *operator [](int idx){ return &data[idx * dsize()]; }  ///< data point
+    virtual U8 *operator [](int idx){ return &data[idx * dsize()]; } ///< data point
 };
 
 #endif // (!defined(__LDR_CORPUS_H) && T4_DO_OBJ && T4_DO_NN)
