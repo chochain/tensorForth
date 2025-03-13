@@ -16,12 +16,12 @@ NetVM::predict(Tensor &I, Tensor &P) {}
 ///
 __GPU__ int
 NetVM::_nnop(t4_layer op) {     /// vtable dispatcher
-    OPN(LAYER_OP);
-    auto ok = [this,op]() { VLOG(" } %s\n", opn[op]); return 0; };
+    VOP(LAYER_OP);
+    auto ok = [this,op]() { VLOG(" } %s\n", _op[op]); return 0; };
     ///
     /// handle tensor ops (destructive)
     ///
-    VLOG("netvm#nnop %s {", opn[op]);
+    VLOG("netvm#nnop %s {", _op[op]);
     if (TOS1T) {
         Tensor &t = TTOS;
         VLOG(" T%d", t.rank);
@@ -127,12 +127,12 @@ NetVM::_nnop(t4_layer op) {     /// vtable dispatcher
 /// dataset ops
 ///
 __GPU__ void
-NetVM::_pickle(bool save) {
+NetVM::_pickle(bool save) {                 ///< ( N addr len -- ) or ( N addr len mode -- )
     U8   mode= save ? FAM_WO : FAM_RW;      ///< file access mode
-    
+
     if (ss.idx > 1 && IS_OBJ(ss[-2])) { /* OK */ }
     else if (ss.idx > 2 && IS_OBJ(ss[-3])) mode |= POPi;       ///< TODO: RAW format
-    else { ERROR("model/tensor adr len [mode]?\n"); return; }
+    else { ERROR("(model|tensor) adr len [mode]?\n"); return; }
     
     IU   len = POPi;                        ///< string length (not used for now)
     IU   adr = POPi;                        ///< address to pmem
