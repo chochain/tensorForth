@@ -10,6 +10,7 @@
 #define __VM_TENVM_H
 #include "eforth.h"                         /// extending ForthVM
 
+#define VOP(...)  static const char *_op[] = { __VA_ARGS__ }
 #define VLOG(...) if (sys.trace()) { INFO(__VA_ARGS__); }
 ///
 ///@name multi-dispatch checker macros

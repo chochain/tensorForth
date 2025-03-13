@@ -67,8 +67,8 @@ TensorVM::xop1(math_op op, DU v) {
     Tensor &A = TTOS;
     if (!A.is_tensor()) { ERROR("tensor?"); return; }
 
-    OPN(MATH_OP);
-    VLOG("tenvm#xop1 %s(A[%d,%d], %g)\n", opn[op], A.H(), A.W(), v);
+    VOP(MATH_OP);
+    VLOG("tenvm#xop1 %s(A[%d,%d], %g)\n", _op[op], A.H(), A.W(), v);
     switch (op) {        /// * defined in ~/src/util.h
     case ABS:
     case NEG:
@@ -95,7 +95,7 @@ TensorVM::xop1(math_op op, DU v) {
 __GPU__ void
 TensorVM::xop2(math_op op, t4_drop_opt x) {
     const char *fn = "tenvm#xop2";
-    OPN(MATH_OP);
+    VOP(MATH_OP);
     ///
     /// 2-operand operator (broadcasting)
     ///
@@ -104,7 +104,7 @@ TensorVM::xop2(math_op op, t4_drop_opt x) {
     case 0 /* ss */: _ss_op(op); break;           /// * scalar-scalar op ( a b -- c  )
     case 1 /* st */: {                            /// * scalar-tensor op ( n T -- T' )
         VLOG("%d> %s %g %s A[%d,%d] {\n",
-             id, fn, ss[-1], opn[op], TTOS.H(), TTOS.W());
+             id, fn, ss[-1], _op[op], TTOS.H(), TTOS.W());
         Tensor &O = _st_op(op, x);
         if (x==T_KEEP) PUSH(O);
         else           ss.pop();
@@ -112,7 +112,7 @@ TensorVM::xop2(math_op op, t4_drop_opt x) {
     } break;
     case 2 /* ts */: {                            /// * tensor-scalar op ( T n -- T n T' )
         VLOG("%d> %s A[%d,%d] %s %g {\n",
-             id, fn, TNOS.H(), TNOS.W(), opn[op], tos);
+             id, fn, TNOS.H(), TNOS.W(), _op[op], tos);
         Tensor &O = _ts_op(op, x);
         if (x==T_KEEP) PUSH(O);
         else           POP();
@@ -120,7 +120,7 @@ TensorVM::xop2(math_op op, t4_drop_opt x) {
     } break;
     case 3 /* tt */: {
         VLOG("%d> %s A[%d,%d] %s B[%d,%d] {\n",
-             id, fn, TNOS.H(), TNOS.W(), opn[op], TTOS.H(), TTOS.W());
+             id, fn, TNOS.H(), TNOS.W(), _op[op], TTOS.H(), TTOS.W());
         Tensor &O = _tt_op(op);                   /// * tensor-tensor element op ( A B -- A B C )
         if (O != TTOS) {
             if (x==T_DROP) { DROP(POP()); DROP(POP()); }
@@ -136,11 +136,11 @@ TensorVM::xop2(math_op op, t4_drop_opt x) {
 __GPU__ void
 TensorVM::blas1(t4_ten_op op) {
     const char *fn = "tenvm#blas1";
-    OPN(TENSOR_OP);
+    VOP(TENSOR_OP);
     Tensor &A  = TTOS;
     if (!A.is_tensor() || A.rank != 2) { ERROR("tensor2?"); return; }
     
-    VLOG("%d> %s %s(A[%d,%d]) =>{\n", id, fn, opn[op], A.H(), A.W());
+    VLOG("%d> %s %s(A[%d,%d]) =>{\n", id, fn, _op[op], A.H(), A.W());
     ///
     /// single tensor handler
     ///
@@ -185,14 +185,14 @@ TensorVM::blas1(t4_ten_op op) {
 __GPU__ void
 TensorVM::blas2(t4_ten_op op, t4_drop_opt x) {
     const char *fn = "tenvm#blas2";
-    OPN(TENSOR_OP);
+    VOP(TENSOR_OP);
     if (!TOS2T) {
         ERROR("%s TNOS TTOS required!\n", fn);
         return;
     }
     Tensor &A = TNOS, &B = TTOS;
     VLOG("%d> %s A[%d,%d] %s B[%d,%d] {\n",
-         id, fn, A.H(), A.W(), opn[op], B.H(), B.W());
+         id, fn, A.H(), A.W(), _op[op], B.H(), B.W());
     switch (op){
     case T_DOT: {               ///< C = A @ B
         Tensor &C = _tdot(A, B);
