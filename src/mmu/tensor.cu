@@ -127,8 +127,8 @@ k_bce(DU *O, DU *T, U64 numel) {
 __GPU__ Tensor&
 Tensor::ten_op(math_op op, Tensor &A, DU v, Tensor &O) {
     U32 N = A.N(), H = A.H(), W = A.W(), C = A.C();
-    OPN(MATH_OP);
-    MM_DB("  tensor#ten_op O[%d,%d,%d,%d] = A %s %6.2f\n", N, H, W, C, opn[op], v);
+    _OP(MATH_OP);
+    MM_DB("  tensor#ten_op O[%d,%d,%d,%d] = A %s %6.2f\n", N, H, W, C, _op[op], v);
 
     FORK(k_ts_op, A.numel, op, A.data, v, O.data);
     CDP_SYNC();
@@ -140,8 +140,8 @@ Tensor::ten_op(math_op op, Tensor &A, DU v, Tensor &O) {
 __GPU__ Tensor&
 Tensor::ten_op(math_op op, Tensor &A, Tensor &B, Tensor &O) {
     U32 N = A.N(), H = A.H(), W = A.W(), C = A.C();
-    OPN(MATH_OP);
-    MM_DB("  tensor#ten_op O[%d,%d,%d,%d] = A %s B\n", N, H, W, C, opn[op]);
+    _OP(MATH_OP);
+    MM_DB("  tensor#ten_op O[%d,%d,%d,%d] = A %s B\n", N, H, W, C, _op[op]);
     
     FORK(k_tt_op, A.numel, op, A.data, B.data, O.data);
     CDP_SYNC();
@@ -628,8 +628,8 @@ Tensor::identity() {
 
 __BOTH__ Tensor&
 Tensor::map(math_op op, DU v) {
-    OPN(MATH_OP);
-    MM_DB("  tensor#%s v=%g\n", opn[op], v);
+    _OP(MATH_OP);
+    MM_DB("  tensor#%s v=%g\n", _op[op], v);
     FORK(k_math, numel, op, data, v);
     CDP_SYNC();
     return *this;

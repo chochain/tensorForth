@@ -10,10 +10,10 @@
 #if (!defined(__MMU_TENSOR_H) && T4_DO_OBJ)
 #define __MMU_TENSOR_H
 
-#if T4_VERBOSE > 0
-#define OPN(...)   static const char *opn[] = { __VA_ARGS__ }
+#if T4_VERBOSE > 1
+#define _OP(...)   static const char *_op[] = { __VA_ARGS__ }
 #else 
-#define OPN(...)
+#define _OP(...)
 #endif // T4_VERBOSE
 
 //===============================================================================
