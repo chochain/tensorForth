@@ -194,7 +194,8 @@ typedef enum {
 ///>name General Opocode Type for IO Event
 ///@{
 typedef enum {
-    OP_DICT = 0,
+    OP_FLUSH = 0,                     ///< flush output stream
+    OP_DICT,
     OP_WORDS,
     OP_SEE,
     OP_DUMP,
@@ -235,7 +236,7 @@ typedef enum {
 ///@}
 ///>name IO operators
 ///@{
-typedef enum { RDX=0, CR, DOT, UDOT, EMIT, SPCS } io_op;
+typedef enum { CR=0, RDX, DOT, UDOT, EMIT, SPCS } io_op;
 ///@}
 ///
 /// colon word compiler
