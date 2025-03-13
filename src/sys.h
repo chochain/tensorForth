@@ -13,7 +13,7 @@
 ///@{
 class System : public Managed {                 ///< singleton class
     h_istr   &fin;                              ///< host input stream
-    h_ostr   &fout;
+    h_ostr   &fout;                             
     Istream  *_istr;                            ///< managed input stream
     Ostream  *_ostr;                            ///< managed output stream
     int      _trace;
@@ -79,27 +79,27 @@ public:
     __GPU__  void spaces(int n) {                         ///< show spaces
         for (int i = 0; i < n; i++) *_ostr << " ";
     }
-    __GPU__  void dot(io_op op, DU v=DU0) {               ///< print literals
-        switch (op) {
-        case RDX:   *_ostr << setbase(INT(v));                break;
-        case CR:    *_ostr << ENDL;                           break;
-        case DOT:   *_ostr << v << " ";                       break;
-        case UDOT:  *_ostr << static_cast<U32>(v) << " ";     break;
-        case EMIT:  { char b = (char)INT(v); *_ostr << b; }   break;
-        case SPCS:  spaces(INT(v));                           break;
-        default:    *_ostr << "unknown io_op=" << op << ENDL; break;
+    __GPU__  void dot(io_op o, DU v=DU0) {                ///< print literals
+        switch (o) {
+        case CR:    *_ostr << ENDL;                             break;
+        case RDX:   *_ostr << setbase(INT(v));                  break;
+        case DOT:   *_ostr << v << " ";                         break;
+        case UDOT:  *_ostr << static_cast<U32>(v) << " ";       break;
+        case EMIT:  { char b = (char)INT(v); *_ostr << b; }     break;
+        case SPCS:  spaces(INT(v));                             break;
+        default:    *_ostr << "unknown op=" << o; op(OP_FLUSH); break;
         }
     }
     __GPU__ void dotr(int w, DU v, int b, bool u=false) {
         *_ostr << setbase(b) << setw(w)
                << (u ? static_cast<U32>(v) : v);
     }
-    __GPU__  void pstr(const char *str, io_op op=SPCS) {  ///< print string
+    __GPU__  void pstr(const char *str, io_op o=SPCS) {  ///< print string
         *_ostr << str;
-        if (op==CR) { *_ostr << ENDL; }
+        if (o==CR) *_ostr << ENDL;
     }
     __GPU__  void perr(const char *str, const char *msg) {
-        *_ostr << str << msg << ENDL;
+        *_ostr << str << msg << ENDL; op(OP_FLUSH);
     }
 };
 ///@}
