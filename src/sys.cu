@@ -58,14 +58,14 @@ System::System(h_istr &i, h_ostr &o, int khz, int verbo)
 //    MM_ALLOC(&_rand_st, sizeof(curandState) * T4_RAND_SZ);
     k_rand_init<<<1, T4_RAND_SZ>>>(time(NULL), khz);  /// serialized randomizer
     GPU_CHK();
-    
+
     INFO("\\ System OK\n");
 }
 
 __HOST__
 System::~System() {
     GPU_SYNC();
-    
+
 //    MM_FREE(_rand_st);
     AIO::free_io();
     Debug::free_db();
@@ -87,12 +87,9 @@ __GPU__ DU
 System::ms() { return static_cast<double>(clock()) / _khz; }
 
 __GPU__ void
-System::yield() {}
-
-__GPU__ void
 System::delay(int ticks) {
     U64 t = clock() + (ticks * _khz);
-    while ((U64)clock() < t) yield();
+    while ((U64)clock() < t) { /* spinning */ };
 }
 
 __GPU__ void
@@ -116,7 +113,8 @@ System::rand(DU d, rand_opt n) {
 #include <iostream>
 #include <string>
 __HOST__ int
-System::readline() {                         ///< feed a line into device input stream 
+System::readline(int hold) {                 ///< feed a line into device input stream
+    if (hold) return 1;                      ///< do not clear input buffer
     _istr->clear();                          /// * clear device inpugt stream
     char *tib = _istr->rdbuf();              ///< set device input buffer
     fin.getline(tib, T4_IBUF_SZ, '\n');      /// * feed input from host to device
@@ -144,7 +142,7 @@ System::process_event(io_event *ev) {
         switch (o->op) {
         case OP_DICT:  db->dict_dump();                      break;
         case OP_WORDS: db->words();                          break;
-        case OP_SEE:   db->see((IU)o->i, (int)o->m, _trace); break;
+        case OP_SEE:   db->see((IU)o->i, (int)o->m);         break;
         case OP_DUMP:  db->mem_dump((IU)o->i, UINT(o->n));   break;
         case OP_SS:    db->ss_dump((IU)o->i>>10, (int)o->i&0x3ff, o->n, (int)o->m); break;
 #if T4_DO_OBJ // vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
@@ -173,9 +171,10 @@ System::process_event(io_event *ev) {
             else ERROR("%x is not a dataset\n", DU2X(o->n));
         } break;  
         case OP_NSAVE: {
+            printf("OP_NSAVE %x\n", DU2X(o->n));
             Model &m = (Model&)mu->du2obj(o->n);
             if (m.is_model()) {
-                ev = NEXT_EVENT(ev);                                            ///< get dataset repo name
+                ev = NEXT_EVENT(ev);                            ///< get dataset repo name
                 io->nsave(m, (char*)ev->data, o->m);
             }
             else ERROR("%x is not a model\n", DU2X(o->n));
