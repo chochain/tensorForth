@@ -140,6 +140,7 @@ System::process_event(io_event *ev) {
         _opx *o = (_opx*)v;
         DEBUG("  _opx(OP=%d, m=%d, i=%d, n=0x%08x=%g)\n", o->op, o->m, o->i, DU2X(o->n), o->n);
         switch (o->op) {
+        case OP_FLUSH: fout << std::flush;                   break;
         case OP_DICT:  db->dict_dump();                      break;
         case OP_WORDS: db->words();                          break;
         case OP_SEE:   db->see((IU)o->i, (int)o->m);         break;
