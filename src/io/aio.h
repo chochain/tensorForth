@@ -14,9 +14,6 @@
 #include "ostream.h"
 #include "mmu/tensor.h"
 
-typedef std::istream h_istr;          ///< host input stream
-typedef std::ostream h_ostr;          ///< host output ostream
-
 #define IO_DB(...)  { if (trace) INFO(__VA_ARGS__); }
 
 class Model;

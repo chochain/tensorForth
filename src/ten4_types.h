@@ -208,6 +208,9 @@ typedef enum {
 ///@}
 ///>name File Access Mode for IO Event
 ///@{
+typedef std::istream h_istr;          ///< host input stream
+typedef std::ostream h_ostr;          ///< host output ostream
+
 typedef enum {
     FAM_WO  = 0,
     FAM_RW  = 1,
