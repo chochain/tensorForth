@@ -19,14 +19,14 @@ using namespace std;
 ///
 /// initial dataset setup
 /// init flow:
-///    netvm#dataset
-///    -> aio::process_node
+///    netvm::dataset
+///    -> sys::process_event
 ///    -> nn::dataset           - set N=batch_sz, batch_id = -1
 ///
 /// fetch flow:
-///    netvm#fetch
-///    -> aio::process_node
-///    -> aio::fetch
+///    netvm::fetch
+///    -> sys::process_event
+///    -> aio::dsfetch
 ///      -> corpus::fetch       - fetch host label/image blocks from files
 ///      -> dataset::reshape    - set dimensions for the first batch (no alloc yet) 
 ///      -> dataset::load_batch - transfer host blocks to device
@@ -37,19 +37,20 @@ using namespace std;
 ///
 __HOST__ int
 AIO::dsfetch(Dataset &ds, char *ds_name, bool rewind) {
+    static const char *fn = "aio#dsfetch";
     ///
     /// search cache for top <=> dataset pair
     ///
-    IO_DB("\nAIO::%s dataset (batch_id=%d) {\n",
-          ds_name ? ds_name : (rewind ? "rewind" : "fetch"), ds.batch_id);
+    IO_DB("\n  %s(%s) dataset (batch_id=%d) {\n",
+          fn, ds_name ? ds_name : (rewind ? "rewind" : "fetch"), ds.batch_id);
     Corpus *cp = Loader::get(ds, ds_name);       ///< Corpus/Dataset provider
     if (!cp) {
-        ERROR("} => dataset not found\n"); return -1;
+        ERROR("  } %s => dataset not found\n", fn); return -1;
     }
     int batch_sz = ds.N();                       ///< mini batch size
     if (ds_name) {                               /// * init load
         if (cp->init(trace)==NULL) {
-            ERROR("} => dataset setup failed!\n"); return -2;
+            ERROR("  } %s => dataset setup failed!\n", fn); return -2;
         }
         ds.reshape(batch_sz, cp->H, cp->W, cp->C);/// * reshape ds to match Corpus
     }
@@ -58,20 +59,21 @@ AIO::dsfetch(Dataset &ds, char *ds_name, bool rewind) {
         ds.batch_id = ds.done = 0;
     }
     else if ((ds.done=cp->eof)) {                /// * dataset exhausted?
-        IO_DB("} => completed, no more data.\n"); return 0;
+        IO_DB("  } %s => completed, no more data.\n", fn); return 0;
     }
     ///
     /// load a mini-batch of data points
     ///
     if (!cp->fetch(ds.batch_id, batch_sz, trace)) {     /// * fetch a batch from Corpus
-        ERROR("} => fetch failed\n");  return -3;
+        ERROR("  } %s => fetch failed\n", fn);  return -3;
     }
     ///
     /// transfer host into device memory
     /// if needed, allocate Dataset device (managed) memory blocks
     ///
     ds.load_batch(cp->data, cp->label);
-    IO_DB("} => batch[%d] %d record(s) loaded\n", ds.batch_id, batch_sz);
+    IO_DB("  } %s => batch[%d] %d record(s) loaded, done=%d\n",
+          fn, ds.batch_id, batch_sz, cp->eof);
 
     ds.batch_id++;
     ds.done = cp->eof;
