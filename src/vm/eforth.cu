@@ -53,9 +53,7 @@ ForthVM::process(char *idiom) {
 __GPU__ int
 ForthVM::post() {
     DEBUG("%d> VM.state=%d\n", id, state);
-    if (state!=HOLD && !compile) {
-        sys.op(OP_SS, *BASE, tos, SS2I);
-    }
+    if (state!=HOLD && !compile) sys.op(OP_SS, *BASE, tos, SS2I);
     return 0;
 }
 ///
@@ -81,8 +79,7 @@ ForthVM::nest() {
         CASE(NEXT,
 #if (T4_DO_OBJ && T4_DO_NN)
              bool oo = IS_OBJ(tos) && IS_OBJ(rs[-1]);
-             if (oo && _ds_next(ix.ioff)) { /* break */ }
-             else
+             if (oo && _ds_next(ix.ioff)) break;
 #endif // (T4_DO_OBJ && T4_DO_NN)                 
              if (GT(rs[-1]-=DU1, -DU1)) {            ///> loop done?
                  ip = ix.ioff;                       /// * no, loop back
@@ -391,7 +388,7 @@ ForthVM::init() {
     CODE("mstat", mmu.status());
     CODE("rnd",   PUSH(sys.rand(DU1, NORMAL)));             // generate random number
     CODE("ms",    System::delay(POPi));
-    CODE("flush", sys.op(OP_FLUSH));                        // flush output stream
+    CODE("flush", scall(OP_FLUSH));                         // flush output stream
 //    CODE("included",                                      // include external file
 //         POP();                                           // string length, not used
 //         sys.load(MEM(POP())));                           // include external file
@@ -551,9 +548,8 @@ ForthVM::_ds_next(U32 ioff) {
         ((Model&)m).epoch++;            /// * bump epoch counter
     }
     else {
-        sys.op(OP_FETCH, 0, rs[-1]);    /// * issue a dataset fetch
+        scall(OP_FETCH, 0, rs[-1]);     /// * issue a dataset fetch
         ip = ioff;                      /// * loop branch target address
-        state = HOLD;
     }
     return 1;
 }
