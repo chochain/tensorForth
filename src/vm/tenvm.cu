@@ -393,9 +393,8 @@ TensorVM::_pickle(bool save) {
     IU   adr  = POPi;                         ///< address to pmem
     char *fn  = (char*)MEM(adr);              ///< pointer to string on PAD
     
-    sys.op(OP_TSAVE, mode, tos);              /// * issue save command
+    scall(OP_TSAVE, mode, tos);               /// * issue save command
     sys.op_fn(fn);                            /// * append filename
-    state = HOLD;                             /// * return to CPU
 }
 ///
 /// Tensor Vocabulary

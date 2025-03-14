@@ -137,8 +137,7 @@ NetVM::_pickle(bool save) {                 ///< ( N addr len -- ) or ( N addr l
     IU   len = POPi;                        ///< string length (not used for now)
     IU   adr = POPi;                        ///< address to pmem
     char *fn = (char*)mmu.pmem(adr);        ///< pointer to string on PAD
-    sys.op(IS_M(tos) ? (save ? OP_NSAVE : OP_NLOAD) : OP_TSAVE, mode, tos);
-    state = HOLD;                           /// * return to CPU
+    scall(IS_M(tos) ? (save ? OP_NSAVE : OP_NLOAD) : OP_TSAVE, mode, tos);
 }
 
 ///
@@ -339,11 +338,10 @@ NetVM::init() {
          char    *dsn = sys.fetch();            ///< retrieve dataset name
          Dataset &ds  = mmu.dataset(POPi);      ///< batch size
          PUSH(mmu.obj2du((T4Base&)ds));         /// * create a dataset as TOS
-         sys.op(OP_DATA, 0, tos);               /// * issue a dataset init
-         sys.op_fn(dsn);                        /// * send dataset name
-         state = HOLD);
-    CODE("fetch",  sys.op(OP_FETCH, 0, tos));   /// * fetch a dataset batch
-    CODE("rewind", sys.op(OP_FETCH, 1, tos));   /// * rewind a dataset (batch_id=0)
+         scall(OP_DATA, 0, tos);                /// * issue a dataset init
+         sys.op_fn(dsn));                       /// * send dataset name
+    CODE("fetch",  scall(OP_FETCH, 0, tos));    /// * fetch a dataset batch
+    CODE("rewind", scall(OP_FETCH, 1, tos));    /// * rewind a dataset (batch_id=0)
     CODE("forward",                             /// * forward process
          if (IS_M(ss[-1]) && TOS1D) {           /// * TOS is a dataset
              DU x = POP();                      /// * NOS is the model
