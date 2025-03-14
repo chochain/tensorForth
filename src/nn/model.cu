@@ -85,6 +85,8 @@ Model::add(t4_layer fn, U32 n, DU bias, U16 *opt) {
     Tensor &in = (*this)[-1];
     if (in.grad_fn != L_NONE) return *this;    /// * tensor already setup
 
+    NN_DB("  Model::add %s n=%d bias=%g {\n", d_nname(fn), n, bias);
+
     for (int i=0; i<4; i++) in.grad[i] = in.mtum[i] = NULL;
     switch(fn) {
     case L_CONV:    _iconv(in, n, bias, opt);   break;
@@ -107,6 +109,7 @@ Model::add(t4_layer fn, U32 n, DU bias, U16 *opt) {
     default: ERROR("Model#add layer %d not supported\n", fn);
     }
     in.grad_fn = fn;                           /// * set layer function name
+    NN_DB("  } Model::add %s\n", d_nname(fn));
     
     return *this;
 }
@@ -121,8 +124,10 @@ Model::_iconv(Tensor &in, U32 C0, DU bias, U16 *opt) {
     U16 s  = opt[3], d = opt[4];                      ///> stride, dilation
     U16 H0 = (in.H() - Hf + p*2) / s + 1;             ///> output height
     U16 W0 = (in.W() - Wf + p*2) / s + 1;             ///> output width
+    
+    NN_DB("    model#add conv2d %dx%d bias=%4.2f", Hf, Wf, bias);
     if (Hf != Wf || (Hf != 1 && Hf != 3 && Hf != 5)) {
-        ERROR("Model#add conv2d f=[%d,%d]? 1x1, 3x3, and 5x5 supported only.\n", Hf, Wf);
+        ERROR("model#add conv2d f=[%d,%d]? 1x1, 3x3, and 5x5 supported only.\n", Hf, Wf);
         return;
     }
     in.stride[0] = in.stride[1] = s;
@@ -136,19 +141,22 @@ Model::_iconv(Tensor &in, U32 C0, DU bias, U16 *opt) {
     Tensor *b  = in.grad[1] = &VEC(C0);                            ///> b
     Tensor *db = in.grad[3] = &VEC(C0).map(FILL, DU0);             ///> db
 
-    DU k = SQRT(RCP(Hf * Wf * C1));                                /// * filter default range
-    RAND(*f, k);                                 /// * randomize f [-k, k)
-    RAND(*b, bias);                              /// * randomize b [-bias, bias)
-    NN_DB("model#add conv2d %dx%d bias=%4.2f, k=%6.3f, f.std=%6.3f\n",
-          Hf, Wf, bias, k, f->std());
+    DU k = SQRT(RCP(Hf * Wf * C1));                /// * filter default range
+//    RAND(*f, k);                                 /// * randomize f [-k, k)
+//    RAND(*b, bias);                              /// * randomize b [-bias, bias)
+    f->map(FILL, 0.5);
+    b->map(FILL, -0.5);
     
-    // for (int i=0; i<f->numel; i++) printf("%6.3f", f->data[i]);
+    NN_DB(", k=%6.3f, f.std=%6.3f\nf[%d,%d,%d,%d]=", k, f->std(), C1, Hf, Hf, C0);
+    for (U64 i=0; i<f->numel; i++) NN_DB("%6.3f", f->data[i]);
+    NN_DB("\n");
     
     Tensor &out= T4(N1, H0, W0, C0);             ///> output tensor
     npush(out);                                  /// * stage for next stage
 }
 __GPU__ void
 Model::_ilinear(Tensor &in, U32 C0, DU bias) {
+    NN_DB("    model#add linear bias=%4.2f", bias);
     U32 N1 = in.N();
     U64 C1 = in.HWC();
     Tensor *w  = in.grad[0] = &T4(1, C0, C1, 1);                  ///> w
@@ -159,24 +167,26 @@ Model::_ilinear(Tensor &in, U32 C0, DU bias) {
     in.parm = INT(bias * 1000.0);                                 /// * keep for persistence
     
     DU k = SQRT(RCP(C1));                                         /// * default weight
-    RAND(*w, k);                                  /// * randomize w [-k, k)
-    RAND(*b, bias);                               /// * randomize b [-bias, bias)
-    NN_DB("model#add linear bias=%4.2f, k=%6.3f, w.std=%6.3f\n", bias, k, w->std());
-    /*
-    for (int c0=0; c0<C0; c0++) {
-        NN_DB("\nw.c0=%d ", c0);
-        for (int c1=0; c1<C1; c1++) {
-            NN_DB("%5.2f", w->data[c1 + c0*C1]);
+//    RAND(*w, k);                                  /// * randomize w [-k, k)
+//    RAND(*b, bias);                               /// * randomize b [-bias, bias)
+    w->map(FILL, 0.5);
+    b->map(FILL, 0.0);
+    
+    NN_DB(", k=%6.3f, w.std=%6.3f\nw[1,%d,%ld,1]", k, w->std(), C0, C1);
+    for (U32 c0=0; c0<C0; c0++) {
+        NN_DB("\nc0=%d ", c0);
+        for (U64 c1=0; c1<C1; c1++) {
+            NN_DB("%5.2f", w->data[C1*c0 + c1]);
         }
     }
-    */
+    NN_DB("\nout[%d,%d,1,1]\n", N1, C0);
+    
     Tensor &out = T4(N1, C0);                    ///> output tensor sizing
-    NN_DB(" out[%d,%d,%d,%d]", out.N(), out.H(), out.W(), out.C());
     npush(out);                                  /// * stage for next stage
 }
 __GPU__ void
 Model::_iflatten(Tensor &in) {
-    NN_DB("model#add flatten\n");
+    NN_DB("    model#add flatten");
     Tensor &out = T4(in.N(), in.HWC());          /// * for backprop
     npush(out);
 }
@@ -185,18 +195,18 @@ Model::_iflatten(Tensor &in) {
 /// @{
 __GPU__ void
 Model::_icopy(Tensor &in, t4_layer fn) {
+	NN_DB("    model#add %s\n", d_nname(fn));
     Tensor &out = COPY(in);                      ///> output tensor sizing
-	NN_DB("model#add %s\n", d_nname(fn));
     npush(out);                                  /// * stage for next stage
 }
 
 __GPU__ void
 Model::_iactivate(Tensor &in, DU alpha, t4_layer fn) {
+    NN_DB("    model#add %s (alpha=%6.3f)\n", d_nname(fn), alpha);
     Tensor &out = COPY(in);
     Tensor *msk = in.grad[0] = &COPY(in);        ///> activation mask
 
     in.parm = INT(1000.0 * alpha);               /// * bias * 1000
-    NN_DB("model#add %s (alpha=%6.3f)\n", d_nname(fn), alpha);
     
     npush(out);
 }
@@ -205,12 +215,12 @@ Model::_iactivate(Tensor &in, DU alpha, t4_layer fn) {
 /// @{
 __GPU__ void
 Model::_ipool(Tensor &in, U16 f, t4_layer fn) {
+    NN_DB("    model#add %s %dx%d\n", d_nname(fn), f, f);
     if (f != 2 && f != 3) {
         ERROR("pooling f=%dx%d? 2x2 and 3x3 supported only\n", f, f);
         return;
     }
     in.parm = f;                                 /// * keep kernel size
-    NN_DB("model#add %s %dx%d\n", d_nname(fn), f, f);
                                                  /// * used by backprop
     U32 H0 = INT((in.H() - f) / f) + 1;
     U32 W0 = INT((in.W() - f) / f) + 1;
@@ -222,6 +232,7 @@ Model::_ipool(Tensor &in, U16 f, t4_layer fn) {
 
 __GPU__ void
 Model::_ibatchnorm(Tensor &in, DU m) {
+    NN_DB("    model#add batchnorm m=%5.3f\n", m);
     const int C = in.C();                        /// C0==C1
     in.grad[0] = &VEC(C*2).map(FILL, DU0);       ///> weight/gamma, bias/beta
     in.grad[1] = &VEC(C*2);                      ///> tmp storage
@@ -232,7 +243,6 @@ Model::_ibatchnorm(Tensor &in, DU m) {
         in.grad[0]->data[c] = DU1;
     }
     in.parm = INT(1000.0 * m);                   ///> default EMA momentum = 0.1
-    NN_DB("model#add batchnorm m=%5.3f\n", m);
     
     Tensor &out = COPY(in);                      /// * retain dimensions
     npush(out);
@@ -240,12 +250,12 @@ Model::_ibatchnorm(Tensor &in, DU m) {
 
 __GPU__ void
 Model::_iup(Tensor &in, U16 f, DU method) {
+    NN_DB("    model#add upsample %dx%d\n", f, f);
     if (f != 2 && f != 3) {
-        ERROR("Model#upsample f=%dx%d? only 2x2 and 3x3 supported\n", f, f);
+        ERROR("model#upsample f=%dx%d? only 2x2 and 3x3 supported\n", f, f);
         return;
     }
     in.parm = (INT(method)<<8) | f;              /// * keep (method<<8) | kernel size
-    NN_DB("model#add upsample %dx%d\n", f, f);
                                                  /// * used by backprop
     U32 H0 = in.H() * f;
     U32 W0 = in.W() * f;
