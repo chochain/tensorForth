@@ -10,8 +10,7 @@
 #include "mnist.h"
 
 #define LOG_COUNT 1000       /**< debug dump frequency */
-//#define MAX_BATCH 0          /**< debug, limit number of mini-batches */
-#define MAX_BATCH 4          /**< debug, limit number of mini-batches */
+#define MAX_BATCH 0          /**< debug, limit number of mini-batches */
 
 Corpus *Mnist::init(int trace) {
     auto _u32 = [this](std::ifstream &fs) {
@@ -65,12 +64,15 @@ Corpus *Mnist::fetch(int batch_id, int batch_sz, int trace) {
         ERROR("Mnist::fetch #label=%d != #image=%d\n", b0, b1);
         return NULL;
     }
-    if (trace && (++tick % LOG_COUNT) == 0) {
-        INFO("\n\tMnist batch[%d] loaded (size=%d)\n", batch_id, b0);
-        _preview(bsz < 3 ? bsz : 3);          /// * debug print
+    int bid = batch_id + 1;
+    if (trace && (++tick == LOG_COUNT)) {
+        INFO("\n\tMnist batch %d, loaded=%d/%d\n", bid, bsz * bid, N);
+        if (trace > 1) _preview(bsz < 3 ? bsz : 3);     /// * debug print
+        tick = 0;
     }
-    if (MAX_BATCH && (batch_id >= MAX_BATCH)) eof |= 1; /// forced stop (debug)
-
+    if (MAX_BATCH && (batch_id >= MAX_BATCH)) eof = 1;  /// forced stop (debug)
+    if (bsz * bid >= N) eof = 1;
+    
     return this;
 }
 
