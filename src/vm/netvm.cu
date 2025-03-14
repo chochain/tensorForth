@@ -17,11 +17,11 @@ NetVM::predict(Tensor &I, Tensor &P) {}
 __GPU__ int
 NetVM::_nnop(t4_layer op) {     /// vtable dispatcher
     VOP(LAYER_OP);
-    auto ok = [this,op]() { VLOG(" } %s\n", _op[op]); return 0; };
+    auto ok = [this,op]() { VLOG("} NetVM::nnop %s\n", _op[op]); return 0; };
     ///
     /// handle tensor ops (destructive)
     ///
-    VLOG("netvm#nnop %s {", _op[op]);
+    VLOG("NetVM::nnop %s", _op[op]);
     if (TOS1T) {
         Tensor &t = TTOS;
         VLOG(" T%d", t.rank);
@@ -45,7 +45,7 @@ NetVM::_nnop(t4_layer op) {     /// vtable dispatcher
     ///
     if (IS_M(tos)) {
         Model &m = MTOS;
-        VLOG(" N%ld", m.numel);
+        VLOG(" N%ld {\n", m.numel);
         switch (op) {
         case L_FLATTEN:
         case L_RELU:
@@ -66,7 +66,7 @@ NetVM::_nnop(t4_layer op) {     /// vtable dispatcher
     if (M1V) {
         DU    a  = POP();
         Model &m = MTOS;
-        VLOG(" N%ld %g", m.numel, a);
+        VLOG(" N%ld %g {\n", m.numel, a);
         switch (op) {
         case L_LINEAR:  m.add(op, INT(a), DU1);        return ok(); /* bias = 1.0 */
         case L_LEAKYRL:
@@ -86,7 +86,7 @@ NetVM::_nnop(t4_layer op) {     /// vtable dispatcher
         if (M2V) {                                 /// * param checking
             U32 c    = POPi;                       ///> number of output channels
             DU  bias = POP();                      ///> bias range [-bias, bias)
-            VLOG(" N%ld c=%d bias=%g", MTOS.numel, c, bias);
+            VLOG(" N%ld c=%d bias=%g {\n", MTOS.numel, c, bias);
             MTOS.add(op, c, bias);                 /// * (N b c -- N')
         }
         else ERROR("( N [bias] n -- ) for linear required!");
@@ -195,9 +195,10 @@ NetVM::_conv(U16 k) {
     if (!M2V) { ERROR("Model#add bias c for conv2d required!"); return; }
     U32 c    = POPi;                    ///> number of output channels
     DU  bias = POP();                   ///> convolution bias
-    VLOG("netvm#conv { N%ld k=%d c=%d bias=%g", MTOS.numel, k, c, bias);
+    
+    VLOG("NetVM::conv N%ld k=%d c=%d bias=%g {\n", MTOS.numel, k, c, bias);
     MTOS.add(L_CONV, c, bias, opt);
-    VLOG(" } conv\n");
+    VLOG("} NetVM::conv\n");
 }
 ///
 /// loss functions
