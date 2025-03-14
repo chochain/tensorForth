@@ -80,6 +80,9 @@ protected:
     ///
     __GPU__ void nest();                      ///< inner interpreter
     __GPU__ void call(IU w);                  ///< execute word by index
+    __GPU__ void scall(OP op, U8 m=0, DU n=DU0, int i=0) {
+        sys.op(op, m, n, i); state = HOLD;    ///< sync call, back to host, wait for return
+    }
     ///
     /// stack operator short hands
     ///
