@@ -14,9 +14,7 @@ __KERN__ void k_sgd(
     U32 N, DU lr, DU b,                     ///< batch size, learn rate, beta(momemtum)
     U64 numel                               ///< HWC
     ) {
-    const U64 j = (U64)blockIdx.x * blockDim.x + threadIdx.x;   ///< element index
-    
-    if (j < numel) {
+    for (U64 j = threadIdx.x; j < numel; j += blockDim.x) {
         if (ABS(b) < DU_EPS) G[j] -= lr * DG[j] / N;
         else {
             DU dg = DG[j] / N;                             ///< dG batch avg
@@ -32,14 +30,12 @@ __KERN__ void k_adam(
     U32 N, DU lrc, DU b1, DU b2,            ///< batch size,corrected learn rate, beta(momemtum)
     U64 numel                               ///< HWC
     ) {
-    const U64 j = (U64)blockIdx.x * blockDim.x + threadIdx.x;   ///< element index
-    
-    if (j < numel) {
-        DU dg = DG[j];                                     ///< dG (no batch avg)
-        DU mi = M[j] = b1 * M[j] + (DU1 - b1) * dg;        ///< momentum
-        DU vi = V[j] = b2 * V[j] + (DU1 - b2) * dg * dg;   ///< velocity
-        G[j] -= lrc * mi / (SQRT(vi) + DU_EPS);            /// * update gradient
-        DG[j] = DU0;                                       /// * zero out dG
+    for (U64 j = threadIdx.x; j < numel; j += blockDim.x) {
+        const DU dg = DG[j];                                     ///< dG (no batch avg)
+        const DU mi = M[j] = b1 * M[j] + (DU1 - b1) * dg;        ///< momentum
+        const DU vi = V[j] = b2 * V[j] + (DU1 - b2) * dg * dg;   ///< velocity
+        G[j] -= lrc * mi / (SQRT(vi) + DU_EPS);                  /// * update gradient
+        DG[j] = DU0;                                             /// * zero out dG
     }
 }
 
@@ -130,7 +126,7 @@ __GPU__ Model&
 Model::sgd(DU lr, DU b) {                          /// a=momentum
     auto update = [](DU *parm, Tensor *g, Tensor *dg, Tensor *m, Tensor *v) {
         const U64 numel = g->numel;
-        FORK(k_sgd, numel, 
+        FORK1(k_sgd, numel, 
              g->data, dg->data, m->data,
              g->N(), parm[0], parm[1]);
         CDP_SYNC();
@@ -144,7 +140,7 @@ __GPU__ Model&
 Model::adam(DU lr, DU b1, DU b2) {
     auto update = [](DU *parm, Tensor *g, Tensor *dg, Tensor *m, Tensor *v) {
         const U64 numel = g->numel;
-        FORK(k_adam, numel,
+        FORK1(k_adam, numel,
              g->data, dg->data, m->data, v->data,
              g->N(), parm[0], parm[1], parm[2]);
         CDP_SYNC();
