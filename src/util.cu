@@ -384,21 +384,20 @@ d_hash(const char *s) {
     return _hash(s, STRLENB(s));
 }
 
-constexpr int T4_NUM_WARP { T4_DIM_SQ>>5 };
 __GPU__ float
-d_sum(float *src, long numel) {
-    __shared__ float _sum[T4_NUM_WARP];
+d_sum(float *src, long numel) {                     ///< sum of T4_DIM_SQ threads
+    __shared__ float _sum[T4_DIM_SQ>>5];            ///< warp sum
     ///
     /// sum up by stride
     ///
-    auto step_sum = [src, numel](long i0) {         ///< handle blockIdx.x strides
+    auto stride_sum = [src, numel](long i0) {       ///< stride sum
         float v { 0.0f };
         for (long i=i0; i < numel; i+=T4_DIM_SQ) v += src[i];
         return v;
     };
     auto const g   { cg::this_thread_block() };     /// total threads
-    auto const tid { g.thread_rank() };             /// tid 0~255
-    float sum { step_sum(tid) };                    /// sum[256]
+    auto const tid { g.thread_rank() };             /// tid=thread_index().x 0~255
+    float sum { stride_sum(tid) };                  /// one sum per thread
     ///
     /// shuffle sum 32 to 1
     ///
@@ -411,18 +410,16 @@ d_sum(float *src, long numel) {
         return v;
     };
     sum = shfl_sum(tp, sum);
-    if (tp.thread_rank() == 0) _sum[tid >> 5] = sum;         /// collection from each warp 
+    if (tp.thread_rank() == 0) _sum[tid >> 5] = sum; /// collection from each warp 
     g.sync();
     ///
-    /// sum all warps
+    /// sum up all warps
     ///
-    auto warp_sum = [](float *v0) {
-        float v { 0.0f };
-        #pragma unroll
-        for (int i = 0; i < T4_NUM_WARP; i++) v += v0[i];
-        return v;
-    };
-    return warp_sum(_sum);
+    float v { 0.0f };
+    #pragma unroll
+    for (int i = 0; i < (T4_DIM_SQ>>5); i++) v += _sum[i];
+    
+    return v;
 }
 /*!@brief
   Tensor basic ops
@@ -434,30 +431,31 @@ d_sum(float *src, long numel) {
 __KERN__ void
 k_sum(float *src, float *dst, long HW) {
     const long j  = (long)blockIdx.x*blockDim.x + threadIdx.x; ///< element index
-    const int  c  = blockIdx.y, C = gridDim.y;                 ///< channel
-    const long ns = HW * C * blockIdx.z;                       ///< batch slice index
-    float vi = j < HW ? src[(long)C * j + ns + c] : 0.0f;
+    const int  c  = blockIdx.y, n = blockIdx.z, C = gridDim.y; ///< channel
+    const long ns = HW * C * n;                                ///< batch slice index
+    float vi = j < HW ? src[ns + j * C + c] : 0.0f;
     ///
     /// prefix sum every 32-threaded tile
     ///
-    auto t = cg::tiled_partition<32>(cg::this_thread_block());
-    auto shfl_sum = [](cg::thread_block_tile<32> t, float v) {
+    auto tp = cg::tiled_partition<32>(cg::this_thread_block());
+    auto shfl_sum = [](cg::thread_block_tile<32> tp, float v) {
         for (int k = 16; k > 0; k >>= 1) {
-            v += t.shfl_down(v, k);
+            v += tp.shfl_down(v, k);
         }
         return v;
     };
-    float tt = shfl_sum(t, vi);
+    vi = shfl_sum(tp, vi);
     ///
     /// sum up atomically (per channel, for batchnorm)
-    /// slower than looper when blocks are many
+    /// slower than grid-stride loop when blocks are many
     ///
-    if (t.thread_rank() == 0) atomicAdd_block(&dst[c], tt);   ///< serialize sum
+    if (tp.thread_rank() == 0) atomicAdd_block(&dst[C * n + c], vi);   ///< serialize sum
 }
 __KERN__ void
 k_copy(float *src, float *dst, long n) {                      ///< Note: (src, dst)
-    const long j = (long)blockIdx.x*blockDim.x + threadIdx.x; ///< numel range 2G * 1K = 2T, U41
-    if (j < n) dst[j] = src[j];
+    for (long j = threadIdx.x; j < n; j += blockDim.x) {
+        dst[j] = src[j];
+    }
 }
 __KERN__ void
 k_transpose(float *src, float *dst, int H, int W) {           ///< Note: (src, dst)
@@ -484,9 +482,8 @@ k_identity(float *t, int H, int W) {                          ///< identity matr
 #define DU_LNX   1.0e-12                                      /* log clamp */
 __KERN__ void
 k_math(math_op op, float *A, float v, long n) {               ///< self modifying ops
-    const long j = (long)blockIdx.x*blockDim.x + threadIdx.x; ///< numel range 2G * 1K = 2T, U41
-    float ak = A[j];                                          ///< cache value
-    if (j < n) {
+    for (long j = threadIdx.x; j < n; j += blockDim.x) {
+        float ak = A[j];                                      ///< cache value
         switch(op) {
         case ABS:   A[j] = ABS(ak);                   break;
         case NEG:   A[j] = NEG(ak);                   break;
@@ -512,12 +509,11 @@ k_math(math_op op, float *A, float v, long n) {               ///< self modifyin
     }
 }
 ///
-/// tensor-tensor element-wise ops
+/// tensor-tensor element-wise ops (grid-stride implementation)
 ///
 __KERN__ void
 k_tt_op(math_op op, float *A, float *B, float *O, long n) {
-    const long j = (long)blockIdx.x*blockDim.x + threadIdx.x; ///< numel range 2G * 1K = 2T, U41
-    if (j < n) {
+    for (long j = threadIdx.x; j < n; j += blockDim.x) {
         switch (op) {                                         /// no divergence
         case ADD: O[j] = A[j] + B[j]; break;
         case SUB: O[j] = A[j] - B[j]; break;
@@ -527,17 +523,26 @@ k_tt_op(math_op op, float *A, float *B, float *O, long n) {
     }
 }
 ///
-/// tensor-scalar element-wise ops
+/// tensor-scalar element-wise ops (grid-stride implementation)
 ///
 __KERN__ void
 k_ts_op(math_op op, float *A, float v, float *O, long n) {
-    const long j = (long)blockIdx.x*blockDim.x + threadIdx.x; ///< numel range 2G * 1K = 2T, U41
-    if (j < n) {
+    for (long j = threadIdx.x; j < n; j += blockDim.x) {
         switch (op) {                                         /// no divergence
         case ADD: O[j] = A[j] + v; break;
         case SUB: O[j] = A[j] - v; break;
         case MUL: O[j] = A[j] * v; break;                     /// * convolution
         case DIV: O[j] = A[j] / v; break;
         }
+    }
+}
+///
+/// Binary Cross-Entropy (clamps output to >= -100)
+///
+__KERN__ void
+k_bce(float *O, float *T, long n) {
+    for (long j = threadIdx.x; j < n; j+= blockDim.x) {
+//        O[i] = ABS(T[i]) < DU_EPS ? LN(DU1 - O[i] + DU_EPS) : LN(O[i] + DU_EPS);
+        O[j] = T[j] * LN(O[j] + 1.0e-6) + (1.0f - T[j]) * LN(1.0f - O[j] + 1.0e-6);
     }
 }
