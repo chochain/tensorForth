@@ -10,15 +10,23 @@
 ///=======================================================================
 /// static methods
 ///
-/// k_sum1 (4x faster than k_sum)
+/// k_sum4 (4x faster than k_sum)
 /// use stride adding in parallel, instead of atomicAdd
-/// batch_id = blockIdx.z, channel_id = blockIdx.y
 ///
 __KERN__ void
-k_sum1(DU *I, DU *O, U64 HW) {
-    DU  const sum { d_sum(I + HW * blockIdx.z, HW) };          ///< sum HW
-    if (blockIdx.x == 0 && threadIdx.x == 0) {
-        O[blockIdx.y] = sum;
+k_sum1(DU *I, DU *z, U64 numel) {                              ///< sum all elements
+    DU const sum = { d_sum(I, numel) };
+    if (threadIdx.x == 0) *z = sum;
+}
+
+__KERN__ void
+k_sum4(DU *I, DU *O, U64 HW) {                                 ///< sum each channel per N
+    U32 const c = blockIdx.y, C = blockDim.y;                  ///< channel
+    U32 const n = blockIdx.z;                                  ///< batch_id
+    U64 const HWC = HW*C;
+    DU  const sum { d_sum(&I[HWC * n + c], HW) };              ///< sum HW for each c
+    if (threadIdx.x == 0) {
+        O[C * n + c] = sum;                                    /// sum for each channel
     }
 }
 ///
@@ -46,6 +54,48 @@ k_var(DU *I, DU *avg, DU *var, U64 HW) {
     /// sum up atomically (per channel, for batchnorm)
     ///
     if (t.thread_rank() == 0) atomicAdd_block(&var[c], tt);
+}
+    
+__KERN__ void
+k_var4(DU *I, DU *avg, DU *var, U64 HW) {
+    __shared__ DU _var[T4_DIM_SQ>>5];
+    const U32 c  = blockIdx.y, C = gridDim.y;                  ///< channel
+    const U32 n  = blockIdx.z, N = gridDim.z;                  ///< batch index
+    const U64 ns = HW * C * n, numel = HW * N * C;             ///< page and total elements
+    
+    auto stride_sum = [I, avg, numel, ns, c, C]() {
+        DU v { DU0 };
+        for (U64 j = ns + threadIdx.x + c; j < numel; j += blockDim.x*C) {
+            v += I[j] * I[j] - avg[c];
+        }
+        return v;
+    };
+    DU dif_sq { stride_sum() };                                /// dif_sq per thread
+    ///
+    /// prefix sum every 32-threaded tile
+    ///
+    auto g  { cg::this_thread_block() };
+    auto tp { cg::tiled_partition<32>(g) };
+    auto shfl_sum = [](cg::thread_block_tile<32> tp, DU v) {
+        #pragma unroll
+        for (int k = 16; k > 0; k >>= 1) {
+            v += tp.shfl_down(v, k);
+        }
+        return v;
+    };
+    dif_sq = shfl_sum(tp, dif_sq);
+    ///
+    /// sum up atomically (per channel, for batchnorm)
+    ///
+    if (tp.thread_rank() == 0) _var[threadIdx.x >> 5] = dif_sq;    ///< each N, C get their own
+    g.sync();
+    ///
+    /// collect each warp into sum, each N, C get their own sum
+    DU v { DU0 };
+    #pragma unroll
+    for (int i = 0; i < (T4_DIM_SQ>>5); i++) v += _var[i];
+    
+    var[C*n + c] = v;
 }
 
 __KERN__ void
@@ -111,17 +161,6 @@ k_gemm(
     }
 }
 ///
-/// Binary Cross-Entropy (clamps output to >= -100)
-///
-__KERN__ void
-k_bce(DU *O, DU *T, U64 numel) {
-    const U64 j = (U64)blockIdx.x * blockDim.x + threadIdx.x;  ///< element index
-    if (j < numel) {
-//        O[i] = ABS(T[i]) < DU_EPS ? LN(DU1 - O[i] + DU_EPS) : LN(O[i] + DU_EPS);
-        O[j] = T[j] * LN(O[j] + DU_EPS) + (DU1 - T[j]) * LN(DU1 - O[j] + DU_EPS);
-    }
-}
-///
 /// tensor-scalar addition O = A op n element-wise (Hadamard)
 ///
 __GPU__ Tensor&
@@ -130,7 +169,7 @@ Tensor::ten_op(math_op op, Tensor &A, DU v, Tensor &O) {
     _OP(MATH_OP);
     MM_DB("  tensor#ten_op O[%d,%d,%d,%d] = A %s %6.2f\n", N, H, W, C, _op[op], v);
 
-    FORK(k_ts_op, A.numel, op, A.data, v, O.data);
+    FORK1(k_ts_op, A.numel, op, A.data, v, O.data);
     CDP_SYNC();
     return O;
 }
@@ -143,7 +182,7 @@ Tensor::ten_op(math_op op, Tensor &A, Tensor &B, Tensor &O) {
     _OP(MATH_OP);
     MM_DB("  tensor#ten_op O[%d,%d,%d,%d] = A %s B\n", N, H, W, C, _op[op]);
     
-    FORK(k_tt_op, A.numel, op, A.data, B.data, O.data);
+    FORK1(k_tt_op, A.numel, op, A.data, B.data, O.data);
     CDP_SYNC();
     return O;
 }
@@ -192,7 +231,7 @@ Tensor::gemm(Tensor &A, Tensor &B, Tensor &O, DU alpha, DU beta) {
 __GPU__ Tensor&
 Tensor::copy(Tensor &A, Tensor &O) {
     MM_DB("  tensor#copy %p to %p numel=%ld\n", A.data, O.data, A.numel);
-    FORK(k_copy, A.numel, A.data, O.data);
+    FORK1(k_copy, A.numel, A.data, O.data);
     CDP_SYNC();
     return O;
 }
@@ -391,13 +430,8 @@ Tensor::plu(Tensor &A, Tensor &P, int *ns) {
 ///
 __GPU__ DU
 Tensor::sum() {
-    /// num_threads = 256
-    /// numel       = num_elements_per_batch (1024x1024)
-    /// n           = batch_size (64)
-    /// num_block_elements    = 256 * 1024
-    /// num_threads_per_batch = 512
-    static DU z; z = DU0;                        ///< static shared memory
-    FORK1(k_sum1, numel, data, &z);              /// * FORK1 for strides
+    static DU z;                                    ///< shared static memory
+    FORK1(k_sum1, numel, data, &z);
     CDP_SYNC();
     return SCALAR(z);
 }
@@ -411,7 +445,11 @@ Tensor::std() {
     static DU sum, avg;
     sum = DU0; avg = this->avg();
 
+    printf("avg=%g\n", avg);
+
     FORK(k_var, numel, data, &avg, &sum);        /// * 8x straight loop
+    printf("avg=%g sum=%g\n", avg, sum);
+
     CDP_SYNC();
     
     DU v = numel ? SQRT(sum / numel) : DU0;
@@ -464,7 +502,7 @@ Tensor::loss(t4_loss op, Tensor &tgt) {
         z = 0.5 * sum();
         break;
     case LOSS_BCE: {                 /// * binary cross_entropy, input from sigmoid
-        FORK(k_bce, numel, data, tgt.data);
+        FORK1(k_bce, numel, data, tgt.data);
         CDP_SYNC();
         z = -sum();                  /// * -(y * ln(out_i) + (1-y) * ln(1-out_i))
     } break;
@@ -630,15 +668,15 @@ __BOTH__ Tensor&
 Tensor::map(math_op op, DU v) {
     _OP(MATH_OP);
     MM_DB("  tensor#%s v=%g\n", _op[op], v);
-    FORK(k_math, numel, op, data, v);
+    FORK1(k_math, numel, op, data, v);
     CDP_SYNC();
     return *this;
 }
 
 __BOTH__ Tensor&
 Tensor::normalize(DU avg, DU std) {
-    FORK(k_ts_op, numel, SUB, data, avg, data);
-    FORK(k_ts_op, numel, DIV, data, std, data);
+    FORK1(k_ts_op, numel, SUB, data, avg, data);
+    FORK1(k_ts_op, numel, DIV, data, std, data);
     CDP_SYNC();
     return *this;
 }
