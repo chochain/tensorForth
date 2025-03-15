@@ -129,6 +129,7 @@ __KERN__ void        k_identity(float *t, int h, int w);
 __KERN__ void        k_math(math_op op, float *dst, float v, long n);          ///< tensor math ops
 __KERN__ void        k_ts_op(math_op op, float *A, float v, float *O, long n); ///< tensor-scalar ops
 __KERN__ void        k_tt_op(math_op op, float *A, float *B, float *O, long n);///< tensor-tensor ops
+__KERN__ void        k_bce(float *O, float *T, long n);
 ///@}
 ///==========================================================================
 ///@name Unified memory ops
