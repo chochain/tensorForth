@@ -46,8 +46,8 @@ __KERN__ void k_conv2d(
             DU sum = DU0;
             DU *fx = &F[zf], *ix = &_I[xy];          /// * filter[0], tile[tx,ty]
             #pragma unroll
-            for (U32 y = 0; y < KS; y++) {           /// * process one KS * KS cell
-                for (U32 x = 0; x < KS; x++) {
+            for (int y = 0; y < KS; y++) {           /// * process one KS * KS cell
+                for (int x = 0; x < KS; x++) {
                     sum += (*fx) * ix[x];            /// Y += W * X
                     fx  += C0;                       /// * next filter cell
                 }
@@ -79,7 +79,7 @@ __KERN__ void k_linear(
         }
         O[c0 + n * HWC0] = acc;
         */
-        DU *y = &O[HWC0*n + c0];
+        DU *y = &O[HWC0 * n + c0];
         if (c1 == 0) *y = B[c0];                      /// Y = WX + B
         atomicAdd_block(y, W[(U64)C1 * c0 + c1] * I[HWC1 * n + c1]);
     }
@@ -91,23 +91,23 @@ __KERN__ void k_pool(
     DU *I, DU *O,                                     ///< input, output buffers
     U32 H, U32 W                                      ///< output HW (C0==C1)
     ) {
-    const U64 KSQ= KS * KS;
     const U64 HW = (U64)H * W;                        ///< output dimension
     const U64 k0 = (U64)blockIdx.x * blockDim.x + threadIdx.x;
+    const U32 KSQ= KS * KS;
     const U32 j0 = k0 % W;                            ///< output x dim
     const U32 c  = blockIdx.y, C = gridDim.y;         ///< channel deep
     const U64 ns = HW * C * blockIdx.z;               ///< batch slice idx
     const U64 z0 = (U64)C * k0 + ns + c;              ///< output array index
     const U64 z1 = (U64)C * KS * j0 + ((k0 - j0) * C + ns) * KSQ + c;
+    const U64 RI = ((U64)W - 1) * KS * C;             ///< input cell row increment
     const bool avg = (op != L_MAXPOOL && op != L_MINPOOL);
 
     if (k0 < HW && c < C) {
-        const U64 RI = ((U64)W - 1) * KS * C;         ///< input cell row increment
         DU *ix = &I[z1];
         DU2 v  = avg ? DU0 : *ix;
         #pragma unroll
-        for (U32 y = 0; y < KS; y++) {
-            for (U32 x = 0; x < KS; x++) {
+        for (int y = 0; y < KS; y++) {
+            for (int x = 0; x < KS; x++) {
                 DU dx = *ix;
                 switch (op) {
                 case L_USAMPLE:
@@ -130,9 +130,7 @@ __KERN__ void k_activate(
     t4_layer op, DU *I, DU *F, DU *O,      ///< func, input, filter, output tensors
     DU alpha, U64 numel                    ///< number of tensor elements
     ) {
-    const U64 j = (U64)blockIdx.x * blockDim.x + threadIdx.x;   ///< element index
-
-    if (j < numel) {
+    for (U64 j = threadIdx.x; j < numel; j += blockDim.x) {
         DU k = I[j];                                       ///< use register
         switch (op) {
         case L_RELU:
@@ -202,7 +200,7 @@ Model::forward(Tensor &input) {
             out.N(), out.H(), out.W(), out.C());
     };
     NLOG("\nModel::forward starts {");
-    DU t0 = System::ms(), t1 = t0, tt;             ///< performance measurement
+    DU t0 = System::ms(), t1 = t0, tt;           ///< performance measurement
     for (U16 i = 1; i < numel - 1; i++) {
         Tensor &in = (*this)[i], &out = (*this)[i + 1];
         if (*_trace) {
@@ -210,7 +208,8 @@ Model::forward(Tensor &input) {
             t1 = tt;
         }
         _fstep(in, out);
-        
+        out.show();
+        for (int n=0; n<out.N(); n++) out._dump(out.slice(n), out.H(), out.W(), out.C());
         if (*_trace > 1) out.show();
     }
     ///
@@ -336,8 +335,8 @@ Model::_flinear(Tensor &in, Tensor &out) {
 __GPU__ int
 Model::_factivate(Tensor &in, Tensor &out, t4_layer fn) {
     DU alpha = 0.001 * in.parm;
-    FORK(k_activate, in.numel, 
-         fn, in.data, in.grad[0]->data, out.data, alpha);
+    FORK1(k_activate, in.numel, 
+          fn, in.data, in.grad[0]->data, out.data, alpha);
     CDP_SYNC();
     return 0;
 }
@@ -393,9 +392,9 @@ Model::_flogsoftmax(Tensor &in, Tensor &out) {  /// * TODO: DCP
 }
 ///
 ///> batch norm
-///  Note: borrow k_sum, k_var from ~/mmu/tensor.cu
+///  Note: borrow k_sum4, k_var from ~/mmu/tensor.cu
 ///
-extern __KERN__ void k_sum1(DU *I, DU *sum, U64 HW);
+extern __KERN__ void k_sum4(DU *I, DU *sum, U64 HW);
 extern __KERN__ void k_var(DU *I, DU *avg, DU *var, U64 HW);
 __GPU__ int
 Model::_fbatchnorm(Tensor &in, Tensor &out) {
@@ -409,8 +408,7 @@ Model::_fbatchnorm(Tensor &in, Tensor &out) {
     DU *var = &in.grad[1]->data[C];                    ///< 1.0/(var+e)^0.5
     DU *xht = in.grad[3]->data;                        ///< x_hat
 
-    for (U32 c=0; c < C; c++) avg[c] = var[c] = DU0;   /// * zero
-    FORK4(k_sum1, in.data, avg, HW);                   /// * capture sum
+    FORK4(k_sum4, in.data, avg, HW);                   /// * capture sum
     CDP_SYNC();
     
     for (U32 c=0; c < C; c++) avg[c] /= NHW;           /// * calc mean per channel
@@ -447,8 +445,6 @@ Model::_fupsample(Tensor &in, Tensor &out) {
     }
     CDP_SYNC();
     
-    //_dump(in.data,  in.H(), in.W(), in.C());
-    //_dump(out.data, out.H(), out.W(), out.C());
     return 0;
 }
 #endif  // (T4_DO_OBJ && T4_DO_NN)
