@@ -158,14 +158,15 @@ __KERN__ void k_dbatchnorm_1(
     U64 HW                                 ///< H0=H1, W0==W1 (C0==C1)
     ) {
     const U64 j  = (U64)threadIdx.x + blockIdx.x * blockDim.x;  ///< element index
-    const U32 c  = blockIdx.y, C = gridDim.y;              ///< channel deep
-    const U64 ns = HW * blockIdx.z * C;                    ///< batch slice index
-    const U64 k  = (U64)C * j + ns + c;                    ///< output tensor index
-    const DU  _N = 1.0 / gridDim.z;                        ///< 1.0/HWN
+    const U32 c  = blockIdx.y, C = gridDim.y;                   ///< channel deep
+    const U32 n  = blockIdx.z, nc = n * C + c;                  ///< batch_id, sum/var index
+    const U64 ns = HW * C * n;                                  ///< batch slice index
+    const U64 k  = (U64)C * j + ns + c;                         ///< output tensor index
+    const DU  _N = 1.0 / gridDim.z;                             ///< 1.0/HWN
 
     if (j < HW) {
-        I[k] = (O[k] - sum[c] * _N) * g_var[c];            /// * dX = g_var * (dout - sum(dout) / N)
-        O[k] *= X[k];                                      /// * dout * x_hat
+        I[k] = (O[k] - sum[nc] * _N) * g_var[nc];               /// * dX = g_var * (dout - sum(dout) / N)
+        O[k] *= X[k];                                           /// * dout * x_hat
     }
 }
 __KERN__ void k_dbatchnorm_2(
@@ -173,11 +174,12 @@ __KERN__ void k_dbatchnorm_2(
     U64 HW                                 ///< H0=H1, W0==W1 (C0==C1)
     ) {
     const U64 j  = (U64)blockIdx.x * blockDim.x + threadIdx.x;  ///< element index
-    const U32 c  = blockIdx.y, C = gridDim.y;              ///< channel deep
-    const U64 ns = HW * C * blockIdx.z;                    ///< batch slice index
-    const U64 k  = (U64)C * j + ns + c;                    ///< output tensor index
+    const U32 c  = blockIdx.y, C = gridDim.y;                   ///< channel deep
+    const U32 n  = blockIdx.z, nc = n * C + c;                  ///< batch_id, sum index
+    const U64 ns = HW * C * n;                                  ///< batch slice index
+    const U64 k  = (U64)C * j + ns + c;                         ///< output tensor index
 
-    if (j < HW) I[k] -= X[k] * sum[c];
+    if (j < HW) I[k] -= X[k] * sum[nc];
 }
 ///
 /// backprop: Neural Network back propegation
@@ -436,10 +438,9 @@ Model::_bupsample(Tensor &in, Tensor &out, t4_layer fn) {
 ///    which is different from original document by does better
 ///    in preventing gradient explosion
 ///
-extern __KERN__ void k_sum4(DU *I, DU *sum, U64 HW);
 __GPU__ int
 Model::_bbatchnorm(Tensor &in, Tensor &out) {
-    const U32 C = out.C(), N = out.N(), W = out.W(), H = out.H();   ///< C0==C1, N1=N0
+    const U32 N = out.N(), H = out.H(), W = out.W(), C = out.C();   ///< C0==C1, N1=N0
     const U64 HW = (U64)W * H;
 
     DU *w   = &in.grad[0]->data[0];                    ///< weight/gamma (scale)
