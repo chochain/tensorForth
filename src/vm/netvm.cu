@@ -386,6 +386,20 @@ NetVM::init() {
     CODE("nn.w=",   _set_parm(0));                 ///< populate tensor.weight
     CODE("nn.b=",   _set_parm(1));                 ///< populate tensor.bias
     CODE("network", if (IS_M(tos)) sys.dot(DOT, tos));  ///< non destructive
+    CODE("nsum",
+         if (!IS_OBJ(tos)) return;
+         Tensor &A = TTOS;
+         Tensor &O = mmu.tensor(A.N(), A.C());
+         Tensor::sum(A, O);
+         PUSH(O));
+    CODE("nvar",
+         if (!IS_OBJ(tos)) return;
+         Tensor &A = TTOS;
+         Tensor &O = mmu.tensor(A.N(), A.C());
+         Tensor &G = COPY(O);
+         Tensor::var(A, G, O);
+         PUSH(O);
+         FREE(G));
     ///
     /// ===========================================================================
     ///
