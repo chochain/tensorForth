@@ -92,7 +92,7 @@ struct Tensor : public T4Base {
     static __GPU__  Tensor &ten_op(math_op op, Tensor &A, DU v, Tensor &O);       ///> matrix-scalar element-wise ops
     static __GPU__  Tensor &ten_op(math_op op, Tensor &A, Tensor &B, Tensor &O);  ///> matrix-matrix element-wise ops (Hadamard)
     static __GPU__  Tensor &sum(Tensor &A, Tensor &O);
-    static __GPU__  Tensor &var(Tensor &A, Tensor &O);
+    static __GPU__  Tensor &var(Tensor &A, Tensor &G, Tensor &O);
     static __GPU__  Tensor &mm(Tensor &A, Tensor &B, Tensor &O, t4_mm_opt opt=MM_NONE);
     static __GPU__  Tensor &gemm(Tensor &A, Tensor &B, Tensor &O, DU alpha, DU beta);
     static __GPU__  Tensor &copy(Tensor &A, Tensor &O);
