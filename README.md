@@ -470,6 +470,7 @@ Tests v3.2 GAN ops
       * [what](https://www.datacamp.com/tutorial/how-transformers-work)
       * [cross-attention](https://medium.com/@sachinsoni600517/cross-attention-in-transformer-f37ce7129d78)
     - Code
+      * [tensor core utilization, fully connectecd layer](https://docs.nvidia.com/deeplearning/performance/dl-performance-fully-connected/index.html)
       * [transformer](https://github.com/hyunwoongko/transformer?tab=readme-ov-file)
       * [position encoding](https://machinelearningmastery.com/a-gentle-introduction-to-positional-encoding-in-transformer-models-part-1/)
       * [python](https://benjaminwarner.dev/2023/07/01/attention-mechanism)
