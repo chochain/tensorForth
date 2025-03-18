@@ -68,7 +68,7 @@ TensorVM::xop1(math_op op, DU v) {
     if (!A.is_tensor()) { ERROR("tensor?"); return; }
 
     VOP(MATH_OP);
-    VLOG("tenvm#xop1 %s(A[%d,%d], %g)\n", _op[op], A.H(), A.W(), v);
+    VLOG("tenvm#xop1 %s(A[%ld], %g)\n", _op[op], A.numel, v);
     switch (op) {        /// * defined in ~/src/util.h
     case ABS:
     case NEG:
@@ -103,12 +103,12 @@ TensorVM::xop2(math_op op, t4_drop_opt x) {
     switch (tt) {                                 /// tensor flags
     case 0 /* ss */: _ss_op(op); break;           /// * scalar-scalar op ( a b -- c  )
     case 1 /* st */: {                            /// * scalar-tensor op ( n T -- T' )
-        VLOG("%d> %s %g %s A[%d,%d] {\n",
-             id, fn, ss[-1], _op[op], TTOS.H(), TTOS.W());
+        VLOG("%d> %s %g %s A[%ld] {\n",
+             id, fn, ss[-1], _op[op], TTOS.numel);
         Tensor &O = _st_op(op, x);
         if (x==T_KEEP) PUSH(O);
         else           ss.pop();
-        VLOG("} %s => O[%d,%d]\n", fn, O.H(), O.W());
+        VLOG("} %s => O[%ld]\n", fn, O.numel);
     } break;
     case 2 /* ts */: {                            /// * tensor-scalar op ( T n -- T n T' )
         VLOG("%d> %s A[%d,%d] %s %g {\n",
