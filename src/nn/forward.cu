@@ -392,10 +392,8 @@ Model::_flogsoftmax(Tensor &in, Tensor &out) {  /// * TODO: DCP
 }
 ///
 ///> batch norm
-///  Note: borrow k_sum4, k_var from ~/mmu/tensor.cu
 ///
-extern __KERN__ void k_sum4(DU *I, DU *sum, U64 HW);
-extern __KERN__ void k_var(DU *I, DU *avg, DU *var, U64 HW);
+extern __KERN__ void k_var4(float *src, float *avg, float *var, long numel);
 __GPU__ int
 Model::_fbatchnorm(Tensor &in, Tensor &out) {
     const U32 N   = out.N(), C = out.C(), H = out.H(), W = out.W(); ///< C0==C1
@@ -412,7 +410,7 @@ Model::_fbatchnorm(Tensor &in, Tensor &out) {
     CDP_SYNC();
     
     for (U32 c=0; c < C; c++) avg[c] /= NHW;           /// * calc mean per channel
-    FORK4(k_var, in.data, avg, var, HW);               /// * capture variance
+    FORK4(k_var4, in.data, avg, var, HW);              /// * capture variance
     CDP_SYNC();
 
     const DU m = 0.001 * in.parm;                      ///< ETA momentum, TODO:
