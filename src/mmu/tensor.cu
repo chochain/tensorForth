@@ -14,15 +14,15 @@
 /// Note: use stride adding in parallel, instead of atomicAdd
 ///
 __KERN__ void
-k_sum1(DU *I, DU *z, U64 numel) {                              ///< sum all elements
-    DU const sum = { d_sum(I, numel) };
-    if (threadIdx.x == 0) *z = sum;
+k_sum1(DU *I, DU *sum, U64 numel) {                              ///< sum all elements
+    DU const z = { d_sum(I, numel) };
+    if (threadIdx.x == 0) *sum = z;
 }
 ///
 __KERN__ void
 k_var1(DU *I, DU avg, DU *var, U64 numel) {
-    DU const v = { d_var_sq(I, avg, numel) };
-    if (threadIdx.x == 0) *var = v;
+    DU const nv = { d_nvar(I, avg, numel) };
+    if (threadIdx.x == 0 && numel) *var = nv / numel;
 }
 
 __KERN__ void
@@ -116,17 +116,24 @@ Tensor::ten_op(math_op op, Tensor &A, Tensor &B, Tensor &O) {
 __GPU__ Tensor&
 Tensor::sum(Tensor &A, Tensor &O) {
     U32 N = A.N(), H = A.H(), W = A.W(), C = A.C();
-    MM_DB("  tensor#sum A[%d,%d,%d,%d] => O[%d,%d]\n", N, H, W, C, N, C);
-    FORK4(k_sum4, A.data, O.data, (U64)H*W);
+    MM_DB("  tensor#sum A[%d,%d,%d,%d] => O[%d, %d]\n", N, H, W, C, N, C);
+    O.fill(DU0);
+    FORK4(k_nsum, A.data, O.data, (U64)H*W);
     CDP_SYNC();
     return O;
 }
 __GPU__ Tensor&
-Tensor::var(Tensor &A, Tensor &O) {
+Tensor::var(Tensor &A, Tensor &G, Tensor &O) {
     U32 N = A.N(), H = A.H(), W = A.W(), C = A.C();
     MM_DB("  tensor#var A[%d,%d,%d,%d] => O[%d,%d]\n", N, H, W, C, N, C);
-    sum(A, O);
-    FORK4(k_var4, A.data, O.data, O.data, (U64)H*W);
+    sum(A, G);
+    G *= DU1 / (H*W);
+    O.fill(DU0);
+    FORK4(k_nvar, A.data, G.data, O.data, (U64)H*W);
+    CDP_SYNC();
+    for (int i=0; i< O.numel; i++) {
+        O.data[i] = SQRT(O.data[i] / (H*W));
+    }
     return O;
 }
 __GPU__ Tensor&
@@ -385,11 +392,11 @@ Tensor::avg() {
 }
 __GPU__ DU
 Tensor::std() {
-    static DU vsq;
-    FORK1(k_var1, numel, data, avg(), &vsq);     /// * 8x straight loop
+    static DU var;
+    FORK1(k_var1, numel, data, avg(), &var);     /// * 8x straight loop
     CDP_SYNC();
 
-    DU v = numel ? SQRT(vsq / numel) : DU0;
+    DU v = numel ? SQRT(var) : DU0;
     return SCALAR(v);
 }
 __GPU__ DU
