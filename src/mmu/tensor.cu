@@ -10,97 +10,24 @@
 ///=======================================================================
 /// static methods
 ///
-/// k_sum4 (4x faster than k_sum)
-/// use stride adding in parallel, instead of atomicAdd
+/// k_sum1 - sum all elements into one value (used by matrix)
+/// Note: use stride adding in parallel, instead of atomicAdd
 ///
 __KERN__ void
 k_sum1(DU *I, DU *z, U64 numel) {                              ///< sum all elements
     DU const sum = { d_sum(I, numel) };
     if (threadIdx.x == 0) *z = sum;
 }
-
-__KERN__ void
-k_sum4(DU *I, DU *O, U64 HW) {                                 ///< sum each channel per N
-    U32 const c = blockIdx.y, C = blockDim.y;                  ///< channel
-    U32 const n = blockIdx.z;                                  ///< batch_id
-    U64 const HWC = HW*C;
-    DU  const sum { d_sum(&I[HWC * n + c], HW) };              ///< sum HW for each c
-    if (threadIdx.x == 0) {
-        O[C * n + c] = sum;                                    /// sum for each channel
-    }
-}
-///
-///> variance
 ///
 __KERN__ void
-k_var(DU *I, DU *avg, DU *var, U64 HW) {
-    const U64 j  = (U64)blockIdx.x * blockDim.x + threadIdx.x;  ///< element index
-    const U32 c  = blockIdx.y, C = gridDim.y;                   ///< channel
-    const U64 ns = HW * C * blockIdx.z;                         ///< batch slice index
-    DU v0 = j < HW ? I[(U64)C * j + ns + c] - avg[c] : DU0;
-    DU vi = v0 * v0;
-    ///
-    /// prefix sum every 32-threaded tile
-    ///
-    auto t = cg::tiled_partition<32>(cg::this_thread_block());
-    auto shfl_sum = [](cg::thread_block_tile<32> t, DU v) {
-        for (int k = 16; k > 0; k >>= 1) {
-            v += t.shfl_down(v, k);
-        }
-        return v;
-    };
-    DU tt = shfl_sum(t, vi);
-    ///
-    /// sum up atomically (per channel, for batchnorm)
-    ///
-    if (t.thread_rank() == 0) atomicAdd_block(&var[c], tt);
-}
-    
-__KERN__ void
-k_var4(DU *I, DU *avg, DU *var, U64 HW) {
-    __shared__ DU _var[T4_DIM_SQ>>5];
-    const U32 c  = blockIdx.y, C = gridDim.y;                  ///< channel
-    const U32 n  = blockIdx.z, N = gridDim.z;                  ///< batch index
-    const U64 ns = HW * C * n, numel = HW * N * C;             ///< page and total elements
-    
-    auto stride_sum = [I, avg, numel, ns, c, C]() {
-        DU v { DU0 };
-        for (U64 j = ns + threadIdx.x + c; j < numel; j += blockDim.x*C) {
-            v += I[j] * I[j] - avg[c];
-        }
-        return v;
-    };
-    DU dif_sq { stride_sum() };                                /// dif_sq per thread
-    ///
-    /// prefix sum every 32-threaded tile
-    ///
-    auto g  { cg::this_thread_block() };
-    auto tp { cg::tiled_partition<32>(g) };
-    auto shfl_sum = [](cg::thread_block_tile<32> tp, DU v) {
-        #pragma unroll
-        for (int k = 16; k > 0; k >>= 1) {
-            v += tp.shfl_down(v, k);
-        }
-        return v;
-    };
-    dif_sq = shfl_sum(tp, dif_sq);
-    ///
-    /// sum up atomically (per channel, for batchnorm)
-    ///
-    if (tp.thread_rank() == 0) _var[threadIdx.x >> 5] = dif_sq;    ///< each N, C get their own
-    g.sync();
-    ///
-    /// collect each warp into sum, each N, C get their own sum
-    DU v { DU0 };
-    #pragma unroll
-    for (int i = 0; i < (T4_DIM_SQ>>5); i++) v += _var[i];
-    
-    var[C*n + c] = v;
+k_var1(DU *I, DU avg, DU *var, U64 numel) {
+    DU const v = { d_var_sq(I, avg, numel) };
+    if (threadIdx.x == 0) *var = v;
 }
 
 __KERN__ void
 k_matmul(
-    DU *A, DU *B, DU *O,   /* O[N*H*W*C] = A[N*H*K*C] @ B[N*K*W*C] */
+    DU *A, DU *B, DU *O,   /* O[H*W*C] = A[H*K*C] @ B[K*W*C] */
     t4_mm_opt opt,
     U32 K, U32 H, U32 W)
 {
@@ -184,6 +111,22 @@ Tensor::ten_op(math_op op, Tensor &A, Tensor &B, Tensor &O) {
     
     FORK1(k_tt_op, A.numel, op, A.data, B.data, O.data);
     CDP_SYNC();
+    return O;
+}
+__GPU__ Tensor&
+Tensor::sum(Tensor &A, Tensor &O) {
+    U32 N = A.N(), H = A.H(), W = A.W(), C = A.C();
+    MM_DB("  tensor#sum A[%d,%d,%d,%d] => O[%d,%d]\n", N, H, W, C, N, C);
+    FORK4(k_sum4, A.data, O.data, (U64)H*W);
+    CDP_SYNC();
+    return O;
+}
+__GPU__ Tensor&
+Tensor::var(Tensor &A, Tensor &O) {
+    U32 N = A.N(), H = A.H(), W = A.W(), C = A.C();
+    MM_DB("  tensor#var A[%d,%d,%d,%d] => O[%d,%d]\n", N, H, W, C, N, C);
+    sum(A, O);
+    FORK4(k_var4, A.data, O.data, O.data, (U64)H*W);
     return O;
 }
 __GPU__ Tensor&
@@ -442,17 +385,11 @@ Tensor::avg() {
 }
 __GPU__ DU
 Tensor::std() {
-    static DU sum, avg;
-    sum = DU0; avg = this->avg();
-
-    printf("avg=%g\n", avg);
-
-    FORK(k_var, numel, data, &avg, &sum);        /// * 8x straight loop
-    printf("avg=%g sum=%g\n", avg, sum);
-
+    static DU vsq;
+    FORK1(k_var1, numel, data, avg(), &vsq);     /// * 8x straight loop
     CDP_SYNC();
-    
-    DU v = numel ? SQRT(sum / numel) : DU0;
+
+    DU v = numel ? SQRT(vsq / numel) : DU0;
     return SCALAR(v);
 }
 __GPU__ DU
