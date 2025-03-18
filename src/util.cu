@@ -423,7 +423,7 @@ d_sum(float *src, long numel) {                     ///< sum of T4_DIM_SQ thread
 }
 
 __GPU__ float
-d_var_sq(float *src, float avg, long numel) {       ///< sum of T4_DIM_SQ threads
+d_nvar(float *src, float avg, long numel) {         ///< sum of T4_DIM_SQ threads
     __shared__ float _sum[T4_DIM_SQ>>5];            ///< warp sum
     ///
     /// sum up by stride
@@ -455,27 +455,26 @@ d_var_sq(float *src, float avg, long numel) {       ///< sum of T4_DIM_SQ thread
     ///
     /// sum up all warps
     ///
-    float v { 0.0f };
+    float nv { 0.0f };
     #pragma unroll
-    for (int i = 0; i < (T4_DIM_SQ>>5); i++) v += _sum[i];
+    for (int i = 0; i < (T4_DIM_SQ>>5); i++) nv += _sum[i];
     
-    return v;
+    return nv;
 }
-///> Tensor HW sum per N per channel
+///
+///> Batch sum (NHW per channel)
 ///
 __KERN__ void
-k_sum4(float *src, float *dst, long HW) {
+k_nsum(float *src, float *dst, long HW) {
     const long j  = (long)blockIdx.x*blockDim.x + threadIdx.x; ///< element index
-    const int  c  = blockIdx.y, n = blockIdx.z, C = gridDim.y; ///< channel
+    const int  c  = blockIdx.y, C = gridDim.y;                 ///< channel
+    const int  n  = blockIdx.z, N = gridDim.z;                 ///< batch
     const long ns = HW * C * n;                                ///< batch slice index
     float vi = j < HW ? src[ns + j * C + c] : 0.0f;
     ///
     /// prefix sum every 32-threaded tile
     ///
     auto tp = cg::tiled_partition<32>(cg::this_thread_block());
-    if (tp.thread_rank() == 0) dst[C * n + c] = 0.0f;
-    __syncthreads();
-    
     auto shfl_sum = [](cg::thread_block_tile<32> tp, float v) {
         for (int k = 16; k > 0; k >>= 1) {
             v += tp.shfl_down(v, k);
@@ -489,21 +488,21 @@ k_sum4(float *src, float *dst, long HW) {
     ///
     if (tp.thread_rank() == 0) atomicAdd_block(&dst[C * n + c], vi);   ///< serialize sum
 }
-///> variance
+///
+///> batch variance (NHW per channel)
 ///
 __KERN__ void
-k_var4(float *src, float*avg, float *var, long HW) {
+k_nvar(float *src, float*avg, float *var, long HW) {
     const long j  = (long)blockIdx.x * blockDim.x + threadIdx.x;  ///< element index
-    const int  c  = blockIdx.y, n = blockIdx.z, C = gridDim.y;   ///< channel
-    const long ns = HW * C * n;                                  ///< batch slice index
+    const int  c  = blockIdx.y, C = gridDim.y;                    ///< channel
+    const int  n  = blockIdx.z, N = gridDim.z;                    ///< batch
+    const long ns = HW * C * n;                                   ///< batch slice index
     float v0 = j < HW ? src[(long)C * j + ns + c] - avg[C * n + c] : 0.0f;
     float vi = v0 * v0;
     ///
     /// prefix sum every 32-threaded tile
     ///
     auto tp = cg::tiled_partition<32>(cg::this_thread_block());
-    if (tp.thread_rank() == 0) var[C * n + c] = 0.0f;
-    
     auto shfl_sum = [](cg::thread_block_tile<32> tp, float v) {
         for (int k = 16; k > 0; k >>= 1) {
             v += tp.shfl_down(v, k);
