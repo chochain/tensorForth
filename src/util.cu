@@ -390,9 +390,49 @@ d_sum(float *src, long numel) {                     ///< sum of T4_DIM_SQ thread
     ///
     /// sum up by stride
     ///
-    auto stride_sum = [src, numel](long i0) {       ///< stride sum
+    auto const g   { cg::this_thread_block() };     /// total threads
+    auto const tid { g.thread_rank() };             /// tid=thread_index().x 0~255
+    auto stride_sum = [src, numel](long i0) {
         float v { 0.0f };
         for (long i=i0; i < numel; i+=T4_DIM_SQ) v += src[i];
+        return v;
+    };
+    float sum { stride_sum(tid) };                  /// one sum per thread
+    ///
+    /// shuffle sum 32 to 1
+    ///
+    auto tp { cg::tiled_partition<32>(g) };
+    auto shfl_sum = [](cg::thread_block_tile<32> tp, float v) {
+        #pragma unroll
+        for (int k = tp.size()>>1; k > 0; k >>= 1) {
+            v += tp.shfl_down(v, k);
+        }
+        return v;
+    };
+    sum = shfl_sum(tp, sum);
+    if (tp.thread_rank() == 0) _sum[tid >> 5] = sum; /// collection from each warp 
+    g.sync();
+    ///
+    /// sum up all warps
+    ///
+    float v { 0.0f };
+    #pragma unroll
+    for (int i = 0; i < (T4_DIM_SQ>>5); i++) v += _sum[i];
+    
+    return v;
+}
+
+__GPU__ float
+d_var_sq(float *src, float avg, long numel) {       ///< sum of T4_DIM_SQ threads
+    __shared__ float _sum[T4_DIM_SQ>>5];            ///< warp sum
+    ///
+    /// sum up by stride
+    ///
+    auto stride_sum = [src, avg, numel](long i0) {  ///< stride sum
+        float v { 0.0f };
+        for (long i=i0; i < numel; i+=T4_DIM_SQ) {
+            v += (src[i] - avg) * (src[i] - avg);
+        }
         return v;
     };
     auto const g   { cg::this_thread_block() };     /// total threads
@@ -421,15 +461,10 @@ d_sum(float *src, long numel) {                     ///< sum of T4_DIM_SQ thread
     
     return v;
 }
-/*!@brief
-  Tensor basic ops
-*/
-///> array sum
-/// Note: tiled_partition<32> used
-/// slower than d_sum version when blocks counts high
+///> Tensor HW sum per N per channel
 ///
 __KERN__ void
-k_sum(float *src, float *dst, long HW) {
+k_sum4(float *src, float *dst, long HW) {
     const long j  = (long)blockIdx.x*blockDim.x + threadIdx.x; ///< element index
     const int  c  = blockIdx.y, n = blockIdx.z, C = gridDim.y; ///< channel
     const long ns = HW * C * n;                                ///< batch slice index
@@ -438,6 +473,9 @@ k_sum(float *src, float *dst, long HW) {
     /// prefix sum every 32-threaded tile
     ///
     auto tp = cg::tiled_partition<32>(cg::this_thread_block());
+    if (tp.thread_rank() == 0) dst[C * n + c] = 0.0f;
+    __syncthreads();
+    
     auto shfl_sum = [](cg::thread_block_tile<32> tp, float v) {
         for (int k = 16; k > 0; k >>= 1) {
             v += tp.shfl_down(v, k);
@@ -451,6 +489,34 @@ k_sum(float *src, float *dst, long HW) {
     ///
     if (tp.thread_rank() == 0) atomicAdd_block(&dst[C * n + c], vi);   ///< serialize sum
 }
+///> variance
+///
+__KERN__ void
+k_var4(float *src, float*avg, float *var, long HW) {
+    const long j  = (long)blockIdx.x * blockDim.x + threadIdx.x;  ///< element index
+    const int  c  = blockIdx.y, n = blockIdx.z, C = gridDim.y;   ///< channel
+    const long ns = HW * C * n;                                  ///< batch slice index
+    float v0 = j < HW ? src[(long)C * j + ns + c] - avg[C * n + c] : 0.0f;
+    float vi = v0 * v0;
+    ///
+    /// prefix sum every 32-threaded tile
+    ///
+    auto tp = cg::tiled_partition<32>(cg::this_thread_block());
+    if (tp.thread_rank() == 0) var[C * n + c] = 0.0f;
+    
+    auto shfl_sum = [](cg::thread_block_tile<32> tp, float v) {
+        for (int k = 16; k > 0; k >>= 1) {
+            v += tp.shfl_down(v, k);
+        }
+        return v;
+    };
+    vi = shfl_sum(tp, vi);
+    ///
+    /// sum up atomically (per channel, for batchnorm)
+    ///
+    if (tp.thread_rank() == 0) atomicAdd_block(&var[C * n + c], vi);
+}
+
 __KERN__ void
 k_copy(float *src, float *dst, long n) {                      ///< Note: (src, dst)
     for (long j = threadIdx.x; j < n; j += blockDim.x) {
