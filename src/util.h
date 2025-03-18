@@ -119,12 +119,12 @@ __GPU__ long         d_strtol(const char *s, char **p, int base=10);
 __GPU__ double       d_strtof(const char *s, char **p);
 __GPU__ int          d_hash(const char *s);
 __GPU__ float        d_sum(float *src, long numel);
-__GPU__ float        d_var_sq(float *src, float avg, long numel);
+__GPU__ float        d_nvar(float *src, float avg, long numel);         /// n * variance
 ///@}
 ///@name Tensor ops (kernel mode)
 ///@{
-__KERN__ void        k_sum4(float *src, float *sum, long numel);
-__KERN__ void        k_var4(float *src, float *avg, float *var, long numel);
+__KERN__ void        k_nsum(float *src, float *sum, long numel);
+__KERN__ void        k_nvar(float *src, float *avg, float *var, long numel);
 __KERN__ void        k_copy(float *src, float *dst, long n);                   ///< Note: (src, dst)
 __KERN__ void        k_transpose(float *src, float *dst, int h, int w);        ///< Note: (src, dst), TODO: CDP
 __KERN__ void        k_identity(float *t, int h, int w);
