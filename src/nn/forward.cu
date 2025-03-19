@@ -393,7 +393,6 @@ Model::_flogsoftmax(Tensor &in, Tensor &out) {  /// * TODO: DCP
 ///
 ///> batch norm
 ///
-extern __KERN__ void k_var4(float *src, float *avg, float *var, long numel);
 __GPU__ int
 Model::_fbatchnorm(Tensor &in, Tensor &out) {
     const U32 N   = out.N(), C = out.C(), H = out.H(), W = out.W(); ///< C0==C1
@@ -406,16 +405,17 @@ Model::_fbatchnorm(Tensor &in, Tensor &out) {
     DU *var = &in.grad[1]->data[C];                    ///< 1.0/(var+e)^0.5
     DU *xht = in.grad[3]->data;                        ///< x_hat
 
-    FORK4(k_sum4, in.data, avg, HW);                   /// * capture sum
+    for (U32 c=0; c < C; c++) avg[c] = var[c] = DU0;   /// * zero out
+    FORK4(k_batchsum, in.data, avg, HW);               /// * capture sum
     CDP_SYNC();
     
-    for (U32 c=0; c < C; c++) avg[c] /= NHW;           /// * calc mean per channel
-    FORK4(k_var4, in.data, avg, var, HW);              /// * capture variance
+    for (U32 c=0; c < C; c++) avg[c] *= DU1 / NHW;     /// * calc mean per channel
+    FORK4(k_batchnvar, in.data, avg, var, HW);         /// * capture variance
     CDP_SYNC();
 
     const DU m = 0.001 * in.parm;                      ///< ETA momentum, TODO:
     for (U32 c=0; c < C; c++) {
-        var[c] = 1.0 / SQRT(var[c] / NHW + DU_EPS);    ///< calc population stdvar
+        var[c] = DU1 / SQRT(var[c] / NHW + DU_EPS);    ///< calc population stdvar
     }
     
     FORK4(k_batchnorm, in.data, out.data, xht, avg, var, w, b, HW); /// * O = x_hat*gamma + beta
