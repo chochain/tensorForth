@@ -465,7 +465,7 @@ d_nvar(float *src, float avg, long numel) {         ///< sum of T4_DIM_SQ thread
 ///> Batch sum (NHW per channel)
 ///
 __KERN__ void
-k_nsum(float *src, float *dst, long HW) {
+k_batchsum(float *src, float *sum, long HW) {
     const long j  = (long)blockIdx.x*blockDim.x + threadIdx.x; ///< element index
     const int  c  = blockIdx.y, C = gridDim.y;                 ///< channel
     const int  n  = blockIdx.z, N = gridDim.z;                 ///< batch
@@ -486,18 +486,18 @@ k_nsum(float *src, float *dst, long HW) {
     /// sum up atomically (per channel, for batchnorm)
     /// slower than grid-stride loop when blocks are many
     ///
-    if (tp.thread_rank() == 0) atomicAdd_block(&dst[C * n + c], vi);   ///< serialize sum
+    if (tp.thread_rank() == 0) atomicAdd_block(&sum[c], vi);  ///< serialize sum
 }
 ///
 ///> batch variance (NHW per channel)
 ///
 __KERN__ void
-k_nvar(float *src, float*avg, float *var, long HW) {
+k_batchnvar(float *src, float*avg, float *var, long HW) {
     const long j  = (long)blockIdx.x * blockDim.x + threadIdx.x;  ///< element index
     const int  c  = blockIdx.y, C = gridDim.y;                    ///< channel
     const int  n  = blockIdx.z, N = gridDim.z;                    ///< batch
     const long ns = HW * C * n;                                   ///< batch slice index
-    float v0 = j < HW ? src[(long)C * j + ns + c] - avg[C * n + c] : 0.0f;
+    float v0 = j < HW ? src[(long)C * j + ns + c] - avg[c] : 0.0f;
     float vi = v0 * v0;
     ///
     /// prefix sum every 32-threaded tile
@@ -513,7 +513,7 @@ k_nvar(float *src, float*avg, float *var, long HW) {
     ///
     /// sum up atomically (per channel, for batchnorm)
     ///
-    if (tp.thread_rank() == 0) atomicAdd_block(&var[C * n + c], vi);
+    if (tp.thread_rank() == 0) atomicAdd_block(&var[c], vi);
 }
 
 __KERN__ void
