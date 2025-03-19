@@ -9,7 +9,7 @@
  *    + 21.1 ms - without NXT cache in nest()            => branch is slow
  *    + 19.1 ms - without push/pop WP                    => static ram access is fast
  *    + 20.3 ms - 16-bit IU, token indirect threading    => not that much worse but portable
- *    + 17.2 ms - 32-bit IU, nest with primitive, indirect threading (with offset)
+ *    + 18.3 ms - 32-bit IU, nest with primitive, indirect threading (with offset)
  */
 #include <iostream>          // cin, cout
 #include <signal.h>
@@ -229,7 +229,7 @@ TensorForth::main_loop() {
 //    sys->db->self_tests();
     int i = 0;
     while (more_job() && sys->readline(vmst_cnt[HOLD])) {
-        if (++i > 200) break;                  /// * runaway loop guard TODO: CC
+//        if (++i > 200) break;                  /// * runaway loop guard TODO: CC
         run();
         sys->flush();                          /// * flush output buffer
         profile();
