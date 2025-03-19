@@ -35,7 +35,7 @@
 #define NN_DB(...)          TRACE(__VA_ARGS__)
 #else  // !MM_DEBUG
 #define MM_DB(...)
-#define NN_DB(...)
+#define NN_DB(...)          INFO(__VA_ARGS__)
 #endif // MM_DEBUG
 ///@}
 ///@name CUDA support macros
