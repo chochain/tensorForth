@@ -118,21 +118,22 @@ Tensor::sum(Tensor &A, Tensor &O) {
     U32 N = A.N(), H = A.H(), W = A.W(), C = A.C();
     MM_DB("  tensor#sum A[%d,%d,%d,%d] => O[%d, %d]\n", N, H, W, C, N, C);
     O.fill(DU0);
-    FORK4(k_nsum, A.data, O.data, (U64)H*W);
+    FORK4(k_batchsum, A.data, O.data, (U64)H*W);
     CDP_SYNC();
     return O;
 }
 __GPU__ Tensor&
 Tensor::var(Tensor &A, Tensor &G, Tensor &O) {
     U32 N = A.N(), H = A.H(), W = A.W(), C = A.C();
+    U64 NHW = (U64)N*H*W;
     MM_DB("  tensor#var A[%d,%d,%d,%d] => O[%d,%d]\n", N, H, W, C, N, C);
     sum(A, G);
-    G *= DU1 / (H*W);
+    G *= DU1 / NHW;
     O.fill(DU0);
-    FORK4(k_nvar, A.data, G.data, O.data, (U64)H*W);
+    FORK4(k_batchnvar, A.data, G.data, O.data, (U64)H*W);
     CDP_SYNC();
     for (int i=0; i< O.numel; i++) {
-        O.data[i] = SQRT(O.data[i] / (H*W));
+        O.data[i] = SQRT(O.data[i] / NHW);
     }
     return O;
 }
