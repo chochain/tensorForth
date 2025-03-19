@@ -441,7 +441,7 @@ Model::_bupsample(Tensor &in, Tensor &out, t4_layer fn) {
 __GPU__ int
 Model::_bbatchnorm(Tensor &in, Tensor &out) {
     const U32 N = out.N(), H = out.H(), W = out.W(), C = out.C();   ///< C0==C1, N1=N0
-    const U64 HW = (U64)W * H;
+    const U64 HW = (U64)W * H, NHW = HW * N;
 
     DU *w   = &in.grad[0]->data[0];                    ///< weight/gamma (scale)
     DU *dw  = &in.grad[2]->data[0];                    ///< d_gamma
@@ -450,22 +450,22 @@ Model::_bbatchnorm(Tensor &in, Tensor &out) {
     DU *var = &in.grad[1]->data[C];                    ///< batch 1.0 / (var+e)^0.5
     DU *xht = in.grad[3]->data;                        ///< x_hat
 
-    FORK4(k_sum4, out.data, sum, HW);                  /// * capture out sum(dout)     
+    FORK4(k_batchsum, out.data, sum, HW);              /// * capture out sum(dout)     
     CDP_SYNC();
     
     for (U32 c=0; c < C; c++) {
-        if (train) db[c] += (sum[c] /= HW);            /// * collect dbeta = sum(dout) (/ HW?)
+        if (train) db[c] += (sum[c] /= NHW);           /// * collect dbeta = sum(dout) (/ HW?)
         var[c] *= w[c];                                /// * var <= gamma * ivar
     }
     FORK4(k_dbatchnorm_1,                              /// * dX = gamma*ivar*(dout - sum(dout)/N)
         in.data, out.data, xht, sum, var, HW);         /// * also, dout *= x_hat
     CDP_SYNC();
     
-    FORK4(k_sum4, out.data, sum, HW);                  /// * capture sum(dout * x_hat)
+    FORK4(k_batchsum, out.data, sum, HW);             /// * capture sum(dout * x_hat)
     CDP_SYNC();
 
     for (U32 c=0; c < C; c++) {
-        if (train) dw[c]  += (sum[c] /= HW);           /// * collect dgamma = sum(dout * x_hat)( / HW?)
+        if (train) dw[c]  += (sum[c] /= NHW);          /// * collect dgamma = sum(dout * x_hat)( / HW?)
         sum[c] *= var[c] / N;                          /// * scale sum
     }
     FORK4(k_dbatchnorm_2, in.data, xht, sum, HW);      /// * dX -= gamma*ivar*x_hat*sum(dout * x_hat) / N
