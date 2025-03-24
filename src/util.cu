@@ -604,10 +604,11 @@ k_ts_op(math_op op, float *A, float v, float *O, long n) {
 ///
 /// Binary Cross-Entropy (clamps output to >= -100)
 ///
+#define DU_EPS   1.0e-6                                       /* epsilon */
 __KERN__ void
 k_bce(float *O, float *T, long n) {
     for (long j = threadIdx.x; j < n; j+= blockDim.x) {
 //        O[i] = ABS(T[i]) < DU_EPS ? LN(DU1 - O[i] + DU_EPS) : LN(O[i] + DU_EPS);
-        O[j] = T[j] * LN(O[j] + 1.0e-6) + (1.0f - T[j]) * LN(1.0f - O[j] + 1.0e-6);
+        O[j] = T[j] * LN(O[j] + DU_EPS) + (1.0f - T[j]) * LN(1.0f - O[j] + DU_EPS);
     }
 }
