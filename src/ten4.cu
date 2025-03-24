@@ -5,11 +5,13 @@
  * <pre>Copyright (C) 2022- GreenII, this file is distributed under BSD 3-Clause License.</pre>
  *
  * Benchmark: 1K*1K cycles on 3.2GHz AMD, Nvidia GTX1660
- *    + 19.0 ms - REALLY SLOW! Probably due to heavy branch divergence.
- *    + 21.1 ms - without NXT cache in nest()            => branch is slow
- *    + 19.1 ms - without push/pop WP                    => static ram access is fast
- *    + 20.3 ms - 16-bit IU, token indirect threading    => not that much worse but portable
- *    + 18.3 ms - 32-bit IU, nest with primitive, indirect threading (with offset)
+ *    + 9.3ms - ceforth50x as reference
+ *    + 19.0s - 2000x slower! Most likely due to heavy branch divergence.
+ *    + 21.1s - without NXT cache in nest()         => branch is slow
+ *    + 19.1s - without push/pop WP                 => static ram access is fast
+ *    + 20.3s - 16-bit IU, token indirect threading => not that much worse but portable
+ *    + 11.3s - CUDA 11.6, 32-bit IU, nest with primitive, indirect threading (with offset)
+ *    +  7.5s - CUDA 12.6, same code as above
  */
 #include <iostream>          // cin, cout
 #include <signal.h>
