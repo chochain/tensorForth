@@ -16,24 +16,23 @@ __KERN__ void k_conv2d(
     DU *I, DU *F, DU *B, DU *O,  ///> input I[HxW], F[KxK] kernel, B[C] bias, output O[HxW]
     U32 H, U32 W, U32 C1         ///< (H0==H1, W0==W1), input channels
     ) {
-    __shared__ DU _I[T4_DIM_SQ];                     ///< shared memory [16x16]
+    __shared__ DU _I[T4_DIM_SZ][T4_DIM_SZ];          ///< shared memory [16x16]
 
     const U32 tx = threadIdx.x, j0 = tx + blockIdx.x * TS;   ///< output coordinates
-    const U32 ty = threadIdx.y, i0 = ty + blockIdx.y * TS;   /// * i0,j0=0:29
+    const U32 ty = threadIdx.y, i0 = ty + blockIdx.y * TS;   /// * i0,j0=0:15
     const U32 c0 = blockIdx.z,  C0 = gridDim.z;      ///< channel deep
     const U64 z0 = ((U64)W * i0 + j0) * C0 + c0;     ///< output array index
-    const U32 xy = tx + ty * T4_DIM_SZ;              ///< tile index
     ///
     /// process z0, i.e. [TS, TS, C] cells per kernel call
     ///
     const U32 KSQ= KS * KS;
-    const int i1 = i0 - INT(KS / 2);                 ///< input coordinates
-    const int j1 = j0 - INT(KS / 2);                 /// * i1,j1=-1:28
+    const int i1 = i0 - (KS >> 1);                   ///< input coordinates
+    const int j1 = j0 - (KS >> 1);                   /// * i1,j1=-1:14
 
     auto g = cg::this_thread_block();                ///< all threads of block
     for (U32 c1 = 0; c1 < C1; c1++) {                ///< each input channel
         const U64 z1 = ((U64)W * i1 + j1) * C1 + c1; ///< one channel at a time
-        _I[xy] =                                     /// * cache input data
+        _I[ty][tx] =                                 /// * cache input data
             (i1 >= 0 && i1 < H && j1 >= 0 && j1 < W) /// * with zero padding
             ? I[z1] : DU0;                           /// * by channel
         g.sync();                                    /// * smem write barrier
@@ -44,14 +43,14 @@ __KERN__ void k_conv2d(
         const U64 zf = (U64)C0 * KSQ * c1 + c0;      ///< filter index [C1,KS,KS,C0]
         if (tx < TS && ty < TS) {                    /// * each tile
             DU sum = DU0;
-            DU *fx = &F[zf], *ix = &_I[xy];          /// * filter[0], tile[tx,ty]
+            DU *fx = &F[zf], *ix = &_I[ty][tx];      /// * filter[0]
             #pragma unroll
             for (int y = 0; y < KS; y++) {           /// * process one KS * KS cell
                 for (int x = 0; x < KS; x++) {
                     sum += (*fx) * ix[x];            /// Y += W * X
                     fx  += C0;                       /// * next filter cell
                 }
-                ix += T4_DIM_SZ;                     /// next row of tile
+                ix += T4_DIM_SZ;
             }
             if (i0 < W && j0 < H) {
                 if (c1==0) O[z0] = sum + B[c0];      /// * O[ijc] with bias
@@ -66,22 +65,14 @@ __KERN__ void k_linear(
     DU *I, DU *O, DU *W, DU *B,
     U64 HWC1, U64 HWC0, U32 C1, U32 C0
     ) {
-    const U64 c1 = (U64)blockIdx.x * blockDim.x + threadIdx.x;
-    const U64 c0 = (U64)blockIdx.y * blockDim.y + threadIdx.y;
+    const U32 c1 = blockIdx.x * blockDim.x + threadIdx.x;
+    const U32 c0 = blockIdx.y * blockDim.y + threadIdx.y;
     const U32 n  = blockIdx.z;
 
     if (c0 < C0 && c1 < C1) {
-        /*
-        ///* blk.C1=1 ~25% slower but shuffle-sum might get better
-        DU *w  = &W[c0 * C1], *x = &I[n * HWC1], acc = B[c0];
-        for (int k = 0; k < C1; k++) {
-            acc += (*w++) * (*x++);
-        }
-        O[c0 + n * HWC0] = acc;
-        */
         DU *y = &O[HWC0 * n + c0];
         if (c1 == 0) *y = B[c0];                      /// Y = WX + B
-        atomicAdd_block(y, W[(U64)C1 * c0 + c1] * I[HWC1 * n + c1]);
+        atomicAdd_block(y, W[C1 * c0 + c1] * I[HWC1 * n + c1]);
     }
 }
 
@@ -160,17 +151,16 @@ __KERN__ void k_activate(
 
 __KERN__ void k_batchnorm(
     DU *I, DU *O,  DU *X,                  ///< input, filter, output tensors
-    DU *avg, DU *ivar,                     ///< mean, gamma/(stdvar - e)
-    DU *gamma, DU *beta,
+    DU *avg, DU *rvar,                     ///< mean, 1.0/(stdvar + e)
+    DU *w, DU *b,                          ///< gamma, beta
     U64 HW                                 ///< H0=H1, W0==W1 (C0==C1)
     ) {
     const U64 j  = (U64)blockIdx.x * blockDim.x + threadIdx.x;  ///< element index
-    const U32 c  = blockIdx.y, C = gridDim.y;                   ///< channel deep
-    const U64 ns = HW * C * blockIdx.z;                         ///< batch slice index
-    const U64 k  = (U64)C * j + ns + c;                         ///< output tensor index
+    const U32 c  = blockIdx.y, n = blockIdx.z, C = gridDim.y;   ///< channel deep, batch id
+    const U64 k  = (HW * n + j) * C + c;                        ///< output tensor index
 
     if (j < HW) {
-        O[k] = (X[k] = (I[k] - avg[c]) * ivar[c]) * gamma[c] + beta[c];
+        O[k] = (X[k] = (I[k] - avg[c]) * rvar[c]) * w[c] + b[c];
     }
 }
 //
@@ -305,7 +295,7 @@ Model::_flinear(Tensor &in, Tensor &out) {
             for (U32 c0 = 0; c0 < C0; c0++) {
                 y[c0] = b[c0];                        /// init with bias
                 for (U32 c1 = 0; c1 < C1; c1++) {     /// dot product
-                    y[c0] += w[c1 + c0 * C1] * x[c1]; /// Y = W @ X + B
+                    y[c0] += w[C1 * c0 + c1] * x[c1]; /// Y = W @ X + B
                 }
             }
         }
@@ -316,8 +306,8 @@ Model::_flinear(Tensor &in, Tensor &out) {
     const U32 N  = out.N();                           ///< batch size (N1 == N0)
     const U32 C0 = tw.H(), C1 = tw.W();               ///< dense layer dims
 
-    NN_DB(" = w[%d,%d] @ in[%d,%d,%d,%d] + b[%ld]",
-        C0, C1, in.N(), in.H(), in.W(), in.C(), tb.numel);
+    NN_DB(" = %d x (w[1,%d,%d,1] @ in[1,%d,%d,%d] + b[%ld])",
+          N, C0, C1, in.H(), in.W(), in.C(), tb.numel);
 
     if (tw.numel < T4_DIM_SQ) {                       /// * threshold control
         NN_DB("*");
@@ -391,33 +381,35 @@ Model::_flogsoftmax(Tensor &in, Tensor &out) {  /// * TODO: DCP
     return 0;
 }
 ///
-///> batch norm
+///> batch norm, (batch mean=0.0, and variance=1.0)
 ///
 __GPU__ int
 Model::_fbatchnorm(Tensor &in, Tensor &out) {
     const U32 N   = out.N(), C = out.C(), H = out.H(), W = out.W(); ///< C0==C1
-    const U64 HW  = (U64)H * W;
-    const U64 NHW = HW * N;
+    const U64 HW  = (U64)H * W;                        ///< size of a page
+    const U64 NHW = HW * N;                            ///< size of entire batch
 
     DU *w   = &in.grad[0]->data[0];                    ///< weight/gamma
     DU *b   = &in.grad[0]->data[C];                    ///< bias/beta
     DU *avg = &in.grad[1]->data[0];                    ///< mean
-    DU *var = &in.grad[1]->data[C];                    ///< 1.0/(var+e)^0.5
+    DU *var = &in.grad[1]->data[C];                    ///< 1.0/(sqrt(var)+e)
     DU *xht = in.grad[3]->data;                        ///< x_hat
 
+    #pragma unroll
     for (U32 c=0; c < C; c++) avg[c] = var[c] = DU0;   /// * zero out
     FORK4(k_batchsum, in.data, avg, HW);               /// * capture sum
     CDP_SYNC();
-    
+
+    #pragma unroll
     for (U32 c=0; c < C; c++) avg[c] *= DU1 / NHW;     /// * calc mean per channel
-    FORK4(k_batchnvar, in.data, avg, var, HW);         /// * capture variance
+    FORK4(k_batchnvar, in.data, avg, var, HW);         /// * capture n*variance
     CDP_SYNC();
 
     const DU m = 0.001 * in.parm;                      ///< ETA momentum, TODO:
+    #pragma unroll
     for (U32 c=0; c < C; c++) {
-        var[c] = DU1 / SQRT(var[c] / NHW + DU_EPS);    ///< calc population stdvar
+        var[c] = DU1 / (SQRT(var[c] / NHW) + DU_EPS);  ///< gvar = gamma/(stdvar + e)
     }
-    
     FORK4(k_batchnorm, in.data, out.data, xht, avg, var, w, b, HW); /// * O = x_hat*gamma + beta
     CDP_SYNC();
     return 0;
