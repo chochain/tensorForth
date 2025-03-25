@@ -205,20 +205,21 @@ NetVM::_conv(U16 k) {
 ///
 __GPU__ void
 NetVM::_loss(t4_loss op) {
+    static const char *_op[] = { "MSE", "BCE", "CE", "NLL" };
+    VLOG("NetVM::loss.%s {\n", _op[op]);
     if (TOS2T) {                        /// * calculate loss of two tensors
-        DU y = POP();                   /// * pop off target tensor
-        DU n = TTOS.loss(op, (Tensor&)mmu.du2obj(y));
+        Tensor &tmp = COPY(TNOS);       /// * make a copy of TNOS (non-destructive)
+        DU n = tmp.loss(op, TTOS);
         PUSH(n);
-        DROP(y);                        /// * free target tensor
     }
-    else if (TOS1T && IS_M(ss[-1])) {   /// * model loss
-        DU y = POP();
-        DU n = MTOS.loss(op, (Tensor&)mmu.du2obj(y));
+    else if (TOS1T && IS_M(ss[-1])) {   /// * model output vs expected
+        DU n = MNOS.loss(op, TTOS);     /// * calculate loss
+        POP();                          /// * pop off TTOS
         PUSH(n);                        /// * loss on TOS
-        DROP(y);                        /// * pop off t
-    }
-    else if (IS_M(tos)) PUSH(MTOS.loss(op));
+     }
+    else if (IS_M(tos)) PUSH(MTOS.loss(op)); /// * against internal onehot vector
     else ERROR("model?\n");
+    VLOG("} NetVM::loss.%s\n", _op[op]);
 }
 ///===================================================================
 ///
