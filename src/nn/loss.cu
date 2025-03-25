@@ -34,8 +34,8 @@ Model::onehot(Dataset &dset) {
     Tensor &hot = T4(N, HWC).fill(DU0);             ///< one-hot vector
     for (U32 n = 0; n < N; n++) {                   /// * loop through batch
         DU *h = hot.slice(n);                       ///< take a sample
-        U32 i = dset.label[n];                      ///< label index
-        h[(U64)i < HWC ? i : 0] = DU1;              /// * mark hot by index
+        U64 i = dset.label[n];                      ///< label index
+        h[i < HWC ? i : 0] = DU1;                   /// * mark hot by index
         if (*_trace > 1) show(h, n, HWC);           /// * might need U32 partition
     }
     return hot;
@@ -47,7 +47,7 @@ Model::hit(bool recalc) {
     
     auto argmax = [](DU *h, U64 sz) {
         DU  mx = *h;
-        U32 m  = 0;
+        U64 m  = 0;
         for (U64 i = 1; i < sz; i++) {              /// * CDP 
             if (h[i] > mx) { mx = h[i]; m = i; }
         }
@@ -56,7 +56,7 @@ Model::hit(bool recalc) {
     Tensor &out = (*this)[-1];                      ///< model output
     U32 cnt = 0;
     for (U32 n = 0; n < out.N(); n++) {             ///< loop through batch
-        U32  m = argmax(out.slice(n), out.HWC());
+        U64  m = argmax(out.slice(n), out.HWC());
         cnt += INT(_hot->slice(n)[m]);              /// * compare to onehot vector
     }
     NN_DB("Model::hit=%d\n", cnt);
@@ -79,12 +79,12 @@ Model::loss(t4_loss op, Tensor &tgt) {              ///< loss against target vec
         return DU0;
     }
     Tensor &tmp = COPY(out);                        ///< non-destructive
-    DU sum = tmp.loss(op, tgt);                     /// * calculate loss per op
+    DU z = tmp.loss(op, tgt);                       /// * calculate loss per op
     FREE(tmp);                                      /// * free memory
     
-    NN_DB("Model#loss: %s=%6.3f\n", _op[op], sum);
+    NN_DB("Model#loss: %s=%6.3f\n", _op[op], z);
     
-    return sum;
+    return z;
 }
 #endif  // (T4_DO_OBJ && T4_DO_NN)
 //==========================================================================
