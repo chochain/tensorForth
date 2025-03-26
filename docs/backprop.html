@@ -95,9 +95,11 @@
       \frac{\partial L}{\partial B_1} =
         \frac{\partial L}{\partial Y_1} \frac{\partial Y_1}{\partial B_1}$$</td>
     <td>$$
-      dX_1 = conv(rot_{180^o}(W_1), pad(dilate(dY_1))) \\ \; \\
-      dW_1 = conv(dilate(dY_1), pad(X_1)) \\ \; \\
-      dB_1 = dY_1 \cdot 1$$</td>
+      \begin{align*}
+      dX_1 &= conv(rot_{180^o}(W_1), pad(dilate(dY_1))) \\ \\
+      dW_1 &= conv(dilate(dY_1), pad(X_1)) \\ \\
+      dB_1 &= dY_1 \cdot 1
+      \end{align*}$$</td>
     <td>$$
       W'_1 = W_1 - \eta \frac{\partial L}{\partial W_1} \\
       B'_1 = B_1 - \eta \frac{\partial L}{\partial B_1}$$</td>
@@ -113,13 +115,12 @@
       \frac{\partial L}{\partial Y_1} =
         (\frac{\partial L}{\partial Y_3} \frac{\partial Y_3}{\partial Y_2})
         \frac{\partial Y_2}{\partial Y_1}$$</td>
-    <td>$$dY_1 =
-      dY_2 \cdot
+    <td>$$
+      dY_1 = dY_2 \cdot
       \begin{cases}
         \sigma^{-1}(Y_1) \\ \\
         max^{-1}(0,Y_1) \\
-      \end{cases} =      
-      dY_2 \cdot
+      \end{cases} = dY_2 \cdot
       \begin{cases}
         Y_1 \cdot (1 - Y_1) \\ \\
         Y_1 \gt 0 \text{ ? 1 : 0} \\
@@ -137,9 +138,11 @@
       \frac{\partial L}{\partial B_2} =
         \frac{\partial L}{\partial Y_3} \frac{\partial Y_3}{\partial B_2}$$</td>
     <td>$$
-      dY_2 = W_2^T \cdot dY_3 \\ \; \\
-      dW_2 = dY_3 \cdot Y_2^T \\ \; \\
-      dB_2 = dY_3 \cdot 1$$</td>
+      \begin{align*}
+      dY_2 &= W_2^T \cdot dY_3 \\ \\
+      dW_2 &= dY_3 \cdot Y_2^T \\ \\
+      dB_2 &= dY_3 \cdot 1
+      \end{align*}$$</td>
     <td>$$
       W'_2 = W_2 - \eta \frac{\partial L}{\partial W_2} \\
       B'_2 = B_2 - \eta \frac{\partial L}{\partial B_2}$$</td>
