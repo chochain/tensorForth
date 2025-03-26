@@ -42,15 +42,14 @@ __KERN__ void k_conv2d(
         ///
         const U64 zf = (U64)C0 * KSQ * c1 + c0;      ///< filter index [C1,KS,KS,C0]
         if (tx < TS && ty < TS) {                    /// * each tile
-            DU sum = DU0;
-            DU *fx = &F[zf], *ix = &_I[ty][tx];      /// * filter[0]
+            DU sum = DU0, *fx = &F[zf];              ///< sum and filter[0]
             #pragma unroll
             for (int y = 0; y < KS; y++) {           /// * process one KS * KS cell
+                DU *ix = &_I[ty+y][tx];              ///< X tile
                 for (int x = 0; x < KS; x++) {
                     sum += (*fx) * ix[x];            /// Y += W * X
                     fx  += C0;                       /// * next filter cell
                 }
-                ix += T4_DIM_SZ;
             }
             if (i0 < W && j0 < H) {
                 if (c1==0) O[z0] = sum + B[c0];      /// * O[ijc] with bias
