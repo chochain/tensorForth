@@ -16,12 +16,13 @@ __KERN__ void k_conv2d(
     DU *I, DU *F, DU *B, DU *O,  ///> input I[HxW], F[KxK] kernel, B[C] bias, output O[HxW]
     U32 H, U32 W, U32 C1         ///< (H0==H1, W0==W1), input channels
     ) {
-    __shared__ DU _I[T4_DIM_SZ][T4_DIM_SZ];          ///< shared memory [16x16]
+    __shared__ DU _I[T4_DIM_SQ];                     ///< shared memory [16x16]
 
     const U32 tx = threadIdx.x, j0 = tx + blockIdx.x * TS;   ///< output coordinates
     const U32 ty = threadIdx.y, i0 = ty + blockIdx.y * TS;   /// * i0,j0=0:15
     const U32 c0 = blockIdx.z,  C0 = gridDim.z;      ///< channel deep
     const U64 z0 = ((U64)W * i0 + j0) * C0 + c0;     ///< output array index
+    const U32 xy = T4_DIM_SZ * ty + tx;              ///< shared mem ptr
     ///
     /// process z0, i.e. [TS, TS, C] cells per kernel call
     ///
@@ -29,10 +30,12 @@ __KERN__ void k_conv2d(
     const int i1 = i0 - (KS >> 1);                   ///< input coordinates
     const int j1 = j0 - (KS >> 1);                   /// * i1,j1=-1:14
 
+    if (i0 < W && j0 < H) O[z0] = B[c0];             /// * init to B
+    
     auto g = cg::this_thread_block();                ///< all threads of block
     for (U32 c1 = 0; c1 < C1; c1++) {                ///< each input channel
         const U64 z1 = ((U64)W * i1 + j1) * C1 + c1; ///< one channel at a time
-        _I[ty][tx] =                                 /// * cache input data
+        _I[xy] =                                     /// * cache input data
             (i1 >= 0 && i1 < H && j1 >= 0 && j1 < W) /// * with zero padding
             ? I[z1] : DU0;                           /// * by channel
         g.sync();                                    /// * smem write barrier
@@ -43,18 +46,15 @@ __KERN__ void k_conv2d(
         const U64 zf = (U64)C0 * KSQ * c1 + c0;      ///< filter index [C1,KS,KS,C0]
         if (tx < TS && ty < TS) {                    /// * each tile
             DU sum = DU0, *fx = &F[zf];              ///< sum and filter[0]
-            #pragma unroll
+            DU *ix = &_I[xy];                        ///< X tile pointer
             for (int y = 0; y < KS; y++) {           /// * process one KS * KS cell
-                DU *ix = &_I[ty+y][tx];              ///< X tile
-                for (int x = 0; x < KS; x++) {
+                for (int x = 0; x < KS; x++) {       /// * TODO: CC check unroll
                     sum += (*fx) * ix[x];            /// Y += W * X
                     fx  += C0;                       /// * next filter cell
                 }
+                ix += T4_DIM_SZ;                     /// point to next row
             }
-            if (i0 < W && j0 < H) {
-                if (c1==0) O[z0] = sum + B[c0];      /// * O[ijc] with bias
-                else       O[z0] += sum;
-            }
+            if (i0 < W && j0 < H) O[z0] += sum;      /// * tally up
         }
         g.sync();
     }
@@ -70,8 +70,9 @@ __KERN__ void k_linear(
 
     if (c0 < C0 && c1 < C1) {
         DU *y = &O[HWC0 * n + c0];
+        DU wx = W[C1 * c0 + c1] * I[HWC1 * n + c1];
         if (c1 == 0) *y = B[c0];                      /// Y = WX + B
-        atomicAdd_block(y, W[C1 * c0 + c1] * I[HWC1 * n + c1]);
+        atomicAdd_block(y, wx);
     }
 }
 
@@ -95,7 +96,6 @@ __KERN__ void k_pool(
     if (k0 < HW && c < C) {
         DU *ix = &I[z1];
         DU2 v  = avg ? DU0 : *ix;
-        #pragma unroll
         for (int y = 0; y < KS; y++) {
             for (int x = 0; x < KS; x++) {
                 DU dx = *ix;
@@ -394,18 +394,15 @@ Model::_fbatchnorm(Tensor &in, Tensor &out) {
     DU *var = &in.grad[1]->data[C];                    ///< 1.0/(sqrt(var)+e)
     DU *xht = in.grad[3]->data;                        ///< x_hat
 
-    #pragma unroll
     for (U32 c=0; c < C; c++) avg[c] = var[c] = DU0;   /// * zero out
     FORK4(k_batchsum, in.data, avg, HW);               /// * capture sum
     CDP_SYNC();
 
-    #pragma unroll
     for (U32 c=0; c < C; c++) avg[c] *= DU1 / NHW;     /// * calc mean per channel
     FORK4(k_batchnvar, in.data, avg, var, HW);         /// * capture n*variance
     CDP_SYNC();
 
     const DU m = 0.001 * in.parm;                      ///< ETA momentum, TODO:
-    #pragma unroll
     for (U32 c=0; c < C; c++) {
         var[c] = DU1 / (SQRT(var[c] / NHW) + DU_EPS);  ///< gvar = gamma/(stdvar + e)
     }
