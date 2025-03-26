@@ -30,7 +30,7 @@ __KERN__ void k_conv2d(
     const int i1 = i0 - (KS >> 1);                   ///< input coordinates
     const int j1 = j0 - (KS >> 1);                   /// * i1,j1=-1:14
 
-    if (i0 < W && j0 < H) O[z0] = B[c0];             /// * init to B
+    if (i0 < H && j0 < W) O[z0] = B[c0];             /// * init to B
     
     auto g = cg::this_thread_block();                ///< all threads of block
     for (U32 c1 = 0; c1 < C1; c1++) {                ///< each input channel
@@ -54,7 +54,7 @@ __KERN__ void k_conv2d(
                 }
                 ix += T4_DIM_SZ;                     /// point to next row
             }
-            if (i0 < W && j0 < H) O[z0] += sum;      /// * tally up
+            if (i0 < H && j0 < W) O[z0] += sum;      /// * tally up
         }
         g.sync();
     }
