@@ -6,125 +6,123 @@
 <body>
 <h1>Back Propogation Derivation</h1>
 <table style='table-layout:fixed'>
-<tr><td align=left>
-$$
-\mathbf{\frac{\partial y}{\partial x}} =
-\begin{bmatrix}
-\nabla f_1(\mathbf{x}) \\[1ex]
-\nabla f_2(\mathbf{x}) \\[1ex]
-... \\[1ex]
-\nabla f_m(\mathbf{x})
-\end{bmatrix} =
-\begin{bmatrix}
-\frac{\partial}{\partial \mathbf{x}}f_1(\mathbf{x}) \\[1ex]
-\frac{\partial}{\partial \mathbf{x}}f_2(\mathbf{x}) \\[1ex]
-... \\[1ex]
-\frac{\partial}{\partial \mathbf{x}}f_m(\mathbf{x})
-\end{bmatrix} = \begin{bmatrix}
-\frac{\partial}{\partial x_1}f_1(\mathbf{x}) &
-\frac{\partial}{\partial x_2}f_1(\mathbf{x}) &
-... &
-\frac{\partial}{\partial x_n}f_1(\mathbf{x}) \\[1ex]
-\frac{\partial}{\partial x_1}f_2(\mathbf{x}) &
-\frac{\partial}{\partial x_2}f_2(\mathbf{x}) &
-... &
-\frac{\partial}{\partial x_n}f_2(\mathbf{x}) \\[1ex]
-& ... & \\[1ex]
-\frac{\partial}{\partial x_1}f_m(\mathbf{x}) &
-\frac{\partial}{\partial x_2}f_m(\mathbf{x}) &
-... &
-\frac{\partial}{\partial x_n}f_m(\mathbf{x})
-\end{bmatrix}
-$$
-</td><tr>
-<tr><td align=left>
-$$
-\begin{cases}
-& u(\mathbf{w},\mathbf{x},b) & = max(0, \mathbf{w} \cdot \mathbf{x} + b) & derivatives =
-\begin{cases}
-& e_i & = \mathbf{w} \cdot \mathbf{x_i} + b - y_i \\
-& \frac{\partial \mathbf{u}}{\partial w} & = \frac{2}{N}\sum\limits_{i=1}^N e_i\mathbf{x}_i^T & \text{ for non-zero activation cases } \\
-& \frac{\partial \mathbf{u}}{\partial b} & = \frac{2}{N}\sum\limits_{i=1}^N e_i & \text{ for non-zero activation cases} \\
-\end{cases} \\
-& \\
-& v(\mathbf{u}, \mathbf{\hat y}) & = \mathbf{u} - \mathbf{\hat y} \\
-& C(v) = MSE(v) & = \frac{1}{N}\sum\limits_{i=1}^N v_i^2 \\
-& \\
-& z(u) = softmax(u) & = \exp^{u_i} / \sum\limits_{i=1}^N\exp^{u_i} & derivatives =
-u_i \cdot (\delta_{ij} - u_j) \text{ where } \delta_{ij} =
-\begin{cases}
-1 \text{ if } i = j \\
-0 \text{ if } i \ne j \\
-\end{cases} \\
-& C(z) = CrossEntropy(z) & = -\sum\limits_i z_i \cdot log(\hat z_i)\ & derivatives =
-\mathbf{u} - \mathbf{\hat y} \text{ where } \mathbf{\hat y} \text{ is a one-hot vector} \\
-\end{cases}
-$$
-</td></tr>
-<tr><td><img width='90%' src="./img/backprop.png"></td></tr>
-<tr><td align=left>
-</td>
-</tr>
+  <tr>
+    <td>Jacobian matrix</td>
+    <td align=left>$$
+      \mathbf{\frac{\partial y}{\partial x}} =
+      \begin{bmatrix}
+      \nabla f_1(\mathbf{x}) \\[1ex]
+      \nabla f_2(\mathbf{x}) \\[1ex]
+      ... \\[1ex]
+      \nabla f_m(\mathbf{x})
+      \end{bmatrix} =
+      \begin{bmatrix}
+      \frac{\partial}{\partial \mathbf{x}}f_1(\mathbf{x}) \\[1ex]
+      \frac{\partial}{\partial \mathbf{x}}f_2(\mathbf{x}) \\[1ex]
+      ... \\[1ex]
+      \frac{\partial}{\partial \mathbf{x}}f_m(\mathbf{x})
+      \end{bmatrix} = \begin{bmatrix}
+      \frac{\partial}{\partial x_1}f_1(\mathbf{x}) &
+      \frac{\partial}{\partial x_2}f_1(\mathbf{x}) &
+      ... &
+      \frac{\partial}{\partial x_n}f_1(\mathbf{x}) \\[1ex]
+      \frac{\partial}{\partial x_1}f_2(\mathbf{x}) &
+      \frac{\partial}{\partial x_2}f_2(\mathbf{x}) &
+      ... &
+      \frac{\partial}{\partial x_n}f_2(\mathbf{x}) \\[1ex]
+      & ... & \\[1ex]
+      \frac{\partial}{\partial x_1}f_m(\mathbf{x}) &
+      \frac{\partial}{\partial x_2}f_m(\mathbf{x}) &
+      ... &
+      \frac{\partial}{\partial x_n}f_m(\mathbf{x})
+      \end{bmatrix}
+      $$</td></tr>
+  <tr>
+    <td>Relu</td>
+    <td>$$
+      \mathbf{y} =
+      Relu(\mathbf{w},\mathbf{x},b) =
+      \begin{cases}
+      max(0, \mathbf{w} \cdot \mathbf{x} + b) & derivatives =
+      \begin{cases}
+      & e_i & = \mathbf{w} \cdot \mathbf{x_i} + b - y_i \\
+      & \frac{\partial \mathbf{u}}{\partial w} & = \frac{2}{N}\sum\limits_{i=1}^N e_i\mathbf{x}_i^T & \text{ for non-zero activation cases } \\
+      & \frac{\partial \mathbf{u}}{\partial b} & = \frac{2}{N}\sum\limits_{i=1}^N e_i & \text{ for non-zero activation cases}
+      \end{cases}
+      \end{cases}$$</td></tr>
+  <tr>
+    <td>Loss</td>
+    <td align=left>$$
+      \begin{cases}
+      & v(\mathbf{u}, \mathbf{\hat y}) & = \mathbf{u} - \mathbf{\hat y} \\
+      & C(v) = MSE(v) & = \frac{1}{N}\sum\limits_{i=1}^N v_i^2 \\
+      & \\
+      & z(u) = softmax(u) & = \exp^{u_i} / \sum\limits_{i=1}^N\exp^{u_i} & derivatives =
+      u_i \cdot (\delta_{ij} - u_j) \text{ where } \delta_{ij} =
+      \begin{cases}
+      1 \text{ if } i = j \\
+      0 \text{ if } i \ne j \\
+      \end{cases} \\
+      & C(z) = CrossEntropy(z) & = -\sum\limits_i z_i \cdot log(\hat z_i)\ & derivatives =
+      \mathbf{u} - \mathbf{\hat y} \text{ where } \mathbf{\hat y} \text{ is a one-hot vector} \\
+      \end{cases}
+      $$</td></tr>
 </table>
+<h2>CNN Example - 1 hidden layers</h2>
+<img width='90%' src="./img/backprop.png">  
+<h2>Forward + Backprop calculation</h2>
 <table border=1pt align="left">
   <th>layer</th>
   <th>forward</th>
   <th>chain rule</th>
-  <th>calc</th>
-  <th>derivative</th>
+  <th>backprop</th>
   <th>gradient</th>
   <tr>
     <td>input</td>
     <td>$$X_1$$</td>
     <td/>
-    <td/>
     <td>$$\delta$$</td>
     <td>$$\nabla$$</td>
   </tr>
   <tr>
-    <td>conv2d<p/>linear</td>
-    <td>$$Y_1 =
-      \begin{cases}
-      \ conv(W_1, X_1) \\ \\
-      \ W_1X_1 \\
-      \end{cases} + B_1$$</td>
+    <td>conv2d</td>
+    <td>$$Y_1 = conv(W_1, X_1) + B_1$$</td>
     <td>$$
-      \frac{\partial L}{\partial W_1} = \frac{\partial L}{\partial Y_1} \frac{\partial Y_1}{\partial W_1} \\
-      \frac{\partial L}{\partial B_1} = \frac{\partial L}{\partial Y_1} \frac{\partial Y_1}{\partial B_1}$$</td>
-    <td>$$=
-      \begin{cases}
-      \begin{cases}
-      conv(dilate(dY_1), pad(X_1)) \\
-      dY_1 \cdot X_1^T \\
-      \end{cases} \\ \\
-      dY_1 \cdot 1\\
-      \end{cases}$$</td>
-    <td>$$dX_1 = \frac{\partial L}{\partial Y_1} \frac{\partial Y_1}{\partial X_1} \\ = 
-      \begin{cases}
-      conv(rot_{180^o}(W_1), pad(dilate(dY_1))) \\ \\
-      W_1^T \cdot dY_1 \\
-      \end{cases}$$</td>
+      \frac{\partial L}{\partial X_1} =
+        \frac{\partial L}{\partial Y_1} \frac{\partial Y_1}{\partial X_1} \\
+      \frac{\partial L}{\partial W_1} =
+        \frac{\partial L}{\partial Y_1} \frac{\partial Y_1}{\partial W_1} \\
+      \frac{\partial L}{\partial B_1} =
+        \frac{\partial L}{\partial Y_1} \frac{\partial Y_1}{\partial B_1}$$</td>
     <td>$$
-      W'_1 = W_1 - \eta \frac{\partial L}{\partial W_1}\\
+      dX_1 = conv(rot_{180^o}(W_1), pad(dilate(dY_1))) \\ \; \\
+      dW_1 = conv(dilate(dY_1), pad(X_1)) \\ \; \\
+      dB_1 = dY_1 \cdot 1$$</td>
+    <td>$$
+      W'_1 = W_1 - \eta \frac{\partial L}{\partial W_1} \\
       B'_1 = B_1 - \eta \frac{\partial L}{\partial B_1}$$</td>
   </tr>
   <tr>
     <td>sigmoid<p/>relu</td>
     <td>$$Y_2 =
       \begin{cases}
-      \sigma(Y_1) \\ \\
-      max(0,Y_1) \\
+        & \sigma(Y_1) \\ \\
+        & max(0,Y_1) \\
       \end{cases}$$</td>
-    <td>$$\frac{\partial L}{\partial Y_1} = (\frac{\partial L}{\partial Y_3} \frac{\partial Y_3}{\partial Y_2}) \frac{\partial Y_2}{\partial Y_1}$$</td>
-    <td>$$= dY_2 \cdot
+    <td>$$
+      \frac{\partial L}{\partial Y_1} =
+        (\frac{\partial L}{\partial Y_3} \frac{\partial Y_3}{\partial Y_2})
+        \frac{\partial Y_2}{\partial Y_1}$$</td>
+    <td>$$dY_1 =
+      dY_2 \cdot
       \begin{cases}
-      \sigma^{-1}(Y_1) \\ \\
-      max^{-1}(0,Y_1) \\
-      \end{cases}$$</td>
-    <td>$$dY_1 = dY_2 \cdot
+        \sigma^{-1}(Y_1) \\ \\
+        max^{-1}(0,Y_1) \\
+      \end{cases} =      
+      dY_2 \cdot
       \begin{cases}
-      Y_1 \cdot (1 - Y_1) \\ \\
-      Y_1 \gt 0 \text{ ? 1 : 0} \\
+        Y_1 \cdot (1 - Y_1) \\ \\
+        Y_1 \gt 0 \text{ ? 1 : 0} \\
       \end{cases}$$</td>
     <td/>
   </tr>
@@ -132,14 +130,16 @@ $$
     <td>linear</td>
     <td>$$Y_3 = W_2 Y_2 + B_2$$</td>
     <td>$$
-      \frac{\partial L}{\partial W_2} = \frac{\partial L}{\partial Y_3} \frac{\partial Y_3}{\partial W_2} \\
-      \frac{\partial L}{\partial B_2} = \frac{\partial L}{\partial Y_3} \frac{\partial Y_3}{\partial B_2}$$</td>
-    <td>$$= dY_3 \cdot
-      \begin{cases}
-      Y_2^T \\ \\
-      1 \\
-      \end{cases}$$</td>
-    <td>$$dY_2 = \frac{\partial L}{\partial Y_3} \frac{\partial Y_3}{\partial Y_2} = W_2^T \cdot dY_3$$</td>
+      \frac{\partial L}{\partial Y_2} =
+        \frac{\partial L}{\partial Y_3} \frac{\partial Y_3}{\partial Y_2} \\
+      \frac{\partial L}{\partial W_2} =
+        \frac{\partial L}{\partial Y_3} \frac{\partial Y_3}{\partial W_2} \\
+      \frac{\partial L}{\partial B_2} =
+        \frac{\partial L}{\partial Y_3} \frac{\partial Y_3}{\partial B_2}$$</td>
+    <td>$$
+      dY_2 = W_2^T \cdot dY_3 \\ \; \\
+      dW_2 = dY_3 \cdot Y_2^T \\ \; \\
+      dB_2 = dY_3 \cdot 1$$</td>
     <td>$$
       W'_2 = W_2 - \eta \frac{\partial L}{\partial W_2} \\
       B'_2 = B_2 - \eta \frac{\partial L}{\partial B_2}$$</td>
@@ -148,19 +148,22 @@ $$
     <td>sigmoid<p/>relu</td>
     <td>$$
       Y_4 = \begin{cases}
-      \sigma(Y_3) \\ \\
-      max(0,Y_3) \\
+        \sigma(Y_3) \\ \\
+        max(0,Y_3) \\
       \end{cases}$$</td>
-    <td>$$\frac{\partial L}{\partial Y_3} = \frac{\partial L}{\partial Y_4} \frac{\partial Y_4}{\partial Y_3}$$</td>
-    <td>$$= dY_4 \cdot
+    <td>$$
+      \frac{\partial L}{\partial Y_3} =
+        \frac{\partial L}{\partial Y_4} \frac{\partial Y_4}{\partial Y_3}$$</td>
+    <td>$$
+      dY_3 = dY_4 \cdot
       \begin{cases}
-      \sigma^{-1}(Y_3) \\ \\
-      max^{-1}(0,Y_3) \\
-      \end{cases}$$</td>
-    <td>$$dY_3 = dY_4 \cdot
+        \sigma^{-1}(Y_3) \\ \\
+        max^{-1}(0,Y_3) \\
+      \end{cases} =
+      dY_4 \cdot
       \begin{cases}
-      Y_3 \cdot (1 - Y_3) \\ \\
-      Y_3 \gt 0 \text{ ? 1 : 0} \\
+        Y_3 \cdot (1 - Y_3) \\ \\
+        Y_3 \gt 0 \text{ ? 1 : 0} \\
       \end{cases}$$</td>
     <td/>
   </tr>
@@ -170,31 +173,26 @@ $$
       \begin{cases}
         MSE(Y_4, \hat Y) \\ \\
         \begin{cases}
-        CE(softmax(Y_4), \hat Y) \\
-        NLL(log(softmax(Y_4)), \hat Y) \\
+          CE(softmax(Y_4), \hat Y) \\
+          NLL(log(softmax(Y_4)), \hat Y) \\
         \end{cases}
       \end{cases}$$</td>
-    <td>$$\frac{\partial L}{\partial Y_4}$$</td>
+    <td>$$\frac{\partial L}{\partial Y_4}  = (Y_4 - \hat Y)^T$$</td>
     <td>$$
+      dY_4 =
       \begin{cases}
-      \frac{1}{N}\sum\limits_i(y_i - \hat y_i)^2\ \\ \\
+        \frac{1}{N}\sum\limits_i(y_i - \hat y_i)^2\ \\ \\
         \begin{cases}
-        y_i \cdot (\delta_{ij} - y_j) \text{ where } \delta_{ij} =
+          y_i \cdot (\delta_{ij} - y_j) \text{ where } \delta_{ij} =
           \begin{cases}
-          1 \text{ if } i = j \\
-          0 \text{ if } i \ne j \\
+            1 \text{ if } i = j \\
+            0 \text{ if } i \ne j \\
           \end{cases} \\ \\
-        \begin{cases}
-        -{\hat y_i} \cdot log(y_i) & \text{ if } \hat y_i = 1 \\
-        -(1 - \hat y_i) \cdot log(1 - y_i) & \text { if } \hat y_i = 0 \\
+          \begin{cases}
+            -{\hat y_i} \cdot log(y_i) & \text{ if } \hat y_i = 1 \\
+            -(1 - \hat y_i) \cdot log(1 - y_i) & \text { if } \hat y_i = 0 \\
+          \end{cases} \\
         \end{cases} \\
-      \end{cases} \\
-      \end{cases}
-      $$</td>
-    <td>$$
-      dY_4 = \begin{cases}
-      (Y_4 - \hat Y)^T \\ \\
-      (Y_4 - \hat Y)^T \\
       \end{cases}$$</td>
     <td/>
 </table>
