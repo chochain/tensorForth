@@ -24,17 +24,16 @@ __KERN__ void k_dconv2d(
     const U32 ty = threadIdx.y, i1 = ty + blockIdx.y * TS;
     const U32 c1 = blockIdx.z,  C1 = gridDim.z;      ///< channel deep
     const U64 z1 = ((U64)W * i1 + j1) * C1 + c1;     ///< input array index
-    const U64 xy = (U64)T4_DIM_SZ * ty + tx;         ///< offset in cache window
+    const U32 xy = T4_DIM_SZ * ty + tx;
     ///
     /// process z1, i.e. [TS, TS, C1] cells per kernel call
     ///
-    const int i0 = i1 - INT(KS / 2);                 ///< dY coordinates
-    const int j0 = j1 - INT(KS / 2);
+    const int i0 = i1 - (KS >> 1);                   ///< dY coordinates
+    const int j0 = j1 - (KS >> 1);
 
     auto g = cg::this_thread_block();                ///< group all threads
 
     _I[xy] = (i1 < H && j1 < W) ? I[z1] : DU0;       ///< cached X (input) tile
-    g.sync();
 
     for (U32 c0 = 0; c0 < C0; c0++) {                ///< each dY channel
         const U64 z0 = ((U64)W * i0 + j0) * C0 + c0; ///< output array index
@@ -42,28 +41,27 @@ __KERN__ void k_dconv2d(
             (i0 >= 0 && i0 < H && j0 >= 0 && j0 < W) /// * with zero padding
             ? O[z0] : DU0;                           /// * by channel
         g.sync();                                    /// * smem write barrier
+        
         if (train && c1 == 0) {
-            atomicAdd(&DB[c0], _O[xy]);              /// * dB += dY
+            atomicAdd(&DB[c0], _O[xy]);              /// * dB[c0] += dY[c0]
         }
         const U64 zf = (U64)C0 * KSQ * c1 + c0;      ///< filter index F[C1,KS,KS,C0]
         if (tx < TS && ty < TS) {                    /// * within tile [12x12]
             DU *fx = &F[zf + (KSQ - 1) * C0];        ///< F[c1,KS-1,KS-1,c0] i.e. rot180
-            DU *dfx= &DF[zf], *ox = &_O[xy];         ///< DF[c1,0,0,c0], dY
-            DU sum = DU0;                            ///< dX sum (TSxTS threads)
+            DU sum = DU0, *dfx= &DF[zf];             ///< dX sum, DF[c1,0,0,c0] (TSxTS threads)
+            DU *ox = &_O[xy], *ix = &_I[xy];         ///< dY, X tiles pointers
             for (U32 y = 0; y < KS; y++) {           /// * process one KS * KS cell
                 for (U32 x = 0; x < KS; x++) {
                     sum += (*fx) * ox[x];            /// * dX += F' @ dY (for each C1)
-                    fx  -= C0;                       /// * walk F backward
-                    if (!train) continue;
-                    atomicAdd(dfx, ox[x] * _I[xy]);  /// * dF += dY * X (TSxTS threads)
+                    fx  -= C0;                       /// * walk F backward (i.e. rot 180)
+                    if (!train) continue;            /// * TODO: CC, does this breaks unroll?
+                    atomicAdd(dfx, ox[x] * ix[x]);   /// * dF += dY * X (TSxTS threads)
                     dfx += C0;                       /// * DF[c1,0,1,c0]
                 }
-                ox += T4_DIM_SZ;
+                ox += T4_DIM_SZ;                     /// * point to next rows
+                ix += T4_DIM_SZ;
             }
-            if (i1 < H && j1 < W) {                  /// * update input matrix
-                if (c0 == 0) I[z1] = sum;            /// * update I (per C1)
-                else         I[z1] += sum;
-            }
+            if (i1 < H && j1 < W) I[z1] += sum;      /// * update I (per C1)
         }
         g.sync();                                    /// * d read barrier
     }
@@ -121,7 +119,6 @@ __KERN__ void k_dpool(
         const U64 RI = (U64)KS * C * (W - 1);         ///< input cell row increment
         DU *ix = &I[z1], *t = ix;                     /// *ix input tensor cell
         DU2 v  = (op != L_AVGPOOL) ? *ix : O[z0] / KSQ;
-        #pragma unroll
         for (U32 y = 0; y < KS; y++) {     /// * handle one kernel
             for (U32 x = 0; x < KS; x++) {
                 DU dx = *ix;
