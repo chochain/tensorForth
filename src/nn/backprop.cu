@@ -33,7 +33,11 @@ __KERN__ void k_dconv2d(
 
     auto g = cg::this_thread_block();                ///< group all threads
 
-    _I[xy] = (i1 < H && j1 < W) ? I[z1] : DU0;       ///< cached X (input) tile
+    if (i1 < H && j1 < W) {
+        _I[xy] = I[z1];                              /// * cached X (input) tile
+        I[z1]  = DU0;                                /// * zero dX
+    }
+    else _I[xy] = DU0;                               /// * zero when out of range
 
     for (U32 c0 = 0; c0 < C0; c0++) {                ///< each dY channel
         const U64 z0 = ((U64)W * i0 + j0) * C0 + c0; ///< output array index
@@ -61,7 +65,7 @@ __KERN__ void k_dconv2d(
                 ox += T4_DIM_SZ;                     /// * point to next rows
                 ix += T4_DIM_SZ;
             }
-            if (i1 < H && j1 < W) I[z1] += sum;      /// * update I (per C1)
+            if (i1 < H && j1 < W) I[z1] += sum;      /// * collect dX (per C1)
         }
         g.sync();                                    /// * d read barrier
     }
@@ -71,16 +75,16 @@ __KERN__ void k_dlinear_dwdb(
     DU *I, DU *O, DU *DW, DU *DB,
     U64 HWC1, U64 HWC0, U32 C1, U32 C0
     ) {
-    const U64 c1 = (U64)blockIdx.x * blockDim.x + threadIdx.x;
-    const U64 c0 = (U64)blockIdx.y * blockDim.y + threadIdx.y; 
-    const U64 cx = c0 * C1 + c1;
+    const U32 c1 = blockIdx.x * blockDim.x + threadIdx.x;
+    const U32 c0 = blockIdx.y * blockDim.y + threadIdx.y; 
     const U32 n  = blockIdx.z;
+    const U32 cx = c0 * C1 + c1;
 
-    if (c0 < C0 && c1 < C1) {                          /// * TODO: shuffle-sum
+    if (c0 < C0 && c1 < C1) {                        /// * TODO: shuffle-sum
         DU dy = O[HWC0 * n + c0];
-        DU x  = I[HWC1 * n + c1];
-        atomicAdd(&DW[cx], dy * x);                    /// * dw += dY @ X^t
-        if (c1 == 0) atomicAdd(&DB[c0], dy);           /// * db += dY
+        DU x  = I[HWC1 * n + c1];                    ///< pointer to X
+        atomicAdd(&DW[cx], dy * x);                  /// * dw += dY @ X^t
+        if (c1 == 0) atomicAdd(&DB[c0], dy);         /// * db += dY
     }
 }
 
@@ -88,15 +92,15 @@ __KERN__ void k_dlinear_dx(
     DU *I, DU *O, DU *W,
     U64 HWC1, U64 HWC0, U32 C1, U32 C0
     ) {
-    const U64 c1 = (U64)blockIdx.x * blockDim.x + threadIdx.x;
-    const U64 c0 = (U64)blockIdx.y * blockDim.y + threadIdx.y;
+    const U32 c1 = blockIdx.x * blockDim.x + threadIdx.x;
+    const U32 c0 = blockIdx.y * blockDim.y + threadIdx.y;
     const U32 n  = blockIdx.z;
-    const U64 cx = (U64)C1 * c0 + c1;
-
-    if (c0 < C0 && c1 < C1) {                          /// * TODO: shuffle-sum
+    const U32 cx = C1 * c0 + c1;
+ 
+    if (c0 < C0 && c1 < C1) {                         /// * TODO: shuffle-sum
         DU dy = O[HWC0 * n + c0];
-        DU *x = &I[HWC1 * n + c1];                     ///< pointer to X
-        atomicAdd(x, W[cx] * dy);                      /// * dX = W^t * dY
+        DU *x = &I[HWC1 * n + c1];                    ///< pointer to X
+        atomicAdd(x, W[cx] * dy);                     /// * dX = W^t * dY
     }
 }
 
@@ -219,13 +223,13 @@ Model::backprop(Tensor &tgt) {
     DU  t0 = System::ms(), t1 = t0, tt;                   ///< performance measurement
     for (int i = numel - 2, j = 0; i > 0; i--, j++) {     /// numel=number of layers
         Tensor &in = (*this)[i], &out = (*this)[i + 1];
-        if (*_trace) {
+        if (1 || *_trace) {
             trace((tt=System::ms()) - t1, i, in, out);
             t1 = tt;
         }
         _bstep(in, out);
-        
-        if (*_trace > 1) in.show();
+
+        if (1 || *_trace > 1) in.show();
     }
     NLOG("\n} Model::backprop %5.2f ms\n", System::ms() - t0);
     return *this;
@@ -242,15 +246,24 @@ Model::_bloss(Tensor &tgt) {                     ///> pre-calc dLoss
               out.N(), out.H(), out.W(), out.C());
         return 1;
     }
-    NN_DB(" input dimensions OK, calculate dLoss");
+    NN_DB("Precalculate dLoss: input dimensions OK.");
     t4_layer fn = (*this)[-2].grad_fn;           ///< final activation layer
+    ///
+    /// * NN typically utilize the following functions as final layer.
+    ///   Their derivative, when associated with specific loss functions,
+    ///   can be treated as pass-thru 
+    ///
+    ///   + sigmod + BCE (BinaryCrossEntropy) loss for binary categorization
+    ///   + softmax + CE (CrossEntropy) loss for multi-class categorization
+    ///   + log-softmax + NLL (Negative Log Likelihood) for multi-class
+    ///
     switch (fn) {
     case L_SIGMOID:                              /// * sigmoid + BCE
     case L_SOFTMAX:                              /// * softmax + CE
     case L_LOGSMAX: out -= tgt;  break;          /// * log-softmax + NLL
-    default:        out  = tgt;  break;          /// * pre-calc dLoss (pass thru)
+    default:        out  = tgt;  break;          /// * pass thru pre-calc dLoss, i.g. MSE
     }
-    if (*_trace) out.show();                     /// * display loss if trace on
+    if (1 || *_trace) out.show();                     /// * display loss if trace on
 
     return 0;
 }
@@ -283,42 +296,41 @@ Model::_bstep(Tensor &in, Tensor &out) {
     }
 }
 
-#define TILE1    (T4_DIM_SZ)              /** 16, 1x1 conv */
-#define TILE3    (T4_DIM_SZ - 3 + 1)      /** 14, 3x3 conv */
-#define TILE5    (T4_DIM_SZ - 5 + 1)      /** 12, 5x5 conv */
+#define TSZ(v)    (T4_DIM_SZ - (v) + 1)    /** 16,14,12 for 1x1,3x3,5x5 conv */
+#define TILE(v,t) ((v) + (t) - 1)/(t)      /** dim of tile  */
 
 __GPU__ int
 Model::_bconv(Tensor &in, Tensor &out) {
-    Tensor &w = *in.grad[0], &dw = *in.grad[2];      ///< filter tensor
-    Tensor &b = *in.grad[1], &db = *in.grad[3];      ///< bias tensor
+    Tensor &f = *in.grad[0], &df = *in.grad[2];      ///< filter tensors
+    Tensor &b = *in.grad[1], &db = *in.grad[3];      ///< bias tensors
 
-    NN_DB(" f[%d,%d,%d,%d], b[%ld]", w.N(), w.H(), w.W(), w.C(), b.numel);
+    NN_DB(" f[%d,%d,%d,%d], b[%ld]", f.N(), f.H(), f.W(), f.C(), b.numel);
 
     const U32 N = in.N(), H = in.H(), W = in.W();    ///< input dimensions
     const U32 C1 = in.C(), C0 = out.C();
 
     dim3 blk(T4_DIM_SZ, T4_DIM_SZ, 1);
-    dim3 g1((W + TILE1 - 1) / TILE1, (H + TILE1 - 1) / TILE1, C1);
-    dim3 g3((W + TILE3 - 1) / TILE3, (H + TILE3 - 1) / TILE3, C1);
-    dim3 g5((W + TILE5 - 1) / TILE5, (H + TILE5 - 1) / TILE5, C1);
+    dim3 g1(TILE(W,TSZ(1)), TILE(H,TSZ(1)), C1);
+    dim3 g3(TILE(W,TSZ(3)), TILE(H,TSZ(3)), C1);
+    dim3 g5(TILE(W,TSZ(5)), TILE(H,TSZ(5)), C1);
 
     for (U32 n = 0; n < N; n++) {                   ///< accumulative over N samples
         DU *d1 = in.slice(n), *d0 = out.slice(n);
-        const U32 ks = w.H();                       ///< kernel size
+        const U32 ks = f.H();                       ///< kernel size
         switch (ks) {
-        case 1: k_dconv2d<TILE1,1><<<g1,blk>>>(
-                    d1, w.data, dw.data, db.data, d0, H, W, C0, train); break;
-        case 3: k_dconv2d<TILE3,3><<<g3,blk>>>(
-                    d1, w.data, dw.data, db.data, d0, H, W, C0, train); break;
-        case 5: k_dconv2d<TILE5,5><<<g5,blk>>>(
-                    d1, w.data, dw.data, db.data, d0, H, W, C0, train); break;
+        case 1: k_dconv2d<TSZ(1),1><<<g1,blk>>>(
+                    d1, f.data, df.data, db.data, d0, H, W, C0, train); break;
+        case 3: k_dconv2d<TSZ(3),3><<<g3,blk>>>(
+                    d1, f.data, df.data, db.data, d0, H, W, C0, train); break;
+        case 5: k_dconv2d<TSZ(5),5><<<g5,blk>>>(
+                    d1, f.data, df.data, db.data, d0, H, W, C0, train); break;
         default:
             ERROR("model_back#conv kernel_size %d not supported\n", ks);
             return -1;
         }
         CDP_SYNC();
     }
-    if (*_trace > 1) _dump_dbdf(db, dw);
+    if (1 || *_trace > 1) _dump_dbdf(db, df);
     return 0;
 }
 
@@ -376,7 +388,7 @@ Model::_blinear(Tensor &in, Tensor &out) {
               in.data, out.data, w.data, E1, E0);
         CDP_SYNC();
     }
-    if (train && *_trace > 1) {
+    if (1 || (train && *_trace > 1)) {
          _dump_db(db);
          _dump_dw(dw, true);
     }
