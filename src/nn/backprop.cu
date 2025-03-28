@@ -78,12 +78,12 @@ __KERN__ void k_dlinear_dwdb(
     const U32 c1 = blockIdx.x * blockDim.x + threadIdx.x;
     const U32 c0 = blockIdx.y * blockDim.y + threadIdx.y; 
     const U32 n  = blockIdx.z;
-    const U32 cx = c0 * C1 + c1;
 
     if (c0 < C0 && c1 < C1) {                        /// * TODO: shuffle-sum
-        DU dy = O[HWC0 * n + c0];
-        DU x  = I[HWC1 * n + c1];                    ///< pointer to X
-        atomicAdd(&DW[cx], dy * x);                  /// * dw += dY @ X^t
+        const U32 k  = C1 * c0 + c1;                 ///< dW [C1,C0] pointer
+        const DU  dy = O[HWC0 * n + c0];             ///< dY  [2,5,1,1]=>2x[5,1]
+        const DU  xt = I[HWC1 * n + c1];             ///< X^t [2,4,4,1]=>2x[1,16]
+        atomicAdd(&DW[k], dy * xt);                  /// * dw += dY @ X^t
         if (c1 == 0) atomicAdd(&DB[c0], dy);         /// * db += dY
     }
 }
@@ -95,12 +95,12 @@ __KERN__ void k_dlinear_dx(
     const U32 c1 = blockIdx.x * blockDim.x + threadIdx.x;
     const U32 c0 = blockIdx.y * blockDim.y + threadIdx.y;
     const U32 n  = blockIdx.z;
-    const U32 cx = C1 * c0 + c1;
  
     if (c0 < C0 && c1 < C1) {                         /// * TODO: shuffle-sum
-        DU dy = O[HWC0 * n + c0];
-        DU *x = &I[HWC1 * n + c1];                    ///< pointer to X
-        atomicAdd(x, W[cx] * dy);                     /// * dX = W^t * dY
+        const U32 k  = C1 * c0 + c1;                  ///< W[C1,C0] pointer
+        const DU  dy = O[HWC0 * n + c0];              ///< dY [2,5,1,1]
+              DU *x = &I[HWC1 * n + c1];              ///< pointer to X [2,4,4,1]
+        atomicAdd(x, W[k] * dy);                      /// * dX = W^t * dY [16,5]@[5,1]
     }
 }
 
@@ -336,22 +336,28 @@ Model::_bconv(Tensor &in, Tensor &out) {
 
 __GPU__ int
 Model::_blinear(Tensor &in, Tensor &out) {
-    auto qa_calc = [&in, &out](Tensor &w, Tensor &dw, Tensor &db, bool train) {
-        const U32 N = in.N(), C1 = w.W(), C0 = w.H(); /// * weight dimensions
-        for (U32 n = 0; n < N; n++) {               ///< acc over N samples
+    Tensor &w = *in.grad[0], &dw = *in.grad[2];       ///< weight tensors
+    Tensor                   &db = *in.grad[3];       ///< bias tensors
+    const U32 N  = in.N(),   C0 = w.H(), C1 = w.W();  ///< dimensions
+    const U64 E1 = in.HWC(), E0 = out.HWC();          ///< input, output element count
+    NN_DB("\n\tdw[%d,%d] += out'[%ld,1] @ in^t[1,%ld]", C0, C1, E0, E1);
+    NN_DB("\n\tin[%ld,1] = w^t[%d,%d] @ out'[%ld,1]", E1, C1, C0, E0);
+    
+    auto qa_calc = [&]() {
+        for (U32 n = 0; n < in.N(); n++) {            ///< acc over N samples
             DU *x = in.slice(n), *y = out.slice(n);
             if (train) {
                 DU *dp = dw.data;
-                for (U32 c0 = 0; c0 < C0; c0++) {   /// W[C0,C1]
+                for (U32 c0 = 0; c0 < C0; c0++) {     /// W[C0,C1]
                     DU yi = y[c0];
-                    db[c0] += yi;                   /// * db += dY
+                    db[c0] += yi;                     /// * db += dY
                     for (U32 c1 =0; c1 < C1; c1++) {
-                        *dp++ += yi * x[c1];        /// * dw += dY @ X^t
+                        *dp++ += yi * x[c1];          /// * dw += dY @ X^t
                     }
                 }
             }
             DU *wd = w.data;
-            for (U32 c1 = 0; c1 < C1; c1++) {       /// * dX = w^t @ dY
+            for (U32 c1 = 0; c1 < C1; c1++) {         /// * dX = w^t @ dY
                 DU sum = DU0;
                 for (U32 c0 = 0; c0 < C0; c0++) {
                     sum += wd[c1 + c0 * C1] * y[c0];
@@ -360,20 +366,9 @@ Model::_blinear(Tensor &in, Tensor &out) {
             }
         }
     };                    
-    Tensor &w  = *in.grad[0];                       ///< weight tensor
-    Tensor &dw = *in.grad[2];                       ///< d_weight tensor
-    Tensor &db = *in.grad[3];                       ///< d_bias tensor
-
-    const U32 N  = out.N();                         ///< batch size (N1 == N0)
-    const U32 C0 = w.H(), C1 = w.W();               ///< weight tensor dimensions
-    const U64 E1 = in.HWC(), E0 = out.HWC();        ///< input, output element count
-
-    NN_DB("\n\tdw[%d,%d] += out'[%ld,1] @ in^t[1,%ld]", C0, C1, E0, E1);
-    NN_DB("\n\tin[%ld, 1] = w^t[%d,%d] @ out'[%ld,1]", E1, C1, C0, E0);
-
-    if (w.numel < T4_DIM_SQ) {                      /// * threshold control
+    if (0 && w.numel < T4_DIM_SQ) {                      /// * threshold control
         NN_DB("*");
-        qa_calc(w, dw, db, train);                  /// * serial mode (validation)
+        qa_calc();                                  /// * serial mode (validation)
     }
     else {
         if (train) {
