@@ -5,7 +5,17 @@
  * <pre>Copyright (C) 2022- GreenII, this file is distributed under BSD 3-Clause License.</pre>
  */
 #include "model.h"
-
+///
+/// General Notations
+///   xx1  : 1 stands for input,  i.g. i1 - x dimension index for input
+///   xx0  : 0 stands for output, i.g. C0 - number of channels for output
+///   n, N : index in mini-batch
+///   c, C : index among channels
+///   i, W : index in x dimension
+///   j, H : index in y dimension
+///   k    : general counter
+///   z, HW: page index
+/// 
 #if (T4_DO_OBJ && T4_DO_NN)
 ///
 /// convolution filter
@@ -197,9 +207,8 @@ Model::forward(Tensor &input) {
             t1 = tt;
         }
         _fstep(in, out);
-        out.show();
-        for (int n=0; n<out.N(); n++) out._dump(out.slice(n), out.H(), out.W(), out.C());
-        if (*_trace > 1) out.show();
+
+        if (1 || *_trace > 1) out.show();
     }
     ///
     /// collect onehot vector and hit count
@@ -248,33 +257,30 @@ Model::_fstep(Tensor &in, Tensor &out) {
     }
 }
 
-#define TILE1    (T4_DIM_SZ)              /** 16, 1x1 conv */
-#define TILE3    (T4_DIM_SZ - 3 + 1)      /** 14, 3x3 conv */
-#define TILE5    (T4_DIM_SZ - 5 + 1)      /** 12, 5x5 conv */
+#define TSZ(v)    (T4_DIM_SZ - (v) + 1)    /** 16,14,12 for 1x1,3x3,5x5 conv */
+#define TILE(v,t) ((v) + (t) - 1)/(t)      /** dim of tile  */
 
 __GPU__ int
 Model::_fconv(Tensor &in, Tensor &out) {
-    Tensor &tf = *in.grad[0];                             ///< filter tensor
-    Tensor &tb = *in.grad[1];                             ///< bias tensor
-
+    Tensor &tf = *in.grad[0], &tb = *in.grad[1];          ///< filter, bias tensor
+    DU     *f  = tf.data,     *b  = tb.data;              ///< data pointers
     NN_DB(" nn#_fconv f[%d,%d,%d,%d], b[%ld]\n", tf.N(), tf.H(), tf.W(), tf.C(), tb.numel);
 
     const U32 N = out.N(), H = out.H(), W = out.W();      ///< outpt dimensions
     const U32 C0 = out.C(), C1 = in.C();                  ///< output, input channel deep
 
     dim3 blk(T4_DIM_SZ, T4_DIM_SZ, 1);                    ///< default blocks
-    dim3 g1((W + TILE1 - 1) / TILE1, (H + TILE1 - 1) / TILE1, C0);
-    dim3 g3((W + TILE3 - 1) / TILE3, (H + TILE3 - 1) / TILE3, C0);
-    dim3 g5((W + TILE5 - 1) / TILE5, (H + TILE5 - 1) / TILE5, C0);
+    dim3 g1(TILE(W,TSZ(1)), TILE(H,TSZ(1)), C0);
+    dim3 g3(TILE(W,TSZ(3)), TILE(H,TSZ(3)), C0);
+    dim3 g5(TILE(W,TSZ(5)), TILE(H,TSZ(5)), C0);
 
     for (U32 n = 0; n < N; n++) {
         DU *d1 = in.slice(n), *d0 = out.slice(n);
-        DU *f  = tf.data, *b = tb.data;
         U32 ks = tf.H();
         switch(ks) {                       /// * TODO: handles rectangular filters
-        case 1: k_conv2d<TILE1,1><<<g1,blk>>>(d1, f, b, d0, H, W, C1); break;
-        case 3: k_conv2d<TILE3,3><<<g3,blk>>>(d1, f, b, d0, H, W, C1); break;
-        case 5: k_conv2d<TILE5,5><<<g5,blk>>>(d1, f, b, d0, H, W, C1); break;
+        case 1: k_conv2d<TSZ(1),1><<<g1,blk>>>(d1, f, b, d0, H, W, C1); break;
+        case 3: k_conv2d<TSZ(3),3><<<g3,blk>>>(d1, f, b, d0, H, W, C1); break;
+        case 5: k_conv2d<TSZ(5),5><<<g5,blk>>>(d1, f, b, d0, H, W, C1); break;
         default:
             ERROR("nn#_fconv kernel_size=%d not supported\n", ks);
             return -1;
@@ -349,11 +355,12 @@ Model::_fpool(Tensor &in, Tensor &out, t4_layer fn) {
 
 __GPU__ int
 Model::_fsoftmax(Tensor &in, Tensor &out) {
+    const U32 N = in.N(), H = in.H(), W = in.W(), C = in.C();
     out = in;                                   /// copy content for exe calc
-    out.map(EXP);                               /// *
-    Tensor &t = T4(1, in.H(), in.W(), in.C());  ///< create temp tensor for calc
+    out.map(EXP);                               /// * exp(xi)
+    Tensor &t = T4(1, H, W, C);                 ///< create temp tensor for calc
     DU     *d = t.data;                         ///< cached tensor data
-    for (U32 n = 0; n < in.N(); n++) {          ///< loop thru mini-batch
+    for (U32 n = 0; n < N; n++) {               ///< loop thru mini-batch
         t.data = out.slice(n);                  /// * point to output data slice
         DU sum = t.sum();                       ///< sum(exp(xi))
         t.map(MUL, RCP(sum + DU_EPS));          /// * softmax = exp(xi)/sum(exp(xi))
