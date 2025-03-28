@@ -429,7 +429,7 @@ Tensor::dot(Tensor &B) {
 }
 __GPU__ DU
 Tensor::loss(t4_loss op, Tensor &tgt) {
-    /*
+/*    
     auto check_bce = [this, &tgt]() {
         DU sum = DU0;
         for (int i=0; i<numel; i++) {
@@ -438,7 +438,7 @@ Tensor::loss(t4_loss op, Tensor &tgt) {
         }
         return -sum;
     };
-    */
+*/    
     DU z = DU0;                      ///> result loss value
     switch (op) {
     case LOSS_MSE:                   /// * mean squared error, input from linear
