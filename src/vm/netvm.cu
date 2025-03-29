@@ -309,12 +309,12 @@ NetVM::init() {
     CODE("nn.adam",
          if (M1V) {                           ///> (N lr -- N')
              DU lr = POP();                   /// * learing rate 
-             MTOS.adam(lr, 0.9, 0.999);       /// * default b1=0.9, b2=0.999
+             MTOS.adam(lr);                   /// * default b1=0.9, b2=0.999
          }
          else if (M2V) {                      ///> (N lr b1 -- N')
              DU b1 = POP();                   ///< beta1 i.g. 0.9
              DU lr = POP();                   ///< learning rate i.g. 0.001
-             MTOS.adam(lr, b1, 0.999);
+             MTOS.adam(lr, b1);               /// * default b2=0.999
          }
          else ERROR("rate beta1 nn.adam?\n"));
     CODE("nn.onehot",                         /// * current onehot vector
