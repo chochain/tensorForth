@@ -10,14 +10,12 @@
 #include "dataset.h"
 
 __GPU__ void
-Model::_dump_dbdf(Tensor &db, Tensor &df) {
-    _dump_db(db);
-    
+Model::_dump_f(const char *fn, Tensor &f) {
     DU sum = DU0;
-    for (U32 n = 0; n < df.N(); n++) {
-        DU *v = df.slice(n), fsum = DU0;
-        INFO("\n\tdf[%d]=", n);
-        for (U32 i = 0; i < df.HWC(); i++) {
+    for (U32 n = 0; n < f.N(); n++) {
+        DU *v = f.slice(n), fsum = DU0;
+        INFO("\n\t%s[%d]=", fn, n);
+        for (U32 i = 0; i < f.HWC(); i++) {
             sum  += *v;
             fsum += *v;
             INFO("%5.2f ", *v++);
@@ -28,11 +26,11 @@ Model::_dump_dbdf(Tensor &db, Tensor &df) {
 }
 
 __GPU__ void
-Model::_dump_db(Tensor &db) {
+Model::_dump_b(const char *bn, Tensor &b) {
     DU sum = DU0;
-    INFO("\n\tdb=");
-    DU *v = db.data;
-    for (U32 i = 0; i < db.H(); i++) {
+    INFO("\n\t%s=", bn);
+    DU *v = b.data;
+    for (U32 i = 0; i < b.H(); i++) {
         INFO("%6.3f ", *v);
         sum += *v++;
     }
@@ -40,13 +38,13 @@ Model::_dump_db(Tensor &db) {
 }
 
 __GPU__ void
-Model::_dump_dw(Tensor &dw, bool full) {
-    const U32 H = dw.H(), W = dw.W();
-    DU hsum = DU0, *p = dw.data;
-    if (full) INFO("\ndw[%d,%d]=", W, H);
+Model::_dump_w(const char *wn, Tensor &w, bool full) {
+    const U32 H = w.H(), W = w.W();
+    DU hsum = DU0, *p = w.data;
+    if (full) INFO("\n%s[%d,%d]=", wn, W, H);
     else      INFO("\n\tdwΣ=");
     for (U32 i = 0; i < H; i++) {
-        if (full) INFO("\n\tdw[%d]=", i);
+        if (full) INFO("\n\t%s[%d]=", wn, i);
         DU sum = DU0;
         for (U32 j = 0; j < W; j++, p++) {
             sum  += *p;
