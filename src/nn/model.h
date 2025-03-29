@@ -27,7 +27,7 @@ typedef enum {
 ///< gradient function pointer
 ///
 typedef void (*GdFunc)(
-    DU *parm, Tensor *w, Tensor *dw, Tensor *m, Tensor *v);
+    DU *parm, Tensor &w, Tensor &dw, Tensor &m, Tensor &v);
 ///
 ///< Neural Network Model class
 ///
@@ -94,7 +94,7 @@ public:
                              DU *parm,
                              t4_optimizer op=OPTI_SGD); 
     __GPU__ Model  &sgd(DU lr, DU b);                   ///< stochastic gradient descent
-    __GPU__ Model  &adam(DU lr, DU b1, DU b2);          ///< Adam gradient descent
+    __GPU__ Model  &adam(DU lr, DU b1=0.9, DU b2=0.999);///< Adam gradient descent
     /// @}
     
 private:
