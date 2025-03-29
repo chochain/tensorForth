@@ -19,7 +19,9 @@
 #if (T4_DO_OBJ && T4_DO_NN)
 ///
 /// convolution filter
-/// TODO: stride, dilation, [C1]NCHW filter
+/// Note: half-padding, no-stride 
+/// TODO: stride, dilation, [C1]NCHW filter,
+///       [see](https://github.com/vdumoulin/conv_arithmetic)
 ///
 template<int TS, int KS>         ///> tile size, kernel size
 __KERN__ void k_conv2d(
