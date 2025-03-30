@@ -141,11 +141,13 @@ Model::_iconv(Tensor &in, U32 C0, DU bias, U16 *opt) {
     Tensor *b  = in.grad[1] = &VEC(C0);                            ///> b
     Tensor *db = in.grad[3] = &VEC(C0).map(FILL, DU0);             ///> db
 
-    DU k = SQRT(RCP(Hf * Wf * C1));                /// * filter default range
-//    RAND(*f, k);                                 /// * randomize f [-k, k)
-//    RAND(*b, bias);                              /// * randomize b [-bias, bias)
-    f->map(FILL, 0.5);
+    DU k = SQRT(RCP(Hf * Wf * C1));              /// * filter default range
+    RAND(*f, k);                                 /// * randomize f [-k, k)
+    RAND(*b, bias);                              /// * randomize b [-bias, bias)
+#if MM_DEBUG    
+    f->map(FILL, 0.5);                           /// * debug
     b->map(FILL, -0.5);
+#endif // MM_DEBUG
     
     NN_DB(", k=%6.3f, f.std=%6.3f\nf[%d,%d,%d,%d]=", k, f->std(), C1, Hf, Hf, C0);
     for (U64 i=0; i<f->numel; i++) NN_DB("%6.3f", f->data[i]);
@@ -164,13 +166,15 @@ Model::_ilinear(Tensor &in, U32 C0, DU bias) {
     Tensor *b  = in.grad[1] = &VEC(C0);                           ///> b
     Tensor *db = in.grad[3] = &VEC(C0).map(FILL, DU0);            ///> db
     
-    in.xparm = bias;                                /// * keep for persistence
+    in.xparm = bias;                              /// * keep for persistence
     
-    DU k = SQRT(RCP(C1));                           /// * default weight
-//    RAND(*w, k);                                  /// * randomize w [-k, k)
-//    RAND(*b, bias);                               /// * randomize b [-bias, bias)
+    DU k = SQRT(RCP(C1));                         /// * default weight
+    RAND(*w, k);                                  /// * randomize w [-k, k)
+    RAND(*b, bias);                               /// * randomize b [-bias, bias)
+#if MM_DEBUG    
     w->map(FILL, 0.5);
     b->map(FILL, 0.0);
+#endif // MM_DEBUG    
     
     NN_DB(", k=%6.3f, w.std=%6.3f\nw[1,%d,%ld,1]", k, w->std(), C0, C1);
     for (U32 c0=0; c0<C0; c0++) {
