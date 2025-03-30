@@ -223,13 +223,13 @@ Model::backprop(Tensor &tgt) {
     DU  t0 = System::ms(), t1 = t0, tt;                   ///< performance measurement
     for (int i = numel - 2, j = 0; i > 0; i--, j++) {     /// numel=number of layers
         Tensor &in = (*this)[i], &out = (*this)[i + 1];
-        if (1 || *_trace) {
+        if (*_trace) {
             trace((tt=System::ms()) - t1, i, in, out);
             t1 = tt;
         }
         _bstep(in, out);
 
-        if (1 || *_trace > 1) in.show();
+        if (*_trace > 1) in.show();
     }
     NLOG("\n} Model::backprop %5.2f ms\n", System::ms() - t0);
     return *this;
@@ -263,7 +263,7 @@ Model::_bloss(Tensor &tgt) {                     ///> pre-calc dLoss
     case L_LOGSMAX: out -= tgt;  break;          /// * log-softmax + NLL
     default:        out  = tgt;  break;          /// * pass thru pre-calc dLoss, i.g. MSE
     }
-    if (1 || *_trace) out.show();                     /// * display loss if trace on
+    if (*_trace) out.show();                     /// * display loss if trace on
 
     return 0;
 }
@@ -330,7 +330,7 @@ Model::_bconv(Tensor &in, Tensor &out) {
         }
         CDP_SYNC();
     }
-    if (1 || *_trace > 1) { _dump_b("db", db); _dump_f("df", df); }
+    if (*_trace > 1) { _dump_b("db", db); _dump_f("df", df); }
     return 0;
 }
 
@@ -366,7 +366,7 @@ Model::_blinear(Tensor &in, Tensor &out) {
             }
         }
     };                    
-    if (0 && w.numel < T4_DIM_SQ) {                      /// * threshold control
+    if (w.numel < T4_DIM_SQ) {                      /// * threshold control
         NN_DB("*");
         qa_calc();                                  /// * serial mode (validation)
     }
@@ -383,7 +383,7 @@ Model::_blinear(Tensor &in, Tensor &out) {
               in.data, out.data, w.data, E1, E0);
         CDP_SYNC();
     }
-    if (1 || (train && *_trace > 1)) {
+    if (train && *_trace > 1) {
         _dump_b("db", db);
         _dump_w("dw", dw, true);
     }
