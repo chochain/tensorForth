@@ -296,25 +296,25 @@ NetVM::init() {
          if (IS_M(tos)) MTOS.grad_zero();
          else ERROR("TOS is not a model!\n"));
     CODE("nn.sgd",                            
-         if (M2V) {                           ///> (N p m -- N')
-             DU m  = POP();                   ///< momentum
+         if (M2V) {                           ///> (N p b -- N')
+             DU b  = POP();                   ///< beta/momentum
              DU lr = POP();                   ///< learn rate
-             MTOS.sgd(lr, m);
+             MTOS.sgd(lr, b);
          }
          else if (M1V) {                      ///> (N p -- N')
              DU lr = POP();                   ///< learn rate
-             MTOS.sgd(lr, DU0);               ///< default momentum = 0.0
+             MTOS.sgd(lr);                    ///< default beta/momentum = 0.0
          }
          else ERROR("rate mtum nn.sgd?\n"));
     CODE("nn.adam",
-         if (M1V) {                           ///> (N lr -- N')
-             DU lr = POP();                   /// * learing rate 
-             MTOS.adam(lr);                   /// * default b1=0.9, b2=0.999
-         }
-         else if (M2V) {                      ///> (N lr b1 -- N')
+         if (M2V) {                           ///> (N lr b1 -- N')
              DU b1 = POP();                   ///< beta1 i.g. 0.9
              DU lr = POP();                   ///< learning rate i.g. 0.001
              MTOS.adam(lr, b1);               /// * default b2=0.999
+         }
+         else if (M1V) {                      ///> (N lr -- N')
+             DU lr = POP();                   /// * learing rate 
+             MTOS.adam(lr);                   /// * default b1=0.9, b2=0.999
          }
          else ERROR("rate beta1 nn.adam?\n"));
     CODE("nn.onehot",                         /// * current onehot vector
