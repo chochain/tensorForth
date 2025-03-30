@@ -330,7 +330,7 @@ Model::_bconv(Tensor &in, Tensor &out) {
         }
         CDP_SYNC();
     }
-    if (1 || *_trace > 1) _dump_dbdf(db, df);
+    if (1 || *_trace > 1) { _dump_b("db", db); _dump_f("df", df); }
     return 0;
 }
 
@@ -384,8 +384,8 @@ Model::_blinear(Tensor &in, Tensor &out) {
         CDP_SYNC();
     }
     if (1 || (train && *_trace > 1)) {
-         _dump_db(db);
-         _dump_dw(dw, true);
+        _dump_b("db", db);
+        _dump_w("dw", dw, true);
     }
     return 0;
 }
