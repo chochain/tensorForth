@@ -210,7 +210,7 @@ Model::forward(Tensor &input) {
         }
         _fstep(in, out);
 
-        if (1 || *_trace > 1) out.show();
+        if (*_trace > 1) out.show();
     }
     ///
     /// collect onehot vector and hit count
