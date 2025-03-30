@@ -168,7 +168,7 @@ AIO::_print_model(h_ostr &fs, Model &m) {
 __HOST__ void
 AIO::_print_model_parm(h_ostr &fs, Tensor &in, Tensor &out) {
     t4_layer fn = in.grad_fn;             ///< layer function
-    DU       p  = 0.001 * in.parm;        ///< layer parameter
+    DU       p  = in.xparm;               ///< layer parameter
     switch(fn) {
     case L_NONE:    /* do nothing  */                  break;
     case L_CONV:   fs << "bias=" << p << ", C="
@@ -187,12 +187,12 @@ AIO::_print_model_parm(h_ostr &fs, Tensor &in, Tensor &out) {
     case L_LOGSMAX: /* do nothing */                   break;
     case L_AVGPOOL:
     case L_MAXPOOL:
-    case L_MINPOOL: fs << "n=" << in.parm;             break;
+    case L_MINPOOL: fs << "n=" << in.iparm;            break;
     case L_BATCHNM: fs << "mtum=" << p;                break;
     case L_USAMPLE: {
         const char *nm[] = { "nearest", "linear", "bilinear", "cubic" };
-        int n = in.parm & 0xff;
-        fs << n << "x" << n << " " << nm[in.parm>>8];
+        int n = in.iparm & 0xff;
+        fs << n << "x" << n << " " << nm[in.iparm>>8];
     } break;
     default: fs << "unknown layer=" << fn;      break;
     }
@@ -207,7 +207,7 @@ AIO::_nsave_model(h_ostr &fs, Model &m) {
         fs << nm << std::endl;                /// * one blank line serves
                                               /// * as the sectional break
         IO_DB("\n%2d> %s [%d,%d,%d,%d]\tp=%-2d => out[%d,%d,%d,%d]",
-            i, nm, in.N(), in.H(), in.W(), in.C(), in.parm,
+            i, nm, in.N(), in.H(), in.W(), in.C(), in.iparm,
             out.N(), out.H(), out.W(), out.C());
     }
     return 0;

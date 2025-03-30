@@ -75,12 +75,12 @@ AIO::to_s(h_ostr &fs, T4Base &t, bool view) {
     };
     fs << tn[view][t.ttype];
     switch(t.rank) {
-    case 0: fs << "["  << (t.numel - 1) << ']';           break;  // network model
-    case 1: fs << "1[" << t.numel << ']';                 break;
-    case 2: fs << "2["; t2((Tensor&)t);                   break;
-    case 3: fs << "3[na]";                                break;
-    case 4: fs << "4["; t4((Tensor&)t);                   break;
-    case 5: fs << "5[" << t.parm << "]["; t4((Tensor&)t); break;
+    case 0: fs << "["  << (t.numel - 1) << ']';            break;  // network model
+    case 1: fs << "1[" << t.numel << ']';                  break;
+    case 2: fs << "2["; t2((Tensor&)t);                    break;
+    case 3: fs << "3[na]";                                 break;
+    case 4: fs << "4["; t4((Tensor&)t);                    break;
+    case 5: fs << "5[" << t.iparm << "]["; t4((Tensor&)t); break;
     }
 }
 __HOST__ void

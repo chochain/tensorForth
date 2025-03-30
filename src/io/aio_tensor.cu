@@ -110,7 +110,7 @@ AIO::_print_tensor(h_ostr &fs, Tensor &t) {
         fs << " } }";
     } break;
     case 5: {
-        fs << "tensor[" << t.parm << "]["
+        fs << "tensor[" << t.iparm << "]["
            << t.N() << "," << t.H() << "," << t.W() << "," << t.C()
            << "] = {...}";
     } break;        
