@@ -93,7 +93,7 @@ public:
                              GdFunc fn,                 
                              DU *parm,
                              t4_optimizer op=OPTI_SGD); 
-    __GPU__ Model  &sgd(DU lr, DU b);                   ///< stochastic gradient descent
+    __GPU__ Model  &sgd(DU lr, DU b=DU0);               ///< stochastic gradient descent
     __GPU__ Model  &adam(DU lr, DU b1=0.9, DU b2=0.999);///< Adam gradient descent
     /// @}
     
@@ -140,9 +140,9 @@ private:
     /// @}
     /// @name debug functions
     /// @{
-    __GPU__ void   _dump_dbdf(Tensor &db, Tensor &df);
-    __GPU__ void   _dump_db(Tensor &db);
-    __GPU__ void   _dump_dw(Tensor &dw, bool full=true);
+    __GPU__ void   _dump_f(const char *fn, Tensor &f);
+    __GPU__ void   _dump_b(const char *bn, Tensor &b);
+    __GPU__ void   _dump_w(const char *wn, Tensor &w, bool full=true);
     /// @}
 };
 #endif // (!defined(__NN_MODEL_H) && T4_DO_OBJ && T4_DO_NN)
