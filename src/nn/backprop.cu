@@ -213,7 +213,7 @@ Model::backprop(Tensor &tgt) {
     auto trace = [](DU t, int i, Tensor &in, Tensor &out) {
         INFO("\n%6.2f:%2d> %s [%2d,%2d,%2d,%d]\tp=%6.3f <= out'Σ/n=%6.2f [%2d,%2d,%2d,%2d]",
             t, i, d_nname(in.grad_fn),
-            in.N(), in.H(), in.W(), in.C(), 0.001*in.parm,
+            in.N(), in.H(), in.W(), in.C(), in.xparm,
             out.sum() / out.N() / out.C(),
             out.N(), out.H(), out.W(), out.C());
     };
@@ -400,7 +400,7 @@ __GPU__ int
 Model::_bpool(Tensor &in, Tensor &out, t4_layer fn) {
     const U32 W = out.W(), H = out.H();           ///< output dimensions
     const U32 C = out.C(), N = out.N();
-    const int ks = in.parm;                       ///< kernel size
+    const int ks = in.iparm;                      ///< kernel size
     switch(ks) {
     case 2: FORK4(k_dpool<2>, fn, in.data, out.data, H, W); break;
     case 3: FORK4(k_dpool<3>, fn, in.data, out.data, H, W); break;
@@ -420,8 +420,8 @@ __GPU__ int
 Model::_bupsample(Tensor &in, Tensor &out, t4_layer fn) {
     const U32 W  = in.W(), H = in.H();                  ///< input dimensions (reversed pool)
     const U32 C  = in.C(), N = in.N();
-    const int me = (in.parm >> 8);                      ///< upsample method, TODO
-    const int ks = (in.parm & 0xff);                    ///< kernel size
+    const int me = (in.iparm >> 8);                     ///< upsample method, TODO
+    const int ks = (in.iparm & 0xff);                   ///< kernel size
 
     switch(ks) {                                        /// by kernel size
     case 2: FORK4(k_pool<2>, fn, out.data, in.data, H, W); break;

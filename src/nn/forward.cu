@@ -197,7 +197,7 @@ Model::forward(Tensor &input) {
     auto trace = [](DU t, int i, Tensor &in, Tensor &out) {
         INFO("\n%6.2f:%2d> %s [%2d,%2d,%2d,%2d] Σ/n=%6.2f\tp=%6.3f => out[%2d,%2d,%2d,%2d]",
             t, i, d_nname(in.grad_fn), in.N(), in.H(), in.W(), in.C(),
-            in.sum() / in.N() / in.C(), 0.001*in.parm,
+            in.sum() / in.N() / in.C(), in.xparm,
             out.N(), out.H(), out.W(), out.C());
     };
     NLOG("\nModel::forward starts {");
@@ -331,7 +331,7 @@ Model::_flinear(Tensor &in, Tensor &out) {
 
 __GPU__ int
 Model::_factivate(Tensor &in, Tensor &out, t4_layer fn) {
-    DU alpha = 0.001 * in.parm;
+    DU alpha = in.xparm;
     FORK1(k_activate, in.numel, 
           fn, in.data, in.grad[0]->data, out.data, alpha);
     CDP_SYNC();
@@ -342,7 +342,7 @@ __GPU__ int
 Model::_fpool(Tensor &in, Tensor &out, t4_layer fn) {
     const U32 W  = out.W(), H = out.H();                ///< output dimensions
     const U32 C  = out.C(), N = out.N();
-    const int ks = in.parm;                             ///< kernel size
+    const int ks = in.iparm;                            ///< kernel size
 
     switch(ks) {                                        /// pooling kernel size
     case 2: FORK4(k_pool<2>, fn, in.data, out.data, H, W); break;
@@ -411,7 +411,7 @@ Model::_fbatchnorm(Tensor &in, Tensor &out) {
     FORK4(k_batchnvar, in.data, avg, var, HW);         /// * capture n*variance
     CDP_SYNC();
 
-    const DU m = 0.001 * in.parm;                      ///< ETA momentum, TODO:
+    const DU m = in.xparm;                             ///< ETA momentum, TODO:
     for (U32 c=0; c < C; c++) {
         var[c] = DU1 / (SQRT(var[c] / NHW) + DU_EPS);  ///< gvar = gamma/(stdvar + e)
     }
@@ -428,8 +428,8 @@ __GPU__ int
 Model::_fupsample(Tensor &in, Tensor &out) {
     const U32 W  = in.W(), H = in.H();                  ///< input dimensions (reversed pool)
     const U32 C  = in.C(), N = in.N();
-    const int me = (in.parm >> 8);                      ///< upsample method, TODO
-    const int ks = in.parm & 0xff;                      ///< upsampling size
+    const int me = (in.iparm >> 8);                     ///< upsample method, TODO
+    const int ks = in.iparm & 0xff;                     ///< upsampling size
 
     switch(ks) {
     case 2: FORK4(k_dpool<2>, L_USAMPLE, out.data, in.data, H, W); break;

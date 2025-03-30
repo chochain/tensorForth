@@ -131,7 +131,7 @@ Model::_iconv(Tensor &in, U32 C0, DU bias, U16 *opt) {
         return;
     }
     in.stride[0] = in.stride[1] = s;
-    in.parm = INT(bias * 1000.0);
+    in.xparm = bias;
     ///
     /// filter: C1 to C0 fully connected
     /// TODO: filters's 5th dimension is stored in parm field for now
@@ -164,9 +164,9 @@ Model::_ilinear(Tensor &in, U32 C0, DU bias) {
     Tensor *b  = in.grad[1] = &VEC(C0);                           ///> b
     Tensor *db = in.grad[3] = &VEC(C0).map(FILL, DU0);            ///> db
     
-    in.parm = INT(bias * 1000.0);                                 /// * keep for persistence
+    in.xparm = bias;                                /// * keep for persistence
     
-    DU k = SQRT(RCP(C1));                                         /// * default weight
+    DU k = SQRT(RCP(C1));                           /// * default weight
 //    RAND(*w, k);                                  /// * randomize w [-k, k)
 //    RAND(*b, bias);                               /// * randomize b [-bias, bias)
     w->map(FILL, 0.5);
@@ -206,7 +206,7 @@ Model::_iactivate(Tensor &in, DU alpha, t4_layer fn) {
     Tensor &out = COPY(in);
     Tensor *msk = in.grad[0] = &COPY(in);        ///> activation mask
 
-    in.parm = INT(1000.0 * alpha);               /// * bias * 1000
+    in.xparm = alpha;                            /// * keep bias
     
     npush(out);
 }
@@ -220,7 +220,7 @@ Model::_ipool(Tensor &in, U16 f, t4_layer fn) {
         ERROR("pooling f=%dx%d? 2x2 and 3x3 supported only\n", f, f);
         return;
     }
-    in.parm = f;                                 /// * keep kernel size
+    in.iparm = f;                                /// * keep kernel size
                                                  /// * used by backprop
     U32 H0 = INT((in.H() - f) / f) + 1;
     U32 W0 = INT((in.W() - f) / f) + 1;
@@ -242,7 +242,7 @@ Model::_ibatchnorm(Tensor &in, DU m) {
     for (int c=0; c < C; c++) {                  /// * default gamma=1.0, beta=0.0
         in.grad[0]->data[c] = DU1;
     }
-    in.parm = INT(1000.0 * m);                   ///> default EMA momentum = 0.1
+    in.xparm = m;                                ///> default EMA momentum = 0.1
     
     Tensor &out = COPY(in);                      /// * retain dimensions
     npush(out);
@@ -255,7 +255,7 @@ Model::_iup(Tensor &in, U16 f, DU method) {
         ERROR("model#upsample f=%dx%d? only 2x2 and 3x3 supported\n", f, f);
         return;
     }
-    in.parm = (INT(method)<<8) | f;              /// * keep (method<<8) | kernel size
+    in.iparm = (INT(method)<<8) | f;             /// * keep (method<<8) | kernel size
                                                  /// * used by backprop
     U32 H0 = in.H() * f;
     U32 W0 = in.W() * f;
