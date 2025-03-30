@@ -95,14 +95,10 @@ __GPU__ Model&
 Model::gradient(const char *nm, GdFunc fn, DU *parm, t4_optimizer op) {
     auto step = [this, fn, parm](const char k,
         Tensor &g, Tensor &dg, Tensor &m, Tensor &v) {
-//        if (k=='w') { _dump_w("w", g, true); _dump_w("dw", dg, true); }
-//        else        { _dump_b("b", g);       _dump_b("db", dg);       }
         NN_DB("     %c[%2d,%2d,%2d,%2d] Σ=%6.3f - %6.3f",
               k, g.N(), g.H(), g.W(), g.C(), g.sum(), dg.sum());
         fn(parm, g, dg, m, v);                /// * execute grad function
         NN_DB(" => %cΣ=%6.3f\n", k, g.sum());
-//        if (k=='w') { _dump_w("w", g, true); _dump_w("dw", dg, true); }
-//        else        { _dump_b("b", g);       _dump_b("db", dg);       }
     };
     NN_DB("Model::%s batch_sz=%d, lr=%7.4f, mtum/b1=%6.3f, b2=%6.3f {\n",
            nm, (*this)[1].N(), parm[0], parm[1], parm[2]);
