@@ -29,9 +29,9 @@ struct T4Base : public Managed {
             U32   rank : 3;  ///< rank of tensor 2:matrix, 4:NHWC tensor
             U32   train: 1;  ///< trainable
             U32   dunit: 1;  ///< size of data element, F32=0, F64=1
-            U32   xx1  : 8;  ///< reserved 1
-            U32   nref : 16; ///< reference counter (reserved)
-            S32   parm;      ///< extra parameter storage
+            U32   nref : 8;  ///< reference counter (reserved)
+            U32   iparm: 16; ///< integer parameter
+            DU    xparm;      ///< float parameter
         };
     };
     DU  *data;    ///< managed memory block pointer (Note: instead of from TLSF)
@@ -62,7 +62,8 @@ struct T4Base : public Managed {
         dunit = DUNIT;
         rank  = rnk;
         nref  = 1;
-        parm  = 0;
+        iparm = 0;
+        xparm = DU0;
         data  = NULL;
     }
     __BOTH__ __INLINE__ DU   &operator[](int i) { return data[i]; }
