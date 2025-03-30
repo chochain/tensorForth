@@ -587,8 +587,8 @@ Tensor::reshape(U32 c1, U32 n, U32 h, U32 w, U32 c) {
     const U32 t[4] = { h, w, c, n };
     U64 sz = (U64)c1 * n * h * w * c;
     if (sz == numel) {
-        rank = 5;
-        parm = c1;        /// use parm field, so we don't need s[5]
+        rank  = 5;
+        iparm = c1;        /// use iparm field, so we don't need s[5]
         memcpy(stride, s, sizeof(s));
         memcpy(shape,  t, sizeof(t));
         MM_DB("  tensor#reshaped(%d,%d,%d,%d,%d)\n", c1, N(), H(), W(), C());
