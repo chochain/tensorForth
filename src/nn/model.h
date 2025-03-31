@@ -80,8 +80,9 @@ public:
     /// @name loss functions
     /// @{
     __GPU__ Tensor &onehot();                           ///< get default onehot vector
+    __GPU__ Tensor &onehot(Tensor &t);                  ///< feed tensor as the one-hot vector
     __GPU__ Tensor &onehot(Dataset &dset);              ///< create one-hot vector from dataset labels (called in forward pass)
-    __GPU__ int    hit(bool recalc=false);              ///< calculate hit count
+    __GPU__ int    hit(bool recalc=true);               ///< calculate hit count
     __GPU__ DU     loss(t4_loss op);                    ///< calc loss with cached one-hot vector
     __GPU__ DU     loss(t4_loss op, Tensor &tgt);       ///< calc loss from tgt vector
     /// @}
