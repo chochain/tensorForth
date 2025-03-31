@@ -13,30 +13,51 @@ __GPU__ Tensor&
 Model::onehot() {
     if (_hot) return *_hot;
     
-    ERROR("ERROR: Model.onehot not provided by dataset, input onehot tensor!\n");
+    ERROR("ERROR: Model.onehot not provided by dataset, use nn.onehot= to setup!\n");
     return (*this)[-1];
+}
+///
+///> feed a tensor as the onehot vector
+///
+__GPU__ Tensor&
+Model::onehot(Tensor &t) {
+    Tensor &out = (*this)[-1];                      ///< model output
+    U32    N    = out.N();                          ///< mini-batch size
+    U32    C    = (U32)out.HWC();                   ///< channel sizes
+    if (_hot) {
+        ERROR("WARN: Model.onehot exists, replace with T%x\n", _mmu->OBJ2X(t));
+        FREE(*_hot);
+    }
+    else if (t.N()!=N || (U32)t.HWC() != C) {
+        ERROR("ERROR: onehot dimension is not [%d,%d,1,1]\n", N, C);
+        return t;
+    }
+    _hot = &t;                                      ///< assign onehot vector
+    _hit = hit(true);                               ///< calculate hit counts
+    
+    return *_hot;
 }
 ///
 ///> capture onehot vector from dataset labels
 ///
 __GPU__ Tensor&
 Model::onehot(Dataset &dset) {
-    auto show = [](DU *h, U32 n, U64 sz) {
+    Tensor &out = (*this)[-1];                      ///< model output
+    U32    N    = out.N();                          ///< mini-batch size
+    U32    C    = (U32)out.HWC();                   ///< channel sizes
+    Tensor &hot = T4(N, C).fill(DU0);               ///< one-hot vector
+    auto show = [C](DU *h, U32 n) {
         INFO("Model::onehot[%d]={", n);
-        for (U64 i = 0; i < sz; i++) {
-            INFO("%2.0f", h[i]);
+        for (U32 c = 0; c < C; c++) {
+            INFO("%2.0f", h[c]);
         }
         INFO(" }\n");
     };
-    Tensor &out = (*this)[-1];                      ///< model output
-    U32    N    = out.N();
-    U64    HWC  = out.HWC();                        ///< sample size
-    Tensor &hot = T4(N, HWC).fill(DU0);             ///< one-hot vector
     for (U32 n = 0; n < N; n++) {                   /// * loop through batch
         DU *h = hot.slice(n);                       ///< take a sample
-        U64 i = dset.label[n];                      ///< label index
-        h[i < HWC ? i : 0] = DU1;                   /// * mark hot by index
-        if (*_trace > 1) show(h, n, HWC);           /// * might need U32 partition
+        U32 c = dset.label[n];                      ///< label index
+        h[c < C ? c : 0] = DU1;                     /// * mark hot by index
+        if (1 || *_trace > 1) show(h, n);             /// * might need U32 partition
     }
     return hot;
 }
@@ -45,19 +66,21 @@ __GPU__ int
 Model::hit(bool recalc) {
     if (!recalc) { return _hit; }                   /// * return current hit count
     
-    auto argmax = [](DU *h, U64 sz) {
+    Tensor &out = (*this)[-1];                      ///< model output
+    U32    C    = (U32)out.HWC();                   ///< number of channels
+    auto argmax = [C](DU *h) {
         DU  mx = *h;
-        U64 m  = 0;
-        for (U64 i = 1; i < sz; i++) {              /// * CDP 
-            if (h[i] > mx) { mx = h[i]; m = i; }
+        U32 m  = 0;
+        for (U32 c = 1; c < C; c++) {               /// * CDP 
+            if (h[c] > mx) { mx = h[c]; m = c; }
         }
         return m;
     };
-    Tensor &out = (*this)[-1];                      ///< model output
     U32 cnt = 0;
     for (U32 n = 0; n < out.N(); n++) {             ///< loop through batch
-        U64  m = argmax(out.slice(n), out.HWC());
-        cnt += INT(_hot->slice(n)[m]);              /// * compare to onehot vector
+        U32 m = argmax(out.slice(n));               ///< index to max element
+        U32 v = UINT(_hot->slice(n)[m]);            ///< lookup onehot vector
+        cnt += v;                                   /// * acculate hit count
     }
     NN_DB("Model::hit=%d\n", cnt);
     return cnt;
