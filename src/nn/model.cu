@@ -191,7 +191,7 @@ Model::_ilinear(Tensor &in, U32 C0, DU bias) {
 __GPU__ void
 Model::_iflatten(Tensor &in) {
     NN_DB("    model#add flatten");
-    Tensor &out = T4(in.N(), in.HWC());          /// * for backprop
+    Tensor &out = T4(in.N(), (U32)in.HWC());     /// * for backprop
     npush(out);
 }
 /// @}
