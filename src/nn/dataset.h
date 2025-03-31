@@ -53,7 +53,7 @@ struct Dataset : public Tensor {
             *d++ = (I2D((int)*h_data++) - m) / s;  // normalize
         }
         U32 *t = label;               ///< label in device memory
-        for (U64 i = 0; i < N(); i++) {
+        for (U32 i = 0; i < N(); i++) {
             *t++ = (U32)*h_label++;
         }
         return this;
