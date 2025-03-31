@@ -289,6 +289,22 @@ NetVM::init() {
              }
          }
          else ERROR("TOS is not a tensor or NOS is not a model!\n"));
+    CODE("nn.onehot",                         /// * current onehot vector
+         if (IS_M(tos)) {                     ///< retrieved from dataset
+             Tensor &hot = MTOS.onehot();     ///< or from onehot=
+             DU v = mmu.obj2du(hot);
+             PUSH(DUP(v));
+         }
+         else ERROR("TOS is not a model!\n"));
+    CODE("nn.onehot=",                             ///> (N T -- N')
+         if (IS_OBJ(tos) && IS_M(ss[-1])) {
+             Tensor &hot = (Tensor&)mmu.du2obj(POP());
+             MTOS.onehot(hot);
+         }
+         else ERROR("model tensor?\n"));
+    CODE("nn.hit",                            ///> (N -- N v)
+         if (IS_M(tos)) PUSH(I2D(MTOS.hit(false)));
+         else ERROR("TOS is not a model!\n"));
     ///@}
     ///@defgroup Gradiant ops
     ///@{
@@ -317,16 +333,6 @@ NetVM::init() {
              MTOS.adam(lr);                   /// * default b1=0.9, b2=0.999
          }
          else ERROR("rate beta1 nn.adam?\n"));
-    CODE("nn.onehot",                         /// * current onehot vector
-         if (IS_M(tos)) {
-             Tensor &hot = MTOS.onehot();
-             DU v = mmu.obj2du(hot);
-             PUSH(DUP(v));
-         }
-         else ERROR("TOS is not a model!\n"));
-    CODE("nn.hit", 
-         if (IS_M(tos)) PUSH(I2D(MTOS.hit()));
-         else ERROR("TOS is not a model!\n"));
     ///@}
     ///@defgroup Batch Control ops
     ///@{
@@ -374,6 +380,7 @@ NetVM::init() {
     ///@}
     ///@defgroup Debugging ops
     ///@{
+    CODE("network", if (IS_M(tos)) sys.dot(DOT, tos));  ///< non destructive
     CODE(">n",      if (M1V) { DU t = POP(); MTOS.npush(t); });
     CODE("n@",      if (!M1V) return;
          S32    i  = POPi;
@@ -386,7 +393,6 @@ NetVM::init() {
     CODE("nn.db",   _get_parm(3));                 ///< tensor.bias.grad
     CODE("nn.w=",   _set_parm(0));                 ///< populate tensor.weight
     CODE("nn.b=",   _set_parm(1));                 ///< populate tensor.bias
-    CODE("network", if (IS_M(tos)) sys.dot(DOT, tos));  ///< non destructive
     CODE("bsum",
          if (!IS_OBJ(tos)) return;
          Tensor &A = TTOS;
