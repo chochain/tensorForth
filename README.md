@@ -444,6 +444,7 @@ Tests v3.2 GAN ops
   + Auto Differentiation i.e. JVP (forward), VJP (backward)
     - [autograd](https://github.com/HIPS/autograd)
     - [Jax](https://docs.jax.dev/en/latest/quickstart.html)
+  + review CUDA [GEMM](https://siboehm.com/articles/22/CUDA-MMM)
   + review CUDA Stream Management (cudaStreamAddCallback) and Event Management
   + review CUDA EventSync/LaunchHostFunc, flip calling from GPU=>CPU (requires CUDA Stream + event pool)
   + review CUDA dynamic Graph
