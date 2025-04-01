@@ -74,18 +74,18 @@ __KERN__ void k_conv2d(
 
 __KERN__ void k_linear(
     DU *I, DU *O, DU *W, DU *B,
-    U64 HWC1, U64 HWC0, U32 C1, U32 C0
+    U32 C0, U32 C1
     ) {
     const U32 c1 = blockIdx.x * blockDim.x + threadIdx.x;
     const U32 c0 = blockIdx.y * blockDim.y + threadIdx.y;
     const U32 n  = blockIdx.z;
-
-    if (c0 < C0 && c1 < C1) {
-        DU *y = &O[HWC0 * n + c0];
-        DU wx = W[C1 * c0 + c1] * I[HWC1 * n + c1];
-        if (c1 == 0) *y = B[c0];                      /// Y = WX + B
-        atomicAdd_block(y, wx);
-    }
+    DU sum { (c0 < C0 && c1 < C1) ? W[C1 * c0 + c1] * I[C1 * n + c1] : DU0 };
+    DU *y = &O[C0 * n + c0];
+    
+    if (c1==0) *y = B[c0];
+    __syncthreads();
+    
+    atomicAdd_block(y, sum);
 }
 
 template<int KS>                                      /// kernel size
@@ -181,7 +181,7 @@ __KERN__ void k_batchnorm(
 __GPU__ Model&
 Model::forward(Tensor &input) {
     Tensor &n1 = (*this)[1];    ///< reference model input layer
-    if (*_trace) input.show();  /// * preview input data
+    if (1 || *_trace) input.show();  /// * preview input data
 
     if (input.numel != n1.numel) {
         ERROR("Model::forward dataset wrong shape[%d,%d,%d,%d] != model input[[%d,%d,%d,%d]\n",
@@ -194,7 +194,7 @@ Model::forward(Tensor &input) {
     /// cascade execution layer by layer forward
     /// TODO: model execution becomes a superscalar pipeline
     ///
-    auto trace = [](DU t, int i, Tensor &in, Tensor &out) {
+    auto info = [](DU t, int i, Tensor &in, Tensor &out) {
         INFO("\n%6.2f:%2d> %s [%2d,%2d,%2d,%2d] Σ/n=%6.2f\tp=%6.3f => out[%2d,%2d,%2d,%2d]",
             t, i, d_nname(in.grad_fn), in.N(), in.H(), in.W(), in.C(),
             in.sum() / in.N() / in.C(), in.xparm,
@@ -204,13 +204,13 @@ Model::forward(Tensor &input) {
     DU t0 = System::ms(), t1 = t0, tt;           ///< performance measurement
     for (U16 i = 1; i < numel - 1; i++) {
         Tensor &in = (*this)[i], &out = (*this)[i + 1];
-        if (*_trace) {
-            trace((tt=System::ms()) - t1, i, in, out);
+        if (1 || *_trace) {
+            info((tt=System::ms()) - t1, i, in, out);
             t1 = tt;
         }
         _fstep(in, out);
-
-        if (*_trace > 1) out.show();
+        
+        if (1 || *_trace > 1) out.show();
     }
     ///
     /// collect onehot vector and hit count
@@ -294,36 +294,35 @@ Model::_fconv(Tensor &in, Tensor &out) {
 
 __GPU__ int
 Model::_flinear(Tensor &in, Tensor &out) {
-    auto qa_calc = [&in, &out](Tensor &tw, Tensor &tb) {
-        U32 N = in.N(), C1 = tw.W(), C0 = tw.H();     /// * weight dimensions
-        DU *w = tw.data, *b = tb.data;
+    const U32 N  = out.N();                           ///< batch size (N1 == N0)
+    const U32 C1 = in.HWC(), C0 = out.HWC();          ///< dense layer dims
+    auto qa_calc = [&in, &out, N, C0, C1](DU *w, DU *b) {
         for (U32 n = 0; n < N; n++) {                 /// * walk through batch
-            DU *x = in.slice(n), *y = out.slice(n);
-            for (U32 c0 = 0; c0 < C0; c0++) {
-                y[c0] = b[c0];                        /// init with bias
-                for (U32 c1 = 0; c1 < C1; c1++) {     /// dot product
-                    y[c0] += w[C1 * c0 + c1] * x[c1]; /// Y = W @ X + B
+            DU *x  = in.slice(n), *y = out.slice(n);  /// * sample by sample
+            DU *wx = w;                               /// * weight[C0,C1]
+            for (U32 c0 = 0; c0 < C0; c0++) {         /// * output features
+                DU sum = b[c0];                       /// * init with bias
+                for (U32 c1 = 0; c1 < C1; c1++) {     /// * input features
+                    sum += *wx++ * x[c1];             /// * Y = W @ X + B
                 }
+                y[c0] = sum;
             }
         }
     };
-    Tensor &tw = *in.grad[0];                         ///< weight tensor
-    Tensor &tb = *in.grad[1];                         ///< bias tensor
-
-    const U32 N  = out.N();                           ///< batch size (N1 == N0)
-    const U32 C0 = tw.H(), C1 = tw.W();               ///< dense layer dims
+    Tensor &w = *in.grad[0], &b = *in.grad[1];        ///< weight, bias tensors
 
     NN_DB(" = %d x (w[1,%d,%d,1] @ in[1,%d,%d,%d] + b[%ld])",
-          N, C0, C1, in.H(), in.W(), in.C(), tb.numel);
-
-    if (tw.numel < T4_DIM_SQ) {                       /// * threshold control
+          N, C0, C1, in.H(), in.W(), in.C(), b.numel);
+    _dump_w("w", w, true);
+    _dump_b("b", b); 
+    
+    if (0 && w.numel < T4_DIM_SQ) {                       /// * threshold control
         NN_DB("*");
-        qa_calc(tw, tb);                              /// * serial code
+        qa_calc(w.data, b.data);                     /// * serial code
     }
-    else {                                            
-        FORK3(k_linear, C1, C0, N,
-              in.data, out.data, tw.data, tb.data,
-              in.HWC(), out.HWC());
+    else {
+        FORK3(k_linear, C0, C1, N,
+              in.data, out.data, w.data, b.data);
         CDP_SYNC();
     }
     return 0;
