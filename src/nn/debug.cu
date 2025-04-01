@@ -41,7 +41,7 @@ __GPU__ void
 Model::_dump_w(const char *wn, Tensor &w, bool full) {
     const U32 H = w.H(), W = w.W();
     DU hsum = DU0, *p = w.data;
-    if (full) INFO("\n%s[%d,%d]=", wn, W, H);
+    if (full) INFO("\n%s[%d,%d]=", wn, H, W);
     else      INFO("\n\tdwΣ=");
     for (U32 i = 0; i < H; i++) {
         if (full) INFO("\n\t%s[%d]=", wn, i);
