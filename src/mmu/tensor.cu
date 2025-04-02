@@ -630,10 +630,10 @@ Tensor::normalize(DU avg, DU std) {
 ///
 __BOTH__ void
 Tensor::_dump(DU *v, U32 H, U32 W, U32 C) {
-    const U64 hw = H * W, sr = static_cast<U64>(sqrtf(hw));
-    const U32 sh = (hw / sr) + ((hw - sr*sr) > 0L ? 1 : 0);
-    const U32 h  = W > 1 ? H : (hw < 36L ? 1 : sh);
-    const U32 w  = W > 1 ? W : (hw < 36L ? H : sr);
+    const DU  hw = I2D(H) * W, sr = sqrtf(hw);
+    const U32 sh = UINT(hw / sr) + ((hw - sr*sr) > DU0 ? 1 : 0);
+    const U32 h  = W > 1 ? H : (hw < 36.0 ? 1 : sh);
+    const U32 w  = W > 1 ? W : (hw < 36.0 ? H : UINT(sr));
     
     DU *csum = new DU[C];
     for (U32 k = 0; k < C; k++) csum[k] = DU0;
@@ -666,11 +666,12 @@ Tensor::_dump(DU *v, U32 H, U32 W, U32 C) {
 __BOTH__ void
 Tensor::_view(DU *v, U32 H, U32 W, U32 C, DU mean, DU scale) {
     auto map = [](DU v) {
-        // static const char *lk = " .'`^\",:;Il!i><~+_-?][}{1)(|/tfjrxnuvczXYUJCLQ0OZmwqpdbkhao*#MW&8%B@$";                             // 69 shades
-        static const char *lk = " .:-=+*#%@X";      // 11 shades
-        //return lk[v < 10.0f ? (v < DU0 ? 10 : (int)v) : 9];
-        int i = static_cast<int>((v + 1.0) * 5.5);
-        return lk[i < 0 ? 0 : (i > 10 ? 10 : i)];
+        // static const char *lk = " `.-':_,^=;><+!rc*/z?sLTv)J7(|Fi{C}fI31tlu[neoZ5Yxjya]2ESwqkP6h9d4VpOGbUAKXHm8RD#$Bg0MNWQ%&@";          // 91 shades
+        // static const char *lk = " `.-:^=;i>+!*zsv7C3tno5xakhdOUAXR#$0MW%Q"; // 40 shades
+        static const char *lk = " `.-:;!+*ixekO#@";     // 16 shades
+        static const int   sz = 16;
+        int i  = static_cast<int>((v + 1.0) * sz/2);
+        return lk[i < 0 ? 0 : (i < sz ? i : sz-1)];
     };
     const U64 hw = H * W, sr = static_cast<U64>(sqrtf(hw));
     const U32 sh = (hw / sr) + ((hw - sr*sr) > 0L ? 1 : 0);
