@@ -313,10 +313,10 @@ Model::_flinear(Tensor &in, Tensor &out) {
 
     NN_DB(" = %d x (w[1,%d,%d,1] @ in[1,%d,%d,%d] + b[%ld])",
           N, C0, C1, in.H(), in.W(), in.C(), b.numel);
-    _dump_w("w", w, true);
-    _dump_b("b", b); 
+//    _dump_w("w", w, true);
+//    _dump_b("b", b); 
     
-    if (0 && w.numel < T4_DIM_SQ) {                       /// * threshold control
+    if (w.numel < T4_DIM_SQ) {                       /// * threshold control
         NN_DB("*");
         qa_calc(w.data, b.data);                     /// * serial code
     }
