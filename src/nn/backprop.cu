@@ -71,36 +71,39 @@ __KERN__ void k_dconv2d(
     }
 }
 
-__KERN__ void k_dlinear_dwdb(
+__KERN__ void k_dlinear_dwdb(                        /// * TODO: shuffle-sum
     DU *I, DU *O, DU *DW, DU *DB,
-    U64 HWC1, U64 HWC0, U32 C1, U32 C0
+    U32 C0, U32 C1                                   ///< DW[C0,C1], DB[C0]
     ) {
-    const U32 c1 = blockIdx.x * blockDim.x + threadIdx.x;
-    const U32 c0 = blockIdx.y * blockDim.y + threadIdx.y; 
-    const U32 n  = blockIdx.z;
-
-    if (c0 < C0 && c1 < C1) {                        /// * TODO: shuffle-sum
-        const U32 k  = C1 * c0 + c1;                 ///< dW [C1,C0] pointer
-        const DU  dy = O[HWC0 * n + c0];             ///< dY  [2,5,1,1]=>2x[5,1]
-        const DU  xt = I[HWC1 * n + c1];             ///< X^t [2,4,4,1]=>2x[1,16]
-        atomicAdd(&DW[k], dy * xt);                  /// * dw += dY @ X^t
+    const U32  c1 = blockIdx.x * blockDim.x + threadIdx.x;
+    const U32  c0 = blockIdx.y * blockDim.y + threadIdx.y; 
+    const U32  n  = blockIdx.z;                      ///< batch id, W index
+    
+    if (c0 < C0 && c1 < C1) {
+        const DU dy   = O[C0 * n + c0];              ///< dY  [2,5,1,1]=>2x[5,1]
+        const DU dyxt = dy * I[C1 * n + c1];         ///< dw += DY @ X^t
+        
         if (c1 == 0) atomicAdd(&DB[c0], dy);         /// * db += dY
+        atomicAdd(&DW[C1 * c0 + c1], dyxt);          /// * dw += dY @ X^t
     }
 }
 
-__KERN__ void k_dlinear_dx(
+__KERN__ void k_dlinear_dx(                          /// * TODO: shuffle-sum
     DU *I, DU *O, DU *W,
-    U64 HWC1, U64 HWC0, U32 C1, U32 C0
+    U32 C0, U32 C1                                   ///< DW[C0,C1], DB[C0]
     ) {
-    const U32 c1 = blockIdx.x * blockDim.x + threadIdx.x;
-    const U32 c0 = blockIdx.y * blockDim.y + threadIdx.y;
-    const U32 n  = blockIdx.z;
- 
-    if (c0 < C0 && c1 < C1) {                         /// * TODO: shuffle-sum
-        const U32 k  = C1 * c0 + c1;                  ///< W[C1,C0] pointer
-        const DU  dy = O[HWC0 * n + c0];              ///< dY [2,5,1,1]
-              DU *x = &I[HWC1 * n + c1];              ///< pointer to X [2,4,4,1]
-        atomicAdd(x, W[k] * dy);                      /// * dX = W^t * dY [16,5]@[5,1]
+    const U32  c1 = blockIdx.x * blockDim.x + threadIdx.x;
+    const U32  c0 = blockIdx.y * blockDim.y + threadIdx.y; 
+    const U32  n  = blockIdx.z;                      ///< batch id, W index
+
+    if (c0 < C0 && c1 < C1) {
+        const DU wtdy = W[C1 * c0 + c1] * O[C0 * n + c0];
+        DU *dx = &I[C1 * n + c1];
+
+        if (c0 == 0) *dx = DU0;                      /// * zero dX
+        __syncthreads();
+        
+        atomicAdd(dx, wtdy);                         /// * dX = W^t * dY [16,5]@[5,1]
     }
 }
 
@@ -302,7 +305,7 @@ Model::_bstep(Tensor &in, Tensor &out) {
 __GPU__ int
 Model::_bconv(Tensor &in, Tensor &out) {
     Tensor &f = *in.grad[0], &df = *in.grad[2];      ///< filter tensors
-    Tensor &b = *in.grad[1], &db = *in.grad[3];      ///< bias tensors
+    Tensor                   &db = *in.grad[3];      ///< bias tensors
 
     NN_DB(" f[%d,%d,%d,%d], b[%ld]", f.N(), f.H(), f.W(), f.C(), b.numel);
 
@@ -339,7 +342,7 @@ Model::_blinear(Tensor &in, Tensor &out) {
     Tensor &w = *in.grad[0], &dw = *in.grad[2];       ///< weight tensors
     Tensor                   &db = *in.grad[3];       ///< bias tensors
     const U32 N  = in.N(),   C0 = w.H(), C1 = w.W();  ///< dimensions
-    const U64 E1 = in.HWC(), E0 = out.HWC();          ///< input, output element count
+    const U64 E1 = in.HWC(), E0 = out.HWC();          ///< input, output element counts (for validation)
     NN_DB("\n\tdw[%d,%d] += out'[%ld,1] @ in^t[1,%ld]", C0, C1, E0, E1);
     NN_DB("\n\tin[%ld,1] = w^t[%d,%d] @ out'[%ld,1]", E1, C1, C0, E0);
     
@@ -349,10 +352,10 @@ Model::_blinear(Tensor &in, Tensor &out) {
             if (train) {
                 DU *dp = dw.data;
                 for (U32 c0 = 0; c0 < C0; c0++) {     /// W[C0,C1]
-                    DU yi = y[c0];
-                    db[c0] += yi;                     /// * db += dY
+                    DU dy = y[c0];
+                    db[c0] += dy;                     /// * db += dY
                     for (U32 c1 =0; c1 < C1; c1++) {
-                        *dp++ += yi * x[c1];          /// * dw += dY @ X^t
+                        *dp++ += dy * x[c1];          /// * dw += dY @ X^t
                     }
                 }
             }
@@ -360,7 +363,7 @@ Model::_blinear(Tensor &in, Tensor &out) {
             for (U32 c1 = 0; c1 < C1; c1++) {         /// * dX = w^t @ dY
                 DU sum = DU0;
                 for (U32 c0 = 0; c0 < C0; c0++) {
-                    sum += wd[c1 + c0 * C1] * y[c0];
+                    sum += wd[C1 * c0 + c1] * y[c0];
                 }
                 x[c1] = sum;
             }
@@ -372,15 +375,14 @@ Model::_blinear(Tensor &in, Tensor &out) {
     }
     else {
         if (train) {
-            FORK3(k_dlinear_dwdb, C1, C0, N,        /// * update dB, dW
-                  in.data, out.data,
-                  dw.data, db.data, E1, E0);
+            FORK3(k_dlinear_dwdb, C0, C1, N,
+                  in.data, out.data, dw.data, db.data);
             CDP_SYNC();
         }
         /// barrier for X (because we did N samples in one grid)
-        in.map(FILL, DU0);                          /// * zero out dX
-        FORK3(k_dlinear_dx, C1, C0, N,              /// * update dX
-              in.data, out.data, w.data, E1, E0);
+        FORK3(
+            k_dlinear_dx, C0, C1, N,                /// * update dB, dW, dX
+            in.data, out.data, w.data);
         CDP_SYNC();
     }
     if (train && *_trace > 1) {
