@@ -98,18 +98,20 @@ Model::add(t4_layer fn, U32 n, DU bias, U16 *opt) {
     case L_SELU:
     case L_LEAKYRL:
     case L_ELU:
-    case L_DROPOUT: _iactivate(in, bias, fn);   break;
+    case L_DROPOUT: _iactivate(in, bias);       break;
     case L_SOFTMAX:
-    case L_LOGSMAX: _icopy(in, fn);             break;
+    case L_LOGSMAX: _icopy(in);                 break;
     case L_AVGPOOL:
     case L_MAXPOOL:
-    case L_MINPOOL: _ipool(in, n, fn);          break;
+    case L_MINPOOL: _ipool(in, n);              break;
     case L_BATCHNM: _ibatchnorm(in, bias);      break;
     case L_USAMPLE: _iup(in, n, bias);          break;
     default: ERROR("Model#add layer %d not supported\n", fn);
     }
     in.grad_fn = fn;                           /// * set layer function name
-    NN_DB("  } Model::add %s\n", d_nname(fn));
+    Tensor &out = (*this)[-1];                 /// * output tensor
+    NN_DB("  } Model::add %s => out[%d,%d,%d,%d]\n",
+          d_nname(fn), out.N(), out.H(), out.W(), out.C());
     
     return *this;
 }
@@ -125,9 +127,9 @@ Model::_iconv(Tensor &in, U32 C0, DU bias, U16 *opt) {
     U16 H0 = (in.H() - Hf + p*2) / s + 1;             ///> output height
     U16 W0 = (in.W() - Wf + p*2) / s + 1;             ///> output width
     
-    NN_DB("    model#add conv2d %dx%d bias=%4.2f", Hf, Wf, bias);
+    NN_DB("    model#iconv %dx%d bias=%4.2f {\n", Hf, Wf, bias);
     if (Hf != Wf || (Hf != 1 && Hf != 3 && Hf != 5)) {
-        ERROR("model#add conv2d f=[%d,%d]? 1x1, 3x3, and 5x5 supported only.\n", Hf, Wf);
+        ERROR("model#iconv f=[%d,%d]? 1x1, 3x3, and 5x5 supported only.\n", Hf, Wf);
         return;
     }
     in.stride[0] = in.stride[1] = s;
@@ -144,21 +146,23 @@ Model::_iconv(Tensor &in, U32 C0, DU bias, U16 *opt) {
     DU k = SQRT(RCP(Hf * Wf * C1));              /// * filter default range
     RAND(*f, k);                                 /// * randomize f [-k, k)
     RAND(*b, bias);                              /// * randomize b [-bias, bias)
+    
 #if MM_DEBUG    
     f->map(FILL, 0.5);                           /// * debug
     b->map(FILL, -0.5);
-#endif // MM_DEBUG
     
-    NN_DB(", k=%6.3f, f.std=%6.3f\nf[%d,%d,%d,%d]=", k, f->std(), C1, Hf, Hf, C0);
+    NN_DB("    f[%d,%d,%d,%d]=", C1, Hf, Hf, C0);
     for (U64 i=0; i<f->numel; i++) NN_DB("%6.3f", f->data[i]);
     NN_DB("\n");
+#endif // MM_DEBUG
     
     Tensor &out= T4(N1, H0, W0, C0);             ///> output tensor
     npush(out);                                  /// * stage for next stage
+    NN_DB("    } model#iconv => k=%6.3f, f.std=%6.3f\n",  k, f->std());
 }
 __GPU__ void
 Model::_ilinear(Tensor &in, U32 C0, DU bias) {
-    NN_DB("    model#add linear bias=%4.2f", bias);
+    NN_DB("    model#ilinear bias=%4.2f {\n", bias);
     U32 N1 = in.N();
     U64 C1 = in.HWC();
     Tensor *w  = in.grad[0] = &T4(1, C0, C1, 1);                  ///> w
@@ -171,55 +175,60 @@ Model::_ilinear(Tensor &in, U32 C0, DU bias) {
     DU k = SQRT(RCP(C1));                         /// * default weight
     RAND(*w, k);                                  /// * randomize w [-k, k)
     RAND(*b, bias);                               /// * randomize b [-bias, bias)
+    
 #if MM_DEBUG    
     w->map(FILL, 0.5);
     b->map(FILL, 0.0);
-#endif // MM_DEBUG    
     
-    NN_DB(", k=%6.3f, w.std=%6.3f\nw[1,%d,%ld,1]", k, w->std(), C0, C1);
+    NN_DB("    w[1,%d,%ld,1]", C0, C1);
     for (U32 c0=0; c0<C0; c0++) {
         NN_DB("\nc0=%d ", c0);
         for (U64 c1=0; c1<C1; c1++) {
             NN_DB("%5.2f", w->data[C1*c0 + c1]);
         }
     }
-    NN_DB("\nout[%d,%d,1,1]\n", N1, C0);
+    NN_DB("\n");
+#endif // MM_DEBUG    
     
     Tensor &out = T4(N1, C0);                    ///> output tensor sizing
     npush(out);                                  /// * stage for next stage
+    NN_DB("    } model#ilinear => k=%6.3f, w.std=%6.3f\n", k, w->std());
 }
 __GPU__ void
 Model::_iflatten(Tensor &in) {
-    NN_DB("    model#add flatten");
+    NN_DB("    model#iflatten {\n");
     Tensor &out = T4(in.N(), (U32)in.HWC());     /// * for backprop
     npush(out);
+    NN_DB("    } model#iflatten\n");
 }
 /// @}
 /// @name Activation ops
 /// @{
 __GPU__ void
-Model::_icopy(Tensor &in, t4_layer fn) {
-	NN_DB("    model#add %s\n", d_nname(fn));
+Model::_icopy(Tensor &in) {
+	NN_DB("    model#icopy {\n");
     Tensor &out = COPY(in);                      ///> output tensor sizing
     npush(out);                                  /// * stage for next stage
+	NN_DB("    } model#icopy\n");
 }
 
 __GPU__ void
-Model::_iactivate(Tensor &in, DU alpha, t4_layer fn) {
-    NN_DB("    model#add %s (alpha=%6.3f)\n", d_nname(fn), alpha);
+Model::_iactivate(Tensor &in, DU alpha) {
+    NN_DB("    model#iactivate alpha=%6.3f {\n", alpha);
     Tensor &out = COPY(in);
     Tensor *msk = in.grad[0] = &COPY(in);        ///> activation mask
 
     in.xparm = alpha;                            /// * keep bias
     
     npush(out);
+    NN_DB("    } model#iactivate\n");
 }
 /// @}
 /// @name Pooling, Dropout, and UpSample ops
 /// @{
 __GPU__ void
-Model::_ipool(Tensor &in, U16 f, t4_layer fn) {
-    NN_DB("    model#add %s %dx%d\n", d_nname(fn), f, f);
+Model::_ipool(Tensor &in, U16 f) {
+    NN_DB("    model#ipool %dx%d {\n", f, f);
     if (f != 2 && f != 3) {
         ERROR("pooling f=%dx%d? 2x2 and 3x3 supported only\n", f, f);
         return;
@@ -232,11 +241,12 @@ Model::_ipool(Tensor &in, U16 f, t4_layer fn) {
     
     Tensor &out = T4(in.N(), H0, W0, in.C());
     npush(out);                                  /// * stage for next stage
+    NN_DB("    } model#ipool\n");
 }
 
 __GPU__ void
 Model::_ibatchnorm(Tensor &in, DU m) {
-    NN_DB("    model#add batchnorm m=%5.3f\n", m);
+    NN_DB("    model#ibatchnorm m=%5.3f {\n", m);
     const int C = in.C();                        /// C0==C1
     in.grad[0] = &VEC(C*2).map(FILL, DU0);       ///> weight/gamma, bias/beta
     in.grad[1] = &VEC(C*2);                      ///> tmp storage
@@ -250,11 +260,12 @@ Model::_ibatchnorm(Tensor &in, DU m) {
     
     Tensor &out = COPY(in);                      /// * retain dimensions
     npush(out);
+    NN_DB("    } model#ibatchnorm\n");
 }
 
 __GPU__ void
 Model::_iup(Tensor &in, U16 f, DU method) {
-    NN_DB("    model#add upsample %dx%d\n", f, f);
+    NN_DB("    model#iup upsample %dx%d {\n", f, f);
     if (f != 2 && f != 3) {
         ERROR("model#upsample f=%dx%d? only 2x2 and 3x3 supported\n", f, f);
         return;
@@ -267,6 +278,7 @@ Model::_iup(Tensor &in, U16 f, DU method) {
     
     Tensor &out = T4(in.N(), H0, W0, in.C());
     npush(out);                                  /// * stage for next stage
+    NN_DB("    } model#iup %dx%d {\n", f, f);
 }
 /// @}
 #endif  // (T4_DO_OBJ && T4_DO_NN)
