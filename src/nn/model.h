@@ -107,12 +107,12 @@ private:
     /// @}
     /// @name Activation ops
     /// @{
-    __GPU__ void   _icopy(Tensor &in, t4_layer fn);                 ///< for softmax, logsoftmax
-    __GPU__ void   _iactivate(Tensor &in, DU alpha, t4_layer fn );  ///< relu, tanh, sigmoid, zero out p% of channel data (add noise between data points)
+    __GPU__ void   _icopy(Tensor &in);                              ///< for softmax, logsoftmax
+    __GPU__ void   _iactivate(Tensor &in, DU alpha);                ///< relu, tanh, sigmoid, zero out p% of channel data (add noise between data points)
     /// @}
     /// @name Pooling and Dropout ops
     /// @{
-    __GPU__ void   _ipool(Tensor &in, U16 f, t4_layer fn);          ///< pooling with nxn filter
+    __GPU__ void   _ipool(Tensor &in, U16 f);       ///< pooling with nxn filter
     __GPU__ void   _ibatchnorm(Tensor &in, DU m);   ///< batch norm with momentum=m
     __GPU__ void   _iup(Tensor &in, U16 f, DU m);   ///< upsample with nxn filter
     /// @}
