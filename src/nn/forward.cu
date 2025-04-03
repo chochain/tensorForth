@@ -184,7 +184,7 @@ __KERN__ void k_batchnorm(
 __GPU__ Model&
 Model::forward(Tensor &input) {
     Tensor &n1 = (*this)[1];    ///< reference model input layer
-    if (1 || *_trace) input.show();  /// * preview input data
+    if (*_trace) input.show();  /// * preview input data
 
     if (input.numel != n1.numel) {
         ERROR("Model::forward dataset wrong shape[%d,%d,%d,%d] != model input[[%d,%d,%d,%d]\n",
@@ -207,13 +207,13 @@ Model::forward(Tensor &input) {
     DU t0 = System::ms(), t1 = t0, tt;           ///< performance measurement
     for (U16 i = 1; i < numel - 1; i++) {
         Tensor &in = (*this)[i], &out = (*this)[i + 1];
-        if (1 || *_trace) {
+        if (*_trace) {
             info((tt=System::ms()) - t1, i, in, out);
             t1 = tt;
         }
         _fstep(in, out);
         
-        if (1 || *_trace > 1) out.show();
+        if (*_trace > 1) out.show();
     }
     ///
     /// collect onehot vector and hit count
@@ -269,7 +269,7 @@ __GPU__ int
 Model::_fconv(Tensor &in, Tensor &out) {
     Tensor &tf = *in.grad[0], &tb = *in.grad[1];          ///< filter, bias tensor
     DU     *f  = tf.data,     *b  = tb.data;              ///< data pointers
-    NN_DB(" nn#_fconv f[%d,%d,%d,%d], b[%ld]\n", tf.N(), tf.H(), tf.W(), tf.C(), tb.numel);
+    NN_DB(" f[%d,%d,%d,%d], b[%ld]\n", tf.N(), tf.H(), tf.W(), tf.C(), tb.numel);
 
     const U32 N = out.N(), H = out.H(), W = out.W();      ///< outpt dimensions
     const U32 C0 = out.C(), C1 = in.C();                  ///< output, input channel deep
@@ -314,11 +314,13 @@ Model::_flinear(Tensor &in, Tensor &out) {
     };
     Tensor &w = *in.grad[0], &b = *in.grad[1];        ///< weight, bias tensors
 
-    NN_DB(" = %d x (w[1,%d,%d,1] @ in[1,%d,%d,%d] + b[%ld])",
+    NN_DB(" %d x (w[1,%d,%d,1] @ in[1,%d,%d,%d] + b[%ld])",
           N, C0, C1, in.H(), in.W(), in.C(), b.numel);
-//    _dump_w("w", w, true);
-//    _dump_b("b", b); 
-    
+#if MM_DEBUG    
+      _dump_w("w", w, true);
+      _dump_b("b", b); 
+#endif // MM_DEBUG
+      
     if (w.numel < T4_DIM_SQ) {                       /// * threshold control
         NN_DB("*");
         qa_calc(w.data, b.data);                     /// * serial code
@@ -328,6 +330,8 @@ Model::_flinear(Tensor &in, Tensor &out) {
               in.data, out.data, w.data, b.data);
         CDP_SYNC();
     }
+    NN_DB("\n");
+    
     return 0;
 }
 
