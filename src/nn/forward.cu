@@ -78,14 +78,17 @@ __KERN__ void k_linear(
     ) {
     const U32 c1 = blockIdx.x * blockDim.x + threadIdx.x;
     const U32 c0 = blockIdx.y * blockDim.y + threadIdx.y;
-    const U32 n  = blockIdx.z;
-    DU sum { (c0 < C0 && c1 < C1) ? W[C1 * c0 + c1] * I[C1 * n + c1] : DU0 };
-    DU *y = &O[C0 * n + c0];
+
+    if (c0 < C0 && c1 < C1) {
+        const U32 n  = blockIdx.z;
+        const DU wx = W[C1 * c0 + c1] * I[C1 * n + c1];
+        DU *y = &O[C0 * n + c0];
     
-    if (c1==0) *y = B[c0];
-    __syncthreads();
+        if (c1==0) *y = B[c0];
+        __syncthreads();
     
-    atomicAdd_block(y, sum);
+        atomicAdd_block(y, wx);
+    }
 }
 
 template<int KS>                                      /// kernel size
