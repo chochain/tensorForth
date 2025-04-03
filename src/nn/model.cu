@@ -85,7 +85,7 @@ Model::add(t4_layer fn, U32 n, DU bias, U16 *opt) {
     Tensor &in = (*this)[-1];
     if (in.grad_fn != L_NONE) return *this;    /// * tensor already setup
 
-    NN_DB("  Model::add %s n=%d bias=%g {\n", d_nname(fn), n, bias);
+    NLOG("  Model::add %s n=%d bias=%g {\n", d_nname(fn), n, bias);
 
     for (int i=0; i<4; i++) in.grad[i] = in.mtum[i] = NULL;
     switch(fn) {
@@ -110,7 +110,7 @@ Model::add(t4_layer fn, U32 n, DU bias, U16 *opt) {
     }
     in.grad_fn = fn;                           /// * set layer function name
     Tensor &out = (*this)[-1];                 /// * output tensor
-    NN_DB("  } Model::add %s => out[%d,%d,%d,%d]\n",
+    NLOG("  } Model::add %s => out[%d,%d,%d,%d]\n",
           d_nname(fn), out.N(), out.H(), out.W(), out.C());
     
     return *this;
@@ -172,7 +172,7 @@ Model::_ilinear(Tensor &in, U32 C0, DU bias) {
     
     in.xparm = bias;                              /// * keep for persistence
     
-    DU k = SQRT(RCP(C1));                         /// * default weight
+    DU k = 2.0 / (C0+C1);                         /// * default weight
     RAND(*w, k);                                  /// * randomize w [-k, k)
     RAND(*b, bias);                               /// * randomize b [-bias, bias)
     
