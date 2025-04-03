@@ -305,7 +305,7 @@ Model::_bstep(Tensor &in, Tensor &out) {
 __GPU__ int
 Model::_bconv(Tensor &in, Tensor &out) {
     Tensor &f = *in.grad[0], &df = *in.grad[2];      ///< filter tensors
-    Tensor                   &db = *in.grad[3];      ///< bias tensors
+    Tensor &b = *in.grad[1], &db = *in.grad[3];      ///< bias tensors
 
     NN_DB(" f[%d,%d,%d,%d], b[%ld]", f.N(), f.H(), f.W(), f.C(), b.numel);
 
