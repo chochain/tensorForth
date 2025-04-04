@@ -39,7 +39,7 @@ class Model : public T4Base {
     Tensor *_hot  = NULL;      ///< cached dataset one-hot vector
     int    _hit   = 0;         ///< hit counter
     int    _iter  = 0;         ///< iteration counter (for Adam)
-    int    *_trace= &_iter;
+    int    *_trace;            ///< trace level
     
 public:
     int    epoch  = 0;         ///< TODO: for learning rate decay
@@ -49,12 +49,15 @@ public:
     static __HOST__ const char* nname(int n);    ///< network layer name on host
     static __GPU__  const char* d_nname(int n);  ///< network layer name on device
     /// @}
+    /// @name constructor (indirect)
+    /// @{
+    __GPU__  void   init(MMU *mmu, Tensor &store, int &trace);
+    /// @}
     /// @name layer access methods
     /// @{
     __BOTH__ Tensor &operator[](S64 i);          ///< 64-bit indexing (negative possible)
     __BOTH__ int    slots();
-    __GPU__  void   reset(MMU *mmu, Tensor &store);
-    __GPU__  void   trace(int &lvl);
+    
     __GPU__  Model  &npush(DU v);
     __GPU__  Model  &npush(Tensor &t);
     __GPU__  DU     npop();

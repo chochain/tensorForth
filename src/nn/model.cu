@@ -22,6 +22,19 @@ Model::d_nname(int i) {
     return name[i];
 }
 /// @}
+/// @{
+/// @name constructor (indirect)
+__GPU__  void
+Model::init(MMU *mmu, Tensor &store, int &trace) {
+    T4Base::init(0, T4_MODEL, 0);           /// * T4Base attributes
+    _mmu   = mmu;                           /// * cached memory controller
+    _store = &store;
+    _trace = &trace;
+    data   = store.data;                    /// * cached entries
+    train  = 1;
+    npush(store);                           /// * model.data[0] = store
+}
+/// @}
 /// @name layer access methods
 /// @{
 __BOTH__ Tensor&
@@ -32,17 +45,6 @@ Model::operator[](S64 i) {
 }
 __BOTH__ int
 Model::slots() { return _store->numel; }
-
-__GPU__  void
-Model::reset(MMU *mmu, Tensor &store, int &trace) {
-    init(0, T4_MODEL, 0);                   /// * T4Base attributes
-    _mmu   = mmu;                           /// * cached memory controller
-    _store = &store;
-    _trace = &trace;
-    data   = store.data;                    /// * cached entries
-    train  = 1;
-    npush(store);                           /// * model.data[0] = store
-}
 
 __GPU__ Model&
 Model::npush(DU v) {
