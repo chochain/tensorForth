@@ -97,12 +97,20 @@ Model::gradient(const char *nm, GdFunc fn, DU *parm, t4_optimizer op) {
         Tensor &g, Tensor &dg, Tensor &m, Tensor &v) {
         NN_DB("     %c[%2d,%2d,%2d,%2d] Σ=%6.3f - %6.3f",
               k, g.N(), g.H(), g.W(), g.C(), g.sum(), dg.sum());
+#if MM_DEBUG        
+        Tensor::_dump(g.data, g.H(), g.W(), g.C());
+        Tensor::_dump(dg.data, dg.H(), dg.W(), dg.C());
         fn(parm, g, dg, m, v);                /// * execute grad function
+        Tensor::_dump(g.data, g.H(), g.W(), g.C());
+        Tensor::_dump(dg.data, dg.H(), dg.W(), dg.C());
+#else  // !MM_DEBUG
+        fn(parm, g, dg, m, v);                /// * execute grad function
+#endif // MM_DEBUG        
         NN_DB(" => %cΣ=%6.3f\n", k, g.sum());
     };
-    NN_DB("Model::%s batch_sz=%d, lr=%7.4f, mtum/b1=%6.3f, b2=%6.3f {\n",
+    NLOG("\nModel::%s starts batch_sz=%d, lr=%7.4f, mtum/b1=%6.3f, b2=%6.3f {\n",
            nm, (*this)[1].N(), parm[0], parm[1], parm[2]);
-    if (_iter++==0) grad_alloc(op);               /// * allocate m & v tensors
+    if (epoch==0 && _iter++==0) grad_alloc(op);   /// * allocate m & v tensors
     if (!train) return *this;                     /// * bail if not in trainning
     ///
     /// cascade execution layer by layer forward
@@ -112,12 +120,15 @@ Model::gradient(const char *nm, GdFunc fn, DU *parm, t4_optimizer op) {
         Tensor &in = (*this)[i];
         Tensor &w  = *in.grad[0], &dw = *in.grad[2];
         Tensor &b  = *in.grad[1], &db = *in.grad[3];
+
+        if (*_trace) INFO("  %d> %s\n", i, d_nname(in.grad_fn));
         
-        NN_DB("  %d> %s\n", i, d_nname(in.grad_fn));
         if (in.mtum[0]) step('w', w, dw, *in.mtum[0], *in.mtum[2]);
         if (in.mtum[1]) step('b', b, db, *in.mtum[1], *in.mtum[3]);
+        
+        break;
     }
-    NN_DB("} Model::%s %5.2f ms\n", nm, System::ms() - t0);
+    NLOG("} Model::%s %5.2f ms\n", nm, System::ms() - t0);
     return *this;
 }
 ///
@@ -133,7 +144,7 @@ Model::sgd(DU lr, DU b) {                          /// b=beta (momentum)
              g.N(), parm[0], parm[1]);
         CDP_SYNC();
     };
-    DU parm[2] = { lr, _iter ? b : DU0 };
+    DU parm[2] = { lr, epoch ? b : DU0 };
 
     return gradient("sgd", update, parm, ABS(b) < DU_EPS ? OPTI_SGD : OPTI_SGDM);
 }
@@ -147,7 +158,7 @@ Model::adam(DU lr, DU b1, DU b2) {
         CDP_SYNC();
     };
     DU parm[3] = {
-        lr * SQRT(DU1 - POW(b2, _iter+1)) / (DU1 - POW(b1, _iter+1)),
+        lr * SQRT(DU1 - POW(b2, epoch+1)) / (DU1 - POW(b1, epoch+1)),
         b1, b2                                    /// * corrected learn rate, betas
         // epoch ? b1 : DU0, epoch ? b2 : DU0     /// ** adjusted init b1, b2
     };
