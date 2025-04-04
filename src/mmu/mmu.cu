@@ -158,12 +158,12 @@ MMU::model(int &trace, U32 sz) {
     MM_DB("mmu#model layers=%d {\n", sz);
     Model  *m = (Model*)_ostore.malloc(sizeof(Model));
     Tensor &t = talloc(sz);        /// * allocate tensor storage
-    m->reset(this, t, trace);
+    m->init(this, t, trace);
     MM_DB("} mmu#model => M:%x\n", OBJ2X(*m));
     return *m;
 }
 
-__GPU__ void                     ///< release tensor memory blocks
+__GPU__ void                       ///< release tensor memory blocks
 MMU::free(Model &m) {
     int n = m.numel;
     MM_DB("mmu#free(N%d) N:%x {\n", n, OBJ2X(m));
