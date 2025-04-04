@@ -132,7 +132,7 @@ public:
     /// neaural network objects
     ///
     __GPU__  Dataset&dataset(U32 batch_sz);                 ///< create a NN dataset
-    __GPU__  Model  &model(U32 sz=T4_NET_SZ);               ///< create a NN model
+    __GPU__  Model  &model(int &trace, U32 sz=T4_NET_SZ);   ///< create a NN model
     __GPU__  void   free(Model &m);
 #endif // T4_DO_NN
     ///

@@ -154,11 +154,11 @@ MMU::dataset(U32 batch_sz) {       /// * Note: data block is not allocated yet
 }
 
 __GPU__ Model&                     ///< create a NN model with NHWC input
-MMU::model(U32 sz) {
+MMU::model(int &trace, U32 sz) {
     MM_DB("mmu#model layers=%d {\n", sz);
     Model  *m = (Model*)_ostore.malloc(sizeof(Model));
     Tensor &t = talloc(sz);        /// * allocate tensor storage
-    m->reset(this, t);
+    m->reset(this, t, trace);
     MM_DB("} mmu#model => M:%x\n", OBJ2X(*m));
     return *m;
 }
