@@ -14,7 +14,7 @@ Model::onehot() {
     if (_hot) return *_hot;
     
     ERROR("ERROR: Model.onehot not provided by dataset, use nn.onehot= to setup!\n");
-    return (*this)[-1];
+    return (*this)[-1];                             ///< return final output tensor
 }
 ///
 ///> feed a tensor as the onehot vector
@@ -57,7 +57,7 @@ Model::onehot(Dataset &dset) {
         DU *h = hot.slice(n);                       ///< take a sample
         U32 c = dset.label[n];                      ///< label index
         h[c < C ? c : 0] = DU1;                     /// * mark hot by index
-        if (1 || *_trace > 1) show(h, n);             /// * might need U32 partition
+        if (*_trace > 1) show(h, n);                /// * might need U32 partition
     }
     return hot;
 }
