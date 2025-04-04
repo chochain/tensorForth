@@ -34,17 +34,16 @@ __BOTH__ int
 Model::slots() { return _store->numel; }
 
 __GPU__  void
-Model::reset(MMU *mmu, Tensor &store) {
+Model::reset(MMU *mmu, Tensor &store, int &trace) {
     init(0, T4_MODEL, 0);                   /// * T4Base attributes
     _mmu   = mmu;                           /// * cached memory controller
     _store = &store;
+    _trace = &trace;
     data   = store.data;                    /// * cached entries
     train  = 1;
     npush(store);                           /// * model.data[0] = store
 }
-__GPU__ void
-Model::trace(int &lvl) { _trace = &lvl; }
-    
+
 __GPU__ Model&
 Model::npush(DU v) {
     data[numel++] = v;
