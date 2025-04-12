@@ -50,6 +50,7 @@ Corpus *Mnist::init(int trace) {
 
 Corpus *Mnist::fetch(int batch_id, int batch_sz, int trace) {
     static int tick = 0;
+    int bid = batch_id + 1;
     int bsz = batch_sz ? batch_sz : N;       ///< batch_sz==0 => entire batch
     if (bsz==0 || (bsz * batch_id) >= N) {   ///< beyond total sample count
         eof=1; return this;
@@ -64,7 +65,6 @@ Corpus *Mnist::fetch(int batch_id, int batch_sz, int trace) {
         ERROR("Mnist::fetch #label=%d != #image=%d\n", b0, b1);
         return NULL;
     }
-    int bid = batch_id + 1;
     if (trace && (++tick == LOG_COUNT)) {
         INFO("\n\tMnist batch %d, loaded=%d/%d\n", bid, bsz * bid, N);
         if (trace > 1) _preview(bsz < 3 ? bsz : 3);     /// * debug print
@@ -127,7 +127,7 @@ int Mnist::_get_labels(int bid, int bsz) {
     t_in.seekg(hdr + bid * bsz);                   /// * seek by batch
     t_in.read((char*)label, bsz);                  /// * fetch batch labels
 
-    int cnt = t_in.gcount();
+    int cnt = t_in.gcount();                       ///< # of labels extracted
 
     char c = t_in.peek();                          ///< check EOF
     eof |= t_in.eof();                             /// * set EOF flag
@@ -144,7 +144,7 @@ int Mnist::_get_images(int bid, int bsz) {
     d_in.seekg(hdr + bid * xsz);                   /// * seek by batch id
     d_in.read((char*)data, xsz);                   /// * fetch batch images
 
-    int cnt = d_in.gcount() / dsize();
+    int cnt = d_in.gcount() / dsize();             ///< # of sample fetched
     
     char c = t_in.peek();                          ///< check EOF
     eof |= d_in.eof();                             /// * set EOF flag
