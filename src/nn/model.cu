@@ -27,11 +27,13 @@ Model::d_nname(int i) {
 __GPU__  void
 Model::init(MMU *mmu, Tensor &store, int &trace) {
     T4Base::init(0, T4_MODEL, 0);           /// * T4Base attributes
-    _mmu   = mmu;                           /// * cached memory controller
-    _store = &store;
-    _trace = &trace;
-    data   = store.data;                    /// * cached entries
-    train  = 1;
+    _mmu     = mmu;                         /// * cached memory controller
+    _store   = &store;
+    _trace   = &trace;
+    data     = store.data;                  /// * cached entries
+    train    = 1;
+    epoch    = 0;
+    max_norm = DU1;                         /// * gradient max std
     npush(store);                           /// * model.data[0] = store
 }
 /// @}
@@ -101,7 +103,7 @@ Model::add(t4_layer fn, U32 n, DU bias, U16 *opt) {
     case L_ELU:
     case L_DROPOUT: _iactivate(in, bias);       break;
     case L_SOFTMAX:
-    case L_LOGSMAX: _icopy(in);                 break;
+    case L_LOGSMAX: _isoftmax(in);              break;
     case L_AVGPOOL:
     case L_MAXPOOL:
     case L_MINPOOL: _ipool(in, n);              break;
@@ -173,7 +175,7 @@ Model::_ilinear(Tensor &in, U32 C0, DU bias) {
     
     in.xparm = bias;                              /// * keep for persistence
     
-    DU k = 2.0 / (C0+C1);                         /// * default weight
+    DU k = SQRT(2.0 / (C0+C1));                   /// * default weight
     RAND(*w, k);                                  /// * randomize w [-k, k)
     RAND(*b, bias);                               /// * randomize b [-bias, bias)
     
@@ -206,11 +208,13 @@ Model::_iflatten(Tensor &in) {
 /// @name Activation ops
 /// @{
 __GPU__ void
-Model::_icopy(Tensor &in) {
-	NN_DB("    model#icopy {\n");
+Model::_isoftmax(Tensor &in) {
+	NN_DB("    model#isoftmax {\n");
     Tensor &out = COPY(in);                      ///> output tensor sizing
+    in.grad[0] = &T4(1,in.H(),in.W(), in.C());   ///> activation mask
+    
     npush(out);                                  /// * stage for next stage
-	NN_DB("    } model#icopy\n");
+	NN_DB("    } model#isoftmax\n");
 }
 
 __GPU__ void
