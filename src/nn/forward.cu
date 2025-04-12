@@ -28,13 +28,12 @@ __KERN__ void k_conv2d(
     DU *I, DU *F, DU *B, DU *O,  ///> input I[HxW], F[KxK] kernel, B[C] bias, output O[HxW]
     U32 H, U32 W, U32 C1         ///< (H0==H1, W0==W1), input channels
     ) {
-    __shared__ DU _I[T4_DIM_SQ];                     ///< shared memory [16x16]
+    __shared__ DU _I[T4_DIM_SZ][T4_DIM_SZ];          ///< shared memory [16x16]
 
     const U32 tx = threadIdx.x, j0 = tx + blockIdx.x * TS;   ///< output coordinates
     const U32 ty = threadIdx.y, i0 = ty + blockIdx.y * TS;   /// * i0,j0=0:15
     const U32 c0 = blockIdx.z,  C0 = gridDim.z;      ///< channel deep
     const U64 z0 = ((U64)W * i0 + j0) * C0 + c0;     ///< output array index
-    const U32 xy = T4_DIM_SZ * ty + tx;              ///< shared mem ptr
     ///
     /// process z0, i.e. [TS, TS, C] cells per kernel call
     ///
@@ -42,12 +41,12 @@ __KERN__ void k_conv2d(
     const int i1 = i0 - (KS >> 1);                   ///< input coordinates
     const int j1 = j0 - (KS >> 1);                   /// * i1,j1=-1:14
 
-    if (i0 < H && j0 < W) O[z0] = B[c0];             /// * init to B
-    
+    if (i0 < H && j0 < W) O[z0] = B[c0];             /// * Y = B
+
     auto g = cg::this_thread_block();                ///< all threads of block
     for (U32 c1 = 0; c1 < C1; c1++) {                ///< each input channel
         const U64 z1 = ((U64)W * i1 + j1) * C1 + c1; ///< one channel at a time
-        _I[xy] =                                     /// * cache input data
+        _I[ty][tx] =                                 /// * cache input data
             (i1 >= 0 && i1 < H && j1 >= 0 && j1 < W) /// * with zero padding
             ? I[z1] : DU0;                           /// * by channel
         g.sync();                                    /// * smem write barrier
@@ -55,18 +54,17 @@ __KERN__ void k_conv2d(
         /// Y = sum(W * X)
         /// TODO: cache F
         ///
-        const U64 zf = (U64)C0 * KSQ * c1 + c0;      ///< filter index [C1,KS,KS,C0]
-        if (tx < TS && ty < TS) {                    /// * each tile
-            DU sum = DU0, *fx = &F[zf];              ///< sum and filter[0]
-            DU *ix = &_I[xy];                        ///< X tile pointer
+        const U32 zf = C0 * KSQ * c1 + c0;           ///< filter index [C1,KS,KS,C0]
+        if (tx < TS && ty < TS) {                    /// * each tile[14x14]
+            DU sum = DU0;                            ///< sum of W * X
+            DU *fx = &F[zf];                         ///< pointer to filter and cached data
             for (int y = 0; y < KS; y++) {           /// * process one KS * KS cell
                 for (int x = 0; x < KS; x++) {       /// * TODO: CC check unroll
-                    sum += (*fx) * ix[x];            /// Y += W * X
+                    sum += (*fx) * _I[ty+y][tx+x];   /// Y += W * X
                     fx  += C0;                       /// * next filter cell
                 }
-                ix += T4_DIM_SZ;                     /// point to next row
             }
-            if (i0 < H && j0 < W) O[z0] += sum;      /// * tally up
+            if (i0 < H && j0 < W) O[z0] += sum;      /// Y += W * X
         }
         g.sync();
     }
@@ -212,7 +210,13 @@ Model::forward(Tensor &input) {
             t1 = tt;
         }
         _fstep(in, out);
-        
+
+        if (_check_nan(out)) {
+            ERROR("Model::forward Nan %s\n", d_nname(in.grad_fn));
+            out.show();
+            this->err = 1;
+            break;
+        }
         if (*_trace > 1) out.show();
     }
     ///
@@ -224,7 +228,6 @@ Model::forward(Tensor &input) {
         _hit = hit(true);                        /// * recalc/cache hit count
     }
     NLOG("\n} Model::forward %5.2f ms\n", System::ms() - t0);
-
     return *this;
 }
 /// ========================================================================
@@ -267,9 +270,8 @@ Model::_fstep(Tensor &in, Tensor &out) {
 
 __GPU__ int
 Model::_fconv(Tensor &in, Tensor &out) {
-    Tensor &tf = *in.grad[0], &tb = *in.grad[1];          ///< filter, bias tensor
-    DU     *f  = tf.data,     *b  = tb.data;              ///< data pointers
-    NN_DB(" f[%d,%d,%d,%d], b[%ld]\n", tf.N(), tf.H(), tf.W(), tf.C(), tb.numel);
+    Tensor &f = *in.grad[0], &b = *in.grad[1];            ///< filter, bias tensor
+    NN_DB(" f[%d,%d,%d,%d], b[%ld]\n", f.N(), f.H(), f.W(), f.C(), b.numel);
 
     const U32 N = out.N(), H = out.H(), W = out.W();      ///< outpt dimensions
     const U32 C0 = out.C(), C1 = in.C();                  ///< output, input channel deep
@@ -281,11 +283,11 @@ Model::_fconv(Tensor &in, Tensor &out) {
 
     for (U32 n = 0; n < N; n++) {
         DU *d1 = in.slice(n), *d0 = out.slice(n);
-        U32 ks = tf.H();
+        U32 ks = f.H();
         switch(ks) {                       /// * TODO: handles rectangular filters
-        case 1: k_conv2d<TSZ(1),1><<<g1,blk>>>(d1, f, b, d0, H, W, C1); break;
-        case 3: k_conv2d<TSZ(3),3><<<g3,blk>>>(d1, f, b, d0, H, W, C1); break;
-        case 5: k_conv2d<TSZ(5),5><<<g5,blk>>>(d1, f, b, d0, H, W, C1); break;
+        case 1: k_conv2d<TSZ(1),1><<<g1,blk>>>(d1, f.data, b.data, d0, H, W, C1); break;
+        case 3: k_conv2d<TSZ(3),3><<<g3,blk>>>(d1, f.data, b.data, d0, H, W, C1); break;
+        case 5: k_conv2d<TSZ(5),5><<<g5,blk>>>(d1, f.data, b.data, d0, H, W, C1); break;
         default:
             ERROR("nn#_fconv kernel_size=%d not supported\n", ks);
             return -1;
@@ -331,7 +333,6 @@ Model::_flinear(Tensor &in, Tensor &out) {
         CDP_SYNC();
     }
     NN_DB("\n");
-    
     return 0;
 }
 
@@ -363,18 +364,17 @@ Model::_fpool(Tensor &in, Tensor &out, t4_layer fn) {
 
 __GPU__ int
 Model::_fsoftmax(Tensor &in, Tensor &out) {
-    const U32 N = in.N(), H = in.H(), W = in.W(), C = in.C();
+    const U32 N = in.N();
     out = in;                                   /// copy content for exe calc
-    out.map(EXP);                               /// * exp(xi)
-    Tensor &t = T4(1, H, W, C);                 ///< create temp tensor for calc
-    DU     *d = t.data;                         ///< cached tensor data
+    Tensor &t = *in.grad[0];                    ///< temp tensor [1,H,W,C]
+    DU     *d = t.data;                         ///< keep data pointer
     for (U32 n = 0; n < N; n++) {               ///< loop thru mini-batch
-        t.data = out.slice(n);                  /// * point to output data slice
-        DU sum = t.sum();                       ///< sum(exp(xi))
-        t.map(MUL, RCP(sum + DU_EPS));          /// * softmax = exp(xi)/sum(exp(xi))
+        t.data = out.slice(n);                  ///< assign a slice to temp tensor
+        t -= t.max();                           ///< down shift (prevent overflow)
+        t.map(EXP);                             /// * softmax = exp(xi)/sum(exp(xi))
+        t.map(MUL, RCP(t.sum() + DU_EPS));      
     }
-    t.data = d;                                 /// * restore tensor data
-    FREE(t);                                    /// * release memory
+    t.data = d;                                 /// * restore data pointer
     return 0;
 }
 
@@ -382,16 +382,15 @@ __GPU__ int
 Model::_flogsoftmax(Tensor &in, Tensor &out) {  /// * TODO: DCP
     out = in;                                   /// * copy in data to out
     out.map(EXP);
-    Tensor &t = T4(1, in.H(), in.W(), in.C());  ///< create tmp tensor
+    Tensor &t = *in.grad[0];                    ///< temp tensor [1,H,W,C];
     DU     *d = t.data;                         ///< cache tensor data
     for (U32 n = 0; n < in.N(); n++) {          /// * loop throught mini-batch
         t.data = out.slice(n);
         DU sum    = t.sum();
-        DU logsum = LOG(sum > DU0 ? sum : DU_EPS);
+        DU logsum = LOG(MAX(sum, DU_EPS));      ///< clamped
         t -= logsum;                            ///< xi - log(sum(exp(xi)))
     }
     t.data = d;                                 /// * restore tensor data pointer
-    FREE(t);                                    /// * release memory
     return 0;
 }
 ///
