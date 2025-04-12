@@ -28,7 +28,7 @@ struct T4Base : public Managed {
             U32   ttype: 3;  ///< t4_obj, 0=tensor, 1=model, 2=dataset, 3=reserved
             U32   rank : 3;  ///< rank of tensor 2:matrix, 4:NHWC tensor
             U32   train: 1;  ///< trainable
-            U32   dunit: 1;  ///< size of data element, F32=0, F64=1
+            U32   err  : 1;  ///< size of data element, F32=0, F64=1
             U32   nref : 8;  ///< reference counter (reserved)
             U32   iparm: 16; ///< integer parameter
             DU    xparm;      ///< float parameter
@@ -39,17 +39,17 @@ struct T4Base : public Managed {
     /// class contructors
     ///
     __HOST__ T4Base() :
-        dunit(DUNIT), numel(0), rank(0) {}
+        numel(0), rank(0), err(0) {}
     __HOST__ T4Base(U64 sz) :
-        dunit(DUNIT), numel(sz), rank(1) {
+        numel(sz), rank(1), err(0) {
         MM_ALLOC((void**)&data, (size_t)numel * sizeof(DU));
     }
     __HOST__ T4Base(U32 h, U32 w) :
-        dunit(DUNIT), numel((U64)h * w), rank(2) {
+        numel((U64)h * w), rank(2), err(0) {
         MM_ALLOC((void**)&data, (size_t)numel * sizeof(DU));
     }
     __HOST__ T4Base(U32 n, U32 h, U32 w, U32 c) :
-        dunit(DUNIT), numel((U64)n * h * w * c), rank(4) {
+        numel((U64)n * h * w * c), rank(4), err(0) {
         MM_ALLOC((void**)&data, (size_t)numel * sizeof(DU));
     }
     __HOST__ ~T4Base() {
@@ -59,8 +59,9 @@ struct T4Base : public Managed {
     __BOTH__ __INLINE__ void init(U64 n, U8 tt, U8 rnk) {
         numel = n;
         ttype = tt;
-        dunit = DUNIT;
         rank  = rnk;
+        train = 0;
+        err   = 0;
         nref  = 1;
         iparm = 0;
         xparm = DU0;
