@@ -9,10 +9,13 @@ NVCC_FLAGS:= \
 	-DCUDA_FORCE_CDP1_IF_SUPPORTED \
 	-D__CDPRT_SUPPRESS_SYNC_DEPRECATION_WARNING \
 	-Isrc $(GL_INCS:%=-I%) \
-	-t=0 -c -std=c++17 -O3 \
-	--device-c --extended-lambda --expt-relaxed-constexpr \
-	--device-debug --debug --use_fast_math \
+	-t=0 -c -std=c++17 -O2 \
+	--device-c --extended-lambda \
+	--expt-relaxed-constexpr \
 	-gencode arch=${CUDA_ARCH},code=${CUDA_CODE}
+
+#	--device-debug --debug --use_fast_math \
+
 
 NV_CC:=${CUDA_HOME}/bin/nvcc $(NVCC_FLAGS)
 
