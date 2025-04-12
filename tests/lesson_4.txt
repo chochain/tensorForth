@@ -47,18 +47,25 @@ constant hot1                     \ store in a constant
 
 hot1                              \ retrieve the one-hot vector
 loss.ce .                         \ calculate network loss
-mstat                             \ obj#used[71]
+
+: xdump
+  mstat
+  -2 nn.w  ." w=" .
+  -2 nn.b  ." b=" .
+  -2 nn.dw ." dw=" .
+  -2 nn.db ." db=" . ;
+xdump
 
 .( #### model back propagation ) cr
 hot1                              \ target one-hot vector on TOS
 backprop                          \ execute backward propegation
-mstat                             \ obj#used[71]
+xdump
 
 .( #### gradiant decent ) cr
 0.001 nn.adam                     \ learn using Adam (b1=0.9, b2=0.999)
-mstat                             \ obj#used[103]
+xdump
 
-0.001 nn.adam                     \ learn again
-mstat                             \ obj#used[103]
+0.001 nn.adam                     \ learn again, check momentum with dw,db = zeros
+xdump
 
 bye
