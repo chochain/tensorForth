@@ -34,7 +34,8 @@ __KERN__ void k_adam(
         const DU dg = DG[j];                                     ///< dG (no batch avg)
         const DU mi = M[j] = b1 * M[j] + (DU1 - b1) * dg;        ///< momentum
         const DU vi = V[j] = b2 * V[j] + (DU1 - b2) * dg * dg;   ///< velocity
-        G[j] -= lrc * mi / (SQRT(vi) + DU_EPS);                  /// * update gradient
+        
+        G[j] -= lrc * mi / (SQRT(vi) + DU_EPS);                  /// * update gradient, clipped
         DG[j] = DU0;                                             /// * zero out dG for next round
     }
 }
@@ -105,11 +106,17 @@ Model::gradient(const char *nm, GdFunc fn, DU *parm, t4_optimizer op) {
         Tensor::_dump(dg.data, dg.H(), dg.W(), dg.C());
 #else  // !MM_DEBUG
         fn(parm, g, dg, m, v);                /// * execute grad function
-#endif // MM_DEBUG        
-        NN_DB(" => %cΣ=%6.3f\n", k, g.sum());
+#endif // MM_DEBUG
+        DU sum0 = g.sum(), std = g.std();
+        NN_DB(" => %cΣ=%6.3f std=%6.3f", k, sum0, std);
+        if (std > parm[3]) {
+            g *= parm[3] / std;
+            NN_DB(" => adj. %cΣ=%6.3f\n");
+        }
+        else NN_DB("\n");
     };
-    NLOG("\nModel::%s starts batch_sz=%d, lr=%7.4f, mtum/b1=%6.3f, b2=%6.3f {\n",
-           nm, (*this)[1].N(), parm[0], parm[1], parm[2]);
+    NLOG("\nModel::%s starts batch_sz=%d, lr=%7.4f, mtum/b1=%6.3f, b2=%6.3f max_norm=%6.3f {\n",
+         nm, (*this)[1].N(), parm[0], parm[1], parm[2], parm[3]);
     if (epoch==0 && _iter++==0) grad_alloc(op);   /// * allocate m & v tensors
     if (!train) return *this;                     /// * bail if not in trainning
     ///
@@ -125,8 +132,6 @@ Model::gradient(const char *nm, GdFunc fn, DU *parm, t4_optimizer op) {
         
         if (in.mtum[0]) step('w', w, dw, *in.mtum[0], *in.mtum[2]);
         if (in.mtum[1]) step('b', b, db, *in.mtum[1], *in.mtum[3]);
-        
-        break;
     }
     NLOG("} Model::%s %5.2f ms\n", nm, System::ms() - t0);
     return *this;
@@ -138,13 +143,13 @@ Model::gradient(const char *nm, GdFunc fn, DU *parm, t4_optimizer op) {
 ///
 __GPU__ Model&
 Model::sgd(DU lr, DU b) {                          /// b=beta (momentum)
-    auto update = [](DU *parm, Tensor &g, Tensor &dg, Tensor &m, Tensor &v) {
+    auto update = [](DU parm[4], Tensor &g, Tensor &dg, Tensor &m, Tensor &v) {
         FORK1(k_sgd, g.numel, 
              g.data, dg.data, m.data,
-             g.N(), parm[0], parm[1]);
+             g.N(), parm[1], parm[2]);
         CDP_SYNC();
     };
-    DU parm[2] = { lr, epoch ? b : DU0 };
+    DU parm[4] = { lr, epoch ? b : DU0, DU0, max_norm };
 
     return gradient("sgd", update, parm, ABS(b) < DU_EPS ? OPTI_SGD : OPTI_SGDM);
 }
@@ -157,10 +162,9 @@ Model::adam(DU lr, DU b1, DU b2) {
              g.N(), parm[0], parm[1], parm[2]);
         CDP_SYNC();
     };
-    DU parm[3] = {
+    DU parm[4] = {                    ///< learn rate, betas
         lr * SQRT(DU1 - POW(b2, epoch+1)) / (DU1 - POW(b1, epoch+1)),
-        b1, b2                                    /// * corrected learn rate, betas
-        // epoch ? b1 : DU0, epoch ? b2 : DU0     /// ** adjusted init b1, b2
+        b1, b2, max_norm
     };
     return gradient("adam", update, parm, OPTI_ADAM);
 }
