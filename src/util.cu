@@ -544,7 +544,7 @@ k_identity(float *t, int H, int W) {                          ///< identity matr
     }
 }
 
-#define DU_LNX   1.0e-12                                      /* log clamp */
+#define DU_LNX   1.0e-12                                      /** log clamp */
 __KERN__ void
 k_math(math_op op, float *A, float v, long n) {               ///< self modifying ops
     for (long j = threadIdx.x; j < n; j += blockDim.x) {
@@ -552,7 +552,7 @@ k_math(math_op op, float *A, float v, long n) {               ///< self modifyin
         switch(op) {
         case ABS:   A[j] = ABS(ak);                   break;
         case NEG:   A[j] = NEG(ak);                   break;
-        case EXP:   A[j] = EXP(ak);                   break;
+        case EXP:   A[j] = EXP(ak);                   break;  /// * clamped
         case LN:    A[j] = LN(MAX(ak, DU_LNX));       break;  /// * clamped
         case LOG:   A[j] = LOG(MAX(ak, DU_LNX));      break;  /// * clamped
         case TANH:  A[j] = TANH(ak);                  break;
@@ -611,4 +611,28 @@ k_bce(float *O, float *T, long n) {
 //        O[i] = ABS(T[i]) < DU_EPS ? LN(DU1 - O[i] + DU_EPS) : LN(O[i] + DU_EPS);
         O[j] = T[j] * LN(O[j] + DU_EPS) + (1.0f - T[j]) * LN(1.0f - O[j] + DU_EPS);
     }
+}
+///
+///> check Nan or Inf
+///
+__KERN__ void
+k_nan_inf(float *src, int *cnt, long numel) {
+    const long j  = (long)blockIdx.x*blockDim.x + threadIdx.x; ///< element index
+    int vi = j < numel && (isnan(src[j]) || isinf(src[j])) ? 1 : 0;
+    ///
+    /// prefix sum every 32-threaded tile
+    ///
+    auto tp = cg::tiled_partition<32>(cg::this_thread_block());
+    auto shfl_sum = [](cg::thread_block_tile<32> tp, int v) {
+        for (int k = 16; k > 0; k >>= 1) {
+            v += tp.shfl_down(v, k);
+        }
+        return v;
+    };
+    vi = shfl_sum(tp, vi);
+    ///
+    /// sum up atomically
+    /// slower than grid-stride loop when blocks are many
+    ///
+    if (tp.thread_rank() == 0) atomicAdd_block(cnt, vi);      ///< serialize sum
 }
