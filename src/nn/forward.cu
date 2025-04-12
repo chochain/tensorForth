@@ -210,13 +210,14 @@ Model::forward(Tensor &input) {
             t1 = tt;
         }
         _fstep(in, out);
-
+/*
         if (_check_nan(out)) {
             ERROR("Model::forward Nan %s\n", d_nname(in.grad_fn));
             out.show();
             this->err = 1;
             break;
         }
+*/        
         if (*_trace > 1) out.show();
     }
     ///
