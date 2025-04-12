@@ -26,6 +26,12 @@ k_var1(DU *I, DU avg, DU *var, U64 numel) {
 }
 
 __KERN__ void
+k_norm1(DU *I, DU *nrm, U64 numel) {
+    DU const nv = { d_nvar(I, DU0, numel) };
+    if (threadIdx.x == 0 && numel) *nrm = nv;
+}
+
+__KERN__ void
 k_matmul(
     DU *A, DU *B, DU *O,   /* O[H*W*C] = A[H*K*C] @ B[K*W*C] */
     t4_mm_opt opt,
@@ -114,20 +120,20 @@ Tensor::ten_op(math_op op, Tensor &A, Tensor &B, Tensor &O) {
     return O;
 }
 __GPU__ Tensor&
-Tensor::sum(Tensor &A, Tensor &O) {
+Tensor::batchsum(Tensor &A, Tensor &O) {
     U32 N = A.N(), H = A.H(), W = A.W(), C = A.C();
-    MM_DB("  tensor#sum A[%d,%d,%d,%d] => O[%d, %d]\n", N, H, W, C, N, C);
+    MM_DB("  tensor#batchsum A[%d,%d,%d,%d] => O[%d, %d]\n", N, H, W, C, N, C);
     O.fill(DU0);
     FORK4(k_batchsum, A.data, O.data, (U64)H*W);
     CDP_SYNC();
     return O;
 }
 __GPU__ Tensor&
-Tensor::var(Tensor &A, Tensor &G, Tensor &O) {
+Tensor::batchvar(Tensor &A, Tensor &G, Tensor &O) {
     U32 N = A.N(), H = A.H(), W = A.W(), C = A.C();
     U64 NHW = (U64)N*H*W;
-    MM_DB("  tensor#var A[%d,%d,%d,%d] => O[%d,%d]\n", N, H, W, C, N, C);
-    sum(A, G);
+    MM_DB("  tensor#batchvar A[%d,%d,%d,%d] => O[%d,%d]\n", N, H, W, C, N, C);
+    batchsum(A, G);
     G *= DU1 / NHW;
     O.fill(DU0);
     FORK4(k_batchnvar, A.data, G.data, O.data, (U64)H*W);
@@ -382,8 +388,14 @@ Tensor::plu(Tensor &A, Tensor &P, int *ns) {
 __GPU__ DU
 Tensor::sum() {
     static DU z;                                    ///< shared static memory
-    FORK1(k_sum1, numel, data, &z);
-    CDP_SYNC();
+    if (numel < T4_DIM_SZ) {                        /// * cheaper for small loop
+        z = DU0;
+        for (int i = 0; i < numel; i++) z += data[i];
+    }
+    else {
+        FORK1(k_sum1, numel, data, &z);
+        CDP_SYNC();
+    }
     return SCALAR(z);
 }
 __GPU__ DU
@@ -394,10 +406,19 @@ Tensor::avg() {
 __GPU__ DU
 Tensor::std() {
     static DU var;
-    FORK1(k_var1, numel, data, avg(), &var);     /// * 8x straight loop
+    FORK1(k_var1, numel, data, avg(), &var);       /// * 8x straight loop
     CDP_SYNC();
 
     DU v = numel ? SQRT(var) : DU0;
+    return SCALAR(v);
+}
+__GPU__ DU
+Tensor::norm() {
+    static DU n;
+    FORK1(k_norm1, numel, data, &n);
+    CDP_SYNC();
+
+    DU v = numel ? SQRT(n) : DU0;
     return SCALAR(v);
 }
 __GPU__ DU
@@ -463,6 +484,14 @@ Tensor::loss(t4_loss op, Tensor &tgt) {
     z /= numel;                      /// * mini-batch average
     
     return SCALAR(z);                /// make sum a scalar value (not object)
+}
+__GPU__ U32
+Tensor::has_nan() {
+    static int cnt;
+    cnt = 0;
+    FORK1(k_nan_inf, numel, data, &cnt);
+    CDP_SYNC();
+    return cnt;
 }
 ///=======================================================================
 /// linear algebra methods
