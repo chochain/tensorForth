@@ -31,7 +31,9 @@ NetVM::_nnop(t4_layer op) {     /// vtable dispatcher
         case L_TANH:    t.map(TANH);           return ok();
         case L_SIGMOID: t.map(SIGM);           return ok();
         case L_SOFTMAX:
-            t.map(MUL, RCP(t.sum() + DU_EPS)); return ok();
+            t -= t.max();                      ///< down shift (prevent overflow)
+            t.map(EXP);
+            t.map(MUL, RCP(t.sum()));          return ok();
         case L_LOGSMAX:
             DU sum = t.sum();
             if (sum > DU_EPS) t -= LOG(sum);
@@ -201,6 +203,44 @@ NetVM::_conv(U16 k) {
     VLOG("} NetVM::conv\n");
 }
 ///
+/// forward propegation handler
+///
+__GPU__ void
+NetVM::_forward() {
+    if (IS_M(ss[-1]) && TOS1D) {                  /// * TOS is a dataset
+        DU x = POP();                             /// * NOS is the model
+        MTOS.forward((Tensor&)mmu.du2obj(x));     /// * exec forward path
+        if (MTOS.err) state = STOP;               /// * bail if error
+        DROP(x);                                  /// * release reference
+    }
+    else if (IS_M(tos) && IS_OBJ(rs[-1])) {       /// * in a for/next loop
+        Tensor &t = (Tensor&)mmu.du2obj(rs[-1]);  /// * rs[-1] is a dataset
+        if (t.is_dataset()) {
+            MTOS.forward(t);
+            if (MTOS.err) { rs.pop(); state = STOP; }
+        }
+        else ERROR("rs[-1] is not a dataset?\n");
+    }
+    else ERROR("no NN model nor a dataset?\n");
+}
+///
+/// backward propegation handler
+///
+__GPU__ void
+NetVM::_backprop() {
+    if (IS_M(ss[-1]) && TOS1T) {                  /// * TOS is a onehot vector
+        DU y = POP();                     
+        MTOS.backprop((Tensor&)mmu.du2obj(y));    /// * backprop(target vector)
+        if (MTOS.err) state = STOP;               /// * bail if error
+        DROP(y);                                  /// * release onehot tensor
+    }
+    else if (IS_M(tos)) {                         /// * use default output
+        MTOS.backprop();                          
+        if (MTOS.err) state = STOP;
+    }
+    else ERROR("TOS not a NN model?\n");
+}
+///
 /// loss functions
 ///
 __GPU__ void
@@ -332,6 +372,9 @@ NetVM::init() {
              MTOS.adam(lr);                   /// * default b1=0.9, b2=0.999
          }
          else ERROR("rate beta1 nn.adam?\n"));
+    CODE("nn.max_norm",
+         if (M1V) MTOS.max_norm = POP();      /// * set max gradient normal
+         else ERROR("norm model?\n"));
     ///@}
     ///@defgroup Batch Control ops
     ///@{
@@ -349,26 +392,8 @@ NetVM::init() {
          sys.op_fn(dsn));                       /// * send dataset name
     CODE("fetch",  scall(OP_FETCH, 0, tos));    /// * fetch a dataset batch
     CODE("rewind", scall(OP_FETCH, 1, tos));    /// * rewind a dataset (batch_id=0)
-    CODE("forward",                             /// * forward process
-         if (IS_M(ss[-1]) && TOS1D) {           /// * TOS is a dataset
-             DU x = POP();                      /// * NOS is the model
-             MTOS.forward((Tensor&)mmu.du2obj(x));     /// * exec forward path
-             DROP(x);                           /// * release reference
-         }
-         else if (IS_M(tos) && IS_OBJ(rs[-1])) {       /// * in a for/next loop
-             Tensor &t = (Tensor&)mmu.du2obj(rs[-1]);  /// * rs[-1] is a dataset
-             if (t.is_dataset()) MTOS.forward(t);
-             else ERROR("rs[-1] is not a dataset?\n");
-         }
-         else ERROR("no model or a dataset?\n"));
-    CODE("backprop",
-         if (IS_M(ss[-1]) && TOS1T) {                  /// * TOS is a onehot vector
-             DU y = POP();                     
-             MTOS.backprop((Tensor&)mmu.du2obj(y));    /// * backprop(target vector)
-             DROP(y);
-         }
-         else if (IS_M(tos)) MTOS.backprop();          /// * use default output
-         else ERROR("TOS not a model?\n"));
+    CODE("forward", _forward());                /// * forward propegation
+    CODE("backprop",_backprop());               /// * back propegation
     CODE("broadcast",
          if (IS_M(ss[-1]) && TOS1T) {                  /// * TOS is a onehot vector
              DU y = POP();
@@ -396,14 +421,14 @@ NetVM::init() {
          if (!IS_OBJ(tos)) return;
          Tensor &A = TTOS;
          Tensor &O = mmu.tensor(A.C());
-         Tensor::sum(A, O);
+         Tensor::batchsum(A, O);
          PUSH(O));
     CODE("bvar",
          if (!IS_OBJ(tos)) return;
          Tensor &A = TTOS;
          Tensor &O = mmu.tensor(A.C());
          Tensor &G = COPY(O);
-         Tensor::var(A, G, O);
+         Tensor::batchvar(A, G, O);
          PUSH(O);
          FREE(G));
     ///
