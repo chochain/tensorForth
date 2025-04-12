@@ -467,6 +467,7 @@ TensorVM::init() {
     CODE("sum",       if (TOS1T) PUSH(TTOS.sum()));
     CODE("avg",       if (TOS1T) PUSH(TTOS.avg()));
     CODE("std",       if (TOS1T) PUSH(TTOS.std()));
+    CODE("norm",      if (TOS1T) PUSH(TTOS.norm()));
     CODE("{",         if (TOS1T && ten_lvl > 0) ++ten_lvl);
     CODE("}",         if (TOS1T && ten_lvl > 0) --ten_lvl);
     CODE("slice",
