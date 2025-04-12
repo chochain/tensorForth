@@ -9,6 +9,14 @@
 #if (T4_DO_OBJ && T4_DO_NN)
 #include "dataset.h"
 
+__GPU__ int
+Model::_check_nan(Tensor &t) {
+    static int cnt; cnt = 0;
+    FORK1(k_nan_inf, t.numel, t.data, &cnt);
+    CDP_SYNC();
+    return cnt;
+}
+
 __GPU__ void
 Model::_dump_f(const char *fn, Tensor &f) {
     DU sum = DU0;
