@@ -1,4 +1,5 @@
 .( ## MNIST convolution model comparison ## ) cr
+0 trace
 : nn_a ( N -- N' )                          \ simple model with 2 hidden layers
   100 linear relu                           \ 1st hidden layer with relu activation
   10 linear softmax ;                       \ 2nd hidden layer with softmax output
@@ -37,13 +38,13 @@
 variable hit 0 hit !                \ create var for hit counter, and zero it
 variable lox                        \ create var for epoch latest loss
 : stat cr .                         \ display statistics
-  ." , t="  clock 1000 / int .      \ time in seconds
+  ." , t="  clock 1000 / f>s .      \ time in seconds
   ." , hit="  hit @ . 0 hit !
   ." , loss=" lox @ . cr ;
 
 \ model
-50 28 28 1 nn.model                 \ create a model (50 per batch of 28x28x1 img)
-nn_a                                \ use neural network model
+50 28 28 1 nn.model                 \ create a model (64 per batch of 28x28x1 img)
+nn_c                                \ use neural network mode
 constant md0                        \ keep as a constant
 
 \ dataset
@@ -52,6 +53,11 @@ constant ds0                        \ keep dataset in a constant
 
 \ CNN framework
 0.001 constant lr                   \ init learning rate (for Adam)
+variable ni 0 ni !
+: hint                              \ display a dot (progress)
+  ni @ 1+ dup ni !
+  10 mod 0 =
+  if 46 emit 0 ni ! then ;
 : epoch ( N ds -- N' )              \ one epoch thru entire dataset
   for                               \ fetch a mini-batch
     forward                         \ neural network forward pass
@@ -59,19 +65,20 @@ constant ds0                        \ keep dataset in a constant
     backprop                        \ neural network back propegation
     \ 0.01 nn.sgd                     \ train with Stochastic Gradient Descent
     lr nn.adam                      \ train with Adam Gradient Descent (b1=0.9,b2=0.999)
-    46 emit
+    hint
   next ;
-: cnn ( N ds n -- N' )              \ run multiple epochs
+: cnn ( N ds n -- N' ) 1-           \ run multiple epochs
   for
     epoch r@ stat                   \ run one epoch, display statistics
     lr 0.9 * [to] lr                \ decay learning rate
     ds0 rewind                      \ rewind entire dataset 
-  next ;   
+  next ;
 
+network
 ds0                                 \ push dataset as TOS
-19 cnn                              \ execute multiple epoches
+20 cnn                              \ execute multiple epoches
 
-drop                                \ drop dataset
-s" model/l5_c.t4" save              \ save trainned model
+\ drop                                \ drop dataset
+\ s" model/l5_c.t4" save              \ save trainned model
 
 bye
