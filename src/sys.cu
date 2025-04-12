@@ -84,7 +84,7 @@ __HOST__ void    System::free_sys() { if (_sys) delete _sys; }
 ///@name cross platform timing support
 ///
 __GPU__ DU
-System::ms() { return static_cast<double>(clock()) / _khz; }
+System::ms() { return static_cast<double>(clock64()) / _khz; }
 
 __GPU__ void
 System::delay(int ticks) {
