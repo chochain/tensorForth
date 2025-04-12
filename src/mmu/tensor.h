@@ -91,8 +91,6 @@ struct Tensor : public T4Base {
     ///
     static __GPU__  Tensor &ten_op(math_op op, Tensor &A, DU v, Tensor &O);       ///> matrix-scalar element-wise ops
     static __GPU__  Tensor &ten_op(math_op op, Tensor &A, Tensor &B, Tensor &O);  ///> matrix-matrix element-wise ops (Hadamard)
-    static __GPU__  Tensor &sum(Tensor &A, Tensor &O);
-    static __GPU__  Tensor &var(Tensor &A, Tensor &G, Tensor &O);
     static __GPU__  Tensor &mm(Tensor &A, Tensor &B, Tensor &O, t4_mm_opt opt=MM_NONE);
     static __GPU__  Tensor &gemm(Tensor &A, Tensor &B, Tensor &O, DU alpha, DU beta);
     static __GPU__  Tensor &copy(Tensor &A, Tensor &O);
@@ -101,6 +99,8 @@ struct Tensor : public T4Base {
     static __GPU__  Tensor &lu(Tensor &A);                  /// LU (no Pivot)
     static __GPU__  Tensor &lu_inverse(Tensor &LU);         /// inverse a pre-processed LU (no Pivot)
     static __GPU__  Tensor &plu(Tensor &A, Tensor &P, int *ns);/// LU with permutation vector
+    static __GPU__  Tensor &batchsum(Tensor &A, Tensor &O);
+    static __GPU__  Tensor &batchvar(Tensor &A, Tensor &G, Tensor &O);
     ///
     /// class contructors
     ///
@@ -145,19 +145,21 @@ struct Tensor : public T4Base {
     ///
     /// tensor arithmetics
     ///
-    __GPU__  DU     sum();                    ///< sum up all elements
-    __GPU__  DU     avg();                    ///< mean
-    __GPU__  DU     std();                    ///< population standard deviation
+    __GPU__  DU     sum();                       ///< sum up all elements
+    __GPU__  DU     avg();                       ///< mean
+    __GPU__  DU     std();                       ///< population standard deviation
+    __GPU__  DU     norm();                      ///< L2 norm i.e. ||v||
     __GPU__  DU     max();
     __GPU__  DU     min();
     __GPU__  DU     dot(Tensor &B);
     __GPU__  DU     loss(t4_loss op, Tensor &tgt);
+    __GPU__  U32    has_nan();
     ///
     /// linear algebra methods
     ///
-    __GPU__  DU     det();                    ///< matrix determinant
-    __GPU__  Tensor &triu();                  ///< upper triangle
-    __GPU__  Tensor &tril();                  ///< lower triangle
+    __GPU__  DU     det();                       ///< matrix determinant
+    __GPU__  Tensor &triu();                     ///< upper triangle
+    __GPU__  Tensor &tril();                     ///< lower triangle
     ///
     /// tensor life-cycle ops
     ///
