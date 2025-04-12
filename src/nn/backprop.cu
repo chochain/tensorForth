@@ -16,15 +16,14 @@ __KERN__ void k_dconv2d(
     DU *I, DU *F, DU *DF, DU *DB, DU *O,   ///< input I[HxW], F,DF[KSxKS], output O[HxW]
     int H, int W, int C0, bool train       ///< H1==H0, W1==W0, output Channels
     ) {
-    __shared__ DU _I[T4_DIM_SQ];                     ///< input cache tile [16x16]
-    __shared__ DU _O[T4_DIM_SQ];                     ///< output cache tile [16x16]
+    __shared__ DU _I[T4_DIM_SZ][T4_DIM_SZ];          ///< input cache tile [16x16]
+    __shared__ DU _O[T4_DIM_SZ][T4_DIM_SZ];          ///< output cache tile [16x16]
 
     const U32 KSQ= KS * KS;                          ///< save some muliplications
     const U32 tx = threadIdx.x, j1 = tx + blockIdx.x * TS;
     const U32 ty = threadIdx.y, i1 = ty + blockIdx.y * TS;
     const U32 c1 = blockIdx.z,  C1 = gridDim.z;      ///< channel deep
     const U64 z1 = ((U64)W * i1 + j1) * C1 + c1;     ///< input array index
-    const U32 xy = T4_DIM_SZ * ty + tx;
     ///
     /// process z1, i.e. [TS, TS, C1] cells per kernel call
     ///
@@ -34,36 +33,34 @@ __KERN__ void k_dconv2d(
     auto g = cg::this_thread_block();                ///< group all threads
 
     if (i1 < H && j1 < W) {
-        _I[xy] = I[z1];                              /// * cached X (input) tile
+        _I[ty][tx] = I[z1];                          /// * cached X (input) tile
         I[z1]  = DU0;                                /// * zero dX
     }
-    else _I[xy] = DU0;                               /// * zero when out of range
+    else _I[ty][tx] = DU0;                           /// * zero when out of range
 
     for (U32 c0 = 0; c0 < C0; c0++) {                ///< each dY channel
         const U64 z0 = ((U64)W * i0 + j0) * C0 + c0; ///< output array index
-        _O[xy] =                                     /// * cache dY (output) tile
+        _O[ty][tx] =                                 /// * cache dY (output) tile
             (i0 >= 0 && i0 < H && j0 >= 0 && j0 < W) /// * with zero padding
             ? O[z0] : DU0;                           /// * by channel
         g.sync();                                    /// * smem write barrier
         
         if (train && c1 == 0) {
-            atomicAdd(&DB[c0], _O[xy]);              /// * dB[c0] += dY[c0]
+            atomicAdd(&DB[c0], _O[ty][tx]);          /// * dB[c0] += dY[c0]
         }
         const U64 zf = (U64)C0 * KSQ * c1 + c0;      ///< filter index F[C1,KS,KS,C0]
-        if (tx < TS && ty < TS) {                    /// * within tile [12x12]
+        if (tx < TS && ty < TS) {                    /// * within tile [14x14]
             DU *fx = &F[zf + (KSQ - 1) * C0];        ///< F[c1,KS-1,KS-1,c0] i.e. rot180
             DU sum = DU0, *dfx= &DF[zf];             ///< dX sum, DF[c1,0,0,c0] (TSxTS threads)
-            DU *ox = &_O[xy], *ix = &_I[xy];         ///< dY, X tiles pointers
             for (U32 y = 0; y < KS; y++) {           /// * process one KS * KS cell
                 for (U32 x = 0; x < KS; x++) {
-                    sum += (*fx) * ox[x];            /// * dX += F' @ dY (for each C1)
+                    DU dy = _O[ty+y][tx+x];          ///< dY
+                    sum += (*fx) * dy;               /// * dX += F' @ dY (for each C1)
                     fx  -= C0;                       /// * walk F backward (i.e. rot 180)
                     if (!train) continue;            /// * TODO: CC, does this breaks unroll?
-                    atomicAdd(dfx, ox[x] * ix[x]);   /// * dF += dY * X (TSxTS threads)
+                    atomicAdd(dfx, dy * _I[ty+y][tx+x]);   /// * dF += dY * X (TSxTS threads)
                     dfx += C0;                       /// * DF[c1,0,1,c0]
                 }
-                ox += T4_DIM_SZ;                     /// * point to next rows
-                ix += T4_DIM_SZ;
             }
             if (i1 < H && j1 < W) I[z1] += sum;      /// * collect dX (per C1)
         }
@@ -317,6 +314,7 @@ Model::_bconv(Tensor &in, Tensor &out) {
     dim3 g3(TILE(W,TSZ(3)), TILE(H,TSZ(3)), C1);
     dim3 g5(TILE(W,TSZ(5)), TILE(H,TSZ(5)), C1);
 
+    if (*_trace > 1) { _dump_b("db", db); _dump_f("df", df); }
     for (U32 n = 0; n < N; n++) {                   ///< accumulative over N samples
         DU *d1 = in.slice(n), *d0 = out.slice(n);
         const U32 ks = f.H();                       ///< kernel size
@@ -333,14 +331,14 @@ Model::_bconv(Tensor &in, Tensor &out) {
         }
         CDP_SYNC();
     }
-    if (*_trace > 1) { _dump_b("db", db); _dump_f("df", df); }
+    if (*_trace > 1) { _dump_b("b", b); _dump_f("f", f); }
     return 0;
 }
 
 __GPU__ int
 Model::_blinear(Tensor &in, Tensor &out) {
     Tensor &w = *in.grad[0], &dw = *in.grad[2];       ///< weight tensors
-    Tensor                   &db = *in.grad[3];       ///< bias tensors
+    Tensor &b = *in.grad[1], &db = *in.grad[3];       ///< bias tensors
     const U32 N  = in.N(),   C0 = w.H(), C1 = w.W();  ///< dimensions
     const U64 E1 = in.HWC(), E0 = out.HWC();          ///< input, output element counts (for validation)
     NN_DB("\n\tdw[%d,%d] += out'[%ld,1] @ in^t[1,%ld]", C0, C1, E0, E1);
