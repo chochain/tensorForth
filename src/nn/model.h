@@ -34,15 +34,17 @@ typedef void (*GdFunc)(
 #define NLOG(...)             { if (*_trace) INFO(__VA_ARGS__); }
 
 class Model : public T4Base {
-    MMU    *_mmu;              ///< memory controller
-    Tensor *_store;            ///< model storage - Sequential, TODO: DAG
-    Tensor *_hot  = NULL;      ///< cached dataset one-hot vector
-    int    _hit   = 0;         ///< hit counter
-    int    _iter  = 0;         ///< iteration counter (for Adam)
-    int    *_trace;            ///< trace level
+    MMU    *_mmu;                ///< memory controller
+    Tensor *_store;              ///< model storage - Sequential, TODO: DAG
+    Tensor *_hot    = NULL;      ///< cached dataset one-hot vector
+    int    _hit     = 0;         ///< hit counter
+    int    _iter    = 0;         ///< iteration counter (for Adam)
+    int    *_trace;              ///< trace level
+    int    _err     = 0;
     
 public:
-    int    epoch  = 0;         ///< TODO: for learning rate decay
+    DU     max_norm = DU1 * 5;   ///< gradient clipping
+    int    epoch    = 0;         ///< TODO: for learning rate decay
     ///
     /// @name Derivertive ops
     /// @{
@@ -110,7 +112,7 @@ private:
     /// @}
     /// @name Activation ops
     /// @{
-    __GPU__ void   _icopy(Tensor &in);                              ///< for softmax, logsoftmax
+    __GPU__ void   _isoftmax(Tensor &in);                           ///< for softmax, logsoftmax
     __GPU__ void   _iactivate(Tensor &in, DU alpha);                ///< relu, tanh, sigmoid, zero out p% of channel data (add noise between data points)
     /// @}
     /// @name Pooling and Dropout ops
@@ -144,6 +146,7 @@ private:
     /// @}
     /// @name debug functions
     /// @{
+    __GPU__ int    _check_nan(Tensor &t);
     __GPU__ void   _dump_f(const char *fn, Tensor &f);
     __GPU__ void   _dump_b(const char *bn, Tensor &b);
     __GPU__ void   _dump_w(const char *wn, Tensor &w, bool full=true);
