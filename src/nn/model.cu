@@ -164,18 +164,18 @@ Model::_iconv(Tensor &in, U32 C0, DU bias, U16 *opt) {
     NN_DB("    } model#iconv => k=%6.3f, f.std=%6.3f\n",  k, f->std());
 }
 __GPU__ void
-Model::_ilinear(Tensor &in, U32 C0, DU bias) {
+Model::_ilinear(Tensor &in, U32 E0, DU bias) {
     NN_DB("    model#ilinear bias=%4.2f {\n", bias);
     U32 N1 = in.N();
-    U64 C1 = in.HWC();
-    Tensor *w  = in.grad[0] = &T4(1, C0, C1, 1);                  ///> w
-    Tensor *dw = in.grad[2] = &T4(1, C0, C1, 1).map(FILL, DU0);   ///> dw
-    Tensor *b  = in.grad[1] = &VEC(C0);                           ///> b
-    Tensor *db = in.grad[3] = &VEC(C0).map(FILL, DU0);            ///> db
+    U64 E1 = in.HWC();
+    Tensor *w  = in.grad[0] = &T4(1, E0, E1, 1);                  ///> w
+    Tensor *dw = in.grad[2] = &T4(1, E0, E1, 1).map(FILL, DU0);   ///> dw
+    Tensor *b  = in.grad[1] = &VEC(E0);                           ///> b
+    Tensor *db = in.grad[3] = &VEC(E0).map(FILL, DU0);            ///> db
     
     in.xparm = bias;                              /// * keep for persistence
     
-    DU k = SQRT(2.0 / (C0+C1));                   /// * default weight
+    DU k = SQRT(2.0 / (E0+E1));                   /// * default weight
     RAND(*w, k);                                  /// * randomize w [-k, k)
     RAND(*b, bias);                               /// * randomize b [-bias, bias)
     
@@ -183,17 +183,17 @@ Model::_ilinear(Tensor &in, U32 C0, DU bias) {
     w->map(FILL, 0.5);
     b->map(FILL, 0.0);
     
-    NN_DB("    w[1,%d,%ld,1]", C0, C1);
-    for (U32 c0=0; c0<C0; c0++) {
-        NN_DB("\nc0=%d ", c0);
-        for (U64 c1=0; c1<C1; c1++) {
-            NN_DB("%5.2f", w->data[C1*c0 + c1]);
+    NN_DB("    w[1,%d,%ld,1]", E0, E1);
+    for (U32 e0=0; e0<E0; e0++) {
+        NN_DB("\ne0=%d ", e0);
+        for (U64 e1=0; e1<E1; e1++) {
+            NN_DB("%5.2f", w->data[E1*e0 + e1]);
         }
     }
     NN_DB("\n");
 #endif // MM_DEBUG    
     
-    Tensor &out = T4(N1, C0);                    ///> output tensor sizing
+    Tensor &out = T4(N1, E0);                    ///> output tensor sizing
     npush(out);                                  /// * stage for next stage
     NN_DB("    } model#ilinear => k=%6.3f, w.std=%6.3f\n", k, w->std());
 }

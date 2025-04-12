@@ -72,17 +72,17 @@ __KERN__ void k_conv2d(
 
 __KERN__ void k_linear(
     DU *I, DU *O, DU *W, DU *B,
-    U32 C0, U32 C1
+    U32 E0, U32 E1
     ) {
-    const U32 c1 = blockIdx.x * blockDim.x + threadIdx.x;
-    const U32 c0 = blockIdx.y * blockDim.y + threadIdx.y;
+    const U32 e1 = blockIdx.x * blockDim.x + threadIdx.x;
+    const U32 e0 = blockIdx.y * blockDim.y + threadIdx.y;
 
-    if (c0 < C0 && c1 < C1) {
+    if (e0 < E0 && e1 < E1) {
         const U32 n  = blockIdx.z;
-        const DU wx = W[C1 * c0 + c1] * I[C1 * n + c1];
-        DU *y = &O[C0 * n + c0];
+        const DU  wx = W[E1 * e0 + e1] * I[E1 * n + e1];
+        DU *y = &O[E0 * n + e0];
     
-        if (c1==0) *y = B[c0];
+        if (e1==0) *y = B[e0];
         __syncthreads();
     
         atomicAdd_block(y, wx);

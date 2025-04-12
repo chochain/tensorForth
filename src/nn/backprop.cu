@@ -70,34 +70,34 @@ __KERN__ void k_dconv2d(
 
 __KERN__ void k_dlinear_dwdb(                        /// * TODO: shuffle-sum
     DU *I, DU *O, DU *DW, DU *DB,
-    U32 C0, U32 C1                                   ///< DW[C0,C1], DB[C0]
+    U32 E0, U32 E1                                   ///< DW[E0,E1], DB[E0]
     ) {
-    const U32  c1 = blockIdx.x * blockDim.x + threadIdx.x;
-    const U32  c0 = blockIdx.y * blockDim.y + threadIdx.y; 
-    const U32  n  = blockIdx.z;                      ///< batch id, W index
+    const U32  e1 = blockIdx.x * blockDim.x + threadIdx.x;
+    const U32  e0 = blockIdx.y * blockDim.y + threadIdx.y; 
     
-    if (c0 < C0 && c1 < C1) {
-        const DU dy   = O[C0 * n + c0];              ///< dY  [2,5,1,1]=>2x[5,1]
-        const DU dyxt = dy * I[C1 * n + c1];         ///< dw += DY @ X^t
+    if (e0 < E0 && e1 < E1) {
+        const U32 n    = blockIdx.z;                 ///< batch id, W index
+        const DU  dy   = O[E0 * n + e0];             ///< dY  [2,5,1,1]=>2x[5,1]
+        const DU  dyxt = dy * I[E1 * n + e1];        ///< dw += DY @ X^t
         
-        if (c1 == 0) atomicAdd(&DB[c0], dy);         /// * db += dY
-        atomicAdd(&DW[C1 * c0 + c1], dyxt);          /// * dw += dY @ X^t
+        if (e1 == 0) atomicAdd(&DB[e0], dy);         /// * db += dY
+        atomicAdd(&DW[E1 * e0 + e1], dyxt);          /// * dw += dY @ X^t
     }
 }
 
 __KERN__ void k_dlinear_dx(                          /// * TODO: shuffle-sum
     DU *I, DU *O, DU *W,
-    U32 C0, U32 C1                                   ///< DW[C0,C1], DB[C0]
+    U32 E0, U32 E1                                   ///< DW[E0,E1], DB[E0]
     ) {
-    const U32  c1 = blockIdx.x * blockDim.x + threadIdx.x;
-    const U32  c0 = blockIdx.y * blockDim.y + threadIdx.y; 
-    const U32  n  = blockIdx.z;                      ///< batch id, W index
+    const U32  e1 = blockIdx.x * blockDim.x + threadIdx.x;
+    const U32  e0 = blockIdx.y * blockDim.y + threadIdx.y; 
 
-    if (c0 < C0 && c1 < C1) {
-        const DU wtdy = W[C1 * c0 + c1] * O[C0 * n + c0];
-        DU *dx = &I[C1 * n + c1];
+    if (e0 < E0 && e1 < E1) {
+        const U32  n    = blockIdx.z;                ///< batch id, W index
+        const DU   wtdy = W[E1 * e0 + e1] * O[E0 * n + e0];
+        DU *dx = &I[E1 * n + e1];
 
-        if (c0 == 0) *dx = DU0;                      /// * zero dX
+        if (e0 == 0) *dx = DU0;                      /// * zero dX
         __syncthreads();
         
         atomicAdd(dx, wtdy);                         /// * dX = W^t * dY [16,5]@[5,1]
