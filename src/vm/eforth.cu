@@ -172,7 +172,7 @@ ForthVM::init() {
     CODE("*",       tos = MUL(tos, ss.pop()); SCALAR(tos));
     CODE("-",       tos = SUB(ss.pop(), tos); SCALAR(tos));
     CODE("/",       tos = DIV(ss.pop(), tos); SCALAR(tos));
-    CODE("mod",     tos = INT(MOD(ss.pop(), tos)); SCALAR(tos));  /// ( a b -- c )
+    CODE("mod",     tos = D2I(MOD(ss.pop(), tos)); SCALAR(tos));  /// ( a b -- c )
     CODE("fmod",    tos = MOD(ss.pop(), tos); SCALAR(tos));       /// ( a b -- c ) fmod = x - int(q)*y
     CODE("/mod",                                                  /// ( a b -- c d ) c=a%b, d=a/b
          DU n = ss.pop();
@@ -186,7 +186,7 @@ ForthVM::init() {
          DU2 n = MUL2(ss.pop(), ss.pop());
          DU2 t = tos;
          DU  m = MOD2(n, tos); ss.push(SCALAR(m));
-         tos = INT(n / t));
+         tos = D2I(n / t));
     ///@}
     ///@defgroup Binary logic ops (convert to integer first)
     ///@{
@@ -207,7 +207,7 @@ ForthVM::init() {
     /// @}
     /// @defgroup Data conversion ops
     /// @{
-    CODE("f>s",     tos = INT(tos));     /// nearest-even 0.5 => 0, 1.5 => 2, 2.5 => 2
+    CODE("f>s",     tos = D2I(tos));     /// nearest-even 0.5 => 0, 1.5 => 2, 2.5 => 2
     CODE("round",   tos = round(tos));   /// 0.5 => 1, 1.5 => 2, 2.5 => 3, 1.5 => -2 
     CODE("ceil",    tos = ceilf(tos));   /// 1.5 => 2, -1.5 => -1
     CODE("floor",   tos = floorf(tos));  /// 1.5 => 1, -1.5 => -2
