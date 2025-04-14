@@ -33,7 +33,7 @@ Model::init(MMU *mmu, Tensor &store, int &trace) {
     data     = store.data;                  /// * cached entries
     train    = 1;
     epoch    = 0;
-    max_norm = DU1;                         /// * gradient max std
+    max_norm = DU0;                         /// * clip normalize
     npush(store);                           /// * model.data[0] = store
 }
 /// @}
@@ -106,7 +106,7 @@ Model::add(t4_layer fn, U32 n, DU bias, U16 *opt) {
     case L_LOGSMAX: _isoftmax(in);              break;
     case L_AVGPOOL:
     case L_MAXPOOL:
-    case L_MINPOOL: _ipool(in, n);              break;
+    case L_MINPOOL: _ipool(in, (U16)n);         break;
     case L_BATCHNM: _ibatchnorm(in, bias);      break;
     case L_USAMPLE: _iup(in, n, bias);          break;
     default: ERROR("Model#add layer %d not supported\n", fn);
