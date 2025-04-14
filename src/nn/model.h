@@ -96,9 +96,9 @@ public:
     __GPU__ Model  &grad_zero() { _iter = _hit = 0; return *this; }
     __GPU__ Model  &grad_alloc(t4_optimizer op);        ///< allocate gradient vectors
     __GPU__ Model  &gradient(const char *nm,            ///< gradient descent functor
+                             t4_optimizer op,
                              GdFunc fn,                 
-                             DU *parm,
-                             t4_optimizer op=OPTI_SGD); 
+                             DU *parm);
     __GPU__ Model  &sgd(DU lr, DU b=DU0);               ///< stochastic gradient descent
     __GPU__ Model  &adam(DU lr, DU b1=0.9, DU b2=0.999);///< Adam gradient descent
     /// @}
