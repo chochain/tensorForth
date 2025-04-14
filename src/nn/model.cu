@@ -33,7 +33,7 @@ Model::init(MMU *mmu, Tensor &store, int &trace) {
     data     = store.data;                  /// * cached entries
     train    = 1;
     epoch    = 0;
-    max_norm = DU0;                         /// * clip normalize
+    max_norm = DU0;                         /// * > DU0 to clip norm (more stable)
     npush(store);                           /// * model.data[0] = store
 }
 /// @}
@@ -125,7 +125,7 @@ __GPU__ void
 Model::_iconv(Tensor &in, U32 C0, DU bias, U16 *opt) {
     U32 N1 = in.N(), C1 = in.C();                     ///> batch_sz, channels
     U16 Hf = opt[0], Wf = opt[1];                     ///> filter sizing
-    U16 p  = (Hf>1&&opt[2]) ? opt[2] : INT((Hf-1)/2); ///> padding
+    U16 p  = (Hf>1&&opt[2]) ? opt[2] : (Hf-1)/2;      ///> padding
     U16 s  = opt[3], d = opt[4];                      ///> stride, dilation
     U16 H0 = (in.H() - Hf + p*2) / s + 1;             ///> output height
     U16 W0 = (in.W() - Wf + p*2) / s + 1;             ///> output width
@@ -240,8 +240,8 @@ Model::_ipool(Tensor &in, U16 f) {
     }
     in.iparm = f;                                /// * keep kernel size
                                                  /// * used by backprop
-    U32 H0 = INT((in.H() - f) / f) + 1;
-    U32 W0 = INT((in.W() - f) / f) + 1;
+    U32 H0 = (in.H() - f) / f + 1;
+    U32 W0 = (in.W() - f) / f + 1;
     U16 s[4] = { f, f, 1, 1 }; memcpy(in.stride, s, sizeof(s));  // stride
     
     Tensor &out = T4(in.N(), H0, W0, in.C());
@@ -275,7 +275,7 @@ Model::_iup(Tensor &in, U16 f, DU method) {
         ERROR("model#upsample f=%dx%d? only 2x2 and 3x3 supported\n", f, f);
         return;
     }
-    in.iparm = (INT(method)<<8) | f;             /// * keep (method<<8) | kernel size
+    in.iparm = (INT(D2I(method))<<8) | f;        /// * keep (method<<8) | kernel size
                                                  /// * used by backprop
     U32 H0 = in.H() * f;
     U32 W0 = in.W() * f;
