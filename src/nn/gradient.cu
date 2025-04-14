@@ -93,7 +93,7 @@ Model::grad_alloc(t4_optimizer op) {
 ///> grandiant descent iterator
 ///
 __GPU__ Model&
-Model::gradient(const char *nm, GdFunc fn, DU *parm, t4_optimizer op) {
+Model::gradient(const char *nm, t4_optimizer op, GdFunc fn, DU *parm) {
     auto step = [this, fn, parm](const char k,
         Tensor &g, Tensor &dg, Tensor &m, Tensor &v) {
         NN_DB("     %c[%2d,%2d,%2d,%2d] Σ=%6.3f - %6.3f",
@@ -107,16 +107,19 @@ Model::gradient(const char *nm, GdFunc fn, DU *parm, t4_optimizer op) {
 #else  // !MM_DEBUG
         fn(parm, g, dg, m, v);                /// * execute grad function
 #endif // MM_DEBUG
-        DU sum0 = g.sum(), std = g.std();
-        NN_DB(" => %cΣ=%6.3f std=%6.3f", k, sum0, std);
-        if (std > parm[3]) {
-            g *= parm[3] / std;
-            NN_DB(" => adj. %cΣ=%6.3f\n");
+        DU sum0 = g.sum();
+        NN_DB(" => %cΣ=%6.3f", k, sum0);
+        if (max_norm > DU_EPS) {
+            DU std = g.std();
+            if (std > max_norm) {
+                g *= max_norm / std;
+                NN_DB(" std=%6.3% => adj. %cΣ=%6.3f");
+            }
         }
-        else NN_DB("\n");
+        NN_DB("\n");
     };
     NLOG("\nModel::%s starts batch_sz=%d, lr=%7.4f, mtum/b1=%6.3f, b2=%6.3f max_norm=%6.3f {\n",
-         nm, (*this)[1].N(), parm[0], parm[1], parm[2], parm[3]);
+         nm, (*this)[1].N(), parm[0], parm[1], parm[2], max_norm);
     if (epoch==0 && _iter++==0) grad_alloc(op);   /// * allocate m & v tensors
     if (!train) return *this;                     /// * bail if not in trainning
     ///
@@ -149,9 +152,9 @@ Model::sgd(DU lr, DU b) {                          /// b=beta (momentum)
              g.N(), parm[1], parm[2]);
         CDP_SYNC();
     };
-    DU parm[4] = { lr, epoch ? b : DU0, DU0, max_norm };
+    DU parm[3] = { lr, epoch ? b : DU0, DU0 };
 
-    return gradient("sgd", update, parm, ABS(b) < DU_EPS ? OPTI_SGD : OPTI_SGDM);
+    return gradient("sgd", ABS(b) < DU_EPS ? OPTI_SGDM : OPTI_SGDM, update, parm);
 }
 
 __GPU__ Model&
@@ -162,11 +165,11 @@ Model::adam(DU lr, DU b1, DU b2) {
              g.N(), parm[0], parm[1], parm[2]);
         CDP_SYNC();
     };
-    DU parm[4] = {                    ///< learn rate, betas
+    DU parm[3] = {                    ///< learn rate, betas
         lr * SQRT(DU1 - POW(b2, epoch+1)) / (DU1 - POW(b1, epoch+1)),
-        b1, b2, max_norm
+        b1, b2
     };
-    return gradient("adam", update, parm, OPTI_ADAM);
+    return gradient("adam", OPTI_ADAM, update, parm);
 }
 #endif  // (T4_DO_OBJ && T4_DO_NN)
 //==========================================================================
