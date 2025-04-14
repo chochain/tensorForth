@@ -338,8 +338,10 @@ ForthVM::init() {
     /// it could make access misaligned which cause exception
     ///
     CODE("@",     IU i = POPi; PUSH((DU)CELL(i)));          // i -- n
-    CODE("!",     IU i = POPi; CELL(i) = POP(););           // n i --
-    CODE("+!",    IU i = POPi; CELL(i) += POP());           // n i --
+    CODE("!",     IU i = POPi; CELL(i) = POP());            // n i --
+    CODE("+!",    IU i = POPi;                              // n i --
+         DU v = CELL(i) + POP();
+         CELL(i) = SCALAR(v));
     CODE("?",     IU i = POPi; sys.dot(DOT, CELL(i)));      // i --
     CODE(",",     DU n = POP();  add_du(n));                // n -- , compile a cell
     CODE("cells", IU i = POPi; PUSH(i * sizeof(DU)));       // n -- n'
