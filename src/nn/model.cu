@@ -180,7 +180,7 @@ Model::_ilinear(Tensor &in, U32 E0, DU bias) {
     RAND(*b, bias);                               /// * randomize b [-bias, bias)
     
 #if MM_DEBUG    
-    w->map(FILL, 0.5);
+    w->map(FILL, 0.5); w->data[32] = 1.0;
     b->map(FILL, 0.0);
     
     NN_DB("    w[1,%d,%ld,1]", E0, E1);
