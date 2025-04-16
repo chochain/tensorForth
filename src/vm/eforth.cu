@@ -547,7 +547,7 @@ ForthVM::_ds_next(U32 ioff) {
     if (((Dataset&)d).done) {
         DU v = rs.pop();                /// * pop off dataset
         DROP(v);                        /// * free memory if a physical dataset
-        ((Model&)m).epoch++;            /// * bump epoch counter
+        ((Model&)m).tick();             /// * bump epoch counter
     }
     else {
         scall(OP_FETCH, 0, rs[-1]);     /// * issue a dataset fetch
