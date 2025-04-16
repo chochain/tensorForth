@@ -84,7 +84,7 @@ public:
         case CR:    *_ostr << ENDL;                             break;
         case RDX:   *_ostr << setbase(INT(v));                  break;
         case DOT:   *_ostr << v << " ";                         break;
-        case UDOT:  *_ostr << static_cast<U32>(v) << " ";       break;
+        case UDOT:  *_ostr << UINT(D2I(v)) << " ";              break;
         case EMIT:  { char b = (char)INT(v); *_ostr << b; }     break;
         case SPCS:  spaces(INT(v));                             break;
         default:    *_ostr << "unknown op=" << o; op(OP_FLUSH); break;
