@@ -483,7 +483,7 @@ TensorVM::init() {
              SCALAR(v);
              PUSH(v);
          });
-    CODE("t!",  DU v = POP(); IU i = POPi; if (IS_OBJ(tos)) TTOS[i]=v);
+    CODE("t!",  IU i = POPi; DU v = POP(); if (IS_OBJ(tos)) TTOS[i]=v);
     ///@}
     ///@defgroup 1-tensor ops in-place (i.e. destructive, as in Forth)
     ///@{
