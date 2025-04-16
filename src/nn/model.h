@@ -43,7 +43,7 @@ class Model : public T4Base {
     int    _err     = 0;
     
 public:
-    DU     max_norm = DU1 * 5;   ///< gradient clipping
+    DU     max_norm = DU0;       ///< gradient clipping
     int    epoch    = 0;         ///< TODO: for learning rate decay
     ///
     /// @name Derivertive ops
@@ -54,6 +54,7 @@ public:
     /// @name constructor (indirect)
     /// @{
     __GPU__  void   init(MMU *mmu, Tensor &store, int &trace);
+    __GPU__  void   tick() { epoch++; _iter=0; } ///< advance epoch counter
     /// @}
     /// @name layer access methods
     /// @{
