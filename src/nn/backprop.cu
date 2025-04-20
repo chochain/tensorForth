@@ -80,8 +80,8 @@ __KERN__ void k_dlinear_dwdb(                        /// * TODO: shuffle-sum
         const DU  dy   = O[E0 * n + e0];             ///< dY  [2,5,1,1]=>2x[5,1]
         const DU  dyxt = dy * I[E1 * n + e1];        ///< dw += DY @ X^t
         
-        if (e1 == 0) atomicAdd(&DB[e0], dy);         /// * db += dY
         atomicAdd(&DW[E1 * e0 + e1], dyxt);          /// * dw += dY @ X^t
+        if (e1 == 0) atomicAdd(&DB[e0], dy);         /// * db += dY
     }
 }
 
@@ -96,9 +96,8 @@ __KERN__ void k_dlinear_dx(                          /// * TODO: shuffle-sum
         const U32  n    = blockIdx.z;                ///< batch id, W index
         const DU   wtdy = W[E1 * e0 + e1] * O[E0 * n + e0];
         DU *dx = &I[E1 * n + e1];
-
-        if (e0 == 0) *dx = DU0;                      /// * zero dX
-        __syncthreads();
+        
+        /// * TODO: CC - is it better we zero dx here?
         
         atomicAdd(dx, wtdy);                         /// * dX = W^t * dY [16,5]@[5,1]
     }
@@ -115,7 +114,7 @@ __KERN__ void k_dpool(
     const U64 k0 = (U64)blockIdx.x * blockDim.x + threadIdx.x;
     const U32 j0 = k0 % W;                            ///< output x dim
     const U32 c  = blockIdx.y, C = gridDim.y;         ///< channel deep
-    const U64 ns = HW * blockIdx.z * C;               ///< batch slice idx
+    const U64 ns = HW * C * blockIdx.z;               ///< batch slice idx
     const U64 z0 = (U64)C * k0 + ns + c;              ///< output array index
     const U64 z1 = (U64)C * KS * j0 + KSQ * ((k0 - j0) * C + ns) + c;
 
@@ -144,15 +143,6 @@ __KERN__ void k_dpool(
     }
 }
 
-__KERN__ void k_dactivate(
-    DU *I, DU *F, DU *O,                   ///< input, filter, output
-    U64 numel                              ///< tensor element count
-    ) {
-    const U64 j = (U64)blockIdx.x * blockDim.x + threadIdx.x;   ///< element index
-
-    if (j < numel) I[j] = O[j] * F[j];     /// * Harmand product
-}
-
 __KERN__ void k_dbatchnorm_1(
     DU *I, DU *O, DU *X,                   ///< input, output, x_hat tensors
     DU *sum, DU *g_var,                    ///< sum(x_hat), gamma/(stdvar+e)
@@ -160,12 +150,12 @@ __KERN__ void k_dbatchnorm_1(
     ) {
     const U64 j  = (U64)threadIdx.x + blockIdx.x * blockDim.x;  ///< element index
     const U32 c  = blockIdx.y, C = gridDim.y;                   ///< channel deep
-    const U32 n  = blockIdx.z, nc = n * C + c;                  ///< batch_id, sum/var index
+    const U32 n  = blockIdx.z, nc = C * n + c;                  ///< batch_id, sum/var index
     const U64 ns = HW * C * n;                                  ///< batch slice index
     const U64 k  = (U64)C * j + ns + c;                         ///< output tensor index
-    const DU  _N = 1.0 / gridDim.z;                             ///< 1.0/HWN
+    const DU  _N = DU1 / gridDim.z;                             ///< 1.0/HWN
 
-    if (j < HW) {
+    if (c < C && j < HW) {
         I[k] = (O[k] - sum[nc] * _N) * g_var[nc];               /// * dX = g_var * (dout - sum(dout) / N)
         O[k] *= X[k];                                           /// * dout * x_hat
     }
@@ -176,11 +166,11 @@ __KERN__ void k_dbatchnorm_2(
     ) {
     const U64 j  = (U64)blockIdx.x * blockDim.x + threadIdx.x;  ///< element index
     const U32 c  = blockIdx.y, C = gridDim.y;                   ///< channel deep
-    const U32 n  = blockIdx.z, nc = n * C + c;                  ///< batch_id, sum index
+    const U32 n  = blockIdx.z, nc = C * n + c;                  ///< batch_id, sum index
     const U64 ns = HW * C * n;                                  ///< batch slice index
     const U64 k  = (U64)C * j + ns + c;                         ///< output tensor index
 
-    if (j < HW) I[k] -= X[k] * sum[nc];
+    if (c < C && j < HW) I[k] -= X[k] * sum[nc];
 }
 ///
 /// backprop: Neural Network back propegation
@@ -211,7 +201,7 @@ Model::backprop() {
 __GPU__ Model&
 Model::backprop(Tensor &tgt) {
     auto trace = [](DU t, int i, Tensor &in, Tensor &out) {
-        INFO("\n%6.2f:%2d> %s [%2d,%2d,%2d,%d]\tp=%6.3f <= out'Σ/n=%6.2f [%2d,%2d,%2d,%2d]",
+        INFO("\n%6.2f:%2d> %s [%2d,%2d,%2d,%2d]\tp=%6.3f <= out'Σ/n=%6.2f [%2d,%2d,%2d,%2d]",
             t, i, d_nname(in.grad_fn),
             in.N(), in.H(), in.W(), in.C(), in.xparm,
             out.sum() / out.N() / out.C(),
@@ -229,6 +219,13 @@ Model::backprop(Tensor &tgt) {
         }
         _bstep(in, out);
 
+        if (_check_nan(in)) {
+            ERROR("Model::backprop Nan %s\n", d_nname(in.grad_fn));
+            in.show();
+            out.show();
+            this->err = 1;
+            break;
+        }
         if (*_trace > 1) in.show();
     }
     NLOG("\n} Model::backprop %5.2f ms\n", System::ms() - t0);
@@ -349,21 +346,21 @@ Model::_blinear(Tensor &in, Tensor &out) {
             DU *x = in.slice(n), *y = out.slice(n);
             if (train) {
                 DU *dp = dw.data;
-                for (U32 c0 = 0; c0 < C0; c0++) {     /// W[C0,C1]
-                    DU dy = y[c0];
-                    db[c0] += dy;                     /// * db += dY
-                    for (U32 c1 =0; c1 < C1; c1++) {
-                        *dp++ += dy * x[c1];          /// * dw += dY @ X^t
+                for (U32 e0 = 0; e0 < E0; e0++) {     /// W[E0,E1]
+                    DU dy = y[e0];
+                    db[e0] += dy;                     /// * db += dY
+                    for (U32 e1 =0; e1 < E1; e1++) {
+                        *dp++ += dy * x[e1];          /// * dw += dY @ X^t
                     }
                 }
             }
             DU *wd = w.data;
-            for (U32 c1 = 0; c1 < C1; c1++) {         /// * dX = w^t @ dY
+            for (U32 e1 = 0; e1 < E1; e1++) {         /// * dX = w^t @ dY
                 DU sum = DU0;
-                for (U32 c0 = 0; c0 < C0; c0++) {
-                    sum += wd[C1 * c0 + c1] * y[c0];
+                for (U32 e0 = 0; e0 < E0; e0++) {
+                    sum += wd[E1 * e0 + e1] * y[e0];
                 }
-                x[c1] = sum;
+                x[e1] = sum;
             }
         }
     };                    
@@ -373,13 +370,14 @@ Model::_blinear(Tensor &in, Tensor &out) {
     }
     else {
         if (train) {
-            FORK3(k_dlinear_dwdb, C0, C1, N,
+            FORK3(k_dlinear_dwdb, E0, E1, N,        /// * update dB, dW
                   in.data, out.data, dw.data, db.data);
             CDP_SYNC();
         }
         /// barrier for X (because we did N samples in one grid)
+        in.fill(DU0);                               /// * zero out dX
         FORK3(
-            k_dlinear_dx, C0, C1, N,                /// * update dB, dW, dX
+            k_dlinear_dx, E0, E1, N,                /// * update dX
             in.data, out.data, w.data);
         CDP_SYNC();
     }
