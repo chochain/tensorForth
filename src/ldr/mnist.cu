@@ -67,11 +67,11 @@ Corpus *Mnist::fetch(int batch_id, int batch_sz, int trace) {
     }
     if (trace && (++tick == LOG_COUNT)) {
         INFO("\n\tMnist batch %d, loaded=%d/%d\n", bid, bsz * bid, N);
-        if (trace > 1) _preview(bsz < 3 ? bsz : 3);     /// * debug print
+        if (trace > 1) _preview(bsz < 3 ? bsz : 3);  /// * debug print
         tick = 0;
     }
-    if (MAX_BATCH && (batch_id >= MAX_BATCH)) eof = 1;  /// forced stop (debug)
-    if (bsz * bid >= N) eof = 1;
+    if (MAX_BATCH && (bid >= MAX_BATCH)) eof = 1;    /// forced stop (debug)
+    if (bid * bsz >= N) eof = 1;
     
     return this;
 }
