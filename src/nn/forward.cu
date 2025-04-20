@@ -210,14 +210,14 @@ Model::forward(Tensor &input) {
             t1 = tt;
         }
         _fstep(in, out);
-/*
+
         if (_check_nan(out)) {
             ERROR("Model::forward Nan %s\n", d_nname(in.grad_fn));
+            in.show();
             out.show();
             this->err = 1;
             break;
         }
-*/        
         if (*_trace > 1) out.show();
     }
     ///
@@ -301,25 +301,24 @@ Model::_fconv(Tensor &in, Tensor &out) {
 __GPU__ int
 Model::_flinear(Tensor &in, Tensor &out) {
     const U32 N  = out.N();                           ///< batch size (N1 == N0)
-    const U32 C1 = in.HWC(), C0 = out.HWC();          ///< dense layer dims
-    auto qa_calc = [&in, &out, N, C0, C1](DU *w, DU *b) {
+    const U32 E1 = in.HWC(), E0 = out.HWC();          ///< dense layer dims
+    auto qa_calc = [&in, &out, N, E0, E1](DU *w, DU *b) {
         for (U32 n = 0; n < N; n++) {                 /// * walk through batch
             DU *x  = in.slice(n), *y = out.slice(n);  /// * sample by sample
-            DU *wx = w;                               /// * weight[C0,C1]
-            for (U32 c0 = 0; c0 < C0; c0++) {         /// * output features
-                DU sum = b[c0];                       /// * init with bias
-                for (U32 c1 = 0; c1 < C1; c1++) {     /// * input features
-                    sum += *wx++ * x[c1];             /// * Y = W @ X + B
+            for (U32 e0 = 0; e0 < E0; e0++) {         /// * output features
+                DU sum = b[e0];                       /// * init with bias
+                for (U32 e1 = 0; e1 < E1; e1++) {     /// * input features
+                    sum += w[E1 * e0 + e1] * x[e1];   /// * Y = W @ X + B
                 }
-                y[c0] = sum;
+                y[e0] = sum;
             }
         }
     };
     Tensor &w = *in.grad[0], &b = *in.grad[1];        ///< weight, bias tensors
 
     NN_DB(" %d x (w[1,%d,%d,1] @ in[1,%d,%d,%d] + b[%ld])",
-          N, C0, C1, in.H(), in.W(), in.C(), b.numel);
-#if MM_DEBUG    
+          N, E0, E1, in.H(), in.W(), in.C(), b.numel);
+#if MM_DEBUG
       _dump_w("w", w, true);
       _dump_b("b", b); 
 #endif // MM_DEBUG
@@ -329,7 +328,7 @@ Model::_flinear(Tensor &in, Tensor &out) {
         qa_calc(w.data, b.data);                     /// * serial code
     }
     else {
-        FORK3(k_linear, C0, C1, N,
+        FORK3(k_linear, E0, E1, N,
               in.data, out.data, w.data, b.data);
         CDP_SYNC();
     }
@@ -365,15 +364,14 @@ Model::_fpool(Tensor &in, Tensor &out, t4_layer fn) {
 
 __GPU__ int
 Model::_fsoftmax(Tensor &in, Tensor &out) {
-    const U32 N = in.N();
-    out = in;                                   /// copy content for exe calc
     Tensor &t = *in.grad[0];                    ///< temp tensor [1,H,W,C]
     DU     *d = t.data;                         ///< keep data pointer
-    for (U32 n = 0; n < N; n++) {               ///< loop thru mini-batch
-        t.data = out.slice(n);                  ///< assign a slice to temp tensor
-        t -= t.max();                           ///< down shift (prevent overflow)
+    out = in;                                   /// copy content for exe calc
+    for (U32 n = 0; n < out.N(); n++) {         ///< loop thru mini-batch
+        t.data = out.slice(n);                  /// * assign a slice to temp tensor
+        t -= t.max();                           /// * down shift (prevent overflow)
         t.map(EXP);                             /// * softmax = exp(xi)/sum(exp(xi))
-        t.map(MUL, RCP(t.sum() + DU_EPS));      
+        t.map(MUL, RCP(t.sum()));      
     }
     t.data = d;                                 /// * restore data pointer
     return 0;
@@ -381,11 +379,11 @@ Model::_fsoftmax(Tensor &in, Tensor &out) {
 
 __GPU__ int
 Model::_flogsoftmax(Tensor &in, Tensor &out) {  /// * TODO: DCP
-    out = in;                                   /// * copy in data to out
-    out.map(EXP);
     Tensor &t = *in.grad[0];                    ///< temp tensor [1,H,W,C];
     DU     *d = t.data;                         ///< cache tensor data
-    for (U32 n = 0; n < in.N(); n++) {          /// * loop throught mini-batch
+    out = in;                                   /// * copy in data to out
+    out.map(EXP);
+    for (U32 n = 0; n < out.N(); n++) {         /// * loop throught mini-batch
         t.data = out.slice(n);
         DU sum    = t.sum();
         DU logsum = LOG(MAX(sum, DU_EPS));      ///< clamped
