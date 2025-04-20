@@ -100,7 +100,7 @@ public:
                              t4_optimizer op,
                              GdFunc fn,                 
                              DU *parm);
-    __GPU__ Model  &sgd(DU lr, DU b=DU0);               ///< stochastic gradient descent
+    __GPU__ Model  &sgd(DU lr, DU b=0.9);               ///< stochastic gradient descent
     __GPU__ Model  &adam(DU lr, DU b1=0.9, DU b2=0.999);///< Adam gradient descent
     /// @}
     
