@@ -15,13 +15,13 @@ __KERN__ void k_sgd(
     U64 numel                               ///< HWC
     ) {
     for (U64 j = threadIdx.x; j < numel; j += blockDim.x) {
-        if (ABS(b) < DU_EPS) G[j] -= lr * DG[j] / N;
+        DU dg = DG[j] / N;                             ///< dG batch avg
+        if (ZEQ(b)) G[j] -= lr * dg;
         else {
-            DU dg = DG[j] / N;                             ///< dG batch avg
-            DU mi = M[j] = b * M[j] + (1.0 - b) * dg;      ///< momentum
-            G[j] -= lr * mi;                               /// * update gradient
+            DU mi = M[j] = b * M[j] + (DU1 - b) * dg;  ///< momentum
+            G[j] -= lr * mi;                           /// * update gradient
         }
-        DG[j] = DU0;                                       /// * zero after batch
+        DG[j] = DU0;                                   /// * zero after batch
     }
 }
 
@@ -55,6 +55,7 @@ Model::grad_alloc(t4_optimizer op) {
 
         bool do_w = dw && dw->is_same_shape(*w);    ///< exception: dropout
         bool do_b = db && db->is_same_shape(*b);    ///< exception: batchnorm
+        printf("%s do_w=%d, do_b=%d\n", d_nname(in.grad_fn), do_w, do_b);
         
         switch (op) {
         case OPTI_SGD:
@@ -107,20 +108,11 @@ Model::gradient(const char *nm, t4_optimizer op, GdFunc fn, DU *parm) {
 #else  // !MM_DEBUG
         fn(parm, g, dg, m, v);                /// * execute grad function
 #endif // MM_DEBUG
-        DU sum0 = g.sum();
-        NN_DB(" => %cΣ=%6.3f", k, sum0);
-        if (max_norm > DU_EPS) {
-            DU std = g.std();
-            if (std > max_norm) {
-                g *= max_norm / std;
-                NN_DB(" std=%6.3% => adj. %cΣ=%6.3f");
-            }
-        }
-        NN_DB("\n");
+        NN_DB(" => %cΣ=%6.3f\n", k, g.sum());
     };
-    NLOG("\nModel::%s starts batch_sz=%d, lr=%7.4f, mtum/b1=%6.3f, b2=%6.3f max_norm=%6.3f {\n",
-         nm, (*this)[1].N(), parm[0], parm[1], parm[2], max_norm);
-    if (epoch==0 && _iter++==0) grad_alloc(op);   /// * allocate m & v tensors
+    NLOG("\nModel::%s starts batch_sz=%d, lr=%7.4f, mtum/b1=%6.3f, b2=%6.3f {\n",
+         nm, (*this)[1].N(), parm[0], parm[1], parm[2]);
+    if (_iter++==0 && epoch==0) grad_alloc(op);   /// * allocate m & v tensors
     if (!train) return *this;                     /// * bail if not in trainning
     ///
     /// cascade execution layer by layer forward
@@ -133,8 +125,33 @@ Model::gradient(const char *nm, t4_optimizer op, GdFunc fn, DU *parm) {
 
         if (*_trace) INFO("  %d> %s\n", i, d_nname(in.grad_fn));
         
-        if (in.mtum[0]) step('w', w, dw, *in.mtum[0], *in.mtum[2]);
-        if (in.mtum[1]) step('b', b, db, *in.mtum[1], *in.mtum[3]);
+        if (in.mtum[0]) {
+            step('w', w, dw, *in.mtum[0], *in.mtum[2]);
+/*            
+            if (max_norm > DU_EPS) {
+                DU std = w.std();
+                if (std > max_norm) {
+                    w *= max_norm / std;
+                    NN_DB("    max_norm=%6.3f std=%6.3f => adj. %cΣ=%6.3f\n");
+                }
+            }
+*/            
+            if (_check_nan(w)) {
+                ERROR("Model::grad.w Nan %s\n", d_nname(in.grad_fn));
+                w.show();
+                this->err = 1;
+                break;
+            }
+        }
+        if (in.mtum[1]) {
+            step('b', b, db, *in.mtum[1], *in.mtum[3]);
+            if (_check_nan(b)) {
+                ERROR("Model::grad.b Nan %s\n", d_nname(in.grad_fn));
+                b.show();
+                this->err = 1;
+                break;
+            }
+        }
     }
     NLOG("} Model::%s %5.2f ms\n", nm, System::ms() - t0);
     return *this;
@@ -146,29 +163,31 @@ Model::gradient(const char *nm, t4_optimizer op, GdFunc fn, DU *parm) {
 ///
 __GPU__ Model&
 Model::sgd(DU lr, DU b) {                          /// b=beta (momentum)
-    auto update = [](DU parm[4], Tensor &g, Tensor &dg, Tensor &m, Tensor &v) {
+    auto update = [](DU *parm, Tensor &g, Tensor &dg, Tensor &m, Tensor &v) {
         FORK1(k_sgd, g.numel, 
-             g.data, dg.data, m.data,
-             g.N(), parm[1], parm[2]);
+              g.data, dg.data, m.data,             /// * v not used
+              g.N(), parm[0], parm[1]);
         CDP_SYNC();
     };
-    DU parm[3] = { lr, epoch ? b : DU0, DU0 };
+    DU parm[3] = { lr, _iter ? b : DU0, DU0 };
 
-    return gradient("sgd", ABS(b) < DU_EPS ? OPTI_SGDM : OPTI_SGDM, update, parm);
+    return gradient("sgd", ZEQ(b) ? OPTI_SGD : OPTI_SGDM, update, parm);
 }
 
 __GPU__ Model&
 Model::adam(DU lr, DU b1, DU b2) {
     auto update = [](DU *parm, Tensor &g, Tensor &dg, Tensor &m, Tensor &v) {
         FORK1(k_adam, g.numel,
-             g.data, dg.data, m.data, v.data,
-             g.N(), parm[0], parm[1], parm[2]);
+              g.data, dg.data, m.data, v.data,
+              g.N(), parm[0], parm[1], parm[2]);
         CDP_SYNC();
     };
-    DU parm[3] = {                    ///< learn rate, betas
-        lr * SQRT(DU1 - POW(b2, epoch+1)) / (DU1 - POW(b1, epoch+1)),
-        b1, b2
-    };
+/*    
+    DU decay = epoch                       ///< exponential decay, TODO: AdamW
+        ? SQRT(DU1 - POW(b2, epoch)) / (DU1 - POW(b1, epoch))
+        : DU1;
+*/
+    DU parm[3] = { lr, b1, b2 };   ///< learn rate, betas
     return gradient("adam", OPTI_ADAM, update, parm);
 }
 #endif  // (T4_DO_OBJ && T4_DO_NN)
