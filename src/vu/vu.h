@@ -8,7 +8,7 @@
 #define T4_VU_H
 #include <GL/gl.h>
 #include "ten4_types.h"
-#include "corpus.h"              // in ../ldr
+#include "corpus.h"              /// in ../ldr
 
 #define VUX(g)   GPU_ERR(g)      /**< check UI error */
 
