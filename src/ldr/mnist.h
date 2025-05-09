@@ -9,7 +9,7 @@
 #if (!defined(__LDR_MNIST_H) && T4_DO_OBJ && T4_DO_NN)
 #define __LDR_MNIST_H
 #include <iostream>
-#include <fstream>            // std::ifstream
+#include <fstream>            /// std::ifstream
 #include "corpus.h"
 
 using namespace std;

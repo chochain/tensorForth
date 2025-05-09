@@ -103,7 +103,7 @@ int Mnist::_preview(int N) {
             for (int j = 0; j < W; j++, img++) {
                 char c  = map[*img / 26];
                 char c1 = map[((int)*img + (int)*(img+1)) / 52];
-                INFO("%c%c", c, c1);                 // double width
+                INFO("%c%c", c, c1);                 /// double width
             }
             INFO("|");
         }
