@@ -40,7 +40,7 @@ NetVM::_nnop(t4_layer op) {     /// vtable dispatcher
             else ERROR("logsoftmax tensor sum < 0!");
             return ok();
         }
-        // * continue to zero param
+        /// * continue to zero param
     }
     ///
     /// zero parameter layers
@@ -60,7 +60,7 @@ NetVM::_nnop(t4_layer op) {     /// vtable dispatcher
         case L_LOGSMAX: m.add(op);           return ok();
         case L_BATCHNM: m.add(op, 0, 0.1);   return ok(); /// * default momentum=0.1
         }
-        // * continue to one param
+        /// * continue to one param
     }
     ///
     /// one parameter layers
