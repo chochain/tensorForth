@@ -7,16 +7,16 @@
 #if (!defined(__MMU_TLSF_H) && T4_DO_OBJ)
 #define __MMU_TLSF_H
 
-typedef struct used_block {          //< 8-bytes
-    U32 bsz;                         //< block size, header included (max 2G)
-    U32 psz;                         //< prior adjacent memory block size
+typedef struct used_block {          ///< 8-bytes
+    U32 bsz;                         ///< block size, header included (max 2G)
+    U32 psz;                         ///< prior adjacent memory block size
 } used_block;
 
-typedef struct free_block {          //< 16-bytes (i.e. mininum allocation per block)
-    U32 bsz;                         //< block size, header included (max 2G)
-    U32 psz;                         //< prior adjacent memory block size
-    S32 next;                        //< offset to next free block
-    S32 prev;                        //< offset to previous free block
+typedef struct free_block {          ///< 16-bytes (i.e. mininum allocation per block)
+    U32 bsz;                         ///< block size, header included (max 2G)
+    U32 psz;                         ///< prior adjacent memory block size
+    S32 next;                        ///< offset to next free block
+    S32 prev;                        ///< offset to previous free block
 } free_block;
 
 #define FREE_FLAG       0x1
@@ -67,9 +67,9 @@ public:
     __GPU__  void*       malloc(U64 sz);                   ///> malloc from TLSF memory
     __GPU__  void*       realloc(void *p0, U64 sz);        ///> resize allocated memory
     __GPU__  void        free(void *ptr);                  ///> free memory block back to TLSF
-    //
-    // sanity check, JTAG
-    //
+    ///
+    /// sanity check, JTAG
+    ///
     __BOTH__ void        status() { _show_stat(); _dump_freelist(); }
 
 private:

@@ -4,7 +4,7 @@
  *
  * <pre>Copyright (C) 2022- GreenII, this file is distributed under BSD 3-Clause License.</pre>
  */
-#include <iomanip>             // setw, setbase
+#include <iomanip>             /// setw, setbase
 #include "mmu.h"
 
 ///@name static class member
@@ -30,7 +30,7 @@ MMU::MMU() {
     _ostore.init(_obj, T4_OSTORE_SZ);
 #endif // T4_DO_OBJ
 
-    _midx = T4_USER_AREA;      // set aside user area (for base and maybe compile)
+    _midx = T4_USER_AREA;      /// set aside user area (for base and maybe compile)
     
     TRACE(
         "\\ MMU: CUDA Managed Memory\n"
@@ -124,15 +124,15 @@ MMU::dict_dump() {
 __GPU__ void
 MMU::colon(const char *name) {
     MM_DB("colon(%s) => ", name);
-    int  sz = STRLENB(name);                // aligned string length
-    Code &c = _dict[_didx++];               // get next dictionary slot
-    align();                                // nfa 32-bit aligned (adjust _midx)
-    c.didx = _didx-1;                       // directory index (reverse link)
-    c.nfa  = _midx;                         // name field offset
-    c.name = (const char*)&_pmem[_midx];    // assign name field index
-    c.udf  = 1;                             // specify a colon word
-    add((U8*)name,  ALIGN(sz+1));           // setup raw name field
-    c.pfa  = _midx;                         // parameter field offset
+    int  sz = STRLENB(name);                /// aligned string length
+    Code &c = _dict[_didx++];               /// get next dictionary slot
+    align();                                /// nfa 32-bit aligned (adjust _midx)
+    c.didx = _didx-1;                       /// directory index (reverse link)
+    c.nfa  = _midx;                         /// name field offset
+    c.name = (const char*)&_pmem[_midx];    /// assign name field index
+    c.udf  = 1;                             /// specify a colon word
+    add((U8*)name,  ALIGN(sz+1));           /// setup raw name field
+    c.pfa  = _midx;                         /// parameter field offset
 }
 ///
 /// tensor life-cycle methods
@@ -177,7 +177,7 @@ MMU::free(Model &m) {
 
 __GPU__ void                      ///< release marked free tensor
 MMU::sweep() {
-//    lock();                       /// * dead locked now
+//    lock();                     /// * dead locked now
     for (int i = 0, n=_fidx; n && i < n; i++) {
         DU v = _mark[i];
         MM_DB("mmu#release T:%x from free[%d]\n", DU2X(v) & ~T4_TT_OBJ, i);
@@ -314,8 +314,8 @@ MMU::slice(Tensor &t0, U32 x0, U32 x1, U32 y0, U32 y1) {
     /// hard copy data blocks
     ///
     U32 N   = t1.N(), C = t1.C();
-    U64 bsz = sizeof(DU) * C * t1.W();              // size of one row
-    for (int n = 0; n < N; n++) {                   // repeat N HWC
+    U64 bsz = sizeof(DU) * C * t1.W();              /// size of one row
+    for (int n = 0; n < N; n++) {                   /// repeat N HWC
         for (int j = y0, j0=0; j < y1; j++, j0++) {
             DU *d0 = &t0.data[C * (j * t0.W() + x0)];
             DU *d1 = &t1.data[C * j0 * t1.W()];

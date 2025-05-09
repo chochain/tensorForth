@@ -299,21 +299,21 @@ Tensor::lu_inverse(Tensor &LU) {
     auto forward = [dd, n](int z) {
         for (int y = z + 1; y < n; y++) {
             DU r1 = dd[z + y * n];
-            for (int k = 0; k < z; k++) {               // columns before
+            for (int k = 0; k < z; k++) {               /// columns before
                 dd[k + y * n] -= dd[k + z * n] * r1;
             }
-            dd[z + y * n] = -r1;                        // current z column
+            dd[z + y * n] = -r1;                        /// current z column
         }};
     auto backward = [dd, n](int z) {
         DU r0 = RCP(dd[z + z * n]);
-        dd[z + z * n] = r0;                             // diag
-        for (int k = z + 1; k < n; k++) {               // current z row
+        dd[z + z * n] = r0;                             /// diag
+        for (int k = z + 1; k < n; k++) {               /// current z row
             dd[k + z * n] *= r0;
         }
-        for (int y = 0; y < z; y++) {                   // factorize rows above
+        for (int y = 0; y < z; y++) {                   /// factorize rows above
             DU r1 = dd[z + y * n];
-            dd[z + y *  n] = -r1 * r0;                  // current z column
-            for (int k = z + 1; k < n; k++) {           // columns after
+            dd[z + y *  n] = -r1 * r0;                  /// current z column
+            for (int k = z + 1; k < n; k++) {           /// columns after
                 dd[k + y * n] -= dd[k + z * n] * r1;
             }
         }};
@@ -459,7 +459,7 @@ Tensor::loss(t4_loss op, Tensor &tgt) {
         }
         return -sum;
     };
-*/    
+*/
     DU z = DU0;                      ///> result loss value
     switch (op) {
     case LOSS_MSE:                   /// * mean squared error, input from linear
@@ -695,9 +695,9 @@ Tensor::_dump(DU *v, U32 H, U32 W, U32 C) {
 __BOTH__ void
 Tensor::_view(DU *v, U32 H, U32 W, U32 C, DU mean, DU scale) {
     auto map = [](DU v) {
-        // static const char *lk = " `.-':_,^=;><+!rc*/z?sLTv)J7(|Fi{C}fI31tlu[neoZ5Yxjya]2ESwqkP6h9d4VpOGbUAKXHm8RD#$Bg0MNWQ%&@";          // 91 shades
-        // static const char *lk = " `.-:^=;i>+!*zsv7C3tno5xakhdOUAXR#$0MW%Q"; // 40 shades
-        static const char *lk = " `.-:;!+*ixekO#@";     // 16 shades
+        // static const char *lk = " `.-':_,^=;><+!rc*/z?sLTv)J7(|Fi{C}fI31tlu[neoZ5Yxjya]2ESwqkP6h9d4VpOGbUAKXHm8RD#$Bg0MNWQ%&@";          /// 91 shades
+        // static const char *lk = " `.-:^=;i>+!*zsv7C3tno5xakhdOUAXR#$0MW%Q"; /// 40 shades
+        static const char *lk = " `.-:;!+*ixekO#@";     /// 16 shades
         static const int   sz = 16;
         int i  = static_cast<int>((v + 1.0) * sz/2);
         return lk[i < 0 ? 0 : (i < sz ? i : sz-1)];
@@ -721,7 +721,7 @@ Tensor::_view(DU *v, U32 H, U32 W, U32 C, DU mean, DU scale) {
                 DU x0 = (r0 - mean) * scale;
                 DU x1 = (((r0 + r1) * 0.5) - mean) * scale;
 
-                INFO("%c%c", map(x0), map(x1));  // double width
+                INFO("%c%c", map(x0), map(x1));  /// double width
                 csum[k] += r1;
             }
             INFO("|");
@@ -742,7 +742,7 @@ Tensor::show(bool dump) {
     const U64 hw = (U64)H * W;
 
     DU mean  = avg();
-    DU scale = 0.5 / std();            // P=95%
+    DU scale = 0.5 / std();            /// P=95%
     for (U32 n = 0; n < N; n++) {
         DU *d = slice(n);
         if (dump || hw < 100) {
