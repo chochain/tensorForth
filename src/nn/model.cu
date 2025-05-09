@@ -242,7 +242,7 @@ Model::_ipool(Tensor &in, U16 f) {
                                                  /// * used by backprop
     U32 H0 = (in.H() - f) / f + 1;
     U32 W0 = (in.W() - f) / f + 1;
-    U16 s[4] = { f, f, 1, 1 }; memcpy(in.stride, s, sizeof(s));  // stride
+    U16 s[4] = { f, f, 1, 1 }; memcpy(in.stride, s, sizeof(s));  /// stride
     
     Tensor &out = T4(in.N(), H0, W0, in.C());
     npush(out);                                  /// * stage for next stage
@@ -279,7 +279,7 @@ Model::_iup(Tensor &in, U16 f, DU method) {
                                                  /// * used by backprop
     U32 H0 = in.H() * f;
     U32 W0 = in.W() * f;
-    U16 s[4] = { f, f, 1, 1 }; memcpy(in.stride, s, sizeof(s));  // stride
+    U16 s[4] = { f, f, 1, 1 }; memcpy(in.stride, s, sizeof(s));  ///< stride
     
     Tensor &out = T4(in.N(), H0, W0, in.C());
     npush(out);                                  /// * stage for next stage

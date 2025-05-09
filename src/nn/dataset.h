@@ -50,7 +50,7 @@ struct Dataset : public Tensor {
 
         DU  *d = data;                ///< data in device memory
         for (U64 i = 0; i < numel; i++) {
-            *d++ = (I2D((int)*h_data++) - m) / s;  // normalize
+            *d++ = (I2D((int)*h_data++) - m) / s;  /// * normalize
         }
         U32 *t = label;               ///< label in device memory
         for (U32 i = 0; i < N(); i++) {
