@@ -4,16 +4,16 @@
  *
  * <pre>Copyright (C) 2021- GreenII, this file is distributed under BSD 3-Clause License.</pre>
  */
-#include <cstdio>        // printf
-#include <iostream>      // cin, cout
-#include <iomanip>       // setbase, setprecision
+#include <cstdio>        /// printf
+#include <iostream>      /// cin, cout
+#include <iomanip>       /// setbase, setprecision
 #include "aio.h"
 
 #if (T4_DO_OBJ && T4_DO_NN)
 #include <fstream>
 #include "nn/dataset.h"
 #include "nn/model.h"
-#include "ldr/loader.h"  // includes Corpus
+#include "ldr/loader.h"  /// includes Corpus
 
 using namespace std;
 ///
@@ -93,7 +93,7 @@ AIO::nsave(Model &m, char* fname, U8 mode) {
     }
     fs << "\\ " << T4_APP_NAME << " model\n";
     if (mode & FAM_RAW) {
-        // TODO: raw format (.npy, .petastorm, hdf5)
+        /// TODO: raw format (.npy, .petastorm, hdf5)
     }
     else {
         _nsave_model(fs, m);                  /// * blank line as section break

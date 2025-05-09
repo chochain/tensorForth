@@ -4,8 +4,8 @@
  *
  * <pre>Copyright (C) 2021- GreenII, this file is distributed under BSD 3-Clause License.</pre>
  */
-#include <cstdio>        // printf
-#include <iomanip>       // setbase, setprecision
+#include <cstdio>        /// printf
+#include <iomanip>       /// setbase, setprecision
 #include "aio.h"
 
 #if T4_DO_OBJ
@@ -152,7 +152,7 @@ AIO::_tsave_raw(h_ostr &fs, Tensor &t) {
 
 __HOST__ int
 AIO::_tsave_npy(h_ostr &fs, Tensor &t) {
-    // TODO:
+    /// TODO:
     return 0;
 }
 #endif // T4_DO_OBJ

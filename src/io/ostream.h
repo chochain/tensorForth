@@ -85,22 +85,22 @@ __GPU__ __INLINE__ void _debug(GT gt, U8 *v, U32 sz) {
 #endif // T4_VERBOSE > 1
     }
     __GPU__  void _write(GT gt, U8 *v, U32 sz) {
-        if (threadIdx.x!=0) return;               // only thread 0 within a block can write
+        if (threadIdx.x!=0) return;               /// only thread 0 within a block can write
 
         //_LOCK;
-        io_event *e = (io_event*)&_buf[_idx];     // allocate next node
+        io_event *e = (io_event*)&_buf[_idx];     /// allocate next node
 
-        e->gt   = gt;                             // data type
-        e->sz   = ALIGN(sz);                      // data alignment (32-bit)
+        e->gt   = gt;                             /// data type
+        e->sz   = ALIGN(sz);                      /// data alignment (32-bit)
 
-        int inc = EVENT_HDR + e->sz;              // calc node allocation size
+        int inc = EVENT_HDR + e->sz;              /// calc node allocation size
 
         _debug(gt, v, sz);
 
-        if ((_idx + inc) > _max) inc = 0;         // overflow, skip
-        else MEMCPY(e->data, v, sz);              // deep copy, TODO: shallow copy via managed memory
+        if ((_idx + inc) > _max) inc = 0;         /// overflow, skip
+        else MEMCPY(e->data, v, sz);              /// deep copy, TODO: shallow copy via managed memory
 
-        _buf[(_idx += inc)] = (char)GT_EMPTY;     // advance index and mark end of stream
+        _buf[(_idx += inc)] = (char)GT_EMPTY;     /// advance index and mark end of stream
         //_UNLOCK;
     }
     __GPU__ Ostream& _wfmt() { _write(GT_FMT, (U8*)&_fmt, sizeof(obuf_fmt)); return *this; }

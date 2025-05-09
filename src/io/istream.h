@@ -20,11 +20,11 @@ class Istream : public Managed {
     ///
     __GPU__ int _tok(char delim) {
         char *p = &_buf[_idx];  ///< pointer to indexed buffer
-        while (delim==' ' && (*p==' ' || *p=='\t')) (p++, _idx++); // skip leading blanks and tabs
+        while (delim==' ' && (*p==' ' || *p=='\t')) (p++, _idx++); /// skip leading blanks and tabs
         int nidx=_idx;
-        while (*p && *p!=delim) (p++, nidx++);                     // advance pointers
-        _gn = (delim!=' ' && *p!=delim) ? nidx=0 : nidx - _idx;    // not found or end of input string
-        return nidx;                                               // found at input string index (0 not found)
+        while (*p && *p!=delim) (p++, nidx++);                     /// advance pointers
+        _gn = (delim!=' ' && *p!=delim) ? nidx=0 : nidx - _idx;    /// not found or end of input string
+        return nidx;                                               /// found at input string index (0 not found)
     }
 public:
     Istream(int sz=T4_IBUF_SZ) { MM_ALLOC(&_buf, sz);       }
@@ -49,20 +49,20 @@ public:
     ///
     __HOST__ int gcount() { return _gn;  }
     __HOST__ int tellg()  { return _idx; }
-    //
+    ///
     /// parser
     ///
     __GPU__ Istream& get_idiom(char *s, char delim=' ') {
-        int nidx = _tok(delim);             // index to next token
+        int nidx = _tok(delim);             /// index to next token
 
-        if (nidx > 0) {                     // token found
-            MEMCPY(s, &_buf[_idx], _gn);    // CUDA memcpy
-            _idx = nidx + (delim != ' ');   // advance index
-            s[_gn] = '\0';                  // terminated with '\0'
+        if (nidx > 0) {                     /// token found
+            MEMCPY(s, &_buf[_idx], _gn);    /// CUDA memcpy
+            _idx = nidx + (delim != ' ');   /// advance index
+            s[_gn] = '\0';                  /// terminated with '\0'
             DEBUG("ibuf[%d] >> '%s' (%d bytes)\n", _idx, s, _gn);
         }
-        else if (delim=='\n') {             // comment line
-            _buf[_idx] = '\0';              // blank out the reset of input buffer
+        else if (delim=='\n') {             /// comment line
+            _buf[_idx] = '\0';              /// blank out the reset of input buffer
             DEBUG("ibuf[%d] \\ at idx=%d\n", _idx, _gn);
         }
         return *this;

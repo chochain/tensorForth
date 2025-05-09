@@ -4,9 +4,9 @@
  *
  * <pre>Copyright (C) 2021- GreenII, this file is distributed under BSD 3-Clause License.</pre>
  */
-#include <cstdio>        // printf
-#include <iostream>      // cin, cout
-#include <iomanip>       // setbase, setprecision
+#include <cstdio>        /// printf
+#include <iostream>      /// cin, cout
+#include <iomanip>       /// setbase, setprecision
 #include "aio.h"
 ///
 ///@name singleton and contructor
@@ -75,7 +75,7 @@ AIO::to_s(h_ostr &fs, T4Base &t, bool view) {
     };
     fs << tn[view][t.ttype];
     switch(t.rank) {
-    case 0: fs << "["  << (t.numel - 1) << ']';            break;  // network model
+    case 0: fs << "["  << (t.numel - 1) << ']';            break;  /// network model
     case 1: fs << "1[" << t.numel << ']';                  break;
     case 2: fs << "2["; t2((Tensor&)t);                    break;
     case 3: fs << "3[na]";                                 break;
