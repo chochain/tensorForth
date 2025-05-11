@@ -12,6 +12,7 @@
 
 struct Dataset : public Tensor {
     int   batch_id =  0;             ///< current batch id
+    int   batch_sz =  0;             ///< size of this mini-batch
     int   done     =  1;             ///< completed
     U32   *label   = NULL;           ///< label data on host
     ///
@@ -37,7 +38,7 @@ struct Dataset : public Tensor {
         return *this;
     }
     __HOST__ Dataset *load_batch(
-        U8 *h_data, U8 *h_label, DU mean=DU0, DU std=DU1) {
+        U8 *h_data, U8 *h_label, int n, DU mean=DU0, DU std=DU1) {
         const DU m = mean * 256, s = std * 256;
         ///
         /// Allocate managed memory if needed
@@ -45,15 +46,16 @@ struct Dataset : public Tensor {
         /// Note: numel is known only after reading from Corpus
         ///       (see ~/src/io/aio_model#_dsfetch)
         ///
-        if (!data)  MM_ALLOC(&data, numel * sizeof(DU));
+        if (!data)  MM_ALLOC(&data,  numel * sizeof(DU));
         if (!label) MM_ALLOC(&label, N() * sizeof(U32));
 
+        batch_sz = n;                 /// * actual mini-batch size (for last batch)
         DU  *d = data;                ///< data in device memory
-        for (U64 i = 0; i < numel; i++) {
+        for (U64 i = 0; i < n * HWC(); i++) {
             *d++ = (I2D((int)*h_data++) - m) / s;  /// * normalize
         }
         U32 *t = label;               ///< label in device memory
-        for (U32 i = 0; i < N(); i++) {
+        for (U32 i = 0; i < n; i++) {
             *t++ = (U32)*h_label++;
         }
         return this;
