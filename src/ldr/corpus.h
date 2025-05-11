@@ -21,6 +21,7 @@ struct Corpus {
     const char *tg_name;     ///< target label name
 
     U32 N, H, W, C;          ///< set dimensions and channel size
+    U32 batch_sz = 0;
     union {
         U32 ctrl = 0;        ///< corpus control 
         struct {
@@ -50,16 +51,15 @@ struct Corpus {
         ds_free(ds_name, data);
         if (label) ds_free(tg_name, label);
     }
-    int dsize()   { return H * W * C; }                    ///< size of each point of data
-    int len()     { return N; }                            ///< number of data point
+    int cell() { return H * W * C; }                          ///< size of an element
     
-    virtual Corpus *init(int trace) { return NULL; }                 /// * initialize dimensions
-    virtual Corpus *fetch(int batch_id, int batch_sz, int trace) {   /// * bsz=0 => load entire set
+    virtual Corpus *init(int trace) { return NULL; }          /// * initialize dimensions
+    virtual Corpus *fetch(int bid, int n, int trace) {        /// * load a batch
         INFO("batch(U8*) implemented?\n");
         return this;
     }
     virtual Corpus *rewind() { eof = 0; return this; }
-    virtual U8 *operator [](int idx){ return &data[idx * dsize()]; } ///< data point
+    virtual U8 *operator [](int idx){ return &data[idx * cell()]; }    ///< data point
 };
 
 #endif // (!defined(__LDR_CORPUS_H) && T4_DO_OBJ && T4_DO_NN)
