@@ -37,6 +37,7 @@ class Model : public T4Base {
     MMU    *_mmu;                ///< memory controller
     Tensor *_store;              ///< model storage - Sequential, TODO: DAG
     Tensor *_hot    = NULL;      ///< cached dataset one-hot vector
+    Tensor *_loss   = NULL;      ///< cached dataset loss vector
     int    _hit     = 0;         ///< hit counter
     int    _iter    = 0;         ///< iteration counter (for Adam)
     int    *_trace;              ///< trace level
