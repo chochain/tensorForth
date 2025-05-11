@@ -250,6 +250,7 @@ NetVM::_loss(t4_loss op) {
     if (TOS2T) {                        /// * calculate loss of two tensors
         Tensor &tmp = COPY(TNOS);       /// * make a copy of TNOS (non-destructive)
         DU n = tmp.loss(op, TTOS);
+        FREE(tmp);                      /// * release memory
         PUSH(n);
     }
     else if (TOS1T && IS_M(ss[-1])) {   /// * model output vs expected
