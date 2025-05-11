@@ -224,9 +224,8 @@ Model::forward(Tensor &input) {
     /// collect onehot vector and hit count
     ///
     if (input.is_dataset()) {
-        if (_hot) FREE(*_hot);                   /// * release if previously alloc
-        _hot = &onehot((Dataset&)input);         /// * create/cache onehot vector
-        _hit = hit(true);                        /// * recalc/cache hit count
+        onehot((Dataset&)input);                   /// * update/cache onehot vector
+        _hit = hit(true);                          /// * and _hit count
     }
     NLOG("\n} Model::forward %5.2f ms\n", System::ms() - t0);
     return *this;
