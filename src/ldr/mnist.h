@@ -28,8 +28,8 @@ public:
         : Corpus(data_name, label_name) {}
     ~Mnist() { _close(); }
 
-    virtual Corpus *init(int trace);                                ///< setup/check sizing
-    virtual Corpus *fetch(int batch_id, int batch_sz, int trace);   ///< fetch given size
+    virtual Corpus *init(int trace);                    ///< setup/check sizing
+    virtual Corpus *fetch(int bid, int n, int trace);   ///< fetch bid'th mini-batch
     virtual Corpus *rewind() { d_in.clear(); t_in.clear(); return Corpus::rewind(); }
 
 private:
@@ -37,8 +37,8 @@ private:
     int _close();
     int _preview(int N);
     
-    int _get_labels(int bid, int bsz);
-    int _get_images(int bid, int bsz);
+    int _get_labels(int bid, int n);
+    int _get_images(int bid, int n);
 };
 
 #endif // (!defined(__LDR_MNIST_H) && T4_DO_OBJ && T4_DO_NN)

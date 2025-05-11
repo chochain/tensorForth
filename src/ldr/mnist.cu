@@ -10,7 +10,7 @@
 #include "mnist.h"
 
 #define LOG_COUNT 1000       /**< debug dump frequency */
-#define MAX_BATCH 0          /**< debug, limit number of mini-batches */
+#define MAX_BATCH 3          /**< debug, limit number of mini-batches */
 
 Corpus *Mnist::init(int trace) {
     auto _u32 = [this](std::ifstream &fs) {
@@ -48,31 +48,32 @@ Corpus *Mnist::init(int trace) {
     return this;
 }
 
-Corpus *Mnist::fetch(int batch_id, int batch_sz, int trace) {
+Corpus *Mnist::fetch(int bid, int n, int trace) {
     static int tick = 0;
-    int bid = batch_id + 1;
-    int bsz = batch_sz ? batch_sz : N;       ///< batch_sz==0 => entire batch
-    if (bsz==0 || (bsz * batch_id) >= N) {   ///< beyond total sample count
+    int bn = n * bid;                        ///< batch offset index
+    if (eof || bn >= N) {                    /// * beyond total sample count?
+        ERROR("Mnist::fetch EOF reached (needs rewind)\n");
         eof=1; return this;
-    }  
-    eof = 0;                                 ///< clear EOF flag
+    }
     ///
     /// fetch labels and images (and set eof if any of EOF reached)
     ///
-    int b0  = _get_labels(batch_id, bsz);    ///< load batch labels
-    int b1  = _get_images(batch_id, bsz);    ///< load batch images
-    if (b0 != b1) {
-        ERROR("Mnist::fetch #label=%d != #image=%d\n", b0, b1);
+    int b0   = _get_labels(bid, n);          ///< load batch labels
+    batch_sz = _get_images(bid, n);          ///< load batch images
+    if (b0 != batch_sz) {
+        ERROR("Mnist::fetch #label=%d != #image=%d\n", b0, batch_sz);
         return NULL;
     }
     if (trace && (++tick == LOG_COUNT)) {
-        INFO("\n\tMnist batch %d, loaded=%d/%d\n", bid, bsz * bid, N);
-        if (trace > 1) _preview(bsz < 3 ? bsz : 3);  /// * debug print
+        INFO("\n\tMnist batch %d, loaded=%d/%d\n", bid, bn, N);
+        if (trace > 1) _preview(n < 3 ? n : 3); /// * debug print
         tick = 0;
     }
-    if (MAX_BATCH && (bid >= MAX_BATCH)) eof = 1;    /// forced stop (debug)
-    if (bid * bsz >= N) eof = 1;
-    
+    if (bn >= N) eof = 1;                       /// * EOF reached
+    if (MAX_BATCH && ((bid+1) >= MAX_BATCH)) {  /// * forced stop? (debug)
+        batch_sz = n >> 1;                      /// * fake a partial batch
+        eof = 1;
+    }
     return this;
 }
 
@@ -119,8 +120,9 @@ int Mnist::_preview(int N) {
     return 0;
 }
 
-int Mnist::_get_labels(int bid, int bsz) {
+int Mnist::_get_labels(int bid, int n) {
     int hdr = sizeof(U32) * 2;                     ///< header to skip over
+    int bsz = sizeof(U8) * n;                      ///< batch size
 
     if (!label) DS_ALLOC(&label, bsz);
 
@@ -135,16 +137,16 @@ int Mnist::_get_labels(int bid, int bsz) {
     return cnt;
 }
 
-int Mnist::_get_images(int bid, int bsz) {
+int Mnist::_get_images(int bid, int n) {
     int hdr = sizeof(U32) * 4;                     ///< header to skip over
-    int xsz = bsz * dsize();                       ///< image block size
+    int bsz = n * cell();                          ///< image block size
 
-    if (!data) DS_ALLOC(&data, xsz);
+    if (!data) DS_ALLOC(&data, bsz);
 
-    d_in.seekg(hdr + bid * xsz);                   /// * seek by batch id
-    d_in.read((char*)data, xsz);                   /// * fetch batch images
+    d_in.seekg(hdr + bid * bsz);                   /// * seek by batch id
+    d_in.read((char*)data, bsz);                   /// * fetch batch images
 
-    int cnt = d_in.gcount() / dsize();             ///< # of sample fetched
+    int cnt = d_in.gcount() / cell();              ///< # of sample fetched
     
     char c = t_in.peek();                          ///< check EOF
     eof |= d_in.eof();                             /// * set EOF flag
