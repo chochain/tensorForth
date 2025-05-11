@@ -47,12 +47,11 @@ AIO::dsfetch(Dataset &ds, char *ds_name, bool rewind) {
     if (!cp) {
         ERROR("  } %s => dataset not found\n", fn); return -1;
     }
-    int batch_sz = ds.N();                       ///< mini batch size
     if (ds_name) {                               /// * init load
         if (cp->init(trace)==NULL) {
             ERROR("  } %s => dataset setup failed!\n", fn); return -2;
         }
-        ds.reshape(batch_sz, cp->H, cp->W, cp->C);/// * reshape ds to match Corpus
+        ds.reshape(ds.N(), cp->H, cp->W, cp->C); /// * reshape ds to match Corpus mini-batch
     }
     if (rewind) {
         cp->rewind();
@@ -64,16 +63,17 @@ AIO::dsfetch(Dataset &ds, char *ds_name, bool rewind) {
     ///
     /// load a mini-batch of data points
     ///
-    if (!cp->fetch(ds.batch_id, batch_sz, trace)) {     /// * fetch a batch from Corpus
+    if (!cp->fetch(ds.batch_id, ds.N(), trace)) { /// * fetch a batch from Corpus
         ERROR("  } %s => fetch failed\n", fn);  return -3;
     }
+    int n = cp->batch_sz;                         ///< actural mini-batch fetched
     ///
     /// transfer host into device memory
     /// if needed, allocate Dataset device (managed) memory blocks
     ///
-    ds.load_batch(cp->data, cp->label);
+    ds.load_batch(cp->data, cp->label, n);
     IO_DB("  } %s => batch[%d] %d record(s) loaded, done=%d\n",
-          fn, ds.batch_id, batch_sz, cp->eof);
+          fn, ds.batch_id, n, cp->eof);
 
     ds.batch_id++;
     ds.done = cp->eof;
