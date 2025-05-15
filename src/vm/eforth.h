@@ -22,7 +22,6 @@
 #define LAST      (mmu.dict(mmu.dict._didx-1))      /**< last colon word defined              */
 #define BASE      ((U8*)MEM(base))                    /**< pointer to user area per VM          */
 #define SETJMP(a) (((Param*)MEM(a))->ioff = HERE)     /**< set branch target                    */
-#define SS2I      ((id<<10)|(ss.idx>=0 ? ss.idx : 0)) /**< ss_dump parameter (composite)        */
 #define POPi      (D2I(POP()))
 ///@}
 ///@name progress status macros
