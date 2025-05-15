@@ -57,8 +57,9 @@ typedef cudaEvent_t         EVENT;
 
 #define ASSERT(X) \
     if (!(X)) ERROR("ASSERT tid %d: line %d in %s\n", threadIdx.x, __LINE__, __FILE__);
-#define GPU_SYNC() { cudaDeviceSynchronize(); }
-#define CDP_SYNC() { cudaDeviceSynchronize(); }      /** for CDP1 retention */
+#define GPU_SYNC()  { cudaDeviceSynchronize(); }
+#define CDP_SYNC1() { cudaDeviceSynchronize(); }  /** for CDP1 retention */
+#define CDP_SYNC()                                /** for CDP2, default stream auto sync */
 #define GPU_ERR(c) {             \
     cudaError_t code = (c);      \
     if (code != cudaSuccess) {   \
@@ -187,8 +188,8 @@ typedef enum {
     GT_FLOAT,
     GT_STR,
     GT_OBJ,
-    GT_FMT,
-    GT_OPX
+    GT_FMT,                           ///< output formatting
+    GT_OPX                            ///< memory or IO data type
 } GT;
 ///@}
 ///>name General Opocode Type for IO Event
