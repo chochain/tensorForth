@@ -54,7 +54,9 @@ Debug::print(void *vp, U8 gt) {
     io->print(fout, vp, gt);
 }
 __HOST__ void
-Debug::ss_dump(IU id, int sz, DU tos, int base) {
+Debug::ss_dump(DU tos, int id_sz, int base) {
+    int id = id_sz >> 10;                 ///< VM id
+    int sz = id_sz & 0x3ff;               ///< ss.idx
     DU *ss = mu->vmss(id);                ///< retrieve VM SS
     auto to_s = [this, base](DU v) {
         if (IS_OBJ(v)) io->to_s(fout, mu->du2obj(v), IS_VIEW(v));
