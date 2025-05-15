@@ -77,7 +77,9 @@ public:
     /// output methods
     ///
     __GPU__  void spaces(int n) {                         ///< show spaces
-        for (int i = 0; i < n; i++) *_ostr << " ";
+        for (int i = 0; i < n; i++) _pad[i] = ' ';
+        _pad[n] = '\0';
+        *_ostr << _pad;
     }
     __GPU__  void dot(io_op o, DU v=DU0) {                ///< print literals
         switch (o) {
@@ -93,6 +95,9 @@ public:
     __GPU__ void dotr(int w, DU v, int b, bool u=false) {
         *_ostr << setbase(b) << setw(w)
                << (u ? static_cast<U32>(v) : v);
+    }
+    __GPU__ void dots(int id, DU tos, int ss_idx, int base) {
+        *_ostr << opx(OP_SS, base, tos, (id << 10) | ss_idx);
     }
     __GPU__  void pstr(const char *str, io_op o=SPCS) {  ///< print string
         *_ostr << str;
