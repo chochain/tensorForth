@@ -197,8 +197,11 @@ TensorForth::run() {
         VM        *vm = h->vm;
         
         cudaEventRecord(h->t0, h->st);            /// * record start clock
+        if (vm->state==HOLD) {
+            cudaStreamSynchronize(h->st);         /// * ensure managed mem updated
+        }
         k_vm_exec0<<<1, 1, 0, h->st>>>(vm);       /// * each VM on their own stream
-        cudaStreamSynchronize(h->st);
+        cudaStreamSynchronize(h->st);             /// * ensure child memory updated
         cudaEventRecord(h->t1, h->st);            /// * record end clock
     }
     GPU_CHK();
