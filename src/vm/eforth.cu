@@ -53,7 +53,7 @@ ForthVM::process(char *idiom) {
 __GPU__ int
 ForthVM::post() {
     DEBUG("%d> VM.state=%d\n", id, state);
-    if (state!=HOLD && !compile) sys.op(OP_SS, *BASE, tos, SS2I);
+    if (state!=HOLD && !compile) sys.dots(id, tos, ss.idx, *BASE);
     return 0;
 }
 ///
@@ -373,15 +373,15 @@ ForthVM::init() {
     CODE("abort", tos = -DU1; ss.clear(); rs.clear());      /// clear ss, rs
     CODE("here",  PUSH(HERE));
     CODE("'",     IU w = FIND(sys.fetch()); if (w) PUSH(w));
-    CODE(".s",    sys.op(OP_SS, *BASE, tos, SS2I));
+    CODE(".s",    sys.dots(id, tos, ss.idx, *BASE));
     CODE("depth", PUSH(ss.idx - 1));
     CODE("words", sys.op(OP_WORDS));
     CODE("dict",  sys.op(OP_DICT));                         /// dict_dump in host mode
     CODE("dict_dump", mmu.dict_dump());
     CODE("see",   IU w = FIND(sys.fetch()); if (!w) return;
                   sys.op(OP_SEE, *BASE, DU0, w));
-    CODE("dump",  DU n = POP(); IU a = POPi;
-                  sys.op(OP_DUMP, 0, n, a));
+    CODE("dump",  IU n = POPi; DU a = POP();
+                  sys.op(OP_DUMP, 0, a, n));
     CODE("forget", _forget());
     CODE("trace", sys.trace(POPi));                         /// set debug/trace level
     /// @}
