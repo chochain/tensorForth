@@ -38,7 +38,7 @@ public:
     __HOST__ void reset_fmt();
 
     __HOST__ void print(void *vp, U8 gt);                      ///< display value, io proxy
-    __HOST__ void ss_dump(IU id, int sz, DU tos, int base=10); ///< show data stack content
+    __HOST__ void ss_dump(DU tos, int id_sz, int base=10);     ///< show data stack content
     __HOST__ void words();                                     ///< list dictionary words
     __HOST__ void mem_dump(IU addr, int sz);                   ///< dump memory frm addr...addr+sz
     __HOST__ void see(IU w, int base, int trace=0);            ///< disassemble user defined word
