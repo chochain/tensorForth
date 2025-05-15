@@ -10,8 +10,9 @@
 #include "util.h"
 
 //================================================================
-/*! printf internal version data container.
-*/
+///
+///> printf internal version data container.
+///
 typedef struct {
     U8 base;
     U8 width;
@@ -19,7 +20,7 @@ typedef struct {
     U8 fill;
 } obuf_fmt;
 ///
-/// implement kernel iomanip classes
+///> implement kernel iomanip classes
 ///
 struct _setbase { U8  base;  __GPU__ _setbase(U8 b) : base(b)  {}};
 struct _setw    { U8  width; __GPU__ _setw(U8 w)    : width(w) {}};
@@ -30,29 +31,32 @@ __GPU__ __INLINE__ _setw    setw(int w)     { return _setw((U8)w);    }
 __GPU__ __INLINE__ _setfill setfill(char f) { return _setfill((U8)f); }
 __GPU__ __INLINE__ _setprec setprec(int p)  { return _setprec((U8)p); }
 ///
-/// Forth parameterized manipulators
+///> Forth parameterized manipulators
 ///
 struct _opx {
-    union {
-        U64 x;
-        struct {
-            U32 op : 4;   ///> max 16 ops
-            U32 m  : 8;   ///> mode - file access, format
-            U32 i  : 20;  ///> max 1M
-            DU  n;        ///> F32
-        };
-    };
-    __GPU__ _opx(OP op0, U8 m0, DU n, int i0=0) : n(n) { op = op0; m = m0; i = i0; }
+    U32 op : 4;   ///> max 16 ops
+    U32 m  : 8;   ///> mode - file access, format
+    U32 i  : 20;  ///> max 16K
+    DU  n;        ///> F32
+    
+    __GPU__ _opx(OP op0, U8 m0, DU n0, int i0=0) : n(n0) {
+        op = op0; m = m0; i = i0;
+    }
 };
-__GPU__ __INLINE__ _opx opx(OP op, U8 m, DU n=DU0, int i=0) { return _opx(op, m, n, i); }
 ///
-/// Ostream class
+///> Kernel-Host parameter constructor
+///
+__GPU__ __INLINE__ _opx opx(OP op, U8 m, DU n=DU0, int i=0) {
+    return _opx(op, m, n, i);
+}
+///
+///> Ostream class
 ///
 class Ostream : public Managed {
-    char    *_buf;
     int      _max = 0;
     int      _idx = 0;
     obuf_fmt _fmt = { 10, 0, 0, ' '};
+    char    *_buf;
 
 __GPU__ __INLINE__ void _debug(GT gt, U8 *v, U32 sz) {
 #if T4_VERBOSE > 1
@@ -73,7 +77,7 @@ __GPU__ __INLINE__ void _debug(GT gt, U8 *v, U32 sz) {
             case OP_DICT:  printf("dict_dump()");                   break;
             case OP_WORDS: printf("words()");                       break;
             case OP_SEE:   printf("see(%d)",      o->i);            break;
-            case OP_DUMP:  printf("dump(%d, %d)", o->i, (U32)o->n); break;
+            case OP_DUMP:  printf("dump(%d, %d)", (U32)o->n, o->i); break;
             case OP_SS:    printf("ss_dump(%d)",  o->i);            break;
             case OP_DATA:  printf("data(%d)",     o->i);            break;
             case OP_FETCH: printf("fetch(%d)",    o->i);            break;
