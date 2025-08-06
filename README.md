@@ -484,6 +484,7 @@ Tests v3.2 GAN ops
       * residual net i.e. [ResNet](https://d2l.ai/chapter_convolutional-modern/resnet.html)
       * branch & concatenate (i.e Inception in GoogLeNet)
   + GNN - dynamic graph with VMs. Value proposition.
+  + Mamba - State Space Model [mamba](https://www.ibm.com/think/topics/mamba-model)
   + Multi-Domain, i.e. MDNet
 * Data
   + add loader plug-in API - CIFAR
