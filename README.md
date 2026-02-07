@@ -145,7 +145,7 @@ Also, if you have an older Nvidia card on an older version of OS, check the comp
 * install CUDA 11.4+ on your machine
 * download one of the releases from the list above to your local directory
 
-or, better yet
+or, with CUDA Docker image (strongly recommended)
 * install Docker Engine on your box, follow standard Docker installation guide
 * install nvidia-container-toolkit
 * pull a CUDA 11.4+ docker image, a template is provided in ~/tests/cuda11_Docker
@@ -166,34 +166,69 @@ or, better yet
     > ./docker_cuda116
     </pre>
 
-#### with Makefile, and test
+Note: Those cards are what I have. Let me know if it works on your cards/OS.
+
+#### with Makefile
 Build on Linux
 
     cd to your ten4 repo directory,
-    update root Makefile to your desired CUDA_ARCH, CUDA_CODE,
+    per your GPU card, update root Makefile to your desired CUDA_ARCH, CUDA_CODE
     type 'make all',
     if all goes well, some warnings aside, cd to tests directory,
 
-Test v1 eForth ops
+* Test v1 eForth ops
 
-    ~/tests> ten4 < lesson_1.txt - for basic syntax checks
+    ~/tests> ten4 < lesson_10a.txt - for basic syntax checks
 
-Test v2 matrix ops
+    you should see lots of output including the following
+    <pre>
+    ... 
+     2026 year 1 month => 
+    *************************************************************
+         sun     mon     tue     wed     thu     fri     sat
+    *************************************************************
+                                           1       2       3
+           4       5       6       7       8       9      10
+          11      12      13      14      15      16      17
+          18      19      20      21      22      23      24
+          25      26      27      28      29      30      31
+    *************************************************************
+    ...
+    </pre>
 
-    ~/tests> ten4 < lesson_2.txt - for matrix ops
-    ~/tests> ten4 < lesson_3.txt - for linear algebra stuffs
+* Test v2 matrix ops
 
-Test v3 ML ops
+    ~/tests> ten4 < lesson_20a.txt - for matrix ops
+    <pre>
+    ...
+    {{6 6}{9 9}} * {{0.5 0.5}{0.5 0.5}} -1 T2[2,2] -> ok
+    = {{3 3}{4.5 4.5}} => matrix[2,2] = {
+	{ +3.0000 +3.0000 }
+	{ +4.5000 +4.5000 } }
+    ...
+    </pre>
 
-    ~/tests> ten4 < lesson_4.txt - NN model forward, loss, and backprop verification - single pass
-    ~/tests> ten4 < lesson_5.txt - MINST training, 20 epochs
+    ~/tests> ten4 < lesson_22a.txt - for linear algebra stuffs
+    <pre>
+    ...
+    verify { 1 1 1 } => vector[3] = { 1 1 1 }
+    ...
+    verify { 8 -1 -8 } => vector[3] = { 8 -1 -8 }
+    ...
+    </pre>
 
-Tests v3.2 GAN ops
+* Test v3 ML ops
 
-    ~/tests> ten4 < lesson_6a.txt - GAN on NN single sample linear layer verification
-    ~/tests> ten4 < lesson_6b.txt - GAN on NN multi-sample linear layer verification
-    ~/tests> ten4 < lesson_6.txt - GAN on simple linear regression, 10 epochs
-    ~/tests> ten4 < lesson_7.txt - GAN on MINST dataset, 100 epochs
+    ~/tests> ten4 < lesson_30a.txt - NN model - single pass - forward verify
+    ~/tests> ten4 < lesson_30b.txt - NN model - single pass - loss, and backprop verify
+    ~/tests> ten4 < lesson_30c.txt - NN model - 2-sample full round-trip verify
+    ~/tests> ten4 < lesson_30d.txt - CNN - MNIST single pass verify
+    ~/tests> ten4 < lesson_30e.txt - CNN - MNIST full framework, 20 epochs
+
+* Tests v3.2 GAN ops
+
+    ~/tests> ten4 < lesson_32a.txt - GAN on NN single sample linear 2x2 layer verify
+    ~/tests> ten4 < lesson_32b.txt - GAN on MINST dataset, 100 epochs
 
 #### with Eclipse
 
