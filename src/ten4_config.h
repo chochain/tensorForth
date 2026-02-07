@@ -23,14 +23,13 @@
 ///@name CUDA cooperative dynamic parallelism support
 ///@{
 #define T4_DO_OBJ           1        /**< enable tensor/matrix  */
-#define T4_DO_NN            1        /**< enable neural network */
-#define T4_DO_CDP           1        /**< enable coorporative   */
+#define T4_DO_NN            0        /**< enable neural network */
 #define T4_USE_STRBUF       0
 #define T4_PER_THREAD_STACK 8*1024   /**< init() stack overflow */
 ///@}
 ///@name Virtual machine instance controls
 ///@{
-#define T4_VM_COUNT         4        /**< number of VMs         */
+#define T4_VM_COUNT         1        /**< number of VMs         */
 #define T4_EXP_STACK        8        /**< exception stack depth */
 #define T4_REGFILE_SZ       128      /**< register file size    */
 ///@}
