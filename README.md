@@ -138,16 +138,33 @@ s" tests/my_net.t4" save                    \ persist the trained network
 </pre>
 
 ### To build
-* install CUDA 11.6+ on your machine
+Note: I'm currently hindered by CUDA 12 compatability. It deprecated cudaDeviceSynchronize which is heavily used by my Dynamic Parallelism code. Needs a new way to sync data in parallel pipelines. Not sure it's all possible with the new cudaStreamTailLaunch. Alternatively, Claude suggested change architecture to use queue-based solution. We'll see...
+
+Also, if you have an older Nvidia card on an older version of OS, check the compability chart first [here](https://forums.developer.nvidia.com/t/ubuntu-install-specific-old-cuda-drivers-combo/214601/5)
+
+* install CUDA 11.4+ on your machine
 * download one of the releases from the list above to your local directory
 
 or, better yet
+* install Docker Engine on your box, follow standard Docker installation guide
+* install nvidia-container-toolkit
+* pull a CUDA 11.4+ docker image, a template is provided in ~/tests/cuda11_Docker
+* run the CUDA container with your environment variables, a template provided in ~/tests/docker_cuda11
 
-* install Docker Engine on your *nix machine
-* pull CUDA 11.6 docker image, a template provided in ~/tests/cuda11_Docker
-* run the CUDA container with your environment variables, a template provided in ~/tests/docker_cuda
+    Examples
+    <pre>
+    > # for my old GT1030 on Ubuntu 20.04
+    > cd tests
+    > cp cuda114_Dockerfile Dockerfile
+    > docker build -t cuda:v114 .
+    > ./docker_cuda114
 
-Note: I'm still working on CUDA 12 compatability. It's broken because cudaDeviceSynchronize was deprecated when using Dynamic Parallelism. Needs a new way to sync data in parallel pipelines.
+    > # for my cheap GT1660 on Ubuntu 24.04
+    > cd tests
+    > cp cuda116_Dockerfile Dockerfile
+    > docker build -t cuda:v116 .
+    > ./docker_cuda116
+    </pre>
 
 #### with Makefile, and test
 Build on Linux
@@ -535,7 +552,7 @@ Tests v3.2 GAN ops
 * 3rd-party lib Integration
   + integrate CUB, CUTLASS (utilities.init, gemm_api) - slow, later
   + pre-processor (DALI) + GPUDirect - heavy, later
-  + calling API - Python(cffi), Ruby(FFI)
++ calling API - Python(cffi), Ruby(FFI)
 
 ## History
 ### [Release 1.0](./docs/v1_progress.md) features
