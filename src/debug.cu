@@ -47,11 +47,11 @@ Debug::reset_fmt() { fout.copyfmt(_fmt0); }
 ///
 __HOST__ void
 Debug::print(void *vp, U8 gt) {
-#if T4_DO_OBJ
-    DU v = *(DU*)vp;
-    if (gt==GT_OBJ) { io->print(fout, mu->du2obj(v)); return; }
-#endif
-    io->print(fout, vp, gt);
+#if T4_DO_OBJ    
+    if (gt==GT_OBJ) io->print(fout, mu->du2obj(*(DU*)vp));
+    else
+#endif // T4_DO_OBJ
+        io->print(fout, vp, gt);
 }
 __HOST__ void
 Debug::ss_dump(DU tos, int id_sz, int base) {
@@ -59,8 +59,11 @@ Debug::ss_dump(DU tos, int id_sz, int base) {
     int sz = id_sz & 0x3ff;               ///< ss.idx
     DU *ss = mu->vmss(id);                ///< retrieve VM SS
     auto to_s = [this, base](DU v) {
+#if T4_DO_OBJ        
         if (IS_OBJ(v)) io->to_s(fout, mu->du2obj(v), IS_VIEW(v));
-        else           io->to_s(fout, v, base);
+        else
+#endif // T4_DO_OBJ
+            io->to_s(fout, v, base);
         fout << ' ';
     };
     for (int i=0; i < sz; i++) to_s(*ss++);
