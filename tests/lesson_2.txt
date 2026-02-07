@@ -6,7 +6,7 @@ dup                          \ create a view (shown in lower case)
 3 2 matrix ones              \ create a 3x2 matrix filled with 1s
 dup .                        \ see whether it's all ones
 @                            \ multiply matrices and leave resultant as TOS
-.                            \ print the resultant matrix
+.( {{ 6 6 }{ 15 15 }} => ) . \ print the resultant matrix
 
 2drop                        \ drop the original two matrices
 
@@ -21,7 +21,7 @@ cr .( ### benchmark - 100 loops ) cr
   dup >r clock >r            \ keep loop count and init clock on return stack
   for @ drop next            \ loop of matrix multiplication (and drop the result)
   clock r> -                 \ time it (clock1 - clock0)
-  r> 1 + / ." =>"            \ retrieve loop count and calc average
+  r> 1 + / ." => "           \ retrieve loop count and calc average
   . ."  msec/cycle" cr ;     \ print result
 see mx                       \ show the word
 99 mx                        \ run the multiplication loop 100 times
@@ -33,33 +33,39 @@ cr .( ### matrix inversion ) cr
 dup .                        \ check values
 inverse                      \ deduce the inverse matrix
 dup .                        \ see the inverse
-cr .( ### verify M*M^-1 = I ) cr
 @                            \ multiply the matrices
+cr .( ### verify M*M^-1 = I ) cr
 .                            \ validate => identity matrix (-0.0000 OK, hopefully within EPS)
 
 2drop                        \ drop the last tow matrices
 
-cr .( ## linear algebra - destructive ## ) cr
+cr .( ### linear algebra - destructive ) cr
 .( ### matrix addition )
 2 3 matrix{ 1 2 3 4 5 6 }    \ create a 2x3 matrix
 2 3 matrix ones              \ create a 2x3 matrix filled with 1s
 2dup                         \ create 2 views (for next op)
-+= .                         \ add matrices (destructive) and print
++=                           \ add matrices (destructive)
+.( {{1 2 3}{4 5 6}} += 1 )
+.( = {{2 3 4}{5 6 7}} => ) . \ and print
 
 cr .( ### matrix subtraction ) cr
--= .                         \ subtract matrices (destructive) and print
+-=                           \ subtract matrices (destructive)
+.( = {{0 1 2}{3 4 5}} => ) . \ and print
 drop
 
 cr .( ### matrix multiplication ) cr
 2 3 matrix{ 1 2 3 0 4 5 }    \ create a 2x3 matrix
 3 2 matrix ones              \ create a 3x2 matrix filled with 1s
-@= dup .                     \ multiply (destructive) and print
+@= dup                       \ multiply (destructive)
+.( {{ 1 2 3}{0 4 5}} @ {{1 1}{1 1}{1 1}} )
+.( = {{ 6 6 }{ 9 9 }} => ) .  \ and print
 
 cr .( ### matrix element-wise multiplication ) cr
 2 2 matrix ones              \ create a matrix filled with 1s
-0.5 *=                       \ matrix-scalar multiply (scale up)
+0.5 *=                       \ matrix-scalar multiply (scale down)
 *=                           \ matrix-matrix multiply (Hadamard)
-.                            \ show it
+.( {{6 6}{9 9}} * {{0.5 0.5}{0.5 0.5}} )
+.( = {{3 3}{4.5 4.5}} => ) .
 
 bye
 
