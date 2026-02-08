@@ -188,6 +188,14 @@ Note: Those cards are what I have. Let me know if it works on your cards/OS.
       + CUDA=5.2 or above (depends on your GPU)
       + Optimization=O2 or O3
 
+#### tensorForth command line options
+After successful build, ~/tests/ten4 is your executable with the following command line options
+<pre>
+    \-h             - list all GPU id and their properties
+    \-d device_id   - select GPU device id
+    \-v verbo_level - set verbosity level 0: off (default), 1: mmu tracing on, 2: detailed trace
+</pre>
+
 ### Verifcation Cases
 * Test v1 eForth ops
 
@@ -288,12 +296,6 @@ Note: Those cards are what I have. Let me know if it works on your cards/OS.
     ~/tests> ./ten4 < ../examples/lesson_32a.txt # GAN on NN single sample linear 2x2 layer verify
 
     ~/tests> ./ten4 < ../examples/lesson_32b.txt # GAN on MINST dataset, 100 epochs
-
-## tensorForth command line options
-
-    \-h             - list all GPU id and their properties
-    \-d device_id   - select GPU device id
-    \-v verbo_level - set verbosity level 0: off (default), 1: mmu tracing on, 2: detailed trace
 
 ## Machine Learning vocabularies (see [doc3](./docs/v3_progress.md) for detail and examples)
 ### Model creation, query, and persistence
