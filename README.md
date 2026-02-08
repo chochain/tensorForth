@@ -174,8 +174,7 @@ Note: Those cards are what I have. Let me know if it works on your cards/OS.
 
     cd to your ten4 repo directory,
     per your GPU card, update root Makefile to your desired CUDA_ARCH, CUDA_CODE
-    type 'make all',
-    if all goes well, some warnings aside, cd to examples directory,
+    type 'make all' to build
 
 #### build using IDE (Eclipse)
 
@@ -187,9 +186,10 @@ Note: Those cards are what I have. Let me know if it works on your cards/OS.
       + Dialect=C++14
       + CUDA=5.2 or above (depends on your GPU)
       + Optimization=O2 or O3
+    build project
 
 #### tensorForth command line options
-After successful build, ~/tests/ten4 is your executable with the following command line options
+If all goes well, some warnings aside, ~/tests/ten4 is your executable. The following command line options are avilable
 <pre>
     \-h             - list all GPU id and their properties
     \-d device_id   - select GPU device id
