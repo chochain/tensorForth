@@ -167,7 +167,7 @@ Model::sgd(DU lr, DU b) {                          /// b=beta (momentum)
         FORK1(k_sgd, g.numel, 
               g.data, dg.data, m.data,             /// * v not used
               g.N(), parm[0], parm[1]);
-        CDP_SYNC();
+        GPU_SYNC();
     };
     DU parm[3] = { lr, _iter ? b : DU0, DU0 };
 
@@ -180,7 +180,7 @@ Model::adam(DU lr, DU b1, DU b2) {
         FORK1(k_adam, g.numel,
               g.data, dg.data, m.data, v.data,
               g.N(), parm[0], parm[1], parm[2]);
-        CDP_SYNC();
+        GPU_SYNC();
     };
 /*    
     DU decay = epoch                       ///< exponential decay, TODO: AdamW

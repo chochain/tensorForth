@@ -326,7 +326,7 @@ Model::_bconv(Tensor &in, Tensor &out) {
             ERROR("model_back#conv kernel_size %d not supported\n", ks);
             return -1;
         }
-        CDP_SYNC();
+        GPU_SYNC();
     }
     if (*_trace > 1) { _dump_b("b", b); _dump_f("f", f); }
     return 0;
@@ -372,14 +372,14 @@ Model::_blinear(Tensor &in, Tensor &out) {
         if (train) {
             FORK3(k_dlinear_dwdb, E0, E1, N,        /// * update dB, dW
                   in.data, out.data, dw.data, db.data);
-            CDP_SYNC();
+            GPU_SYNC();
         }
         /// barrier for X (because we did N samples in one grid)
         in.fill(DU0);                               /// * zero out dX
         FORK3(
             k_dlinear_dx, E0, E1, N,                /// * update dX
             in.data, out.data, w.data);
-        CDP_SYNC();
+        GPU_SYNC();
     }
     if (train && *_trace > 1) {
         _dump_b("db", db);
@@ -406,7 +406,7 @@ Model::_bpool(Tensor &in, Tensor &out, t4_layer fn) {
         ERROR("nn#_bpool kernel_size=%d not supported\n", ks);
         return -1;
     }
-    CDP_SYNC();
+    GPU_SYNC();
     return 0;
 }
 ///
@@ -428,7 +428,7 @@ Model::_bupsample(Tensor &in, Tensor &out, t4_layer fn) {
         ERROR("nn#_bupsample size=%d not supported\n", ks);
         return -1;
     }
-    CDP_SYNC();
+    GPU_SYNC();
     return 0;
 }
 ///
@@ -453,7 +453,7 @@ Model::_bbatchnorm(Tensor &in, Tensor &out) {
     DU *xht = in.grad[3]->data;                        ///< x_hat
 
     FORK4(k_batchsum, out.data, sum, HW);              /// * capture out sum(dout)     
-    CDP_SYNC();
+    GPU_SYNC();
     
     for (U32 c=0; c < C; c++) {
         if (train) db[c] += (sum[c] /= NHW);           /// * collect dbeta = sum(dout) (/ HW?)
@@ -461,17 +461,17 @@ Model::_bbatchnorm(Tensor &in, Tensor &out) {
     }
     FORK4(k_dbatchnorm_1,                              /// * dX = gamma*ivar*(dout - sum(dout)/N)
         in.data, out.data, xht, sum, var, HW);         /// * also, dout *= x_hat
-    CDP_SYNC();
+    GPU_SYNC();
     
     FORK4(k_batchsum, out.data, sum, HW);             /// * capture sum(dout * x_hat)
-    CDP_SYNC();
+    GPU_SYNC();
 
     for (U32 c=0; c < C; c++) {
         if (train) dw[c]  += (sum[c] /= NHW);          /// * collect dgamma = sum(dout * x_hat)( / HW?)
         sum[c] *= var[c] / N;                          /// * scale sum
     }
     FORK4(k_dbatchnorm_2, in.data, xht, sum, HW);      /// * dX -= gamma*ivar*x_hat*sum(dout * x_hat) / N
-    CDP_SYNC();
+    GPU_SYNC();
     
     return 0;
 }
