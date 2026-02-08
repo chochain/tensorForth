@@ -103,7 +103,7 @@ Tensor::ten_op(math_op op, Tensor &A, DU v, Tensor &O) {
     MM_DB("  tensor#ten_op O[%d,%d,%d,%d] = A %s %6.2f\n", N, H, W, C, _op[op], v);
 
     FORK1(k_ts_op, A.numel, op, A.data, v, O.data);
-    CDP_SYNC();
+    GPU_SYNC();
     return O;
 }
 ///
@@ -116,7 +116,7 @@ Tensor::ten_op(math_op op, Tensor &A, Tensor &B, Tensor &O) {
     MM_DB("  tensor#ten_op O[%d,%d,%d,%d] = A %s B\n", N, H, W, C, _op[op]);
     
     FORK1(k_tt_op, A.numel, op, A.data, B.data, O.data);
-    CDP_SYNC();
+    GPU_SYNC();
     return O;
 }
 __GPU__ Tensor&
@@ -125,7 +125,7 @@ Tensor::batchsum(Tensor &A, Tensor &O) {
     MM_DB("  tensor#batchsum A[%d,%d,%d,%d] => O[%d, %d]\n", N, H, W, C, N, C);
     O.fill(DU0);
     FORK4(k_batchsum, A.data, O.data, (U64)H*W);
-    CDP_SYNC();
+    GPU_SYNC();
     return O;
 }
 __GPU__ Tensor&
@@ -137,7 +137,7 @@ Tensor::batchvar(Tensor &A, Tensor &G, Tensor &O) {
     G *= DU1 / NHW;
     O.fill(DU0);
     FORK4(k_batchnvar, A.data, G.data, O.data, (U64)H*W);
-    CDP_SYNC();
+    GPU_SYNC();
     for (int i=0; i< O.numel; i++) {
         O.data[i] = SQRT(O.data[i] / NHW);
     }
@@ -161,7 +161,7 @@ Tensor::mm(
         DU *da = A.data, *db = B.slice(n), *dx = O.slice(n);
         FORK3(k_matmul, H, W, C, da, db, dx, opt, Ka);
     }
-    CDP_SYNC();
+    GPU_SYNC();
     return O;
 }
 ///
@@ -182,14 +182,14 @@ Tensor::gemm(Tensor &A, Tensor &B, Tensor &O, DU alpha, DU beta) {
         DU *da = A.data, *db = B.slice(n), *dx = O.slice(n);
         FORK3(k_gemm, H, W, C, da, db, dx, alpha, beta, Ka);
     }
-    CDP_SYNC();
+    GPU_SYNC();
     return O;
 }
 __GPU__ Tensor&
 Tensor::copy(Tensor &A, Tensor &O) {
     MM_DB("  tensor#copy %p to %p numel=%ld\n", A.data, O.data, A.numel);
     FORK1(k_copy, A.numel, A.data, O.data);
-    CDP_SYNC();
+    GPU_SYNC();
     return O;
 }
 __GPU__ Tensor&
@@ -201,7 +201,7 @@ Tensor::transpose(Tensor &A, Tensor &T) {
         DU *da = A.slice(n), *dt = T.slice(n);
         FORK3(k_transpose, H, W, C, da, dt);
     }
-    CDP_SYNC();
+    GPU_SYNC();
     return T;
 }
 ///
@@ -394,7 +394,7 @@ Tensor::sum() {
     }
     else {
         FORK1(k_sum1, numel, data, &z);
-        CDP_SYNC();
+        GPU_SYNC();
     }
     return SCALAR(z);
 }
@@ -407,7 +407,7 @@ __GPU__ DU
 Tensor::std() {
     static DU var;
     FORK1(k_var1, numel, data, avg(), &var);       /// * 8x straight loop
-    CDP_SYNC();
+    GPU_SYNC();
 
     DU v = numel ? SQRT(var) : DU0;
     return SCALAR(v);
@@ -416,7 +416,7 @@ __GPU__ DU
 Tensor::norm() {
     static DU n;
     FORK1(k_norm1, numel, data, &n);
-    CDP_SYNC();
+    GPU_SYNC();
 
     DU v = numel ? SQRT(n) : DU0;
     return SCALAR(v);
@@ -469,7 +469,7 @@ Tensor::loss(t4_loss op, Tensor &tgt) {
         break;
     case LOSS_BCE: {                 /// * binary cross_entropy, input from sigmoid
         FORK1(k_bce, numel, data, tgt.data);
-        CDP_SYNC();
+        GPU_SYNC();
         z = -sum();                  /// * -(y * ln(out_i) + (1-y) * ln(1-out_i))
     } break;
     case LOSS_CE:                    /// * cross_entropy, input from softmax
@@ -490,7 +490,7 @@ Tensor::has_nan() {
     static int cnt;
     cnt = 0;
     FORK1(k_nan_inf, numel, data, &cnt);
-    CDP_SYNC();
+    GPU_SYNC();
     return cnt;
 }
 ///=======================================================================
@@ -634,7 +634,7 @@ Tensor::identity() {
     for (U32 n = 0; n < N(); n++) {
         FORK3(k_identity, H, W, C, slice(n));
     }
-    CDP_SYNC();
+    GPU_SYNC();
     return *this;
 }
 
@@ -643,7 +643,7 @@ Tensor::map(math_op op, DU v) {
     _OP(MATH_OP);
     MM_DB("  tensor#%s v=%g\n", _op[op], v);
     FORK1(k_math, numel, op, data, v);
-    CDP_SYNC();
+    GPU_SYNC();
     return *this;
 }
 
@@ -651,7 +651,7 @@ __BOTH__ Tensor&
 Tensor::normalize(DU avg, DU std) {
     FORK1(k_ts_op, numel, SUB, data, avg, data);
     FORK1(k_ts_op, numel, DIV, data, std, data);
-    CDP_SYNC();
+    GPU_SYNC();
     return *this;
 }
 ///=======================================================================
