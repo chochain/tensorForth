@@ -137,10 +137,12 @@ ds0 19 cnn drop                             \ put dataset as TOS, run the CNN fo
 s" tests/my_net.t4" save                    \ persist the trained network
 </pre>
 
-### To Build, and Test
+### To Build, and Verify
 Note: I'm currently hindered by CUDA 12 compatability. It deprecated cudaDeviceSynchronize which is heavily used by my Dynamic Parallelism code. Needs a new way to sync data in parallel pipelines. Not sure it's all possible with the new cudaStreamTailLaunch. Alternatively, Claude suggested change architecture to use queue-based solution. We'll see...
 
 Also, if you have an older Nvidia card on an older version of OS, check the compability chart first [here](https://forums.developer.nvidia.com/t/ubuntu-install-specific-old-cuda-drivers-combo/214601/5)
+
+Here's how to build
 
 * install CUDA 11.4+ on your machine
 * download one of the releases from the list above to your local directory
@@ -175,6 +177,18 @@ Note: Those cards are what I have. Let me know if it works on your cards/OS.
     type 'make all',
     if all goes well, some warnings aside, cd to examples directory,
 
+#### build using IDE (Eclipse)
+
+    install Eclipse
+    install CUDA SDK 11.6 or above for Eclipse (from Nvidia site)
+    create project by importing from your local repo root
+    exclude directories - ~/tests, ~/img
+    set File=>Properties=>C/C++ Build=>Setting=>NVCC compiler
+      + Dialect=C++14
+      + CUDA=5.2 or above (depends on your GPU)
+      + Optimization=O2 or O3
+
+### Verifcation Cases
 * Test v1 eForth ops
 
     ~/tests> ./ten4 < ../examples/lesson_10a.txt # for basic syntax checks
@@ -274,17 +288,6 @@ Note: Those cards are what I have. Let me know if it works on your cards/OS.
     ~/tests> ./ten4 < ../examples/lesson_32a.txt # GAN on NN single sample linear 2x2 layer verify
 
     ~/tests> ./ten4 < ../examples/lesson_32b.txt # GAN on MINST dataset, 100 epochs
-
-#### build using IDE (Eclipse)
-
-    install Eclipse
-    install CUDA SDK 11.6 or above for Eclipse (from Nvidia site)
-    create project by importing from your local repo root
-    exclude directories - ~/tests, ~/img
-    set File=>Properties=>C/C++ Build=>Setting=>NVCC compiler
-      + Dialect=C++14
-      + CUDA=5.2 or above (depends on your GPU)
-      + Optimization=O2 or O3
 
 ## tensorForth command line options
 
