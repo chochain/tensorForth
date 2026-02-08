@@ -62,22 +62,22 @@ dup                                  \ create a view of the matrix
  <0 T2[2,3] t[2,3]> ok               \ view shown in lower case
 .                                    \ print the matrix (destructive as in Forth)
 matrix[2,3] = {
-	{ +1.0000 +2.0000 +3.0000 }
-	{ +4.0000 +5.0000 +6.0000 } }
+    { +1.0000 +2.0000 +3.0000 }
+    { +4.0000 +5.0000 +6.0000 } }
  <0 T2[2,3]> ok                      \ original matrix still on TOS
 3 2 matrix ones                      \ create a 3x2 matrix, fill it with ones
  <0 T2[2,3] T2[3,2]> ok              \ now we have two matrices on stack
 dup .                                \ see whether it is filled with one indeed
 matrix[3,2] = {
-	{ +1.0000 +1.0000 }
-	{ +1.0000 +1.0000 }
-	{ +1.0000 +1.0000 } }
+    { +1.0000 +1.0000 }
+    { +1.0000 +1.0000 }
+    { +1.0000 +1.0000 } }
 @                                    \ multiply them 2x3 @ 3x2
  <0 T2[2,3] T2[3,2] T2[2,2]> ok      \ 2x2 resultant matrix shown on TOS
 .                                    \ print the new matrix
 matrix[2,2] = {
-	{ +6.0000 +6.0000 }
-	{ +15.0000 +15.0000 } }
+    { +6.0000 +6.0000 }
+    { +15.0000 +15.0000 } }
  <0 T2[2,3] T2[3,2]> ok
 bye                                  \ exit tensorForth
  <0> ok
@@ -94,13 +94,13 @@ tensorForth 2.0 done.
  <0 T2[1024,2048] T2[2048,512] T2[1024,512]> ok
 2048 /= .                            \ scale down and print the resultant 1024x512 matrix
 matrix[1024,512] = {                 \ in PyTorch style (edgeitem=3)
-	{ +0.4873 +0.4873 +0.4873 ... +0.4873 +0.4873 +0.4873 }
-	{ +0.4274 +0.4274 +0.4274 ... +0.4274 +0.4274 +0.4274 }
-	{ +0.5043 +0.5043 +0.5043 ... +0.5043 +0.5043 +0.5043 }
-	...
-	{ +0.5041 +0.5041 +0.5041 ... +0.5041 +0.5041 +0.5041 }
-	{ +0.5007 +0.5007 +0.5007 ... +0.5007 +0.5007 +0.5007 }
-	{ +0.5269 +0.5269 +0.5269 ... +0.5269 +0.5269 +0.5269 } }
+    { +0.4873 +0.4873 +0.4873 ... +0.4873 +0.4873 +0.4873 }
+    { +0.4274 +0.4274 +0.4274 ... +0.4274 +0.4274 +0.4274 }
+    { +0.5043 +0.5043 +0.5043 ... +0.5043 +0.5043 +0.5043 }
+    ...
+    { +0.5041 +0.5041 +0.5041 ... +0.5041 +0.5041 +0.5041 }
+    { +0.5007 +0.5007 +0.5007 ... +0.5007 +0.5007 +0.5007 }
+    { +0.5269 +0.5269 +0.5269 ... +0.5269 +0.5269 +0.5269 } }
  <0 T2[1024,2048] T2[2048,512]> ok
 : mx                                        \ now let's define a word 'mx' for benchmark loop
   clock >r                                  \ keep the init time (in msec) on return stack
@@ -202,8 +202,8 @@ Note: Those cards are what I have. Let me know if it works on your cards/OS.
     ...
     {{6 6}{9 9}} * {{0.5 0.5}{0.5 0.5}} -1 T2[2,2] -> ok
     = {{3 3}{4.5 4.5}} => matrix[2,2] = {
-	{ +3.0000 +3.0000 }
-	{ +4.5000 +4.5000 } }
+    { +3.0000 +3.0000 }
+    { +4.5000 +4.5000 } }
     ...
     </pre>
 
@@ -218,13 +218,54 @@ Note: Those cards are what I have. Let me know if it works on your cards/OS.
 
 * Test v3 ML ops
 
-    ~/tests> ./ten4 < ../examples/lesson_30a.txt # NN model - single pass - forward verify
+    ~/tests> ./ten4 < ../examples/lesson_30a.txt # NN model - single pass forward
+    <pre>
+    ...
+    verify { { 6 } { 13 } { 20 } } => tensor[1,3,1,1] = { {
+        { +6.0000 }
+        { +13.0000 }
+        { +20.0000 } } }
+    ...
+    </pre>
 
-    ~/tests> ./ten4 < ../examples/lesson_30b.txt # NN model - single pass - loss, and backprop verify
+    ~/tests> ./ten4 < ../examples/lesson_30b.txt # NN model - single pass loss, and backprop
 
-    ~/tests> ./ten4 < ../examples/lesson_30c.txt # NN model - 2-sample full round-trip verify
+    ~/tests> ./ten4 < ../examples/lesson_30c.txt # NN model - 2-sample full round-trip
 
-    ~/tests> ./ten4 < ../examples/lesson_30d.txt # CNN - MNIST single pass verify
+    ~/tests> ./ten4 < ../examples/lesson_30d.txt # CNN - MNIST single pass
+    <pre>
+    ...
+    NN model[13/128]
+    [  1] conv2d :T4[2,10,10,1] #p=40 T4[1,3,3,2] T1[2] bias=0.5, C=2
+    [  2] maxpool:T4[2,10,10,2] #p=0 n=2
+    [  3] relu   :T4[2,5,5,2] #p=100 T4[2,5,5,2] 
+    [  4] conv2d :T4[2,5,5,2] #p=76 T4[2,3,3,2] T1[2] bias=0.5, C=2
+    [  5] dropout:T4[2,5,5,2] #p=100 T4[2,5,5,2] rate=50%
+    [  6] maxpool:T4[2,5,5,2] #p=0 n=2
+    [  7] relu   :T4[2,2,2,2] #p=16 T4[2,2,2,2] 
+    [  8] flatten:T4[2,2,2,2] #p=0 
+    [  9] linear :T4[2,8,1,1] #p=882 T4[1,49,8,1] T1[49] bias=0, H=49
+    [ 10] dropout:T4[2,49,1,1] #p=98 T4[2,49,1,1] rate=50%
+    [ 11] linear :T4[2,49,1,1] #p=400 T4[1,4,49,1] T1[4] bias=0, H=4
+    [ 12] softmax:T4[2,4,1,1] #p=4 T4[1,4,1,1] 
+    [ 13] output :T4[2,4,1,1] #p=0 
+    ...
+    Model#backprop starts {
+      0.00:12> softmax [ 2, 4, 1, 1]    p= 0.000 <= out'Σ/n=  0.00 [ 2, 4, 1, 1]
+      0.12:11> linear  [ 2,49, 1, 1]    p= 0.000 <= out'Σ/n=  0.00 [ 2, 4, 1, 1]
+      0.25:10> dropout [ 2,49, 1, 1]    p= 0.500 <= out'Σ/n= -0.13 [ 2,49, 1, 1]
+      0.12: 9> linear  [ 2, 8, 1, 1]    p= 0.000 <= out'Σ/n=  0.21 [ 2,49, 1, 1]
+      0.25: 8> flatten [ 2, 2, 2, 2]    p= 0.000 <= out'Σ/n= -0.01 [ 2, 8, 1, 1]
+      0.12: 7> relu    [ 2, 2, 2, 2]    p= 0.000 <= out'Σ/n= -0.01 [ 2, 2, 2, 2]
+      0.12: 6> maxpool [ 2, 5, 5, 2]    p= 0.000 <= out'Σ/n= -0.01 [ 2, 2, 2, 2]
+      0.12: 5> dropout [ 2, 5, 5, 2]    p= 0.500 <= out'Σ/n=  0.33 [ 2, 5, 5, 2]
+      0.25: 4> conv2d  [ 2, 5, 5, 2]    p= 0.500 <= out'Σ/n=  0.33 [ 2, 5, 5, 2]
+      0.12: 3> relu    [ 2, 5, 5, 2]    p= 0.000 <= out'Σ/n=  0.14 [ 2, 5, 5, 2]
+      0.12: 2> maxpool [ 2,10,10, 2]    p= 0.000 <= out'Σ/n=  0.00 [ 2, 5, 5, 2]
+      0.12: 1> conv2d  [ 2,10,10, 1]    p= 0.500 <= out'Σ/n=  0.00 [ 2,10,10, 2]
+    } Model::backprop  1.88 ms
+    ...
+    </pre>
 
     ~/tests> ./ten4 < ../examples/lesson_30e.txt # CNN - MNIST full framework, 20 epochs
 
@@ -264,24 +305,24 @@ Note: Those cards are what I have. Let me know if it works on your cards/OS.
   nn.w=      (N T n -- N')       - set weight tensor of nth layer
   nn.b=      (N T n -- N')       - set bias tensor of nth layer
   network    (N -- N)            - display network model
-  
+
   load       (N adr len [fam] -- N') - load trained network from a given file name
   save       (N adr len [fam] -- N)  - export network as a file
 </pre>
-    
+
 ### Dataset and Batch controls
 <pre>
   dataset    (n -- D)            - create a dataset with batch size = n, and given name i.e. 10 dataset abc
   fetch      (D -- D')           - fetch a mini-batch from dataset on return stack
   rewind     (D -- D')           - rewind dataset internal counters (for another epoch)
   batchsize  (D -- D b)          - get input batch size of a model
-  
+
   forward    (N -- N')           - execute one forward path with rs[-1] dataset, layer-by-layer in given model
   forward    (N ds -- N')        - execute one forward propagation with TOS dataset, layer-by-layer in given model
   backprop   (N -- N')           - execute one backward propagation, adding derivatives for all parameters
   backprop   (N T -- N')         - execute one backward propagation with given onehot vector
   broadcast  (N T -- N' )        - broadcast onehot tensor into Network Model (for backprop)
-  
+
   for        (N ds -- N')        - loop through a dataset, ds will be pushed onto return stack
   next       (N -- N')           - loop if any subset of dataset left, or ds is pop off return stack
   trainable  (N f -- N')         - enable/disable network trainable flag
@@ -294,10 +335,10 @@ Note: Those cards are what I have. Let me know if it works on your cards/OS.
   conv2d     (N b c A -- N')     - create a 2D convolution, bias=b, c channels output, with config i.g. Vector[5, 5, 3, 2, 1] for (5x5, padding=3, stride=2, dilation=1, bias=0.3)
   conv1x1    (N b c -- N')       - create a 1x1 convolution, bias=b, c channels output, stride=1, padding=same, dilation=0
   flatten    (N -- N')           - flatten a tensor (usually input to linear)
-  
+
   linear     (N b n -- N')       - linearize (y = Wx + b) from Ta input to n out_features
   linear     (N n -- N')         - linearize (y = Wx), bias=0.0 from Ta input to n out_features
-  
+
   maxpool    (N n -- N')         - nxn cells maximum pooling
   avgpool    (N n -- N')         - nxn cells average pooling
   minpool    (N n -- N')         - nxn cell minimum pooling
