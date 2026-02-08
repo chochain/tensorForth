@@ -220,14 +220,19 @@ Build on Linux
 * Test v3 ML ops
 
     ~/tests> ten4 < lesson_30a.txt - NN model - single pass - forward verify
+
     ~/tests> ten4 < lesson_30b.txt - NN model - single pass - loss, and backprop verify
+
     ~/tests> ten4 < lesson_30c.txt - NN model - 2-sample full round-trip verify
+
     ~/tests> ten4 < lesson_30d.txt - CNN - MNIST single pass verify
+
     ~/tests> ten4 < lesson_30e.txt - CNN - MNIST full framework, 20 epochs
 
 * Tests v3.2 GAN ops
 
     ~/tests> ten4 < lesson_32a.txt - GAN on NN single sample linear 2x2 layer verify
+
     ~/tests> ten4 < lesson_32b.txt - GAN on MINST dataset, 100 epochs
 
 #### with Eclipse
