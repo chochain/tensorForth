@@ -189,7 +189,7 @@ Note: Those cards are what I have. Let me know if it works on your cards/OS.
     build project
 
 #### tensorForth command line options
-If all goes well, some warnings aside, ~/tests/ten4 is your executable. The following command line options are avilable
+If all goes well, some warnings aside, *~/tests/ten4* is your executable. The following command line options are available
 <pre>
     \-h             - list all GPU id and their properties
     \-d device_id   - select GPU device id
