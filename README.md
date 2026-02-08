@@ -137,7 +137,7 @@ ds0 19 cnn drop                             \ put dataset as TOS, run the CNN fo
 s" tests/my_net.t4" save                    \ persist the trained network
 </pre>
 
-### To build
+### To Build, and Test
 Note: I'm currently hindered by CUDA 12 compatability. It deprecated cudaDeviceSynchronize which is heavily used by my Dynamic Parallelism code. Needs a new way to sync data in parallel pipelines. Not sure it's all possible with the new cudaStreamTailLaunch. Alternatively, Claude suggested change architecture to use queue-based solution. We'll see...
 
 Also, if you have an older Nvidia card on an older version of OS, check the compability chart first [here](https://forums.developer.nvidia.com/t/ubuntu-install-specific-old-cuda-drivers-combo/214601/5)
@@ -148,19 +148,19 @@ Also, if you have an older Nvidia card on an older version of OS, check the comp
 or, with CUDA Docker image (strongly recommended)
 * install Docker Engine on your box, follow standard Docker installation guide
 * install nvidia-container-toolkit
-* pull a CUDA 11.4+ docker image, a template is provided in ~/tests/cuda11_Docker
-* run the CUDA container with your environment variables, a template provided in ~/tests/docker_cuda11
+* pull a CUDA 11.4+ docker image, a template is provided in ~/examples/cuda11_Docker
+* run the CUDA container with your environment variables, a template provided in ~/examples/docker_cuda11
 
     Examples
     <pre>
     > # for my old GT1030 on Ubuntu 20.04
-    > cd tests
+    > cd examples
     > cp cuda114_Dockerfile Dockerfile
     > docker build -t cuda:v114 .
     > ./docker_cuda114
 
     > # for my cheap GT1660 on Ubuntu 24.04
-    > cd tests
+    > cd examples
     > cp cuda116_Dockerfile Dockerfile
     > docker build -t cuda:v116 .
     > ./docker_cuda116
@@ -168,17 +168,16 @@ or, with CUDA Docker image (strongly recommended)
 
 Note: Those cards are what I have. Let me know if it works on your cards/OS.
 
-#### with Makefile
-Build on Linux
+#### build with Makefile (Linux)
 
     cd to your ten4 repo directory,
     per your GPU card, update root Makefile to your desired CUDA_ARCH, CUDA_CODE
     type 'make all',
-    if all goes well, some warnings aside, cd to tests directory,
+    if all goes well, some warnings aside, cd to examples directory,
 
 * Test v1 eForth ops
 
-    ~/tests> ten4 < lesson_10a.txt - for basic syntax checks
+    ~/tests> ./ten4 < ../examples/lesson_10a.txt # for basic syntax checks
 
     you should see lots of output including the following
     <pre>
@@ -198,7 +197,7 @@ Build on Linux
 
 * Test v2 matrix ops
 
-    ~/tests> ten4 < lesson_20a.txt - for matrix ops
+    ~/tests> ./ten4 < ../examples/lesson_20a.txt # for matrix ops
     <pre>
     ...
     {{6 6}{9 9}} * {{0.5 0.5}{0.5 0.5}} -1 T2[2,2] -> ok
@@ -208,7 +207,7 @@ Build on Linux
     ...
     </pre>
 
-    ~/tests> ten4 < lesson_22a.txt - for linear algebra stuffs
+    ~/tests> ./ten4 < ../examples/lesson_22a.txt # for linear algebra stuffs
     <pre>
     ...
     verify { 1 1 1 } => vector[3] = { 1 1 1 }
@@ -219,23 +218,23 @@ Build on Linux
 
 * Test v3 ML ops
 
-    ~/tests> ten4 < lesson_30a.txt - NN model - single pass - forward verify
+    ~/tests> ./ten4 < ../examples/lesson_30a.txt # NN model - single pass - forward verify
 
-    ~/tests> ten4 < lesson_30b.txt - NN model - single pass - loss, and backprop verify
+    ~/tests> ./ten4 < ../examples/lesson_30b.txt # NN model - single pass - loss, and backprop verify
 
-    ~/tests> ten4 < lesson_30c.txt - NN model - 2-sample full round-trip verify
+    ~/tests> ./ten4 < ../examples/lesson_30c.txt # NN model - 2-sample full round-trip verify
 
-    ~/tests> ten4 < lesson_30d.txt - CNN - MNIST single pass verify
+    ~/tests> ./ten4 < ../examples/lesson_30d.txt # CNN - MNIST single pass verify
 
-    ~/tests> ten4 < lesson_30e.txt - CNN - MNIST full framework, 20 epochs
+    ~/tests> ./ten4 < ../examples/lesson_30e.txt # CNN - MNIST full framework, 20 epochs
 
 * Tests v3.2 GAN ops
 
-    ~/tests> ten4 < lesson_32a.txt - GAN on NN single sample linear 2x2 layer verify
+    ~/tests> ./ten4 < ../examples/lesson_32a.txt # GAN on NN single sample linear 2x2 layer verify
 
-    ~/tests> ten4 < lesson_32b.txt - GAN on MINST dataset, 100 epochs
+    ~/tests> ./ten4 < ../examples/lesson_32b.txt # GAN on MINST dataset, 100 epochs
 
-#### with Eclipse
+#### build using IDE (Eclipse)
 
     install Eclipse
     install CUDA SDK 11.6 or above for Eclipse (from Nvidia site)
