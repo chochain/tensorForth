@@ -1,0 +1,71 @@
+.( ## Convolution NN tests ## ) cr
+1 trace
+2 10 10 1 nn.model                \ create a model with NHWC tensor input
+dup .                             \ display it
+
+.( #### define seq1 ) cr
+0.5 2 conv2d                      \ 2d convolution with bias=0.5, 10 output channel
+2 maxpool                         \ 2x2 downsampling
+relu                              \ ReLU activation
+
+.( #### define seq2 ) cr
+0.5 2 conv2d                      \ second 2d convolution
+0.5 dropout                       \ drop out 50% of channels
+2 maxpool                         \ 2x2 downsampling
+relu                              \ ReLU activation
+
+.( #### define lin1 ) cr
+flatten                           \ flatten for dense layer (no need)
+0.0 49 linear                     \ linearize to 50 output with no bias
+
+.( #### define lin2 ) cr
+0.5 dropout                       \ another 50% drop out
+0.0 4 linear                      \ linerize to 4 output with no bias
+softmax                           \ translate to probability
+
+network                           \ display network model (= dup .)
+
+.( #### save model as a constant ) cr
+constant mnist                    \ save model as a constant
+mnist                             \ retrieve model
+network                           \ display the model
+mstat                             \ obj#used[69]
+
+.( #### model feed foward ) cr
+2 10 10 1 tensor eye 0.5 *=       \ create input image (random)
+forward                           \ execute forward pass
+mstat                             \ obj#used[69]
+
+.( #### fetch last layer i.e. output ) cr
+-1 n@                             \ fetch forward result from model
+.                                 \ display the result/output layer
+
+.( #### calculate loss ) cr
+2 4 matrix{ 0 0 1 0 0 1 0 0 }     \ create one-hot vector
+2 4 1 1 reshape4 dup .            \ reshape it into a labeled rank-4 tensor
+constant hot1                     \ store in a constant
+
+hot1                              \ retrieve the one-hot vector
+loss.ce .                         \ calculate network loss
+
+: xdump
+  mstat
+  -2 nn.w  ." w=" .
+  -2 nn.b  ." b=" .
+  -2 nn.dw ." dw=" .
+  -2 nn.db ." db=" . ;
+xdump
+
+.( #### model back propagation ) cr
+hot1                              \ target one-hot vector on TOS
+backprop                          \ execute backward propegation
+xdump
+
+.( #### gradiant decent ) cr
+0.001 nn.adam                     \ learn using Adam (b1=0.9, b2=0.999)
+xdump
+
+0.001 nn.adam                     \ learn again, check momentum with dw,db = zeros
+xdump
+
+bye

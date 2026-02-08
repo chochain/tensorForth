@@ -1,0 +1,84 @@
+.( ## MNIST convolution model comparison ## ) cr
+0 trace
+: nn_a ( N -- N' )                          \ simple model with 2 hidden layers
+  100 linear relu                           \ 1st hidden layer with relu activation
+  10 linear softmax ;                       \ 2nd hidden layer with softmax output
+: nn_b
+  0.5 2 conv2d                              \ add a convolution filter
+  flatten 100 linear relu
+  10 linear softmax ;
+: nn_c
+  0.5 10 conv2d 2 maxpool relu              \ add maxpool and relu activation
+  flatten 100 linear relu
+  10 linear softmax ;
+: nn_d
+  0.5 10 conv2d 0.5 dropout 2 maxpool relu  \ add dropout
+  flatten 100 linear relu
+  10 linear softmax ;
+: nn_e
+  0.5 10 conv2d 2 maxpool relu
+  0.5 20 conv2d 2 maxpool relu              \ add second convolution but no dropout
+  flatten 100 linear
+  10 linear softmax ;
+: nn_f
+  0.5 10 conv2d 2 maxpool relu
+  0.5 20 conv2d 0.5 dropout 2 maxpool relu  \ add dropouts
+  flatten 100 linear 0.5 dropout
+  10 linear softmax ;
+: nn_x
+  48 linear relu
+  24 linear relu
+  10 linear softmax ;
+: nn_bn
+  48 linear batchnorm relu
+  24 linear batchnorm relu
+  10 linear softmax ;
+
+\ statistics 
+variable hit 0 hit !                \ create var for hit counter, and zero it
+variable lox                        \ create var for epoch latest loss
+: stat cr .                         \ display statistics
+  ." , t="  clock 1000 / f>s .      \ time in seconds
+  ." , hit="  hit @ . 0 hit !
+  ." , loss=" lox @ . cr ;
+
+\ model
+50 28 28 1 nn.model                 \ create a model (64 per batch of 28x28x1 img)
+nn_c                                \ use neural network mode
+constant md0                        \ keep as a constant
+
+\ dataset
+md0 batchsize dataset mnist_train   \ create MNIST dataset with model batch size
+constant ds0                        \ keep dataset in a constant
+
+\ CNN framework
+0.001 constant lr                   \ init learning rate (for Adam)
+variable ni 0 ni !
+: hint                              \ display a dot (progress)
+  ni @ 1+ dup ni !
+  10 mod 0 =
+  if 46 emit 0 ni ! then ;
+: epoch ( N ds -- N' )              \ one epoch thru entire dataset
+  for                               \ fetch a mini-batch
+    forward                         \ neural network forward pass
+    loss.ce lox ! nn.hit hit +!     \ collect latest loss and accumulate hit
+    backprop                        \ neural network back propegation
+    \ 0.01 nn.sgd                     \ train with Stochastic Gradient Descent
+    lr nn.adam                      \ train with Adam Gradient Descent (b1=0.9,b2=0.999)
+    hint
+  next ;
+: cnn ( N ds n -- N' ) 1-           \ run multiple epochs
+  for
+    epoch r@ stat                   \ run one epoch, display statistics
+    lr 0.9 * [to] lr                \ decay learning rate
+    ds0 rewind                      \ rewind entire dataset 
+  next ;
+
+network
+ds0                                 \ push dataset as TOS
+20 cnn                              \ execute multiple epoches
+
+\ drop                                \ drop dataset
+\ s" model/l5_c.t4" save              \ save trainned model
+
+bye
