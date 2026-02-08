@@ -222,10 +222,10 @@ If all goes well, some warnings aside, *~/tests/ten4* is your executable. The fo
     ~/tests> ./ten4 < ../examples/lesson_20a.txt # for matrix ops
     <pre>
     ...
-    {{6 6}{9 9}} * {{0.5 0.5}{0.5 0.5}} -1 T2[2,2] -> ok
-    = {{3 3}{4.5 4.5}} => matrix[2,2] = {
-    { +3.0000 +3.0000 }
-    { +4.5000 +4.5000 } }
+    { { 6 6 } { 9 9 } } * { { 0.5 0.5 } { 0.5 0.5 } } -1 T2[2,2] -> ok
+    verify { { 3 3 } { 4.5 4.5 } } => matrix[2,2] = {
+        { +3.0000 +3.0000 }
+        { +4.5000 +4.5000 } }
     ...
     </pre>
 
