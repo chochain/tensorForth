@@ -1,0 +1,58 @@
+syntax = "proto3";
+
+package tensorflow;
+
+import "histogram.proto";
+
+// Simplified Summary for TensorBoard
+message Summary {
+  message Image {
+    int32 height = 1;
+    int32 width = 2;
+    int32 colorspace = 3;
+    bytes encoded_image_string = 4;
+  }
+
+  message Audio {
+    float sample_rate = 1;
+    int64 num_channels = 2;
+    int64 length_frames = 3;
+    bytes encoded_audio_string = 4;
+    string content_type = 5;
+  }
+
+  message Value {
+    string tag = 1;
+    
+    oneof value {
+      float simple_value = 2;
+      Image image = 4;
+      HistogramProto histo = 5;
+      Audio audio = 6;
+      TensorProto tensor = 8;
+    }
+  }
+
+  repeated Value value = 1;
+}
+
+// Simplified TensorProto
+message TensorProto {
+  int32 dtype = 1;
+  TensorShapeProto tensor_shape = 2;
+  
+  bytes tensor_content = 4;
+  
+  repeated int32 int_val = 5 [packed = true];
+  repeated float float_val = 6 [packed = true];
+  repeated double double_val = 7 [packed = true];
+  repeated bytes string_val = 8;
+}
+
+message TensorShapeProto {
+  message Dim {
+    int64 size = 1;
+    string name = 2;
+  }
+  repeated Dim dim = 2;
+}

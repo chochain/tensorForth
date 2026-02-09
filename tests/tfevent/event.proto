@@ -1,0 +1,51 @@
+syntax = "proto3";
+
+package tensorflow;
+
+import "summary.proto";
+
+// Simplified Event for TensorBoard
+message Event {
+  double wall_time = 1;
+  int64 step = 2;
+  
+  oneof what {
+    string file_version = 3;
+    bytes graph_def = 4;
+    Summary summary = 5;
+    LogMessage log_message = 6;
+    SessionLog session_log = 7;
+    TaggedRunMetadata tagged_run_metadata = 8;
+    bytes meta_graph_def = 9;
+  }
+}
+
+message LogMessage {
+  enum Level {
+    UNKNOWN = 0;
+    DEBUG = 10;
+    INFO = 20;
+    WARN = 30;
+    ERROR = 40;
+    FATAL = 50;
+  }
+  Level level = 1;
+  string message = 2;
+}
+
+message SessionLog {
+  enum SessionStatus {
+    STATUS_UNSPECIFIED = 0;
+    START = 1;
+    STOP = 2;
+    CHECKPOINT = 3;
+  }
+  SessionStatus status = 1;
+  string checkpoint_path = 2;
+  string msg = 3;
+}
+
+message TaggedRunMetadata {
+  string tag = 1;
+  bytes run_metadata = 2;
+}
