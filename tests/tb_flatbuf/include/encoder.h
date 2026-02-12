@@ -14,10 +14,8 @@
  *   5 = 32-bit
  */
 #pragma once
-#include <cstdint>
-#include <cstring>
-#include <string>
-#include <vector>
+
+#include "types.h"
 
 namespace proto {
 
@@ -25,124 +23,124 @@ class Encoder {
 public:
     // ── Key/Tag encoding ─────────────────────────────────────────────────────
     // field_number << 3 | wire_type
-    void tag(uint32_t field_number, uint32_t wire_type) {
+    void tag(U32 field_number, U32 wire_type) {
         u64((field_number << 3) | wire_type);
     }
 
     // ── Varint ───────────────────────────────────────────────────────────────
-    void u64(uint64_t value) {
+    void u64(U64 value) {
         while (value > 0x7F) {
-            _buf.push_back(static_cast<uint8_t>((value & 0x7F) | 0x80));
+            _buf.push_back(static_cast<U8>((value & 0x7F) | 0x80));
             value >>= 7;
         }
-        _buf.push_back(static_cast<uint8_t>(value));
+        _buf.push_back(static_cast<U8>(value));
     }
 
-    void write_bool(uint32_t field, bool value) {
+    void write_bool(U32 field, BOOL value) {
         tag(field, 0);
         u64(value ? 1 : 0);
     }
 
-    void s32(uint32_t field, int32_t value) {
+    void s32(U32 field, S32 value) {
         tag(field, 0);
-        u64(static_cast<uint64_t>(static_cast<uint32_t>(value)));
+        u64(static_cast<U64>(static_cast<U32>(value)));
     }
 
-    void s64(uint32_t field, int64_t value) {
+    void s64(U32 field, S64 value) {
         tag(field, 0);
-        u64(static_cast<uint64_t>(value));
+        u64(static_cast<U64>(value));
     }
 
-    void write_u32(uint32_t field, uint32_t value) {
+    void write_u32(U32 field, U32 value) {
         tag(field, 0);
         u64(value);
     }
 
-    void write_enum(uint32_t field, int32_t value) {
+    void write_enum(U32 field, S32 value) {
         s32(field, value);
     }
 
-    // ── 64-bit (double) ──────────────────────────────────────────────────────
-    void f64(uint32_t field, double value) {
+    // ── 64-bit (F64) ──────────────────────────────────────────────────────
+    void f64(U32 field, F64 value) {
         tag(field, 1);
-        uint64_t bits;
+        U64 bits;
         memcpy(&bits, &value, sizeof bits);
         for (int i = 0; i < 8; ++i) {
-            _buf.push_back(static_cast<uint8_t>(bits & 0xFF));
+            _buf.push_back(static_cast<U8>(bits & 0xFF));
             bits >>= 8;
         }
     }
 
-    // ── 32-bit (float) ───────────────────────────────────────────────────────
-    void f32(uint32_t field, float value) {
+    // ── 32-bit (F32) ───────────────────────────────────────────────────────
+    void f32(U32 field, F32 value) {
         tag(field, 5);
-        uint32_t bits;
+        U32 bits;
         memcpy(&bits, &value, sizeof bits);
         for (int i = 0; i < 4; ++i) {
-            _buf.push_back(static_cast<uint8_t>(bits & 0xFF));
+            _buf.push_back(static_cast<U8>(bits & 0xFF));
             bits >>= 8;
         }
     }
 
     // ── Length-delimited ─────────────────────────────────────────────────────
-    void str(uint32_t field, const std::string& s) {
-        raw(field, reinterpret_cast<const uint8_t*>(s.c_str()), s.size());
+    void str(U32 field, const STR& s) {
+        raw(field, reinterpret_cast<const U8*>(s.c_str()), s.size());
     }
 
-    void raw(uint32_t field, const uint8_t* data, size_t len) {
+    void raw(U32 field, const U8* data, USZ len) {
         tag(field, 2);
         u64(len);
         _buf.insert(_buf.end(), data, data + len);
     }
 
     // Write raw bytes of a message (no field tag) — used for nested messages
-    void raw(uint32_t field, const std::vector<uint8_t>& data) {
+    void raw(U32 field, const U8V& data) {
         tag(field, 2);
         u64(data.size());
         _buf.insert(_buf.end(), data.begin(), data.end());
     }
 
-    void msg(uint32_t field, const Encoder& sub) {
+    void msg(U32 field, const Encoder& sub) {
         const auto& sub_buf = sub.buf();
         raw(field, sub_buf.data(), sub_buf.size());
     }
 
-    // Packed repeated floats
-    void f32_packed(uint32_t field, const std::vector<float>& values) {
+    // Packed repeated F32s
+    void f32_packed(U32 field, const F32V& values) {
         tag(field, 2);
         u64(values.size() * 4);
-        for (float v : values) {
-            uint32_t bits;
+        for (F32 v : values) {
+            U32 bits;
             memcpy(&bits, &v, sizeof bits);
             for (int i = 0; i < 4; ++i) {
-                _buf.push_back(static_cast<uint8_t>(bits & 0xFF));
+                _buf.push_back(static_cast<U8>(bits & 0xFF));
                 bits >>= 8;
             }
         }
     }
 
-    // Packed repeated doubles
-    void f64_packed(uint32_t field, const std::vector<double>& values) {
+    // Packed repeated F64s
+    void f64_packed(U32 field, const F64V& values) {
         tag(field, 2);
         u64(values.size() * 8);
-        for (double v : values) {
-            uint64_t bits;
+        for (F64 v : values) {
+            U64 bits;
             memcpy(&bits, &v, sizeof bits);
             for (int i = 0; i < 8; ++i) {
-                _buf.push_back(static_cast<uint8_t>(bits & 0xFF));
+                _buf.push_back(static_cast<U8>(bits & 0xFF));
                 bits >>= 8;
             }
         }
     }
 
     // ── Access ───────────────────────────────────────────────────────────────
-    const std::vector<uint8_t>& buf() const { return _buf; }
+    const U8V& buf() const { return _buf; }
     
-    size_t size() const { return _buf.size(); }
-    void   clear() { _buf.clear(); }
+    USZ  size() const { return _buf.size(); }
+    void clear() { _buf.clear(); }
 
 private:
-    std::vector<uint8_t> _buf;
+    U8V _buf;
 };
 
 } // namespace proto
