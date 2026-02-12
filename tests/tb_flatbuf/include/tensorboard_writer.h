@@ -186,11 +186,11 @@ public:
     // ── Scalar ────────────────────────────────────────────────────────────────
     void WriteScalar(const std::string& tag, float value, int64_t step) {
         proto::Encoder val;
-        val.WriteString(1, tag);                                 // tag
-        val.WriteFloat(2, value);                                // simple_value
-//        val.WriteRawMessage(9, BuildScalarMetadata());           // metadata → field 9
-//        val.WriteRawMessage(8, BuildFloatTensorProto(value));    // tensor   → field 8
-        WriteRecord(BuildEvent(val.GetBuffer(), step));
+        val.write_str(1, tag);                                 // tag
+        val.write_f32(2, value);                               // simple_value
+//        val.write_msg_raw(9, BuildScalarMetadata());           // metadata → field 9
+//        val.write_msg_raw(8, BuildFloatTensorProto(value));    // tensor   → field 8
+        WriteRecord(BuildEvent(val.buf(), step));
     }
 
     // ── Image (RGB row-major, 3 bytes/pixel) ──────────────────────────────────
@@ -198,15 +198,15 @@ public:
                     const std::vector<uint8_t>& pixels_rgb, int64_t step) {
         auto png_bytes = png::EncodePNG(width, height, pixels_rgb, 3);
         proto::Encoder img;
-        img.WriteInt32(1, height);
-        img.WriteInt32(2, width);
-        img.WriteInt32(3, 3);  // colorspace = RGB
-        img.WriteBytes(4, png_bytes.data(), png_bytes.size()); // encoded_image_string
+        img.write_s32(1, height);
+        img.write_s32(2, width);
+        img.write_s32(3, 3);  // colorspace = RGB
+        img.write_bytes(4, png_bytes.data(), png_bytes.size()); // encoded_image_string
         proto::Encoder val;
-        val.WriteString(1, tag);                                 // tag
-        val.WriteRawMessage(9, BuildImageMetadata());            // metadata → field 9
-        val.WriteRawMessage(4, img.GetBuffer());                 // image    → field 4
-        WriteRecord(BuildEvent(val.GetBuffer(), step));
+        val.write_str(1, tag);                                 // tag
+        val.write_msg_raw(9, BuildImageMetadata());            // metadata → field 9
+        val.write_msg_raw(4, img.buf());                       // image    → field 4
+        WriteRecord(BuildEvent(val.buf(), step));
     }
 
     // ── Histogram ─────────────────────────────────────────────────────────────
@@ -221,18 +221,18 @@ public:
         BuildBuckets(vmin, vmax, values, num_buckets, limits, counts);
         proto::Encoder histo;
         
-        histo.WriteDouble(1, vmin);
-        histo.WriteDouble(2, vmax);
-        histo.WriteDouble(3, static_cast<double>(values.size()));
-        histo.WriteDouble(4, vsum);   histo.WriteDouble(5, vsumsq);
-        histo.WritePackedDoubles(6, limits);
-        histo.WritePackedDoubles(7, counts);
+        histo.write_f64(1, vmin);
+        histo.write_f64(2, vmax);
+        histo.write_f64(3, static_cast<double>(values.size()));
+        histo.write_f64(4, vsum);   histo.write_f64(5, vsumsq);
+        histo.write_f64_packed(6, limits);
+        histo.write_f64_packed(7, counts);
         
         proto::Encoder val;
-        val.WriteString(1, tag);                                 // tag
-        val.WriteRawMessage(9, BuildHistogramMetadata());        // metadata → field 9
-        val.WriteRawMessage(5, histo.GetBuffer());               // histo    → field 5
-        WriteRecord(BuildEvent(val.GetBuffer(), step));
+        val.write_str(1, tag);                                 // tag
+        val.write_msg_raw(9, BuildHistogramMetadata());        // metadata → field 9
+        val.write_msg_raw(5, histo.buf());               // histo    → field 5
+        WriteRecord(BuildEvent(val.buf(), step));
     }
 
     void WriteHistogram(const std::string& tag, const std::vector<float>& values,
@@ -257,20 +257,20 @@ private:
 
     std::vector<uint8_t> BuildEvent(const std::vector<uint8_t>& value_bytes, int64_t step) {
         proto::Encoder summary;
-        summary.WriteRawMessage(1, value_bytes);   // repeated Value
+        summary.write_msg_raw(1, value_bytes);   // repeated Value
         proto::Encoder event;
-        event.WriteDouble(1, static_cast<double>(std::time(nullptr)));  // wall_time
-        event.WriteInt64(2, step);                                       // step
-        event.WriteRawMessage(5, summary.GetBuffer());                   // summary
-        return event.GetBuffer();
+        event.write_f64(1, static_cast<double>(std::time(nullptr)));  // wall_time
+        event.write_s64(2, step);                                     // step
+        event.write_msg_raw(5, summary.buf());                        // summary
+        return event.buf();
     }
 
     void WriteFileVersionEvent() {
         proto::Encoder event;
-        event.WriteDouble(1, static_cast<double>(std::time(nullptr)));
-        event.WriteInt64(2, 0);
-        event.WriteString(3, "brain.Event:2");   // field 3 = file_version
-        WriteRecord(event.GetBuffer());
+        event.write_f64(1, static_cast<double>(std::time(nullptr)));
+        event.write_s64(2, 0);
+        event.write_str(3, "brain.Event:2");   // field 3 = file_version
+        WriteRecord(event.buf());
     }
 
     // TensorProto for scalar float. Canonical encoding matching protobuf serializer:
@@ -286,43 +286,43 @@ private:
             static_cast<uint8_t>((bits >> 24) & 0xFF),
         };
         proto::Encoder tp;
-        tp.WriteInt32(1, 1);          // dtype = DT_FLOAT
-        tp.WriteRawMessage(2, {});    // tensor_shape = empty (scalar)
-        tp.WriteBytes(5, fb, 4);      // float_val at field 5 (packed)
-        return tp.GetBuffer();
+        tp.write_s32(1, 1);          // dtype = DT_FLOAT
+        tp.write_msg_raw(2, {});    // tensor_shape = empty (scalar)
+        tp.write_bytes(5, fb, 4);      // float_val at field 5 (packed)
+        return tp.buf();
     }
 
     // Plugin metadata — note: metadata goes in Summary.Value field 9
     std::vector<uint8_t> BuildScalarMetadata() {
         proto::Encoder pd;
-        pd.WriteString(1, "scalars");
+        pd.write_str(1, "scalars");
         // content: empty = ScalarPluginData{mode=DEFAULT} in proto3
         proto::Encoder meta;
-        meta.WriteRawMessage(1, pd.GetBuffer());
-        meta.WriteInt32(4, 1);           // data_class = DATA_CLASS_SCALAR
-        return meta.GetBuffer();
+        meta.write_msg_raw(1, pd.buf());
+        meta.write_s32(4, 1);           // data_class = DATA_CLASS_SCALAR
+        return meta.buf();
     }
 
     std::vector<uint8_t> BuildImageMetadata(int32_t max_images = 1) {
         proto::Encoder pc;
-        pc.WriteInt32(1, max_images);    // max_images_per_step
+        pc.write_s32(1, max_images);    // max_images_per_step
         proto::Encoder pd;
-        pd.WriteString(1, "images");
-        const auto& pcb = pc.GetBuffer();
-        pd.WriteBytes(2, pcb.data(), pcb.size());
+        pd.write_str(1, "images");
+        const auto& pcb = pc.buf();
+        pd.write_bytes(2, pcb.data(), pcb.size());
         proto::Encoder meta;
-        meta.WriteRawMessage(1, pd.GetBuffer());
-        meta.WriteInt32(4, 2);           // data_class = DATA_CLASS_BLOB_SEQUENCE
-        return meta.GetBuffer();
+        meta.write_msg_raw(1, pd.buf());
+        meta.write_s32(4, 2);           // data_class = DATA_CLASS_BLOB_SEQUENCE
+        return meta.buf();
     }
 
     std::vector<uint8_t> BuildHistogramMetadata() {
         proto::Encoder pd;
-        pd.WriteString(1, "histograms");
+        pd.write_str(1, "histograms");
         proto::Encoder meta;
-        meta.WriteRawMessage(1, pd.GetBuffer());
-        meta.WriteInt32(4, 1);           // data_class = DATA_CLASS_SCALAR
-        return meta.GetBuffer();
+        meta.write_msg_raw(1, pd.buf());
+        meta.write_s32(4, 1);           // data_class = DATA_CLASS_SCALAR
+        return meta.buf();
     }
 
     void BuildBuckets(double vmin, double vmax, const std::vector<double>& values,
