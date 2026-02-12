@@ -99,31 +99,23 @@
  */
 #pragma once
 
+#include "types.h"
 #include "crc32c.h"
-//#include "schema.h"    // not needed for now
+#include "schema.h"    // not needed for now
 #include "png.h"
 #include "encoder.h"
 
-#include <cstdint>
-#include <cstring>
 #include <ctime>
 #include <cmath>
-#include <string>
-#include <vector>
 #include <fstream>
 #include <sstream>
 #include <stdexcept>
 #include <algorithm>
 
-typedef uint8_t              U8;
-typedef std::vector<U8>      U8V;
-typedef std::vector<double>  F64V;
-typedef std::vector<float>   F32V;
-
 namespace tensorboard {
 
 // ─── Path helper ─────────────────────────────────────────────────────────────
-inline std::string logdir(const std::string& dir, int seq = 0) {
+inline STR logdir(const STR& dir, int seq = 0) {
     char hostname[256] = "localhost";
     gethostname(hostname, sizeof(hostname));
     hostname[sizeof(hostname)-1] = '\0';
@@ -140,7 +132,7 @@ inline std::string logdir(const std::string& dir, int seq = 0) {
 // ─── EventWriter ─────────────────────────────────────────────────────────────
 class EventWriter {
 public:
-    explicit EventWriter(const std::string& path)
+    explicit EventWriter(const STR& path)
         : _file(path, std::ios::binary | std::ios::trunc) {
         if (!_file.is_open())
             throw std::runtime_error("Cannot open event file: " + path);
@@ -150,7 +142,7 @@ public:
 
     void add_version() {
         proto::Encoder event;
-        event.f64(1, static_cast<double>(std::time(nullptr)));
+        event.f64(1, static_cast<F64>(std::time(nullptr)));
         event.s64(2, 0);
         event.str(3, "brain.Event:2");   // field 3 = file_version
         
@@ -158,7 +150,7 @@ public:
     }
 
     // ── Scalar ────────────────────────────────────────────────────────────────
-    void add_scalar(const std::string& tag, float value, int64_t step) {
+    void add_scalar(const STR& tag, F32 value, S64 step) {
         proto::Encoder enc;
         enc.str(1, tag);                                 // tag
         enc.f32(2, value);                               // simple_value
@@ -169,11 +161,11 @@ public:
 
     // ── Image (RGB row-major, 3 bytes/pixel) ──────────────────────────────────
     void add_image(
-        const std::string& tag,
+        const STR& tag,
         int width,
         int height,
         const U8V& pixels_rgb,
-        int64_t step) {
+        S64 step) {
         auto png = png::raw2png(width, height, pixels_rgb, 3);
         
         proto::Encoder img;
@@ -192,16 +184,16 @@ public:
 
     // ── Histogram ─────────────────────────────────────────────────────────────
     void add_histo(
-        const std::string& tag,
+        const STR& tag,
         const F64V& values,
-        int64_t step,
+        S64 step,
         int num_buckets = 30) {
         if (values.empty()) return;
         
-        double vmin = *std::min_element(values.begin(), values.end());
-        double vmax = *std::max_element(values.begin(), values.end());
-        double vsum = 0, vsumsq = 0;
-        for (double v : values) { vsum += v; vsumsq += v*v; }
+        F64 vmin = *std::min_element(values.begin(), values.end());
+        F64 vmax = *std::max_element(values.begin(), values.end());
+        F64 vsum = 0, vsumsq = 0;
+        for (F64 v : values) { vsum += v; vsumsq += v*v; }
         
         F64V limits, counts;
         _buckets(vmin, vmax, values, num_buckets, limits, counts);
@@ -209,7 +201,7 @@ public:
         proto::Encoder histo;
         histo.f64(1, vmin);
         histo.f64(2, vmax);
-        histo.f64(3, static_cast<double>(values.size()));
+        histo.f64(3, static_cast<F64>(values.size()));
         histo.f64(4, vsum);   histo.f64(5, vsumsq);
         histo.f64_packed(6, limits);
         histo.f64_packed(7, counts);
@@ -223,9 +215,9 @@ public:
     }
 
     void add_histo(
-        const std::string& tag,
+        const STR& tag,
         const F32V& values,
-        int64_t step,
+        S64 step,
         int num_buckets = 30) {
         F64V dv(values.begin(), values.end());
         add_histo(tag, dv, step, num_buckets);
@@ -235,9 +227,9 @@ private:
     std::ofstream _file;
 
     void _write(const U8V& buf) {
-        uint64_t len = buf.size();
-        uint32_t lc = crc32c::mask(crc32c::value(reinterpret_cast<const U8*>(&len), 8));
-        uint32_t dc = crc32c::mask(crc32c::value(buf.data(), buf.size()));
+        U64 len = buf.size();
+        U32 lc = crc32c::mask(crc32c::value(reinterpret_cast<const U8*>(&len), 8));
+        U32 dc = crc32c::mask(crc32c::value(buf.data(), buf.size()));
         _file.write(reinterpret_cast<const char*>(&len),       8);
         _file.write(reinterpret_cast<const char*>(&lc),        4);
         _file.write(reinterpret_cast<const char*>(buf.data()), buf.size());
@@ -245,24 +237,24 @@ private:
         _file.flush();
     }
 
-    U8V _summary(const U8V& buf, int64_t step) {
+    U8V _summary(const U8V& buf, S64 step) {
         proto::Encoder summary;
         summary.raw(1, buf);                                    // repeated Value
         
         proto::Encoder event;
-        event.f64(1, static_cast<double>(std::time(nullptr)));  // wall_time
+        event.f64(1, static_cast<F64>(std::time(nullptr)));  // wall_time
         event.s64(2, step);                                     // step
         event.raw(5, summary.buf());                            // summary
         
         return event.buf();
     }
 
-    // TensorProto for scalar float. Canonical encoding matching protobuf serializer:
+    // TensorProto for scalar F32. Canonical encoding matching protobuf serializer:
     //   dtype=DT_FLOAT(1), tensor_shape OMITTED (empty=proto3 default),
-    //   float_val uses packed encoding (wire type 2), NOT non-packed (wire type 5).
+    //   F32_val uses packed encoding (wire type 2), NOT non-packed (wire type 5).
 #if 0    
-    U8V _scalar_tensor(float value) {
-        uint32_t bits;
+    U8V _scalar_tensor(F32 value) {
+        U32 bits;
         std::memcpy(&bits, &value, 4);
         U8 fb[4] = {
             static_cast<U8>( bits        & 0xFF),
@@ -274,7 +266,7 @@ private:
         proto::Encoder tp;
         tp.s32(1, 1);            // dtype = DT_FLOAT
         tp.raw(2, {});           // tensor_shape = empty (scalar)
-        tp.raw(5, fb, 4);        // float_val at field 5 (packed)
+        tp.raw(5, fb, 4);        // F32_val at field 5 (packed)
         
         return tp.buf();
     }
@@ -284,7 +276,7 @@ private:
         proto::Encoder pd;
         pd.str(1, "scalars");
         
-        // content: empty = ScalarPluginData{mode=DEFAULT} in proto3
+        // content: empty = scalar_plugin{mode=DEFAULT} in proto3
         proto::Encoder meta;
         meta.raw(1, pd.buf());
         meta.s32(4, 1);           // data_class = DATA_CLASS_SCALAR
@@ -292,7 +284,7 @@ private:
         return meta.buf();
     }
 #endif
-    U8V _image_meta(int32_t max_images = 1) {
+    U8V _image_meta(S32 max_images = 1) {
         proto::Encoder pc;
         pc.s32(1, max_images);    // max_images_per_step
         
@@ -321,25 +313,25 @@ private:
     }
 
     void _buckets(
-        double vmin,
-        double vmax,
+        F64 vmin,
+        F64 vmax,
         const F64V& values,
         int nb, F64V& limits,
         F64V& counts) {
         if (vmin == vmax) {
             limits.push_back(vmin+1e-10);
-            counts.push_back((double)values.size());
+            counts.push_back((F64)values.size());
             return;
         }
         
-        double bw = (vmax-vmin)/nb;
+        F64 bw = (vmax-vmin)/nb;
         for (int i=0;i<nb;i++) {
             limits.push_back(vmin+(i+1)*bw);
             counts.push_back(0.0);
         }
         
         limits.back()=vmax+1e-10;
-        for (double v:values) {
+        for (F64 v:values) {
             int b=std::max(0,std::min(nb-1,(int)((v-vmin)/bw)));
             counts[b]+=1.0;
         }
