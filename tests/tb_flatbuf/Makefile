@@ -2,9 +2,7 @@
 # Requires: g++ with C++17 support
 
 CXX      = g++
-CXXFLAGS = -std=c++17 -O2 -Wall -Wextra \
-           -Iinclude \
-           -Iinclude/flatbuffers
+CXXFLAGS = -std=c++17 -O2 -Wall -Wextra -Iinclude
 
 SRCS     = src/main.cpp
 TARGET   = tb_demo
