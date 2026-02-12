@@ -1,16 +1,16 @@
 #pragma once
-#include <cstdint>
-#include <cstring>
+
+#include "types.h"
 
 namespace crc32c {
 
 // Crc32c (Castagnoli) lookup table
-static uint32_t _kt[256];
-static bool     _kt_init = false;
+static U32  _kt[256];
+static BOOL _kt_init = false;
 
 static void init() {
-    for (uint32_t i = 0; i < 256; ++i) {
-        uint32_t crc = i;
+    for (U32 i = 0; i < 256; ++i) {
+        U32 crc = i;
         for (int j = 0; j < 8; ++j) {
             if (crc & 1)
                 crc = 0x82F63B78u ^ (crc >> 1);
@@ -22,21 +22,21 @@ static void init() {
     _kt_init = true;
 }
 
-inline uint32_t value(const uint8_t* data, size_t n) {
+inline U32 value(const U8* data, USZ n) {
     if (!_kt_init) init();
-    uint32_t crc = 0xFFFFFFFFu;
-    for (size_t i = 0; i < n; ++i) {
+    U32 crc = 0xFFFFFFFFu;
+    for (USZ i = 0; i < n; ++i) {
         crc = _kt[(crc ^ data[i]) & 0xFF] ^ (crc >> 8);
     }
     return crc ^ 0xFFFFFFFFu;
 }
 
-inline uint32_t value(const char* data, size_t n) {
-    return value(reinterpret_cast<const uint8_t*>(data), n);
+inline U32 value(const char* data, USZ n) {
+    return value(reinterpret_cast<const U8*>(data), n);
 }
 
 // TensorBoard uses masked CRC:  ((crc >> 15 | crc << 17) + 0xa282ead8u)
-inline uint32_t mask(uint32_t crc) {
+inline U32 mask(U32 crc) {
     return ((crc >> 15) | (crc << 17)) + 0xa282ead8u;
 }
 
