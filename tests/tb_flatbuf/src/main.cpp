@@ -1,5 +1,5 @@
 /*
- * main.cpp - TensorBoard FlatBuffers Demo
+ * Main.cpp - TensorBoard FlatBuffers Demo
  *
  * Demonstrates writing a .tfevents file containing:
  *   1. Scalar summaries   (loss curve, accuracy curve)
@@ -19,10 +19,7 @@
 
 #include <iostream>
 #include <iomanip>
-#include <string>
-#include <vector>
 #include <cmath>
-#include <cstring>
 #include <random>
 #include <sys/stat.h>
 
@@ -95,8 +92,8 @@ void demo_scalars(const std::string& logdir) {
 // ─── Demo 2: Image Summaries ──────────────────────────────────────────────────
 
 // Generate a colorful test pattern (sine waves)
-static std::vector<uint8_t> make_sine_pattern(int w, int h, float phase) {
-    std::vector<uint8_t> px(w * h * 3);
+static U8V make_sine_pattern(int w, int h, float phase) {
+    U8V px(w * h * 3);
     for (int y = 0; y < h; ++y) {
         for (int x = 0; x < w; ++x) {
             float fx = static_cast<float>(x) / w;
@@ -104,17 +101,17 @@ static std::vector<uint8_t> make_sine_pattern(int w, int h, float phase) {
             float r  = 0.5f + 0.5f * std::sin(2.0f * 3.14159f * fx * 4 + phase);
             float g  = 0.5f + 0.5f * std::sin(2.0f * 3.14159f * fy * 3 + phase * 1.3f);
             float b  = 0.5f + 0.5f * std::sin(2.0f * 3.14159f * (fx + fy) * 5 + phase * 0.7f);
-            px[(y * w + x) * 3 + 0] = static_cast<uint8_t>(r * 255);
-            px[(y * w + x) * 3 + 1] = static_cast<uint8_t>(g * 255);
-            px[(y * w + x) * 3 + 2] = static_cast<uint8_t>(b * 255);
+            px[(y * w + x) * 3 + 0] = static_cast<U8>(r * 255);
+            px[(y * w + x) * 3 + 1] = static_cast<U8>(g * 255);
+            px[(y * w + x) * 3 + 2] = static_cast<U8>(b * 255);
         }
     }
     return px;
 }
 
 // Generate a gradient heatmap
-static std::vector<uint8_t> make_gradient(int w, int h, float step_f) {
-    std::vector<uint8_t> px(w * h * 3);
+static U8V make_gradient(int w, int h, float step_f) {
+    U8V px(w * h * 3);
     for (int y = 0; y < h; ++y) {
         for (int x = 0; x < w; ++x) {
             float v  = static_cast<float>(x + y * w) / (w * h);
@@ -133,17 +130,17 @@ static std::vector<uint8_t> make_gradient(int w, int h, float step_f) {
                 case 4: r=t2; g=p;  b=1;  break;
                 case 5: r=1;  g=p;  b=q;  break;
             }
-            px[(y * w + x) * 3 + 0] = static_cast<uint8_t>(r * 255);
-            px[(y * w + x) * 3 + 1] = static_cast<uint8_t>(g * 255);
-            px[(y * w + x) * 3 + 2] = static_cast<uint8_t>(b * 255);
+            px[(y * w + x) * 3 + 0] = static_cast<U8>(r * 255);
+            px[(y * w + x) * 3 + 1] = static_cast<U8>(g * 255);
+            px[(y * w + x) * 3 + 2] = static_cast<U8>(b * 255);
         }
     }
     return px;
 }
 
 // Generate a checkerboard
-static std::vector<uint8_t> make_checkerboard(int w, int h, int tile, float t_) {
-    std::vector<uint8_t> px(w * h * 3);
+static U8V make_checkerboard(int w, int h, int tile, float t_) {
+    U8V px(w * h * 3);
     for (int y = 0; y < h; ++y) {
         for (int x = 0; x < w; ++x) {
             bool chk = ((x / tile) + (y / tile)) % 2 == 0;
@@ -151,9 +148,9 @@ static std::vector<uint8_t> make_checkerboard(int w, int h, int tile, float t_) 
             float r = bright + 0.1f * std::sin(t_ + x * 0.1f);
             float g = bright + 0.1f * std::sin(t_ * 1.3f + y * 0.1f);
             float b = bright + 0.1f * std::sin(t_ * 0.7f + (x + y) * 0.05f);
-            px[(y * w + x) * 3 + 0] = static_cast<uint8_t>(std::max(0.0f, std::min(255.0f, r * 255)));
-            px[(y * w + x) * 3 + 1] = static_cast<uint8_t>(std::max(0.0f, std::min(255.0f, g * 255)));
-            px[(y * w + x) * 3 + 2] = static_cast<uint8_t>(std::max(0.0f, std::min(255.0f, b * 255)));
+            px[(y * w + x) * 3 + 0] = static_cast<U8>(std::max(0.0f, std::min(255.0f, r * 255)));
+            px[(y * w + x) * 3 + 1] = static_cast<U8>(std::max(0.0f, std::min(255.0f, g * 255)));
+            px[(y * w + x) * 3 + 2] = static_cast<U8>(std::max(0.0f, std::min(255.0f, b * 255)));
         }
     }
     return px;
@@ -194,10 +191,10 @@ void demo_images(const std::string& logdir) {
 // ─── Demo 3: Histogram Summaries ──────────────────────────────────────────────
 
 // Generate normally distributed random values
-static std::vector<double> normal_samples(std::mt19937& rng, int n,
+static F64V normal_samples(std::mt19937& rng, int n,
                                            double mean, double stddev) {
     std::normal_distribution<double> dist(mean, stddev);
-    std::vector<double> v(n);
+    F64V v(n);
     for (auto& x : v) x = dist(rng);
     return v;
 }
@@ -222,7 +219,7 @@ void demo_histograms(const std::string& logdir) {
 
         // Layer 2 weights: bimodal → unimodal
         double mix = t; // 0 = bimodal, 1 = unimodal
-        std::vector<double> w2;
+        F64V w2;
         auto half_a = normal_samples(rng, 256, -1.0 * (1.0 - mix), 0.5);
         auto half_b = normal_samples(rng, 256,  1.0 * (1.0 - mix), 0.5);
         w2.insert(w2.end(), half_a.begin(), half_a.end());
