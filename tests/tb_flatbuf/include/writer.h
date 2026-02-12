@@ -102,6 +102,7 @@
 #include "crc32c.h"
 #include "encode.h"
 #include "schema.h"
+#include "png.h"
 
 #include <cstdint>
 #include <cstring>
@@ -132,46 +133,6 @@ inline std::string MakeEventFilePath(const std::string& dir, int seq = 0) {
     return ss.str();
 }
 
-// ─── PNG Encoder (uncompressed deflate stored blocks) ────────────────────────
-namespace png {
-static uint32_t adler32(const uint8_t* d, size_t n) {
-    uint32_t s1=1,s2=0; for(size_t i=0;i<n;i++){s1=(s1+d[i])%65521;s2=(s2+s1)%65521;}
-    return (s2<<16)|s1;
-}
-static uint32_t crc32_png(const uint8_t* d, size_t n) {
-    static uint32_t t[256]; static bool init=false;
-    if(!init){for(uint32_t i=0;i<256;i++){uint32_t c=i;for(int k=0;k<8;k++)c=(c&1)?(0xEDB88320u^(c>>1)):(c>>1);t[i]=c;}init=true;}
-    uint32_t c=0xFFFFFFFFu; for(size_t i=0;i<n;i++)c=t[(c^d[i])&0xFF]^(c>>8); return c^0xFFFFFFFFu;
-}
-static void push_be32(std::vector<uint8_t>& v,uint32_t n){
-    v.push_back((n>>24)&0xFF);v.push_back((n>>16)&0xFF);v.push_back((n>>8)&0xFF);v.push_back(n&0xFF);}
-static void write_chunk(std::vector<uint8_t>& out,const char type[4],const std::vector<uint8_t>& data){
-    push_be32(out,static_cast<uint32_t>(data.size()));
-    out.insert(out.end(),type,type+4); out.insert(out.end(),data.begin(),data.end());
-    std::vector<uint8_t> ci; ci.insert(ci.end(),type,type+4); ci.insert(ci.end(),data.begin(),data.end());
-    push_be32(out,crc32_png(ci.data(),ci.size()));
-}
-inline std::vector<uint8_t> EncodePNG(int w,int h,const std::vector<uint8_t>& px,int ch=3){
-    std::vector<uint8_t> out;
-    static const uint8_t sig[]={137,80,78,71,13,10,26,10}; out.insert(out.end(),sig,sig+8);
-    {std::vector<uint8_t> ihdr; push_be32(ihdr,w); push_be32(ihdr,h);
-     ihdr.push_back(8); ihdr.push_back(ch==1?0:(ch==4?6:2));
-     ihdr.push_back(0); ihdr.push_back(0); ihdr.push_back(0); write_chunk(out,"IHDR",ihdr);}
-    int rb=w*ch; std::vector<uint8_t> sl;
-    for(int y=0;y<h;y++){sl.push_back(0);sl.insert(sl.end(),px.begin()+y*rb,px.begin()+(y+1)*rb);}
-    std::vector<uint8_t> zlib; zlib.push_back(0x78); zlib.push_back(0x01);
-    size_t pos=0,tot=sl.size();
-    while(pos<tot){size_t bsz=std::min(tot-pos,(size_t)65535);bool last=(pos+bsz>=tot);
-        uint16_t bl=static_cast<uint16_t>(bsz),bn=static_cast<uint16_t>(~bl);
-        zlib.push_back(last?0x01:0x00);
-        zlib.push_back(bl&0xFF);zlib.push_back((bl>>8)&0xFF);
-        zlib.push_back(bn&0xFF);zlib.push_back((bn>>8)&0xFF);
-        zlib.insert(zlib.end(),sl.begin()+pos,sl.begin()+pos+bsz);pos+=bsz;}
-    push_be32(zlib,adler32(sl.data(),sl.size()));
-    write_chunk(out,"IDAT",zlib); write_chunk(out,"IEND",{}); return out;
-}
-} // namespace png
-
 // ─── EventWriter ─────────────────────────────────────────────────────────────
 class EventWriter {
 public:
@@ -188,15 +149,15 @@ public:
         proto::Encoder val;
         val.write_str(1, tag);                                 // tag
         val.write_f32(2, value);                               // simple_value
-//        val.write_msg_raw(9, BuildScalarMetadata());           // metadata → field 9
-//        val.write_msg_raw(8, BuildFloatTensorProto(value));    // tensor   → field 8
-        WriteRecord(BuildEvent(val.buf(), step));
+//        val.write_msg_raw(9, scalar_meta());                 // metadata → field 9
+//        val.write_msg_raw(8, scalar_tensor(value));          // tensor   → field 8
+        write(build(val.buf(), step));
     }
 
     // ── Image (RGB row-major, 3 bytes/pixel) ──────────────────────────────────
     void WriteImage(const std::string& tag, int width, int height,
                     const std::vector<uint8_t>& pixels_rgb, int64_t step) {
-        auto png_bytes = png::EncodePNG(width, height, pixels_rgb, 3);
+        auto png_bytes = png::raw2png(width, height, pixels_rgb, 3);
         proto::Encoder img;
         img.write_s32(1, height);
         img.write_s32(2, width);
@@ -204,9 +165,9 @@ public:
         img.write_bytes(4, png_bytes.data(), png_bytes.size()); // encoded_image_string
         proto::Encoder val;
         val.write_str(1, tag);                                 // tag
-        val.write_msg_raw(9, BuildImageMetadata());            // metadata → field 9
+        val.write_msg_raw(9, image_meta());                    // metadata → field 9
         val.write_msg_raw(4, img.buf());                       // image    → field 4
-        WriteRecord(BuildEvent(val.buf(), step));
+        write(build(val.buf(), step));
     }
 
     // ── Histogram ─────────────────────────────────────────────────────────────
@@ -229,10 +190,10 @@ public:
         histo.write_f64_packed(7, counts);
         
         proto::Encoder val;
-        val.write_str(1, tag);                                 // tag
-        val.write_msg_raw(9, BuildHistogramMetadata());        // metadata → field 9
+        val.write_str(1, tag);                           // tag
+        val.write_msg_raw(9, histo_meta());              // metadata → field 9
         val.write_msg_raw(5, histo.buf());               // histo    → field 5
-        WriteRecord(BuildEvent(val.buf(), step));
+        write(build(val.buf(), step));
     }
 
     void WriteHistogram(const std::string& tag, const std::vector<float>& values,
@@ -244,7 +205,7 @@ public:
 private:
     std::ofstream file_;
 
-    void WriteRecord(const std::vector<uint8_t>& data) {
+    void write(const std::vector<uint8_t>& data) {
         uint64_t len = data.size();
         uint32_t lc = crc32c::mask(crc32c::value(reinterpret_cast<const uint8_t*>(&len), 8));
         uint32_t dc = crc32c::mask(crc32c::value(data.data(), data.size()));
@@ -255,7 +216,7 @@ private:
         file_.flush();
     }
 
-    std::vector<uint8_t> BuildEvent(const std::vector<uint8_t>& value_bytes, int64_t step) {
+    std::vector<uint8_t> build(const std::vector<uint8_t>& value_bytes, int64_t step) {
         proto::Encoder summary;
         summary.write_msg_raw(1, value_bytes);   // repeated Value
         proto::Encoder event;
@@ -270,13 +231,14 @@ private:
         event.write_f64(1, static_cast<double>(std::time(nullptr)));
         event.write_s64(2, 0);
         event.write_str(3, "brain.Event:2");   // field 3 = file_version
-        WriteRecord(event.buf());
+        write(event.buf());
     }
 
     // TensorProto for scalar float. Canonical encoding matching protobuf serializer:
     //   dtype=DT_FLOAT(1), tensor_shape OMITTED (empty=proto3 default),
     //   float_val uses packed encoding (wire type 2), NOT non-packed (wire type 5).
-    std::vector<uint8_t> BuildFloatTensorProto(float value) {
+#if 0    
+    std::vector<uint8_t> scalar_tensor(float value) {
         uint32_t bits;
         std::memcpy(&bits, &value, 4);
         uint8_t fb[4] = {
@@ -293,7 +255,7 @@ private:
     }
 
     // Plugin metadata — note: metadata goes in Summary.Value field 9
-    std::vector<uint8_t> BuildScalarMetadata() {
+    std::vector<uint8_t> scalar_meta() {
         proto::Encoder pd;
         pd.write_str(1, "scalars");
         // content: empty = ScalarPluginData{mode=DEFAULT} in proto3
@@ -302,8 +264,8 @@ private:
         meta.write_s32(4, 1);           // data_class = DATA_CLASS_SCALAR
         return meta.buf();
     }
-
-    std::vector<uint8_t> BuildImageMetadata(int32_t max_images = 1) {
+#endif
+    std::vector<uint8_t> image_meta(int32_t max_images = 1) {
         proto::Encoder pc;
         pc.write_s32(1, max_images);    // max_images_per_step
         proto::Encoder pd;
@@ -316,7 +278,7 @@ private:
         return meta.buf();
     }
 
-    std::vector<uint8_t> BuildHistogramMetadata() {
+    std::vector<uint8_t> histo_meta() {
         proto::Encoder pd;
         pd.write_str(1, "histograms");
         proto::Encoder meta;
