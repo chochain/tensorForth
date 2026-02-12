@@ -100,9 +100,9 @@
 #pragma once
 
 #include "crc32c.h"
-#include "encode.h"
 #include "schema.h"
 #include "png.h"
+#include "encoder.h"
 
 #include <cstdint>
 #include <cstring>
@@ -119,7 +119,7 @@
 namespace tensorboard {
 
 // ─── Path helper ─────────────────────────────────────────────────────────────
-inline std::string MakeEventFilePath(const std::string& dir, int seq = 0) {
+inline std::string logdir(const std::string& dir, int seq = 0) {
     char hostname[256] = "localhost";
     gethostname(hostname, sizeof(hostname));
     hostname[sizeof(hostname)-1] = '\0';
@@ -140,34 +140,45 @@ public:
         : file_(path, std::ios::binary | std::ios::trunc) {
         if (!file_.is_open())
             throw std::runtime_error("Cannot open event file: " + path);
-        WriteFileVersionEvent();
+        add_version();
     }
     ~EventWriter() { if (file_.is_open()) file_.close(); }
 
+    void add_version() {
+        proto::Encoder event;
+        event.f64(1, static_cast<double>(std::time(nullptr)));
+        event.s64(2, 0);
+        event.str(3, "brain.Event:2");   // field 3 = file_version
+        
+        write(event.buf());
+    }
+
     // ── Scalar ────────────────────────────────────────────────────────────────
     void WriteScalar(const std::string& tag, float value, int64_t step) {
-        proto::Encoder val;
-        val.write_str(1, tag);                                 // tag
-        val.write_f32(2, value);                               // simple_value
-//        val.write_msg_raw(9, scalar_meta());                 // metadata → field 9
-//        val.write_msg_raw(8, scalar_tensor(value));          // tensor   → field 8
-        write(build(val.buf(), step));
+        proto::Encoder enc;
+        enc.str(1, tag);                                 // tag
+        enc.f32(2, value);                               // simple_value
+//        enc.raw(9, scalar_meta());                     // metadata → field 9
+//        enc.raw(8, scalar_tensor(value));              // tensor   → field 8
+        write(build(enc.buf(), step));
     }
 
     // ── Image (RGB row-major, 3 bytes/pixel) ──────────────────────────────────
     void WriteImage(const std::string& tag, int width, int height,
                     const std::vector<uint8_t>& pixels_rgb, int64_t step) {
         auto png_bytes = png::raw2png(width, height, pixels_rgb, 3);
+        
         proto::Encoder img;
-        img.write_s32(1, height);
-        img.write_s32(2, width);
-        img.write_s32(3, 3);  // colorspace = RGB
-        img.write_bytes(4, png_bytes.data(), png_bytes.size()); // encoded_image_string
-        proto::Encoder val;
-        val.write_str(1, tag);                                 // tag
-        val.write_msg_raw(9, image_meta());                    // metadata → field 9
-        val.write_msg_raw(4, img.buf());                       // image    → field 4
-        write(build(val.buf(), step));
+        img.s32(1, height);
+        img.s32(2, width);
+        img.s32(3, 3);  // colorspace = RGB
+        img.raw(4, png_bytes.data(), png_bytes.size()); // encoded_image_string
+        
+        proto::Encoder enc;
+        enc.str(1, tag);                                 // tag
+        enc.raw(9, image_meta());                    // metadata → field 9
+        enc.raw(4, img.buf());                       // image    → field 4
+        write(build(enc.buf(), step));
     }
 
     // ── Histogram ─────────────────────────────────────────────────────────────
@@ -180,20 +191,20 @@ public:
         for (double v : values) { vsum += v; vsumsq += v*v; }
         std::vector<double> limits, counts;
         BuildBuckets(vmin, vmax, values, num_buckets, limits, counts);
+        
         proto::Encoder histo;
+        histo.f64(1, vmin);
+        histo.f64(2, vmax);
+        histo.f64(3, static_cast<double>(values.size()));
+        histo.f64(4, vsum);   histo.f64(5, vsumsq);
+        histo.f64_packed(6, limits);
+        histo.f64_packed(7, counts);
         
-        histo.write_f64(1, vmin);
-        histo.write_f64(2, vmax);
-        histo.write_f64(3, static_cast<double>(values.size()));
-        histo.write_f64(4, vsum);   histo.write_f64(5, vsumsq);
-        histo.write_f64_packed(6, limits);
-        histo.write_f64_packed(7, counts);
-        
-        proto::Encoder val;
-        val.write_str(1, tag);                           // tag
-        val.write_msg_raw(9, histo_meta());              // metadata → field 9
-        val.write_msg_raw(5, histo.buf());               // histo    → field 5
-        write(build(val.buf(), step));
+        proto::Encoder enc;
+        enc.str(1, tag);                       // tag
+        enc.raw(9, histo_meta());              // metadata → field 9
+        enc.raw(5, histo.buf());               // histo    → field 5
+        write(build(enc.buf(), step));
     }
 
     void WriteHistogram(const std::string& tag, const std::vector<float>& values,
@@ -218,20 +229,14 @@ private:
 
     std::vector<uint8_t> build(const std::vector<uint8_t>& value_bytes, int64_t step) {
         proto::Encoder summary;
-        summary.write_msg_raw(1, value_bytes);   // repeated Value
+        summary.raw(1, value_bytes);   // repeated Value
+        
         proto::Encoder event;
-        event.write_f64(1, static_cast<double>(std::time(nullptr)));  // wall_time
-        event.write_s64(2, step);                                     // step
-        event.write_msg_raw(5, summary.buf());                        // summary
+        event.f64(1, static_cast<double>(std::time(nullptr)));  // wall_time
+        event.s64(2, step);                                           // step
+        event.raw(5, summary.buf());                            // summary
+        
         return event.buf();
-    }
-
-    void WriteFileVersionEvent() {
-        proto::Encoder event;
-        event.write_f64(1, static_cast<double>(std::time(nullptr)));
-        event.write_s64(2, 0);
-        event.write_str(3, "brain.Event:2");   // field 3 = file_version
-        write(event.buf());
     }
 
     // TensorProto for scalar float. Canonical encoding matching protobuf serializer:
@@ -247,53 +252,78 @@ private:
             static_cast<uint8_t>((bits >> 16) & 0xFF),
             static_cast<uint8_t>((bits >> 24) & 0xFF),
         };
+        
         proto::Encoder tp;
-        tp.write_s32(1, 1);          // dtype = DT_FLOAT
-        tp.write_msg_raw(2, {});    // tensor_shape = empty (scalar)
-        tp.write_bytes(5, fb, 4);      // float_val at field 5 (packed)
+        tp.s32(1, 1);            // dtype = DT_FLOAT
+        tp.raw(2, {});     // tensor_shape = empty (scalar)
+        tp.raw(5, fb, 4);        // float_val at field 5 (packed)
+        
         return tp.buf();
     }
 
     // Plugin metadata — note: metadata goes in Summary.Value field 9
     std::vector<uint8_t> scalar_meta() {
         proto::Encoder pd;
-        pd.write_str(1, "scalars");
+        pd.str(1, "scalars");
+        
         // content: empty = ScalarPluginData{mode=DEFAULT} in proto3
         proto::Encoder meta;
-        meta.write_msg_raw(1, pd.buf());
-        meta.write_s32(4, 1);           // data_class = DATA_CLASS_SCALAR
+        meta.raw(1, pd.buf());
+        meta.s32(4, 1);           // data_class = DATA_CLASS_SCALAR
+        
         return meta.buf();
     }
 #endif
     std::vector<uint8_t> image_meta(int32_t max_images = 1) {
         proto::Encoder pc;
-        pc.write_s32(1, max_images);    // max_images_per_step
+        pc.s32(1, max_images);    // max_images_per_step
+        
         proto::Encoder pd;
-        pd.write_str(1, "images");
+        pd.str(1, "images");
+        
         const auto& pcb = pc.buf();
-        pd.write_bytes(2, pcb.data(), pcb.size());
+        pd.raw(2, pcb.data(), pcb.size());
+        
         proto::Encoder meta;
-        meta.write_msg_raw(1, pd.buf());
-        meta.write_s32(4, 2);           // data_class = DATA_CLASS_BLOB_SEQUENCE
+        meta.raw(1, pd.buf());
+        meta.s32(4, 2);           // data_class = DATA_CLASS_BLOB_SEQUENCE
+        
         return meta.buf();
     }
 
     std::vector<uint8_t> histo_meta() {
         proto::Encoder pd;
-        pd.write_str(1, "histograms");
+        pd.str(1, "histograms");
+        
         proto::Encoder meta;
-        meta.write_msg_raw(1, pd.buf());
-        meta.write_s32(4, 1);           // data_class = DATA_CLASS_SCALAR
+        meta.raw(1, pd.buf());
+        meta.s32(4, 1);           // data_class = DATA_CLASS_SCALAR
+        
         return meta.buf();
     }
 
-    void BuildBuckets(double vmin, double vmax, const std::vector<double>& values,
-                      int nb, std::vector<double>& limits, std::vector<double>& counts) {
-        if (vmin == vmax) { limits.push_back(vmin+1e-10); counts.push_back((double)values.size()); return; }
+    void BuildBuckets(
+        double vmin,
+        double vmax,
+        const std::vector<double>& values,
+        int nb, std::vector<double>& limits,
+        std::vector<double>& counts) {
+        if (vmin == vmax) {
+            limits.push_back(vmin+1e-10);
+            counts.push_back((double)values.size());
+            return;
+        }
+        
         double bw = (vmax-vmin)/nb;
-        for(int i=0;i<nb;i++){limits.push_back(vmin+(i+1)*bw);counts.push_back(0.0);}
+        for (int i=0;i<nb;i++) {
+            limits.push_back(vmin+(i+1)*bw);
+            counts.push_back(0.0);
+        }
         limits.back()=vmax+1e-10;
-        for(double v:values){int b=std::max(0,std::min(nb-1,(int)((v-vmin)/bw)));counts[b]+=1.0;}
+        for (double v:values) {
+            int b=std::max(0,std::min(nb-1,(int)((v-vmin)/bw)));
+            counts[b]+=1.0;
+        }
     }
 };
 

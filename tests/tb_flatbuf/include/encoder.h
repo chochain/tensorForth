@@ -43,12 +43,12 @@ public:
         write_val(value ? 1 : 0);
     }
 
-    void write_s32(uint32_t field, int32_t value) {
+    void s32(uint32_t field, int32_t value) {
         write_tag(field, 0);
         write_val(static_cast<uint64_t>(static_cast<uint32_t>(value)));
     }
 
-    void write_s64(uint32_t field, int64_t value) {
+    void s64(uint32_t field, int64_t value) {
         write_tag(field, 0);
         write_val(static_cast<uint64_t>(value));
     }
@@ -59,11 +59,11 @@ public:
     }
 
     void write_enum(uint32_t field, int32_t value) {
-        write_s32(field, value);
+        s32(field, value);
     }
 
     // ── 64-bit (double) ──────────────────────────────────────────────────────
-    void write_f64(uint32_t field, double value) {
+    void f64(uint32_t field, double value) {
         write_tag(field, 1);
         uint64_t bits;
         memcpy(&bits, &value, sizeof bits);
@@ -74,7 +74,7 @@ public:
     }
 
     // ── 32-bit (float) ───────────────────────────────────────────────────────
-    void write_f32(uint32_t field, float value) {
+    void f32(uint32_t field, float value) {
         write_tag(field, 5);
         uint32_t bits;
         memcpy(&bits, &value, sizeof bits);
@@ -85,30 +85,30 @@ public:
     }
 
     // ── Length-delimited ─────────────────────────────────────────────────────
-    void write_str(uint32_t field, const std::string& s) {
-        write_bytes(field, reinterpret_cast<const uint8_t*>(s.c_str()), s.size());
+    void str(uint32_t field, const std::string& s) {
+        raw(field, reinterpret_cast<const uint8_t*>(s.c_str()), s.size());
     }
 
-    void write_bytes(uint32_t field, const uint8_t* data, size_t len) {
+    void raw(uint32_t field, const uint8_t* data, size_t len) {
         write_tag(field, 2);
         write_val(len);
         buf_.insert(buf_.end(), data, data + len);
     }
 
-    void write_msg(uint32_t field, const Encoder& sub) {
-        const auto& sub_buf = sub.buf();
-        write_bytes(field, sub_buf.data(), sub_buf.size());
-    }
-
     // Write raw bytes of a message (no field tag) — used for nested messages
-    void write_raw(uint32_t field, const std::vector<uint8_t>& data) {
+    void raw(uint32_t field, const std::vector<uint8_t>& data) {
         write_tag(field, 2);
         write_val(data.size());
         buf_.insert(buf_.end(), data.begin(), data.end());
     }
 
+    void msg(uint32_t field, const Encoder& sub) {
+        const auto& sub_buf = sub.buf();
+        raw(field, sub_buf.data(), sub_buf.size());
+    }
+
     // Packed repeated floats
-    void write_f32_packed(uint32_t field, const std::vector<float>& values) {
+    void f32_packed(uint32_t field, const std::vector<float>& values) {
         write_tag(field, 2);
         write_val(values.size() * 4);
         for (float v : values) {
@@ -122,7 +122,7 @@ public:
     }
 
     // Packed repeated doubles
-    void write_f64_packed(uint32_t field, const std::vector<double>& values) {
+    void f64_packed(uint32_t field, const std::vector<double>& values) {
         write_tag(field, 2);
         write_val(values.size() * 8);
         for (double v : values) {
@@ -137,8 +137,9 @@ public:
 
     // ── Access ───────────────────────────────────────────────────────────────
     const std::vector<uint8_t>& buf() const { return buf_; }
-    size_t Size() const { return buf_.size(); }
-    void Clear() { buf_.clear(); }
+    
+    size_t size() const { return buf_.size(); }
+    void   clear() { buf_.clear(); }
 
 private:
     std::vector<uint8_t> buf_;
