@@ -100,7 +100,7 @@
 #pragma once
 
 #include "crc32c.h"
-#include "schema.h"
+//#include "schema.h"    // not needed for now
 #include "png.h"
 #include "encoder.h"
 
@@ -114,7 +114,6 @@
 #include <sstream>
 #include <stdexcept>
 #include <algorithm>
-#include <unistd.h>
 
 namespace tensorboard {
 
@@ -175,9 +174,9 @@ public:
         img.raw(4, png_bytes.data(), png_bytes.size()); // encoded_image_string
         
         proto::Encoder enc;
-        enc.str(1, tag);                                 // tag
-        enc.raw(9, image_meta());                    // metadata → field 9
-        enc.raw(4, img.buf());                       // image    → field 4
+        enc.str(1, tag);                                // tag
+        enc.raw(9, image_meta());                       // metadata → field 9
+        enc.raw(4, img.buf());                          // image    → field 4
         write(build(enc.buf(), step));
     }
 
@@ -229,11 +228,11 @@ private:
 
     std::vector<uint8_t> build(const std::vector<uint8_t>& value_bytes, int64_t step) {
         proto::Encoder summary;
-        summary.raw(1, value_bytes);   // repeated Value
+        summary.raw(1, value_bytes);                            // repeated Value
         
         proto::Encoder event;
         event.f64(1, static_cast<double>(std::time(nullptr)));  // wall_time
-        event.s64(2, step);                                           // step
+        event.s64(2, step);                                     // step
         event.raw(5, summary.buf());                            // summary
         
         return event.buf();
@@ -255,7 +254,7 @@ private:
         
         proto::Encoder tp;
         tp.s32(1, 1);            // dtype = DT_FLOAT
-        tp.raw(2, {});     // tensor_shape = empty (scalar)
+        tp.raw(2, {});           // tensor_shape = empty (scalar)
         tp.raw(5, fb, 4);        // float_val at field 5 (packed)
         
         return tp.buf();
