@@ -100,8 +100,8 @@
 #pragma once
 
 #include "crc32c.h"
-#include "proto_encode.h"
-#include "tb_flatbuffers_schema.h"
+#include "encode.h"
+#include "schema.h"
 
 #include <cstdint>
 #include <cstring>

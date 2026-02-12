@@ -29,7 +29,7 @@
  */
 #pragma once
 
-#include "flatbuffers/flatbuffers.h"
+#include "flatbuf.h"
 #include <vector>
 #include <cstdint>
 
