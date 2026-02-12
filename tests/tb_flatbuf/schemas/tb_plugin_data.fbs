@@ -1,0 +1,53 @@
+// tb_plugin_data.fbs
+//
+// FlatBuffers schemas for TensorBoard plugin metadata.
+// These are encoded and stored as bytes inside the
+// SummaryMetadata.PluginData.content protobuf field.
+//
+// Compile with:
+//   flatc --cpp tb_plugin_data.fbs
+//
+// See: https://github.com/tensorflow/tensorboard/tree/master/tensorboard/plugins
+
+namespace tensorboard;
+
+// ─── Scalar Plugin ────────────────────────────────────────────────────────────
+// Plugin name: "scalars"
+
+/// Display mode for scalar charts
+enum ScalarDisplayMode : byte {
+  DEFAULT = 0,   /// Default display (smoothing enabled)
+  LINEAR  = 1,   /// Linear y-axis
+  LOG     = 2,   /// Logarithmic y-axis
+}
+
+/// Plugin-specific metadata for scalar summaries.
+/// Stored as FlatBuffers bytes in SummaryMetadata.PluginData.content
+table ScalarPluginData {
+  /// The display mode for this scalar (default: DEFAULT)
+  mode: ScalarDisplayMode = DEFAULT;
+}
+
+root_type ScalarPluginData;
+
+// ─── Image Plugin ─────────────────────────────────────────────────────────────
+// Plugin name: "images"
+
+/// Plugin-specific metadata for image summaries.
+table ImagePluginData {
+  /// Maximum number of images to display per step
+  max_images_per_step: int32 = 3;
+}
+
+root_type ImagePluginData;
+
+// ─── Histogram Plugin ─────────────────────────────────────────────────────────
+// Plugin name: "histograms"
+
+/// Plugin-specific metadata for histogram summaries.
+/// Currently empty – no per-summary configuration.
+table HistogramPluginData {
+  // Reserved for future use
+}
+
+root_type HistogramPluginData;
