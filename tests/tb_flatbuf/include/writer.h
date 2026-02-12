@@ -246,8 +246,8 @@ private:
 
     void WriteRecord(const std::vector<uint8_t>& data) {
         uint64_t len = data.size();
-        uint32_t lc = crc32c::Masked(crc32c::Value(reinterpret_cast<const uint8_t*>(&len), 8));
-        uint32_t dc = crc32c::Masked(crc32c::Value(data.data(), data.size()));
+        uint32_t lc = crc32c::mask(crc32c::value(reinterpret_cast<const uint8_t*>(&len), 8));
+        uint32_t dc = crc32c::mask(crc32c::value(data.data(), data.size()));
         file_.write(reinterpret_cast<const char*>(&len),       8);
         file_.write(reinterpret_cast<const char*>(&lc),        4);
         file_.write(reinterpret_cast<const char*>(data.data()), data.size());
