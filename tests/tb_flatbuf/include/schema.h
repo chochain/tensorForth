@@ -30,18 +30,16 @@
 #pragma once
 
 #include "flatbuf.h"
-#include <vector>
-#include <cstdint>
 
 namespace tb_schema {
 
 // Field offsets: field_id * sizeof(voffset_t) = field_id * 2
-static constexpr uint16_t FO(uint16_t field_id) { return field_id * 2; }
+static constexpr U16 FO(U16 field_id) { return field_id * 2; }
 
 // ─── ScalarPluginData ─────────────────────────────────────────────────────
 // table ScalarPluginData { mode: int8; }
 // Plugin name: "scalars"
-inline std::vector<uint8_t> CreateScalarPluginData(int8_t mode = 0) {
+inline U8V scalar_plugin(U8 mode = 0) {
     // FlatBuffers layout (forward build):
     //   [soffset:i32 -> vtable][mode:i8][padding][vtable: size,objsize,field0_off]
     // We'll build this manually as a minimal valid FlatBuffer.
@@ -70,11 +68,11 @@ inline std::vector<uint8_t> CreateScalarPluginData(int8_t mode = 0) {
     // Simplest correct encoding: write as a literal byte sequence.
     // Verified against flatc output.
 
-    std::vector<uint8_t> out;
+    U8V out;
 
     // root_offset: offset from position 0 to the root table
     // root table starts at byte 4
-    uint32_t root_off = 4;
+    U32 root_off = 4;
     out.push_back(root_off & 0xFF);
     out.push_back((root_off >> 8) & 0xFF);
     out.push_back((root_off >> 16) & 0xFF);
@@ -84,24 +82,24 @@ inline std::vector<uint8_t> CreateScalarPluginData(int8_t mode = 0) {
     // soffset (int32): points from object-start to vtable
     // vtable will be at offset 4 + 4(soffset) + 1(mode) + 3(pad) = 12
     // soffset = vtable_offset - object_offset = 12 - 4 = 8
-    int32_t soffset = 8;
+    S32 soffset = 8;
     out.push_back(soffset & 0xFF);
     out.push_back((soffset >> 8) & 0xFF);
     out.push_back((soffset >> 16) & 0xFF);
     out.push_back((soffset >> 24) & 0xFF);
 
     // field 0: mode (int8) at object+4
-    out.push_back(static_cast<uint8_t>(mode));
-    // padding to align vtable (uint16_t requires 2-byte align)
+    out.push_back(static_cast<U8>(mode));
+    // padding to align vtable (U16 requires 2-byte align)
     out.push_back(0); out.push_back(0); out.push_back(0);
 
     // vtable at offset 12
-    uint16_t vtable_size = 8;    // 2+2+2+2 = 8 bytes (header + 2 field entries)
-    uint16_t object_size = 8;    // soffset(4) + mode(1) + pad(3) = 8
-    uint16_t field0_off  = 4;    // mode is at byte 4 from object start (after soffset)
-    uint16_t field1_off  = 0;    // not present
+    U16 vtable_size = 8;    // 2+2+2+2 = 8 bytes (header + 2 field entries)
+    U16 object_size = 8;    // soffset(4) + mode(1) + pad(3) = 8
+    U16 field0_off  = 4;    // mode is at byte 4 from object start (after soffset)
+    U16 field1_off  = 0;    // not present
 
-    auto push16 = [&](uint16_t v) {
+    auto push16 = [&](U16 v) {
         out.push_back(v & 0xFF);
         out.push_back((v >> 8) & 0xFF);
     };
@@ -116,16 +114,16 @@ inline std::vector<uint8_t> CreateScalarPluginData(int8_t mode = 0) {
 // ─── ImagePluginData ──────────────────────────────────────────────────────
 // table ImagePluginData { max_images_per_step: int32; }
 // Plugin name: "images"
-inline std::vector<uint8_t> CreateImagePluginData(int32_t max_images = 3) {
-    std::vector<uint8_t> out;
+inline U8V image_plugin(S32 max_images = 3) {
+    U8V out;
 
-    auto push32 = [&](uint32_t v) {
+    auto push32 = [&](U32 v) {
         out.push_back(v & 0xFF);
         out.push_back((v >> 8) & 0xFF);
         out.push_back((v >> 16) & 0xFF);
         out.push_back((v >> 24) & 0xFF);
     };
-    auto push16 = [&](uint16_t v) {
+    auto push16 = [&](U16 v) {
         out.push_back(v & 0xFF);
         out.push_back((v >> 8) & 0xFF);
     };
@@ -141,9 +139,9 @@ inline std::vector<uint8_t> CreateImagePluginData(int32_t max_images = 3) {
     //   object_size = 8 (soffset[4] + field[4])
     //   field0_off  = 4
 
-    int32_t soffset = 8;
-    push32(static_cast<uint32_t>(soffset)); // soffset at object start
-    push32(static_cast<uint32_t>(max_images)); // field 0 at object+4
+    S32 soffset = 8;
+    push32(static_cast<U32>(soffset)); // soffset at object start
+    push32(static_cast<U32>(max_images)); // field 0 at object+4
 
     // vtable at offset 12
     push16(8);  // vtable_size
@@ -156,14 +154,14 @@ inline std::vector<uint8_t> CreateImagePluginData(int32_t max_images = 3) {
 // ─── HistogramPluginData ──────────────────────────────────────────────────
 // table HistogramPluginData {}  (empty)
 // Plugin name: "histograms"
-inline std::vector<uint8_t> CreateHistogramPluginData() {
-    std::vector<uint8_t> out;
+inline U8V histo_plugin() {
+    U8V out;
 
-    auto push32 = [&](uint32_t v) {
+    auto push32 = [&](U32 v) {
         out.push_back(v & 0xFF); out.push_back((v >> 8) & 0xFF);
         out.push_back((v >> 16) & 0xFF); out.push_back((v >> 24) & 0xFF);
     };
-    auto push16 = [&](uint16_t v) {
+    auto push16 = [&](U16 v) {
         out.push_back(v & 0xFF); out.push_back((v >> 8) & 0xFF);
     };
 
@@ -172,8 +170,8 @@ inline std::vector<uint8_t> CreateHistogramPluginData() {
 
     // Object at offset 4: just soffset (no fields)
     // vtable at offset 8
-    int32_t soffset = 4; // vtable at 4+4=8
-    push32(static_cast<uint32_t>(soffset));
+    S32 soffset = 4; // vtable at 4+4=8
+    push32(static_cast<U32>(soffset));
 
     // vtable at offset 8: empty table
     push16(4); // vtable_size = 4 (just header, no fields)
