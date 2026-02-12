@@ -25,37 +25,37 @@ class Encoder {
 public:
     // ── Key/Tag encoding ─────────────────────────────────────────────────────
     // field_number << 3 | wire_type
-    void write_tag(uint32_t field_number, uint32_t wire_type) {
-        write_val((field_number << 3) | wire_type);
+    void tag(uint32_t field_number, uint32_t wire_type) {
+        u64((field_number << 3) | wire_type);
     }
 
     // ── Varint ───────────────────────────────────────────────────────────────
-    void write_val(uint64_t value) {
+    void u64(uint64_t value) {
         while (value > 0x7F) {
-            buf_.push_back(static_cast<uint8_t>((value & 0x7F) | 0x80));
+            _buf.push_back(static_cast<uint8_t>((value & 0x7F) | 0x80));
             value >>= 7;
         }
-        buf_.push_back(static_cast<uint8_t>(value));
+        _buf.push_back(static_cast<uint8_t>(value));
     }
 
     void write_bool(uint32_t field, bool value) {
-        write_tag(field, 0);
-        write_val(value ? 1 : 0);
+        tag(field, 0);
+        u64(value ? 1 : 0);
     }
 
     void s32(uint32_t field, int32_t value) {
-        write_tag(field, 0);
-        write_val(static_cast<uint64_t>(static_cast<uint32_t>(value)));
+        tag(field, 0);
+        u64(static_cast<uint64_t>(static_cast<uint32_t>(value)));
     }
 
     void s64(uint32_t field, int64_t value) {
-        write_tag(field, 0);
-        write_val(static_cast<uint64_t>(value));
+        tag(field, 0);
+        u64(static_cast<uint64_t>(value));
     }
 
     void write_u32(uint32_t field, uint32_t value) {
-        write_tag(field, 0);
-        write_val(value);
+        tag(field, 0);
+        u64(value);
     }
 
     void write_enum(uint32_t field, int32_t value) {
@@ -64,22 +64,22 @@ public:
 
     // ── 64-bit (double) ──────────────────────────────────────────────────────
     void f64(uint32_t field, double value) {
-        write_tag(field, 1);
+        tag(field, 1);
         uint64_t bits;
         memcpy(&bits, &value, sizeof bits);
         for (int i = 0; i < 8; ++i) {
-            buf_.push_back(static_cast<uint8_t>(bits & 0xFF));
+            _buf.push_back(static_cast<uint8_t>(bits & 0xFF));
             bits >>= 8;
         }
     }
 
     // ── 32-bit (float) ───────────────────────────────────────────────────────
     void f32(uint32_t field, float value) {
-        write_tag(field, 5);
+        tag(field, 5);
         uint32_t bits;
         memcpy(&bits, &value, sizeof bits);
         for (int i = 0; i < 4; ++i) {
-            buf_.push_back(static_cast<uint8_t>(bits & 0xFF));
+            _buf.push_back(static_cast<uint8_t>(bits & 0xFF));
             bits >>= 8;
         }
     }
@@ -90,16 +90,16 @@ public:
     }
 
     void raw(uint32_t field, const uint8_t* data, size_t len) {
-        write_tag(field, 2);
-        write_val(len);
-        buf_.insert(buf_.end(), data, data + len);
+        tag(field, 2);
+        u64(len);
+        _buf.insert(_buf.end(), data, data + len);
     }
 
     // Write raw bytes of a message (no field tag) — used for nested messages
     void raw(uint32_t field, const std::vector<uint8_t>& data) {
-        write_tag(field, 2);
-        write_val(data.size());
-        buf_.insert(buf_.end(), data.begin(), data.end());
+        tag(field, 2);
+        u64(data.size());
+        _buf.insert(_buf.end(), data.begin(), data.end());
     }
 
     void msg(uint32_t field, const Encoder& sub) {
@@ -109,13 +109,13 @@ public:
 
     // Packed repeated floats
     void f32_packed(uint32_t field, const std::vector<float>& values) {
-        write_tag(field, 2);
-        write_val(values.size() * 4);
+        tag(field, 2);
+        u64(values.size() * 4);
         for (float v : values) {
             uint32_t bits;
             memcpy(&bits, &v, sizeof bits);
             for (int i = 0; i < 4; ++i) {
-                buf_.push_back(static_cast<uint8_t>(bits & 0xFF));
+                _buf.push_back(static_cast<uint8_t>(bits & 0xFF));
                 bits >>= 8;
             }
         }
@@ -123,26 +123,26 @@ public:
 
     // Packed repeated doubles
     void f64_packed(uint32_t field, const std::vector<double>& values) {
-        write_tag(field, 2);
-        write_val(values.size() * 8);
+        tag(field, 2);
+        u64(values.size() * 8);
         for (double v : values) {
             uint64_t bits;
             memcpy(&bits, &v, sizeof bits);
             for (int i = 0; i < 8; ++i) {
-                buf_.push_back(static_cast<uint8_t>(bits & 0xFF));
+                _buf.push_back(static_cast<uint8_t>(bits & 0xFF));
                 bits >>= 8;
             }
         }
     }
 
     // ── Access ───────────────────────────────────────────────────────────────
-    const std::vector<uint8_t>& buf() const { return buf_; }
+    const std::vector<uint8_t>& buf() const { return _buf; }
     
-    size_t size() const { return buf_.size(); }
-    void   clear() { buf_.clear(); }
+    size_t size() const { return _buf.size(); }
+    void   clear() { _buf.clear(); }
 
 private:
-    std::vector<uint8_t> buf_;
+    std::vector<uint8_t> _buf;
 };
 
 } // namespace proto
