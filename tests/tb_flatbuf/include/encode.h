@@ -26,11 +26,11 @@ public:
     // ── Key/Tag encoding ─────────────────────────────────────────────────────
     // field_number << 3 | wire_type
     void write_tag(uint32_t field_number, uint32_t wire_type) {
-        write_var((field_number << 3) | wire_type);
+        write_val((field_number << 3) | wire_type);
     }
 
     // ── Varint ───────────────────────────────────────────────────────────────
-    void write_var(uint64_t value) {
+    void write_val(uint64_t value) {
         while (value > 0x7F) {
             buf_.push_back(static_cast<uint8_t>((value & 0x7F) | 0x80));
             value >>= 7;
@@ -40,22 +40,22 @@ public:
 
     void write_bool(uint32_t field, bool value) {
         write_tag(field, 0);
-        write_var(value ? 1 : 0);
+        write_val(value ? 1 : 0);
     }
 
     void write_s32(uint32_t field, int32_t value) {
         write_tag(field, 0);
-        write_var(static_cast<uint64_t>(static_cast<uint32_t>(value)));
+        write_val(static_cast<uint64_t>(static_cast<uint32_t>(value)));
     }
 
     void write_s64(uint32_t field, int64_t value) {
         write_tag(field, 0);
-        write_var(static_cast<uint64_t>(value));
+        write_val(static_cast<uint64_t>(value));
     }
 
     void write_u32(uint32_t field, uint32_t value) {
         write_tag(field, 0);
-        write_var(value);
+        write_val(value);
     }
 
     void write_enum(uint32_t field, int32_t value) {
@@ -91,7 +91,7 @@ public:
 
     void write_bytes(uint32_t field, const uint8_t* data, size_t len) {
         write_tag(field, 2);
-        write_var(len);
+        write_val(len);
         buf_.insert(buf_.end(), data, data + len);
     }
 
@@ -101,16 +101,16 @@ public:
     }
 
     // Write raw bytes of a message (no field tag) — used for nested messages
-    void write_msg_raw(uint32_t field, const std::vector<uint8_t>& data) {
+    void write_raw(uint32_t field, const std::vector<uint8_t>& data) {
         write_tag(field, 2);
-        write_var(data.size());
+        write_val(data.size());
         buf_.insert(buf_.end(), data.begin(), data.end());
     }
 
     // Packed repeated floats
     void write_f32_packed(uint32_t field, const std::vector<float>& values) {
         write_tag(field, 2);
-        write_var(values.size() * 4);
+        write_val(values.size() * 4);
         for (float v : values) {
             uint32_t bits;
             memcpy(&bits, &v, sizeof bits);
@@ -124,7 +124,7 @@ public:
     // Packed repeated doubles
     void write_f64_packed(uint32_t field, const std::vector<double>& values) {
         write_tag(field, 2);
-        write_var(values.size() * 8);
+        write_val(values.size() * 8);
         for (double v : values) {
             uint64_t bits;
             memcpy(&bits, &v, sizeof bits);
