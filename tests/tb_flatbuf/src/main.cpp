@@ -25,45 +25,45 @@
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-static void ensure_dir(const std::string& path) {
+static void ensure_dir(const STR& path) {
     mkdir(path.c_str(), 0755);
 }
 
-static std::string make_event_path(const std::string& dir, const std::string& run_name) {
-    std::string run_dir = dir + "/" + run_name;
+static STR make_event_path(const STR& dir, const STR& run_name) {
+    STR run_dir = dir + "/" + run_name;
     ensure_dir(run_dir);
     // FIX 3: use hostname + PID in filename as TensorBoard 2.x requires
     return tensorboard::logdir(run_dir);
 }
 
 // Banner printer
-static void print_section(const std::string& title) {
+static void print_section(const STR& title) {
     std::cout << "\n";
     std::cout << "## " << title << "...\n";
 }
 
 // ─── Demo 1: Scalar Summaries ─────────────────────────────────────────────────
-void demo_scalars(const std::string& logdir) {
+void demo_scalars(const STR& logdir) {
     print_section("Demo 1: Scalar Summaries");
 
-    std::string path = make_event_path(logdir, "scalars");
+    STR path = make_event_path(logdir, "scalars");
     tensorboard::EventWriter writer(path);
     std::cout << "  Writing to: " << path << "\n";
 
     std::mt19937 rng(42);
-    std::normal_distribution<float> noise(0.0f, 0.02f);
+    std::normal_distribution<F32> noise(0.0f, 0.02f);
 
     int num_steps = 100;
 
     for (int step = 0; step < num_steps; ++step) {
         // Simulated training loss (exponential decay + noise)
-        float t     = static_cast<float>(step) / num_steps;
-        float loss  = 2.0f * std::exp(-3.0f * t) + 0.1f + noise(rng);
-        float acc   = 1.0f - std::exp(-4.0f * t) * 0.9f + noise(rng) * 0.5f;
+        F32 t     = static_cast<F32>(step) / num_steps;
+        F32 loss  = 2.0f * std::exp(-3.0f * t) + 0.1f + noise(rng);
+        F32 acc   = 1.0f - std::exp(-4.0f * t) * 0.9f + noise(rng) * 0.5f;
         acc         = std::max(0.0f, std::min(1.0f, acc));
 
         // Learning rate schedule (cosine decay)
-        float lr = 0.001f * (1.0f + std::cos(3.14159f * t)) * 0.5f;
+        F32 lr = 0.001f * (1.0f + std::cos(3.14159f * t)) * 0.5f;
 
         writer.add_scalar("train/loss",     loss, step);
         writer.add_scalar("train/accuracy", acc,  step);
@@ -71,8 +71,8 @@ void demo_scalars(const std::string& logdir) {
 
         // Validation metrics (added every 10 steps with more noise)
         if (step % 10 == 0) {
-            float val_loss = loss + std::abs(noise(rng)) * 0.3f;
-            float val_acc  = acc  - std::abs(noise(rng)) * 0.05f;
+            F32 val_loss = loss + std::abs(noise(rng)) * 0.3f;
+            F32 val_acc  = acc  - std::abs(noise(rng)) * 0.05f;
             writer.add_scalar("val/loss",     val_loss, step);
             writer.add_scalar("val/accuracy", val_acc,  step);
         }
@@ -92,15 +92,15 @@ void demo_scalars(const std::string& logdir) {
 // ─── Demo 2: Image Summaries ──────────────────────────────────────────────────
 
 // Generate a colorful test pattern (sine waves)
-static U8V make_sine_pattern(int w, int h, float phase) {
+static U8V make_sine_pattern(int w, int h, F32 phase) {
     U8V px(w * h * 3);
     for (int y = 0; y < h; ++y) {
         for (int x = 0; x < w; ++x) {
-            float fx = static_cast<float>(x) / w;
-            float fy = static_cast<float>(y) / h;
-            float r  = 0.5f + 0.5f * std::sin(2.0f * 3.14159f * fx * 4 + phase);
-            float g  = 0.5f + 0.5f * std::sin(2.0f * 3.14159f * fy * 3 + phase * 1.3f);
-            float b  = 0.5f + 0.5f * std::sin(2.0f * 3.14159f * (fx + fy) * 5 + phase * 0.7f);
+            F32 fx = static_cast<F32>(x) / w;
+            F32 fy = static_cast<F32>(y) / h;
+            F32 r  = 0.5f + 0.5f * std::sin(2.0f * 3.14159f * fx * 4 + phase);
+            F32 g  = 0.5f + 0.5f * std::sin(2.0f * 3.14159f * fy * 3 + phase * 1.3f);
+            F32 b  = 0.5f + 0.5f * std::sin(2.0f * 3.14159f * (fx + fy) * 5 + phase * 0.7f);
             px[(y * w + x) * 3 + 0] = static_cast<U8>(r * 255);
             px[(y * w + x) * 3 + 1] = static_cast<U8>(g * 255);
             px[(y * w + x) * 3 + 2] = static_cast<U8>(b * 255);
@@ -110,18 +110,18 @@ static U8V make_sine_pattern(int w, int h, float phase) {
 }
 
 // Generate a gradient heatmap
-static U8V make_gradient(int w, int h, float step_f) {
+static U8V make_gradient(int w, int h, F32 step_f) {
     U8V px(w * h * 3);
     for (int y = 0; y < h; ++y) {
         for (int x = 0; x < w; ++x) {
-            float v  = static_cast<float>(x + y * w) / (w * h);
-            float hue = v * 360.0f + step_f * 30.0f;
+            F32 v  = static_cast<F32>(x + y * w) / (w * h);
+            F32 hue = v * 360.0f + step_f * 30.0f;
             // HSV to RGB (simple)
-            float h_  = std::fmod(hue, 360.0f) / 60.0f;
-            int   i_  = static_cast<int>(h_);
-            float f   = h_ - i_;
-            float p   = 0.0f, q = 1.0f - f, t2 = f;
-            float r = 0, g = 0, b = 0;
+            F32 h_  = std::fmod(hue, 360.0f) / 60.0f;
+            int i_  = static_cast<int>(h_);
+            F32 f   = h_ - i_;
+            F32 p   = 0.0f, q = 1.0f - f, t2 = f;
+            F32 r = 0, g = 0, b = 0;
             switch (i_ % 6) {
                 case 0: r=1;  g=t2; b=p;  break;
                 case 1: r=q;  g=1;  b=p;  break;
@@ -139,15 +139,15 @@ static U8V make_gradient(int w, int h, float step_f) {
 }
 
 // Generate a checkerboard
-static U8V make_checkerboard(int w, int h, int tile, float t_) {
+static U8V make_checkerboard(int w, int h, int tile, F32 t_) {
     U8V px(w * h * 3);
     for (int y = 0; y < h; ++y) {
         for (int x = 0; x < w; ++x) {
-            bool chk = ((x / tile) + (y / tile)) % 2 == 0;
-            float bright = chk ? 0.9f : 0.1f;
-            float r = bright + 0.1f * std::sin(t_ + x * 0.1f);
-            float g = bright + 0.1f * std::sin(t_ * 1.3f + y * 0.1f);
-            float b = bright + 0.1f * std::sin(t_ * 0.7f + (x + y) * 0.05f);
+            BOOL chk = ((x / tile) + (y / tile)) % 2 == 0;
+            F32  bright = chk ? 0.9f : 0.1f;
+            F32  r = bright + 0.1f * std::sin(t_ + x * 0.1f);
+            F32  g = bright + 0.1f * std::sin(t_ * 1.3f + y * 0.1f);
+            F32  b = bright + 0.1f * std::sin(t_ * 0.7f + (x + y) * 0.05f);
             px[(y * w + x) * 3 + 0] = static_cast<U8>(std::max(0.0f, std::min(255.0f, r * 255)));
             px[(y * w + x) * 3 + 1] = static_cast<U8>(std::max(0.0f, std::min(255.0f, g * 255)));
             px[(y * w + x) * 3 + 2] = static_cast<U8>(std::max(0.0f, std::min(255.0f, b * 255)));
@@ -156,10 +156,10 @@ static U8V make_checkerboard(int w, int h, int tile, float t_) {
     return px;
 }
 
-void demo_images(const std::string& logdir) {
+void demo_images(const STR& logdir) {
     print_section("Demo 2: Image Summaries");
 
-    std::string path = make_event_path(logdir, "images");
+    STR path = make_event_path(logdir, "images");
     tensorboard::EventWriter writer(path);
     std::cout << "  Writing to: " << path << "\n";
 
@@ -167,14 +167,14 @@ void demo_images(const std::string& logdir) {
     int num_steps = 10;
 
     for (int step = 0; step < num_steps; ++step) {
-        float t = static_cast<float>(step) * 0.3f;
+        F32 t = static_cast<F32>(step) * 0.3f;
 
         // Image 1: Animated sine wave pattern
         auto sine = make_sine_pattern(W, H, t);
         writer.add_image("images/sine_wave", W, H, sine, step);
 
         // Image 2: Rotating gradient heatmap
-        auto grad = make_gradient(W, H, static_cast<float>(step));
+        auto grad = make_gradient(W, H, static_cast<F32>(step));
         writer.add_image("images/gradient_heatmap", W, H, grad, step);
 
         // Image 3: Evolving checkerboard
@@ -192,17 +192,17 @@ void demo_images(const std::string& logdir) {
 
 // Generate normally distributed random values
 static F64V normal_samples(std::mt19937& rng, int n,
-                                           double mean, double stddev) {
-    std::normal_distribution<double> dist(mean, stddev);
+                                           F64 mean, F64 stddev) {
+    std::normal_distribution<F64> dist(mean, stddev);
     F64V v(n);
     for (auto& x : v) x = dist(rng);
     return v;
 }
 
-void demo_histograms(const std::string& logdir) {
+void demo_histograms(const STR& logdir) {
     print_section("Demo 3: Histogram Summaries");
 
-    std::string path = make_event_path(logdir, "histograms");
+    STR path = make_event_path(logdir, "histograms");
     tensorboard::EventWriter writer(path);
     std::cout << "  Writing to: " << path << "\n";
 
@@ -210,15 +210,15 @@ void demo_histograms(const std::string& logdir) {
     int num_steps = 50;
 
     for (int step = 0; step < num_steps; ++step) {
-        float t = static_cast<float>(step) / num_steps;
+        F32 t = static_cast<F32>(step) / num_steps;
 
         // Layer 1 weights: gradually tightening distribution
-        double w1_std = 1.0 - 0.7 * t;  // 1.0 → 0.3
+        F64 w1_std = 1.0 - 0.7 * t;  // 1.0 → 0.3
         auto w1 = normal_samples(rng, 512, 0.0, w1_std);
         writer.add_histo("weights/layer1", w1, step, 40);
 
         // Layer 2 weights: bimodal → unimodal
-        double mix = t; // 0 = bimodal, 1 = unimodal
+        F64 mix = t; // 0 = bimodal, 1 = unimodal
         F64V w2;
         auto half_a = normal_samples(rng, 256, -1.0 * (1.0 - mix), 0.5);
         auto half_b = normal_samples(rng, 256,  1.0 * (1.0 - mix), 0.5);
@@ -227,12 +227,12 @@ void demo_histograms(const std::string& logdir) {
         writer.add_histo("weights/layer2", w2, step, 40);
 
         // Activations: shifting mean over training
-        double act_mean = -2.0 + 4.0 * t; // -2 → +2
+        F64 act_mean = -2.0 + 4.0 * t; // -2 → +2
         auto acts = normal_samples(rng, 1024, act_mean, 0.8);
         writer.add_histo("activations/relu", acts, step, 40);
 
         // Gradients: shrinking magnitude (gradient vanishing demo)
-        double grad_std = 0.5 * std::exp(-3.0 * t);
+        F64 grad_std = 0.5 * std::exp(-3.0 * t);
         auto grads = normal_samples(rng, 256, 0.0, grad_std);
         writer.add_histo("gradients/layer1", grads, step, 30);
 
@@ -250,7 +250,7 @@ void demo_histograms(const std::string& logdir) {
 
 // ─── Main ─────────────────────────────────────────────────────────────────────
 int main(int argc, char* argv[]) {
-    std::string logdir = (argc > 1) ? argv[1] : "/tmp/tb_demo";
+    STR logdir = (argc > 1) ? argv[1] : "/tmp/tb_demo";
     ensure_dir(logdir);
 
     std::cout << ".tfevents files: " << logdir << "\n";
