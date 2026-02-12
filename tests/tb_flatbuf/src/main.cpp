@@ -15,7 +15,7 @@
  *   tensorboard --logdir <output_dir>
  */
 
-#include "tensorboard_writer.h"
+#include "writer.h"
 
 #include <iostream>
 #include <iomanip>
@@ -36,15 +36,13 @@ static std::string make_event_path(const std::string& dir, const std::string& ru
     std::string run_dir = dir + "/" + run_name;
     ensure_dir(run_dir);
     // FIX 3: use hostname + PID in filename as TensorBoard 2.x requires
-    return tensorboard::MakeEventFilePath(run_dir);
+    return tensorboard::logdir(run_dir);
 }
 
 // Banner printer
 static void print_section(const std::string& title) {
     std::cout << "\n";
-    std::cout << "  ┌─────────────────────────────────────────────┐\n";
-    std::cout << "  │  " << std::left << std::setw(43) << title << " │\n";
-    std::cout << "  └─────────────────────────────────────────────┘\n";
+    std::cout << "## " << title << "...\n";
 }
 
 // ─── Demo 1: Scalar Summaries ─────────────────────────────────────────────────
@@ -70,16 +68,16 @@ void demo_scalars(const std::string& logdir) {
         // Learning rate schedule (cosine decay)
         float lr = 0.001f * (1.0f + std::cos(3.14159f * t)) * 0.5f;
 
-        writer.WriteScalar("train/loss",     loss, step);
-        writer.WriteScalar("train/accuracy", acc,  step);
-        writer.WriteScalar("train/lr",       lr,   step);
+        writer.add_scalar("train/loss",     loss, step);
+        writer.add_scalar("train/accuracy", acc,  step);
+        writer.add_scalar("train/lr",       lr,   step);
 
         // Validation metrics (added every 10 steps with more noise)
         if (step % 10 == 0) {
             float val_loss = loss + std::abs(noise(rng)) * 0.3f;
             float val_acc  = acc  - std::abs(noise(rng)) * 0.05f;
-            writer.WriteScalar("val/loss",     val_loss, step);
-            writer.WriteScalar("val/accuracy", val_acc,  step);
+            writer.add_scalar("val/loss",     val_loss, step);
+            writer.add_scalar("val/accuracy", val_acc,  step);
         }
 
         if (step % 25 == 0) {
@@ -176,15 +174,15 @@ void demo_images(const std::string& logdir) {
 
         // Image 1: Animated sine wave pattern
         auto sine = make_sine_pattern(W, H, t);
-        writer.WriteImage("images/sine_wave", W, H, sine, step);
+        writer.add_image("images/sine_wave", W, H, sine, step);
 
         // Image 2: Rotating gradient heatmap
         auto grad = make_gradient(W, H, static_cast<float>(step));
-        writer.WriteImage("images/gradient_heatmap", W, H, grad, step);
+        writer.add_image("images/gradient_heatmap", W, H, grad, step);
 
         // Image 3: Evolving checkerboard
         auto chk = make_checkerboard(W, H, 16, t);
-        writer.WriteImage("images/checkerboard", W, H, chk, step);
+        writer.add_image("images/checkerboard", W, H, chk, step);
 
         std::cout << "  Step " << std::setw(2) << step
                   << " | wrote 3 images (" << W << "×" << H << " RGB PNG)\n";
@@ -220,7 +218,7 @@ void demo_histograms(const std::string& logdir) {
         // Layer 1 weights: gradually tightening distribution
         double w1_std = 1.0 - 0.7 * t;  // 1.0 → 0.3
         auto w1 = normal_samples(rng, 512, 0.0, w1_std);
-        writer.WriteHistogram("weights/layer1", w1, step, 40);
+        writer.add_histo("weights/layer1", w1, step, 40);
 
         // Layer 2 weights: bimodal → unimodal
         double mix = t; // 0 = bimodal, 1 = unimodal
@@ -229,17 +227,17 @@ void demo_histograms(const std::string& logdir) {
         auto half_b = normal_samples(rng, 256,  1.0 * (1.0 - mix), 0.5);
         w2.insert(w2.end(), half_a.begin(), half_a.end());
         w2.insert(w2.end(), half_b.begin(), half_b.end());
-        writer.WriteHistogram("weights/layer2", w2, step, 40);
+        writer.add_histo("weights/layer2", w2, step, 40);
 
         // Activations: shifting mean over training
         double act_mean = -2.0 + 4.0 * t; // -2 → +2
         auto acts = normal_samples(rng, 1024, act_mean, 0.8);
-        writer.WriteHistogram("activations/relu", acts, step, 40);
+        writer.add_histo("activations/relu", acts, step, 40);
 
         // Gradients: shrinking magnitude (gradient vanishing demo)
         double grad_std = 0.5 * std::exp(-3.0 * t);
         auto grads = normal_samples(rng, 256, 0.0, grad_std);
-        writer.WriteHistogram("gradients/layer1", grads, step, 30);
+        writer.add_histo("gradients/layer1", grads, step, 30);
 
         if (step % 10 == 0) {
             std::cout << "  Step " << std::setw(2) << step
@@ -255,15 +253,11 @@ void demo_histograms(const std::string& logdir) {
 
 // ─── Main ─────────────────────────────────────────────────────────────────────
 int main(int argc, char* argv[]) {
-    std::string logdir = (argc > 1) ? argv[1] : "/tmp/tb_flatbuffers_demo";
+    std::string logdir = (argc > 1) ? argv[1] : "/tmp/tb_demo";
     ensure_dir(logdir);
 
-    std::cout << "\n";
-    std::cout << "╔══════════════════════════════════════════════════╗\n";
-    std::cout << "║  TensorBoard FlatBuffers Event Writer Demo        ║\n";
-    std::cout << "║  Writing .tfevents files to: " << std::left << std::setw(20) << logdir << " ║\n";
-    std::cout << "╚══════════════════════════════════════════════════╝\n";
-
+    std::cout << ".tfevents files: " << logdir << "\n";
+    
     try {
         demo_scalars(logdir);
         demo_images(logdir);
@@ -273,15 +267,6 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 
-    std::cout << "\n";
-    std::cout << "╔══════════════════════════════════════════════════════════╗\n";
-    std::cout << "║  All demos complete!                                      ║\n";
-    std::cout << "║                                                           ║\n";
-    std::cout << "║  To visualize, run:                                       ║\n";
-    std::cout << "║    pip install tensorboard                                ║\n";
-    std::cout << "║    tensorboard --logdir " << std::left << std::setw(34) << logdir << " ║\n";
-    std::cout << "║    # Open http://localhost:6006                           ║\n";
-    std::cout << "╚══════════════════════════════════════════════════════════╝\n\n";
-
+    std::cout << "> tensorboard --logdir=" << logdir << "\n";
     return 0;
 }
