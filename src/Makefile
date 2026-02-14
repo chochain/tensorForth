@@ -3,22 +3,6 @@
 #
 # Add inputs and outputs from these tool invocations to the build variables
 # CUDA nvcc compiler and linker flags
-NVCC_FLAGS:= \
-	-ccbin g++ \
-	-D__CUDACC__ \
-	-DCUDA_FORCE_CDP1_IF_SUPPORTED \
-	-D__CDPRT_SUPPRESS_SYNC_DEPRECATION_WARNING \
-	-Isrc $(GL_INCS:%=-I%) \
-	-t=0 -c -std=c++17 -O2 \
-	--device-c --extended-lambda \
-	--expt-relaxed-constexpr \
-	-gencode arch=${CUDA_ARCH},code=${CUDA_CODE}
-
-#	--device-debug --debug --use_fast_math \
-
-
-NV_CC:=${CUDA_HOME}/bin/nvcc $(NVCC_FLAGS)
-
 T4_SRCS := \
 	./src/sys.cu \
 	./src/debug.cu \
@@ -61,7 +45,7 @@ T4_LIBS :=
 -include src/vm/Makefile
 -include src/ldr/Makefile
 -include src/nn/Makefile
-#-include src/vu/Makefile
+# -include src/vu/Makefile
 
 .PHONY: src clean clean-src
 
@@ -72,7 +56,7 @@ src-t4: $(T4_OBJS) $(T4_INCS) $(T4_EXT)
 # Each subdirectory must supply rules for building sources it contributes
 src/%.o: src/%.cu
 	@echo '<Source><Action>Compile</Action><Filename>$<</Filename><Status>'
-	${NV_CC} $(T4_LIBS) -o "$@" "$<" || $(NV_ERR)
+	$(NVCC) $(NVCC_FLAGS) $(T4_LIBS) -o "$@" "$<" || $(NV_ERR)
 	@echo '</Source>'
 	@echo ' '
 
