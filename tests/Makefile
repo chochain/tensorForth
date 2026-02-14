@@ -19,7 +19,9 @@ TSTS0 := \
 TSTS := \
 	t_bmpvu \
 	t_imgvu \
-	t_mnist
+	t_mnist \
+	t_ganvu \
+	t_event
 
 TOBJS0 := \
 	src/mmu/util.o \
@@ -33,11 +35,9 @@ TOBJS0 := \
 	src/ldr/loader.o
 
 -include src/vu/Makefile
--include src/ldr/Makefile
 
 TOBJS:= $(VU_OBJS) $(LDR_OBJS)
 TST_LIBS:= $(VU_LIBS) $(LDR_LIBS)
-#TST_LIBS:=
 
 .PHONY: test clean-test
 
