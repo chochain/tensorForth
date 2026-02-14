@@ -18,7 +18,7 @@ ImgLoader *ImgLoader::load(int, int) {
     ///
     /// STB use host memory, (compare to t_bmpvm which uses CUDA managed mem)
     ///
-    data = stbi_load(ds_name, &W, &H, &C, STBI_rgb);
+    data = stbi_load(ds_name, (int*)&W, (int*)&H, (int*)&C, STBI_rgb);
 //    data = stbi_load(d_fn, &W, &H, &C, STBI_rgb_alpha);
 //    C = 4;           // plus alpha
     if (!data) {
@@ -37,7 +37,7 @@ __GPU__ __INLINE__ TColor tex2color(float r, float g, float b, float a) {
         ((int)(g * 255.0f) << 8)  |
         ((int)(r * 255.0f) << 0);
 }
-__KERN__ void k_img_copy(TColor *dst, int W, int H, CuTexObj tex, bool flip) {
+__KERN__ void k_img_copy(TColor *dst, int W, int H, cuTexObj tex, bool flip) {
     const int j = threadIdx.x + blockDim.x * blockIdx.x;
     const int i = threadIdx.y + blockDim.y * blockIdx.y;
     // Add half of a texel to always address exact texel centers
@@ -51,15 +51,15 @@ __KERN__ void k_img_copy(TColor *dst, int W, int H, CuTexObj tex, bool flip) {
 }
 
 void ImgVu::_img_copy(TColor *d_dst) {
-    dim3 blk(T4_WARP_SZ, T4_WARP_SZ, 1);
-    dim3 grd(NGRID(X, Y, 1, blk));
+    dim3 blk(32, 32, 1);
+    dim3 grd((X + blk.x - 1)/blk.x, (Y + blk.y - 1)/blk.y, 1);
 
     k_img_copy<<<grd,blk>>>(d_dst, X, Y, cu_tex, false);
     GPU_CHK();
 }
 void ImgVu::_img_flip(TColor *d_dst) {
-    dim3 blk(T4_WARP_SZ, T4_WARP_SZ, 1);
-    dim3 grd(NGRID(X, Y, 1, blk));
+    dim3 blk(32, 32, 1);
+    dim3 grd((X + blk.x - 1)/blk.x, (Y + blk.y - 1)/blk.y, 1);
 
     k_img_copy<<<grd,blk>>>(d_dst, X, Y, cu_tex, true);
     GPU_CHK();

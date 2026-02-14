@@ -7,12 +7,13 @@
  */
 #ifndef TEST_IMGVU_H
 #define TEST_IMGVU_H
+#include "ten4.h"
 #include "corpus.h"
 #include "vu.h"
 
 class ImgLoader : public Corpus {
 public:
-    ImgLoader(const char *name) : Corpus(name, NULL, 0) {}
+    ImgLoader(const char *name) : Corpus(name, NULL) {}
     virtual ImgLoader *load(int bsz=0, int bid=0);
 };
 
