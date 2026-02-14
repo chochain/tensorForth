@@ -7,6 +7,7 @@
  */
 #ifndef TEST_BMPVU_H
 #define TEST_BMPVU_H
+
 #include "corpus.h"
 #include "vu.h"
 
@@ -36,7 +37,7 @@ typedef struct {
 
 class BmpLoader : public Corpus {
 public:
-    BmpLoader(const char *name) : Corpus(name, NULL, 0) {}
+    BmpLoader(const char *name) : Corpus(name, NULL) {}
     virtual BmpLoader *load(int bsz=0, int bid=0);
 };
 

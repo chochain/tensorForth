@@ -71,7 +71,7 @@ __GPU__ __INLINE__ TColor make_color(float r, float g, float b, float a) {
         ((int)(g * 255.0f) << 8)  |
         ((int)(r * 255.0f) << 0);
 }
-__KERN__ void k_img_copy(CuTexObj tex, TColor *buf, int W, int H, bool flip) {
+__KERN__ void k_img_copy(cuTexObj tex, TColor *buf, int W, int H, bool flip) {
     const int j = threadIdx.x + blockDim.x * blockIdx.x;
     const int i = threadIdx.y + blockDim.y * blockIdx.y;
     // Add half of a texel to always address exact texel centers
@@ -85,15 +85,15 @@ __KERN__ void k_img_copy(CuTexObj tex, TColor *buf, int W, int H, bool flip) {
 }
 
 void BmpVu::_img_copy(TColor *d_buf) {
-    dim3 blk(T4_WARP_SZ, T4_WARP_SZ, 1);
-    dim3 grd(NGRID(X, Y, 1, blk));
+    dim3 blk(32, 32, 1);
+    dim3 grd((X + blk.x - 1)/blk.x, (Y + blk.y - 1)/blk.y, 1);
 
     k_img_copy<<<grd,blk>>>(cu_tex, d_buf, X, Y, false);
     // GPU_CHK();
 }
 void BmpVu::_img_flip(TColor *d_buf) {
-    dim3 blk(T4_WARP_SZ, T4_WARP_SZ, 1);
-    dim3 grd(NGRID(X, Y, 1, blk));
+    dim3 blk(32, 32, 1);
+    dim3 grd((X + blk.x - 1)/blk.x, (Y + blk.y - 1)/blk.y, 1);
 
     k_img_copy<<<grd,blk>>>(cu_tex, d_buf, X, Y, true);
     // GPU_CHK();
