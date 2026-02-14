@@ -57,19 +57,14 @@ typedef cudaEvent_t         EVENT;
 
 #define ASSERT(X) \
     if (!(X)) ERROR("ASSERT tid %d: line %d in %s\n", threadIdx.x, __LINE__, __FILE__);
-#define GPU_SYNC()  { cudaDeviceSynchronize(); }
-#define CDP_SYNC1() { cudaDeviceSynchronize(); }  /** for CDP1 retention */
-#define CDP_SYNC()                                /** for CDP2, default stream auto sync */
+#define GPU_SYNC()          cudaDeviceSynchronize()
 #define GPU_ERR(c) {             \
     cudaError_t code = (c);      \
     if (code != cudaSuccess) {   \
         ERROR("cudaERROR[%d] %s@%s %d\n", code, cudaGetErrorString(code), __FILE__, __LINE__); \
         cudaDeviceReset();       \
     }}
-#define GPU_CHK() {              \
-    GPU_SYNC();                  \
-    GPU_ERR(cudaGetLastError()); \
-    }
+#define GPU_CHK()          GPU_ERR(GPU_SYNC())
 #define MM_ALLOC(...)      GPU_ERR(cudaMallocManaged(__VA_ARGS__))
 #define MM_FREE(m)         GPU_ERR(cudaFree(m))
 
