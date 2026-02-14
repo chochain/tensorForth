@@ -133,7 +133,7 @@ _display() {
     VUX(cudaGraphicsMapResources(1, &vu->cu_pbo, 0));   /// * lock CUDA vbo to GL buffer
     VUX(cudaGraphicsResourceGetMappedPointer(           /// * get device buffer pointer
             (void**)&d_buf, &bsz, vu->cu_pbo));
-    printf("vu->cu_pbo=%p, d_buf=%p bsz=%ld\n", vu->cu_pbo, d_buf, bsz);
+    //printf("vu->cu_pbo=%p, d_buf=%p bsz=%ld\n", vu->cu_pbo, d_buf, bsz);
     
     if (d_buf) vu->display(d_buf);                      /// * update buffer content
     
