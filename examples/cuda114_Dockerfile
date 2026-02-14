@@ -13,8 +13,12 @@ RUN apt-get update -y && \
         xcb xkb-data libx11-xcb1 libxcb-glx0 libxcb-xkb1 \
         libxcomposite1 libxcursor1 libxdamage1 \
         libxi6 libxml2 libxrandr2 libxrender1 \
-        libxtst6 libgl1-mesa-glx libxkbfile-dev \
-        libegl1 libopengl0 \
+        libxtst6 libxkbfile-dev \
+        libopengl0 libglvnd0 libglx0 \
+        libgl1-mesa-glx mesa-utils \
+        libgl1-mesa-dev libglu1-mesa-dev freeglut3-dev \
+        libglfw3-dev libglm-dev \
+        libnvidia-gl-470 \
         libxcb-cursor0 libxcb-xinput0 libxkbcommon-x11-0  \
         libxcb-shape0 libxcb-render-util0 libxcb-randr0 \
         libxcb-keysyms1 libxcb-image0 libxcb-xinerama0 libxcb-icccm4 && \
