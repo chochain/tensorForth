@@ -43,7 +43,7 @@ N 1 1 1 tensor zeros constant FAKE
   ." G=" _g . ." , Dr=" _r . ." , Df=" _f . cr ;
 
 : epoch ( -- ) 99 for run next stat ;               \ train with 100 * N samples
-: gan ( -- ) 
+: gan ( n -- ) 
   for epoch next
   gen N 2 reshape2 s" jk" save                      \ generate N samples
   ;
