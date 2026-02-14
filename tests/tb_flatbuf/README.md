@@ -35,16 +35,15 @@ tfevents file
 ```
 tb_flatbuffers/
 ├── include/
-│   ├── flatbuffers/
-│   │   └── flatbuffers.h          # Minimal FlatBuffers builder
-│   ├── crc32c.h                   # CRC32C + masked CRC for TFRecord framing
-│   ├── proto_encode.h             # Minimal protobuf wire-format encoder
-│   ├── tb_flatbuffers_schema.h    # FlatBuffers encoders for TB plugin data
-│   └── tensorboard_writer.h      # Main EventWriter class
+│   ├── flatbuf.h              # Minimal FlatBuffers builder
+│   ├── crc32c.h               # CRC32C + masked CRC for TFRecord framing
+│   ├── encode.h               # Minimal protobuf wire-format encoder
+│   ├── schema.h               # FlatBuffers encoders for TB plugin data
+│   └── writer.h               # Main EventWriter class
 ├── src/
-│   └── main.cpp                  # Demo application
+│   └── main.cpp               # Demo application
 ├── schemas/
-│   └── tb_plugin_data.fbs        # FlatBuffers schema (for documentation/flatc)
+│   └── tb_plugin_data.fbs     # FlatBuffers schema (for documentation/flatc)
 ├── Makefile
 └── README.md
 ```
