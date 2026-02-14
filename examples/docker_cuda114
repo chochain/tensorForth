@@ -9,5 +9,5 @@ docker run -it --rm --gpus all --user $(id -u):$(id -g) \
        -v /tmp/.X11-unix:/tmp/.X11-unix \
        -v /u01:/u01 \
        -v $HOME:$HOME -w $HOME \
-       gnii/cuda:v114
+       cuda:u20v114
 xhost -
