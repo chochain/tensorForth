@@ -17,7 +17,9 @@ TSTS0 := \
 	t_event
 
 TSTS := \
-	t_cdp_sum
+	t_bmpvu \
+	t_imgvu \
+	t_mnist
 
 TOBJS0 := \
 	src/mmu/util.o \
@@ -30,28 +32,31 @@ TOBJS0 := \
 	src/ldr/mnist.o \
 	src/ldr/loader.o
 
-TOBJS0 :=
+-include src/vu/Makefile
+-include src/ldr/Makefile
 
-#TST_LIBS:= -Isrc/ldr -Isrc/vu
-TST_LIBS:=
+TOBJS:= $(VU_OBJS) $(LDR_OBJS)
+TST_LIBS:= $(VU_LIBS) $(LDR_LIBS)
+#TST_LIBS:=
 
 .PHONY: test clean-test
 
-test: $(TSTS:%.cu=%.o)
+test: src-vu $(TSTS:%=tests/%.o) $(TSTS)
+	@echo "$<"
 
 # Each subdirectory must supply rules for building sources it contributes
-tests/%.o: tests/%.cu $(T4_INCS) $(DS_INCS)
+$(TSTS:%=tests/%.o): $(TSTS:%=tests/%.cu)
 	@echo '<Test><Action>Compile></Action><Filename>$<</Filename><Status>'
-	-$(NV_CC) $(TST_LIBS) --keep-dir ${APP_HOME}/tests -o "$@" "$<"
+	-$(NVCC) $(NVCC_FLAGS) $(TST_LIBS) --keep-dir ${APP_HOME}/tests \
+	-o "$@" "$(@:.o=.cu)" || $(NV_ERR)
 	@echo '</Status></Test>'
 	@echo ' '
 
-$(TSTS): $(TSTS:%=tests/%.o)
+$(TSTS): $(TSTS:%=tests/%.o) $(TOBJS)
 	@echo '<Test><Action>Link</Action><Filename>$@</Filename><Status>'
-	${CUDA_HOME}/bin/nvcc $(NVLINK_FLAGS) \
-	-o "./tests/$(@:.o=)" "./tests/$@.o" $(TOBJS)
+	$(NVCC) $(NVLINK_FLAGS) -o "./tests/$(@:.o=)" "./tests/$@.o" $(TOBJS)
 	@echo '</Status></Test>'
 	@echo ' '
 
-clean-tst:
+clean-test:
 	-$(RM) $(TSTS:%=tests/%.o)
