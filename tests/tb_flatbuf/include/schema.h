@@ -31,7 +31,7 @@
 
 #include "flatbuf.h"
 
-namespace tb_schema {
+namespace proto {
 
 // Field offsets: field_id * sizeof(voffset_t) = field_id * 2
 static constexpr U16 FO(U16 field_id) { return field_id * 2; }
@@ -39,7 +39,7 @@ static constexpr U16 FO(U16 field_id) { return field_id * 2; }
 // ─── ScalarPluginData ─────────────────────────────────────────────────────
 // table ScalarPluginData { mode: int8; }
 // Plugin name: "scalars"
-inline U8V scalar_plugin(U8 mode = 0) {
+inline U8V scalar_meta(U8 mode = 0) {
     // FlatBuffers layout (forward build):
     //   [soffset:i32 -> vtable][mode:i8][padding][vtable: size,objsize,field0_off]
     // We'll build this manually as a minimal valid FlatBuffer.
@@ -114,7 +114,7 @@ inline U8V scalar_plugin(U8 mode = 0) {
 // ─── ImagePluginData ──────────────────────────────────────────────────────
 // table ImagePluginData { max_images_per_step: int32; }
 // Plugin name: "images"
-inline U8V image_plugin(S32 max_images = 3) {
+inline U8V image_meta(S32 max_images = 3) {
     U8V out;
 
     auto push32 = [&](U32 v) {
@@ -154,7 +154,7 @@ inline U8V image_plugin(S32 max_images = 3) {
 // ─── HistogramPluginData ──────────────────────────────────────────────────
 // table HistogramPluginData {}  (empty)
 // Plugin name: "histograms"
-inline U8V histo_plugin() {
+inline U8V histo_meta() {
     U8V out;
 
     auto push32 = [&](U32 v) {
