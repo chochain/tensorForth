@@ -8,7 +8,7 @@
 #define TEN4_SRC_VU_MNIST_VU_H
 #include "vu.h"
 
-#if (T4_ENABLE_OBJ && T4_ENABLE_NN)
+#if (T4_DO_OBJ && T4_DO_NN)
 ///
 /// MNIST GUI texture builder
 ///
@@ -24,7 +24,7 @@ private:
     __HOST__ virtual int _init_host_tex();
 };
 
-#endif  // (T4_ENABLE_OBJ && T4_ENABLE_NN)
+#endif  // (T4_DO_OBJ && T4_DO_NN)
 #endif  // TEN4_SRC_VU_MNIST_VU_H
 
 
