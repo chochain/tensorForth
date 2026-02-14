@@ -12,6 +12,7 @@
  *   1 = 64-bit
  *   2 = Length-delimited
  *   5 = 32-bit
+ *
  */
 #pragma once
 
@@ -36,11 +37,6 @@ public:
         _buf.push_back(static_cast<U8>(value));
     }
 
-    void write_bool(U32 field, BOOL value) {
-        tag(field, 0);
-        u64(value ? 1 : 0);
-    }
-
     void s32(U32 field, S32 value) {
         tag(field, 0);
         u64(static_cast<U64>(static_cast<U32>(value)));
@@ -51,9 +47,14 @@ public:
         u64(static_cast<U64>(value));
     }
 
-    void write_u32(U32 field, U32 value) {
+    void u32(U32 field, U32 value) {
         tag(field, 0);
         u64(value);
+    }
+
+    void write_bool(U32 field, BOOL value) {
+        tag(field, 0);
+        u64(value ? 1 : 0);
     }
 
     void write_enum(U32 field, S32 value) {
@@ -83,10 +84,6 @@ public:
     }
 
     // ── Length-delimited ─────────────────────────────────────────────────────
-    void str(U32 field, const STR& s) {
-        raw(field, reinterpret_cast<const U8*>(s.c_str()), s.size());
-    }
-
     void raw(U32 field, const U8* data, USZ len) {
         tag(field, 2);
         u64(len);
@@ -98,6 +95,10 @@ public:
         tag(field, 2);
         u64(data.size());
         _buf.insert(_buf.end(), data.begin(), data.end());
+    }
+
+    void str(U32 field, const STR& s) {
+        raw(field, reinterpret_cast<const U8*>(s.c_str()), s.size());
     }
 
     void msg(U32 field, const Encoder& sub) {
