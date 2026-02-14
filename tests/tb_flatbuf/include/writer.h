@@ -14,7 +14,9 @@
  *   +8: tagged_run_metadata (TaggedRunMetaData)
  *   9: meta_graph_def (bytes)  ← do NOT write here
  *
- * = Tensor ============================================
+ * +tensorflow.ResourceHandleProto
+ *
+ * = Tensor ===================== (implemented in encoder.h)
  * tensorflow.TensorProto:
  *   1: dtype (DT_FLOAT=1)
  *   2: tensor_shape (empty=scalar)
@@ -33,8 +35,6 @@
  *   +15: variant_val (VariantTensorDataProto)
  *   +16: uint32_val (packed)
  *   +17: uint64_val (packed)
- *
- * +tensorflow.ResourceHandleProto
  *
  * +tensorflow.VariantTensorDataProto:
  *   1: type_name (string)
@@ -154,8 +154,9 @@ public:
         proto::Encoder enc;
         enc.str(1, tag);                                 // tag
         enc.f32(2, value);                               // simple_value
-//        enc.raw(9, scalar_meta());                     // metadata → field 9
-//        enc.raw(8, scalar_tensor(value));              // tensor   → field 8
+// CC: if go with ScalarPluginMetadata 
+//        enc.raw(9, _scalar_meta());                      // metadata → field 9
+//        enc.raw(8, _scalar_tensor(value));               // tensor   → field 8
         _write(_summary(enc.buf(), step));
     }
 
@@ -252,7 +253,6 @@ private:
     // TensorProto for scalar F32. Canonical encoding matching protobuf serializer:
     //   dtype=DT_FLOAT(1), tensor_shape OMITTED (empty=proto3 default),
     //   F32_val uses packed encoding (wire type 2), NOT non-packed (wire type 5).
-#if 0    
     U8V _scalar_tensor(F32 value) {
         U32 bits;
         std::memcpy(&bits, &value, 4);
@@ -283,7 +283,7 @@ private:
         
         return meta.buf();
     }
-#endif
+
     U8V _image_meta(S32 max_images = 1) {
         proto::Encoder pc;
         pc.s32(1, max_images);    // max_images_per_step
