@@ -32,7 +32,7 @@ src-nn: $(NN_OBJS) $(NN_INCS)
 # Each subdirectory must supply rules for building sources it contributes
 src/nn/%.o: src/nn/%.cu $(NN_INCS) $(NN_EXT)
 	@echo '<Source><Action>Compile</Action><Filename>$<</Filename><Status>'
-	-$(NV_CC) $(NN_LIBS) -o "$@" "$<" || $(NV_ERR)
+	-$(NVCC) $(NVCC_FLAGS) $(NN_LIBS) -o "$@" "$<" || $(NV_ERR)
 	@echo '</Source>'
 	@echo ' '
 

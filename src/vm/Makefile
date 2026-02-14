@@ -37,7 +37,7 @@ src-vm: $(VM_OBJS)
 # Each subdirectory must supply rules for building sources it contributes
 src/vm/%.o: src/vm/%.cu $(VM_INCS) $(VM_EXT)
 	@echo '<Source><Action>Compile</Action><Filename>$<</Filename><Status>'
-	-$(NV_CC) $(VM_LIBS) -o "$@" "$<" || $(NV_ERR)
+	-$(NVCC) $(NVCC_FLAGS) $(VM_LIBS) -o "$@" "$<" || $(NV_ERR)
 	@echo '</Status></Source>'
 	@echo ' '
 
