@@ -16,6 +16,9 @@
  *
  * +tensorflow.ResourceHandleProto
  *
+ * +tensorflow.DataType
+ *   DT_FLOAT=1, DT_DOUBLE=2, ..., DT_STRING=7
+ *
  * = Tensor ===================== (implemented in encoder.h)
  * tensorflow.TensorProto:
  *   1: dtype (DT_FLOAT=1)
@@ -94,7 +97,9 @@
  *   2: single_image_dim (uint32 repeated)
  *
  * ── TFRecord framing ─────────────────────────────────────────────────────────
- * [length:uint64 LE][masked_crc32c(length):uint32 LE][data][masked_crc32c(data):uint32 LE]
+ * [length:uint64 LE]
+ * [masked_crc32c(length):uint32 LE]
+ * [data][masked_crc32c(data):uint32 LE]
  * masking: ((crc >> 15 | crc << 17) + 0xa282ead8) & 0xFFFFFFFF
  */
 #pragma once
@@ -203,7 +208,8 @@ public:
         histo.f64(1, vmin);
         histo.f64(2, vmax);
         histo.f64(3, static_cast<F64>(values.size()));
-        histo.f64(4, vsum);   histo.f64(5, vsumsq);
+        histo.f64(4, vsum);
+        histo.f64(5, vsumsq);
         histo.f64_packed(6, limits);
         histo.f64_packed(7, counts);
         
@@ -235,6 +241,7 @@ private:
         _file.write(reinterpret_cast<const char*>(&lc),        4);
         _file.write(reinterpret_cast<const char*>(buf.data()), buf.size());
         _file.write(reinterpret_cast<const char*>(&dc),        4);
+        
         _file.flush();
     }
 
@@ -243,7 +250,7 @@ private:
         summary.raw(1, buf);                                    // repeated Value
         
         proto::Encoder event;
-        event.f64(1, static_cast<F64>(std::time(nullptr)));  // wall_time
+        event.f64(1, static_cast<F64>(std::time(nullptr)));     // wall_time
         event.s64(2, step);                                     // step
         event.raw(5, summary.buf());                            // summary
         
@@ -252,7 +259,7 @@ private:
 
     // TensorProto for scalar F32. Canonical encoding matching protobuf serializer:
     //   dtype=DT_FLOAT(1), tensor_shape OMITTED (empty=proto3 default),
-    //   F32_val uses packed encoding (wire type 2), NOT non-packed (wire type 5).
+    //   float_val uses packed encoding (wire type 2), NOT non-packed (wire type 5).
     U8V _scalar_tensor(F32 value) {
         U32 bits;
         std::memcpy(&bits, &value, 4);
@@ -264,9 +271,9 @@ private:
         };
         
         proto::Encoder tp;
-        tp.s32(1, 1);            // dtype = DT_FLOAT
-        tp.raw(2, {});           // tensor_shape = empty (scalar)
-        tp.raw(5, fb, 4);        // F32_val at field 5 (packed)
+        tp.s32(1, 1);             // dtype = DT_FLOAT
+        tp.raw(2, {});            // tensor_shape = empty (scalar)
+        tp.raw(5, fb, 4);         // F32_val at field 5 (packed)
         
         return tp.buf();
     }
