@@ -514,21 +514,21 @@ private:
         pd.str(1, "scalars");
         
         // content: empty = scalar_plugin{mode=DEFAULT} in proto3
-        proto::Encoder meta;
+        proto::Encoder meta;      // SummaryMetadata
         meta.raw(1, pd.buf());
-//        meta.s32(4, 1);         // data_class = DATA_CLASS_SCALAR
+        meta.s32(4, 1);           // data_class = DATA_CLASS_SCALAR
         
         return meta.buf();
     }
 
     U8V _text_meta() {
-        proto::Encoder pd;        // payload
+        proto::Encoder pd;      // payload
         pd.str(1, "text");
         // Empty content for text plugin
         
-        proto::Encoder meta;
+        proto::Encoder meta;    // SummaryMetadata
         meta.raw(1, pd.buf());
-//        meta.s32(4, 3);         // data_class = DATA_CLASS_TENSOR; CC<<this causes error
+        meta.s32(4, 2);         // data_class = DATA_CLASS_TENSOR
         
         return meta.buf();
     }
