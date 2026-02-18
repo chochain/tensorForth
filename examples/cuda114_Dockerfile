@@ -7,7 +7,7 @@ FROM base AS build
 RUN apt-get update -y && \
     apt-get install -y --no-install-recommends \
         wget apt-transport-https ca-certificates \
-        dbus gnupg openssh-client \
+        dbus gnupg openssh-client git \
         fontconfig libfreetype6 libasound2 \
         libglib2.0-0 libnss3 libsqlite3-0 \
         xcb xkb-data libx11-xcb1 libxcb-glx0 libxcb-xkb1 \
