@@ -1,6 +1,6 @@
-.( ## Convolution NN tests ## ) cr
-1 trace
-2 10 10 1 nn.model                \ create a model with NHWC tensor input
+.( ## Convolution NN detailed ## ) cr
+2 trace                           \ full verbosity for detailed tracing
+2 16 16 1 nn.model                \ create a model with NHWC tensor input
 dup .                             \ display it
 
 .( #### define seq1 ) cr
@@ -16,7 +16,7 @@ relu                              \ ReLU activation
 
 .( #### define lin1 ) cr
 flatten                           \ flatten for dense layer (no need)
-0.0 49 linear                     \ linearize to 50 output with no bias
+0.0 16 linear                     \ linearize to 16 output with no bias
 
 .( #### define lin2 ) cr
 0.5 dropout                       \ another 50% drop out
@@ -26,27 +26,28 @@ softmax                           \ translate to probability
 network                           \ display network model (= dup .)
 
 .( #### save model as a constant ) cr
-constant mnist                    \ save model as a constant
-mnist                             \ retrieve model
+constant my_model                 \ save model as a constant
+my_model                          \ retrieve model
 network                           \ display the model
 mstat                             \ obj#used[69]
 
 .( #### model feed foward ) cr
-2 10 10 1 tensor eye 0.5 *=       \ create input image (random)
+2 16 16 1 tensor eye 0.5 *=       \ create input image (random)
 forward                           \ execute forward pass
 mstat                             \ obj#used[69]
 
 .( #### fetch last layer i.e. output ) cr
 -1 n@                             \ fetch forward result from model
-.                                 \ display the result/output layer
+.( output= ) .                    \ display the result/output layer
 
 .( #### calculate loss ) cr
 2 4 matrix{ 0 0 1 0 0 1 0 0 }     \ create one-hot vector
-2 4 1 1 reshape4 dup .            \ reshape it into a labeled rank-4 tensor
+2 4 1 1 reshape4 dup              \ reshape it into a labeled rank-4 tensor
 constant hot1                     \ store in a constant
+.( onehot vector= ) .             \ display
 
 hot1                              \ retrieve the one-hot vector
-loss.ce .                         \ calculate network loss
+loss.ce .( loss= ) .              \ calculate network loss
 
 : xdump
   mstat
