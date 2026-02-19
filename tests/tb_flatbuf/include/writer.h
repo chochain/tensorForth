@@ -19,7 +19,7 @@
  * +tensorflow.DataType
  *   DT_FLOAT=1, DT_DOUBLE=2, ..., DT_STRING=7
  *
- * = Tensor ===================== (implemented in encoder.h)
+ * = Tensor =====================
  * tensorflow.TensorProto:
  *   1: dtype (DT_FLOAT=1)
  *   2: tensor_shape (empty=scalar)
@@ -35,14 +35,9 @@
  *   +12: dcomplex_val (double packed)
  *   +13: half_val (int32 packed)
  *   +14: resource_handle_val (ResourceHandleProto)
- *   +15: variant_val (VariantTensorDataProto)
+ *   x15: variant_val (VariantTensorDataProto) 
  *   +16: uint32_val (packed)
  *   +17: uint64_val (packed)
- *
- * +tensorflow.VariantTensorDataProto:
- *   1: type_name (string)
- *   2: metadata: (bytes)
- *   3: tensors (TensorProto repeated)
  *
  * = Summary ============================================
  * tensorflow.Summary.Value  (summary.proto):
@@ -61,7 +56,7 @@
  *   1: plugin_data (PluginData)
  *   +2: display_name (string)
  *   +3: summary_description (string)
- *   4: data_class (DataClass: SCALAR=1, BLOB=2, TENSOR=3)
+ *   4: data_class (DataClass: SCALAR=1, TENSOR=2, BLOB=3)
  *
  * tensorflow.SummaryMetadata.PluginData:
  *   1: plugin_name (string)    2: content (bytes)
@@ -170,41 +165,34 @@ public:
         event.s64(2, 0);
         event.str(3, "brain.Event:2");   // field 3 = file_version
 
-        _dump(event.buf(), "event");
         _write(event.buf());
     }
 
     // ── Scalar ──────────────────────────────────────────────────────────────
-    void add_scalar(const STR& tag, F32 value, S64 step) {
+    void add_scalar_simple(const STR& tag, F32 v, S64 step) {
         proto::Encoder enc;
         enc.str(1, tag);                                 // tag
-        enc.f32(2, value);                               // simple_value
+        enc.f32(2, v);                                   // simple_value
 
-        _dump(_summary(enc.buf(), step), "scalar.summary");
-        _dump(enc.buf(), "scalar", "    ");
         _write(_summary(enc.buf(), step));
     }
-
-    void add_scalar_tensor(const STR& tag, F32 value, S64 step) {
+    
+    void add_scalar(const STR& tag, F32 v, S64 step) {
         proto::Encoder enc;
         enc.str(1, tag);                                 // tag
-        enc.raw(8, _scalar_tensor(value));               // tensor   → field 8
         enc.raw(9, _scalar_meta());                      // metadata → field 9
+        enc.raw(8, _scalar_tensor(v));                   // tensor   → field 8
 
-//        _dump(_summary(enc.buf(), step), "scalarT.summary");
-//        _dump(enc.buf(), "scalarT", "    ");
-        _write(_summary(enc.buf(), step));
+        _write(_summary(enc.buf(), step));               // for new time-series
     }
 
     // ── Text (NEW) ──────────────────────────────────────────────────────────
-    void add_text(const STR& tag, const STR& text, S64 step) {
+    void add_text(const STR& tag, const STR& txt, S64 step) {
         proto::Encoder enc;
         enc.str(1, tag);                                 // tag
-        enc.raw(8, _text_tensor(text));                  // tensor   → field 8
         enc.raw(9, _text_meta());                        // metadata → field 9
+        enc.raw(8, _text_tensor(txt));                   // tensor   → field 8
 
-//        _dump(_summary(enc.buf(), step), "textT.summary");
-//        _dump(enc.buf(), "textT", "    ");
         _write(_summary(enc.buf(), step));
     }
 
@@ -457,9 +445,9 @@ private:
     // TensorProto for scalar F32. Canonical encoding matching protobuf serializer:
     //   dtype=DT_FLOAT(1), tensor_shape OMITTED (empty=proto3 default),
     //   float_val uses packed encoding (wire type 2), NOT non-packed (wire type 5).
-    U8V _scalar_tensor(F32 value) {
+    U8V _scalar_tensor(F32 v) {
         U32 bits;
-        std::memcpy(&bits, &value, 4);
+        std::memcpy(&bits, &v, 4);
         U8 fb[4] = {
             static_cast<U8>( bits        & 0xFF),
             static_cast<U8>((bits >>  8) & 0xFF),
@@ -467,51 +455,28 @@ private:
             static_cast<U8>((bits >> 24) & 0xFF),
         };
         
-        proto::Encoder tp;
+        proto::Encoder tp;        // TensorProto
         tp.s32(1, 1);             // dtype = DT_FLOAT
 //        tp.raw(2, {});            // tensor_shape = empty (scalar), optional
         tp.raw(5, fb, 4);         // float_val at field 5 (packed)
         
-        _dump(tp.buf(), "f32_tensor");
         return tp.buf();
     }
 
     // TensorProto for string (text)
-    U8V _text_tensor(const STR& text) {
-        proto::Encoder tp;
+    U8V _text_tensor(const STR& txt) {
+        proto::Encoder tp;        // TensorProto
         tp.s32(1, 7);             // dtype = DT_STRING (7)
 //        tp.raw(2, {});            // tensor_shape = empty (scalar), optional
-        tp.str(8, text);          // string_val
-        
-        _dump(tp.buf(), "str_tensor");
-        return tp.buf();
-    }
-    
-    // TensorProto for string batch (text) - 1D vector
-    U8V _text_tensor_batch(const std::vector<STR>& texts) {
-        proto::Encoder tp;
-        tp.s32(1, 7);             // dtype = DT_STRING (7)
-        
-        // tensor_shape: 1D vector with size = texts.size()
-        proto::Encoder shape;
-        proto::Encoder dim;
-        dim.s64(1, static_cast<S64>(texts.size()));  // size field
-        shape.raw(2, dim.buf());                      // dim field (repeated)
-        
-        tp.raw(2, shape.buf());   // tensor_shape
-        
-        // string_val field 8 (repeated bytes)
-        for (const auto& text : texts) {
-            tp.str(8, text);      // repeated string_val
-        }
+        tp.str(8, txt);           // string_val
         
         return tp.buf();
     }
     
     // Plugin metadata – note: metadata goes in Summary.Value field 9
     U8V _scalar_meta() {
-        proto::Encoder pd;        // payload
-        pd.str(1, "scalars");
+        proto::Encoder pd;        // SummaryMetadata.PluginData
+        pd.str(1, "scalars");     // plugin name
         
         // content: empty = scalar_plugin{mode=DEFAULT} in proto3
         proto::Encoder meta;      // SummaryMetadata
@@ -522,7 +487,7 @@ private:
     }
 
     U8V _text_meta() {
-        proto::Encoder pd;      // payload
+        proto::Encoder pd;      // SummaryMetadata.PluginData
         pd.str(1, "text");
         // Empty content for text plugin
         
