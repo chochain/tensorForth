@@ -26,71 +26,37 @@ struct HParamValue {
 
 class HParamWriter : public EventWriter {
 public:
-    explicit HParamWriter(const STR& path)
-        : EventWriter(path) {
-    }
+    explicit HParamWriter(const STR& path) : EventWriter(path) {}
 
     // ── HParams (NEW) ───────────────────────────────────────────────────────
     // Initialize hparams experiment with parameter and metric definitions
     void add_config(
-        const std::map<STR, HParamValue>& hparam_defaults,
-        const std::vector<STR>& metric_tags) {
+        const std::map<STR, HParamValue>& defaults,
+        const std::vector<STR>& tags) {
         
         // Build HParamsPluginData for session_start_info
-        proto::Encoder hparams_proto;
+        proto::Encoder hparams;
         
         // Field 1: hparams (repeated HParamInfo)
-        for (const auto& kv : hparam_defaults) {
-            proto::Encoder hparam_info;
-            hparam_info.str(1, kv.first);  // name
-            
-            // Type and domain based on value type
-            switch (kv.second.type) {
-                case HParamValue::HP_FLOAT:
-                    hparam_info.s32(2, 1);  // type = DATA_TYPE_FLOAT64
-                    break;
-                case HParamValue::HP_INT:
-                    hparam_info.s32(2, 3);  // type = DATA_TYPE_FLOAT64 (TB converts ints)
-                    break;
-                case HParamValue::HP_STR:
-                    hparam_info.s32(2, 2);  // type = DATA_TYPE_STRING
-                    break;
-                case HParamValue::HP_BOOL:
-                    hparam_info.s32(2, 4);  // type = DATA_TYPE_BOOL
-                    break;
-            }
-            
-            hparams_proto.raw(1, hparam_info.buf());
+        for (const auto& kv : defaults) {
+            hparams.raw(1, _info(kv.first, kv.second));
         }
-        
+
         // Field 2: metric_infos (repeated MetricInfo)
-        for (const auto& tag : metric_tags) {
-            proto::Encoder metric_info;
-            metric_info.str(1, tag);  // name.tag
-            hparams_proto.raw(2, metric_info.buf());
+        for (const auto& tag : tags) {
+            proto::Encoder i;
+            i.str(1, tag);            // name.tag
+            hparams.raw(2, i.buf());
         }
         
         // Create session_start_info
-        proto::Encoder session_start;
-        session_start.raw(1, hparams_proto.buf());  // hparams
-        session_start.str(2, "");  // model_uri (empty)
-        session_start.str(3, "default");  // monitor_url (group name)
-        session_start.s64(4, 0);  // group_name as version
-        
-        // Wrap in plugin data
-        proto::Encoder plugin_data;
-        plugin_data.str(1, "hparams");  // plugin_name
-        plugin_data.raw(2, session_start.buf());  // content
-        
-        proto::Encoder metadata;
-        metadata.raw(1, plugin_data.buf());
-        
+        proto::Encoder ses;
+        ses.raw(1, hparams.buf());    // hparams
+        ses.str(2, "");               // model_uri (empty)
+        ses.str(3, "default");        // monitor_url (group name)
+        ses.s64(4, 0);                // group_name as version
         // Create summary value
-        proto::Encoder summary_value;
-        summary_value.str(1, "_hparams_/session_start_info");
-        summary_value.raw(9, metadata.buf());
-        
-        _write(_summary(summary_value.buf(), 0));
+        _write(_summary(_ses_meta(ses), 0));
     }
     
     // Log actual hyperparameter values and corresponding metrics
@@ -100,48 +66,14 @@ public:
         S64 step = 0) {
         
         // 1. Write session start with hparam values
-        proto::Encoder session_start;
-        
+        proto::Encoder ses1;
         for (const auto& kv : hparams) {
-            proto::Encoder hparam;
-            hparam.str(1, kv.first);  // name
-            
-            // Field 2: value (oneof)
-            proto::Encoder value;
-            switch (kv.second.type) {
-                case HParamValue::HP_FLOAT:
-                    value.f64(1, kv.second.f);  // number_value
-                    break;
-                case HParamValue::HP_INT:
-                    value.f64(1, static_cast<F64>(kv.second.i));
-                    break;
-                case HParamValue::HP_STR:
-                    value.str(2, kv.second.s);  // string_value
-                    break;
-                case HParamValue::HP_BOOL:
-                    value.write_bool(3, kv.second.i);  // bool_value
-                    break;
-            }
-            hparam.raw(2, value.buf());
-            
-            session_start.raw(1, hparam.buf());
+            ses1.raw(1, _hparam(kv.first, kv.second).buf());
         }
+        ses1.str(3, "default");  // group_name
+        ses1.s64(4, step);       // start_time_secs
         
-        session_start.str(3, "default");  // group_name
-        session_start.s64(4, step);  // start_time_secs
-        
-        proto::Encoder plugin_data;
-        plugin_data.str(1, "hparams");
-        plugin_data.raw(2, session_start.buf());
-        
-        proto::Encoder metadata;
-        metadata.raw(1, plugin_data.buf());
-        
-        proto::Encoder summary_value;
-        summary_value.str(1, "_hparams_/session_start_info");
-        summary_value.raw(9, metadata.buf());
-        
-        _write(_summary(summary_value.buf(), step));
+        _write(_summary(_ses_start(ses1.buf(), ), step));
         
         // 2. Write metrics as regular scalars
         for (const auto& kv : metrics) {
@@ -149,22 +81,78 @@ public:
         }
         
         // 3. Write session end
-        proto::Encoder session_end;
-        session_end.s32(1, 2);  // status = STATUS_SUCCESS
-        session_end.s64(2, step);  // end_time_secs
+        proto::Encoder ses0;
+        ses0.s32(1, 2);          // status = STATUS_SUCCESS
+        ses0.s64(2, step);       // end_time_secs
         
-        proto::Encoder plugin_data_end;
-        plugin_data_end.str(1, "hparams");
-        plugin_data_end.raw(2, session_end.buf());
+        _write(_summary(_ses_end(ses0.buf()), step));
+    }
+
+private:
+    U8V _ses_meta(U8V ses) {
+        proto::Encoder pd;       // Wrap in plugin data
+        pd.str(1, "hparams");    // plugin_name
+        pd.raw(2, ses);          // content
         
-        proto::Encoder metadata_end;
-        metadata_end.raw(1, plugin_data_end.buf());
+        proto::Encoder meta;
+        meta.raw(1, pd.buf());
+
+        return meta.buf();
+    }
+    
+    U8V _ses_start(U8V ses) {
+        proto::Encoder enc;      // SummaryValue
+        enc.str(1, "_hparams_/session_start_info");
+        enc.raw(9, _ses_meta(ses));
         
-        proto::Encoder summary_value_end;
-        summary_value_end.str(1, "_hparams_/session_end_info");
-        summary_value_end.raw(9, metadata_end.buf());
+        return enc.buf();
+    }
+    
+    U8V _ses_end(U8V ses) {
+        proto::Encoder enc;      // SummaryValue
+        enc.str(1, "_hparams_/session_start_info");
+        enc.raw(9, _ses_meta(ses));
         
-        _write(_summary(summary_value_end.buf(), step));
+        return enc.buf();
+    }
+    
+    U8V _info(STR& name, HParamValue& v) {
+        proto::Encoder i;
+        i.str(1, name);   // name
+            
+        // Type and domain based on value type
+        switch (v.type) {
+        case HParamValue::HP_FLOAT: // DATA_TYPE_FLOAT64
+            i.s32(2, 1);  break;
+        case HParamValue::HP_INT:   // DATA_TYPE_FLOAT64 (TB converts ints)
+            i.s32(2, 3);  break;
+        case HParamValue::HP_STR:   // DATA_TYPE_STRING
+            i.s32(2, 2);  break;
+        case HParamValue::HP_BOOL:  // DATA_TYPE_BOOL
+            i.s32(2, 4);  break;
+        }
+        return i.buf();
+    }
+
+    U8V _params(STR& name, HParamValue& v) {
+        proto::Encoder enc;
+        enc.str(1, name);           // name
+            
+        // Field 2: value (oneof)
+        proto::Encoder i;
+        switch (v) {
+        case HParamValue::HP_FLOAT: // number_value
+            i.f64(1, v.f);                   break;
+        case HParamValue::HP_INT:
+            i.f64(1, static_cast<F64>(v.i)); break;
+        case HParamValue::HP_STR:   // string_value
+            i.str(2, v.s);                   break;
+        case HParamValue::HP_BOOL:  // bool_value
+            i.write_bool(3, v.i);            break;
+        }
+        enc.raw(2, i.buf());
+
+        return enc.buf();
     }
 };
 
