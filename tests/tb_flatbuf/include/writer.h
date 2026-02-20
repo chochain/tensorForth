@@ -355,7 +355,7 @@ protected:
         
         proto::Encoder meta;
         meta.raw(1, pd.buf());
-        meta.s32(4, 2);           // data_class = DATA_CLASS_BLOB_SEQUENCE
+        meta.s32(4, 3);           // data_class = DATA_CLASS_BLOB_SEQUENCE
         
         return meta.buf();
     }
