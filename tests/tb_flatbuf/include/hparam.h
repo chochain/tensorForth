@@ -11,16 +11,17 @@ struct HParamValue {
     union {
         F64 f;
         S64 i;
+        PTR p;     // uintptr_t (string pointer)
     };
-    STR s;
 
-    HParamValue()       : type(HP_FLOAT), f(0) {}
-    HParamValue(F64 v)  : type(HP_FLOAT), f(v) {}
-    HParamValue(F32 v)  : type(HP_FLOAT), f(v) {}
-    HParamValue(S64 v)  : type(HP_INT),   i(v) {}
-    HParamValue(S32 v)  : type(HP_INT),   i(v) {}
-    HParamValue(STR& s) : type(HP_STR),   s(s) {}
-    HParamValue(BOOL v) : type(HP_BOOL),  i(v) {}
+    HParamValue()              : type(HP_FLOAT)       {}
+    HParamValue(F64 v)         : type(HP_FLOAT), f(v) {}
+    HParamValue(F32 v)         : type(HP_FLOAT), f(v) {}
+    HParamValue(S64 v)         : type(HP_INT),   i(v) {}
+    HParamValue(S32 v)         : type(HP_INT),   i(v) {}
+    HParamValue(BOOL v)        : type(HP_BOOL),  i(v) {}
+    HParamValue(const char *s) : type(HP_STR),   p(reinterpret_cast<PTR>(s)) {}
+    HParamValue(STR& s)        : HParamValue(s.c_str()) {}
 };
 
 class HParamWriter : public EventWriter {
@@ -116,14 +117,15 @@ private:
         // Type and domain based on value type
         switch (v.type) {
         case HParamValue::HP_FLOAT: // DATA_TYPE_FLOAT64
-            i.s32(4, 3);  break;
+            i.s32(3, 3);  break;
         case HParamValue::HP_INT:   // DATA_TYPE_FLOAT64 (TB converts ints)
-            i.s32(4, 3);  break;
+            i.s32(3, 3);  break;
         case HParamValue::HP_STR:   // DATA_TYPE_STRING
-            i.s32(4, 1);  break;
+            i.s32(3, 1);  break;
         case HParamValue::HP_BOOL:  // DATA_TYPE_BOOL
-            i.s32(4, 2); break;
+            i.s32(3, 2); break;
         }
+        _dump(i.buf(), "_info", "");
         return i.buf();
     }
 
@@ -135,15 +137,16 @@ private:
         proto::Encoder i;
         switch (v.type) {
         case HParamValue::HP_FLOAT: // number_value
-            i.f64(1, v.f);                         break;
+            i.f64(1, v.f);                                break;
         case HParamValue::HP_INT:
-            i.f64(1, static_cast<F64>(v.i));       break;
+            i.f64(1, static_cast<F64>(v.i));              break;
         case HParamValue::HP_STR:   // string_value
-            i.str(2, v.s);                         break;
+            i.str(2, reinterpret_cast<const char*>(v.p)); break;
         case HParamValue::HP_BOOL:  // bool_value
-            i.write_bool(3, v.i);                  break;
+            i.write_bool(3, v.i);                         break;
         }
         enc.raw(2, i.buf());
+        _dump(enc.buf(), "_param", "");
 
         return enc.buf();
     }
