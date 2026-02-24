@@ -36,17 +36,27 @@ public:
 
         // Build Experiment for HParamsPluginData
         proto::Encoder ex;             // Experiment
+        ex.str(1, "my_test");
+        _dump(ex.buf(), "ex1", "");
+        
         // Field 4: hparams (repeated HParamInfo)
         for (const auto& kv : info) {
             ex.raw(4, _info(kv.first, kv.second));
         }
+        _dump(ex.buf(), "ex4", "");
 
         // Field 5: metric_infos (repeated MetricInfo)
         for (const auto& name : metrics) {
-            proto::Encoder m;         // MetricInfo
-            m.str(1, name);           // name
-            ex.raw(5, m.buf());
+            proto::Encoder n;         // MetricName
+            n.str(1, "");             // group
+            n.str(2, name);           // tag
+            
+            proto::Encoder i;         // MetricInfo
+            i.raw(1, n.buf());
+            
+            ex.raw(5, i.buf());       // Experiment enclose MetricInfo
         }
+        _dump(ex.buf(), "ex5", "");
         
         // Create summary value
         _write(_summary(_plugin(ex.buf(), 2), 0));
@@ -84,6 +94,7 @@ public:
 private:
     U8V _plugin(const U8V& ses, U32 idx) {
         proto::Encoder ppd;         // HParamsPluginData
+        ppd.s32(1, 0);              // version (always 0)
         ppd.raw(idx, ses);          // content 2:experiment,3:start_info,4:end_info
 
         proto::Encoder pd;          // SummaryMetadata.PluginData
