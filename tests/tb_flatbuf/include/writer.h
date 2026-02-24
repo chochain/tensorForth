@@ -332,13 +332,13 @@ protected:
     }
 
     U8V _text_meta() {
-        proto::Encoder pd;      // SummaryMetadata.PluginData
-        pd.str(1, "text");
-        // Empty content for text plugin
+        proto::Encoder pd;        // SummaryMetadata.PluginData
+        pd.str(1, "text");        // plugin_name
+        // empty content for text
         
-        proto::Encoder meta;    // SummaryMetadata
-        meta.raw(1, pd.buf());
-        meta.s32(4, 2);         // data_class = DATA_CLASS_TENSOR
+        proto::Encoder meta;      // SummaryMetadata
+        meta.raw(1, pd.buf());    // PluginData
+        meta.s32(4, 2);           // data_class = DATA_CLASS_TENSOR
         
         return meta.buf();
     }
@@ -348,10 +348,8 @@ protected:
         pc.s32(1, max_images);    // max_images_per_step
         
         proto::Encoder pd;
-        pd.str(1, "images");
-        
-        const auto& pcb = pc.buf();
-        pd.raw(2, pcb.data(), pcb.size());
+        pd.str(1, "images");      // plugin_name
+        pd.raw(2, pc.buf());      // content
         
         proto::Encoder meta;
         meta.raw(1, pd.buf());
@@ -362,7 +360,8 @@ protected:
 
     U8V _histo_meta() {
         proto::Encoder pd;
-        pd.str(1, "histograms");
+        pd.str(1, "histograms");  // plugin_name
+        // empty content for histogram
         
         proto::Encoder meta;
         meta.raw(1, pd.buf());
