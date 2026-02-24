@@ -16,6 +16,7 @@ typedef int32_t           S32;
 typedef int64_t           S64;
 typedef float             F32;
 typedef double            F64;
+typedef uintptr_t         PTR;
 
 typedef std::string       STR;
 typedef std::vector<U8>   U8V;
