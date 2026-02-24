@@ -84,7 +84,7 @@ public:
     }
 
     // ── Length-delimited ─────────────────────────────────────────────────────
-    void raw(U32 field, const U8* data, USZ len) {
+    void raw(U32 field, const U8 *data, USZ len) {
         tag(field, 2);
         u64(len);
         _buf.insert(_buf.end(), data, data + len);
@@ -99,6 +99,10 @@ public:
 
     void str(U32 field, const STR& s) {
         raw(field, reinterpret_cast<const U8*>(s.c_str()), s.size());
+    }
+    
+    void str(U32 field, const char *s) {
+        raw(field, (const U8*)s, strlen(s));
     }
 
     void msg(U32 field, const Encoder& sub) {
