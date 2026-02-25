@@ -105,9 +105,13 @@ public:
         raw(field, (const U8*)s, strlen(s));
     }
 
-    void msg(U32 field, const Encoder& sub) {
+    void enc(const Encoder& sub) {
         const auto& sub_buf = sub.buf();
-        raw(field, sub_buf.data(), sub_buf.size());
+        _buf.insert(_buf.end(), sub_buf.begin(), sub_buf.end());
+    }
+    
+    void enc(const U8V& buf) {
+        _buf.insert(_buf.end(), buf.begin(), buf.end());
     }
 
     // Packed repeated F32s
