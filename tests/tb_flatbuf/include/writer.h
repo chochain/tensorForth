@@ -248,19 +248,20 @@ protected:
 
     void _dump(const U8V& buf, const char *hdr, const char *pfx="") {
         int sz = (int)buf.size();
-        printf("%s%s len=%d(%x)\n%s", pfx, hdr, sz, sz, pfx);
+        printf("%s%s len=%d(%x)\n", pfx, hdr, sz, sz);
         for (int i=0; i < sz; i+=16) {
+            printf("%s%04x:", pfx, i);
             for (int j=0; j<16; j++) {
                 U8 c = (i+j) < sz ? buf.data()[i+j] : 0;
-                printf("%02x ", c);
+                printf(" %02x", c);
             }
+            printf("  ");
             for (int j=0; j < 16; j++) {   // print and advance to next byte
                 U8 c = ((i+j) < sz ? buf.data()[i+j] : 0) & 0x7f;
                 printf("%c", (char)((c==0x7f||c<0x20) ? '_' : c));
             }
-            printf("\n%s", pfx);
+            printf("\n");
         }
-        printf("\n");
     }
 
     void _write(const U8V& buf) {
