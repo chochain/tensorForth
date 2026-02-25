@@ -48,7 +48,7 @@ public:
         // Field 5: metric_infos (repeated MetricInfo)
         for (const auto& name : metrics) {
             proto::Encoder n;         // MetricName
-            n.str(1, "");             // group
+            n.str(1, "scalars");      // group
             n.str(2, name);           // tag
             
             proto::Encoder i;         // MetricInfo
@@ -66,25 +66,29 @@ public:
     void add_hparams(
         const std::map<STR, HParamValue>& hparams,
         const std::map<STR, F64>& metrics,
+        const char *group = "default",
         S64 step = 0) {
         
         // 1. Write session start with hparam values
-        proto::Encoder ses1;
+        proto::Encoder pd;
         for (const auto& kv : hparams) {
-            ses1.raw(1, _param(kv.first, kv.second));
+            pd.enc(_param(kv.first, kv.second));
         }
-        ses1.str(4, "default");  // group_name
-        ses1.s64(5, step);       // start_time_secs
+        
+        proto::Encoder ses1;        // SessionStartInfo
+        ses1.raw(1, pd.buf());      // map<protobuf.Value> hparams
+        ses1.str(4, group);         // group_name
+        ses1.s64(5, step);          // start_time_secs
         
         _write(_summary(_plugin(ses1.buf(), 3), step));
-        
+
         // 2. Write metrics as regular scalars
         for (const auto& kv : metrics) {
             add_scalar(kv.first, static_cast<F32>(kv.second), step);
         }
         
         // 3. Write session end
-        proto::Encoder ses0;
+        proto::Encoder ses0;        // SessionEndInfo
         ses0.s32(1, 2);             // status = STATUS_SUCCESS
         ses0.s64(2, step);          // end_time_secs
         
@@ -121,42 +125,47 @@ private:
         return enc.buf();
     }
     
-    U8V _info(STR name, HParamValue v) {
+    U8V _info(STR name, HParamValue hpv) {
         proto::Encoder i;           // MetricInfo
         i.str(1, name);             // name
-            
+
         // Type and domain based on value type
-        switch (v.type) {
+        const int tag = 4;          // DATA_TYPE
+        switch (hpv.type) {
         case HParamValue::HP_FLOAT: // DATA_TYPE_FLOAT64
-            i.s32(3, 3);  break;
+            i.s32(tag, 3);  break;
         case HParamValue::HP_INT:   // DATA_TYPE_FLOAT64 (TB converts ints)
-            i.s32(3, 3);  break;
+            i.s32(tag, 3);  break;
         case HParamValue::HP_STR:   // DATA_TYPE_STRING
-            i.s32(3, 1);  break;
+            i.s32(tag, 1);  break;
         case HParamValue::HP_BOOL:  // DATA_TYPE_BOOL
-            i.s32(3, 2); break;
+            i.s32(tag, 2); break;
         }
         _dump(i.buf(), "_info", "");
         return i.buf();
     }
 
-    U8V _param(STR name, HParamValue v) {
-        proto::Encoder enc;
-        enc.str(1, name);           // name
+    U8V _param(STR name, HParamValue hpv) {
+        // Field 1: name
+        proto::Encoder k;
+        k.str(1, name);             // name
             
-        // Field 2: value (oneof)
-        proto::Encoder i;
-        switch (v.type) {
+        // Field 2: value (oneof)   // protobuf.Value
+        proto::Encoder v;
+        switch (hpv.type) {
         case HParamValue::HP_FLOAT: // number_value
-            i.f64(1, v.f);                                break;
+            v.f64(2, hpv.f);                                break;
         case HParamValue::HP_INT:
-            i.f64(1, static_cast<F64>(v.i));              break;
+            v.f64(2, static_cast<F64>(hpv.i));              break;
         case HParamValue::HP_STR:   // string_value
-            i.str(2, reinterpret_cast<const char*>(v.p)); break;
+            v.str(3, reinterpret_cast<const char*>(hpv.p)); break;
         case HParamValue::HP_BOOL:  // bool_value
-            i.write_bool(3, v.i);                         break;
+            v.write_bool(4, hpv.i);                         break;
         }
-        enc.raw(2, i.buf());
+        
+        proto::Encoder enc;
+        enc.raw(1, k.buf());
+        enc.raw(2, v.buf());
         _dump(enc.buf(), "_param", "");
 
         return enc.buf();
