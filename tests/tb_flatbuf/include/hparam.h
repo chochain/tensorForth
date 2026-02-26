@@ -37,13 +37,11 @@ public:
         // Build Experiment for HParamsPluginData
         proto::Encoder ex;             // Experiment
         ex.str(1, "my_test");
-        _dump(ex.buf(), "ex1", "");
         
         // Field 4: hparams (repeated HParamInfo)
         for (const auto& kv : info) {
             ex.raw(4, _info(kv.first, kv.second));
         }
-        _dump(ex.buf(), "ex4", "");
 
         // Field 5: metric_infos (repeated MetricInfo)
         for (const auto& name : metrics) {
@@ -56,7 +54,6 @@ public:
             
             ex.raw(5, i.buf());       // Experiment enclose MetricInfo
         }
-        _dump(ex.buf(), "ex5", "");
         
         // Create summary value
         _write(_summary(_plugin(ex.buf(), 2), 0));
@@ -78,7 +75,7 @@ public:
         ses1.f64(5, step);          // start_time_secs
         
         _write(_summary(_plugin(ses1.buf(), 3), step));
-/*
+
         // 2. Write metrics as regular scalars
         for (const auto& kv : metrics) {
             add_scalar(kv.first, static_cast<F32>(kv.second), step);
@@ -90,13 +87,12 @@ public:
         ses0.f64(2, step);          // end_time_secs
         
         _write(_summary(_plugin(ses0.buf(), 4), step));
-*/
     }
 
 private:
     U8V _plugin(const U8V& ses, U32 idx) {
         proto::Encoder ppd;         // HParamsPluginData
-//CC        ppd.s32(1, 0);              // version (always 0)
+        ppd.s32(1, 0);              // version (always 0)
         ppd.raw(idx, ses);          // content 2:experiment,3:start_info,4:end_info
 
         proto::Encoder pd;          // SummaryMetadata.PluginData
@@ -105,8 +101,7 @@ private:
         
         proto::Encoder meta;        // SummaryMetadata
         meta.raw(1, pd.buf());      // plugin_data
-//CC        meta.s32(4, 3);             // DATA_CLASS_BLOB_SEQUENCE
-        _dump(ses, "meta", "");
+//XXX     meta.s32(4, 3);             // DATA_CLASS_BLOB_SEQUENCE, this break
 
         const char *tag[] = {
             "_hparams_/experiment",
@@ -116,10 +111,8 @@ private:
         proto::Encoder enc;         // SummaryValue
         enc.str(1, tag[idx-2]);     // HParam tag
         enc.raw(9, meta.buf());
-//CC        enc.raw(8, _scalar_tensor(0.0)); // blank Tensor
+        enc.raw(8, _scalar_tensor(0.0)); // blank Tensor
 
-        _dump(enc.buf(), "enc.buf", "    ");
-        
         return enc.buf();
     }
     
@@ -139,13 +132,12 @@ private:
         case HParamValue::HP_BOOL:  // DATA_TYPE_BOOL
             i.s32(tag, 2); break;
         }
-        _dump(i.buf(), "_info", "");
         return i.buf();
     }
 
     U8V _param(STR name, HParamValue hpv) {
         // Field 1: name
-        proto::Encoder p;
+        proto::Encoder p;           // HParamInfo
         p.str(1, name);             // name
             
         // Field 2: value (oneof)   // protobuf.Value
@@ -160,10 +152,7 @@ private:
         case HParamValue::HP_BOOL:  // bool_value
             v.write_bool(4, hpv.i);                         break;
         }
-        _dump(v.buf(), "v=", "");
-        
         p.raw(2, v.buf());
-        _dump(p.buf(), "_param", "");
 
         return p.buf();
     }
