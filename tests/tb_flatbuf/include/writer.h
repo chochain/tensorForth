@@ -137,7 +137,7 @@ public:
         : _file(path, std::ios::binary | std::ios::trunc) {
         if (!_file.is_open())
             throw std::runtime_error("Cannot open event file: " + path);
-//CC        add_version();
+        add_version();
     }
     ~EventWriter() { if (_file.is_open()) _file.close(); }
 
@@ -279,13 +279,11 @@ protected:
     U8V _summary(const U8V& buf, S64 step) {
         proto::Encoder summary;
         summary.raw(1, buf);                                    // repeated Value
-        _dump(summary.buf(), "summary", "");
         
         proto::Encoder event;
-//CC        event.f64(1, static_cast<F64>(std::time(nullptr)));   // wall_time
-//CC        event.s64(2, step);                                   // step
+        event.f64(1, static_cast<F64>(std::time(nullptr)));   // wall_time
+        event.s64(2, step);                                   // step
         event.raw(5, summary.buf());                            // summary
-        _dump(event.buf(), "event", "");
         
         return event.buf();
     }
