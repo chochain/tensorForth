@@ -17,15 +17,66 @@ tfevents file
                 ├── tag: string
                 ├── SummaryMetadata (protobuf)
                 │   └── PluginData
-                │       ├── plugin_name: "scalars" | "images" | "histograms"
+                │       ├── plugin_name: "scalars" | "text" | "images" | "histograms" | "hparams"
                 │       └── content: bytes  ◄── FlatBuffers encoded!
                 │           ├── ScalarPluginData    { mode: int8 }
+                │           ├── (empty for text)
+                │           ├── HParamPluginData (one of)
+                │           │   ├── Experiment
+                │           │   ├── SessionStartInfo
+                │           │   └── SessionEndInfo
                 │           ├── ImagePluginData     { max_images: int32 }
                 │           └── HistogramPluginData { (empty) }
                 └── payload (one of):
                     ├── simple_value: float   (scalar)
+                    ├── tensor: TensorProto   (text, hparams, or other tensor types)
                     ├── image: Summary.Image  (PNG bytes)
                     └── histo: HistogramProto (bucket edges + counts)
+
+       [ EVENT FILE (.v2) ]
+
+                |
+                v
+      +-------------------+
+      |      Summary      |
+      +---------+---------+
+
+                |
+     +----------+----------+
+     |                     |
+[  Value  ]           [  Value  ] ...
+
+     |
+     +--> 1) tag: "loss"
+     |
+     +--> 8) tensor: [0.42, 0.38, ...]
+
+     |
+     +--> 9) metadata: [ SummaryMetadata ]
+                |
+                +--> display_name: "Training Loss"
+
+                |
+                +--> 4) data_class: DATA_CLASS_SCALAR
+                |
+                +--> 1) plugin_data: [ PluginData ] <---+
+
+                           |                         |
+                           +--> plugin_name: "scalars"
+                           |
+                           +--> content: <serialized bytes>
+                                (e.g., version info)
+
+       PluginData (Message)
+ _________________________________
+|                                 |
+|  plugin_name: "pr_curves"       |-----> Tells TB which 
+|  (string)                       |       Dashboard to load.
+|_________________________________|
+|                                 |
+|  content: \x08\x01\x12\x04...   |-----> Opaque byte string.
+|  (bytes)                        |       Plugin-specific 
+|_________________________________|       config/metadata.
 ```
 
 ---
