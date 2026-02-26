@@ -69,19 +69,16 @@ public:
         const char *group = "default",
         S64 step = 0) {
         
-        // 1. Write session start with hparam values
-        proto::Encoder pd;
-        for (const auto& kv : hparams) {
-            pd.enc(_param(kv.first, kv.second));
-        }
-        
         proto::Encoder ses1;        // SessionStartInfo
-        ses1.raw(1, pd.buf());      // map<protobuf.Value> hparams
+        // 1. Write session start with hparam values
+        for (const auto& kv : hparams) { // map<protobuf.Value> hparams
+            ses1.raw(1, _param(kv.first, kv.second));
+        }
         ses1.str(4, group);         // group_name
-        ses1.s64(5, step);          // start_time_secs
+        ses1.f64(5, step);          // start_time_secs
         
         _write(_summary(_plugin(ses1.buf(), 3), step));
-
+/*
         // 2. Write metrics as regular scalars
         for (const auto& kv : metrics) {
             add_scalar(kv.first, static_cast<F32>(kv.second), step);
@@ -90,15 +87,16 @@ public:
         // 3. Write session end
         proto::Encoder ses0;        // SessionEndInfo
         ses0.s32(1, 2);             // status = STATUS_SUCCESS
-        ses0.s64(2, step);          // end_time_secs
+        ses0.f64(2, step);          // end_time_secs
         
         _write(_summary(_plugin(ses0.buf(), 4), step));
+*/
     }
 
 private:
     U8V _plugin(const U8V& ses, U32 idx) {
         proto::Encoder ppd;         // HParamsPluginData
-        ppd.s32(1, 0);              // version (always 0)
+//CC        ppd.s32(1, 0);              // version (always 0)
         ppd.raw(idx, ses);          // content 2:experiment,3:start_info,4:end_info
 
         proto::Encoder pd;          // SummaryMetadata.PluginData
@@ -107,7 +105,7 @@ private:
         
         proto::Encoder meta;        // SummaryMetadata
         meta.raw(1, pd.buf());      // plugin_data
-        meta.s32(4, 3);             // DATA_CLASS_BLOB_SEQUENCE
+//CC        meta.s32(4, 3);             // DATA_CLASS_BLOB_SEQUENCE
         _dump(ses, "meta", "");
 
         const char *tag[] = {
@@ -118,7 +116,7 @@ private:
         proto::Encoder enc;         // SummaryValue
         enc.str(1, tag[idx-2]);     // HParam tag
         enc.raw(9, meta.buf());
-        enc.raw(8, _scalar_tensor(0.0)); // blank Tensor
+//CC        enc.raw(8, _scalar_tensor(0.0)); // blank Tensor
 
         _dump(enc.buf(), "enc.buf", "    ");
         
@@ -147,8 +145,8 @@ private:
 
     U8V _param(STR name, HParamValue hpv) {
         // Field 1: name
-        proto::Encoder k;
-        k.str(1, name);             // name
+        proto::Encoder p;
+        p.str(1, name);             // name
             
         // Field 2: value (oneof)   // protobuf.Value
         proto::Encoder v;
@@ -162,13 +160,12 @@ private:
         case HParamValue::HP_BOOL:  // bool_value
             v.write_bool(4, hpv.i);                         break;
         }
+        _dump(v.buf(), "v=", "");
         
-        proto::Encoder enc;
-        enc.raw(1, k.buf());
-        enc.raw(2, v.buf());
-        _dump(enc.buf(), "_param", "");
+        p.raw(2, v.buf());
+        _dump(p.buf(), "_param", "");
 
-        return enc.buf();
+        return p.buf();
     }
 };
 
