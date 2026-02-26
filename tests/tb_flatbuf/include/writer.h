@@ -137,29 +137,29 @@ public:
         : _file(path, std::ios::binary | std::ios::trunc) {
         if (!_file.is_open())
             throw std::runtime_error("Cannot open event file: " + path);
-        add_version();
+//CC        add_version();
     }
     ~EventWriter() { if (_file.is_open()) _file.close(); }
 
     void add_version() {
         proto::Encoder event;
-        event.f64(1, static_cast<F64>(std::time(nullptr)));
-        event.s64(2, 0);
-        event.str(3, "brain.Event:2");   // field 3 = file_version
+        event.f64(1, static_cast<F64>(std::time(nullptr))); // wall_time
+        event.s64(2, 0);                                    // step
+        event.str(3, "brain.Event:2");                      // file_version
 
         _write(event.buf());
     }
 
     // ── Scalar ──────────────────────────────────────────────────────────────
-    void add_scalar_simple(const STR& tag, F32 v, S64 step) {
+    void add_scalar(const STR& tag, F32 v, S64 step) {
         proto::Encoder enc;
         enc.str(1, tag);                                 // tag
         enc.f32(2, v);                                   // simple_value
 
         _write(_summary(enc.buf(), step));
     }
-    
-    void add_scalar(const STR& tag, F32 v, S64 step) {
+   
+    void add_scalar_tensor(const STR& tag, F32 v, S64 step) {
         proto::Encoder enc;
         enc.str(1, tag);                                 // tag
         enc.raw(9, _scalar_meta());                      // metadata → field 9
@@ -279,11 +279,13 @@ protected:
     U8V _summary(const U8V& buf, S64 step) {
         proto::Encoder summary;
         summary.raw(1, buf);                                    // repeated Value
+        _dump(summary.buf(), "summary", "");
         
         proto::Encoder event;
-        event.f64(1, static_cast<F64>(std::time(nullptr)));
-        event.s64(2, step);
+//CC        event.f64(1, static_cast<F64>(std::time(nullptr)));   // wall_time
+//CC        event.s64(2, step);                                   // step
         event.raw(5, summary.buf());                            // summary
+        _dump(event.buf(), "event", "");
         
         return event.buf();
     }
