@@ -78,7 +78,63 @@ tfevents file
 |  (bytes)                        |       Plugin-specific 
 |_________________________________|       config/metadata.
 ```
+### HParams Session Structure
+```
+Summary
+└── value (Summary.Value)
+    ├── tag: "_hparams_/experiment"
+    ├── metadata (SummaryMetadata)
+    │   └── plugin_data (FeatureNameConfig)
+    │       └── plugin_name: "hparams"  <-- Required
+    └── tensor (TensorProto)
+        └── string_val: [Serialized Experiment Proto]
+    
+# 1. Session Start
+Summary
+└── value (Summary.Value)
+    ├── tag: "_hparams_/session_start_info"
+    ├── metadata (SummaryMetadata)
+    │   └── plugin_data (FeatureNameConfig)
+    │       │── plugin_name: "hparams"  <-- Required
+    │       └── content: [Serialized SessionStartInfo Proto]
+    └── tensor (TensorProto)  <--
 
+Summary.Value {
+  tag: "_hparams_/session_start_info"
+  metadata: {
+    plugin_data: {
+      plugin_name: "hparams"
+      content: {
+        hparams: [
+          { name: "learning_rate", value: {number_value: 0.001} }
+          { name: "batch_size", value: {number_value: 32} }
+          { name: "optimizer", value: {string_value: "adam"} }
+        ]
+        group_name: "default"
+        start_time_secs: 0
+      }
+    }
+  }
+}
+
+# 2. Metrics (regular scalars)
+Summary.Value { tag: "accuracy", simple_value: 0.925 }
+Summary.Value { tag: "loss", simple_value: 0.234 }
+
+# 3. Session End
+Summary.Value {
+  tag: "_hparams_/session_end_info"
+  metadata: {
+    plugin_data: {
+      plugin_name: "hparams"
+      content: {
+        status: STATUS_SUCCESS (2)
+        end_time_secs: 100
+      }
+    }
+  }
+}
+```
 ---
 
 ## File Structure
@@ -90,6 +146,7 @@ tb_flatbuffers/
 │   ├── crc32c.h               # CRC32C + masked CRC for TFRecord framing
 │   ├── encode.h               # Minimal protobuf wire-format encoder
 │   ├── schema.h               # FlatBuffers encoders for TB plugin data
+│   ├── hparam.h               # HParams tab handler
 │   └── writer.h               # Main EventWriter class
 ├── src/
 │   └── main.cpp               # Demo application
