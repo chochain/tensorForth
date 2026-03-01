@@ -32,11 +32,16 @@ public:
     // Initialize hparams experiment with parameter and metric definitions
     void add_config(
         const std::map<STR, HParamValue>& info,
-        const std::vector<STR>& metrics) {
+        const std::vector<STR>& metrics,
+        const char *name = "default",
+        const char *user = "default",
+        S64 step = 0) {
 
         // Build Experiment for HParamsPluginData
-        proto::Encoder ex;             // Experiment
-        ex.str(1, "my_test");
+        proto::Encoder ex;            // Experiment
+        ex.str(1, name);              // name
+        ex.str(2, user);              // user
+        ex.f64(3, step);              // start time 
         
         // Field 4: hparams (repeated HParamInfo)
         for (const auto& kv : info) {
@@ -46,11 +51,11 @@ public:
         // Field 5: metric_infos (repeated MetricInfo)
         for (const auto& name : metrics) {
             proto::Encoder n;         // MetricName
-            n.str(1, "scalars");      // group
+            n.str(1, "");             // group (subdir of metrics)
             n.str(2, name);           // tag
             
             proto::Encoder i;         // MetricInfo
-            i.raw(1, n.buf());
+            i.raw(1, n.buf());        // name
             
             ex.raw(5, i.buf());       // Experiment enclose MetricInfo
         }
@@ -116,7 +121,7 @@ private:
         return enc.buf();
     }
     
-    U8V _info(STR name, HParamValue hpv) {
+    U8V _info(STR name, HParamValue hpv) {  // HParamInfo
         proto::Encoder i;           // MetricInfo
         i.str(1, name);             // name
 
@@ -132,7 +137,7 @@ private:
         case HParamValue::HP_BOOL:  // DATA_TYPE_BOOL
             i.s32(tag, 2); break;
         }
-        return i.buf();
+        return i.buf();             // HParamInfo
     }
 
     U8V _param(STR name, HParamValue hpv) {
