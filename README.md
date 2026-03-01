@@ -527,17 +527,18 @@ If all goes well, some warnings aside, *~/tests/ten4* is your executable. The fo
 
 ### TODO - by priorities
 * Design & Instrumentation
-  + Visulization via TensorBoard
-    - output tensor in HWC format
-    - util from raw to png (with STB)
-    - for PIL (Python Image Lib), matplotlib
-    - [tfevents](https://github.com/mlverse/tfevents)
-    - [protobuf](https://chromium.googlesource.com/external/github.com/tensorflow/tensorflow/+/r0.10/tensorflow/g3doc/how_tos/tool_developers/index.md)
-    - [tensorflow EventWriter](https://stackoverflow.com/questions/48610803/how-i-can-use-filewrite-summary-in-tensorflow-c-api-to-view-it-in-tensorboard/48702823#48702823)
-    - [pytorch SummaryWriter](https://github.com/pytorch/pytorch/blob/main/torch/utils/tensorboard/writer.py)
-    - [pytorch TensorBoard writer](https://github.com/pytorch/pytorch/blob/main/torch/utils/tensorboard/writer.py)
+  x Visulization via Netron
+  x Visulization via TensorBoard
+    x output tensor in HWC format
+    x util from raw to png (with STB)
+    x for PIL (Python Image Lib), matplotlib
+    x [tfevents](https://github.com/mlverse/tfevents)
+    x [protobuf](https://chromium.googlesource.com/external/github.com/tensorflow/tensorflow/+/r0.10/tensorflow/g3doc/how_tos/tool_developers/index.md)
+    x [tensorflow EventWriter](https://stackoverflow.com/questions/48610803/how-i-can-use-filewrite-summary-in-tensorflow-c-api-to-view-it-in-tensorboard/48702823#48702823)
+    x [pytorch SummaryWriter](https://github.com/pytorch/pytorch/blob/main/torch/utils/tensorboard/writer.py)
+    x [pytorch TensorBoard writer](https://github.com/pytorch/pytorch/blob/main/torch/utils/tensorboard/writer.py)
   + Llama
-    - [llama2.c](https://www.signalpop.com/2024/02/10/understanding-llama2-c-and-chatgpt-a-visual-design-walkthrough/)
+    x [llama2.c](https://www.signalpop.com/2024/02/10/understanding-llama2-c-and-chatgpt-a-visual-design-walkthrough/)
     - [Review](https://www.hostinger.com/tutorials/what-is-ollama). Local LLM environment with pre-train model.
     - [GGML Tensor library]( https://github.com/ggerganov/ggml). Host-oriented, review kernel code.
     - [GGUF](https://github.com/ggerganov/ggml/blob/master/docs/gguf.md). Optimized for GPU, cross-platform, structured model storage.
@@ -623,15 +624,6 @@ If all goes well, some warnings aside, *~/tests/ten4* is your executable. The fo
   + model persistence - .npy, .petastorm, hdf5
   + integrate ONNX
 * Visualization
-  + TensorBoard
-    - output tensor in HWC format
-    - util from raw to png (with STB)
-    - for PIL (Python Image Lib), matplotlib
-    - [tfevents](https://github.com/mlverse/tfevents)
-    - [protobuf](https://chromium.googlesource.com/external/github.com/tensorflow/tensorflow/+/r0.10/tensorflow/g3doc/how_tos/tool_developers/index.md)
-    - [tensorflow EventWriter](https://stackoverflow.com/questions/48610803/how-i-can-use-filewrite-summary-in-tensorflow-c-api-to-view-it-in-tensorboard/48702823#48702823)
-    - [pytorch SummaryWriter](https://github.com/pytorch/pytorch/blob/main/torch/utils/tensorboard/writer.py)
-    - [pytorch TensorBoard writer](https://github.com/pytorch/pytorch/blob/main/torch/utils/tensorboard/writer.py)
   + nvdiffrast https://nvlabs.github.io/nvdiffrast/
   + OpenGL/WASM
 * 3rd-party lib Integration
