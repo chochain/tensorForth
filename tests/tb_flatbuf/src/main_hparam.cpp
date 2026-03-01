@@ -35,7 +35,7 @@ int main() {
     std::vector<std::string> metric_tags = {"Accuracy", "Loss"};
     
     // Initialize hparams experiment configuration
-//    hparam.add_config(hparam_defaults, metric_tags);
+    hparam.add_config(hparam_defaults, metric_tags);
 
     // You can also log scalars during training
     float loss, acc;
@@ -90,6 +90,7 @@ int main() {
     tensorboard::HParamWriter hp3("./runs/hparams/run3/events.out.tfevents.456.gnii.1");
     hparams["batch_size"] = 64;
     hparams["learning_rate"] = 0.03;
+    hparams["optimizer"] = "sgd";
     hparams["dropout"] = 0.90;
     metrics["Accuracy"] = 0.4;
     metrics["Loss"]     = 0.6;
