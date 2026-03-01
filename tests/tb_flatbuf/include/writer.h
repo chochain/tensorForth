@@ -39,6 +39,46 @@
  *   +16: uint32_val (packed)
  *   +17: uint64_val (packed)
  *
+ * = GraphDef ===========================================
+ * tensorflow.Graph
+ *   1: node (NodeDef repeated)
+ *   +2: FunctionDefLibrary library
+ *   3: version (int32)
+ *   +4: versions (VersionDef)
+ *
+ * tensorflow.NodeDef
+ *   1: name (string)
+ *   2: op   (string)
+ *   3: input (string repeated)
+ *   4: device (string)
+ *   5: attr (map<string, AttrValue>)
+ *
+ * tensorflow.AttrValue
+ *   oneof value {
+ *     bytes s = 2;                 // "string"
+ *     int64 i = 3;                 // "int"
+ *     float f = 4;                 // "float"
+ *     bool b = 5;                  // "bool"
+ *     DataType type = 6;           // "type"
+ *     TensorShapeProto shape = 7;  // "shape"
+ *     TensorProto tensor = 8;      // "tensor"
+ *     ListValue list = 1;          // any "list(...)"
+ *     string placeholder = 9;      // For library functions
+ *     +NameAttrList func = 10;
+ *   }
+ *
+ *= For attributes that are lists (e.g., strides: [1, 2, 2, 1])
+ *  message ListValue {
+ *    repeated bytes s = 2;
+ *    repeated int64 i = 3 [packed = true];
+ *    repeated float f = 4 [packed = true];
+ *    repeated bool b = 5 [packed = true];
+ *    repeated DataType type = 6 [packed = true];
+ *    repeated TensorShapeProto shape = 7;
+ *    repeated TensorProto tensor = 8;
+ *    +repeated NameAttrList func = 9;              // "list(attr)"
+ *  }
+ *
  * = Summary ============================================
  * tensorflow.Summary.Value  (summary.proto):
  *   1: tag (string)
