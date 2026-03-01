@@ -46,9 +46,11 @@ static void print_section(const STR& title) {
 void demo_scalars(const STR& logdir) {
     print_section("Demo 1: Scalar Summaries");
 
-    STR path = make_event_path(logdir, "scalars");
-    tensorboard::EventWriter writer(path);
-    std::cout << "  Writing to: " << path << "\n";
+    STR path_s = make_event_path(logdir, "scalars");
+    STR path_t = make_event_path(logdir, "texts");
+    tensorboard::EventWriter writer_s(path_s);
+    tensorboard::EventWriter writer_t(path_t);
+    std::cout << "  Writing to: " << path_s << ", " << path_t << "\n";
 
     std::mt19937 rng(42);
     std::normal_distribution<F32> noise(0.0f, 0.02f);
@@ -65,16 +67,21 @@ void demo_scalars(const STR& logdir) {
         // Learning rate schedule (cosine decay)
         F32 lr = 0.001f * (1.0f + std::cos(3.14159f * t)) * 0.5f;
 
-        writer.add_scalar("train/loss",     loss, step);
-        writer.add_scalar("train/accuracy", acc,  step);
-        writer.add_scalar("train/lr",       lr,   step);
+        writer_s.add_scalar("train/loss",     loss, step);
+        writer_s.add_scalar("train/accuracy", acc,  step);
+        writer_s.add_scalar("train/lr",       lr,   step);
 
         // Validation metrics (added every 10 steps with more noise)
         if (step % 10 == 0) {
             F32 val_loss = loss + std::abs(noise(rng)) * 0.3f;
             F32 val_acc  = acc  - std::abs(noise(rng)) * 0.05f;
-            writer.add_scalar("val/loss",     val_loss, step);
-            writer.add_scalar("val/accuracy", val_acc,  step);
+            writer_s.add_scalar("val/loss",     val_loss, step);
+            writer_s.add_scalar("val/accuracy", val_acc,  step);
+            
+            std::ostringstream ss;
+            ss << "<pre>step " << step << ": accuracy=" << acc 
+               << ", loss=" << loss << "</pre>";
+            writer_t.add_text("train/progress", ss.str(), step);
         }
 
         if (step % 25 == 0) {
