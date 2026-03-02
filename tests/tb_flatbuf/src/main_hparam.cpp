@@ -35,7 +35,7 @@ int main() {
     std::vector<std::string> metric_tags = {"Accuracy", "Loss"};
     
     // Initialize hparams experiment configuration
-    hparam.add_config(hparam_defaults, metric_tags);
+    hparam.config(hparam_defaults, metric_tags);
 
     // You can also log scalars during training
     float loss, acc;
@@ -69,7 +69,7 @@ int main() {
     std::map<std::string, double> metrics;
     metrics["Accuracy"] = 0.1;
     metrics["Loss"]     = 0.9;
-    hp0.add_hparams(hparams, metrics, "test0", 17000000);
+    hp0.write(hparams, metrics, "test0", 17000000);
 
     tensorboard::HParamWriter hp1("./runs/hparams/run1/events.out.tfevents.456.gnii.1");
     hparams["batch_size"] = 32;
@@ -77,7 +77,7 @@ int main() {
     hparams["dropout"] = 0.75;
     metrics["Accuracy"] = 0.2;
     metrics["Loss"]     = 0.8;
-    hp1.add_hparams(hparams, metrics, "test1", 17000001);
+    hp1.write(hparams, metrics, "test1", 17000001);
     
     tensorboard::HParamWriter hp2("./runs/hparams/run2/events.out.tfevents.456.gnii.1");
     hparams["batch_size"] = 32;
@@ -85,7 +85,7 @@ int main() {
     hparams["dropout"] = 0.90;
     metrics["Accuracy"] = 0.3;
     metrics["Loss"]     = 0.7;
-    hp2.add_hparams(hparams, metrics, "test2", 17000002);
+    hp2.write(hparams, metrics, "test2", 17000002);
     
     tensorboard::HParamWriter hp3("./runs/hparams/run3/events.out.tfevents.456.gnii.1");
     hparams["batch_size"] = 64;
@@ -94,7 +94,7 @@ int main() {
     hparams["dropout"] = 0.90;
     metrics["Accuracy"] = 0.4;
     metrics["Loss"]     = 0.6;
-    hp3.add_hparams(hparams, metrics, "test3", 17000003);
+    hp3.write(hparams, metrics, "test3", 17000003);
 
     std::cout << "Done! View results with:\n";
     std::cout << "  tensorboard --logdir=./logs\n";
