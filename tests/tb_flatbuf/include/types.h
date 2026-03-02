@@ -21,6 +21,7 @@ typedef uintptr_t         PTR;
 typedef std::string       STR;
 typedef std::vector<U8>   U8V;
 typedef std::vector<U16>  U16V;
+typedef std::vector<U32>  U32V;
 typedef std::vector<F32>  F32V;
 typedef std::vector<F64>  F64V;
 
