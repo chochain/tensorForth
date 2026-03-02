@@ -9,6 +9,7 @@
  *   - ScalarPluginData   (field 1: mode:int8)
  *   - ImagePluginData    (field 1: max_images:int32)
  *   - HistogramPluginData (no extra fields)
+ *   - HParamPluginData
  *
  * These are encoded using our FlatBufferBuilder and embedded as bytes
  * inside the protobuf SummaryMetadata message.
@@ -26,6 +27,141 @@
  * table HistogramPluginData {
  *   // empty — uses default display
  * }
+ * ── Correct proto field numbers (cross-checked against TB compat protos) ─────
+ *
+ * tensorflow.Event  (event.proto):
+ *   1: wall_time (double)
+ *   2: step (int64)
+ *   3: file_version (string)
+ *   +4: graph_def (bytes)
+ *   5: summary (Summary)
+ *   +6: log_message (LogMessage)
+ *   +7: session_log (SessionLog)
+ *   +8: tagged_run_metadata (TaggedRunMetaData)
+ *   9: meta_graph_def (bytes)  ← do NOT write here
+ *
+ * +tensorflow.ResourceHandleProto
+ *
+ * +tensorflow.DataType
+ *   DT_FLOAT=1, DT_DOUBLE=2, ..., DT_STRING=7
+ *
+ * = Tensor =====================
+ * tensorflow.TensorProto:
+ *   1: dtype (DT_FLOAT=1)
+ *   2: tensor_shape (empty=scalar)
+ *   +3: version_number (int32)
+ *   +4: tensor_content (bytes)
+ *   5: float_val (packed)
+ *   +6: double_val (packed)
+ *   +7: int_val (packed)
+ *   8: string_val (bytes repeated)
+ *   +9: scomplex_val (float packed)
+ *   +10: int64_val (packed)
+ *   +11: bool_val (packed)
+ *   +12: dcomplex_val (double packed)
+ *   +13: half_val (int32 packed)
+ *   +14: resource_handle_val (ResourceHandleProto)
+ *   x15: variant_val (VariantTensorDataProto) 
+ *   +16: uint32_val (packed)
+ *   +17: uint64_val (packed)
+ *
+ * = GraphDef ===========================================
+ * tensorflow.Graph
+ *   1: node (NodeDef repeated)
+ *   +2: FunctionDefLibrary library
+ *   3: version (int32)
+ *   +4: versions (VersionDef)
+ *
+ * tensorflow.NodeDef
+ *   1: name (string)
+ *   2: op   (string)
+ *   3: input (string repeated)
+ *   4: device (string)
+ *   5: attr (map<string, AttrValue>)
+ *
+ * tensorflow.AttrValue
+ *   oneof value {
+ *     bytes s = 2;                 // "string"
+ *     int64 i = 3;                 // "int"
+ *     float f = 4;                 // "float"
+ *     bool b = 5;                  // "bool"
+ *     DataType type = 6;           // "type"
+ *     TensorShapeProto shape = 7;  // "shape"
+ *     TensorProto tensor = 8;      // "tensor"
+ *     ListValue list = 1;          // any "list(...)"
+ *     string placeholder = 9;      // For library functions
+ *     +NameAttrList func = 10;
+ *   }
+ *
+ *= For attributes that are lists (e.g., strides: [1, 2, 2, 1])
+ *  message ListValue {
+ *    repeated bytes s = 2;
+ *    repeated int64 i = 3 [packed = true];
+ *    repeated float f = 4 [packed = true];
+ *    repeated bool b = 5 [packed = true];
+ *    repeated DataType type = 6 [packed = true];
+ *    repeated TensorShapeProto shape = 7;
+ *    repeated TensorProto tensor = 8;
+ *    +repeated NameAttrList func = 9;              // "list(attr)"
+ *  }
+ *
+ * = Summary ============================================
+ * tensorflow.Summary.Value  (summary.proto):
+ *   1: tag (string)
+ *   oneof {
+ *     +2: simple_value (float)
+ *     +3: obsolete_old_style_histogram (bytes)
+ *     4: image (Summary.Image)
+ *     5: histo (HistogramProto)
+ *     +6: audio (Summary.Audio)
+ *     8: tensor (TensorProto)
+ *   }
+ *   9: metadata (SummaryMetadata)
+ *
+ * tensorflow.SummaryMetadata:
+ *   1: plugin_data (PluginData)
+ *   +2: display_name (string)
+ *   +3: summary_description (string)
+ *   4: data_class (DataClass: SCALAR=1, TENSOR=2, BLOB=3)
+ *
+ * tensorflow.SummaryMetadata.PluginData:
+ *   1: plugin_name (string)    2: content (bytes)
+ *
+ * tensorflow.Summary.Image:
+ *   1: height
+ *   2: width
+ *   3: colorspace (grascale=1, grascale+alpha=2, RGB=3, RGBA=4, DIGITAL_YUV=5, RGBA=6)
+ *   4: encoded_image_string (bytes)
+ *
+ * +tensorflow.Summary.Audio
+ *
+ * tensorflow.HistogramProto:
+ *   1:min 2:max 3:num 4:sum 5:sum_squares
+ *   6: bucket_limit 7:bucket
+ *   +6: repeated bucket_limit, +7: repeated bucket
+ *
+ * = Projector ============================================
+ * +tensorflow.ProjectorConfig
+ *   1: model_checkpoint_path (string)
+ *   2: embeddings (EmbeddingInfo repeated)
+ *   3: model_checkpoint_dir (string)
+ *
+ * +tensorflow.EmbeddingInfo
+ *   1: tensor_name (string)
+ *   2: metadata_path (string)
+ *   3: bookmark_path (string)
+ *   4: tensor_shape (uint32 repeated)
+ *   5: sprite (SpriteMetadata)
+ *
+ * +tensorflow.SpriteMetadata
+ *   1: image_path (string)
+ *   2: single_image_dim (uint32 repeated)
+ *
+ * ── TFRecord framing ─────────────────────────────────────────────────────────
+ * [length:uint64 LE]
+ * [masked_crc32c(length):uint32 LE]
+ * [data][masked_crc32c(data):uint32 LE]
+ * masking: ((crc >> 15 | crc << 17) + 0xa282ead8) & 0xFFFFFFFF
  */
 #pragma once
 
