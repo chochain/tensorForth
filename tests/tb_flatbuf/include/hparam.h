@@ -1,6 +1,10 @@
+/*
+ @file
+ @brief - HParams event writer
+ @note - see schema.h for details
+ */
 #pragma once
 
-#include "types.h"
 #include "writer.h"
 
 namespace tensorboard {
@@ -30,7 +34,7 @@ public:
 
     // ── HParams (NEW) ───────────────────────────────────────────────────────
     // Initialize hparams experiment with parameter and metric definitions
-    void add_config(
+    void config(
         const std::map<STR, HParamValue>& info,
         const std::vector<STR>& metrics,
         const char *name = "default",
@@ -65,7 +69,7 @@ public:
     }
     
     // Log actual hyperparameter values and corresponding metrics
-    void add_hparams(
+    void write(
         const std::map<STR, HParamValue>& hparams,
         const std::map<STR, F64>& metrics,
         const char *group = "default",
