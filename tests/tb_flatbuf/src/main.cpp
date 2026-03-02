@@ -16,6 +16,7 @@
  */
 
 #include "writer.h"
+#include "graph.h"
 
 #include <iostream>
 #include <iomanip>
@@ -40,6 +41,19 @@ static STR make_event_path(const STR& dir, const STR& run_name) {
 static void print_section(const STR& title) {
     std::cout << "\n";
     std::cout << "## " << title << "...\n";
+}
+
+// ─── Demo 0: GraphDef ─────────────────────────────────────────────────
+void demo_graph(const STR& logdir) {
+    STR path = make_event_path(logdir, "graphs");
+    tensorboard::GraphWriter grapher(path);
+    std::cout << "  Writing to: " << path << "\n";
+
+    grapher.add_node(tensorboard::Node("input", "Placeholder", ""));
+    grapher.add_node(tensorboard::Node("conv1/Relu", "Relu", "input"));
+    grapher.add_node(tensorboard::Node("flatten/Reshape", "Reshape", "conv1/Relu"));
+    
+    grapher.write();
 }
 
 // ─── Demo 1: Scalar Summaries ─────────────────────────────────────────────────
@@ -263,9 +277,10 @@ int main(int argc, char* argv[]) {
     std::cout << ".tfevents files: " << logdir << "\n";
     
     try {
-        demo_scalars(logdir);
-        demo_images(logdir);
-        demo_histograms(logdir);
+        demo_graph(logdir);
+//        demo_scalars(logdir);
+//        demo_images(logdir);
+//        demo_histograms(logdir);
     } catch (const std::exception& e) {
         std::cerr << "\n  ERROR: " << e.what() << "\n";
         return 1;
