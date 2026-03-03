@@ -49,27 +49,57 @@ void demo_graph(const STR& logdir) {
     tensorboard::GraphWriter grapher(path);
     std::cout << "  Writing to: " << path << "\n";
 
-    tensorboard::Node n0("input", "Placeholder", "");
-    U32V input_shape = { 10, 28, 28, 1 };
-    n0.add_type("dtype", 1);
-    n0.add_shape(input_shape);
-    grapher.add_node(n0);
+    tensorboard::Node n1("input", "Placeholder", "");
+    U32V s1 = { 10, 28, 28, 1 };
+    n1.add_type("dtype", 1);
+    n1.add_shape(s1);
+    grapher.add_node(n1);
 
     tensorboard::Node n1a("conv1/weights", "Const");
-    U32V conv_shape = { 3, 3, 1, 32 };
-    F32V conv_value = { 0.1 };
-    n1a.add_tensor(conv_shape, conv_value);
+    U32V f1 = { 3, 3, 1, 32 };
+    F32V v1 = { 0.1 };
+    n1a.add_tensor(f1, v1);
 //    n.add_value("b", tensorboard::AttrValue(0.5));
     grapher.add_node(n1a);
     
     tensorboard::Node n1b("conv1/Conv2D", "Conv2D", "input");
-    U16V stride = { 1, 1, 1, 1 };
+    U16V r1 = { 1, 1, 1, 1 };
     n1b.add_input("conv1/weights");
-    n1b.add_stride(stride);
+    n1b.add_shape(s1);
+    n1b.add_stride(r1);
     grapher.add_node(n1b);
 
-    grapher.add_node(tensorboard::Node("conv1/Relu", "Relu", "conv1/Conv2D"));
-    grapher.add_node(tensorboard::Node("flatten/Reshape", "Reshape", "conv1/Relu"));
+    tensorboard::Node n1c("conv1/Relu", "Relu", "conv1/Conv2D");
+    n1c.add_shape(s1);
+    grapher.add_node(n1c);
+
+    tensorboard::Node n2("pool/MaxPool", "MaxPool", "conv1/Relu");
+    U16V rx = { 1, 2, 2, 1 };
+    n2.add_shape(s1);
+    n2.add_stride(rx);
+    grapher.add_node(n2);
+    
+    tensorboard::Node n2a("conv2/weights", "Const");
+    U32V s2 = { 10, 14, 14, 1 };
+    F32V v2 = { 0.2 };
+    n2a.add_tensor(s2, v2);
+//    n.add_value("b", tensorboard::AttrValue(0.5));
+    grapher.add_node(n2a);
+    
+    tensorboard::Node n2b("conv2/Conv2D", "Conv2D", "pool/MaxPool");
+    U16V r2 = { 1, 1, 1, 1 };
+    n2b.add_input("conv2/weights");
+    n2b.add_shape(s2);
+    n2b.add_stride(r2);
+    grapher.add_node(n2b);
+    
+    tensorboard::Node n2c("conv2/Relu", "Relu", "conv2/Conv2D");
+    n2c.add_shape(s2);
+    grapher.add_node(n2c);
+
+    tensorboard::Node n2d("flatten/Reshape", "Reshape", "conv2/Relu");
+    n2d.add_shape(s2);
+    grapher.add_node(n2d);
 
     grapher.write();
 }
