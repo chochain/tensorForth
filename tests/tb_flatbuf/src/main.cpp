@@ -49,10 +49,28 @@ void demo_graph(const STR& logdir) {
     tensorboard::GraphWriter grapher(path);
     std::cout << "  Writing to: " << path << "\n";
 
-    grapher.add_node(tensorboard::Node("input", "Placeholder", ""));
-    grapher.add_node(tensorboard::Node("conv1/Relu", "Relu", "input"));
-    grapher.add_node(tensorboard::Node("flatten/Reshape", "Reshape", "conv1/Relu"));
+    tensorboard::Node n0("input", "Placeholder", "");
+    U32V input_shape = { 10, 28, 28, 1 };
+    n0.add_type("dtype", 1);
+    n0.add_shape(input_shape);
+    grapher.add_node(n0);
+
+    tensorboard::Node n1a("conv1/weights", "Const");
+    U32V conv_shape = { 3, 3, 1, 32 };
+    F32V conv_value = { 0.1 };
+    n1a.add_tensor(conv_shape, conv_value);
+//    n.add_value("b", tensorboard::AttrValue(0.5));
+    grapher.add_node(n1a);
     
+    tensorboard::Node n1b("conv1/Conv2D", "Conv2D", "input");
+    U16V stride = { 1, 1, 1, 1 };
+    n1b.add_input("conv1/weights");
+    n1b.add_stride(stride);
+    grapher.add_node(n1b);
+
+    grapher.add_node(tensorboard::Node("conv1/Relu", "Relu", "conv1/Conv2D"));
+    grapher.add_node(tensorboard::Node("flatten/Reshape", "Reshape", "conv1/Relu"));
+
     grapher.write();
 }
 
