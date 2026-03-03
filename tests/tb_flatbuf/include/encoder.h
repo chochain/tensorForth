@@ -25,11 +25,11 @@ public:
     // ── Key/Tag encoding ─────────────────────────────────────────────────────
     // field_number << 3 | wire_type
     void tag(U32 field_number, U32 wire_type) {
-        u64((field_number << 3) | wire_type);
+        pack((U64)((field_number << 3) | wire_type));
     }
 
-    // ── Varint ───────────────────────────────────────────────────────────────
-    void u64(U64 value) {
+    // ── Packing ───────────────────────────────────────────────────────────────
+    void pack(U64 value) {
         while (value > 0x7F) {
             _buf.push_back(static_cast<U8>((value & 0x7F) | 0x80));
             value >>= 7;
@@ -37,24 +37,43 @@ public:
         _buf.push_back(static_cast<U8>(value));
     }
 
+    void pack(F64 value) {
+        U64 bits;
+        memcpy(&bits, &value, sizeof bits);
+        for (int i = 0; i < 8; ++i) {
+            _buf.push_back(static_cast<U8>(bits & 0xFF));
+            bits >>= 8;
+        }
+    }
+
+    void pack(F32 value) {
+        U32 bits;
+        memcpy(&bits, &value, sizeof bits);
+        for (int i = 0; i < 4; ++i) {
+            _buf.push_back(static_cast<U8>(bits & 0xFF));
+            bits >>= 8;
+        }
+    }
+    
+    // ── Varint ───────────────────────────────────────────────────────────────
     void s32(U32 field, S32 value) {
         tag(field, 0);
-        u64(static_cast<U64>(static_cast<U32>(value)));
+        pack(static_cast<U64>(static_cast<U32>(value)));
     }
 
     void s64(U32 field, S64 value) {
         tag(field, 0);
-        u64(static_cast<U64>(value));
+        pack(static_cast<U64>(value));
     }
 
     void u32(U32 field, U32 value) {
         tag(field, 0);
-        u64(value);
+        pack((U64)value);
     }
 
     void write_bool(U32 field, BOOL value) {
         tag(field, 0);
-        u64(value ? 1 : 0);
+        pack((U64)(value ? 1 : 0));
     }
 
     void write_enum(U32 field, S32 value) {
@@ -72,28 +91,40 @@ public:
         }
     }
 
-    // ── 32-bit (F32) ───────────────────────────────────────────────────────
-    void f32(U32 field, F32 value) {
-        tag(field, 5);
-        U32 bits;
-        memcpy(&bits, &value, sizeof bits);
-        for (int i = 0; i < 4; ++i) {
-            _buf.push_back(static_cast<U8>(bits & 0xFF));
-            bits >>= 8;
+    // Packed repeated F64s
+    void f64(U32 field, const F64V& values) {
+        tag(field, 2);
+        pack(values.size() * 8);
+        for (F64 v : values) {
+            pack(v);
         }
     }
 
+    // ── 32-bit (F32) ───────────────────────────────────────────────────────
+    void f32(U32 field, F32 value) {
+        tag(field, 5);
+        pack(value);
+    }
+
+    // Packed repeated F32s
+    void f32(U32 field, const F32V& values) {
+        tag(field, 2);
+        pack(values.size() * 4);
+        for (F32 v : values) {
+            pack(v);
+        }
+    }
     // ── Length-delimited ─────────────────────────────────────────────────────
     void raw(U32 field, const U8 *data, USZ len) {
         tag(field, 2);
-        u64(len);
+        pack(len);
         _buf.insert(_buf.end(), data, data + len);
     }
 
     // Write raw bytes of a message (no field tag) — used for nested messages
     void raw(U32 field, const U8V& data) {
         tag(field, 2);
-        u64(data.size());
+        pack(data.size());
         _buf.insert(_buf.end(), data.begin(), data.end());
     }
 
@@ -112,34 +143,6 @@ public:
     
     void enc(const U8V& buf) {
         _buf.insert(_buf.end(), buf.begin(), buf.end());
-    }
-
-    // Packed repeated F32s
-    void f32_packed(U32 field, const F32V& values) {
-        tag(field, 2);
-        u64(values.size() * 4);
-        for (F32 v : values) {
-            U32 bits;
-            memcpy(&bits, &v, sizeof bits);
-            for (int i = 0; i < 4; ++i) {
-                _buf.push_back(static_cast<U8>(bits & 0xFF));
-                bits >>= 8;
-            }
-        }
-    }
-
-    // Packed repeated F64s
-    void f64_packed(U32 field, const F64V& values) {
-        tag(field, 2);
-        u64(values.size() * 8);
-        for (F64 v : values) {
-            U64 bits;
-            memcpy(&bits, &v, sizeof bits);
-            for (int i = 0; i < 8; ++i) {
-                _buf.push_back(static_cast<U8>(bits & 0xFF));
-                bits >>= 8;
-            }
-        }
     }
 
     // ── Access ───────────────────────────────────────────────────────────────
