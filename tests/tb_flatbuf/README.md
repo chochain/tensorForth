@@ -4,139 +4,6 @@ A self-contained C++ library that writes TensorBoard `.tfevents` binary files
 with **scalar**, **image**, and **histogram** summaries, using **FlatBuffers** for
 plugin metadata encoding.
 
----
-
-## Architecture Overview
-
-```
-tfevents file
-└── TFRecord frames (length + masked CRC32C framing)
-    └── tensorflow.Event (Protocol Buffers)
-        └── tensorflow.Summary
-            └── Summary.Value[]
-                ├── tag: string
-                ├── SummaryMetadata (protobuf)
-                │   └── PluginData
-                │       ├── plugin_name: "scalars" | "text" | "images" | "histograms" | "hparams"
-                │       └── content: bytes  ◄── FlatBuffers encoded!
-                │           ├── ScalarPluginData    { mode: int8 }
-                │           ├── (empty for text)
-                │           ├── HParamPluginData (one of)
-                │           │   ├── Experiment
-                │           │   ├── SessionStartInfo
-                │           │   └── SessionEndInfo
-                │           ├── ImagePluginData     { max_images: int32 }
-                │           └── HistogramPluginData { (empty) }
-                └── payload (one of):
-                    ├── simple_value: float   (scalar)
-                    ├── tensor: TensorProto   (text, hparams, or other tensor types)
-                    ├── image: Summary.Image  (PNG bytes)
-                    └── histo: HistogramProto (bucket edges + counts)
-
-       [ EVENT FILE (.v2) ]
-
-                |
-                v
-      +-------------------+
-      |      Summary      |
-      +---------+---------+
-
-                |
-     +----------+----------+
-     |                     |
-[  Value  ]           [  Value  ] ...
-
-     |
-     +--> 1) tag: "loss"
-     |
-     +--> 8) tensor: [0.42, 0.38, ...]
-
-     |
-     +--> 9) metadata: [ SummaryMetadata ]
-                |
-                +--> display_name: "Training Loss"
-
-                |
-                +--> 4) data_class: DATA_CLASS_SCALAR
-                |
-                +--> 1) plugin_data: [ PluginData ] <---+
-
-                           |                         |
-                           +--> plugin_name: "scalars"
-                           |
-                           +--> content: <serialized bytes>
-                                (e.g., version info)
-
-       PluginData (Message)
- _________________________________
-|                                 |
-|  plugin_name: "pr_curves"       |-----> Tells TB which 
-|  (string)                       |       Dashboard to load.
-|_________________________________|
-|                                 |
-|  content: \x08\x01\x12\x04...   |-----> Opaque byte string.
-|  (bytes)                        |       Plugin-specific 
-|_________________________________|       config/metadata.
-```
-### HParams Session Structure
-```
-Summary
-└── value (Summary.Value)
-    ├── tag: "_hparams_/experiment"
-    ├── metadata (SummaryMetadata)
-    │   └── plugin_data (FeatureNameConfig)
-    │       └── plugin_name: "hparams"  <-- Required
-    └── tensor (TensorProto)
-        └── string_val: [Serialized Experiment Proto]
-    
-# 1. Session Start
-Summary
-└── value (Summary.Value)
-    ├── tag: "_hparams_/session_start_info"
-    ├── metadata (SummaryMetadata)
-    │   └── plugin_data (FeatureNameConfig)
-    │       │── plugin_name: "hparams"  <-- Required
-    │       └── content: [Serialized SessionStartInfo Proto]
-    └── tensor (TensorProto)  <--
-
-Summary.Value {
-  tag: "_hparams_/session_start_info"
-  metadata: {
-    plugin_data: {
-      plugin_name: "hparams"
-      content: {
-        hparams: [
-          { name: "learning_rate", value: {number_value: 0.001} }
-          { name: "batch_size", value: {number_value: 32} }
-          { name: "optimizer", value: {string_value: "adam"} }
-        ]
-        group_name: "default"
-        start_time_secs: 0
-      }
-    }
-  }
-}
-
-# 2. Metrics (regular scalars)
-Summary.Value { tag: "accuracy", simple_value: 0.925 }
-Summary.Value { tag: "loss", simple_value: 0.234 }
-
-# 3. Session End
-Summary.Value {
-  tag: "_hparams_/session_end_info"
-  metadata: {
-    plugin_data: {
-      plugin_name: "hparams"
-      content: {
-        status: STATUS_SUCCESS (2)
-        end_time_secs: 100
-      }
-    }
-  }
-}
-```
----
-
 ## File Structure
 
 ```
@@ -147,9 +14,11 @@ tb_flatbuffers/
 │   ├── encode.h               # Minimal protobuf wire-format encoder
 │   ├── schema.h               # FlatBuffers encoders for TB plugin data
 │   ├── hparam.h               # HParams tab handler
+│   ├── graph.h                # Graph tab handler
 │   └── writer.h               # Main EventWriter class
 ├── src/
-│   └── main.cpp               # Demo application
+│   ├── main.cpp               # Demo application
+│   └── main_hparam.cpp        # Demo for HParams application
 ├── schemas/
 │   └── tb_plugin_data.fbs     # FlatBuffers schema (for documentation/flatc)
 ├── Makefile
