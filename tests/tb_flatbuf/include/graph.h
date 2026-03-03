@@ -34,7 +34,7 @@ public:
         str(1, name);
         str(2, op);
     }
-    explicit Node(const STR& name, const STR& op, const STR& input) {
+    explicit Node(const STR& name, const STR& op, const STR& input) { // NodeDef
         str(1, name);
         str(2, op);
         add_input(input);
@@ -43,10 +43,10 @@ public:
         if (input.size() > 0) str(3, input);
     }
     void add_type(const STR& name, int dt_type=1) {  // DT_FLOAT
-        proto::Encoder v;
-        v.s32(6, dt_type);
+        proto::Encoder dt;
+        dt.s32(6, dt_type);
 
-        _attr(name, v.buf());
+        _attr(name, dt.buf());
     }
     void add_value(const STR& k, const AttrValue& av) {
         proto::Encoder v;
@@ -58,48 +58,60 @@ public:
         }
         _attr(k, v.buf());
     }
+    void add_stride(U16V stride) {
+        proto::Encoder v;
+        for (U64 s : stride) {          // raw numbers
+            v.pack(s);
+        }
+        proto::Encoder t;               // ListValue
+        t.raw(3, v.buf());              // 3 = repeated int64
+
+        proto::Encoder av;              // AttrValue
+        av.raw(1, t.buf());             // ListValue as length limited
+
+        _attr("strides", av.buf());
+    }
     void add_shape(U32V shape) {
+        proto::Encoder ts;              // TensorShapeProto
+        ts.raw(7, _dim(shape));
+
+        _attr("shape", ts.buf());
+    }
+    void add_tensor(U32V shape, F32V value) {
+        proto::Encoder v;               // collect tensor values
+        for (F32 f : value) {
+            v.pack(f);
+        }
+        proto::Encoder tv;              // TensorProto.Value
+        tv.s32(1, 1);                   // DataType 1:DT_FLOAT
+        tv.raw(2, _dim(shape));
+        tv.raw(5, v.buf());             // repeated float
+        
+        proto::Encoder t;               // TensorProto
+        t.raw(8, tv.buf());
+
+        _attr("value", t.buf());
+    }
+    
+private:
+    U8V _dim(U32V shape) {
         proto::Encoder v;
         for (auto s : shape) {
             proto::Encoder sv;
             sv.s32(1, s);
+//            sv.str(2, "size");        // by default
             v.raw(2, sv.buf());
         }
-        proto::Encoder t;                            // TensorShapeProto
-        t.raw(7, v.buf());
-
-        _attr("shape", t.buf());
+        return v.buf();
     }
-    void add_stride(U16V stride) {
-        proto::Encoder v;
-        for (U64 s : stride) {          // raw numbers
-            v.u64(s);
-        }
-        proto::Encoder t;               // List
-        t.raw(3, v.buf());              // 3 = repeated int64
-
-        proto::Encoder at;
-        at.raw(1, t.buf());             // length limited
-
-        _attr("strides", at.buf());
-    }
-/*    
-    void add_list(const STR& k, const AttrList& lst) {
-    }
-    void add_tensor(const STR& k, const AttrList& lst) {
-    }
-    void add_shape(const STR& k, const AttrList& lst) {
-    }
-*/
-private:
-    void _attr(const STR& k, U8V buf) {
+    void _attr(const STR& k, U8V buf) { // add attribute
         proto::Encoder at;
         at.str(1, k);
         at.raw(2, buf);
 
         _dump(at.buf(), k.c_str(), "");
         
-        raw(5, at.buf());
+        raw(5, at.buf());               // NodeDef.attr
     }
 };
 
