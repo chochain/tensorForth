@@ -146,8 +146,8 @@ public:
         histo.f64(3, static_cast<F64>(values.size()));
         histo.f64(4, vsum);
         histo.f64(5, vsumsq);
-        histo.f64_packed(6, limits);
-        histo.f64_packed(7, counts);
+        histo.f64(6, limits);
+        histo.f64(7, counts);
         
         proto::Encoder enc;
         enc.str(1, tag);                       // tag
