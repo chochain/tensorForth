@@ -10,9 +10,8 @@ def create_mnist_cnn_graphdef(log_dir="./logs/mnist_cnn_final"):
       name: "input"
       op: "Placeholder"
       attr { key: "dtype" value { type: DT_FLOAT } }
-      attr { key: "shape" value { shape { dim { size: -1 } dim { size: 28 } dim { size: 28 } dim { size: 1 } } } }
+      attr { key: "shape" value { shape { dim { size: 10 } dim { size: 28 } dim { size: 28 } dim { size: 1 } } } }
     }
-
     # --- CONV LAYER 1 ---
     node {
       name: "conv1/weights"
@@ -26,6 +25,7 @@ def create_mnist_cnn_graphdef(log_dir="./logs/mnist_cnn_final"):
       input: "input"
       input: "conv1/weights"
       attr { key: "T" value { type: DT_FLOAT } }
+      attr { key: "shape" value { shape { dim { size: 10 } dim { size: 28 } dim { size: 28 } dim { size: 1 } } } }
       attr { key: "strides" value { list { i: 1 i: 1 i: 1 i: 1 } } }
       attr { key: "padding" value { s: "SAME" } }
     }
@@ -33,16 +33,17 @@ def create_mnist_cnn_graphdef(log_dir="./logs/mnist_cnn_final"):
       name: "conv1/Relu"
       op: "Relu"
       input: "conv1/Conv2D"
+      attr { key: "shape" value { shape { dim { size: 10 } dim { size: 28 } dim { size: 28 } dim { size: 1 } } } }
     }
     node {
       name: "conv1/MaxPool"
       op: "MaxPool"
       input: "conv1/Relu"
+      attr { key: "shape" value { shape { dim { size: 10 } dim { size: 28 } dim { size: 28 } dim { size: 1 } } } }
       attr { key: "ksize" value { list { i: 1 i: 2 i: 2 i: 1 } } }
       attr { key: "strides" value { list { i: 1 i: 2 i: 2 i: 1 } } }
       attr { key: "padding" value { s: "SAME" } }
     }
-
     # --- CONV LAYER 2 ---
     node {
       name: "conv2/weights"
@@ -56,6 +57,7 @@ def create_mnist_cnn_graphdef(log_dir="./logs/mnist_cnn_final"):
       input: "conv1/MaxPool"
       input: "conv2/weights"
       attr { key: "T" value { type: DT_FLOAT } }
+      attr { key: "shape" value { shape { dim { size: 10 } dim { size: 14 } dim { size: 14 } dim { size: 1 } } } }
       attr { key: "strides" value { list { i: 1 i: 1 i: 1 i: 1 } } }
       attr { key: "padding" value { s: "SAME" } }
     }
@@ -63,11 +65,13 @@ def create_mnist_cnn_graphdef(log_dir="./logs/mnist_cnn_final"):
       name: "conv2/Relu"
       op: "Relu"
       input: "conv2/Conv2D"
+      attr { key: "shape" value { shape { dim { size: 10 } dim { size: 14 } dim { size: 14 } dim { size: 1 } } } }
     }
     node {
       name: "conv2/MaxPool"
       op: "MaxPool"
       input: "conv2/Relu"
+      attr { key: "shape" value { shape { dim { size: 10 } dim { size: 14 } dim { size: 14 } dim { size: 1 } } } }
       attr { key: "ksize" value { list { i: 1 i: 2 i: 2 i: 1 } } }
       attr { key: "strides" value { list { i: 1 i: 2 i: 2 i: 1 } } }
       attr { key: "padding" value { s: "SAME" } }
@@ -78,6 +82,7 @@ def create_mnist_cnn_graphdef(log_dir="./logs/mnist_cnn_final"):
       name: "flatten/shape"
       op: "Const"
       attr { key: "dtype" value { type: DT_INT32 } }
+      attr { key: "shape" value { shape { dim { size: 10 } dim { size: 1960 } dim { size: 1 } dim { size: 1 } } } }
       attr { key: "value" value { tensor { dtype: DT_INT32 tensor_shape { dim { size: 2 } } int_val: -1 int_val: 3136 } } }
     }
     node {
@@ -85,6 +90,7 @@ def create_mnist_cnn_graphdef(log_dir="./logs/mnist_cnn_final"):
       op: "Reshape"
       input: "conv2/MaxPool"
       input: "flatten/shape"
+      attr { key: "shape" value { shape { dim { size: 10 } dim { size: 1960 } dim { size: 1 } dim { size: 1 } } } }
     }
 
     # --- DENSE & SOFTMAX ---
