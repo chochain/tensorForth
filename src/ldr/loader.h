@@ -10,7 +10,7 @@
 #if (!defined(__LDR_LOADER_H) && T4_DO_OBJ && T4_DO_NN)
 #define __LDR_LOADER_H
 #include "corpus.h"
-#include "nn/dataset.h"
+#include "mmu/dataset.h"
 
 namespace t4::ld {
 
