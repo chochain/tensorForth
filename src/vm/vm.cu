@@ -6,6 +6,8 @@
  */
 #include "vm.h"
 
+namespace t4::vm {
+
 __GPU__ 
 VM::VM(int id, System &sys) 
     : id(id), state(STOP), sys(sys), mmu(*sys.mu) {
@@ -42,4 +44,6 @@ VM::outer() {
     }
     post();                                          /// * post process (debug)
 }
+
+} // namespace t4::vm
 //=======================================================================================
