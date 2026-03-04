@@ -22,12 +22,12 @@ T4_INCS := \
 T4_EXT := \
 	./src/io/aio.h \
 	./src/mmu/mmu.h \
+	./src/mmu/dataset.h \
 	./src/vm/param.h \
 	./src/vm/vm.h \
 	./src/vm/eforth.h \
 	./src/vm/tenvm.h \
-	./src/vm/netvm.h \
-	./src/nn/dataset.h 
+	./src/vm/netvm.h
 
 T4_OBJS := $(T4_SRCS:%.cu=%.o)
 
