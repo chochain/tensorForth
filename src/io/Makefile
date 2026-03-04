@@ -39,7 +39,7 @@ src-io: $(IO_OBJS)
 # Each subdirectory must supply rules for building sources it contributes
 src/io/%.o: src/io/%.cu $(IO_INCS) $(IO_EXT)
 	@echo '<Source><Action>Compile</Action><Filename>$<</Filename><Status>'
-	-$(NV_CC) $(IO_LIBS) -o "$@" "$<" || $(NV_ERR)
+	-$(NVCC) $(NVCC_FLAGS) $(IO_LIBS) -o "$@" "$<" || $(NV_ERR)
 	@echo '</Status></Source>'
 	@echo ' '
 
