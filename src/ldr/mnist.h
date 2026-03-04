@@ -21,8 +21,8 @@ typedef uint32_t  U32;
 /// MNIST NN data
 ///
 class Mnist : public Corpus {
-    ifstream d_in;       ///< data file handle
-    ifstream t_in;       ///< target label file handle
+    std::ifstream d_in;       ///< data file handle
+    std::ifstream t_in;       ///< target label file handle
     
 public:
     Mnist(const char *data_name, const char *label_name)
