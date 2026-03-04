@@ -13,6 +13,7 @@
 #include "tlsf.h"
 #include "code.h"
 
+namespace t4 { class Debug; }       ///< forward declare
 namespace t4::mu {
 ///
 /// Forth memory manager
@@ -39,7 +40,7 @@ class MMU : public Managed {
     __HOST__ ~MMU();
     
 public:
-    friend class Debug;             ///< Debug can access my private members
+    friend class t4::Debug;         ///< Debug can access my private members
     
     static __HOST__ MMU *get_mmu(); ///< singleton constructor/getter
     static __HOST__ void free_mmu();///< singleton destructor
