@@ -6,8 +6,15 @@
  */
 #include <iostream>
 #include "sys.h"                     /// include mmu/tensor.h
-#include "nn/dataset.h"
+#include "mmu/dataset.h"
 #include "nn/model.h"
+
+namespace t4 {
+using mu::Tensor;
+#if T4_DO_NN
+using mu::Dataset;
+using nn::Model;
+#endif // T4_DO_NN
 
 System  *_sys = NULL;                ///< singleton controller on host
 __GPU__ curandState *_rand_st;       ///< for random number generator
@@ -48,9 +55,11 @@ k_rand(DU *mat, U64 sz, DU bias, DU scale, rand_opt ntype) {
 ///
 __HOST__
 System::System(h_istr &i, h_ostr &o, int khz, int verbo)
-    : fin(i), fout(o), _istr(new Istream()), _ostr(new Ostream()), _trace(verbo) {
-    mu = MMU::get_mmu();             ///> instantiate memory controller
-    io = AIO::get_io(&_trace);       ///> instantiate async IO controler
+    : fin(i), fout(o),
+      _istr(new io::Istream()), _ostr(new io::Ostream()),
+      _trace(verbo) {
+    mu = mu::MMU::get_mmu();         ///> instantiate memory controller
+    io = io::AIO::get_io(&_trace);   ///> instantiate async IO controler
     db = Debug::get_db(o);           ///> tracing instrumentation
     ///
     ///> setup randomizer
@@ -67,9 +76,9 @@ System::~System() {
     GPU_SYNC();
 
 //    MM_FREE(_rand_st);
-    AIO::free_io();
+    io::AIO::free_io();
+    mu::MMU::free_mmu();
     Debug::free_db();
-    MMU::free_mmu();
     INFO("\\ System: instance freed\n");
 }
 
@@ -139,7 +148,7 @@ System::process_event(io_event *ev) {
     case GT_OBJ: db->print(v, ev->gt);                       break;
     ///> complex ops
     case GT_OPX: {
-        _opx *o = (_opx*)v;
+        io::_opx *o = (io::_opx*)v;
         DEBUG("  _opx(OP=%d, m=%d, i=%d, n=0x%08x=%g)\n", o->op, o->m, o->i, DU2X(o->n), o->n);
         switch (o->op) {
         case OP_FLUSH: fout << std::flush;                   break;
@@ -215,5 +224,7 @@ System::flush() {
     _ostr->clear();
 }
 ///@}
+
+} // namespace t4
 
 
