@@ -13,6 +13,7 @@
 #include "mmu/dataset.h"
 
 namespace t4::ld {
+using mu::Dataset;
 
 struct Loader {
     static void   init();
