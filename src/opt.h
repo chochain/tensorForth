@@ -5,6 +5,10 @@
 #define __OPT_H_
 
 #include <getopt.h>            ///< GNU option parser
+
+typedef uint32_t U32;
+typedef uint64_t U64;
+    
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // Command line options parsing
 struct Options {
@@ -188,6 +192,7 @@ struct Options {
         return out;
     }
 };
+
 #endif // __OPT_H_
 #if 0
 $ ./tests/ten4 -n 7 -y 1024 -x 512 -k 2048 -a 2.0 -b 0.707
@@ -199,3 +204,4 @@ $ ./tests/ten4 -n 7 -y 1024 -x 512 -k 2048 -a 2.0 -b 0.707
             << "  -a <f32>  Epilogue scalar alpha (real part)\n"
             << "  -b <f32>  Epilogue scalar alpha (imaginary part)\n\n"
 #endif
+
