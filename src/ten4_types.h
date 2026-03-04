@@ -44,6 +44,9 @@
 
 #include <cuda.h>
 #include <cooperative_groups.h>
+
+namespace t4 {
+    
 #define __GPU__             __device__
 #define __HOST__            __host__
 #define __BOTH__            __host__ __device__
@@ -257,4 +260,7 @@ struct Managed {
     }
     void operator delete(void *ptr) { MM_FREE(ptr); }
 };
+
+} // namespace t4
+
 #endif // __TEN4_TYPES_H_
