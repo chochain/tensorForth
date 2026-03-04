@@ -10,17 +10,18 @@
 
 #include "vector.h"
 #include "tensor.h"
-#include "tlsf.h"
+#include "dataset.h"
 #include "code.h"
+#include "tlsf.h"
 
-namespace t4 { class Debug; }       ///< forward declare
+namespace t4     { class Debug; }   ///< forward declare
+namespace t4::nn { class Model; }   ///< forward declare
 namespace t4::mu {
+using nn::Model;
 ///
 /// Forth memory manager
 /// TODO: compare TLSF to RMM (Rapids Memory Manager)
 ///
-class Model;
-class Dataset;
 class MMU : public Managed {
     IU             _mutex = 0;      ///< lock (first so address aligned)
     IU             _didx  = 0;      ///< dictionary index
@@ -138,7 +139,7 @@ public:
     ///
     __GPU__  Dataset&dataset(U32 batch_sz);                 ///< create a NN dataset
     __GPU__  Model  &model(int &trace, U32 sz=T4_NET_SZ);   ///< create a NN model
-    __GPU__  void   free(Model &m);
+    __GPU__  void   free(nn::Model &m);
 #endif // T4_DO_NN
     ///
     /// tensor object life-cycle methods
