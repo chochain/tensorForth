@@ -8,6 +8,8 @@
 #include "util.h"
 #include "tlsf.h"
 
+namespace t4::mu {
+
 #if T4_DO_OBJ
 // TLSF: Two-Level Segregated Fit allocator with O(1) time complexity.
 // Layer 1st(f), 2nd(s) model, smallest block 16-bytes, 16-byte alignment
@@ -445,3 +447,5 @@ TLSF::_dump_freelist() {
 }
 
 #endif // T4_DO_OBJ
+
+} // namespace t4::mu

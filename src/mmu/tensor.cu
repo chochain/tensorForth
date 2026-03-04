@@ -6,6 +6,8 @@
  */
 #include "tensor.h"
 
+namespace t4::mu {
+
 #if T4_DO_OBJ
 ///=======================================================================
 /// static methods
@@ -755,3 +757,5 @@ Tensor::show(bool dump) {
 }
 
 #endif // T4_DO_OBJ
+
+} // namespace t4::mu

@@ -7,6 +7,8 @@
 #include <iomanip>             /// setw, setbase
 #include "mmu.h"
 
+namespace t4::mu {
+
 ///@name static class member
 ///@note: CUDA does not support device static data
 ///@{
@@ -142,10 +144,10 @@ MMU::colon(const char *name) {
 #include "nn/dataset.h"
 #include "nn/model.h"
 
-__GPU__ Dataset&                   ///< create a Dataset holder
+__GPU__ t4::nn::Dataset&                   ///< create a Dataset holder
 MMU::dataset(U32 batch_sz) {       /// * Note: data block is not allocated yet
     MM_DB("mmu#dataset batch_sz=%d {", batch_sz);
-    Dataset *ds = (Dataset*)_ostore.malloc(sizeof(Dataset));
+    t4::nn::Dataset *ds = (Dataset*)_ostore.malloc(sizeof(Dataset));
     ds->init(0, T4_DATASET, 4);
     ds->N()      = batch_sz;       /// * other members filled in host mode
     ds->batch_id = 0;              /// * setup control flag
@@ -327,3 +329,5 @@ MMU::slice(Tensor &t0, U32 x0, U32 x1, U32 y0, U32 y1) {
     return t1;
 }
 #endif // T4_DO_OBJ // vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
+
+} // namespace t4::mu
