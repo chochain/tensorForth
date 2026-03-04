@@ -6,8 +6,13 @@
  */
 #ifndef __VM_EFORTH_H
 #define __VM_EFORTH_H
+#pragma once
+
 #include "param.h"                      ///< Parameter field
 #include "vm.h"                         ///< VM base class
+
+namespace t4::vm {
+using t4::mu::Code;
 ///
 /// Forth Virtual Machine operational macros to reduce verbosity
 /// Note:
@@ -62,8 +67,8 @@ protected:
     bool  compile= false;
     IU    base   = 0;
     
-    Code  *dict  = 0;                 ///< dictionary array (cached)
     U32   *ptos  = (U32*)&tos;        ///< 32-bit mask for tos
+    Code  *dict  = 0;                 ///< dictionary array (cached)
     ///
     /// Forth outer interpreter
     ///
@@ -142,4 +147,7 @@ private:
 #endif // (T4_DO_OBJ && T4_DO_NN)
 };
 ///@}
+
+} // namespace t4::vm
+
 #endif // __VM_EFORTH_H

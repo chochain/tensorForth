@@ -6,6 +6,8 @@
  */
 #include "ten4_config.h"
 
+namespace vm {
+
 #if (!defined(__VM_NETVM_H) && T4_DO_OBJ && T4_DO_NN)
 #define __VM_NETVM_H
 #include "tenvm.h"                /// extending TensorVM
@@ -51,3 +53,5 @@ private:
 };
 
 #endif // (!defined(__VM_NETVM_H) && T4_DO_OBJ && T4_DO_NN)
+
+} // namespace vm

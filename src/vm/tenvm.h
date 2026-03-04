@@ -10,6 +10,9 @@
 #define __VM_TENVM_H
 #include "eforth.h"                         /// extending ForthVM
 
+namespace t4::vm {
+using t4::mu::Tensor;                       /// alias
+
 #define VOP(...)  static const char *_op[] = { __VA_ARGS__ }
 #define VLOG(...) if (sys.trace()) { INFO(__VA_ARGS__); }
 ///
@@ -84,5 +87,7 @@ private:
     __GPU__ void   _pickle(bool save);                      ///< save/load a tensor to/from a file
 };
 ///@}
+
+} // namespace t4::vm
 
 #endif // (!defined(__VM_TENVM_H) && T4_DO_OBJ)

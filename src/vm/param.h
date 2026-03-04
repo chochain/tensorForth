@@ -7,6 +7,8 @@
 #ifndef __VM_PARAM_H
 #define __VM_PARAM_H
 #include "ten4_types.h"
+
+namespace t4::vm {
 ///
 ///@name Parameter Structure
 ///@{
@@ -26,4 +28,6 @@ struct Param : public Managed {
     }
 };
 ///@}
+
+} // namespace t4::vm
 #endif  // __VM_PARAM_H

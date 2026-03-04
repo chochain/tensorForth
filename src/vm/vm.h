@@ -6,7 +6,11 @@
  */
 #ifndef __VM_VM_H
 #define __VM_VM_H
-#include "sys.h"                    /// system interface
+#pragma once
+
+#include "sys.h"                      /// system interface
+
+namespace t4::vm {
 ///
 ///@name virtual machine base class
 ///@{
@@ -14,13 +18,13 @@ typedef enum { STOP=0, HOLD, QUERY, NEST, VM_STATE_SZ } vm_state;   ///< ten4 st
 class VM {                            ///< VM (created in kernal mode)
 public:
     IU        id;                     ///< VM id
-    vm_state  state   = STOP;         ///< VM state
+    vm_state  state = STOP;           ///< VM state
     
     System    &sys;                   ///< system interface
-    MMU       &mmu;                   ///< cached MMU interface
+    mu::MMU   &mmu;                   ///< cached MMU interface
 
-    Vector<DU, 0> ss;                 ///< parameter stack (setup in ten4.cu)
-    Vector<DU, 0> rs;                 ///< return stack
+    mu::Vector<DU, 0> ss;             ///< parameter stack (setup in ten4.cu)
+    mu::Vector<DU, 0> rs;             ///< return stack
 
     __GPU__  VM(int id, System &sys);
     __GPU__  ~VM() { TRACE("%d ", id); }
@@ -62,4 +66,6 @@ protected:
 #endif // DO_MULTITASK    
 };
 ///@}
+
+} // namespace t4::vm
 #endif // __VM_VM_H
