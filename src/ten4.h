@@ -9,12 +9,14 @@
 #include "vm/tenvm.h"        // tensor/matrix set, or
 #include "vm/netvm.h"        // neural network set,
 
+namespace t4 {
+
 #if T4_DO_NN
-typedef NetVM     VM_TYPE;
+typedef vm::NetVM     VM_TYPE;
 #elif T4_DO_OBJ
-typedef TensorVM  VM_TYPE;
+typedef vm::TensorVM  VM_TYPE;
 #else
-typedef ForthVM   VM_TYPE;
+typedef vm::ForthVM   VM_TYPE;
 #endif
 
 #define WARP_SZ   32                        /** threads per warp       */
@@ -43,4 +45,6 @@ public:
     __HOST__ int   main_loop();              ///< execute tensorForth main loop
     __HOST__ void  teardown(int sig=0);
 };
+
+} // namespace t4
 #endif // __TEN4_H_

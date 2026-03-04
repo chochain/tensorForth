@@ -8,6 +8,8 @@
 
 #if (!defined(__T4BASE_H) && T4_DO_OBJ)
 #define __T4BASE_H
+
+namespace t4 {
 ///
 /// tensorForth object types
 ///
@@ -85,6 +87,8 @@ struct T4Base : public Managed {
     __BOTH__ __INLINE__ bool is_model()   { return ttype == T4_MODEL;   }
     __BOTH__ __INLINE__ bool is_dataset() { return ttype == T4_DATASET; }
 };
+
+} // namespace t4
 
 #endif // (!defined(__T4BASE_H) && T4_DO_OBJ)
 
