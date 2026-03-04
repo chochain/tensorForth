@@ -12,12 +12,14 @@
  *    + 20.3s - 16-bit IU, token indirect threading => not that much worse but portable
  *    + 11.3s - CUDA 11.6, 32-bit IU, nest with primitive, indirect threading (with offset)
  *    +  7.5s - CUDA 12.6, same code as above
+ *    +  5.0s - CUDA 11.4, rollback to Ubuntu 20.04 + 470 driver, from inside docker
  */
 #include <iostream>          // cin, cout
 #include <signal.h>
 #include "ten4.h"            // wrapper
 
-using namespace std;
+namespace t4 {
+using t4::vm::VM;
 ///
 /// tensorForth kernel - VM dispatcher
 /// Note: 1 block per VM, thread 0 active only (wasteful?)
@@ -33,7 +35,7 @@ k_vm_init(System *sys, VM_Handle *pool) {
     if (id==0) {
         sys->mu->dict_validate();
         sys->mu->status();
-        pool[0].vm->state = QUERY;
+        pool[0].vm->state = vm::QUERY;
     }
 }
 
@@ -57,11 +59,11 @@ k_ten4_tally(System *sys, int *vmst_cnt, VM_Handle *pool) {
     if (id==0) sys->mu->sweep();               ///< clear marked free tensors
     g.sync();
     
-    if (id < VM_STATE_SZ) vmst_cnt[id] = 0;
+    if (id < vm::VM_STATE_SZ) vmst_cnt[id] = 0;
     g.sync();
 
     if (id < T4_VM_COUNT) {
-        vm_state s = pool[id].vm->state;
+        vm::vm_state s = pool[id].vm->state;
         atomicAdd(&vmst_cnt[s], 1);
     }
 }
@@ -71,7 +73,7 @@ k_vm_exec0(VM *vm) {
     __shared__ DU ss[T4_SS_SZ];      ///< shared mem for ss, rs (much faster)
     __shared__ DU rs[T4_RS_SZ];      ///< shared mem for ss, rs (much faster)
 
-    if (vm->state == STOP) return;
+    if (vm->state == vm::STOP) return;
     
     const auto g = cg::this_thread_block();         ///< all blocks
     const int  i = g.thread_rank();                 ///< thread id -> ss[i]
@@ -87,8 +89,8 @@ k_vm_exec0(VM *vm) {
         vm->ss.v = ss;
         vm->rs.v = rs;
         
-        if (vm->state==HOLD) vm->resume();         /// * resume holding work
-        else                 vm->outer();          /// * enter VM outer loop
+        if (vm->state==vm::HOLD) vm->resume();     /// * resume holding work
+        else                     vm->outer();      /// * enter VM outer loop
         
         MEMCPY(s0, ss, sizeof(DU) * T4_SS_SZ);
         MEMCPY(r0, rs, sizeof(DU) * T4_RS_SZ);
@@ -102,7 +104,7 @@ k_vm_exec1(VM *vm) {
     __shared__ DU ss[T4_SS_SZ];      ///< shared mem for ss, rs (much faster)
     __shared__ DU rs[T4_RS_SZ];
 
-    if (vm->state == STOP) return;
+    if (vm->state == vm::STOP) return;
     
     const auto g = cg::this_thread_block();       ///< all blocks
     const int  i = g.thread_rank();               ///< thread id -> ss[i]
@@ -123,8 +125,8 @@ k_vm_exec1(VM *vm) {
         vm->ss.v = ss;                            /// * use shared memory ss, rs
         vm->rs.v = rs;
 
-        if (vm->state==HOLD) vm->resume();        /// * resume holding work
-        else                 vm->outer();         /// * enter VM outer loop
+        if (vm->state==vm::HOLD) vm->resume();    /// * resume holding work
+        else                     vm->outer();     /// * enter VM outer loop
 
         vm->ss.v = s0;                            /// * restore stack pointers
         vm->rs.v = r0;
@@ -138,7 +140,7 @@ TensorForth::TensorForth(int device, int verbose) {
     ///
     cudaError_t err = cudaSetDevice(device);
     if (err != cudaSuccess) {
-        cerr << "\nERR: failed to activate GPU " << device << "\n";
+        std::cerr << "\nERR: failed to activate GPU " << device << "\n";
         exit(1);
     }
     ///
@@ -147,23 +149,23 @@ TensorForth::TensorForth(int device, int verbose) {
     int khz = 0;
     GPU_ERR(cudaDeviceGetAttribute(&khz, cudaDevAttrClockRate, device));
 
-    cout << "\\ GPU "  << device
-         << " at "     << khz/1000 << "MHz"
-         << ", dict["  << T4_DICT_SZ << "]"
-         << ", pmem="  << T4_PMEM_SZ/1024 << "K"
-         << ", ostor=" << T4_OSTORE_SZ/1024/1024 << "M"
-         << ", vmss["  << T4_SS_SZ << "*" << T4_VM_COUNT << "]"
-         << ", vmrs["  << T4_RS_SZ << "*" << T4_VM_COUNT << "]"
-         << endl;
+    std::cout << "\\ GPU "  << device
+              << " at "     << khz/1000 << "MHz"
+              << ", dict["  << T4_DICT_SZ << "]"
+              << ", pmem="  << T4_PMEM_SZ/1024 << "K"
+              << ", ostor=" << T4_OSTORE_SZ/1024/1024 << "M"
+              << ", vmss["  << T4_SS_SZ << "*" << T4_VM_COUNT << "]"
+              << ", vmrs["  << T4_RS_SZ << "*" << T4_VM_COUNT << "]"
+              << std::endl;
     ///
     /// allocate tensorForth system memory blocks
     ///
-    sys = System::get_sys(cin, cout, khz, T4_VERBOSE);
+    sys = System::get_sys(std::cin, std::cout, khz, T4_VERBOSE);
     ///
     /// allocate VM handle pool
     ///
     MM_ALLOC(&vm_pool, sizeof(VM_Handle) * T4_VM_COUNT);
-    MM_ALLOC(&vmst_cnt, sizeof(int) * VM_STATE_SZ); /// * 4 states + 1 VM[0].hold
+    MM_ALLOC(&vmst_cnt, sizeof(int) * vm::VM_STATE_SZ);   /// * 4 states + 1 VM[0].hold
 }
 
 __HOST__ void
@@ -184,7 +186,7 @@ __HOST__ int
 TensorForth::more_job() {
     k_ten4_tally<<<1, WARP(T4_VM_COUNT)>>>(sys, vmst_cnt, vm_pool);
     GPU_CHK();
-    return vmst_cnt[STOP] < T4_VM_COUNT;          /// * number of STOP VM
+    return vmst_cnt[vm::STOP] < T4_VM_COUNT;      /// * number of STOP VM
 }
 
 __HOST__ void
@@ -195,14 +197,13 @@ TensorForth::run() {
     for (int i=0; i<T4_VM_COUNT; i++) {
         VM_Handle *h  = &vm_pool[i];
         VM        *vm = h->vm;
-        
+
         cudaEventRecord(h->t0, h->st);            /// * record start clock
-        if (vm->state==HOLD) {
-            cudaStreamSynchronize(h->st);         /// * ensure managed mem updated
-        }
+        
         k_vm_exec0<<<1, 1, 0, h->st>>>(vm);       /// * each VM on their own stream
-        cudaStreamSynchronize(h->st);             /// * ensure child memory updated
+        
         cudaEventRecord(h->t1, h->st);            /// * record end clock
+        cudaStreamSynchronize(h->st);             /// * ensure managed mem updated
     }
     GPU_CHK();
 }
@@ -231,10 +232,10 @@ TensorForth::profile() {
 
 __HOST__ int
 TensorForth::main_loop() {
-//    sys->db->self_tests();
+    // sys->db->self_tests();
     int i = 0;
-    while (more_job() && sys->readline(vmst_cnt[HOLD])) {
-//        if (++i > 200) break;                  /// * runaway loop guard TODO: CC
+    while (more_job() && sys->readline(vmst_cnt[vm::HOLD])) {
+        if (++i > 200) break;                  /// * runaway loop guard TODO: CC
         run();
         sys->flush();                          /// * flush output buffer
         profile();
@@ -244,10 +245,10 @@ TensorForth::main_loop() {
 
 __HOST__ void
 TensorForth::teardown(int sig) {
-    cout << "\\ VM[] ";
+    std::cout << "\\ VM[] ";
     k_vm_done<<<1, WARP(T4_VM_COUNT)>>>(vm_pool);
     GPU_CHK();
-    cout << "freed" << endl;
+    std::cout << "freed" << std::endl;
     
     for (int i=0; i < T4_VM_COUNT; i++) {
         VM_Handle *h = &vm_pool[i];
@@ -261,11 +262,13 @@ TensorForth::teardown(int sig) {
     System::free_sys();          /// * release system
     cudaDeviceReset();
 }
+
+} // namespace t4
 ///
 /// main program
 ///
 void sigsegv_handler(int sig, siginfo_t *si, void *arg) {
-    cout << "Exception caught at: " << si->si_addr << endl;
+    std::cout << "Exception caught at: " << si->si_addr << std::endl;
     exit(1);
 }
 
@@ -289,24 +292,22 @@ int main(int argc, char**argv) {
     // GPU_ERR(cudaDeviceSetLimit(cudaLimitMallocHeapSize, 16*1024*1024));
     
     if (opt.help) {
-        opt.print_usage(cout);
-        opt.check_devices(cout);
-        cout << "\nRecommended GPU: " << opt.device_id << endl;
+        opt.print_usage(std::cout);
+        opt.check_devices(std::cout);
+        std::cout << "\nRecommended GPU: " << opt.device_id << std::endl;
         return 0;
     }
-    else opt.check_devices(cout, false);
+    else opt.check_devices(std::cout, false);
 
-    cout << T4_APP_NAME << endl;
+    std::cout << T4_APP_NAME << std::endl;
 
-    TensorForth *f = new TensorForth(opt.device_id, opt.verbose);
+    t4::TensorForth *f = new t4::TensorForth(opt.device_id, opt.verbose);
     f->setup();
     f->main_loop();
     f->teardown();
-    
-    cout << T4_APP_NAME << " done." << endl;
+
+    std::cout << T4_APP_NAME << " done." << std::endl;
 
     return 0;
 }
-
-
     
