@@ -6,11 +6,17 @@
  */
 #ifndef __DEBUG_H
 #define __DEBUG_H
+#pragma once
 #include <iomanip>                                        /// setw, setprec, setbase...
 #include "t4base.h"                                       ///< include ten4_types.h
 #include "io/aio.h"
 #include "vm/param.h"
 #include "mmu/mmu.h"
+
+namespace t4 {
+using mu::MMU;
+using mu::Param;
+using io::AIO;
 
 #define ENDL    '\n'
 ///
@@ -59,4 +65,7 @@ private:
     __HOST__ int  _to_s(Param *p, int nv, int base);          ///< show by parameter memory pointer
 };
 ///@}
+
+} // namespace t4
+
 #endif // __DEBUG_H
