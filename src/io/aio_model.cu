@@ -11,7 +11,7 @@
 
 #if (T4_DO_OBJ && T4_DO_NN)
 #include <fstream>
-#include "nn/dataset.h"
+#include "mmu/dataset.h"
 #include "nn/model.h"
 #include "ldr/loader.h"  /// includes Corpus
 
@@ -21,7 +21,7 @@ using namespace std;
 /// init flow:
 ///    netvm::dataset
 ///    -> sys::process_event
-///    -> nn::dataset           - set N=batch_sz, batch_id = -1
+///    -> mmu::dataset           - set N=batch_sz, batch_id = -1
 ///
 /// fetch flow:
 ///    netvm::fetch
