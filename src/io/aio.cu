@@ -8,6 +8,9 @@
 #include <iostream>      /// cin, cout
 #include <iomanip>       /// setbase, setprecision
 #include "aio.h"
+
+namespace t4::io {
+using t4::mu::Tensor;
 ///
 ///@name singleton and contructor
 ///@{
@@ -75,12 +78,13 @@ AIO::to_s(h_ostr &fs, T4Base &t, bool view) {
     };
     fs << tn[view][t.ttype];
     switch(t.rank) {
-    case 0: fs << "["  << (t.numel - 1) << ']';            break;  /// network model
-    case 1: fs << "1[" << t.numel << ']';                  break;
-    case 2: fs << "2["; t2((Tensor&)t);                    break;
-    case 3: fs << "3[na]";                                 break;
-    case 4: fs << "4["; t4((Tensor&)t);                    break;
-    case 5: fs << "5[" << t.iparm << "]["; t4((Tensor&)t); break;
+    case 0: fs << "["  << (t.numel - 1) << ']'; break;  /// network model
+    case 1: fs << "1[" << t.numel << ']';       break;
+    case 2: fs << "2["; t2((Tensor&)t);         break;
+    case 3: fs << "3[na]";                      break;
+    case 4: fs << "4["; t4((Tensor&)t);         break;
+    case 5: fs << "5[" << t.iparm << "][";
+            t4((Tensor&)t);                     break;
     }
 }
 __HOST__ void
@@ -96,4 +100,6 @@ AIO::print(h_ostr &fs, T4Base &t) {
     DEBUG("  aio#print(fs, t4base=%p)\n", &t);
 }
 ///@}
-#endif // T4_DO_OBJ    
+#endif // T4_DO_OBJ
+
+} // namespace t4::io
