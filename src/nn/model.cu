@@ -8,6 +8,8 @@
 
 #if (T4_DO_OBJ && T4_DO_NN)
 #include "model.h"
+
+namespace t4::nn {
 ///
 /// @name name string short hands
 /// @{
@@ -146,22 +148,25 @@ Model::_iconv(Tensor &in, U32 C0, DU bias, U16 *opt) {
     Tensor *b  = in.grad[1] = &VEC(C0);                            ///> b
     Tensor *db = in.grad[3] = &VEC(C0).map(FILL, DU0);             ///> db
 
-    DU k = SQRT(RCP(Hf * Wf * C1));              /// * filter default range
+    DU k = SQRT(6.0 * RCP(Hf * Wf * C1));        /// * filter default range - Kaiming
     RAND(*f, k);                                 /// * randomize f [-k, k)
     RAND(*b, bias);                              /// * randomize b [-bias, bias)
     
 #if MM_DEBUG    
-    f->map(FILL, 0.5);                           /// * debug
-    b->map(FILL, -0.5);
+//    f->map(FILL, 0.5);                           /// * debug
+//    b->map(FILL, -0.5);
     
     NN_DB("    f[%d,%d,%d,%d]=", C1, Hf, Hf, C0);
     for (U64 i=0; i<f->numel; i++) NN_DB("%6.3f", f->data[i]);
+    NN_DB("\n");
+    NN_DB("    b[%d]=", C0);
+    for (U64 i=0; i<b->numel; i++) NN_DB("%6.3f", b->data[i]);
     NN_DB("\n");
 #endif // MM_DEBUG
     
     Tensor &out= T4(N1, H0, W0, C0);             ///> output tensor
     npush(out);                                  /// * stage for next stage
-    NN_DB("    } model#iconv => k=%6.3f, f.std=%6.3f\n",  k, f->std());
+    NN_DB("    } model#iconv => k=%6.3f, f.std=%6.3f b.std=%6.3f\n",  k, f->std(), b->std());
 }
 __GPU__ void
 Model::_ilinear(Tensor &in, U32 E0, DU bias) {
@@ -175,13 +180,13 @@ Model::_ilinear(Tensor &in, U32 E0, DU bias) {
     
     in.xparm = bias;                              /// * keep for persistence
     
-    DU k = SQRT(2.0 / (E0+E1));                   /// * default weight
+    DU k = SQRT(RCP(E0+E1));                      /// * default weight - Kaiming
     RAND(*w, k);                                  /// * randomize w [-k, k)
     RAND(*b, bias);                               /// * randomize b [-bias, bias)
     
 #if MM_DEBUG    
-    w->map(FILL, 0.5); w->data[32] = 1.0;
-    b->map(FILL, 0.0);
+//    w->map(FILL, 0.5); w->data[32] = 1.0;
+//    b->map(FILL, 0.0);
     
     NN_DB("    w[1,%d,%ld,1]", E0, E1);
     for (U32 e0=0; e0<E0; e0++) {
@@ -195,7 +200,8 @@ Model::_ilinear(Tensor &in, U32 E0, DU bias) {
     
     Tensor &out = T4(N1, E0);                    ///> output tensor sizing
     npush(out);                                  /// * stage for next stage
-    NN_DB("    } model#ilinear => k=%6.3f, w.std=%6.3f\n", k, w->std());
+    NN_DB("    } model#ilinear => k=%6.3f, w.std=%6.3f b.std=%6.3f\n",
+          k, w->std(), b->std());
 }
 __GPU__ void
 Model::_iflatten(Tensor &in) {
@@ -286,5 +292,7 @@ Model::_iup(Tensor &in, U16 f, DU method) {
     NN_DB("    } model#iup %dx%d {\n", f, f);
 }
 /// @}
+
+} // namespace t4::nn
 #endif  // (T4_DO_OBJ && T4_DO_NN)
 //==========================================================================
