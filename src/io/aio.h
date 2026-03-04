@@ -10,9 +10,14 @@
  */
 #ifndef __IO_AIO_H
 #define __IO_AIO_H
+#pragma once
+
 #include "istream.h"
 #include "ostream.h"
 #include "mmu/tensor.h"
+
+namespace t4::io {
+using t4::mu::Tensor;                 /// alias
 
 #define IO_DB(...)  { if (trace) INFO(__VA_ARGS__); }
 
@@ -95,4 +100,5 @@ private:
 #endif // T4_DO_OBJ ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 };
 
+} // namespace t4::io
 #endif // __IO_AIO_H

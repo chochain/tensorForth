@@ -9,6 +9,7 @@
 #include "ten4_types.h"
 #include "util.h"
 
+namespace t4::io {
 //================================================================
 ///
 ///> printf internal version data container.
@@ -167,4 +168,7 @@ public:
         return *this;
     }
 };
+
+} // namespace t4::io
+
 #endif // __IO_OSTREAM_H_

@@ -8,6 +8,8 @@
 #define __IO_ISTREAM_H_
 #include "ten4_types.h"
 #include "util.h"
+
+namespace t4::io {
 ///
 /// istream class
 ///
@@ -73,4 +75,9 @@ public:
     __GPU__ int  operator>>(char *s) { get_idiom(s); return _gn; }
     __GPU__ char operator>>(char &c) { return (*(&c) = _buf[_idx++]); }
 };
+
+} // namespace t4::io
+
 #endif // __IO_ISTREAM_H_
+
+
