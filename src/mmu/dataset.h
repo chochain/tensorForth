@@ -10,6 +10,8 @@
 #define __MMU_DATASET_H
 #include "mmu/tensor.h"
 
+namespace t4::mu {
+
 struct Dataset : public Tensor {
     int   batch_id =  0;             ///< current batch id
     int   done     =  1;             ///< completed
@@ -61,6 +63,8 @@ struct Dataset : public Tensor {
         return this;
     }
 };
+
+} // namespace t4::mu
 
 #endif  // (!defined(__MMU_DATASET_H) && T4_DO_OBJ && T_DO_NN)
 
