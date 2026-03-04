@@ -6,25 +6,29 @@
  */
 #ifndef __SYS_H
 #define __SYS_H
+#pragma once
+
 #include <curand_kernel.h>
 #include "debug.h"                              ///< include mmu/mmu.h, io/aio.h
+
+namespace t4 {
 ///
 ///@name System Manager Class
 ///@{
 class System : public Managed {                 ///< singleton class
-    h_istr   &fin;                              ///< host input stream
-    h_ostr   &fout;                             
-    Istream  *_istr;                            ///< managed input stream
-    Ostream  *_ostr;                            ///< managed output stream
-    int      _trace;
-    char     _pad[T4_STRBUF_SZ];                ///< terminal input buffer
+    h_istr       &fin;                          ///< host input stream
+    h_ostr       &fout;                             
+    io::Istream  *_istr;                        ///< managed input stream
+    io::Ostream  *_ostr;                        ///< managed output stream
+    int          _trace;
+    char         _pad[T4_STRBUF_SZ];            ///< terminal input buffer
     
     __HOST__ System(h_istr &i, h_ostr &o, int khz, int verbo);
     __HOST__ ~System();
     
 public:
-    MMU      *mu;                               ///< memory management unit
-    AIO      *io;                               ///< HOST IO manager
+    mu::MMU  *mu;                               ///< memory management unit
+    io::AIO  *io;                               ///< HOST IO manager
     Debug    *db;                               ///< tracer (i.e. JTAG)
     ///
     /// singleton System controller
@@ -57,7 +61,7 @@ public:
     ///> System functions
     ///
     __GPU__  void op(OP op, U8 m=0, DU n=DU0, int i=0) {  ///< print operator
-        *_ostr << opx(op, m, n, i);
+        *_ostr << io::opx(op, m, n, i);
     }
     __GPU__  void op_fn(char *fname) { *_ostr << fname; } ///< print filename
     ///
@@ -84,7 +88,7 @@ public:
     __GPU__  void dot(io_op o, DU v=DU0) {                ///< print literals
         switch (o) {
         case CR:    *_ostr << ENDL;                             break;
-        case RDX:   *_ostr << setbase(INT(v));                  break;
+        case RDX:   *_ostr << io::setbase(INT(v));              break;
         case DOT:   *_ostr << v << " ";                         break;
         case UDOT:  *_ostr << UINT(D2I(v)) << " ";              break;
         case EMIT:  { char b = (char)INT(v); *_ostr << b; }     break;
@@ -93,11 +97,11 @@ public:
         }
     }
     __GPU__ void dotr(int w, DU v, int b, bool u=false) {
-        *_ostr << setbase(b) << setw(w)
+        *_ostr << io::setbase(b) << io::setw(w)
                << (u ? static_cast<U32>(v) : v);
     }
     __GPU__ void dots(int id, DU tos, int ss_idx, int base) {
-        *_ostr << opx(OP_SS, base, tos, (id << 10) | ss_idx);
+        *_ostr << io::opx(OP_SS, base, tos, (id << 10) | ss_idx);
     }
     __GPU__  void pstr(const char *str, io_op o=SPCS) {  ///< print string
         *_ostr << str;
@@ -108,5 +112,7 @@ public:
     }
 };
 ///@}
+
+} // namespace t4
 #endif // __SYS_H
 
