@@ -6,6 +6,8 @@
  */
 #include "netvm.h"
 
+namespace vm {
+
 #if (T4_DO_OBJ && T4_DO_NN)
 
 __GPU__ void
@@ -446,4 +448,6 @@ NetVM::init() {
 };
 
 #endif  // (T4_DO_OBJ && T4_DO_NN)
+
+} // namespace vm
 //===========================================================================

@@ -6,6 +6,9 @@
  */
 #include "eforth.h"
 
+namespace t4::vm {
+using t4::mu::Code;
+
 __GPU__
 ForthVM::ForthVM(int id, System &sys) : VM(id, sys) {
     dict = mmu.dict(0);
@@ -124,6 +127,9 @@ ForthVM::nest() {
 ///> CALL - inner-interpreter proxy (inline macro does not run faster)
 ///
 __GPU__ __INLINE__ void ForthVM::call(IU w) {
+    using t4::mu::FPTR;
+    using t4::mu::MSK_XT;
+    
     Code &c = dict[w];                               /// * code reference
     DEBUG(" => call(%s) state=%d {\n", c.name, state);
     if (c.udf) {                                     /// * userd defined word
@@ -557,4 +563,6 @@ ForthVM::_ds_next(U32 ioff) {
 }
 #endif // (T4_DO_OBJ && T4_DO_NN)
 ///@}
+
+} // namespace t4::vm
 //=======================================================================================

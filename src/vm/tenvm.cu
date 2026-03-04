@@ -6,6 +6,9 @@
  */
 #include "tenvm.h"
 
+namespace t4::vm {
+using t4::mu::Tensor;                         /// alias
+
 #if T4_DO_OBJ
 ///
 /// override with tensor handler
@@ -121,7 +124,7 @@ TensorVM::xop2(math_op op, t4_drop_opt x) {
     case 3 /* tt */: {
         VLOG("%d> %s A[%d,%d] %s B[%d,%d] {\n",
              id, fn, TNOS.H(), TNOS.W(), _op[op], TTOS.H(), TTOS.W());
-        Tensor &O = _tt_op(op);                   /// * tensor-tensor element op ( A B -- A B C )
+        Tensor &O = _tt_op(op);          /// * tensor-tensor element op ( A B -- A B C )
         if (O != TTOS) {
             if (x==T_DROP) { DROP(POP()); DROP(POP()); }
             PUSH(O);
@@ -561,4 +564,6 @@ TensorVM::init() {
     TRACE("TensorVM[%d]::init ok, sizeof(Tensor)=%ld\n", id, sizeof(Tensor));
 }
 #endif  // T4_DO_OBJ
+
+} // namespace t4::vm
 //==========================================================================
