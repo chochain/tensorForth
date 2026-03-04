@@ -9,6 +9,8 @@
 #include <stdint.h>
 #include <stddef.h>
 #include "ten4_config.h"
+
+namespace t4 {
 ///@}
 ///@name Alignment macros
 ///@{
@@ -197,4 +199,6 @@ __KERN__ void        k_nan_inf(float *src, int *n, long numel);
 #ifdef __cplusplus
 }
 #endif
+
+} // namespace t4
 #endif // __UTIL_H_

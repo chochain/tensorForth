@@ -9,6 +9,8 @@
 #include "util.h"
 
 #include <cooperative_groups.h>
+
+namespace t4 {
 namespace cg = cooperative_groups;
 
 typedef int           WORD;
@@ -630,3 +632,5 @@ k_nan_inf(float *src, int *cnt, long numel) {
     ///
     if (tp.thread_rank() == 0) atomicAdd_block(cnt, vi);      ///< serialize sum
 }
+
+} // namespace t4
