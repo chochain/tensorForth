@@ -4,6 +4,7 @@
  *
  * <pre>Copyright (C) 2022- GreenII, this file is distributed under BSD 3-Clause License.</pre>
  */
+#pragma once
 #include "ten4_config.h"
 
 #if (!defined(__LDR_MNIST_H) && T4_DO_OBJ && T4_DO_NN)
@@ -12,7 +13,7 @@
 #include <fstream>            /// std::ifstream
 #include "corpus.h"
 
-using namespace std;
+namespace t4::ld {
 
 typedef uint8_t   U8;
 typedef uint32_t  U32;
@@ -41,5 +42,6 @@ private:
     int _get_images(int bid, int n);
 };
 
+} // namespace t4::ld
 #endif // (!defined(__LDR_MNIST_H) && T4_DO_OBJ && T4_DO_NN)
 

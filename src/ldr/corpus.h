@@ -9,6 +9,8 @@
 #if (!defined(__LDR_CORPUS_H) && T4_DO_OBJ && T4_DO_NN)
 #define __LDR_CORPUS_H
 
+namespace t4::ld {
+
 #define IO_ERROR(fn)         fprintf(stderr, "ERROR: open file %s failed\n", fn)
 #define DS_ALLOC(p, sz)                                             \
     if (cudaMallocManaged(p, sz) != cudaSuccess) {                  \
@@ -61,6 +63,8 @@ struct Corpus {
     virtual Corpus *rewind() { eof = 0; return this; }
     virtual U8 *operator [](int idx){ return &data[idx * cell()]; }    ///< data point
 };
+
+} // namespace t4::ld
 
 #endif // (!defined(__LDR_CORPUS_H) && T4_DO_OBJ && T4_DO_NN)
 
