@@ -9,21 +9,24 @@
 #include "aio.h"
 
 #if T4_DO_OBJ
-using namespace std;
 ///
 /// Tensor & NN model persistence (i.e. serialization) methods
 ///
 #include <fstream>
 #include "mmu/tensor.h"
 
+namespace t4::io {
+using t4::mu::Tensor;
+
 __HOST__ int
 AIO::tsave(Tensor &t, char *fname, U8 mode) {
     IO_DB("\nAIO::save tensor to '%s' {", fname);
     
-    ios_base::openmode m = (mode & FAM_RW) ? ios_base::in : ios_base::out;
-    if (mode & FAM_RAW) m |= ios_base::binary;
+    std::ios_base::openmode m =
+        (mode & FAM_RW) ? std::ios_base::in : std::ios_base::out;
+    if (mode & FAM_RAW) m |= std::ios_base::binary;
     
-    fstream fs(fname, m);                         ///< open an output file
+    std::fstream fs(fname, m);                    ///< open an output file
     if (!fs.is_open()) {
         ERROR(" failed to open for output\n");
         return 1;
@@ -41,7 +44,7 @@ AIO::tsave(Tensor &t, char *fname, U8 mode) {
 __HOST__ void
 AIO::_print_vec(h_ostr &fs, DU *vd, U32 W, U32 C) {
     U32 rw = (W <= _thres) ? W : (W < _edge ? W : _edge);
-    fs << setprecision(_prec) << "{";             /// set precision
+    fs << std::setprecision(_prec) << "{";        /// set precision
     for (U32 j=0; j < rw; j++) {
         DU *dx = vd + j * C;
         for (U32 k=0; k < C; k++) {
@@ -65,7 +68,7 @@ AIO::_print_mat(h_ostr &fs, DU *td, U32 *shape) {
     const int rh= range(H), rw=range(W);                ///< h,w range for ...
     DU *d = td;
     
-    fs.flags(ios::showpos | ios::right | ios::fixed);   /// enforce +- sign
+    fs.flags(std::ios::showpos | std::ios::right | std::ios::fixed);   /// enforce +- sign
     for (U32 y=0, y1=1; y<rh; y++, y1++, d+=(W * C)) {
         _print_vec(fs, d, W, C);
         fs << (y1==H ? "" : "\n\t");
@@ -86,8 +89,8 @@ AIO::_print_tensor(h_ostr &fs, Tensor &t) {
     DU *td = t.data;                                    /// * short hand
     DEBUG("  aio#print_tensor T=%p data=%p\n", &t, td);
 
-    ios::fmtflags fmt0 = fs.flags();
-    fs << setprecision(-1);                             /// * standard format
+    std::ios::fmtflags fmt0 = fs.flags();
+    fs << std::setprecision(-1);                        /// * standard format
     switch (t.rank) {
     case 1: {
         fs << "vector[" << t.numel << "] = ";
@@ -155,5 +158,8 @@ AIO::_tsave_npy(h_ostr &fs, Tensor &t) {
     /// TODO:
     return 0;
 }
+
+} // namespace t4::io
+
 #endif // T4_DO_OBJ
 
