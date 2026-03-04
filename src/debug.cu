@@ -6,6 +6,10 @@
  */
 #include <iomanip>
 #include "debug.h"
+
+namespace t4 {
+using mu::Code;
+using vm::Param;
 ///
 ///@name singleton constructor
 ///@{
@@ -140,7 +144,7 @@ Debug::see(IU w, int base, int trace) {
     U8 *ip = MEM(c.pfa);                                   ///< PFA pointer
     while (1) {
         Param *p = (Param*)ip;
-        int   nv = p->op==VAR ? nvar(w, p->ioff, ip) : 0;  ///< VAR number of elements
+        int nv = p->op==VAR ? nvar(w, p->ioff, ip) : 0;    ///< VAR number of elements
         if (_to_s(p, nv, base) != 0) break;                ///< display Parameter
         fout << ENDL;
         ///
@@ -167,7 +171,7 @@ Debug::dict_dump() {
          << std::hex << xt0 << std::setfill('0') << ENDL;
     for (int i=0; i < DIDX; i++) {
         Code &c = DICT(i);
-        U32  ip = c.udf ? c.pfa : (U32)(((UFP)c.xt & MSK_XT) - xt0);
+        U32  ip = c.udf ? c.pfa : (U32)(((UFP)c.xt & mu::MSK_XT) - xt0);
         fout << std::dec << std::setw(4) << i << '|'
              << std::hex << std::setw(3) << i << '>'
              << (c.udf ? " pf=" : " xt=")
@@ -263,3 +267,5 @@ Debug::self_tests() {
     ss_dump(0, 3, 10);
 }
 ///@}
+
+} // namespace t4

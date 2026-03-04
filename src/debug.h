@@ -15,8 +15,8 @@
 
 namespace t4 {
 using mu::MMU;
-using mu::Param;
 using io::AIO;
+using vm::Param;
 
 #define ENDL    '\n'
 ///
