@@ -9,6 +9,8 @@
 #if (T4_DO_OBJ && T4_DO_NN)
 #include <map>
 #include "mnist.h"
+
+namespace t4::ld {
 ///
 /// Note:
 ///   const char* key in map will not work because ptr1 != ptr2
@@ -48,6 +50,8 @@ Corpus *Loader::get(Dataset &ds, const char *ds_name) {
 
     return _ds_map[&ds] = cpi->second;
 }
+
+} // namespace t4::ld
 
 #endif // (T4_DO_OBJ && T4_DO_NN)
 
