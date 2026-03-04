@@ -9,6 +9,8 @@
 #include "ten4_types.h"
 #include "util.h"            /// also defined __GPU__
 
+namespace t4::mu {
+
 #define VECTOR_DO_RESIZE  0
 #define VECTOR_INC        4
 ///
@@ -76,4 +78,7 @@ struct Vector {
         return *this;
     }
 };
+
+} // namespace t4::mu
+
 #endif // __MMU_VECTOR_H

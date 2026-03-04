@@ -6,6 +6,9 @@
 */
 #if (!defined(__MMU_TLSF_H) && T4_DO_OBJ)
 #define __MMU_TLSF_H
+#pragma once
+
+namespace t4::mu {
 
 typedef struct used_block {          ///< 8-bytes
     U32 bsz;                         ///< block size, header included (max 2G)
@@ -90,4 +93,5 @@ private:
     __BOTH__ void        _dump_freelist();
 };
 
+} // namespace t4::mu
 #endif // (!defined(__MMU_TLSF_H) && T4_DO_OBJ)

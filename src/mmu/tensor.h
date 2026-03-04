@@ -4,17 +4,12 @@
  *
  * <pre>Copyright (C) 2022- GreenII, this file is distributed under BSD 3-Clause License.</pre>
  */
+#pragma once
 #include "util.h"
 #include "t4base.h"
 
 #if (!defined(__MMU_TENSOR_H) && T4_DO_OBJ)
 #define __MMU_TENSOR_H
-
-#if T4_VERBOSE > 1
-#define _OP(...)   static const char *_op[] = { __VA_ARGS__ }
-#else 
-#define _OP(...)
-#endif // T4_VERBOSE
 
 //===============================================================================
 /// tensorForth tensor class
@@ -76,6 +71,14 @@ typedef enum {
     LOSS_CE,                 ///< cross entropy (softmax input)
     LOSS_NLL                 ///< negative log-likelihood (logsoftmax input)
 } t4_loss;
+
+namespace t4::mu {
+
+#if T4_VERBOSE > 1
+#define _OP(...)   static const char *_op[] = { __VA_ARGS__ }
+#else 
+#define _OP(...)
+#endif // T4_VERBOSE
 
 struct Tensor : public T4Base {
     U16      stride[4] = {1,1,1,1}; ///< stride=HWCN, for calc memory offset
@@ -209,5 +212,7 @@ struct Tensor : public T4Base {
     __GPU__ __INLINE__ bool   operator!=(Tensor &t) { return (UFP)this!=(UFP)&t; }
     __GPU__ __INLINE__ bool   operator==(Tensor &t) { return (UFP)this==(UFP)&t; }
 };
+
+} // namespace t4::mu
 
 #endif // (!defined(__MMU_TENSOR_H) && T4_DO_OBJ)

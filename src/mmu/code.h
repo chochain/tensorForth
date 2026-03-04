@@ -6,6 +6,8 @@
  */
 #ifndef __MMU_CODE_H
 #define __MMU_CODE_H
+
+namespace t4::mu {
 ///
 /// CUDA functor (device only)
 /// Note: nvstd::function is generic and smaller (at 56-byte)
@@ -58,4 +60,6 @@ struct Code : public Managed {
         DEBUG("%cCode(name=%p, xt=%p) %s\n", im ? '*' : ' ', name, xt, n);
     }
 };
+
+} // namespace t4::mu
 #endif // __MMU_CODE_H

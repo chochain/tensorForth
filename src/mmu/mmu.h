@@ -6,10 +6,14 @@
  */
 #ifndef __MMU_MMU_H
 #define __MMU_MMU_H
+#pragma once
+
 #include "vector.h"
 #include "tensor.h"
 #include "tlsf.h"
 #include "code.h"
+
+namespace t4::mu {
 ///
 /// Forth memory manager
 /// TODO: compare TLSF to RMM (Rapids Memory Manager)
@@ -154,4 +158,7 @@ public:
     
 #endif // T4_DO_OBJ ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 };
+
+} // namespace t4::mu
 #endif // __MMU_MMU_H
+
