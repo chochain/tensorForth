@@ -12,7 +12,6 @@
 #include "vm.h"                         ///< VM base class
 
 namespace t4::vm {
-using t4::mu::Code;
 ///
 /// Forth Virtual Machine operational macros to reduce verbosity
 /// Note:
@@ -68,7 +67,7 @@ protected:
     IU    base   = 0;
     
     U32   *ptos  = (U32*)&tos;        ///< 32-bit mask for tos
-    Code  *dict  = 0;                 ///< dictionary array (cached)
+    mu::Code *dict  = 0;              ///< dictionary array (cached)
     ///
     /// Forth outer interpreter
     ///
@@ -107,8 +106,8 @@ protected:
     __GPU__ __INLINE__ void add_du(DU d)   { mmu.add((U8*)&d, sizeof(DU)); }
     __GPU__ __INLINE__ void add_w(Param p) { add_iu(p.pack); }
     __GPU__ void add_w(IU w) {                ///< compile a word index into pmem
-        Code &c = dict[w];
-        IU   ix = c.udf ? c.pfa : mmu.XTOFF(c.xt);
+        mu::Code &c = dict[w];
+        IU       ix = c.udf ? c.pfa : mmu.XTOFF(c.xt);
         DEBUG(" add_w(%d) => ioff=%x %s\n", w, ix, c.name);
         Param p(MAX_OP, ix, c.udf);
         add_w(p);
