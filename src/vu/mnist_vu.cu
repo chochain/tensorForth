@@ -7,6 +7,8 @@
 #include "mnist_vu.h"
 
 #if (T4_DO_OBJ && T4_DO_NN)
+
+namespace t4::vu {
 ///
 /// MNIST GUI texture builder
 ///
@@ -35,6 +37,9 @@ MnistVu::_init_host_tex() {
     printf("\n");
     return 0;
 }
+
+} // namespace t4::vu
+
 #endif // (T4_DO_OBJ && T4_DO_NN)
 
 

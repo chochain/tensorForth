@@ -10,6 +10,10 @@
 #include "ten4_types.h"
 #include "corpus.h"              /// in ../ldr
 
+namespace t4::ld { class Corpus; }
+namespace t4::vu {
+using ld::Corpus;
+
 #define VUX(g)   GPU_ERR(g)      /**< check UI error */
 
 typedef U32                         TColor;
@@ -41,6 +45,8 @@ private:
 extern "C" int  gui_init(int *argc, char **argv);
 extern "C" int  gui_add(Vu *vu);
 extern "C" int  gui_loop();
-    
+
+} // namespace t4::vu
+
 #endif // T4_VU_H
 

@@ -6,6 +6,11 @@
  */
 #include "vu.h"
 
+#if (T4_DO_OBJ && T4_DO_NN)
+
+namespace t4::vu {
+using ld::Corpus;
+
 __HOST__
 Vu::Vu(Corpus &cp, int x, int y) :
     corpus(cp), X(x ? x : corpus.W), Y(y ? y : corpus.H) {
@@ -111,5 +116,8 @@ Vu::_init_cuda_tex() {
     printf(" ok\n");
 }
 
+} // namespace t4::vu
+
+#endif // (T4_DO_OBJ && T4_DO_NN)
 
 

@@ -9,6 +9,8 @@
 #include "vu.h"
 
 #if (T4_DO_OBJ && T4_DO_NN)
+
+namespace t4::vu {
 ///
 /// MNIST GUI texture builder
 ///
@@ -23,6 +25,8 @@ public:
 private:
     __HOST__ virtual int _init_host_tex();
 };
+
+} // namespace t4::vu
 
 #endif  // (T4_DO_OBJ && T4_DO_NN)
 #endif  // TEN4_SRC_VU_MNIST_VU_H
