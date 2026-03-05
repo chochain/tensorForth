@@ -13,7 +13,8 @@
 
 #include "vu.h"
 
-namespace T4GUI {
+namespace t4::vu {
+
 #ifndef __GL_FUNC_EXTERN
 #define __GL_FUNC_EXTERN
 #define GLFN(f,intf) intf f = (intf)glXGetProcAddress((const GLubyte*)#f)
@@ -81,8 +82,6 @@ namespace T4GUI {
     GLFN(glClientActiveTexture,     PFNGLACTIVETEXTUREPROC);
 #endif
 #undef GLFN
-} /// namespace T4GUI
-
-using namespace T4GUI;
+} /// namespace t4::vu
 
 #endif // T4_GUI_H

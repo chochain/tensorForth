@@ -12,7 +12,7 @@
 #define T4_VU_Y_CENTER          100              /** pixels */
 #define T4_VU_OFFSET            40               /** pixels */
 
-namespace T4GUI {
+namespace t4::vu {
     
 typedef std::map<int, Vu*> VuMap;
 VuMap   vu_map;
@@ -243,4 +243,4 @@ gui_loop() {
     return 0;
 }
 
-} // namespace T4GUI
+} // namespace t4::vu
