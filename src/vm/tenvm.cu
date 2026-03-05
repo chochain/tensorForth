@@ -7,7 +7,7 @@
 #include "tenvm.h"
 
 namespace t4::vm {
-using t4::mu::Tensor;                         /// alias
+using mu::Tensor;                         /// alias
 
 #if T4_DO_OBJ
 ///
