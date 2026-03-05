@@ -16,13 +16,15 @@
 #include "ostream.h"
 #include "mmu/tensor.h"
 
+namespace t4::nn { class Model;   }   /// forward declare
+namespace t4::mu { class Dataset; }
 namespace t4::io {
-using t4::mu::Tensor;                 /// alias
+using mu::Tensor;                     /// alias
+using mu::Dataset;
+using nn::Model;
 
 #define IO_DB(...)  { if (trace) INFO(__VA_ARGS__); }
 
-class Model;
-class Dataset;
 class AIO {                           ///< create in host mode
     int &trace;
     
