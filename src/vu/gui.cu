@@ -198,16 +198,6 @@ _bind_texture(Vu *vu) {
 }
 
 extern "C" int
-gui_init(int *argc, char **argv) {
-    printf("\nGLUT...");
-    glutInit(argc, argv);                /// * consumes X11 input parameters
-    glutInitDisplayMode(GLUT_RGBA | GLUT_DOUBLE);
-    printf("initialized\n");
-    
-    return 0;
-}
-
-extern "C" int
 gui_add(Vu *vu) {
     printf("gui_add Vu(%d,%d)", vu->X, vu->Y);
     
@@ -237,10 +227,20 @@ gui_add(Vu *vu) {
     return 0;
 }
 
+} // namespace t4::vu
+
+extern "C" int
+gui_init(int *argc, char **argv) {
+    printf("\nGLUT...");
+    glutInit(argc, argv);                /// * consumes X11 input parameters
+    glutInitDisplayMode(GLUT_RGBA | GLUT_DOUBLE);
+    printf("initialized\n");
+    
+    return 0;
+}
+
 extern "C" int
 gui_loop() {
     glutMainLoop();
     return 0;
 }
-
-} // namespace t4::vu
