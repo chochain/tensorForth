@@ -4,12 +4,19 @@
  *
  * <pre>Copyright (C) 2022- GreenII, this file is distributed under BSD 3-Clause License.</pre>
  */
+#pragma once
 #include "ten4_config.h"
 
-#if (!defined(__NN_MODEL_H) && T4_DO_OBJ && T4_DO_NN)
-#define __NN_MODEL_H
+#if (!defined(__MMU_MODEL_H) && T4_DO_OBJ && T4_DO_NN)
+#define __MMU_MODEL_H
 #include "sys.h"             /// * ms, rand
 #include "mmu/mmu.h"
+
+namespace t4::mu { class Tensor; class Dataset; }
+namespace t4::nn {
+using mu::MMU;
+using mu::Tensor;
+using mu::Dataset;
 
 typedef enum {
     UP_NEAREST = 0,
@@ -154,4 +161,7 @@ private:
     __GPU__ void   _dump_w(const char *wn, Tensor &w, bool full=true);
     /// @}
 };
+
+} // namespace t4::nn
+
 #endif // (!defined(__NN_MODEL_H) && T4_DO_OBJ && T4_DO_NN)

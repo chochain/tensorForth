@@ -9,6 +9,8 @@
 #if (T4_DO_OBJ && T4_DO_NN)
 #include "dataset.h"
 
+namespace t4::nn {
+
 __GPU__ int
 Model::_check_nan(Tensor &t) {
     static int cnt; cnt = 0;
@@ -64,5 +66,8 @@ Model::_dump_w(const char *wn, Tensor &w, bool full) {
     }
     if (H > 1) INFO("%sΣΣ=%6.3f", full ? "\n\t" : " ", hsum);
 }
+
+} // namespace t4::nn
+
 #endif  // (T4_DO_OBJ && T4_DO_NN)
 //==========================================================================
