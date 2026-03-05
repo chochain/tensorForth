@@ -17,7 +17,6 @@
 namespace t4     { class Debug; }   ///< forward declare
 namespace t4::nn { class Model; }   ///< forward declare
 namespace t4::mu {
-using nn::Model;
 ///
 /// Forth memory manager
 /// TODO: compare TLSF to RMM (Rapids Memory Manager)
@@ -137,8 +136,8 @@ public:
     ///
     /// neaural network objects
     ///
-    __GPU__  Dataset&dataset(U32 batch_sz);                 ///< create a NN dataset
-    __GPU__  Model  &model(int &trace, U32 sz=T4_NET_SZ);   ///< create a NN model
+    __GPU__  Dataset&dataset(U32 batch_sz);                     ///< create a NN dataset
+    __GPU__  nn::Model  &model(int &trace, U32 sz=T4_NET_SZ);   ///< create a NN model
     __GPU__  void   free(nn::Model &m);
 #endif // T4_DO_NN
     ///
