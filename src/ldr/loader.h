@@ -13,11 +13,10 @@
 #include "mmu/dataset.h"
 
 namespace t4::ld {
-using mu::Dataset;
 
 struct Loader {
     static void   init();
-    static Corpus *get(Dataset &ds, const char *ds_name=NULL);
+    static Corpus *get(mu::Dataset &ds, const char *ds_name=NULL);
 };
 
 } // namespace t4::ld

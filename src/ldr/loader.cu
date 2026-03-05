@@ -11,6 +11,7 @@
 #include "mnist.h"
 
 namespace t4::ld {
+using mu::Dataset;
 ///
 /// Note:
 ///   const char* key in map will not work because ptr1 != ptr2
