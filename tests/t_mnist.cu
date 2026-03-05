@@ -14,6 +14,11 @@
 #define VU_H 30
 #define VU_N (VU_W*VU_H)
 
+using Loader  = t4::ld::Loader;
+using Corpus  = t4::ld::Corpus;
+using Dataset = t4::mu::Dataset;
+using MnistVu = t4::vu::MnistVu;
+
 int main(int argc, char **argv) {
     const char *ds_name = "mnist_test";
     
