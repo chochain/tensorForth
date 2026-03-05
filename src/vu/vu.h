@@ -41,11 +41,11 @@ private:
     __HOST__ void _init_cuda_tex();
 };
 
-extern "C" int  gui_init(int *argc, char **argv);
-extern "C" int  gui_add(Vu *vu);
-extern "C" int  gui_loop();
-
 } // namespace t4::vu
+
+extern "C" int  gui_init(int *argc, char **argv);
+extern "C" int  gui_add(t4::vu::Vu *vu);
+extern "C" int  gui_loop();
 
 #endif // T4_VU_H
 
