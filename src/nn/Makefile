@@ -7,6 +7,7 @@ NN_SRCS := \
 	src/nn/forward.cu \
 	src/nn/backprop.cu \
 	src/nn/loss.cu \
+	src/nn/debug.cu \
 	src/nn/gradient.cu
 
 NN_INCS := \

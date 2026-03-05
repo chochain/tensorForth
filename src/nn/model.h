@@ -14,7 +14,7 @@
 
 namespace t4::mu { class Tensor; class Dataset; }
 namespace t4::nn {
-using mu::MMU;
+using mu::MMU;              /// alias (watch out for pollution)
 using mu::Tensor;
 using mu::Dataset;
 
