@@ -19,13 +19,14 @@
 namespace t4::nn { class Model;   }   /// forward declare
 namespace t4::mu { class Dataset; }
 namespace t4::io {
-using mu::Tensor;                     /// alias
-using mu::Dataset;
-using nn::Model;
 
 #define IO_DB(...)  { if (trace) INFO(__VA_ARGS__); }
 
 class AIO {                           ///< create in host mode
+    using Tensor  = mu::Tensor;       ///< aliases
+    using Dataset = mu::Dataset;
+    using Model   = nn::Model;
+    
     int &trace;
     
     __HOST__ AIO(int *verbo) : trace(*verbo) {}
