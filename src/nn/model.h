@@ -14,9 +14,6 @@
 
 namespace t4::mu { class Tensor; class Dataset; }
 namespace t4::nn {
-using mu::MMU;              /// alias (watch out for pollution)
-using mu::Tensor;
-using mu::Dataset;
 
 typedef enum {
     UP_NEAREST = 0,
@@ -34,13 +31,17 @@ typedef enum {
 ///< gradient function pointer
 ///
 typedef void (*GdFunc)(
-    DU *parm, Tensor &w, Tensor &dw, Tensor &m, Tensor &v);
+    DU *parm, mu::Tensor &w, mu::Tensor &dw, mu::Tensor &m, mu::Tensor &v);
 ///
 ///< Neural Network Model class
 ///
 #define NLOG(...)             { if (*_trace) INFO(__VA_ARGS__); }
 
 class Model : public T4Base {
+    using MMU     = mu::MMU;     ///< alias
+    using Tensor  = mu::Tensor;
+    using Dataset = mu::Dataset;
+
     MMU    *_mmu;                ///< memory controller
     Tensor *_store;              ///< model storage - Sequential, TODO: DAG
     Tensor *_hot    = NULL;      ///< cached dataset one-hot vector
