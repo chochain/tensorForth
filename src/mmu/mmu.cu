@@ -6,6 +6,8 @@
  */
 #include <iomanip>             /// setw, setbase
 #include "mmu.h"
+#include "dataset.h"
+#include "nn/model.h"
 
 namespace t4::mu {
 
@@ -141,13 +143,10 @@ MMU::colon(const char *name) {
 ///
 #if T4_DO_OBJ // vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
 #if T4_DO_NN
-#include "nn/dataset.h"
-#include "nn/model.h"
-
-__GPU__ t4::nn::Dataset&                   ///< create a Dataset holder
+__GPU__ Dataset&                   ///< create a Dataset holder
 MMU::dataset(U32 batch_sz) {       /// * Note: data block is not allocated yet
     MM_DB("mmu#dataset batch_sz=%d {", batch_sz);
-    t4::nn::Dataset *ds = (Dataset*)_ostore.malloc(sizeof(Dataset));
+    Dataset *ds = (Dataset*)_ostore.malloc(sizeof(Dataset));
     ds->init(0, T4_DATASET, 4);
     ds->N()      = batch_sz;       /// * other members filled in host mode
     ds->batch_id = 0;              /// * setup control flag
