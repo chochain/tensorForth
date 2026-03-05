@@ -15,7 +15,10 @@
 #include "nn/model.h"
 #include "ldr/loader.h"  /// includes Corpus
 
-using namespace std;
+namespace t4::io {
+using mu::Dataset;
+using nn::Model;
+using ld::Corpus;
 ///
 /// initial dataset setup
 /// init flow:
@@ -43,7 +46,7 @@ AIO::dsfetch(Dataset &ds, char *ds_name, bool rewind) {
     ///
     IO_DB("\n  %s(%s) dataset (batch_id=%d) {\n",
           fn, ds_name ? ds_name : (rewind ? "rewind" : "fetch"), ds.batch_id);
-    Corpus *cp = Loader::get(ds, ds_name);       ///< Corpus/Dataset provider
+    Corpus *cp = ld::Loader::get(ds, ds_name);   ///< Corpus/Dataset provider
     if (!cp) {
         ERROR("  } %s => dataset not found\n", fn); return -1;
     }
@@ -86,7 +89,7 @@ AIO::dsfetch(Dataset &ds, char *ds_name, bool rewind) {
 __HOST__ int
 AIO::nsave(Model &m, char* fname, U8 mode) {
     IO_DB("\nAIO::save model to '%s' {\n", fname);
-    ofstream fs(fname, ios_base::binary);     ///< open an output file
+    std::ofstream fs(fname, std::ios_base::binary);     ///< open an output file
     if (!fs.is_open()) {
         ERROR("} => failed to open for output\n");
         return 1;
@@ -108,7 +111,7 @@ AIO::nsave(Model &m, char* fname, U8 mode) {
 __HOST__ int
 AIO::nload(Model &m, char* fname, U8 mode, char *tib) {
     IO_DB("\nAIO::load '%s' {\n", fname);
-    ifstream fs(fname, ios_base::binary);            ///< open an input file
+    std::ifstream fs(fname, std::ios_base::binary);      ///< open an input file
     if (!fs.is_open()) {
         ERROR("} => failed to open for input\n");
         return 1;
@@ -117,13 +120,13 @@ AIO::nload(Model &m, char* fname, U8 mode, char *tib) {
     int err = 0;
     if (m.numel <= 2) {
         IO_DB("NN model");
-        err = _nload_model(fs, m, fname, tib);      /// * load model layers
+        err = _nload_model(fs, m, fname, tib);           /// * load model layers
     }
     else {
         std::string tmp;
-        while (getline(fs, tmp) && tmp.length());   /// * skip model section
+        while (std::getline(fs, tmp) && tmp.length());   /// * skip model section
         IO_DB("  parameter tensors (i.e. state_dict)");
-        err = _nload_param(fs, m);                  /// * load model layer tensors
+        err = _nload_param(fs, m);                       /// * load model layer tensors
     }
     fs.close();
     IO_DB("} => %s\n", err ? "error" : "completed");
@@ -290,5 +293,7 @@ AIO::_nload_param(h_istr &fs, Model &m) {
     }
     return 0;
 }
+
+} // namespace t4::io
 
 #endif // (T4_DO_OBJ && T4_DO_NN)
