@@ -5,10 +5,9 @@
  * <pre>Copyright (C) 2022- GreenII, this file is distributed under BSD 3-Clause License.</pre>
  */
 #include "netvm.h"
-
-namespace vm {
-
 #if (T4_DO_OBJ && T4_DO_NN)
+
+namespace t4::vm {
 
 __GPU__ void
 NetVM::predict(Tensor &I, Tensor &P) {}
@@ -447,7 +446,7 @@ NetVM::init() {
     TRACE("NetVM::init ok, sizeof(Model)=%ld\n", sizeof(Model));
 };
 
-#endif  // (T4_DO_OBJ && T4_DO_NN)
+} // namespace t4::vm
 
-} // namespace vm
+#endif  // (T4_DO_OBJ && T4_DO_NN)
 //===========================================================================
