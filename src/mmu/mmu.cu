@@ -10,6 +10,7 @@
 #include "nn/model.h"
 
 namespace t4::mu {
+using nn::Model;
 
 ///@name static class member
 ///@note: CUDA does not support device static data
