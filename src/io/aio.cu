@@ -10,7 +10,6 @@
 #include "aio.h"
 
 namespace t4::io {
-using t4::mu::Tensor;
 ///
 ///@name singleton and contructor
 ///@{

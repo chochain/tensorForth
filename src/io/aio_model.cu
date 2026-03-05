@@ -16,8 +16,6 @@
 #include "ldr/loader.h"  /// includes Corpus
 
 namespace t4::io {
-using mu::Dataset;
-using nn::Model;
 using ld::Corpus;
 ///
 /// initial dataset setup

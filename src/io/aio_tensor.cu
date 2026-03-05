@@ -16,7 +16,6 @@
 #include "mmu/tensor.h"
 
 namespace t4::io {
-using t4::mu::Tensor;
 
 __HOST__ int
 AIO::tsave(Tensor &t, char *fname, U8 mode) {
