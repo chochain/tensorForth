@@ -10,6 +10,8 @@
 #include "nn/model.h"
 
 namespace t4 {
+using io::AIO;
+using mu::MMU;
 using mu::Tensor;
 #if T4_DO_NN
 using mu::Dataset;
@@ -58,8 +60,8 @@ System::System(h_istr &i, h_ostr &o, int khz, int verbo)
     : fin(i), fout(o),
       _istr(new io::Istream()), _ostr(new io::Ostream()),
       _trace(verbo) {
-    mu = mu::MMU::get_mmu();         ///> instantiate memory controller
-    io = io::AIO::get_io(&_trace);   ///> instantiate async IO controler
+    mu = MMU::get_mmu();             ///> instantiate memory controller
+    io = AIO::get_io(&_trace);       ///> instantiate async IO controler
     db = Debug::get_db(o);           ///> tracing instrumentation
     ///
     ///> setup randomizer
@@ -76,9 +78,9 @@ System::~System() {
     GPU_SYNC();
 
 //    MM_FREE(_rand_st);
-    io::AIO::free_io();
-    mu::MMU::free_mmu();
+    AIO::free_io();
     Debug::free_db();
+    MMU::free_mmu();
     INFO("\\ System: instance freed\n");
 }
 
