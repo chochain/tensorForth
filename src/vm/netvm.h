@@ -6,12 +6,13 @@
  */
 #include "ten4_config.h"
 
-namespace vm {
-
 #if (!defined(__VM_NETVM_H) && T4_DO_OBJ && T4_DO_NN)
 #define __VM_NETVM_H
+#pragma once
 #include "tenvm.h"                /// extending TensorVM
 #include "nn/model.h"
+
+namespace t4::vm {
 
 #define MTOS     ((Model&)mmu.du2obj(tos))                                       /** Network Model on TOS   */
 #define MNOS     ((Model&)mmu.du2obj(ss[-1]))                                    /** Network Model on NOS   */
@@ -23,6 +24,7 @@ namespace vm {
 #define MTV      (ss.idx > 1 && !IS_OBJ(tos) && IS_OBJ(ss[-1]) && IS_M(ss[-2]))  /** ss[-2] model tensor w 1-param */
 
 class NetVM : public TensorVM {
+    using Tensor = mu::Tensor;                   ///< alias
 public:
     __GPU__ NetVM(int id, System &sys) : TensorVM(id, sys) {
         TRACE("\\      ::NetVM[%d]\n", id);
@@ -52,6 +54,7 @@ private:
     /// @}
 };
 
+} // namespace t4::vm
+
 #endif // (!defined(__VM_NETVM_H) && T4_DO_OBJ && T4_DO_NN)
 
-} // namespace vm
