@@ -45,8 +45,9 @@ N 1 1 1 tensor zeros constant FAKE
 : epoch ( -- ) 99 for run next stat ;               \ train with 100 * N samples
 : gan ( n -- ) 
   for epoch next
-  gen N 2 reshape2 s" jk" save                      \ generate N samples
+  gen N 2 reshape2 s" l32a.out" save                \ generate N samples
   ;
 
-9 gan
+0 trace
+19 gan
 bye
