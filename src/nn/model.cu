@@ -10,6 +10,7 @@
 #include "model.h"
 
 namespace t4::nn {
+using mu::Tensor;
 ///
 /// @name name string short hands
 /// @{

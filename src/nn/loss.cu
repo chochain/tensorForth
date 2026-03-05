@@ -10,6 +10,7 @@
 #include "dataset.h"
 
 namespace t4::nn {
+using mu::Tensor;
 
 __GPU__ Tensor&
 Model::onehot() {
