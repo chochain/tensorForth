@@ -10,6 +10,7 @@
 
 #include "corpus.h"
 #include "vu.h"
+typedef uint8_t U8;
 
 #pragma pack(1)
 
@@ -35,13 +36,15 @@ typedef struct {
     int      clrImportant;
 } BMPInfoHeader;
 
-class BmpLoader : public Corpus {
+class BmpLoader : public t4::ld::Corpus {
 public:
-    BmpLoader(const char *name) : Corpus(name, NULL) {}
+    BmpLoader(const char *name) : t4::ld::Corpus(name, NULL) {}
     virtual BmpLoader *load(int bsz=0, int bid=0);
 };
 
-class BmpVu : public Vu {
+class BmpVu : public t4::vu::Vu {
+    using Corpus = t4::ld::Corpus;
+    using TColor = t4::vu::TColor;
 public:
     BmpVu(Corpus &cp) : Vu(cp) {}
     

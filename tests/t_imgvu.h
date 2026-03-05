@@ -11,13 +11,17 @@
 #include "corpus.h"
 #include "vu.h"
 
-class ImgLoader : public Corpus {
+typedef uint8_t U8;
+
+class ImgLoader : public t4::ld::Corpus {
 public:
     ImgLoader(const char *name) : Corpus(name, NULL) {}
     virtual ImgLoader *load(int bsz=0, int bid=0);
 };
 
-class ImgVu : public Vu {
+class ImgVu : public t4::vu::Vu {
+    using Corpus = t4::ld::Corpus;
+    using TColor = t4::vu::TColor;
 public:
     ImgVu(Corpus &cp) : Vu(cp) {}
 

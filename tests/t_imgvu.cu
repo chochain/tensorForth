@@ -30,6 +30,9 @@ ImgLoader *ImgLoader::load(int, int) {
     return this;
 }
 
+using TColor   = t4::vu::TColor;
+using cuTexObj = t4::vu::cuTexObj;
+
 __GPU__ __INLINE__ TColor tex2color(float r, float g, float b, float a) {
     return
         ((int)(a * 255.0f) << 24) |
