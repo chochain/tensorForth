@@ -13,10 +13,6 @@ namespace t4 {
 using io::AIO;
 using mu::MMU;
 using mu::Tensor;
-#if T4_DO_NN
-using mu::Dataset;
-using nn::Model;
-#endif // T4_DO_NN
 
 System  *_sys = NULL;                ///< singleton controller on host
 __GPU__ curandState *_rand_st;       ///< for random number generator
@@ -161,7 +157,7 @@ System::process_event(io_event *ev) {
         case OP_SS:    db->ss_dump(o->n, o->i, o->m);        break;
 #if T4_DO_OBJ // vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
         case OP_TSAVE: {
-            Tensor &t = (Tensor&)mu->du2obj(o->n);
+            mu::Tensor &t = (mu::Tensor&)mu->du2obj(o->n);
             if (t.is_tensor()) {
                 ev = NEXT_EVENT(ev);
                 char *fn = (char*)ev->data;                     ///> filename
@@ -171,7 +167,7 @@ System::process_event(io_event *ev) {
         } break;
 #if T4_DO_NN  //==========================================================
         case OP_DATA: {
-            Dataset &ds = (Dataset&)mu->du2obj(o->n);
+            mu::Dataset &ds = (mu::Dataset&)mu->du2obj(o->n);
             if (ds.is_dataset()) {                              /// * indeed a dataset?
                 ev = NEXT_EVENT(ev);                            ///< get dataset repo name
                 char *ds_nm = (char*)ev->data;                  /// * dataset name
@@ -180,7 +176,7 @@ System::process_event(io_event *ev) {
             else ERROR("%x is not a dataset\n", DU2X(o->n));
         } break;
         case OP_FETCH: {
-            Dataset &ds = (Dataset&)mu->du2obj(o->n);
+            mu::Dataset &ds = (mu::Dataset&)mu->du2obj(o->n);
             if (ds.is_dataset()) {
                 io->dsfetch(ds, NULL, o->m);                    /// * fetch/rewind dataset batch
             }
@@ -188,7 +184,7 @@ System::process_event(io_event *ev) {
         } break;  
         case OP_NSAVE: {
             printf("OP_NSAVE %x\n", DU2X(o->n));
-            Model &m = (Model&)mu->du2obj(o->n);
+            nn::Model &m = (nn::Model&)mu->du2obj(o->n);
             if (m.is_model()) {
                 ev = NEXT_EVENT(ev);                            ///< get dataset repo name
                 char *fn = (char*)ev->data;                     ///< filename
@@ -197,7 +193,7 @@ System::process_event(io_event *ev) {
             else ERROR("%x is not a model\n", DU2X(o->n));
         } break;
         case OP_NLOAD: {
-            Model &m = (Model&)mu->du2obj(o->n);
+            nn::Model &m = (nn::Model&)mu->du2obj(o->n);
             if (m.is_model()) {
                 ev = NEXT_EVENT(ev);
                 _istr->clear();
