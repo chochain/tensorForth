@@ -14,24 +14,21 @@
 #include "mmu/mmu.h"
 
 namespace t4 {
-using mu::MMU;
-using io::AIO;
-using vm::Param;
 
 #define ENDL    '\n'
 ///
 ///@name Debugger/Tracer class
 ///@{
 class Debug {                                             ///< friend class to MMU and AIO
-    MMU      *mu;                                         ///< memory controller
-    AIO      *io;                                         ///< streaming io controller
+    mu::MMU  *mu;                                         ///< memory controller
+    io::AIO  *io;                                         ///< streaming io controller
     h_ostr   &fout;                                       ///< host output stream
     
     char     tmp[256];                                    ///< tmp string buffer
     
     __HOST__ Debug(h_ostr &o) : fout(o) {
-        mu = MMU::get_mmu();
-        io = AIO::get_io();
+        mu = mu::MMU::get_mmu();
+        io = io::AIO::get_io();
     }
     __HOST__ ~Debug() { TRACE("\\   Debug: instance freed\n"); }
     
@@ -60,9 +57,9 @@ private:
     /// methods for supporting see
     ///
     __HOST__ char *_d2h(const char *d_str);                   ///< convert from device string
-    __HOST__ int  _p2didx(Param *p);                          ///< reverse lookup
+    __HOST__ int  _p2didx(vm::Param *p);                      ///< reverse lookup
     __HOST__ int  _to_s(IU w, int base);                      ///< show dictionary entry
-    __HOST__ int  _to_s(Param *p, int nv, int base);          ///< show by parameter memory pointer
+    __HOST__ int  _to_s(vm::Param *p, int nv, int base);      ///< show by parameter memory pointer
 };
 ///@}
 
