@@ -8,6 +8,8 @@
 #if (T4_DO_OBJ && T4_DO_NN)
 
 namespace t4::vm {
+using mu::Dataset;
+using nn::Model;
 
 __GPU__ void
 NetVM::predict(Tensor &I, Tensor &P) {}
@@ -71,15 +73,15 @@ NetVM::_nnop(t4_layer op) {     /// vtable dispatcher
         Model &m = MTOS;
         VLOG(" N%ld %g {\n", m.numel, a);
         switch (op) {
-        case L_LINEAR:  m.add(op, INT(a), DU1);        return ok(); /* bias = 1.0 */
+        case L_LINEAR:  m.add(op, INT(a), DU1);            return ok(); /* bias = 1.0 */
         case L_LEAKYRL:
         case L_ELU:     
-        case L_DROPOUT: m.add(op, 0, a);               return ok();
+        case L_DROPOUT: m.add(op, 0, a);                   return ok();
         case L_AVGPOOL:
         case L_MAXPOOL: 
-        case L_MINPOOL: m.add(op, INT(a));             return ok();
-        case L_BATCHNM: m.add(op, 0, a);               return ok();
-        case L_USAMPLE: m.add(op, INT(a), UP_NEAREST); return ok();
+        case L_MINPOOL: m.add(op, INT(a));                 return ok();
+        case L_BATCHNM: m.add(op, 0, a);                   return ok();
+        case L_USAMPLE: m.add(op, INT(a), nn::UP_NEAREST); return ok();
         }
         PUSH(a);                                   /// * restore tos
         /// continue to error handling cases
