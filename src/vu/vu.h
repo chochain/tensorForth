@@ -10,9 +10,7 @@
 #include "ten4_types.h"
 #include "corpus.h"              /// in ../ldr
 
-namespace t4::ld { class Corpus; }
 namespace t4::vu {
-using ld::Corpus;
 
 #define VUX(g)   GPU_ERR(g)      /**< check UI error */
 
@@ -21,6 +19,7 @@ typedef cudaGraphicsResource_t      cuGfxPbo;      /* cudaGraphicsResource point
 typedef cudaTextureObject_t         cuTexObj;      /* long long                    */
 
 class Vu {
+    using Corpus = ld::Corpus;  ///< alias
 public:
     Corpus    &corpus;          ///< NN data source
     int       X, Y;             ///< view port dimensions
