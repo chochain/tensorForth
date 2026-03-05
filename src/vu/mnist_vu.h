@@ -17,7 +17,7 @@ namespace t4::vu {
 class MnistVu : public Vu {
     int NX, NY;
 public:
-    __HOST__ MnistVu(Corpus &cp, int nx=40, int ny=30) :
+    __HOST__ MnistVu(ld::Corpus &cp, int nx=40, int ny=30) :
         Vu(cp, cp.W * nx, cp.H * ny), NX(nx), NY(ny) {
         _init_host_tex();
     }

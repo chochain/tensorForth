@@ -9,10 +9,9 @@
 #if (T4_DO_OBJ && T4_DO_NN)
 
 namespace t4::vu {
-using ld::Corpus;
 
 __HOST__
-Vu::Vu(Corpus &cp, int x, int y) :
+Vu::Vu(ld::Corpus &cp, int x, int y) :
     corpus(cp), X(x ? x : corpus.W), Y(y ? y : corpus.H) {
     if (sizeof(uchar4) != 4) {
         fprintf(stderr, "ERR: Bad uchar4 size = %ld\n", sizeof(uchar4));
