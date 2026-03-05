@@ -13,7 +13,7 @@ TSTS0 := \
 	t_bmpvu	\
 	t_imgvu \
 	t_mnist \
-    t_ganvu \
+	t_ganvu \
 	t_event
 
 TSTS := \
