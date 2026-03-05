@@ -11,7 +11,6 @@
 #include "eforth.h"                         /// extending ForthVM
 
 namespace t4::vm {
-using t4::mu::Tensor;                       /// alias
 
 #define VOP(...)  static const char *_op[] = { __VA_ARGS__ }
 #define VLOG(...) if (sys.trace()) { INFO(__VA_ARGS__); }
@@ -31,6 +30,7 @@ typedef enum {
 ///@name Tensor (multi-dimension array) class
 ///@{
 class TensorVM : public ForthVM {
+    using Tensor = mu::Tensor;              ///< alias
 public:
     __GPU__ TensorVM(int id, System &sys) : ForthVM(id, sys) {
         TRACE("\\    ::TensorVM[%d]\n", id);
