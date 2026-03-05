@@ -9,6 +9,8 @@
 #if (T4_DO_OBJ && T4_DO_NN)
 #include "dataset.h"
 
+namespace t4::nn {
+
 __GPU__ Tensor&
 Model::onehot() {
     if (_hot) return *_hot;
@@ -123,5 +125,7 @@ Model::loss(t4_loss op, Tensor &tgt) {              ///< loss against target vec
     
     return z;
 }
+
+} // namespace t4::nn
 #endif  // (T4_DO_OBJ && T4_DO_NN)
 //==========================================================================

@@ -9,6 +9,8 @@
 #if (T4_DO_OBJ && T4_DO_NN)
 #include "dataset.h"
 
+namespace t4::nn {
+
 __KERN__ void k_sgd(
     DU *G, DU *DG, DU *M,                   ///< w, dw, and momemtum tensors
     U32 N, DU lr, DU b,                     ///< batch size, learn rate, beta(momemtum)
@@ -190,5 +192,8 @@ Model::adam(DU lr, DU b1, DU b2) {
     DU parm[3] = { lr, b1, b2 };   ///< learn rate, betas
     return gradient("adam", OPTI_ADAM, update, parm);
 }
+
+} // namespace t4::nn
+
 #endif  // (T4_DO_OBJ && T4_DO_NN)
 //==========================================================================

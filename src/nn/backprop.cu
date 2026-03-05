@@ -7,6 +7,8 @@
 #include "model.h"
 
 #if (T4_DO_OBJ && T4_DO_NN)
+
+namespace t4::nn {
 ///
 /// convolution filter derivatives
 /// TODO: stride, dilation, [C1]NCHW filter
@@ -475,6 +477,8 @@ Model::_bbatchnorm(Tensor &in, Tensor &out) {
     
     return 0;
 }
+
+} // namespace t4::nn
 
 #endif  // (T4_DO_OBJ && T4_DO_NN)
 //==========================================================================

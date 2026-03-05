@@ -17,6 +17,8 @@
 ///   z, HW: page index
 /// 
 #if (T4_DO_OBJ && T4_DO_NN)
+
+namespace t4::nn {
 ///
 /// convolution filter
 /// Note: half-padding, no-stride 
@@ -445,5 +447,8 @@ Model::_fupsample(Tensor &in, Tensor &out) {
     
     return 0;
 }
+
+} // namespace t4::nn
+
 #endif  // (T4_DO_OBJ && T4_DO_NN)
 //==========================================================================
