@@ -10,106 +10,124 @@ def create_mnist_cnn_graphdef(log_dir="./logs/mnist_cnn_final"):
       name: "input"
       op: "Placeholder"
       attr { key: "dtype" value { type: DT_FLOAT } }
-      attr { key: "shape" value { shape { dim { size: 10 } dim { size: 28 } dim { size: 28 } dim { size: 1 } } } }
+      attr { key: "shape" value { shape { dim { size: 50 } dim { size: 28 } dim { size: 28 } dim { size: 1 } } } }
     }
     # --- CONV LAYER 1 ---
     node {
-      name: "conv1/weights"
-      op: "Const"
+      name: "conv1/weight"
+      op: "VariableV2"
       attr { key: "dtype" value { type: DT_FLOAT } }
-      attr { key: "value" value { tensor { dtype: DT_FLOAT tensor_shape { dim { size: 3 } dim { size: 3 } dim { size: 1 } dim { size: 32 } } float_val: 0.1 } } }
+      attr { key: "value" value { tensor { dtype: DT_FLOAT tensor_shape { dim { size: 3 } dim { size: 3 } dim { size: 1 } dim { size: 10 } } float_val: 0.2 } } }
+    }
+    node {
+      name: "conv1/bias"
+      op: "BiasAdd"
+      attr { key: "dtype" value { type: DT_FLOAT } }
+      attr { key: "value" value { tensor { dtype: DT_FLOAT tensor_shape { dim { size: 10 } } float_val: 0.5 } } }
     }
     node {
       name: "conv1/Conv2D"
       op: "Conv2D"
       input: "input"
-      input: "conv1/weights"
+      input: "conv1/weight"
+      input: "conv1/bias"
       attr { key: "T" value { type: DT_FLOAT } }
-      attr { key: "shape" value { shape { dim { size: 10 } dim { size: 28 } dim { size: 28 } dim { size: 1 } } } }
       attr { key: "strides" value { list { i: 1 i: 1 i: 1 i: 1 } } }
       attr { key: "padding" value { s: "SAME" } }
-    }
-    node {
-      name: "conv1/Relu"
-      op: "Relu"
-      input: "conv1/Conv2D"
-      attr { key: "shape" value { shape { dim { size: 10 } dim { size: 28 } dim { size: 28 } dim { size: 1 } } } }
+      attr { key: "_output_shape" value { shape { dim { size: 50 } dim { size: 28 } dim { size: 28 } dim { size: 1 } } } }
     }
     node {
       name: "conv1/MaxPool"
       op: "MaxPool"
-      input: "conv1/Relu"
-      attr { key: "shape" value { shape { dim { size: 10 } dim { size: 28 } dim { size: 28 } dim { size: 1 } } } }
+      input: "conv1/Conv2D"
       attr { key: "ksize" value { list { i: 1 i: 2 i: 2 i: 1 } } }
       attr { key: "strides" value { list { i: 1 i: 2 i: 2 i: 1 } } }
       attr { key: "padding" value { s: "SAME" } }
-    }
-    # --- CONV LAYER 2 ---
-    node {
-      name: "conv2/weights"
-      op: "Const"
-      attr { key: "dtype" value { type: DT_FLOAT } }
-      attr { key: "value" value { tensor { dtype: DT_FLOAT tensor_shape { dim { size: 3 } dim { size: 3 } dim { size: 32 } dim { size: 64 } } float_val: 0.05 } } }
+      attr { key: "_output_shape" value { shape { dim { size: 50 } dim { size: 14 } dim { size: 14 } dim { size: 1 } } } }
     }
     node {
-      name: "conv2/Conv2D"
-      op: "Conv2D"
-      input: "conv1/MaxPool"
-      input: "conv2/weights"
-      attr { key: "T" value { type: DT_FLOAT } }
-      attr { key: "shape" value { shape { dim { size: 10 } dim { size: 14 } dim { size: 14 } dim { size: 1 } } } }
-      attr { key: "strides" value { list { i: 1 i: 1 i: 1 i: 1 } } }
-      attr { key: "padding" value { s: "SAME" } }
-    }
-    node {
-      name: "conv2/Relu"
+      name: "conv1/Relu"
       op: "Relu"
-      input: "conv2/Conv2D"
-      attr { key: "shape" value { shape { dim { size: 10 } dim { size: 14 } dim { size: 14 } dim { size: 1 } } } }
+      input: "conv1/MaxPool"
+      attr { key: "_output_shape" value { shape { dim { size: 50 } dim { size: 14 } dim { size: 14 } dim { size: 1 } } } }
     }
-    node {
-      name: "conv2/MaxPool"
-      op: "MaxPool"
-      input: "conv2/Relu"
-      attr { key: "shape" value { shape { dim { size: 10 } dim { size: 14 } dim { size: 14 } dim { size: 1 } } } }
-      attr { key: "ksize" value { list { i: 1 i: 2 i: 2 i: 1 } } }
-      attr { key: "strides" value { list { i: 1 i: 2 i: 2 i: 1 } } }
-      attr { key: "padding" value { s: "SAME" } }
-    }
-
     # --- FLATTEN ---
-    node {
-      name: "flatten/shape"
-      op: "Const"
-      attr { key: "dtype" value { type: DT_INT32 } }
-      attr { key: "shape" value { shape { dim { size: 10 } dim { size: 1960 } dim { size: 1 } dim { size: 1 } } } }
-      attr { key: "value" value { tensor { dtype: DT_INT32 tensor_shape { dim { size: 2 } } int_val: -1 int_val: 3136 } } }
-    }
     node {
       name: "flatten/Reshape"
       op: "Reshape"
-      input: "conv2/MaxPool"
-      input: "flatten/shape"
-      attr { key: "shape" value { shape { dim { size: 10 } dim { size: 1960 } dim { size: 1 } dim { size: 1 } } } }
+      input: "conv1/Relu"
+      attr { key: "dtype" value { type: DT_INT32 } }
+      attr { key: "value" value { tensor { dtype: DT_INT32 tensor_shape { dim { size: 2 } } int_val: 0 int_val: 1959 } } }
+      attr { key: "_output_shape" value { shape { dim { size: 50 } dim { size: 1960 } dim { size: 1 } dim { size: 1 } } } }
     }
-
-    # --- DENSE & SOFTMAX ---
+    # --- LINEAR LAYER 2 ---
     node {
-      name: "dense/weights"
-      op: "Const"
+      name: "linear2/weight"
+      op: "VariableV2"
       attr { key: "dtype" value { type: DT_FLOAT } }
-      attr { key: "value" value { tensor { dtype: DT_FLOAT tensor_shape { dim { size: 3136 } dim { size: 10 } } float_val: 0.01 } } }
+      attr { key: "value" value { tensor { dtype: DT_FLOAT tensor_shape { dim { size: 100 } dim { size: 1960 } dim { size: 1 } dim { size: 1 } } float_val: 0.0 } } }
     }
     node {
-      name: "dense/MatMul"
+      name: "linear2/bias"
+      op: "BiasAdd"
+      attr { key: "dtype" value { type: DT_FLOAT } }
+      attr { key: "value" value { tensor { dtype: DT_FLOAT tensor_shape { dim { size: 100 } } float_val: 1.0 } } }
+    }
+    node {
+      name: "linear2/MatMul"
       op: "MatMul"
       input: "flatten/Reshape"
-      input: "dense/weights"
+      input: "linear2/weight"
+      input: "linear2/bias"
+      attr { key: "T" value { type: DT_FLOAT } }
+      attr { key: "strides" value { list { i: 1 i: 1 i: 1 i: 1 } } }
+      attr { key: "padding" value { s: "SAME" } }
+      attr { key: "_output_shape" value { shape { dim { size: 50 } dim { size: 100 } dim { size: 1 } dim { size: 1 } } } }
+    }
+    node {
+      name: "linear2/Relu"
+      op: "Relu"
+      input: "linear2/MatMul"
+      attr { key: "shape" value { shape { dim { size: 10 } dim { size: 14 } dim { size: 14 } dim { size: 1 } } } }
+      attr { key: "_output_shape" value { shape { dim { size: 50 } dim { size: 100 } dim { size: 1 } dim { size: 1 } } } }
+    }
+    # --- LINEAR LAYER 3 ---
+    node {
+      name: "linear3/weight"
+      op: "VariableV2"
+      attr { key: "dtype" value { type: DT_FLOAT } }
+      attr { key: "value" value { tensor { dtype: DT_FLOAT tensor_shape { dim { size: 50 } dim { size: 100 } dim { size: 1 } dim { size: 1 } } float_val: 0.0 } } }
+    }
+    node {
+      name: "linear3/bias"
+      op: "BiasAdd"
+      attr { key: "dtype" value { type: DT_FLOAT } }
+      attr { key: "value" value { tensor { dtype: DT_FLOAT tensor_shape { dim { size: 10 } } float_val: 1.0 } } }
+    }
+    node {
+      name: "linear3/MatMul"
+      op: "MatMul"
+      input: "linear2/Relu"
+      input: "linear3/weight"
+      input: "linear3/bias"
+      attr { key: "T" value { type: DT_FLOAT } }
+      attr { key: "strides" value { list { i: 1 i: 1 i: 1 i: 1 } } }
+      attr { key: "padding" value { s: "SAME" } }
+      attr { key: "_output_shape" value { shape { dim { size: 50 } dim { size: 10 } dim { size: 1 } dim { size: 1 } } } }
+    }
+    # --- SOFTMAX ---
+    node {
+      name: "output/weight"
+      op: "Const"
+      attr { key: "dtype" value { type: DT_FLOAT } }
+      attr { key: "value" value { tensor { dtype: DT_FLOAT tensor_shape { dim { size: 10 } dim { size: 1 } } float_val: 0.01 } } }
     }
     node {
       name: "output/Softmax"
       op: "Softmax"
-      input: "dense/MatMul"
+      input: "linear3/MatMul"
+      input: "output/weight"
+      attr { key: "_output_shape" value { shape { dim { size: 50 } dim { size: 10 } dim { size: 1 } dim { size: 1 } } } }
     }
 
     versions { producer: 440 }
