@@ -137,6 +137,7 @@ struct Tensor : public T4Base {
     __BOTH__ __INLINE__ U32  &W()  { return shape[1]; }
     __BOTH__ __INLINE__ U32  &C()  { return shape[2]; }
     __BOTH__ __INLINE__ U64  HWC() { return (U64)shape[0] * shape[1] * shape[2]; }
+    __BOTH__ __INLINE__ U64  size(){ return HWC() * N(); }
     __BOTH__ __INLINE__ DU   *slice(int n) { return &data[ HWC() * n ]; }
     __BOTH__ __INLINE__ bool is_same_shape(Tensor &t) {
 #ifdef __CUDA_ARCH__
