@@ -29,11 +29,12 @@ struct T4Base : public Managed {
         struct {
             U32   ttype: 3;  ///< t4_obj, 0=tensor, 1=model, 2=dataset, 3=reserved
             U32   rank : 3;  ///< rank of tensor 2:matrix, 4:NHWC tensor
+            U32   iparm: 10; ///< integer parameter or method id
+            U32   nref : 13; ///< reference counter (reserved)
             U32   train: 1;  ///< trainable
-            U32   err  : 1;  ///< size of data element, F32=0, F64=1
-            U32   nref : 8;  ///< reference counter (reserved)
-            U32   iparm: 16; ///< integer parameter
-            DU    xparm;      ///< float parameter
+            U32   f64  : 1;  ///< size of data element, F32=0, F64=1
+            U32   err  : 1;  ///< math error (NaN, Inf)
+            DU    xparm;     ///< float parameter
         };
     };
     DU  *data;    ///< managed memory block pointer (Note: instead of from TLSF)
