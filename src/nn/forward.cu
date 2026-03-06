@@ -198,13 +198,13 @@ Model::forward(Tensor &input) {
     /// TODO: model execution becomes a superscalar pipeline
     ///
     auto info = [](DU t, int i, Tensor &in, Tensor &out) {
-        INFO("\n%6.2f:%2d> %s [%2d,%2d,%2d,%2d] Σ/n=%6.2f\tp=%6.3f => out[%2d,%2d,%2d,%2d]",
+        INFO("\n%6.2f:%3d> %s [%2d,%2d,%2d,%2d] Σ/n=%6.2f p=%6.3f => out[%2d,%2d,%2d,%2d]",
             t, i, d_nname(in.grad_fn), in.N(), in.H(), in.W(), in.C(),
             in.sum() / in.N() / in.C(), in.xparm,
             out.N(), out.H(), out.W(), out.C());
     };
     NLOG("\nModel::forward starts {");
-    DU t0 = System::ms(), t1 = t0, tt;           ///< performance measurement
+    DU t0 = System::ms(), t1 = t0, tt;             ///< performance measurement
     for (U16 i = 1; i < numel - 1; i++) {
         Tensor &in = (*this)[i], &out = (*this)[i + 1];
         if (*_trace) {
@@ -273,7 +273,7 @@ Model::_fstep(Tensor &in, Tensor &out) {
 __GPU__ int
 Model::_fconv(Tensor &in, Tensor &out) {
     Tensor &f = *in.grad[0], &b = *in.grad[1];            ///< filter, bias tensor
-    NN_DB(" f[%d,%d,%d,%d], b[%ld]\n", f.N(), f.H(), f.W(), f.C(), b.numel);
+    NN_DB(" f[%d,%d,%d,%d], b[%ld]", f.N(), f.H(), f.W(), f.C(), b.numel);
 
     const U32 N = out.N(), H = out.H(), W = out.W();      ///< outpt dimensions
     const U32 C0 = out.C(), C1 = in.C();                  ///< output, input channel deep
@@ -333,7 +333,6 @@ Model::_flinear(Tensor &in, Tensor &out) {
               in.data, out.data, w.data, b.data);
         GPU_SYNC();
     }
-    NN_DB("\n");
     return 0;
 }
 
@@ -350,7 +349,7 @@ __GPU__ int
 Model::_fpool(Tensor &in, Tensor &out, t4_layer fn) {
     const U32 W  = out.W(), H = out.H();                ///< output dimensions
     const U32 C  = out.C(), N = out.N();
-    const int ks = in.iparm;                            ///< kernel size
+    const int ks = in.stride[0];                        ///< kernel size
 
     switch(ks) {                                        /// pooling kernel size
     case 2: FORK4(k_pool<2>, fn, in.data, out.data, H, W); break;
@@ -433,8 +432,8 @@ __GPU__ int
 Model::_fupsample(Tensor &in, Tensor &out) {
     const U32 W  = in.W(), H = in.H();                  ///< input dimensions (reversed pool)
     const U32 C  = in.C(), N = in.N();
-    const int me = (in.iparm >> 8);                     ///< upsample method, TODO
-    const int ks = in.iparm & 0xff;                     ///< upsampling size
+    const int me = in.iparm;                            ///< upsample method, TODO
+    const int ks = in.stride[0];                        ///< upsampling size
 
     switch(ks) {
     case 2: FORK4(k_dpool<2>, L_USAMPLE, out.data, in.data, H, W); break;
