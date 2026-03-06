@@ -104,7 +104,7 @@ AIO::_print_tensor(h_ostr &fs, Tensor &t) {
         int N = t.N();
         fs << "tensor["
            << N << "," << t.H() << "," << t.W() << "," << t.C()
-           << "] = { {\n\t";
+           << "]" << t.numel << " = { {\n\t";
         for (int n = 0; n < N; n++, td += t.HWC()) {
             _print_mat(fs, td, t.shape);
             fs << ((n+1) < N ? " } {\n\t" : "");
