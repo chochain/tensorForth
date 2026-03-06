@@ -132,7 +132,7 @@ private:
     ///
     /// compiler helpers
     ///
-    __GPU__ int  _def_word();                 ///< define a new word
+    __GPU__ int  _word();                     ///< check a new word
     __GPU__ void _forget();                   ///< clear dictionary
     __GPU__ void _quote(prim_op op);          ///< string helper
     __GPU__ void _to_value();                 ///< update a constant/value

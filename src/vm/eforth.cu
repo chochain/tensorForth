@@ -309,16 +309,16 @@ ForthVM::init() {
     /// @{
     CODE("[",       compile = false);
     CODE("]",       compile = true);
-    CODE(":",       compile = _def_word());
+    CODE(":",       compile = _word());
     IMMD(";",       add_p(EXIT); compile = false);
     CODE("variable",                                        /// create a variable
-         if (!_def_word()) return;
+         if (!_word()) return;
          add_p(VAR, 0, true); add_du(DU0));                 /// default DU0
     CODE("constant",                                        /// create a constant
-         if (!_def_word()) return;
+         if (!_word()) return;
          add_lit(POP(), true));
     CODE("value",   
-         if (!_def_word()) return;
+         if (!_word()) return;
          add_p(LIT, 0, true, true);                         /// forced extended, TO can update
          add_du(POP()));             
     IMMD("immediate", dict[-1].imm = true);
@@ -329,7 +329,7 @@ ForthVM::init() {
     /// @{
     CODE("exec",   IU w = POP(); call(w));                  /// execute word
     CODE("create",
-         if (!_def_word()) return;
+         if (!_word()) return;
          add_p(VAR, 0, true));
     CODE("does>",
          IU pfa = mmu.last()->pfa;
@@ -479,13 +479,13 @@ ForthVM::number(char *idiom, char **p) {
 ///@name misc eForth functions (in Standard::Core section)
 ///@{
 __GPU__ int
-ForthVM::_def_word() {                    ///< display if redefined
+ForthVM::_word() {                        ///< check input word
     char *name = sys.fetch();
     if (name[0]=='\0') {                  /// * missing name?
         sys.pstr(" name?", CR); return 0;
     }
     IU w = FIND(name);
-    DEBUG("_def_word(%s) => %d\n", name, w);
+    DEBUG("_find(%s) => %d\n", name, w);
     if (w) {                              /// * word redefined?
         sys.pstr(name);
         sys.pstr(" reDef? ", CR);
