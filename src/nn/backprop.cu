@@ -203,13 +203,13 @@ Model::backprop() {
 __GPU__ Model&
 Model::backprop(Tensor &tgt) {
     auto trace = [](DU t, int i, Tensor &in, Tensor &out) {
-        INFO("\n%6.2f:%2d> %s [%2d,%2d,%2d,%2d]\tp=%6.3f <= out'Σ/n=%6.2f [%2d,%2d,%2d,%2d]",
+        INFO("\n%6.2f:%3d> %s [%2d,%2d,%2d,%2d] p=%6.3f <= out'Σ/n=%6.2f [%2d,%2d,%2d,%2d]",
             t, i, d_nname(in.grad_fn),
             in.N(), in.H(), in.W(), in.C(), in.xparm,
             out.sum() / out.N() / out.C(),
             out.N(), out.H(), out.W(), out.C());
     };
-    if (_bloss(tgt)) return *this;                 /// * pre-calculate dLoss
+    if (_bloss(tgt)) return *this;                        /// * pre-calculate dLoss
     
     NLOG("\nModel#backprop starts {");
     DU  t0 = System::ms(), t1 = t0, tt;                   ///< performance measurement
@@ -239,10 +239,10 @@ Model::backprop(Tensor &tgt) {
 __GPU__ int
 Model::_bloss(Tensor &tgt) {                     ///> pre-calc dLoss
     Tensor &out = (*this)[-1];                   ///< output layer, used as dLoss
-    if (tgt.numel != out.numel) {                /// * check dimensions of target vector
-        ERROR("nn#_bloss: Onehot wrong shape[%d,%d,%d,%d] != [%d,%d,%d,%d]",
+    if (!out.is_same_shape(tgt)) {               /// * check dimensions of target vector
+        ERROR("nn#_bloss: Onehot wrong shape[%d,%d,%d,%d] != [%d,%d,%d,%d], numel=%ld,%ld ",
               tgt.N(), tgt.H(), tgt.W(), tgt.C(),
-              out.N(), out.H(), out.W(), out.C());
+              out.N(), out.H(), out.W(), out.C(), tgt.numel, out.numel);
         return 1;
     }
     NN_DB("Precalculate dLoss: input dimensions OK.");
@@ -400,7 +400,7 @@ __GPU__ int
 Model::_bpool(Tensor &in, Tensor &out, t4_layer fn) {
     const U32 W = out.W(), H = out.H();           ///< output dimensions
     const U32 C = out.C(), N = out.N();
-    const int ks = in.iparm;                      ///< kernel size
+    const int ks = in.stride[0];                  ///< kernel size (square)
     switch(ks) {
     case 2: FORK4(k_dpool<2>, fn, in.data, out.data, H, W); break;
     case 3: FORK4(k_dpool<3>, fn, in.data, out.data, H, W); break;
@@ -420,8 +420,8 @@ __GPU__ int
 Model::_bupsample(Tensor &in, Tensor &out, t4_layer fn) {
     const U32 W  = in.W(), H = in.H();                  ///< input dimensions (reversed pool)
     const U32 C  = in.C(), N = in.N();
-    const int me = (in.iparm >> 8);                     ///< upsample method, TODO
-    const int ks = (in.iparm & 0xff);                   ///< kernel size
+    const int me = in.iparm;                            ///< upsample method, TODO
+    const int ks = in.stride[0];                        ///< kernel size (square?)
 
     switch(ks) {                                        /// by kernel size
     case 2: FORK4(k_pool<2>, fn, out.data, in.data, H, W); break;
