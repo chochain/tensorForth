@@ -245,8 +245,6 @@ Model::_ipool(Tensor &in, U16 f) {
         ERROR("pooling f=%dx%d? 2x2 and 3x3 supported only\n", f, f);
         return;
     }
-    in.iparm = f;                                /// * keep kernel size
-                                                 /// * used by backprop
     U32 H0 = (in.H() - f) / f + 1;
     U32 W0 = (in.W() - f) / f + 1;
     U16 s[4] = { f, f, 1, 1 }; memcpy(in.stride, s, sizeof(s));  /// stride
@@ -282,7 +280,7 @@ Model::_iup(Tensor &in, U16 f, DU method) {
         ERROR("model#upsample f=%dx%d? only 2x2 and 3x3 supported\n", f, f);
         return;
     }
-    in.iparm = (INT(D2I(method))<<8) | f;        /// * keep (method<<8) | kernel size
+    in.iparm = INT(D2I(method));                 /// * method id
                                                  /// * used by backprop
     U32 H0 = in.H() * f;
     U32 W0 = in.W() * f;
