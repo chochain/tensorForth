@@ -71,9 +71,9 @@ AIO::to_s(h_ostr &fs, T4Base &t, bool view) {
     static const char tn[2][4] = {                ///< sync with t4_obj
         { 'T', 'N', 'D', 'X' }, { 't', 'n', 'd', 'x' }
     };
-    auto t2 = [this, &fs](Tensor &t) { fs << t.H() << ',' << t.W() << ']'; };
+    auto t2 = [this, &fs](Tensor &t) { fs << t.H() << ',' << t.W() << ']' << t.numel; };
     auto t4 = [this, &fs](Tensor &t) {
-        fs << t.N() << ',' << t.H() << ',' << t.W() << ',' << t.C() << ']';
+        fs << t.N() << ',' << t.H() << ',' << t.W() << ',' << t.C() << ']' << t.numel;
     };
     fs << tn[view][t.ttype];
     switch(t.rank) {
@@ -84,6 +84,9 @@ AIO::to_s(h_ostr &fs, T4Base &t, bool view) {
     case 4: fs << "4["; t4((Tensor&)t);         break;
     case 5: fs << "5[" << t.iparm << "][";
             t4((Tensor&)t);                     break;
+    }
+    if (t.ttype!=T4_MODEL && (t.numel != ((Tensor&)t).size())) {
+        fs << "XXX numel=" << t.numel << ", size()=" << ((Tensor&)t).size();
     }
 }
 __HOST__ void
