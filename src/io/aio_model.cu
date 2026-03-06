@@ -169,6 +169,8 @@ AIO::_print_model(h_ostr &fs, Model &m) {
 __HOST__ void
 AIO::_print_model_parm(h_ostr &fs, Tensor &in, Tensor &out) {
     t4_layer fn = in.grad_fn;             ///< layer function
+    int      ks0= in.stride[0];           ///< kernel size
+    int      ks1= in.stride[1];           ///< kernel size
     DU       p  = in.xparm;               ///< layer parameter
     switch(fn) {
     case L_NONE:    /* do nothing  */                  break;
@@ -188,12 +190,11 @@ AIO::_print_model_parm(h_ostr &fs, Tensor &in, Tensor &out) {
     case L_LOGSMAX: /* do nothing */                   break;
     case L_AVGPOOL:
     case L_MAXPOOL:
-    case L_MINPOOL: fs << "n=" << in.iparm;            break;
+    case L_MINPOOL: fs << "n=" << ks0 << "x" << ks1;   break;
     case L_BATCHNM: fs << "mtum=" << p;                break;
     case L_USAMPLE: {
         const char *nm[] = { "nearest", "linear", "bilinear", "cubic" };
-        int n = in.iparm & 0xff;
-        fs << n << "x" << n << " " << nm[in.iparm>>8];
+        fs << ks0 << "x" << ks1 << " " << nm[in.iparm];
     } break;
     default: fs << "unknown layer=" << fn;      break;
     }
