@@ -11,7 +11,7 @@
 
 #if (T4_DO_OBJ && T4_DO_NN)
 #include <fstream>
-#include "mmu/dataset.h"
+#include "mu/dataset.h"
 #include "nn/model.h"
 #include "ld/loader.h"   /// includes Corpus
 

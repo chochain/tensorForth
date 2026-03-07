@@ -14,7 +14,7 @@
 
 #include "istream.h"
 #include "ostream.h"
-#include "mmu/tensor.h"
+#include "mu/tensor.h"
 
 namespace t4::nn { class Model;   }   /// forward declare
 namespace t4::mu { class Dataset; }

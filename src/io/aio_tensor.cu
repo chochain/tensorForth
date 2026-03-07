@@ -13,7 +13,7 @@
 /// Tensor & NN model persistence (i.e. serialization) methods
 ///
 #include <fstream>
-#include "mmu/tensor.h"
+#include "mu/tensor.h"
 
 namespace t4::io {
 
