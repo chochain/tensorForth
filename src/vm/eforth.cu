@@ -7,7 +7,7 @@
 #include "eforth.h"
 
 #if (T4_DO_OBJ && T4_DO_NN)
-#include "mmu/dataset.h"
+#include "mu/dataset.h"
 #include "nn/model.h"
 #endif // (T4_DO_OBJ && T4_DO_NN)
 
@@ -62,7 +62,7 @@ ForthVM::process(char *idiom) {
 
 __GPU__ int
 ForthVM::post() {
-    DEBUG("%d> VM.state=%d\n", id, state);
+    DEBUG("vm%d> VM.state=%d\n", id, state);
     if (state!=HOLD && !compile) sys.dots(id, tos, ss.idx, *BASE);
     return 0;
 }
