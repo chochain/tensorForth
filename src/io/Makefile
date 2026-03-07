@@ -23,11 +23,11 @@ IO_EXT:= \
 	src/mmu/mmu.h \
 	src/mmu/tensor.h \
 	src/mmu/dataset.h \
-	src/ldr/corpus.h \
-	src/ldr/loader.h \
+	src/ld/corpus.h \
+	src/ld/loader.h \
 	src/nn/model.h
 
-#IO_LIBS := -Isrc/mmu -Isrc/ldr -I/src/nn
+#IO_LIBS := -Isrc/mmu -Isrc/ld -I/src/nn
 IO_LIBS :=
 
 OBJS += $(IO_OBJS)

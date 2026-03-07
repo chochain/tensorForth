@@ -13,7 +13,7 @@
 #include <fstream>
 #include "mmu/dataset.h"
 #include "nn/model.h"
-#include "ldr/loader.h"  /// includes Corpus
+#include "ld/loader.h"   /// includes Corpus
 
 namespace t4::io {
 using ld::Corpus;
