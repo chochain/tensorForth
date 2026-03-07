@@ -9,6 +9,7 @@
 
 namespace t4::vm {
 using mu::Tensor;
+
 ///
 /// override with tensor handler
 ///
@@ -24,15 +25,15 @@ TensorVM::process(char *idiom) {
 
     SCALAR(n);                                /// * mask out object bit
     if (compile) {                            /// * add literal when in compile mode
-        VLOG("%d> %g\n", id, n);
+        VLOG("vm%d> %g\n", id, n);
         add_lit(n);                           ///> dovar (+parameter field)
     }
     else if (ten_lvl > 0) {                   /// * append literal into tensor storage
-        VLOG("%d> T[%d]=%g\n", id, ten_off, n);
+        VLOG("vm%d> T[%d]=%g\n", id, ten_off, n);
         TTOS.data[ten_off++] = n;             /// * append to tensor.data (no stack used)
     }
     else {                                    ///> or, add value onto data stack
-        VLOG("%d> ss.push(%g)=%08x\n", id, n, DU2X(n));
+        VLOG("vm%d> ss.push(%g)=%08x\n", id, n, DU2X(n));
         PUSH(n);
     }
     return 1;
@@ -382,7 +383,8 @@ TensorVM::_tprint(DU v) {
         mmu.mark_free(v);                     /// * mark to release by host
         state = HOLD;                         /// * forced flush (wasteful but no dangling objects)
     }        
-}    
+}
+
 __GPU__ void
 TensorVM::_pickle(bool save) {
     U8   mode= FAM_WO;                        ///< file mode (W/O,R/W)|BIN
@@ -397,6 +399,16 @@ TensorVM::_pickle(bool save) {
     
     scall(OP_TSAVE, mode, tos);               /// * issue save command
     sys.op_fn(fn);                            /// * append filename
+}
+
+__GPU__ void
+TensorVM::_objdump(DU v) {
+    const char* nm[] = { "tensor", "model", "dataset", "xxx" };
+    if (!IS_OBJ(v)) { TRACE(".X v=%g", v); return; }
+    T4Base &t = mmu.du2obj(v);
+    U32    *p = (U32*)&t;
+    TRACE(".X %s(%04x)[%08x %08x %08x %08x].data(%p)\n",
+          nm[t.ttype], DU2X(v), p[0], p[1], p[2], p[3], t.data);
 }
 ///
 /// Tensor Vocabulary
@@ -426,7 +438,7 @@ TensorVM::init() {
          IU w = POPi; IU h = POPi;
          PUSH(mmu.tensor(h, w));
          ten_off = 0; ten_lvl = 1);
-    CODE("view",   PUSH(DUP(tos)));           ///< create a view of a tensor
+    CODE("view",   PUSH(DUP(tos)));           ///< create a view of a tensor (alias 'dup')
     CODE("copy",   PUSH(COPY(tos)));          ///< create a hardcopy of a tensor
     ///@}
     ///@defgroup Tensor shape ops
@@ -559,6 +571,7 @@ TensorVM::init() {
     CODE("min",
          if (IS_OBJ(tos)) PUSH(TTOS.min());
          else xop2(MIN));
+    CODE(".x", _objdump(tos));
     ///@}
     TRACE("TensorVM[%d]::init ok, sizeof(Tensor)=%ld\n", id, sizeof(Tensor));
 }
