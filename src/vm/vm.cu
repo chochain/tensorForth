@@ -31,7 +31,7 @@ __GPU__ void
 VM::outer() {
     char *idiom;
     while ((idiom = sys.fetch())!=0) {               /// * loop throught tib
-        DEBUG("%d> idiom='%s' => ", id, idiom);
+        DEBUG("vm%d> idiom='%s' => ", id, idiom);
         if (pre(idiom)) continue;                    /// * pre process (filter)
         if (!process(idiom)) {
             sys.perr(idiom, "? ");                   /// * display error prompt
