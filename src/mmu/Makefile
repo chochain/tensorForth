@@ -1,5 +1,5 @@
 #
-# tensorForth src/ldr/Makefile
+# tensorForth src/mu/Makefile
 #
 # Add inputs and outputs from these tool invocations to the build variables
 MMU_SRCS := \
@@ -26,7 +26,7 @@ OBJS += $(MMU_OBJS)
 
 MMU_EXT := \
 	src/nn/model.h \
-	src/ldr/loader.h
+	src/ld/loader.h
 
 #MMU_LIBS := -Isrc/nn
 MMU_LIBS :=
