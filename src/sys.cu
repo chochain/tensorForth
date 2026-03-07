@@ -6,7 +6,7 @@
  */
 #include <iostream>
 #include "sys.h"                     /// include mmu/tensor.h
-#include "mmu/dataset.h"
+#include "mu/dataset.h"
 #include "nn/model.h"
 
 namespace t4 {

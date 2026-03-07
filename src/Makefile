@@ -21,8 +21,8 @@ T4_INCS := \
 
 T4_EXT := \
 	./src/io/aio.h \
-	./src/mmu/mmu.h \
-	./src/mmu/dataset.h \
+	./src/mu/mmu.h \
+	./src/mu/dataset.h \
 	./src/vm/param.h \
 	./src/vm/vm.h \
 	./src/vm/eforth.h \
@@ -34,16 +34,16 @@ T4_OBJS := $(T4_SRCS:%.cu=%.o)
 OBJS += $(T4_OBJS)
 
 # Every subdirectory with source files must be described here
-#SUBDIRS := nn vu ldr vm io mmu  # vu excluded after v4.x
-SUBDIRS := nn ldr vm io mmu      # stream devel
+#SUBDIRS := nn vu ld vm io mu  # vu excluded after v4.x
+SUBDIRS := nn ld vm io mu      # stream devel
 
 #T4_LIBS := $(SUBDIRS:%=-Isrc/%)
 T4_LIBS :=
 
--include src/mmu/Makefile
+-include src/mu/Makefile
 -include src/io/Makefile
 -include src/vm/Makefile
--include src/ldr/Makefile
+-include src/ld/Makefile
 -include src/nn/Makefile
 # -include src/vu/Makefile
 

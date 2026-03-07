@@ -11,7 +11,7 @@
 #include "t4base.h"                                       ///< include ten4_types.h
 #include "io/aio.h"
 #include "vm/param.h"
-#include "mmu/mmu.h"
+#include "mu/mmu.h"
 
 namespace t4 {
 
