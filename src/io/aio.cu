@@ -82,11 +82,7 @@ AIO::to_s(h_ostr &fs, T4Base &t, bool view) {
     case 2: fs << "2["; t2((Tensor&)t);         break;
     case 3: fs << "3[na]";                      break;
     case 4: fs << "4["; t4((Tensor&)t);         break;
-    case 5: fs << "5[" << t.iparm << "][";
-            t4((Tensor&)t);                     break;
-    }
-    if (t.ttype!=T4_MODEL && (t.numel != ((Tensor&)t).size())) {
-        fs << "XXX numel=" << t.numel << ", size()=" << ((Tensor&)t).size();
+    case 5: fs << "5[" << t.iparm << "]["; t4((Tensor&)t); break;
     }
 }
 __HOST__ void
