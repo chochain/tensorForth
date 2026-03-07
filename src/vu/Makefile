@@ -17,9 +17,9 @@ VU_OBJS := $(VU_SRCS:%.cu=%.o)
 OBJS += $(VU_OBJS)
 
 VU_EXT := \
-	src/ldr/corpus.h
+	src/ld/corpus.h
 
-VU_LIBS:= -Isrc/ldr -Isrc/vu
+VU_LIBS:= -Isrc/ld -Isrc/vu
 
 .PHONY: src-vu clean-src-vu
 
