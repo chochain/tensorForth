@@ -19,11 +19,11 @@ OBJS += $(NN_OBJS)
 
 NN_EXT := \
 	src/t4base.h \
-	src/mmu/tensor.h \
-	src/mmu/dataset.h \
-	src/mmu/mmu.h
+	src/mu/tensor.h \
+	src/mu/dataset.h \
+	src/mu/mmu.h
 
-NN_LIBS := -Isrc/mmu
+NN_LIBS := -Isrc/mu
 
 .PHONY: src src-nn src-ds clean clean-src
 

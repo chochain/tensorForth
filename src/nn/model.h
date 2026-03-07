@@ -10,7 +10,7 @@
 #if (!defined(__MMU_MODEL_H) && T4_DO_OBJ && T4_DO_NN)
 #define __MMU_MODEL_H
 #include "sys.h"             /// * ms, rand
-#include "mmu/mmu.h"
+#include "mu/mmu.h"
 
 namespace t4::mu { class Tensor; class Dataset; }
 namespace t4::nn {
