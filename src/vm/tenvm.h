@@ -85,6 +85,7 @@ private:
     ///
     __GPU__ void   _tprint(DU v);
     __GPU__ void   _pickle(bool save);                      ///< save/load a tensor to/from a file
+    __GPU__ void   _objdump(DU v);
 };
 ///@}
 

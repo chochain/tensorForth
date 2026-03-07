@@ -161,7 +161,7 @@ ForthVM::init() {
     /// @defgroup Stack ops
     /// @brief - opcode sequence can be changed below this line
     /// @{
-    CODE("dup",     PUSH(DUP(tos)));
+    CODE("dup",     PUSH(DUP(tos)));          ///< or create a view of a tensor (alias 'view')
     CODE("drop",    DROP(tos); tos = ss.pop());
     CODE("over",    DU v = DUP(ss[-1]); PUSH(v));
     CODE("swap",    DU n = ss.pop(); PUSH(n));
