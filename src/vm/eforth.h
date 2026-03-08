@@ -137,6 +137,11 @@ private:
     __GPU__ void _quote(prim_op op);          ///< string helper
     __GPU__ void _to_value();                 ///< update a constant/value
     __GPU__ void _is_alias();                 ///< create alias function
+    ///
+    /// System IO helpers
+    ///
+    __GPU__ void _ss_dump();                  ///< display current stack contents
+    __GPU__ void _print(io_op o, DU v=DU0);   ///< proxy to sys.dot
     
 #if (T4_DO_OBJ && T4_DO_NN)    
     ///
