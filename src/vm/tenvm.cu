@@ -377,15 +377,6 @@ TensorVM::_solv(Tensor &B, Tensor &A) {      /// Note: A, B flipped
 }
 
 __GPU__ void
-TensorVM::_tprint(DU v) {
-    sys.dot(DOT, v);                          /// * send v to output stream
-    if (IS_OBJ(v)) {
-        mmu.mark_free(v);                     /// * mark to release by host
-        state = HOLD;                         /// * forced flush (wasteful but no dangling objects)
-    }        
-}
-
-__GPU__ void
 TensorVM::_pickle(bool save) {
     U8   mode= FAM_WO;                        ///< file mode (W/O,R/W)|BIN
     
@@ -402,13 +393,13 @@ TensorVM::_pickle(bool save) {
 }
 
 __GPU__ void
-TensorVM::_objdump(DU v) {
+TensorVM::_ttos_dump() {
     const char* nm[] = { "tensor", "model", "dataset", "xxx" };
-    if (!IS_OBJ(v)) { TRACE(".X v=%g", v); return; }
-    T4Base &t = mmu.du2obj(v);
+    if (!IS_OBJ(tos)) { TRACE(".X v=%g", tos); return; }
+    T4Base &t = mmu.du2obj(tos);
     U32    *p = (U32*)&t;
     TRACE(".X %s(%04x)[%08x %08x %08x %08x].data(%p)\n",
-          nm[t.ttype], DU2X(v), p[0], p[1], p[2], p[3], t.data);
+          nm[t.ttype], DU2X(tos), p[0], p[1], p[2], p[3], t.data);
 }
 ///
 /// Tensor Vocabulary
@@ -532,7 +523,7 @@ TensorVM::init() {
     ///@}
     ///@defgroup BLAS, 2-tensor and GEMM matrix ops
     ///@{
-    CODE("@=",        blas2(T_DOT, T_DROP));  ///< (A B -- C)
+    CODE("@=",        blas2(T_DOT, T_DROP));  ///< (A B -- C) dot product
     CODE("matmul",    blas2(T_DOT));          ///< (A B -- A B C) matrix multiply
     CODE("matdiv",    blas2(T_DIV));          ///< (A B -- A B C) matrix divide
     CODE("solve",     blas2(T_SOLV));         ///< (B A -- B A X) solve B = AX
@@ -552,17 +543,16 @@ TensorVM::init() {
     ///@defgroup redefined tensor ops
     ///@{
     CODE("boot",      mmu.clear(FIND((char*)"load") + 1));
-    CODE(".",         _tprint(POP()));           ///< print TOS
     CODE("+",         xop2(ADD));
     CODE("-",         xop2(SUB));
     CODE("*",         xop2(MUL));
     CODE("/",         xop2(DIV));
     CODE("abs",       xop1(ABS));
     CODE("negate",    xop1(NEG));
-    CODE("@",
-         if (TOS2T) blas2(T_DOT);                ///< matrix @ product
+    CODE("@",                                 
+         if (TOS2T) blas2(T_DOT);             ///< matrix dot product
          else {
-             DU v = mmu.rd(POPi);
+             DU v = mmu.rd(POPi);             ///< memory fetch
              PUSH(DUP(v));
          });
     CODE("max",
@@ -571,7 +561,7 @@ TensorVM::init() {
     CODE("min",
          if (IS_OBJ(tos)) PUSH(TTOS.min());
          else xop2(MIN));
-    CODE(".x", _objdump(tos));
+    CODE(".x", _ttos_dump());
     ///@}
     TRACE("TensorVM[%d]::init ok, sizeof(Tensor)=%ld\n", id, sizeof(Tensor));
 }
