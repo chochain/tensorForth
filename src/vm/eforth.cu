@@ -63,7 +63,7 @@ ForthVM::process(char *idiom) {
 __GPU__ int
 ForthVM::post() {
     DEBUG("vm%d> VM.state=%d\n", id, state);
-    if (state!=HOLD && !compile) sys.dots(id, tos, ss.idx, *BASE);
+    if (state!=HOLD && !compile) _ss_dump();
     return 0;
 }
 ///
@@ -242,19 +242,19 @@ ForthVM::init() {
     /// @defgroup IO ops
     /// @{
     CODE("base",    PUSH(base));
-    CODE("decimal", sys.dot(RDX, *BASE=10));
-    CODE("hex",     sys.dot(RDX, *BASE=16));
+    CODE("decimal", _print(RDX, *BASE=10));
+    CODE("hex",     _print(RDX, *BASE=16));
     CODE("bl",      PUSH(0x20));
-    CODE("cr",      sys.dot(CR));
-    CODE(".",       sys.dot(DOT,  POP()));
-    CODE("u.",      sys.dot(UDOT, POP()));
+    CODE("cr",      _print(CR));
+    CODE(".",       _print(DOT,  POP()));
+    CODE("u.",      _print(UDOT, POP()));
     CODE(".r",      IU i = POPi; sys.dotr(i, POP(), *BASE));
     CODE("u.r",     IU i = POPi; sys.dotr(i, POP(), *BASE, true));
     CODE("type",    POP(); sys.pstr((const char*)MEM(POPi)));     /// pass string pointer
     IMMD("key",     if (compile) add_p(KEY); else PUSH(sys.key()));
-    CODE("emit",    sys.dot(EMIT, POP()));
-    CODE("space",   sys.dot(SPCS, DU1));
-    CODE("spaces",  sys.dot(SPCS, POP()));
+    CODE("emit",    _print(EMIT, POP()));
+    CODE("space",   _print(SPCS, DU1));
+    CODE("spaces",  _print(SPCS, POP()));
     /// @}
     /// @defgroup Literal ops
     /// @{
@@ -355,7 +355,7 @@ ForthVM::init() {
     CODE("+!",    IU i = POPi;                              /// n i --
          DU v = CELL(i) + POP();
          CELL(i) = SCALAR(v));
-    CODE("?",     IU i = POPi; sys.dot(DOT, CELL(i)));      /// i --
+    CODE("?",     IU i = POPi; _print(DOT, CELL(i)));       /// i --
     CODE(",",     DU n = POP();  add_du(n));                /// n -- , compile a cell
     CODE("cells", IU i = POPi; PUSH(i * sizeof(DU)));       /// n -- n'
     CODE("allot",                                           /// n --
@@ -386,7 +386,7 @@ ForthVM::init() {
     CODE("abort", tos = -DU1; ss.clear(); rs.clear());      /// clear ss, rs
     CODE("here",  PUSH(HERE));
     CODE("'",     IU w = FIND(sys.fetch()); if (w) PUSH(w));
-    CODE(".s",    sys.dots(id, tos, ss.idx, *BASE));
+    CODE(".s",    _ss_dump());
     CODE("depth", PUSH(ss.idx - 1));
     CODE("words", sys.op(OP_WORDS));
     CODE("dict",  sys.op(OP_DICT));                         /// dict_dump in host mode
@@ -514,7 +514,7 @@ ForthVM::_quote(prim_op op) {
         case DOTQ: sys.pstr((const char*)MEM(h0)); break; ///> to console
         default:   sys.pstr("_quote unknown op:");
         }
-        mmu.set_here(h0);                ///> restore memory addr
+        mmu.set_here(h0);                 ///> restore memory addr
     }
 }
 __GPU__ void
@@ -544,6 +544,22 @@ ForthVM::_is_alias() {                                    /// create alias funct
     else dict[POPi].xt = dict[w].xt;
 }
 
+__GPU__ void
+ForthVM::_ss_dump() {
+    sys.dots(id, tos, ss.idx, *BASE);
+}
+
+__GPU__ void
+ForthVM::_print(io_op o, DU v) {
+    sys.dot(o, v);
+#if T4_DO_OBJ
+    if (IS_OBJ(v)) {
+        mmu.mark_free(v);                ///< release memory
+        state = HOLD;                    ///< forced flush (memory safe)
+    }
+#endif // T4_DO_OBJ
+}
+        
 #if (T4_DO_OBJ && T4_DO_NN)
 __GPU__ int
 ForthVM::_ds_next(U32 ioff) {
