@@ -239,7 +239,7 @@ Model::backprop(Tensor &tgt) {
 __GPU__ int
 Model::_bloss(Tensor &tgt) {                     ///> pre-calc dLoss
     Tensor &out = (*this)[-1];                   ///< output layer, used as dLoss
-    if (!out.is_same_shape(tgt)) {               /// * check dimensions of target vector
+    if (out.numel != tgt.numel) {                /// * check dimensions of target vector
         ERROR("nn#_bloss: Onehot wrong shape[%d,%d,%d,%d] != [%d,%d,%d,%d], numel=%ld,%ld ",
               tgt.N(), tgt.H(), tgt.W(), tgt.C(),
               out.N(), out.H(), out.W(), out.C(), tgt.numel, out.numel);
