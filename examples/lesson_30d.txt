@@ -43,8 +43,8 @@ mstat                             \ obj#used[69]
 .( #### calculate loss ) cr
 2 4 matrix{ 0 0 1 0 0 1 0 0 }     \ create one-hot vector
 2 4 1 1 reshape4 dup              \ reshape it into a labeled rank-4 tensor
-constant hot1                     \ store in a constant
-.( onehot vector= ) .             \ display
+.( onehot vector= ) .             \ display (print the view instead of the T4)
+constant hot1                     \ store the tensor in a constant
 
 hot1                              \ retrieve the one-hot vector
 loss.ce .( loss= ) .              \ calculate network loss
