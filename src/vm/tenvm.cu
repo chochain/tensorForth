@@ -395,10 +395,10 @@ TensorVM::_pickle(bool save) {
 __GPU__ void
 TensorVM::_ttos_dump() {
     const char* nm[] = { "tensor", "model", "dataset", "xxx" };
-    if (!IS_OBJ(tos)) { TRACE(".X v=%g", tos); return; }
+    if (!IS_OBJ(tos)) { INFO(".X v=%g", tos); return; }
     T4Base &t = mmu.du2obj(tos);
     U32    *p = (U32*)&t;
-    TRACE(".X %s(%04x)[%08x %08x %08x %08x].data(%p)\n",
+    INFO(".X %s(%04x)[%08x %08x %08x %08x].data(%p)\n",
           nm[t.ttype], DU2X(tos), p[0], p[1], p[2], p[3], t.data);
 }
 ///
