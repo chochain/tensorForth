@@ -213,21 +213,21 @@ TensorForth::profile() {
     int t = sys->trace();
     if (t==0) return;
 
-    INFO("VM.state[STOP,HOLD,QUERY,NEST]=[");
-    for (int i = 0; i < 4; i++) INFO(" %d", vmst_cnt[i]);
-    INFO(" ]\n");
+    DEBUG("VM.state[STOP,HOLD,QUERY,NEST]=[");
+    for (int i = 0; i < 4; i++) DEBUG(" %d", vmst_cnt[i]);
+    DEBUG(" ]\n");
     if (t > 1) {
         int m0 = (int)sys->mu->here() - 0x80;
         sys->db->mem_dump(m0 < 0 ? 0 : m0, 0x80);
     }
-    INFO("VM.dt=[ ");
+    TRACE("VM.dt=[ ");
     for (int i=0; i<T4_VM_COUNT; i++) {
         VM_Handle *h  = &vm_pool[i];
         float dt;
         cudaEventElapsedTime(&dt, h->t0, h->t1);
-        INFO("%0.2f ", dt);
+        TRACE("%0.2f ", dt);
     }
-    INFO("]\n");
+    TRACE("]\n");
 }
 
 __HOST__ int
