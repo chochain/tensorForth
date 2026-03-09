@@ -196,7 +196,7 @@ __GPU__ Model&
 Model::backprop() {
     if (_hot) return backprop(*_hot);            /// * use default one-hot vector
 
-    ERROR("Model#backprop missing onehot vector?\n");
+    ERROR("nn#backprop missing onehot vector?\n");
     return *this;
 }
 
@@ -222,7 +222,7 @@ Model::backprop(Tensor &tgt) {
         _bstep(in, out);
 
         if (_check_nan(in)) {
-            ERROR("Model::backprop Nan %s\n", d_nname(in.grad_fn));
+            ERROR("nn#backprop Nan %s\n", d_nname(in.grad_fn));
             in.show();
             out.show();
             this->err = 1;
@@ -240,12 +240,14 @@ __GPU__ int
 Model::_bloss(Tensor &tgt) {                     ///> pre-calc dLoss
     Tensor &out = (*this)[-1];                   ///< output layer, used as dLoss
     if (out.numel != tgt.numel) {                /// * check dimensions of target vector
-        ERROR("nn#_bloss: Onehot wrong shape[%d,%d,%d,%d] != [%d,%d,%d,%d], numel=%ld,%ld ",
+        ERROR("Model#bloss: Onehot wrong shape[%d,%d,%d,%d] != [%d,%d,%d,%d], numel=%ld,%ld ",
               tgt.N(), tgt.H(), tgt.W(), tgt.C(),
               out.N(), out.H(), out.W(), out.C(), tgt.numel, out.numel);
         return 1;
     }
-    NN_DB("Precalculate dLoss: input dimensions OK.");
+    
+    NLOG("Model::bloss input(onehot) numel=%ld OK {", tgt.numel);
+    
     t4_layer fn = (*this)[-2].grad_fn;           ///< final activation layer
     ///
     /// * NN typically utilize the following functions as final layer.
@@ -263,6 +265,8 @@ Model::_bloss(Tensor &tgt) {                     ///> pre-calc dLoss
     default:        out  = tgt;  break;          /// * pass thru pre-calc dLoss, i.g. MSE
     }
     if (*_trace) out.show();                     /// * display loss if trace on
+    
+    NLOG("}\n");
 
     return 0;
 }
@@ -291,7 +295,7 @@ Model::_bstep(Tensor &in, Tensor &out) {
     case L_MINPOOL: _bpool(in, out, fn);     break;
     case L_BATCHNM: _bbatchnorm(in, out);    break;
     case L_USAMPLE: _bupsample(in, out, fn); break;
-    default: ERROR("nn#_bstep layer=%d not supported\n", fn);
+    default: ERROR("nn#bstep layer=%d not supported\n", fn);
     }
 }
 
@@ -325,7 +329,7 @@ Model::_bconv(Tensor &in, Tensor &out) {
         case 5: k_dconv2d<TSZ(5),5><<<g5,blk>>>(
                     d1, f.data, df.data, db.data, d0, H, W, C0, train); break;
         default:
-            ERROR("model_back#conv kernel_size %d not supported\n", ks);
+            ERROR("nn#bconv kernel_size %d not supported\n", ks);
             return -1;
         }
         GPU_SYNC();
@@ -405,7 +409,7 @@ Model::_bpool(Tensor &in, Tensor &out, t4_layer fn) {
     case 2: FORK4(k_dpool<2>, fn, in.data, out.data, H, W); break;
     case 3: FORK4(k_dpool<3>, fn, in.data, out.data, H, W); break;
     default:
-        ERROR("nn#_bpool kernel_size=%d not supported\n", ks);
+        ERROR("nn#bpool kernel_size=%d not supported\n", ks);
         return -1;
     }
     GPU_SYNC();
@@ -427,7 +431,7 @@ Model::_bupsample(Tensor &in, Tensor &out, t4_layer fn) {
     case 2: FORK4(k_pool<2>, fn, out.data, in.data, H, W); break;
     case 3: FORK4(k_pool<3>, fn, out.data, in.data, H, W); break;
     default:
-        ERROR("nn#_bupsample size=%d not supported\n", ks);
+        ERROR("nn#bupsample size=%d not supported\n", ks);
         return -1;
     }
     GPU_SYNC();

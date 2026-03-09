@@ -49,7 +49,7 @@ __KERN__ void k_adam(
 #define M2X(i)     (in.mtum[i] ? _mmu->OBJ2X(*in.mtum[i]) : 0)
 __GPU__ Model&
 Model::grad_alloc(t4_optimizer op) {
-    NN_DB("  #grad_alloc {\n");
+    NLOG("  #grad_alloc {\n");
     for (int i = 1; i < numel - 1; i++) {
         Tensor &in = (*this)[i];
         Tensor *w = in.grad[0], *dw = in.grad[2];   ///< filter tensor pointers
@@ -57,8 +57,7 @@ Model::grad_alloc(t4_optimizer op) {
 
         bool do_w = dw && dw->is_same_shape(*w);    ///< exception: dropout
         bool do_b = db && db->is_same_shape(*b);    ///< exception: batchnorm
-        printf("%s do_w=%d, do_b=%d\n", d_nname(in.grad_fn), do_w, do_b);
-        
+
         switch (op) {
         case OPTI_SGD:
             in.mtum[0] = do_w ? w : NULL; in.mtum[2] = NULL;  /// * dummy
@@ -85,11 +84,11 @@ Model::grad_alloc(t4_optimizer op) {
             }
             break;
         }
-        NN_DB("    %d> %s do_w,b[%d,%d] mtum=%x,%x,%x,%x\n",
+        NLOG("    %3d> %8s w,b[%d,%d] mtum=%x,%x,%x,%x\n",
               i, d_nname(in.grad_fn), do_w, do_b,
               M2X(0), M2X(1), M2X(2), M2X(3));
     }
-    NN_DB("  } #grad_alloc\n");
+    NLOG("  } #grad_alloc\n");
     return *this;
 }
 ///
@@ -99,21 +98,21 @@ __GPU__ Model&
 Model::gradient(const char *nm, t4_optimizer op, GdFunc fn, DU *parm) {
     auto step = [this, fn, parm](const char k,
         Tensor &g, Tensor &dg, Tensor &m, Tensor &v) {
-        NN_DB("     %c[%2d,%2d,%2d,%2d] Σ=%6.3f - %6.3f",
+        NLOG("     %c[%2d,%2d,%2d,%2d] Σ=%6.3f - %6.3f",
               k, g.N(), g.H(), g.W(), g.C(), g.sum(), dg.sum());
-#if MM_DEBUG        
-        Tensor::_dump(g.data, g.H(), g.W(), g.C());
-        Tensor::_dump(dg.data, dg.H(), dg.W(), dg.C());
-        fn(parm, g, dg, m, v);                /// * execute grad function
-        Tensor::_dump(g.data, g.H(), g.W(), g.C());
-        Tensor::_dump(dg.data, dg.H(), dg.W(), dg.C());
-#else  // !MM_DEBUG
-        fn(parm, g, dg, m, v);                /// * execute grad function
-#endif // MM_DEBUG
-        NN_DB(" => %cΣ=%6.3f\n", k, g.sum());
+        if (*_trace > 1) {
+            Tensor::_dump(g.data, g.H(), g.W(), g.C());
+            Tensor::_dump(dg.data, dg.H(), dg.W(), dg.C());
+            fn(parm, g, dg, m, v);                /// * execute grad function
+            Tensor::_dump(g.data, g.H(), g.W(), g.C());
+            Tensor::_dump(dg.data, dg.H(), dg.W(), dg.C());
+        }
+        else fn(parm, g, dg, m, v);                /// * execute grad function
+        NLOG(" => %cΣ=%6.3f\n", k, g.sum());
     };
-    NLOG("\nModel::%s starts batch_sz=%d, lr=%7.4f, mtum/b1=%6.3f, b2=%6.3f {\n",
-         nm, (*this)[1].N(), parm[0], parm[1], parm[2]);
+    NLOG("\nModel::%s starts (%s) batch_sz=%d, lr=%7.4f, mtum/b1=%6.3f, b2=%6.3f {\n",
+         nm, train ? "trainning" : "testing",
+         (*this)[1].N(), parm[0], parm[1], parm[2]);
     if (_iter++==0 && epoch==0) grad_alloc(op);   /// * allocate m & v tensors
     if (!train) return *this;                     /// * bail if not in trainning
     ///
@@ -125,8 +124,7 @@ Model::gradient(const char *nm, t4_optimizer op, GdFunc fn, DU *parm) {
         Tensor &w  = *in.grad[0], &dw = *in.grad[2];
         Tensor &b  = *in.grad[1], &db = *in.grad[3];
 
-        if (*_trace) INFO("  %d> %s\n", i, d_nname(in.grad_fn));
-        
+        NLOG("  %d> %s\n", i, d_nname(in.grad_fn));
         if (in.mtum[0]) {
             step('w', w, dw, *in.mtum[0], *in.mtum[2]);
 /*            
@@ -134,12 +132,12 @@ Model::gradient(const char *nm, t4_optimizer op, GdFunc fn, DU *parm) {
                 DU std = w.std();
                 if (std > max_norm) {
                     w *= max_norm / std;
-                    NN_DB("    max_norm=%6.3f std=%6.3f => adj. %cΣ=%6.3f\n");
+                    NLOG("    max_norm=%6.3f std=%6.3f => adj. %cΣ=%6.3f\n");
                 }
             }
 */            
             if (_check_nan(w)) {
-                ERROR("Model::grad.w Nan %s\n", d_nname(in.grad_fn));
+                ERROR("nn::grad.w Nan %s\n", d_nname(in.grad_fn));
                 w.show();
                 this->err = 1;
                 break;
@@ -148,7 +146,7 @@ Model::gradient(const char *nm, t4_optimizer op, GdFunc fn, DU *parm) {
         if (in.mtum[1]) {
             step('b', b, db, *in.mtum[1], *in.mtum[3]);
             if (_check_nan(b)) {
-                ERROR("Model::grad.b Nan %s\n", d_nname(in.grad_fn));
+                ERROR("nn::grad.b Nan %s\n", d_nname(in.grad_fn));
                 b.show();
                 this->err = 1;
                 break;
@@ -184,11 +182,9 @@ Model::adam(DU lr, DU b1, DU b2) {
               g.N(), parm[0], parm[1], parm[2]);
         GPU_SYNC();
     };
-/*    
     DU decay = epoch                       ///< exponential decay, TODO: AdamW
         ? SQRT(DU1 - POW(b2, epoch)) / (DU1 - POW(b1, epoch))
         : DU1;
-*/
     DU parm[3] = { lr, b1, b2 };   ///< learn rate, betas
     return gradient("adam", OPTI_ADAM, update, parm);
 }

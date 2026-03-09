@@ -16,7 +16,7 @@ __GPU__ Tensor&
 Model::onehot() {
     if (_hot) return *_hot;
     
-    ERROR("ERROR: Model.onehot not provided by dataset, use nn.onehot= to setup!\n");
+    ERROR("Model.onehot not provided by dataset, use nn.onehot= to setup!\n");
     return (*this)[-1];                             ///< return final output tensor
 }
 ///
@@ -32,7 +32,7 @@ Model::onehot(Tensor &t) {
         FREE(*_hot);
     }
     else if (t.N()!=N || (U32)t.HWC() != E) {
-        ERROR("ERROR: onehot dimension is not [%d,%d,1,1]\n", N, E);
+        ERROR("Model.onehot dimension is not [%d,%d,1,1]\n", N, E);
         return t;
     }
     _hot = &t;
@@ -50,7 +50,7 @@ Model::onehot(Dataset &dset) {
     U32    E    = (U32)out.HWC();                   ///< channel sizes
     
     auto show = [E](DU *h, U32 n, U32 m) {
-        INFO("Model::onehot(ds) n=%d {", n);
+        INFO("  Model::onehot(ds) n=%d {", n);
         for (U32 e = 0; e < E; e++) {
             INFO("%2.0f%c", h[e], e==m ? '*' : ' ');
         }
@@ -96,7 +96,7 @@ Model::hit(bool recalc) {
         cnt += D2I(h[m]);                           ///< lookup onehot vector
         if (*_trace > 1) show(o, h, n, m, cnt);
     }
-    NN_DB("Model::hit=%d\n", cnt);
+    NLOG("    Model::hit=%d\n", cnt);
     
     return cnt;
 }
@@ -112,7 +112,7 @@ Model::loss(t4_loss op, Tensor &tgt) {              ///< loss against target vec
     Tensor &out = (*this)[-1];                      ///< model output
     
     if (out.numel != tgt.numel) {                   /// * check dimensions
-        ERROR("Model::loss model output shape[%d,%d,%d,%d] != tgt[%d,%d,%d,%d]\n",
+        ERROR("nn::loss model output shape[%d,%d,%d,%d] != tgt[%d,%d,%d,%d]\n",
             out.N(), out.H(), out.W(), out.C(),
             tgt.N(), tgt.H(), tgt.W(), tgt.C());
         return DU0;
@@ -122,7 +122,7 @@ Model::loss(t4_loss op, Tensor &tgt) {              ///< loss against target vec
     
     DU z = _loss->loss(op, tgt);                    /// * calculate loss per op
     
-    NN_DB("Model#loss: %s=%6.3f\n", _op[op], z);
+    NLOG("  Model#loss: %s=%6.3f\n", _op[op], z);
     
     return z;
 }

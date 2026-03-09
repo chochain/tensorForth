@@ -135,7 +135,7 @@ Model::_iconv(Tensor &in, U32 C0, DU bias, U16 *opt) {
     
     NN_DB("    model#iconv %dx%d bias=%4.2f {\n", Hf, Wf, bias);
     if (Hf != Wf || (Hf != 1 && Hf != 3 && Hf != 5)) {
-        ERROR("model#iconv f=[%d,%d]? 1x1, 3x3, and 5x5 supported only.\n", Hf, Wf);
+        ERROR("nn#iconv f=[%d,%d]? 1x1, 3x3, and 5x5 supported only.\n", Hf, Wf);
         return;
     }
     in.stride[0] = in.stride[1] = s;
@@ -242,7 +242,7 @@ __GPU__ void
 Model::_ipool(Tensor &in, U16 f) {
     NN_DB("    model#ipool %dx%d {\n", f, f);
     if (f != 2 && f != 3) {
-        ERROR("pooling f=%dx%d? 2x2 and 3x3 supported only\n", f, f);
+        ERROR("nn#ipool f=%dx%d? 2x2 and 3x3 supported only\n", f, f);
         return;
     }
     U32 H0 = (in.H() - f) / f + 1;
@@ -277,7 +277,7 @@ __GPU__ void
 Model::_iup(Tensor &in, U16 f, DU method) {
     NN_DB("    model#iup upsample %dx%d {\n", f, f);
     if (f != 2 && f != 3) {
-        ERROR("model#upsample f=%dx%d? only 2x2 and 3x3 supported\n", f, f);
+        ERROR("nn#iup f=%dx%d? only 2x2 and 3x3 supported\n", f, f);
         return;
     }
     in.iparm = INT(D2I(method));                 /// * method id

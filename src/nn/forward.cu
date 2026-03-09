@@ -187,7 +187,7 @@ Model::forward(Tensor &input) {
     if (*_trace) input.show();  /// * preview input data
 
     if (input.numel != n1.numel) {
-        ERROR("Model::forward dataset wrong shape[%d,%d,%d,%d] != model input[[%d,%d,%d,%d]\n",
+        ERROR("nn#forward dataset wrong shape[%d,%d,%d,%d] != model input[[%d,%d,%d,%d]\n",
             input.N(), input.H(), input.W(), input.C(),
             n1.N(), n1.H(), n1.W(), n1.C());
         return *this;
@@ -214,7 +214,7 @@ Model::forward(Tensor &input) {
         _fstep(in, out);
 
         if (_check_nan(out)) {
-            ERROR("Model::forward Nan %s\n", d_nname(in.grad_fn));
+            ERROR("nn#forward Nan %s\n", d_nname(in.grad_fn));
             in.show();
             out.show();
             this->err = 1;
@@ -263,7 +263,7 @@ Model::_fstep(Tensor &in, Tensor &out) {
     case L_MINPOOL: _fpool(in, out, fn);     break;
     case L_BATCHNM: _fbatchnorm(in, out);    break;
     case L_USAMPLE: _fupsample(in, out);     break;
-    default: ERROR("nn#_fstep layer=%d not supported\n", fn);
+    default: ERROR("nn#fstep layer=%d not supported\n", fn);
     }
 }
 
@@ -291,7 +291,7 @@ Model::_fconv(Tensor &in, Tensor &out) {
         case 3: k_conv2d<TSZ(3),3><<<g3,blk>>>(d1, f.data, b.data, d0, H, W, C1); break;
         case 5: k_conv2d<TSZ(5),5><<<g5,blk>>>(d1, f.data, b.data, d0, H, W, C1); break;
         default:
-            ERROR("nn#_fconv kernel_size=%d not supported\n", ks);
+            ERROR("nn#fconv kernel_size=%d not supported\n", ks);
             return -1;
         }
         GPU_SYNC();
@@ -319,11 +319,12 @@ Model::_flinear(Tensor &in, Tensor &out) {
 
     NN_DB(" %d x (w[1,%d,%d,1] @ in[1,%d,%d,%d] + b[%ld])",
           N, E0, E1, in.H(), in.W(), in.C(), b.numel);
-#if MM_DEBUG
-      _dump_w("w", w, true);
-      _dump_b("b", b); 
-#endif // MM_DEBUG
-      
+    
+    if (*_trace > 1) {
+        _dump_w("w", w, true);
+        _dump_b("b", b);
+    }
+    
     if (w.numel < T4_DIM_SQ) {                       /// * threshold control
         NN_DB("*");
         qa_calc(w.data, b.data);                     /// * serial code
@@ -349,13 +350,15 @@ __GPU__ int
 Model::_fpool(Tensor &in, Tensor &out, t4_layer fn) {
     const U32 W  = out.W(), H = out.H();                ///< output dimensions
     const U32 C  = out.C(), N = out.N();
-    const int ks = in.stride[0];                        ///< kernel size
+    const int ks0= in.stride[0], ks1=in.stride[1];      ///< kernel size
 
-    switch(ks) {                                        /// pooling kernel size
+    NN_DB(" %dx%d", ks0, ks1);
+    
+    switch(ks0) {                                       /// pooling kernel size
     case 2: FORK4(k_pool<2>, fn, in.data, out.data, H, W); break;
     case 3: FORK4(k_pool<3>, fn, in.data, out.data, H, W); break;
     default:
-        ERROR("nn#_fpool kernel_size=%d not supported\n", ks);
+        ERROR("nn#fpool kernel_size=%d not supported\n", ks0);
         return -1;
     }
     GPU_SYNC();
@@ -439,7 +442,7 @@ Model::_fupsample(Tensor &in, Tensor &out) {
     case 2: FORK4(k_dpool<2>, L_USAMPLE, out.data, in.data, H, W); break;
     case 3: FORK4(k_dpool<3>, L_USAMPLE, out.data, in.data, H, W); break;
     default:
-        ERROR("model#upsample size=%d not supported\n", ks);
+        ERROR("nn#fupsample size=%d not supported\n", ks);
         return -1;
     }
     GPU_SYNC();
