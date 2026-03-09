@@ -112,21 +112,21 @@ struct Tensor : public T4Base {
         const U64 GB = 1L << 30;
         if (sz > GB) { H() = sz>>30; W() = GB; }
         else         { H() = sz;     W() = 1;  }
-        TRACE("vector[%ld] allocated\n", numel);
+        DEBUG("vector[%ld] allocated\n", numel);
     }
     __HOST__ Tensor(U32 h, U32 w) : T4Base(h, w) {
         H() = h; W() = w;
-        TRACE("matrix(%d,%d) allocated\n", h, w);
+        DEBUG("matrix(%d,%d) allocated\n", h, w);
     }
     __HOST__ Tensor(U32 n, U32 h, U32 w, U32 c) : T4Base(n, h, w, c) {
         H() = h; W() = w; C() = c; N() = n;
-        TRACE("tensor(%d,%d,%d,%d) allocated\n", n, h, w, c);
+        DEBUG("tensor(%d,%d,%d,%d) allocated\n", n, h, w, c);
     }
     __HOST__ ~Tensor() {
         switch (rank) {
-        case 2: TRACE("matrix(%d,%d) freed\n", H(), W()); break;
-        case 4: TRACE("tensor(%d,%d,%d,%d) freed\n", N(), H(), W(), C()); break;
-        default: TRACE("~Tensor error: rank=%d\n", rank);
+        case 2: DEBUG("matrix(%d,%d) freed\n", H(), W()); break;
+        case 4: DEBUG("tensor(%d,%d,%d,%d) freed\n", N(), H(), W(), C()); break;
+        default: DEBUG("~Tensor error: rank=%d\n", rank);
         }
     }
     ///

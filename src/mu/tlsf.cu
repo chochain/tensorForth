@@ -53,7 +53,7 @@ TLSF::init(U8 *mem, U64 sz, U64 off) {
     long i = 31L; for (U64 z = bsz, m = 1L<<31; i && z && !(z & m); z<<=1) i--;
     long j = (bsz >> (i - L2_BITS)) & L2_MASK;
     U32 index = INDEX(i, j);                            ///< last slot of map
-    TRACE(" => bsz=0x%lx, index(%lx,%lx)\n", bsz, i, j);
+    DEBUG(" => bsz=0x%lx, index(%lx,%lx)\n", bsz, i, j);
     SET_MAP(index);                                     /// set ticks for available maps
     _free_list[index] = head;
 
