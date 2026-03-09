@@ -30,7 +30,7 @@ struct Dataset : public Tensor {
         MM_FREE((void*)label);
     }
     __HOST__ Dataset &reshape(U32 n, U32 h, U32 w, U32 c) {
-        TRACE("Dataset::setup(%d, %d, %d, %d)\n", n, h, w, c);
+        DEBUG("Dataset::setup(%d, %d, %d, %d)\n", n, h, w, c);
         ///
         /// set dimensions
         ///
