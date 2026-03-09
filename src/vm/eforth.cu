@@ -461,18 +461,16 @@ ForthVM::number(char *idiom, char **p) {
         ? STRTOF(idiom, p)
         : STRTOL(idiom, p, b);
     if (**p != '\0') {                    /// * not a number, bail
-        TRACE(" number(%s) base=%d => error\n", idiom, b);
+        ERROR(" number(%s) base=%d => error\n", idiom, b);
         return DU0;
     }
     /// is a number
     DU n = (DU)d2;
-#if T4_VERBOSE > 1    
     char *x = (char*)&n;
     for (int i=0; i<sizeof(DU); i++, x++) {
         const char h2c[] = "0123456789abcdef";
-        INFO("%c%c ", h2c[((*x)>>4)&0xf], h2c[(*x)&0xf]);
+        DEBUG("%c%c ", h2c[((*x)>>4)&0xf], h2c[(*x)&0xf]);
     }
-#endif // T4_VERBOSE > 1
     return n;
 }
 ///
