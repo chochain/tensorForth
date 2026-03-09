@@ -49,12 +49,12 @@ constant hot1                     \ store the tensor in a constant
 hot1                              \ retrieve the one-hot vector
 loss.ce .( loss= ) .              \ calculate network loss
 
-: xdump
-  mstat
-  -2 nn.w  ." w=" .
-  -2 nn.b  ." b=" .
-  -2 nn.dw ." dw=" .
-  -2 nn.db ." db=" . ;
+: xdump ." xdump=>"
+  mstat                           \ display MMU statistics
+  -3 nn.w  ." w=" .               \ weight -1: output, -2:softmax, -3:linear
+  -3 nn.b  ." b=" .               \ bias
+  -3 nn.dw ." dw=" .              \ weight delta
+  -3 nn.db ." db=" . ;            \ bias delta
 xdump
 
 .( #### model back propagation ) cr
