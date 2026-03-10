@@ -25,10 +25,11 @@ using ld::Corpus;
 ///    netvm::fetch
 ///    -> sys::process_event
 ///    -> aio::dsfetch
+///      if (ds_name != null)   - init
+///        -> corpus::init      - setup dimensions
+///        -> dataset::reshape  - set dimensions for the first batch (no alloc yet)
 ///      -> corpus::fetch       - fetch host label/image blocks from files
-///      -> dataset::reshape    - set dimensions for the first batch (no alloc yet) 
-///      -> dataset::load_batch - transfer host blocks to device
-///         -> dataset::alloc   - alloc device memory blocks if needed
+///      -> dataset::load_batch - transfer host blocks to device memory
 /// Note:
 ///   ds_name: dataset name (match in loader.cu), for initial dataset setup
 ///   ds_name: NULL, following batch
@@ -39,7 +40,7 @@ AIO::dsfetch(Dataset &ds, char *ds_name, bool rewind) {
     ///
     /// search cache for top <=> dataset pair
     ///
-    IO_DB("\n  %s(%s) dataset (batch_id=%d) {\n",
+    IO_DB("  %s(%s) dataset (batch_id=%d) {\n",
           fn, ds_name ? ds_name : (rewind ? "rewind" : "fetch"), ds.batch_id);
     Corpus *cp = ld::Loader::get(ds, ds_name);   ///< Corpus/Dataset provider
     if (!cp) {
@@ -83,7 +84,7 @@ AIO::dsfetch(Dataset &ds, char *ds_name, bool rewind) {
 ///
 __HOST__ int
 AIO::nsave(Model &m, char* fname, U8 mode) {
-    IO_DB("\nAIO::save model to '%s' {\n", fname);
+    IO_DB("AIO::save model to '%s' {\n", fname);
     std::ofstream fs(fname, std::ios_base::binary);     ///< open an output file
     if (!fs.is_open()) {
         ERROR("} => failed to open for output\n");
@@ -105,7 +106,7 @@ AIO::nsave(Model &m, char* fname, U8 mode) {
 
 __HOST__ int
 AIO::nload(Model &m, char* fname, U8 mode, char *tib) {
-    IO_DB("\nAIO::load '%s' {\n", fname);
+    IO_DB("AIO::load '%s' {\n", fname);
     std::ifstream fs(fname, std::ios_base::binary);      ///< open an input file
     if (!fs.is_open()) {
         ERROR("} => failed to open for input\n");
@@ -213,7 +214,7 @@ AIO::_nsave_model(h_ostr &fs, Model &m) {
         const char *nm = Model::nname(in.grad_fn);
         fs << nm << std::endl;                /// * one blank line serves
                                               /// * as the sectional break
-        IO_DB("\n%2d> %s [%d,%d,%d,%d]\tp=%-2d => out[%d,%d,%d,%d]",
+        IO_DB("%2d> %s [%d,%d,%d,%d]\tp=%-2d => out[%d,%d,%d,%d]",
             i, nm, in.N(), in.H(), in.W(), in.C(), in.iparm,
             out.N(), out.H(), out.W(), out.C());
     }
