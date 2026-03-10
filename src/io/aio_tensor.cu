@@ -52,7 +52,8 @@ AIO::_vec(DU *vd, U32 W, U32 C) {
         num(vd + j * C);
     }
     U32 x = W - rw;
-    if (x > rw) ss << " ...";
+    if (x > rw) ss << " ...";                    ///< colomn break
+    
     for (U32 j=(x > rw ? x : rw); j < W; j++) {  ///< tailing elements
         num(vd + j * C);
     }
@@ -64,23 +65,26 @@ __HOST__ std::string
 AIO::_mat(DU *td, U32 *shape) {
     auto range = [this](U32 v) { return (v < _edge) ? v : _edge; };
     const U32 H = shape[0], W = shape[1], C = shape[2]; ///< height, width, channels
+    const U64 WC= (U64)W * C;
     const int rh= range(H), rw=range(W);                ///< h,w range for ...
-    DU *d = td;
-    std::ostringstream ss;
     
-    for (U32 y=0, y1=1; y<rh; y++, y1++, d+=(W * C)) {
-        ss << _vec(d, W, C);
-        ss << (y1==H ? "" : "\n\t");
+    std::ostringstream ss;
+    auto row = [this, &ss, &H, &W, &C](U32 y, DU *d) {
+        ss << _vec(d, W, C) << (y == H ? "" : "\n\t");
+    };
+    
+    DU *d = td;
+    for (U32 y=0, y1=1; y<rh; y++, y1++, d+=WC) {   ///< leading rows
+        row(y1, d);
     }
 
     U32 ym = (H <= _thres) ? rh : H - rh;
-    if (ym > rh) ss << "...\n\t";
+    if (ym > rh) ss << "...\n\t";                   ///< row break
     else ym = rh;
     
-    d = td + ym * W * C;
-    for (U32 y=ym, y1=y+1; y<H; y++, y1++, d+=(W * C)) {
-        ss << _vec(d, W, C);
-        ss << (y1==H ? "" : "\n\t");
+    d = td + ym * WC;
+    for (U32 y=ym, y1=y+1; y<H; y++, y1++, d+=WC) { ///< trailing rows
+        row(y1, d);
     }
     return ss.str();
 }
@@ -114,7 +118,7 @@ AIO::_tensor(Tensor &t) {
     } break;        
     default: ss << "tensor rank=" << t.rank << " not supported";
     }
-    ss << "\n";
+    ss << '\n';
     return ss.str();
 }
 ///
