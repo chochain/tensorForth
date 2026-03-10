@@ -134,7 +134,7 @@ __HOST__ io_event*
 System::process_event(io_event *ev) {
     GPU_SYNC();                     /// * make sure data is completely written
 
-    void *v = (void*)ev->data;      ///< fetch payload in buffered print node
+    void *vp = (void*)ev->data;     ///< fetch payload in buffered print node
     DEBUG("System::process(gt=%x) {\n", ev->gt);
     switch (ev->gt) {
     ///> simple ops
@@ -143,10 +143,10 @@ System::process_event(io_event *ev) {
     case GT_FLOAT:
     case GT_STR:
     case GT_FMT:
-    case GT_OBJ: db->print(v, ev->gt);                       break;
+    case GT_OBJ: db->print(vp, ev->gt);                      break;
     ///> complex ops
     case GT_OPX: {
-        io::_opx *o = (io::_opx*)v;
+        io::_opx *o = (io::_opx*)vp;
         DEBUG("  _opx(OP=%d, m=%d, i=%d, n=0x%08x=%g)\n", o->op, o->m, o->i, DU2X(o->n), o->n);
         switch (o->op) {
         case OP_FLUSH: fout << std::flush;                   break;
