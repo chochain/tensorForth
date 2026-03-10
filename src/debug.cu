@@ -51,11 +51,12 @@ Debug::reset_fmt() { fout.copyfmt(_fmt0); }
 ///
 __HOST__ void
 Debug::print(void *vp, U8 gt) {
-#if T4_DO_OBJ    
-    if (gt==GT_OBJ) io->print(fout, mu->du2obj(*(DU*)vp));
+#if T4_DO_OBJ
+    DU v = *(DU*)vp;
+    if (gt==GT_OBJ) fout << io->marshall(mu->du2obj(v));
     else
 #endif // T4_DO_OBJ
-        io->print(fout, vp, gt);
+        fout << io->to_s(vp, gt);
 }
 __HOST__ void
 Debug::ss_dump(DU tos, int id_sz, int base) {
@@ -64,10 +65,10 @@ Debug::ss_dump(DU tos, int id_sz, int base) {
     DU *ss = mu->vmss(id);                ///< retrieve VM SS
     auto to_s = [this, base](DU v) {
 #if T4_DO_OBJ        
-        if (IS_OBJ(v)) io->to_s(fout, mu->du2obj(v), IS_VIEW(v));
+        if (IS_OBJ(v)) fout << io->to_s(mu->du2obj(v), IS_VIEW(v));
         else
 #endif // T4_DO_OBJ
-            io->to_s(fout, v, base);
+            fout << io->to_s(v, base);
         fout << ' ';
     };
     for (int i=0; i < sz; i++) to_s(*ss++);
@@ -232,7 +233,7 @@ Debug::_to_s(Param *p, int nv, int base) {
     }
     U8 *ip = (U8*)(p+1);                           ///< pointer to data
     switch (w) {
-    case LIT:  io->to_s(fout, *(DU*)ip, base);      break;
+    case LIT:  fout << io->to_s(*(DU*)ip, base);    break;
     case STR:  fout << "s\" " << (char*)ip << '"';  break;
     case DOTQ: fout << ".\" " << (char*)ip << '"';  break;
     case VAR:
