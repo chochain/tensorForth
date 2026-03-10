@@ -4,8 +4,6 @@
  *
  * <pre>Copyright (C) 2021- GreenII, this file is distributed under BSD 3-Clause License.</pre>
  */
-#include <cstdio>        /// printf
-#include <iostream>      /// cin, cout
 #include <iomanip>       /// setbase, setprecision
 #include "aio.h"
 
@@ -108,7 +106,7 @@ AIO::shape(T4Base &b) {
     }
     ss << ']';
     
-#if MM_DEBUG    
+#if MM_DEBUG
     if (t.rank==2 || t.rank==5) ss << t.numel;
 #endif // MM_DEBUG
     
