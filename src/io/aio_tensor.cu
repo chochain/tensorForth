@@ -1,19 +1,15 @@
 /** -*- c++ -*-
  * @file
  * @brief AIO class - async IO module implementation
+ *        Tensor & NN model persistence (i.e. serialization) methods
  *
  * <pre>Copyright (C) 2021- GreenII, this file is distributed under BSD 3-Clause License.</pre>
  */
-#include <cstdio>        /// printf
-#include <iomanip>       /// setbase, setprecision
+#include <iomanip>       /// setprecision
+#include <fstream>
 #include "aio.h"
 
 #if T4_DO_OBJ
-///
-/// Tensor & NN model persistence (i.e. serialization) methods
-///
-#include <fstream>
-#include "mu/tensor.h"
 
 namespace t4::io {
 
@@ -40,86 +36,87 @@ AIO::tsave(Tensor &t, char *fname, U8 mode) {
 ///
 /// Tensor IO private methods
 ///
-__HOST__ void
-AIO::_print_vec(h_ostr &fs, DU *vd, U32 W, U32 C) {
+__HOST__ std::string
+AIO::_vec(DU *vd, U32 W, U32 C) {
+    std::ostringstream ss;
     U32 rw = (W <= _thres) ? W : (W < _edge ? W : _edge);
-    fs << std::setprecision(_prec) << "{";        /// set precision
+    ss << std::setprecision(_prec) << "{";        /// set precision
     for (U32 j=0; j < rw; j++) {
         DU *dx = vd + j * C;
         for (U32 k=0; k < C; k++) {
-            fs << (k>0 ? "_" : " ") << *dx++;
+            ss << (k>0 ? "_" : " ") << *dx++;
         }
     }
     U32 x = W - rw;
-    if (x > rw) fs << " ...";
+    if (x > rw) ss << " ...";
     for (U32 j=(x > rw ? x : rw); j < W; j++) {
         DU *dx = vd + j * C;
         for (U32 k=0; k < C; k++) {
-            fs << (k>0 ? "_" : " ") << *dx++;
+            ss << (k>0 ? "_" : " ") << *dx++;
         }
     }
-    fs << " }";
+    ss << " }";
+    return ss.str();
 }
-__HOST__ void
-AIO::_print_mat(h_ostr &fs, DU *td, U32 *shape) {
+
+__HOST__ std::string
+AIO::_mat(DU *td, U32 *shape) {
     auto range = [this](U32 v) { return (v < _edge) ? v : _edge; };
     const U32 H = shape[0], W = shape[1], C = shape[2]; ///< height, width, channels
     const int rh= range(H), rw=range(W);                ///< h,w range for ...
     DU *d = td;
+    std::ostringstream ss;
     
-    fs.flags(std::ios::showpos | std::ios::right | std::ios::fixed);   /// enforce +- sign
+    ss.flags(std::ios::showpos | std::ios::right | std::ios::fixed);   /// enforce +- sign
     for (U32 y=0, y1=1; y<rh; y++, y1++, d+=(W * C)) {
-        _print_vec(fs, d, W, C);
-        fs << (y1==H ? "" : "\n\t");
+        ss << _vec(d, W, C);
+        ss << (y1==H ? "" : "\n\t");
     }
 
     U32 ym = (H <= _thres) ? rh : H - rh;
-    if (ym > rh) fs << "...\n\t";
+    if (ym > rh) ss << "...\n\t";
     else ym = rh;
     
     d = td + ym * W * C;
     for (U32 y=ym, y1=y+1; y<H; y++, y1++, d+=(W * C)) {
-        _print_vec(fs, d, W, C);
-        fs << (y1==H ? "" : "\n\t");
+        ss << _vec(d, W, C);
+        ss << (y1==H ? "" : "\n\t");
     }
+    return ss.str();
 }
-__HOST__ void
-AIO::_print_tensor(h_ostr &fs, Tensor &t) {
+__HOST__ std::string
+AIO::_tensor(Tensor &t) {
     DU *td = t.data;                                    /// * short hand
     DEBUG("  aio#print_tensor T=%p data=%p\n", &t, td);
+    std::ostringstream ss;
 
-    std::ios::fmtflags fmt0 = fs.flags();
-    fs << std::setprecision(-1);                        /// * standard format
+    ss << std::setprecision(-1);                        /// * standard format
     switch (t.rank) {
     case 1: {
-        fs << "vector[" << t.numel << "] = ";
-        _print_vec(fs, td, t.numel, 1);
+        ss << "vector" << shape(t) << " = ";
+        ss << _vec(td, t.numel, 1);
     } break;
     case 2: {
-        fs << "matrix[" << t.H() << "," << t.W() << "] = {\n\t";
-        _print_mat(fs, td, t.shape);
-        fs << " }";
+        ss << "matrix" << shape(t) << " = {\n\t";
+        ss << _mat(td, t.shape);
+        ss << " }";
     } break;
     case 4: {
         int N = t.N();
-        fs << "tensor["
-           << N << "," << t.H() << "," << t.W() << "," << t.C()
-           << "]" << t.numel << " = { {\n\t";
+        ss << "tensor" << shape(t) << " = { {\n\t";
         for (int n = 0; n < N; n++, td += t.HWC()) {
-            _print_mat(fs, td, t.shape);
-            fs << ((n+1) < N ? " } {\n\t" : "");
+            ss << _mat(td, t.shape);
+            ss << ((n+1) < N ? " } {\n\t" : "");
         }
-        fs << " } }";
+        ss << " } }";
     } break;
     case 5: {
-        fs << "tensor[" << t.iparm << "]["
-           << t.N() << "," << t.H() << "," << t.W() << "," << t.C()
-           << "] = {...}";
+        ss << "tensor[" << t.iparm << "]" << shape(t) << " = {...}";
     } break;        
-    default: fs << "tensor rank=" << t.rank << " not supported";
+    default: ss << "tensor rank=" << t.rank << " not supported";
     }
-    fs << "\n";
-    fs.flags(fmt0);
+    ss << "\n";
+    return ss.str();
 }
 ///
 /// Tensor & NN model persistence (i.e. serialization) methods
@@ -128,7 +125,7 @@ __HOST__ int
 AIO::_tsave_txt(h_ostr &fs, Tensor &t) {
     int tmp = _thres;
     _thres  = 1024;                                     /// * allow 1K*1K cells
-    _print_tensor(fs, t);              
+    fs << _tensor(t);              
     _thres  = tmp;
     return 0;
 }
