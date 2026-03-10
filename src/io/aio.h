@@ -44,14 +44,17 @@ public:
     static void io_unlock();          ///< unlock IO
 #endif // DO_MULTITASK
 
-    static __HOST__ AIO *get_io(int *verbo=NULL);          ///< assume AIO is instantiated
+    static __HOST__ AIO *get_io(int *verbo=NULL);             ///< assume AIO is instantiated
     static __HOST__ void free_io();
+    
+    static __HOST__ std::string to_s(DU v, int base);         ///< display pure value
+    static __HOST__ std::string to_s(void *vp, U8 gt);        ///< display value by type
 
-    __HOST__ void to_s(h_ostr &fs, DU v, int base);        ///< display value by ss_dump
-    __HOST__ void print(h_ostr &fs, void *vp, U8 gt);
 #if T4_DO_OBJ
-    __HOST__ void to_s(h_ostr &fs, T4Base &t, bool view);  ///< display tensor by ss_dump
-    __HOST__ void print(h_ostr &fs, T4Base &t);            ///< display in matrix format
+    static __HOST__ std::string to_s(T4Base &t, bool view);   ///< display tensor by ss_dump
+    static __HOST__ std::string shape(T4Base &t);             ///< tensor shape
+    
+    __HOST__ std::string marshall(T4Base &t);                 ///< tensor to stream
     __HOST__ int  tsave(Tensor &t, char *fname, U8 mode);
     
 #if T4_DO_NN    
@@ -77,9 +80,9 @@ private:
     ///
     /// Tensor print methods
     ///
-    __HOST__ void _print_vec(h_ostr &fs, DU *vd, U32 W, U32 C);
-    __HOST__ void _print_mat(h_ostr &fs, DU *md, U32 *shape);
-    __HOST__ void _print_tensor(h_ostr &fs, Tensor &t);
+    __HOST__ std::string _vec(DU *vd, U32 W, U32 C);
+    __HOST__ std::string _mat(DU *md, U32 *shape);
+    __HOST__ std::string _tensor(Tensor &t);
     ///
     /// Tensor persistence (i.e. serialization) methods
     ///
@@ -91,9 +94,11 @@ private:
     ///
     /// NN model print methods
     ///
-    __HOST__ void _print_model(h_ostr &fs, Model &m);
-    __HOST__ void _print_model_parm(h_ostr &fs, Tensor &in, Tensor &out);
-    
+    __HOST__ std::string _model(Model &m);
+    __HOST__ std::string _parm(Tensor &in, Tensor &out);
+    ///
+    /// Model persistence (i.e. serialization) methods
+    ///
     __HOST__ int  _nsave_model(h_ostr &fs, Model &m);
     __HOST__ int  _nsave_param(h_ostr &fs, Model &m);
     __HOST__ int  _nload_model(h_istr &fs, Model &m, char *fname, char *tib);
