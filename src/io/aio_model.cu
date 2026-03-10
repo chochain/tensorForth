@@ -4,13 +4,10 @@
  *
  * <pre>Copyright (C) 2021- GreenII, this file is distributed under BSD 3-Clause License.</pre>
  */
-#include <cstdio>        /// printf
-#include <iostream>      /// cin, cout
-#include <iomanip>       /// setbase, setprecision
+#include <fstream>
 #include "aio.h"
 
 #if (T4_DO_OBJ && T4_DO_NN)
-#include <fstream>
 #include "mu/dataset.h"
 #include "nn/model.h"
 #include "ld/loader.h"   /// includes Corpus
@@ -133,50 +130,56 @@ AIO::nload(Model &m, char* fname, U8 mode, char *tib) {
 ///
 /// NN Model IO private methods
 ///
-__HOST__ void
-AIO::_print_model(h_ostr &fs, Model &m) {
-    auto tinfo = [this,&fs](Tensor &t, int i, int fn) { ///> layer info
-        fs << "[" << std::setw(3) << i << "] "
-           << Model::nname(fn) << ":";
-        to_s(fs, t, false);
+__HOST__ std::string
+AIO::_model(Model &m) {
+    std::ostringstream ss;
+    auto tinfo = [&ss](Tensor &t, int i, int fn) {      ///> layer info
+        ss << '[' << std::setw(3) << i << "] "
+           << Model::nname(fn) << ": "
+           << to_s(t, false);
         int sz = 0;
         for (int n = 0; n < 4; n++) {
             sz += t.grad[n] ? t.grad[n]->numel : 0;
         }
-        fs << " #p=" << sz << ' ';
+        ss << " #p=" << sz << ' ';
     };
-    auto finfo = [this,&fs](Tensor **g) {
+    auto finfo = [&ss](Tensor **g) {                    ///> gradient tensor info
         for (int i=0; g[i] && i < 2; i++) {
-            to_s(fs, *g[i], false); fs << ' ';
+            ss << to_s(*g[i], false) << ' ';
         }
     };
-    if (!m.is_model()) return;
+    if (!m.is_model()) {
+        ss << "ERROR, not an NN Model!";
+        return ss.str();
+    }
     U64 n = m.numel;
-    
-    fs << "NN model[" << n-1 << "/" << m.slots() << "]"
-       << std::endl;
+
+    ss << "NN Model[" << (n-1) << '/' << m.slots() << "]\n";
     for (U64 i = 1; i < n; i++) {         /// skip root[0]
         Tensor &in = m[i], &out = m[i+1];
         tinfo(in, (int)i, in.grad_fn);
         finfo(in.grad);
-        _print_model_parm(fs, in, out);
-        fs << std::endl;
+        ss << _parm(in, out) << '\n'; // << std::end;
     }
+
+    return ss.str();
 }
 ///
 /// print model layer parameters
 ///
-__HOST__ void
-AIO::_print_model_parm(h_ostr &fs, Tensor &in, Tensor &out) {
+__HOST__ std::string
+AIO::_parm(Tensor &in, Tensor &out) {
     t4_layer fn = in.grad_fn;             ///< layer function
     int      ks0= in.stride[0];           ///< kernel size
     int      ks1= in.stride[1];           ///< kernel size
     DU       p  = in.xparm;               ///< layer parameter
+    
+    std::ostringstream ss;
     switch(fn) {
     case L_NONE:    /* do nothing  */                  break;
-    case L_CONV:   fs << "bias=" << p << ", C="
+    case L_CONV:   ss << "bias=" << p << ", C="
                       << out.C();                      break;
-    case L_LINEAR: fs << "bias=" << p << ", H="
+    case L_LINEAR: ss << "bias=" << p << ", H="
                       << in.grad[0]->H();              break;
     case L_FLATTEN:
     case L_RELU:
@@ -184,26 +187,28 @@ AIO::_print_model_parm(h_ostr &fs, Tensor &in, Tensor &out) {
     case L_SIGMOID: /* do nothing */                   break;
     case L_SELU:
     case L_LEAKYRL:
-    case L_ELU:     fs << "bias=" << p;                break;
-    case L_DROPOUT: fs << "rate=" << p*100.0 << '%';   break;
+    case L_ELU:     ss << "bias=" << p;                break;
+    case L_DROPOUT: ss << "rate=" << p*100.0 << '%';   break;
     case L_SOFTMAX:
     case L_LOGSMAX: /* do nothing */                   break;
     case L_AVGPOOL:
     case L_MAXPOOL:
-    case L_MINPOOL: fs << "n=" << ks0 << "x" << ks1;   break;
-    case L_BATCHNM: fs << "mtum=" << p;                break;
+    case L_MINPOOL: ss << "n=" << ks0 << "x" << ks1;   break;
+    case L_BATCHNM: ss << "mtum=" << p;                break;
     case L_USAMPLE: {
         const char *nm[] = { "nearest", "linear", "bilinear", "cubic" };
-        fs << ks0 << "x" << ks1 << " " << nm[in.iparm];
+        ss << ks0 << "x" << ks1 << " " << nm[in.iparm];
     } break;
-    default: fs << "unknown layer=" << fn;      break;
+    default: ss << "unknown layer=" << fn;             break;
     }
+    return ss.str();
 }
+
 __HOST__ int
 AIO::_nsave_model(h_ostr &fs, Model &m) {
     for (U16 i = 1; i < m.numel - 1; i++) {
         Tensor &in = m[i], &out = m[i+1];
-        _print_model_parm(fs, in, out);
+        fs << _parm(in, out);
         
         const char *nm = Model::nname(in.grad_fn);
         fs << nm << std::endl;                /// * one blank line serves
