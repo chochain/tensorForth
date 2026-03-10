@@ -39,21 +39,22 @@ AIO::tsave(Tensor &t, char *fname, U8 mode) {
 __HOST__ std::string
 AIO::_vec(DU *vd, U32 W, U32 C) {
     std::ostringstream ss;
-    U32 rw = (W <= _thres) ? W : (W < _edge ? W : _edge);
-    ss << std::setprecision(_prec) << "{";        /// set precision
-    for (U32 j=0; j < rw; j++) {
-        DU *dx = vd + j * C;
+    auto num = [&ss, &C](DU *dx) {
         for (U32 k=0; k < C; k++) {
             ss << (k>0 ? "_" : " ") << *dx++;
         }
+    };
+    ss.flags(std::ios::showpos | std::ios::right | std::ios::fixed);   /// enforce +- sign
+    ss.precision(_prec);                         ///< set precision
+    ss << "{";
+    U32 rw = (W <= _thres) ? W : (W < _edge ? W : _edge);
+    for (U32 j=0; j < rw; j++) {                 ///< leading elements
+        num(vd + j * C);
     }
     U32 x = W - rw;
     if (x > rw) ss << " ...";
-    for (U32 j=(x > rw ? x : rw); j < W; j++) {
-        DU *dx = vd + j * C;
-        for (U32 k=0; k < C; k++) {
-            ss << (k>0 ? "_" : " ") << *dx++;
-        }
+    for (U32 j=(x > rw ? x : rw); j < W; j++) {  ///< tailing elements
+        num(vd + j * C);
     }
     ss << " }";
     return ss.str();
@@ -67,7 +68,6 @@ AIO::_mat(DU *td, U32 *shape) {
     DU *d = td;
     std::ostringstream ss;
     
-    ss.flags(std::ios::showpos | std::ios::right | std::ios::fixed);   /// enforce +- sign
     for (U32 y=0, y1=1; y<rh; y++, y1++, d+=(W * C)) {
         ss << _vec(d, W, C);
         ss << (y1==H ? "" : "\n\t");
@@ -90,7 +90,6 @@ AIO::_tensor(Tensor &t) {
     DEBUG("  aio#print_tensor T=%p data=%p\n", &t, td);
     std::ostringstream ss;
 
-    ss << std::setprecision(-1);                        /// * standard format
     switch (t.rank) {
     case 1: {
         ss << "vector" << shape(t) << " = ";
