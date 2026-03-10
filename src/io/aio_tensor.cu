@@ -15,7 +15,7 @@ namespace t4::io {
 
 __HOST__ int
 AIO::tsave(Tensor &t, char *fname, U8 mode) {
-    IO_DB("\nAIO::save tensor to '%s' {", fname);
+    IO_DB("AIO::save tensor to '%s' {", fname);
     
     std::ios_base::openmode m =
         (mode & FAM_RW) ? std::ios_base::in : std::ios_base::out;
@@ -39,7 +39,7 @@ AIO::tsave(Tensor &t, char *fname, U8 mode) {
 __HOST__ std::string
 AIO::_vec(DU *vd, U32 W, U32 C) {
     std::ostringstream ss;
-    auto num = [&ss, &C](DU *dx) {
+    auto num = [&ss, C](DU *dx) {
         for (U32 k=0; k < C; k++) {
             ss << (k>0 ? "_" : " ") << *dx++;
         }
@@ -69,7 +69,7 @@ AIO::_mat(DU *td, U32 *shape) {
     const int rh= range(H), rw=range(W);                ///< h,w range for ...
     
     std::ostringstream ss;
-    auto row = [this, &ss, &H, &W, &C](U32 y, DU *d) {
+    auto row = [this, &ss, H, W, C](U32 y, DU *d) {
         ss << _vec(d, W, C) << (y == H ? "" : "\n\t");
     };
     
