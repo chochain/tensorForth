@@ -24,8 +24,8 @@ __HOST__ void AIO::free_io() { if (_io) delete _io; }
 ///@}
 ///@name object debugging method
 ///@{
-__HOST__ void
-AIO::to_s(h_ostr &fs, DU v, int base) {            ///< display value by ss_dump
+__HOST__ std::string
+AIO::to_s(DU v, int base) {                        ///< display pure value
     static char buf[34];                           ///< static buffer
     DU t, f = modf(v, &t);                         ///< integral, fraction
     int i = 0;                                     
@@ -42,60 +42,90 @@ AIO::to_s(h_ostr &fs, DU v, int base) {            ///< display value by ss_dump
         } while (n && i);
         if (dec && v < DU0) buf[--i]='-';
     }
-    fs << &buf[i];
+    std::string s(&buf[i]);
+    return s;
 }
-__HOST__ void
-AIO::print(h_ostr &fs, void *v, U8 gt) {
+
+__HOST__ std::string
+AIO::to_s(void *vp, U8 gt) {
+    std::ostringstream ss;
     switch (gt) {
-    case GT_INT:   fs << (*(S32*)v); break;
-    case GT_U32:   fs << (*(U32*)v); break;
-    case GT_FLOAT: fs << (*(DU*)v);  break;
-    case GT_STR:   fs << (char*)v;   break;
+    case GT_INT:   ss << (*(S32*)vp);            break;
+    case GT_U32:   ss << (*(U32*)vp);            break;
+    case GT_FLOAT: ss << (*(DU*)vp);             break;
+    case GT_STR:   ss << (char*)vp;              break;
+    case GT_OBJ:   ss << "ERROR: see #marshall"; break;
     case GT_FMT:   {
-        obuf_fmt *f = (obuf_fmt*)v;
+        obuf_fmt *f = (obuf_fmt*)vp;
         DEBUG("  fmt: b=%d, w=%d, p=%d, f='%c'\n", f->base, f->width, f->prec, f->fill);
-        fs << std::setbase(f->base)
+        ss << std::setbase(f->base)
            << std::setw(f->width)
            << std::setprecision(f->prec ? f->prec : -1)
            << std::setfill((char)f->fill);
     } break;
     }
     DEBUG("  aio#print(fs, *v=0x%08x=%g, gt=%x)\n", DU2X(*(DU*)v), *(DU*)v, gt);
+    
+    return ss.str();
 }
+
 #if T4_DO_OBJ
-///@}
-///@name show simple value and object token for ss_dump
-///@{
-__HOST__ void
-AIO::to_s(h_ostr &fs, T4Base &t, bool view) {
+__HOST__ std::string
+AIO::to_s(T4Base &t, bool view) {
     static const char tn[2][4] = {                ///< sync with t4_obj
         { 'T', 'N', 'D', 'X' }, { 't', 'n', 'd', 'x' }
     };
-    auto t2 = [this, &fs](Tensor &t) { fs << t.H() << ',' << t.W() << ']' << t.numel; };
-    auto t4 = [this, &fs](Tensor &t) {
-        fs << t.N() << ',' << t.H() << ',' << t.W() << ',' << t.C() << ']' << t.numel;
-    };
-    fs << tn[view][t.ttype];
+    std::ostringstream ss;
+    
+    ss << tn[view][t.ttype];
     switch(t.rank) {
-    case 0: fs << "["  << (t.numel - 1) << ']'; break;  /// network model
-    case 1: fs << "1[" << t.numel << ']';       break;
-    case 2: fs << "2["; t2((Tensor&)t);         break;
-    case 3: fs << "3[na]";                      break;
-    case 4: fs << "4["; t4((Tensor&)t);         break;
-    case 5: fs << "5[" << t.iparm << "]["; t4((Tensor&)t); break;
+    case 0:            break;                     ///< network model
+    case 1: ss << '1'; break;
+    case 2: ss << '2'; break;
+    case 3: ss << '3'; break;
+    case 4: ss << '4'; break;
+    case 5: ss << "5[" << t.iparm << "]"; break;
     }
+    ss << shape(t);
+    
+    return ss.str();
 }
-__HOST__ void
-AIO::print(h_ostr &fs, T4Base &t) {
+
+__HOST__ std::string
+AIO::shape(T4Base &b) {
+    Tensor &t = (Tensor&)b;
+    std::ostringstream ss;
+
+    ss << '[';
+    switch (t.rank) {
+    case 0: ss << (t.numel - 1);         break;   /// network model
+    case 1: ss << t.numel;               break;
+    case 2: ss << t.H() << ',' << t.W(); break;
+    case 3: ss << "na";                  break;
+    case 4:
+    case 5: ss << t.N() << ',' << t.H() << ','
+               << t.W() << ',' << t.C(); break;
+    }
+    ss << ']';
+    
+#if MM_DEBUG    
+    if (t.rank==2 || t.rank==5) ss << t.numel;
+#endif // MM_DEBUG
+    
+    return ss.str();
+}
+
+__HOST__ std::string
+AIO::marshall(T4Base &t) {
+    DEBUG("  aio#print(fs, t4base=%p)\n", &t);
     switch (t.ttype) {
     case T4_TENSOR:
-    case T4_DATASET: _print_tensor(fs, (Tensor&)t); break;
+    case T4_DATASET: return _tensor((Tensor&)t);
 #if T4_DO_NN
-    case T4_MODEL:   _print_model(fs, (Model&)t);   break;
+    case T4_MODEL:   return _model((Model&)t);
 #endif // T4_DO_NN        
-    case T4_XXX:     /* reserved */                 break;
     }
-    DEBUG("  aio#print(fs, t4base=%p)\n", &t);
+    return std::string("");
 }
 ///@}
 #endif // T4_DO_OBJ
