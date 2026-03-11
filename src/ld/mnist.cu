@@ -16,7 +16,7 @@ namespace t4::ld {
 #define MAX_BATCH 3          /**< debug, limit number of mini-batches */
 //#define MAX_BATCH 0          /**< debug, limit number of mini-batches */
 
-Corpus *Mnist::init() {
+Corpus *Mnist::init(bool trace) {
     auto _u32 = [this](std::ifstream &fs) {
         U32 v = 0;
         char x;
@@ -33,7 +33,7 @@ Corpus *Mnist::init() {
     if (t_in) {
         X1 = _u32(t_in);    ///< label magic number 0x0801
         N1 = _u32(t_in);
-        TRACE("\tMNIST label: magic=%08x => [%d]\n", X1, N1);
+        if (trace) INFO("\tMNIST label: magic=%08x => [%d]\n", X1, N1);
     }
     if (d_in) {
         X0 = _u32(d_in);    ///< image magic number 0x0803
@@ -41,7 +41,7 @@ Corpus *Mnist::init() {
         H  = _u32(d_in);
         W  = _u32(d_in);
         C  = 1;
-        TRACE("\tMNIST image: magic=%08x => [%d][%d,%d,%d]\n",
+        if (trace) INFO("\tMNIST image: magic=%08x => [%d][%d,%d,%d]\n",
               X0, N, H, W, C);
     }
     if (N != N1) {
@@ -51,7 +51,7 @@ Corpus *Mnist::init() {
     return this;
 }
 
-Corpus *Mnist::fetch(int bid, int n) {
+Corpus *Mnist::fetch(int bid, int n, bool trace) {
     int bn = n * bid;                           ///< batch offset index
     if (eof || bn >= N) {                       /// * beyond total sample count?
         ERROR("Mnist::fetch EOF reached (needs rewind)\n");
@@ -74,7 +74,7 @@ Corpus *Mnist::fetch(int bid, int n) {
         batch_sz = n >> 1;                      /// * fake a partial batch
         eof = 1;
     }
-    TRACE("\tMnist batch %d, loaded=%d/%d\n", bid, bn+batch_sz, N);
+    if (trace) INFO("\tMnist batch %d, loaded=%d/%d\n", bid, bn+batch_sz, N);
     
     return this;
 }
