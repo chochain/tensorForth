@@ -59,10 +59,6 @@ public:
     
 #if T4_DO_NN    
     ///
-    /// dataset IO methods
-    ///
-    __HOST__ int  dsfetch(Dataset &ds, char *ds_name=NULL, bool rewind=0); ///< fetch a dataset batch (rewind=false load batch)
-    ///
     /// NN model persistence (i.e. serialization) methods
     ///
     __HOST__ int  nsave(Model &m, char *fname, U8 mode);

@@ -8,77 +8,9 @@
 #include "aio.h"
 
 #if (T4_DO_OBJ && T4_DO_NN)
-#include "mu/dataset.h"
 #include "nn/model.h"
-#include "ld/loader.h"   /// includes Corpus
 
 namespace t4::io {
-using ld::Corpus;
-///
-/// initial dataset setup
-/// init flow:
-///    netvm::dataset
-///    -> sys::process_event
-///    -> mmu::dataset           - set N=batch_sz, batch_id = -1
-///
-/// fetch flow:
-///    netvm::fetch
-///    -> sys::process_event
-///    -> aio::dsfetch
-///      if (ds_name != null)   - init
-///        -> corpus::init      - setup dimensions
-///        -> dataset::reshape  - set dimensions for the first batch (no alloc yet)
-///      -> corpus::fetch       - fetch host label/image blocks from files
-///      -> dataset::load_batch - transfer host blocks to device memory
-/// Note:
-///   ds_name: dataset name (match in loader.cu), for initial dataset setup
-///   ds_name: NULL, following batch
-///
-__HOST__ int
-AIO::dsfetch(Dataset &ds, char *ds_name, bool rewind) {
-    static const char *fn = "aio#dsfetch";
-    ///
-    /// search cache for top <=> dataset pair
-    ///
-    IO_DB("  %s(%s) dataset (batch_id=%d) {\n",
-          fn, ds_name ? ds_name : (rewind ? "rewind" : "fetch"), ds.batch_id);
-    Corpus *cp = ld::Loader::get(ds, ds_name);   ///< Corpus/Dataset provider
-    if (!cp) {
-        ERROR("  } %s => dataset not found\n", fn); return -1;
-    }
-    if (ds_name) {                               /// * init load
-        if (cp->init(trace)==NULL) {
-            ERROR("  } %s => dataset setup failed!\n", fn); return -2;
-        }
-        ds.reshape(ds.N(), cp->H, cp->W, cp->C); /// * reshape ds to match Corpus mini-batch
-    }
-    if (rewind) {
-        cp->rewind();
-        ds.batch_id = ds.done = 0;
-    }
-    else if ((ds.done=cp->eof)) {                /// * dataset exhausted?
-        IO_DB("  } %s => completed, no more data.\n", fn); return 0;
-    }
-    ///
-    /// load a mini-batch of data points
-    ///
-    if (!cp->fetch(ds.batch_id, ds.N(), trace)) { /// * fetch a batch from Corpus
-        ERROR("  } %s => fetch failed\n", fn);  return -3;
-    }
-    int n = cp->batch_sz;                         ///< actural mini-batch fetched
-    ///
-    /// transfer host into device memory
-    /// if needed, allocate Dataset device (managed) memory blocks
-    ///
-    ds.load_batch(cp->data, cp->label, n);
-    IO_DB("  } %s => batch[%d] %d record(s) loaded, done=%d\n",
-          fn, ds.batch_id, n, cp->eof);
-
-    ds.batch_id++;
-    ds.done = cp->eof;
-    
-    return 0;
-}
 ///
 /// NN model persistence (i.e. serialization) methods
 ///
