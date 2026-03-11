@@ -10,13 +10,17 @@
 #define __LDR_CORPUS_H
 
 namespace t4::ld {
-
-#define IO_ERROR(fn)         fprintf(stderr, "ERROR: open file %s failed\n", fn)
+///
+/// 1. Corpus data and label allocated from CUDA Managed Memory for debug
+/// 2. moved to host heap if OK
+/// 3. pre-fetching can be done in a separate thread
+///
 #define DS_ALLOC(p, sz)                                             \
     if (cudaMallocManaged(p, sz) != cudaSuccess) {                  \
         fprintf(stderr, "ERROR: Corpus malloc(%d) failed.\n", sz);  \
         exit(-1);                                                   \
     }
+#define IO_ERROR(fn) fprintf(stderr, "ERROR: open file %s failed\n", fn)
 
 struct Corpus {
     const char *ds_name;     ///< data source name
