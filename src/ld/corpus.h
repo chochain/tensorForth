@@ -32,7 +32,7 @@ struct Corpus {
         U32 ctrl = 0;        ///< corpus control 
         struct {
             U32   eof  : 1;  ///< end of file control
-            U32   xx   : 31; ///< reserved
+            U32   xxx  : 31; ///< reserved
         };
     };
     U8 *data  = NULL;        ///< source data pointer
@@ -57,13 +57,14 @@ struct Corpus {
         ds_free(ds_name, data);
         if (label) ds_free(tg_name, label);
     }
-    int cell() { return H * W * C; }                          ///< size of an element
+    int cell() { return H * W * C; }               ///< size of an element
     
-    virtual Corpus *init(int trace) { return NULL; }          /// * initialize dimensions
-    virtual Corpus *fetch(int bid, int n, int trace) {        /// * load a batch
-        INFO("batch(U8*) implemented?\n");
+    virtual Corpus *init() { return NULL; }        /// * initialize dimensions
+    virtual Corpus *fetch(int bid, int n) {        /// * load a batch
+        ERROR("batch(U8*) implemented?\n");
         return this;
     }
+    virtual Corpus *show(int n) { return this; }
     virtual Corpus *rewind() { eof = 0; return this; }
     virtual U8 *operator [](int idx){ return &data[idx * cell()]; }    ///< data point
 };
