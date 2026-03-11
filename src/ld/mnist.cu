@@ -10,12 +10,13 @@
 #include "mnist.h"
 
 namespace t4::ld {
-
-//#define LOG_COUNT 1000       /**< debug dump frequency */
-#define LOG_COUNT 1          /**< debug dump frequency */
+///
+/// for init debug MAX_BATCH 3
+///
 #define MAX_BATCH 3          /**< debug, limit number of mini-batches */
+//#define MAX_BATCH 0          /**< debug, limit number of mini-batches */
 
-Corpus *Mnist::init(int trace) {
+Corpus *Mnist::init() {
     auto _u32 = [this](std::ifstream &fs) {
         U32 v = 0;
         char x;
@@ -32,7 +33,7 @@ Corpus *Mnist::init(int trace) {
     if (t_in) {
         X1 = _u32(t_in);    ///< label magic number 0x0801
         N1 = _u32(t_in);
-        if (trace) INFO("\tMNIST label: magic=%08x => [%d]\n", X1, N1);
+        TRACE("\tMNIST label: magic=%08x => [%d]\n", X1, N1);
     }
     if (d_in) {
         X0 = _u32(d_in);    ///< image magic number 0x0803
@@ -40,9 +41,8 @@ Corpus *Mnist::init(int trace) {
         H  = _u32(d_in);
         W  = _u32(d_in);
         C  = 1;
-        if (trace)
-            INFO("\tMNIST image: magic=%08x => [%d][%d,%d,%d]\n",
-                 X0, N, H, W, C);
+        TRACE("\tMNIST image: magic=%08x => [%d][%d,%d,%d]\n",
+              X0, N, H, W, C);
     }
     if (N != N1) {
         ERROR("Mnist::init label count %d != image count %d\n", N1, N);
@@ -51,8 +51,7 @@ Corpus *Mnist::init(int trace) {
     return this;
 }
 
-Corpus *Mnist::fetch(int bid, int n, int trace) {
-    static int tick = 0;
+Corpus *Mnist::fetch(int bid, int n) {
     int bn = n * bid;                           ///< batch offset index
     if (eof || bn >= N) {                       /// * beyond total sample count?
         ERROR("Mnist::fetch EOF reached (needs rewind)\n");
@@ -69,42 +68,18 @@ Corpus *Mnist::fetch(int bid, int n, int trace) {
     }
     if (bn >= N) eof = 1;                       /// * EOF reached
     ///
-    /// batch size control for debugging
+    /// control partial batch for debugging
     ///
     if (MAX_BATCH && ((bid+1) >= MAX_BATCH)) {  /// * forced stop? (debug)
         batch_sz = n >> 1;                      /// * fake a partial batch
         eof = 1;
     }
-    ///
-    /// tracing to make sure process is going
-    ///
-    if (trace && (++tick == LOG_COUNT)) {
-        INFO("\tMnist batch %d, loaded=%d/%d\n", bid, bn+batch_sz, N);
-        if (1 || trace > 1) _preview(n < 3 ? n : 3); /// * debug print
-        tick = 0;
-    }
+    TRACE("\tMnist batch %d, loaded=%d/%d\n", bid, bn+batch_sz, N);
+    
     return this;
 }
 
-int Mnist::_open() {
-    if (ds_name) {
-        d_in.open(ds_name, std::ios::binary);
-        if (!d_in.is_open()) { IO_ERROR(ds_name); return -1; }
-    }
-    if (tg_name) {
-        t_in.open(tg_name, std::ios::binary);
-        if (!t_in.is_open()) { IO_ERROR(tg_name); return -1; }
-    }
-    return 0;
-}
-
-int Mnist::_close() {
-    if (d_in.is_open()) d_in.close();
-    if (t_in.is_open()) t_in.close();
-    return 0;
-}
-
-int Mnist::_preview(int N) {
+Corpus *Mnist::show(int N) {
     static const char *map = " .:-=+*#%@";
 
     for (int i = 0; i < H; i++) {
@@ -126,6 +101,26 @@ int Mnist::_preview(int N) {
     }
     INFO("\n");
 
+    return this;
+}
+///
+/// tracing to make sure process is going
+///
+int Mnist::_open() {
+    if (ds_name) {
+        d_in.open(ds_name, std::ios::binary);
+        if (!d_in.is_open()) { IO_ERROR(ds_name); return -1; }
+    }
+    if (tg_name) {
+        t_in.open(tg_name, std::ios::binary);
+        if (!t_in.is_open()) { IO_ERROR(tg_name); return -1; }
+    }
+    return 0;
+}
+
+int Mnist::_close() {
+    if (d_in.is_open()) d_in.close();
+    if (t_in.is_open()) t_in.close();
     return 0;
 }
 
