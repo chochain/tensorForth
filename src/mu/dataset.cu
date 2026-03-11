@@ -27,18 +27,16 @@ Dataset::load_batch(
     ///
     /// scale cp_data into DU for nn/forward
     ///
-    DU  *d = data;                       ///< data in managed memory
-    for (U64 i = 0; i < numel; i++) {
+    DU  *d = data;                            ///< data in managed memory
+    for (U64 i = 0; i < nx; i++, cp_data++) { ///< nx < numel (partial mini-batch)
         *d++ = (I2D((int)*cp_data) - m) / s;  /// * normalize
-        if (i < nx) cp_data++;           /// * pad partial mini-batch
     }
     ///
     /// scale cp_label into U32 for nn/loss
     ///
-    U32 *t = label;                      ///< label in managed memory
-    for (U32 i = 0; i < N(); i++) {
-        *t++ = (U32)*cp_label;           /// * copy label to device memory
-        if (i < n) cp_label++;           /// * pad partial batch
+    U32 *t = label;                           ///< label in managed memory
+    for (U32 i = 0; i < n; i++, cp_label++) { ///< n < N (partial mini-batch)
+        *t++ = (U32)*cp_label;                /// * copy label to device memory
     }
 #if MM_DEBUG    
     INFO("dataset.data=>");
