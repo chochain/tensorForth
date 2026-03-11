@@ -1,6 +1,6 @@
 /**
  * @file
- * @brief Dataset class - host-side basic data object
+ * @brief Dataset class - host-side dataset object
  *
  * <pre>Copyright (C) 2022- GreenII, this file is distributed under BSD 3-Clause License.</pre>
  */
@@ -40,29 +40,7 @@ struct Dataset : public Tensor {
         return *this;
     }
     __HOST__ Dataset *load_batch(
-        U8 *h_data, U8 *h_label, int n, DU mean=DU0, DU std=DU1) {
-        const DU m = mean * 256, s = std * 256;
-        ///
-        /// Allocate managed memory if needed
-        /// data and label buffer from Managed memory instead of TLSF
-        /// Note: numel is known only after reading from Corpus
-        ///       (see ~/src/io/aio_model#_dsfetch)
-        ///
-        if (!data)  MM_ALLOC(&data,  numel * sizeof(DU));
-        if (!label) MM_ALLOC(&label, N() * sizeof(U32));
-
-        DU  *d = data;                ///< data in device memory
-        for (U64 i = 0; i < numel; i++) {
-            *d++ = (I2D((int)*h_data) - m) / s;  /// * normalize
-            if (n < N()) h_data++;    /// * pad partial mini-batch
-        }
-        U32 *t = label;               ///< label in device memory
-        for (U32 i = 0; i < n; i++) {
-            *t++ = (U32)*h_label;     /// * copy label to device memory
-            if (n < N()) h_label++;   /// * pad partial batch
-        }
-        return this;
-    }
+        U8 *cp_data, U8 *cp_label, int n, DU mean=DU0, DU std=DU1);
 };
 
 } // namespace t4::mu
