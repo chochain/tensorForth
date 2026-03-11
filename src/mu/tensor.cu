@@ -483,7 +483,7 @@ Tensor::loss(t4_loss op, Tensor &tgt) {
         break;
     default: ERROR("Model#loss op=%d not supported!\n", op);
     }
-    z /= numel;                      /// * mini-batch average
+    z /= N();                        /// * mini-batch average
     
     return SCALAR(z);                /// make sum a scalar value (not object)
 }
