@@ -29,17 +29,18 @@ struct Dataset : public Tensor {
         if (!label) return;
         MM_FREE((void*)label);
     }
-    __HOST__ Dataset &reshape(U32 n, U32 h, U32 w, U32 c) {
+    __HOST__ int fetch(char *ds_name, bool rewind);
+
+private:
+    __HOST__ void _reshape(U32 n, U32 h, U32 w, U32 c) {
         DEBUG("Dataset::setup(%d, %d, %d, %d)\n", n, h, w, c);
         ///
         /// set dimensions
         ///
         numel = (U64)n * h * w * c;    /// * number of batch elements
         Tensor::reshape(n, h, w, c);   /// * reshape to 4-D tensor
-        
-        return *this;
     }
-    __HOST__ Dataset *load_batch(
+    __HOST__ void _load(
         U8 *cp_data, U8 *cp_label, int n, DU mean=DU0, DU std=DU1);
 };
 
