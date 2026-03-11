@@ -743,7 +743,6 @@ Tensor::show(bool dump) {
     const U32 N  = this->N(), H = this->H(), W = this->W(), C = this->C();
     const U64 hw = (U64)H * W;
 
-    INFO("T%d[%d,%d,%d,%d]=>", rank, N, H, W, C);
     DU mean  = avg();
     DU scale = 0.5 / std();            /// P=95%
     for (U32 n = 0; n < N; n++) {
