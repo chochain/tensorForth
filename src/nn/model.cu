@@ -78,7 +78,7 @@ Model::T4(U32 n, U32 h)  { return _mmu->tensor(n, h, 1, 1); }
 __GPU__ Tensor&
 Model::T4(U32 n, U32 h, U32 w, U32 c) { return _mmu->tensor(n, h, w, c); }
 __GPU__ void
-Model::RAND(Tensor &t, DU scale) {           ///< short hand to System::rand
+Model::RAND(Tensor &t, DU scale) {              ///< short hand to System::rand
     NN_DB("sys#rand(T%d) numel=%ld bias=%.2f, scale=%.2f\n",
           t.rank, t.numel, -0.5, scale*2.0);
     System::rand(t.data, t.numel, UNIFORM, -0.5, scale * 2.0); /// * range=>[-scale, scale)
@@ -89,7 +89,7 @@ Model::RAND(Tensor &t, DU scale) {           ///< short hand to System::rand
 __GPU__ Model&
 Model::add(t4_layer fn, U32 n, DU bias, U16 *opt) {
     Tensor &in = (*this)[-1];
-    if (in.grad_fn != L_NONE) return *this;    /// * tensor already setup
+    if (in.grad_fn != L_NONE) return *this;     /// * tensor already setup
 
     NLOG("  Model::add %s n=%d bias=%g {\n", d_nname(fn), n, bias);
 
