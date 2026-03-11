@@ -29,7 +29,7 @@ struct Dataset : public Tensor {
         if (!label) return;
         MM_FREE((void*)label);
     }
-    __HOST__ int fetch(char *ds_name, bool rewind);
+    __HOST__ int fetch(char *ds_name, bool rewind, bool trace);
 
 private:
     __HOST__ void _reshape(U32 n, U32 h, U32 w, U32 c) {
