@@ -56,7 +56,6 @@ Model::onehot(Dataset &dset) {
         }
         INFO("}\n");
     };
-    
     if (!_hot) _hot = &T4(N, E);                    ///< alloc one-hot vector if needed
     _hot->fill(DU0);                                ///< reset all elements
     
@@ -65,7 +64,7 @@ Model::onehot(Dataset &dset) {
         DU *h = _hot->slice(n);                     ///< take a sample
         U32 m = dset.label[n];                      ///< label index
         h[m < E ? m : 0] = DU1;                     /// * mark hot by index
-        if (1 || (*_trace > 1)) show(h, n, m);             /// * might need U32 partition
+        if (*_trace > 1) show(h, n, m);             /// * might need U32 partition
     }
     NLOG("  } Model::onehot(ds)");
     
@@ -100,7 +99,7 @@ Model::hit(bool recalc) {
         DU  *o = out.slice(n), *h = _hot->slice(n); ///< output & onehot vectors
         U32  m = argmax(o);                         ///< index to max element
         cnt += D2I(h[m]);                           ///< lookup onehot vector
-        if (1 || (*_trace > 1)) show(o, h, n, m, cnt);
+        if (*_trace > 1) show(o, h, n, m, cnt);
     }
     NLOG("  } Model::hit=%d", cnt);
     
@@ -111,15 +110,16 @@ __GPU__ DU
 Model::loss(t4_loss op) {
     return loss(op, *_hot);                         /// * use default one-hot vector
 }
-
+///
+/// loss pass calculation to tensor::loss and is non-destrucitve
+/// Note: most ML can utilize last two layers
+///       to skip loss calc with just out -= tgt (see backprop for details)
+///
 __GPU__ DU
 Model::loss(t4_loss op, Tensor &tgt) {              ///< loss against target vector
     static const char *_op[] = { "MSE", "BCE", "CE", "NLL" };
     Tensor &out = (*this)[-1];                      ///< model output
 
-    INFO("tgt=>");
-    tgt.show();
-    
     if (out.numel != tgt.numel) {                   /// * check dimensions
         ERROR("nn::loss model output shape[%d,%d,%d,%d] != tgt[%d,%d,%d,%d]\n",
             out.N(), out.H(), out.W(), out.C(),
@@ -130,11 +130,8 @@ Model::loss(t4_loss op, Tensor &tgt) {              ///< loss against target vec
     else       _loss = &COPY(out);                  /// allocate & copy out vector
 
     DU z = _loss->loss(op, tgt);                    /// * calculate loss per op
-    INFO("\nloss=>");
-    _loss->show();
-    
+
     NLOG("  Model#loss: %s=%6.3f\n", _op[op], z);
-    
     return z;
 }
 
