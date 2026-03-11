@@ -210,8 +210,8 @@ NetVM::_conv(U16 k) {
 ///
 __GPU__ void
 NetVM::_forward() {
-    if (IS_M(ss[-1]) && TOS1D) {                  /// * TOS is a dataset
-        DU x = POP();                             /// * NOS is the model
+    if (IS_M(ss[-1]) && TOS1D) {                  /// * NOS is the model
+        DU x = POP();                             /// * TOS is a dataset
         MTOS.forward((Tensor&)mmu.du2obj(x));     /// * exec forward path
         if (MTOS.err) state = STOP;               /// * bail if error
         DROP(x);                                  /// * release reference
@@ -219,7 +219,7 @@ NetVM::_forward() {
     else if (IS_M(tos) && IS_OBJ(rs[-1])) {       /// * in a for/next loop
         Tensor &t = (Tensor&)mmu.du2obj(rs[-1]);  /// * rs[-1] is a dataset
         if (t.is_dataset()) {
-            MTOS.forward(t);
+            MTOS.forward(t);                      /// * forward with dataset
             if (MTOS.err) { rs.pop(); state = STOP; }
         }
         else ERROR("rs[-1] is not a dataset?\n");
