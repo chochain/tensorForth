@@ -29,9 +29,9 @@ public:
         : Corpus(data_name, label_name) {}
     ~Mnist() { _close(); }
 
-    virtual Corpus *init();                  ///< setup/check sizing
-    virtual Corpus *fetch(int bid, int n);   ///< fetch bid'th mini-batch
-    virtual Corpus *show(int n);             ///< show/preview n samples
+    virtual Corpus *init(bool trace);                  ///< setup/check sizing
+    virtual Corpus *fetch(int bid, int n, bool trace); ///< fetch bid'th mini-batch
+    virtual Corpus *show(int n);                       ///< show/preview n samples
     virtual Corpus *rewind() { d_in.clear(); t_in.clear(); return Corpus::rewind(); }
 
 private:

@@ -57,10 +57,10 @@ struct Corpus {
         ds_free(ds_name, data);
         if (label) ds_free(tg_name, label);
     }
-    int cell() { return H * W * C; }               ///< size of an element
+    int cell() { return H * W * C; }                         ///< size of an element
     
-    virtual Corpus *init() { return NULL; }        /// * initialize dimensions
-    virtual Corpus *fetch(int bid, int n) {        /// * load a batch
+    virtual Corpus *init(bool trace) { return NULL; }        /// * initialize dimensions
+    virtual Corpus *fetch(int bid, int n, bool trace) {      /// * load a batch
         ERROR("batch(U8*) implemented?\n");
         return this;
     }
