@@ -27,7 +27,8 @@ OBJS += $(MU_OBJS)
 
 MU_EXT := \
 	src/nn/model.h \
-	src/ld/loader.h
+	src/ld/loader.h \
+	src/ld/corpus.h
 
 #MU_LIBS := -Isrc/nn
 MU_LIBS :=
