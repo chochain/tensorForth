@@ -5,7 +5,8 @@
 MU_SRCS := \
 	src/mu/tlsf.cu \
 	src/mu/tensor.cu \
-	src/mu/mmu.cu
+	src/mu/mmu.cu \
+	src/mu/dataset.cu
 
 MU_INCS := \
 	src/ten4_config.h \
