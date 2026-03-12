@@ -482,6 +482,12 @@ TensorVM::init() {
              Tensor &t1 = mmu.slice(t0, x0, x1, y0, y1);
              PUSH(t1);
          });
+    CODE("dim",
+         T4Base &t0 = mmu.du2obj(tos);
+         if (t0.is_tensor() || t0.is_dataset()) {
+             PUSH(mmu.dim(TTOS));
+         }
+         else ERROR("TOS tensor?"));
     CODE("t@", 
          if (!IS_OBJ(ss[-1]) && IS_OBJ(tos)) {
              IU i = POPi; DU v = TTOS[i];
