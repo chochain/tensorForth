@@ -153,6 +153,7 @@ public:
     __GPU__  void   resize(Tensor &t, U64 sz);              ///< resize the tensor storage
     __GPU__  void   free(Tensor &t);                        ///< free the tensor
     __GPU__  Tensor &copy(Tensor &t0);                      ///< hard copy a tensor
+    __GPU__  Tensor &dim(Tensor &t0);                       ///< dimensions
     __GPU__  Tensor &slice(Tensor &t0, IU x0, IU x1, IU y0, IU y1);     ///< a slice of a tensor
 #else  // !T4_DO_OBJ ==========================================================
     __GPU__  void   sweep()    {}                           ///< holder for no object
