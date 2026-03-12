@@ -143,6 +143,7 @@ NetVM::_pickle(bool save) {                 ///< ( N addr len -- ) or ( N addr l
     IU   adr = POPi;                        ///< address to pmem
     char *fn = (char*)mmu.pmem(adr);        ///< pointer to string on PAD
     scall(IS_M(tos) ? (save ? OP_NSAVE : OP_NLOAD) : OP_TSAVE, mode, tos);
+    sys.op_fn(fn);                          /// * attach file name
 }
 
 ///
@@ -393,7 +394,7 @@ NetVM::init() {
          Dataset &ds  = mmu.dataset(POPi);      ///< batch size
          PUSH(mmu.obj2du((T4Base&)ds));         /// * create a dataset as TOS
          scall(OP_DATA, 0, tos);                /// * issue a dataset init
-         sys.op_fn(dsn));                       /// * send dataset name
+         sys.op_fn(dsn));                       /// * attach dataset name
     CODE("fetch",  scall(OP_FETCH, 0, tos));    /// * fetch a dataset batch
     CODE("rewind", scall(OP_FETCH, 1, tos));    /// * rewind a dataset (batch_id=0)
     CODE("forward", _forward());                /// * forward propegation
