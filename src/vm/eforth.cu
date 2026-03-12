@@ -88,8 +88,10 @@ ForthVM::nest() {
         CASE(EXIT, UNNEST());
         CASE(NEXT,
 #if (T4_DO_OBJ && T4_DO_NN)
-             bool oo = IS_OBJ(tos) && IS_OBJ(rs[-1]);
-             if (oo && _ds_next(ix.ioff)) break;
+             if (IS_OBJ(tos) && IS_OBJ(rs[-1])) {
+                 _ds_next(ix.ioff);
+             }
+             else
 #endif // (T4_DO_OBJ && T4_DO_NN)                 
              if (GT(rs[-1]-=DU1, -DU1)) {            ///> loop done?
                  ip = ix.ioff;                       /// * no, loop back
@@ -561,14 +563,15 @@ ForthVM::_print(io_op o, DU v) {
 #if (T4_DO_OBJ && T4_DO_NN)
 __GPU__ int
 ForthVM::_ds_next(U32 ioff) {
-    T4Base &m = mmu.du2obj(tos);
-    if (!m.is_model()) return 0;
-    
-    T4Base &d = mmu.du2obj(rs[-1]);
-    if (!d.is_dataset()) {
-        ERROR("not a dataset on RS?\n"); return 0;
+    T4Base &m = mmu.du2obj(tos);        ///< Network Model
+    if (!m.is_model()) {
+        ERROR("TOS is not a network model?\n"); return 0;
     }
-    if (((Dataset&)d).done) {
+    T4Base &d = mmu.du2obj(rs[-1]);     ///< RTOS is fetch dataset
+    if (!d.is_dataset()) {
+        ERROR("RTOS is not a dataset?\n"); return 0;
+    }
+    if (((Dataset&)d).done) {           /// * Dataset one epoch completed
         DU v = rs.pop();                /// * pop off dataset
         DROP(v);                        /// * free memory if a physical dataset
         ((Model&)m).tick();             /// * bump epoch counter
