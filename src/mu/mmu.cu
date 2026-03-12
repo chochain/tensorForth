@@ -328,6 +328,13 @@ MMU::slice(Tensor &t0, U32 x0, U32 x1, U32 y0, U32 y1) {
           t0.rank, x0, x1, y0, y1, t0.numel);
     return t1;
 }
+__GPU__ Tensor&
+MMU::dim(Tensor &t0) {
+    const int map[] = { 3, 0, 1, 2 };              /// HWCN => NHWC
+    Tensor &t = tensor(4);
+    for (int i=0; i<4; i++) t[i] = t0[map[i]];
+    return t;
+}
 #endif // T4_DO_OBJ // vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
 
 } // namespace t4::mu
