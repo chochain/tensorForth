@@ -45,14 +45,12 @@ md0 batchsize dataset mnist_train   \ create MNIST dataset with model batch size
 dup nn.len constant dsz             \ total sample size
 constant ds0                        \ keep dataset in a constant
 
-.( total num of samples => ) dsz .
-
 .( ### benchmark/statistics )
 clock constant t0                   \ starting time (benchmark)
 variable hit 0 hit !                \ create var for hit counter, and zero it
 variable lox                        \ create var for epoch latest loss
-: stat cr . ." > "                   \ display statistics
-  clock t0 - 1000 / f>s . ." :"     \ time (in sec)
+: stat cr ." b=" .                  \ display statistics (batch, count down)
+  ." , t=" clock t0 - 1000 / f>s .  \ time (in sec)
   ." , acc="  hit @ dsz / . 0 hit ! \ accuracy
   ." , loss=" lox @ . cr ;          \ loss
 
@@ -85,7 +83,7 @@ network                             \ display model (same as . but nondistructiv
 ds0                                 \ push dataset as TOS
 20 cnn                              \ execute multiple epoches
 
-.( ### save trained network )
+.( ### persist trained network )
 drop                                \ drop dataset
 s" model/l30e_c.t4" save            \ save trainned model
 
