@@ -12,7 +12,6 @@
 namespace t4 {
 using io::AIO;
 using mu::MMU;
-using mu::Tensor;
 
 System  *_sys = NULL;                ///< singleton controller on host
 __GPU__ curandState *_rand_st;       ///< for random number generator
@@ -183,7 +182,6 @@ System::process_event(io_event *ev) {
             else ERROR("%x is not a dataset\n", DU2X(o->n));
         } break;  
         case OP_NSAVE: {
-            printf("OP_NSAVE %x\n", DU2X(o->n));
             nn::Model &m = (nn::Model&)mu->du2obj(o->n);
             if (m.is_model()) {
                 ev = NEXT_EVENT(ev);                            ///< get dataset repo name
