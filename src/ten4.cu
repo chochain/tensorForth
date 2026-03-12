@@ -235,7 +235,7 @@ TensorForth::main_loop() {
     // sys->db->self_tests();
     int i = 0;
     while (more_job() && sys->readline(vmst_cnt[vm::HOLD])) {
-        if (++i > 200) break;                  /// * runaway loop guard TODO: CC
+//        if (++i > 200) break;                  /// * runaway loop guard TODO: CC
         run();
         sys->flush();                          /// * flush output buffer
         profile();
