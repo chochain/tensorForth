@@ -192,7 +192,7 @@ Model::forward(Tensor &input) {
             n1.N(), n1.H(), n1.W(), n1.C());
         return *this;
     }
-    n1 = input;               /// * copy dataset batch into the first layer [0,1)
+    n1 = input;                 /// * copy dataset batch into the first layer [0,1)
     ///
     /// cascade execution layer by layer forward
     /// TODO: model execution becomes a superscalar pipeline
