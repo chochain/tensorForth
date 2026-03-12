@@ -15,7 +15,7 @@ using ld::Corpus;
 ///
 /// for init debug LOG_COUNT 1 with sample=3 is good
 ///
-#define LOG_COUNT 1          /**< debug dump frequency */
+#define LOG_COUNT 300          /**< debug dump frequency */
 ///
 /// initial dataset setup
 /// init flow:
@@ -83,8 +83,9 @@ __HOST__ int
     ///
     /// debug tracing/preview
     ///
-    if (trace && LOG_COUNT && (++tick == LOG_COUNT)) {
-        cp->show(n < 10 ? n : 10);
+    if (LOG_COUNT && (++tick == LOG_COUNT)) {     /// * when LOG_COUNT != 0
+        INFO(" batch[%d] loaded\n", batch_id);
+        cp->show(n < 3 ? n : 3);
         tick = 0;
     }
     return 0;
