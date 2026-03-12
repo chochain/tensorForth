@@ -321,6 +321,7 @@ If all goes well, some warnings aside, *~/tests/ten4* is your executable. The fo
   fetch      (D -- D')           - fetch a mini-batch from dataset on return stack
   rewind     (D -- D')           - rewind dataset internal counters (for another epoch)
   batchsize  (D -- D b)          - get input batch size of a model
+  nn.len     (D -- D n)          - query total num of samples of dataset from corpus
 
   forward    (N -- N')           - execute one forward path with rs[-1] dataset, layer-by-layer in given model
   forward    (N ds -- N')        - execute one forward propagation with TOS dataset, layer-by-layer in given model
@@ -389,140 +390,141 @@ If all goes well, some warnings aside, *~/tests/ten4* is your executable. The fo
 ## Tensor Calculus vocabularies (see [doc2](./docs/v2_progress.md) for detail and examples)
 ### Tensor creation
 <pre>
-   vector    (n       -- T1)     - create a 1-D array and place on top of stack (TOS)
-   matrix    (h w     -- T2)     - create 2-D matrix and place on TOS
-   tensor    (n h w c -- T4)     - create a 4-D NHWC tensor on TOS
-   vector{   (n       -- T1)     - create 1-D array from console stream
-   matrix{   (h w     -- T2)     - create a 2-D matrix from console stream
-   view      (Ta      -- Ta Va)  - create a view (shallow copy) of a tensor
-   copy      (Ta      -- Ta Ta') - duplicate (deep copy) a tensor on TOS
+  vector    (n       -- T1)     - create a 1-D array and place on top of stack (TOS)
+  matrix    (h w     -- T2)     - create 2-D matrix and place on TOS
+  tensor    (n h w c -- T4)     - create a 4-D NHWC tensor on TOS
+  vector{   (n       -- T1)     - create 1-D array from console stream
+  matrix{   (h w     -- T2)     - create a 2-D matrix from console stream
+  view      (Ta      -- Ta Va)  - create a view (shallow copy) of a tensor
+  copy      (Ta      -- Ta Ta') - duplicate (deep copy) a tensor on TOS
 </pre>
 
 ### Duplication ops (reference creation)
 <pre>
-   dup       (Ta    -- Ta Ta)    - create a reference of a tensor on TOS
-   over      (Ta Tb -- Ta Tb Ta) - create a reference of the 2nd item (NOS)
-   2dup      (Ta Tb -- Ta Tb Ta Tb)
-   2over     (Ta Tb Tc Td -- Ta Tb Tc Td Ta Tb)
+  dup       (Ta    -- Ta Ta)    - create a reference of a tensor on TOS
+  over      (Ta Tb -- Ta Tb Ta) - create a reference of the 2nd item (NOS)
+  2dup      (Ta Tb -- Ta Tb Ta Tb)
+  2over     (Ta Tb Tc Td -- Ta Tb Tc Td Ta Tb)
 </pre>
 
 ### Tensor/View print (destructive as in Forth)
 <pre>
-   . (dot)   (Va -- )        - print a view of a tensor
-   . (dot)   (Ta -- )        - print a vector, matrix, or tensor
-   . (dot)   (Ma -- )        - print a neaural network model
+  . (dot)   (Va -- )        - print a view of a tensor
+  . (dot)   (Ta -- )        - print a vector, matrix, or tensor
+  . (dot)   (Ma -- )        - print a neaural network model
 </pre>
 
 ### Shape adjustment (change shape of original tensor or view)
 <pre>
-   flatten   (Ta -- T1a')    - reshape a tensor or view to 1-D array
-   reshape2  (Ta -- T2a')    - reshape to a 2-D matrix view
-   reshape4  (Ta -- T4a')    - reshape to a 4-D NHWC tensor or view
-   same_shape? (Ta Tb -- Ta Tb T/F) - check whether Ta and Tb are the same shape
+  flatten   (Ta -- T1a')    - reshape a tensor or view to 1-D array
+  reshape2  (Ta -- T2a')    - reshape to a 2-D matrix view
+  reshape4  (Ta -- T4a')    - reshape to a 4-D NHWC tensor or view
+  same_shape? (Ta Tb -- Ta Tb T/F) - check whether Ta and Tb are the same shape
 </pre>
 
 ### Fill tensor with init values (data updated to original tensor)
 <pre>
-   zeros     (Ta   -- Ta')   - fill tensor with zeros
-   ones      (Ta   -- Ta')   - fill tensor with ones
-   gradfill  (Ta   -- Ta')   - gradient fill elements from 0 to 1
-   full      (Ta n -- Ta')   - fill tensor with number on TOS
-   eye       (Ta   -- Ta')   - fill diag with 1 and other with 0
-   rand      (Ta   -- Ta')   - fill tensor with uniform random numbers
-   randn     (Ta   -- Ta')   - fill tensor with normal distribution random numbers
-   ={        (Ta   -- Ta')   - fill tensor with console input from the first element
-   ={        (Ta n -- Ta')   - fill tensor with console input starting at n'th element
+  zeros     (Ta   -- Ta')   - fill tensor with zeros
+  ones      (Ta   -- Ta')   - fill tensor with ones
+  gradfill  (Ta   -- Ta')   - gradient fill elements from 0 to 1
+  full      (Ta n -- Ta')   - fill tensor with number on TOS
+  eye       (Ta   -- Ta')   - fill diag with 1 and other with 0
+  rand      (Ta   -- Ta')   - fill tensor with uniform random numbers
+  randn     (Ta   -- Ta')   - fill tensor with normal distribution random numbers
+  ={        (Ta   -- Ta')   - fill tensor with console input from the first element
+  ={        (Ta n -- Ta')   - fill tensor with console input starting at n'th element
 </pre>
 
 ### Tensor slice and dice
 <pre>
-   t@        (T  i -- T n)  - fetch ith element from a tensor (in NHWC order)
-   t!        (T  i n -- T') - store n into ith element of a tensor (in NHWC order)
-   slice     (Ta i0 i1 j0 j1 -- Ta Ta') - numpy.slice[i0:i1,j0:j1,]
+  dim       (T -- T Td)    - tensor dimensions, Td is a vector[4] of { N, H, W, C }
+  t@        (T  i -- T n)  - fetch ith element from a tensor (in NHWC order)
+  t!        (T  i n -- T') - store n into ith element of a tensor (in NHWC order)
+  slice     (Ta i0 i1 j0 j1 -- Ta Ta') - numpy.slice[i0:i1,j0:j1,]
 </pre>
 
 ### Tensor-scalar, tensor-tensor arithmetic (by default non-destructive)
 <pre>
-   +         (Ta Tb -- Ta Tb Tc)  - tensor element-wise addition Tc = Ta + Tb
-   +         (Ta n  -- Ta n  Ta') - tensor-scalar addition (broadcast) Ta' = Ta + n
-   +         (n  Ta -- n  Ta Ta') - scalar-tensor addition (broadcast) Ta' = Ta + n
-   -         (Ta Tb -- Ta Tb Tc)  - tensor element-wise subtraction Tc = Ta - Tb
-   -         (Ta n  -- Ta n  Ta') - tensor-scalar subtraction (broadcast) Ta' = Ta - n
-   -         (n  Ta -- n  Ta Ta') - tensor-scalar subtraction (broadcast) Ta' = n - Ta
-   @         (Ta Tb -- Ta Tb Tc)  - matrix-matrix inner product Tc = Ta @ Tb, i.e. matmul
-   @         (Ta Ab -- Ta Ab Ac)  - matrix-vector inner product Ac = Ta @ Ab
-   @         (Aa Ab -- Aa Ab n)   - vector-vector inner product n = Aa @ Ab, i.e. dot
-   *         (Ta Tb -- Ta Tb Tc)  - tensor-tensor element-wise multiplication Tc = Ta * Tb
-   *         (Ta Ab -- Ta Ab Ta') - matrix-vector multiplication Ta' = Ta * column_vector(Ab)
-   *         (Ta n  -- Ta n  Ta') - tensor-scalar multiplication Ta' = n * Ta, i.e. scale up
-   *         (n  Ta -- n  Ta Ta') - scalar-tensor multiplication Ta' = n * Ta, i.e. scale up
-   /         (Ta Tb -- Ta Tb Tc)  - tensor-tensor element-wise divide Tc = Ta / Tb
-   /         (Ta n  -- Ta n  Ta') - tensor-scalar scale down Ta' = 1/n * Ta
-   sum       (Ta    -- Ta n)      - sum all elements of a tensor
-   avg       (Ta    -- Ta n)      - average of all elements of a tensor
-   max       (Ta    -- Ta n)      - max of all elements of a tensor
-   min       (Ta    -- Ta n)      - min of all elements of a tensor
+  +         (Ta Tb -- Ta Tb Tc)  - tensor element-wise addition Tc = Ta + Tb
+  +         (Ta n  -- Ta n  Ta') - tensor-scalar addition (broadcast) Ta' = Ta + n
+  +         (n  Ta -- n  Ta Ta') - scalar-tensor addition (broadcast) Ta' = Ta + n
+  -         (Ta Tb -- Ta Tb Tc)  - tensor element-wise subtraction Tc = Ta - Tb
+  -         (Ta n  -- Ta n  Ta') - tensor-scalar subtraction (broadcast) Ta' = Ta - n
+  -         (n  Ta -- n  Ta Ta') - tensor-scalar subtraction (broadcast) Ta' = n - Ta
+  @         (Ta Tb -- Ta Tb Tc)  - matrix-matrix inner product Tc = Ta @ Tb, i.e. matmul
+  @         (Ta Ab -- Ta Ab Ac)  - matrix-vector inner product Ac = Ta @ Ab
+  @         (Aa Ab -- Aa Ab n)   - vector-vector inner product n = Aa @ Ab, i.e. dot
+  *         (Ta Tb -- Ta Tb Tc)  - tensor-tensor element-wise multiplication Tc = Ta * Tb
+  *         (Ta Ab -- Ta Ab Ta') - matrix-vector multiplication Ta' = Ta * column_vector(Ab)
+  *         (Ta n  -- Ta n  Ta') - tensor-scalar multiplication Ta' = n * Ta, i.e. scale up
+  *         (n  Ta -- n  Ta Ta') - scalar-tensor multiplication Ta' = n * Ta, i.e. scale up
+  /         (Ta Tb -- Ta Tb Tc)  - tensor-tensor element-wise divide Tc = Ta / Tb
+  /         (Ta n  -- Ta n  Ta') - tensor-scalar scale down Ta' = 1/n * Ta
+  sum       (Ta    -- Ta n)      - sum all elements of a tensor
+  avg       (Ta    -- Ta n)      - average of all elements of a tensor
+  max       (Ta    -- Ta n)      - max of all elements of a tensor
+  min       (Ta    -- Ta n)      - min of all elements of a tensor
 </pre>
 
 ### Tensor element-wise math ops (destructive, as in Forth)
 <pre>
-   abs       (Ta    -- Ta')   - absolute Ta' = abs(Ta)
-   exp       (Ta    -- Ta')   - exponential Ta' = exp(Ta)
-   ln        (Ta    -- Ta')   - natural log Ta' = ln(Ta)
-   log       (Ta    -- Ta')   - logrithm tanh Ta' = log(Ta)
-   tanh      (Ta    -- Ta')   - tanh Ta' = tanh(Ta)
-   relu      (Ta    -- Ta')   - ReLU Ta' = max(0, Ta)
-   sigmoid   (Ta    -- Ta')   - Sigmoid Ta' = 1/(1+exp(-Ta))
-   sqrt      (Ta    -- Ta')   - Square Root Ta' = sqrt(Ta)
-   1/x       (Ta    -- Ta')   - reciprocal Ta' = 1/Ta
-   negate    (Ta    -- Ta')   - negate   Ta' = -(Ta)
+  abs       (Ta    -- Ta')   - absolute Ta' = abs(Ta)
+  exp       (Ta    -- Ta')   - exponential Ta' = exp(Ta)
+  ln        (Ta    -- Ta')   - natural log Ta' = ln(Ta)
+  log       (Ta    -- Ta')   - logrithm tanh Ta' = log(Ta)
+  tanh      (Ta    -- Ta')   - tanh Ta' = tanh(Ta)
+  relu      (Ta    -- Ta')   - ReLU Ta' = max(0, Ta)
+  sigmoid   (Ta    -- Ta')   - Sigmoid Ta' = 1/(1+exp(-Ta))
+  sqrt      (Ta    -- Ta')   - Square Root Ta' = sqrt(Ta)
+  1/x       (Ta    -- Ta')   - reciprocal Ta' = 1/Ta
+  negate    (Ta    -- Ta')   - negate   Ta' = -(Ta)
 </pre>
 
 ### Tensor-tensor arithmetic (destructive, as in Forth)
 <pre>
-   +=        (Ta Tb -- Tc)    - tensor element-wise addition Tc = Ta + Tb
-   +=        (Ta n  -- Ta')   - tensor-scalar addition (broadcast) Ta' = Ta + n
-   +=        (n  Ta -- Ta')   - scalar-tensor addition (broadcast) Ta' = Ta + n
-   -=        (Ta Tb -- Tc)    - tensor element-wise subtraction Tc = Ta - Tb
-   -=        (Ta n  -- Ta')   - tensor-scalar subtraction (broadcast) Ta' = Ta - n
-   -=        (n  Ta -- Ta')   - scalar-tensor subtraction (broadcast) Ta' = n - Ta
-   @=        (Ta Tb -- Tc)    - matrix-matrix inner product Tc = Ta @ Tb, i.e. matmul
-   @=        (Ta Ab -- Ac)    - matrix-vector inner product Ac = Ta @ Ab
-   @=        (Aa Ab -- Ac)    - vector-vector inner product n = Aa @ Ab, i.e. dot
-   *=        (Ta Tb -- Tc)    - matrix-matrix element-wise multiplication Tc = Ta * Tb
-   *=        (Ta Ab -- Ac')   - matrix-vector multiplication Ac' = Ta * Ab
-   *=        (Ta n  -- Ta')   - tensor-scalar multiplication Ta' = n * Ta
-   *=        (n  Ta -- Ta')   - scalar-tensor multiplication Ta' = n * Ta
-   /=        (Ta Tb -- Tc)    - matrix-matrix element-wise Tc = Ta / Tb 
-   /=        (Ta n  -- Ta')   - tensor-scalar scale down multiplication Ta' = 1/n * Ta
+  +=        (Ta Tb -- Tc)    - tensor element-wise addition Tc = Ta + Tb
+  +=        (Ta n  -- Ta')   - tensor-scalar addition (broadcast) Ta' = Ta + n
+  +=        (n  Ta -- Ta')   - scalar-tensor addition (broadcast) Ta' = Ta + n
+  -=        (Ta Tb -- Tc)    - tensor element-wise subtraction Tc = Ta - Tb
+  -=        (Ta n  -- Ta')   - tensor-scalar subtraction (broadcast) Ta' = Ta - n
+  -=        (n  Ta -- Ta')   - scalar-tensor subtraction (broadcast) Ta' = n - Ta
+  @=        (Ta Tb -- Tc)    - matrix-matrix inner product Tc = Ta @ Tb, i.e. matmul
+  @=        (Ta Ab -- Ac)    - matrix-vector inner product Ac = Ta @ Ab
+  @=        (Aa Ab -- Ac)    - vector-vector inner product n = Aa @ Ab, i.e. dot
+  *=        (Ta Tb -- Tc)    - matrix-matrix element-wise multiplication Tc = Ta * Tb
+  *=        (Ta Ab -- Ac')   - matrix-vector multiplication Ac' = Ta * Ab
+  *=        (Ta n  -- Ta')   - tensor-scalar multiplication Ta' = n * Ta
+  *=        (n  Ta -- Ta')   - scalar-tensor multiplication Ta' = n * Ta
+  /=        (Ta Tb -- Tc)    - matrix-matrix element-wise Tc = Ta / Tb 
+  /=        (Ta n  -- Ta')   - tensor-scalar scale down multiplication Ta' = 1/n * Ta
 </pre>
 
 ### Tensor-Tensor loss functions (by default destructive, as in Forth)
 <pre>
-   loss.mse  (Tx Ty -- Tx')   - Mean Square Loss
-   loss.bce  (Tx Ty -- Tx')   - Binary Cross Entropy Loss
-   loss.ce   (Tx Ty -- Tx')   - Categorical Cross Entropy Loss
-   loss.nll  (Tx Ty -- Tx')   - Negative Log Likelihood Loss
+  loss.mse  (Tx Ty -- Tx')   - Mean Square Loss
+  loss.bce  (Tx Ty -- Tx')   - Binary Cross Entropy Loss
+  loss.ce   (Tx Ty -- Tx')   - Categorical Cross Entropy Loss
+  loss.nll  (Tx Ty -- Tx')   - Negative Log Likelihood Loss
 </pre>
 
 ### Linear Algebra (by default non-destructive)
 <pre>
-   matmul    (Ma Mb -- Ma Mb Mc) - matrix-matrix multiplication Mc = Ma @ Mb
-   matdiv    (Ma Mb -- Ma Mb Mc) - matrix-matrix division Mc = Ma @ inverse(Mb)
-   inverse   (Ma    -- Ma Ma')   - matrix inversion (Gauss-Jordan with Pivot)
-   transpose (Ma    -- Ma Ma')   - matrix transpose
-   det       (Ma    -- Ma d)     - matrix determinant (with PLU)
-   lu        (Ma    -- Ma Ma')   - LU decomposition (no Pivot)
-   luinv     (Ma    -- Ma Ma')   - inverse of an LU matrix
-   upper     (Ma    -- Ma Ma')   - upper triangle
-   lower     (Ma    -- Ma Ma')   - lower triangle with diag filled with 1s
-   solve     (Ab Ma -- Ab Ma Ax) - solve linear equation AX = B
-   gemm      (a b Ma Mb Mc -- a b Ma Mb Mc') - GEMM Mc' = a * Ma * Mb + b * Mc
+  matmul    (Ma Mb -- Ma Mb Mc) - matrix-matrix multiplication Mc = Ma @ Mb
+  matdiv    (Ma Mb -- Ma Mb Mc) - matrix-matrix division Mc = Ma @ inverse(Mb)
+  inverse   (Ma    -- Ma Ma')   - matrix inversion (Gauss-Jordan with Pivot)
+  transpose (Ma    -- Ma Ma')   - matrix transpose
+  det       (Ma    -- Ma d)     - matrix determinant (with PLU)
+  lu        (Ma    -- Ma Ma')   - LU decomposition (no Pivot)
+  luinv     (Ma    -- Ma Ma')   - inverse of an LU matrix
+  upper     (Ma    -- Ma Ma')   - upper triangle
+  lower     (Ma    -- Ma Ma')   - lower triangle with diag filled with 1s
+  solve     (Ab Ma -- Ab Ma Ax) - solve linear equation AX = B
+  gemm      (a b Ma Mb Mc -- a b Ma Mb Mc') - GEMM Mc' = a * Ma * Mb + b * Mc
 </pre>
 
 ### Tensor I/O, Persistence
 <pre>
-   save      (T adr len [fam] -- T) - pickle tensor to OS file (default text mode)
+  save      (T adr len [fam] -- T) - pickle tensor to OS file (default text mode)
 </pre>
 
 ### TODO - by priorities

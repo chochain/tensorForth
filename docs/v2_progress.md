@@ -172,6 +172,7 @@ tensorForth 2.0 done.
 ### Tensor slice and dice
 |word|param/example|tensor slicing ops (non-destructive)|
 |---|---|---|
+|dim|(T -- T Td)|tensor dimensions, Td is a vector[4] of { N, H, W, C }|
 |t@|(T i -- T n)|fetch ith element from a tensor (in NHWC order)|
 |t!|(T i v -- T')|store n into ith element of a tensor (in NHWC order)|
 |slice|(Ta x0 x1 y0 y1 -- Ta Ta')|numpy.slice[x0:x1, y0:y1, ]|

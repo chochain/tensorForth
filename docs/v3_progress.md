@@ -99,6 +99,7 @@ ds1                                       \ put dataset on TOS
 |fetch|(D -- D')|fetch a mini-batch from dataset on return stack|
 |rewind|(D -- D')|rewind dataset internal counters (for another epoch)|
 |batchsize|(D -- D b)|get input batch size of a model|
+|nn.len|(D -- D n)|query total num of samples of dataset from corpus|
 
 #### Batch controls
 |word|param/example|tensor creation ops|
