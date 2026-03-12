@@ -387,7 +387,7 @@ NetVM::init() {
          else ERROR("N [1|0] required\n"));
     CODE("batchsize",
          if (IS_M(tos)) PUSH(MTOS.batch_size());
-         else ERROR("TOS is not a model?\n"));
+         else ERROR("TOS a model?\n"));
     CODE("dataset",                             /// * create a dataset
          char    *dsn = sys.fetch();            ///< retrieve dataset name
          Dataset &ds  = mmu.dataset(POPi);      ///< batch size
@@ -415,6 +415,12 @@ NetVM::init() {
          Tensor &t = MTOS[i];
          DU     v  = mmu.obj2du(t);
          PUSH(DUP(v)));
+    CODE("nn.len",                                 ///< total number of samples
+         if (TOS1D) {
+             Tensor &t = (Tensor&)mmu.du2obj(POP());
+             PUSH(t.is_tensor() ? t.N() : ((Dataset&)t).setsize);
+         }
+         else ERROR("TOS a tensor or dataset?\n"));
     CODE("nn.w",    _get_parm(0));                 ///< tensor.weight
     CODE("nn.b",    _get_parm(1));                 ///< tensor.bias
     CODE("nn.dw",   _get_parm(2));                 ///< tensor.weight.grad
