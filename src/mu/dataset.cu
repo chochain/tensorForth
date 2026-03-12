@@ -55,6 +55,11 @@ __HOST__ int
         if (cp->init(trace)==NULL) {
             ERROR("  } %s => corpus init failed!\n", fn); return -2;
         }
+        ///
+        /// setsize is the total number of samples
+        /// while N matches the sample size of mini-batch input tensor
+        ///
+        setsize = cp->N;                          /// * total number of samples
         _reshape(N(), cp->H, cp->W, cp->C);       /// * reshape ds to match Corpus mini-batch
     }
     if (rewind) {
