@@ -13,14 +13,14 @@ namespace t4::ld {
 ///
 /// for init debug MAX_BATCH 3
 ///
-#define MAX_BATCH 3          /**< debug, limit number of mini-batches */
-//#define MAX_BATCH 0          /**< debug, limit number of mini-batches */
+//#define MAX_BATCH 3          /**< debug, limit number of mini-batches */
+#define MAX_BATCH 0          /**< debug, limit number of mini-batches */
 
 Corpus *Mnist::init(bool trace) {
     auto _u32 = [this](std::ifstream &fs) {
         U32 v = 0;
         char x;
-        for (int i = 0; i < 4; i++) {
+        for (int i = 0; i < 4; i++) { /// Big-Endian
             fs.read(&x, 1);
             v <<= 8;
             v += (U32)*(U8*)&x;
@@ -52,8 +52,8 @@ Corpus *Mnist::init(bool trace) {
 }
 
 Corpus *Mnist::fetch(int bid, int n, bool trace) {
-    int bn = n * bid;                           ///< batch offset index
-    if (eof || bn >= N) {                       /// * beyond total sample count?
+    int off = n * bid;                          ///< batch offset index
+    if (eof || off >= N) {                      /// * beyond total sample count?
         ERROR("Mnist::fetch EOF reached (needs rewind)\n");
         eof=1; return this;
     }
@@ -66,7 +66,7 @@ Corpus *Mnist::fetch(int bid, int n, bool trace) {
         ERROR("Mnist::fetch #label=%d != #image=%d\n", b0, batch_sz);
         return NULL;
     }
-    if (bn >= N) eof = 1;                       /// * EOF reached
+    if ((off += batch_sz) >= N) eof = 1;        /// * EOF reached
     ///
     /// control partial batch for debugging
     ///
@@ -74,8 +74,9 @@ Corpus *Mnist::fetch(int bid, int n, bool trace) {
         batch_sz = n >> 1;                      /// * fake a partial batch
         eof = 1;
     }
-    if (trace) INFO("\tMnist batch %d, loaded=%d/%d\n", bid, bn+batch_sz, N);
-    
+    if (trace) {
+        INFO("\tMnist batch[%d] loaded=%d/%d done=%d\n", bid, off, N, eof);
+    }
     return this;
 }
 
