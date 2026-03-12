@@ -34,13 +34,6 @@
   24 linear batchnorm relu
   10 linear softmax ;
 
-variable hit 0 hit !                \ create var for hit counter, and zero it
-variable lox                        \ create var for epoch latest loss
-: stat cr .                         \ display statistics
-  ." , t="  clock 1000 / f>s .      \ time in seconds
-  ." , hit="  hit @ . 0 hit !
-  ." , loss=" lox @ . cr ;
-
 .( ### setup network model )
 50 28 28 1 nn.model                 \ create a model (50 per batch of 28x28x1 img)
 nn_c dup                            \ use neural network mode
@@ -49,7 +42,19 @@ constant md0                        \ keep as a constant
 
 .( ### setup dataset )
 md0 batchsize dataset mnist_train   \ create MNIST dataset with model batch size
+dup nn.len constant dsz             \ total sample size
 constant ds0                        \ keep dataset in a constant
+
+.( total num of samples => ) dsz .
+
+.( ### benchmark/statistics )
+clock constant t0                   \ starting time (benchmark)
+variable hit 0 hit !                \ create var for hit counter, and zero it
+variable lox                        \ create var for epoch latest loss
+: stat cr . ." > "                   \ display statistics
+  clock t0 - 1000 / f>s . ." :"     \ time (in sec)
+  ." , acc="  hit @ dsz / . 0 hit ! \ accuracy
+  ." , loss=" lox @ . cr ;          \ loss
 
 .( ### create our CNN framework )
 0.001 constant lr                   \ init learning rate (for Adam)
