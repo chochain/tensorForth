@@ -7,10 +7,6 @@
   0.5 2 conv2d                              \ add a convolution filter
   flatten 100 linear relu
   10 linear softmax ;
-: nn_c
-  0.5 10 conv2d 2 maxpool relu              \ add maxpool and relu activation
-  flatten 100 linear relu
-  10 linear softmax ;
 : nn_d
   0.5 10 conv2d 0.5 dropout 2 maxpool relu  \ add dropout
   flatten 100 linear relu
@@ -34,42 +30,51 @@
   24 linear batchnorm relu
   10 linear softmax ;
 
+.( ### benchmarker/statistics )
+clock constant t0                   \ starting time (benchmark)
+variable dsz                        \ number of corpus sample
+variable hit 0 hit !                \ create var for hit counter, and zero it
+variable ni 0 ni !
+variable lox                        \ create var for epoch latest loss
+: stat cr ." b=" .                  \ display statistics (batch, count down)
+  ." t=" clock t0 - 1000 / f>s .       \ time (in sec)
+  ." acc="  hit @ dsz @ / . 0 hit !    \ accuracy
+  ." loss=" lox @ . cr ;               \ loss
+
+: hint                              \ display a dot (progress)
+  ni @ 1+ dup ni !
+  10 mod 0 = if 46 emit 0 ni ! then ;
+
+.( ### our network layers )
+: nn_c
+  0.5 10 conv2d 2 maxpool relu      \ 2D convolution layer (10 output channels, bias=0.5)
+  flatten 100 linear relu           \ a linear layer with relu (100 channels)
+  10 linear softmax ;               \ 2nd linear layer (10 channels) and softmax output
+  
 .( ### setup network model )
-50 28 28 1 nn.model                 \ create a model (50 per batch of 28x28x1 img)
-nn_c dup                            \ use neural network mode
-.( network model created => ) .     \ display NN model
+50 28 28 1 nn.model                 \ create a model (50 per mini-batch of 28x28x1 img)
+nn_c                                \ append neural network layers (just a word in Forth)
 constant md0                        \ keep as a constant
 
 .( ### setup dataset )
-md0 batchsize dataset mnist_train   \ create MNIST dataset with model batch size
-dup nn.len constant dsz             \ total sample size
+md0                                 \ put NN model on TOS
+dup .( network model created => ) . \ display NN model, note that . (dot) is destructive
+batchsize dataset mnist_train       \ create MNIST dataset with model batch size
+dup nn.len dsz !                    \ get dataset total number of samples
 constant ds0                        \ keep dataset in a constant
-
-.( ### benchmark/statistics )
-clock constant t0                   \ starting time (benchmark)
-variable hit 0 hit !                \ create var for hit counter, and zero it
-variable lox                        \ create var for epoch latest loss
-: stat cr ." b=" .                  \ display statistics (batch, count down)
-  ." , t=" clock t0 - 1000 / f>s .  \ time (in sec)
-  ." , acc="  hit @ dsz / . 0 hit ! \ accuracy
-  ." , loss=" lox @ . cr ;          \ loss
 
 .( ### create our CNN framework )
 0.001 constant lr                   \ init learning rate (for Adam)
-variable ni 0 ni !
-: hint                              \ display a dot (progress)
-  ni @ 1+ dup ni !
-  10 mod 0 =
-  if 46 emit 0 ni ! then ;
 : epoch ( N ds -- N' )              \ one epoch thru entire dataset
-  for                               \ fetch a mini-batch
+  for                               \ starting first mini-batch (from return stack)
     forward                         \ neural network forward pass
     loss.ce lox ! nn.hit hit +!     \ collect latest loss and accumulate hit
     backprop                        \ neural network back propegation
-    \ 0.01 nn.sgd                     \ train with Stochastic Gradient Descent
+    \ 0.01 nn.sgd                     \ train with Stochastic Gradient Descent, or
     lr nn.adam                      \ train with Adam Gradient Descent (b1=0.9,b2=0.999)
-    hint
-  next ;
+    hint                            \ display a '.' every 10 loops
+  next ;                            \ fetch next mini-batch from return stack (till done)
+  
 : cnn ( N ds n -- N' ) 1-           \ run multiple epochs
   for
     epoch r@ stat                   \ run one epoch, display statistics
@@ -77,14 +82,13 @@ variable ni 0 ni !
     ds0 rewind                      \ rewind entire dataset 
   next ;
 
-network                             \ display model (same as . but nondistructive)
-
 .( ### start training )
-ds0                                 \ push dataset as TOS
-20 cnn                              \ execute multiple epoches
+ds0                                 \ put dataset at TOS
+20 cnn                              \ execute multiple (20) epoches
+drop                                \ drop dataset
 
 .( ### persist trained network )
-drop                                \ drop dataset
+network                             \ display NN model (same as . but nondistructive)
 s" model/l30e_c.t4" save            \ save trainned model
 
 bye
