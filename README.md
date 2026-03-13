@@ -544,16 +544,20 @@ If all goes well, some warnings aside, *~/tests/ten4* is your executable. The fo
     - [Review](https://www.hostinger.com/tutorials/what-is-ollama). Local LLM environment with pre-train model.
     - [GGML Tensor library]( https://github.com/ggerganov/ggml). Host-oriented, review kernel code.
     - [GGUF](https://github.com/ggerganov/ggml/blob/master/docs/gguf.md). Optimized for GPU, cross-platform, structured model storage.
+* Inter-op
+  + ONNX model exporter (protobuf), can be read by Netron
+  + ONNX model importer, load pretrained models (from Model Zoo, Hugging Face)
 * VM
   + TLSF using floating point [FP in Allocator](https://brnz.org/hbr/?p=1735)
   + Auto Differentiation i.e. JVP (forward), VJP (backward)
     - [autograd](https://github.com/HIPS/autograd)
     - [Jax](https://docs.jax.dev/en/latest/quickstart.html)
-  + review CUDA [GEMM](https://siboehm.com/articles/22/CUDA-MMM)
-  + review CUDA Stream Management (cudaStreamAddCallback) and Event Management
-  + review CUDA EventSync/LaunchHostFunc, flip calling from GPU=>CPU (requires CUDA Stream + event pool)
-  + review CUDA dynamic Graph
-  + review CUB (now part of CCCL) again
+  + review CUDA 12
+    - [GEMM](https://siboehm.com/articles/22/CUDA-MMM)
+    - Stream Management (cudaStreamAddCallback) and Event Management
+    - EventSync/LaunchHostFunc, flip calling from GPU=>CPU (requires CUDA Stream + event pool)
+    - dynamic Graph
+    - CUB (now part of CCCL) again
   + inter-VM communication (via CUDA stream)
   + inter-VM loader (from VM->VM)
   + free_tensor as linked-list (instead of an array)
@@ -562,9 +566,7 @@ If all goes well, some warnings aside, *~/tests/ten4* is your executable. The fo
     - [AC-GAN](https://machinelearningmastery.com/how-to-develop-an-auxiliary-classifier-gan-ac-gan-from-scratch-with-keras/)
     - use pre-trained model, i.e. [transfer learning](https://openaccess.thecvf.com/content_ECCV_2018/papers/yaxing_wang_Transferring_GANs_generating_ECCV_2018_paper.pdf)
     - torch.eval() i.e. normalize using running stat, disable dropout (vs torch.train())
-    - new layers
-      * add Swish, Mish
-      * add [Transposed Convolution](https://d2l.ai/chapter_computer-vision/transposed-conv.html). Less used now b/c it creates checkerboard pattern, see https://distill.pub/2016/deconv-checkerboard/)
+  + Diffusion, [Stable Diffusion](https://stability.ai/). Pre-trained only?
   + Transformer
     - Review
       * [CNN vs ViT](https://arxiv.org/pdf/2406.03478) (good ref paper)
@@ -588,6 +590,8 @@ If all goes well, some warnings aside, *~/tests/ten4* is your executable. The fo
       * 1x1 Convolution (resize #channel)
       * residual net i.e. [ResNet](https://d2l.ai/chapter_convolutional-modern/resnet.html)
       * branch & concatenate (i.e Inception in GoogLeNet)
+      * add Swish, Mish
+      * add [Transposed Convolution](https://d2l.ai/chapter_computer-vision/transposed-conv.html). Less used now b/c it creates checkerboard pattern, see https://distill.pub/2016/deconv-checkerboard/)
   + GNN - dynamic graph with VMs. Value proposition.
   + Mamba - State Space Model [mamba](https://www.ibm.com/think/topics/mamba-model)
   + Multi-Domain, i.e. MDNet
@@ -619,13 +623,12 @@ If all goes well, some warnings aside, *~/tests/ten4* is your executable. The fo
   + compare to J, (rank & axis ops)
 * Model
   + Latent Diffusion, [Stable Diffusion](https://stability.ai/). Pre-trained only?
-  + RNN, lost to Transformer.
-* Data
+  + RNN, **lost to Transformer**
+* Data - **use ONNX instead**
   + NCHW tensor format support (as in PyTorch)
   + loader - .petastorm, .csv (available on github)
   + model persistence - .npy, .petastorm, hdf5
-  + integrate ONNX
-* Visualization
+* Visualization - **use TensorBoard instead**
   + nvdiffrast https://nvlabs.github.io/nvdiffrast/
   + OpenGL/WASM
 * 3rd-party lib Integration
