@@ -13,25 +13,23 @@ N 2 1 1 nn.model                        \ discriminator model
 1 linear sigmoid                        \ binary output layer
 constant D                              \ kept as a constant
 
-.( ### regression math )
-2 2 matrix{ 1 2 -1 -2 } constant A      \ linear transformation matrix
-N 2 matrix ones                         \ N data points
-2 2 matrix{ 1 0 0 2 } @= constant B     \ create offset matrix
-: X ( -- t4 ) N 2 matrix randn ;        \ random input N points of { x1, x2 }
-: Z ( -- t4 ) X A @= B += ;             \ create real samples i.e. Z = AX + B
+.( ### regression matrix and offset )
+2 2 matrix{ 1 2 -1 -2 } constant A                \ linear transformation matrix
+N 2 matrix ones                                   \ N data points
+2 2 matrix{ 1 0 0 2 } @= constant B               \ create offset matrix
 
-N 1 1 1 tensor ones constant  REAL      \ onehot tersor for a real set
-N 1 1 1 tensor zeros constant FAKE      \ onehot tensor for a fake set
-
-: gen ( -- t4 )                         \ run generator (faking one set of samples)
-  G X forward -1 n@ swap drop ;
-
+.( ### our entire GAN here )
 0 constant _g 0 constant _r 0 constant _f         \ loss for gen, real, and fake
-\ expected loss G=>low, Dr=>low, Df=>high (thinking fake as real)
 : stat ( -- )                                     \ display statistics
   cr ." w,b=" G 1 nn.w . 1 nn.b . drop
   ." G=" _g . ." , Dr=" _r . ." , Df=" _f . cr ;
 
+N 1 1 1 tensor ones constant  REAL                \ onehot tersor for a real set
+N 1 1 1 tensor zeros constant FAKE                \ onehot tensor for a fake set
+: X ( -- t4 ) N 2 matrix randn ;                  \ N points of random { x1, x2 }
+: Z ( -- t4 ) X A @= B += ;                       \ one set of real samples i.e. Z = AX + B
+: gen ( -- t4 ) G X forward -1 n@ swap drop ;     \ generate one set of fake samples
+  
 : run ( -- )
   D 1 trainable                                   \ make D discriminator trainable
   Z   forward REAL loss.bce [to] _r REAL backprop \ treat real samples as real
@@ -43,12 +41,11 @@ N 1 1 1 tensor zeros constant FAKE      \ onehot tensor for a fake set
   0.001 nn.adam ( D G )                           \ refine/train G with Adam
   drop drop                                       \ drop views of D, G models
   ;
+: epoch 99 for run next ;                         \ train with 100 * N samples
+: gan ( n -- ) 1- for epoch stat next ;           \ run n epoch
 
-: epoch 99 for run next ;                         \ train 100 * N samples
-: gan ( n -- ) 1-                                 \ run n epoch
-  for epoch stat next ;                                             
-
-0 trace                                           \ debug verbosity
+.( ### expect loss G=>low, Dr=>low, Df=>high, i.e. thinking fake as real )
+0 trace                                           \ reduce debug verbosity
 10 gan                                            \ run multiple (10) epochs
 gen N 2 reshape2 s" l32a.out" save                \ generate N trained { x1, x2 }
 
