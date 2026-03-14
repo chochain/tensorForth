@@ -120,7 +120,7 @@ ForthVM::nest() {
         CASE(ZBRAN, if (ZEQ(POP())) ip = ix.ioff);   /// * conditional branch
         CASE(FOR, rs.push(POP()));                   /// * setup FOR..NEXT call frame
         CASE(DO,                                     /// * setup DO..LOOP call frame
-             rs.push(ss.pop()); ss.push(POP())); 
+             rs.push(ss.pop()); rs.push(POP())); 
         CASE(KEY, PUSH(sys.key()); state=HOLD);      /// * fetch single keypress
         OTHER(
             if (ix.udf) {                            /// * user defined word?
@@ -354,6 +354,8 @@ ForthVM::init() {
     ///
     CODE("@",     IU i = POPi; PUSH((DU)CELL(i)));          /// i -- n
     CODE("!",     IU i = POPi; CELL(i) = POP());            /// n i --
+    CODE("c@",    IU i = POPi; PUSH(I2D(BYTE(i))));         /// i -- c
+    CODE("c!",    IU i = POPi; BYTE(i) = (U8)POPi);         /// c i --
     CODE("+!",    IU i = POPi;                              /// n i --
          DU v = CELL(i) + POP();
          CELL(i) = SCALAR(v));
