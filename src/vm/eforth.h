@@ -23,7 +23,8 @@ namespace t4::vm {
 #define HERE      (mmu.here())                       /**< current context                      */
 #define MEM(a)    (mmu.pmem((IU)(a)))                /**< parameter memory by offset address   */
 #define CELL(a)   (*(DU*)MEM(a))                      /**< fetch a cell from parameter memory   */
-#define LAST      (mmu.dict(mmu.dict._didx-1))      /**< last colon word defined              */
+#define BYTE(a)   (*(U8*)MEM(a))                      /**< fetch a cell from parameter memory   */
+#define LAST      (mmu.dict(mmu.dict._didx-1))        /**< last colon word defined              */
 #define BASE      ((U8*)MEM(base))                    /**< pointer to user area per VM          */
 #define SETJMP(a) (((Param*)MEM(a))->ioff = HERE)     /**< set branch target                    */
 #define POPi      (D2I(POP()))
