@@ -30,18 +30,20 @@ N 1 1 1 tensor zeros constant FAKE                \ onehot tensor for a fake set
 : Z ( -- t4 ) X A @= B += ;                       \ one set of real samples i.e. Z = AX + B
 : gen ( -- t4 ) G X forward -1 n@ swap drop ;     \ generate one set of fake samples
   
-: run ( -- )
-  D 1 trainable                                   \ make D discriminator trainable
+: train_d ( D -- D' )
+  1 trainable                                     \ make D discriminator trainable
   Z   forward REAL loss.bce [to] _r REAL backprop \ treat real samples as real
   gen forward FAKE loss.bce [to] _f FAKE backprop \ treat fake samples as fake
-  0.001 nn.adam ( D )                             \ train D, Adam (b1=0.9,b2=0.999)
-  0 trainable                                     \ turn D back to testing mode
+  0.001 nn.adam ;                                 \ train, Adam (b1=0.9,b2=0.999)
+: train_g ( D -- D )
+  0 trainable                                     \ make D testing mode (read only)
   gen forward REAL loss.bce [to] _g REAL backprop \ now treat fake samples as real
-  1 n@ ( D t ) G swap backprop                    \ propagate dX back to G
-  0.001 nn.adam ( D G )                           \ refine/train G with Adam
-  drop drop                                       \ drop views of D, G models
-  ;
-: epoch 99 for run next ;                         \ train with 100 * N samples
+  1 n@ G swap ( D G t ) backprop                  \ propagate dX back to G
+  0.001 nn.adam ( D G ) drop ;                    \ refine/train G with Adam
+
+: epoch ( -- ) D                                  \ put D on TOS
+  99 for train_d train_g next                     \ train with 100 * N samples    
+  drop ;                                          \ drop D
 : gan ( n -- ) 1- for epoch stat next ;           \ run n epoch
 
 .( ### expect loss G=>low, Dr=>low, Df=>high, i.e. thinking fake as real )
