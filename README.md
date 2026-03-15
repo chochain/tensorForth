@@ -586,6 +586,7 @@ If all goes well, some warnings aside, *~/tests/ten4* is your executable. The fo
       * [pytorch](https://www.datacamp.com/tutorial/building-a-transformer-with-py-torch)
       * [llama.cpp](https://github.com/ggerganov/llama.cpp?tab=readme-ov-file)
       * [llama2.c](https://github.com/karpathy/llama2.c/tree/b3c4b6c3c4bbff42e5211293280307019368ccb5?fbclid=IwY2xjawHhZS9leHRuA2FlbQIxMAABHcJp5Zx2VvEderi5aE7JRTtTrNiqe02gY-UOOveFiCvm_iMHgo8NRbj8QQ_aem__PtK6HblJyToUFr5Mov_dA). 700-line C. Tiny Llama trainning + inferencing.
+  + RetNet
   + New Layers
       * 1x1 Convolution (resize #channel)
       * residual net i.e. [ResNet](https://d2l.ai/chapter_convolutional-modern/resnet.html)
@@ -601,6 +602,11 @@ If all goes well, some warnings aside, *~/tests/ten4* is your executable. The fo
   + data API - Python(cffi), Ruby(FFI)
 * Refactor
   + study Scikit-learn (discrete functions)
+  + study [Taichi](https://github.com/taichi-dev/taichi)
+    - SNode
+    - JIT
+    - parallelization
+    - auto diff
   + study JAX
     - JIT (XLA)
     - auto parallelization (pmap)
