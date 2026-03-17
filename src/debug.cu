@@ -80,16 +80,16 @@ Debug::ss_dump(DU tos, int id_sz, int base) {
 ///
 __HOST__ void
 Debug::words() {
-    const int WIDTH = 60;
+    const int WIDTH = 72;
     
     keep_fmt();
     fout << std::dec;
     for (int i=1, sz=0; i < DIDX; i++) {
         char *name = _d2h(DICT(i).name);
         fout << "  " << name;
-        sz += name[0]=='\n' ? WIDTH : (strlen(name) + 2);
+        sz += name[0]=='\n' ? WIDTH : (strlen(name) + 2); /// * page break?
 
-        if (sz >= WIDTH) {
+        if (sz >= WIDTH) {                   /// * carriage return?
             fout << ENDL; sz = 0;
         }
     }
