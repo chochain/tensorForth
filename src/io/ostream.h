@@ -40,15 +40,15 @@ struct _opx {
     U32 i  : 20;  ///> max 16K
     DU  n;        ///> F32
     
-    __GPU__ _opx(OP op0, U8 m0, DU n0, int i0=0) : n(n0) {
+    __GPU__ _opx(OP op0, DU n0, U8 m0, int i0=0) : n(n0) {
         op = op0; m = m0; i = i0;
     }
 };
 ///
 ///> Kernel-Host parameter constructor
 ///
-__GPU__ __INLINE__ _opx opx(OP op, U8 m, DU n=DU0, int i=0) {
-    return _opx(op, m, n, i);
+__GPU__ __INLINE__ _opx opx(OP op, DU n=DU0, U8 m=0, int i=0) {
+    return _opx(op, n, m, i);
 }
 ///
 ///> Ostream class
