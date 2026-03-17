@@ -388,8 +388,7 @@ TensorVM::_pickle(bool save) {
     IU   adr  = POPi;                         ///< address to pmem
     char *fn  = (char*)MEM(adr);              ///< pointer to string on PAD
     
-    scall(OP_TSAVE, mode, tos);               /// * issue save command
-    sys.op_fn(fn);                            /// * append filename
+    syscall(OP_TSAVE, tos, mode, 0, fn);      /// * issue save command
 }
 
 __GPU__ void
@@ -412,6 +411,7 @@ TensorVM::init() {
     ///@defgroup Tensor creation ops
     ///@brief - stick to PyTorch naming when possible
     ///@{
+    CODE("\nTensor::", {});                   ///< page break
     CODE("vector",                            ///< allocate a vector
          IU sz = POPi;
          PUSH(mmu.tensor(sz)));
