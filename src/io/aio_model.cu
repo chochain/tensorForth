@@ -146,7 +146,7 @@ AIO::_nsave_model(h_ostr &fs, Model &m) {
         const char *nm = Model::nname(in.grad_fn);
         fs << nm << std::endl;                /// * one blank line serves
                                               /// * as the sectional break
-        IO_DB("%2d> %s [%d,%d,%d,%d]\tp=%-2d => out[%d,%d,%d,%d]",
+        IO_DB("%2d> %s [%d,%d,%d,%d]\tp=%-2d => out[%d,%d,%d,%d]\n",
             i, nm, in.N(), in.H(), in.W(), in.C(), in.iparm,
             out.N(), out.H(), out.W(), out.C());
     }
