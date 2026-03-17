@@ -141,9 +141,11 @@ NetVM::_pickle(bool save) {                 ///< ( N addr len -- ) or ( N addr l
     
     IU   len = POPi;                        ///< string length (not used for now)
     IU   adr = POPi;                        ///< address to pmem
-    char *fn = (char*)mmu.pmem(adr);        ///< pointer to string on PAD
-    scall(IS_M(tos) ? (save ? OP_NSAVE : OP_NLOAD) : OP_TSAVE, mode, tos);
-    sys.op_fn(fn);                          /// * attach file name
+    char *fn = (char*)MEM(adr);             ///< pointer to string on PAD
+    syscall(
+        IS_M(tos) ? (save ? OP_NSAVE : OP_NLOAD) : OP_TSAVE,   /// * op (event)
+        tos, mode, 0,                       /// * object, write mode, idx/len
+        fn);                                /// * file name
 }
 
 ///
@@ -277,6 +279,7 @@ NetVM::init() {
     ///
     ///@defgroup Model creation and persistence
     ///@{
+    CODE("\nNetwork::", {});                  ///< page break
     CODE("nn.model",                          ///> (n h w c -- N)
          if (ss.idx < 4 ||                    /// * param check
              IS_OBJ(tos) || IS_OBJ(ss[-1]) ||
@@ -393,10 +396,9 @@ NetVM::init() {
          char    *dsn = sys.fetch();            ///< retrieve dataset name
          Dataset &ds  = mmu.dataset(POPi);      ///< batch size
          PUSH(mmu.obj2du((T4Base&)ds));         /// * create a dataset as TOS
-         scall(OP_DATA, 0, tos);                /// * issue a dataset init
-         sys.op_fn(dsn));                       /// * attach dataset name
-    CODE("fetch",  scall(OP_FETCH, 0, tos));    /// * fetch a dataset batch
-    CODE("rewind", scall(OP_FETCH, 1, tos));    /// * rewind a dataset (batch_id=0)
+         syscall(OP_DATA, tos, 0, 0, dsn));     /// * issue a dataset init
+    CODE("fetch",   syscall(OP_FETCH, tos, 0)); /// * fetch a dataset batch
+    CODE("rewind",  syscall(OP_FETCH, tos, 1)); /// * rewind a dataset (batch_id=0)
     CODE("forward", _forward());                /// * forward propegation
     CODE("backprop",_backprop());               /// * back propegation
     CODE("broadcast",
@@ -451,6 +453,7 @@ NetVM::init() {
     CODE("flatten",   _nnop(L_FLATTEN));
     CODE("save",      _pickle(true));              /// * save trainned model
     CODE("load",      _pickle(false));             /// * load trainned model
+    CODE("\nUser::",  {});                         ///< page break
     
     TRACE("NetVM::init ok, sizeof(Model)=%ld\n", sizeof(Model));
 };
