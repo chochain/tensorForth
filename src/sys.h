@@ -60,8 +60,8 @@ public:
     ///
     ///> System functions
     ///
-    __GPU__  void op(OP op, U8 m=0, DU n=DU0, int i=0) {  ///< print operator
-        *_ostr << io::opx(op, m, n, i);
+    __GPU__  void op(OP op, DU n=DU0, U8 m=0, int i=0) {  ///< print operator
+        *_ostr << io::opx(op, n, m, i);
     }
     __GPU__  void op_fn(char *fname) { *_ostr << fname; } ///< print filename
     ///
@@ -101,7 +101,7 @@ public:
                << (u ? static_cast<U32>(v) : v);
     }
     __GPU__ void dots(int id, DU tos, int ss_idx, int base) {
-        *_ostr << io::opx(OP_SS, base, tos, (id << 10) | ss_idx);
+        *_ostr << io::opx(OP_SS, tos, base, (id << 10) | ss_idx);
     }
     __GPU__  void pstr(const char *str, io_op o=SPCS) {  ///< print string
         *_ostr << str;
