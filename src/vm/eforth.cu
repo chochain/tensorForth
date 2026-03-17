@@ -396,9 +396,9 @@ ForthVM::init() {
     CODE("dict",  sys.op(OP_DICT));                         /// dict_dump in host mode
     CODE("dict_dump", mmu.dict_dump());
     CODE("see",   IU w = FIND(sys.fetch()); if (!w) return;
-                  sys.op(OP_SEE, *BASE, DU0, w));
+                  sys.op(OP_SEE, DU0, *BASE, w));
     CODE("dump",  IU n = POPi; DU a = POP();
-                  sys.op(OP_DUMP, 0, a, n));
+                  sys.op(OP_DUMP, a, 0, n));
     CODE("forget", _forget());
     CODE("trace", sys.trace(POPi));                         /// set debug/trace level
     /// @}
@@ -407,7 +407,7 @@ ForthVM::init() {
     CODE("mstat", mmu.status());
     CODE("rnd",   PUSH(sys.rand(DU1, NORMAL)));             /// generate random number
     CODE("ms",    System::delay(POPi));
-    CODE("flush", scall(OP_FLUSH));                         /// flush output stream
+    CODE("flush", syscall(OP_FLUSH));                       /// flush output stream
 //    CODE("included",                                      /// include external file
 //         POP();                                           /// string length, not used
 //         sys.load(MEM(POP())));                           /// include external file
@@ -579,7 +579,7 @@ ForthVM::_ds_next(U32 ioff) {
         ((Model&)m).tick();             /// * bump epoch counter
     }
     else {
-        scall(OP_FETCH, 0, rs[-1]);     /// * issue a dataset fetch
+        syscall(OP_FETCH, rs[-1], 0);   /// * issue a dataset fetch
         ip = ioff;                      /// * loop branch target address
     }
     return 1;
