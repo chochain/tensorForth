@@ -46,6 +46,8 @@ public:
 
     static __HOST__ AIO *get_io(int *verbo=NULL);             ///< assume AIO is instantiated
     static __HOST__ void free_io();
+
+    static __HOST__ void setfmt(h_ostr &o, void *vp);
     
     static __HOST__ std::string to_s(DU v, int base);         ///< display pure value
     static __HOST__ std::string to_s(void *vp, U8 gt);        ///< display value by type
