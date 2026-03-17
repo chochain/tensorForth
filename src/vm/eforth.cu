@@ -157,8 +157,8 @@ ForthVM::init() {
     if (id != 0) return;  /// * done once only
     VM::init();
     
-    CODE("___ ",    {});  /// dict[0] not used, simplify find(), also keeps _XT0
-    CODE("nop",     {});  /// do nothing
+    CODE("\nForth::", {});  /// dict[0] not used, simplify find(), also keeps _XT0
+    CODE("nop",       {});  /// do nothing
     ///
     /// @defgroup Stack ops
     /// @brief - opcode sequence can be changed below this line
