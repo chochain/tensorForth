@@ -58,8 +58,7 @@ private:
     ///
     __HOST__ char *_d2h(const char *d_str);                   ///< convert from device string
     __HOST__ int  _p2didx(vm::Param *p);                      ///< reverse lookup
-    __HOST__ int  _to_s(IU w, int base);                      ///< show dictionary entry
-    __HOST__ int  _to_s(vm::Param *p, int nv, int base);      ///< show by parameter memory pointer
+    __HOST__ int  _see(vm::Param *p, int nv, int base);       ///< show by parameter memory pointer
 };
 ///@}
 
