@@ -84,8 +84,13 @@ protected:
     ///
     __GPU__ void nest();                      ///< inner interpreter
     __GPU__ void call(IU w);                  ///< execute word by index
-    __GPU__ void scall(OP op, U8 m=0, DU n=DU0, int i=0) {
-        sys.op(op, m, n, i); state = HOLD;    ///< sync call, back to host, wait for return
+    __GPU__ void syscall(                     ///< create host event
+        OP op,                                ///< op (system  event)
+        DU n=DU0, U8 m=0, int i=0,            ///< mode, tos, idx/len
+        char *fname=NULL) {                   ///< filename (if file op)
+        sys.op(op, n, m, i);                  /// * create host event
+        if (fname) sys.op_fn(fname);          /// * attach filename if any
+        state = HOLD;                         /// * sync, wait for host to return
     }
     ///
     /// stack operator short hands
