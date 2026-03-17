@@ -22,6 +22,16 @@ __HOST__ void AIO::free_io() { if (_io) delete _io; }
 ///@}
 ///@name object debugging method
 ///@{
+__HOST__ void
+AIO::setfmt(h_ostr &o, void *vp) {
+    io::obuf_fmt *f = (io::obuf_fmt*)vp;
+    DEBUG("  fmt: b=%d, w=%d, p=%d, f='%c'\n", f->base, f->width, f->prec, f->fill);
+    o << std::setbase(f->base)
+      << std::setw(f->width)
+      << std::setprecision(f->prec ? f->prec : -1)
+      << std::setfill((char)f->fill);
+}
+
 __HOST__ std::string
 AIO::to_s(DU v, int base) {                        ///< display pure value
     static char buf[34];                           ///< static buffer
@@ -48,19 +58,12 @@ __HOST__ std::string
 AIO::to_s(void *vp, U8 gt) {
     std::ostringstream ss;
     switch (gt) {
-    case GT_INT:   ss << (*(S32*)vp);            break;
-    case GT_U32:   ss << (*(U32*)vp);            break;
-    case GT_FLOAT: ss << (*(DU*)vp);             break;
-    case GT_STR:   ss << (char*)vp;              break;
-    case GT_OBJ:   ss << "ERROR: see #marshall"; break;
-    case GT_FMT:   {
-        obuf_fmt *f = (obuf_fmt*)vp;
-        DEBUG("  fmt: b=%d, w=%d, p=%d, f='%c'\n", f->base, f->width, f->prec, f->fill);
-        ss << std::setbase(f->base)
-           << std::setw(f->width)
-           << std::setprecision(f->prec ? f->prec : -1)
-           << std::setfill((char)f->fill);
-    } break;
+    case GT_INT:   ss << (*(S32*)vp);               break;
+    case GT_U32:   ss << (*(U32*)vp);               break;
+    case GT_FLOAT: ss << (*(DU*)vp);                break;
+    case GT_STR:   ss << (char*)vp;                 break;
+    case GT_OBJ:   ss << "ERROR: see sys#marshall"; break;
+    case GT_FMT:   ss << "ERROR: see debug#print";  break;
     }
     DEBUG("  aio#print(fs, *v=0x%08x=%g, gt=%x)\n", DU2X(*(DU*)v), *(DU*)v, gt);
     

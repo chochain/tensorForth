@@ -56,7 +56,8 @@ Debug::print(void *vp, U8 gt) {
     if (gt==GT_OBJ) fout << io->marshall(mu->du2obj(v));
     else
 #endif // T4_DO_OBJ
-        fout << io->to_s(vp, gt);
+        if (gt==GT_FMT) io->setfmt(fout, vp);
+        else fout << io->to_s(vp, gt);
 }
 __HOST__ void
 Debug::ss_dump(DU tos, int id_sz, int base) {
