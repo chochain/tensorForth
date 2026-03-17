@@ -87,9 +87,9 @@ Debug::words() {
     for (int i=1, sz=0; i < DIDX; i++) {
         char *name = _d2h(DICT(i).name);
         fout << "  " << name;
-        sz += strlen(name) + 2;
+        sz += name[0]=='\n' ? WIDTH : (strlen(name) + 2);
 
-        if (sz > WIDTH) {
+        if (sz >= WIDTH) {
             fout << ENDL; sz = 0;
         }
     }
@@ -146,7 +146,7 @@ Debug::see(IU w, int base, int trace) {
     while (1) {
         Param *p = (Param*)ip;
         int nv = p->op==VAR ? nvar(w, p->ioff, ip) : 0;    ///< VAR number of elements
-        if (_to_s(p, nv, base) != 0) break;                ///< display Parameter
+        if (_see(p, nv, base) != 0) break;                 ///< display Parameter
         fout << ENDL;
         ///
         /// advance ip to next Param
@@ -206,13 +206,9 @@ Debug::_p2didx(Param *p) {
     }
     return -1;                                     /// * not found
 }
+
 __HOST__ int
-Debug::_to_s(IU w, int base) {
-    Param *p = (Param*)MEM(DICT(w).pfa);
-    return _to_s(p, 0, base);
-}
-__HOST__ int
-Debug::_to_s(Param *p, int nv, int base) {
+Debug::_see(Param *p, int nv, int base) {
     bool pm = p->op != MAX_OP;                     ///< is prim
     int  w  = pm ? p->op : _p2didx(p);             ///< fetch word index by pfa
     if (w < 0) return -1;                          ///> loop guard
