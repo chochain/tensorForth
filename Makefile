@@ -11,11 +11,11 @@ APP_TGT   := $(APP_HOME)/tests/$(APP_NAME)
 
 CUDA_LIB  := ${CUDA_HOME}/targets/x86_64-linux/lib
 # GeForce GTX 1660, 1650 (Turing)
-#CUDA_ARCH := compute_75
-#CUDA_CODE := sm_75
+CUDA_ARCH := compute_75
+CUDA_CODE := sm_75
 # GeFroce GT 1030 (Pascal)
-CUDA_ARCH := compute_61
-CUDA_CODE := sm_61
+#CUDA_ARCH := compute_61
+#CUDA_CODE := sm_61
 # Jetson Nano (Maxwell)
 #CUDA_ARCH:= compute_52
 #CUDA_CODE:= sm_52
@@ -38,7 +38,7 @@ CL_INCS := \
 # GL libraries (deprecated v4.x, i.e. separation of View from M and C)
 #GL_LIB  :=
 #GL_INCS :=
-GL_LIB  := -lGL -lGLU -lglut -lX11
+GL_LIB  := -lGL -lGLU -lglut -lX11 -lcudadevrt
 GL_INCS := \
 	/u01/src/stb \
 	${CUDA_HOME}/cuda-samples/Common \
@@ -49,7 +49,7 @@ NVCC_FLAGS:= \
 	-ccbin g++ \
 	-D__CUDACC__ \
 	-Isrc $(GL_INCS:%=-I%) \
-	-t=0 -c -std=c++17 -O2 \
+	-t 0 -c -std=c++17 -O3 -rdc=true -lineinfo \
 	--device-c --extended-lambda \
 	--expt-relaxed-constexpr \
 	-gencode arch=${CUDA_ARCH},code=${CUDA_CODE}
@@ -58,7 +58,7 @@ NVCC_FLAGS:= \
 
 NVLINK_FLAGS:= \
 	-ccbin g++ \
-	-Xnvlink --suppress-stack-size-warning --cudart=static \
+	-Xnvlink --suppress-stack-size-warning \
 	-L$(CUDA_LIB) \
 	$(GL_LIB) \
 	-gencode arch=${CUDA_ARCH},code=${CUDA_CODE}
