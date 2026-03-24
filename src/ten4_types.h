@@ -6,6 +6,7 @@
  */
 #ifndef __TEN4_TYPES_H_
 #define __TEN4_TYPES_H_
+#include <stdio.h>
 #include "ten4_config.h"
 ///
 ///@name Debug/Tracing options
@@ -60,7 +61,11 @@ typedef cudaEvent_t         EVENT;
 
 #define ASSERT(X) \
     if (!(X)) ERROR("ASSERT tid %d: line %d in %s\n", threadIdx.x, __LINE__, __FILE__);
+#if CUDA11
 #define GPU_SYNC()          cudaDeviceSynchronize()
+#else // CUDA11
+#define GPU_SYNC()          (k_dummy<<<1,1,0,cudaStreamTailLaunch>>>(),cudaSuccess)
+#endif // CUDA11
 #define GPU_ERR(c) {             \
     cudaError_t code = (c);      \
     if (code != cudaSuccess) {   \
@@ -113,6 +118,7 @@ typedef float       F32;                    ///< single precision float
     const dim3 _b(T4_DIM_SQ, 1, 1);                         \
     const dim3 _g(((n) + _b.x - 1) / _b.x, 1, 1);           \
     fn<<<_g,_b>>>(__VA_ARGS__,n);                           \
+    GPU_SYNC();                                             \
 }
 #define FORK1(fn,n,...) {                                   \
     fn<<<1,T4_DIM_SQ>>>(__VA_ARGS__,n);                     \
