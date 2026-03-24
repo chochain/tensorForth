@@ -72,7 +72,7 @@ typedef cudaEvent_t         EVENT;
         ERROR("cudaERROR[%d] %s@%s %d\n", code, cudaGetErrorString(code), __FILE__, __LINE__); \
         cudaDeviceReset();       \
     }}
-#define GPU_CHK()          GPU_ERR(GPU_SYNC())
+#define GPU_CHK()          GPU_ERR(cudaDeviceSynchronize())
 #define MM_ALLOC(...)      GPU_ERR(cudaMallocManaged(__VA_ARGS__))
 #define MM_FREE(m)         GPU_ERR(cudaFree(m))
 
