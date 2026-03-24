@@ -86,14 +86,17 @@ k_vm_exec0(VM *vm) {
         DU *r0 = vm->rs.v;
         MEMCPY(ss, s0, sizeof(DU) * T4_SS_SZ);     /// * TODO: parallel sync issue
         MEMCPY(rs, r0, sizeof(DU) * T4_RS_SZ);     /// * see _exec1 below
+        __syncwarp();
         vm->ss.v = ss;
         vm->rs.v = rs;
         
         if (vm->state==vm::HOLD) vm->resume();     /// * resume holding work
         else                     vm->outer();      /// * enter VM outer loop
+        __syncwarp();
         
         MEMCPY(s0, ss, sizeof(DU) * T4_SS_SZ);
         MEMCPY(r0, rs, sizeof(DU) * T4_RS_SZ);
+
         vm->ss.v = s0;
         vm->rs.v = r0;
     }
