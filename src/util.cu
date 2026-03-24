@@ -75,11 +75,12 @@ _loop_hash(const char *str, int bsz) {
 __GPU__ void
 _dyna_hash(int *hash, const char *str, int sz) {
     int x = threadIdx.x;                                    // row-major
-    int m = __ballot_sync(0xffffffff, x<sz);                // ballot_mask
+    int m = __ballot_sync(__activemask(), x<sz);            // ballot_mask
     int h = x<sz ? str[x] : 0;                              // move to register
 
     for (int n=16; x<sz && n>0; n>>=1) {
         h += HASH_K*__shfl_down_sync(m, h, n);              // shuffle down
+        __syncwarp();
     }
     if (x==0) *hash += h;
 }
@@ -93,6 +94,7 @@ _dyna_hash2d(int *hash, const char *str, int bsz) {
     int x = threadIdx.x;
     int y = threadIdx.y*blockDim.x;
     h[x+y] = 0;
+    blk.sync();
 
     for (int n=0; n<blockDim.y; n++) {
         if ((x+y)<bsz) h[y] += HASH_K*h[y+n*blockDim.x];
@@ -403,7 +405,7 @@ d_sum(float *src, long numel) {                     ///< sum of T4_DIM_SQ thread
         for (int k = tp.size()>>1; k > 0; k >>= 1) {
             v += tp.shfl_down(v, k);
         }
-        return v;
+        return tp.shfl(v, 0);
     };
     sum = shfl_sum(tp, sum);
     if (tp.thread_rank() == 0) _sum[tid >> 5] = sum; /// collection from each warp 
@@ -434,6 +436,7 @@ d_nvar(float *src, float avg, long numel) {         ///< sum of T4_DIM_SQ thread
     auto const g   { cg::this_thread_block() };     /// total threads
     auto const tid { g.thread_rank() };             /// tid=thread_index().x 0~255
     float sum { stride_sum(tid) };                  /// one sum per thread
+    __syncwarp();
     ///
     /// shuffle sum 32 to 1
     ///
@@ -443,7 +446,7 @@ d_nvar(float *src, float avg, long numel) {         ///< sum of T4_DIM_SQ thread
         for (int k = tp.size()>>1; k > 0; k >>= 1) {
             v += tp.shfl_down(v, k);
         }
-        return v;
+        return tp.shfl(v, 0);
     };
     sum = shfl_sum(tp, sum);
     if (tp.thread_rank() == 0) _sum[tid >> 5] = sum; /// collection from each warp 
@@ -475,7 +478,7 @@ k_batchsum(float *src, float *sum, long HW) {
         for (int k = 16; k > 0; k >>= 1) {
             v += tp.shfl_down(v, k);
         }
-        return v;
+        return tp.shfl(v, 0);
     };
     vi = shfl_sum(tp, vi);
     ///
@@ -503,7 +506,7 @@ k_batchnvar(float *src, float*avg, float *var, long HW) {
         for (int k = 16; k > 0; k >>= 1) {
             v += tp.shfl_down(v, k);
         }
-        return v;
+        return tp.shfl(v, 0);
     };
     vi = shfl_sum(tp, vi);
     ///
@@ -623,7 +626,7 @@ k_nan_inf(float *src, int *cnt, long numel) {
         for (int k = 16; k > 0; k >>= 1) {
             v += tp.shfl_down(v, k);
         }
-        return v;
+        return tp.shfl(v, 0);
     };
     vi = shfl_sum(tp, vi);
     ///
@@ -632,5 +635,7 @@ k_nan_inf(float *src, int *cnt, long numel) {
     ///
     if (tp.thread_rank() == 0) atomicAdd_block(cnt, vi);      ///< serialize sum
 }
+__KERN__ void
+k_dummy() {}
 
 } // namespace t4
