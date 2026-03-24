@@ -6,6 +6,7 @@
  */
 #ifndef __UTIL_H_
 #define __UTIL_H_
+#include <stdio.h>
 #include <stdint.h>
 #include <stddef.h>
 #include "ten4_config.h"
@@ -135,6 +136,7 @@ __KERN__ void        k_ts_op(math_op op, float *A, float v, float *O, long n); /
 __KERN__ void        k_tt_op(math_op op, float *A, float *B, float *O, long n);///< tensor-tensor ops
 __KERN__ void        k_bce(float *O, float *T, long n);
 __KERN__ void        k_nan_inf(float *src, int *n, long numel);
+__KERN__ void        k_dummy();
 ///@}
 ///==========================================================================
 ///@name Unified memory ops
