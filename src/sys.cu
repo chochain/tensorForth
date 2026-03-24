@@ -55,13 +55,12 @@ System::System(h_istr &i, h_ostr &o, int khz, int verbo)
     : fin(i), fout(o),
       _istr(new io::Istream()), _ostr(new io::Ostream()),
       _trace(verbo) {
-    mu = MMU::get_mmu();             ///> instantiate memory controller
-    io = AIO::get_io(&_trace);       ///> instantiate async IO controler
-    db = Debug::get_db(o);           ///> tracing instrumentation
+    mu = MMU::get_mmu();             /// * instantiate memory controller
+    io = AIO::get_io(&_trace);       /// * instantiate async IO controler
+    db = Debug::get_db(o);           /// * tracing instrumentation
     ///
     ///> setup randomizer
     ///
-//    MM_ALLOC(&_rand_st, sizeof(curandState) * T4_RAND_SZ);
     k_rand_init<<<1, T4_RAND_SZ>>>(time(NULL), khz);  /// serialized randomizer
     GPU_CHK();
 
@@ -70,9 +69,8 @@ System::System(h_istr &i, h_ostr &o, int khz, int verbo)
 
 __HOST__
 System::~System() {
-    GPU_SYNC();
-
-//    MM_FREE(_rand_st);
+    cudaDeviceSynchronize();        /// * sync before freeing everything
+    
     AIO::free_io();
     Debug::free_db();
     MMU::free_mmu();
