@@ -102,6 +102,7 @@ __GPU__ void
 System::rand(DU *d, U64 sz, rand_opt n, DU bias, DU scale) {
     /// rand states are dependent, cannot run parallel with multi-blocks
     k_rand<<<1, T4_RAND_SZ>>>(d, sz, bias, scale, n);
+    GPU_SYNC();
 }
 
 __GPU__ DU
