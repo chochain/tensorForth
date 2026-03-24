@@ -172,7 +172,6 @@ struct Tensor : public T4Base {
     __BOTH__ Tensor &reshape(U32 h, U32 w);
     __BOTH__ Tensor &reshape(U32 n, U32 h, U32 w, U32 c);
     __BOTH__ Tensor &reshape(U32 c1, U32 n, U32 h, U32 w, U32 c);
-    
     __BOTH__ Tensor &identity();                  ///< fill as an identity matrix
     __BOTH__ Tensor &map(math_op op, DU v=DU0);   ///< element-wise absolute
     __BOTH__ Tensor &fill(DU v) { return this->map(FILL, v); }
