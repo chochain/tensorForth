@@ -50,6 +50,7 @@ __KERN__ void k_dconv2d(
         if (train && c1 == 0) {
             atomicAdd(&DB[c0], _O[ty][tx]);          /// * dB[c0] += dY[c0]
         }
+        
         const U64 zf = (U64)C0 * KSQ * c1 + c0;      ///< filter index F[C1,KS,KS,C0]
         if (tx < TS && ty < TS) {                    /// * within tile [14x14]
             DU *fx = &F[zf + (KSQ - 1) * C0];        ///< F[c1,KS-1,KS-1,c0] i.e. rot180
@@ -61,6 +62,7 @@ __KERN__ void k_dconv2d(
                     fx  -= C0;                       /// * walk F backward (i.e. rot 180)
                     if (!train) continue;            /// * TODO: CC, does this breaks unroll?
                     atomicAdd(dfx, dy * _I[ty+y][tx+x]);   /// * dF += dY * X (TSxTS threads)
+                    __syncthreads();
                     dfx += C0;                       /// * DF[c1,0,1,c0]
                 }
             }
@@ -378,14 +380,12 @@ Model::_blinear(Tensor &in, Tensor &out) {
         if (train) {
             FORK3(k_dlinear_dwdb, E0, E1, N,        /// * update dB, dW
                   in.data, out.data, dw.data, db.data);
-            GPU_SYNC();
         }
         /// barrier for X (because we did N samples in one grid)
         in.fill(DU0);                               /// * zero out dX
         FORK3(
             k_dlinear_dx, E0, E1, N,                /// * update dX
             in.data, out.data, w.data);
-        GPU_SYNC();
     }
     if (train && *_trace > 1) {
         _dump_b("db", db);
@@ -412,7 +412,6 @@ Model::_bpool(Tensor &in, Tensor &out, t4_layer fn) {
         ERROR("nn#bpool kernel_size=%d not supported\n", ks);
         return -1;
     }
-    GPU_SYNC();
     return 0;
 }
 ///
@@ -434,7 +433,6 @@ Model::_bupsample(Tensor &in, Tensor &out, t4_layer fn) {
         ERROR("nn#bupsample size=%d not supported\n", ks);
         return -1;
     }
-    GPU_SYNC();
     return 0;
 }
 ///
@@ -459,7 +457,6 @@ Model::_bbatchnorm(Tensor &in, Tensor &out) {
     DU *xht = in.grad[3]->data;                        ///< x_hat
 
     FORK4(k_batchsum, out.data, sum, HW);              /// * capture out sum(dout)     
-    GPU_SYNC();
     
     for (U32 c=0; c < C; c++) {
         if (train) db[c] += (sum[c] /= NHW);           /// * collect dbeta = sum(dout) (/ HW?)
@@ -467,17 +464,14 @@ Model::_bbatchnorm(Tensor &in, Tensor &out) {
     }
     FORK4(k_dbatchnorm_1,                              /// * dX = gamma*ivar*(dout - sum(dout)/N)
         in.data, out.data, xht, sum, var, HW);         /// * also, dout *= x_hat
-    GPU_SYNC();
     
-    FORK4(k_batchsum, out.data, sum, HW);             /// * capture sum(dout * x_hat)
-    GPU_SYNC();
+    FORK4(k_batchsum, out.data, sum, HW);              /// * capture sum(dout * x_hat)
 
     for (U32 c=0; c < C; c++) {
         if (train) dw[c]  += (sum[c] /= NHW);          /// * collect dgamma = sum(dout * x_hat)( / HW?)
         sum[c] *= var[c] / N;                          /// * scale sum
     }
     FORK4(k_dbatchnorm_2, in.data, xht, sum, HW);      /// * dX -= gamma*ivar*x_hat*sum(dout * x_hat) / N
-    GPU_SYNC();
     
     return 0;
 }

@@ -332,7 +332,6 @@ Model::_flinear(Tensor &in, Tensor &out) {
     else {
         FORK3(k_linear, E0, E1, N,
               in.data, out.data, w.data, b.data);
-        GPU_SYNC();
     }
     return 0;
 }
@@ -342,7 +341,6 @@ Model::_factivate(Tensor &in, Tensor &out, t4_layer fn) {
     DU alpha = in.xparm;
     FORK1(k_activate, in.numel, 
           fn, in.data, in.grad[0]->data, out.data, alpha);
-    GPU_SYNC();
     return 0;
 }
 
@@ -361,7 +359,6 @@ Model::_fpool(Tensor &in, Tensor &out, t4_layer fn) {
         ERROR("nn#fpool kernel_size=%d not supported\n", ks0);
         return -1;
     }
-    GPU_SYNC();
     return 0;
 }
 
@@ -412,18 +409,15 @@ Model::_fbatchnorm(Tensor &in, Tensor &out) {
 
     for (U32 c=0; c < C; c++) avg[c] = var[c] = DU0;   /// * zero out
     FORK4(k_batchsum, in.data, avg, HW);               /// * capture sum
-    GPU_SYNC();
 
     for (U32 c=0; c < C; c++) avg[c] *= DU1 / NHW;     /// * calc mean per channel
     FORK4(k_batchnvar, in.data, avg, var, HW);         /// * capture n*variance
-    GPU_SYNC();
 
     const DU m = in.xparm;                             ///< ETA momentum, TODO:
     for (U32 c=0; c < C; c++) {
         var[c] = DU1 / (SQRT(var[c] / NHW) + DU_EPS);  ///< gvar = gamma/(stdvar + e)
     }
     FORK4(k_batchnorm, in.data, out.data, xht, avg, var, w, b, HW); /// * O = x_hat*gamma + beta
-    GPU_SYNC();
     return 0;
 }
 ///
@@ -445,8 +439,6 @@ Model::_fupsample(Tensor &in, Tensor &out) {
         ERROR("nn#fupsample size=%d not supported\n", ks);
         return -1;
     }
-    GPU_SYNC();
-    
     return 0;
 }
 

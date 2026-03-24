@@ -15,7 +15,6 @@ __GPU__ int
 Model::_check_nan(Tensor &t) {
     static int cnt; cnt = 0;
     FORK1(k_nan_inf, t.numel, t.data, &cnt);
-    GPU_SYNC();
     return cnt;
 }
 
