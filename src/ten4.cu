@@ -28,24 +28,30 @@ __KERN__ void
 k_vm_init(System *sys, VM_Handle *pool) {
     const auto g  = cg::this_thread_block();   ///< all blocks in grid
     const int  id = g.thread_rank();           ///< VM id
+
     if (id < T4_VM_COUNT) {
         VM *vm = pool[id].vm = new VM_TYPE(id, *sys);
-        vm->init();
+        vm->init();                            /// * initialize dictionary (only by thread 0)
     }
-    if (id==0) {
+    g.sync();                                  /// * wait till all VMs are done
+    
+    if (id==0) {                               /// * only thread0 owns dictionary
         sys->mu->dict_validate();
         sys->mu->status();
         pool[0].vm->state = vm::QUERY;
     }
+    g.sync();
 }
 
 __KERN__ void
 k_vm_done(VM_Handle *pool) {
     const auto g  = cg::this_thread_block();   ///< all blocks in grid
     const int  id = g.thread_rank();           ///< VM id
-    if (id >= T4_VM_COUNT) return;
     
-    delete pool[id].vm;
+    if (id < T4_VM_COUNT) {
+        delete pool[id].vm;
+    }
+    g.sync();
 }
 ///
 /// check VM status (using warp-level collectives)
@@ -64,8 +70,9 @@ k_ten4_tally(System *sys, int *vmst_cnt, VM_Handle *pool) {
 
     if (id < T4_VM_COUNT) {
         vm::vm_state s = pool[id].vm->state;
-        atomicAdd(&vmst_cnt[s], 1);
+        atomicAdd(&vmst_cnt[s], 1);            ///< atomic but out-of-order
     }
+    g.sync();                                  ///< CUDA 12, sync before leave
 }
 
 __KERN__ void
@@ -87,6 +94,7 @@ k_vm_exec0(VM *vm) {
         MEMCPY(ss, s0, sizeof(DU) * T4_SS_SZ);     /// * TODO: parallel sync issue
         MEMCPY(rs, r0, sizeof(DU) * T4_RS_SZ);     /// * see _exec1 below
         __syncwarp();
+
         vm->ss.v = ss;
         vm->rs.v = rs;
         
@@ -100,6 +108,7 @@ k_vm_exec0(VM *vm) {
         vm->ss.v = s0;
         vm->rs.v = r0;
     }
+    g.sync();                        /// * CUDA12, all other threads wait here
 }
 
 __KERN__ void
@@ -208,7 +217,6 @@ TensorForth::run() {
         cudaEventRecord(h->t1, h->st);            /// * record end clock
         cudaStreamSynchronize(h->st);             /// * ensure managed mem updated
     }
-    GPU_CHK();
 }
 
 __HOST__ void
@@ -238,7 +246,7 @@ TensorForth::main_loop() {
     // sys->db->self_tests();
     int i = 0;
     while (more_job() && sys->readline(vmst_cnt[vm::HOLD])) {
-//        if (++i > 200) break;                  /// * runaway loop guard TODO: CC
+        if (++i > 200) break;                  /// * runaway loop guard TODO: CC
         run();
         sys->flush();                          /// * flush output buffer
         profile();
@@ -252,7 +260,7 @@ TensorForth::teardown(int sig) {
     k_vm_done<<<1, WARP(T4_VM_COUNT)>>>(vm_pool);
     GPU_CHK();
     std::cout << "freed" << std::endl;
-    
+
     for (int i=0; i < T4_VM_COUNT; i++) {
         VM_Handle *h = &vm_pool[i];
         GPU_ERR(cudaEventDestroy(h->t1));
@@ -261,7 +269,7 @@ TensorForth::teardown(int sig) {
     }
     MM_FREE(vmst_cnt);           /// * release ten4 Managed memory
     MM_FREE(vm_pool);
-    
+
     System::free_sys();          /// * release system
     cudaDeviceReset();
 }
