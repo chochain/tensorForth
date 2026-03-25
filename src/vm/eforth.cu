@@ -137,7 +137,7 @@ ForthVM::nest() {
 ///
 __GPU__ __INLINE__ void ForthVM::call(IU w) {
     using mu::FPTR;
-    using mu::MSK_XT;
+    using mu::MSK_ATTR;
     
     Code &c = dict[w];                               /// * code reference
     DEBUG(" => call(%s) state=%d {\n", c.name, state);
@@ -146,7 +146,8 @@ __GPU__ __INLINE__ void ForthVM::call(IU w) {
         ip = c.pfa;
         nest();                                      /// * Forth inner loop
     }
-    else (*(FPTR)((UFP)c.xt & MSK_XT))();            /// * execute function
+    else (*(FPTR)((UFP)c.xt & MSK_ATTR))();          /// * execute function
+
     DEBUG("} call(%s) state=%d\n", c.name, state);
 }
 ///
@@ -154,7 +155,7 @@ __GPU__ __INLINE__ void ForthVM::call(IU w) {
 ///
 __GPU__ void
 ForthVM::init() {
-    if (id != 0) return;  /// * done once only
+    if (id != 0) return;    /// * done once only
     VM::init();
     
     CODE("\nForth::", {});  /// dict[0] not used, simplify find(), also keeps _XT0
@@ -438,10 +439,11 @@ ForthVM::parse(char *idiom) {
         return 0;                         /// * next, try as a number
     }
     Code &c = dict[w];
-    DEBUG("%04x[%3x]%c%c %s",
+    DEBUG("%06x[%3x]%c%c %s ",
          c.udf ? c.pfa : mmu.XTOFF(c.xt), w,
          c.imm ? '*' : ' ', c.udf ? 'u' : ' ',
          c.name);
+    
     if (compile && !c.imm) {              /// * in compile mode?
         add_w(w);                         /// * add found word to new colon word
     }
