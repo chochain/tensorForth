@@ -1,0 +1,31 @@
+FROM nvcr.io/nvidia/cuda:12.2.2-devel-ubuntu22.04
+
+ARG NSYS_URL=https://developer.nvidia.com/downloads/assets/tools/secure/nsight-systems/2024_7/
+ARG NSYS_PKG=nsight-systems-2024.7.1_2024.7.1.84-1_amd64.deb
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+FROM base12 AS build12
+RUN apt-get update -y && \
+    apt-get install -y --no-install-recommends \
+        wget apt-transport-https ca-certificates \
+        dbus gnupg openssh-client git \
+        fontconfig libfreetype6 libasound2 \
+        libglib2.0-0 libnss3 libsqlite3-0 \
+        xcb xkb-data libx11-xcb1 libxcb-glx0 libxcb-xkb1 \
+        libxcomposite1 libxcursor1 libxdamage1 \
+        libxi6 libxml2 libxrandr2 libxrender1 \
+        libxtst6 libxkbfile-dev \
+        libopengl0 libglvnd0 libglx0 \
+        libgl1-mesa-glx mesa-utils \
+        libgl1-mesa-dev libglu1-mesa-dev freeglut3-dev \
+        libglfw3-dev libglm-dev \
+        libnvidia-gl-535 \
+        libxcb-cursor0 libxcb-xinput0 libxkbcommon-x11-0  \
+        libxcb-shape0 libxcb-render-util0 libxcb-randr0 \
+        libxcb-keysyms1 libxcb-image0 libxcb-xinerama0 libxcb-icccm4 && \
+    apt-get clean
+    
+RUN wget ${NSYS_URL}${NSYS_PKG} && dpkg -i $NSYS_PKG && rm $NSYS_PKG
+RUN echo "build completed"
+
