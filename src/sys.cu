@@ -130,9 +130,7 @@ System::readline(int hold) {                 ///< feed a line into device input 
 
 __HOST__ io_event*
 System::process_event(io_event *ev) {
-    GPU_SYNC();                     /// * make sure data is completely written
-
-    void *vp = (void*)ev->data;     ///< fetch payload in buffered print node
+    void *vp = (void*)ev->data;              ///< fetch payload in buffered print node
     DEBUG("System::process(gt=%x) {\n", ev->gt);
     switch (ev->gt) {
     ///> simple ops
@@ -211,8 +209,8 @@ System::process_event(io_event *ev) {
 
 __HOST__ void
 System::flush() {
-    io_event *e = (io_event*)_ostr->rdbuf();
-    while (e->gt != GT_EMPTY) {          // walk linked-list
+    io_event *e = (io_event*)_ostr->rdbuf();       /// * managed mem read, auto sync
+    while (e->gt != GT_EMPTY) {                    /// * walk linked-list
         e = process_event(e);
     }
     fout << std::flush;
