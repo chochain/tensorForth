@@ -27,22 +27,28 @@ struct functor : fop {
 typedef fop* FPTR;                ///< lambda function pointer
 ///@}
 ///@name Code class for dictionary word
+///@brief -
+///  +-------------------+-------------------+
+///  |    *name          |       xt          |
+///  +-------------------+----+----+---------+
+///                      |attr|nfa |   pfa   |
+///                      +----+----+---------+
 ///@{
-constexpr UFP MSK_XT = (UFP)~0>>2;/// xt pointer mask (for union attributes)
+constexpr UFP MSK_ATTR = ~0x3;    /// xt pointer mask (for union attributes)
 struct Code : public Managed {
     const char *name = 0;         ///< name field
     union {
-        FPTR xt = 0;              ///< lambda pointer (CUDA 49-bit)
+        FPTR xt = 0;              ///< lambda pointer (CUDA 64-bit)
         U64  *fp;                 ///< function pointer (for debugging)
         struct {
-            IU  pfa;              ///< param field offset to pmem space
-            U32 nfa : 16;         ///< reserved
-            U32 didx: 14;         ///< dictionary index (reverse link)
-            U32 imm : 1;          ///< immediate flag
             U32 udf : 1;          ///< colon defined word
+            U32 imm : 1;          ///< immediate flag
+            U32 xx  : 6;          ///< reserved
+            U32 nlen: 8;          ///< name length, NFA = pfa - nlen
+            U32 didx: 16;         ///< dictionary index (reverse link)
+            IU  pfa;              ///< param field offset to pmem space (32-bit)
         };
     };
-
     __HOST__ Code(const char *n, IU w) : name(n), xt((FPTR)((UFP)w)) {}  ///< primitives
     __HOST__ ~Code() { DEBUG("Code(%s) freed\n", name); }                ///< destructor
 /*
