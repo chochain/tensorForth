@@ -59,12 +59,12 @@ class Ostream : public Managed {
     obuf_fmt _fmt = { 10, 0, 0, ' '};
     char    *_buf;
 
-__GPU__ __INLINE__ void _debug(GT gt, U8 *v, U32 sz) {
+__GPU__ __INLINE__ void _debug(GT gt, U8 *vp, U32 sz) {
 #if T4_VERBOSE > 1
         printf("  ostr#_debug(gt=%x,sz=%d) obuf[%d] << ", gt, sz, _idx);
         if (!sz) return;
         U8 d[T4_STRBUF_SZ];
-        MEMCPY(d, v, sz);
+        MEMCPY(d, vp, sz);
         switch(gt) {
         case GT_INT:   printf("%d",      *(IU*)d);  break;
         case GT_U32:   printf("%u",      *(U32*)d); break;
@@ -89,7 +89,7 @@ __GPU__ __INLINE__ void _debug(GT gt, U8 *v, U32 sz) {
         printf("\n");
 #endif // T4_VERBOSE > 1
     }
-    __GPU__  void _write(GT gt, U8 *v, U32 sz) {
+    __GPU__  void _write(GT gt, U8 *vp, U32 sz) {
         if (threadIdx.x!=0) return;               /// only thread 0 within a block can write
 
         //_LOCK;
@@ -100,10 +100,10 @@ __GPU__ __INLINE__ void _debug(GT gt, U8 *v, U32 sz) {
 
         int inc = EVENT_HDR + e->sz;              /// calc node allocation size
 
-        _debug(gt, v, sz);
+        _debug(gt, vp, e->sz);
 
         if ((_idx + inc) > _max) inc = 0;         /// overflow, skip
-        else MEMCPY(e->data, v, sz);              /// deep copy, TODO: shallow copy via managed memory
+        else MEMCPY(e->data, vp, e->sz);          /// deep copy, TODO: shallow copy via managed memory
 
         _buf[(_idx += inc)] = (char)GT_EMPTY;     /// advance index and mark end of stream
         //_UNLOCK;
@@ -136,7 +136,7 @@ public:
     ///
     __GPU__ Ostream& operator<<(char c) {
         char buf[2] = { c, '\0' };
-        DEBUG("  ostr#_write(char %c)\n", c);
+        DEBUG("  ostr#_write('%c')\n", c);
         _write(GT_STR, (U8*)buf, 2);
         return *this;
     }
@@ -157,7 +157,7 @@ public:
         return *this;
     }
     __GPU__ Ostream& operator<<(const char *s) {
-        DEBUG("  ostr#_write(%s)\n", s);
+        DEBUG("  ostr#_write(\"%s\")\n", s);
         int len = STRLENB(s)+1;
         _write(GT_STR, (U8*)s, len);
         return *this;
