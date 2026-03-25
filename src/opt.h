@@ -114,22 +114,22 @@ struct Options {
         out << "\nCUDA Device #" << id << "\n"
             << "\tName:                          " << p.name << "\n"
             << "\tCUDA version:                  " << p.major << "." << p.minor << "\n"
-            << "\tTotal global memory:           " << (U32)(p.totalGlobalMem>>20) << "M\n"
-            << "\tTotal shared memory per block: " << (U32)(p.sharedMemPerBlock>>10) << "K\n"
+            << "\tTotal global memory:           " << (p.totalGlobalMem>>20) << "M\n"
+            << "\tTotal shared memory per block: " << (p.sharedMemPerBlock>>10) << "K\n"
             << "\tNumber of multiprocessors:     " << p.multiProcessorCount << "\n"
-            << "\tTotal registers per block:     " <<  (p.regsPerBlock>>10) << "K\n"
+            << "\tTotal registers per block:     " << (p.regsPerBlock>>10) << "K\n"
             << "\tWarp size:                     " << p.warpSize << std::endl
-            << "\tMax memory pitch:              " << (U32)(((U64)p.memPitch+1)>>20) << "M\n"
+            << "\tMax memory pitch:              " << (((U64)p.memPitch+1)>>20) << "M\n"
             << "\tMax threads per block:         " << p.maxThreadsPerBlock << "\n"
             << "\tMax dim of block:              [";
         for (int i = 0; i < 3; ++i)
             out << p.maxThreadsDim[i] << (i<2 ? ", " : "]\n");
         out << "\tMax dim of grid:               ["
-            << (U32)(((U64)p.maxGridSize[0]+1)>>20) << "M, "
-            << (U32)((p.maxGridSize[1]+1)>>10) << "K, "
-            << (U32)((p.maxGridSize[2]+1)>>10) << "K]\n";
+            << (((U64)p.maxGridSize[0]+1)>>20) << "M, "
+            << ((p.maxGridSize[1]+1)>>10) << "K, "
+            << ((p.maxGridSize[2]+1)>>10) << "K]\n";
         out << "\tClock rate:                    " << p.clockRate/1000 << "MHz\n"
-            << "\tTotal constant memory:         " << (U32)(p.totalConstMem>>10) << "K\n"
+            << "\tTotal constant memory:         " << (p.totalConstMem>>10) << "K\n"
             << "\tTexture alignment:             " << p.textureAlignment << "\n"
             << "\tConcurrent copy and execution: " << yes_no[p.deviceOverlap] << "\n"
             << "\tCooperativeLaunch:             " << yes_no[p.cooperativeLaunch] << "\n"
