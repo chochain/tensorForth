@@ -23,9 +23,13 @@ namespace t4::io {
 #define IO_DB(...)  { if (trace) INFO(__VA_ARGS__); }
 
 class AIO {                           ///< create in host mode
+#if T4_DO_OBJ    
     using Tensor  = mu::Tensor;       ///< aliases
+#if T4_DO_NN    
     using Dataset = mu::Dataset;
     using Model   = nn::Model;
+#endif // DO_NN
+#endif // DO_OBJ
     
     int &trace;
     
