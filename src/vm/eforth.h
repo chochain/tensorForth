@@ -20,8 +20,8 @@ namespace t4::vm {
 ///@name parameter memory load/store macros
 ///@{
 #define PFA(w)    (dict[(IU)(w)].pfa)                 /**< PFA of given word id                 */
-#define HERE      (mmu.here())                       /**< current context                      */
-#define MEM(a)    (mmu.pmem((IU)(a)))                /**< parameter memory by offset address   */
+#define HERE      (mmu.here())                        /**< current context                      */
+#define MEM(a)    (mmu.pmem((IU)(a)))                 /**< parameter memory by offset address   */
 #define CELL(a)   (*(DU*)MEM(a))                      /**< fetch a cell from parameter memory   */
 #define BYTE(a)   (*(U8*)MEM(a))                      /**< fetch a cell from parameter memory   */
 #define LAST      (mmu.dict(mmu.dict._didx-1))        /**< last colon word defined              */
@@ -46,7 +46,7 @@ namespace t4::vm {
 ///@{
 #define ADD_CODE(n, g, im) {           \
     auto f = [this] __GPU__ (){ g; };  \
-    mmu.add_word(n, f, im);           \
+    mmu.add_word(n, f, im);            \
 }
 #define CODE(n, g) ADD_CODE(n, g, false)
 #define IMMD(n, g) ADD_CODE(n, g, true)

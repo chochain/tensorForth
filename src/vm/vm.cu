@@ -32,6 +32,7 @@ VM::outer() {
     char *idiom;
     while ((idiom = sys.fetch())!=0) {               /// * loop throught tib
         DEBUG("vm%d> idiom='%s' => ", id, idiom);
+
         if (pre(idiom)) continue;                    /// * pre process (filter)
         if (!process(idiom)) {
             sys.perr(idiom, "? ");                   /// * display error prompt

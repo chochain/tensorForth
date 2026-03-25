@@ -14,7 +14,7 @@ namespace t4::vm {
 ///@{
 struct Param : public Managed {
     union {
-        IU pack;                   ///< collective
+        IU pack;                   ///< collective (32-bit)
         struct {
             U32 ioff : 24;         ///< pfa, xtoff, or short int
             U32 op   : 4;          ///< opcode (1111 = colon word or built-in)
