@@ -80,7 +80,6 @@ _dyna_hash(int *hash, const char *str, int sz) {
 
     for (int n=16; x<sz && n>0; n>>=1) {
         h += HASH_K*__shfl_down_sync(m, h, n);              // shuffle down
-        __syncwarp();
     }
     if (x==0) *hash += h;
 }
@@ -88,7 +87,6 @@ _dyna_hash(int *hash, const char *str, int sz) {
 __GPU__ void
 _dyna_hash2d(int *hash, const char *str, int bsz) {
     auto blk = cg::this_thread_block();                     // C++11
-
     extern __shared__ int h[];
 
     int x = threadIdx.x;
@@ -436,7 +434,6 @@ d_nvar(float *src, float avg, long numel) {         ///< sum of T4_DIM_SQ thread
     auto const g   { cg::this_thread_block() };     /// total threads
     auto const tid { g.thread_rank() };             /// tid=thread_index().x 0~255
     float sum { stride_sum(tid) };                  /// one sum per thread
-    __syncwarp();
     ///
     /// shuffle sum 32 to 1
     ///
