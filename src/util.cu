@@ -6,9 +6,8 @@
  *
  * <pre>Copyright (C) 2022- GreenII, this file is distributed under BSD 3-Clause License.</pre>
  */
-#include "util.h"
-
 #include <cooperative_groups.h>
+#include "util.h"
 
 namespace t4 {
 namespace cg = cooperative_groups;
@@ -98,7 +97,7 @@ _dyna_hash2d(int *hash, const char *str, int bsz) {
         if ((x+y)<bsz) h[y] += HASH_K*h[y+n*blockDim.x];
         blk.sync();
     }
-    for (int n=blockDim.x>>1, off=n+y; n>0; off=(n>>=1)+y) {
+    for (int n=blockDim.x>>1, off=n+y; n>0; off=(n>>1)+y) {
         if (x<n && (x+off)<bsz) h[x+y] += HASH_K*h[x+off];
         blk.sync();
     }
@@ -379,83 +378,124 @@ __GPU__ int
 d_hash(const char *s) {
     return _hash(s, STRLENB(s));
 }
-
+///
+/// collect sum per every thread sum per stride (T4_DIM_SQ)
+///
 __GPU__ float
-d_sum(float *src, long numel) {                     ///< sum of T4_DIM_SQ threads
-    __shared__ float _sum[T4_DIM_SQ>>5];            ///< warp sum
-    ///
-    /// sum up by stride
-    ///
-    auto const g   { cg::this_thread_block() };     /// total threads
-    auto const tid { g.thread_rank() };             /// tid=thread_index().x 0~255
-    auto stride_sum = [src, numel](long i0) {
-        float v { 0.0f };
-        for (long i=i0; i < numel; i+=T4_DIM_SQ) v += src[i];
-        return v;
-    };
-    float sum { stride_sum(tid) };                  /// one sum per thread
-    ///
-    /// shuffle sum 32 to 1
-    ///
-    auto tp { cg::tiled_partition<32>(g) };
-    auto shfl_sum = [](cg::thread_block_tile<32> tp, float v) {
-        #pragma unroll
-        for (int k = tp.size()>>1; k > 0; k >>= 1) {
-            v += tp.shfl_down(v, k);
-        }
-        return tp.shfl(v, 0);
-    };
-    sum = shfl_sum(tp, sum);
-    if (tp.thread_rank() == 0) _sum[tid >> 5] = sum; /// collection from each warp 
-    g.sync();
+d__stride_sum(float *src, long numel, long tid) {
+    float v { 0.0f };
+    for (long i=tid; i < numel; i+=blockDim.x * gridDim.x) {
+        v += src[i];
+    }
+    return v;
+};
+///
+/// collect sum per every thread sum per stride (T4_DIM_SQ)
+///
+__GPU__ float
+d__stride_var(float* __restrict__ src, float avg, long numel, long tid) {
+    float v { 0.0f };
+    for (long i=tid; i < numel; i+=blockDim.x * gridDim.x) {
+        v += (src[i] - avg) * (src[i] - avg);
+    }
+    return v;
+};
+///
+/// shuffle sum 32 to 1
+///
+__GPU__ float
+d__warp_sum(float v) {
+    for (int k = 16; k > 0; k /= 2) {
+        v += __shfl_down_sync(0xffffffff, v, k);
+    }
+    return v;
+}
+///
+/// collect sum per every thread sum per stride (T4_DIM_SQ)
+///
+__GPU__ float
+d__rollup_sum(float* __restrict__ smem) {
     ///
     /// sum up all warps
     ///
     float v { 0.0f };
     #pragma unroll
-    for (int i = 0; i < (T4_DIM_SQ>>5); i++) v += _sum[i];
-    
+    for (int i = 0; i < (T4_DIM_SQ>>5); i++) {
+        v += smem[i];
+    }
     return v;
 }
 
-__GPU__ float
-d_nvar(float *src, float avg, long numel) {         ///< sum of T4_DIM_SQ threads
-    __shared__ float _sum[T4_DIM_SQ>>5];            ///< warp sum
-    ///
-    /// sum up by stride
-    ///
-    auto stride_sum = [src, avg, numel](long i0) {  ///< stride sum
-        float v { 0.0f };
-        for (long i=i0; i < numel; i+=T4_DIM_SQ) {
-            v += (src[i] - avg) * (src[i] - avg);
+__KERN__ void
+k_sum_gemini(float *src, float *sum, long numel) {
+    float v = 0;
+    int idx = blockIdx.x * blockDim.x + threadIdx.x;
+
+    // Grid-stride loop (handles any N)
+    for (int i = idx; i < numel; i += blockDim.x * gridDim.x) {
+        v += src[i];
+    }
+
+    // Reduce within warp
+    v = d__warp_sum(v);
+
+    // One thread per warp writes to shared memory
+    __shared__ float _sum[32]; 
+    int lane = threadIdx.x % 32;
+    int wid = threadIdx.x / 32;
+    if (lane == 0) _sum[wid] = v;
+    __syncthreads();
+
+    // Final reduction in shared memory
+    if (wid == 0) {
+        v = (threadIdx.x < (blockDim.x / 32)) ? _sum[lane] : 0;
+        v = d__warp_sum(v);
+        // ONLY ONE ATOMIC PER BLOCK instead of one per thread
+        printf("tid%d v=%f\n", idx, v);
+        if (lane == 0) {
+            atomicAdd(sum, v);
+            printf("=> tid%d sum=%f\n", idx, *sum);
         }
-        return v;
-    };
-    auto const g   { cg::this_thread_block() };     /// total threads
-    auto const tid { g.thread_rank() };             /// tid=thread_index().x 0~255
-    float sum { stride_sum(tid) };                  /// one sum per thread
-    ///
-    /// shuffle sum 32 to 1
-    ///
-    auto tp { cg::tiled_partition<32>(g) };
-    auto shfl_sum = [](cg::thread_block_tile<32> tp, float v) {
-        #pragma unroll
-        for (int k = tp.size()>>1; k > 0; k >>= 1) {
-            v += tp.shfl_down(v, k);
-        }
-        return tp.shfl(v, 0);
-    };
-    sum = shfl_sum(tp, sum);
-    if (tp.thread_rank() == 0) _sum[tid >> 5] = sum; /// collection from each warp 
-    g.sync();
-    ///
-    /// sum up all warps
-    ///
-    float nv { 0.0f };
-    #pragma unroll
-    for (int i = 0; i < (T4_DIM_SQ>>5); i++) nv += _sum[i];
+    }
+    __syncthreads();
+}
+
+__KERN__ void
+k_sum(float* __restrict__ src, float* __restrict__ sum, long numel) {             ///< sum of T4_DIM_SQ threads
+    auto const g   { cg::this_thread_block() };                /// total threads
+    auto const tid { g.thread_rank() };                        /// thread id
     
-    return nv;
+    float v { d__stride_sum(src, numel, tid) };                /// one sum per thread by stride
+    v = d__warp_sum(v);                                        /// a reduced sum per warp
+    
+    __shared__ float _sum[T4_DIM_SQ >> 5];                     ///< shared to keep warp sum
+    auto const tpi { cg::tiled_partition<32>(g).thread_rank() };
+    if (tpi == 0) _sum[tid >> 5] = v;                          /// collection from each warp
+    g.sync();
+    
+    if (tid == 0) {
+        *sum = d__rollup_sum(_sum);                            /// collection from each warp
+        printf("=> tid%d sum=%f\n", tid, *sum);
+    }
+    g.sync();
+}
+
+__KERN__ void
+k_nvar(float *src, float *avg, float var, long numel) {        ///< sum of T4_DIM_SQ threads
+    __shared__ float _sum[T4_DIM_SQ >> 5];                     ///< shared to keep warp sum
+    
+    auto const g   { cg::this_thread_block() };                /// total threads
+    auto const tid { g.thread_rank() };                        /// thread id
+
+    float v { d__stride_var(src, var, numel, tid) };           /// collect one sum per thread
+    v = d__warp_sum(v);                                        /// a reduced sum per warp
+    
+    auto const tpi { cg::tiled_partition<32>(g).thread_rank() };
+    if (tpi == 0) _sum[tpi >> 5] = v;                        /// collection from each warp
+    
+    v = d__rollup_sum(_sum);                                   /// collection from each warp
+    
+    if (threadIdx.x == 0) *avg = v / numel;
 }
 ///
 ///> Batch sum (NHW per channel)
@@ -466,23 +506,15 @@ k_batchsum(float *src, float *sum, long HW) {
     const int  c  = blockIdx.y, C = gridDim.y;                 ///< channel
     const int  n  = blockIdx.z, N = gridDim.z;                 ///< batch
     const long ns = HW * C * n;                                ///< batch slice index
-    float vi = (c < C && j < HW) ? src[ns + j * C + c] : 0.0f;
-    ///
-    /// prefix sum every 32-threaded tile
-    ///
-    auto tp = cg::tiled_partition<32>(cg::this_thread_block());
-    auto shfl_sum = [](cg::thread_block_tile<32> tp, float v) {
-        for (int k = 16; k > 0; k >>= 1) {
-            v += tp.shfl_down(v, k);
-        }
-        return tp.shfl(v, 0);
-    };
-    vi = shfl_sum(tp, vi);
+    
+    float v = (c < C && j < HW) ? src[ns + j * C + c] : 0.0f;
+    v = d__warp_sum(v);                                        ///< collect sum per warp
     ///
     /// sum up atomically (per channel, for batchnorm)
     /// slower than grid-stride loop when blocks are many
     ///
-    if (c < C && tp.thread_rank() == 0) atomicAdd_block(&sum[c], vi);  ///< serialize sum
+    auto tp = cg::tiled_partition<32>(cg::this_thread_block());
+    if (c < C && tp.thread_rank() == 0) atomicAdd_block(&sum[c], v);  ///< serialize sum
 }
 ///
 ///> batch variance (NHW per channel)
@@ -494,22 +526,12 @@ k_batchnvar(float *src, float*avg, float *var, long HW) {
     const int  n  = blockIdx.z, N = gridDim.z;                    ///< batch
     const long ns = HW * C * n;                                   ///< batch slice index
     float v0 = (c < C && j < HW) ? src[(long)C * j + ns + c] - avg[c] : 0.0f;
-    float vi = v0 * v0;
-    ///
-    /// prefix sum every 32-threaded tile
-    ///
-    auto tp = cg::tiled_partition<32>(cg::this_thread_block());
-    auto shfl_sum = [](cg::thread_block_tile<32> tp, float v) {
-        for (int k = 16; k > 0; k >>= 1) {
-            v += tp.shfl_down(v, k);
-        }
-        return tp.shfl(v, 0);
-    };
-    vi = shfl_sum(tp, vi);
+    float v  = d__warp_sum(v0*v0);                                ///< collect sum per warp
     ///
     /// sum up atomically (per channel, for batchnorm)
     ///
-    if (c < C && tp.thread_rank() == 0) atomicAdd_block(&var[c], vi);
+    auto tp = cg::tiled_partition<32>(cg::this_thread_block());
+    if (c < C && tp.thread_rank() == 0) atomicAdd_block(&var[c], v);
 }
 
 __KERN__ void
@@ -614,23 +636,11 @@ k_bce(float *O, float *T, long n) {
 __KERN__ void
 k_nan_inf(float *src, int *cnt, long numel) {
     const long j  = (long)blockIdx.x*blockDim.x + threadIdx.x; ///< element index
-    int vi = j < numel && (isnan(src[j]) || isinf(src[j])) ? 1 : 0;
-    ///
-    /// prefix sum every 32-threaded tile
-    ///
+    int v = j < numel && (isnan(src[j]) || isinf(src[j])) ? 1 : 0;
+    v = d__warp_sum(v);
+    
     auto tp = cg::tiled_partition<32>(cg::this_thread_block());
-    auto shfl_sum = [](cg::thread_block_tile<32> tp, int v) {
-        for (int k = 16; k > 0; k >>= 1) {
-            v += tp.shfl_down(v, k);
-        }
-        return tp.shfl(v, 0);
-    };
-    vi = shfl_sum(tp, vi);
-    ///
-    /// sum up atomically
-    /// slower than grid-stride loop when blocks are many
-    ///
-    if (tp.thread_rank() == 0) atomicAdd_block(cnt, vi);      ///< serialize sum
+    if (tp.thread_rank() == 0) atomicAdd_block(cnt, v);        ///< serialize sum
 }
 __KERN__ void
 k_dummy() {}
