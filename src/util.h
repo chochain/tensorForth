@@ -113,19 +113,23 @@ __GPU__ int          d_strcmp(const char *t, const char *s);
 __GPU__ int          d_strcasecmp(const char *t, const char *s);
 __GPU__ char*        d_strchr(const char *s,  const char c);
 __GPU__ char*        d_strcat(char *t,  const char *s);
-__GPU__ char*        d_strcut(const char *s, int n);                     // take n utf8 chars from the string
+__GPU__ char*        d_strcut(const char *s, int n);                           /// take n utf8 chars from the string
 ///@}
 ///@name Numeric conversion
 ///@{
+__GPU__ inline float d__stride_sum(float *src, long numel, long tid);          /// stride sum per thread
+__GPU__ inline float d__stride_var(float *src, float avg, long numel, long tid);
+__GPU__ inline float d__warp_sum(float v);                                     /// reduce sum up a warp
+__GPU__ inline float d__rollup_sum(float *smem);
 __GPU__ int          d_itoa(int v, char *s, int base=10);
 __GPU__ long         d_strtol(const char *s, char **p, int base=10);
 __GPU__ double       d_strtof(const char *s, char **p);
 __GPU__ int          d_hash(const char *s);
-__GPU__ float        d_sum(float *src, long numel);
-__GPU__ float        d_nvar(float *src, float avg, long numel);         /// n * variance
 ///@}
 ///@name Tensor ops (kernel mode)
 ///@{
+__KERN__ void        k_sum(float* __restrict__ src, float* __restrict__ sum, long numel);
+__KERN__ void        k_nvar(float *src, float *avg, float var, long numel);    /// n * variance
 __KERN__ void        k_batchsum(float *src, float *sum, long numel);
 __KERN__ void        k_batchnvar(float *src, float *avg, float *var, long numel);
 __KERN__ void        k_copy(float *src, float *dst, long n);                   ///< Note: (src, dst)
