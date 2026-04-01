@@ -138,9 +138,9 @@ s" tests/my_net.t4" save                    \ persist the trained network
 </pre>
 
 ### To Build, and Verify
-Note: I'm currently hindered by CUDA 12 compatability. It deprecated cudaDeviceSynchronize which is heavily used by my Dynamic Parallelism code. Needs a new way to sync data in parallel pipelines. Not sure it's all possible with the new cudaStreamTailLaunch. Alternatively, Claude suggested change architecture to use queue-based solution. We'll see...
+Note: Everything is broken by once moved to CUDA 12. It deprecated cudaDeviceSynchronize which is heavily used by my CUDA Dynamic Parallelism (CDP 1.0) code. Calling to a child-grid is now async which parent-grid does not and cannot get data back for further processing. I need a new way to sync data in parallel pipelines. Not sure it's all possible with the new cudaStreamTailLaunch. Alternatively, Claude suggested change architecture to use queue-based solution. We'll see...
 
-Also, if you have an older Nvidia card on an older version of OS, check the compability chart first [here](https://forums.developer.nvidia.com/t/ubuntu-install-specific-old-cuda-drivers-combo/214601/5)
+So, if you have an older Nvidia card before Turing and on an older version of OS (say Ubuntu 22.04), check the compability chart first [here](https://forums.developer.nvidia.com/t/ubuntu-install-specific-old-cuda-drivers-combo/214601/5)
 
 Here's how to build
 
@@ -528,6 +528,20 @@ If all goes well, some warnings aside, *~/tests/ten4* is your executable. The fo
 </pre>
 
 ### TODO - by priorities
+* VM
+  + CUDA 12 migration
+    - [GEMM](https://siboehm.com/articles/22/CUDA-MMM)
+    - Stream Management (cudaStreamAddCallback) and Event Management
+    - EventSync/LaunchHostFunc, flip calling from GPU=>CPU (requires CUDA Stream + event pool)
+    - dynamic Graph
+    - CUB (now part of CCCL) again
+  + TLSF using floating point [FP in Allocator](https://brnz.org/hbr/?p=1735)
+  + Auto Differentiation i.e. JVP (forward), VJP (backward)
+    - [autograd](https://github.com/HIPS/autograd)
+    - [Jax](https://docs.jax.dev/en/latest/quickstart.html)
+  + inter-VM communication (via CUDA stream)
+  + inter-VM loader (from VM->VM)
+  + free_tensor as linked-list (instead of an array)
 * Design & Instrumentation
   x Visulization via Netron
   x Visulization via TensorBoard
@@ -547,20 +561,6 @@ If all goes well, some warnings aside, *~/tests/ten4* is your executable. The fo
 * Inter-op
   + ONNX model exporter (protobuf), can be read by Netron
   + ONNX model importer, load pretrained models (from Model Zoo, Hugging Face)
-* VM
-  + TLSF using floating point [FP in Allocator](https://brnz.org/hbr/?p=1735)
-  + Auto Differentiation i.e. JVP (forward), VJP (backward)
-    - [autograd](https://github.com/HIPS/autograd)
-    - [Jax](https://docs.jax.dev/en/latest/quickstart.html)
-  + review CUDA 12
-    - [GEMM](https://siboehm.com/articles/22/CUDA-MMM)
-    - Stream Management (cudaStreamAddCallback) and Event Management
-    - EventSync/LaunchHostFunc, flip calling from GPU=>CPU (requires CUDA Stream + event pool)
-    - dynamic Graph
-    - CUB (now part of CCCL) again
-  + inter-VM communication (via CUDA stream)
-  + inter-VM loader (from VM->VM)
-  + free_tensor as linked-list (instead of an array)
 * Model
   + GAN
     - [AC-GAN](https://machinelearningmastery.com/how-to-develop-an-auxiliary-classifier-gan-ac-gan-from-scratch-with-keras/)
