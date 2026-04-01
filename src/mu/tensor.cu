@@ -12,27 +12,6 @@ namespace t4::mu {
 ///=======================================================================
 /// static methods
 ///
-/// k_sum1 - sum all elements into one value (used by matrix)
-/// Note: use stride adding in parallel, instead of atomicAdd
-///
-__KERN__ void
-k_sum1(DU *I, DU *sum, U64 numel) {                              ///< sum all elements
-    DU const z = { d_sum(I, numel) };
-    if (threadIdx.x == 0) *sum = z;
-}
-///
-__KERN__ void
-k_var1(DU *I, DU avg, DU *var, U64 numel) {
-    DU const nv = { d_nvar(I, avg, numel) };
-    if (threadIdx.x == 0 && numel) *var = nv / numel;
-}
-
-__KERN__ void
-k_norm1(DU *I, DU *nrm, U64 numel) {
-    DU const nv = { d_nvar(I, DU0, numel) };
-    if (threadIdx.x == 0 && numel) *nrm = nv;
-}
-
 __KERN__ void
 k_matmul(
     DU *A, DU *B, DU *O,   /* O[H*W*C] = A[H*K*C] @ B[K*W*C] */
@@ -68,6 +47,246 @@ k_matmul(
         else              O[z0] =  acc;                    /// * overwrite O
     }
 }
+#if 0 /* Claude code */
+#include <cuda_runtime.h>
+
+#define TILE_SIZE 16
+
+// ─── Core device function ────────────────────────────────────────────────────
+// Can be called from any __global__ or __device__ function.
+// A: M×K,  B: K×N,  C: M×N  (row-major, all in device memory)
+__device__ void device_matmul(
+    const float* __restrict__ A,
+    const float* __restrict__ B,
+    float*       __restrict__ C,
+    int M, int N, int K)
+{
+    // Shared memory tiles — sized at compile time via TILE_SIZE
+    __shared__ float sA[T4_DIM_SZ][T4_DIM_SZ];
+    __shared__ float sB[T4_DIM_SZ][T4_DIM_SZ];
+
+    int row = blockIdx.y * TILE_SIZE + threadIdx.y;
+    int col = blockIdx.x * TILE_SIZE + threadIdx.x;
+
+    float acc = 0.0f;
+
+    // Walk across the shared K dimension in TILE_SIZE-wide strips
+    for (int t = 0; t < (K + TILE_SIZE - 1) / TILE_SIZE; ++t) {
+
+        // Cooperative load of A tile — guard for non-divisible K/M
+        int aCol = t * TILE_SIZE + threadIdx.x;
+        sA[threadIdx.y][threadIdx.x] =
+            (row < M && aCol < K) ? A[row * K + aCol] : 0.0f;
+
+        // Cooperative load of B tile — guard for non-divisible K/N
+        int bRow = t * TILE_SIZE + threadIdx.y;
+        sB[threadIdx.y][threadIdx.x] =
+            (bRow < K && col < N) ? B[bRow * N + col] : 0.0f;
+
+        __syncthreads();   // ← barrier 1: tile is ready
+
+        #pragma unroll
+        for (int k = 0; k < TILE_SIZE; ++k)
+            acc += sA[threadIdx.y][k] * sB[k][threadIdx.x];
+
+        __syncthreads();   // ← barrier 2: tile consumed before next load
+    }
+
+    if (row < M && col < N)
+        C[row * N + col] = acc;
+}
+
+// ─── Example kernel that calls it ────────────────────────────────────────────
+__global__ void matmul_kernel(
+    const float* A, const float* B, float* C,
+    int M, int N, int K)
+{
+    device_matmul(A, B, C, M, N, K);
+}
+
+// ─── Host launcher ───────────────────────────────────────────────────────────
+void launch_matmul(
+    const float* d_A, const float* d_B, float* d_C,
+    int M, int N, int K,
+    cudaStream_t stream = 0)
+{
+    dim3 block(TILE_SIZE, TILE_SIZE);
+    dim3 grid((N + TILE_SIZE - 1) / TILE_SIZE,
+              (M + TILE_SIZE - 1) / TILE_SIZE);
+
+    matmul_kernel<<<grid, block, 0, stream>>>(d_A, d_B, d_C, M, N, K);
+}
+#include <cuda_runtime.h>
+#include <cuda_fp16.h>
+
+#define TILE_M 16
+#define TILE_N 16
+#define TILE_K 16
+
+// ─── General GEMM: C = alpha * A * B + beta * C ──────────────────────────────
+// Supports float, double, or __half via template.
+// A: M×K,  B: K×N,  C: M×N  (row-major, device memory)
+template <typename T>
+__device__ void device_gemm(
+    const T* __restrict__ A,
+    const T* __restrict__ B,
+          T* __restrict__ C,
+    int M, int N, int K,
+    T alpha, T beta)
+{
+    __shared__ T sA[TILE_M][TILE_K];
+    __shared__ T sB[TILE_K][TILE_N];
+
+    int row = blockIdx.y * TILE_M + threadIdx.y;
+    int col = blockIdx.x * TILE_N + threadIdx.x;
+
+    T acc = static_cast<T>(0);
+
+    for (int t = 0; t < (K + TILE_K - 1) / TILE_K; ++t) {
+
+        int aCol = t * TILE_K + threadIdx.x;
+        sA[threadIdx.y][threadIdx.x] =
+            (row < M && aCol < K) ? A[row * K + aCol] : static_cast<T>(0);
+
+        int bRow = t * TILE_K + threadIdx.y;
+        sB[threadIdx.y][threadIdx.x] =
+            (bRow < K && col < N) ? B[bRow * N + col] : static_cast<T>(0);
+
+        __syncthreads();
+
+        #pragma unroll
+        for (int k = 0; k < TILE_K; ++k)
+            acc += sA[threadIdx.y][k] * sB[k][threadIdx.x];
+
+        __syncthreads();
+    }
+
+    if (row < M && col < N) {
+        T c_old = (beta != static_cast<T>(0)) ? C[row * N + col] : static_cast<T>(0);
+        C[row * N + col] = alpha * acc + beta * c_old;
+    }
+}
+
+// ─── Transposed inputs variant: C = alpha * op(A) * op(B) + beta * C ─────────
+// transA / transB: 'N' = no transpose, 'T' = transpose
+template <typename T>
+__device__ void device_gemm_ex(
+    const T* __restrict__ A,
+    const T* __restrict__ B,
+          T* __restrict__ C,
+    int M, int N, int K,
+    T alpha, T beta,
+    char transA, char transB)
+{
+    __shared__ T sA[TILE_M][TILE_K];
+    __shared__ T sB[TILE_K][TILE_N];
+
+    int row = blockIdx.y * TILE_M + threadIdx.y;
+    int col = blockIdx.x * TILE_N + threadIdx.x;
+
+    T acc = static_cast<T>(0);
+
+    for (int t = 0; t < (K + TILE_K - 1) / TILE_K; ++t) {
+
+        // Load A tile — respect transposition
+        int aCol = t * TILE_K + threadIdx.x;
+        if (transA == 'T') {
+            // A is K×M stored row-major; op(A) is M×K → read A[aCol][row]
+            sA[threadIdx.y][threadIdx.x] =
+                (row < M && aCol < K) ? A[aCol * M + row] : static_cast<T>(0);
+        } else {
+            sA[threadIdx.y][threadIdx.x] =
+                (row < M && aCol < K) ? A[row * K + aCol] : static_cast<T>(0);
+        }
+
+        // Load B tile — respect transposition
+        int bRow = t * TILE_K + threadIdx.y;
+        if (transB == 'T') {
+            // B is N×K stored row-major; op(B) is K×N → read B[col][bRow]
+            sB[threadIdx.y][threadIdx.x] =
+                (bRow < K && col < N) ? B[col * K + bRow] : static_cast<T>(0);
+        } else {
+            sB[threadIdx.y][threadIdx.x] =
+                (bRow < K && col < N) ? B[bRow * N + col] : static_cast<T>(0);
+        }
+
+        __syncthreads();
+
+        #pragma unroll
+        for (int k = 0; k < TILE_K; ++k)
+            acc += sA[threadIdx.y][k] * sB[k][threadIdx.x];
+
+        __syncthreads();
+    }
+
+    if (row < M && col < N) {
+        T c_old = (beta != static_cast<T>(0)) ? C[row * N + col] : static_cast<T>(0);
+        C[row * N + col] = alpha * acc + beta * c_old;
+    }
+}
+
+// ─── Kernels ──────────────────────────────────────────────────────────────────
+
+template <typename T>
+__global__ void gemm_kernel(
+    const T* A, const T* B, T* C,
+    int M, int N, int K, T alpha, T beta)
+{
+    device_gemm<T>(A, B, C, M, N, K, alpha, beta);
+}
+
+template <typename T>
+__global__ void gemm_ex_kernel(
+    const T* A, const T* B, T* C,
+    int M, int N, int K,
+    T alpha, T beta,
+    char transA, char transB)
+{
+    device_gemm_ex<T>(A, B, C, M, N, K, alpha, beta, transA, transB);
+}
+
+// ─── Host launchers ───────────────────────────────────────────────────────────
+
+// Standard GEMM: C = alpha * A * B + beta * C
+template <typename T>
+void launch_gemm(
+    const T* d_A, const T* d_B, T* d_C,
+    int M, int N, int K,
+    T alpha = static_cast<T>(1),
+    T beta  = static_cast<T>(0),
+    cudaStream_t stream = 0)
+{
+    dim3 block(TILE_N, TILE_M);
+    dim3 grid((N + TILE_N - 1) / TILE_N,
+              (M + TILE_M - 1) / TILE_M);
+
+    gemm_kernel<T><<<grid, block, 0, stream>>>(d_A, d_B, d_C, M, N, K, alpha, beta);
+}
+
+// Extended GEMM with transpose flags
+template <typename T>
+void launch_gemm_ex(
+    const T* d_A, const T* d_B, T* d_C,
+    int M, int N, int K,
+    T alpha, T beta,
+    char transA, char transB,
+    cudaStream_t stream = 0)
+{
+    dim3 block(TILE_N, TILE_M);
+    dim3 grid((N + TILE_N - 1) / TILE_N,
+              (M + TILE_M - 1) / TILE_M);
+
+    gemm_ex_kernel<T><<<grid, block, 0, stream>>>(
+        d_A, d_B, d_C, M, N, K, alpha, beta, transA, transB);
+}
+
+// ─── Explicit instantiations ──────────────────────────────────────────────────
+template void launch_gemm<float> (const float*,  const float*,  float*,  int, int, int, float,  float,  cudaStream_t);
+template void launch_gemm<double>(const double*, const double*, double*, int, int, int, double, double, cudaStream_t);
+
+template void launch_gemm_ex<float> (const float*,  const float*,  float*,  int, int, int, float,  float,  char, char, cudaStream_t);
+template void launch_gemm_ex<double>(const double*, const double*, double*, int, int, int, double, double, char, char, cudaStream_t);
+#endif 
 ///
 /// GEMM kernel (used CUDA dynamic parallelism)
 ///     O = alpha * A x B + beta * O
@@ -386,7 +605,7 @@ Tensor::sum() {
         for (int i = 0; i < numel; i++) z += data[i];
     }
     else {
-        FORK1(k_sum1, numel, data, &z);
+        FORK1(k_sum, numel, data, &z);
     }
     return SCALAR(z);
 }
@@ -397,16 +616,16 @@ Tensor::avg() {
 }
 __GPU__ DU
 Tensor::std() {
-    static DU var;
-    FORK1(k_var1, numel, data, avg(), &var);       /// * 8x straight loop
+    static DU v;
+    FORK1(k_nvar, numel, data, &v, avg());       /// * 8x straight loop
 
-    DU v = numel ? SQRT(var) : DU0;
+    v = numel ? SQRT(v) : DU0;
     return SCALAR(v);
 }
 __GPU__ DU
 Tensor::norm() {
     static DU n;
-    FORK1(k_norm1, numel, data, &n);
+    FORK1(k_nvar, numel, data, &n, DU0);
 
     DU v = numel ? SQRT(n) : DU0;
     return SCALAR(v);
