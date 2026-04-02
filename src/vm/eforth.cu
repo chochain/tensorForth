@@ -147,7 +147,6 @@ __HOST__ __INLINE__ void ForthVM::call(IU w) {
         nest();                                      /// * Forth inner loop
     }
     else (*(FPTR)((UFP)c.xt & MSK_ATTR))();          /// * execute function
-
     DEBUG("} call(%s) state=%d\n", c.name, state);
 }
 ///
@@ -155,8 +154,8 @@ __HOST__ __INLINE__ void ForthVM::call(IU w) {
 ///
 __HOST__ void
 ForthVM::init() {
-    if (id != 0) return;    /// * done once only
     VM::init();
+    if (id != 0) return;    /// * done once only
     
     CODE("\nForth::", {});  /// dict[0] not used, simplify find(), also keeps _XT0
     CODE("nop",       {});  /// do nothing
@@ -406,7 +405,7 @@ ForthVM::init() {
     /// @defgroup OS ops
     /// @{
     CODE("mstat", mmu.status());
-    CODE("rnd",   PUSH(sys.rand(DU1, NORMAL)));             /// generate random number
+//    CODE("rnd",   PUSH(sys.rand(DU1, NORMAL)));             /// generate random number
     CODE("ms",    System::delay(POPi));
     CODE("flush", syscall(OP_FLUSH));                       /// flush output stream
 //    CODE("included",                                      /// include external file
