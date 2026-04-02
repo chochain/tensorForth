@@ -16,14 +16,14 @@
 ///@name Debugging macros
 ///@{
 #define T4_APP_NAME         "tensorForth v4.0"
-#define T4_VERBOSE          1        /**< system verbose 0|1|2  */
+#define T4_VERBOSE          2        /**< system verbose 0|1|2  */
 #define T4_CASE_SENSITIVE   1        /**< interpreter case      */
-#define MM_DEBUG            0        /**< for my local testing  */
+#define MM_DEBUG            1        /**< for my local testing  */
 ///@}
 ///@name CUDA cooperative dynamic parallelism support
 ///@{
-#define T4_DO_OBJ           1        /**< enable tensor/matrix  */
-#define T4_DO_NN            1        /**< enable neural network */
+#define T4_DO_OBJ           0        /**< enable tensor/matrix  */
+#define T4_DO_NN            0        /**< enable neural network */
 #define T4_USE_STRBUF       0
 #define T4_PER_THREAD_STACK 8*1024   /**< init() stack overflow */
 ///@}
