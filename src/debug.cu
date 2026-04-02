@@ -86,7 +86,7 @@ Debug::words() {
     keep_fmt();
     fout << std::dec;
     for (int i=1, sz=0; i < DIDX; i++) {
-        char *name = _d2h(DICT(i).name);
+        const char *name = DICT(i).name;
         fout << "  " << name;
         sz += name[0]=='\n' ? WIDTH : (strlen(name) + 2); /// * page break?
 
@@ -138,7 +138,7 @@ Debug::see(IU w, int base, int trace) {
         return (nfa1 - pfa0 - sizeof(IU));                 ///> variable, create ,
     };
     Code &c = DICT(w);
-    fout << ": " << _d2h(c.name) << ENDL;
+    fout << ": " << c.name << ENDL;
     if (!c.udf) {
         fout << " ( built-ins ) ;" << std::endl;
         return;
@@ -173,13 +173,13 @@ Debug::dict_dump() {
          << std::hex << xt0 << std::setfill('0') << ENDL;
     for (int i=0; i < DIDX; i++) {
         Code &c = DICT(i);
-        U32  ip = c.udf ? c.pfa : (U32)(((UFP)c.xt & mu::MSK_XT) - xt0);
+        U32  ip = c.udf ? c.pfa : (U32)(((UFP)c.xt & mu::MSK_ATTR) - xt0);
         fout << std::dec << std::setw(4) << i << '|'
              << std::hex << std::setw(3) << i << '>'
              << (c.udf ? " pf=" : " xt=")
              << std::setw(6) << ip
 			 << (c.imm ? '*' : ' ') << ' '
-             << _d2h(c.name) << std::endl;
+             << c.name << std::endl;
     }
     reset_fmt();
 }
@@ -224,7 +224,7 @@ Debug::_see(Param *p, int nv, int base) {
          << std::setw(3) << w << "] ) "            ///> word ref
          << std::setbase(base);
     if (!pm) {                                     ///> built-in
-        fout << _d2h(code.name) << "  ";
+        fout << code.name << "  ";
         reset_fmt();                               /// * restore format
         return 0;
     }
@@ -259,10 +259,12 @@ Debug::_see(Param *p, int nv, int base) {
 ///@{
 __HOST__ void
 Debug::self_tests() {
-//    dict_dump();
-//    words();
-//    mem_dump(0, 256, 10);
+#if MM_DEBUG    
+    dict_dump();
+    words();
+    mem_dump(0, 256);
     ss_dump(0, 3, 10);
+#endif // MM_DEBUG    
 }
 ///@}
 
