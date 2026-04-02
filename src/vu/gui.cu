@@ -7,6 +7,8 @@
 #include <map>
 #include "gui.h"
 
+#if (T4_DO_OBJ && T4_DO_NN)
+
 #define T4_VU_REFRESH_DELAY     100              /** ms     */
 #define T4_VU_X_CENTER          600              /** pixels */
 #define T4_VU_Y_CENTER          100              /** pixels */
@@ -244,3 +246,5 @@ gui_loop() {
     glutMainLoop();
     return 0;
 }
+
+#endif // (T4_DO_OBJ && T4_DO_NN)

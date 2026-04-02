@@ -4,7 +4,7 @@
  *
  * <pre>Copyright (C) 2022- GreenII, this file is distributed under BSD 3-Clause License.</pre>
  */
-#ifndef T4_GUI_H
+#if (!defined(T4_GUI_H) && T4_DO_OBJ && T4_DO_NN)
 #define T4_GUI_H
 #include <GL/gl.h>
 #include <GL/glx.h>
@@ -84,4 +84,4 @@ namespace t4::vu {
 #undef GLFN
 } /// namespace t4::vu
 
-#endif // T4_GUI_H
+#endif // (!defined(T4_GUI_H) && T4_DO_OBJ && T4_DO_NN)
