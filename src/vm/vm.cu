@@ -8,7 +8,7 @@
 
 namespace t4::vm {
 
-__GPU__ 
+__HOST__ 
 VM::VM(int id, System &sys) 
     : id(id), state(STOP), sys(sys), mmu(*sys.mu) {
     ss.init(mmu.vmss(id), T4_SS_SZ);
@@ -27,12 +27,11 @@ VM::VM(int id, System &sys)
 ///    + number() and find() can run in parallel
 ///    - however, find() can run in serial only
 ///
-__GPU__ void
+__HOST__ void
 VM::outer() {
     char *idiom;
     while ((idiom = sys.fetch())!=0) {               /// * loop throught tib
         DEBUG("vm%d> idiom='%s' => ", id, idiom);
-
         if (pre(idiom)) continue;                    /// * pre process (filter)
         if (!process(idiom)) {
             sys.perr(idiom, "? ");                   /// * display error prompt

@@ -26,21 +26,21 @@ public:
     mu::Vector<DU, 0> ss;             ///< parameter stack (setup in ten4.cu)
     mu::Vector<DU, 0> rs;             ///< return stack
 
-    __GPU__  VM(int id, System &sys);
-    __GPU__  ~VM() { TRACE("%d ", id); }
+    __HOST__  VM(int id, System &sys);
+    __HOST__  ~VM() { TRACE("%d ", id); }
     
-    __GPU__  virtual void   init()   { TRACE("VM[%d]::init ok\n", id); }
-    __GPU__  virtual void   resume() {}
-    __GPU__  virtual void   outer();
+    __HOST__  virtual void   init()   { TRACE("VM[%d]::init ok\n", id); }
+    __HOST__  virtual void   resume() {}
+    __HOST__  virtual void   outer();
     
 protected:
     bool  compile = false;            ///< compiling flag
     ///
     /// inner interpreter handlers
     ///
-    __GPU__ virtual int pre(char *str)     { return 0; }
-    __GPU__ virtual int process(char *str) { return 0; }
-    __GPU__ virtual int post()             { return 0; }
+    __HOST__ virtual int pre(char *str)     { return 0; }
+    __HOST__ virtual int process(char *str) { return 0; }
+    __HOST__ virtual int post()             { return 0; }
     
 #if DO_MULTITASK    
     static MUTEX    tsk;              ///< mutex for tasker

@@ -55,10 +55,10 @@ namespace t4::vm {
 ///@{
 class ForthVM : public VM {
 public:
-    __GPU__ ForthVM(int id, System &sys);
+    __HOST__ ForthVM(int id, System &sys);
     
-    __GPU__ virtual void init();      ///< override VM
-    __GPU__ virtual void resume();    ///< resume suspended work
+    __HOST__ virtual void init();      ///< override VM
+    __HOST__ virtual void resume();    ///< resume suspended work
     
 protected:
     IU    ip     = 0;                 ///< instruction pointer
@@ -72,19 +72,19 @@ protected:
     ///
     /// Forth outer interpreter
     ///
-    __GPU__ virtual int process(char *idiom); ///< process command string
-    __GPU__ virtual int post();               ///< for tracing
+    __HOST__ virtual int process(char *idiom); ///< process command string
+    __HOST__ virtual int post();               ///< for tracing
     ///
     /// outer interpreter
     ///
-    __GPU__ IU parse(char *idiom);            ///< parse command string
-    __GPU__ DU number(char *idiom, char **p); ///< parse input as number
+    __HOST__ IU parse(char *idiom);            ///< parse command string
+    __HOST__ DU number(char *idiom, char **p); ///< parse input as number
     ///
     /// Forth inner interpreter
     ///
-    __GPU__ void nest();                      ///< inner interpreter
-    __GPU__ void call(IU w);                  ///< execute word by index
-    __GPU__ void syscall(                     ///< create host event
+    __HOST__ void nest();                      ///< inner interpreter
+    __HOST__ void call(IU w);                  ///< execute word by index
+    __HOST__ void syscall(                     ///< create host event
         OP op,                                ///< op (system  event)
         DU n=DU0, U8 m=0, int i=0,            ///< mode, tos, idx/len
         char *fname=NULL) {                   ///< filename (if file op)
@@ -95,41 +95,41 @@ protected:
     ///
     /// stack operator short hands
     ///
-    __GPU__ __INLINE__ IU   FIND(char *name) { return mmu.find(name);  }
-    __GPU__ __INLINE__ DU   POP()      { DU n=tos; tos=ss.pop(); return n; }
-    __GPU__ __INLINE__ DU   PUSH(DU v) { ss.push(tos); return tos = v;     }
+    __HOST__ __INLINE__ IU   FIND(char *name) { return mmu.find(name);  }
+    __HOST__ __INLINE__ DU   POP()      { DU n=tos; tos=ss.pop(); return n; }
+    __HOST__ __INLINE__ DU   PUSH(DU v) { ss.push(tos); return tos = v;     }
 #if T4_DO_OBJ    
-    __GPU__ __INLINE__ DU   DUP(DU d)  { return IS_OBJ(d) ? AS_VIEW(d) : d; }  ///< soft copy
-    __GPU__ __INLINE__ void DROP(DU d) { if (IS_OBJ(d) && !IS_VIEW(d)) mmu.drop(mmu.du2obj(d)); }
+    __HOST__ __INLINE__ DU   DUP(DU d)  { return IS_OBJ(d) ? AS_VIEW(d) : d; }  ///< soft copy
+    __HOST__ __INLINE__ void DROP(DU d) { if (IS_OBJ(d) && !IS_VIEW(d)) mmu.drop(mmu.du2obj(d)); }
 #else  // !T4_DO_OBJ
-    __GPU__ __INLINE__ DU   DUP(DU d)  { return d; }
-    __GPU__ __INLINE__ void DROP(DU d) {}
+    __HOST__ __INLINE__ DU   DUP(DU d)  { return d; }
+    __HOST__ __INLINE__ void DROP(DU d) {}
 #endif // T4_DO_OBJ
     ///
     /// Dictionary compiler proxy macros to reduce verbosity
     ///
-    __GPU__ __INLINE__ void add_iu(IU i)   { mmu.add((U8*)&i, sizeof(IU)); }
-    __GPU__ __INLINE__ void add_du(DU d)   { mmu.add((U8*)&d, sizeof(DU)); }
-    __GPU__ __INLINE__ void add_w(Param p) { add_iu(p.pack); }
-    __GPU__ void add_w(IU w) {                ///< compile a word index into pmem
+    __HOST__ __INLINE__ void add_iu(IU i)   { mmu.add((U8*)&i, sizeof(IU)); }
+    __HOST__ __INLINE__ void add_du(DU d)   { mmu.add((U8*)&d, sizeof(DU)); }
+    __HOST__ __INLINE__ void add_w(Param p) { add_iu(p.pack); }
+    __HOST__ void add_w(IU w) {                ///< compile a word index into pmem
         mu::Code &c = dict[w];
         IU       ix = c.udf ? c.pfa : mmu.XTOFF(c.xt);
         DEBUG(" add_w(%d) => ioff=%x %s\n", w, ix, c.name);
         Param p(MAX_OP, ix, c.udf);
         add_w(p);
     }
-    __GPU__ int  add_str(const char *s, bool adv=true) {
+    __HOST__ int  add_str(const char *s, bool adv=true) {
         int sz = STRLENB(s)+1;                ///< calculate string length
         sz = ALIGN(sz);                       /// * then adjust alignment (combine?)
         mmu.add((U8*)s, sz, adv);
         return sz;
     }
-    __GPU__ void add_p(                       ///< add primitive word
+    __HOST__ void add_p(                       ///< add primitive word
         prim_op op, IU ix=0, bool u=false, bool exit=false) {
         Param p(op, ix, u, exit);
         add_w(p);
     };
-    __GPU__ void add_lit(DU v, bool exit=false) {  ///< add a literal/varirable
+    __HOST__ void add_lit(DU v, bool exit=false) {  ///< add a literal/varirable
         add_p(LIT, 0, false, exit);
         add_du(v);                            /// * store in extended IU
     }
@@ -138,22 +138,22 @@ private:
     ///
     /// compiler helpers
     ///
-    __GPU__ int  _word();                     ///< check a new word
-    __GPU__ void _forget();                   ///< clear dictionary
-    __GPU__ void _quote(prim_op op);          ///< string helper
-    __GPU__ void _to_value();                 ///< update a constant/value
-    __GPU__ void _is_alias();                 ///< create alias function
+    __HOST__ int  _word();                     ///< check a new word
+    __HOST__ void _forget();                   ///< clear dictionary
+    __HOST__ void _quote(prim_op op);          ///< string helper
+    __HOST__ void _to_value();                 ///< update a constant/value
+    __HOST__ void _is_alias();                 ///< create alias function
     ///
     /// System IO helpers
     ///
-    __GPU__ void _ss_dump();                  ///< display current stack contents
-    __GPU__ void _print(io_op o, DU v=DU0);   ///< proxy to sys.dot
+    __HOST__ void _ss_dump();                  ///< display current stack contents
+    __HOST__ void _print(io_op o, DU v=DU0);   ///< proxy to sys.dot
     
 #if (T4_DO_OBJ && T4_DO_NN)    
     ///
     /// dataset looper
     ///
-    __GPU__ int  _ds_next(U32 ioff);          ///< dataset loop controller
+    __HOST__ int  _ds_next(U32 ioff);          ///< dataset loop controller
 #endif // (T4_DO_OBJ && T4_DO_NN)
 };
 ///@}

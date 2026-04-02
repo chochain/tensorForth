@@ -16,7 +16,7 @@ using mu::Code;
 using mu::Dataset;
 using nn::Model;
 
-__GPU__
+__HOST__
 ForthVM::ForthVM(int id, System &sys) : VM(id, sys) {
     dict = mmu.dict(0);
     base = id;                                 /// * pmem[id], 0..USER_AREA-1 reserved
@@ -26,7 +26,7 @@ ForthVM::ForthVM(int id, System &sys) : VM(id, sys) {
 ///
 /// resume suspended task
 ///
-__GPU__ void
+__HOST__ void
 ForthVM::resume() {
     DEBUG("VM[%d] resumed at ip=%x\n", id, ip);
     nest();                                    /// * will set state to VM_READY
@@ -44,7 +44,7 @@ ForthVM::resume() {
 ///    + number() and find() can run in parallel
 ///    - however, find() can run in serial only
 ///
-__GPU__ int
+__HOST__ int
 ForthVM::process(char *idiom) {
     state = QUERY;
     IU w = parse(idiom);                      /// * parse it as a word
@@ -60,7 +60,7 @@ ForthVM::process(char *idiom) {
     return 1;                                 /// * success
 }
 
-__GPU__ int
+__HOST__ int
 ForthVM::post() {
     DEBUG("vm%d> VM.state=%d\n", id, state);
     if (state!=HOLD && !compile) _ss_dump();
@@ -74,7 +74,7 @@ ForthVM::post() {
 #define OTHER(g)     default : { g; } break
 #define UNNEST()     (ip=D2I(rs.pop()))
 
-__GPU__ void
+__HOST__ void
 ForthVM::nest() {
     state = NEST;
     ///
@@ -135,7 +135,7 @@ ForthVM::nest() {
 ///
 ///> CALL - inner-interpreter proxy (inline macro does not run faster)
 ///
-__GPU__ __INLINE__ void ForthVM::call(IU w) {
+__HOST__ __INLINE__ void ForthVM::call(IU w) {
     using mu::FPTR;
     using mu::MSK_ATTR;
     
@@ -153,7 +153,7 @@ __GPU__ __INLINE__ void ForthVM::call(IU w) {
 ///
 /// dictionary initializer
 ///
-__GPU__ void
+__HOST__ void
 ForthVM::init() {
     if (id != 0) return;    /// * done once only
     VM::init();
@@ -431,7 +431,7 @@ ForthVM::init() {
 ///
 /// parse input idiom as a word
 ///
-__GPU__ IU
+__HOST__ IU
 ForthVM::parse(char *idiom) {
     IU w = FIND(idiom);                   /// * search through dictionary
     if (!w) {                             /// * input word not found
@@ -454,7 +454,7 @@ ForthVM::parse(char *idiom) {
 ///
 /// parse input idiom as a number
 ///
-__GPU__ DU
+__HOST__ DU
 ForthVM::number(char *idiom, char **p) {
     int b = *BASE;
     switch (*idiom) {                     ///> base override
@@ -482,7 +482,7 @@ ForthVM::number(char *idiom, char **p) {
 ///
 ///@name misc eForth functions (in Standard::Core section)
 ///@{
-__GPU__ int
+__HOST__ int
 ForthVM::_word() {                        ///< check input word
     char *name = sys.fetch();
     if (name[0]=='\0') {                  /// * missing name?
@@ -497,13 +497,13 @@ ForthVM::_word() {                        ///< check input word
     mmu.colon(name);                      /// * create a colon word
     return 1;                             /// * created OK
 }
-__GPU__ void
+__HOST__ void
 ForthVM::_forget() {
     IU w = FIND(sys.fetch()); if (!w) return; /// bail, if not found
     IU b = FIND((char*)"boot")+1;
     mmu.clear(w > b ? w : b);
 }
-__GPU__ void
+__HOST__ void
 ForthVM::_quote(prim_op op) {
     const char *s = sys.scan('"')+1;      ///> string skip first blank
     if (compile) {
@@ -521,7 +521,7 @@ ForthVM::_quote(prim_op op) {
         mmu.set_here(h0);                 ///> restore memory addr
     }
 }
-__GPU__ void
+__HOST__ void
 ForthVM::_to_value() {                    ///> update a constant/value
     IU w = state==QUERY ? FIND(sys.fetch()) : POPi;       ///< constant addr
     if (!w) return;
@@ -537,7 +537,7 @@ ForthVM::_to_value() {                    ///> update a constant/value
         }
     }
 }
-__GPU__ void
+__HOST__ void
 ForthVM::_is_alias() {                                    /// create alias function
     IU w = state==QUERY ? FIND(sys.fetch()) : POPi;       ///< word addr
     if (!w) return;
@@ -548,12 +548,12 @@ ForthVM::_is_alias() {                                    /// create alias funct
     else dict[POPi].xt = dict[w].xt;
 }
 
-__GPU__ void
+__HOST__ void
 ForthVM::_ss_dump() {
     sys.dots(id, tos, ss.idx, *BASE);
 }
 
-__GPU__ void
+__HOST__ void
 ForthVM::_print(io_op o, DU v) {
     sys.dot(o, v);
 #if T4_DO_OBJ
@@ -565,7 +565,7 @@ ForthVM::_print(io_op o, DU v) {
 }
         
 #if (T4_DO_OBJ && T4_DO_NN)
-__GPU__ int
+__HOST__ int
 ForthVM::_ds_next(U32 ioff) {
     T4Base &m = mmu.du2obj(tos);        ///< Network Model
     if (!m.is_model()) {
