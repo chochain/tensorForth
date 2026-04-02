@@ -15,14 +15,14 @@ namespace t4::mu {
 ///@name light-weight functor object implementation
 ///@brief functor object (80-byte allocated by CUDA)
 ///@{
-struct fop { __GPU__ virtual void operator()() = 0; };  ///< functor virtual class
+struct fop { __HOST__ virtual void operator()() = 0; }; ///< functor virtual class
 template<typename F>                                    ///< template functor class
 struct functor : fop {
     F op;                                               ///< reference to lambda
-    __GPU__ __INLINE__ functor(const F f) : op(f) {     ///< constructor
+    __HOST__ __INLINE__ functor(const F f) : op(f) {    ///< constructor
         DEBUG("code#fop:%p => ", this);
     }
-    __GPU__ __INLINE__ void operator()() { op(); }      ///< lambda invoke
+    __HOST__ __INLINE__ void operator()() { op(); }     ///< lambda invoke
 };
 typedef fop* FPTR;                ///< lambda function pointer
 ///@}
@@ -59,7 +59,7 @@ struct Code : public Managed {
     }
 */    
     template<typename F>          ///< template function for lambda
-    __GPU__ void set(const char *n, F &f, bool im) {
+    __HOST__ void set(const char *n, F &f, bool im) {
         name = n;
         xt   = new functor<F>(f);
         imm  = im ? 1 : 0;

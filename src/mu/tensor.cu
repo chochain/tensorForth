@@ -317,7 +317,7 @@ k_gemm(
 ///
 /// tensor-scalar addition O = A op n element-wise (Hadamard)
 ///
-__GPU__ Tensor&
+__HOST__ Tensor&
 Tensor::ten_op(math_op op, Tensor &A, DU v, Tensor &O) {
     U32 N = A.N(), H = A.H(), W = A.W(), C = A.C();
     _OP(MATH_OP);
@@ -328,7 +328,7 @@ Tensor::ten_op(math_op op, Tensor &A, DU v, Tensor &O) {
 ///
 /// tensor-tensor element-wise C = A op B where op=ADD|SUB|MUL|DIV (Hadamard)
 ///
-__GPU__ Tensor&
+__HOST__ Tensor&
 Tensor::ten_op(math_op op, Tensor &A, Tensor &B, Tensor &O) {
     U32 N = A.N(), H = A.H(), W = A.W(), C = A.C();
     _OP(MATH_OP);
@@ -336,7 +336,7 @@ Tensor::ten_op(math_op op, Tensor &A, Tensor &B, Tensor &O) {
     FORK1(k_tt_op, A.numel, op, A.data, B.data, O.data);
     return O;
 }
-__GPU__ Tensor&
+__HOST__ Tensor&
 Tensor::batchsum(Tensor &A, Tensor &O) {
     U32 N = A.N(), H = A.H(), W = A.W(), C = A.C();
     MM_DB("  tensor#batchsum A[%d,%d,%d,%d] => O[%d, %d]\n", N, H, W, C, N, C);
@@ -344,7 +344,7 @@ Tensor::batchsum(Tensor &A, Tensor &O) {
     FORK4(k_batchsum, A.data, O.data, (U64)H*W);
     return O;
 }
-__GPU__ Tensor&
+__HOST__ Tensor&
 Tensor::batchvar(Tensor &A, Tensor &G, Tensor &O) {
     U32 N = A.N(), H = A.H(), W = A.W(), C = A.C();
     U64 NHW = (U64)N*H*W;
@@ -359,7 +359,7 @@ Tensor::batchvar(Tensor &A, Tensor &G, Tensor &O) {
     }
     return O;
 }
-__GPU__ Tensor&
+__HOST__ Tensor&
 Tensor::mm(
     Tensor &A, Tensor &B, Tensor &O, t4_mm_opt opt) {
     U32 H  = opt & MM_A_TXP ? A.W() : A.H();
@@ -382,7 +382,7 @@ Tensor::mm(
 ///
 /// tensor GEMM C' = alpha * A x B + beta * C
 ///
-__GPU__ Tensor&
+__HOST__ Tensor&
 Tensor::gemm(Tensor &A, Tensor &B, Tensor &O, DU alpha, DU beta) {
     U32 H = A.H(), W = B.W(), Ka = A.W(), Kb = B.H();
     U32 N = B.N(), C = B.C();
@@ -399,13 +399,13 @@ Tensor::gemm(Tensor &A, Tensor &B, Tensor &O, DU alpha, DU beta) {
     }
     return O;
 }
-__GPU__ Tensor&
+__HOST__ Tensor&
 Tensor::copy(Tensor &A, Tensor &O) {
     MM_DB("  tensor#copy %p to %p numel=%ld\n", A.data, O.data, A.numel);
     FORK1(k_copy, A.numel, A.data, O.data);
     return O;
 }
-__GPU__ Tensor&
+__HOST__ Tensor&
 Tensor::transpose(Tensor &A, Tensor &T) {
     U32 N = A.N(), H = A.H(), W = A.W(), C = A.C();
     MM_DB("  tensor#transpose A[%d,%d,%d,%d]\n", N, H, W, C);
@@ -421,7 +421,7 @@ Tensor::transpose(Tensor &A, Tensor &T) {
 /// Note: Gauss-Jordan elimination is expensive O(N^3)
 /// TODO: CDP
 ///
-__GPU__ Tensor&
+__HOST__ Tensor&
 Tensor::inverse(Tensor &A, Tensor &I) {
     U32 m = A.H(), n = A.W();
     MM_DB("  tensor#inverse [%d,%d]\n", m, n);
@@ -476,7 +476,7 @@ Tensor::inverse(Tensor &A, Tensor &I) {
 /// Note: A stores both L and U in-place to save space
 /// TODO: CDP
 ///
-__GPU__ Tensor&
+__HOST__ Tensor&
 Tensor::lu(Tensor &A) {
     U32 m = A.H(), n = A.W();
     MM_DB("  tensor#lu [%d,%d]\n", m, n);
@@ -503,7 +503,7 @@ Tensor::lu(Tensor &A) {
 /// LU (preprocessed) matrix inversion
 /// TODO: CDP
 ///
-__GPU__ Tensor&
+__HOST__ Tensor&
 Tensor::lu_inverse(Tensor &LU) {
     U32 m = LU.H(), n = LU.W();
     MM_DB("  tensor#lu_inverse [%d,%d]\n", m, n);
@@ -543,7 +543,7 @@ Tensor::lu_inverse(Tensor &LU) {
 ///       P is permutation vector
 /// TODO: CDP
 ///
-__GPU__ Tensor&
+__HOST__ Tensor&
 Tensor::plu(Tensor &A, Tensor &P, int *ns) {
     U32 m = A.H(), n = A.W();
     MM_DB("  tensor#plu [%d,%d]\n", m, n);
@@ -597,7 +597,7 @@ Tensor::plu(Tensor &A, Tensor &P, int *ns) {
 ///=======================================================================
 /// tensor arithmetics
 ///
-__GPU__ DU
+__HOST__ DU
 Tensor::sum() {
     static DU z;                                    ///< shared static memory
     if (numel < T4_DIM_SZ) {                        /// * cheaper for small loop
@@ -609,12 +609,12 @@ Tensor::sum() {
     }
     return SCALAR(z);
 }
-__GPU__ DU
+__HOST__ DU
 Tensor::avg() {
     DU v = sum() / numel;
     return SCALAR(v);
 }
-__GPU__ DU
+__HOST__ DU
 Tensor::std() {
     static DU v;
     FORK1(k_nvar, numel, data, &v, avg());       /// * 8x straight loop
@@ -622,7 +622,7 @@ Tensor::std() {
     v = numel ? SQRT(v) : DU0;
     return SCALAR(v);
 }
-__GPU__ DU
+__HOST__ DU
 Tensor::norm() {
     static DU n;
     FORK1(k_nvar, numel, data, &n, DU0);
@@ -630,7 +630,7 @@ Tensor::norm() {
     DU v = numel ? SQRT(n) : DU0;
     return SCALAR(v);
 }
-__GPU__ DU
+__HOST__ DU
 Tensor::max() {
     DU v = data[0];
     for (U64 i=1; i < numel; i++) {              ///> TODO: CDP prefix sum
@@ -638,7 +638,7 @@ Tensor::max() {
     }
     return SCALAR(v);
 }
-__GPU__ DU
+__HOST__ DU
 Tensor::min() {
     DU v = data[0];
     for (U64 i=1; i < numel; i++) {              ///> TODO: CDP prefix sum
@@ -646,7 +646,7 @@ Tensor::min() {
     }
     return SCALAR(v);
 }
-__GPU__ DU
+__HOST__ DU
 Tensor::dot(Tensor &B) {
     DU  acc = DU0;
     if (rank == 1 && B.rank == 1 && numel == B.numel) {
@@ -657,7 +657,7 @@ Tensor::dot(Tensor &B) {
     else ERROR("A.dot(B) dim? %ld != %ld)\n", numel, B.numel);
     return SCALAR(acc);
 }
-__GPU__ DU
+__HOST__ DU
 Tensor::loss(t4_loss op, Tensor &tgt) {
 /*    
     auto check_bce = [this, &tgt]() {
@@ -693,7 +693,7 @@ Tensor::loss(t4_loss op, Tensor &tgt) {
     
     return SCALAR(z);                /// make sum a scalar value (not object)
 }
-__GPU__ U32
+__HOST__ U32
 Tensor::has_nan() {
     static int cnt;
     cnt = 0;
@@ -705,7 +705,7 @@ Tensor::has_nan() {
 ///=======================================================================
 /// matrix determinant
 ///
-__GPU__ DU
+__HOST__ DU
 Tensor::det() {
     U32 m = H(), n = W();
     MM_DB("  tensor#det [%d,%d]\n", m, n);
@@ -718,7 +718,7 @@ Tensor::det() {
 ///
 /// matrix upper triangle
 ///
-__GPU__ Tensor&
+__HOST__ Tensor&
 Tensor::triu() {
     U32 m = H(), n = W();
     MM_DB("  tensor#upper [%d,%d]\n", m, n);
@@ -733,7 +733,7 @@ Tensor::triu() {
 ///
 /// matrix lower triangle with diag filled with 1
 ///
-__GPU__ Tensor&
+__HOST__ Tensor&
 Tensor::tril() {
     U32 m = H(), n = W();
     MM_DB("  tensor#lower [%d,%d]\n", m, n);
@@ -940,7 +940,7 @@ Tensor::_view(DU *v, U32 H, U32 W, U32 C, DU mean, DU scale) {
     delete csum;
 }
 
-__GPU__ void
+__HOST__ void
 Tensor::show(bool dump) {
     const U32 N  = this->N(), H = this->H(), W = this->W(), C = this->C();
     const U64 hw = (U64)H * W;
