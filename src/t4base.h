@@ -59,7 +59,7 @@ struct T4Base : public Managed {
         if (!data) return;
         MM_FREE((void*)data);
     }
-    __BOTH__ __INLINE__ void init(U64 n, U8 tt, U8 rnk) {
+    __HOST__ __INLINE__ void init(U64 n, U8 tt, U8 rnk) {
         numel = n;
         ttype = tt;
         rank  = rnk;
@@ -70,13 +70,13 @@ struct T4Base : public Managed {
         xparm = DU0;
         data  = NULL;
     }
-    __BOTH__ __INLINE__ DU   &operator[](int i) { return data[i]; }
-    __BOTH__ __INLINE__ int  ref_inc() {
+    __HOST__ __INLINE__ DU   &operator[](int i) { return data[i]; }
+    __HOST__ __INLINE__ int  ref_inc() {
         int r = ++nref;                     /// TODO: atomicAdd
 //        printf("nref=%d\n", r);
         return r;
     }
-    __BOTH__ __INLINE__ int  ref_dec() {
+    __HOST__ __INLINE__ int  ref_dec() {
         if (nref > 1) {
             int r = --nref;                 /// TODO: atomicSub
 //            printf("nref=%d\n", r);
@@ -84,9 +84,9 @@ struct T4Base : public Managed {
         }
         return 0;
     }
-    __BOTH__ __INLINE__ bool is_tensor()  { return ttype == T4_TENSOR;  }
-    __BOTH__ __INLINE__ bool is_model()   { return ttype == T4_MODEL;   }
-    __BOTH__ __INLINE__ bool is_dataset() { return ttype == T4_DATASET; }
+    __HOST__ __INLINE__ bool is_tensor()  { return ttype == T4_TENSOR;  }
+    __HOST__ __INLINE__ bool is_model()   { return ttype == T4_MODEL;   }
+    __HOST__ __INLINE__ bool is_dataset() { return ttype == T4_DATASET; }
 };
 
 } // namespace t4
