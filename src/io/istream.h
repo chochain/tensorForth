@@ -20,7 +20,7 @@ class Istream : public Managed {
     ///
     ///> process a token (separated by delimiter)
     ///
-    __GPU__ int _tok(char delim) {
+    __HOST__ int _tok(char delim) {
         char *p = &_buf[_idx];  ///< pointer to indexed buffer
         while (delim==' ' && (*p==' ' || *p=='\t')) (p++, _idx++); /// skip leading blanks and tabs
         int nidx=_idx;
@@ -34,8 +34,8 @@ public:
     ///
     /// intialize by a given string
     ///
-    __BOTH__ char     *rdbuf() { return _buf; }
-    __BOTH__ Istream& clear()  {
+    __HOST__ char     *rdbuf() { return _buf; }
+    __HOST__ Istream& clear()  {
         //LOCK;
         _idx = _gn = 0;
         //UNLOCK;
@@ -54,7 +54,7 @@ public:
     ///
     /// parser
     ///
-    __GPU__ Istream& get_idiom(char *s, char delim=' ') {
+    __HOST__ Istream& get_idiom(char *s, char delim=' ') {
         int nidx = _tok(delim);             /// index to next token
 
         if (nidx > 0) {                     /// token found
@@ -69,11 +69,11 @@ public:
         }
         return *this;
     }
-    __GPU__ Istream& getline(char *s, int sz, char delim='\n') {
+    __HOST__ Istream& getline(char *s, int sz, char delim='\n') {
         return get_idiom(s, delim);
     }
-    __GPU__ int  operator>>(char *s) { get_idiom(s); return _gn; }
-    __GPU__ char operator>>(char &c) { return (*(&c) = _buf[_idx++]); }
+    __HOST__ int  operator>>(char *s) { get_idiom(s); return _gn; }
+    __HOST__ char operator>>(char &c) { return (*(&c) = _buf[_idx++]); }
 };
 
 } // namespace t4::io

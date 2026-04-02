@@ -23,14 +23,14 @@ typedef struct {
 ///
 ///> implement kernel iomanip classes
 ///
-struct _setbase { U8  base;  __GPU__ _setbase(U8 b) : base(b)  {}};
-struct _setw    { U8  width; __GPU__ _setw(U8 w)    : width(w) {}};
-struct _setfill { U8  fill;  __GPU__ _setfill(U8 f) : fill(f)  {}};
-struct _setprec { U8  prec;  __GPU__ _setprec(U8 p) : prec(p)  {}};
-__GPU__ __INLINE__ _setbase setbase(int b)  { return _setbase((U8)b); }
-__GPU__ __INLINE__ _setw    setw(int w)     { return _setw((U8)w);    }
-__GPU__ __INLINE__ _setfill setfill(char f) { return _setfill((U8)f); }
-__GPU__ __INLINE__ _setprec setprec(int p)  { return _setprec((U8)p); }
+struct _setbase { U8  base;  __HOST__ _setbase(U8 b) : base(b)  {}};
+struct _setw    { U8  width; __HOST__ _setw(U8 w)    : width(w) {}};
+struct _setfill { U8  fill;  __HOST__ _setfill(U8 f) : fill(f)  {}};
+struct _setprec { U8  prec;  __HOST__ _setprec(U8 p) : prec(p)  {}};
+__HOST__ __INLINE__ _setbase setbase(int b)  { return _setbase((U8)b); }
+__HOST__ __INLINE__ _setw    setw(int w)     { return _setw((U8)w);    }
+__HOST__ __INLINE__ _setfill setfill(char f) { return _setfill((U8)f); }
+__HOST__ __INLINE__ _setprec setprec(int p)  { return _setprec((U8)p); }
 ///
 ///> Forth parameterized manipulators
 ///
@@ -40,14 +40,14 @@ struct _opx {
     U32 i  : 20;  ///> max 16K
     DU  n;        ///> F32
     
-    __GPU__ _opx(OP op0, DU n0, U8 m0, int i0=0) : n(n0) {
+    __HOST__ _opx(OP op0, DU n0, U8 m0, int i0=0) : n(n0) {
         op = op0; m = m0; i = i0;
     }
 };
 ///
 ///> Kernel-Host parameter constructor
 ///
-__GPU__ __INLINE__ _opx opx(OP op, DU n=DU0, U8 m=0, int i=0) {
+__HOST__ __INLINE__ _opx opx(OP op, DU n=DU0, U8 m=0, int i=0) {
     return _opx(op, n, m, i);
 }
 ///
@@ -59,7 +59,7 @@ class Ostream : public Managed {
     obuf_fmt _fmt = { 10, 0, 0, ' '};
     char    *_buf;
 
-__GPU__ __INLINE__ void _debug(GT gt, U8 *vp, U32 sz) {
+__HOST__ __INLINE__ void _debug(GT gt, U8 *vp, U32 sz) {
 #if T4_VERBOSE > 1
         printf("  ostr#_debug(gt=%x,sz=%d) obuf[%d] << ", gt, sz, _idx);
         if (!sz) return;
@@ -89,8 +89,8 @@ __GPU__ __INLINE__ void _debug(GT gt, U8 *vp, U32 sz) {
         printf("\n");
 #endif // T4_VERBOSE > 1
     }
-    __GPU__  void _write(GT gt, U8 *vp, U32 sz) {
-        if (threadIdx.x!=0) return;               /// only thread 0 within a block can write
+    __HOST__  void _write(GT gt, U8 *vp, U32 sz) {
+//        if (threadIdx.x!=0) return;               /// only thread 0 within a block can write
 
         //_LOCK;
         io_event *e = (io_event*)&_buf[_idx];     /// allocate next node
@@ -108,7 +108,7 @@ __GPU__ __INLINE__ void _debug(GT gt, U8 *vp, U32 sz) {
         _buf[(_idx += inc)] = (char)GT_EMPTY;     /// advance index and mark end of stream
         //_UNLOCK;
     }
-    __GPU__ Ostream& _wfmt() { _write(GT_FMT, (U8*)&_fmt, sizeof(obuf_fmt)); return *this; }
+    __HOST__ Ostream& _wfmt() { _write(GT_FMT, (U8*)&_fmt, sizeof(obuf_fmt)); return *this; }
 
 public:
     Ostream(U32 sz=T4_OBUF_SZ) { MM_ALLOC(&_buf, _max=sz);  }
@@ -127,42 +127,42 @@ public:
     ///
     /// iomanip control
     ///
-    __GPU__ Ostream& operator<<(_setbase b) { _fmt.base  = b.base;  return _wfmt(); }
-    __GPU__ Ostream& operator<<(_setw    w) { _fmt.width = w.width; return _wfmt(); }
-    __GPU__ Ostream& operator<<(_setprec p) { _fmt.prec  = p.prec;  return _wfmt(); }
-    __GPU__ Ostream& operator<<(_setfill f) { _fmt.fill  = f.fill;  return _wfmt(); }
+    __HOST__ Ostream& operator<<(_setbase b) { _fmt.base  = b.base;  return _wfmt(); }
+    __HOST__ Ostream& operator<<(_setw    w) { _fmt.width = w.width; return _wfmt(); }
+    __HOST__ Ostream& operator<<(_setprec p) { _fmt.prec  = p.prec;  return _wfmt(); }
+    __HOST__ Ostream& operator<<(_setfill f) { _fmt.fill  = f.fill;  return _wfmt(); }
     ///
     /// object input
     ///
-    __GPU__ Ostream& operator<<(char c) {
-        char buf[2] = { c, '\0' };
+    __HOST__ Ostream& operator<<(char c) {
+        char buf[4] = { c, '\0', '\0', '\0' };
         DEBUG("  ostr#_write('%c')\n", c);
-        _write(GT_STR, (U8*)buf, 2);
+        _write(GT_STR, (U8*)buf, 4);
         return *this;
     }
-    __GPU__ Ostream& operator<<(S32 i) {
+    __HOST__ Ostream& operator<<(S32 i) {
         DEBUG("  ostr#_write(S32) %d\n", i);
         _write(GT_INT, (U8*)&i, sizeof(S32));
         return *this;
     }
-    __GPU__ Ostream& operator<<(U32 i) {
+    __HOST__ Ostream& operator<<(U32 i) {
         DEBUG("  ostr#_write(U32) %d\n", i);
         _write(GT_U32, (U8*)&i, sizeof(U32));
         return *this;
     }
-    __GPU__ Ostream& operator<<(DU d) {
+    __HOST__ Ostream& operator<<(DU d) {
         GT t = IS_OBJ(d) ? GT_OBJ : GT_FLOAT;
         DEBUG("  ostr#_write(DU) %d, %g\n", t, d);
         _write(t, (U8*)&d, sizeof(DU));
         return *this;
     }
-    __GPU__ Ostream& operator<<(const char *s) {
+    __HOST__ Ostream& operator<<(const char *s) {
         DEBUG("  ostr#_write(\"%s\")\n", s);
         int len = STRLENB(s)+1;
         _write(GT_STR, (U8*)s, len);
         return *this;
     }
-    __GPU__ Ostream& operator<<(_opx o) {
+    __HOST__ Ostream& operator<<(_opx o) {
         DEBUG("  ostr#_write(_opx)\n");
         _write(GT_OPX, (U8*)&o, sizeof(o));
         return *this;
