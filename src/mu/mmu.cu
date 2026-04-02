@@ -16,8 +16,8 @@ using nn::Model;
 ///@note: CUDA does not support device static data
 ///@{
 MMU *_mmu = NULL;              ///< singleton MMU controler
-__GPU__  UFP _XT0;
-__GPU__  UFP _NM0;
+UFP _XT0;
+UFP _NM0;
 ///@}
 ///
 /// Forth Virtual Machine operational macros to reduce verbosity
@@ -69,13 +69,13 @@ MMU::free_mmu() {
 ///
 /// static functions (for type conversion)
 ///
-__GPU__  FPTR MMU::XT(IU ioff)      { return (FPTR)(_XT0 + ioff);  }
-__GPU__  IU   MMU::XTOFF(FPTR xt)   { return (IU)((UFP)xt - _XT0); }
+__HOST__  FPTR MMU::XT(IU ioff)      { return (FPTR)(_XT0 + ioff);  }
+__HOST__  IU   MMU::XTOFF(FPTR xt)   { return (IU)((UFP)xt - _XT0); }
 ///
 /// dictionary management methods
 /// TODO: use const Code[] directly, as ROM, to prevent deep copy
 ///
-__GPU__ void
+__HOST__ void
 MMU::dict_validate() {
     UFP  x0 = ~0;                           ///< base of xt   allocations
     UFP  n0 = ~0;
@@ -89,7 +89,7 @@ MMU::dict_validate() {
     _dict[0].xt = (FPTR)x0;                 /// * borrow for xt0
 }
 
-__GPU__ IU
+__HOST__ IU
 MMU::find(const char *s) {
     IU v = 0;
     DEBUG("mmu.find(%s) => ", s);
@@ -99,7 +99,7 @@ MMU::find(const char *s) {
     return v;
 }
 
-__GPU__ void
+__HOST__ void
 MMU::status() {
     INFO("\\ MMU.stat dict[%d/%d], pmem[%d]=%0.1f%%, tfree[%d/%d]\n",
         _didx, T4_DICT_SZ, _midx, 100.0*(_midx/T4_PMEM_SZ), _fidx, T4_TFREE_SZ);
@@ -111,7 +111,7 @@ MMU::status() {
 #endif // T4_DO_OBJ
 }
 
-__GPU__ void
+__HOST__ void
 MMU::dict_dump() {
     Code *c = _dict;
     INFO("Built-in Dictionary [name0=0x%lx, xt0=0x%lx]\n", _NM0, _XT0);
@@ -125,7 +125,7 @@ MMU::dict_dump() {
 ///
 /// colon - dictionary word compiler
 ///
-__GPU__ void
+__HOST__ void
 MMU::colon(const char *name) {
     MM_DB("colon(%s) => ", name);
     int  nsz = ALIGN(STRLENB(name) + 1);    /// aligned string length
@@ -143,7 +143,7 @@ MMU::colon(const char *name) {
 ///
 #if T4_DO_OBJ // vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
 #if T4_DO_NN
-__GPU__ Dataset&                   ///< create a Dataset holder
+__HOST__ Dataset&                   ///< create a Dataset holder
 MMU::dataset(U32 batch_sz) {       /// * Note: data block is not allocated yet
     MM_DB("mmu#dataset batch_sz=%d {", batch_sz);
     Dataset *ds = (Dataset*)_ostore.malloc(sizeof(Dataset));
@@ -154,7 +154,7 @@ MMU::dataset(U32 batch_sz) {       /// * Note: data block is not allocated yet
     return *ds;
 }
 
-__GPU__ Model&                     ///< create a NN model with NHWC input
+__HOST__ Model&                     ///< create a NN model with NHWC input
 MMU::model(int &trace, U32 sz) {
     MM_DB("mmu#model layers=%d {\n", sz);
     Model  *m = (Model*)_ostore.malloc(sizeof(Model));
@@ -164,7 +164,7 @@ MMU::model(int &trace, U32 sz) {
     return *m;
 }
 
-__GPU__ void                       ///< release tensor memory blocks
+__HOST__ void                       ///< release tensor memory blocks
 MMU::free(Model &m) {
     int n = m.numel;
     MM_DB("mmu#free(N%d) N:%x {\n", n, OBJ2X(m));
@@ -176,7 +176,7 @@ MMU::free(Model &m) {
 }
 #endif // T4_DO_NN
 
-__GPU__ void                      ///< release marked free tensor
+__HOST__ void                      ///< release marked free tensor
 MMU::sweep() {
 //    lock();                     /// * dead locked now
     for (int i = 0, n=_fidx; n && i < n; i++) {
@@ -187,7 +187,7 @@ MMU::sweep() {
     _fidx = 0;
 //    unlock();
 }
-__GPU__ void
+__HOST__ void
 MMU::drop(T4Base &t) {
 #if T4_DO_NN
     if (t.is_model())  { free((Model&)t); return;  }   /// release TLSF memory block
@@ -195,7 +195,7 @@ MMU::drop(T4Base &t) {
     free((Tensor&)t);                                  /// check reference count
 }
 
-__GPU__ void
+__HOST__ void
 MMU::mark_free(DU v) {            ///< mark a tensor free for release
     if (IS_VIEW(v)) return;
     T4Base &t = du2obj(v);
@@ -206,7 +206,7 @@ MMU::mark_free(DU v) {            ///< mark a tensor free for release
 //    unlock();
 }
 
-__GPU__ Tensor&                    ///< allocate a tensor from tensor space
+__HOST__ Tensor&                    ///< allocate a tensor from tensor space
 MMU::talloc(U64 sz) {
     MM_DB("mmu#talloc(%lx) {\n", sz);
     Tensor &t = *(Tensor*)_ostore.malloc(sizeof(Tensor));
@@ -216,12 +216,12 @@ MMU::talloc(U64 sz) {
     t.reset(d, sz);
     return t;
 }
-__GPU__ Tensor&                    ///< create a one-dimensional tensor
+__HOST__ Tensor&                    ///< create a one-dimensional tensor
 MMU::tensor(U64 sz) {
     MM_DB("mmu#tensor(%ld) numel=%ld ", sz, sz);
     return talloc(sz);
 }
-__GPU__ Tensor&                    ///< create a 2-dimensional tensor
+__HOST__ Tensor&                    ///< create a 2-dimensional tensor
 MMU::tensor(U32 h, U32 w) {
     U64 sz = (U64)h * w;
     MM_DB("mmu#tensor(%d,%d) numel=%ld ", h, w, sz);
@@ -229,7 +229,7 @@ MMU::tensor(U32 h, U32 w) {
     t.reshape(h, w);
     return t;
 }
-__GPU__ Tensor&                    ///< create a NHWC tensor
+__HOST__ Tensor&                    ///< create a NHWC tensor
 MMU::tensor(U32 n, U32 h, U32 w, U32 c) {
     U64 sz = (U64)n * h * w * c;
     MM_DB("mmu#tensor(%d,%d,%d,%d) numel=%ld ", n, h, w, c, sz);
@@ -237,7 +237,7 @@ MMU::tensor(U32 n, U32 h, U32 w, U32 c) {
     t.reshape(n, h, w, c);
     return t;
 }
-__GPU__ void
+__HOST__ void
 MMU::resize(Tensor &t, U64 sz) {
     if (t.rank != 1) { ERROR("mmu#resize rank==1 only\n"); return; }
     MM_DB("mmu#resize numel=%ld (was %ld) ", sz, t.numel);
@@ -252,7 +252,7 @@ MMU::resize(Tensor &t, U64 sz) {
     _ostore.free(d0);            /// * release 
     _ostore.status();
 }
-__GPU__ void                     ///< release tensor memory blocks
+__HOST__ void                     ///< release tensor memory blocks
 MMU::free(Tensor &t) {
     int n = t.rank;
     MM_DB("mmu#free(T%d) numel=%ld T:%x {\n", n, t.numel, OBJ2X(t));
@@ -276,7 +276,7 @@ MMU::free(Tensor &t) {
 /// deep copy a tensor
 /// TODO: CDP
 ///
-__GPU__ Tensor&
+__HOST__ Tensor&
 MMU::copy(Tensor &t0) {
     if (!t0.is_tensor()) return t0;    ///> skip, TODO: copy model
 
@@ -303,7 +303,7 @@ MMU::copy(Tensor &t0) {
 /// tensor slice & dice
 /// TODO: CDP
 ///
-__GPU__ Tensor&
+__HOST__ Tensor&
 MMU::slice(Tensor &t0, U32 x0, U32 x1, U32 y0, U32 y1) {
     if (t0.rank < 2) { ERROR("dim?"); return t0; }
     if (x1 == (U32)-1) x1 = t0.W();
@@ -327,7 +327,7 @@ MMU::slice(Tensor &t0, U32 x0, U32 x1, U32 y0, U32 y1) {
           t0.rank, x0, x1, y0, y1, t0.numel);
     return t1;
 }
-__GPU__ Tensor&
+__HOST__ Tensor&
 MMU::dim(Tensor &t0) {
     const int map[] = { 3, 0, 1, 2 };              /// HWCN => NHWC
     Tensor &t = tensor(4);
