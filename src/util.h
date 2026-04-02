@@ -142,6 +142,7 @@ __KERN__ void        k_bce(float *O, float *T, long n);
 __KERN__ void        k_nan_inf(float *src, int *n, long numel);
 __KERN__ void        k_dummy();
 ///@}
+#if defined(__CUDA_ARCH__)
 ///==========================================================================
 ///@name Unified memory ops
 ///@{
@@ -170,7 +171,7 @@ __KERN__ void        k_dummy();
 #define STRTOF(s,p)     d_strtof((const char*)(s), (char**)(p))
 #define HASH(s)         d_hash((const char*)(s))
 ///@}
-#else  // !defined(__CUDACC__)
+#else  // !defined(__CUDA_ARCH__)
 #include <stdio.h>
 ///
 ///@name Unified memory ops
@@ -200,6 +201,7 @@ __KERN__ void        k_dummy();
 #define STRTOF(s,p)     strtof(s,p)
 #define HASH(s)         calc_hash(s)
 ///@}
+#endif // defined(__CUDA_ARCH__)    
 #endif // defined(__CUDACC__)
 
 #ifdef __cplusplus
