@@ -55,6 +55,7 @@ typedef enum {
 
 #define MATH_OP "abs","neg","exp","ln","log","tanh","relu","sigmoid","sqrt","rcp","sat","iden","fill","gfill","scale","pow","+","-","*","/","mod","max","min","mul2","mod2"
 
+#if __CUDA_ARCH__
 #define ABS(d)       (fabsf(d))                 /**< absolute value         */
 #define NEG(d)       (-d)                       /**< negate                 */
 #define EXP(d)       (__expf(d))                /**< exponential(float)     */
@@ -68,7 +69,7 @@ typedef enum {
 #define SAT(d)       (__saturatef(d))           /**< clamp into [0.0..1.0]  */
 #define POW(d,e)     (__powf(d,e))              /**< power d^(e)            */
 #define ADD(x,y)     (__fadd_rn(x,y))           /**< addition               */
-#define SUB(x,y)     (__fsub_rn(x,y))           /**< addition               */
+#define SUB(x,y)     (__fsub_rn(x,y))           /**< subtraction            */
 #define MUL(x,y)     (__fmul_rn(x,y))           /**< multiplication         */
 #define DIV(x,y)     (__fdiv_rn(x,y))           /**< division               */
 #define MOD(t,n)     (fmodf(t,n))               /**< fmod two floats        */
@@ -76,6 +77,30 @@ typedef enum {
 #define MIN(x,y)     (fmin(x,y))                /**< minimum of the two     */
 #define MUL2(x2,y2)  (__dmul_rn(x2,y2))         /**< double precision mul   */
 #define MOD2(x2,y2)  (fmod(x2,y2))              /**< double precision mod   */
+#else // !__CUDA_ARCH__
+#include <cmath>
+#define ABS(d)       (fabs(d))                  /**< absolute value         */
+#define NEG(d)       (-d)                       /**< negate                 */
+#define EXP(d)       (expf(d))                  /**< exponential(float)     */
+#define LN(d)        (logf(d))                  /**< natural logrithm       */
+#define LOG(d)       (log10f(d))                /**< log10                  */
+#define TANH(d)      (atanhf(d))                /**< tanh(float)            */
+#define RELU(d)      (MAX(0.0, d))              /**< relu(float)            */
+#define SIGMOID(d)   (RCP(1.0+EXP(-(d))))       /**< sigmoid(float)         */
+#define SQRT(d)      (sqrtf(d))                 /**< square root            */
+#define RCP(x)       (1.0f/(x))                 /**< reciprocol 1/x         */
+#define SAT(d)       (MIN(1.0f, MAX(0.0f,(d)))) /**< clamp into [0.0..1.0]  */
+#define POW(d,e)     (powf(d,e))                /**< power d^(e)            */
+#define ADD(x,y)     ((x)+(y))                  /**< addition               */
+#define SUB(x,y)     ((x)-(y))                  /**< subtraction            */
+#define MUL(x,y)     ((x)*(y))                  /**< multiplication         */
+#define DIV(x,y)     ((x)/(y))                  /**< division               */
+#define MOD(t,n)     (fmodf(t,n))               /**< fmod two floats        */
+#define MAX(x,y)     (fmaxf(x,y))               /**< maximum of the two     */
+#define MIN(x,y)     (fminf(x,y))               /**< minimum of the two     */
+#define MUL2(x2,y2)  ((DU2)x2*y2)               /**< double precision mul   */
+#define MOD2(x2,y2)  (fmod(x2,y2))              /**< double precision mod   */
+#endif // __CUDA_ARCH__
 ///@}
 #define __HOST__     __host__
 #define __KERN__     __global__
