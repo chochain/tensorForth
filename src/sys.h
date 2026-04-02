@@ -39,9 +39,9 @@ public:
     ///
     /// static System timing interfaces
     ///
-    static __GPU__ DU   ms();
-    static __GPU__ void delay(int ticks);
-    static __GPU__ void rand(DU *d, U64 sz, rand_opt n, DU bias=DU0, DU scale=DU1);
+    static __BOTH__ DU   ms();
+    static __HOST__ void delay(int ticks);
+    static __GPU__  void rand(DU *d, U64 sz, rand_opt n, DU bias=DU0, DU scale=DU1);
     ///
     /// System functions
     ///
@@ -51,41 +51,41 @@ public:
     ///
     /// debuging controls
     ///
-    __BOTH__ __INLINE__ int  &trace()       { return _trace; }
-    __BOTH__ __INLINE__ void trace(int lvl) { _trace = lvl;  }
+    __HOST__ __INLINE__ int  &trace()       { return _trace; }
+    __HOST__ __INLINE__ void trace(int lvl) { _trace = lvl;  }
     
     ///==============================================================================
     /// Device methods
-    __GPU__  DU   rand(DU d, rand_opt n);                 ///< randomize a tensor
+    __HOST__  DU   rand(DU d, rand_opt n);                 ///< randomize a tensor
     ///
     ///> System functions
     ///
-    __GPU__  void op(OP op, DU n=DU0, U8 m=0, int i=0) {  ///< print operator
+    __HOST__  void op(OP op, DU n=DU0, U8 m=0, int i=0) {  ///< print operator
         *_ostr << io::opx(op, n, m, i);
     }
-    __GPU__  void op_fn(char *fname) { *_ostr << fname; } ///< print filename
+    __HOST__  void op_fn(char *fname) { *_ostr << fname; } ///< print filename
     ///
     /// input stream handler
     ///
-    __GPU__  char key() {                                 ///< read key from console
+    __HOST__  char key() {                                 ///< read key from console
         char c; *_istr >> c; return c;
     }
-    __GPU__  char *scan(char delim)  {
+    __HOST__  char *scan(char delim)  {
         _istr->get_idiom(_pad, delim); return _pad;       ///< scan input stream for a given char
     }
-    __GPU__  char *fetch() {                              ///< fetch next idiom
+    __HOST__  char *fetch() {                              ///< fetch next idiom
         return (*_istr >> _pad) ? _pad : NULL;
     }
-    __GPU__  void clrbuf() { _istr->clear(); }
+    __HOST__  void clrbuf() { _istr->clear(); }
     ///
     /// output methods
     ///
-    __GPU__  void spaces(int n) {                         ///< show spaces
+    __HOST__  void spaces(int n) {                         ///< show spaces
         for (int i = 0; i < n; i++) _pad[i] = ' ';
         _pad[n] = '\0';
         *_ostr << _pad;
     }
-    __GPU__  void dot(io_op o, DU v=DU0) {                ///< print literals
+    __HOST__  void dot(io_op o, DU v=DU0) {                ///< print literals
         switch (o) {
         case CR:    *_ostr << ENDL;                             break;
         case RDX:   *_ostr << io::setbase(INT(v));              break;
@@ -96,18 +96,18 @@ public:
         default:    *_ostr << "unknown op=" << o; op(OP_FLUSH); break;
         }
     }
-    __GPU__ void dotr(int w, DU v, int b, bool u=false) {
+    __HOST__ void dotr(int w, DU v, int b, bool u=false) {
         *_ostr << io::setbase(b) << io::setw(w)
                << (u ? static_cast<U32>(v) : v);
     }
-    __GPU__ void dots(int id, DU tos, int ss_idx, int base) {
+    __HOST__ void dots(int id, DU tos, int ss_idx, int base) {
         *_ostr << io::opx(OP_SS, tos, base, (id << 10) | ss_idx);
     }
-    __GPU__  void pstr(const char *str, io_op o=SPCS) {  ///< print string
+    __HOST__  void pstr(const char *str, io_op o=SPCS) {  ///< print string
         *_ostr << str;
         if (o==CR) *_ostr << ENDL;
     }
-    __GPU__  void perr(const char *str, const char *msg) {
+    __HOST__  void perr(const char *str, const char *msg) {
         *_ostr << str << msg << ENDL; op(OP_FLUSH);
     }
 };
