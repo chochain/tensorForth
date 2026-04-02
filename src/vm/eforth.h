@@ -45,7 +45,7 @@ namespace t4::vm {
 ///@note - a lambda without capture can degenerate into a function pointer
 ///@{
 #define ADD_CODE(n, g, im) {           \
-    auto f = [this] __GPU__ (){ g; };  \
+    auto f = [this] __HOST__ (){ g; }; \
     mmu.add_word(n, f, im);            \
 }
 #define CODE(n, g) ADD_CODE(n, g, false)
