@@ -56,16 +56,14 @@ namespace t4 {
 typedef cudaStream_t        STREAM;
 typedef cudaEvent_t         EVENT;
 
-#define MUTEX_LOCK(p)       while (atomicCAS((int *)&p, 0, 1)!=0)
-#define MUTEX_FREE(p)       atomicExch((int *)&p, 0)
+//#define MUTEX_LOCK(p)       while (atomicCAS((int *)&p, 0, 1)!=0)
+//#define MUTEX_FREE(p)       atomicExch((int *)&p, 0)
+#define MUTEX_LOCK(p)
+#define MUTEX_FREE(p)
 
 #define ASSERT(X) \
-    if (!(X)) ERROR("ASSERT tid %d: line %d in %s\n", threadIdx.x, __LINE__, __FILE__);
-#if CUDA11
+    if (!(X)) ERROR("ASSERT: line %d in %s\n", __LINE__, __FILE__);
 #define GPU_SYNC()          cudaDeviceSynchronize()
-#else // CUDA11
-#define GPU_SYNC()          (k_dummy<<<1,1,0,cudaStreamTailLaunch>>>(),cudaSuccess)
-#endif // CUDA11
 #define GPU_ERR(c) {             \
     cudaError_t code = (c);      \
     if (code != cudaSuccess) {   \
@@ -73,8 +71,11 @@ typedef cudaEvent_t         EVENT;
         cudaDeviceReset();       \
     }}
 #define GPU_CHK()          GPU_ERR(cudaDeviceSynchronize())
-#define MM_ALLOC(...)      GPU_ERR(cudaMallocManaged(__VA_ARGS__))
-#define MM_FREE(m)         GPU_ERR(cudaFree(m))
+//#define MM_ALLOC(...)      GPU_ERR(cudaMallocManaged(__VA_ARGS__))
+//#define MM_FREE(m)         GPU_ERR(cudaFree(m))
+#define MM_ALLOC(p,...)    *((void**)(p)) = malloc(__VA_ARGS__)
+#define MM_FREE(m)         free(m)
+
 
 namespace cg = cooperative_groups;
 #define K_RUN(...)         GPU_ERR(cudaLaunchCooperativeKernel(__VA_ARGS__))
@@ -162,7 +163,8 @@ typedef F64         DU2;                    /**< double preciesion data */
 #define INT(f)      (static_cast<S32>(f))            /**< floor integer -1.99=>-1, -2.01=>-2 */
 #define UINT(f)     (static_cast<U32>(f))            /**< unsigned int -1.99=>1, 2.01=>2,    */
 #define I2D(i)      (static_cast<DU>(i))             /**< expand int to float                */
-#define D2I(f)      (__float2int_rn(f))              /**< nearest-even int 1.99=>2, 2.01=>2  */
+//#define D2I(f)      (__float2int_rn(f))              /**< nearest-even int 1.99=>2, 2.01=>2  */
+#define D2I(f)      (static_cast<S32>(f))
 ///
 /// object classification macros
 ///
