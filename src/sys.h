@@ -39,9 +39,9 @@ public:
     ///
     /// static System timing interfaces
     ///
-    static __BOTH__ DU   ms();
+    static __HOST__ DU   ms();
     static __HOST__ void delay(int ticks);
-    static __GPU__  void rand(DU *d, U64 sz, rand_opt n, DU bias=DU0, DU scale=DU1);
+    static __HOST__ void rand(DU *d, U64 sz, rand_opt n, DU bias=DU0, DU scale=DU1);
     ///
     /// System functions
     ///

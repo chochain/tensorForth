@@ -5,6 +5,7 @@
  * <pre>Copyright (C) 2022- GreenII, this file is distributed under BSD 3-Clause License.</pre>
  */
 #include <iostream>
+#include <chrono>
 #include "sys.h"                     /// include mmu/tensor.h
 #include "mu/dataset.h"
 #include "nn/model.h"
@@ -14,8 +15,8 @@ using io::AIO;
 using mu::MMU;
 
 System  *_sys = NULL;                ///< singleton controller on host
-__GPU__ curandState *_rand_st;       ///< for random number generator
 __GPU__ int _khz  = 0;
+__GPU__ curandState *_rand_st;       ///< for random number generator
 ///
 /// random number generator setup
 /// Note: kept here because curandStates stays in CUDA memory
@@ -69,7 +70,7 @@ System::System(h_istr &i, h_ostr &o, int khz, int verbo)
 
 __HOST__
 System::~System() {
-    cudaDeviceSynchronize();        /// * sync before freeing everything
+//    cudaDeviceSynchronize();        /// * sync before freeing everything
     
     AIO::free_io();
     Debug::free_db();
@@ -87,30 +88,23 @@ __HOST__ void    System::free_sys() { if (_sys) delete _sys; }
 ///
 ///@name cross platform timing support
 ///
-__GPU__ DU
-System::ms() { return static_cast<double>(clock64()) / _khz; }
-
-__GPU__ void
-System::delay(int ticks) {
-    U64 t = clock() + (ticks * _khz);
-    while ((U64)clock() < t) { /* spinning */ };
+__HOST__ DU
+System::ms() {
+    auto duration = std::chrono::system_clock::now().time_since_epoch();
+    return 1.0 * std::chrono::duration_cast<std::chrono::milliseconds>(duration).count();
 }
 
-__GPU__ void
+__HOST__ void
+System::delay(int ticks) {
+//    U64 t = clock() + (ticks * _khz);
+//    while ((U64)clock() < t) { /* spinning */ };
+}
+
+__HOST__ void
 System::rand(DU *d, U64 sz, rand_opt n, DU bias, DU scale) {
     /// rand states are dependent, cannot run parallel with multi-blocks
     k_rand<<<1, T4_RAND_SZ>>>(d, sz, bias, scale, n);
     GPU_SYNC();
-}
-
-__GPU__ DU
-System::rand(DU d, rand_opt n) {
-    if (!IS_OBJ(d)) return d * curand_uniform(&_rand_st[threadIdx.x]);
-#if T4_DO_OBJ
-    T4Base &t = mu->du2obj(d);
-    rand(t.data, t.numel, n);
-    return d;
-#endif // T4_DO_OBJ
 }
 ///@}
 ///@name event loop handler
