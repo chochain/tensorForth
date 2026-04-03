@@ -13,7 +13,7 @@ namespace t4::io {
 ///
 /// istream class
 ///
-class Istream : public Managed {
+class Istream : public OnHost {
     char *_buf;                 /// input buffer
     int  _idx  = 0;             /// current buffer index
     int  _gn   = 0;             /// number of byte processed
@@ -29,8 +29,8 @@ class Istream : public Managed {
         return nidx;                                               /// found at input string index (0 not found)
     }
 public:
-    Istream(int sz=T4_IBUF_SZ) { MM_ALLOC(&_buf, sz);       }
-    ~Istream()                 { GPU_SYNC(); MM_FREE(_buf); }
+    Istream(int sz=T4_IBUF_SZ) { H_ALLOC(&_buf, sz); }
+    ~Istream()                 { H_FREE(_buf); }
     ///
     /// intialize by a given string
     ///

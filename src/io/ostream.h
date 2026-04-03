@@ -53,7 +53,7 @@ __HOST__ __INLINE__ _opx opx(OP op, DU n=DU0, U8 m=0, int i=0) {
 ///
 ///> Ostream class
 ///
-class Ostream : public Managed {
+class Ostream : public OnHost {
     int      _max = 0;
     int      _idx = 0;
     obuf_fmt _fmt = { 10, 0, 0, ' '};
@@ -111,8 +111,8 @@ __HOST__ __INLINE__ void _debug(GT gt, U8 *vp, U32 sz) {
     __HOST__ Ostream& _wfmt() { _write(GT_FMT, (U8*)&_fmt, sizeof(obuf_fmt)); return *this; }
 
 public:
-    Ostream(U32 sz=T4_OBUF_SZ) { MM_ALLOC(&_buf, _max=sz);  }
-    ~Ostream()                 { GPU_SYNC(); MM_FREE(_buf); }
+    Ostream(U32 sz=T4_OBUF_SZ) { H_ALLOC(&_buf, _max=sz);  }
+    ~Ostream()                 { H_FREE(_buf); }
     ///
     /// clear output buffer
     ///
