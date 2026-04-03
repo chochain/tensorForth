@@ -22,7 +22,7 @@ typedef enum {
 ///
 /// tensorForth base object class
 ///
-struct T4Base : public Managed {
+struct T4Base : public OnHost {
     U64 numel;               ///< number of data elements
     union {
         U64 attr = 0;        ///< attrbutes collective
@@ -45,19 +45,19 @@ struct T4Base : public Managed {
         numel(0), rank(0) {}
     __HOST__ T4Base(U64 sz) :
         numel(sz), rank(1) {
-        MM_ALLOC((void**)&data, (size_t)numel * sizeof(DU));
+        H_ALLOC((void**)&data, (size_t)numel * sizeof(DU));
     }
     __HOST__ T4Base(U32 h, U32 w) :
         numel((U64)h * w), rank(2) {
-        MM_ALLOC((void**)&data, (size_t)numel * sizeof(DU));
+        H_ALLOC((void**)&data, (size_t)numel * sizeof(DU));
     }
     __HOST__ T4Base(U32 n, U32 h, U32 w, U32 c) :
         numel((U64)n * h * w * c), rank(4) {
-        MM_ALLOC((void**)&data, (size_t)numel * sizeof(DU));
+        H_ALLOC((void**)&data, (size_t)numel * sizeof(DU));
     }
     __HOST__ ~T4Base() {
         if (!data) return;
-        MM_FREE((void*)data);
+        H_FREE((void*)data);
     }
     __HOST__ __INLINE__ void init(U64 n, U8 tt, U8 rnk) {
         numel = n;
