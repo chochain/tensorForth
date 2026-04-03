@@ -28,7 +28,7 @@ namespace t4::mu {
   @param  ptr    pointer to free memory block.
   @param  size    size. (max 4G)
 */
-__BOTH__ void
+__HOST__ void
 TLSF::init(U8 *mem, U64 sz, U64 off) {
     TRACE("\\ TLSF: ostore=%p, alloc=0x%lx", mem, sz);
     _heap    = mem + off;                               /// header offset (for Tensor0)
@@ -69,7 +69,7 @@ TLSF::init(U8 *mem, U64 sz, U64 off) {
   @param  size    request storage size.
   @return void* pointer to a guru memory block.
 */
-__GPU__ void*
+__HOST__ void*
 TLSF::malloc(U64 sz) {
     MM_DB("  tlsf#malloc(0x%lx) {\n", sz);
     U64 bsz = ALIGN8(sz) + sizeof(used_block);  ///< logical => physical size
@@ -95,7 +95,7 @@ TLSF::malloc(U64 sz) {
   @param  size    request size
   @return void* pointer to allocated memory.
 */
-__GPU__ void*
+__HOST__ void*
 TLSF::realloc(void *p0, U64 sz) {
     ASSERT(p0);
     U64 bsz = ALIGN8(sz) + sizeof(used_block);           ///< include the header
@@ -129,7 +129,7 @@ TLSF::realloc(void *p0, U64 sz) {
 //================================================================
 /*! release memory
 */
-__GPU__ void
+__HOST__ void
 TLSF::free(void *ptr) {
     if (!ptr) return;
 
@@ -163,14 +163,18 @@ TLSF::free(void *ptr) {
 */
 //================================================================
 // find last set bit, i.e. most significant bit (0-31)
-__GPU__ U32
+__HOST__ U32
 TLSF::_idx(U64 sz) {
-    auto __fls = [](U32 x) {
+    auto fls = [](U32 x) {
+#if __CUDA_ARCH__    
         U32 n;
         asm("bfind.u32 %0, %1;\n\t" : "=r"(n) : "r"(x));
         return n;
+#else  // !__CUDA_ARCH__
+        return 31 - __builtin_clz(x);
+#endif // __CUDA_ARCH__    
     };
-    U32 l1 = __fls(sz);
+    U32 l1 = fls(sz);
     U32 l2 = (sz >> (l1 - L2_BITS)) & L2_MASK;    /// 1 shift, 1 minus, 1 and
 
     MM_DB("    tlsf#idx(%lx) INDEX(%x,%x) => %x\n", sz, l1, l2, INDEX(l1, l2));
@@ -185,8 +189,15 @@ TLSF::_idx(U64 sz) {
   @retval -1    not found
   @retval index to available _free_list
 */
-__GPU__ S32
+__HOST__ S32
 TLSF::_find_free_index(U64 sz) {
+    auto ffs = [](U32 x) {                       ///< MSB represent the smallest slot that fits
+#if __CUDA_ARCH__
+        return __ffs(x);      
+#else  // !__CUDA_ARCH__
+        return __builtin_ctz(x) + 1;
+#endif // __CUDA_ARCH__
+    };
     U32 index = _idx(sz);                        ///< find free_list index by size
 
     if (_free_list[index]) return index;         /// free block readily available
@@ -197,11 +208,11 @@ TLSF::_find_free_index(U64 sz) {
     U32 m1, m2 = _l2_map[l1] >> (l2+1);          ///< get SLI one size bigger
     MM_DB("    tlsf#find(%x) l2_map[%x]=%x", index, l1, _l2_map[l1]);
     if (m2) {                                    /// check if any 2nd level slot available
-        l2 = __ffs(m2 << l2);                    /// MSB represent the smallest slot that fits
+        l2 = ffs(m2 << l2);                      /// MSB represent the smallest slot that fits
     }
     else if ((m1 = (_l1_map >> (l1+1))) != 0) {  /// get FLI one size bigger
-        l1 = __ffs(m1 << l1);                    /// allocate lowest available bit
-        l2 = __ffs(_l2_map[l1]) - 1;             /// get smallest size
+        l1 = ffs(m1 << l1);                      /// allocate lowest available bit
+        l2 = ffs(_l2_map[l1]) - 1;               /// get smallest size
     }
     else {
         l1 = l2 = 0xff;                          /// out of memory
@@ -217,7 +228,7 @@ TLSF::_find_free_index(U64 sz) {
   @param  blk    pointer to free block
   @param  size    storage size
 */
-__GPU__ void
+__HOST__ void
 TLSF::_split(free_block *blk, U64 bsz) {
     ASSERT(IS_USED(blk));
 
@@ -248,7 +259,7 @@ TLSF::_split(free_block *blk, U64 bsz) {
   @param  ptr1    pointer to free block 1
   @param  ptr2    pointer to free block 2
 */
-__GPU__ void
+__HOST__ void
 TLSF::_pack(free_block *b0, free_block *b1) {
     ASSERT((free_block*)BLK_AFTER(b0)==b1);
     ASSERT(IS_FREE(b1));
@@ -270,7 +281,7 @@ TLSF::_pack(free_block *b0, free_block *b1) {
 
   @param  blk    pointer to free block.
 */
-__GPU__ void
+__HOST__ void
 TLSF::_unmap(free_block *blk, U32 bidx) {
     MM_DB("    tlsf#unmap(%x:%x,%x)\n", TADDR(blk), blk->bsz, bidx);
     ASSERT(IS_FREE(blk));                        // ensure block is free
@@ -303,7 +314,7 @@ TLSF::_unmap(free_block *blk, U32 bidx) {
 
   TODO: check thread safety
 */
-__GPU__ void
+__HOST__ void
 TLSF::_set_free(free_block *blk) {
     ASSERT(IS_USED(blk));
 
@@ -328,7 +339,7 @@ TLSF::_set_free(free_block *blk) {
     _free_list[index] = blk;                      /// new head of the linked list
 }
 
-__GPU__ free_block*
+__HOST__ free_block*
 TLSF::_set_used(U32 index) {
     MM_DB("    tlsf#set_used(<%x>)\n", index);
     free_block *blk  = _free_list[index];
@@ -341,7 +352,7 @@ TLSF::_set_used(U32 index) {
     return blk;
 }
 
-__GPU__ void
+__HOST__ void
 TLSF::_merge_next(free_block *b0) {
     free_block *b1 = (free_block *)BLK_AFTER(b0);
     MM_DB("    tlsf#merge_next %x:%x + %x:%x.%s\n",
@@ -353,7 +364,7 @@ TLSF::_merge_next(free_block *b0) {
     }
 }
 
-__GPU__ free_block*
+__HOST__ free_block*
 TLSF::_merge_prev(free_block *b1) {
     free_block *b0 = (free_block *)BLK_BEFORE(b1);
     MM_DB("    tlsf#merge_prev %x:%x.%s + %x:%x:%x\n",
@@ -375,7 +386,7 @@ TLSF::_merge_prev(free_block *b1) {
 // MMU JTAG sanity check - memory pool walker
 //
 //================================================================
-__BOTH__ int
+__HOST__ int
 TLSF::_mmu_ok()    {                         // mmu sanity check
     used_block *p0 = (used_block*)_heap;
     used_block *p1 = (used_block*)BLK_AFTER(p0);
@@ -390,7 +401,7 @@ TLSF::_mmu_ok()    {                         // mmu sanity check
     }
     return (tot==_heap_sz) && (!p1);         // last check
 }
-__BOTH__ void
+__HOST__ void
 TLSF::_show_stat() {
 #if MM_DEBUG
     ///
@@ -425,7 +436,7 @@ TLSF::_show_stat() {
 #endif // MM_DEBUG
 }
 
-__BOTH__ void
+__HOST__ void
 TLSF::_dump_freelist() {
     MM_DB("  tlsf#L1=%4x: ", _l1_map);
     for (int i=L1_BITS-1; i>=0; i--) {
