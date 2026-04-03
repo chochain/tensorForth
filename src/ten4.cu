@@ -12,7 +12,9 @@
  *    + 20.3s - 16-bit IU, token indirect threading => not that much worse but portable
  *    + 11.3s - CUDA 11.6, 32-bit IU, nest with primitive, indirect threading (with offset)
  *    +  7.5s - CUDA 12.6, same code as above
- *    +  5.0s - CUDA 11.4, rollback to Ubuntu 20.04 + 470 driver, from inside docker
+ *    +  5.0s - Ubuntu 20.04 + 470 driver, GPU mode build in CUDA11.4 docker
+ *    -=====================================================================================
+ *    + 128ms - Ubuntu 22.04 + 535 driver, HOST mode build in CUDA 12.2 docker
  */
 #include <iostream>          // cin, cout
 #include <signal.h>
@@ -184,6 +186,7 @@ TensorForth::profile() {
         int m0 = (int)sys->mu->here() - 0x80;
         sys->db->mem_dump(m0 < 0 ? 0 : m0, 0x80);
     }
+#if 0    
     TRACE("VM.dt=[ ");
     for (int i=0; i<T4_VM_COUNT; i++) {
         VM_Handle *h  = &vm_pool[i];
@@ -192,6 +195,7 @@ TensorForth::profile() {
         TRACE("%0.2f ", dt);
     }
     TRACE("]\n");
+#endif     
 }
 
 __HOST__ int
@@ -200,7 +204,7 @@ TensorForth::main_loop() {
 
     int i = 0;
     while (more_job() && sys->readline(vmst_cnt[vm::HOLD])) {
-        if (++i > 3) break;                  /// * runaway loop guard TODO: CC
+        if (++i > 200) break;                  /// * runaway loop guard TODO: CC
         run();
         sys->flush();                          /// * flush output buffer
         profile();
