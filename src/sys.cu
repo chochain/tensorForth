@@ -6,6 +6,7 @@
  */
 #include <iostream>
 #include <chrono>
+#include <thread>
 #include "sys.h"                     /// include mmu/tensor.h
 #include "mu/dataset.h"
 #include "nn/model.h"
@@ -89,15 +90,14 @@ __HOST__ void    System::free_sys() { if (_sys) delete _sys; }
 ///@name cross platform timing support
 ///
 __HOST__ DU
-System::ms() {
-    auto duration = std::chrono::system_clock::now().time_since_epoch();
-    return 1.0 * std::chrono::duration_cast<std::chrono::milliseconds>(duration).count();
+System::clock() {
+    return 1.0f * std::chrono::duration_cast<std::chrono::milliseconds>(
+        std::chrono::steady_clock::now().time_since_epoch()).count();
 }
 
 __HOST__ void
-System::delay(int ticks) {
-//    U64 t = clock() + (ticks * _khz);
-//    while ((U64)clock() < t) { /* spinning */ };
+System::delay(int ms) {
+    std::this_thread::sleep_for(std::chrono::milliseconds(ms));
 }
 
 __HOST__ void
