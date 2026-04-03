@@ -36,9 +36,9 @@ CL_INCS := \
 	${CUTLASS_HOME}/tools/util/include
 
 # GL libraries (deprecated v4.x, i.e. separation of View from M and C)
-#GL_LIB  :=
+GL_LIB  :=
+#GL_LIB  := -lGL -lGLU -lglut -lX11 -lcudadevrt
 #GL_INCS :=
-GL_LIB  := -lGL -lGLU -lglut -lX11 -lcudadevrt
 GL_INCS := \
 	/u01/src/stb \
 	${CUDA_HOME}/cuda-samples/Common \
@@ -49,8 +49,8 @@ NVCC_FLAGS:= \
 	-ccbin g++ \
 	-D__CUDACC__ \
 	-Isrc $(GL_INCS:%=-I%) \
-	-t 0 -c -std=c++17 -O3 -rdc=true -lineinfo \
-	--device-c --extended-lambda \
+	-t 0 -c -std=c++17 -O3 -lineinfo \
+	--device-c --expt-extended-lambda \
 	--expt-relaxed-constexpr \
 	-gencode arch=${CUDA_ARCH},code=${CUDA_CODE}
 
