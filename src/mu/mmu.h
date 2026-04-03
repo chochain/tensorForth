@@ -68,17 +68,17 @@ public:
     __HOST__  void dict_validate();                                 ///< dictionary validation
     __HOST__  void status();                                        ///< display current MMU status
     __HOST__  void dict_dump();
-    template <typename F>
-    __HOST__  void add_word(const char *name, F &f, int im) {       ///< append or merge a new word
-        IU   w  = find(name);                                      ///< check whether word exists
-        Code &c = _dict[w ? w : _didx++];                          ///< new or exist Code object
-        c.set(name, f, im);                                        /// * hardcopy Code object
-        if (w) INFO("*** redefined: %s\n", c.name);
-    }           
     __HOST__  IU   find(const char *s);                             ///< dictionary search
     ///
     /// compiler methods
     ///
+    template <typename F>
+    __HOST__  void add_word(const char *name, F &f, int im) {       ///< append or merge a new word
+        IU   w  = find(name);                                       ///< check whether word exists
+        Code &c = _dict[w ? w : _didx++];                           ///< new or exist Code object
+        c.set(name, f, im);                                         /// * hardcopy Code object
+        if (w) INFO("*** redefined: %s\n", c.name);
+    }
     __HOST__  void colon(const char *name);                         ///< define colon word
     __HOST__  __INLINE__ int  align()      { int i = (-_midx & 0x3); _midx += i; return i; }
     __HOST__  __INLINE__ void clear(IU i)  {                        ///< clear dictionary
