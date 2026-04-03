@@ -143,7 +143,7 @@ MMU::colon(const char *name) {
 ///
 #if T4_DO_OBJ // vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
 #if T4_DO_NN
-__HOST__ Dataset&                   ///< create a Dataset holder
+__HOST__ Dataset&                  ///< create a Dataset holder
 MMU::dataset(U32 batch_sz) {       /// * Note: data block is not allocated yet
     MM_DB("mmu#dataset batch_sz=%d {", batch_sz);
     Dataset *ds = (Dataset*)_ostore.malloc(sizeof(Dataset));
@@ -208,7 +208,7 @@ MMU::mark_free(DU v) {            ///< mark a tensor free for release
 
 __HOST__ Tensor&                    ///< allocate a tensor from tensor space
 MMU::talloc(U64 sz) {
-    MM_DB("mmu#talloc(%lx) {\n", sz);
+    MM_DB("mmu#talloc(0x%lx) {\n", sz);
     Tensor &t = *(Tensor*)_ostore.malloc(sizeof(Tensor));
     void   *d = _ostore.malloc(sz * sizeof(DU));
     MM_DB("} mmu#talloc => T:%x+%x\n", OBJ2X(t), (U32)((U8*)d - _obj));
