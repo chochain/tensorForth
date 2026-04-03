@@ -13,7 +13,7 @@ using mu::Tensor;
 ///
 /// override with tensor handler
 ///
-__GPU__ int
+__HOST__ int
 TensorVM::process(char *idiom) {
     state = QUERY;
     IU w = parse(idiom);                      /// * parse it as a word
@@ -41,7 +41,7 @@ TensorVM::process(char *idiom) {
 ///
 /// 1-operand self math ops (destructive)
 ///
-__GPU__ void
+__HOST__ void
 TensorVM::xop1(math_op op, DU v) {
     ///
     /// scalar handler
@@ -95,14 +95,15 @@ TensorVM::xop1(math_op op, DU v) {
 ///
 /// 2-operand tensor ops
 ///
-__GPU__ void
+__HOST__ void
 TensorVM::xop2(math_op op, t4_drop_opt x) {
     const char *fn = "tenvm#xop2";
     VOP(MATH_OP);
     ///
     /// 2-operand operator (broadcasting)
     ///
-    int tt = (IS_OBJ(ss[-1]) ? 2 : 0) | (IS_OBJ(tos) ? 1 : 0); 
+    int tt = (IS_OBJ(ss[-1]) ? 2 : 0) | (IS_OBJ(tos) ? 1 : 0);
+    printf("tt=%d\n", tt);
     switch (tt) {                                 /// tensor flags
     case 0 /* ss */: _ss_op(op); break;           /// * scalar-scalar op ( a b -- c  )
     case 1 /* st */: {                            /// * scalar-tensor op ( n T -- T' )
@@ -136,7 +137,7 @@ TensorVM::xop2(math_op op, t4_drop_opt x) {
 ///
 /// 1-operand ops with new tensor created (on TOS)
 ///
-__GPU__ void
+__HOST__ void
 TensorVM::blas1(t4_ten_op op) {
     const char *fn = "tenvm#blas1";
     VOP(TENSOR_OP);
@@ -185,7 +186,7 @@ TensorVM::blas1(t4_ten_op op) {
 ///
 /// 2-operand tensor ops
 ///
-__GPU__ void
+__HOST__ void
 TensorVM::blas2(t4_ten_op op, t4_drop_opt x) {
     const char *fn = "tenvm#blas2";
     VOP(TENSOR_OP);
@@ -220,7 +221,7 @@ TensorVM::blas2(t4_ten_op op, t4_drop_opt x) {
     }
 }
 
-__GPU__ __INLINE__ void
+__HOST__ __INLINE__ void
 TensorVM::gemm() {                           ///< GEMM ( a b A B C -- a b A B C O )
     if (!TOS3T) { ERROR("tensors?"); return; }
     
@@ -242,12 +243,12 @@ TensorVM::gemm() {                           ///< GEMM ( a b A B C -- a b A B C 
 ///
 /// scalar-scalar ops
 ///
-__GPU__ __INLINE__ void
+__HOST__ __INLINE__ void
 TensorVM::_ss_op(math_op op) {               ///< scalar-scalar ops
     switch (op) {
-    case ADD:  tos = ADD(ss.pop(), tos); break;
+    case ADD:  tos = ADD(tos, ss.pop()); break;
+    case MUL:  tos = MUL(tos, ss.pop()); break;
     case SUB:  tos = SUB(ss.pop(), tos); break;
-    case MUL:  tos = MUL(ss.pop(), tos); break;
     case DIV:  tos = DIV(ss.pop(), tos); break;
     case MOD:  tos = MOD(ss.pop(), tos); break;
     case MAX:  tos = MAX(ss.pop(), tos); break;
@@ -258,7 +259,7 @@ TensorVM::_ss_op(math_op op) {               ///< scalar-scalar ops
     SCALAR(tos);                              /// * even +- can set LSB (rounding)
 }
 
-__GPU__ __INLINE__ Tensor&
+__HOST__ __INLINE__ Tensor&
 TensorVM::_st_op(math_op op, t4_drop_opt x) { ///< scalar tensor op
     Tensor &A = TTOS;                         /// * Tensor on TOS
     DU     v  = ss[-1];                       /// * scalar as NOS
@@ -274,7 +275,7 @@ TensorVM::_st_op(math_op op, t4_drop_opt x) { ///< scalar tensor op
     return O;
 }
 
-__GPU__ __INLINE__ Tensor&
+__HOST__ __INLINE__ Tensor&
 TensorVM::_ts_op(math_op op, t4_drop_opt x) { ///< tensor scalar op
     Tensor &A = TNOS;                         ///< tensor on NOS
     Tensor &O = x==T_KEEP ? COPY(A) : A;      ///< make a hard copy of A
@@ -296,7 +297,7 @@ TensorVM::_ts_op(math_op op, t4_drop_opt x) { ///< tensor scalar op
     - The non-matrix (i.e. batch) dimensions are broadcasted (and thus must be broadcastable).  
     - For example, if tensor1 is a (j x 1 x n x m) Tensor and tensor2 is a (k x m x p) Tensor, the returned tensor will be an (j x k x n x p) Tensor.
 */
-__GPU__ __INLINE__ Tensor&
+__HOST__ __INLINE__ Tensor&
 TensorVM::_tt_op(math_op op) {                ///< tensor-tensor ops
     Tensor &A = TNOS, &B = TTOS;
     ///
@@ -311,7 +312,7 @@ TensorVM::_tt_op(math_op op) {                ///< tensor-tensor ops
     return O;
 }
 
-__GPU__ Tensor&
+__HOST__ Tensor&
 TensorVM::_tinv(Tensor &A) {                 ///< matrix inverse
     Tensor &I = mmu.tensor(A.H(), A.W()).identity();
     Tensor &X = COPY(A);                     ///< hardcopy temp, keep A untouched
@@ -320,7 +321,7 @@ TensorVM::_tinv(Tensor &A) {                 ///< matrix inverse
     return I;
 }
 
-__GPU__ __INLINE__ Tensor&
+__HOST__ __INLINE__ Tensor&
 TensorVM::_tdiv(Tensor &A, Tensor &B) {      ///< tensor division
     U16 m = A.H(), ka = A.W(), kb = B.H(), n = B.W();
     if (kb != n || ka != kb) return B;       /// * B square?
@@ -333,7 +334,7 @@ TensorVM::_tdiv(Tensor &A, Tensor &B) {      ///< tensor division
     return O;
 }
 
-__GPU__ __INLINE__ Tensor&
+__HOST__ __INLINE__ Tensor&
 TensorVM::_tdot(Tensor &A, Tensor &B) {      ///< A x B tensor dot product
     if (B.rank==1 &&                         ///> dot(vector, vector)
         A.rank==1 && A.numel==B.numel) {
@@ -361,7 +362,7 @@ TensorVM::_tdot(Tensor &A, Tensor &B) {      ///< A x B tensor dot product
     return A;                                /// * i.e. skip in xop2
 }
 
-__GPU__ __INLINE__ Tensor&
+__HOST__ __INLINE__ Tensor&
 TensorVM::_solv(Tensor &B, Tensor &A) {      /// Note: A, B flipped 
     U16 m = A.H(), k = A.W(), n = B.H();     /// B[3,1] = A[3,3] * X
     VLOG("  tenvm#_solv B[%d] = [%d,%d] * X\n", n, m, k);
@@ -376,7 +377,7 @@ TensorVM::_solv(Tensor &B, Tensor &A) {      /// Note: A, B flipped
     return O;
 }
 
-__GPU__ void
+__HOST__ void
 TensorVM::_pickle(bool save) {
     U8   mode= FAM_WO;                        ///< file mode (W/O,R/W)|BIN
     
@@ -391,7 +392,7 @@ TensorVM::_pickle(bool save) {
     syscall(OP_TSAVE, tos, mode, 0, fn);      /// * issue save command
 }
 
-__GPU__ void
+__HOST__ void
 TensorVM::_ttos_dump() {
     const char* nm[] = { "tensor", "model", "dataset", "xxx" };
     if (!IS_OBJ(tos)) { INFO(".X v=%g", tos); return; }
@@ -403,7 +404,7 @@ TensorVM::_ttos_dump() {
 ///
 /// Tensor Vocabulary
 ///
-__GPU__ void
+__HOST__ void
 TensorVM::init() {
     if (id !=0) return;                       /// * only needed once
     ForthVM::init();
@@ -461,8 +462,8 @@ TensorVM::init() {
     CODE("full",      xop1(FILL, POP()));     ///< fill tensor with a value
     CODE("gradfill",  xop1(GFILL, DU1));      ///< gradient fill a tensor
     CODE("eye",       xop1(IDEN));            ///< fill 1s in diag
-    CODE("rand",      tos = sys.rand(tos, UNIFORM));   ///< uniform randomize a tensor or number
-    CODE("randn",     tos = sys.rand(tos, NORMAL));    ///< normal dist. randomize a tensor
+    CODE("rand",      sys.rand(tos, UNIFORM));///< uniform randomize a tensor or number
+    CODE("randn",     sys.rand(tos, NORMAL)); ///< normal dist. randomize a tensor
     ///@}
     ///@defgrup Tensor slice and dice
     ///@{

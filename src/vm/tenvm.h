@@ -30,12 +30,12 @@ typedef enum {
 ///@name Tensor (multi-dimension array) class
 ///@{
 class TensorVM : public ForthVM {
-    using Tensor = mu::Tensor;              ///< alias
+    using Tensor = mu::Tensor;             ///< alias
 public:
-    __GPU__ TensorVM(int id, System &sys) : ForthVM(id, sys) {
+    __HOST__ TensorVM(int id, System &sys) : ForthVM(id, sys) {
         TRACE("\\    ::TensorVM[%d]\n", id);
     }
-    __GPU__ virtual void init();            ///< override ForthVM.init()
+    __HOST__ virtual void init();           ///< override ForthVM.init()
     
 protected:
     U32    ten_off = 0;                     ///< tensor offset (storage index)
@@ -43,48 +43,48 @@ protected:
     ///
     /// override literal handler
     ///
-    __GPU__ virtual int process(char *str); ///< TODO: CC - worked without 'final', why?
+    __HOST__ virtual int process(char *str); ///< TODO: CC - worked without 'final', why?
     ///
     /// stack operator short hands (override eforth.h)
     ///
-    __GPU__ __INLINE__ void FREE(Tensor &t)  { mmu.free(t); }
-    __GPU__ __INLINE__ DU   PUSH(T4Base &t)  { ss.push(tos); return tos = mmu.obj2du(t); }
-    __GPU__ __INLINE__ DU   PUSH(DU v)       { ss.push(tos); return tos = v; }
-    __GPU__ __INLINE__ DU   COPY(DU d) {                 ///< hard copy
+    __HOST__ __INLINE__ void FREE(Tensor &t)  { mmu.free(t); }
+    __HOST__ __INLINE__ DU   PUSH(T4Base &t)  { ss.push(tos); return tos = mmu.obj2du(t); }
+    __HOST__ __INLINE__ DU   PUSH(DU v)       { ss.push(tos); return tos = v; }
+    __HOST__ __INLINE__ DU   COPY(DU d) {                 ///< hard copy
         return (IS_OBJ(d))
             ? mmu.obj2du(COPY((Tensor&)mmu.du2obj(d)))
             : d;
     }
-    __GPU__ __INLINE__ Tensor &COPY(Tensor &t) { return mmu.copy(t); }
+    __HOST__ __INLINE__ Tensor &COPY(Tensor &t) { return mmu.copy(t); }
     ///
     /// tensor ops based on number of operands
     ///
-    __GPU__ void xop1(math_op op, DU v=DU0);                ///< 1-operand ops in-place
-    __GPU__ void xop2(math_op op, t4_drop_opt x=T_KEEP);    ///< 2-operand ops
-    __GPU__ void blas1(t4_ten_op op);                       ///< 1-operand ops with new tensor
-    __GPU__ void blas2(t4_ten_op op, t4_drop_opt x=T_KEEP); ///< 2-operand tensor ops
-    __GPU__ void gemm();                                    ///< GEMM C' = alpha * A x B + beta * C
+    __HOST__ void xop1(math_op op, DU v=DU0);                ///< 1-operand ops in-place
+    __HOST__ void xop2(math_op op, t4_drop_opt x=T_KEEP);    ///< 2-operand ops
+    __HOST__ void blas1(t4_ten_op op);                       ///< 1-operand ops with new tensor
+    __HOST__ void blas2(t4_ten_op op, t4_drop_opt x=T_KEEP); ///< 2-operand tensor ops
+    __HOST__ void gemm();                                    ///< GEMM C' = alpha * A x B + beta * C
     
 private:
     ///
     /// tensor ops based on data types
     ///
-    __GPU__ void   _ss_op(math_op op);                      ///< scalar-scalar (eForth) ops
-    __GPU__ Tensor &_st_op(math_op op, t4_drop_opt x);      ///< scalar tensor op (broadcast)
-    __GPU__ Tensor &_ts_op(math_op op, t4_drop_opt x);      ///< tensor scalar op (broadcast)
-    __GPU__ Tensor &_tt_op(math_op op);                     ///< tensor tensor op
+    __HOST__ void   _ss_op(math_op op);                      ///< scalar-scalar (eForth) ops
+    __HOST__ Tensor &_st_op(math_op op, t4_drop_opt x);      ///< scalar tensor op (broadcast)
+    __HOST__ Tensor &_ts_op(math_op op, t4_drop_opt x);      ///< tensor scalar op (broadcast)
+    __HOST__ Tensor &_tt_op(math_op op);                     ///< tensor tensor op
     ///
     /// tensor-tensor ops
     ///
-    __GPU__ Tensor &_tinv(Tensor &A);                       ///< matrix inversion
-    __GPU__ Tensor &_tdot(Tensor &A, Tensor &B);            ///< matrix-matrix multiplication @
-    __GPU__ Tensor &_tdiv(Tensor &A, Tensor &B);            ///< matrix-matrix division (no broadcast)
-    __GPU__ Tensor &_solv(Tensor &A, Tensor &B);            ///< solve linear equation Ax = b
+    __HOST__ Tensor &_tinv(Tensor &A);                       ///< matrix inversion
+    __HOST__ Tensor &_tdot(Tensor &A, Tensor &B);            ///< matrix-matrix multiplication @
+    __HOST__ Tensor &_tdiv(Tensor &A, Tensor &B);            ///< matrix-matrix division (no broadcast)
+    __HOST__ Tensor &_solv(Tensor &A, Tensor &B);            ///< solve linear equation Ax = b
     ///
     /// tensor IO
     ///
-    __GPU__ void   _pickle(bool save);                      ///< save/load a tensor to/from a file
-    __GPU__ void   _ttos_dump();
+    __HOST__ void   _pickle(bool save);                      ///< save/load a tensor to/from a file
+    __HOST__ void   _ttos_dump();
 };
 ///@}
 
