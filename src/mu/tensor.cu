@@ -749,7 +749,7 @@ Tensor::tril() {
 ///=======================================================================
 /// Tensor life-cycle ops
 ///
-__BOTH__ Tensor&
+__HOST__ Tensor&
 Tensor::reset(void *mem, U64 sz, t4_obj tt, t4_layer fn) {
     MM_DB("  tensor#reset(%p,%ld)\n", mem, sz);
     init(sz, tt, 1);                                   /// T4Base attributes
@@ -772,7 +772,7 @@ Tensor::reset(void *mem, U64 sz, t4_obj tt, t4_layer fn) {
     return *this;
 }
 
-__BOTH__ Tensor&
+__HOST__ Tensor&
 Tensor::reshape(U64 sz) {
     if (sz == numel) {
         reset(data, numel, (t4_obj)ttype, grad_fn);   /// preserve ttype and fn
@@ -784,7 +784,7 @@ Tensor::reshape(U64 sz) {
     return *this;
 }
 
-__BOTH__ Tensor&
+__HOST__ Tensor&
 Tensor::reshape(U32 h, U32 w) {
     const U16 s[4] = { 1, 1, 1, 1 };
     const U32 t[4] = { h, w, 1, 1 };
@@ -801,7 +801,7 @@ Tensor::reshape(U32 h, U32 w) {
     return *this;
 }
 
-__BOTH__ Tensor&
+__HOST__ Tensor&
 Tensor::reshape(U32 n, U32 h, U32 w, U32 c) {
     const U16 s[4] = { 1, 1, 1, 1 };
     const U32 t[4] = { h, w, c, n };
@@ -817,7 +817,7 @@ Tensor::reshape(U32 n, U32 h, U32 w, U32 c) {
     }
     return *this;
 }
-__BOTH__ Tensor&
+__HOST__ Tensor&
 Tensor::reshape(U32 c1, U32 n, U32 h, U32 w, U32 c) {
     const U16 s[4] = { 1, 1, 1, 1 };
     const U32 t[4] = { h, w, c, n };
@@ -835,7 +835,7 @@ Tensor::reshape(U32 c1, U32 n, U32 h, U32 w, U32 c) {
     return *this;
 }
 
-__BOTH__ Tensor&
+__HOST__ Tensor&
 Tensor::identity() {
     const U32 W = this->W(), H = this->H(), C = this->C();
     for (U32 n = 0; n < N(); n++) {
@@ -844,7 +844,7 @@ Tensor::identity() {
     return *this;
 }
 
-__BOTH__ Tensor&
+__HOST__ Tensor&
 Tensor::map(math_op op, DU v) {
     _OP(MATH_OP);
     MM_DB("  tensor#%s v=%g\n", _op[op], v);
@@ -852,7 +852,7 @@ Tensor::map(math_op op, DU v) {
     return *this;
 }
 
-__BOTH__ Tensor&
+__HOST__ Tensor&
 Tensor::normalize(DU avg, DU std) {
     FORK1(k_ts_op, numel, SUB, data, avg, data);
     FORK1(k_ts_op, numel, DIV, data, std, data);
@@ -861,7 +861,7 @@ Tensor::normalize(DU avg, DU std) {
 ///=======================================================================
 /// Tensor debugger
 ///
-__BOTH__ void
+__HOST__ void
 Tensor::_dump(DU *v, U32 H, U32 W, U32 C) {
     const DU  hw = I2D(H) * W, sr = sqrtf(hw);
     const U32 sh = UINT(hw / sr) + ((hw - sr*sr) > DU0 ? 1 : 0);
@@ -896,7 +896,7 @@ Tensor::_dump(DU *v, U32 H, U32 W, U32 C) {
 ///
 ///> _view - in ASCII art
 ///
-__BOTH__ void
+__HOST__ void
 Tensor::_view(DU *v, U32 H, U32 W, U32 C, DU mean, DU scale) {
     auto map = [](DU v) {
         // static const char *lk = " `.-':_,^=;><+!rc*/z?sLTv)J7(|Fi{C}fI31tlu[neoZ5Yxjya]2ESwqkP6h9d4VpOGbUAKXHm8RD#$Bg0MNWQ%&@";          /// 91 shades
