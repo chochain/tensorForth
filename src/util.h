@@ -95,7 +95,7 @@ typedef enum {
 #define SUB(x,y)     ((x)-(y))                  /**< subtraction            */
 #define MUL(x,y)     ((x)*(y))                  /**< multiplication         */
 #define DIV(x,y)     ((x)/(y))                  /**< division               */
-#define MOD(t,n)     (fmodf(t,n))               /**< fmod two floats        */
+#define MOD(t,n)     ((DU)fmodf(t,n))           /**< fmod two floats        */
 #define MAX(x,y)     (fmaxf(x,y))               /**< maximum of the two     */
 #define MIN(x,y)     (fminf(x,y))               /**< minimum of the two     */
 #define MUL2(x2,y2)  ((DU2)x2*y2)               /**< double precision mul   */
