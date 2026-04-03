@@ -57,7 +57,7 @@ typedef struct free_block {          ///< 16-bytes (i.e. mininum allocation per 
 #define CLR_L2(i)       (L2_MAP(i) &= ~TIC(L2(i)))   /**> clear 2nd level map entry    */
 #define CLEAR_MAP(i)    { CLR_L2(i); if ((L2_MAP(i))==0) CLR_L1(i); }
 
-class TLSF : public Managed {
+class TLSF : public OnHost {
     U8         *_heap;                  ///> CUDA kernel tensor storage memory pool
     U64        _heap_sz;                ///> size of tensor storage memory pool
     U32        _mutex  = 0;             ///> memory block mutex control
@@ -66,31 +66,31 @@ class TLSF : public Managed {
     free_block *_free_list[FL_SLOTS];   ///> vector of free lists (head of linked list)
 
 public:
-    __BOTH__ void        init(U8 *mem, U64 sz, U64 off=0); ///> initialize storage pool
-    __GPU__  void*       malloc(U64 sz);                   ///> malloc from TLSF memory
-    __GPU__  void*       realloc(void *p0, U64 sz);        ///> resize allocated memory
-    __GPU__  void        free(void *ptr);                  ///> free memory block back to TLSF
+    __HOST__  void        init(U8 *mem, U64 sz, U64 off=0); ///> initialize storage pool
+    __HOST__  void*       malloc(U64 sz);                   ///> malloc from TLSF memory
+    __HOST__  void*       realloc(void *p0, U64 sz);        ///> resize allocated memory
+    __HOST__  void        free(void *ptr);                  ///> free memory block back to TLSF
     ///
     /// sanity check, JTAG
     ///
-    __BOTH__ void        status() { _show_stat(); _dump_freelist(); }
+    __HOST__ void        status() { _show_stat(); _dump_freelist(); }
 
 private:
-    __GPU__  U32         _idx(U64 sz);                           ///> calc freemap index
-    __GPU__  S32         _find_free_index(U64 sz);               ///> find available index
-    __GPU__  void        _split(free_block *blk, U64 bsz);       ///> split a large block
-    __GPU__  void        _pack(free_block *b0, free_block *b1);  ///> pack adjacent blocks
-    __GPU__  void        _unmap(free_block *blk, U32 index=0);   ///> clear freemaps
+    __HOST__  U32         _idx(U64 sz);                           ///> calc freemap index
+    __HOST__  S32         _find_free_index(U64 sz);               ///> find available index
+    __HOST__  void        _split(free_block *blk, U64 bsz);       ///> split a large block
+    __HOST__  void        _pack(free_block *b0, free_block *b1);  ///> pack adjacent blocks
+    __HOST__  void        _unmap(free_block *blk, U32 index=0);   ///> clear freemaps
 
-    __GPU__  void        _set_free(free_block *blk);             ///> mark a block free
-    __GPU__  free_block* _set_used(U32 index);                   ///> set maps free by index 
-    __GPU__  void        _merge_next(free_block *b0);            ///> try merge next free block
-    __GPU__  free_block* _merge_prev(free_block *b1);            ///> try merge previous free block
+    __HOST__  void        _set_free(free_block *blk);             ///> mark a block free
+    __HOST__  free_block* _set_used(U32 index);                   ///> set maps free by index 
+    __HOST__  void        _merge_next(free_block *b0);            ///> try merge next free block
+    __HOST__  free_block* _merge_prev(free_block *b1);            ///> try merge previous free block
 
     /// mmu sanity check
-    __BOTH__ int         _mmu_ok();
-    __BOTH__ void        _show_stat();
-    __BOTH__ void        _dump_freelist();
+    __HOST__ int         _mmu_ok();
+    __HOST__ void        _show_stat();
+    __HOST__ void        _dump_freelist();
 };
 
 } // namespace t4::mu
