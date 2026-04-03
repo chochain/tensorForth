@@ -65,7 +65,7 @@ Debug::ss_dump(DU tos, int id_sz, int base) {
     int sz = id_sz & 0x3ff;               ///< ss.idx
     DU *ss = mu->vmss(id);                ///< retrieve VM SS
     auto to_s = [this, base](DU v) {
-#if T4_DO_OBJ        
+#if T4_DO_OBJ
         if (IS_OBJ(v)) fout << io->to_s(mu->du2obj(v), IS_VIEW(v));
         else
 #endif // T4_DO_OBJ
@@ -263,7 +263,7 @@ Debug::self_tests() {
     dict_dump();
     words();
     mem_dump(0, 256);
-    ss_dump(0, 3, 10);
+//    ss_dump(0, 3, 10);        // might have junk in it
 #endif // MM_DEBUG    
 }
 ///@}
