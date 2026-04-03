@@ -138,8 +138,8 @@ TensorForth::TensorForth(int device, int verbose) {
     ///
     /// allocate VM handle pool
     ///
-    MM_ALLOC(&vm_pool, sizeof(VM_Handle) * T4_VM_COUNT);
-    MM_ALLOC(&vmst_cnt, sizeof(int) * vm::VM_STATE_SZ);   /// * 4 states + 1 VM[0].hold
+    H_ALLOC(&vm_pool, sizeof(VM_Handle) * T4_VM_COUNT);
+    H_ALLOC(&vmst_cnt, sizeof(int) * vm::VM_STATE_SZ);   /// * 4 states + 1 VM[0].hold
 }
 
 __HOST__ void
@@ -204,7 +204,7 @@ TensorForth::main_loop() {
 
     int i = 0;
     while (more_job() && sys->readline(vmst_cnt[vm::HOLD])) {
-        if (++i > 200) break;                  /// * runaway loop guard TODO: CC
+//        if (++i > 200) break;                  /// * runaway loop guard TODO: CC
         run();
         sys->flush();                          /// * flush output buffer
         profile();
@@ -224,8 +224,8 @@ TensorForth::teardown(int sig) {
         GPU_ERR(cudaEventDestroy(h->t0));
         GPU_ERR(cudaStreamDestroy(h->st));
     }
-    MM_FREE(vmst_cnt);           /// * release ten4 Managed memory
-    MM_FREE(vm_pool);
+    H_FREE(vmst_cnt);           /// * release ten4 Managed memory
+    H_FREE(vm_pool);
 
     System::free_sys();          /// * release system
     cudaDeviceReset();

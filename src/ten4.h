@@ -22,7 +22,7 @@ typedef vm::ForthVM   VM_TYPE;
 #define WARP_SZ   32                        /** threads per warp       */
 #define WARP(t)   ((((t) + 31)>>5) << 5)    /** calculate block number */
 
-struct VM_Handle : public Managed {
+struct VM_Handle : public OnHost {
     VM_TYPE *vm;
     STREAM  st;
     EVENT   t0;
