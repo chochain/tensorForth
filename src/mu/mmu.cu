@@ -24,14 +24,14 @@ UFP _NM0;
 ///
 __HOST__
 MMU::MMU() {
-    MM_ALLOC(&_dict, sizeof(Code) * T4_DICT_SZ);
-    MM_ALLOC(&_vmss, sizeof(DU) * T4_SS_SZ * T4_VM_COUNT);
-    MM_ALLOC(&_vmrs, sizeof(DU) * T4_RS_SZ * T4_VM_COUNT);
-    MM_ALLOC(&_pmem, T4_PMEM_SZ);
-    
+    H_ALLOC(&_dict, sizeof(Code) * T4_DICT_SZ);
+    H_ALLOC(&_vmss, sizeof(DU) * T4_SS_SZ * T4_VM_COUNT);
+    H_ALLOC(&_vmrs, sizeof(DU) * T4_RS_SZ * T4_VM_COUNT);
+    H_ALLOC(&_pmem, T4_PMEM_SZ);
+
 #if T4_DO_OBJ    
-    MM_ALLOC(&_mark, sizeof(DU) * T4_TFREE_SZ);
-    MM_ALLOC(&_obj,  T4_OSTORE_SZ);
+    H_ALLOC(&_mark, sizeof(DU) * T4_TFREE_SZ);
+    MM_ALLOC(&_obj,  T4_OSTORE_SZ);              /// * object store in Managed Memory
     _ostore.init(_obj, T4_OSTORE_SZ);
 #endif // T4_DO_OBJ
 
@@ -50,11 +50,11 @@ MMU::MMU() {
 __HOST__
 MMU::~MMU() {
     if (_obj)  MM_FREE(_obj);
-    if (_mark) MM_FREE(_mark);
-    MM_FREE(_pmem);
-    MM_FREE(_vmrs);
-    MM_FREE(_vmss);
-    MM_FREE(_dict);
+//    if (_mark) H_FREE((void*)_mark);
+//    H_FREE(_pmem);
+//    H_FREE(_vmrs);
+//    H_FREE(_vmss);
+//    H_FREE(_dict);
     TRACE("\\   MMU: CUDA Managed Memory freed\n");
 }
 __HOST__ MMU*

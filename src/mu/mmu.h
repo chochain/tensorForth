@@ -21,7 +21,7 @@ namespace t4::mu {
 /// Forth memory manager
 /// TODO: compare TLSF to RMM (Rapids Memory Manager)
 ///
-class MMU : public Managed {
+class MMU : public OnHost {
     IU             _mutex = 0;      ///< lock (first so address aligned)
     IU             _didx  = 0;      ///< dictionary index
     IU             _midx  = 0;      ///< parameter memory index
@@ -30,7 +30,7 @@ class MMU : public Managed {
     DU             *_vmss;          ///< VM data stacks
     DU             *_vmrs;          ///< VM return stacks
     U8             *_pmem;          ///< parameter memory block
-    DU             *_mark = 0;      ///< list for tensors that marked free
+    DU             *_mark = 0;      ///< list for tensors that are marked free
     U8             *_obj  = 0;      ///< object storage block
 #if T4_DO_OBJ    
     TLSF           _ostore;         ///< object storage manager
