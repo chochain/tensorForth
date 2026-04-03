@@ -15,7 +15,7 @@ namespace t4 {
 ///
 ///@name System Manager Class
 ///@{
-class System : public Managed {                 ///< singleton class
+class System : public OnHost {                  ///< singleton class
     h_istr       &fin;                          ///< host input stream
     h_ostr       &fout;                             
     io::Istream  *_istr;                        ///< managed input stream
@@ -41,7 +41,6 @@ public:
     ///
     static __HOST__ DU   clock();
     static __HOST__ void delay(int ticks);
-    static __HOST__ void rand(DU *d, U64 sz, rand_opt n, DU bias=DU0, DU scale=DU1);
     ///
     /// System functions
     ///
@@ -55,8 +54,11 @@ public:
     __HOST__ __INLINE__ void trace(int lvl) { _trace = lvl;  }
     
     ///==============================================================================
-    /// Device methods
-    __HOST__  DU   rand(DU d, rand_opt n);                 ///< randomize a tensor
+    ///
+    /// Randomizer interfaces
+    ///
+    __HOST__ void rand(DU d, rand_opt o);
+    __HOST__ void rand(DU *d, U64 sz, rand_opt o, DU bias=DU0, DU scale=DU1);
     ///
     ///> System functions
     ///

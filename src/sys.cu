@@ -101,9 +101,15 @@ System::delay(int ms) {
 }
 
 __HOST__ void
-System::rand(DU *d, U64 sz, rand_opt n, DU bias, DU scale) {
+System::rand(DU d, rand_opt o) {
+    mu::Tensor &t = (mu::Tensor&)mu->du2obj(d);
+    rand(t.data, t.numel, o);
+}
+
+__HOST__ void
+System::rand(DU *d, U64 sz, rand_opt o, DU bias, DU scale) {
     /// rand states are dependent, cannot run parallel with multi-blocks
-    k_rand<<<1, T4_RAND_SZ>>>(d, sz, bias, scale, n);
+    k_rand<<<1, T4_RAND_SZ>>>(d, sz, bias, scale, o);
     GPU_SYNC();
 }
 ///@}
