@@ -35,7 +35,7 @@ typedef fop* FPTR;                ///< lambda function pointer
 ///                      +----+----+---------+
 ///@{
 constexpr UFP MSK_ATTR = ~0x3;    /// xt pointer mask (for union attributes)
-struct Code : public Managed {
+struct Code : public OnHost {
     const char *name = 0;         ///< name field
     union {
         FPTR xt = 0;              ///< lambda pointer (CUDA 64-bit)
