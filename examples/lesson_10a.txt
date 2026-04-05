@@ -98,14 +98,14 @@ variable julian variable leap
 : month ( n -- )
   header dup blanks days cr stars cr ;
 
-.( 2026 year 1 month => ) 2026 year 1 month
+.( 2026 year 4 month => ) 2026 year 4 month
 
-.( ### 5. benchmark 100*1K cycles ) cr
-: 1k  ( -- ) 999 for 34 drop next ;
-: clk ( -- ) clock negate for 1k next clock + ;
-: time ( n -- ) dup >r clk r> 1 + / . ."  us/cycle" ;
+.( ### 5. benchmark dull double loops ) cr
+: 1k  ( -- )    999 for 34 drop next ;
+: clk ( n -- )   clock negate >r for 1k next r> clock + ;
+: bench ( n -- ) dup >r clk r> 1+ / ." avg. us/cycle=" . ;
 
-.( 100 1K cycles => ) 99 time cr
+.( 100K*1K cycles => ) 99999 bench cr
 
 bye
 
