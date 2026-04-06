@@ -183,24 +183,26 @@ ForthVM::init() {
     /// @}
     ///@defgroup FPU ops
     ///@{
-    CODE("+",       tos = ADD(tos, ss.pop()); SCALAR(tos));
-    CODE("*",       tos = MUL(tos, ss.pop()); SCALAR(tos));
-    CODE("-",       tos = SUB(ss.pop(), tos); SCALAR(tos));
-    CODE("/",       tos = DIV(ss.pop(), tos); SCALAR(tos));
+    CODE("+",       xop2(ADD));
+    CODE("-",       xop2(SUB));
+    CODE("*",       xop2(MUL));
+    CODE("/",       xop2(DIV));
     CODE("mod",     tos = D2I(MOD(ss.pop(), tos)); SCALAR(tos));  /// ( a b -- c )
     CODE("fmod",    tos = MOD(ss.pop(), tos); SCALAR(tos));       /// ( a b -- c ) fmod = x - int(q)*y
     CODE("/mod",                                                  /// ( a b -- c d ) c=a%b, d=a/b
          DU n = ss.pop();
-         DU m = MOD(n, tos); ss.push(SCALAR(m));
+         DU m = MOD(n, tos); SCALAR(m); ss.push(m);
          tos = DIV(n, tos); SCALAR(tos));
     ///@}
     ///@defgroup FPU double precision ops
     ///@{
-    CODE("*/",      tos = MUL2(ss.pop(), ss.pop()) / tos; SCALAR(tos)); /// ( a b c -- d ) c= a*b / c
+    CODE("*/",                                                    /// ( a b c -- d ) c= a*b / c
+         DU2 n = MUL2(ss.pop(), ss.pop());
+         tos = n / tos; SCALAR(tos));
     CODE("*/mod",                                                 /// ( a b c -- d e )
          DU2 n = MUL2(ss.pop(), ss.pop());
          DU2 t = tos;
-         DU  m = MOD2(n, tos); ss.push(SCALAR(m));
+         DU  m = MOD2(n, tos); SCALAR(m); ss.push(m);
          tos = D2I(n / t));
     ///@}
     ///@defgroup Binary logic ops (convert to integer first)
@@ -208,8 +210,8 @@ ForthVM::init() {
     CODE("and",     tos = I2D(D2I(tos) & D2I(ss.pop())));
     CODE("or",      tos = I2D(D2I(tos) | D2I(ss.pop())));
     CODE("xor",     tos = I2D(D2I(tos) ^ D2I(ss.pop())));
-    CODE("abs",     tos = ABS(tos));
-    CODE("negate",  tos = MUL(tos, -DU1));
+    CODE("abs",     xop1(ABS));
+    CODE("negate",  xop1(NEG));
     CODE("invert",  tos = I2D(~D2I(tos)));
     CODE("rshift",  tos = I2D(D2I(ss.pop()) >> D2I(tos)));
     CODE("lshift",  tos = I2D(D2I(ss.pop()) << D2I(tos)));
@@ -358,7 +360,7 @@ ForthVM::init() {
     CODE("c!",    IU i = POPi; BYTE(i) = (U8)POPi);         /// c i --
     CODE("+!",    IU i = POPi;                              /// n i --
          DU v = CELL(i) + POP();
-         CELL(i) = SCALAR(v));
+         SCALAR(v); CELL(i) = v);
     CODE("?",     IU i = POPi; _print(DOT, CELL(i)));       /// i --
     CODE(",",     DU n = POP();  add_du(n));                /// n -- , compile a cell
     CODE("cells", IU i = POPi; PUSH(i * sizeof(DU)));       /// n -- n'
