@@ -607,12 +607,12 @@ Tensor::sum() {
     else {
         FORK1(k_sum, numel, data, &z);
     }
-    return SCALAR(z);
+    SCALAR(z); return z;
 }
 __HOST__ DU
 Tensor::avg() {
     DU v = sum() / numel;
-    return SCALAR(v);
+    SCALAR(v); return v;
 }
 __HOST__ DU
 Tensor::std() {
@@ -620,7 +620,7 @@ Tensor::std() {
     FORK1(k_nvar, numel, data, &v, avg());       /// * 8x straight loop
 
     v = numel ? SQRT(v) : DU0;
-    return SCALAR(v);
+    SCALAR(v); return v;
 }
 __HOST__ DU
 Tensor::norm() {
@@ -628,7 +628,7 @@ Tensor::norm() {
     FORK1(k_nvar, numel, data, &n, DU0);
 
     DU v = numel ? SQRT(n) : DU0;
-    return SCALAR(v);
+    SCALAR(v); return v;
 }
 __HOST__ DU
 Tensor::max() {
@@ -636,7 +636,7 @@ Tensor::max() {
     for (U64 i=1; i < numel; i++) {              ///> TODO: CDP prefix sum
         v = MAX(data[i], v);
     }
-    return SCALAR(v);
+    SCALAR(v); return v;
 }
 __HOST__ DU
 Tensor::min() {
@@ -644,7 +644,7 @@ Tensor::min() {
     for (U64 i=1; i < numel; i++) {              ///> TODO: CDP prefix sum
         v = MIN(data[i], v);
     }
-    return SCALAR(v);
+    SCALAR(v); return v;
 }
 __HOST__ DU
 Tensor::dot(Tensor &B) {
@@ -655,7 +655,7 @@ Tensor::dot(Tensor &B) {
         }
     }
     else ERROR("A.dot(B) dim? %ld != %ld)\n", numel, B.numel);
-    return SCALAR(acc);
+    SCALAR(acc); return acc;
 }
 __HOST__ DU
 Tensor::loss(t4_loss op, Tensor &tgt) {
@@ -691,7 +691,7 @@ Tensor::loss(t4_loss op, Tensor &tgt) {
     }
     z /= N();                        /// * mini-batch average
     
-    return SCALAR(z);                /// make sum a scalar value (not object)
+    SCALAR(z); return z;             /// make sum a scalar value (not object)
 }
 __HOST__ U32
 Tensor::has_nan() {
@@ -713,7 +713,7 @@ Tensor::det() {
     DU v = DU1;
     for (U32 z = 0; z < m; z++) v *= data[z + z * n];
 
-    return SCALAR(v);
+    SCALAR(v); return v;
 }
 ///
 /// matrix upper triangle
