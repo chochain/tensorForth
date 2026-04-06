@@ -50,10 +50,7 @@ TLSF::init(U8 *mem, U64 sz, U64 off) {
     ///
     ///> get max available index
     ///
-    long i = 31L; for (U64 z = bsz, m = 1L<<31; i && z && !(z & m); z<<=1) i--;
-    long j = (bsz >> (i - L2_BITS)) & L2_MASK;
-    U32 index = INDEX(i, j);                            ///< last slot of map
-    DEBUG(" => bsz=0x%lx, index(%lx,%lx)\n", bsz, i, j);
+    U32 index = _idx(bsz);                              ///< last slot of map
     SET_MAP(index);                                     /// set ticks for available maps
     _free_list[index] = head;
 
@@ -61,6 +58,8 @@ TLSF::init(U8 *mem, U64 sz, U64 off) {
     tail->bsz = 0;
     tail->psz = bsz;
     SET_USED(tail);
+
+    if (!_mmu_ok()) ERROR("TLSF::init failed\n");
 }
 
 //================================================================
@@ -76,6 +75,7 @@ TLSF::malloc(U64 sz) {
 
     _LOCK;
     U32 index       = _find_free_index(bsz);
+    if (index == 0xff) return nullptr;
     free_block *blk = _set_used(index);         ///< take the indexed block off free list
 
     _split(blk, bsz);                           /// allocate the block, free up the rest
@@ -104,7 +104,9 @@ TLSF::realloc(void *p0, U64 sz) {
     ASSERT(IS_USED(blk));                                /// make sure it is used
 
     if (bsz > blk->bsz) {
+        _LOCK;
         _merge_next((free_block *)blk);                  /// try to get the block bigger
+        _UNLOCK;
     }
     if (bsz == blk->bsz) return p0;                      /// fits right in
     if ((blk->bsz > bsz) &&
@@ -175,6 +177,8 @@ TLSF::_idx(U64 sz) {
 #endif // __CUDA_ARCH__    
     };
     U32 l1 = fls(sz);
+    if (l1 < L2_BITS) return INDEX(l1, 0);
+
     U32 l2 = (sz >> (l1 - L2_BITS)) & L2_MASK;    /// 1 shift, 1 minus, 1 and
 
     MM_DB("    tlsf#idx(%lx) INDEX(%x,%x) => %x\n", sz, l1, l2, INDEX(l1, l2));
@@ -191,11 +195,11 @@ TLSF::_idx(U64 sz) {
 */
 __HOST__ S32
 TLSF::_find_free_index(U64 sz) {
-    auto ffs = [](U32 x) {                       ///< MSB represent the smallest slot that fits
+    auto ffs0 = [](U32 x) {                      ///< MSB represent the smallest slot that fits (0-based)
 #if __CUDA_ARCH__
-        return __ffs(x);      
+        return __ffs(x) - 1;      
 #else  // !__CUDA_ARCH__
-        return __builtin_ctz(x) + 1;
+        return __builtin_ctz(x);
 #endif // __CUDA_ARCH__
     };
     U32 index = _idx(sz);                        ///< find free_list index by size
@@ -205,14 +209,14 @@ TLSF::_find_free_index(U64 sz) {
     // no previous block exist, create a new one
     U32 l1 = L1(index);
     U32 l2 = L2(index);
-    U32 m1, m2 = _l2_map[l1] >> (l2+1);          ///< get SLI one size bigger
+    U32 m1 = 0, m2 = _l2_map[l1] >> (l2+1);      ///< get SLI one size bigger
     MM_DB("    tlsf#find(%x) l2_map[%x]=%x", index, l1, _l2_map[l1]);
     if (m2) {                                    /// check if any 2nd level slot available
-        l2 = ffs(m2 << l2);                      /// MSB represent the smallest slot that fits
+        l2 = ffs0(m2 << (l2+1));                 /// MSB represent the smallest slot that fits
     }
     else if ((m1 = (_l1_map >> (l1+1))) != 0) {  /// get FLI one size bigger
-        l1 = ffs(m1 << l1);                      /// allocate lowest available bit
-        l2 = ffs(_l2_map[l1]) - 1;               /// get smallest size
+        l1 = ffs0(m1 << (l1+1));                 /// allocate lowest available bit
+        l2 = ffs0(_l2_map[l1]);                  /// get smallest size
     }
     else {
         l1 = l2 = 0xff;                          /// out of memory
@@ -232,7 +236,7 @@ __HOST__ void
 TLSF::_split(free_block *blk, U64 bsz) {
     ASSERT(IS_USED(blk));
 
-    U64 minsz = ALIGN8(bsz) + (1 << MN_BITS) + 2*sizeof(free_block);
+    U64 minsz = ALIGN8(bsz) + (1 << MN_BITS) + sizeof(free_block);
     if (blk->bsz < minsz) return;                                     /// too small to split
 
     // split block, free
@@ -270,8 +274,8 @@ TLSF::_pack(free_block *b0, free_block *b1) {
     MM_DB("    tlsf#pack(%x:%x + %x:%x) => ", TADDR(b0), b0->bsz, TADDR(b1), b1->bsz);
     // merge b0 and b1, retain b0.FREE_FLAG
     used_block *b2 = (used_block *)BLK_AFTER(b1);
-    b2->psz += b1->psz & ~FREE_FLAG;    // watch for the block->flag
-    b0->bsz += b1->bsz;                 // include the block header
+    b0->bsz += b1->bsz;                           // include the block header
+    b2->psz  = b0->bsz | (b2->psz & FREE_FLAG);   // watch for the block->flag
 
     MM_DB("%x:%x\n", TADDR(b0), b0->bsz);
 }
@@ -287,8 +291,12 @@ TLSF::_unmap(free_block *blk, U32 bidx) {
     ASSERT(IS_FREE(blk));                        // ensure block is free
 
     U32 index = bidx ? bidx : _idx(blk->bsz);
-    free_block *n = _free_list[index] = NEXT_FREE(blk);
+    free_block *n = NEXT_FREE(blk);
     free_block *p = blk->prev ? PREV_FREE(blk) : NULL;
+    
+    if (_free_list[index] == blk) {
+        _free_list[index] = n;                   // update free_list if same size
+    }
     if (n) {                                     // up link
         // blk->next->prev = blk->prev;
         if (blk->prev) {
@@ -319,11 +327,7 @@ TLSF::_set_free(free_block *blk) {
     ASSERT(IS_USED(blk));
 
     U32 index = _idx(blk->bsz);
-    U32 l1 = L1(index);
-    U32 l2 = L2(index);
-    _l1_map     |= TIC(l1);
-    _l2_map[l1] |= TIC(l2);
-//    SET_MAP(index);                                /// set ticks for available maps
+    SET_MAP(index);                                /// set ticks for available maps
 
     // update block attributes
     free_block *head = _free_list[index];
@@ -390,7 +394,7 @@ __HOST__ int
 TLSF::_mmu_ok()    {                         // mmu sanity check
     used_block *p0 = (used_block*)_heap;
     used_block *p1 = (used_block*)BLK_AFTER(p0);
-    U32 tot = sizeof(free_block);
+    U32 tot = sizeof(used_block);
     while (p1) {
         if (p0->bsz != (p1->psz&~FREE_FLAG)) {       // ERROR!
             return 0;                                // memory integrity broken!
