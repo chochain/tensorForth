@@ -46,24 +46,7 @@ TensorVM::xop1(math_op op, DU v) {
     ///
     /// scalar handler
     ///
-    if (!IS_OBJ(tos)) {                     /// * scalar value
-        switch (op) {
-        case ABS:  tos = ABS(tos);          break;
-        case NEG:  tos = NEG(tos);          break;
-        case EXP:  tos = EXP(tos);          break;
-        case LN:   tos = LN(tos);           break;
-        case LOG:  tos = LOG(tos);          break;
-        case TANH: tos = TANH(tos);         break;
-        case RELU: tos = MAX(tos, DU0);     break;
-        case SIGM: tos = SIGMOID(tos);      break;
-        case SQRT: tos = SQRT(tos);         break;
-        case RCP:  tos = RCP(tos);          break;
-        case SAT:  tos = SAT(tos);          break;
-        case POW:  tos = POW(tos, v);       break;
-        }
-        SCALAR(tos);
-        return;
-    }
+    if (!IS_OBJ(tos)) { VM::xop1(op, v); return; }  /// * scalar value (send to base class)
     ///
     /// single tensor handler (destructive)
     ///
@@ -103,9 +86,13 @@ TensorVM::xop2(math_op op, t4_drop_opt x) {
     /// 2-operand operator (broadcasting)
     ///
     int tt = (IS_OBJ(ss[-1]) ? 2 : 0) | (IS_OBJ(tos) ? 1 : 0);
-    printf("tt=%d\n", tt);
     switch (tt) {                                 /// tensor flags
-    case 0 /* ss */: _ss_op(op); break;           /// * scalar-scalar op ( a b -- c  )
+    case 0 /* ss */: {                            /// * scalar-scalar op ( a b -- c  )
+        VLOG("%d> %s %g %g %s ss.idx=%d {\n",
+             id, fn, ss[-1], tos, _op[op], ss.idx);
+        VM::xop2(op);
+        VLOG("} %d> %s => %g ss.idx=%d\n", id, fn, tos, ss.idx);
+    } break;                        
     case 1 /* st */: {                            /// * scalar-tensor op ( n T -- T' )
         VLOG("%d> %s %g %s A[%ld] {\n",
              id, fn, ss[-1], _op[op], TTOS.numel);
@@ -241,24 +228,8 @@ TensorVM::gemm() {                           ///< GEMM ( a b A B C -- a b A B C 
     else ERROR("dim?");
 }
 ///
-/// scalar-scalar ops
+/// scalar-tensor ops
 ///
-__HOST__ __INLINE__ void
-TensorVM::_ss_op(math_op op) {               ///< scalar-scalar ops
-    switch (op) {
-    case ADD:  tos = ADD(tos, ss.pop()); break;
-    case MUL:  tos = MUL(tos, ss.pop()); break;
-    case SUB:  tos = SUB(ss.pop(), tos); break;
-    case DIV:  tos = DIV(ss.pop(), tos); break;
-    case MOD:  tos = MOD(ss.pop(), tos); break;
-    case MAX:  tos = MAX(ss.pop(), tos); break;
-    case MIN:  tos = MIN(ss.pop(), tos); break;
-    case MUL2: tos = MUL2(ss.pop(), tos); break;
-    case MOD2: tos = MOD2(ss.pop(), tos); break;
-    }
-    SCALAR(tos);                              /// * even +- can set LSB (rounding)
-}
-
 __HOST__ __INLINE__ Tensor&
 TensorVM::_st_op(math_op op, t4_drop_opt x) { ///< scalar tensor op
     Tensor &A = TTOS;                         /// * Tensor on TOS
@@ -550,12 +521,6 @@ TensorVM::init() {
     ///@defgroup redefined tensor ops
     ///@{
     CODE("boot",      mmu.clear(FIND((char*)"load") + 1));
-    CODE("+",         xop2(ADD));
-    CODE("-",         xop2(SUB));
-    CODE("*",         xop2(MUL));
-    CODE("/",         xop2(DIV));
-    CODE("abs",       xop1(ABS));
-    CODE("negate",    xop1(NEG));
     CODE("@",                                 
          if (TOS2T) blas2(T_DOT);             ///< matrix dot product
          else {
