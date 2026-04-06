@@ -61,9 +61,6 @@ public:
     __HOST__ virtual void resume();    ///< resume suspended work
     
 protected:
-    IU    ip     = 0;                 ///< instruction pointer
-    DU    tos    = -DU1;              ///< cached top of stack
-    
     bool  compile= false;
     IU    base   = 0;
     
@@ -85,12 +82,12 @@ protected:
     __HOST__ void nest();                      ///< inner interpreter
     __HOST__ void call(IU w);                  ///< execute word by index
     __HOST__ void syscall(                     ///< create host event
-        OP op,                                ///< op (system  event)
-        DU n=DU0, U8 m=0, int i=0,            ///< mode, tos, idx/len
-        char *fname=NULL) {                   ///< filename (if file op)
-        sys.op(op, n, m, i);                  /// * create host event
-        if (fname) sys.op_fn(fname);          /// * attach filename if any
-        state = HOLD;                         /// * sync, wait for host to return
+        OP op,                                 ///< op (system  event)
+        DU n=DU0, U8 m=0, int i=0,             ///< mode, tos, idx/len
+        char *fname=NULL) {                    ///< filename (if file op)
+        sys.op(op, n, m, i);                   /// * create host event
+        if (fname) sys.op_fn(fname);           /// * attach filename if any
+        state = HOLD;                          /// * sync, wait for host to return
     }
     ///
     /// stack operator short hands
