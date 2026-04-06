@@ -22,10 +22,6 @@ namespace t4::vm {
 #define TOS1T     (IS_OBJ(tos) && TTOS.is_tensor())
 #define TOS2T     (ss.idx > 0 && TOS1T && IS_OBJ(ss[-1]) && TNOS.is_tensor())
 #define TOS3T     (ss.idx > 1 && TOS2T && IS_OBJ(ss[-2]) && mmu.du2obj(ss[-2]).is_tensor())
-typedef enum {
-    T_DROP = 0,
-    T_KEEP
-} t4_drop_opt;
 ///@}
 ///@name Tensor (multi-dimension array) class
 ///@{
