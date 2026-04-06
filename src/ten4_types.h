@@ -71,10 +71,10 @@ typedef cudaEvent_t         EVENT;
         cudaDeviceReset();       \
     }}
 #define GPU_CHK()          GPU_ERR(cudaDeviceSynchronize())
-//#define MM_ALLOC(...)      GPU_ERR(cudaMallocManaged(__VA_ARGS__))
-//#define MM_FREE(m)         GPU_ERR(cudaFree(m))
-#define MM_ALLOC(p,...)    *((void**)(p)) = malloc(__VA_ARGS__)
-#define MM_FREE(m)         free(m)
+#define MM_ALLOC(...)      GPU_ERR(cudaMallocManaged(__VA_ARGS__))
+#define MM_FREE(m)         GPU_ERR(cudaFree(m))
+#define H_ALLOC(p,...)     *((void**)(p)) = malloc(__VA_ARGS__)
+#define H_FREE(m)          free(m)
 
 
 namespace cg = cooperative_groups;
@@ -119,7 +119,6 @@ typedef float       F32;                    ///< single precision float
     const dim3 _b(T4_DIM_SQ, 1, 1);                         \
     const dim3 _g(((n) + _b.x - 1) / _b.x, 1, 1);           \
     fn<<<_g,_b>>>(__VA_ARGS__,n);                           \
-    GPU_SYNC();                                             \
 }
 #define FORK1(fn,n,...) {                                   \
     fn<<<1,T4_DIM_SQ>>>(__VA_ARGS__,n);                     \
@@ -173,7 +172,7 @@ constexpr U32 T4_TT_OBJ   = 0x00000001;              /**< data unit flag */
 constexpr U32 T4_TT_VIEW  = 0x00000003;              /**< view of object */
 constexpr U32 EXT_FLAG    = 0x80000000;              /**< extention flag */
 #define DU2X(v)     (*(U32*)&(v))                    /**< to U32 ptr     */
-#define SCALAR(v)   ((DU2X(v) &= ~T4_TT_OBJ), (v))   /**< set DU flag    */
+#define SCALAR(v)   (DU2X(v) &= ~T4_TT_OBJ)          /**< set DU flag    */
 
 #if T4_DO_OBJ
 #define IS_OBJ(v)   ((DU2X(v) & T4_TT_OBJ)!=0)             /**< if is an obj   */
@@ -267,6 +266,15 @@ struct Managed {
         return ptr;
     }
     void operator delete(void *ptr) { MM_FREE(ptr); }
+};
+struct OnHost {
+    void *operator new(size_t sz) {
+        void *ptr;
+        H_ALLOC(&ptr, sz);
+        DEBUG("new Host Obj %p size=%ld byes\n", ptr, sz);
+        return ptr;
+    }
+    void operator delete(void *ptr) { H_FREE(ptr); }
 };
 
 } // namespace t4
