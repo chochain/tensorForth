@@ -24,8 +24,9 @@ cr .( ### benchmark - 100 loops ) cr
   r> 1 + / ." => "           \ retrieve loop count and calc average
   . ."  msec/cycle" cr ;     \ print result
 see mx                       \ show the word
+0 trace
 99 mx                        \ run the multiplication loop 100 times
-
+1 trace
 2drop                        \ drop the original two matrices
 
 cr .( ### matrix inversion ) cr
