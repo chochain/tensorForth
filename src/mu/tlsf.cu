@@ -243,6 +243,7 @@ TLSF::_split(free_block *blk, U64 bsz) {
 
     // split block, free
     free_block *free = (free_block *)U8PADD(blk, bsz);                ///< future next block (i.e. alot bsz bytes)
+    free_block *aft  = (free_block *)BLK_AFTER(blk);                  ///< next adjacent block
 
     MM_DB("    tlsf#split(%x:%x,%lx) => ", TADDR(blk), blk->bsz, bsz);
     free->bsz = blk->bsz - bsz;                                       /// carve out the acquired block
@@ -251,7 +252,6 @@ TLSF::_split(free_block *blk, U64 bsz) {
     blk->bsz  = bsz;                                                  /// allocate target block
     MM_DB("%x:%x:%x + %x:%x:%x\n", TADDR(blk), blk->bsz, blk->psz, TADDR(free), free->bsz, free->psz);
 
-    free_block *aft  = (free_block *)BLK_AFTER(free);                 /// next adjacent block
     if (aft) {
         aft->psz = free->bsz | (aft->psz & FREE_FLAG);                /// backward offset (positive)
         _merge_next(free);                                            /// _combine if possible
