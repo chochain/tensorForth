@@ -9,7 +9,8 @@
 #pragma once
 
 namespace t4::mu {
-
+///@name Used/Free blocks
+///@{
 typedef struct used_block {          ///< 8-bytes
     U32 bsz;                         ///< block size, header included (max 2G)
     U32 psz;                         ///< prior adjacent memory block size
@@ -21,25 +22,38 @@ typedef struct free_block {          ///< 16-bytes (i.e. mininum allocation per 
     U32 next;                        ///< offset to next free block
     U32 prev;                        ///< offset to previous free block
 } free_block;
-
+///@}
+///@name Pointer Arithmetic macros
+///@{
+#define U8PADD(p, n)	((U8*)(p) + (n))                    /** pointer add */
+#define U8PSUB(p, n)	((U8*)(p) - (n))                    /** pointer sub */
+#define TADDR(p)        ((U32)((U8*)(p) - _heap))           /** heap offset */
+///@}
+///@name Block Used/Free setting macros
+///@{
 #define FREE_FLAG       0x1
 #define IS_FREE(b)      ((b)->psz & FREE_FLAG)
 #define IS_USED(b)      (!IS_FREE(b))
 #define SET_FREE(b)     ((b)->psz |=  FREE_FLAG)
 #define SET_USED(b)     ((b)->psz &= ~FREE_FLAG)
-
+///@}
+///@name Block navigation macros
+///@{
 #define NEXT_FREE(b)    ((b)->next ? (free_block*)(_heap + (b)->next) : NULL)
 #define PREV_FREE(b)    ((b)->prev ? (free_block*)(_heap + (b)->prev) : NULL)
 #define BLK_AFTER(b)    (((b)->bsz           ) ? U8PADD(b, (b)->bsz             ) : NULL)        /**> following adjacent memory block  */
 #define BLK_BEFORE(b)   (((b)->psz&~FREE_FLAG) ? U8PSUB(b, ((b)->psz&~FREE_FLAG)) : NULL)        /**> prior adjacent memory block      */
 #define BLK_DATA(b)     (U8PADD(b, sizeof(used_block)))                                          /**> pointer to raw data space        */
 #define BLK_HEAD(p)     (U8PSUB(p, sizeof(used_block)))                                          /**> block header from raw pointer    */
-
+///@}
+///@name TLSF layer controls
+///@{
 #define MN_BITS         4                            /**> 16 bytes minimal allocation  */
 #define L2_BITS         3                            /**> 8 entries                    */
 #define L1_BITS         31                           /**> 31 levels, max 4G range      */
 #define L2_MASK         ((1<<L2_BITS)-1)             /**> level 2 bit mask             */
 #define FL_SLOTS        (L1_BITS * (1 << L2_BITS))   /**> slots for free_list pointers */
+#define MIN_SPLIT_SZ    128                          /**> mandated min splitting size  */
 
 #define TIC(n)          (1 << (n))
 #define L1(i)           ((i) >> L2_BITS)             /**> extrace L1 from given index  */
@@ -55,7 +69,9 @@ typedef struct free_block {          ///< 16-bytes (i.e. mininum allocation per 
 #define CLR_L1(i)       (L1_MAP(i) &= ~TIC(L1(i)))   /**> clear 1st level map entry    */
 #define CLR_L2(i)       (L2_MAP(i) &= ~TIC(L2(i)))   /**> clear 2nd level map entry    */
 #define CLEAR_MAP(i)    { CLR_L2(i); if ((L2_MAP(i))==0) CLR_L1(i); }
-
+///@}
+///@name TLSF main structure
+///@{
 class TLSF : public OnHost {
     U8         *_heap;                  ///> CUDA kernel tensor storage memory pool
     U64        _heap_sz;                ///> size of tensor storage memory pool
@@ -91,6 +107,6 @@ private:
     __HOST__ void        _show_stat();
     __HOST__ void        _dump_freelist();
 };
-
+///@}
 } // namespace t4::mu
 #endif // (!defined(__MMU_TLSF_H) && T4_DO_OBJ)

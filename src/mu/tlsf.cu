@@ -17,9 +17,6 @@ namespace t4::mu {
 // semaphore
 #define _LOCK           { MUTEX_LOCK(_mutex); }
 #define _UNLOCK         { MUTEX_FREE(_mutex); }
-#define U8PADD(p, n)	((U8*)(p) + (n))                    /** pointer add */
-#define U8PSUB(p, n)	((U8*)(p) - (n))                    /** pointer sub */
-#define TADDR(p)        ((U32)((U8*)(p) - _heap))           /** heap offset */
 
 //================================================================
 /*! constructor
@@ -111,7 +108,7 @@ TLSF::realloc(void *p0, U64 sz) {
         _merge_next((free_block *)blk);                  /// try to get the used block bigger
         _UNLOCK;
     }
-    if ((blk->bsz - bsz) > T4_STRBUF_SZ) {               /// split if it's big (save some)
+    if ((blk->bsz - bsz) > MIN_SPLIT_SZ) {               /// split if it's big (save some)
         _LOCK;
         _split((free_block*)blk, bsz);
         _UNLOCK;
