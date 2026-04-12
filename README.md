@@ -43,10 +43,10 @@ More details to come but here are some samples of tensorForth in action
   > |<img src="https://raw.githubusercontent.com/chochain/tensorForth/master/docs/img/ten4_l7_progress2.png" width="880px" height="400px">|<img src="https://raw.githubusercontent.com/chochain/tensorForth/master/docs/img/ten4_l7_loss.png" width="300px" height="300px"><br/>|
 
 ### How?
-* Pre CUDA12
+* **Pre CUDA12**
     GPU, behaves like a co-processor or a DSP chip. It has no OS, no string support, and runs its own memory. Most of the available libraries are built for host instead of device i.e. to initiate calls from CPU into GPU but not the other way around. So, to be interactive, a memory manager, IO, and syncing with CPU are things needed to be had. It's pretty much like creating a Forth from scratch for a new processor as in the old days. CUDA Dynamic Parallelism was a perfect fit for Forth VM running on a GPU.
-* Post CUDA12
-    Unfortunately, nVidia has decided the cost of keeping track of internal synchronization was too high. The GPU cores become asynchronous. That also killed my dream! The architecture of tensorForth has reduced to something not unlike other platforms i.e. TensorFlow, Pytorch, ... They run most of the code on host and only send computation-heavy tasks to GPU. Ce la vie!
+* **Post CUDA12**
+    Unfortunately, nVidia has decided the cost of keeping track of internal synchronization was too high. The GPU cores become asynchronous. The v2.0 Dynamic Parallelism is not backward compatible. That killed my dream! So, today, the architecture of tensorForth has been reduced to something not unlike other platforms i.e. TensorFlow, Pytorch, ... They run codes on host and only send computation-heavy tasks to GPU. Ce la vie!
     
 Since GPUs have good compiler support nowadays and I've ported the latest [*eForth*](https://github.com/chochain/eforth) to lambda-based in C++, pretty much all words can be transferred straight forward. However, having *FP32* or *float32* as my basic data unit, so later I can morph them to *FP16*, or even fixed-point, there are some small stuffs such as addressing and logic ops that require some attention.
 
