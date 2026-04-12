@@ -99,11 +99,17 @@ __HOST__ void
 System::delay(int ms) {
     std::this_thread::sleep_for(std::chrono::milliseconds(ms));
 }
-
+///
+///@name Randomizer
+///
 __HOST__ void
 System::rand(DU d, rand_opt o) {
-    mu::Tensor &t = (mu::Tensor&)mu->du2obj(d);
+#if T4_DO_OBJ
+    mu::Tensor &t = (mu::Tensor&)MMU::get_mmu()->du2obj(d);
     rand(t.data, t.numel, o);
+#else  // !T4_DO_OBJ
+    ERROR("n/a");
+#endif // T4_DO_OBJ    
 }
 
 __HOST__ void

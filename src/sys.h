@@ -42,6 +42,11 @@ public:
     static __HOST__ DU   clock();
     static __HOST__ void delay(int ticks);
     ///
+    /// Randomizer interfaces
+    ///
+    static __HOST__ void rand(DU d, rand_opt o);
+    static __HOST__ void rand(DU *d, U64 sz, rand_opt o, DU bias=DU0, DU scale=DU1);
+    ///
     /// System functions
     ///
     __HOST__ int       readline(int hold);
@@ -54,11 +59,6 @@ public:
     __HOST__ __INLINE__ void trace(int lvl) { _trace = lvl;  }
     
     ///==============================================================================
-    ///
-    /// Randomizer interfaces
-    ///
-    __HOST__ void rand(DU d, rand_opt o);
-    __HOST__ void rand(DU *d, U64 sz, rand_opt o, DU bias=DU0, DU scale=DU1);
     ///
     ///> System functions
     ///
