@@ -5,7 +5,7 @@
  * <pre>Copyright (C) 2022 GreenII. This file is distributed under BSD 3-Clause License.</p>
 */
 #include "ten4_types.h"
-#include "util.h"
+#include "util.h"               /// MEMCPY
 #include "tlsf.h"
 
 namespace t4::mu {
@@ -144,7 +144,7 @@ TLSF::free(void *ptr) {
 
     /// the block is free now, try to merge a free block before if exists
     _merge_prev(blk);
-    MM_DB("  } tlsf#free(%x)\n", addr);
+    MM_DB("  } tlsf#free(%x)\n", TADDR(ptr));
     _UNLOCK;
 }
 
