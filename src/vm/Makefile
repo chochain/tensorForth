@@ -23,8 +23,8 @@ VM_EXT := \
 	src/ten4_config.h \
 	src/ten4_types.h \
 	src/io/aio.h \
-	src/mmu/tensor.h \
-	src/mmu/dataset.h \
+	src/mu/tensor.h \
+	src/mu/dataset.h \
 	src/nn/model.h
 
 #VM_LIBS:= -Isrc/io -Isrc/mmu -Isrc/nn

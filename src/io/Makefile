@@ -20,8 +20,8 @@ IO_EXT:= \
 	src/ten4_types.h \
 	src/tbase.h \
 	src/util.h \
-	src/mmu/mmu.h \
-	src/mmu/tensor.h \
+	src/mu/mmu.h \
+	src/mu/tensor.h \
 	src/nn/model.h
 
 #IO_LIBS := -Isrc/mmu -Isrc/ld -I/src/nn
