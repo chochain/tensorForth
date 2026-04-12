@@ -73,7 +73,7 @@ typedef enum {
 } t4_loss;
 
 namespace t4::mu {
-
+    
 #if T4_VERBOSE > 1
 #define _OP(...)   static const char *_op[] = { __VA_ARGS__ }
 #else 
@@ -86,6 +86,7 @@ struct Tensor : public T4Base {
     t4_layer grad_fn   = L_NONE;    ///< grandiant funtion type
     Tensor   *grad[4];              ///< gradient and jacobian tensors
     Tensor   *mtum[4];              ///< momentum and delta tensors
+    DU       _tmp;                  ///< tmp storage for sum, std, and norm
     ///
     /// static ops
     /// Note:
