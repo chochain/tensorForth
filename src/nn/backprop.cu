@@ -180,7 +180,7 @@ __KERN__ void k_dbatchnorm_2(
 /// backprop: Neural Network back propegation
 /// Note: cascade execution layer by layer backward
 ///
-__GPU__ Model&
+__HOST__ Model&
 Model::broadcast(Tensor &tgt) {
     Tensor &out = (*this)[-1];                   ///< model output
     U64    HWC  = out.HWC();                     ///< sample size
@@ -194,7 +194,7 @@ Model::broadcast(Tensor &tgt) {
     return *this;
 }
 
-__GPU__ Model&
+__HOST__ Model&
 Model::backprop() {
     if (_hot) return backprop(*_hot);            /// * use default one-hot vector
 
@@ -202,7 +202,7 @@ Model::backprop() {
     return *this;
 }
 
-__GPU__ Model&
+__HOST__ Model&
 Model::backprop(Tensor &tgt) {
     auto trace = [](DU t, int i, Tensor &in, Tensor &out) {
         INFO("\n%6.2f:%3d> %s [%2d,%2d,%2d,%2d] p=%6.3f <= out'Σ/n=%6.2f [%2d,%2d,%2d,%2d]",
@@ -214,11 +214,11 @@ Model::backprop(Tensor &tgt) {
     if (_bloss(tgt)) return *this;                        /// * pre-calculate dLoss
     
     NLOG("\nModel#backprop starts {");
-    DU  t0 = System::ms(), t1 = t0, tt;                   ///< performance measurement
+    DU  t0 = System::clock(), t1 = t0, tt;                ///< performance measurement
     for (int i = numel - 2, j = 0; i > 0; i--, j++) {     /// numel=number of layers
         Tensor &in = (*this)[i], &out = (*this)[i + 1];
         if (*_trace) {
-            trace((tt=System::ms()) - t1, i, in, out);
+            trace((tt=System::clock()) - t1, i, in, out);
             t1 = tt;
         }
         _bstep(in, out);
@@ -232,13 +232,13 @@ Model::backprop(Tensor &tgt) {
         }
         if (*_trace > 1) in.show();
     }
-    NLOG("\n} Model::backprop %5.2f ms\n", System::ms() - t0);
+    NLOG("\n} Model::backprop %5.2f ms\n", System::clock() - t0);
     return *this;
 }
 /// ========================================================================
 /// private methods
 ///
-__GPU__ int
+__HOST__ int
 Model::_bloss(Tensor &tgt) {                     ///> pre-calc dLoss
     Tensor &out = (*this)[-1];                   ///< output layer, used as dLoss
     if (out.numel != tgt.numel) {                /// * check dimensions of target vector
@@ -273,7 +273,7 @@ Model::_bloss(Tensor &tgt) {                     ///> pre-calc dLoss
     return 0;
 }
 
-__GPU__ void
+__HOST__ void
 Model::_bstep(Tensor &in, Tensor &out) {
     ///
     /// layer function dispatcher
@@ -304,7 +304,7 @@ Model::_bstep(Tensor &in, Tensor &out) {
 #define TSZ(v)    (T4_DIM_SZ - (v) + 1)    /** 16,14,12 for 1x1,3x3,5x5 conv */
 #define TILE(v,t) ((v) + (t) - 1)/(t)      /** dim of tile  */
 
-__GPU__ int
+__HOST__ int
 Model::_bconv(Tensor &in, Tensor &out) {
     Tensor &f = *in.grad[0], &df = *in.grad[2];      ///< filter tensors
     Tensor &b = *in.grad[1], &db = *in.grad[3];      ///< bias tensors
@@ -340,7 +340,7 @@ Model::_bconv(Tensor &in, Tensor &out) {
     return 0;
 }
 
-__GPU__ int
+__HOST__ int
 Model::_blinear(Tensor &in, Tensor &out) {
     Tensor &w = *in.grad[0], &dw = *in.grad[2];       ///< weight tensors
     Tensor &b = *in.grad[1], &db = *in.grad[3];       ///< bias tensors
@@ -394,13 +394,13 @@ Model::_blinear(Tensor &in, Tensor &out) {
     return 0;
 }
 
-__GPU__ int
+__HOST__ int
 Model::_bactivate(Tensor &in, Tensor &out) {
     Tensor::ten_op(MUL, out, *in.grad[0], in);     /// * in = msk * out
     return 0;
 }
 
-__GPU__ int
+__HOST__ int
 Model::_bpool(Tensor &in, Tensor &out, t4_layer fn) {
     const U32 W = out.W(), H = out.H();           ///< output dimensions
     const U32 C = out.C(), N = out.N();
@@ -419,7 +419,7 @@ Model::_bpool(Tensor &in, Tensor &out, t4_layer fn) {
 ///
 template<int KS>                                        /// forward declare (in forward.cu)
 __KERN__ void k_pool(t4_layer op, DU *I, DU *O, U32 H, U32 W);
-__GPU__ int
+__HOST__ int
 Model::_bupsample(Tensor &in, Tensor &out, t4_layer fn) {
     const U32 W  = in.W(), H = in.H();                  ///< input dimensions (reversed pool)
     const U32 C  = in.C(), N = in.N();
@@ -444,7 +444,7 @@ Model::_bupsample(Tensor &in, Tensor &out, t4_layer fn) {
 ///    which is different from original document by does better
 ///    in preventing gradient explosion
 ///
-__GPU__ int
+__HOST__ int
 Model::_bbatchnorm(Tensor &in, Tensor &out) {
     const U32 N = out.N(), H = out.H(), W = out.W(), C = out.C();   ///< C0==C1, N1=N0
     const U64 HW = (U64)W * H, NHW = HW * N;

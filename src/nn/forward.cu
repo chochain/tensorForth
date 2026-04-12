@@ -181,7 +181,7 @@ __KERN__ void k_batchnorm(
 //< Neaural network forward propagation
 // * input can be a Tensor or a Dataset
 //
-__GPU__ Model&
+__HOST__ Model&
 Model::forward(Tensor &input) {
     Tensor &n1 = (*this)[1];    ///< reference model input layer
     if (*_trace) input.show();  /// * preview input data
@@ -204,11 +204,11 @@ Model::forward(Tensor &input) {
             out.N(), out.H(), out.W(), out.C());
     };
     NLOG("\nModel::forward starts {");
-    DU t0 = System::ms(), t1 = t0, tt;             ///< performance measurement
+    DU t0 = System::clock(), t1 = t0, tt;           ///< performance measurement
     for (U16 i = 1; i < numel - 1; i++) {
         Tensor &in = (*this)[i], &out = (*this)[i + 1];
         if (*_trace) {
-            info((tt=System::ms()) - t1, i, in, out);
+            info((tt=System::clock()) - t1, i, in, out);
             t1 = tt;
         }
         _fstep(in, out);
@@ -229,13 +229,13 @@ Model::forward(Tensor &input) {
         onehot((Dataset&)input);                   /// * update/cache onehot vector
         _hit = hit(true);                          /// * and _hit count
     }
-    NLOG("\n} Model::forward %5.2f ms\n", System::ms() - t0);
+    NLOG("\n} Model::forward %5.2f ms\n", System::clock() - t0);
     return *this;
 }
 /// ========================================================================
 /// private methods
 ///
-__GPU__ void
+__HOST__ void
 Model::_fstep(Tensor &in, Tensor &out) {
     ///
     /// layer function dispatcher
@@ -270,7 +270,7 @@ Model::_fstep(Tensor &in, Tensor &out) {
 #define TSZ(v)    (T4_DIM_SZ - (v) + 1)    /** 16,14,12 for 1x1,3x3,5x5 conv */
 #define TILE(v,t) ((v) + (t) - 1)/(t)      /** dim of tile  */
 
-__GPU__ int
+__HOST__ int
 Model::_fconv(Tensor &in, Tensor &out) {
     Tensor &f = *in.grad[0], &b = *in.grad[1];            ///< filter, bias tensor
     NN_DB(" f[%d,%d,%d,%d], b[%ld]", f.N(), f.H(), f.W(), f.C(), b.numel);
@@ -299,7 +299,7 @@ Model::_fconv(Tensor &in, Tensor &out) {
     return 0;
 }
 
-__GPU__ int
+__HOST__ int
 Model::_flinear(Tensor &in, Tensor &out) {
     const U32 N  = out.N();                           ///< batch size (N1 == N0)
     const U32 E1 = in.HWC(), E0 = out.HWC();          ///< dense layer dims
@@ -336,7 +336,7 @@ Model::_flinear(Tensor &in, Tensor &out) {
     return 0;
 }
 
-__GPU__ int
+__HOST__ int
 Model::_factivate(Tensor &in, Tensor &out, t4_layer fn) {
     DU alpha = in.xparm;
     FORK1(k_activate, in.numel, 
@@ -344,7 +344,7 @@ Model::_factivate(Tensor &in, Tensor &out, t4_layer fn) {
     return 0;
 }
 
-__GPU__ int
+__HOST__ int
 Model::_fpool(Tensor &in, Tensor &out, t4_layer fn) {
     const U32 W  = out.W(), H = out.H();                ///< output dimensions
     const U32 C  = out.C(), N = out.N();
@@ -362,7 +362,7 @@ Model::_fpool(Tensor &in, Tensor &out, t4_layer fn) {
     return 0;
 }
 
-__GPU__ int
+__HOST__ int
 Model::_fsoftmax(Tensor &in, Tensor &out) {
     Tensor &t = *in.grad[0];                    ///< temp tensor [1,H,W,C]
     DU     *d = t.data;                         ///< keep data pointer
@@ -377,7 +377,7 @@ Model::_fsoftmax(Tensor &in, Tensor &out) {
     return 0;
 }
 
-__GPU__ int
+__HOST__ int
 Model::_flogsoftmax(Tensor &in, Tensor &out) {  /// * TODO: DCP
     Tensor &t = *in.grad[0];                    ///< temp tensor [1,H,W,C];
     DU     *d = t.data;                         ///< cache tensor data
@@ -395,7 +395,7 @@ Model::_flogsoftmax(Tensor &in, Tensor &out) {  /// * TODO: DCP
 ///
 ///> batch norm, (batch mean=0.0, and variance=1.0)
 ///
-__GPU__ int
+__HOST__ int
 Model::_fbatchnorm(Tensor &in, Tensor &out) {
     const U32 N   = out.N(), C = out.C(), H = out.H(), W = out.W(); ///< C0==C1
     const U64 HW  = (U64)H * W;                        ///< size of a page
@@ -425,7 +425,7 @@ Model::_fbatchnorm(Tensor &in, Tensor &out) {
 ///
 template<int KS>                                        /// forward declare (in backprop.cu)
 __KERN__ void k_dpool(t4_layer op, DU *I, DU *O, U32 H, U32 W);
-__GPU__ int
+__HOST__ int
 Model::_fupsample(Tensor &in, Tensor &out) {
     const U32 W  = in.W(), H = in.H();                  ///< input dimensions (reversed pool)
     const U32 C  = in.C(), N = in.N();

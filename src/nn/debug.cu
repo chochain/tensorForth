@@ -11,14 +11,14 @@
 
 namespace t4::nn {
 
-__GPU__ int
+__HOST__ int
 Model::_check_nan(Tensor &t) {
     static int cnt; cnt = 0;
     FORK1(k_nan_inf, t.numel, t.data, &cnt);
     return cnt;
 }
 
-__GPU__ void
+__HOST__ void
 Model::_dump_f(const char *fn, Tensor &f) {
     DU sum = DU0;
     for (U32 n = 0; n < f.N(); n++) {
@@ -34,7 +34,7 @@ Model::_dump_f(const char *fn, Tensor &f) {
     INFO("\n\tΣΣ=%6.3f", sum);
 }
 
-__GPU__ void
+__HOST__ void
 Model::_dump_b(const char *bn, Tensor &b) {
     DU sum = DU0;
     INFO("\n\t%s=", bn);
@@ -46,7 +46,7 @@ Model::_dump_b(const char *bn, Tensor &b) {
     INFO(" Σ=%6.3f", sum);
 }
 
-__GPU__ void
+__HOST__ void
 Model::_dump_w(const char *wn, Tensor &w, bool full) {
     const U32 H = w.H(), W = w.W();
     DU hsum = DU0, *p = w.data;

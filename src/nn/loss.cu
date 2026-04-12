@@ -7,12 +7,12 @@
 #include "model.h"
 
 #if (T4_DO_OBJ && T4_DO_NN)
-#include "dataset.h"
+#include "mu/dataset.h"
 
 namespace t4::nn {
 using mu::Tensor;
 
-__GPU__ Tensor&
+__HOST__ Tensor&
 Model::onehot() {
     if (_hot) return *_hot;
     
@@ -22,7 +22,7 @@ Model::onehot() {
 ///
 ///> feed a tensor as the onehot vector
 ///
-__GPU__ Tensor&
+__HOST__ Tensor&
 Model::onehot(Tensor &t) {
     Tensor &out = (*this)[-1];                      ///< model output
     U32    N    = out.N();                          ///< mini-batch size
@@ -43,7 +43,7 @@ Model::onehot(Tensor &t) {
 ///
 ///> capture onehot vector from dataset labels
 ///
-__GPU__ Tensor&
+__HOST__ Tensor&
 Model::onehot(Dataset &dset) {
     Tensor &out = (*this)[-1];                      ///< model output
     U32    N    = out.N();                          ///< mini-batch size
@@ -71,7 +71,7 @@ Model::onehot(Dataset &dset) {
     return *_hot;
 }
 
-__GPU__ int
+__HOST__ int
 Model::hit(bool recalc) {
     if (!recalc) { return _hit; }                   /// * return current hit count
     
@@ -106,7 +106,7 @@ Model::hit(bool recalc) {
     return cnt;
 }
 
-__GPU__ DU
+__HOST__ DU
 Model::loss(t4_loss op) {
     return loss(op, *_hot);                         /// * use default one-hot vector
 }
@@ -115,7 +115,7 @@ Model::loss(t4_loss op) {
 /// Note: most ML can utilize last two layers
 ///       to skip loss calc with just out -= tgt (see backprop for details)
 ///
-__GPU__ DU
+__HOST__ DU
 Model::loss(t4_loss op, Tensor &tgt) {              ///< loss against target vector
     static const char *_op[] = { "MSE", "BCE", "CE", "NLL" };
     Tensor &out = (*this)[-1];                      ///< model output

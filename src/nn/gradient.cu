@@ -47,7 +47,7 @@ __KERN__ void k_adam(
 ///  @brief - allocate Momentum and Velocity tensors
 ///
 #define M2X(i)     (in.mtum[i] ? _mmu->OBJ2X(*in.mtum[i]) : 0)
-__GPU__ Model&
+__HOST__ Model&
 Model::grad_alloc(t4_optimizer op) {
     NLOG("  #grad_alloc {\n");
     for (int i = 1; i < numel - 1; i++) {
@@ -94,7 +94,7 @@ Model::grad_alloc(t4_optimizer op) {
 ///
 ///> grandiant descent iterator
 ///
-__GPU__ Model&
+__HOST__ Model&
 Model::gradient(const char *nm, t4_optimizer op, GdFunc fn, DU *parm) {
     auto step = [this, fn, parm](const char k,
         Tensor &g, Tensor &dg, Tensor &m, Tensor &v) {
@@ -118,7 +118,7 @@ Model::gradient(const char *nm, t4_optimizer op, GdFunc fn, DU *parm) {
     ///
     /// cascade execution layer by layer forward
     ///
-    DU t0 = System::ms();                         ///< performance measurement
+    DU t0 = System::clock();                      ///< performance measurement
     for (int i = 1; i < numel - 1; i++) {         /// TODO: parallel layer update
         Tensor &in = (*this)[i];
         Tensor &w  = *in.grad[0], &dw = *in.grad[2];
@@ -153,7 +153,7 @@ Model::gradient(const char *nm, t4_optimizer op, GdFunc fn, DU *parm) {
             }
         }
     }
-    NLOG("} Model::%s %5.2f ms\n", nm, System::ms() - t0);
+    NLOG("} Model::%s %5.2f ms\n", nm, System::clock() - t0);
     return *this;
 }
 ///
@@ -161,7 +161,7 @@ Model::gradient(const char *nm, t4_optimizer op, GdFunc fn, DU *parm) {
 /// Note: does not get affected by batch size
 ///       because filters are fixed size
 ///
-__GPU__ Model&
+__HOST__ Model&
 Model::sgd(DU lr, DU b) {                          /// b=beta (momentum)
     auto update = [](DU *parm, Tensor &g, Tensor &dg, Tensor &m, Tensor &v) {
         FORK1(k_sgd, g.numel, 
@@ -173,7 +173,7 @@ Model::sgd(DU lr, DU b) {                          /// b=beta (momentum)
     return gradient("sgd", ZEQ(b) ? OPTI_SGD : OPTI_SGDM, update, parm);
 }
 
-__GPU__ Model&
+__HOST__ Model&
 Model::adam(DU lr, DU b1, DU b2) {
     auto update = [](DU *parm, Tensor &g, Tensor &dg, Tensor &m, Tensor &v) {
         FORK1(k_adam, g.numel,
