@@ -11,13 +11,13 @@ namespace t4::vm {
 using mu::Dataset;
 using nn::Model;
 
-__GPU__ void
+__HOST__ void
 NetVM::predict(Tensor &I, Tensor &P) {}
 
 ///===================================================================
 /// private methods
 ///
-__GPU__ int
+__HOST__ int
 NetVM::_nnop(t4_layer op) {     /// vtable dispatcher
     VOP(LAYER_OP);
     auto ok = [this,op]() { VLOG("} NetVM::nnop %s\n", _op[op]); return 0; };
@@ -131,7 +131,7 @@ NetVM::_nnop(t4_layer op) {     /// vtable dispatcher
 ///
 /// dataset ops
 ///
-__GPU__ void
+__HOST__ void
 NetVM::_pickle(bool save) {                 ///< ( N addr len -- ) or ( N addr len mode -- )
     U8   mode= save ? FAM_WO : FAM_RW;      ///< file access mode
 
@@ -152,7 +152,7 @@ NetVM::_pickle(bool save) {                 ///< ( N addr len -- ) or ( N addr l
 /// fetch parameters onto TOS
 /// n=0:W, 1:B, 2:dW, 3:dB
 ///
-__GPU__ void
+__HOST__ void
 NetVM::_get_parm(int n) {
     if (!M1V) { ERROR("N n required?"); return; }
     
@@ -168,7 +168,7 @@ NetVM::_get_parm(int n) {
 /// fetch parameters onto TOS
 /// n=0:W, 1:B, 2:dW, 3:dB
 ///
-__GPU__ void
+__HOST__ void
 NetVM::_set_parm(int n) {
     if (!MTV) { ERROR("N T n required?"); return; }
 
@@ -189,7 +189,7 @@ NetVM::_set_parm(int n) {
 /// @parameters
 ///    k: kernel size
 ///
-__GPU__ void
+__HOST__ void
 NetVM::_conv(U16 k) {
     U16 opt[] = { k, k, 1, 1, 1 };      ///> default config vector
     if (TOS1T) {                        ///> if optional vector given
@@ -211,7 +211,7 @@ NetVM::_conv(U16 k) {
 ///
 /// forward propegation handler
 ///
-__GPU__ void
+__HOST__ void
 NetVM::_forward() {
     if (IS_M(ss[-1]) && TOS1D) {                  /// * NOS is the model
         DU x = POP();                             /// * TOS is a dataset
@@ -232,7 +232,7 @@ NetVM::_forward() {
 ///
 /// backward propegation handler
 ///
-__GPU__ void
+__HOST__ void
 NetVM::_backprop() {
     if (IS_M(ss[-1]) && TOS1T) {                  /// * TOS is a onehot vector
         DU y = POP();                     
@@ -249,7 +249,7 @@ NetVM::_backprop() {
 ///
 /// loss functions
 ///
-__GPU__ void
+__HOST__ void
 NetVM::_loss(t4_loss op) {
     static const char *_op[] = { "MSE", "BCE", "CE", "NLL" };
     VLOG("NetVM::loss.%s {\n", _op[op]);
@@ -272,7 +272,7 @@ NetVM::_loss(t4_loss op) {
 ///
 /// Neural Network Vocabulary
 ///
-__GPU__ void
+__HOST__ void
 NetVM::init() {
     if (id!=0) return;                        /// * singleton
     TensorVM::init();

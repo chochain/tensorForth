@@ -26,31 +26,31 @@ namespace t4::vm {
 class NetVM : public TensorVM {
     using Tensor = mu::Tensor;                   ///< alias
 public:
-    __GPU__ NetVM(int id, System &sys) : TensorVM(id, sys) {
+    __HOST__ NetVM(int id, System &sys) : TensorVM(id, sys) {
         TRACE("\\      ::NetVM[%d]\n", id);
     }
     ///
     /// @name Class Object Constructor
     /// @{
-    __GPU__ virtual void init() final;           ///< override TensorVM, TODO: does not work without 'final', why?
+    __HOST__ virtual void init() final;           ///< override TensorVM, TODO: does not work without 'final', why?
     
-    __GPU__ void predict(Tensor &I, Tensor &P);  ///< predict result
+    __HOST__ void predict(Tensor &I, Tensor &P);  ///< predict result
 
 private:
     ///
     /// @name model and dataset ops
     /// @{
-    __GPU__ int  _nnop(t4_layer op);
-    __GPU__ void _pickle(bool save);             ///< override TenVM::_pickle
-    __GPU__ void _get_parm(int n);               ///< fetch tensor parameters n=0:W, 1:B, 2:dW, 3:dB
-    __GPU__ void _set_parm(int n);               ///< set tensor parameters (for debugging)
+    __HOST__ int  _nnop(t4_layer op);
+    __HOST__ void _pickle(bool save);             ///< override TenVM::_pickle
+    __HOST__ void _get_parm(int n);               ///< fetch tensor parameters n=0:W, 1:B, 2:dW, 3:dB
+    __HOST__ void _set_parm(int n);               ///< set tensor parameters (for debugging)
     /// @}
     /// @name Convolution, loss and Gradiant ops
     /// @{
-    __GPU__ void _conv(U16 k=3);                 ///< init convolution layer
-    __GPU__ void _forward();                     ///< forward propegation handler
-    __GPU__ void _backprop();                    ///< backward propegation handler
-    __GPU__ void _loss(t4_loss op);              ///< calculate loss
+    __HOST__ void _conv(U16 k=3);                 ///< init convolution layer
+    __HOST__ void _forward();                     ///< forward propegation handler
+    __HOST__ void _backprop();                    ///< backward propegation handler
+    __HOST__ void _loss(t4_loss op);              ///< calculate loss
     /// @}
 };
 
