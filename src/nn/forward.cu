@@ -294,7 +294,7 @@ Model::_fconv(Tensor &in, Tensor &out) {
             ERROR("nn#fconv kernel_size=%d not supported\n", ks);
             return -1;
         }
-        GPU_SYNC();
+        GPU_CHK();
     }
     return 0;
 }

@@ -334,7 +334,7 @@ Model::_bconv(Tensor &in, Tensor &out) {
             ERROR("nn#bconv kernel_size %d not supported\n", ks);
             return -1;
         }
-        GPU_SYNC();
+        GPU_CHK();
     }
     if (*_trace > 1) { _dump_b("b", b); _dump_f("f", f); }
     return 0;
