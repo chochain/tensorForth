@@ -27,7 +27,8 @@ T4_EXT := \
 	./src/vm/vm.h \
 	./src/vm/eforth.h \
 	./src/vm/tenvm.h \
-	./src/vm/netvm.h
+	./src/vm/netvm.h \
+	./src/nn/model.h
 
 T4_OBJS := $(T4_SRCS:%.cu=%.o)
 
