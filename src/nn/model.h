@@ -67,8 +67,8 @@ public:
     /// @}
     /// @name layer access methods
     /// @{
-    __BOTH__ Tensor &operator[](S64 i);          ///< 64-bit indexing (negative possible)
-    __BOTH__ int    slots();
+    __HOST__ Tensor &operator[](S64 i);          ///< 64-bit indexing (negative possible)
+    __HOST__ int    slots();
     
     __HOST__  Model  &npush(DU v);
     __HOST__  Model  &npush(Tensor &t);

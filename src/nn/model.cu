@@ -19,7 +19,7 @@ Model::nname(int i) {
     static const char *name[] = { LAYER_OP };
     return name[i];
 }
-__GPU__ const char*                ///< device network layer name 
+__HOST__ const char*                ///< device network layer name 
 Model::d_nname(int i) {
     static const char* name[] = { LAYER_OP };
     return name[i];
@@ -27,7 +27,7 @@ Model::d_nname(int i) {
 /// @}
 /// @{
 /// @name constructor (indirect)
-__GPU__  void
+__HOST__  void
 Model::init(MMU *mmu, Tensor &store, int &trace) {
     T4Base::init(0, T4_MODEL, 0);           /// * T4Base attributes
     _mmu     = mmu;                         /// * cached memory controller
@@ -42,16 +42,16 @@ Model::init(MMU *mmu, Tensor &store, int &trace) {
 /// @}
 /// @name layer access methods
 /// @{
-__BOTH__ Tensor&
+__HOST__ Tensor&
 Model::operator[](S64 i) {
     /// * model.data[0] = store
     /// so 1st layer starts from model.data[1]
     return (Tensor&)_mmu->du2obj(data[(i < 0L) ? numel + i : i]);
 }
-__BOTH__ int
+__HOST__ int
 Model::slots() { return _store->numel; }
 
-__GPU__ Model&
+__HOST__ Model&
 Model::npush(DU v) {
     data[numel++] = v;
     U32 tsz = _store->numel;                ///< current allocated for layers
@@ -61,23 +61,23 @@ Model::npush(DU v) {
     }
     return *this;
 }
-__GPU__ Model& Model::npush(Tensor &t) { return npush(_mmu->obj2du(t)); }
-__GPU__ DU     Model::npop()           { return data[--numel];  }
-__GPU__ int    Model::batch_size()     { return (*this)[1].N(); }
+__HOST__ Model& Model::npush(Tensor &t) { return npush(_mmu->obj2du(t)); }
+__HOST__ DU     Model::npop()           { return data[--numel];  }
+__HOST__ int    Model::batch_size()     { return (*this)[1].N(); }
 /// @{
 /// @name Tensor constructors and randomizer
 /// @{
-__GPU__ Tensor&
+__HOST__ Tensor&
 Model::COPY(Tensor &t)   { return _mmu->copy(t); }
-__GPU__ void
+__HOST__ void
 Model::FREE(Tensor &t)   { _mmu->free(t); }
-__GPU__ Tensor&
+__HOST__ Tensor&
 Model::VEC(U64 sz)       { return _mmu->tensor(sz); }
-__GPU__ Tensor&
+__HOST__ Tensor&
 Model::T4(U32 n, U32 h)  { return _mmu->tensor(n, h, 1, 1); }
-__GPU__ Tensor&
+__HOST__ Tensor&
 Model::T4(U32 n, U32 h, U32 w, U32 c) { return _mmu->tensor(n, h, w, c); }
-__GPU__ void
+__HOST__ void
 Model::RAND(Tensor &t, DU scale) {              ///< short hand to System::rand
     NN_DB("sys#rand(T%d) numel=%ld bias=%.2f, scale=%.2f\n",
           t.rank, t.numel, -0.5, scale*2.0);
@@ -86,7 +86,7 @@ Model::RAND(Tensor &t, DU scale) {              ///< short hand to System::rand
 /// @}
 /// @name NN layer factory
 /// @{
-__GPU__ Model&
+__HOST__ Model&
 Model::add(t4_layer fn, U32 n, DU bias, U16 *opt) {
     Tensor &in = (*this)[-1];
     if (in.grad_fn != L_NONE) return *this;     /// * tensor already setup
@@ -124,7 +124,7 @@ Model::add(t4_layer fn, U32 n, DU bias, U16 *opt) {
 /// @}
 /// @name Convolution and Linear ops
 /// @{
-__GPU__ void
+__HOST__ void
 Model::_iconv(Tensor &in, U32 C0, DU bias, U16 *opt) {
     U32 N1 = in.N(), C1 = in.C();                     ///> batch_sz, channels
     U16 Hf = opt[0], Wf = opt[1];                     ///> filter sizing
@@ -169,7 +169,7 @@ Model::_iconv(Tensor &in, U32 C0, DU bias, U16 *opt) {
     npush(out);                                  /// * stage for next stage
     NN_DB("    } model#iconv => k=%6.3f, f.std=%6.3f b.std=%6.3f\n",  k, f->std(), b->std());
 }
-__GPU__ void
+__HOST__ void
 Model::_ilinear(Tensor &in, U32 E0, DU bias) {
     NN_DB("    model#ilinear bias=%4.2f {\n", bias);
     U32 N1 = in.N();
@@ -204,7 +204,7 @@ Model::_ilinear(Tensor &in, U32 E0, DU bias) {
     NN_DB("    } model#ilinear => k=%6.3f, w.std=%6.3f b.std=%6.3f\n",
           k, w->std(), b->std());
 }
-__GPU__ void
+__HOST__ void
 Model::_iflatten(Tensor &in) {
     NN_DB("    model#iflatten {\n");
     Tensor &out = T4(in.N(), (U32)in.HWC());     /// * for backprop
@@ -214,7 +214,7 @@ Model::_iflatten(Tensor &in) {
 /// @}
 /// @name Activation ops
 /// @{
-__GPU__ void
+__HOST__ void
 Model::_isoftmax(Tensor &in) {
 	NN_DB("    model#isoftmax {\n");
     Tensor &out = COPY(in);                      ///> output tensor sizing
@@ -224,7 +224,7 @@ Model::_isoftmax(Tensor &in) {
 	NN_DB("    } model#isoftmax\n");
 }
 
-__GPU__ void
+__HOST__ void
 Model::_iactivate(Tensor &in, DU alpha) {
     NN_DB("    model#iactivate alpha=%6.3f {\n", alpha);
     Tensor &out = COPY(in);
@@ -238,7 +238,7 @@ Model::_iactivate(Tensor &in, DU alpha) {
 /// @}
 /// @name Pooling, Dropout, and UpSample ops
 /// @{
-__GPU__ void
+__HOST__ void
 Model::_ipool(Tensor &in, U16 f) {
     NN_DB("    model#ipool %dx%d {\n", f, f);
     if (f != 2 && f != 3) {
@@ -254,7 +254,7 @@ Model::_ipool(Tensor &in, U16 f) {
     NN_DB("    } model#ipool\n");
 }
 
-__GPU__ void
+__HOST__ void
 Model::_ibatchnorm(Tensor &in, DU m) {
     NN_DB("    model#ibatchnorm m=%5.3f {\n", m);
     const int C = in.C();                        /// C0==C1
@@ -273,7 +273,7 @@ Model::_ibatchnorm(Tensor &in, DU m) {
     NN_DB("    } model#ibatchnorm\n");
 }
 
-__GPU__ void
+__HOST__ void
 Model::_iup(Tensor &in, U16 f, DU method) {
     NN_DB("    model#iup upsample %dx%d {\n", f, f);
     if (f != 2 && f != 3) {
