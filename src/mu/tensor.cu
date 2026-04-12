@@ -599,13 +599,13 @@ Tensor::plu(Tensor &A, Tensor &P, int *ns) {
 ///
 __HOST__ DU
 Tensor::sum() {
-    static DU z;                                    ///< shared static memory
+    DU z = DU0;
     if (numel < T4_DIM_SZ) {                        /// * cheaper for small loop
-        z = DU0;
         for (int i = 0; i < numel; i++) z += data[i];
     }
     else {
-        FORK1(k_sum, numel, data, &z);
+        FORK1(k_sum, numel, data, &_tmp);
+        z = _tmp;
     }
     SCALAR(z); return z;
 }
@@ -616,18 +616,16 @@ Tensor::avg() {
 }
 __HOST__ DU
 Tensor::std() {
-    static DU v;
-    FORK1(k_nvar, numel, data, &v, avg());       /// * 8x straight loop
+    FORK1(k_nvar, numel, data, &_tmp, avg());       /// * 8x straight loop
 
-    v = numel ? SQRT(v) : DU0;
+    DU v = numel ? SQRT(_tmp) : DU0;
     SCALAR(v); return v;
 }
 __HOST__ DU
 Tensor::norm() {
-    static DU n;
-    FORK1(k_nvar, numel, data, &n, DU0);
+    FORK1(k_nvar, numel, data, &_tmp, DU0);
 
-    DU v = numel ? SQRT(n) : DU0;
+    DU v = numel ? SQRT(_tmp) : DU0;
     SCALAR(v); return v;
 }
 __HOST__ DU
