@@ -13,13 +13,16 @@ namespace t4::nn {
 /// convolution filter derivatives
 /// TODO: stride, dilation, [C1]NCHW filter
 ///
+#define SSZ  (TS + KS - 1)  /** SHARED size */
 template<int TS, int KS>    ///> tile size, kernel size
 __KERN__ void k_dconv2d(
     DU *I, DU *F, DU *DF, DU *DB, DU *O,   ///< input I[HxW], F,DF[KSxKS], output O[HxW]
     int H, int W, int C0, bool train       ///< H1==H0, W1==W0, output Channels
     ) {
-    __shared__ DU _I[T4_DIM_SZ][T4_DIM_SZ];          ///< input cache tile [16x16]
-    __shared__ DU _O[T4_DIM_SZ][T4_DIM_SZ];          ///< output cache tile [16x16]
+    __shared__ DU _I[SSZ][SSZ];                      ///< input cache tile
+    __shared__ DU _O[SSZ][SSZ];                      ///< output cache tile
+    __shared__ DU _df[KS][KS];
+    __shared__ DU _db;
 
     const U32 KSQ= KS * KS;                          ///< save some muliplications
     const U32 tx = threadIdx.x, j1 = tx + blockIdx.x * TS;
@@ -39,36 +42,51 @@ __KERN__ void k_dconv2d(
         I[z1]  = DU0;                                /// * zero dX
     }
     else _I[ty][tx] = DU0;                           /// * zero when out of range
-
+    g.sync();
+    
     for (U32 c0 = 0; c0 < C0; c0++) {                ///< each dY channel
         const U64 z0 = ((U64)W * i0 + j0) * C0 + c0; ///< output array index
         _O[ty][tx] =                                 /// * cache dY (output) tile
             (i0 >= 0 && i0 < H && j0 >= 0 && j0 < W) /// * with zero padding
             ? O[z0] : DU0;                           /// * by channel
+        if (tx==0 && ty==0)     _db = DU0;
+        if (tx < KS && ty < KS) _df[ty][tx] = DU0;   /// * _df[KS][KS]
         g.sync();                                    /// * smem write barrier
         
-        if (train && c1 == 0) {
-            atomicAdd(&DB[c0], _O[ty][tx]);          /// * dB[c0] += dY[c0]
+        /// dB[c0] += dY[c0]
+/* Fix A */
+        DU db = (train && c1==0) ? _O[tx][ty] : DU0;
+        for (int off=16; off>0; off>>=1) {
+            db += __shfl_down_sync(0xffffffff, db, off);
         }
+        if ((tx * blockDim.y + ty) % 32 == 0) atomicAdd(&DB[c0], db);
+/* Fix B       
+        if (train && c1 == 0 && tx < TS && ty < TS) {
+            atomicAdd(_db, _O[ty][tx]);              /// * _db = dY[c0] (each 16x16 tile)
+        }
+        g.sync();
+        if (tx==0 && ty==0) atomicAdd(&DB[c0], _db); /// * dB[c0] += sum _db
+*/        
         
         const U64 zf = (U64)C0 * KSQ * c1 + c0;      ///< filter index F[C1,KS,KS,C0]
         if (tx < TS && ty < TS) {                    /// * within tile [14x14]
             DU *fx = &F[zf + (KSQ - 1) * C0];        ///< F[c1,KS-1,KS-1,c0] i.e. rot180
-            DU sum = DU0, *dfx= &DF[zf];             ///< dX sum, DF[c1,0,0,c0] (TSxTS threads)
+            DU sum = DU0;                            ///< dX sum, DF[c1,0,0,c0] (TSxTS threads)
             for (U32 y = 0; y < KS; y++) {           /// * process one KS * KS cell
                 for (U32 x = 0; x < KS; x++) {
                     DU dy = _O[ty+y][tx+x];          ///< dY
                     sum += (*fx) * dy;               /// * dX += F' @ dY (for each C1)
                     fx  -= C0;                       /// * walk F backward (i.e. rot 180)
                     if (!train) continue;            /// * TODO: CC, does this breaks unroll?
-                    atomicAdd(dfx, dy * _I[ty+y][tx+x]);   /// * dF += dY * X (TSxTS threads)
-                    __syncthreads();
-                    dfx += C0;                       /// * DF[c1,0,1,c0]
+                    atomicAdd(&_df[y][x], dy * _I[ty+y][tx+x]);   /// * dF += dY * X (TSxTS threads)
                 }
             }
             if (i1 < H && j1 < W) I[z1] += sum;      /// * collect dX (per C1)
         }
         g.sync();                                    /// * d read barrier
+        if (tx < KS && ty < KS) {
+            atomicAdd(&DF[zf + (ty*KS+tx)*C0], _df[ty][tx]); /// * dF += sum(_df)
+        }
     }
 }
 
@@ -320,7 +338,7 @@ Model::_bconv(Tensor &in, Tensor &out) {
     dim3 g5(TILE(W,TSZ(5)), TILE(H,TSZ(5)), C1);
 
     if (*_trace > 1) { _dump_b("db", db); _dump_f("df", df); }
-    for (U32 n = 0; n < N; n++) {                   ///< accumulative over N samples
+    for (U32 n = 0; n < N; n++) {                   ///< accumulative over N samples TODO: multi-stream
         DU *d1 = in.slice(n), *d0 = out.slice(n);
         const U32 ks = f.H();                       ///< kernel size
         switch (ks) {
