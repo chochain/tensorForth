@@ -51,7 +51,7 @@ k_matmul(
 ///
 /// A: M×K,  B: K×N,  O: M×N  (row-major, all in device memory)
 __KERN__ void
-k_matmul_gemini(
+k_matmul_claude(
     const DU* __restrict__ A,
     const DU* __restrict__ B,
     DU*       __restrict__ O,
@@ -202,8 +202,8 @@ k_gemm_claude(
 #define TM       4
 #define TN       4
 
-#define THREADS_X  (BN / TN)          // 16 — threads covering W dimension
-#define THREADS_Y  (BM / TM)          // 16 — threads covering H dimension
+#define THREADS_X  (BN / TN)          /** 16 — threads covering W dimension */
+#define THREADS_Y  (BM / TM)          /** 16 — threads covering H dimension */
 #define NTHREADS   (THREADS_X * THREADS_Y)
 
 // ---------------------------------------------------------------------------
@@ -309,8 +309,8 @@ k_gemm_tile_claude(
     // -------------------------------------------------------------------------
     // Shared memory tiles
     // -------------------------------------------------------------------------
-    __shared__ DU _sA[BM][BK];        ///< [output rows][k-strip depth]
-    __shared__ DU _sB[BK][BN];        ///< [k-strip depth][output cols]
+    __shared__ DU _sA[BM][BK];         ///< [output rows][k-strip depth]
+    __shared__ DU _sB[BK][BN];         ///< [k-strip depth][output cols]
 
     // -------------------------------------------------------------------------
     // Register accumulators — TM × TN per thread, zero-initialised
@@ -480,7 +480,7 @@ Tensor::mm2(
     
     for (U32 n = 0; n < N; n++) {
         DU *da = A.data, *db = B.slice(n), *dx = O.slice(n);
-        FORK3(k_matmul, H, W, C, da, db, dx, opt, Ka);
+        FORK3(k_matmul_claude, H, W, C, da, db, dx, opt, Ka);
     }
     return O;
 }
