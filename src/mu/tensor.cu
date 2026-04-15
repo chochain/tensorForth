@@ -317,7 +317,7 @@ k_gemm_tile_claude(
     // -------------------------------------------------------------------------
     // Register accumulators — TM × TN per thread, zero-initialised
     // -------------------------------------------------------------------------
-    DU acc[TM][TN] = { DU0 };
+    DU2 acc[TM][TN] = { DU0 };
 
     // -------------------------------------------------------------------------
     // Cooperative tile loading
@@ -333,9 +333,9 @@ k_gemm_tile_claude(
     // -------------------------------------------------------------------------
     // Main K-strip loop
     // -------------------------------------------------------------------------
-    const U32 num_strips = (K + BK - 1) / BK;
+    const U32 nstrip = (K + BK - 1) / BK;
 
-    for (U32 s = 0; s < num_strips; s++) {
+    for (U32 s = 0; s < nstrip; s++) {
         const U32 K_BASE = s * BK;
         // -- Load _sA ----------------------------------------------------------
         // Flatten _sA[BM][BK] and distribute across 256 loaders, 4 each.
@@ -396,7 +396,7 @@ k_gemm_tile_claude(
             const U32 gn = bx + rx + n;
             if (gn >= N) continue;
             const U64 z0 = ((U64)gm * N + gn) * C + c;
-            O[z0] = alpha * acc[m][n] + beta * O[z0];
+            O[z0] = acc[m][n] * alpha + O[z0] * beta;
         }
     }
 }
