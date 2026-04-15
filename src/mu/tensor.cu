@@ -132,7 +132,7 @@ k_gemm(
 //   O[i,j,c]  →  O_ptr[ i*(W*C) + j*C + c ]   (c fixed per block)
 // ---------------------------------------------------------------------------
 __KERN__ void
-k_gemm_gemini(
+k_gemm_claude(
     const DU * __restrict__ A,
     const DU * __restrict__ B,
     DU *O,
@@ -156,6 +156,7 @@ k_gemm_gemini(
         // where i_tile = blockIdx.y*TILE + ty,  k_tile = s*TILE + tx
         const U32 k_a = s * TILE + tx;   ///< k-index for this thread's A load
         _sA[ty][tx] = (m0 < M && k_a < K) ? A[((U64)m0 * K + k_a) * C + c] : DU0;
+        
         // ---- Load tile of B: rows [s*TILE .. +TILE), cols [blockIdx.x*TILE .. +TILE) ----
         // Thread (ty, tx) loads B[k_tile, j_tile, c]
         // where k_tile = s*TILE + ty,  j_tile = blockIdx.x*TILE + tx
@@ -171,7 +172,7 @@ k_gemm_gemini(
     }
     // ---- Write output ----
     if (m0 < M && n0 < N) {
-        const U64 z0 = ((U64)n0 * N + m0) * C + c;
+        const U64 z0 = ((U64)m0 * N + n0) * C + c;
         O[z0] = alpha * acc + beta * O[z0];
     }
 }
@@ -203,7 +204,7 @@ k_gemm_gemini(
 
 #define THREADS_X  (BN / TN)          // 16 — threads covering W dimension
 #define THREADS_Y  (BM / TM)          // 16 — threads covering H dimension
-#define NTHREADS   (THREAD_X*THREAD_Y)
+#define NTHREADS   (THREADS_X * THREADS_Y)
 
 // ---------------------------------------------------------------------------
 // FORK3T — grid over (ceil(W/BN), ceil(H/BM), C)
@@ -267,6 +268,133 @@ k_gemm_tile_gemini(
             U32 mx = m0 * TM + m, nx = n0 * TN + n;
             U64 ci = ((U64)mx * N + nx) * C + c;
             if (mx < M && nx < N) O[ci] = alpha * acc[m][n] + beta * O[ci];
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// k_gemm — register-tiled GEMM, channel-last (interleaved) layout
+//
+//   O[H,W,C] = alpha * A[H,K,C] @ B[K,W,C]  +  beta * O[H,W,C]
+//
+// Memory layout (stride C between consecutive logical elements):
+//   A[i,k,c]  →  A[ i*(K*C) + k*C + c ]
+//   B[k,j,c]  →  B[ k*(W*C) + j*C + c ]
+//   O[i,j,c]  →  O[ i*(W*C) + j*C + c ]
+//
+// Each thread block covers a (BM × BN) output tile for one channel c.
+// Each thread computes a (TM × TN) register sub-tile within that block tile.
+// ---------------------------------------------------------------------------
+__KERN__ void
+k_gemm_tile_claude(
+    DU * __restrict__ A,
+    DU * __restrict__ B,
+    DU *              O,
+    DU alpha, DU beta,
+    U32 K, U32 M, U32 N)
+{
+    const U32 tx = threadIdx.x;        ///< [0, THREADS_X) — col direction
+    const U32 ty = threadIdx.y;        ///< [0, THREADS_Y) — row direction
+    const U32 c  = blockIdx.z;         ///< channel index
+    const U32 C  = gridDim.z;          ///< total channels
+
+    // Top-left corner of this block's (BM × BN) output tile
+    const U32 by = blockIdx.y * BM;
+    const U32 bx = blockIdx.x * BN;
+
+    // Top-left corner of this thread's (TM × TN) register tile inside the block tile
+    const U32 ry = ty * TM;            ///< row offset within block tile
+    const U32 rx = tx * TN;            ///< col offset within block tile
+
+    // -------------------------------------------------------------------------
+    // Shared memory tiles
+    // -------------------------------------------------------------------------
+    __shared__ DU _sA[BM][BK];        ///< [output rows][k-strip depth]
+    __shared__ DU _sB[BK][BN];        ///< [k-strip depth][output cols]
+
+    // -------------------------------------------------------------------------
+    // Register accumulators — TM × TN per thread, zero-initialised
+    // -------------------------------------------------------------------------
+    DU acc[TM][TN] = { DU0 };
+
+    // -------------------------------------------------------------------------
+    // Cooperative tile loading
+    //
+    //   256 threads collaboratively load BM*BK = 1024 elements into _sA
+    //   and BK*BN = 1024 elements into _sB.  Each thread loads 4 of each.
+    //   A linear loader index maps each thread to a fixed set of elements.
+    // -------------------------------------------------------------------------
+    const U32 loader_id = ty * THREADS_X + tx;   ///< [0, 256)
+    const U32 NA = (BM * BK) / NTHREADS;         ///< (64*16)/256 = 4
+    const U32 NB = (BK * BN) / NTHREADS;         ///< (16*64)/256 = 4
+
+    // -------------------------------------------------------------------------
+    // Main K-strip loop
+    // -------------------------------------------------------------------------
+    const U32 num_strips = (K + BK - 1) / BK;
+
+    for (U32 s = 0; s < num_strips; s++) {
+        const U32 K_BASE = s * BK;
+        // -- Load _sA ----------------------------------------------------------
+        // Flatten _sA[BM][BK] and distribute across 256 loaders, 4 each.
+        // Element flat maps to _sA[z/BK][z%BK].
+        #pragma unroll
+        for (U32 n = 0; n < NA; n++) {
+            const U32 z  = loader_id * NA + n;
+            const U32 ar = z / BK,  ac = z % BK;
+            const U32 m0 = by + ar, k0 = K_BASE + ac;
+            const U64 ai = ((U64)m0 * K + k0) * C + c;
+            _sA[ar][ac] = (m0 < M && k0 < K) ? A[ai] : DU0;
+        }
+        // -- Load _sB ----------------------------------------------------------
+        // Flatten _sB[BK][BN] and distribute across 256 loaders, 4 each.
+        // Element flat maps to _sB[flat/BN][flat%BN].
+        #pragma unroll
+        for (U32 n = 0; n < NB; n++) {
+            const U32 z  = loader_id * NB + n;
+            const U32 br = z / BN,      bc = z % BN;
+            const U32 k0 = K_BASE + br, n0 = bx + bc;
+            const U64 bi = ((U64)k0 * N + n0) * C + c;
+            _sB[br][bc] = (k0 < K && n0 < N) ? B[bi] : DU0;
+        }
+        __syncthreads();   ///< all tiles loaded before any thread reads them
+
+        // -- Register-tiled dot product ---------------------------------------
+        // For each of the BK steps in this strip:
+        //   1. Load TM values from As into rA[]  (one column of A sub-tile)
+        //   2. Load TN values from Bs into b_reg[]  (one row   of B sub-tile)
+        //   3. Outer-product: TM×TN FMAs, every operand lives in a register.
+        //
+        // This eliminates repeated shared-memory reads for the inner loop:
+        // each rA / rB value is loaded once and reused TN / TM times.
+        #pragma unroll
+        for (U32 k = 0; k < BK; k++) {
+            DU rA[TM], rB[TN];
+            #pragma unroll
+            for (U32 m = 0; m < TM; m++) rA[m] = _sA[ry + m][k];
+            #pragma unroll
+            for (U32 n = 0; n < TN; n++) rB[n] = _sB[k][rx + n];
+            #pragma unroll
+            for (U32 m = 0; m < TM; m++)
+                #pragma unroll
+                for (U32 n = 0; n < TN; n++) acc[m][n] += rA[m] * rB[n];
+        }
+        __syncthreads();   ///< guard before next strip overwrites shared mem
+    }
+
+    // -------------------------------------------------------------------------
+    // Write TM×TN results back to O (bounds-checked)
+    // -------------------------------------------------------------------------
+    #pragma unroll
+    for (U32 m = 0; m < TM; m++) {
+        const U32 gm = by + ry + m;
+        if (gm >= M) continue;
+        #pragma unroll
+        for (U32 n = 0; n < TN; n++) {
+            const U32 gn = bx + rx + n;
+            if (gn >= N) continue;
+            const U64 z0 = ((U64)gm * N + gn) * C + c;
+            O[z0] = alpha * acc[m][n] + beta * O[z0];
         }
     }
 }
@@ -336,6 +464,26 @@ Tensor::mm(
     }
     return O;
 }
+__HOST__ Tensor&
+Tensor::mm2(
+    Tensor &A, Tensor &B, Tensor &O, t4_mm_opt opt) {
+    U32 H  = opt & MM_A_TXP ? A.W() : A.H();
+    U32 Ka = opt & MM_A_TXP ? A.H() : A.W();
+    U32 W  = opt & MM_B_TXP ? B.H() : B.W();
+    U32 Kb = opt & MM_B_TXP ? B.W() : B.H();
+    U32 N  = B.N(), C = B.C();                     /// B, O common dimensions
+    if (Ka != Kb || N != O.N() || C != O.C()) {
+        ERROR("  tensor#mm Ka(%d)!=Kb(%d) or N, C diff\n", Ka, Kb);
+        return O;
+    }
+    MM_DB("  tensor#matmul K=%d => NHWC=[%d,%d,%d,%d]\n", Ka, N, H, W, C);
+    
+    for (U32 n = 0; n < N; n++) {
+        DU *da = A.data, *db = B.slice(n), *dx = O.slice(n);
+        FORK3(k_matmul, H, W, C, da, db, dx, opt, Ka);
+    }
+    return O;
+}
 ///
 /// tensor GEMM C' = alpha * A x B + beta * C
 ///
@@ -356,6 +504,58 @@ Tensor::gemm(Tensor &A, Tensor &B, Tensor &O, DU alpha, DU beta) {
     }
     return O;
 }
+__HOST__ Tensor&
+Tensor::gemm2(Tensor &A, Tensor &B, Tensor &O, DU alpha, DU beta) {
+    U32 H = A.H(), W = B.W(), Ka = A.W(), Kb = B.H();
+    U32 N = B.N(), C = B.C();
+    if (Ka != Kb || N != O.N() || C != O.C()) {
+        ERROR("  tensor#gemm ka(%d)!=kb(%d) or N, C diff\n", Ka, Kb);
+        return O;
+    }
+    MM_DB("  tensor#gemm K=%d, a=%g, b=%g => NHWC=[%d,%d,%d,%d]\n",
+          Ka, alpha, beta, N, H, W, C);
+
+    for (U32 n = 0; n < N; n++) {
+        DU *da = A.data, *db = B.slice(n), *dx = O.slice(n);
+        FORK3(k_gemm_claude, H, W, C, da, db, dx, alpha, beta, Ka);
+    }
+    return O;
+}
+__HOST__ Tensor&
+Tensor::gemm3(Tensor &A, Tensor &B, Tensor &O, DU alpha, DU beta) {
+    U32 H = A.H(), W = B.W(), Ka = A.W(), Kb = B.H();
+    U32 N = B.N(), C = B.C();
+    if (Ka != Kb || N != O.N() || C != O.C()) {
+        ERROR("  tensor#gemm ka(%d)!=kb(%d) or N, C diff\n", Ka, Kb);
+        return O;
+    }
+    MM_DB("  tensor#gemm K=%d, a=%g, b=%g => NHWC=[%d,%d,%d,%d]\n",
+          Ka, alpha, beta, N, H, W, C);
+
+    for (U32 n = 0; n < N; n++) {
+        DU *da = A.data, *db = B.slice(n), *dx = O.slice(n);
+        FORK3(k_gemm_tile_gemini, H, W, C, da, db, dx, alpha, beta, Ka);
+    }
+    return O;
+}
+__HOST__ Tensor&
+Tensor::gemm4(Tensor &A, Tensor &B, Tensor &O, DU alpha, DU beta) {
+    U32 H = A.H(), W = B.W(), Ka = A.W(), Kb = B.H();
+    U32 N = B.N(), C = B.C();
+    if (Ka != Kb || N != O.N() || C != O.C()) {
+        ERROR("  tensor#gemm ka(%d)!=kb(%d) or N, C diff\n", Ka, Kb);
+        return O;
+    }
+    MM_DB("  tensor#gemm K=%d, a=%g, b=%g => NHWC=[%d,%d,%d,%d]\n",
+          Ka, alpha, beta, N, H, W, C);
+
+    for (U32 n = 0; n < N; n++) {
+        DU *da = A.data, *db = B.slice(n), *dx = O.slice(n);
+        FORK3T(k_gemm_tile_claude, H, W, C, da, db, dx, alpha, beta, Ka);
+    }
+    return O;
+}
+
 __HOST__ Tensor&
 Tensor::copy(Tensor &A, Tensor &O) {
     MM_DB("  tensor#copy %p to %p numel=%ld\n", A.data, O.data, A.numel);
