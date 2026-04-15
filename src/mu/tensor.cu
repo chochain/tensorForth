@@ -59,34 +59,37 @@ k_matmul_claude(
 {
     const U32 tx = threadIdx.x, n0 = blockIdx.x * TILE + tx;
     const U32 ty = threadIdx.y, m0 = blockIdx.y * TILE + ty;
+    const U32 c  = blockIdx.z,  C  = gridDim.z;
 
     // Shared memory tiles — sized at compile time via TILE
     __shared__ DU _sA[TILE][TILE], _sB[TILE][TILE];
     
-    DU acc = DU0;
+    DU2 acc = DU0;
 
-    // Walk across the shared K dimension in TILE_SIZE-wide strips
+    // Load tile of A: rows [blockIdx.y*TILE .. +TILE), cols [s*TILE .. +TILE)
+    //     Thread (ty, tx) loads A[i_tile, k_tile, c]
+    //     where i_tile = blockIdx.y*TILE + ty,  k_tile = s*TILE + tx
+    // Load tile of B: rows [s*TILE .. +TILE), cols [blockIdx.x*TILE .. +TILE)
+    //     Thread (ty, tx) loads B[k_tile, j_tile, c]
+    //     where k_tile = s*TILE + ty,  j_tile = blockIdx.x*TILE + tx
+    
+    // Walk across the shared K dimension in TILE-wide strips
     const int nstrip = (K + TILE -1) / TILE;
     for (int s = 0; s < nstrip; s++) {
-        // Cooperative load of A tile — guard for non-divisible K/M
-        U32 k_a = s * TILE + tx;
-        _sA[ty][tx] = (m0 < M && k_a < K) ? A[(U64)m0 * K + k_a] : DU0;
-
-        // Cooperative load of B tile — guard for non-divisible K/N
-        U32 k_b = s * TILE + ty;
-        _sB[ty][tx] = (k_b < K && n0 < N) ? B[(U64)k_b * N + n0] : DU0;
-
+        U32 k_a = s * TILE + tx, k_b = s * TILE + ty;        ///< k-index for this thread's A, B load
+        _sA[ty][tx] = (m0 < M && k_a < K) ? A[((U64)m0 * K + k_a) * C + c] : DU0;
+        _sB[ty][tx] = (k_b < K && n0 < N) ? B[((U64)k_b * N + n0) * C + c] : DU0;
         __syncthreads();   // ← barrier 1: tile is ready
 
         #pragma unroll
-        for (int k = 0; k < TILE; ++k) acc += _sA[ty][k] * _sB[k][tx];
+        for (int t = 0; t < TILE; ++t) acc += _sA[ty][t] * _sB[t][tx];
 
         __syncthreads();   // ← barrier 2: tile consumed before next load
     }
 
     if (m0 < M && n0 < N) {
-       const U64 z0 = (U64)m0 * N + n0;
-       O[z0] = acc;
+        const U64 z0 = ((U64)m0 * N + n0) * C + c;
+        O[z0] = acc;
     }
 }
 
@@ -148,19 +151,18 @@ k_gemm_claude(
 
     DU2 acc = DU0;
 
+    // Load tile of A: rows [blockIdx.y*TILE .. +TILE), cols [s*TILE .. +TILE)
+    //     Thread (ty, tx) loads A[i_tile, k_tile, c]
+    //     where i_tile = blockIdx.y*TILE + ty,  k_tile = s*TILE + tx
+    // Load tile of B: rows [s*TILE .. +TILE), cols [blockIdx.x*TILE .. +TILE)
+    //     Thread (ty, tx) loads B[k_tile, j_tile, c]
+    //     where k_tile = s*TILE + ty,  j_tile = blockIdx.x*TILE + tx
+    
     // Sweep over K in strips of TILE
     const U32 nstrip = (K + TILE - 1) / TILE;
     for (U32 s = 0; s < nstrip; s++) {
-        // ---- Load tile of A: rows [blockIdx.y*TILE .. +TILE), cols [s*TILE .. +TILE) ----
-        // Thread (ty, tx) loads A[i_tile, k_tile, c]
-        // where i_tile = blockIdx.y*TILE + ty,  k_tile = s*TILE + tx
-        const U32 k_a = s * TILE + tx;   ///< k-index for this thread's A load
+        const U32 k_a = s * TILE + tx, k_b = s * TILE + ty;   ///< k-index for this thread's A, B load
         _sA[ty][tx] = (m0 < M && k_a < K) ? A[((U64)m0 * K + k_a) * C + c] : DU0;
-        
-        // ---- Load tile of B: rows [s*TILE .. +TILE), cols [blockIdx.x*TILE .. +TILE) ----
-        // Thread (ty, tx) loads B[k_tile, j_tile, c]
-        // where k_tile = s*TILE + ty,  j_tile = blockIdx.x*TILE + tx
-        const U32 k_b = s * TILE + ty;   ///< k-index for this thread's B load
         _sB[ty][tx] = (k_b < K && n0 < N) ? B[((U64)k_b * N + n0) * C + c] : DU0;
         __syncthreads();
 
@@ -173,7 +175,7 @@ k_gemm_claude(
     // ---- Write output ----
     if (m0 < M && n0 < N) {
         const U64 z0 = ((U64)m0 * N + n0) * C + c;
-        O[z0] = alpha * acc + beta * O[z0];
+        O[z0] = acc * alpha + O[z0] * beta;
     }
 }
 
@@ -461,26 +463,6 @@ Tensor::mm(
     for (U32 n = 0; n < N; n++) {
         DU *da = A.data, *db = B.slice(n), *dx = O.slice(n);
         FORK3(k_matmul, H, W, C, da, db, dx, opt, Ka);
-    }
-    return O;
-}
-__HOST__ Tensor&
-Tensor::mm2(
-    Tensor &A, Tensor &B, Tensor &O, t4_mm_opt opt) {
-    U32 H  = opt & MM_A_TXP ? A.W() : A.H();
-    U32 Ka = opt & MM_A_TXP ? A.H() : A.W();
-    U32 W  = opt & MM_B_TXP ? B.H() : B.W();
-    U32 Kb = opt & MM_B_TXP ? B.W() : B.H();
-    U32 N  = B.N(), C = B.C();                     /// B, O common dimensions
-    if (Ka != Kb || N != O.N() || C != O.C()) {
-        ERROR("  tensor#mm Ka(%d)!=Kb(%d) or N, C diff\n", Ka, Kb);
-        return O;
-    }
-    MM_DB("  tensor#matmul K=%d => NHWC=[%d,%d,%d,%d]\n", Ka, N, H, W, C);
-    
-    for (U32 n = 0; n < N; n++) {
-        DU *da = A.data, *db = B.slice(n), *dx = O.slice(n);
-        FORK3(k_matmul_claude, H, W, C, da, db, dx, opt, Ka);
     }
     return O;
 }
