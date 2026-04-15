@@ -96,7 +96,11 @@ struct Tensor : public T4Base {
     static __HOST__  Tensor &ten_op(math_op op, Tensor &A, DU v, Tensor &O);       ///> matrix-scalar element-wise ops
     static __HOST__  Tensor &ten_op(math_op op, Tensor &A, Tensor &B, Tensor &O);  ///> matrix-matrix element-wise ops (Hadamard)
     static __HOST__  Tensor &mm(Tensor &A, Tensor &B, Tensor &O, t4_mm_opt opt=MM_NONE);
+    static __HOST__  Tensor &mm2(Tensor &A, Tensor &B, Tensor &O, t4_mm_opt opt=MM_NONE);
     static __HOST__  Tensor &gemm(Tensor &A, Tensor &B, Tensor &O, DU alpha, DU beta);
+    static __HOST__  Tensor &gemm2(Tensor &A, Tensor &B, Tensor &O, DU alpha, DU beta);
+    static __HOST__  Tensor &gemm3(Tensor &A, Tensor &B, Tensor &O, DU alpha, DU beta);
+    static __HOST__  Tensor &gemm4(Tensor &A, Tensor &B, Tensor &O, DU alpha, DU beta);
     static __HOST__  Tensor &copy(Tensor &A, Tensor &O);
     static __HOST__  Tensor &transpose(Tensor &A, Tensor &T);
     static __HOST__  Tensor &inverse(Tensor &A, Tensor &I);  /// GaussJordan (with Pivot)
