@@ -451,10 +451,8 @@ k_sum_gemini(float *src, float *sum, long numel) {
         v = (threadIdx.x < (blockDim.x / 32)) ? _sum[lane] : 0;
         v = d__warp_sum(v);
         // ONLY ONE ATOMIC PER BLOCK instead of one per thread
-        printf("tid%d v=%f\n", idx, v);
         if (lane == 0) {
             atomicAdd(sum, v);
-            printf("=> tid%d sum=%f\n", idx, *sum);
         }
     }
     __syncthreads();
@@ -475,7 +473,6 @@ k_sum(float* __restrict__ src, float* __restrict__ sum, long numel) {           
     
     if (tid == 0) {
         *sum = d__rollup_sum(_sum);                            /// collection from each warp
-        printf("=> tid%d sum=%f\n", tid, *sum);
     }
     g.sync();
 }
