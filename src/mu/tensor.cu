@@ -382,9 +382,9 @@ k_gemm_tile_claude(
         for (U32 k = 0; k < BK; k++) {
             DU rA[TM], rB[TN];
             #pragma unroll
-            for (U32 m = 0; m < TM; m++) rA[m] = _sA[tx * TM + m][k];
+            for (U32 m = 0; m < TM; m++) rA[m] = _sA[ty * TM + m][k];
             #pragma unroll
-            for (U32 n = 0; n < TN; n++) rB[n] = _sB[k][ty * TN + n];
+            for (U32 n = 0; n < TN; n++) rB[n] = _sB[k][tx * TN + n];
             #pragma unroll
             for (U32 m = 0; m < TM; m++)
                 #pragma unroll
@@ -470,7 +470,7 @@ Tensor::mm(
     MM_DB("  tensor#matmul K=%d => NHWC=[%d,%d,%d,%d]\n", Ka, N, H, W, C);
     
     for (U32 n = 0; n < N; n++) {
-        DU *da = A.data, *db = B.slice(n), *dx = O.slice(n);
+        DU *da = A.slice(n), *db = B.slice(n), *dx = O.slice(n);
         FORK3(k_matmul, H, W, C, da, db, dx, opt, Ka);
     }
     return O;
@@ -490,7 +490,7 @@ Tensor::gemm(Tensor &A, Tensor &B, Tensor &O, DU alpha, DU beta) {
           Ka, alpha, beta, N, H, W, C);
 
     for (U32 n = 0; n < N; n++) {
-        DU *da = A.data, *db = B.slice(n), *dx = O.slice(n);
+        DU *da = A.slice(n), *db = B.slice(n), *dx = O.slice(n);
         FORK3(k_gemm, H, W, C, da, db, dx, alpha, beta, Ka);
     }
     return O;
@@ -507,7 +507,7 @@ Tensor::gemm2(Tensor &A, Tensor &B, Tensor &O, DU alpha, DU beta) {
           Ka, alpha, beta, N, H, W, C);
 
     for (U32 n = 0; n < N; n++) {
-        DU *da = A.data, *db = B.slice(n), *dx = O.slice(n);
+        DU *da = A.slice(n), *db = B.slice(n), *dx = O.slice(n);
         FORK3(k_gemm_claude, H, W, C, da, db, dx, alpha, beta, Ka);
     }
     return O;
@@ -524,7 +524,7 @@ Tensor::gemm3(Tensor &A, Tensor &B, Tensor &O, DU alpha, DU beta) {
           Ka, alpha, beta, N, H, W, C);
 
     for (U32 n = 0; n < N; n++) {
-        DU *da = A.data, *db = B.slice(n), *dx = O.slice(n);
+        DU *da = A.slice(n), *db = B.slice(n), *dx = O.slice(n);
         FORK3(k_gemm_tile_gemini, H, W, C, da, db, dx, alpha, beta, Ka);
     }
     return O;
@@ -541,7 +541,7 @@ Tensor::gemm4(Tensor &A, Tensor &B, Tensor &O, DU alpha, DU beta) {
           Ka, alpha, beta, N, H, W, C);
 
     for (U32 n = 0; n < N; n++) {
-        DU *da = A.data, *db = B.slice(n), *dx = O.slice(n);
+        DU *da = A.slice(n), *db = B.slice(n), *dx = O.slice(n);
         FORK3T(k_gemm_tile_claude, H, W, C, da, db, dx, alpha, beta, Ka);
     }
     return O;
