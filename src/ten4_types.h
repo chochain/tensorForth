@@ -115,6 +115,9 @@ typedef float       F32;                    ///< single precision float
 ///@note: consider use of fn<<<_g,_b,0,cudaStreamTailLaunch>>>(...)
 ///@{
 #define ALIGN(sz) ALIGN4(sz)
+#define WARP_REDUCE(v)                                      \
+    for (int off = 16; off > 0; off >>=1)                   \
+        v += __shfl_down_sync(0xffffffff, v, off)
 #define FORK(fn,n,...) {                                    \
     const dim3 _b(T4_DIM_SQ, 1, 1);                         \
     const dim3 _g(((n) + _b.x - 1) / _b.x, 1, 1);           \
