@@ -59,7 +59,7 @@ protected:
     __HOST__ void xop2(math_op op, t4_drop_opt x=T_KEEP);    ///< 2-operand ops
     __HOST__ void blas1(t4_ten_op op);                       ///< 1-operand ops with new tensor
     __HOST__ void blas2(t4_ten_op op, t4_drop_opt x=T_KEEP); ///< 2-operand tensor ops
-    __HOST__ void gemm();                                    ///< GEMM C' = alpha * A x B + beta * C
+    __HOST__ void gemm(int opt);                             ///< GEMM C' = alpha * A x B + beta * C
     
 private:
     ///
