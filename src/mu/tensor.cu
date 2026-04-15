@@ -220,7 +220,9 @@ k_gemm_claude(
 
 __KERN__ void
 k_gemm_tile_gemini(
-    DU *__restrict__ A, DU *__restrict__ B, DU *O,
+    DU *__restrict__ A,
+    DU *__restrict__ B,
+    DU *O,
     DU alpha, DU beta,
     U32 K, U32 M, U32 N) {
     /// Shared Memory Allocation
@@ -230,18 +232,24 @@ k_gemm_tile_gemini(
     DU acc[TM][TN] = { DU0 };
 
     /// Global Row/Col for this thread block
-    const U32 tx = threadIdx.x, n0 = blockIdx.x * BN + tx;
-    const U32 ty = threadIdx.y, m0 = blockIdx.y * BM + ty;
+    const U32 tx = threadIdx.x, bx = blockIdx.x * BN;
+    const U32 ty = threadIdx.y, by = blockIdx.y * BM;
     const U32 c  = blockIdx.z,  C  = gridDim.z;
 
     /// Main K-Loop (Moving through the "inner" dimension)
     for (int k_off = 0; k_off < K; k_off += BK) {
-        U64 ai = ((U64)m0 * K + (k_off + tx)) * C + c;
-        U64 bi = ((U64)(k_off + ty) * N + n0) * C + c;
-        // Load data from Global to Shared Memory
-        // (In a real kernel, you'd handle boundary checks and vectorized float4 loads)
-        _sA[ty][tx] = (m0 < M && (k_off + tx) < K) ? A[ai] : DU0;
-        _sB[ty][tx] = (n0 < N && (k_off + ty) < K) ? B[bi] : DU0;
+        // Load TM rows of A per thread
+        for (int m = 0; m < TM; m++) {
+            U32 row = blockIdx.y * BM + ty * TM + m;
+            U64 ai  = ((U64)row * K + (k_off + tx)) * C + c;
+            _sA[tx][ty * TM + m] = (row < M && (k_off + tx) < K) ? A[ai] : DU0;
+        }
+        // Load TN cols of B per thread
+        for (int n = 0; n < TN; n++) {
+            U32 col = blockIdx.x * BN + tx * TN + n;
+            U64 bi  = ((U64)(k_off + ty) * N + col) * C + c;
+            _sB[ty][tx * TN + n] = (col < N && (k_off + ty) < K) ? B[bi] : DU0;
+        }        
         __syncthreads();
 
         // 5. Inner Compute Loop (Shared Memory to Registers)
@@ -264,12 +272,13 @@ k_gemm_tile_gemini(
 
     // 6. Write out results to Global Memory C
     #pragma unroll
-    for (int m = 0; m < TM; m++) {
+    for (int i = 0; i < TM; i++) {
         #pragma unroll
-        for (int n = 0; n < TN; n++) {
-            U32 mx = m0 * TM + m, nx = n0 * TN + n;
-            U64 ci = ((U64)mx * N + nx) * C + c;
-            if (mx < M && nx < N) O[ci] = alpha * acc[m][n] + beta * O[ci];
+        for (int j = 0; j < TN; j++) {
+            U32 row = blockIdx.y * BM + ty * TM + i;
+            U32 col = blockIdx.x * BN + tx * TN + j;
+            U64 z0  = (U64)row * N + col;
+            if (row < M && col < N) O[z0] = alpha * acc[i][j] + beta * O[z0];
         }
     }
 }
@@ -301,12 +310,12 @@ k_gemm_tile_claude(
     const U32 C  = gridDim.z;          ///< total channels
 
     // Top-left corner of this block's (BM × BN) output tile
-    const U32 by = blockIdx.y * BM;
-    const U32 bx = blockIdx.x * BN;
+//    const U32 by = blockIdx.y * BM;
+//    const U32 bx = blockIdx.x * BN;
 
     // Top-left corner of this thread's (TM × TN) register tile inside the block tile
-    const U32 ry = ty * TM;            ///< row offset within block tile
-    const U32 rx = tx * TN;            ///< col offset within block tile
+//    const U32 ry = ty * TM;            ///< row offset within block tile
+//    const U32 rx = tx * TN;            ///< col offset within block tile
 
     // -------------------------------------------------------------------------
     // Shared memory tiles
@@ -343,8 +352,8 @@ k_gemm_tile_claude(
         #pragma unroll
         for (U32 n = 0; n < NA; n++) {
             const U32 z  = loader_id * NA + n;
-            const U32 ar = z / BK,  ac = z % BK;
-            const U32 m0 = by + ar, k0 = K_BASE + ac;
+            const U32 ar = z / BK,               ac = z % BK;
+            const U32 m0 = blockIdx.y * BM + ar, k0 = K_BASE + ac;
             const U64 ai = ((U64)m0 * K + k0) * C + c;
             _sA[ar][ac] = (m0 < M && k0 < K) ? A[ai] : DU0;
         }
@@ -355,7 +364,7 @@ k_gemm_tile_claude(
         for (U32 n = 0; n < NB; n++) {
             const U32 z  = loader_id * NB + n;
             const U32 br = z / BN,      bc = z % BN;
-            const U32 k0 = K_BASE + br, n0 = bx + bc;
+            const U32 k0 = K_BASE + br, n0 = blockIdx.x * BN + bc;
             const U64 bi = ((U64)k0 * N + n0) * C + c;
             _sB[br][bc] = (k0 < K && n0 < N) ? B[bi] : DU0;
         }
@@ -373,9 +382,9 @@ k_gemm_tile_claude(
         for (U32 k = 0; k < BK; k++) {
             DU rA[TM], rB[TN];
             #pragma unroll
-            for (U32 m = 0; m < TM; m++) rA[m] = _sA[ry + m][k];
+            for (U32 m = 0; m < TM; m++) rA[m] = _sA[tx * TM + m][k];
             #pragma unroll
-            for (U32 n = 0; n < TN; n++) rB[n] = _sB[k][rx + n];
+            for (U32 n = 0; n < TN; n++) rB[n] = _sB[k][ty * TN + n];
             #pragma unroll
             for (U32 m = 0; m < TM; m++)
                 #pragma unroll
@@ -389,11 +398,11 @@ k_gemm_tile_claude(
     // -------------------------------------------------------------------------
     #pragma unroll
     for (U32 m = 0; m < TM; m++) {
-        const U32 gm = by + ry + m;
+        const U32 gm = blockIdx.y * BM + ty * TM + m;
         if (gm >= M) continue;
         #pragma unroll
         for (U32 n = 0; n < TN; n++) {
-            const U32 gn = bx + rx + n;
+            const U32 gn = blockIdx.x * BN + tx * TN + n;
             if (gn >= N) continue;
             const U64 z0 = ((U64)gm * N + gn) * C + c;
             O[z0] = acc[m][n] * alpha + O[z0] * beta;
