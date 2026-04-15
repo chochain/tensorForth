@@ -209,7 +209,7 @@ TensorVM::blas2(t4_ten_op op, t4_drop_opt x) {
 }
 
 __HOST__ __INLINE__ void
-TensorVM::gemm() {                           ///< GEMM ( a b A B C -- a b A B C O )
+TensorVM::gemm(int opt) {                           ///< GEMM ( a b A B C -- a b A B C O )
     if (!TOS3T) { ERROR("tensors?"); return; }
     
     Tensor &C = TTOS, &B = TNOS, &A = (Tensor&)mmu.du2obj(ss[-2]);
@@ -221,7 +221,12 @@ TensorVM::gemm() {                           ///< GEMM ( a b A B C -- a b A B C 
 
     if (k == B.H() && m == C.H() && n == C.W()) {
         Tensor &O = COPY(C);                 ///< hard copy C tensor
-        Tensor::gemm(A, B, O, a, b);         /// * O = a*AB + b*C
+        switch (opt) {                       /// * O = a*AB + b*C
+        case 0: Tensor::gemm(A, B, O, a, b);  break;
+        case 2: Tensor::gemm2(A, B, O, a, b); break;
+        case 3: Tensor::gemm3(A, B, O, a, b); break;
+        case 4: Tensor::gemm4(A, B, O, a, b); break;
+        }
         PUSH(O);
         VLOG("} tenvm#gemm => O[%d,%d]\n", O.H(), O.W());
     }
@@ -505,7 +510,10 @@ TensorVM::init() {
     CODE("matmul",    blas2(T_DOT));          ///< (A B -- A B C) matrix multiply
     CODE("matdiv",    blas2(T_DIV));          ///< (A B -- A B C) matrix divide
     CODE("solve",     blas2(T_SOLV));         ///< (B A -- B A X) solve B = AX
-    CODE("gemm",      gemm());                ///< (a b A B C -- a b A B C O) GEMM
+    CODE("gemm",      gemm(0));               ///< (a b A B C -- a b A B C O) GEMM
+    CODE("gemm2",     gemm(2));               ///< (a b A B C -- a b A B C O) GEMM
+    CODE("gemm3",     gemm(3));               ///< (a b A B C -- a b A B C O) GEMM
+    CODE("gemm4",     gemm(4));               ///< (a b A B C -- a b A B C O) GEMM
     ///@}
     ///@defgroup Tensor persistance
     ///@brief - stick to PyTorch naming when possible
