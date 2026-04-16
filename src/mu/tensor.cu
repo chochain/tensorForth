@@ -15,8 +15,8 @@ namespace t4::mu {
 __KERN__ void
 k_matmul(
     DU *A, DU *B, DU *O,   /* O[M*N*C] = A[M*K*C] @ B[K*N*C] */
-    t4_mm_opt opt,
-    U32 K, U32 M, U32 N)
+    U32 K, U32 M, U32 N,
+    bool tA, bool tB, bool inc)
 {
     const U32 n0 = blockIdx.x * blockDim.x + threadIdx.x;  ///< W  2T  range
     const U32 m0 = blockIdx.y * blockDim.y + threadIdx.y;  ///< H  65M range
@@ -55,7 +55,8 @@ k_matmul_claude(
     const DU* __restrict__ A,
     const DU* __restrict__ B,
     DU*       __restrict__ O,
-    U32 K, U32 M, U32 N)
+    U32 K, U32 M, U32 N,
+    bool tA, bool tB, bool inc)
 {
     const U32 tx = threadIdx.x, n0 = blockIdx.x * TILE + tx;
     const U32 ty = threadIdx.y, m0 = blockIdx.y * TILE + ty;
@@ -97,7 +98,8 @@ __KERN__ void
 k_gemm(
     DU *A, DU *B, DU *O,  /* O[M*N*C] = a * A[M*K*C] @ B[K*N*C] + b * O[M*N*C] */
     DU alpha, DU beta,
-    U32 K, U32 M, U32 N)
+    U32 K, U32 M, U32 N,
+    bool tA, bool tB)
 {
     const U32 n0 = threadIdx.x + blockIdx.x * blockDim.x;   ///< W
     const U32 m0 = threadIdx.y + blockIdx.y * blockDim.y;   ///< H
@@ -140,7 +142,8 @@ k_gemm_claude(
     const DU * __restrict__ B,
     DU *O,
     DU alpha, DU beta,
-    U32 K, U32 M, U32 N)
+    U32 K, U32 M, U32 N,
+    bool tA, bool tB)
 {
     const U32 tx = threadIdx.x, n0 = blockIdx.x * TILE + tx;   ///< output column  (W dim)
     const U32 ty = threadIdx.y, m0 = blockIdx.y * TILE + ty;   ///< output row     (H dim)
@@ -224,7 +227,8 @@ k_gemm_tile_gemini(
     DU *__restrict__ B,
     DU *O,
     DU alpha, DU beta,
-    U32 K, U32 M, U32 N) {
+    U32 K, U32 M, U32 N,
+    bool tA, bool tB) {
     /// Shared Memory Allocation
     __shared__ DU _sA[BK][BM], _sB[BK][BN];   ///< _sB transposed to avoid bank conflicts
 
@@ -302,7 +306,8 @@ k_gemm_tile_claude(
     DU * __restrict__ B,
     DU *              O,
     DU alpha, DU beta,
-    U32 K, U32 M, U32 N)
+    U32 K, U32 M, U32 N,
+    bool tA, bool tB)
 {
     const U32 tx = threadIdx.x;        ///< [0, THREADS_X) — col direction
     const U32 ty = threadIdx.y;        ///< [0, THREADS_Y) — row direction
@@ -457,7 +462,7 @@ Tensor::batchvar(Tensor &A, Tensor &G, Tensor &O) {
 }
 __HOST__ Tensor&
 Tensor::mm(
-    Tensor &A, Tensor &B, Tensor &O, t4_mm_opt opt) {
+    Tensor &A, Tensor &B, Tensor &O, bool tA, bool tB, bool inc) {
     U32 H  = opt & MM_A_TXP ? A.W() : A.H();
     U32 Ka = opt & MM_A_TXP ? A.H() : A.W();
     U32 W  = opt & MM_B_TXP ? B.H() : B.W();
@@ -479,7 +484,7 @@ Tensor::mm(
 /// tensor GEMM C' = alpha * A x B + beta * C
 ///
 __HOST__ Tensor&
-Tensor::gemm(Tensor &A, Tensor &B, Tensor &O, DU alpha, DU beta) {
+Tensor::gemm(Tensor &A, Tensor &B, Tensor &O, DU alpha, DU beta, bool tA, bool tB) {
     U32 H = A.H(), W = B.W(), Ka = A.W(), Kb = B.H();
     U32 N = B.N(), C = B.C();
     if (Ka != Kb || N != O.N() || C != O.C()) {
@@ -496,7 +501,7 @@ Tensor::gemm(Tensor &A, Tensor &B, Tensor &O, DU alpha, DU beta) {
     return O;
 }
 __HOST__ Tensor&
-Tensor::gemm2(Tensor &A, Tensor &B, Tensor &O, DU alpha, DU beta) {
+Tensor::gemm2(Tensor &A, Tensor &B, Tensor &O, DU alpha, DU beta, bool tA, bool tB) {
     U32 H = A.H(), W = B.W(), Ka = A.W(), Kb = B.H();
     U32 N = B.N(), C = B.C();
     if (Ka != Kb || N != O.N() || C != O.C()) {
@@ -513,7 +518,7 @@ Tensor::gemm2(Tensor &A, Tensor &B, Tensor &O, DU alpha, DU beta) {
     return O;
 }
 __HOST__ Tensor&
-Tensor::gemm3(Tensor &A, Tensor &B, Tensor &O, DU alpha, DU beta) {
+Tensor::gemm3(Tensor &A, Tensor &B, Tensor &O, DU alpha, DU beta, bool tA, bool tB) {
     U32 H = A.H(), W = B.W(), Ka = A.W(), Kb = B.H();
     U32 N = B.N(), C = B.C();
     if (Ka != Kb || N != O.N() || C != O.C()) {
@@ -530,9 +535,13 @@ Tensor::gemm3(Tensor &A, Tensor &B, Tensor &O, DU alpha, DU beta) {
     return O;
 }
 __HOST__ Tensor&
-Tensor::gemm4(Tensor &A, Tensor &B, Tensor &O, DU alpha, DU beta) {
-    U32 H = A.H(), W = B.W(), Ka = A.W(), Kb = B.H();
-    U32 N = B.N(), C = B.C();
+Tensor::gemm4(Tensor &A, Tensor &B, Tensor &O, DU alpha, DU beta, bool tA, bool tB) {
+    U32 M  = tA ? A.W() : A.H();
+    U32 Ka = tA ? A.H() : A.W();
+    U32 N  = tB ? B.H() : B.W();
+    U32 Kb = tB ? B.W() : B.H();
+    U32 Nb = B.N(), C = B.C();
+
     if (Ka != Kb || N != O.N() || C != O.C()) {
         ERROR("  tensor#gemm ka(%d)!=kb(%d) or N, C diff\n", Ka, Kb);
         return O;
@@ -540,9 +549,9 @@ Tensor::gemm4(Tensor &A, Tensor &B, Tensor &O, DU alpha, DU beta) {
     MM_DB("  tensor#gemm K=%d, a=%g, b=%g => NHWC=[%d,%d,%d,%d]\n",
           Ka, alpha, beta, N, H, W, C);
 
-    for (U32 n = 0; n < N; n++) {
+    for (U32 n = 0; n < Nb; n++) {
         DU *da = A.slice(n), *db = B.slice(n), *dx = O.slice(n);
-        FORK3T(k_gemm_tile_claude, H, W, C, da, db, dx, alpha, beta, Ka);
+        FORK3T(k_gemm_tile_claude, H, W, C, da, db, dx, alpha, beta, tA, tB, Ka);
     }
     return O;
 }
