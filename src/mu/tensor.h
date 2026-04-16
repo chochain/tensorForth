@@ -59,13 +59,6 @@ typedef enum {
     "minpool", "batchnm", "upsampl"
 
 typedef enum {
-    MM_NONE  = 0,
-    MM_INC   = 1,
-    MM_A_TXP = 2,
-    MM_B_TXP = 4
-} t4_mm_opt;
-
-typedef enum {
     LOSS_MSE = 0,            ///< mean square error
     LOSS_BCE,                ///< binary cross entropy (sigmoid input)
     LOSS_CE,                 ///< cross entropy (softmax input)
@@ -95,11 +88,12 @@ struct Tensor : public T4Base {
     ///
     static __HOST__  Tensor &ten_op(math_op op, Tensor &A, DU v, Tensor &O);       ///> matrix-scalar element-wise ops
     static __HOST__  Tensor &ten_op(math_op op, Tensor &A, Tensor &B, Tensor &O);  ///> matrix-matrix element-wise ops (Hadamard)
-    static __HOST__  Tensor &mm(Tensor &A, Tensor &B, Tensor &O, t4_mm_opt opt=MM_NONE);
-    static __HOST__  Tensor &gemm(Tensor &A, Tensor &B, Tensor &O, DU alpha, DU beta);
-    static __HOST__  Tensor &gemm2(Tensor &A, Tensor &B, Tensor &O, DU alpha, DU beta);
-    static __HOST__  Tensor &gemm3(Tensor &A, Tensor &B, Tensor &O, DU alpha, DU beta);
-    static __HOST__  Tensor &gemm4(Tensor &A, Tensor &B, Tensor &O, DU alpha, DU beta);
+    static __HOST__  Tensor &mm(Tensor &A, Tensor &B, Tensor &O, bool tA, bool tB, bool inc);
+    static __HOST__  Tensor &gemm(Tensor &A, Tensor &B, Tensor &O,  DU alpha, DU beta, bool tA=0, bool tB=0);
+    static __HOST__  Tensor &gemm2(Tensor &A, Tensor &B, Tensor &O, DU alpha, DU beta, bool tA=0, bool tB=0);
+    static __HOST__  Tensor &gemm3(Tensor &A, Tensor &B, Tensor &O, DU alpha, DU beta, bool tA=0, bool tB=0);
+    static __HOST__  Tensor &gemm4(Tensor &A, Tensor &B, Tensor &O, DU alpha, DU beta, tool tA=0, bool tB=0);
+    
     static __HOST__  Tensor &copy(Tensor &A, Tensor &O);
     static __HOST__  Tensor &transpose(Tensor &A, Tensor &T);
     static __HOST__  Tensor &inverse(Tensor &A, Tensor &I);  /// GaussJordan (with Pivot)
