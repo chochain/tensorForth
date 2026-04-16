@@ -7,6 +7,7 @@ T4_SRCS := \
 	./src/sys.cu \
 	./src/debug.cu \
 	./src/util.cu \
+	./src/t4math.cu \
 	./src/ten4.cu
 
 T4_INCS := \
@@ -15,6 +16,7 @@ T4_INCS := \
 	./src/opt.h \
 	./src/sys.h \
 	./src/util.h \
+	./src/t4math.h \
 	./src/debug.h \
 	./src/t4base.h \
 	./src/ten4.h
