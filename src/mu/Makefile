@@ -14,6 +14,7 @@ MU_INCS := \
 	src/debug.h \
 	src/t4base.h \
 	src/util.h \
+	src/t4math.h \
 	src/mu/vector.h \
 	src/mu/tensor.h \
 	src/mu/tlsf.h \
