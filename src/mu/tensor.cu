@@ -56,11 +56,11 @@ Tensor::batchvar(Tensor &A, Tensor &G, Tensor &O) {
 }
 __HOST__ Tensor&
 Tensor::mm(
-    Tensor &A, Tensor &B, Tensor &O, bool tA, bool tB, bool inc) {
-    U32 H  = opt & MM_A_TXP ? A.W() : A.H();
-    U32 Ka = opt & MM_A_TXP ? A.H() : A.W();
-    U32 W  = opt & MM_B_TXP ? B.H() : B.W();
-    U32 Kb = opt & MM_B_TXP ? B.W() : B.H();
+    Tensor &A, Tensor &B, Tensor &O, bool inc, bool tA, bool tB) {
+    U32 H  = tA ? A.W() : A.H();
+    U32 Ka = tA ? A.H() : A.W();
+    U32 W  = tB ? B.H() : B.W();
+    U32 Kb = tB ? B.W() : B.H();
     U32 N  = B.N(), C = B.C();                     /// B, O common dimensions
     if (Ka != Kb || N != O.N() || C != O.C()) {
         ERROR("  tensor#mm Ka(%d)!=Kb(%d) or N, C diff\n", Ka, Kb);
@@ -70,7 +70,7 @@ Tensor::mm(
     
     for (U32 n = 0; n < N; n++) {
         DU *da = A.slice(n), *db = B.slice(n), *dx = O.slice(n);
-        FORK3(k_matmul, H, W, C, da, db, dx, opt, Ka);
+        FORK3(k_matmul, H, W, C, da, db, dx, tA, tB, inc, Ka);
     }
     return O;
 }
@@ -90,7 +90,7 @@ Tensor::gemm(Tensor &A, Tensor &B, Tensor &O, DU alpha, DU beta, bool tA, bool t
 
     for (U32 n = 0; n < N; n++) {
         DU *da = A.slice(n), *db = B.slice(n), *dx = O.slice(n);
-        FORK3(k_gemm, H, W, C, da, db, dx, alpha, beta, Ka);
+        FORK3(k_gemm, H, W, C, da, db, dx, alpha, beta, tA, tB, Ka);
     }
     return O;
 }
@@ -107,7 +107,7 @@ Tensor::gemm2(Tensor &A, Tensor &B, Tensor &O, DU alpha, DU beta, bool tA, bool 
 
     for (U32 n = 0; n < N; n++) {
         DU *da = A.slice(n), *db = B.slice(n), *dx = O.slice(n);
-        FORK3(k_gemm_claude, H, W, C, da, db, dx, alpha, beta, Ka);
+        FORK3(k_gemm_claude, H, W, C, da, db, dx, alpha, beta, tA, tB, Ka);
     }
     return O;
 }
@@ -124,17 +124,15 @@ Tensor::gemm3(Tensor &A, Tensor &B, Tensor &O, DU alpha, DU beta, bool tA, bool 
 
     for (U32 n = 0; n < N; n++) {
         DU *da = A.slice(n), *db = B.slice(n), *dx = O.slice(n);
-        FORK3(k_gemm_tile_gemini, H, W, C, da, db, dx, alpha, beta, Ka);
+        FORK3(k_gemm_tile_gemini, H, W, C, da, db, dx, alpha, beta, tA, tB, Ka);
     }
     return O;
 }
 __HOST__ Tensor&
 Tensor::gemm4(Tensor &A, Tensor &B, Tensor &O, DU alpha, DU beta, bool tA, bool tB) {
-    U32 M  = tA ? A.W() : A.H();
-    U32 Ka = tA ? A.H() : A.W();
-    U32 N  = tB ? B.H() : B.W();
-    U32 Kb = tB ? B.W() : B.H();
-    U32 Nb = B.N(), C = B.C();
+    U32 H  = tA ? A.W() : A.H(), W  = tB ? B.H() : B.W();
+    U32 Ka = tA ? A.H() : A.W(), Kb = tB ? B.W() : B.H();
+    U32 N  = B.N(), C = B.C();
 
     if (Ka != Kb || N != O.N() || C != O.C()) {
         ERROR("  tensor#gemm ka(%d)!=kb(%d) or N, C diff\n", Ka, Kb);
@@ -143,7 +141,7 @@ Tensor::gemm4(Tensor &A, Tensor &B, Tensor &O, DU alpha, DU beta, bool tA, bool 
     MM_DB("  tensor#gemm K=%d, a=%g, b=%g => NHWC=[%d,%d,%d,%d]\n",
           Ka, alpha, beta, N, H, W, C);
 
-    for (U32 n = 0; n < Nb; n++) {
+    for (U32 n = 0; n < N; n++) {
         DU *da = A.slice(n), *db = B.slice(n), *dx = O.slice(n);
         FORK3T(k_gemm_tile_claude, H, W, C, da, db, dx, alpha, beta, tA, tB, Ka);
     }
