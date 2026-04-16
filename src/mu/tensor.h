@@ -5,7 +5,7 @@
  * <pre>Copyright (C) 2022- GreenII, this file is distributed under BSD 3-Clause License.</pre>
  */
 #pragma once
-#include "util.h"
+#include "t4math.h"
 #include "t4base.h"
 
 #if (!defined(__MMU_TENSOR_H) && T4_DO_OBJ)
@@ -88,11 +88,11 @@ struct Tensor : public T4Base {
     ///
     static __HOST__  Tensor &ten_op(math_op op, Tensor &A, DU v, Tensor &O);       ///> matrix-scalar element-wise ops
     static __HOST__  Tensor &ten_op(math_op op, Tensor &A, Tensor &B, Tensor &O);  ///> matrix-matrix element-wise ops (Hadamard)
-    static __HOST__  Tensor &mm(Tensor &A, Tensor &B, Tensor &O, bool tA, bool tB, bool inc);
+    static __HOST__  Tensor &mm(Tensor &A, Tensor &B, Tensor &O,    bool inc=0, bool tA=0, bool tB=0);
     static __HOST__  Tensor &gemm(Tensor &A, Tensor &B, Tensor &O,  DU alpha, DU beta, bool tA=0, bool tB=0);
     static __HOST__  Tensor &gemm2(Tensor &A, Tensor &B, Tensor &O, DU alpha, DU beta, bool tA=0, bool tB=0);
     static __HOST__  Tensor &gemm3(Tensor &A, Tensor &B, Tensor &O, DU alpha, DU beta, bool tA=0, bool tB=0);
-    static __HOST__  Tensor &gemm4(Tensor &A, Tensor &B, Tensor &O, DU alpha, DU beta, tool tA=0, bool tB=0);
+    static __HOST__  Tensor &gemm4(Tensor &A, Tensor &B, Tensor &O, DU alpha, DU beta, bool tA=0, bool tB=0);
     
     static __HOST__  Tensor &copy(Tensor &A, Tensor &O);
     static __HOST__  Tensor &transpose(Tensor &A, Tensor &T);
@@ -138,11 +138,7 @@ struct Tensor : public T4Base {
     __HOST__ __INLINE__ U64  size(){ return HWC() * N(); }
     __HOST__ __INLINE__ DU   *slice(int n) { return &data[ HWC() * n ]; }
     __HOST__ __INLINE__ bool is_same_shape(Tensor &t) {
-#ifdef __CUDA_ARCH__
-        return MEMCMP(shape, t.shape, sizeof(shape)) == 0;
-#else  // __CUDA_ARCH
         return memcmp(shape, t.shape, sizeof(shape)) == 0;
-#endif // __CUDA_ARCH__
     }
     ///
     /// tensor arithmetics
