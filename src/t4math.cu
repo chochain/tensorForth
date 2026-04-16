@@ -1,0 +1,676 @@
+/** -*- c++ -*-
+ * @file
+ * @brief Math/Blas utility functions implementation
+ *
+ * <pre>Copyright (C) 2022- GreenII, this file is distributed under BSD 3-Clause License.</pre>
+ */
+#include <cooperative_groups.h>
+#include "math.h"
+
+namespace t4 {
+namespace cg = cooperative_groups;
+
+#if T4_DO_OBJ
+///
+/// collect sum per every thread sum per stride (T4_DIM_SQ)
+///
+__GPU__ float
+d__stride_sum(float *src, long numel, long tid) {
+    float v { 0.0f };
+    for (long i=tid; i < numel; i+=blockDim.x * gridDim.x) {
+        v += src[i];
+    }
+    return v;
+};
+///
+/// collect sum per every thread sum per stride (T4_DIM_SQ)
+///
+__GPU__ float
+d__stride_var(float* __restrict__ src, float avg, long numel, long tid) {
+    float v { 0.0f };
+    for (long i=tid; i < numel; i+=blockDim.x * gridDim.x) {
+        v += (src[i] - avg) * (src[i] - avg);
+    }
+    return v;
+};
+///
+/// shuffle sum 32 to 1
+///
+__GPU__ float
+d__warp_sum(float v) {
+    for (int k = 16; k > 0; k /= 2) {
+        v += __shfl_down_sync(0xffffffff, v, k);
+    }
+    return v;
+}
+///
+/// collect sum per every thread sum per stride (T4_DIM_SQ)
+///
+__GPU__ float
+d__rollup_sum(float* __restrict__ smem) {
+    ///
+    /// sum up all warps
+    ///
+    float v { 0.0f };
+    #pragma unroll
+    for (int i = 0; i < (T4_DIM_SQ>>5); i++) {
+        v += smem[i];
+    }
+    return v;
+}
+
+__KERN__ void
+k_sum_gemini(float *src, float *sum, long numel) {
+    float v = 0;
+    int idx = blockIdx.x * blockDim.x + threadIdx.x;
+
+    // Grid-stride loop (handles any N)
+    for (int i = idx; i < numel; i += blockDim.x * gridDim.x) {
+        v += src[i];
+    }
+
+    // Reduce within warp
+    v = d__warp_sum(v);
+
+    // One thread per warp writes to shared memory
+    __shared__ float _sum[32]; 
+    int lane = threadIdx.x % 32;
+    int wid = threadIdx.x / 32;
+    if (lane == 0) _sum[wid] = v;
+    __syncthreads();
+
+    // Final reduction in shared memory
+    if (wid == 0) {
+        v = (threadIdx.x < (blockDim.x / 32)) ? _sum[lane] : 0;
+        v = d__warp_sum(v);
+        // ONLY ONE ATOMIC PER BLOCK instead of one per thread
+        if (lane == 0) {
+            atomicAdd(sum, v);
+        }
+    }
+    __syncthreads();
+}
+
+__KERN__ void
+k_sum(float* __restrict__ src, float* __restrict__ sum, long numel) {             ///< sum of T4_DIM_SQ threads
+    auto const g   { cg::this_thread_block() };                /// total threads
+    auto const tid { g.thread_rank() };                        /// thread id
+    
+    float v { d__stride_sum(src, numel, tid) };                /// one sum per thread by stride
+    v = d__warp_sum(v);                                        /// a reduced sum per warp
+    
+    __shared__ float _sum[T4_DIM_SQ >> 5];                     ///< shared to keep warp sum
+    auto const tpi { cg::tiled_partition<32>(g).thread_rank() };
+    if (tpi == 0) _sum[tid >> 5] = v;                          /// collection from each warp
+    g.sync();
+    
+    if (tid == 0) {
+        *sum = d__rollup_sum(_sum);                            /// collection from each warp
+    }
+    g.sync();
+}
+
+__KERN__ void
+k_nvar(float *src, float *avg, float var, long numel) {        ///< sum of T4_DIM_SQ threads
+    __shared__ float _sum[T4_DIM_SQ >> 5];                     ///< shared to keep warp sum
+    
+    auto const g   { cg::this_thread_block() };                /// total threads
+    auto const tid { g.thread_rank() };                        /// thread id
+
+    float v { d__stride_var(src, var, numel, tid) };           /// collect one sum per thread
+    v = d__warp_sum(v);                                        /// a reduced sum per warp
+    
+    auto const tpi { cg::tiled_partition<32>(g).thread_rank() };
+    if (tpi == 0) _sum[tpi >> 5] = v;                        /// collection from each warp
+    
+    v = d__rollup_sum(_sum);                                   /// collection from each warp
+    
+    if (threadIdx.x == 0) *avg = v / numel;
+}
+///
+///> Batch sum (NHW per channel)
+///
+__KERN__ void
+k_batchsum(float *src, float *sum, long HW) {
+    const long j  = (long)blockIdx.x*blockDim.x + threadIdx.x; ///< element index
+    const int  c  = blockIdx.y, C = gridDim.y;                 ///< channel
+    const int  n  = blockIdx.z, N = gridDim.z;                 ///< batch
+    const long ns = HW * C * n;                                ///< batch slice index
+    
+    float v = (c < C && j < HW) ? src[ns + j * C + c] : 0.0f;
+    v = d__warp_sum(v);                                        ///< collect sum per warp
+    ///
+    /// sum up atomically (per channel, for batchnorm)
+    /// slower than grid-stride loop when blocks are many
+    ///
+    auto tp = cg::tiled_partition<32>(cg::this_thread_block());
+    if (c < C && tp.thread_rank() == 0) atomicAdd_block(&sum[c], v);  ///< serialize sum
+}
+///
+///> batch variance (NHW per channel)
+///
+__KERN__ void
+k_batchnvar(float *src, float*avg, float *var, long HW) {
+    const long j  = (long)blockIdx.x * blockDim.x + threadIdx.x;  ///< element index
+    const int  c  = blockIdx.y, C = gridDim.y;                    ///< channel
+    const int  n  = blockIdx.z, N = gridDim.z;                    ///< batch
+    const long ns = HW * C * n;                                   ///< batch slice index
+    float v0 = (c < C && j < HW) ? src[(long)C * j + ns + c] - avg[c] : 0.0f;
+    float v  = d__warp_sum(v0*v0);                                ///< collect sum per warp
+    ///
+    /// sum up atomically (per channel, for batchnorm)
+    ///
+    auto tp = cg::tiled_partition<32>(cg::this_thread_block());
+    if (c < C && tp.thread_rank() == 0) atomicAdd_block(&var[c], v);
+}
+
+__KERN__ void
+k_copy(float *src, float *dst, long n) {                      ///< Note: (src, dst)
+    for (long j = threadIdx.x; j < n; j += blockDim.x) {
+        dst[j] = src[j];
+    }
+}
+__KERN__ void
+k_transpose(float *src, float *dst, int H, int W) {           ///< Note: (src, dst)
+    const int j = blockIdx.x * blockDim.x + threadIdx.x;      ///< W range 2G  * 1K = 2T,  U41
+    const int i = blockIdx.y * blockDim.y + threadIdx.y;      ///< H range 65K * 1K = 65M, U26
+    const int c = blockIdx.z, C = gridDim.z;                  ///< channel deep
+
+    if (i < H && j < W && c < C) {
+        dst[((long)H * j + i) * C + c] = src[((long)W * i + j) * C + c];
+    }
+}
+__KERN__ void
+k_identity(float *t, int H, int W) {                          ///< identity matrix (tensor)
+    const float i01[2] = { 0.0f, 1.0f };
+    const int j = blockIdx.x * blockDim.x + threadIdx.x;
+    const int i = blockIdx.y * blockDim.y + threadIdx.y;
+    const int c = blockIdx.z, C = gridDim.z;                  ///< channel deep
+
+    if (i < H && j < W && c < C) {
+        t[((long)W * i + j) * C + c] = i01[i==j];
+    }
+}
+
+#define DU_LNX   1.0e-12                                      /** log clamp */
+__KERN__ void
+k_math(math_op op, float *A, float v, long n) {               ///< self modifying ops
+    for (long j = threadIdx.x; j < n; j += blockDim.x) {
+        float ak = A[j];                                      ///< cache value
+        switch(op) {
+        case ABS:   A[j] = ABS(ak);                   break;
+        case NEG:   A[j] = NEG(ak);                   break;
+        case EXP:   A[j] = EXP(ak);                   break;  /// * clamped
+        case LN:    A[j] = LN(MAX(ak, DU_LNX));       break;  /// * clamped
+        case LOG:   A[j] = LOG(MAX(ak, DU_LNX));      break;  /// * clamped
+        case TANH:  A[j] = TANH(ak);                  break;
+        case RELU:  A[j] = RELU(ak);                  break;
+        case SIGM:  A[j] = SIGMOID(ak);               break;
+        case SQRT:  A[j] = SQRT(MAX(ak, 0.0));        break;  /// * guarded
+        case RCP:   A[j] = RCP(ak);                   break;  /// 1/x
+        case SAT:   A[j] = SAT(ak);                   break;  /// [0.0..1.0]
+        case FILL:  A[j] = v;                         break;
+        case GFILL: A[j] = v * j / n;                 break;  /// gradient fill
+        case SCALE: A[j] *= v;                        break;
+        case POW:   A[j] = POW(ak, v);                break;  /// x^v
+        case ADD:   A[j] += v;                        break;
+        case SUB:   A[j] -= v;                        break;
+        case MUL:   A[j] *= v;                        break;
+        case DIV:   A[j] /= v;                        break;
+        default: printf("k_math op=%d not supported\n", op);
+        }
+    }
+}
+///
+/// tensor-tensor element-wise ops (grid-stride implementation)
+///
+__KERN__ void
+k_tt_op(math_op op, float *A, float *B, float *O, long n) {
+    for (long j = threadIdx.x; j < n; j += blockDim.x) {
+        switch (op) {                                         /// no divergence
+        case ADD: O[j] = A[j] + B[j]; break;
+        case SUB: O[j] = A[j] - B[j]; break;
+        case MUL: O[j] = A[j] * B[j]; break;                  /// * convolution
+        case DIV: O[j] = A[j] / B[j]; break;
+        }
+    }
+}
+///
+/// tensor-scalar element-wise ops (grid-stride implementation)
+///
+__KERN__ void
+k_ts_op(math_op op, float *A, float v, float *O, long n) {
+    for (long j = threadIdx.x; j < n; j += blockDim.x) {
+        switch (op) {                                         /// no divergence
+        case ADD: O[j] = A[j] + v; break;
+        case SUB: O[j] = A[j] - v; break;
+        case MUL: O[j] = A[j] * v; break;                     /// * convolution
+        case DIV: O[j] = A[j] / v; break;
+        }
+    }
+}
+///
+/// Binary Cross-Entropy (clamps output to >= -100)
+///
+#define DU_EPS   1.0e-6                                       /* epsilon */
+__KERN__ void
+k_bce(float *O, float *T, long n) {
+    for (long j = threadIdx.x; j < n; j+= blockDim.x) {
+//        O[i] = ABS(T[i]) < DU_EPS ? LN(DU1 - O[i] + DU_EPS) : LN(O[i] + DU_EPS);
+        O[j] = T[j] * LN(O[j] + DU_EPS) + (1.0f - T[j]) * LN(1.0f - O[j] + DU_EPS);
+    }
+}
+///
+///> check Nan or Inf
+///
+__KERN__ void
+k_nan_inf(float *src, int *cnt, long numel) {
+    const long j  = (long)blockIdx.x*blockDim.x + threadIdx.x; ///< element index
+    int v = j < numel && (isnan(src[j]) || isinf(src[j])) ? 1 : 0;
+    v = d__warp_sum(v);
+    
+    auto tp = cg::tiled_partition<32>(cg::this_thread_block());
+    if (tp.thread_rank() == 0) atomicAdd_block(cnt, v);        ///< serialize sum
+}
+__KERN__ void
+k_dummy() {}
+
+///=======================================================================
+/// GEMM methods
+///
+__KERN__ void
+k_matmul(
+    DU *A, DU *B, DU *O,   /* O[M*N*C] = A[M*K*C] @ B[K*N*C] */
+    U32 K, U32 M, U32 N, bool tA, tool tB, tool inc)
+{
+    const U32 n0 = blockIdx.x * blockDim.x + threadIdx.x;  ///< W  2T  range
+    const U32 m0 = blockIdx.y * blockDim.y + threadIdx.y;  ///< H  65M range
+    const U32 c  = blockIdx.z,  C = gridDim.z;             ///< C
+    const U64 z0 = ((U64)N * m0 + n0) * C + c;             ///< output matrix index
+    
+    if (m0 < M && n0 < N && c < C) {                       /// * TODO: tiled
+        DU  *ax, *bx;
+        U64 ai, bi;
+        if (opt & MM_A_TXP) {                              /// * transpose A
+            ax = &A[(U64)C * m0 + c]; ai = (U64)M * C;
+            bx = &B[(U64)C * n0 + c]; bi = (U64)N * C;
+        }
+        else if (opt & MM_B_TXP) {                         /// * transpose B
+            ax = &A[(U64)C * K * m0 + c]; ai = (U64)C;
+            bx = &B[(U64)C * K * n0 + c]; bi = (U64)C;
+        }
+        else {                                             /// * no tranposition
+            ax = &A[(U64)C * K * m0 + c]; ai = (U64)C;
+            bx = &B[(U64)C * n0 + c];     bi = (U64)N * C;
+        }
+        DU2 acc = DU0;                                     /// * TODO: suffle sum
+//      acc += ax[k * C] * bx[k * N * C];                  /// * 8.1 ms 1Kx1K
+        for (U32 k = 0; k < K; k++, ax += ai, bx += bi) {
+            acc += (*ax) * (*bx);                          /// * 6.2 ms 1Kx1K
+        }
+        if (opt & MM_INC) O[z0] += acc;                    /// * increment O
+        else              O[z0] =  acc;                    /// * overwrite O
+    }
+}
+#define TILE 16
+///
+/// A: M×K,  B: K×N,  O: M×N  (row-major, all in device memory)
+__KERN__ void
+k_matmul_claude(
+    const DU* __restrict__ A,
+    const DU* __restrict__ B,
+    DU*       __restrict__ O,
+    U32 K, U32 M, U32 N, bool tA, bool tB, bool inc)
+{
+    const U32 tx = threadIdx.x, n0 = blockIdx.x * TILE + tx;
+    const U32 ty = threadIdx.y, m0 = blockIdx.y * TILE + ty;
+    const U32 c  = blockIdx.z,  C  = gridDim.z;
+
+    // Shared memory tiles — sized at compile time via TILE
+    __shared__ DU _sA[TILE][TILE], _sB[TILE][TILE];
+    
+    DU2 acc = DU0;
+
+    // Load tile of A: rows [blockIdx.y*TILE .. +TILE), cols [s*TILE .. +TILE)
+    //     Thread (ty, tx) loads A[i_tile, k_tile, c]
+    //     where i_tile = blockIdx.y*TILE + ty,  k_tile = s*TILE + tx
+    // Load tile of B: rows [s*TILE .. +TILE), cols [blockIdx.x*TILE .. +TILE)
+    //     Thread (ty, tx) loads B[k_tile, j_tile, c]
+    //     where k_tile = s*TILE + ty,  j_tile = blockIdx.x*TILE + tx
+    
+    // Walk across the shared K dimension in TILE-wide strips
+    const int nstrip = (K + TILE -1) / TILE;
+    for (int s = 0; s < nstrip; s++) {
+        U32 k_a = s * TILE + tx, k_b = s * TILE + ty;        ///< k-index for this thread's A, B load
+        _sA[ty][tx] = (m0 < M && k_a < K) ? A[((U64)m0 * K + k_a) * C + c] : DU0;
+        _sB[ty][tx] = (k_b < K && n0 < N) ? B[((U64)k_b * N + n0) * C + c] : DU0;
+        __syncthreads();   // ← barrier 1: tile is ready
+
+        #pragma unroll
+        for (int t = 0; t < TILE; ++t) acc += _sA[ty][t] * _sB[t][tx];
+
+        __syncthreads();   // ← barrier 2: tile consumed before next load
+    }
+
+    if (m0 < M && n0 < N) {
+        const U64 z0 = ((U64)m0 * N + n0) * C + c;
+        O[z0] = acc;
+    }
+}
+
+__KERN__ void
+k_gemm(
+    DU *A, DU *B, DU *O,  /* O[M*N*C] = a * A[M*K*C] @ B[K*N*C] + b * O[M*N*C] */
+    U32 K, U32 M, U32 N, DU alpha, DU beta, bool tA, bool tB)
+{
+    const U32 n0 = threadIdx.x + blockIdx.x * blockDim.x;   ///< W
+    const U32 m0 = threadIdx.y + blockIdx.y * blockDim.y;   ///< H
+    const U32 c  = blockIdx.z, C = gridDim.z;               ///< channel deep
+    const U64 WC = N * C;
+    const U64 z0 = ((U64)N * m0 + n0) * C + c;              ///< output index
+
+    if (m0 < M && n0 < N && c < C) {                        /// * TODO: tiled
+        DU *ax = &A[(U64)C * K * m0 + c];
+        DU *bx = &B[(U64)C * n0 + c];
+        DU2 acc = DU0;                                     /// * TODO: suffle sum
+        for (U32 k = 0; k < K; k++, ax += C, bx += WC) {
+            acc += (*ax) * (*bx);
+        }
+        O[z0] = alpha * acc + beta * O[z0];                /// * scaling
+    }
+}
+// ---------------------------------------------------------------------------
+// k_gemm — tiled GEMM for channel-last (interleaved) layout
+//
+//   O[H,W,C] = alpha * A[H,K,C] @ B[K,W,C]  +  beta * O[H,W,C]
+//
+// Thread assignment (one thread = one output element per channel):
+//   threadIdx.x / blockIdx.x  →  j  (W dimension)
+//   threadIdx.y / blockIdx.y  →  i  (H dimension)
+//   blockIdx.z                →  c  (channel, independent GEMM)
+//
+// Shared memory tiles:
+//   _sA[TILE][TILE]  holds a TILE×TILE sub-block of A[:,k-strip,c]
+//   _sB[TILE][TILE]  holds a TILE×TILE sub-block of B[k-strip,:,c]
+//
+// Memory layout (channel-last, stride C between consecutive k/j elements):
+//   A[i,k,c]  →  A_ptr[ i*(K*C) + k*C + c ]   (c fixed per block)
+//   B[k,j,c]  →  B_ptr[ k*(W*C) + j*C + c ]   (c fixed per block)
+//   O[i,j,c]  →  O_ptr[ i*(W*C) + j*C + c ]   (c fixed per block)
+// ---------------------------------------------------------------------------
+__KERN__ void
+k_gemm_claude(
+    const DU * __restrict__ A,
+    const DU * __restrict__ B,
+    DU *O,
+    U32 K, U32 M, U32 N, DU alpha, DU beta, bool tA, bool tB)
+{
+    const U32 tx = threadIdx.x, n0 = blockIdx.x * TILE + tx;   ///< output column  (W dim)
+    const U32 ty = threadIdx.y, m0 = blockIdx.y * TILE + ty;   ///< output row     (H dim)
+    const U32 c  = blockIdx.z,  C  = gridDim.z;
+
+    // Shared memory tiles — one for A, one for B
+    __shared__ DU _sA[TILE][TILE], _sB[TILE][TILE];
+
+    DU2 acc = DU0;
+
+    // Load tile of A: rows [blockIdx.y*TILE .. +TILE), cols [s*TILE .. +TILE)
+    //     Thread (ty, tx) loads A[i_tile, k_tile, c]
+    //     where i_tile = blockIdx.y*TILE + ty,  k_tile = s*TILE + tx
+    // Load tile of B: rows [s*TILE .. +TILE), cols [blockIdx.x*TILE .. +TILE)
+    //     Thread (ty, tx) loads B[k_tile, j_tile, c]
+    //     where k_tile = s*TILE + ty,  j_tile = blockIdx.x*TILE + tx
+    
+    // Sweep over K in strips of TILE
+    const U32 nstrip = (K + TILE - 1) / TILE;
+    for (U32 s = 0; s < nstrip; s++) {
+        const U32 k_a = s * TILE + tx, k_b = s * TILE + ty;   ///< k-index for this thread's A, B load
+        _sA[ty][tx] = (m0 < M && k_a < K) ? A[((U64)m0 * K + k_a) * C + c] : DU0;
+        _sB[ty][tx] = (k_b < K && n0 < N) ? B[((U64)k_b * N + n0) * C + c] : DU0;
+        __syncthreads();
+
+        // ---- Accumulate dot product over this tile's k-strip ----
+        #pragma unroll
+        for (U32 t = 0; t < TILE; t++) acc += _sA[ty][t] * _sB[t][tx];
+        
+        __syncthreads();   ///< guard: don't overwrite tiles before all threads finish
+    }
+    // ---- Write output ----
+    if (m0 < M && n0 < N) {
+        const U64 z0 = ((U64)m0 * N + n0) * C + c;
+        O[z0] = acc * alpha + O[z0] * beta;
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Tile parameters
+//
+//   BK          — strip depth along K loaded into shared memory each iteration
+//   [BM, BN]    — output covered by one thread block
+//   [TM, TN]    — output computed by ONE thread (register tile)
+//
+//   Thread block shape  = (BN/TN, BM/TM)  →  (16, 16) = 256 threads
+//
+//   Shared memory per block:
+//     _sA[BM][BK] = 64*16 = 1024 floats = 4 KB
+//     _sB[BK][BN] = 16*64 = 1024 floats = 4 KB
+//     Total: 8 KB  (well within 48 KB)
+//
+//   Arithmetic intensity per strip (256 threads):
+//     FMAs  : 256 threads * TM * TN * BK  = 256 * 4 * 4 * 16 = 65536
+//     Loads : BM*BK + BK*BN = 2048 floats
+//     → ~32 FMAs per float loaded  (vs 1 in plain tiled, 16 in 1-output-per-thread)
+// ---------------------------------------------------------------------------
+#define BK      16
+#define BM      64
+#define BN      64
+#define TM       4
+#define TN       4
+
+#define THREADS_X  (BN / TN)          /** 16 — threads covering W dimension */
+#define THREADS_Y  (BM / TM)          /** 16 — threads covering H dimension */
+#define NTHREADS   (THREADS_X * THREADS_Y)
+
+// ---------------------------------------------------------------------------
+// FORK3T — grid over (ceil(W/BN), ceil(H/BM), C)
+// ---------------------------------------------------------------------------
+#define FORK3T(fn,h,w,c,...) {               \
+    const dim3 _b(THREADS_X, THREADS_Y, 1);  \
+    const dim3 _g(((w) + BN - 1) / BN,       \
+                  ((h) + BM - 1) / BM, c);   \
+    fn<<<_g,_b>>>(__VA_ARGS__,h,w);          \
+}
+
+__KERN__ void
+k_gemm_tile_gemini(
+    DU *__restrict__ A,
+    DU *__restrict__ B,
+    DU *O,
+    U32 K, U32 M, U32 N, DU alpha, DU beta, bool tA, bool tB)
+    /// Shared Memory Allocation
+    __shared__ DU _sA[BK][BM], _sB[BK][BN];   ///< _sB transposed to avoid bank conflicts
+
+    /// Register Accumulators (The 4x4 micro-tile, zero initialized)
+    DU acc[TM][TN] = { DU0 };
+
+    /// Global Row/Col for this thread block
+    const U32 tx = threadIdx.x, bx = blockIdx.x * BN;
+    const U32 ty = threadIdx.y, by = blockIdx.y * BM;
+    const U32 c  = blockIdx.z,  C  = gridDim.z;
+
+    /// Main K-Loop (Moving through the "inner" dimension)
+    for (int k_off = 0; k_off < K; k_off += BK) {
+        // Load TM rows of A per thread
+        for (int m = 0; m < TM; m++) {
+            U32 row = blockIdx.y * BM + ty * TM + m;
+            U64 ai  = ((U64)row * K + (k_off + tx)) * C + c;
+            _sA[tx][ty * TM + m] = (row < M && (k_off + tx) < K) ? A[ai] : DU0;
+        }
+        // Load TN cols of B per thread
+        for (int n = 0; n < TN; n++) {
+            U32 col = blockIdx.x * BN + tx * TN + n;
+            U64 bi  = ((U64)(k_off + ty) * N + col) * C + c;
+            _sB[ty][tx * TN + n] = (col < N && (k_off + ty) < K) ? B[bi] : DU0;
+        }        
+        __syncthreads();
+
+        // 5. Inner Compute Loop (Shared Memory to Registers)
+        for (int k = 0; k < BK; k++) {
+            DU rA[TM], rB[TN];         ///< current row/col tile registers
+            #pragma unroll
+            for (int m = 0; m < TM; m++) rA[m] = _sA[k][ty * TM + m];
+            #pragma unroll
+            for (int n = 0; n < TN; n++) rB[n] = _sB[k][tx * TN + n];
+
+            // Perform 16 FMAs (Fused Multiply-Add) using only registers
+            #pragma unroll
+            for (int m = 0; m < TM; m++) {
+                #pragma unroll
+                for (int n = 0; n < TN; n++)  acc[m][n] += rA[m] * rB[n];
+            }
+        }
+        __syncthreads();
+    }
+
+    // 6. Write out results to Global Memory C
+    #pragma unroll
+    for (int i = 0; i < TM; i++) {
+        #pragma unroll
+        for (int j = 0; j < TN; j++) {
+            U32 row = blockIdx.y * BM + ty * TM + i;
+            U32 col = blockIdx.x * BN + tx * TN + j;
+            U64 z0  = (U64)row * N + col;
+            if (row < M && col < N) O[z0] = alpha * acc[i][j] + beta * O[z0];
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// k_gemm — register-tiled GEMM, channel-last (interleaved) layout
+//
+//   O[H,W,C] = alpha * A[H,K,C] @ B[K,W,C]  +  beta * O[H,W,C]
+//
+// Memory layout (stride C between consecutive logical elements):
+//   A[i,k,c]  →  A[ i*(K*C) + k*C + c ]
+//   B[k,j,c]  →  B[ k*(W*C) + j*C + c ]
+//   O[i,j,c]  →  O[ i*(W*C) + j*C + c ]
+//
+// Each thread block covers a (BM × BN) output tile for one channel c.
+// Each thread computes a (TM × TN) register sub-tile within that block tile.
+// ---------------------------------------------------------------------------
+__KERN__ void
+k_gemm_tile_claude(
+    DU * __restrict__ A,
+    DU * __restrict__ B,
+    DU *              O,
+    U32 K, U32 M, U32 N, DU alpha, DU beta, bool tA, bool tB)
+{
+    const U32 tx = threadIdx.x;        ///< [0, THREADS_X) — col direction
+    const U32 ty = threadIdx.y;        ///< [0, THREADS_Y) — row direction
+    const U32 c  = blockIdx.z;         ///< channel index
+    const U32 C  = gridDim.z;          ///< total channels
+
+    // Top-left corner of this block's (BM × BN) output tile
+//    const U32 by = blockIdx.y * BM;
+//    const U32 bx = blockIdx.x * BN;
+
+    // Top-left corner of this thread's (TM × TN) register tile inside the block tile
+//    const U32 ry = ty * TM;            ///< row offset within block tile
+//    const U32 rx = tx * TN;            ///< col offset within block tile
+
+    // -------------------------------------------------------------------------
+    // Shared memory tiles
+    // -------------------------------------------------------------------------
+    __shared__ DU _sA[BM][BK];         ///< [output rows][k-strip depth]
+    __shared__ DU _sB[BK][BN];         ///< [k-strip depth][output cols]
+
+    // -------------------------------------------------------------------------
+    // Register accumulators — TM × TN per thread, zero-initialised
+    // -------------------------------------------------------------------------
+    DU2 acc[TM][TN] = { DU0 };
+
+    // -------------------------------------------------------------------------
+    // Cooperative tile loading
+    //
+    //   256 threads collaboratively load BM*BK = 1024 elements into _sA
+    //   and BK*BN = 1024 elements into _sB.  Each thread loads 4 of each.
+    //   A linear loader index maps each thread to a fixed set of elements.
+    // -------------------------------------------------------------------------
+    const U32 loader_id = ty * THREADS_X + tx;   ///< [0, 256)
+    const U32 NA = (BM * BK) / NTHREADS;         ///< (64*16)/256 = 4
+    const U32 NB = (BK * BN) / NTHREADS;         ///< (16*64)/256 = 4
+
+    // -------------------------------------------------------------------------
+    // Main K-strip loop
+    // -------------------------------------------------------------------------
+    const U32 nstrip = (K + BK - 1) / BK;
+
+    for (U32 s = 0; s < nstrip; s++) {
+        const U32 K_BASE = s * BK;
+        // -- Load _sA ----------------------------------------------------------
+        // Flatten _sA[BM][BK] and distribute across 256 loaders, 4 each.
+        // Element flat maps to _sA[z/BK][z%BK].
+        #pragma unroll
+        for (U32 n = 0; n < NA; n++) {
+            const U32 z  = loader_id * NA + n;
+            const U32 ar = z / BK,               ac = z % BK;
+            const U32 m0 = blockIdx.y * BM + ar, k0 = K_BASE + ac;
+            const U64 ai = ((U64)m0 * K + k0) * C + c;
+            _sA[ar][ac] = (m0 < M && k0 < K) ? A[ai] : DU0;
+        }
+        // -- Load _sB ----------------------------------------------------------
+        // Flatten _sB[BK][BN] and distribute across 256 loaders, 4 each.
+        // Element flat maps to _sB[flat/BN][flat%BN].
+        #pragma unroll
+        for (U32 n = 0; n < NB; n++) {
+            const U32 z  = loader_id * NB + n;
+            const U32 br = z / BN,      bc = z % BN;
+            const U32 k0 = K_BASE + br, n0 = blockIdx.x * BN + bc;
+            const U64 bi = ((U64)k0 * N + n0) * C + c;
+            _sB[br][bc] = (k0 < K && n0 < N) ? B[bi] : DU0;
+        }
+        __syncthreads();   ///< all tiles loaded before any thread reads them
+
+        // -- Register-tiled dot product ---------------------------------------
+        // For each of the BK steps in this strip:
+        //   1. Load TM values from As into rA[]  (one column of A sub-tile)
+        //   2. Load TN values from Bs into b_reg[]  (one row   of B sub-tile)
+        //   3. Outer-product: TM×TN FMAs, every operand lives in a register.
+        //
+        // This eliminates repeated shared-memory reads for the inner loop:
+        // each rA / rB value is loaded once and reused TN / TM times.
+        #pragma unroll
+        for (U32 k = 0; k < BK; k++) {
+            DU rA[TM], rB[TN];
+            #pragma unroll
+            for (U32 m = 0; m < TM; m++) rA[m] = _sA[tx * TM + m][k];
+            #pragma unroll
+            for (U32 n = 0; n < TN; n++) rB[n] = _sB[k][ty * TN + n];
+            #pragma unroll
+            for (U32 m = 0; m < TM; m++)
+                #pragma unroll
+                for (U32 n = 0; n < TN; n++) acc[m][n] += rA[m] * rB[n];
+        }
+        __syncthreads();   ///< guard before next strip overwrites shared mem
+    }
+
+    // -------------------------------------------------------------------------
+    // Write TM×TN results back to O (bounds-checked)
+    // -------------------------------------------------------------------------
+    #pragma unroll
+    for (U32 m = 0; m < TM; m++) {
+        const U32 gm = blockIdx.y * BM + ty * TM + m;
+        if (gm >= M) continue;
+        #pragma unroll
+        for (U32 n = 0; n < TN; n++) {
+            const U32 gn = blockIdx.x * BN + tx * TN + n;
+            if (gn >= N) continue;
+            const U64 z0 = ((U64)gm * N + gn) * C + c;
+            O[z0] = acc[m][n] * alpha + O[z0] * beta;
+        }
+    }
+}
+#endif // T4_DO_OBJ
+
+} // namespace t4
+
