@@ -7,6 +7,9 @@
 #include <iomanip>       /// setbase, setprecision
 #include "aio.h"
 
+#define ABS(d)       (fabs(d))                  /**< absolute value         */
+#define MOD(t,n)     ((DU)fmodf((t),(n)))       /**< fmod two floats        */
+
 namespace t4::io {
 ///
 ///@name singleton and contructor
