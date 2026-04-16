@@ -9,20 +9,14 @@
 #include <stdio.h>
 #include <stdint.h>
 #include <stddef.h>
+#include "ten4_config.h"
 
-namespace t4 {
 #define __HOST__     __host__
 #define __KERN__     __global__
 #define __GPU__      __device__
 
-///@name Universal data types
-///@{
-typedef uint16_t U16;
-typedef uint32_t U32;
-typedef uint64_t U64;
-typedef float    DU;
-typedef double   DU2;
-///@}
+namespace t4 {
+
 ///@name cross platform floating-point ALU support (see nvcc -use_fast_math flag)
 ///@{
 typedef enum {
@@ -59,6 +53,7 @@ typedef enum {
 #define MATH_OP "abs","neg","exp","ln","log","tanh","relu","sigmoid","sqrt","rcp","sat","iden","fill","gfill","scale","pow","+","-","*","/","mod","max","min","mul2","mod2"
 
 #if 0 // GPU mode __CUDA_ARCH__
+
 #define ABS(d)       (fabsf(d))                 /**< absolute value         */
 #define NEG(d)       (-d)                       /**< negate                 */
 #define EXP(d)       (__expf(d))                /**< exponential(float)     */
@@ -80,7 +75,9 @@ typedef enum {
 #define MIN(x,y)     (fmin(x,y))                /**< minimum of the two     */
 #define MUL2(x2,y2)  (__dmul_rn(x2,y2))         /**< double precision mul   */
 #define MOD2(x2,y2)  (fmod(x2,y2))              /**< double precision mod   */
+
 #else // (HOST mode) !__CUDA_ARCH__
+
 #include <cmath>
 #define ABS(d)       (fabs(d))                  /**< absolute value         */
 #define NEG(d)       (-d)                       /**< negate                 */
@@ -103,6 +100,7 @@ typedef enum {
 #define MIN(x,y)     (fminf((x),(y)))           /**< minimum of the two     */
 #define MUL2(x2,y2)  ((DU2)(x2)*(y2))           /**< double precision mul   */
 #define MOD2(x2,y2)  (fmod((DU2)(x2),(DU2)(y2)))/**< double precision mod   */
+
 #endif // (GPU mode) __CUDA_ARCH__
 
 typedef enum {
@@ -110,31 +108,44 @@ typedef enum {
     T_KEEP
 } t4_drop_opt;
 ///@}
-
-#ifdef __cplusplus
-extern "C" {
-#endif
-    
+///@name GEMM Tiling parameters
+///@{
+#define TM       4                    /** register tile W dim */
+#define TN       4                    /** register tile H dim */
+#define BM      (T4_DIM_SZ * TN)      /** threads, tiled W dimension */
+#define BN      (T4_DIM_SZ * TM)      /** threads, tiled H dimension */
+#define BK      T4_DIM_SZ             /** [64,16] x [16,64] */
+// ---------------------------------------------------------------------------
+// FORK3T — grid over (ceil(W/BN), ceil(H/BM), C)
+// ---------------------------------------------------------------------------
+#define FORK3T(fn,h,w,c,...) {               \
+    const dim3 _b(T4_DIM_SZ, T4_DIM_SZ, 1);  \
+    const dim3 _g(((w) + BN - 1) / BN,       \
+                  ((h) + BM - 1) / BM, c);   \
+    fn<<<_g,_b>>>(__VA_ARGS__,h,w);          \
+    GPU_CHK();                               \
+}
+///@}
 ///@name Numeric conversion
 ///@{
-__GPU__ inline float d__stride_sum(float *src, long numel, long tid);          /// stride sum per thread
+__GPU__ inline float d__stride_sum(float *src, long numel, long tid);      /// stride sum per thread
 __GPU__ inline float d__stride_var(float *src, float avg, long numel, long tid);
-__GPU__ inline float d__warp_sum(float v);                                     /// reduce sum up a warp
+__GPU__ inline float d__warp_sum(float v);                                 /// reduce sum up a warp
 __GPU__ inline float d__rollup_sum(float *smem);
 ///@}
 ///@name Tensor ops (kernel mode)
 ///@{
-__KERN__ void k_sum(DU* __restrict__ src, DU* __restrict__ sum, U64 numel);
-__KERN__ void k_nvar(DU *src, DU *avg, DU var, U64 numel);       /// n * variance
-__KERN__ void k_batchsum(DU *src, DU *sum, U64 numel);
-__KERN__ void k_batchnvar(DU *src, DU *avg, DU *var, U64 numel);
-__KERN__ void k_copy(DU *src, DU *dst, U64 n);                   ///< Note: (src, dst)
-__KERN__ void k_transpose(DU *src, DU *dst, int h, int w);       ///< Note: (src, dst), TODO: CDP
-__KERN__ void k_identity(DU *t, int h, int w);
-__KERN__ void k_math(math_op op, DU *dst, DU v, U64 n);          ///< tensor math ops
-__KERN__ void k_ts_op(math_op op, DU *A, DU v, DU *O, U64 n);    ///< tensor-scalar ops
-__KERN__ void k_tt_op(math_op op, DU *A, DU *B, DU *O, U64 n);   ///< tensor-tensor ops
-__KERN__ void k_bce(DU *O, DU *T, U64 n);
+__KERN__ void k_sum(float* __restrict__ src, float* __restrict__ sum, long numel);
+__KERN__ void k_nvar(float *src, float *avg, float var, long numel);       /// n * variance
+__KERN__ void k_batchsum(float *src, float *sum, long numel);
+__KERN__ void k_batchnvar(float *src, float *avg, float *var, long numel);
+__KERN__ void k_copy(float *src, float *dst, long n);                      ///< Note: (src, dst)
+__KERN__ void k_transpose(float *src, float *dst, int h, int w);           ///< Note: (src, dst), TODO: CDP
+__KERN__ void k_identity(float *t, int h, int w);
+__KERN__ void k_math(math_op op, float *dst, float v, long n);             ///< tensor math ops
+__KERN__ void k_ts_op(math_op op, float *A, float v, float *O, long n);    ///< tensor-scalar ops
+__KERN__ void k_tt_op(math_op op, float *A, float *B, float *O, long n);   ///< tensor-tensor ops
+__KERN__ void k_bce(float *O, float *T, long n);
 ///@}    
 ///@name Tensor debug ops (kernel mode)
 ///@{
@@ -145,25 +156,21 @@ __KERN__ void k_dummy();
 ///@name BLAS ops
 ///@{    
 __KERN__ void k_matmul(
-    DU *A, DU *B, DU *O,                            ///< O[M*N*C] = A[M*K*C] @ B[K*N*C]
-    U32 K, U32 M, U32 N, bool tA, bool tB, bool inc);
-__KERN__ void k_gemm(                               ///< O[M*N*C] = a * A[M*K*C] @ B[K*N*C] + b * O[M*N*C]
-    DU *A, DU *B, DU *O,                            
-    U32 K, U32 M, U32 N, DU alpha, DU beta, bool tA, bool tB);  
+    float *A, float *B, float *O,                                ///< O[M*N*C] = A[M*K*C] @ B[K*N*C]
+    bool tA, bool tB, bool inc, int K, int M, int N);
+__KERN__ void k_gemm(                                   ///< O[M*N*C] = a * A[M*K*C] @ B[K*N*C] + b * O[M*N*C]
+    float *A, float *B, float *O,                            
+    float alpha, float beta, bool tA, bool tB, int K, int M, int N);  
 __KERN__ void k_gemm_claude(
-    const DU * __restrict__ A, const DU * __restrict__ B, DU *O,
-    U32 K, U32 M, U32 N, DU alpha, DU beta, bool tA, bool tB);
+    const float * __restrict__ A, const float * __restrict__ B, float *O,
+    float alpha, float beta, bool tA, bool tB, int K, int M, int N);
 __KERN__ void k_gemm_tile_gemini(
-    DU *__restrict__ A, DU *__restrict__ B, DU *O,
-    U32 K, U32 M, U32 N, DU alpha, DU beta,  bool tA, bool tB);
+    float *__restrict__ A, float *__restrict__ B, float *O,
+    float alpha, float beta, bool tA, bool tB, int K, int M, int N);
 __KERN__ void k_gemm_tile_claude(
-    DU * __restrict__ A, DU * __restrict__ B, DU *O,
-    U32 K, U32 M, U32 N, DU alpha, DU beta,  bool tA, bool tB);
+    float * __restrict__ A, float * __restrict__ B, float *O,
+    float alpha, float beta,  bool tA, bool tB, int K, int M, int N);
     
-#ifdef __cplusplus
-}
-#endif
-
 } // namespace t4
 #endif // __T4MATH_H_
     
