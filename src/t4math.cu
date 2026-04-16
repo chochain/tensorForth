@@ -359,8 +359,8 @@ k_matmul_claude(
 }
 
 __KERN__ void
-k_gemm(
-    DU *A, DU *B, DU *O,  /* O[M*N*C] = a * A[M*K*C] @ B[K*N*C] + b * O[M*N*C] */
+k_gemm(                      ///< O[M*N*C] = a * A[M*K*C] @ B[K*N*C] + b * O[M*N*C]
+    DU *A, DU *B, DU *O,  
     U32 K, U32 M, U32 N, DU alpha, DU beta, bool tA, bool tB)
 {
     const U32 n0 = threadIdx.x + blockIdx.x * blockDim.x;   ///< W
@@ -400,9 +400,7 @@ k_gemm(
 // ---------------------------------------------------------------------------
 __KERN__ void
 k_gemm_claude(
-    const DU * __restrict__ A,
-    const DU * __restrict__ B,
-    DU *O,
+    const DU * __restrict__ A, const DU * __restrict__ B, DU *O,
     U32 K, U32 M, U32 N, DU alpha, DU beta, bool tA, bool tB)
 {
     const U32 tx = threadIdx.x, n0 = blockIdx.x * TILE + tx;   ///< output column  (W dim)
@@ -471,27 +469,15 @@ k_gemm_claude(
 #define THREADS_Y  (BM / TM)          /** 16 — threads covering H dimension */
 #define NTHREADS   (THREADS_X * THREADS_Y)
 
-// ---------------------------------------------------------------------------
-// FORK3T — grid over (ceil(W/BN), ceil(H/BM), C)
-// ---------------------------------------------------------------------------
-#define FORK3T(fn,h,w,c,...) {               \
-    const dim3 _b(THREADS_X, THREADS_Y, 1);  \
-    const dim3 _g(((w) + BN - 1) / BN,       \
-                  ((h) + BM - 1) / BM, c);   \
-    fn<<<_g,_b>>>(__VA_ARGS__,h,w);          \
-}
-
 __KERN__ void
 k_gemm_tile_gemini(
-    DU *__restrict__ A,
-    DU *__restrict__ B,
-    DU *O,
+    DU *__restrict__ A, DU *__restrict__ B, DU *O,
     U32 K, U32 M, U32 N, DU alpha, DU beta, bool tA, bool tB)
     /// Shared Memory Allocation
     __shared__ DU _sA[BK][BM], _sB[BK][BN];   ///< _sB transposed to avoid bank conflicts
 
     /// Register Accumulators (The 4x4 micro-tile, zero initialized)
-    DU acc[TM][TN] = { DU0 };
+    DU acc[TM][TN] = {};
 
     /// Global Row/Col for this thread block
     const U32 tx = threadIdx.x, bx = blockIdx.x * BN;
@@ -534,36 +520,49 @@ k_gemm_tile_gemini(
 
     // 6. Write out results to Global Memory C
     #pragma unroll
-    for (int i = 0; i < TM; i++) {
+    for (int m = 0; m < TM; m++) {
         #pragma unroll
-        for (int j = 0; j < TN; j++) {
-            U32 row = blockIdx.y * BM + ty * TM + i;
-            U32 col = blockIdx.x * BN + tx * TN + j;
+        for (int n = 0; n < TN; n++) {
+            U32 row = blockIdx.y * BM + ty * TM + m;
+            U32 col = blockIdx.x * BN + tx * TN + n;
             U64 z0  = (U64)row * N + col;
-            if (row < M && col < N) O[z0] = alpha * acc[i][j] + beta * O[z0];
+            if (row < M && col < N) O[z0] = alpha * acc[m][n] + beta * O[z0];
         }
     }
+}
+// ---------------------------------------------------------------------------
+// FORK3T — grid over (ceil(W/BN), ceil(H/BM), C)
+// ---------------------------------------------------------------------------
+#define FORK3T(fn,h,w,c,...) {               \
+    const dim3 _b(THREADS_X, THREADS_Y, 1);  \
+    const dim3 _g(((w) + BN - 1) / BN,       \
+                  ((h) + BM - 1) / BM, c);   \
+    fn<<<_g,_b>>>(__VA_ARGS__,h,w);          \
 }
 
 // ---------------------------------------------------------------------------
 // k_gemm — register-tiled GEMM, channel-last (interleaved) layout
 //
+//   O[M,N,C] = alpha * op(A) @ op(B)  +  beta * O[M,N,C]
+//
+//   op(A) = tA ? A[K,M,C] : A[M,K,C]
+//   op(B) = tB ? B[N,K,C] : B[K,N,C]
+//
 //   O[H,W,C] = alpha * A[H,K,C] @ B[K,W,C]  +  beta * O[H,W,C]
 //
 // Memory layout (stride C between consecutive logical elements):
-//   A[i,k,c]  →  A[ i*(K*C) + k*C + c ]
-//   B[k,j,c]  →  B[ k*(W*C) + j*C + c ]
-//   O[i,j,c]  →  O[ i*(W*C) + j*C + c ]
+//   A normal      A[i,k,c]  →  A[ (i*K + k)*C + c ]
+//   A transposed  A[k,i,c]  →  A[ (k*M + i)*C + c ]
+//   B normal      B[k,j,c]  →  B[ (k*N + j)*C + c ]
+//   B transposed  B[j,k,c]  →  B[ (j*K + k)*C + c ]
 //
 // Each thread block covers a (BM × BN) output tile for one channel c.
 // Each thread computes a (TM × TN) register sub-tile within that block tile.
 // ---------------------------------------------------------------------------
 __KERN__ void
 k_gemm_tile_claude(
-    DU * __restrict__ A,
-    DU * __restrict__ B,
-    DU *              O,
-    U32 K, U32 M, U32 N, DU alpha, DU beta, bool tA, bool tB)
+    DU * __restrict__ A, DU * __restrict__ B, DU *O,
+    U32 K, U32 M, U32 N, DU alpha, DU beta, bool tA, bool tB) 
 {
     const U32 tx = threadIdx.x;        ///< [0, THREADS_X) — col direction
     const U32 ty = threadIdx.y;        ///< [0, THREADS_Y) — row direction
@@ -587,7 +586,7 @@ k_gemm_tile_claude(
     // -------------------------------------------------------------------------
     // Register accumulators — TM × TN per thread, zero-initialised
     // -------------------------------------------------------------------------
-    DU2 acc[TM][TN] = { DU0 };
+    DU2 acc[TM][TN] = {};
 
     // -------------------------------------------------------------------------
     // Cooperative tile loading
@@ -610,23 +609,29 @@ k_gemm_tile_claude(
         // -- Load _sA ----------------------------------------------------------
         // Flatten _sA[BM][BK] and distribute across 256 loaders, 4 each.
         // Element flat maps to _sA[z/BK][z%BK].
+        // Normal:     A[m0, k0, c]  →  (m0*K + k0)*C + c
+        // Transposed: A[k0, m0, c]  →  (k0*M + m0)*C + c
         #pragma unroll
         for (U32 n = 0; n < NA; n++) {
             const U32 z  = loader_id * NA + n;
             const U32 ar = z / BK,               ac = z % BK;
             const U32 m0 = blockIdx.y * BM + ar, k0 = K_BASE + ac;
-            const U64 ai = ((U64)m0 * K + k0) * C + c;
+            const U64 ai = tA ? ((U64)k0 * M + m0) * C + c
+                              : ((U64)m0 * K + k0) * C + c;
             _sA[ar][ac] = (m0 < M && k0 < K) ? A[ai] : DU0;
         }
         // -- Load _sB ----------------------------------------------------------
         // Flatten _sB[BK][BN] and distribute across 256 loaders, 4 each.
         // Element flat maps to _sB[flat/BN][flat%BN].
+        // Normal:     B[k0, n0, c]  →  (k0*N + n0)*C + c
+        // Transposed: B[n0, k0, c]  →  (n0*K + k0)*C + c
         #pragma unroll
         for (U32 n = 0; n < NB; n++) {
             const U32 z  = loader_id * NB + n;
             const U32 br = z / BN,      bc = z % BN;
             const U32 k0 = K_BASE + br, n0 = blockIdx.x * BN + bc;
-            const U64 bi = ((U64)k0 * N + n0) * C + c;
+            const U64 bi = tB ? ((U64)n0 * K + k0) * C + c
+                              : ((U64)k0 * N + n0) * C + c;
             _sB[br][bc] = (k0 < K && n0 < N) ? B[bi] : DU0;
         }
         __syncthreads();   ///< all tiles loaded before any thread reads them
@@ -643,9 +648,9 @@ k_gemm_tile_claude(
         for (U32 k = 0; k < BK; k++) {
             DU rA[TM], rB[TN];
             #pragma unroll
-            for (U32 m = 0; m < TM; m++) rA[m] = _sA[tx * TM + m][k];
+            for (U32 m = 0; m < TM; m++) rA[m] = _sA[ty * TM + m][k];
             #pragma unroll
-            for (U32 n = 0; n < TN; n++) rB[n] = _sB[k][ty * TN + n];
+            for (U32 n = 0; n < TN; n++) rB[n] = _sB[k][tx * TN + n];
             #pragma unroll
             for (U32 m = 0; m < TM; m++)
                 #pragma unroll
