@@ -7,7 +7,7 @@
 #ifndef __MMU_VECTOR_H
 #define __MMU_VECTOR_H
 #include "ten4_types.h"
-#include "util.h"            /// also defined __GPU__
+#include "util.h"            /// ALIGN, STRLEN, MEMCPY
 
 namespace t4::mu {
 
