@@ -164,10 +164,21 @@ k_batchnvar(float *src, float*avg, float *var, long HW) {
     if (c < C && tp.thread_rank() == 0) atomicAdd_block(&var[c], v);
 }
 
+struct Align4 { float data[4]; };
 __KERN__ void
 k_copy(float *src, float *dst, long n) {                      ///< Note: (src, dst)
-    for (long j = threadIdx.x; j < n; j += blockDim.x) {
-        dst[j] = src[j];
+    long idx = blockIdx.x * blockDim.x + threadIdx.x;
+    long stride = blockDim.x * gridDim.x;
+
+    // Use a struct to "hint" to the compiler we want 16-byte moves
+    // while remaining safe for 4-byte alignment
+    for (long i = idx * 4; i < n - 3; i += stride * 4) {
+        *(Align4*)&dst[i] = *(Align4*)&src[i];
+    }
+
+    // Standard cleanup loop for the end
+    for (long i = (n/4)*4 + idx; i < n; i += stride) {
+        dst[i] = src[i];
     }
 }
 __KERN__ void
@@ -468,7 +479,7 @@ k_gemm_tile_gemini(
     __shared__ float _sA[BK][BM], _sB[BK][BN];   ///< _sB transposed to avoid bank conflicts
 
     /// Register Accumulators (The 4x4 micro-tile, zero initialized)
-    double acc[TM][TN] = {};
+    float acc[TM][TN] = {};
 
     /// Global Row/Col for this thread block
     const int tx = threadIdx.x, ty = threadIdx.y;
@@ -542,6 +553,7 @@ k_gemm_tile_gemini(
 // Top-left corner of this block's (BM × BN) output tile
 // Top-left corner of this thread's (TM × TN) register tile inside the block tile
 // ---------------------------------------------------------------------------
+#include <cuda_pipeline.h>
 __KERN__ void
 k_gemm_tile_claude(
     float * __restrict__ A, float * __restrict__ B, float *O,
@@ -553,13 +565,13 @@ k_gemm_tile_claude(
     // -------------------------------------------------------------------------
     // Shared memory tiles
     // -------------------------------------------------------------------------
-    __shared__ float _sA[BM][BK];        ///< [output rows][k-strip depth]
-    __shared__ float _sB[BK][BN];        ///< [k-strip depth][output cols]
+    __shared__ float _sA[2][BK][BM+4];        ///< [k-strip depth][output rows]
+    __shared__ float _sB[2][BK][BN+4];        ///< [k-strip depth][output cols]
 
     // -------------------------------------------------------------------------
     // Register accumulators — TM × TN per thread, zero-initialised
     // -------------------------------------------------------------------------
-    double acc[TM][TN] = {};
+    float acc[TM][TN] = {};
 
     // -------------------------------------------------------------------------
     // Cooperative tile loading
@@ -591,7 +603,7 @@ k_gemm_tile_claude(
             const int m0 = blockIdx.y * BM + ar, k0 = K_BASE + ac;
             const long ai = tA ? ((long)k0 * M + m0) * C + c
                               : ((long)m0 * K + k0) * C + c;
-            _sA[ar][ac] = (m0 < M && k0 < K) ? A[ai] : 0.0f;
+            _sA[ac][ar] = (m0 < M && k0 < K) ? A[ai] : 0.0f;
         }
         // -- Load _sB ----------------------------------------------------------
         // Flatten _sB[BK][BN] and distribute across 256 loaders, 4 each.
@@ -621,7 +633,7 @@ k_gemm_tile_claude(
         for (int k = 0; k < BK; k++) {
             float rA[TM], rB[TN];
             #pragma unroll
-            for (int m = 0; m < TM; m++) rA[m] = _sA[ty * TM + m][k];
+            for (int m = 0; m < TM; m++) rA[m] = _sA[k][ty * TM + m];
             #pragma unroll
             for (int n = 0; n < TN; n++) rB[n] = _sB[k][tx * TN + n];
             #pragma unroll
