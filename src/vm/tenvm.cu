@@ -223,6 +223,7 @@ TensorVM::gemm(int opt) {                           ///< GEMM ( a b A B C -- a b
         Tensor &O = COPY(C);                 ///< hard copy C tensor
         switch (opt) {                       /// * O = a*AB + b*C
         case 0: Tensor::gemm(A, B, O, a, b);  break;
+        case 1: Tensor::gemm1(A, B, O, a, b); break;
         case 2: Tensor::gemm2(A, B, O, a, b); break;
         case 3: Tensor::gemm3(A, B, O, a, b); break;
         case 4: Tensor::gemm4(A, B, O, a, b); break;
@@ -510,10 +511,11 @@ TensorVM::init() {
     CODE("matmul",    blas2(T_DOT));          ///< (A B -- A B C) matrix multiply
     CODE("matdiv",    blas2(T_DIV));          ///< (A B -- A B C) matrix divide
     CODE("solve",     blas2(T_SOLV));         ///< (B A -- B A X) solve B = AX
-    CODE("gemm",      gemm(0));               ///< (a b A B C -- a b A B C O) GEMM
-    CODE("gemm2",     gemm(2));               ///< (a b A B C -- a b A B C O) GEMM
-    CODE("gemm3",     gemm(3));               ///< (a b A B C -- a b A B C O) GEMM
-    CODE("gemm4",     gemm(4));               ///< (a b A B C -- a b A B C O) GEMM
+    CODE("gemm",      gemm(0));               ///< (a b A B C -- a b A B C O) GEMM x86
+    CODE("gemm1",     gemm(1));               ///< (a b A B C -- a b A B C O) GEMM k_gemm (gemini)
+    CODE("gemm2",     gemm(2));               ///< (a b A B C -- a b A B C O) GEMM k_gemm_claude (tiled)
+    CODE("gemm3",     gemm(3));               ///< (a b A B C -- a b A B C O) GEMM k_gemm_tile_gemini (tiled/reg)
+    CODE("gemm4",     gemm(4));               ///< (a b A B C -- a b A B C O) GEMM k_gemm_tile_claude (tiled/reg)
     ///@}
     ///@defgroup Tensor persistance
     ///@brief - stick to PyTorch naming when possible
