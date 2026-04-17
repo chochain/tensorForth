@@ -76,9 +76,43 @@ Tensor::mm(
 }
 ///
 /// tensor GEMM C' = alpha * A x B + beta * C
+/// @note - benchmark alpha * [1K,1K]*[1K,1K] + beta [1K,1K]
+///   0: x86_gemm           - 2227.20 ms
+///   1: k_gemm             -   30.72 ms
+///   2: k_gemm_claude      -   28.16 ms
+///   3: k_gemm_tile_gemini -  442.88 ms (bank conflict)
+///   4: k_gemm_tile_claude -   30.72 ms
 ///
 __HOST__ Tensor&
 Tensor::gemm(Tensor &A, Tensor &B, Tensor &O, DU alpha, DU beta, bool tA, bool tB) {
+    U32 H = A.H(), W = B.W(), Ka = A.W(), Kb = B.H();
+    U32 N = B.N(), C = B.C();
+    
+    const int BLOCK = 32;
+    for (int i = 0; i < H*W; ++i) O[i] *= beta;     /// * apply beta, 0.0f zero out C
+
+    for (int kk = 0; kk < Ka; kk += BLOCK) {        /// * accumulate alpha * (A * B)
+        for (int mm = 0; mm < H; mm += BLOCK) {
+            for (int nn = 0; nn < W; nn += BLOCK) {
+                
+                for (int k = kk; k < MIN(kk + BLOCK, Ka); ++k) {
+                    for (int i = mm; i < MIN(mm + BLOCK, H); ++i) {
+                        /// pre-multiply alpha with the A element to save operations
+                        float av = alpha * A[i * Ka + k]; 
+                        for (int j = nn; j < MIN(nn + BLOCK, W); ++j) {
+                            O[i * W + j] += av * B[k * W + j];
+                        }
+                    }
+                }
+                
+            }
+        }
+    }
+    return O;
+}
+
+__HOST__ Tensor&
+Tensor::gemm1(Tensor &A, Tensor &B, Tensor &O, DU alpha, DU beta, bool tA, bool tB) {
     U32 H = A.H(), W = B.W(), Ka = A.W(), Kb = B.H();
     U32 N = B.N(), C = B.C();
     if (Ka != Kb || N != O.N() || C != O.C()) {
