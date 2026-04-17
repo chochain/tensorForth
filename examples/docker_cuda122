@@ -1,6 +1,7 @@
 #!/bin/bash
 xhost +
 docker run -it --rm --gpus all --user $(id -u):$(id -g) \
+       --cap-add=SYS_ADMIN --security-opt seccomp=unconfined \
        --network host --cap-add=SYS_ADMIN --security-opt seccomp=unconfined \
        -e DOCKER_NAME=cuda11 -e CUDA_HOME=/usr/local/cuda \
        -e DISPLAY=$DISPLAY -e TERM=ansi-term \
