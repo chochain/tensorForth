@@ -290,86 +290,7 @@ k_dummy() {}
 ///=======================================================================
 /// GEMM methods
 ///
-__KERN__ void
-k_matmul(
-    float *A, float *B, float *O,   /* O[M*N*C] = A[M*K*C] @ B[K*N*C] */
-    bool tA, bool tB, bool inc, int K, int M, int N)
-{
-    const int n0 = blockIdx.x * blockDim.x + threadIdx.x;  ///< W  2T  range
-    const int m0 = blockIdx.y * blockDim.y + threadIdx.y;  ///< H  65M range
-    const int c  = blockIdx.z,  C = gridDim.z;             ///< C
-    const long z0 = ((long)N * m0 + n0) * C + c;             ///< output matrix index
-    
-    if (m0 < M && n0 < N && c < C) {                       /// * TODO: tiled
-        float *ax, *bx;
-        long  ai, bi;
-        if (tA) {                                          /// * transpose A
-            ax = &A[(long)C * m0 + c]; ai = (long)M * C;
-            bx = &B[(long)C * n0 + c]; bi = (long)N * C;
-        }
-        else if (tB) {                                     /// * transpose B
-            ax = &A[(long)C * K * m0 + c]; ai = (long)C;
-            bx = &B[(long)C * K * n0 + c]; bi = (long)C;
-        }
-        else {                                             /// * no tranposition
-            ax = &A[(long)C * K * m0 + c]; ai = (long)C;
-            bx = &B[(long)C * n0 + c];     bi = (long)N * C;
-        }
-        double acc = 0.0f;                                 /// * TODO: suffle sum
-//      acc += ax[k * C] * bx[k * N * C];                  /// * 8.1 ms 1Kx1K
-        for (int k = 0; k < K; k++, ax += ai, bx += bi) {
-            acc += (*ax) * (*bx);                          /// * 6.2 ms 1Kx1K
-        }
-        if (inc) O[z0] += acc;                             /// * increment O
-        else     O[z0] =  acc;                             /// * overwrite O
-    }
-}
 #define TILE 16
-///
-/// A: M×K,  B: K×N,  O: M×N  (row-major, all in device memory)
-__KERN__ void
-k_matmul_claude(
-    const float* __restrict__ A,
-    const float* __restrict__ B,
-    float*       __restrict__ O,
-    bool tA, bool tB, bool inc, int K, int M, int N)
-{
-    const int tx = threadIdx.x, n0 = blockIdx.x * TILE + tx;
-    const int ty = threadIdx.y, m0 = blockIdx.y * TILE + ty;
-    const int c  = blockIdx.z,  C  = gridDim.z;
-
-    // Shared memory tiles — sized at compile time via TILE
-    __shared__ float _sA[TILE][TILE], _sB[TILE][TILE];
-    
-    double acc = 0.0f;
-
-    // Load tile of A: rows [blockIdx.y*TILE .. +TILE), cols [s*TILE .. +TILE)
-    //     Thread (ty, tx) loads A[i_tile, k_tile, c]
-    //     where i_tile = blockIdx.y*TILE + ty,  k_tile = s*TILE + tx
-    // Load tile of B: rows [s*TILE .. +TILE), cols [blockIdx.x*TILE .. +TILE)
-    //     Thread (ty, tx) loads B[k_tile, j_tile, c]
-    //     where k_tile = s*TILE + ty,  j_tile = blockIdx.x*TILE + tx
-    
-    // Walk across the shared K dimension in TILE-wide strips
-    const int nstrip = (K + TILE -1) / TILE;
-    for (int s = 0; s < nstrip; s++) {
-        int k_a = s * TILE + tx, k_b = s * TILE + ty;        ///< k-index for this thread's A, B load
-        _sA[ty][tx] = (m0 < M && k_a < K) ? A[((long)m0 * K + k_a) * C + c] : 0.0f;
-        _sB[ty][tx] = (k_b < K && n0 < N) ? B[((long)k_b * N + n0) * C + c] : 0.0f;
-        __syncthreads();   // ← barrier 1: tile is ready
-
-        #pragma unroll
-        for (int t = 0; t < TILE; ++t) acc += _sA[ty][t] * _sB[t][tx];
-
-        __syncthreads();   // ← barrier 2: tile consumed before next load
-    }
-
-    if (m0 < M && n0 < N) {
-        const long z0 = ((long)m0 * N + n0) * C + c;
-        O[z0] = acc;
-    }
-}
-
 __KERN__ void
 k_gemm(                      ///< O[M*N*C] = a * A[M*K*C] @ B[K*N*C] + b * O[M*N*C]
     float *A, float *B, float *O,  
@@ -665,7 +586,7 @@ k_gemm_tile_claude(
 /// double buffering (105 register, 2 x SM issue)
 ///
 __KERN__ void
-k_gemm_tile_claude_2x(
+k_gemm_tile_claude_x2(
     float * __restrict__ A, float * __restrict__ B, float *O,
     float alpha, float beta, bool tA, bool tB, int K, int M, int N) 
 {
