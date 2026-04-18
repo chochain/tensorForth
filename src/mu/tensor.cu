@@ -57,22 +57,7 @@ Tensor::batchvar(Tensor &A, Tensor &G, Tensor &O) {
 __HOST__ Tensor&
 Tensor::mm(
     Tensor &A, Tensor &B, Tensor &O, bool inc, bool tA, bool tB) {
-    U32 H  = tA ? A.W() : A.H();
-    U32 Ka = tA ? A.H() : A.W();
-    U32 W  = tB ? B.H() : B.W();
-    U32 Kb = tB ? B.W() : B.H();
-    U32 N  = B.N(), C = B.C();                     /// B, O common dimensions
-    if (Ka != Kb || N != O.N() || C != O.C()) {
-        ERROR("  tensor#mm Ka(%d)!=Kb(%d) or N, C diff\n", Ka, Kb);
-        return O;
-    }
-    MM_DB("  tensor#matmul K=%d => NHWC=[%d,%d,%d,%d]\n", Ka, N, H, W, C);
-    
-    for (U32 n = 0; n < N; n++) {
-        DU *da = A.slice(n), *db = B.slice(n), *dx = O.slice(n);
-        FORK3(k_matmul, H, W, C, da, db, dx, tA, tB, inc, Ka);
-    }
-    return O;
+    return gemm(A, B, O, DU1, inc ? DU1 : DU0, tA, tB);
 }
 ///
 /// tensor GEMM C' = alpha * A x B + beta * C
@@ -178,6 +163,25 @@ Tensor::gemm4(Tensor &A, Tensor &B, Tensor &O, DU alpha, DU beta, bool tA, bool 
     for (U32 n = 0; n < N; n++) {
         DU *da = A.slice(n), *db = B.slice(n), *dx = O.slice(n);
         FORK3T(k_gemm_tile_claude, H, W, C, da, db, dx, alpha, beta, tA, tB, Ka);
+    }
+    return O;
+}
+__HOST__ Tensor&
+Tensor::gemm5(Tensor &A, Tensor &B, Tensor &O, DU alpha, DU beta, bool tA, bool tB) {
+    U32 H  = tA ? A.W() : A.H(), W  = tB ? B.H() : B.W();
+    U32 Ka = tA ? A.H() : A.W(), Kb = tB ? B.W() : B.H();
+    U32 N  = B.N(), C = B.C();
+
+    if (Ka != Kb || N != O.N() || C != O.C()) {
+        ERROR("  tensor#gemm ka(%d)!=kb(%d) or N, C diff\n", Ka, Kb);
+        return O;
+    }
+    MM_DB("  tensor#gemm K=%d, a=%g, b=%g => NHWC=[%d,%d,%d,%d]\n",
+          Ka, alpha, beta, N, H, W, C);
+
+    for (U32 n = 0; n < N; n++) {
+        DU *da = A.slice(n), *db = B.slice(n), *dx = O.slice(n);
+        FORK3T(k_gemm_tile_claude_x2, H, W, C, da, db, dx, alpha, beta, tA, tB, Ka);
     }
     return O;
 }
