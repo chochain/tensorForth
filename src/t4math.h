@@ -155,9 +155,6 @@ __KERN__ void k_dummy();
 ///@}
 ///@name BLAS ops
 ///@{    
-__KERN__ void k_matmul(
-    float *A, float *B, float *O,                                ///< O[M*N*C] = A[M*K*C] @ B[K*N*C]
-    bool tA, bool tB, bool inc, int K, int M, int N);
 __KERN__ void k_gemm(                                   ///< O[M*N*C] = a * A[M*K*C] @ B[K*N*C] + b * O[M*N*C]
     float *A, float *B, float *O,                            
     float alpha, float beta, bool tA, bool tB, int K, int M, int N);  
@@ -168,6 +165,9 @@ __KERN__ void k_gemm_tile_gemini(
     float *__restrict__ A, float *__restrict__ B, float *O,
     float alpha, float beta, bool tA, bool tB, int K, int M, int N);
 __KERN__ void k_gemm_tile_claude(
+    float * __restrict__ A, float * __restrict__ B, float *O,
+    float alpha, float beta,  bool tA, bool tB, int K, int M, int N);
+__KERN__ void k_gemm_tile_claude_x2(
     float * __restrict__ A, float * __restrict__ B, float *O,
     float alpha, float beta,  bool tA, bool tB, int K, int M, int N);
     
