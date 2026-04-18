@@ -227,6 +227,7 @@ TensorVM::gemm(int opt) {                           ///< GEMM ( a b A B C -- a b
         case 2: Tensor::gemm2(A, B, O, a, b); break;
         case 3: Tensor::gemm3(A, B, O, a, b); break;
         case 4: Tensor::gemm4(A, B, O, a, b); break;
+        case 5: Tensor::gemm5(A, B, O, a, b); break;
         }
         PUSH(O);
         VLOG("} tenvm#gemm => O[%d,%d]\n", O.H(), O.W());
@@ -516,6 +517,7 @@ TensorVM::init() {
     CODE("gemm2",     gemm(2));               ///< (a b A B C -- a b A B C O) GEMM k_gemm_claude (tiled)
     CODE("gemm3",     gemm(3));               ///< (a b A B C -- a b A B C O) GEMM k_gemm_tile_gemini (tiled/reg)
     CODE("gemm4",     gemm(4));               ///< (a b A B C -- a b A B C O) GEMM k_gemm_tile_claude (tiled/reg)
+    CODE("gemm5",     gemm(5));               ///< (a b A B C -- a b A B C O) GEMM k_gemm_tile_claude_x2 (tiled/reg)
     ///@}
     ///@defgroup Tensor persistance
     ///@brief - stick to PyTorch naming when possible
