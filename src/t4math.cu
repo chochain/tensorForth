@@ -5,6 +5,7 @@
  * <pre>Copyright (C) 2022- GreenII, this file is distributed under BSD 3-Clause License.</pre>
  */
 #include <cooperative_groups.h>
+#include <cuda_pipeline.h>
 #include "t4math.h"
 
 namespace t4 {
@@ -552,10 +553,119 @@ k_gemm_tile_gemini(
 //
 // Top-left corner of this block's (BM × BN) output tile
 // Top-left corner of this thread's (TM × TN) register tile inside the block tile
+//
+// note: 64-register, 4 x SM issue
 // ---------------------------------------------------------------------------
-#include <cuda_pipeline.h>
 __KERN__ void
 k_gemm_tile_claude(
+    float * __restrict__ A, float * __restrict__ B, float *O,
+    float alpha, float beta, bool tA, bool tB, int K, int M, int N) 
+{
+    const int tx = threadIdx.x, ty = threadIdx.y;  ///< [T4_DIM_SZ, T4_DIM_SZ]
+    const int c  = blockIdx.z,  C  = gridDim.z;    ///< channels
+
+    // -------------------------------------------------------------------------
+    // Shared memory tiles
+    // -------------------------------------------------------------------------
+    __shared__ float _sA[BK][BM];               ///< [k-strip depth][output rows]
+    __shared__ float _sB[BK][BN];               ///< [k-strip depth][output cols]
+
+    // -------------------------------------------------------------------------
+    // Register accumulators — TM × TN per thread, zero-initialised
+    // -------------------------------------------------------------------------
+    float acc[TM][TN] = {};
+
+    // -------------------------------------------------------------------------
+    // Cooperative tile loading
+    //
+    //   256 threads collaboratively load BM*BK = 1024 elements into _sA
+    //   and BK*BN = 1024 elements into _sB.  Each thread loads 4 of each.
+    //   A linear loader index maps each thread to a fixed set of elements.
+    // -------------------------------------------------------------------------
+    const int loader_id = ty * T4_DIM_SZ + tx;   ///< [0, 256)
+    const int NA = (BM * BK) / T4_DIM_SQ;        ///< (64*16)/256 = 4
+    const int NB = (BK * BN) / T4_DIM_SQ;        ///< (16*64)/256 = 4
+
+    // -------------------------------------------------------------------------
+    // Main K-strip loop
+    // -------------------------------------------------------------------------
+    const int nstrip = (K + BK - 1) / BK;
+    for (int s = 0; s < nstrip; s++) {
+        const int K_BASE = s * BK;
+        // -- Load _sA ----------------------------------------------------------
+        // Flatten _sA[BM][BK] and distribute across 256 loaders, 4 each.
+        // Element flat maps to _sA[z/BK][z%BK].
+        // Normal:     A[m0, k0, c]  →  (m0*K + k0)*C + c
+        // Transposed: A[k0, m0, c]  →  (k0*M + m0)*C + c
+        #pragma unroll
+        for (int n = 0; n < NA; n++) {
+            const int  z  = loader_id * NA + n;
+            const int  ar = z / BK,               ac = z % BK;
+            const int  m0 = blockIdx.y * BM + ar, k0 = K_BASE + ac;
+            const long ai = tA ? ((long)k0 * M + m0) * C + c
+                               : ((long)m0 * K + k0) * C + c;
+            _sA[ac][ar] = (m0 < M && k0 < K) ? A[ai] : 0.0f;
+        }
+        // -- Load _sB ----------------------------------------------------------
+        // Flatten _sB[BK][BN] and distribute across 256 loaders, 4 each.
+        // Element flat maps to _sB[flat/BN][flat%BN].
+        // Normal:     B[k0, n0, c]  →  (k0*N + n0)*C + c
+        // Transposed: B[n0, k0, c]  →  (n0*K + k0)*C + c
+        #pragma unroll
+        for (int n = 0; n < NB; n++) {
+            const int  z  = loader_id * NB + n;
+            const int  br = z / BN,      bc = z % BN;
+            const int  k0 = K_BASE + br, n0 = blockIdx.x * BN + bc;
+            const long bi = tB ? ((long)n0 * K + k0) * C + c
+                               : ((long)k0 * N + n0) * C + c;
+            _sB[br][bc] = (k0 < K && n0 < N) ? B[bi] : 0.0f;
+        }
+        __syncthreads();   ///< all tiles loaded before any thread reads them
+
+        // -- Register-tiled dot product ---------------------------------------
+        // For each of the BK steps in this strip:
+        //   1. Load TM values from As into rA[]  (one column of A sub-tile)
+        //   2. Load TN values from Bs into b_reg[]  (one row   of B sub-tile)
+        //   3. Outer-product: TM×TN FMAs, every operand lives in a register.
+        //
+        // This eliminates repeated shared-memory reads for the inner loop:
+        // each rA / rB value is loaded once and reused TN / TM times.
+        #pragma unroll
+        for (int k = 0; k < BK; k++) {
+            float rA[TM], rB[TN];
+            #pragma unroll
+            for (int m = 0; m < TM; m++) rA[m] = _sA[k][ty * TM + m];
+            #pragma unroll
+            for (int n = 0; n < TN; n++) rB[n] = _sB[k][tx * TN + n];
+            #pragma unroll
+            for (int m = 0; m < TM; m++)
+                #pragma unroll
+                for (int n = 0; n < TN; n++) acc[m][n] += rA[m] * rB[n];
+        }
+        __syncthreads();   ///< guard before next strip overwrites shared mem
+    }
+
+    // -------------------------------------------------------------------------
+    // Write TM×TN results back to O (bounds-checked)
+    // -------------------------------------------------------------------------
+    #pragma unroll
+    for (int m = 0; m < TM; m++) {
+        const int gm = blockIdx.y * BM + ty * TM + m;
+        if (gm >= M) continue;
+        #pragma unroll
+        for (int n = 0; n < TN; n++) {
+            const int gn = blockIdx.x * BN + tx * TN + n;
+            if (gn >= N) continue;
+            const long z0 = ((long)gm * N + gn) * C + c;
+            O[z0] = acc[m][n] * alpha + O[z0] * beta;
+        }
+    }
+}
+///
+/// double buffering (105 register, 2 x SM issue)
+///
+__KERN__ void
+k_gemm_tile_claude_2x(
     float * __restrict__ A, float * __restrict__ B, float *O,
     float alpha, float beta, bool tA, bool tB, int K, int M, int N) 
 {
@@ -589,61 +699,101 @@ k_gemm_tile_claude(
     // -------------------------------------------------------------------------
     const int nstrip = (K + BK - 1) / BK;
 
-    for (int s = 0; s < nstrip; s++) {
-        const int K_BASE = s * BK;
-        // -- Load _sA ----------------------------------------------------------
-        // Flatten _sA[BM][BK] and distribute across 256 loaders, 4 each.
-        // Element flat maps to _sA[z/BK][z%BK].
-        // Normal:     A[m0, k0, c]  →  (m0*K + k0)*C + c
-        // Transposed: A[k0, m0, c]  →  (k0*M + m0)*C + c
-        #pragma unroll
-        for (int n = 0; n < NA; n++) {
-            const int z  = loader_id * NA + n;
-            const int ar = z / BK,               ac = z % BK;
-            const int m0 = blockIdx.y * BM + ar, k0 = K_BASE + ac;
-            const long ai = tA ? ((long)k0 * M + m0) * C + c
-                              : ((long)m0 * K + k0) * C + c;
-            _sA[ac][ar] = (m0 < M && k0 < K) ? A[ai] : 0.0f;
-        }
-        // -- Load _sB ----------------------------------------------------------
-        // Flatten _sB[BK][BN] and distribute across 256 loaders, 4 each.
-        // Element flat maps to _sB[flat/BN][flat%BN].
-        // Normal:     B[k0, n0, c]  →  (k0*N + n0)*C + c
-        // Transposed: B[n0, k0, c]  →  (n0*K + k0)*C + c
-        #pragma unroll
-        for (int n = 0; n < NB; n++) {
-            const int z  = loader_id * NB + n;
-            const int br = z / BN,      bc = z % BN;
-            const int k0 = K_BASE + br, n0 = blockIdx.x * BN + bc;
-            const long bi = tB ? ((long)n0 * K + k0) * C + c
-                              : ((long)k0 * N + n0) * C + c;
-            _sB[br][bc] = (k0 < K && n0 < N) ? B[bi] : 0.0f;
-        }
-        __syncthreads();   ///< all tiles loaded before any thread reads them
-
-        // -- Register-tiled dot product ---------------------------------------
-        // For each of the BK steps in this strip:
-        //   1. Load TM values from As into rA[]  (one column of A sub-tile)
-        //   2. Load TN values from Bs into b_reg[]  (one row   of B sub-tile)
-        //   3. Outer-product: TM×TN FMAs, every operand lives in a register.
-        //
-        // This eliminates repeated shared-memory reads for the inner loop:
-        // each rA / rB value is loaded once and reused TN / TM times.
-        #pragma unroll
-        for (int k = 0; k < BK; k++) {
-            float rA[TM], rB[TN];
-            #pragma unroll
-            for (int m = 0; m < TM; m++) rA[m] = _sA[k][ty * TM + m];
-            #pragma unroll
-            for (int n = 0; n < TN; n++) rB[n] = _sB[k][tx * TN + n];
-            #pragma unroll
-            for (int m = 0; m < TM; m++)
-                #pragma unroll
-                for (int n = 0; n < TN; n++) acc[m][n] += rA[m] * rB[n];
-        }
-        __syncthreads();   ///< guard before next strip overwrites shared mem
+    // -------------------------------------------------------------------------
+    // Lambda-style inline loader — loads one strip s into buffer slot buf.
+    // Spelled out as a macro to avoid register pressure from a device function.
+    //
+    // For _sA: flat index z → (ac=z%BK, ar=z/BK)
+    //          global coords: m0 = blockIdx.y*BM + ar
+    //                         k0 = K_BASE + ac
+    //          normal:     A[(m0*K + k0)*C + c]
+    //          transposed: A[(k0*M + m0)*C + c]
+    //
+    // For _sB: flat index z → (br=z/BN, bc=z%BN)
+    //          global coords: k0 = K_BASE + br
+    //                         n0 = blockIdx.x*BN + bc
+    //          normal:     B[(k0*N + n0)*C + c]
+    //          transposed: B[(n0*K + k0)*C + c]
+    // -------------------------------------------------------------------------
+#define LOAD_TILE(buf, s)                                               \
+    {                                                                   \
+        const int K_BASE = (s) * BK;                                    \
+        _Pragma("unroll")                                               \
+        for (int _n = 0; _n < NA; _n++) {                               \
+            const int  z  = loader_id * NA + _n;                        \
+            const int  ar = z / BK,               ac = z % BK;          \
+            const int  m0 = blockIdx.y * BM + ar, k0 = K_BASE + ac;     \
+            const bool ok = (m0 < M && k0 < K);                         \
+            const int  m1 = ok ? m0 : 0,          k1 = ok ? k0 : 0;     \
+            const long ai = tA ? ((long)k1 * M + m1) * C + c            \
+                               : ((long)m1 * K + k1) * C + c;           \
+            __pipeline_memcpy_async(&_sA[buf][ac][ar], &A[ai], sizeof(float)); \
+        }                                                               \
+        _Pragma("unroll")                                               \
+        for (int _n = 0; _n < NB; _n++) {                               \
+            const int  z  = loader_id * NB + _n;                        \
+            const int  br = z / BN,      bc = z % BN;                   \
+            const int  k0 = K_BASE + br, n0 = blockIdx.x*BN + bc;       \
+            const int  ok = (k0 < K && n0 < N);                         \
+            const int  k1 = ok ? k0 : 0, n1 = ok ? n0 : 0;              \
+            const long bi = tB ? ((long)n1 * K + k1) * C + c            \
+                               : ((long)k1 * N + n1) * C + c;           \
+            __pipeline_memcpy_async(&_sB[buf][br][bc], &B[bi], sizeof(float)); \
+        }                                                               \
+        __pipeline_commit();                                            \
+    }
+    // -------------------------------------------------------------------------
+    // Compute tile — reads from buffer slot buf, accumulates into acc[][]
+    // -------------------------------------------------------------------------
+#define COMPUTE_TILE(buf)                                               \
+    {                                                                   \
+        _Pragma("unroll")                                               \
+        for (int k = 0; k < BK; k++) {                                  \
+            float rA[TM], rB[TN];                                       \
+            _Pragma("unroll")                                           \
+            for (int m = 0; m < TM; m++) rA[m] = _sA[(buf)][k][ty*TM+m];\
+            _Pragma("unroll")                                           \
+            for (int n = 0; n < TN; n++) rB[n] = _sB[(buf)][k][tx*TN+n];\
+            _Pragma("unroll")                                           \
+            for (int m = 0; m < TM; m++)                                \
+                _Pragma("unroll")                                       \
+                for (int n = 0; n < TN; n++) acc[m][n] += rA[m]*rB[n];  \
+        }                                                               \
     }
 
+    // -------------------------------------------------------------------------
+    // Pipeline:
+    //   1. preload strip 0 into buf 0
+    //   2. for each subsequent strip:
+    //        load strip s+1 into buf (s+1)%2    <- overlaps with...
+    //        compute strip s from buf s%2        <- ...this
+    //        sync to ensure load is done before next compute
+    //   3. compute final strip from buf (nstrip-1)%2
+    // -------------------------------------------------------------------------
+    LOAD_TILE(0, 0);
+    __syncthreads();                     // buf 0 ready before first compute
+    
+    for (int s = 0; s < nstrip - 1; s++) {
+        // load next strip into the other buffer — no sync yet,
+        // these global loads can overlap with the compute below
+        LOAD_TILE((s + 1) % 2, s + 1);
+        
+        // compute current strip from the buffer we already synced on
+        COMPUTE_TILE(s % 2);
+
+        // now ensure the load we just issued is visible to all threads
+        // before the next iteration's COMPUTE_TILE reads from it
+        __pipeline_wait_prior(1);
+        __syncthreads();
+    }
+
+    // compute the last strip — no more loads needed
+    COMPUTE_TILE((nstrip - 1) % 2);
+    __syncthreads();                     // guard before smem goes out of scope
+    
+#undef LOAD_TILE
+#undef COMPUTE_TILE
+    
     // -------------------------------------------------------------------------
     // Write TM×TN results back to O (bounds-checked)
     // -------------------------------------------------------------------------
