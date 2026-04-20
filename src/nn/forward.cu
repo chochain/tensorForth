@@ -25,69 +25,69 @@ namespace t4::nn {
 /// TODO: stride, dilation, [C1]NCHW filter,
 ///       [see](https://github.com/vdumoulin/conv_arithmetic)
 ///
-template<int TS, int KS>         ///> tile size, kernel size
+template<int TS, int R>          ///> tile size, kernel radius
 __KERN__ void k_conv2d(
     DU *I, DU *F, DU *B, DU *O,  ///> input I[HxW], F[KxK] kernel, B[C] bias, output O[HxW]
-    U32 H, U32 W, U32 C1         ///< (H0==H1, W0==W1), input channels
+    int H, int W, int C1         ///< (H0==H1, W0==W1), input channels
     ) {
-    __shared__ DU _I[T4_DIM_SZ][T4_DIM_SZ];          ///< shared memory [16x16]
+    constexpr  int KS  = 2 * R + 1;                   ///< center pixel + radius
+    constexpr  int SSZ = (TS + KS - 1);
+    __shared__ float _I[SSZ][SSZ];                    ///< shared memory
+    __shared__ float _F[KS][KS];                      ///< cached filter, shared by all threads
 
-    const U32 tx = threadIdx.x, j0 = tx + blockIdx.x * TS;   ///< output coordinates
-    const U32 ty = threadIdx.y, i0 = ty + blockIdx.y * TS;   /// * i0,j0=0:15
-    const U32 c0 = blockIdx.z,  C0 = gridDim.z;      ///< channel deep
-    const U64 z0 = ((U64)W * i0 + j0) * C0 + c0;     ///< output array index
+    const int  tx = threadIdx.x, j0 = tx + blockIdx.x * TS;   ///< output coordinates
+    const int  ty = threadIdx.y, i0 = ty + blockIdx.y * TS;   /// * i0,j0=0:15
+    const int  c0 = blockIdx.z,  C0 = gridDim.z;      ///< channel deep
+    const long z0 = ((long)W * i0 + j0) * C0 + c0;    ///< output array index
+    const int  load_id = ty * TS + tx;
     ///
     /// process z0, i.e. [TS, TS, C] cells per kernel call
     ///
-    const U32 KSQ= KS * KS;
-    const int i1 = i0 - (KS >> 1);                   ///< input coordinates
-    const int j1 = j0 - (KS >> 1);                   /// * i1,j1=-1:14
+    if (i0 < H && j0 < W) O[z0] = B[c0];              /// * Y = B
 
-    if (i0 < H && j0 < W) O[z0] = B[c0];             /// * Y = B
-
-    auto g = cg::this_thread_block();                ///< all threads of block
-    for (U32 c1 = 0; c1 < C1; c1++) {                ///< each input channel
-        const U64 z1 = ((U64)W * i1 + j1) * C1 + c1; ///< one channel at a time
-        _I[ty][tx] =                                 /// * cache input data
-            (i1 >= 0 && i1 < H && j1 >= 0 && j1 < W) /// * with zero padding
-            ? I[z1] : DU0;                           /// * by channel
-        g.sync();                                    /// * smem write barrier
+    for (int c1 = 0; c1 < C1; c1++) {                 ///< each input channel, TODO: multi-stream
+        const int zf = C0 * KS * KS * c1 + c0;        ///< filter index [C1,KS,KS,C0]
+        if (tx < KS && ty < KS) {                     /// * each tile[14x14]
+            float *fx = &F[zf];
+            for (int y=0; y < KS; y++) {
+                for (int x = 0; x < KS; x++, fx+=C0) _F[y][x] = *fx;
+            }
+        }
+        for (int t=load_id; t < SSZ * SSZ; t += TS * TS) {
+            int si = t / SSZ, sj = t % SSZ;
+            int gi = (blockIdx.y * TS) - R + si;
+            int gj = (blockIdx.x * TS) - R + sj;
+            _I[si][sj] = (gi >=0 && gi < H && gj >=0 && gj < W)
+                ? I[((U64)W * gi + gj) * C1 + c1] : DU0;               /// * cache input data
+        }
+        __syncthreads();                             /// * smem write barrier
         ///
         /// Y = sum(W * X)
-        /// TODO: cache F
         ///
-        const U32 zf = C0 * KSQ * c1 + c0;           ///< filter index [C1,KS,KS,C0]
         if (tx < TS && ty < TS) {                    /// * each tile[14x14]
             DU sum = DU0;                            ///< sum of W * X
-            DU *fx = &F[zf];                         ///< pointer to filter and cached data
+            #pragma unroll
             for (int y = 0; y < KS; y++) {           /// * process one KS * KS cell
+                #pragma unroll
                 for (int x = 0; x < KS; x++) {       /// * TODO: CC check unroll
-                    sum += (*fx) * _I[ty+y][tx+x];   /// Y += W * X
-                    fx  += C0;                       /// * next filter cell
+                    sum += _F[y][x] * _I[ty+y][tx+x];/// Y += W * X
                 }
             }
             if (i0 < H && j0 < W) O[z0] += sum;      /// Y += W * X
         }
-        g.sync();
+        __syncthreads();
     }
 }
 
-__KERN__ void k_linear(
-    DU *I, DU *O, DU *W, DU *B,
-    U32 E0, U32 E1
-    ) {
-    const U32 e1 = blockIdx.x * blockDim.x + threadIdx.x;
-    const U32 e0 = blockIdx.y * blockDim.y + threadIdx.y;
-
-    if (e0 < E0 && e1 < E1) {
-        const U32 n  = blockIdx.z;
-        const DU  wx = W[E1 * e0 + e1] * I[E1 * n + e1];
-        DU *y = &O[E0 * n + e0];
+// ---------------------------------------------------------------------------
+// k_bias — add bias vector B[E0] to each row of O[N, E0], channel-last C=1
+// ---------------------------------------------------------------------------
+__KERN__ void k_bias(DU *O, DU *B, int N, int E0) {
+    const int e0 = blockIdx.x * blockDim.x + threadIdx.x;
+    const int n  = blockIdx.y * blockDim.y + threadIdx.y;
     
-        if (e1==0) *y = B[e0];
-        __syncthreads();
-    
-        atomicAdd_block(y, wx);
+    if (e0 < E0 && n < N) {
+        O[n * E0 + e0] += B[e0];
     }
 }
 
@@ -267,32 +267,33 @@ Model::_fstep(Tensor &in, Tensor &out) {
     }
 }
 
-#define TSZ(v)    (T4_DIM_SZ - (v) + 1)    /** 16,14,12 for 1x1,3x3,5x5 conv */
+#define TSZ(r)    (T4_DIM_SZ - 2*(r))      /** 16,14,12,10 for r=0,1,2,3.. conv */
 #define TILE(v,t) ((v) + (t) - 1)/(t)      /** dim of tile  */
+#define CONV(r)                                        \
+    k_conv2d<TSZ(r),(r)>                               \
+    <<<dim3(TILE(W,TSZ(r)),TILE(H,TSZ(r)),C0), blk>>>  \
+    (d1, f.data, b.data, d0, H, W, C1)
 
 __HOST__ int
 Model::_fconv(Tensor &in, Tensor &out) {
-    Tensor &f = *in.grad[0], &b = *in.grad[1];            ///< filter, bias tensor
+    Tensor &f = *in.grad[0], &b = *in.grad[1];            ///< filter (1x1, 3x3, 5x5, 7x7), bias tensor
     NN_DB(" f[%d,%d,%d,%d], b[%ld]", f.N(), f.H(), f.W(), f.C(), b.numel);
 
     const U32 N = out.N(), H = out.H(), W = out.W();      ///< outpt dimensions
     const U32 C0 = out.C(), C1 = in.C();                  ///< output, input channel deep
 
     dim3 blk(T4_DIM_SZ, T4_DIM_SZ, 1);                    ///< default blocks
-    dim3 g1(TILE(W,TSZ(1)), TILE(H,TSZ(1)), C0);
-    dim3 g3(TILE(W,TSZ(3)), TILE(H,TSZ(3)), C0);
-    dim3 g5(TILE(W,TSZ(5)), TILE(H,TSZ(5)), C0);
 
-    for (U32 n = 0; n < N; n++) {
+    for (U32 n = 0; n < N; n++) {                         ///< TODO: multi-stream 
         DU *d1 = in.slice(n), *d0 = out.slice(n);
-        U32 ks = f.H();
-        switch(ks) {                       /// * TODO: handles rectangular filters
-        case 1: k_conv2d<TSZ(1),1><<<g1,blk>>>(d1, f.data, b.data, d0, H, W, C1); break;
-        case 3: k_conv2d<TSZ(3),3><<<g3,blk>>>(d1, f.data, b.data, d0, H, W, C1); break;
-        case 5: k_conv2d<TSZ(5),5><<<g5,blk>>>(d1, f.data, b.data, d0, H, W, C1); break;
-        default:
-            ERROR("nn#fconv kernel_size=%d not supported\n", ks);
-            return -1;
+        U32 r  = (f.H() - 1) >> 1;
+        
+        switch(r) {
+        case 0: CONV(0); break;                           ///< 1x1 (52 reg)
+        case 1: CONV(1); break;                           ///< 3x3 (56 reg)
+        case 2: CONV(2); break;                           ///< 5x5 (64 reg)
+        case 3: CONV(3); break;                           ///< 7x7 (72 reg)
+        default: ERROR("nn#fconv kernel_size=%d not supported\n", f.H()); return -1;
         }
         GPU_CHK();
     }
@@ -308,8 +309,10 @@ Model::_flinear(Tensor &in, Tensor &out) {
             DU *x  = in.slice(n), *y = out.slice(n);  /// * sample by sample
             for (U32 e0 = 0; e0 < E0; e0++) {         /// * output features
                 DU sum = b[e0];                       /// * init with bias
+                printf("y[%d] = %g ", e0, sum);
                 for (U32 e1 = 0; e1 < E1; e1++) {     /// * input features
-                    sum += w[E1 * e0 + e1] * x[e1];   /// * Y = W @ X + B
+                    sum += x[e1] * w[e0 * E1 + e1];   /// * Y = X @ W^T + B
+                    printf(" +%g*%g=%g ", x[e1], w[e0*E1+e1], sum);
                 }
                 y[e0] = sum;
             }
@@ -317,22 +320,29 @@ Model::_flinear(Tensor &in, Tensor &out) {
     };
     Tensor &w = *in.grad[0], &b = *in.grad[1];        ///< weight, bias tensors
 
-    NN_DB(" %d x (w[1,%d,%d,1] @ in[1,%d,%d,%d] + b[%ld])",
-          N, E0, E1, in.H(), in.W(), in.C(), b.numel);
+    NN_DB(" = in[%d,%d,%d,%d] @ w[1,%d,%d,1]^T + b[%ld])",
+          in.N(), in.H(), in.W(), in.C(), E0, E1, b.numel);
     
-    if (*_trace > 1) {
+    if (1 || *_trace > 1) {
         _dump_w("w", w, true);
         _dump_b("b", b);
     }
-    
-    if (w.numel < T4_DIM_SQ) {                       /// * threshold control
-        NN_DB("*");
+
+    if (1 || w.numel < T4_DIM_SQ) {                       /// * threshold control
+        NN_DB("* in = "); in.show(true);
         qa_calc(w.data, b.data);                     /// * serial code
+        NN_DB(" => out"); out.show(true);
     }
     else {
-        FORK3(k_linear, E0, E1, N,
-              in.data, out.data, w.data, b.data);
-    }
+        // O[N,E0] = I[N,E1] @ W[E0,E1]^T
+        // In your Tensor layout: A=in(H=N,W=E1,C=1), B=w(H=E0,W=E1,C=1)
+        // tB=true transposes W from [E0,E1] to [E1,E0] for the multiply
+        NN_DB(" in = "); in.show(true);
+        Tensor::gemm4(in, w, out, DU1, DU0, false, true);
+        NN_DB(" => out"); out.show(true);
+        FORK3(k_bias, N, E0, 1, out.data, b.data);
+        NN_DB(" +b => out"); out.show(true);
+    }    
     return 0;
 }
 
