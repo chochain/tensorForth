@@ -1,4 +1,5 @@
 \ NN linear layer verification
+\ compile with ten4_config MM_DEBUG = 1
 1 2 1 1 nn.model                 \ create a one-layer neural network model
 3 linear                         \ add a 2x3 fully connected
 constant nn                      \ keep in a constant
