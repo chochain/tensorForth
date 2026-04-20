@@ -1,5 +1,6 @@
 \ Linear NN step-by-step verification
 \ see https://mattmazur.com/2015/03/17/a-step-by-step-backpropagation-example/
+\ compile with ten4_config.h MM_DEBUG = 1
 1 trace                         \ turn tracing on
 1 2 1 1 nn.model                \ create our NN model
 2 linear sigmoid                \ hidden layer
@@ -28,7 +29,7 @@ forward                         \ NN forward pass
 
 2 vector{ 0.01 0.99 }
 constant tgt
-tgt loss.mse .                  \ verify loss= 0.29837
+tgt loss.mse .                  \ verify loss= 0.596742
 
 tgt backprop
 4 n@    .                       \ verify L4 dX={ 0.1385 -0.0381 }
