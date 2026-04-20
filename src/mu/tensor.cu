@@ -62,11 +62,11 @@ Tensor::mm(
 ///
 /// tensor GEMM C' = alpha * A x B + beta * C
 /// @note - benchmark alpha * [1K,1K]*[1K,1K] + beta [1K,1K]
-///   0: x86_gemm           - 2227.20 ms
-///   1: k_gemm             -   30.72 ms
-///   2: k_gemm_claude      -   28.16 ms
-///   3: k_gemm_tile_gemini -  442.88 ms (bank conflict)
-///   4: k_gemm_tile_claude -   30.72 ms
+///   0: x86_gemm              - 2227.2 ms
+///   1: k_gemm                -   30.7 ms
+///   2: k_gemm_claude         -   28.1 ms
+///   3: k_gemm_tile_claude    -   6.4~3.2 ms
+///   4: k_gemm_tile_claude_x2 -    3.2 ms
 ///
 __HOST__ Tensor&
 Tensor::gemm(Tensor &A, Tensor &B, Tensor &O, DU alpha, DU beta, bool tA, bool tB) {
@@ -101,10 +101,10 @@ Tensor::gemm1(Tensor &A, Tensor &B, Tensor &O, DU alpha, DU beta, bool tA, bool 
     U32 H = A.H(), W = B.W(), Ka = A.W(), Kb = B.H();
     U32 N = B.N(), C = B.C();
     if (Ka != Kb || N != O.N() || C != O.C()) {
-        ERROR("  tensor#gemm ka(%d)!=kb(%d) or N, C diff\n", Ka, Kb);
+        ERROR("  tensor#gemm1 ka(%d)!=kb(%d) or N, C diff\n", Ka, Kb);
         return O;
     }
-    MM_DB("  tensor#gemm K=%d, a=%g, b=%g => NHWC=[%d,%d,%d,%d]\n",
+    MM_DB("  tensor#gemm1 K=%d, a=%g, b=%g => NHWC=[%d,%d,%d,%d]\n",
           Ka, alpha, beta, N, H, W, C);
 
     for (U32 n = 0; n < N; n++) {
@@ -118,10 +118,10 @@ Tensor::gemm2(Tensor &A, Tensor &B, Tensor &O, DU alpha, DU beta, bool tA, bool 
     U32 H = A.H(), W = B.W(), Ka = A.W(), Kb = B.H();
     U32 N = B.N(), C = B.C();
     if (Ka != Kb || N != O.N() || C != O.C()) {
-        ERROR("  tensor#gemm ka(%d)!=kb(%d) or N, C diff\n", Ka, Kb);
+        ERROR("  tensor#gemm2 ka(%d)!=kb(%d) or N, C diff\n", Ka, Kb);
         return O;
     }
-    MM_DB("  tensor#gemm K=%d, a=%g, b=%g => NHWC=[%d,%d,%d,%d]\n",
+    MM_DB("  tensor#gemm2 K=%d, a=%g, b=%g => NHWC=[%d,%d,%d,%d]\n",
           Ka, alpha, beta, N, H, W, C);
 
     for (U32 n = 0; n < N; n++) {
@@ -132,32 +132,15 @@ Tensor::gemm2(Tensor &A, Tensor &B, Tensor &O, DU alpha, DU beta, bool tA, bool 
 }
 __HOST__ Tensor&
 Tensor::gemm3(Tensor &A, Tensor &B, Tensor &O, DU alpha, DU beta, bool tA, bool tB) {
-    U32 H = A.H(), W = B.W(), Ka = A.W(), Kb = B.H();
-    U32 N = B.N(), C = B.C();
-    if (Ka != Kb || N != O.N() || C != O.C()) {
-        ERROR("  tensor#gemm ka(%d)!=kb(%d) or N, C diff\n", Ka, Kb);
-        return O;
-    }
-    MM_DB("  tensor#gemm K=%d, a=%g, b=%g => NHWC=[%d,%d,%d,%d]\n",
-          Ka, alpha, beta, N, H, W, C);
-
-    for (U32 n = 0; n < N; n++) {
-        DU *da = A.slice(n), *db = B.slice(n), *dx = O.slice(n);
-        FORK3(k_gemm_tile_gemini, H, W, C, da, db, dx, alpha, beta, tA, tB, Ka);
-    }
-    return O;
-}
-__HOST__ Tensor&
-Tensor::gemm4(Tensor &A, Tensor &B, Tensor &O, DU alpha, DU beta, bool tA, bool tB) {
     U32 H  = tA ? A.W() : A.H(), W  = tB ? B.H() : B.W();
     U32 Ka = tA ? A.H() : A.W(), Kb = tB ? B.W() : B.H();
     U32 N  = B.N(), C = B.C();
 
     if (Ka != Kb || N != O.N() || C != O.C()) {
-        ERROR("  tensor#gemm ka(%d)!=kb(%d) or N, C diff\n", Ka, Kb);
+        ERROR("  tensor#gemm3 ka(%d)!=kb(%d) or N, C diff\n", Ka, Kb);
         return O;
     }
-    MM_DB("  tensor#gemm K=%d, a=%g, b=%g => NHWC=[%d,%d,%d,%d]\n",
+    MM_DB("  tensor#gemm3 K=%d, a=%g, b=%g => NHWC=[%d,%d,%d,%d]\n",
           Ka, alpha, beta, N, H, W, C);
 
     for (U32 n = 0; n < N; n++) {
@@ -167,16 +150,17 @@ Tensor::gemm4(Tensor &A, Tensor &B, Tensor &O, DU alpha, DU beta, bool tA, bool 
     return O;
 }
 __HOST__ Tensor&
-Tensor::gemm5(Tensor &A, Tensor &B, Tensor &O, DU alpha, DU beta, bool tA, bool tB) {
+Tensor::gemm4(Tensor &A, Tensor &B, Tensor &O, DU alpha, DU beta, bool tA, bool tB) {
     U32 H  = tA ? A.W() : A.H(), W  = tB ? B.H() : B.W();
     U32 Ka = tA ? A.H() : A.W(), Kb = tB ? B.W() : B.H();
+    //       0  ? E0    : 1           1  ? E0    : E1
     U32 N  = B.N(), C = B.C();
 
     if (Ka != Kb || N != O.N() || C != O.C()) {
-        ERROR("  tensor#gemm ka(%d)!=kb(%d) or N, C diff\n", Ka, Kb);
+        ERROR("  tensor#gemm4 ka(%d)!=kb(%d) or N, C diff\n", Ka, Kb);
         return O;
     }
-    MM_DB("  tensor#gemm K=%d, a=%g, b=%g => NHWC=[%d,%d,%d,%d]\n",
+    MM_DB("  tensor#gemm4 K=%d, a=%g, b=%g => NHWC=[%d,%d,%d,%d]\n",
           Ka, alpha, beta, N, H, W, C);
 
     for (U32 n = 0; n < N; n++) {

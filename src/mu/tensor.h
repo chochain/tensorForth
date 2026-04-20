@@ -94,7 +94,6 @@ struct Tensor : public T4Base {
     static __HOST__  Tensor &gemm2(Tensor &A, Tensor &B, Tensor &O, DU alpha, DU beta, bool tA=0, bool tB=0);
     static __HOST__  Tensor &gemm3(Tensor &A, Tensor &B, Tensor &O, DU alpha, DU beta, bool tA=0, bool tB=0);
     static __HOST__  Tensor &gemm4(Tensor &A, Tensor &B, Tensor &O, DU alpha, DU beta, bool tA=0, bool tB=0);
-    static __HOST__  Tensor &gemm5(Tensor &A, Tensor &B, Tensor &O, DU alpha, DU beta, bool tA=0, bool tB=0);
     
     static __HOST__  Tensor &copy(Tensor &A, Tensor &O);
     static __HOST__  Tensor &transpose(Tensor &A, Tensor &T);
