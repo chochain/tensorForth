@@ -115,6 +115,7 @@ typedef enum {
 #define BM      (T4_DIM_SZ * TN)      /** threads, tiled W dimension */
 #define BN      (T4_DIM_SZ * TM)      /** threads, tiled H dimension */
 #define BK      T4_DIM_SZ             /** [64,16] x [16,64] */
+
 // ---------------------------------------------------------------------------
 // FORK3T — grid over (ceil(W/BN), ceil(H/BM), C)
 // ---------------------------------------------------------------------------
@@ -154,21 +155,21 @@ __KERN__ void k_dummy();
 ///@}
 ///@}
 ///@name BLAS ops
-///@{    
-__KERN__ void k_gemm(                                   ///< O[M*N*C] = a * A[M*K*C] @ B[K*N*C] + b * O[M*N*C]
-    float *A, float *B, float *O,                            
+///@{
+#define F32_RP   const float * __restrict__
+#define F32_WP         float * __restrict__
+#define F32_XP         float *
+__KERN__ void k_gemm(                              ///< O[M*N*C] = a * A[M*K*C] @ B[K*N*C] + b * O[M*N*C]
+    F32_XP A, F32_XP B, F32_XP O,
     float alpha, float beta, bool tA, bool tB, int K, int M, int N);  
 __KERN__ void k_gemm_claude(
-    const float * __restrict__ A, const float * __restrict__ B, float *O,
-    float alpha, float beta, bool tA, bool tB, int K, int M, int N);
-__KERN__ void k_gemm_tile_gemini(
-    float *__restrict__ A, float *__restrict__ B, float *O,
+    F32_RP A, F32_RP B, F32_XP O,
     float alpha, float beta, bool tA, bool tB, int K, int M, int N);
 __KERN__ void k_gemm_tile_claude(
-    float * __restrict__ A, float * __restrict__ B, float *O,
+    F32_RP A, F32_RP B, F32_XP O,
     float alpha, float beta,  bool tA, bool tB, int K, int M, int N);
 __KERN__ void k_gemm_tile_claude_x2(
-    float * __restrict__ A, float * __restrict__ B, float *O,
+    F32_RP A, F32_RP B, F32_XP O,
     float alpha, float beta,  bool tA, bool tB, int K, int M, int N);
     
 } // namespace t4
