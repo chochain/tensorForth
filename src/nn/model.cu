@@ -179,15 +179,17 @@ Model::_ilinear(Tensor &in, U32 E0, DU bias) {
     Tensor *b  = in.grad[1] = &VEC(E0);                           ///> b
     Tensor *db = in.grad[3] = &VEC(E0).map(FILL, DU0);            ///> db
     
+    if (in.W() != E1) {
+        NN_DB("    reshape in[%d,%d,%d,%d]", in.N(), in.H(), in.W(), in.C());
+        in.reshape(in.N(), 1, E1, 1);
+        NN_DB(" => in[%d,%d,%d,%d]\n", in.N(), in.H(), in.W(), in.C());
+    }
     in.xparm = bias;                              /// * keep for persistence
     
     DU k = SQRT(RCP(E0+E1));                      /// * default weight - Kaiming
-    RAND(*w, k);                                  /// * randomize w [-k, k)
-    RAND(*b, bias);                               /// * randomize b [-bias, bias)
-    
 #if MM_DEBUG    
-//    w->map(FILL, 0.5); w->data[32] = 1.0;
-//    b->map(FILL, 0.0);
+    w->map(FILL, 0.5); w->data[32] = 1.0;
+    b->map(FILL, 0.0);
     
     NN_DB("    w[1,%d,%ld,1]", E0, E1);
     for (U32 e0=0; e0<E0; e0++) {
@@ -197,17 +199,21 @@ Model::_ilinear(Tensor &in, U32 E0, DU bias) {
         }
     }
     NN_DB("\n");
+#else    
+    RAND(*w, k);                                  /// * randomize w [-k, k)
+    RAND(*b, bias);                               /// * randomize b [-bias, bias)
+    
 #endif // MM_DEBUG    
     
-    Tensor &out = T4(N1, E0);                    ///> output tensor sizing
-    npush(out);                                  /// * stage for next stage
+    Tensor &out = T4(N1, 1, E0, 1);               ///> output tensor sizing
+    npush(out);                                   /// * stage for next stage
     NN_DB("    } model#ilinear => k=%6.3f, w.std=%6.3f b.std=%6.3f\n",
           k, w->std(), b->std());
 }
 __HOST__ void
 Model::_iflatten(Tensor &in) {
     NN_DB("    model#iflatten {\n");
-    Tensor &out = T4(in.N(), (U32)in.HWC());     /// * for backprop
+    Tensor &out = T4(in.N(), 1, (U32)in.HWC(), 1);/// * for backprop
     npush(out);
     NN_DB("    } model#iflatten\n");
 }
