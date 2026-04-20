@@ -293,7 +293,7 @@ k_dummy() {}
 #define TILE 16
 __KERN__ void
 k_gemm(                      ///< O[M*N*C] = a * A[M*K*C] @ B[K*N*C] + b * O[M*N*C]
-    float *A, float *B, float *O,  
+    F32_XP A, F32_XP B, F32_XP O,
     float alpha, float beta, bool tA, bool tB, int K, int M, int N)
 {
     const int n0 = threadIdx.x + blockIdx.x * blockDim.x;   ///< W
@@ -303,13 +303,13 @@ k_gemm(                      ///< O[M*N*C] = a * A[M*K*C] @ B[K*N*C] + b * O[M*N
     const long z0 = ((long)N * m0 + n0) * C + c;            ///< output index
 
     if (m0 < M && n0 < N && c < C) {                        /// * TODO: tiled
-        float  *ax = &A[(long)C * K * m0 + c];
-        float  *bx = &B[(long)C * n0 + c];
-        double acc = 0.0f;                                  /// * TODO: suffle sum
+        float  *ax  = &A[(long)C * K * m0 + c];
+        float  *bx  = &B[(long)C * n0 + c];
+        double acc  = 0.0f;                                 /// * TODO: suffle sum
         for (int k = 0; k < K; k++, ax += C, bx += WC) {
             acc += (*ax) * (*bx);
         }
-        O[z0] = alpha * acc + beta * O[z0];                /// * scaling
+        O[z0] = alpha * acc + beta * O[z0];                 /// * scaling
     }
 }
 // ---------------------------------------------------------------------------
@@ -333,7 +333,7 @@ k_gemm(                      ///< O[M*N*C] = a * A[M*K*C] @ B[K*N*C] + b * O[M*N
 // ---------------------------------------------------------------------------
 __KERN__ void
 k_gemm_claude(
-    const float * __restrict__ A, const float * __restrict__ B, float *O,
+    F32_RP A, F32_RP B, F32_XP O,
     float alpha, float beta, bool tA, bool tB, int K, int M, int N)
 {
     const int tx = threadIdx.x, n0 = blockIdx.x * TILE + tx;   ///< output column  (W dim)
@@ -374,89 +374,9 @@ k_gemm_claude(
 }
 
 // ---------------------------------------------------------------------------
-// Tile parameters
-//
-//   BK          — strip depth along K loaded into shared memory each iteration
-//   [BM, BN]    — output covered by one thread block
-//   [TM, TN]    — output computed by ONE thread (register tile)
-//
-//   Thread block shape  = (BN/TN, BM/TM)  →  (16, 16) = 256 threads
-//
-//   Shared memory per block:
-//     _sA[BM][BK] = 64*16 = 1024 floats = 4 KB
-//     _sB[BK][BN] = 16*64 = 1024 floats = 4 KB
-//     Total: 8 KB  (well within 48 KB)
-//
-//   Arithmetic intensity per strip (256 threads):
-//     FMAs  : 256 threads * TM * TN * BK  = 256 * 4 * 4 * 16 = 65536
-//     Loads : BM*BK + BK*BN = 2048 floats
-//     → ~32 FMAs per float loaded  (vs 1 in plain tiled, 16 in 1-output-per-thread)
-// ---------------------------------------------------------------------------
-__KERN__ void
-k_gemm_tile_gemini(
-    float *__restrict__ A, float *__restrict__ B, float *O,
-    float alpha, float beta, bool tA, bool tB, int K, int M, int N)
-{    
-    /// Shared Memory Allocation
-    __shared__ float _sA[BK][BM], _sB[BK][BN];   ///< _sB transposed to avoid bank conflicts
-
-    /// Register Accumulators (The 4x4 micro-tile, zero initialized)
-    float acc[TM][TN] = {};
-
-    /// Global Row/Col for this thread block
-    const int tx = threadIdx.x, ty = threadIdx.y;
-    const int c  = blockIdx.z,  C  = gridDim.z;
-
-    /// Main K-Loop (Moving through the "inner" dimension)
-    for (int k_off = 0; k_off < K; k_off += BK) {
-        // Load TM rows of A per thread
-        for (int m = 0; m < TM; m++) {
-            int row = blockIdx.y * BM + ty * TM + m;
-            long ai  = ((long)row * K + (k_off + tx)) * C + c;
-            _sA[tx][ty * TM + m] = (row < M && (k_off + tx) < K) ? A[ai] : 0.0f;
-        }
-        // Load TN cols of B per thread
-        for (int n = 0; n < TN; n++) {
-            int col = blockIdx.x * BN + tx * TN + n;
-            long bi  = ((long)(k_off + ty) * N + col) * C + c;
-            _sB[ty][tx * TN + n] = (col < N && (k_off + ty) < K) ? B[bi] : 0.0f;
-        }        
-        __syncthreads();
-
-        // 5. Inner Compute Loop (Shared Memory to Registers)
-        for (int k = 0; k < BK; k++) {
-            float rA[TM], rB[TN];         ///< current row/col tile registers
-            #pragma unroll
-            for (int m = 0; m < TM; m++) rA[m] = _sA[k][ty * TM + m];
-            #pragma unroll
-            for (int n = 0; n < TN; n++) rB[n] = _sB[k][tx * TN + n];
-
-            // Perform 16 FMAs (Fused Multiply-Add) using only registers
-            #pragma unroll
-            for (int m = 0; m < TM; m++) {
-                #pragma unroll
-                for (int n = 0; n < TN; n++)  acc[m][n] += rA[m] * rB[n];
-            }
-        }
-        __syncthreads();
-    }
-
-    // 6. Write out results to Global Memory C
-    #pragma unroll
-    for (int m = 0; m < TM; m++) {
-        #pragma unroll
-        for (int n = 0; n < TN; n++) {
-            int row = blockIdx.y * BM + ty * TM + m;
-            int col = blockIdx.x * BN + tx * TN + n;
-            long z0  = (long)row * N + col;
-            if (row < M && col < N) O[z0] = alpha * acc[m][n] + beta * O[z0];
-        }
-    }
-}
-// ---------------------------------------------------------------------------
 // k_gemm — register-tiled GEMM, channel-last (interleaved) layout
 //
-//   O[M,N,C] = alpha * op(A) @ op(B)  +  beta * O[M,N,C]
+//   O[M,N,C] = alpha * op(A) @ op(B)  +  beta * O[M,N,C] + Bias[C]
 //
 //   op(A) = tA ? A[K,M,C] : A[M,K,C]
 //   op(B) = tB ? B[N,K,C] : B[K,N,C]
@@ -479,7 +399,7 @@ k_gemm_tile_gemini(
 // ---------------------------------------------------------------------------
 __KERN__ void
 k_gemm_tile_claude(
-    float * __restrict__ A, float * __restrict__ B, float *O,
+    F32_RP A, F32_RP B, F32_XP O,
     float alpha, float beta, bool tA, bool tB, int K, int M, int N) 
 {
     const int tx = threadIdx.x, ty = threadIdx.y;  ///< [T4_DIM_SZ, T4_DIM_SZ]
@@ -587,7 +507,7 @@ k_gemm_tile_claude(
 ///
 __KERN__ void
 k_gemm_tile_claude_x2(
-    float * __restrict__ A, float * __restrict__ B, float *O,
+    F32_RP A, F32_RP B, F32_XP O,
     float alpha, float beta, bool tA, bool tB, int K, int M, int N) 
 {
     const int tx = threadIdx.x, ty = threadIdx.y;  ///< [T4_DIM_SZ, T4_DIM_SZ]
@@ -596,8 +516,8 @@ k_gemm_tile_claude_x2(
     // -------------------------------------------------------------------------
     // Shared memory tiles
     // -------------------------------------------------------------------------
-    __shared__ float _sA[2][BK][BM+4];        ///< [k-strip depth][output rows]
-    __shared__ float _sB[2][BK][BN+4];        ///< [k-strip depth][output cols]
+    __shared__ float _sA[2][BK][BM];        ///< [k-strip depth][output rows]
+    __shared__ float _sB[2][BK][BN];        ///< [k-strip depth][output cols]
 
     // -------------------------------------------------------------------------
     // Register accumulators — TM × TN per thread, zero-initialised
@@ -645,10 +565,10 @@ k_gemm_tile_claude_x2(
             const int  ar = z / BK,               ac = z % BK;          \
             const int  m0 = blockIdx.y * BM + ar, k0 = K_BASE + ac;     \
             const bool ok = (m0 < M && k0 < K);                         \
-            const int  m1 = ok ? m0 : 0,          k1 = ok ? k0 : 0;     \
-            const long ai = tA ? ((long)k1 * M + m1) * C + c            \
-                               : ((long)m1 * K + k1) * C + c;           \
-            __pipeline_memcpy_async(&_sA[buf][ac][ar], &A[ai], sizeof(float)); \
+            const long ai = tA ? ((long)k0 * M + m0) * C + c            \
+                               : ((long)m0 * K + k0) * C + c;           \
+            if (ok) __pipeline_memcpy_async(&_sA[buf][ac][ar], &A[ai], sizeof(float)); \
+            else    _sA[buf][ac][ar] = 0.0f;                            \
         }                                                               \
         _Pragma("unroll")                                               \
         for (int _n = 0; _n < NB; _n++) {                               \
@@ -656,10 +576,10 @@ k_gemm_tile_claude_x2(
             const int  br = z / BN,      bc = z % BN;                   \
             const int  k0 = K_BASE + br, n0 = blockIdx.x*BN + bc;       \
             const int  ok = (k0 < K && n0 < N);                         \
-            const int  k1 = ok ? k0 : 0, n1 = ok ? n0 : 0;              \
-            const long bi = tB ? ((long)n1 * K + k1) * C + c            \
-                               : ((long)k1 * N + n1) * C + c;           \
-            __pipeline_memcpy_async(&_sB[buf][br][bc], &B[bi], sizeof(float)); \
+            const long bi = tB ? ((long)n0 * K + k0) * C + c            \
+                               : ((long)k0 * N + n0) * C + c;           \
+            if (ok) __pipeline_memcpy_async(&_sB[buf][br][bc], &B[bi], sizeof(float)); \
+            else    _sB[buf][br][bc] = 0.0f;                            \
         }                                                               \
         __pipeline_commit();                                            \
     }
@@ -692,6 +612,7 @@ k_gemm_tile_claude_x2(
     //   3. compute final strip from buf (nstrip-1)%2
     // -------------------------------------------------------------------------
     LOAD_TILE(0, 0);
+    __pipeline_wait_prior(0);
     __syncthreads();                     // buf 0 ready before first compute
     
     for (int s = 0; s < nstrip - 1; s++) {
@@ -704,7 +625,7 @@ k_gemm_tile_claude_x2(
 
         // now ensure the load we just issued is visible to all threads
         // before the next iteration's COMPUTE_TILE reads from it
-        __pipeline_wait_prior(1);
+        __pipeline_wait_prior(0);
         __syncthreads();
     }
 
