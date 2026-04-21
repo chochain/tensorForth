@@ -35,7 +35,7 @@ __HOST__ Tensor&
 Tensor::batchsum(Tensor &A, Tensor &O) {
     U32 N = A.N(), H = A.H(), W = A.W(), C = A.C();
     MM_DB("  tensor#batchsum A[%d,%d,%d,%d] => O[%d, %d]\n", N, H, W, C, N, C);
-    O.fill(DU0);
+    O.zeros();
     FORK4(k_batchsum, A.data, O.data, (U64)H*W);
     return O;
 }
@@ -46,7 +46,7 @@ Tensor::batchvar(Tensor &A, Tensor &G, Tensor &O) {
     MM_DB("  tensor#batchvar A[%d,%d,%d,%d] => O[%d,%d]\n", N, H, W, C, N, C);
     batchsum(A, G);
     G *= DU1 / NHW;
-    O.fill(DU0);
+    O.zeros();
     FORK4(k_batchnvar, A.data, G.data, O.data, (U64)H*W);
 
     for (int i=0; i< O.numel; i++) {
@@ -610,6 +610,13 @@ Tensor::identity() {
     for (U32 n = 0; n < N(); n++) {
         FORK3(k_identity, H, W, C, slice(n));
     }
+    return *this;
+}
+
+__HOST__ Tensor&
+Tensor::zeros() {
+    cudaMemset(data, 0, sizeof(DU) * numel);
+    GPU_CHK();
     return *this;
 }
 
