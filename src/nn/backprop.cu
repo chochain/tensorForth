@@ -359,21 +359,21 @@ Model::_blinear(Tensor &in, Tensor &out) {
             }
         }
     };                    
-    if (0 && w.numel < T4_DIM_SQ) {                   /// * threshold control
+    if (w.numel < T4_DIM_SQ) {                        /// * threshold control
         NN_DB("* out = "); out.show(true);
         qa_calc();                                    /// * serial mode (validation)
         NN_DB(" => in"); in.show(true);
     }
     else {
         if (train) {
-            db.zeros();
-            Tensor::gemm4(out, in, dw, DU1, DU0, true, false);   /// * dW = dY^T @ X
+            db.zeros();                                          /// * pre-zero dB
             FORK3(k_dlinear_db, N, E0, 1, out.data, db.data);    /// * dB += sum(dY)
+            Tensor::gemm4(out, in, dw, DU1, DU0, true, false);   /// * dW = dY^T @ X
         }
         in.zeros();                                              /// * dX = 0
         Tensor::gemm4(out, w, in, DU1, DU1, false, false);       /// * dX = dY @ W
     }
-    if (1 || train && *_trace > 1) {
+    if (train && *_trace > 1) {
         _dump_b("db", db);
         _dump_w("dw", dw, true);
     }
