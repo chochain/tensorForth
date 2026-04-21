@@ -269,9 +269,9 @@ Model::_fstep(Tensor &in, Tensor &out) {
 
 #define TSZ(r)    (T4_DIM_SZ - 2*(r))      /** 16,14,12,10 for r=0,1,2,3.. conv */
 #define TILE(v,t) ((v) + (t) - 1)/(t)      /** dim of tile  */
-#define CONV(r)                                        \
-    k_conv2d<TSZ(r),(r)>                               \
-    <<<dim3(TILE(W,TSZ(r)),TILE(H,TSZ(r)),C0), blk>>>  \
+#define CONV(r)                                                               \
+    k_conv2d<TSZ(r),(r)>                                                      \
+    <<<dim3(TILE(W,TSZ(r)),TILE(H,TSZ(r)),C0), dim3(T4_DIM_SZ,T4_DIM_SZ,1)>>> \
     (d1, f.data, b.data, d0, H, W, C1)
 
 __HOST__ int
@@ -281,8 +281,6 @@ Model::_fconv(Tensor &in, Tensor &out) {
 
     const U32 N = out.N(), H = out.H(), W = out.W();      ///< outpt dimensions
     const U32 C0 = out.C(), C1 = in.C();                  ///< output, input channel deep
-
-    dim3 blk(T4_DIM_SZ, T4_DIM_SZ, 1);                    ///< default blocks
 
     for (U32 n = 0; n < N; n++) {                         ///< TODO: multi-stream 
         DU *d1 = in.slice(n), *d0 = out.slice(n);
