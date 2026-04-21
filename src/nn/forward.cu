@@ -53,12 +53,12 @@ __KERN__ void k_conv2d(
                 for (int x = 0; x < KS; x++, fx+=C0) _F[y][x] = *fx;
             }
         }
-        for (int t=load_id; t < SSZ * SSZ; t += TS * TS) {
+        for (int t=load_id; t < SSZ*SSZ; t += TS*TS) {
             int si = t / SSZ, sj = t % SSZ;
             int gi = (blockIdx.y * TS) - R + si;
             int gj = (blockIdx.x * TS) - R + sj;
             _I[si][sj] = (gi >=0 && gi < H && gj >=0 && gj < W)
-                ? I[((U64)W * gi + gj) * C1 + c1] : DU0;               /// * cache input data
+                ? I[((long)W * gi + gj) * C1 + c1] : DU0;               /// * cache input data
         }
         __syncthreads();                             /// * smem write barrier
         ///
@@ -82,7 +82,7 @@ __KERN__ void k_conv2d(
 // ---------------------------------------------------------------------------
 // k_bias — add bias vector B[E0] to each row of O[N, E0], channel-last C=1
 // ---------------------------------------------------------------------------
-__KERN__ void k_bias(DU *O, DU *B, int N, int E0) {
+__KERN__ void k_bias(DU *B, DU *O, int N, int E0) {
     const int e0 = blockIdx.x * blockDim.x + threadIdx.x;
     const int n  = blockIdx.y * blockDim.y + threadIdx.y;
     
@@ -321,25 +321,25 @@ Model::_flinear(Tensor &in, Tensor &out) {
     NN_DB(" = in[%d,%d,%d,%d] @ w[1,%d,%d,1]^T + b[%ld])",
           in.N(), in.H(), in.W(), in.C(), E0, E1, b.numel);
     
-    if (1 || *_trace > 1) {
+    if (*_trace > 1) {
         _dump_w("w", w, true);
         _dump_b("b", b);
     }
 
-    if (1 || w.numel < T4_DIM_SQ) {                       /// * threshold control
+    if (w.numel < T4_DIM_SQ) {                        /// * threshold control
         NN_DB("* in = "); in.show(true);
-        qa_calc(w.data, b.data);                     /// * serial code
+        qa_calc(w.data, b.data);                      /// * serial code
         NN_DB(" => out"); out.show(true);
     }
     else {
-        // O[N,E0] = I[N,E1] @ W[E0,E1]^T
+        // O[N,E0] = I[N,E1] @ W[E0,E1]^T + B[E0]
         // In your Tensor layout: A=in(H=N,W=E1,C=1), B=w(H=E0,W=E1,C=1)
         // tB=true transposes W from [E0,E1] to [E1,E0] for the multiply
         NN_DB(" in = "); in.show(true);
-        Tensor::gemm4(in, w, out, DU1, DU0, false, true);
+        Tensor::gemm4(in, w, out, DU1, DU0, false, true); /// * Y = X@W^T
         NN_DB(" => out"); out.show(true);
-        FORK3(k_bias, N, E0, 1, out.data, b.data);
-        NN_DB(" +b => out"); out.show(true);
+        FORK3(k_bias, N, E0, 1, b.data, out.data);        /// * Y += B
+        NN_DB(" +=b => out"); out.show(true);
     }    
     return 0;
 }
