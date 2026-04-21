@@ -57,7 +57,7 @@ Model::onehot(Dataset &dset) {
         INFO("}\n");
     };
     if (!_hot) _hot = &T4(N, E);                    ///< alloc one-hot vector if needed
-    _hot->fill(DU0);                                ///< reset all elements
+    _hot->zeros();                                  ///< reset all elements
     
     NLOG("\n  Model::onehot(ds) {\n");
     for (U32 n = 0; n < N; n++) {                   /// * loop through batch
