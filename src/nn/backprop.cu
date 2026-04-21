@@ -325,9 +325,9 @@ Model::_bstep(Tensor &in, Tensor &out) {
 
 #define TSZ(r)    (T4_DIM_SZ - 2*(r))      /** 16,14,12 for 1x1,3x3,5x5 conv */
 #define TILE(v,t) ((v) + (t) - 1)/(t)      /** dim of tile  */
-#define DCONV(r)                                       \
-    k_dconv2d<TSZ(r),(r)>                              \
-    <<<dim3(TILE(W,TSZ(r)),TILE(H,TSZ(r)),C0), blk>>>  \
+#define DCONV(r)                                                              \
+    k_dconv2d<TSZ(r),(r)>                                                     \
+    <<<dim3(TILE(W,TSZ(r)),TILE(H,TSZ(r)),C0), dim3(T4_DIM_SZ,T4_DIM_SZ,1)>>> \
     (d1, dx, f.data, df.data, db.data, d0, H, W, C0, train)
 
 __HOST__ int
@@ -336,15 +336,13 @@ Model::_bconv(Tensor &in, Tensor &out) {
     Tensor &b = *in.grad[1], &db = *in.grad[3];      ///< bias tensors
     Tensor &x = *in.grad[4];                         ///< dX
 
-    x.zeros();                                       /// * pre-zero dX
-
     NN_DB(" f[%d,%d,%d,%d], b[%ld]", f.N(), f.H(), f.W(), f.C(), b.numel);
 
     const int N = in.N(), H = in.H(), W = in.W();    ///< input dimensions
     const int C1 = in.C(), C0 = out.C();
 
-    dim3 blk(T4_DIM_SZ, T4_DIM_SZ, 1);
-
+    x.zeros();                                       /// * pre-zero dX
+    
     if (*_trace > 1) { _dump_b("db", db); _dump_f("df", df); }
     for (int n = 0; n < N; n++) {                   ///< accumulative over N samples TODO: multi-stream
         DU *d1 = in.slice(n), *dx = x.slice(n), *d0 = out.slice(n);
@@ -358,6 +356,8 @@ Model::_bconv(Tensor &in, Tensor &out) {
         }
         GPU_CHK();
     }
+    Tensor::copy(x, in);
+    
     if (*_trace > 1) { _dump_b("b", b); _dump_f("f", f); }
     return 0;
 }
