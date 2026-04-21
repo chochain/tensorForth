@@ -24,28 +24,27 @@ __KERN__ void k_dconv2d(
     __shared__ DU _O[SSZ][SSZ];                      ///< output cache tile
     __shared__ DU _df[KS][KS];
 
-    const int  KSQ= KS * KS;                          ///< save some muliplications
     const int  tx = threadIdx.x, j1 = tx + blockIdx.x * TS;
     const int  ty = threadIdx.y, i1 = ty + blockIdx.y * TS;
-    const int  c1 = blockIdx.z,  C1 = gridDim.z;      ///< channel deep
-    const long z1 = ((long)W * i1 + j1) * C1 + c1;    ///< input array index
+    const int  c1 = blockIdx.z,  C1 = gridDim.z;     ///< channel deep
     const int  load_id = ty * TS + tx;
     ///
     /// process z1, i.e. [TS, TS, C1] cells per kernel call
     ///
-    for (int t = load_id; t < SSZ*SSZ; t += TS*TS) {  /// * cached X (input) tile
+    const int zi = blockIdx.y * TS - R, zj = blockIdx.x * TS - R;
+    for (int t = load_id; t < SSZ*SSZ; t += TS*TS) { /// * cached X (input) tile
         int si = t / SSZ, sj = t % SSZ;
-        int gi = blockIdx.y * TS - R + si;
-        int gj = blockIdx.x * TS - R + sj;
+        int gi = zi + si, gj = zj + sj;
         _I[si][sj] = (gi>=0 && gi<H && gj>=0 && gj<W)
-            ? I[((long)W*gi + gj) * C1 + c1] : DU0;
+            ? I[((long)W * gi + gj) * C1 + c1] : DU0;
     }
-    
+    ///
+    /// for each output channel
+    ///
     for (int c0 = 0; c0 < C0; c0++) {                ///< each dY channel
-        for (int t=load_id; t < SSZ * SSZ; t += TS * TS) {
+        for (int t=load_id; t < SSZ*SSZ; t += TS*TS) {
             int si = t / SSZ, sj = t % SSZ;
-            int gi = (blockIdx.y * TS) - R + si;
-            int gj = (blockIdx.x * TS) - R + sj;
+            int gi = zi + si, gj = zj + sj;
             _O[si][sj] = (gi >=0 && gi < H && gj >=0 && gj < W)
                 ? O[((long)W * gi + gj) * C0 + c0] : DU0;               /// * cache input data
         }
@@ -59,75 +58,41 @@ __KERN__ void k_dconv2d(
             atomicAdd(&DB[c0], db);
         }
         
-        const U64 zf = (U64)C0 * KSQ * c1 + c0;      ///< filter index F[C1,KS,KS,C0]
+        const U64 zf = (U64)C0 * KS * KS * c1 + c0;  ///< filter index F[C1,KS,KS,C0]
         if (tx < TS && ty < TS) {                    /// * within tile [14x14]
-            DU *fx = &F[zf + (KSQ - 1) * C0];        ///< F[c1,KS-1,KS-1,c0] i.e. rot180
-            DU sum = DU0;                            ///< dX sum, DF[c1,0,0,c0] (TSxTS threads)
-            for (U32 y = 0; y < KS; y++) {           /// * process one KS * KS cell
-                for (U32 x = 0; x < KS; x++) {
-                    DU dy = _O[ty+y][tx+x];          ///< dY
-                    sum += (*fx) * dy;               /// * dX += F' @ dY (for each C1)
-                    fx  -= C0;                       /// * walk F backward (i.e. rot 180)
-                    if (!train) continue;            /// * TODO: CC, does this breaks unroll?
-                    atomicAdd(&_df[y][x], dy * _I[ty+y][tx+x]);   /// * dF += dY * X (TSxTS threads)
+             DU sum = DU0;                           ///< dX sum, DF[c1,0,0,c0] (TSxTS threads)
+             for (int y=0, y1=KS-1; y < KS; y++, y1--) {
+                 for (int x=0, x1=KS-1; x < KS; x++, x1--) {
+                    int fi = zf + (y1 * KS + x1) * C0;   ///< rot180 index
+                    DU  dy = _O[ty+y][tx+x];
+                    sum += F[fi] * dy;                   /// * dX = F @ dY
+                    if (train) {                         /// * dF = dY @ X
+                        atomicAdd(&_df[y][x], dy * _I[ty+y][tx+x]); 
+                    }
                 }
             }
-            if (i1 < H && j1 < W) DX[z1] += sum;      /// * collect dX (per C1)
+            if (i1 < H && j1 < W) {                  /// * collect dX (per C1)
+                DX[((long)W * i1 + j1) * C1 + c1] += sum;          ///< final dX
+            }
         }
         __syncthreads();
 
         if (tx < KS && ty < KS) {
-            atomicAdd(&DF[zf + (ty*KS+tx)*C0], _df[ty][tx]); /// * dF += sum(_df)
+            atomicAdd(&DF[zf + (ty * KS + tx) * C0], _df[ty][tx]); /// * dF += sum(_df)
         }
         __syncthreads();
     }
 }
 
-#if 0
-__KERN__ void k_dlinear_dw(
-    DU *I, DU *O, DU *DW,
-    U32 E0, U32 E1                                   ///< DW[E0,E1], DB[E0]
-    ) {
-    const U32 e1 = blockIdx.x * blockDim.x + threadIdx.x;
-    const U32 e0 = blockIdx.y * blockDim.y + threadIdx.y; 
-    const U32 n  = blockIdx.z;                       ///< batch id, W index
-
-    DU dyxt = (e1 < E1) ? dy * I[E1 * n + e1] : DU0; ///< dw += DY @ X^t
-
-    WARP_REDUCE(dyxt);
-    if ((e0 % 32)==0 && e1==0) atomicAdd(&DW[E1 * e0 + e1], dyxt);
-}
-
-__KERN__ void k_dlinear_db(                          /// * TODO: shuffle-sum
-    DU *I, DU *O, DU *DB,
-    U32 E0, U32 E1                                   ///< DW[E0,E1], DB[E0]
-    ) {
-    const U32 e1 = blockIdx.x * blockDim.x + threadIdx.x;
-    const U32 e0 = blockIdx.y * blockDim.y + threadIdx.y; 
-    const U32 n  = blockIdx.z;                       ///< batch id, W index
-
-    DU dy = (e0 < E0) ? O[E0 * n + e0] : DU0;
-
-    WARP_REDUCE(dy);                                 ///< sum(dY)
-    if ((e1 % 32)==0) atomicAdd(&DB[e0], dy);        /// * db += dY
-}
-
-__KERN__ void k_dlinear_dx(                          /// * TODO: shuffle-sum
-    DU *I, DU *O, DU *W,
-    U32 E0, U32 E1                                   ///< DW[E0,E1], DB[E0]
-    ) {
-    const U32  e1 = blockIdx.x * blockDim.x + threadIdx.x;
-    const U32  e0 = blockIdx.y * blockDim.y + threadIdx.y;
+// ---------------------------------------------------------------------------
+// k_dlinear_db — add O[N, E0] to each dB[E0]
+// ---------------------------------------------------------------------------
+__KERN__ void k_dlinear_db(DU *O, DU *DB, int N, int E0) {
+    const int e0 = blockIdx.x * blockDim.x + threadIdx.x;
+    const int n  = blockIdx.y * blockDim.y + threadIdx.y;
     
-    DU wtdy = (e0 < E0 && e1 < E1) ? W[E1 * e0 + e1] * O[E0 * n + e0] : DU0;
-
-    WARP_REDUCE(wtdy);
-    
-    if ((threadIdx.y % 32)==0 && e1 < E1) {
-        atomicAdd(&I[E1 * n + e1], wtdy);            /// * dX = W^t * dY [16,5]@[5,1]
-    }
+    if (e0 < E0 && n < N) atomicAdd(&DB[e0], O[n * E0 + e0]);
 }
-#endif
 
 template<int KS>                                      /// kernel size
 __KERN__ void k_dpool(
@@ -366,64 +331,49 @@ __HOST__ int
 Model::_blinear(Tensor &in, Tensor &out) {
     Tensor &w = *in.grad[0], &dw = *in.grad[2];       ///< weight tensors
     Tensor &b = *in.grad[1], &db = *in.grad[3];       ///< bias tensors
-    const U32 N  = in.N(),   C0 = w.H(), C1 = w.W();  ///< dimensions
-    const U64 E1 = in.HWC(), E0 = out.HWC();          ///< input, output element counts (for validation)
+    const int  N  = in.N(),   C0 = w.H(), C1 = w.W(); ///< dimensions
+    const long E1 = in.HWC(), E0 = out.HWC();         ///< input, output element counts (for validation)
     NN_DB("\n\tdw[%d,%d] += out'[%ld,1] @ in^t[1,%ld]", C0, C1, E0, E1);
     NN_DB("\n\tin[%ld,1] = w^t[%d,%d] @ out'[%ld,1]", E1, C1, C0, E0);
     
     auto qa_calc = [&]() {
-        for (U32 n = 0; n < in.N(); n++) {            ///< acc over N samples
+        for (int n = 0; n < in.N(); n++) {            ///< acc over N samples
             DU *x = in.slice(n), *y = out.slice(n);
             if (train) {
                 DU *dp = dw.data;
-                for (U32 e0 = 0; e0 < E0; e0++) {     /// W[E0,E1]
+                for (int e0 = 0; e0 < E0; e0++) {     /// W[E0,E1]
                     DU dy = y[e0];
                     db[e0] += dy;                     /// * db += dY
-                    for (U32 e1 =0; e1 < E1; e1++) {
+                    for (int e1 =0; e1 < E1; e1++) {
                         *dp++ += dy * x[e1];          /// * dw += dY @ X^t
                     }
                 }
             }
             DU *wd = w.data;
-            for (U32 e1 = 0; e1 < E1; e1++) {         /// * dX = w^t @ dY
+            for (int e1 = 0; e1 < E1; e1++) {         /// * dX = w^t @ dY
                 DU sum = DU0;
-                for (U32 e0 = 0; e0 < E0; e0++) {
+                for (int e0 = 0; e0 < E0; e0++) {
                     sum += wd[E1 * e0 + e1] * y[e0];
                 }
                 x[e1] = sum;
             }
         }
     };                    
-    if (w.numel < T4_DIM_SQ) {                      /// * threshold control
-        NN_DB("*");
-        qa_calc();                                  /// * serial mode (validation)
+    if (0 && w.numel < T4_DIM_SQ) {                   /// * threshold control
+        NN_DB("* out = "); out.show(true);
+        qa_calc();                                    /// * serial mode (validation)
+        NN_DB(" => in"); in.show(true);
     }
     else {
-/*        
         if (train) {
-            FORK3(k_dlinear_dwdb, E0, E1, N,        /// * update dB, dW
-                  in.data, out.data, dw.data, db.data);
-        }
-        /// barrier for X (because we did N samples in one grid)
-        in.zeros();                                 /// * zero out dX
-        FORK3(
-            k_dlinear_dx, E0, E1, N,                /// * update dX
-            in.data, out.data, w.data);
-=> Fix 1 use GEMM
-        if (train)
-            dW = dY^T @ X
-            dB += sum(dY)
-        dX.zeros()
-        dX = dY @ W
-*/
-        if (train) {
-            Tensor::gemm4(out, in, dw, 1.0, 0.0, true, false);
-//            Tensor::gemm(in, ones, db);
+            db.zeros();
+            Tensor::gemm4(out, in, dw, DU1, DU0, true, false);   /// * dW = dY^T @ X
+            FORK3(k_dlinear_db, N, E0, 1, out.data, db.data);    /// * dB += sum(dY)
         }
         in.zeros();                                              /// * dX = 0
-        Tensor::gemm4(out, w, in, 1.0, 0.0);                     /// * dX = dY @ W
+        Tensor::gemm4(out, w, in, DU1, DU1, false, false);       /// * dX = dY @ W
     }
-    if (train && *_trace > 1) {
+    if (1 || train && *_trace > 1) {
         _dump_b("db", db);
         _dump_w("dw", dw, true);
     }
