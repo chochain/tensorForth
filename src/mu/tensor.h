@@ -77,7 +77,7 @@ struct Tensor : public T4Base {
     U16      stride[4] = {1,1,1,1}; ///< stride=HWCN, for calc memory offset
     U32      shape[4]  = {1,1,1,1}; ///< shape=HWCN, matrix C=N=1, vector W=C=N=1
     t4_layer grad_fn   = L_NONE;    ///< grandiant funtion type
-    Tensor   *grad[4];              ///< gradient and jacobian tensors
+    Tensor   *grad[5];              ///< gradient and jacobian tensors
     Tensor   *mtum[4];              ///< momentum and delta tensors
     DU       _tmp;                  ///< tmp storage for sum, std, and norm
     ///
@@ -168,8 +168,8 @@ struct Tensor : public T4Base {
     __HOST__ Tensor &reshape(U32 n, U32 h, U32 w, U32 c);
     __HOST__ Tensor &reshape(U32 c1, U32 n, U32 h, U32 w, U32 c);
     __HOST__ Tensor &identity();                  ///< fill as an identity matrix
+    __HOST__ Tensor &zeros();                     ///< fill zeros to all elements
     __HOST__ Tensor &map(math_op op, DU v=DU0);   ///< element-wise absolute
-    __HOST__ Tensor &fill(DU v) { return this->map(FILL, v); }
     __HOST__ Tensor &normalize(DU avg, DU std);
     __HOST__ void   copy_to_host(void* dst) { cudaMemcpy(dst, data, numel, cudaMemcpyDeviceToHost); }
     ///
@@ -186,7 +186,7 @@ struct Tensor : public T4Base {
     ///
     /// tensor-scalar operators
     ///
-    __HOST__ __INLINE__ Tensor &operator=(DU v)      { return fill(v);     }
+    __HOST__ __INLINE__ Tensor &operator=(DU v)      { return map(FILL,v); }
     __HOST__ __INLINE__ Tensor &operator+=(DU v)     { return map(ADD, v); }
     __HOST__ __INLINE__ Tensor &operator-=(DU v)     { return map(SUB, v); }
     __HOST__ __INLINE__ Tensor &operator*=(DU v)     { return map(MUL, v); }
