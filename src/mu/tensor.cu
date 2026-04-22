@@ -63,8 +63,8 @@ Tensor::mm(
 __HOST__ Tensor&
 Tensor::linear(
     Tensor &A, Tensor &B, Tensor &O, int H, int W, int K, DU alpha, DU beta, bool tA, bool tB) {
-    MM_DB("  tensor#linear a=%g, b=%g => O[%d,%d] = A[%d,%d]%s @ B[%d,%d]%s\n",
-          alpha, beta, H, W, H, K, tA ? "^T" : "", K, W, tB ? "^T" : "");
+    MM_DB("  tensor#linear a=%g, b=%g => O[%d,%d] = A%s[%d,%d] @ B%s[%d,%d]\n",
+          alpha, beta, H, W, tA ? "^T" : "", H, K, tB ? "^T" : "", K, W);
 
     FORK3T(k_gemm_tile_claude, H, W, 1, A.data, B.data, O.data, alpha, beta, tA, tB, K);
     return O;
