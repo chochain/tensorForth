@@ -59,6 +59,16 @@ Tensor::mm(
     Tensor &A, Tensor &B, Tensor &O, bool inc, bool tA, bool tB) {
     return gemm(A, B, O, DU1, inc ? DU1 : DU0, tA, tB);
 }
+
+__HOST__ Tensor&
+Tensor::linear(
+    Tensor &A, Tensor &B, Tensor &O, int H, int W, int K, DU alpha, DU beta, bool tA, bool tB) {
+    MM_DB("  tensor#linear a=%g, b=%g => O[%d,%d] = A[%d,%d]%s @ B[%d,%d]%s\n",
+          alpha, beta, H, W, H, K, tA ? "^T" : "", K, W, tB ? "^T" : "");
+
+    FORK3T(k_gemm_tile_claude, H, W, 1, A.data, B.data, O.data, alpha, beta, tA, tB, K);
+    return O;
+}
 ///
 /// tensor GEMM C' = alpha * A x B + beta * C
 /// @note - benchmark alpha * [1K,1K]*[1K,1K] + beta [1K,1K]

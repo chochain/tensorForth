@@ -89,6 +89,7 @@ struct Tensor : public T4Base {
     static __HOST__  Tensor &ten_op(math_op op, Tensor &A, DU v, Tensor &O);       ///> matrix-scalar element-wise ops
     static __HOST__  Tensor &ten_op(math_op op, Tensor &A, Tensor &B, Tensor &O);  ///> matrix-matrix element-wise ops (Hadamard)
     static __HOST__  Tensor &mm(Tensor &A, Tensor &B, Tensor &O,    bool inc=0, bool tA=0, bool tB=0);
+    static __HOST__  Tensor &linear(Tensor &A, Tensor &B, Tensor &O, int H, int W, int K, DU alpha, DU beta, bool tA=0, bool tB=0);
     static __HOST__  Tensor &gemm(Tensor &A, Tensor &B, Tensor &O,  DU alpha, DU beta, bool tA=0, bool tB=0);
     static __HOST__  Tensor &gemm1(Tensor &A, Tensor &B, Tensor &O, DU alpha, DU beta, bool tA=0, bool tB=0);
     static __HOST__  Tensor &gemm2(Tensor &A, Tensor &B, Tensor &O, DU alpha, DU beta, bool tA=0, bool tB=0);
