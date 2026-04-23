@@ -336,9 +336,10 @@ Model::_flinear(Tensor &in, Tensor &out) {
         // In your Tensor layout: A=in(H=N,W=E1,C=1), B=w(H=E0,W=E1,C=1)
         // tB=true transposes W from [E0,E1] to [E1,E0] for the multiply
         NN_DB(" in = "); in.show(true);
-        Tensor::gemm4(in, w, out, DU1, DU0, false, true); /// * Y = X@W^T
+        Tensor::linear(in, w, out, N, E0, E1,         /// * Y[N,E0] = X[N,E1] @ W[E0,E1]^T
+                       DU1, DU0, false, true);
         NN_DB(" => out"); out.show(true);
-        FORK3(k_bias, N, E0, 1, b.data, out.data);        /// * Y += B
+        FORK3(k_bias, N, E0, 1, b.data, out.data);    /// * Y[N,E0] += B[E0]
         NN_DB(" +=b => out"); out.show(true);
     }    
     return 0;
