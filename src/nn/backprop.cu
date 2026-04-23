@@ -58,9 +58,9 @@ __KERN__ void k_dconv2d(
             atomicAdd(&DB[c0], db);
         }
         
-        const U64 zf = (U64)C0 * KS * KS * c1 + c0;  ///< filter index F[C1,KS,KS,C0]
-        if (tx < TS && ty < TS) {                    /// * within tile [14x14]
-             DU sum = DU0;                           ///< dX sum, DF[c1,0,0,c0] (TSxTS threads)
+        const U64 zf = (U64)C0 * KS * KS * c1 + c0;      ///< filter index F[C1,KS,KS,C0]
+        if (tx < TS && ty < TS) {                        /// * within tile [14x14]
+             DU sum = DU0;                               ///< dX sum, DF[c1,0,0,c0] (TSxTS threads)
              for (int y=0, y1=KS-1; y < KS; y++, y1--) {
                  for (int x=0, x1=KS-1; x < KS; x++, x1--) {
                     int fi = zf + (y1 * KS + x1) * C0;   ///< rot180 index
@@ -71,8 +71,8 @@ __KERN__ void k_dconv2d(
                     }
                 }
             }
-            if (i1 < H && j1 < W) {                  /// * collect dX (per C1)
-                DX[((long)W * i1 + j1) * C1 + c1] += sum;          ///< final dX
+            if (i1 < H && j1 < W) {                       /// * collect dX (per C1)
+                DX[((long)W * i1 + j1) * C1 + c1] += sum; ///< final dX
             }
         }
         __syncthreads();
@@ -299,19 +299,19 @@ __HOST__ int
 Model::_bconv(Tensor &in, Tensor &out) {
     Tensor &f = *in.grad[0], &df = *in.grad[2];      ///< filter tensors
     Tensor &b = *in.grad[1], &db = *in.grad[3];      ///< bias tensors
-    Tensor &x = *in.grad[4];                         ///< dX
+    Tensor &x = *in.grad[4];                         ///< dX storage
 
     NN_DB(" f[%d,%d,%d,%d], b[%ld]", f.N(), f.H(), f.W(), f.C(), b.numel);
 
     const int N = in.N(), H = in.H(), W = in.W();    ///< input dimensions
     const int C1 = in.C(), C0 = out.C();
-
-    x.zeros();                                       /// * pre-zero dX
     
-    if (*_trace > 1) { _dump_b("db", db); _dump_f("df", df); }
-    for (int n = 0; n < N; n++) {                   ///< accumulative over N samples TODO: multi-stream
+    if (*_trace > 1) { _dump_b("b", b); _dump_f("f", f); }
+    
+    x.zeros();
+    for (int n = 0; n < N; n++) {                    ///< accumulative over N samples TODO: multi-stream
         DU *d1 = in.slice(n), *dx = x.slice(n), *d0 = out.slice(n);
-        const int r = (f.H() - 1) >> 1;             ///< kernel radius
+        const int r = (f.H() - 1) >> 1;              ///< kernel radius
         switch (r) {
         case 0: DCONV(0); break;
         case 1: DCONV(1); break;
@@ -321,9 +321,9 @@ Model::_bconv(Tensor &in, Tensor &out) {
         }
         GPU_CHK();
     }
-    Tensor::copy(x, in);
+    Tensor::copy(x, in);                             /// * X = dX (overwrite)
     
-    if (*_trace > 1) { _dump_b("b", b); _dump_f("f", f); }
+    if (*_trace > 1) { _dump_b("db", db); _dump_f("df", df); }
     return 0;
 }
 
@@ -333,6 +333,7 @@ Model::_blinear(Tensor &in, Tensor &out) {
     Tensor &b = *in.grad[1], &db = *in.grad[3];       ///< bias tensors
     const int  N  = in.N(),   C0 = w.H(), C1 = w.W(); ///< dimensions
     const long E1 = in.HWC(), E0 = out.HWC();         ///< input, output element counts (for validation)
+    
     NN_DB("\n\tdw[%d,%d] += out'[%ld,1] @ in^t[1,%ld]", C0, C1, E0, E1);
     NN_DB("\n\tin[%ld,1] = w^t[%d,%d] @ out'[%ld,1]", E1, C1, C0, E0);
     
@@ -345,12 +346,12 @@ Model::_blinear(Tensor &in, Tensor &out) {
                     DU dy = y[e0];
                     db[e0] += dy;                     /// * db += dY
                     for (int e1 =0; e1 < E1; e1++) {
-                        *dp++ += dy * x[e1];          /// * dw += dY @ X^t
+                        *dp++ += dy * x[e1];          /// * dw += dY^t @ X
                     }
                 }
             }
             DU *wd = w.data;
-            for (int e1 = 0; e1 < E1; e1++) {         /// * dX = w^t @ dY
+            for (int e1 = 0; e1 < E1; e1++) {         /// * dX = w @ dY
                 DU sum = DU0;
                 for (int e0 = 0; e0 < E0; e0++) {
                     sum += wd[E1 * e0 + e1] * y[e0];
@@ -358,7 +359,7 @@ Model::_blinear(Tensor &in, Tensor &out) {
                 x[e1] = sum;
             }
         }
-    };                    
+    };
     if (w.numel < T4_DIM_SQ) {                        /// * threshold control
         NN_DB("* out = "); out.show(true);
         qa_calc();                                    /// * serial mode (validation)
@@ -368,10 +369,12 @@ Model::_blinear(Tensor &in, Tensor &out) {
         if (train) {
             db.zeros();                                          /// * pre-zero dB
             FORK3(k_dlinear_db, N, E0, 1, out.data, db.data);    /// * dB += sum(dY)
-            Tensor::gemm4(out, in, dw, DU1, DU0, true, false);   /// * dW = dY^T @ X
+            Tensor::linear(out, in, dw, E0, E1, N,               /// * dW[E0,E1] = dY[N,E0]^T @ X[N,E1]
+                           DU1, DU0, true, false);
         }
         in.zeros();                                              /// * dX = 0
-        Tensor::gemm4(out, w, in, DU1, DU1, false, false);       /// * dX = dY @ W
+        Tensor::linear(out, w, in, N, E1, E0,                    /// * dX[N,E1] = dY[N,E0] @ W[E0,E1]
+                       DU1, DU0, false, false);
     }
     if (train && *_trace > 1) {
         _dump_b("db", db);
