@@ -151,12 +151,9 @@ Model::_iconv(Tensor &in, U32 C0, DU bias, U16 *opt) {
     Tensor *dx = in.grad[4] = &T4(N1, in.H(), in.W(), C1).zeros();       ///< dx
 
     DU k = SQRT(6.0 * RCP(Hf * Wf * C1));        /// * filter default range - Kaiming
-    RAND(*f, k);                                 /// * randomize f [-k, k)
-    RAND(*b, bias);                              /// * randomize b [-bias, bias)
-    
 #if MM_DEBUG    
-//    f->map(FILL, 0.5);                           /// * debug
-//    b->map(FILL, -0.5);
+    f->map(FILL, 0.5);                           /// * debug
+    b->map(FILL, -0.5);
     
     NN_DB("    f[%d,%d,%d,%d]=", C1, Hf, Hf, C0);
     for (U64 i=0; i<f->numel; i++) NN_DB("%6.3f", f->data[i]);
@@ -164,6 +161,10 @@ Model::_iconv(Tensor &in, U32 C0, DU bias, U16 *opt) {
     NN_DB("    b[%d]=", C0);
     for (U64 i=0; i<b->numel; i++) NN_DB("%6.3f", b->data[i]);
     NN_DB("\n");
+#else  // !MM_DEBUG    
+    RAND(*f, k);                                 /// * randomize f [-k, k)
+    RAND(*b, bias);                              /// * randomize b [-bias, bias)
+    
 #endif // MM_DEBUG
     
     Tensor &out= T4(N1, H0, W0, C0);             ///> output tensor
