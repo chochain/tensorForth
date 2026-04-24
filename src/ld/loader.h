@@ -4,11 +4,13 @@
  *
  * <pre>Copyright (C) 2022- GreenII, this file is distributed under BSD 3-Clause License.</pre>
  */
+#ifndef __LDR_LOADER_H
+#define __LDR_LOADER_H
 #pragma once
 #include "ten4_config.h"
 
-#if (!defined(__LDR_LOADER_H) && T4_DO_OBJ && T4_DO_NN)
-#define __LDR_LOADER_H
+#if (T4_DO_OBJ && T4_DO_NN)
+
 #include "corpus.h"
 #include "mu/dataset.h"
 
@@ -21,6 +23,7 @@ struct Loader {
 
 } // namespace t4::ld
 
-#endif  // (!defined(__LDR_LOADER_H) && T4_DO_OBJ && T4_DO_NN)
+#endif  // (T4_DO_OBJ && T4_DO_NN)
+#endif  // __LDR_LOADER_H
 
 
