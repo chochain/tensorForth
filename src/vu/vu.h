@@ -4,11 +4,13 @@
  *
  * <pre>Copyright (C) 2022- GreenII, this file is distributed under BSD 3-Clause License.</pre>
  */
+#ifndef __VU_VU_H
+#define __VU_VU_H
+#pragma once
+#include <GL/gl.h>
 #include "ten4_types.h"
 
-#if (!defined(T4_VU_H) && T4_DO_OBJ && T4_DO_NN)
-#define T4_VU_H
-#include <GL/gl.h>
+#if (T4_DO_OBJ && T4_DO_NN)      /// * only when object system is active
 #include "corpus.h"              /// in ../ld
 
 namespace t4::vu {
@@ -48,5 +50,6 @@ extern "C" int  gui_init(int *argc, char **argv);
 extern "C" int  gui_add(t4::vu::Vu *vu);
 extern "C" int  gui_loop();
 
-#endif // (!defined(T4_VU_H) && T4_DO_OBJ && T4_DO_NN)
+#endif // (T4_DO_OBJ && T4_DO_NN)
+#endif // __VU_VU_H
 

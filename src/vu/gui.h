@@ -4,13 +4,15 @@
  *
  * <pre>Copyright (C) 2022- GreenII, this file is distributed under BSD 3-Clause License.</pre>
  */
-#if (!defined(T4_GUI_H) && T4_DO_OBJ && T4_DO_NN)
-#define T4_GUI_H
+#ifndef __VU_GUI_H
+#define __VU_GUI_H
+#pragma once
 #include <GL/gl.h>
 #include <GL/glx.h>
 #include <GL/freeglut.h>
 #include <cuda_gl_interop.h>
 
+#if (T4_DO_OBJ && T4_DO_NN)
 #include "vu.h"
 
 namespace t4::vu {
@@ -84,4 +86,5 @@ namespace t4::vu {
 #undef GLFN
 } /// namespace t4::vu
 
-#endif // (!defined(T4_GUI_H) && T4_DO_OBJ && T4_DO_NN)
+#endif // (T4_DO_OBJ && T4_DO_NN)
+#endif // __VU_GUI_H
