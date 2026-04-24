@@ -4,10 +4,12 @@
  *
  * <pre>Copyright (C) 2022- GreenII, this file is distributed under BSD 3-Clause License.</pre>
  */
+#ifndef __T4BASE_H
+#define __T4BASE_H
+#pragma once
 #include "ten4_types.h"
 
-#if (!defined(__T4BASE_H) && T4_DO_OBJ)
-#define __T4BASE_H
+#if T4_DO_OBJ                /// * only when Object is activated
 
 namespace t4 {
 ///
@@ -91,5 +93,6 @@ struct T4Base : public OnHost {
 
 } // namespace t4
 
-#endif // (!defined(__T4BASE_H) && T4_DO_OBJ)
+#endif // T4_DO_OBJ
+#endif // __T4BASE_H
 
