@@ -4,6 +4,7 @@
 # Add inputs and outputs from these tool invocations to the build variables
 MU_SRCS := \
 	src/mu/tlsf.cu \
+	src/mu/mpool.cu \
 	src/mu/tensor.cu \
 	src/mu/mmu.cu \
 	src/mu/dataset.cu
@@ -18,6 +19,7 @@ MU_INCS := \
 	src/mu/vector.h \
 	src/mu/tensor.h \
 	src/mu/tlsf.h \
+	src/mu/mpool.h \
 	src/mu/code.h \
 	src/mu/dataset.h \
 	src/mu/mmu.h
