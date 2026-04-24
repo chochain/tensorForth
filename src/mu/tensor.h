@@ -4,12 +4,13 @@
  *
  * <pre>Copyright (C) 2022- GreenII, this file is distributed under BSD 3-Clause License.</pre>
  */
+#ifndef __MU_TENSOR_H
+#define __MU_TENSOR_H
 #pragma once
 #include "t4math.h"
 #include "t4base.h"
 
-#if (!defined(__MMU_TENSOR_H) && T4_DO_OBJ)
-#define __MMU_TENSOR_H
+#if T4_DO_OBJ         /// * only when object system is activated
 
 //===============================================================================
 /// tensorForth tensor class
@@ -211,4 +212,5 @@ struct Tensor : public T4Base {
 
 } // namespace t4::mu
 
-#endif // (!defined(__MMU_TENSOR_H) && T4_DO_OBJ)
+#endif // T4_DO_OBJ
+#endif // __MU_TENSOR_H
