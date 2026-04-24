@@ -455,7 +455,7 @@ NetVM::init() {
     CODE("load",      _pickle(false));             /// * load trainned model
     CODE("\nUser::",  {});                         ///< page break
     
-    TRACE("NetVM::init ok, sizeof(Model)=%ld\n", sizeof(Model));
+    TRACE("NetVM::init ok, sizeof(Model)=%ld, sizeof(Dataset)=%ld\n", sizeof(Model), sizeof(Dataset));
 };
 
 } // namespace t4::vm
