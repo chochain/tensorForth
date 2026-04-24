@@ -78,7 +78,7 @@ struct Tensor : public T4Base {
     U32      shape[4]  = {1,1,1,1}; ///< shape=HWCN, matrix C=N=1, vector W=C=N=1
     t4_layer grad_fn   = L_NONE;    ///< grandiant funtion type
     Tensor   *grad[5];              ///< gradient and jacobian tensors
-    Tensor   *mtum[4];              ///< momentum and delta tensors
+    Tensor   *mtum[5];              ///< momentum and delta tensors
     DU       _tmp;                  ///< tmp storage for sum, std, and norm
     ///
     /// static ops
