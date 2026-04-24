@@ -58,7 +58,6 @@ public:
     /// @name Derivertive ops
     /// @{
     static __HOST__ const char* nname(int n);    ///< network layer name on host
-    static __HOST__  const char* d_nname(int n);  ///< network layer name on device
     /// @}
     /// @name constructor (indirect)
     /// @{
