@@ -1,9 +1,9 @@
-/*! 
-  @file
-  @brief TLSF class - tensor storage manager interface
-
-  <pre>Copyright (C) 2019 GreenII. This file is distributed under BSD 3-Clause License.</pre>
-*/
+/**
+ * @file
+ * @brief TLSF class - tensor storage manager interface
+ *
+ *  <pre>Copyright (C) 2019 GreenII. This file is distributed under BSD 3-Clause License.</pre>
+ */
 #if (!defined(__MMU_TLSF_H) && T4_DO_OBJ)
 #define __MMU_TLSF_H
 #pragma once
