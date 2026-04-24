@@ -4,11 +4,13 @@
  *
  * <pre>Copyright (C) 2022- GreenII, this file is distributed under BSD 3-Clause License.</pre>
  */
+#ifndef __VM_TENVM_H
+#define __VM_TENVM_H
+#pragma once
 #include "ten4_config.h"
 
-#if (!defined(__VM_TENVM_H) && T4_DO_OBJ)
-#define __VM_TENVM_H
-#include "eforth.h"                         /// extending ForthVM
+#if T4_DO_OBJ                               /// * only when object system is activated
+#include "eforth.h"                         /// * extending ForthVM
 
 namespace t4::vm {
 
@@ -86,4 +88,5 @@ private:
 
 } // namespace t4::vm
 
-#endif // (!defined(__VM_TENVM_H) && T4_DO_OBJ)
+#endif // T4_DO_OBJ
+#endif // __VM_TENVM_H
