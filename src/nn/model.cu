@@ -17,11 +17,7 @@ using mu::Tensor;
 __HOST__ const char*                ///< host network layer name 
 Model::nname(int i) {
     static const char *name[] = { LAYER_OP };
-    return name[i];
-}
-__HOST__ const char*                ///< device network layer name 
-Model::d_nname(int i) {
-    static const char* name[] = { LAYER_OP };
+    INFO("fetching nname[%d]=%p\n", i, name[i]);
     return name[i];
 }
 /// @}
@@ -91,9 +87,9 @@ Model::add(t4_layer fn, U32 n, DU bias, U16 *opt) {
     Tensor &in = (*this)[-1];
     if (in.grad_fn != L_NONE) return *this;     /// * tensor already setup
 
-    NLOG("  Model::add %s n=%d bias=%g {\n", d_nname(fn), n, bias);
+    NLOG("  Model::add %s n=%d bias=%g {\n", nname(fn), n, bias);
 
-    for (int i=0; i<4; i++) in.grad[i] = in.mtum[i] = NULL;
+    for (int i=0; i<5; i++) in.grad[i] = in.mtum[i] = NULL;
     switch(fn) {
     case L_CONV:    _iconv(in, n, bias, opt);   break;
     case L_LINEAR:  _ilinear(in, n, bias);      break;
@@ -117,7 +113,7 @@ Model::add(t4_layer fn, U32 n, DU bias, U16 *opt) {
     in.grad_fn = fn;                           /// * set layer function name
     Tensor &out = (*this)[-1];                 /// * output tensor
     NLOG("  } Model::add %s => out[%d,%d,%d,%d]\n",
-          d_nname(fn), out.N(), out.H(), out.W(), out.C());
+          nname(fn), out.N(), out.H(), out.W(), out.C());
     
     return *this;
 }
@@ -226,7 +222,7 @@ __HOST__ void
 Model::_isoftmax(Tensor &in) {
 	NN_DB("    model#isoftmax {\n");
     Tensor &out = COPY(in);                      ///> output tensor sizing
-    in.grad[0] = &T4(1,in.H(),in.W(), in.C());   ///> activation mask
+    in.grad[4] = &T4(1,in.H(),in.W(), in.C());   ///> activation mask
     
     npush(out);                                  /// * stage for next stage
 	NN_DB("    } model#isoftmax\n");
@@ -236,7 +232,7 @@ __HOST__ void
 Model::_iactivate(Tensor &in, DU alpha) {
     NN_DB("    model#iactivate alpha=%6.3f {\n", alpha);
     Tensor &out = COPY(in);
-    Tensor *msk = in.grad[0] = &COPY(in);        ///> activation mask
+    Tensor *msk = in.grad[4] = &COPY(in);        ///> activation mask
 
     in.xparm = alpha;                            /// * keep bias
     
@@ -267,9 +263,9 @@ Model::_ibatchnorm(Tensor &in, DU m) {
     NN_DB("    model#ibatchnorm m=%5.3f {\n", m);
     const int C = in.C();                        /// C0==C1
     in.grad[0] = &VEC(C*2).zeros();              ///> weight/gamma, bias/beta
-    in.grad[1] = &VEC(C*2);                      ///> tmp storage
     in.grad[2] = &VEC(C*2).zeros();              ///> d_gamma, d_beta
-    in.grad[3] = &COPY(in);                      ///> x_hat (same as in)
+    in.grad[4] = &COPY(in);                      ///> x_hat (same as in)
+    in.mtum[4] = &VEC(C*2);                      ///> batch sum/var
 
     for (int c=0; c < C; c++) {                  /// * default gamma=1.0, beta=0.0
         in.grad[0]->data[c] = DU1;
