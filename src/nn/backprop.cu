@@ -193,7 +193,7 @@ __HOST__ Model&
 Model::backprop(Tensor &tgt) {
     auto trace = [](DU t, int i, Tensor &in, Tensor &out) {
         INFO("\n%6.2f:%3d> %s [%2d,%2d,%2d,%2d] p=%6.3f <= out'Σ/n=%6.2f [%2d,%2d,%2d,%2d]",
-            t, i, d_nname(in.grad_fn),
+            t, i, nname(in.grad_fn),
             in.N(), in.H(), in.W(), in.C(), in.xparm,
             out.sum() / out.N() / out.C(),
             out.N(), out.H(), out.W(), out.C());
@@ -211,7 +211,7 @@ Model::backprop(Tensor &tgt) {
         _bstep(in, out);
 
         if (_check_nan(in)) {
-            ERROR("nn#backprop Nan %s\n", d_nname(in.grad_fn));
+            ERROR("nn#backprop Nan %s\n", nname(in.grad_fn));
             in.show();
             out.show();
             this->err = 1;
@@ -385,7 +385,7 @@ Model::_blinear(Tensor &in, Tensor &out) {
 
 __HOST__ int
 Model::_bactivate(Tensor &in, Tensor &out) {
-    Tensor::ten_op(MUL, out, *in.grad[0], in);     /// * in = msk * out
+    Tensor::ten_op(MUL, out, *in.grad[4], in);     /// * in = msk * out
     return 0;
 }
 
@@ -441,9 +441,9 @@ Model::_bbatchnorm(Tensor &in, Tensor &out) {
     DU *w   = &in.grad[0]->data[0];                    ///< weight/gamma (scale)
     DU *dw  = &in.grad[2]->data[0];                    ///< d_gamma
     DU *db  = &in.grad[2]->data[C];                    ///< d_beta
-    DU *sum = &in.grad[1]->data[0];                    ///< batch sum
-    DU *var = &in.grad[1]->data[C];                    ///< batch 1.0 / (var+e)^0.5
-    DU *xht = in.grad[3]->data;                        ///< x_hat
+    DU *xht = in.grad[4]->data;                        ///< x_hat
+    DU *sum = &in.mtum[4]->data[0];                    ///< batch sum
+    DU *var = &in.mtum[4]->data[C];                    ///< batch 1.0 / (var+e)^0.5
 
     FORK4(k_batchsum, out.data, sum, HW);              /// * capture out sum(dout)     
     
