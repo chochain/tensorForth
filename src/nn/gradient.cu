@@ -54,39 +54,35 @@ Model::grad_alloc(t4_optimizer op) {
         Tensor &in = (*this)[i];
         Tensor *w = in.grad[0], *dw = in.grad[2];   ///< filter tensor pointers
         Tensor *b = in.grad[1], *db = in.grad[3];   ///< bias tensor pointers
-
-        bool do_w = dw && dw->is_same_shape(*w);    ///< exception: dropout
-        bool do_b = db && db->is_same_shape(*b);    ///< exception: batchnorm
-
+        
+        NLOG("    %3d> %8s w,b[%d,%d]", i, nname(in.grad_fn), w ? 1 : 0, b ? 1 : 0);
         switch (op) {
         case OPTI_SGD:
-            in.mtum[0] = do_w ? w : NULL; in.mtum[2] = NULL;  /// * dummy
-            in.mtum[1] = do_b ? b : NULL; in.mtum[3] = NULL;
+            in.mtum[0] = w; in.mtum[2] = NULL;      /// * dummy
+            in.mtum[1] = b; in.mtum[3] = NULL;
             break;
         case OPTI_SGDM:
-            if (do_w && !in.mtum[0]) {
+            if (w && !in.mtum[0]) {
                 in.mtum[0] = &COPY(*dw).zeros();    ///< m of w (zero filled)
                 in.mtum[2] = NULL;                  ///< dummy
             }
-            if (do_b && !in.mtum[1]) {
+            if (b && !in.mtum[1]) {
                 in.mtum[1] = &COPY(*db).zeros();    ///< m of b (zero filled)
                 in.mtum[3] = NULL;                  ///< dummy
             }
             break;
         case OPTI_ADAM:
-            if (do_w && !in.mtum[0]) {
+            if (w && !in.mtum[0]) {
                 in.mtum[0] = &COPY(*dw).zeros();    ///< m of w (zeor filled)
                 in.mtum[2] = &COPY(*dw).zeros();    ///< v of w (zero filled)
             }
-            if (do_b && !in.mtum[1]) {
+            if (b && !in.mtum[1]) {
                 in.mtum[1] = &COPY(*db).zeros();    ///< m of b (zero filled)
                 in.mtum[3] = &COPY(*db).zeros();    ///< v of b (zero filled)
             }
             break;
         }
-        NLOG("    %3d> %8s w,b[%d,%d] mtum=%x,%x,%x,%x\n",
-              i, d_nname(in.grad_fn), do_w, do_b,
-              M2X(0), M2X(1), M2X(2), M2X(3));
+        NLOG(" mtum=%x,%x,%x,%x\n",  M2X(0), M2X(1), M2X(2), M2X(3));
     }
     NLOG("  } #grad_alloc\n");
     return *this;
@@ -103,11 +99,11 @@ Model::gradient(const char *nm, t4_optimizer op, GdFunc fn, DU *parm) {
         if (*_trace > 1) {
             Tensor::_dump(g.data, g.H(), g.W(), g.C());
             Tensor::_dump(dg.data, dg.H(), dg.W(), dg.C());
-            fn(parm, g, dg, m, v);                /// * execute grad function
+            fn(parm, g, dg, m, v);                    /// * execute grad function
             Tensor::_dump(g.data, g.H(), g.W(), g.C());
             Tensor::_dump(dg.data, dg.H(), dg.W(), dg.C());
         }
-        else fn(parm, g, dg, m, v);                /// * execute grad function
+        else fn(parm, g, dg, m, v);                   /// * execute grad function
         NLOG(" => %cΣ=%6.3f\n", k, g.sum());
     };
     NLOG("\nModel::%s starts (%s) batch_sz=%d, lr=%7.4f, mtum/b1=%6.3f, b2=%6.3f {\n",
@@ -124,7 +120,7 @@ Model::gradient(const char *nm, t4_optimizer op, GdFunc fn, DU *parm) {
         Tensor &w  = *in.grad[0], &dw = *in.grad[2];
         Tensor &b  = *in.grad[1], &db = *in.grad[3];
 
-        NLOG("  %d> %s\n", i, d_nname(in.grad_fn));
+        NLOG("  %d> %s\n", i, nname(in.grad_fn));
         if (in.mtum[0]) {
             step('w', w, dw, *in.mtum[0], *in.mtum[2]);
 /*            
@@ -137,7 +133,7 @@ Model::gradient(const char *nm, t4_optimizer op, GdFunc fn, DU *parm) {
             }
 */            
             if (_check_nan(w)) {
-                ERROR("nn::grad.w Nan %s\n", d_nname(in.grad_fn));
+                ERROR("nn::grad.w Nan %s\n", nname(in.grad_fn));
                 w.show();
                 this->err = 1;
                 break;
@@ -146,7 +142,7 @@ Model::gradient(const char *nm, t4_optimizer op, GdFunc fn, DU *parm) {
         if (in.mtum[1]) {
             step('b', b, db, *in.mtum[1], *in.mtum[3]);
             if (_check_nan(b)) {
-                ERROR("nn::grad.b Nan %s\n", d_nname(in.grad_fn));
+                ERROR("nn::grad.b Nan %s\n", nname(in.grad_fn));
                 b.show();
                 this->err = 1;
                 break;
