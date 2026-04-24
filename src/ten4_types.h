@@ -73,8 +73,8 @@ typedef cudaEvent_t         EVENT;
 #define GPU_CHK()          GPU_ERR(cudaDeviceSynchronize())
 #define MM_ALLOC(...)      GPU_ERR(cudaMallocManaged(__VA_ARGS__))
 #define MM_FREE(m)         GPU_ERR(cudaFree(m))
-#define H_ALLOC(p,...)     *((void**)(p)) = malloc(__VA_ARGS__)
-#define H_FREE(m)          free(m)
+#define H_ALLOC(p,...)     *((void**)(p)) = std::malloc(__VA_ARGS__)
+#define H_FREE(m)          std::free(m)
 
 
 namespace cg = cooperative_groups;
