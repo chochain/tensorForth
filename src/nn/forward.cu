@@ -199,7 +199,7 @@ Model::forward(Tensor &input) {
     ///
     auto info = [](DU t, int i, Tensor &in, Tensor &out) {
         INFO("\n%6.2f:%3d> %s [%2d,%2d,%2d,%2d] Σ/n=%6.2f p=%6.3f => out[%2d,%2d,%2d,%2d]",
-            t, i, d_nname(in.grad_fn), in.N(), in.H(), in.W(), in.C(),
+            t, i, nname(in.grad_fn), in.N(), in.H(), in.W(), in.C(),
             in.sum() / in.N() / in.C(), in.xparm,
             out.N(), out.H(), out.W(), out.C());
     };
@@ -214,7 +214,7 @@ Model::forward(Tensor &input) {
         _fstep(in, out);
 
         if (_check_nan(out)) {
-            ERROR("nn#forward Nan %s\n", d_nname(in.grad_fn));
+            ERROR("nn#forward Nan %s\n", nname(in.grad_fn));
             in.show();
             out.show();
             this->err = 1;
@@ -252,7 +252,7 @@ Model::_fstep(Tensor &in, Tensor &out) {
     case L_LEAKYRL:
     case L_ELU:     _factivate(in, out, fn); break;
     case L_DROPOUT: {                               ///< dropout mask
-        Tensor &t = *in.grad[0];
+        Tensor &t = *in.grad[4];
         System::rand(t.data, t.numel, UNIFORM);     /// * randomize w, shift pct
         _factivate(in, out, fn);
     } break;
@@ -349,7 +349,7 @@ __HOST__ int
 Model::_factivate(Tensor &in, Tensor &out, t4_layer fn) {
     DU alpha = in.xparm;
     FORK1(k_activate, in.numel, 
-          fn, in.data, in.grad[0]->data, out.data, alpha);
+          fn, in.data, in.grad[4]->data, out.data, alpha);
     return 0;
 }
 
@@ -373,7 +373,7 @@ Model::_fpool(Tensor &in, Tensor &out, t4_layer fn) {
 
 __HOST__ int
 Model::_fsoftmax(Tensor &in, Tensor &out) {
-    Tensor &t = *in.grad[0];                    ///< temp tensor [1,H,W,C]
+    Tensor &t = *in.grad[4];                    ///< temp tensor [1,H,W,C]
     DU     *d = t.data;                         ///< keep data pointer
     out = in;                                   /// copy content for exe calc
     for (U32 n = 0; n < out.N(); n++) {         ///< loop thru mini-batch
@@ -388,7 +388,7 @@ Model::_fsoftmax(Tensor &in, Tensor &out) {
 
 __HOST__ int
 Model::_flogsoftmax(Tensor &in, Tensor &out) {  /// * TODO: DCP
-    Tensor &t = *in.grad[0];                    ///< temp tensor [1,H,W,C];
+    Tensor &t = *in.grad[4];                    ///< temp tensor [1,H,W,C];
     DU     *d = t.data;                         ///< cache tensor data
     out = in;                                   /// * copy in data to out
     out.map(EXP);
@@ -412,9 +412,9 @@ Model::_fbatchnorm(Tensor &in, Tensor &out) {
 
     DU *w   = &in.grad[0]->data[0];                    ///< weight/gamma
     DU *b   = &in.grad[0]->data[C];                    ///< bias/beta
-    DU *avg = &in.grad[1]->data[0];                    ///< mean
-    DU *var = &in.grad[1]->data[C];                    ///< 1.0/(sqrt(var)+e)
-    DU *xht = in.grad[3]->data;                        ///< x_hat
+    DU *xht = in.grad[4]->data;                        ///< x_hat
+    DU *avg = &in.mtum[4]->data[0];                    ///< mean
+    DU *var = &in.mtum[4]->data[C];                    ///< 1.0/(sqrt(var)+e)
 
     for (U32 c=0; c < C; c++) avg[c] = var[c] = DU0;   /// * zero out
     FORK4(k_batchsum, in.data, avg, HW);               /// * capture sum
