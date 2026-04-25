@@ -11,7 +11,12 @@
 
 namespace t4::mu {
 using nn::Model;
-
+///
+/// memory lock for multi-processing
+///
+#define LOCK()   std::unique_lock<std::mutex> lock(_mutex)
+#define UNLOCK() lock.unlock()
+///
 ///@name static class member
 ///@note: CUDA does not support device static data
 ///@{
@@ -23,39 +28,48 @@ UFP _NM0;
 /// Forth Virtual Machine operational macros to reduce verbosity
 ///
 __HOST__
+#if !T4_DO_OBJ
 MMU::MMU() {
+    
+#else // T4_DO_OBJ
+MMU::MMU() : _mpool(Mpool::get_instance()), _ostore(TLSF::get_instance()) {
+#if T4_DO_NN
+    _mpool.init(sizeof(Dataset), T4_MPOOL_SZ);
+#else  // !T4_DO_NN
+    _mpool.init(sizeof(Tensor), T4_MPOOL_SZ);
+#endif // T4_DO_NN
+    
+    H_ALLOC(&_mark,  sizeof(DU) * T4_TFREE_SZ);
+    MM_ALLOC(&_obj,  T4_OSTORE_SZ);              /// * object store in Managed Memory
+    _ostore.init(_obj, T4_OSTORE_SZ);
+#endif // T4_DO_OBJ
+    
     H_ALLOC(&_dict, sizeof(Code) * T4_DICT_SZ);
     H_ALLOC(&_vmss, sizeof(DU) * T4_SS_SZ * T4_VM_COUNT);
     H_ALLOC(&_vmrs, sizeof(DU) * T4_RS_SZ * T4_VM_COUNT);
     H_ALLOC(&_pmem, T4_PMEM_SZ);
 
-#if T4_DO_OBJ    
-    H_ALLOC(&_mark, sizeof(DU) * T4_TFREE_SZ);
-    MM_ALLOC(&_obj,  T4_OSTORE_SZ);              /// * object store in Managed Memory
-    _ostore.init(_obj, T4_OSTORE_SZ);
-#endif // T4_DO_OBJ
-
     _midx = T4_USER_AREA;      /// set aside user area (for base and maybe compile)
     
     TRACE(
-        "\\ MMU: CUDA Managed Memory\n"
+        "\\ MMU:\n"
         "\\\tdict=%p\n"
         "\\\tvmss=%p\n"
         "\\\tvmrs=%p\n"
         "\\\tmem =%p\n"
         "\\\tmark=%p\n"
-        "\\\tobj =%p\n",
+        "\\\tobj =%p (Managed)\n",
         _dict, _vmss, _vmrs, _pmem, _mark, _obj);
 }
 __HOST__
 MMU::~MMU() {
     if (_obj)  MM_FREE(_obj);
-//    if (_mark) H_FREE((void*)_mark);
-//    H_FREE(_pmem);
-//    H_FREE(_vmrs);
-//    H_FREE(_vmss);
-//    H_FREE(_dict);
-    TRACE("\\   MMU: CUDA Managed Memory freed\n");
+    if (_mark) H_FREE((void*)_mark);
+    H_FREE(_pmem);
+    H_FREE(_vmrs);
+    H_FREE(_vmss);
+    H_FREE(_dict);
+    TRACE("\\   MMU: memory freed\n");
 }
 __HOST__ MMU*
 MMU::get_mmu() {
@@ -97,6 +111,12 @@ MMU::find(const char *s) {
         if (STRCMP(_dict[i].name, s)==0) v = i;
     }
     return v;
+}
+
+__HOST__  __INLINE__ void
+MMU::add(Code *c) {                         ///< create word (deep copy)
+    LOCK();
+    _dict[_didx++] = *c;
 }
 
 __HOST__ void
@@ -142,57 +162,22 @@ MMU::colon(const char *name) {
 /// tensor life-cycle methods
 ///
 #if T4_DO_OBJ // vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
-#if T4_DO_NN
-__HOST__ Dataset&                  ///< create a Dataset holder
-MMU::dataset(U32 batch_sz) {       /// * Note: data block is not allocated yet
-    MM_DB("mmu#dataset batch_sz=%d {", batch_sz);
-    Dataset *ds = (Dataset*)_ostore.malloc(sizeof(Dataset));
-    ds->init(0, T4_DATASET, 4);
-    ds->N()      = batch_sz;       /// * other members filled in host mode
-    ds->batch_id = 0;              /// * setup control flag
-    MM_DB("} mmu#dataset => D:%x\n", OBJ2X(*ds));
-    return *ds;
-}
-
-__HOST__ Model&                     ///< create a NN model with NHWC input
-MMU::model(int &trace, U32 sz) {
-    MM_DB("mmu#model layers=%d {\n", sz);
-    Model  *m = (Model*)_ostore.malloc(sizeof(Model));
-    Tensor &t = talloc(sz);        /// * allocate tensor storage
-    m->init(this, t, trace);
-    MM_DB("} mmu#model => M:%x\n", OBJ2X(*m));
-    return *m;
-}
-
-__HOST__ void                       ///< release tensor memory blocks
-MMU::free(Model &m) {
-    int n = m.numel;
-    MM_DB("mmu#free(N%d) N:%x {\n", n, OBJ2X(m));
-    for (int i = m.numel-1; i >= 0; i--) {
-        MM_DB("\t"); free(m[i]);
-    }
-    _ostore.free(&m);
-    MM_DB("} mmu#free(N%d)\n", n);
-}
-#endif // T4_DO_NN
-
 __HOST__ void                      ///< release marked free tensor
 MMU::sweep() {
-//    lock();                     /// * dead locked now
+    LOCK();
     for (int i = 0, n=_fidx; n && i < n; i++) {
         DU v = _mark[i];
         MM_DB("mmu#release T:%x from free[%d]\n", DU2X(v) & ~T4_TT_OBJ, i);
         drop(du2obj(v));
     }
     _fidx = 0;
-//    unlock();
 }
 __HOST__ void
 MMU::drop(T4Base &t) {
 #if T4_DO_NN
     if (t.is_model())  { free((Model&)t); return;  }   /// release TLSF memory block
 #endif  // T4_DO_NN
-    free((Tensor&)t);                                  /// check reference count
+    free((Tensor&)t);             /// check reference count
 }
 
 __HOST__ void
@@ -200,21 +185,21 @@ MMU::mark_free(DU v) {            ///< mark a tensor free for release
     if (IS_VIEW(v)) return;
     T4Base &t = du2obj(v);
     MM_DB("mmu#mark T:%x to free[%d]\n", OBJ2X(t), _fidx);
-//    lock();                     ///< TODO: CC: DEAD LOCK, now!
+
+    LOCK();
     if (_fidx < T4_TFREE_SZ) _mark[_fidx++] = obj2du(t);
     else ERROR("ERR: tfree store full, increase T4_TFREE_SZ!");
-//    unlock();
 }
 
 __HOST__ Tensor&                    ///< allocate a tensor from tensor space
 MMU::talloc(U64 sz) {
     MM_DB("mmu#talloc(0x%lx) {\n", sz);
-    Tensor &t = *(Tensor*)_ostore.malloc(sizeof(Tensor));
+    Tensor *t = (Tensor*)_mpool.malloc();   /// * was = *(Tensor*)_ostore.malloc(sizeof(Tensor));
     void   *d = _ostore.malloc(sz * sizeof(DU));
     MM_DB("} mmu#talloc => T:%x+%x\n", OBJ2X(t), (U32)((U8*)d - _obj));
     _ostore.status();
-    t.reset(d, sz);
-    return t;
+    t->reset(d, sz);
+    return *t;
 }
 __HOST__ Tensor&                    ///< create a one-dimensional tensor
 MMU::tensor(U64 sz) {
@@ -252,7 +237,7 @@ MMU::resize(Tensor &t, U64 sz) {
     _ostore.free(d0);            /// * release 
     _ostore.status();
 }
-__HOST__ void                     ///< release tensor memory blocks
+__HOST__ void                    ///< release tensor memory blocks
 MMU::free(Tensor &t) {
     int n = t.rank;
     MM_DB("mmu#free(T%d) numel=%ld T:%x {\n", n, t.numel, OBJ2X(t));
@@ -268,9 +253,9 @@ MMU::free(Tensor &t) {
         }
         MM_DB("\t} ");
     }
-    _ostore.free(&t);              /// * free tensor object itself
-    MM_DB("} mmu#free(T%d)\n", n);
+    _mpool.free(&t);              /// * free tensor object itself
     _ostore.status();
+    MM_DB("} mmu#free(T%d)\n", n);
 }
 ///
 /// deep copy a tensor
@@ -278,26 +263,33 @@ MMU::free(Tensor &t) {
 ///
 __HOST__ Tensor&
 MMU::copy(Tensor &t0) {
-    if (!t0.is_tensor()) return t0;    ///> skip, TODO: copy model
+    if (!t0.is_tensor()) return t0;         ///> skip, TODO: copy model
 
     MM_DB("mmu#copy(T%d:%x) numel=%ld {\n", t0.rank, OBJ2X(t0), t0.numel);
-    Tensor &t1  = *(Tensor*)_ostore.malloc(sizeof(Tensor));
-    memcpy(&t1, &t0, sizeof(Tensor));   /// * copy attributes
+    Tensor *t1 = (Tensor*)_mpool.malloc();  /// * was = *(Tensor*)_ostore.malloc(sizeof(Tensor));
+    memcpy(t1, &t0, sizeof(Tensor));        /// * copy attributes
     ///
     /// set attributes
     ///
-    for (int i=0; i<4; i++) t1.grad[i] = t1.mtum[i] = NULL;  /// * blank gradients
-    t1.grad_fn = L_NONE;                /// * not a network layer
-    t1.nref    = 1;                     /// * reset ref counter
+    for (int i=0; i<5; i++) t1->grad[i] = t1->mtum[i] = NULL;  /// * blank gradients
+    t1->grad_fn = L_NONE;                   /// * not a network layer
+    t1->nref    = 1;                        /// * reset ref counter
     ///
     /// hard copy data block
     ///
     U64 bsz = sizeof(DU) * t0.numel;
-    t1.data = (DU*)_ostore.malloc(bsz);
-    t1 = t0;                            /// * copy all tensor elements
+    t1->data = (DU*)_ostore.malloc(bsz);
+    *t1 = t0;                               /// * copy all tensor elements
     
-    MM_DB("} mmu#copy(T%d) => T%d:%x\n", t0.rank, t1.rank, OBJ2X(t1));
-    return t1;
+    MM_DB("} mmu#copy(T%d) => T%d:%x\n", t0.rank, t1->rank, OBJ2X(t1));
+    return *t1;
+}
+__HOST__ Tensor&
+MMU::dim(Tensor &t0) {
+    const int map[] = { 3, 0, 1, 2 };       /// HWCN => NHWC
+    Tensor &t = tensor(4);
+    for (int i=0; i<4; i++) t[i] = t0[map[i]];
+    return t;
 }
 ///
 /// tensor slice & dice
@@ -327,13 +319,40 @@ MMU::slice(Tensor &t0, U32 x0, U32 x1, U32 y0, U32 y1) {
           t0.rank, x0, x1, y0, y1, t0.numel);
     return t1;
 }
-__HOST__ Tensor&
-MMU::dim(Tensor &t0) {
-    const int map[] = { 3, 0, 1, 2 };              /// HWCN => NHWC
-    Tensor &t = tensor(4);
-    for (int i=0; i<4; i++) t[i] = t0[map[i]];
-    return t;
+
+#if T4_DO_NN
+__HOST__ Dataset&                            ///< create a Dataset holder
+MMU::dataset(U32 batch_sz) {                 /// * Note: data block is not allocated yet
+    MM_DB("mmu#dataset batch_sz=%d {", batch_sz);
+    Dataset *ds = (Dataset*)_mpool.malloc(); /// * was = (Dataset*)_ostore.malloc(sizeof(Dataset));
+    ds->init(0, T4_DATASET, 4);
+    ds->N()      = batch_sz;                 /// * other members filled in host mode
+    ds->batch_id = 0;                        /// * setup control flag
+    MM_DB("} mmu#dataset => D:%x\n", OBJ2X(*ds));
+    return *ds;
 }
+
+__HOST__ Model&                              ///< create a NN model with NHWC input
+MMU::model(int &trace, U32 sz) {
+    MM_DB("mmu#model layers=%d {\n", sz);
+    Model  *m = (Model*)_mpool.malloc();     /// * was = (Model*)_ostore.malloc(sizeof(Model));
+    Tensor &t = talloc(sz);                  /// * allocate tensor storage
+    m->init(this, t, trace);
+    MM_DB("} mmu#model => M:%x\n", OBJ2X(*m));
+    return *m;
+}
+
+__HOST__ void                                ///< release tensor memory blocks
+MMU::free(Model &m) {
+    int n = m.numel;
+    MM_DB("mmu#free(N%d) N:%x {\n", n, OBJ2X(m));
+    for (int i = m.numel-1; i >= 0; i--) {
+        MM_DB("\t"); free(m[i]);             /// * release layer tensors
+    }
+    _mpool.free(&m);                         /// * release model itself
+    MM_DB("} mmu#free(N%d)\n", n);
+}
+#endif // T4_DO_NN
 #endif // T4_DO_OBJ // vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
 
 } // namespace t4::mu
