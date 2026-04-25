@@ -2,28 +2,36 @@
  * @file
  * @brief TLSF class - tensor storage manager implementation
  *
+ *   TLSF: Two-Level Segregated Fit allocator with O(1) time complexity.
+ *   Layer 1st(f), 2nd(s) model, smallest block 16-bytes, 16-byte alignment
+ *   TODO: multiple-pool, thread-safe
+ *
  * <pre>Copyright (C) 2022 GreenII. This file is distributed under BSD 3-Clause License.</p>
 */
 #include "ten4_types.h"
 #include "util.h"               /// MEMCPY
 #include "tlsf.h"
 
+#if T4_DO_OBJ                   /// * only when object system is activated
+
 namespace t4::mu {
-
-#if T4_DO_OBJ
-// TLSF: Two-Level Segregated Fit allocator with O(1) time complexity.
-// Layer 1st(f), 2nd(s) model, smallest block 16-bytes, 16-byte alignment
-// TODO: multiple-pool, thread-safe
-// semaphore
-#define _LOCK           { MUTEX_LOCK(_mutex); }
-#define _UNLOCK         { MUTEX_FREE(_mutex); }
-
+///
+/// multi-threading lock
+///
+#define LOCK()   std::unique_lock<std::mutex> lock(_mutex)
+#define UNLOCK() lock.unlock()
 //================================================================
 /*! constructor
 
   @param  ptr    pointer to free memory block.
   @param  size    size. (max 4G)
 */
+__HOST__ TLSF&
+TLSF::get_instance() {
+    static TLSF tlsf0;                                  /// shared instance, destroied on exit
+    return tlsf0;
+}
+
 __HOST__ void
 TLSF::init(U8 *mem, U64 sz, U64 off) {
     TRACE("\\ TLSF: ostore=%p, alloc=0x%lx\n", mem, sz);
@@ -72,14 +80,15 @@ TLSF::malloc(U64 sz) {
     MM_DB("  tlsf#malloc(0x%lx) {\n", sz);
     U64 bsz = ALIGN8(sz) + sizeof(used_block);  ///< logical => physical size
 
-    _LOCK;
+    LOCK();
     U32 index       = _find_free_index(bsz);
     if (index == 0xff) return nullptr;
     free_block *blk = _set_used(index);         ///< take the indexed block off free list
 
     _split(blk, bsz);                           /// allocate the block, free up the rest
-    _UNLOCK;
 
+    UNLOCK();
+    
     ASSERT(blk->bsz >= bsz);                    /// make sure it provides big enough a block
 
     void *data = BLK_DATA(blk);
@@ -104,14 +113,14 @@ TLSF::realloc(void *p0, U64 sz) {
     ASSERT(IS_USED(blk));                                /// make sure it is used
 
     if (blk->bsz < bsz) {
-        _LOCK;
+        LOCK();
         _merge_next((free_block *)blk);                  /// try to get the used block bigger
-        _UNLOCK;
+        UNLOCK();
     }
     if ((blk->bsz - bsz) > MIN_SPLIT_SZ) {               /// split if it's big (save some)
-        _LOCK;
+        LOCK();
         _split((free_block*)blk, bsz);
-        _UNLOCK;
+        UNLOCK();
         return p0;
     }
     if (blk->bsz >= bsz) return p0;                      /// fits right in
@@ -135,7 +144,7 @@ TLSF::free(void *ptr) {
     if (!ptr) return;
     _dump_freelist();
 
-    _LOCK;
+    LOCK();
     free_block *blk = (free_block *)BLK_HEAD(ptr);       ///< get block header
     MM_DB("  tlsf#free(%x) %x:%x:%x {\n", TADDR(ptr), TADDR(blk), blk->bsz, blk->psz);
     SET_FREE(blk);                                       ///< tick free flag
@@ -145,7 +154,7 @@ TLSF::free(void *ptr) {
     /// the block is free now, try to merge a free block before if exists
     _merge_prev(blk);
     MM_DB("  } tlsf#free(%x)\n", TADDR(ptr));
-    _UNLOCK;
+    UNLOCK();
 }
 
 //================================================================
@@ -453,6 +462,7 @@ TLSF::_dump_freelist() {
     MM_DB("\n");
 }
 
+} // namespace t4::mu
+
 #endif // T4_DO_OBJ
 
-} // namespace t4::mu
