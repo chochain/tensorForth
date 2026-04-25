@@ -200,7 +200,7 @@ MMU::talloc(U64 sz) {
     MM_DB("mmu#talloc(0x%lx) {\n", sz);
     Tensor *t = (Tensor*)_mpool.malloc();   /// * was = *(Tensor*)_ostore.malloc(sizeof(Tensor));
     void   *d = _ostore.malloc(sz * sizeof(DU));
-    MM_DB("} mmu#talloc => T:%x+%x\n", OBJ2X(t), (U32)((U8*)d - _data));
+    MM_DB("} mmu#talloc => T:%x+%x\n", OBJ2X(*t), (U32)((U8*)d - _data));
     t->reset(d, sz);
     status();
     return *t;
@@ -285,7 +285,7 @@ MMU::copy(Tensor &t0) {
     t1->data = (DU*)_ostore.malloc(bsz);
     *t1 = t0;                               /// * copy all tensor elements
     
-    MM_DB("} mmu#copy(T%d) => T%d:%x\n", t0.rank, t1->rank, OBJ2X(t1));
+    MM_DB("} mmu#copy(T%d) => T%d:%x\n", t0.rank, t1->rank, OBJ2X(*t1));
     return *t1;
 }
 __HOST__ Tensor&
