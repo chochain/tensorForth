@@ -34,14 +34,14 @@ MMU::MMU() {
 #else // T4_DO_OBJ
 MMU::MMU() : _mpool(Mpool::get_instance()), _ostore(TLSF::get_instance()) {
 #if T4_DO_NN
-    _mpool.init(sizeof(Dataset), T4_MPOOL_SZ);
+    _obj = (U8*)_mpool.init(sizeof(Dataset), T4_MPOOL_SZ);
 #else  // !T4_DO_NN
-    _mpool.init(sizeof(Tensor), T4_MPOOL_SZ);
+    _obj = (U8*)_mpool.init(sizeof(Tensor), T4_MPOOL_SZ);
 #endif // T4_DO_NN
     
     H_ALLOC(&_mark,  sizeof(DU) * T4_TFREE_SZ);
-    MM_ALLOC(&_obj,  T4_OSTORE_SZ);              /// * object store in Managed Memory
-    _ostore.init(_obj, T4_OSTORE_SZ);
+    MM_ALLOC(&_data,  T4_OSTORE_SZ);              /// * object store in Managed Memory
+    _ostore.init(_data, T4_OSTORE_SZ);
 #endif // T4_DO_OBJ
     
     H_ALLOC(&_dict, sizeof(Code) * T4_DICT_SZ);
@@ -58,12 +58,13 @@ MMU::MMU() : _mpool(Mpool::get_instance()), _ostore(TLSF::get_instance()) {
         "\\\tvmrs=%p\n"
         "\\\tmem =%p\n"
         "\\\tmark=%p\n"
-        "\\\tobj =%p (Managed)\n",
-        _dict, _vmss, _vmrs, _pmem, _mark, _obj);
+        "\\\tobj =%p\n"
+        "\\\tdata=%p (Managed)\n",
+        _dict, _vmss, _vmrs, _pmem, _mark, _obj, _data);
 }
 __HOST__
 MMU::~MMU() {
-    if (_obj)  MM_FREE(_obj);
+    if (_data) MM_FREE(_data);
     if (_mark) H_FREE((void*)_mark);
     H_FREE(_pmem);
     H_FREE(_vmrs);
@@ -120,13 +121,16 @@ MMU::add(Code *c) {                         ///< create word (deep copy)
 }
 
 __HOST__ void
-MMU::status() {
-    INFO("\\ MMU.stat dict[%d/%d], pmem[%d]=%0.1f%%, tfree[%d/%d]\n",
-        _didx, T4_DICT_SZ, _midx, 100.0*(_midx/T4_PMEM_SZ), _fidx, T4_TFREE_SZ);
+MMU::status(bool hdr) {
+    if (hdr) {
+        INFO("\\ MMU.stat dict[%d/%d], pmem[%d]=%0.1f%%, tfree[%d/%d]\n",
+             _didx, T4_DICT_SZ, _midx, 100.0*(_midx/T4_PMEM_SZ), _fidx, T4_TFREE_SZ);
+    }
     ///
     /// display object store statistics
     ///
-#if T4_DO_OBJ    
+#if T4_DO_OBJ
+    _mpool.status();
     _ostore.status();
 #endif // T4_DO_OBJ
 }
@@ -196,9 +200,9 @@ MMU::talloc(U64 sz) {
     MM_DB("mmu#talloc(0x%lx) {\n", sz);
     Tensor *t = (Tensor*)_mpool.malloc();   /// * was = *(Tensor*)_ostore.malloc(sizeof(Tensor));
     void   *d = _ostore.malloc(sz * sizeof(DU));
-    MM_DB("} mmu#talloc => T:%x+%x\n", OBJ2X(t), (U32)((U8*)d - _obj));
-    _ostore.status();
+    MM_DB("} mmu#talloc => T:%x+%x\n", OBJ2X(t), (U32)((U8*)d - _data));
     t->reset(d, sz);
+    status();
     return *t;
 }
 __HOST__ Tensor&                    ///< create a one-dimensional tensor
@@ -235,7 +239,7 @@ MMU::resize(Tensor &t, U64 sz) {
     t.H() = t.numel = sz;        /// * adjust tensor storage size
     
     _ostore.free(d0);            /// * release 
-    _ostore.status();
+    status();
 }
 __HOST__ void                    ///< release tensor memory blocks
 MMU::free(Tensor &t) {
@@ -254,7 +258,7 @@ MMU::free(Tensor &t) {
         MM_DB("\t} ");
     }
     _mpool.free(&t);              /// * free tensor object itself
-    _ostore.status();
+    status();
     MM_DB("} mmu#free(T%d)\n", n);
 }
 ///
