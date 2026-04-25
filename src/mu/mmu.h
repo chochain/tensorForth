@@ -4,14 +4,15 @@
  *
  * <pre>Copyright (C) 2022- GreenII, this file is distributed under BSD 3-Clause License.</pre>
  */
-#ifndef __MMU_MMU_H
-#define __MMU_MMU_H
+#ifndef __MU_MMU_H
+#define __MU_MMU_H
 #pragma once
-
+#include <mutex>
 #include "vector.h"
 #include "tensor.h"
 #include "dataset.h"
 #include "code.h"
+#include "mpool.h"
 #include "tlsf.h"
 
 namespace t4     { class Debug; }   ///< forward declare
@@ -22,7 +23,6 @@ namespace t4::mu {
 /// TODO: compare TLSF to RMM (Rapids Memory Manager)
 ///
 class MMU : public OnHost {
-    IU             _mutex = 0;      ///< lock (first so address aligned)
     IU             _didx  = 0;      ///< dictionary index
     IU             _midx  = 0;      ///< parameter memory index
     IU             _fidx  = 0;      ///< index to freed tensor list
@@ -33,8 +33,11 @@ class MMU : public OnHost {
     DU             *_mark = 0;      ///< list for tensors that are marked free
     U8             *_obj  = 0;      ///< object storage block
 #if T4_DO_OBJ    
-    TLSF           _ostore;         ///< object storage manager
-#endif // T4_DO_OBJ    
+    Mpool          &_mpool;         ///< host memory pool
+    TLSF           &_ostore;        ///< object storage manager
+#endif // T4_DO_OBJ
+    
+    mutable std::mutex _mutex;      ///< lock (first so address aligned)
 
     __HOST__ MMU();
     __HOST__ ~MMU();
@@ -58,11 +61,6 @@ public:
     __HOST__ __INLINE__ U8   *pmem(IU i)  { return &_pmem[i]; }          ///< base of parameter memory
     __HOST__ __INLINE__ Code *last()      { return &_dict[_didx - 1]; }  ///< last dictionary word
     ///
-    /// memory lock for multi-processing
-    ///
-//    __HOST__  __INLINE__ void lock()       { MUTEX_LOCK(_mutex); }
-//    __HOST__  __INLINE__ void unlock()     { MUTEX_FREE(_mutex); }  ///< TODO: dead lock now
-    ///
     /// dictionary management ops
     ///
     __HOST__  void dict_validate();                                 ///< dictionary validation
@@ -85,7 +83,7 @@ public:
         _midx = _dict[i].pfa - STRLENB(_dict[i].name);
         _didx = i; 
     }
-    __HOST__  __INLINE__ void add(Code *c) { _dict[_didx++] = *c; } ///< dictionary word assignment (deep copy)
+    __HOST__  __INLINE__ void add(Code *c);                         ///< create word (deep copy)
     __HOST__  __INLINE__ void add(U8* v, int sz, bool adv=true) {   ///< copy data to heap, TODO: dynamic parallel
         MEMCPY(&_pmem[_midx], v, sz); if (adv) _midx += sz;        /// * advance HERE
     }
@@ -122,7 +120,8 @@ public:
     ///
     /// short hands for eforth tensor ucodes (for DU <-> Tensor conversion)
     ///
-    __HOST__ U32    OBJ2X(T4Base &t) { return (U8*)&t - _obj; }  ///< object offset in _ospace
+//    __HOST__ U32    OBJ2X(T4Base &t) { return (U8*)&t - _obj; }         ///< object offset in _ospace
+    __HOST__ U32    OBJ2X(T4Base &t) { return _mpool.offset((void*)&t); } ///< object offset in _ospace
     __HOST__ T4Base &du2obj(DU d) {                          ///< DU to Obj convertion
         U32    off = DU2X(d) & ~T4_TYPE_MSK;                 ///< clear object bit
         T4Base *t  = (T4Base*)(_obj + off);                  ///< convert to object pointer
@@ -132,14 +131,6 @@ public:
         U32 o = OBJ2X(t) | T4_TT_OBJ;                        ///< mark object bit
         return *(DU*)&o;                                     ///< convert to DU value
     }
-#if T4_DO_NN
-    ///
-    /// neaural network objects
-    ///
-    __HOST__  Dataset&dataset(U32 batch_sz);                     ///< create a NN dataset
-    __HOST__  nn::Model  &model(int &trace, U32 sz=T4_NET_SZ);   ///< create a NN model
-    __HOST__  void   free(nn::Model &m);
-#endif // T4_DO_NN
     ///
     /// tensor object life-cycle methods
     ///
@@ -155,6 +146,14 @@ public:
     __HOST__  Tensor &copy(Tensor &t0);                      ///< hard copy a tensor
     __HOST__  Tensor &dim(Tensor &t0);                       ///< dimensions
     __HOST__  Tensor &slice(Tensor &t0, IU x0, IU x1, IU y0, IU y1);     ///< a slice of a tensor
+#if T4_DO_NN
+    ///
+    /// neaural network objects
+    ///
+    __HOST__  Dataset    &dataset(U32 batch_sz);                 ///< create a NN dataset
+    __HOST__  nn::Model  &model(int &trace, U32 sz=T4_NET_SZ);   ///< create a NN model
+    __HOST__  void       free(nn::Model &m);
+#endif // T4_DO_NN
 #else  // !T4_DO_OBJ ==========================================================
     __HOST__  void   sweep()    {}                           ///< holder for no object
     
@@ -162,5 +161,5 @@ public:
 };
 
 } // namespace t4::mu
-#endif // __MMU_MMU_H
+#endif // __MU_MMU_H
 
