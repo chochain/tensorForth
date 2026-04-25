@@ -10,25 +10,39 @@
 #include <stdexcept>
 #include <new>             // std::bad_alloc
 #include <string>
+#include "ten4_types.h"
 #include "mpool.h"
 
+#if T4_DO_OBJ              /// * only when object system is activated
+
 namespace t4::mu {
+///
+/// multi-threading lock
+///
+#define LOCK()   std::unique_lock<std::mutex> lock(_mutex)
+#define UNLOCK() lock.unlock()
+
+Mpool &Mpool::get_instance() {
+    static Mpool pool0;                   ///< constructed once, destroyed at program exit
+    return pool0;
+}
 
 // ============================================================================
 // private Constructor / Destructor
 // ============================================================================
-Mpool::Mpool()
-    : _storage(nullptr), _free_head(nullptr), _alloc_cnt(0)
-{
-    _storage = static_cast<char*>(malloc(BLK_SZ * BLK_CNT));
+void Mpool::init(int bsz, int nblock) {
+    LOCK();
+    _bsz       = bsz;
+    _nblock    = nblock;
+    _storage   = static_cast<char*>(std::malloc(bsz * nblock));
     if (!_storage) throw std::bad_alloc{};
 
-    for (int i = 0; i < BLK_CNT - 1; ++i) { /// setup free list, each point to next
+    for (int i = 0; i < nblock - 1; ++i) { /// setup free list, each point to next
         void* here = _block(i);
         void* next = _block(i + 1);
         *reinterpret_cast<void**>(here) = next;
     }
-    *reinterpret_cast<void**>(_block(BLK_CNT - 1)) = nullptr;  ///< end of list
+    *reinterpret_cast<void**>(_block(nblock - 1)) = nullptr;  ///< end of list
     
     _free_head = _block(0);
 }
@@ -36,8 +50,8 @@ Mpool::Mpool()
 // ============================================================================
 // Core API
 // ============================================================================
-void* Mpool::alloc() {
-    std::unique_lock<std::mutex> lock(_mutex);
+void *Mpool::malloc() {
+    LOCK();
 
     if (!_free_head) throw std::bad_alloc{};
 
@@ -47,23 +61,24 @@ void* Mpool::alloc() {
     return blk;
 }
 
-void Mpool::free(void* ptr) {
+void Mpool::free(void *ptr) {
     if (!ptr) return;
 
-    assert(is_own(ptr) && "Mpool::free: pointer does not belong to this pool");
+    assert(is_own(ptr) && "Mpool::dealloc: pointer does not belong to this pool");
 
-    std::unique_lock<std::mutex> lock(_mutex);
+    LOCK();
 
     *reinterpret_cast<void**>(ptr) = _free_head;
     _free_head = ptr;
     _alloc_cnt--;
 }
 
-std::string Mpool::status() const {
-    std::unique_lock<std::mutex> lock(_mutex);
-    return std::string("Mpool(160B x 1024)  allocated=")
-         + std::to_string(_alloc_cnt)
-         + "  free=" + std::to_string(BLK_CNT - _alloc_cnt);
+void Mpool::status() {
+    LOCK();
+    INFO(" MPOOL: %d x %d allocated=%d, free=%d\n",
+         _bsz, _nblock, _alloc_cnt, (_nblock - _alloc_cnt));
 }
 
 } // namespace t4::mu
+
+#endif  // T4_DO_OBJ
