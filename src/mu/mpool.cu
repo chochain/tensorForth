@@ -30,7 +30,7 @@ Mpool &Mpool::get_instance() {
 // ============================================================================
 // private Constructor / Destructor
 // ============================================================================
-void Mpool::init(int bsz, int nblock) {
+void *Mpool::init(int bsz, int nblock) {
     LOCK();
     _bsz       = bsz;
     _nblock    = nblock;
@@ -45,6 +45,8 @@ void Mpool::init(int bsz, int nblock) {
     *reinterpret_cast<void**>(_block(nblock - 1)) = nullptr;  ///< end of list
     
     _free_head = _block(0);
+
+    return (void*)_storage;
 }
 
 // ============================================================================
@@ -75,8 +77,8 @@ void Mpool::free(void *ptr) {
 
 void Mpool::status() {
     LOCK();
-    INFO(" MPOOL: %d x %d allocated=%d, free=%d\n",
-         _bsz, _nblock, _alloc_cnt, (_nblock - _alloc_cnt));
+    INFO("\\ OBJ : used[%d] (fixed %dB), free[%d/%d]\n",
+         _alloc_cnt, _bsz, (_nblock - _alloc_cnt), _nblock);
 }
 
 } // namespace t4::mu

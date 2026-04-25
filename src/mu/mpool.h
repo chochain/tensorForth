@@ -52,7 +52,7 @@ public:
     /// ------------------------------------------------------------------
     /// Core API
     /// ------------------------------------------------------------------
-    void  init(int bsz, int nblock);          ///< construction only via get_instance()
+    void  *init(int bsz, int nblock);         ///< construction only via get_instance()
     void  *malloc();                          ///< Returns a block. Throws std::bad_alloc if exhausted.
     void  free(void *ptr);                    ///< Returns a block to the pool. No-op on nullptr.
     int   offset(void *ptr) const { return (char*)ptr - _storage; } ///< ptr offset to _storage
