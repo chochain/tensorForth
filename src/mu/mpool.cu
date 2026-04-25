@@ -62,7 +62,8 @@ void *Mpool::malloc() {
     _free_head  = *reinterpret_cast<void**>(_free_head);
     ++_alloc_cnt;
     
-    MM_DB("  } mpoolf#malloc => %x:%x\n", OFFSET(blk), _bsz);
+    MM_DB("    mpool#alloc_cnt = %d\n"
+          "  } mpoolf#malloc => %x:%x\n", _alloc_cnt, OFFSET(blk), _bsz);
     return blk;
 }
 
