@@ -393,6 +393,7 @@ TLSF::_merge_prev(free_block *b1) {
 //================================================================
 __HOST__ int
 TLSF::_mmu_ok()    {                         // mmu sanity check
+    LOCK();
     used_block *p0 = (used_block*)_heap;
     used_block *p1 = (used_block*)BLK_AFTER(p0);
     U32 tot = sizeof(used_block);
@@ -409,6 +410,7 @@ TLSF::_mmu_ok()    {                         // mmu sanity check
 __HOST__ void
 TLSF::_show_stat() {
 #if MM_DEBUG
+    LOCK();
     ///
     /// stat pre-adjusted for the stopper block
     ///
@@ -435,7 +437,7 @@ TLSF::_show_stat() {
     }
     float pct = 100.0*used/tot;
 
-    INFO("\\ OBJ: used[%d]=%d(0x%x) %.2f%% allocated", nused, used, used, pct);
+    INFO("\\ TLSF: used[%d]=%d(0x%x) %.2f%% allocated", nused, used, used, pct);
     INFO(" free[%d]=%d(0x%x), total=%d(0x%x)", nfree, free, free, tot, tot);
     INFO(" nblk=%d, nfrag=%d\n", nblk, nfrag);
 #endif // MM_DEBUG
@@ -443,6 +445,7 @@ TLSF::_show_stat() {
 
 __HOST__ void
 TLSF::_dump_freelist() {
+    LOCK();
     MM_DB("  tlsf#L1=%4x: ", _l1_map);
     for (int i=L1_BITS-1; i>=0; i--) {
         MM_DB("%02x%s", _l2_map[i], i%4==0 ? " " : "");
