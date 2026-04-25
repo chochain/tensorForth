@@ -19,8 +19,9 @@ namespace t4::mu {
 ///
 /// multi-threading lock
 ///
-#define LOCK()   std::unique_lock<std::mutex> lock(_mutex)
-#define UNLOCK() lock.unlock()
+#define LOCK()    std::unique_lock<std::mutex> lock(_mutex)
+#define UNLOCK()  lock.unlock()
+#define OFFSET(p) ((int)((char*)(p) - _storage))           /** storage offset */
 
 Mpool &Mpool::get_instance() {
     static Mpool pool0;                   ///< constructed once, destroyed at program exit
@@ -54,16 +55,19 @@ void *Mpool::init(int bsz, int nblock) {
 // ============================================================================
 void *Mpool::malloc() {
     LOCK();
-
+    MM_DB("  mpool#malloc() {\n");
     if (!_free_head) throw std::bad_alloc{};
 
     void* blk = _free_head;
     _free_head  = *reinterpret_cast<void**>(_free_head);
     ++_alloc_cnt;
+    
+    MM_DB("  } mpoolf#malloc => %x:%x\n", OFFSET(blk), _bsz);
     return blk;
 }
 
 void Mpool::free(void *ptr) {
+    MM_DB("  mpool#free(%x) %d(0x%x) {\n", OFFSET(ptr), _bsz, _bsz);
     if (!ptr) return;
 
     assert(is_own(ptr) && "Mpool::dealloc: pointer does not belong to this pool");
@@ -73,6 +77,8 @@ void Mpool::free(void *ptr) {
     *reinterpret_cast<void**>(ptr) = _free_head;
     _free_head = ptr;
     _alloc_cnt--;
+    MM_DB("    mpool#alloc_cnt = %d\n"
+          "  } mpool#free(%x)\n", _alloc_cnt, OFFSET(ptr));
 }
 
 void Mpool::status() {
