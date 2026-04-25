@@ -31,7 +31,8 @@ class MMU : public OnHost {
     DU             *_vmrs;          ///< VM return stacks
     U8             *_pmem;          ///< parameter memory block
     DU             *_mark = 0;      ///< list for tensors that are marked free
-    U8             *_obj  = 0;      ///< object storage block
+    U8             *_obj  = 0;      ///< object header blocks (host memory pool)
+    U8             *_data = 0;      ///< object data block (managed memory)
 #if T4_DO_OBJ    
     Mpool          &_mpool;         ///< host memory pool
     TLSF           &_ostore;        ///< object storage manager
@@ -64,7 +65,7 @@ public:
     /// dictionary management ops
     ///
     __HOST__  void dict_validate();                                 ///< dictionary validation
-    __HOST__  void status();                                        ///< display current MMU status
+    __HOST__  void status(bool hdr=false);                          ///< display current MMU status
     __HOST__  void dict_dump();
     __HOST__  IU   find(const char *s);                             ///< dictionary search
     ///
