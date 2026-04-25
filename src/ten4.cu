@@ -33,7 +33,7 @@ _vm_init(System *sys, VM_Handle *pool) {
         vm->init();                            /// * initialize dictionary (only by thread 0)
     }        
     sys->mu->dict_validate();
-    sys->mu->status();
+    sys->mu->status(true);
     pool[0].vm->state = vm::QUERY;
 }
 
@@ -237,6 +237,8 @@ TensorForth::teardown(int sig) {
 ///
 void sigsegv_handler(int sig, siginfo_t *si, void *arg) {
     std::cout << "Exception caught at: " << si->si_addr << std::endl;
+    fflush(stdout);
+    cudaDeviceReset();
     exit(1);
 }
 
