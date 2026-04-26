@@ -135,7 +135,9 @@ __KERN__ void k_activate(
     t4_layer op, DU *I, DU *F, DU *O,      ///< func, input, filter, output tensors
     DU alpha, U64 numel                    ///< number of tensor elements
     ) {
-    for (U64 j = threadIdx.x; j < numel; j += blockDim.x) {
+    const U64 tx   = blockIdx.x * blockDim.x + threadIdx.x;
+    const U64 step = gridDim.x * blockDim.x;
+    for (U64 j = tx; j < numel; j += step) {
         DU k = I[j];                                       ///< use register
         switch (op) {
         case L_RELU:
@@ -348,8 +350,8 @@ Model::_flinear(Tensor &in, Tensor &out) {
 __HOST__ int
 Model::_factivate(Tensor &in, Tensor &out, t4_layer fn) {
     DU alpha = in.xparm;
-    FORK1(k_activate, in.numel, 
-          fn, in.data, in.grad[4]->data, out.data, alpha);
+    FORK(k_activate, in.numel, 
+         fn, in.data, in.grad[4]->data, out.data, alpha);
     return 0;
 }
 
