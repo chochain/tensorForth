@@ -84,7 +84,7 @@ void Mpool::free(void *ptr) {
 
 void Mpool::status() {
     LOCK();
-    INFO("\\ OBJ : used[%d] (fixed %dB), free[%d/%d]\n",
+    MM_DB("\\ OBJ : used[%d] (fixed 0x%xB), free[%d/%d]\n",
          _alloc_cnt, _bsz, (_nblock - _alloc_cnt), _nblock);
 }
 
