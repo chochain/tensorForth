@@ -135,8 +135,8 @@ __KERN__ void
 k_batchsum(float *src, float *sum, long HW) {
     const long j  = (long)blockIdx.x*blockDim.x + threadIdx.x; ///< element index
     const int  c  = blockIdx.y, C = gridDim.y;                 ///< channel
-    const int  n  = blockIdx.z, N = gridDim.z;                 ///< batch
-    const long ns = HW * C * n;                                ///< batch slice index
+    const int  n  = blockIdx.z;                                ///< batch slice index
+    const long ns = HW * C * n;                                
     
     float v = (c < C && j < HW) ? src[ns + j * C + c] : 0.0f;
     v = d__warp_sum(v);                                        ///< collect sum per warp
@@ -154,8 +154,8 @@ __KERN__ void
 k_batchnvar(float *src, float*avg, float *var, long HW) {
     const long j  = (long)blockIdx.x * blockDim.x + threadIdx.x;  ///< element index
     const int  c  = blockIdx.y, C = gridDim.y;                    ///< channel
-    const int  n  = blockIdx.z, N = gridDim.z;                    ///< batch
-    const long ns = HW * C * n;                                   ///< batch slice index
+    const int  n  = blockIdx.z;                                   ///< batch slice index
+    const long ns = HW * C * n;
     float v0 = (c < C && j < HW) ? src[(long)C * j + ns + c] - avg[c] : 0.0f;
     float v  = d__warp_sum(v0*v0);                                ///< collect sum per warp
     ///
@@ -207,7 +207,9 @@ k_identity(float *t, int H, int W) {                          ///< identity matr
 #define DU_LNX   1.0e-12                                      /** log clamp */
 __KERN__ void
 k_math(math_op op, float *A, float v, long n) {               ///< self modifying ops
-    for (long j = threadIdx.x; j < n; j += blockDim.x) {
+    const long tx   = blockIdx.x * blockDim.x + threadIdx.x;
+    const long step = gridDim.x * blockDim.x;
+    for (long j = tx; j < n; j += step) {
         float ak = A[j];                                      ///< cache value
         switch(op) {
         case ABS:   A[j] = ABS(ak);                   break;
@@ -238,7 +240,9 @@ k_math(math_op op, float *A, float v, long n) {               ///< self modifyin
 ///
 __KERN__ void
 k_tt_op(math_op op, float *A, float *B, float *O, long n) {
-    for (long j = threadIdx.x; j < n; j += blockDim.x) {
+    const long tx   = blockIdx.x * blockDim.x + threadIdx.x;
+    const long step = gridDim.x * blockDim.x;
+    for (long j = tx; j < n; j += step) {
         switch (op) {                                         /// no divergence
         case ADD: O[j] = A[j] + B[j]; break;
         case SUB: O[j] = A[j] - B[j]; break;
@@ -252,7 +256,9 @@ k_tt_op(math_op op, float *A, float *B, float *O, long n) {
 ///
 __KERN__ void
 k_ts_op(math_op op, float *A, float v, float *O, long n) {
-    for (long j = threadIdx.x; j < n; j += blockDim.x) {
+    const long tx   = blockIdx.x * blockDim.x + threadIdx.x;
+    const long step = gridDim.x * blockDim.x;
+    for (long j = tx; j < n; j += step) {
         switch (op) {                                         /// no divergence
         case ADD: O[j] = A[j] + v; break;
         case SUB: O[j] = A[j] - v; break;
@@ -267,7 +273,9 @@ k_ts_op(math_op op, float *A, float v, float *O, long n) {
 #define DU_EPS   1.0e-6                                       /* epsilon */
 __KERN__ void
 k_bce(float *O, float *T, long n) {
-    for (long j = threadIdx.x; j < n; j+= blockDim.x) {
+    const long tx   = blockIdx.x * blockDim.x + threadIdx.x;
+    const long step = gridDim.x * blockDim.x;
+    for (long j = tx; j < n; j += step) {
 //        O[i] = ABS(T[i]) < DU_EPS ? LN(DU1 - O[i] + DU_EPS) : LN(O[i] + DU_EPS);
         O[j] = T[j] * LN(O[j] + DU_EPS) + (1.0f - T[j]) * LN(1.0f - O[j] + DU_EPS);
     }
