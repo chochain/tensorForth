@@ -17,7 +17,7 @@ Tensor::ten_op(math_op op, Tensor &A, DU v, Tensor &O) {
     U32 N = A.N(), H = A.H(), W = A.W(), C = A.C();
     _OP(MATH_OP);
     MM_DB("  tensor#ten_op O[%d,%d,%d,%d] = A %s %6.2f\n", N, H, W, C, _op[op], v);
-    FORK1(k_ts_op, A.numel, op, A.data, v, O.data);
+    FORK(k_ts_op, A.numel, op, A.data, v, O.data);
     return O;
 }
 ///
@@ -28,7 +28,7 @@ Tensor::ten_op(math_op op, Tensor &A, Tensor &B, Tensor &O) {
     U32 N = A.N(), H = A.H(), W = A.W(), C = A.C();
     _OP(MATH_OP);
     MM_DB("  tensor#ten_op O[%d,%d,%d,%d] = A %s B\n", N, H, W, C, _op[op]);
-    FORK1(k_tt_op, A.numel, op, A.data, B.data, O.data);
+    FORK(k_tt_op, A.numel, op, A.data, B.data, O.data);
     return O;
 }
 __HOST__ Tensor&
@@ -183,7 +183,7 @@ Tensor::gemm4(Tensor &A, Tensor &B, Tensor &O, DU alpha, DU beta, bool tA, bool 
 __HOST__ Tensor&
 Tensor::copy(Tensor &A, Tensor &O) {
     MM_DB("  tensor#copy %p to %p numel=%ld\n", A.data, O.data, A.numel);
-    FORK1(k_copy, A.numel, A.data, O.data);
+    FORK(k_copy, A.numel, A.data, O.data);
     return O;
 }
 __HOST__ Tensor&
@@ -456,7 +456,7 @@ Tensor::loss(t4_loss op, Tensor &tgt) {
         z = sum();
         break;
     case LOSS_BCE: {                 /// * binary cross_entropy, input from sigmoid
-        FORK1(k_bce, numel, data, tgt.data);
+        FORK(k_bce, numel, data, tgt.data);
         z = -sum();                  /// * -(y * ln(out_i) + (1-y) * ln(1-out_i))
     } break;
     case LOSS_CE:                    /// * cross_entropy, input from softmax
@@ -634,14 +634,14 @@ __HOST__ Tensor&
 Tensor::map(math_op op, DU v) {
     _OP(MATH_OP);
     MM_DB("  tensor#%s v=%g\n", _op[op], v);
-    FORK1(k_math, numel, op, data, v);
+    FORK(k_math, numel, op, data, v);
     return *this;
 }
 
 __HOST__ Tensor&
 Tensor::normalize(DU avg, DU std) {
-    FORK1(k_ts_op, numel, SUB, data, avg, data);
-    FORK1(k_ts_op, numel, DIV, data, std, data);
+    FORK(k_ts_op, numel, SUB, data, avg, data);
+    FORK(k_ts_op, numel, DIV, data, std, data);
     return *this;
 }
 ///=======================================================================
