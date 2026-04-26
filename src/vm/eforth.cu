@@ -406,7 +406,7 @@ ForthVM::init() {
     /// @}
     /// @defgroup OS ops
     /// @{
-    CODE("mstat", mmu.status());
+    CODE("mstat", mmu.status(true));
 //    CODE("rnd",   PUSH(sys.rand(DU1, NORMAL)));             /// generate random number
     CODE("ms",    System::delay(POPi));
     CODE("flush", syscall(OP_FLUSH));                       /// flush output stream
