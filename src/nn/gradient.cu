@@ -16,7 +16,9 @@ __KERN__ void k_sgd(
     U32 N, DU lr, DU b,                     ///< batch size, learn rate, beta(momemtum)
     U64 numel                               ///< HWC
     ) {
-    for (U64 j = threadIdx.x; j < numel; j += blockDim.x) {
+    const U64 tx   = blockIdx.x * blockDim.x + threadIdx.x;
+    const U64 step = gridDim.x * blockDim.x;
+    for (U64 j = tx; j < numel; j += step) {
         DU dg = DG[j] / N;                             ///< dG batch avg
         if (ZEQ(b)) G[j] -= lr * dg;
         else {
@@ -32,7 +34,9 @@ __KERN__ void k_adam(
     U32 N, DU lrc, DU b1, DU b2,            ///< batch size,corrected learn rate, beta(momemtum)
     U64 numel                               ///< HWC
     ) {
-    for (U64 j = threadIdx.x; j < numel; j += blockDim.x) {
+    const U64 tx   = blockIdx.x * blockDim.x + threadIdx.x;
+    const U64 step = gridDim.x * blockDim.x;
+    for (U64 j = tx; j < numel; j += step) {
         const DU dg = DG[j];                                     ///< dG (no batch avg)
         const DU mi = M[j] = b1 * M[j] + (DU1 - b1) * dg;        ///< momentum
         const DU vi = V[j] = b2 * V[j] + (DU1 - b2) * dg * dg;   ///< velocity
@@ -160,9 +164,9 @@ Model::gradient(const char *nm, t4_optimizer op, GdFunc fn, DU *parm) {
 __HOST__ Model&
 Model::sgd(DU lr, DU b) {                          /// b=beta (momentum)
     auto update = [](DU *parm, Tensor &g, Tensor &dg, Tensor &m, Tensor &v) {
-        FORK1(k_sgd, g.numel, 
-              g.data, dg.data, m.data,             /// * v not used
-              g.N(), parm[0], parm[1]);
+        FORK(k_sgd, g.numel, 
+             g.data, dg.data, m.data,              /// * v not used
+             g.N(), parm[0], parm[1]);
     };
     DU parm[3] = { lr, _iter ? b : DU0, DU0 };
 
@@ -172,9 +176,9 @@ Model::sgd(DU lr, DU b) {                          /// b=beta (momentum)
 __HOST__ Model&
 Model::adam(DU lr, DU b1, DU b2) {
     auto update = [](DU *parm, Tensor &g, Tensor &dg, Tensor &m, Tensor &v) {
-        FORK1(k_adam, g.numel,
-              g.data, dg.data, m.data, v.data,
-              g.N(), parm[0], parm[1], parm[2]);
+        FORK(k_adam, g.numel,
+             g.data, dg.data, m.data, v.data,
+             g.N(), parm[0], parm[1], parm[2]);
     };
     DU decay = epoch                       ///< exponential decay, TODO: AdamW
         ? SQRT(DU1 - POW(b2, epoch)) / (DU1 - POW(b1, epoch))
