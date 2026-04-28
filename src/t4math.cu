@@ -26,9 +26,6 @@ k_sum(F32_RP src, F32_WP sum, long numel) {
     int t0 = threadIdx.x,      tx = blockIdx.x * blockDim.x + t0;
     int tj = threadIdx.x % 32, ti = threadIdx.x / 32;
 
-    if (tx == 0) *sum = 0.0f;                                  /// * pre-zero
-    __syncthreads();
-                     
     float v =  { 0.0f };                                       /// grid-stride loop (handles any N)
     for (int i = tx; i < numel; i += blockDim.x * gridDim.x) {
         v += src[i];
@@ -51,9 +48,6 @@ k_nvar(F32_RP src, float avg, F32_WP var, long numel) {        ///< sum of T4_DI
     __shared__ float _sum[32];
     int t0 = threadIdx.x,      tx = blockIdx.x * blockDim.x + t0;
     int tj = threadIdx.x % 32, ti = threadIdx.x / 32;
-
-    if (tx == 0) *var = 0.0f;
-    __syncthreads();
 
     float v =  { 0.0f };                                       ///< grid-stride loop (handles any N)
     for (int i = tx; i < numel; i += blockDim.x * gridDim.x) {
