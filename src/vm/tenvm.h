@@ -74,7 +74,7 @@ private:
     ///
     /// tensor-tensor ops
     ///
-    __HOST__ Tensor &_tinv(Tensor &A);                       ///< matrix inversion
+    __HOST__ Tensor &_tinv(Tensor &A, bool use_lu);          ///< matrix inversion
     __HOST__ Tensor &_tdot(Tensor &A, Tensor &B);            ///< matrix-matrix multiplication @
     __HOST__ Tensor &_tdiv(Tensor &A, Tensor &B);            ///< matrix-matrix division (no broadcast)
     __HOST__ Tensor &_solv(Tensor &A, Tensor &B);            ///< solve linear equation Ax = b
