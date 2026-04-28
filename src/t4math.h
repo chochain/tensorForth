@@ -110,8 +110,8 @@ typedef enum {
 ///@}
 ///@name GEMM Tiling parameters
 ///@{
-#define TM       4                    /** register tile W dim */
-#define TN       4                    /** register tile H dim */
+#define TM      4                     /** register tile W dim */
+#define TN      4                     /** register tile H dim */
 #define BM      (T4_DIM_SZ * TN)      /** threads, tiled W dimension */
 #define BN      (T4_DIM_SZ * TM)      /** threads, tiled H dimension */
 #define BK      T4_DIM_SZ             /** [64,16] x [16,64] */
@@ -126,27 +126,24 @@ typedef enum {
     fn<<<_g,_b>>>(__VA_ARGS__,h,w);          \
     GPU_CHK();                               \
 }
-///@}
-///@name Numeric conversion
-///@{
-__GPU__ inline float d__stride_sum(float *src, long numel, long tid);      /// stride sum per thread
-__GPU__ inline float d__stride_var(float *src, float avg, long numel, long tid);
-__GPU__ inline float d__warp_sum(float v);                                 /// reduce sum up a warp
-__GPU__ inline float d__rollup_sum(float *smem);
+#define F32_RP   const float * __restrict__
+#define F32_WP         float * __restrict__
+#define F32_XP         float *
 ///@}
 ///@name Tensor ops (kernel mode)
 ///@{
-__KERN__ void k_sum(float* __restrict__ src, float* __restrict__ sum, long numel);
-__KERN__ void k_nvar(float *src, float *avg, float var, long numel);       /// n * variance
-__KERN__ void k_batchsum(float *src, float *sum, long numel);
-__KERN__ void k_batchnvar(float *src, float *avg, float *var, long numel);
-__KERN__ void k_copy(float *src, float *dst, long n);                      ///< Note: (src, dst)
-__KERN__ void k_transpose(float *src, float *dst, int h, int w);           ///< Note: (src, dst), TODO: CDP
-__KERN__ void k_identity(float *t, int h, int w);
-__KERN__ void k_math(math_op op, float *dst, float v, long n);             ///< tensor math ops
-__KERN__ void k_ts_op(math_op op, float *A, float v, float *O, long n);    ///< tensor-scalar ops
-__KERN__ void k_tt_op(math_op op, float *A, float *B, float *O, long n);   ///< tensor-tensor ops
-__KERN__ void k_bce(float *O, float *T, long n);
+__KERN__ void k_sum(F32_RP src, F32_WP sum, long numel);
+__KERN__ void k_nvar(F32_RP src, float avg, F32_WP var, long numel);       ///< n * variance
+__KERN__ void k_max(F32_RP src, F32_WP rst, bool find_max, long numel);    ///< find_max=true max or false=min
+__KERN__ void k_batchsum(F32_RP src, F32_WP sum, long numel);
+__KERN__ void k_batchnvar(F32_RP src, F32_RP avg, F32_WP var, long numel);
+__KERN__ void k_copy(F32_RP src, F32_WP dst, long n);                      ///< Note: (src, dst)
+__KERN__ void k_transpose(F32_RP src, F32_WP dst, int h, int w);           ///< Note: (src, dst), TODO: CDP
+__KERN__ void k_identity(F32_WP T, int h, int w);
+__KERN__ void k_math(math_op op, F32_XP dst, float v, long n);             ///< tensor math ops
+__KERN__ void k_ts_op(math_op op, F32_XP A, float v, F32_XP O, long n);    ///< tensor-scalar ops
+__KERN__ void k_tt_op(math_op op, F32_RP A, F32_RP B, F32_WP O, long n);   ///< tensor-tensor ops
+__KERN__ void k_bce(F32_RP T, F32_XP O, long n);
 ///@}    
 ///@name Tensor debug ops (kernel mode)
 ///@{
@@ -156,10 +153,10 @@ __KERN__ void k_dummy();
 ///@}
 ///@name BLAS ops
 ///@{
-#define F32_RP   const float * __restrict__
-#define F32_WP         float * __restrict__
-#define F32_XP         float *
-__KERN__ void k_gemm(                              ///< O[M*N*C] = a * A[M*K*C] @ B[K*N*C] + b * O[M*N*C]
+__KERN__ void k_dot(
+    F32_RP A,  F32_RP B, F32_XP O,          ///< O[N,C] = a * A[N,1,K,C] * B[N,1,K,C]
+    float alpha, float beta, int K, int C);
+__KERN__ void k_gemm(                       ///< O[N,H,W,C] = a * A[N,H,K,C] @ B[N,K,W,C] + b * O[N,H,W,C]
     F32_XP A, F32_XP B, F32_XP O,
     float alpha, float beta, bool tA, bool tB, int K, int M, int N);  
 __KERN__ void k_gemm_claude(
