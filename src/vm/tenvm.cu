@@ -135,28 +135,31 @@ TensorVM::blas1(t4_ten_op op) {
     ///
     /// single tensor handler
     ///
-    Tensor &T = (op == T_INV) ? A : COPY(A);  /// * _tinv does a COPY inside
+    Tensor &T = COPY(A);                      /// * make a hardcopy (non-destructive)
     bool   tx = true;                         /// * T tensor updated
     switch (op) {
     case T_INV: {
-        Tensor &I = _tinv(A);                 /// * inverse A matrix
+        Tensor &I = _tinv(T, false);          /// * inverse A matrix
         PUSH(I);                              /// * put on TOS
+        FREE(T);
         tx = false;                           /// * _tinv create its own temp
     } break;
-    case T_DET: {                             /// * TODO: use PLU
-        int    ns;                            ///> number of row flipping
+    case T_LUINV: {
+        Tensor &I = _tinv(T, true);
+        PUSH(I);
+        FREE(T);
+        tx = false;
+    }
+    case T_DET: {
         Tensor &P = mmu.tensor(A.H());        /// * dummy vector
-        Tensor::plu(T, P, &ns);               /// * decompose A to PLU
-        DU     v  = T.det();                  /// * multiply diagnal
-        PUSH(ns&1 ? -v : v);                  /// * return determinant on TOS
+        Tensor::plu(T, (int*)P.data);         /// * decompose T to PLU
+        DU v  = T.det();                      /// * multiply diagnal
+        PUSH(*(int*)P.data ? -v : v);         /// * return determinant on TOS
         FREE(P);                              /// * free unused tensors
         FREE(T);
         tx = false;
     } break;
-    case T_LU:  Tensor::lu(T);    break;      /// * decompose A to LU
-    case T_LUINV:
-        Tensor::lu(T);                        /// * create the LU matrix
-        Tensor::lu_inverse(T);    break;      /// * inverse it 
+    case T_LU:  Tensor::lu(T, A); break;      /// * decompose A to LU
     case T_TRIU: T.triu();        break;
     case T_TRIL: T.tril();        break;
     case T_XPOS:
@@ -290,11 +293,15 @@ TensorVM::_tt_op(math_op op) {                ///< tensor-tensor ops
 }
 
 __HOST__ Tensor&
-TensorVM::_tinv(Tensor &A) {                 ///< matrix inverse
-    Tensor &I = mmu.tensor(A.H(), A.W()).identity();
-    Tensor &X = COPY(A);                     ///< hardcopy temp, keep A untouched
-    Tensor::inverse(X, I);
-    FREE(X);                                 /// * release temp 
+TensorVM::_tinv(Tensor &A, bool use_lu) {    ///< matrix inverse
+    const int K = A.H();
+    Tensor &I = mmu.tensor(K, K).identity();
+    if (use_lu) {
+        Tensor &P = mmu.tensor(K);
+        Tensor::lu_inverse(A, I, (int*)P.data);
+        mmu.free(P);
+    }
+    else Tensor::inverse(A, I);
     return I;
 }
 
@@ -303,7 +310,7 @@ TensorVM::_tdiv(Tensor &A, Tensor &B) {      ///< tensor division
     U16 m = A.H(), ka = A.W(), kb = B.H(), n = B.W();
     if (kb != n || ka != kb) return B;       /// * B square?
 
-    Tensor &I = _tinv(B);
+    Tensor &I = _tinv(B, true);
     Tensor &O = mmu.tensor(m, n);
     Tensor::mm(A, I, O);                     /// A * B^-1
     FREE(I);
@@ -315,24 +322,25 @@ __HOST__ __INLINE__ Tensor&
 TensorVM::_tdot(Tensor &A, Tensor &B) {      ///< A x B tensor dot product
     if (A.rank==1 && B.rank==1 &&            ///> dot(vector, vector)
         A.numel==B.numel) {
+        VLOG("  tenvm#_tdot A[%ld] · B[%ld]", A.numel, B.numel);
         DU v = A.dot(B);
-        VLOG("  tenvm#_tdot A[%d] · B[%d] => %g\n", A.H(), B.H(), v);
+        VLOG(" => %g\n", v);
         PUSH(v);
         return B;                            /// * non-tensor
     }
     if (B.rank==1 && A.W()==B.numel) {       ///> inner(tensor, vector)
         Tensor &C = mmu.tensor(A.H());
-        Tensor::mm(A, B, C);
         VLOG("  tenvm#_tdot A[%d,%d] · B[%d] => C[%d]\n",
               A.H(), A.W(), B.H(), C.H());
+        Tensor::mm(A, B, C);
         return C;
     }
     if (A.rank==2 && B.rank==2 &&
         A.W()==B.H()) {                      /// * tensor @ tensor
         Tensor &C = mmu.tensor(A.H(), B.W());
-        Tensor::mm(A, B, C);
         VLOG("  tenvm#_tdot A[%d,%d] · B[%d,%d] => C[%d,%d]\n",
               A.H(), A.W(), B.H(), B.W(), C.H(), C.W());
+        Tensor::mm(A, B, C);
         return C;
     }
     ERROR("A.W!=B.H dim?");
@@ -347,7 +355,7 @@ TensorVM::_solv(Tensor &B, Tensor &A) {      /// Note: A, B flipped
     
     if (B.rank!=1 || m!=k || k!=n) return B;
 
-    Tensor &I = _tinv(A);
+    Tensor &I = _tinv(A, true);
     Tensor &O = mmu.tensor(k);               /// resultant vector
     Tensor::mm(I, B, O);                     /// O = A^-1 x B
     FREE(I);
@@ -493,7 +501,7 @@ TensorVM::init() {
     ///@{
     CODE("inverse",   blas1(T_INV));          ///< (A -- A Ai')   matrix inversion (GaussJordan)
     CODE("det",       blas1(T_DET));          ///< (A -- A d)     matrix determinant
-    CODE("lu",        blas1(T_LU));           ///< (A -- A A')    LU decomposition
+    CODE("lu",        blas1(T_LU));           ///< (A -- A P')    LU decomposition
     CODE("luinv",     blas1(T_LUINV));        ///< (A -- A A')    inverse the LU matrix
     CODE("upper",     blas1(T_TRIU));         ///< (A -- A A')    upper triangle
     CODE("lower",     blas1(T_TRIL));         ///< (A -- A A')    lower triangle
