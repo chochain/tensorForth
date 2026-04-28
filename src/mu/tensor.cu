@@ -4,6 +4,7 @@
  *
  * <pre>Copyright (C) 2022- GreenII, this file is distributed under BSD 3-Clause License.</pre>
  */
+#include <float.h>      // FLT_MAX
 #include "tensor.h"
 
 namespace t4::mu {
@@ -31,33 +32,27 @@ Tensor::ten_op(math_op op, Tensor &A, Tensor &B, Tensor &O) {
     FORK(k_tt_op, A.numel, op, A.data, B.data, O.data);
     return O;
 }
+// ---------------------------------------------------------------------------
+// dot — host wrapper, batched over N samples and C channels
+//
+//   A, B : rank-2 tensors  [H=1, W=K, C, N]
+//   O    : rank-1 tensor   [H=1, W=1, C, N]  (one scalar per channel per sample)
+// ---------------------------------------------------------------------------
 __HOST__ Tensor&
-Tensor::batchsum(Tensor &A, Tensor &O) {
-    U32 N = A.N(), H = A.H(), W = A.W(), C = A.C();
-    MM_DB("  tensor#batchsum A[%d,%d,%d,%d] => O[%d, %d]\n", N, H, W, C, N, C);
-    O.zeros();
-    FORK4(k_batchsum, A.data, O.data, (U64)H*W);
-    return O;
-}
-__HOST__ Tensor&
-Tensor::batchvar(Tensor &A, Tensor &G, Tensor &O) {
-    U32 N = A.N(), H = A.H(), W = A.W(), C = A.C();
-    U64 NHW = (U64)N*H*W;
-    MM_DB("  tensor#batchvar A[%d,%d,%d,%d] => O[%d,%d]\n", N, H, W, C, N, C);
-    batchsum(A, G);
-    G *= DU1 / NHW;
-    O.zeros();
-    FORK4(k_batchnvar, A.data, G.data, O.data, (U64)H*W);
+Tensor::dot(Tensor &A, Tensor &B, Tensor &O, DU alpha, DU beta) {
+    const U32 K = A.W(), C = A.C(), N = A.N();   ///< vector length, channels, batch_size
 
-    for (int i=0; i< O.numel; i++) {
-        O.data[i] = SQRT(O.data[i] / NHW);
+    MM_DB("  tensor#dot O[%d,%d,%d,%d] = %g A @ B + %g O\n", N, 1, K, C, alpha, beta);
+    for (U32 n = 0; n < N; n++) {
+        DU *da = A.slice(n), *db = B.slice(n), *dx = O.slice(n);
+        FORK1(k_dot, C, 1, da, db, dx, alpha, beta, K, C);
     }
     return O;
 }
 __HOST__ Tensor&
 Tensor::mm(
     Tensor &A, Tensor &B, Tensor &O, bool inc, bool tA, bool tB) {
-    return gemm(A, B, O, DU1, inc ? DU1 : DU0, tA, tB);
+    return gemm3(A, B, O, DU1, inc ? DU1 : DU0, tA, tB);
 }
 
 __HOST__ Tensor&
@@ -374,21 +369,44 @@ Tensor::plu(Tensor &A, Tensor &P, int *ns) {
     }
     return A;
 }
+__HOST__ Tensor&
+Tensor::batchsum(Tensor &A, Tensor &O) {
+    U32 N = A.N(), H = A.H(), W = A.W(), C = A.C();
+    MM_DB("  tensor#batchsum A[%d,%d,%d,%d] => O[%d, %d]\n", N, H, W, C, N, C);
+    O.zeros();
+    FORK4(k_batchsum, A.data, O.data, (U64)H*W);
+    return O;
+}
+__HOST__ Tensor&
+Tensor::batchvar(Tensor &A, Tensor &G, Tensor &O) {
+    U32 N = A.N(), H = A.H(), W = A.W(), C = A.C();
+    U64 NHW = (U64)N*H*W;
+    MM_DB("  tensor#batchvar A[%d,%d,%d,%d] => O[%d,%d]\n", N, H, W, C, N, C);
+    batchsum(A, G);
+    G *= DU1 / NHW;
+    O.zeros();
+    FORK4(k_batchnvar, A.data, G.data, O.data, (U64)H*W);
+
+    for (int i=0; i< O.numel; i++) {
+        O.data[i] = SQRT(O.data[i] / NHW);
+    }
+    return O;
+}
 
 ///=======================================================================
 /// tensor arithmetics
 ///
 __HOST__ DU
 Tensor::sum() {
-    DU z = DU0;
-    if (numel < T4_DIM_SZ) {                        /// * cheaper for small loop
-        for (int i = 0; i < numel; i++) z += data[i];
+    DU v = DU0;
+    if (numel < T4_DIM_SZ) {                           /// * cheaper for small loop
+        for (int i = 0; i < numel; i++) v += data[i];
     }
     else {
-        FORK1(k_sum, numel, data, &_tmp);
-        z = _tmp;
+        FORK2(k_sum, numel, data, _tmp);               /// * data[numel] for temp storage
+        v = *_tmp;                                     /// * copy to host (D2H, page fault)
     }
-    SCALAR(z); return z;
+    SCALAR(v); return v;
 }
 __HOST__ DU
 Tensor::avg() {
@@ -397,44 +415,40 @@ Tensor::avg() {
 }
 __HOST__ DU
 Tensor::std() {
-    FORK1(k_nvar, numel, data, &_tmp, avg());       /// * 8x straight loop
-
-    DU v = numel ? SQRT(_tmp) : DU0;
+    FORK2(k_nvar, numel, data, avg(), _tmp);           /// * 8x straight loop
+    DU v = numel ? SQRT(*_tmp) / numel : DU0;          ///< copy to host (D2H, page fault)
     SCALAR(v); return v;
 }
 __HOST__ DU
-Tensor::norm() {
-    FORK1(k_nvar, numel, data, &_tmp, DU0);
-
-    DU v = numel ? SQRT(_tmp) : DU0;
+Tensor::norm() {                                       ///< return Euclidean Norm
+    FORK2(k_nvar, numel, data, DU0, _tmp);             /// * 8x straight loop
+    DU v = SQRT(*_tmp);                                ///< copy to host (D2H, page fault)
     SCALAR(v); return v;
 }
 __HOST__ DU
 Tensor::max() {
-    DU v = data[0];
-    for (U64 i=1; i < numel; i++) {              ///> TODO: CDP prefix sum
-        v = MAX(data[i], v);
-    }
+    const DU x = -FLT_MAX;
+    cudaMemcpy(_tmp, &x, sizeof(DU), cudaMemcpyHostToDevice);
+    FORK(k_max, numel, data, _tmp, true);              ///< find max
+    DU v = *_tmp;
     SCALAR(v); return v;
 }
 __HOST__ DU
 Tensor::min() {
-    DU v = data[0];
-    for (U64 i=1; i < numel; i++) {              ///> TODO: CDP prefix sum
-        v = MIN(data[i], v);
-    }
+    const DU x = FLT_MAX;
+    cudaMemcpy(_tmp, &x, sizeof(DU), cudaMemcpyHostToDevice);
+    FORK(k_max, numel, data, _tmp, false);             ///< find min
+    DU v = *_tmp;
     SCALAR(v); return v;
 }
 __HOST__ DU
 Tensor::dot(Tensor &B) {
-    DU  acc = DU0;
     if (rank == 1 && B.rank == 1 && numel == B.numel) {
-        for (U64 k=0; k < numel; k++) {          ///> TODO: kernel
-            acc += data[k] * B.data[k];
-        }
+        FORK1(k_dot, 1, 1, data, B.data, _tmp, DU1, DU0, numel, 1);
     }
     else ERROR("A.dot(B) dim? %ld != %ld)\n", numel, B.numel);
-    SCALAR(acc); return acc;
+    DU v = *_tmp;                                     ///< copy D2H (page fault)
+    SCALAR(v); return v;
 }
 __HOST__ DU
 Tensor::loss(t4_loss op, Tensor &tgt) {
@@ -456,7 +470,7 @@ Tensor::loss(t4_loss op, Tensor &tgt) {
         z = sum();
         break;
     case LOSS_BCE: {                 /// * binary cross_entropy, input from sigmoid
-        FORK(k_bce, numel, data, tgt.data);
+        FORK(k_bce, numel, tgt.data, data);
         z = -sum();                  /// * -(y * ln(out_i) + (1-y) * ln(1-out_i))
     } break;
     case LOSS_CE:                    /// * cross_entropy, input from softmax
@@ -476,7 +490,7 @@ __HOST__ U32
 Tensor::has_nan() {
     static int cnt;
     cnt = 0;
-    FORK1(k_nan_inf, numel, data, &cnt);
+    FORK2(k_nan_inf, numel, data, &cnt);
     return cnt;
 }
 ///=======================================================================
@@ -531,7 +545,7 @@ Tensor::tril() {
 __HOST__ Tensor&
 Tensor::reset(void *mem, U64 sz, t4_obj tt, t4_layer fn) {
     MM_DB("  tensor#reset(%p,%ld)\n", mem, sz);
-    init(sz, tt, 1);                                   /// T4Base attributes
+    init(sz, tt, 1);                                  /// T4Base attributes
 
     const U64 GB   = 1L << 30;
     const U16 s[4] = { 1, 1, 1, 1 };
@@ -547,6 +561,7 @@ Tensor::reset(void *mem, U64 sz, t4_obj tt, t4_layer fn) {
     memcpy(shape,  h, sizeof(h));
     memcpy(grad,   t, sizeof(t));
     memcpy(mtum,   t, sizeof(t));
+    _tmp = &data[numel];                             /// * point tmp stroage to data[numel]
     
     return *this;
 }
