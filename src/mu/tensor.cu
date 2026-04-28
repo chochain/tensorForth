@@ -192,10 +192,242 @@ Tensor::transpose(Tensor &A, Tensor &T) {
     }
     return T;
 }
+__HOST__ Tensor&
+Tensor::batchsum(Tensor &A, Tensor &O) {
+    U32 N = A.N(), H = A.H(), W = A.W(), C = A.C();
+    MM_DB("  tensor#batchsum A[%d,%d,%d,%d] => O[%d, %d]\n", N, H, W, C, N, C);
+    O.zeros();
+    FORK4(k_batchsum, A.data, O.data, (U64)H*W);
+    return O;
+}
+__HOST__ Tensor&
+Tensor::batchvar(Tensor &A, Tensor &G, Tensor &O) {
+    U32 N = A.N(), H = A.H(), W = A.W(), C = A.C();
+    U64 NHW = (U64)N*H*W;
+    MM_DB("  tensor#batchvar A[%d,%d,%d,%d] => O[%d,%d]\n", N, H, W, C, N, C);
+    batchsum(A, G);
+    G *= DU1 / NHW;
+    O.zeros();
+    FORK4(k_batchnvar, A.data, G.data, O.data, (U64)H*W);
+
+    for (int i=0; i< O.numel; i++) {
+        O.data[i] = SQRT(O.data[i] / NHW);
+    }
+    return O;
+}
+
+///=======================================================================
+/// tensor arithmetics
+///
+__HOST__ DU
+Tensor::sum() {
+    DU v = DU0;
+    if (numel < T4_DIM_SZ) {                           /// * cheaper for small loop
+        for (int i = 0; i < numel; i++) v += data[i];
+    }
+    else {
+        H2D(_tmp, &v, sizeof(DU));                     /// * pre-zero _tmp
+        FORK2(k_sum, numel, data, _tmp);               /// * data[numel] for temp storage
+        D2H(&v, _tmp, sizeof(DU));                     /// * copy to host (D2H, page fault)
+    }
+    SCALAR(v); return v;
+}
+__HOST__ DU
+Tensor::avg() {
+    DU v = sum() / numel;
+    SCALAR(v); return v;
+}
+__HOST__ DU
+Tensor::std() {
+    DU v = DU0, mx = avg();
+    H2D(_tmp, &v, sizeof(DU));                         /// * pre-zero temp
+    FORK2(k_nvar, numel, data, mx, _tmp);              /// * 8x straight loop
+    D2H(&v, _tmp, sizeof(DU));                         /// * copy to host (D2H, page fault)
+    v = numel ? SQRT(v) / numel : DU0;             
+    SCALAR(v); return v;
+}
+__HOST__ DU
+Tensor::norm() {                                       ///< return Euclidean Norm
+    DU v = DU0;
+    H2D(_tmp, &v, sizeof(DU));                         /// * pre-zero _tmp
+    FORK2(k_nvar, numel, data, DU0, _tmp);             /// * 8x straight loop
+    D2H(&v, _tmp, sizeof(DU));                         /// * copy to host (D2H, page fault)
+    v = SQRT(*_tmp);                                   
+    SCALAR(v); return v;
+}
+__HOST__ DU
+Tensor::max() {
+    const DU x = -FLT_MAX;
+    H2D(_tmp, &x, sizeof(DU));                         /// * pre-set min, copy host to device
+    FORK(k_max, numel, data, _tmp, true);              /// * find max
+    DU v;
+    D2H(&v, _tmp, sizeof(DU));                         /// * copy back to host
+    SCALAR(v); return v;
+}
+__HOST__ DU
+Tensor::min() {
+    const DU x = FLT_MAX;
+    H2D(_tmp, &x, sizeof(DU));                         /// * pre-set max, copy host to device
+    FORK(k_max, numel, data, _tmp, false);             /// * find min
+    DU v;
+    D2H(&v, _tmp, sizeof(DU));                         /// * copy back to host
+    SCALAR(v); return v;
+}
+__HOST__ DU
+Tensor::dot(Tensor &B) {
+    if (rank == 1 && B.rank == 1 && numel == B.numel) {
+        FORK1(k_dot, 1, 1, data, B.data, _tmp, DU1, DU0, numel, 1);
+    }
+    else ERROR("A.dot(B) dim? %ld != %ld)\n", numel, B.numel);
+    DU v;
+    D2H(&v, _tmp, sizeof(DU));                        ///< copy back to host
+    SCALAR(v); return v;
+}
+__HOST__ DU
+Tensor::loss(t4_loss op, Tensor &tgt) {
+/*    
+    auto check_bce = [this, &tgt]() {
+        DU sum = DU0;
+        for (int i=0; i<numel; i++) {
+            DU t = tgt.data[i], y = this->data[i];
+            sum += t * LN(y + DU_EPS) + (DU1-t) * LN(DU1 - y + DU_EPS);
+        }
+        return -sum;
+    };
+*/
+    DU z = DU0;                      ///> result loss value
+    switch (op) {
+    case LOSS_MSE:                   /// * mean squared error, input from linear
+        *this -= tgt;                /// * (output - predict)
+        *this *= *this;              /// * (output - predict)^2
+        z = sum();
+        break;
+    case LOSS_BCE: {                 /// * binary cross_entropy, input from sigmoid
+        FORK(k_bce, numel, tgt.data, data);
+        z = -sum();                  /// * -(y * ln(out_i) + (1-y) * ln(1-out_i))
+    } break;
+    case LOSS_CE:                    /// * cross_entropy, input from softmax
+        map(LN);                     /// * log(out_i)
+        /* no break */
+    case LOSS_NLL:                   /// * negative log likelihood, input from log-softmax
+        *this *= tgt;                /// * out_i * tgt_i
+        z = -sum();                  /// * sum for mini-batch samples
+        break;
+    default: ERROR("Model#loss op=%d not supported!\n", op);
+    }
+    z /= N();                        /// * mini-batch average
+    
+    SCALAR(z); return z;             /// make sum a scalar value (not object)
+}
+__HOST__ U32
+Tensor::has_nan() {
+    int cnt = 0;
+    H2D(_tmp, &cnt, sizeof(U32));
+    FORK2(k_nan_inf, numel, data, (int*)_tmp);
+    D2H(&cnt, (int*)_tmp, sizeof(int));
+    return cnt;
+}
+
+///=======================================================================
+/// linear algebra methods
+///=======================================================================
+///
+/// inverse — Gauss-Jordan matrix inversion
+///
+/// @param A  square input matrix  [n x n], column-major (k + z*n)
+/// @param I  identity matrix in,  inverted matrix out  [n x n]
+///
+/// Both A.data and I.data must be cudaMallocManaged (managed memory).
+/// A is destroyed in-place (becomes identity); I becomes A^{-1}.
+///
+__HOST__ Tensor&
+Tensor::inverse(Tensor &A, Tensor &I) {
+    if (!A.is_square("A") || !I.is_square("I")) return I;
+    
+    const int K = A.W();
+    INFO("  tensor#inverse [%d,%d]\n", K, K);
+    
+    int *d_pivot = (int*)A._tmp;                 /// pivot result
+    DU  *da = A.data, *di = I.data;
+    
+    for (int z = 0; z < K; z++) {
+        int u = 0;
+        FORK2(k_find_pivot, K, da, d_pivot, z);  /// find pivot row
+        D2H(&u, d_pivot, sizeof(int));
+        if (u < 0) {
+            ERROR("  tensor#inverse: singular matrix at column %d\n", z);
+            break;
+        }
+        if (u != z) {
+            FORK(k_swap_rows, K, da, di, u, z);  /// swap rows z ↔ u 
+        }
+        FORK(k_diag, K, da, di, z);              /// normalise pivot row
+        FORK(k_elim, K, da, di, z);              /// eliminate column z from all other rows
+    }
+    return I;
+}
+
+__HOST__ Tensor&
+Tensor::plu(Tensor &A, int *d_piv) {
+    if (!A.is_square("A")) return A;
+    
+    const int K = A.W();
+    int *d_pivot = (int*)A._tmp;                ///< scalar: current pivot row
+    DU  *da = A.data;
+    // -------------------------------------------------------------------------
+    // Stage 1 — k_getrf: factorise A → P·L·U  (in-place, n sync points)
+    // -------------------------------------------------------------------------
+    for (int z = 0; z < K; z++) {
+        int u = 0;
+        FORK2(k_find_pivot, K, da, d_pivot, z);
+        D2H(&u, d_pivot, sizeof(int));
+        
+        if (u < 0) {
+            ERROR("  tensor#plu: singular at column %d\n", z);
+            return A;
+        }
+        d_piv[z] = *d_pivot;                       ///< record for Stage 2 (lu_inverse)
+
+        if (u != z) FORK(k_swap_rows, K, da, nullptr, u, z);
+        FORK(k_lu_col, K, da, z);
+    }
+    return A;
+}
+
+__HOST__ Tensor&
+Tensor::lu_inverse(Tensor &A, Tensor &I, int *d_piv) {
+    if (!A.is_square("A") || !I.is_square("I")) return I;
+
+    int K = A.W();
+    INFO("  tensor#lu_inverse [%d,%d]\n", K, K);
+    
+    DU  *da = A.data, *di = I.data;
+    plu(A, d_piv);                                 ///< A -> PLU (in-place)
+
+    INFO("A"); A.show(true);
+    INFO("I"); I.show(true);
+    
+    // -------------------------------------------------------------------------
+    // Stage 2 — k_getri: solve A·X = I  (only 2 kernel launches, fully parallel)
+    // -------------------------------------------------------------------------
+    FORK(k_fsub, K, da, d_piv, di);                ///< L·Y = P·I
+    FORK(k_bsub, K, da, di);                       ///< U·X = Y
+    
+    return I;
+}
+
+__HOST__ Tensor&
+Tensor::lu(Tensor &P, Tensor &A) {
+    if (!A.is_square("A")) return A;
+    
+    // LU = PA;
+    return A;
+}
+
+#if 0   /// host-based code
 ///
 /// matrix inversion (Gauss-Jordan with Pivot)
 /// Note: Gauss-Jordan elimination is expensive O(N^3)
-/// TODO: CDP
 ///
 __HOST__ Tensor&
 Tensor::inverse(Tensor &A, Tensor &I) {
@@ -216,7 +448,7 @@ Tensor::inverse(Tensor &A, Tensor &I) {
             if (ABS(da[z + i * n]) > ABS(da[z + u * n])) u = i;
         }
         if (ABS(da[z + u * n]) < DU_EPS) {
-            ERROR("tensor#inverse sigular!\n");
+            ERROR("  tensor#inverse sigular max=%g!\n", da[z + u * n]);
             return -1;
         }
         return u;
@@ -369,144 +601,8 @@ Tensor::plu(Tensor &A, Tensor &P, int *ns) {
     }
     return A;
 }
-__HOST__ Tensor&
-Tensor::batchsum(Tensor &A, Tensor &O) {
-    U32 N = A.N(), H = A.H(), W = A.W(), C = A.C();
-    MM_DB("  tensor#batchsum A[%d,%d,%d,%d] => O[%d, %d]\n", N, H, W, C, N, C);
-    O.zeros();
-    FORK4(k_batchsum, A.data, O.data, (U64)H*W);
-    return O;
-}
-__HOST__ Tensor&
-Tensor::batchvar(Tensor &A, Tensor &G, Tensor &O) {
-    U32 N = A.N(), H = A.H(), W = A.W(), C = A.C();
-    U64 NHW = (U64)N*H*W;
-    MM_DB("  tensor#batchvar A[%d,%d,%d,%d] => O[%d,%d]\n", N, H, W, C, N, C);
-    batchsum(A, G);
-    G *= DU1 / NHW;
-    O.zeros();
-    FORK4(k_batchnvar, A.data, G.data, O.data, (U64)H*W);
-
-    for (int i=0; i< O.numel; i++) {
-        O.data[i] = SQRT(O.data[i] / NHW);
-    }
-    return O;
-}
-
-///=======================================================================
-/// tensor arithmetics
+#endif // 0 - host-based code
 ///
-__HOST__ DU
-Tensor::sum() {
-    DU v = DU0;
-    if (numel < T4_DIM_SZ) {                           /// * cheaper for small loop
-        for (int i = 0; i < numel; i++) v += data[i];
-    }
-    else {
-        H2D(_tmp, &v, sizeof(DU));                     /// * pre-zero _tmp
-        FORK2(k_sum, numel, data, _tmp);               /// * data[numel] for temp storage
-        D2H(&v, _tmp, sizeof(DU));                     /// * copy to host (D2H, page fault)
-    }
-    SCALAR(v); return v;
-}
-__HOST__ DU
-Tensor::avg() {
-    DU v = sum() / numel;
-    SCALAR(v); return v;
-}
-__HOST__ DU
-Tensor::std() {
-    DU v = DU0, mx = avg();
-    H2D(_tmp, &v, sizeof(DU));                         /// * pre-zero temp
-    FORK2(k_nvar, numel, data, mx, _tmp);              /// * 8x straight loop
-    D2H(&v, _tmp, sizeof(DU));                         /// * copy to host (D2H, page fault)
-    v = numel ? SQRT(v) / numel : DU0;             
-    SCALAR(v); return v;
-}
-__HOST__ DU
-Tensor::norm() {                                       ///< return Euclidean Norm
-    DU v = DU0;
-    H2D(_tmp, &v, sizeof(DU));                         /// * pre-zero _tmp
-    FORK2(k_nvar, numel, data, DU0, _tmp);             /// * 8x straight loop
-    D2H(&v, _tmp, sizeof(DU));                         /// * copy to host (D2H, page fault)
-    v = SQRT(*_tmp);                                   
-    SCALAR(v); return v;
-}
-__HOST__ DU
-Tensor::max() {
-    const DU x = -FLT_MAX;
-    H2D(_tmp, &x, sizeof(DU));                         /// * pre-set min, copy host to device
-    FORK(k_max, numel, data, _tmp, true);              /// * find max
-    DU v;
-    D2H(&v, _tmp, sizeof(DU));                         /// * copy back to host
-    SCALAR(v); return v;
-}
-__HOST__ DU
-Tensor::min() {
-    const DU x = FLT_MAX;
-    H2D(_tmp, &x, sizeof(DU));                         /// * pre-set max, copy host to device
-    FORK(k_max, numel, data, _tmp, false);             /// * find min
-    DU v;
-    D2H(&v, _tmp, sizeof(DU));                         /// * copy back to host
-    SCALAR(v); return v;
-}
-__HOST__ DU
-Tensor::dot(Tensor &B) {
-    if (rank == 1 && B.rank == 1 && numel == B.numel) {
-        FORK1(k_dot, 1, 1, data, B.data, _tmp, DU1, DU0, numel, 1);
-    }
-    else ERROR("A.dot(B) dim? %ld != %ld)\n", numel, B.numel);
-    DU v;
-    D2H(&v, _tmp, sizeof(DU));                        ///< copy back to host
-    SCALAR(v); return v;
-}
-__HOST__ DU
-Tensor::loss(t4_loss op, Tensor &tgt) {
-/*    
-    auto check_bce = [this, &tgt]() {
-        DU sum = DU0;
-        for (int i=0; i<numel; i++) {
-            DU t = tgt.data[i], y = this->data[i];
-            sum += t * LN(y + DU_EPS) + (DU1-t) * LN(DU1 - y + DU_EPS);
-        }
-        return -sum;
-    };
-*/
-    DU z = DU0;                      ///> result loss value
-    switch (op) {
-    case LOSS_MSE:                   /// * mean squared error, input from linear
-        *this -= tgt;                /// * (output - predict)
-        *this *= *this;              /// * (output - predict)^2
-        z = sum();
-        break;
-    case LOSS_BCE: {                 /// * binary cross_entropy, input from sigmoid
-        FORK(k_bce, numel, tgt.data, data);
-        z = -sum();                  /// * -(y * ln(out_i) + (1-y) * ln(1-out_i))
-    } break;
-    case LOSS_CE:                    /// * cross_entropy, input from softmax
-        map(LN);                     /// * log(out_i)
-        /* no break */
-    case LOSS_NLL:                   /// * negative log likelihood, input from log-softmax
-        *this *= tgt;                /// * out_i * tgt_i
-        z = -sum();                  /// * sum for mini-batch samples
-        break;
-    default: ERROR("Model#loss op=%d not supported!\n", op);
-    }
-    z /= N();                        /// * mini-batch average
-    
-    SCALAR(z); return z;             /// make sum a scalar value (not object)
-}
-__HOST__ U32
-Tensor::has_nan() {
-    int cnt = 0;
-    H2D(_tmp, &cnt, sizeof(U32));
-    FORK2(k_nan_inf, numel, data, (int*)_tmp);
-    D2H(&cnt, (int*)_tmp, sizeof(int));
-    return cnt;
-}
-///=======================================================================
-/// linear algebra methods
-///=======================================================================
 /// matrix determinant
 ///
 __HOST__ DU
