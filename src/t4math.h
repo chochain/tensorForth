@@ -168,7 +168,17 @@ __KERN__ void k_gemm_tile_claude(
 __KERN__ void k_gemm_tile_claude_x2(
     F32_RP A, F32_RP B, F32_XP O,
     float alpha, float beta,  bool tA, bool tB, int K, int M, int N);
-    
+///@}
+///@name Matrix inversion ops - Gauss-Jordan, LU
+///@{
+__KERN__ void k_find_pivot(const float *da, int *d_pivot, int z, int K);
+__KERN__ void k_swap_rows(float *da, float *di, int u, int z, int K);
+__KERN__ void k_diag(float *da, float *di, int z, int K);
+__KERN__ void k_elim(float *da, float *di, int z, int K);
+__KERN__ void k_lu_col(float *da, int z, int K);
+__KERN__ void k_fsub(const float *lu, const int *d_piv, float *di, int K);
+__KERN__ void k_bsub(const float *lu, float *di, int K);
+///@}
 } // namespace t4
 #endif // __T4MATH_H_
     

@@ -731,6 +731,175 @@ k_gemm_tile_claude_x2(
     }
 }
 
+/// ===========================================================================
+/// matrix inversion kernel helpers
+/// ===========================================================================
+///
+/// k_find_pivot — argmax of |A[z,i]| for i=z..n-1, returns row index in d_pivot
+///
+__KERN__ void
+k_find_pivot(const float *da, int *d_pivot, int z, int K) {
+    __shared__ float _val[T4_DIM_SQ];
+    __shared__ int   _idx[T4_DIM_SQ];
+
+    const int tx = threadIdx.x;
+    float val = -1.0f;
+    int   idx = z;
+
+    for (int j = z + tx; j < K; j += blockDim.x) {             /// grid-stride over given rows i = z .. n-1
+        float v = ABS(da[z + j * K]);
+        if (v > val) { val = v; idx = j; }
+    }
+
+    _val[tx] = val;
+    _idx[tx] = idx;
+    __syncthreads();
+
+    /// tree reduction: keep the (val, idx) with larger val
+    #pragma unroll
+    for (int half = T4_DIM_SQ >> 1; half > 0; half >>= 1) {
+        if (tx < half) {
+            if (_val[tx + half] > _val[tx]) {
+                _val[tx] = _val[tx + half];
+                _idx[tx] = _idx[tx + half];
+            }
+        }
+        __syncthreads();
+    }
+    
+    if (tx == 0) d_pivot[0] = (_val[0] < DU_EPS) ? -1 : _idx[0];  /// * -1 singular
+}
+
+// ---------------------------------------------------------------------------
+// k_swap_rows — swap row z and row u in both A and I
+//   1 thread per column k, grid = (ceil(n/T4_DIM_SQ), 1)
+// ---------------------------------------------------------------------------
+__KERN__ void
+k_swap_rows(float *da, float *di, int u, int z, int K) {
+    const int tx = blockIdx.x * blockDim.x + threadIdx.x;
+    if (tx >= K) return;
+
+    const int iz = tx + z * K;
+    const int iu = tx + u * K;
+
+    float ta = da[iz]; da[iz] = da[iu]; da[iu] = ta;
+    if (di) { float ti = di[iz]; di[iz] = di[iu]; di[iu] = ti; }
+}
+// ---------------------------------------------------------------------------
+// k_diag — normalise pivot row z by diagonal element A[z,z]
+//   1 thread per column k
+// ---------------------------------------------------------------------------
+__KERN__ void
+k_diag(float *da, float *di, int z, int K) {
+    const int tx = blockIdx.x * blockDim.x + threadIdx.x;
+    if (tx >= K) return;
+
+    const float r0 = da[z + z * K];               ///< pivot value (already != 0)
+    const int   j  = tx + z * K;
+    da[j] /= r0;
+    di[j] /= r0;
+}
+// ---------------------------------------------------------------------------
+// k_elim — eliminate column z from every row i != z
+//   1 thread per row i, each thread sweeps all k columns
+//
+//   Equivalent to the CPU elim lambda:
+//     for i != z:  row_i -= A[z,i] * row_z
+// ---------------------------------------------------------------------------
+__KERN__ void
+k_elim(float *da, float *di, int z, int K) {
+    const int tx = blockIdx.x * blockDim.x + threadIdx.x;
+    if (tx >= K || tx == z) return;
+
+    const float r1 = da[z + tx * K];             ///< A[z, i]
+    if (ABS(r1) < DU_EPS) return;                ///< row already zeroed — skip
+
+    for (int k = 0; k < K; k++) {
+        const int ki = k + tx * k, kz = k + z * K;
+        da[ki] -= r1 * da[kz];
+        di[ki] -= r1 * di[kz];
+    }
+}
+
+// ===========================================================================
+// Stage 1 — k_getrf : LU factorisation with partial pivoting
+//
+//   Outer loop (host, sequential over pivot columns z = 0..n-1):
+//     1. k_find_pivot  — find row with largest |A[z,i]|  i>=z
+//     2. k_swap_rows   — swap that row into position z
+//     3. k_lu_col      — compute L[:,z] and Schur complement
+//
+//   k_lu_col  (1 thread per row i > z):
+//     L[i,z] = A[i,z] / U[z,z]           stored in lower triangle of A
+//     for k > z:  A[i,k] -= L[i,z]*U[z,k]   Schur complement update
+//
+//   After all z:  da holds packed L\U
+//     da[k + i*n]  k <  i  →  L[i,k]  (multipliers, unit diag implicit)
+//     da[k + i*n]  k >= i  →  U[i,k]  (upper triangle with diagonal)
+// ===========================================================================
+__KERN__ void
+k_lu_col(float *da, int z, int K) {
+    const int tx = blockIdx.x * blockDim.x + threadIdx.x;
+    if (tx <= z || tx >= K) return;                  ///< rows below pivot only
+    
+    const float pivot = da[z + z * K];               ///< U[z,z]
+    const float lik   = da[z + tx * K] / pivot;      ///< multiplier L[i,z]
+    da[z + tx * K]  = lik;                           ///< store in-place (lower tri)
+
+    for (int k = z + 1; k < K; k++)                  ///< Schur complement
+        da[k + tx * K] -= lik * da[k + z * K];
+}
+
+// ===========================================================================
+// Stage 2 — k_getri : solve A·X = I  using packed L\U
+//
+//   Each column j of the identity I is an independent right-hand side.
+//   k_fsub and k_bwd_sub each launch n threads — one per column j.
+//   The inner loop (over i) is serial within each thread, but all n
+//   columns run fully in parallel.
+//
+//   k_fsub  — forward substitution   L · y_j = P · e_j
+//     Apply pivot permutation to column j, then solve unit lower triangular.
+//     y[i] = b[i] - sum_{k<i} L[i,k] * y[k]      (L diagonal = 1, implicit)
+//
+//   k_bsub  — backward substitution  U · x_j = y_j
+//     x[i] = (y[i] - sum_{k>i} U[i,k] * x[k]) / U[i,i]
+// ===========================================================================
+__KERN__ void
+k_fsub(const float *lu, const int *d_piv, float *di, int K) {
+    const int tx = blockIdx.x * blockDim.x + threadIdx.x;
+    if (tx >= K) return;
+
+    /// apply row permutation to column j of I
+    for (int k = 0; k < K; k++) {
+        int pk = d_piv[k];
+        if (pk != k) {
+            float t = di[tx + k * K]; di[tx + k * K] = di[tx + pk * K]; di[tx + pk * K] = t;
+        }
+    }
+    /// forward substitution: unit lower triangular (diagonal = 1 not stored)
+    for (int k = 1; k < K; k++) {
+        float s = di[tx + k * K];
+        for (int j = 0; j < tx; j++)
+            s -= lu[j + tx * K] * di[tx + j * K];     ///< L[k,j] * y[j]
+        di[tx + k * K] = s;
+    }
+}
+
+__KERN__ void
+k_bsub(const float *lu, float *di, int K) {
+    const int tx = blockIdx.x * blockDim.x + threadIdx.x;
+    if (tx >= K) return;
+
+    /// Backward substitution: upper triangular with explicit diagonal
+    for (int j = K - 1; j >= 0; j--) {
+        float s = di[tx + j * K];
+        for (int k = j + 1; k < K; k++)
+            s -= lu[k + j * K] * di[tx + k * K];     ///< U[i,k] * x[k]
+        di[tx + j * K] = s / lu[j + tx * K];         ///< divide by U[i,i]
+    }
+}
+
 #endif // T4_DO_OBJ
 } // namespace t4
 
