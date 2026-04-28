@@ -181,11 +181,11 @@ MMU::drop(T4Base &t) {
 #if T4_DO_NN
     if (t.is_model())  { free((Model&)t); return;  }   /// release TLSF memory block
 #endif  // T4_DO_NN
-    free((Tensor&)t);             /// check reference count
+    free((Tensor&)t);               /// check reference count
 }
 
 __HOST__ void
-MMU::mark_free(DU v) {            ///< mark a tensor free for release
+MMU::mark_free(DU v) {              ///< mark a tensor free for release
     if (IS_VIEW(v)) return;
     T4Base &t = du2obj(v);
     MM_DB("mmu#mark T:%x to free[%d]\n", OBJ2X(t), _fidx);
@@ -198,8 +198,8 @@ MMU::mark_free(DU v) {            ///< mark a tensor free for release
 __HOST__ Tensor&                    ///< allocate a tensor from tensor space
 MMU::talloc(U64 sz) {
     MM_DB("mmu#talloc(0x%lx) {\n", sz);
-    Tensor *t = (Tensor*)_mpool.malloc();   /// * was = *(Tensor*)_ostore.malloc(sizeof(Tensor));
-    void   *d = _ostore.malloc(sz * sizeof(DU));
+    Tensor *t = (Tensor*)_mpool.malloc();
+    void   *d = _ostore.malloc((sz+1) * sizeof(DU));  // one extra for temp storage
     MM_DB("} mmu#talloc => T:%x+%x\n", OBJ2X(*t), (U32)((U8*)d - _data));
     t->reset(d, sz);
     status();
