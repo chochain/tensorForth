@@ -282,8 +282,8 @@ k_bce(F32_RP T, F32_XP O, long n) {
 ///> check Nan or Inf
 ///
 __KERN__ void
-k_nan_inf(float *src, int *cnt, long numel) {
-    const long j  = (long)blockIdx.x*blockDim.x + threadIdx.x; ///< element index
+k_nan_inf(F32_RP src, int *cnt, long numel) {
+    const long j = (long)blockIdx.x*blockDim.x + threadIdx.x; ///< element index
     
     int v = j < numel && (isnan(src[j]) || isinf(src[j])) ? 1 : 0;
     WARP_REDUCE(v);

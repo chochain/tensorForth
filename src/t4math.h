@@ -147,7 +147,7 @@ __KERN__ void k_bce(F32_RP T, F32_XP O, long n);
 ///@}    
 ///@name Tensor debug ops (kernel mode)
 ///@{
-__KERN__ void k_nan_inf(float *src, int *n, long numel);
+__KERN__ void k_nan_inf(F32_RP src, int *n, long numel);
 __KERN__ void k_dummy();
 ///@}
 ///@}
