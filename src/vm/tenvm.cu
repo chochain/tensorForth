@@ -313,8 +313,8 @@ TensorVM::_tdiv(Tensor &A, Tensor &B) {      ///< tensor division
 
 __HOST__ __INLINE__ Tensor&
 TensorVM::_tdot(Tensor &A, Tensor &B) {      ///< A x B tensor dot product
-    if (B.rank==1 &&                         ///> dot(vector, vector)
-        A.rank==1 && A.numel==B.numel) {
+    if (A.rank==1 && B.rank==1 &&            ///> dot(vector, vector)
+        A.numel==B.numel) {
         DU v = A.dot(B);
         VLOG("  tenvm#_tdot A[%d] · B[%d] => %g\n", A.H(), B.H(), v);
         PUSH(v);
@@ -327,7 +327,8 @@ TensorVM::_tdot(Tensor &A, Tensor &B) {      ///< A x B tensor dot product
               A.H(), A.W(), B.H(), C.H());
         return C;
     }
-    if (A.W()==B.H()) {                      /// * tensor @ tensor
+    if (A.rank==2 && B.rank==2 &&
+        A.W()==B.H()) {                      /// * tensor @ tensor
         Tensor &C = mmu.tensor(A.H(), B.W());
         Tensor::mm(A, B, C);
         VLOG("  tenvm#_tdot A[%d,%d] · B[%d,%d] => C[%d,%d]\n",
