@@ -93,8 +93,8 @@ typedef int                 EVENT;
 
 #endif // defined(__CUDACC__)  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-#define H2D                 cudaMemcpyHostToDevice
-#define D2H                 cudaMemcpyDeviceToHost
+#define H2D(src,dst,sz)     cudaMemcpy((void*)dst, (void*)src, sz, cudaMemcpyHostToDevice)
+#define D2H(src,dst,sz)     cudaMemcpy((void*)dst, (void*)src, sz, cudaMemcpyDeviceToHost)
 ///@}
 ///@name Portable types (Rust alike)
 ///@{
