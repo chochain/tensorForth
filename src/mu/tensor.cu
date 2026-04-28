@@ -403,8 +403,9 @@ Tensor::sum() {
         for (int i = 0; i < numel; i++) v += data[i];
     }
     else {
+        H2D(_tmp, &v, sizeof(DU));                     /// * pre-zero _tmp
         FORK2(k_sum, numel, data, _tmp);               /// * data[numel] for temp storage
-        v = *_tmp;                                     /// * copy to host (D2H, page fault)
+        D2H(&v, _tmp, sizeof(DU));                     /// * copy to host (D2H, page fault)
     }
     SCALAR(v); return v;
 }
@@ -415,30 +416,38 @@ Tensor::avg() {
 }
 __HOST__ DU
 Tensor::std() {
-    FORK2(k_nvar, numel, data, avg(), _tmp);           /// * 8x straight loop
-    DU v = numel ? SQRT(*_tmp) / numel : DU0;          ///< copy to host (D2H, page fault)
+    DU v = DU0, mx = avg();
+    H2D(_tmp, &v, sizeof(DU));                         /// * pre-zero temp
+    FORK2(k_nvar, numel, data, mx, _tmp);              /// * 8x straight loop
+    D2H(&v, _tmp, sizeof(DU));                         /// * copy to host (D2H, page fault)
+    v = numel ? SQRT(v) / numel : DU0;             
     SCALAR(v); return v;
 }
 __HOST__ DU
 Tensor::norm() {                                       ///< return Euclidean Norm
+    DU v = DU0;
+    H2D(_tmp, &v, sizeof(DU));                         /// * pre-zero _tmp
     FORK2(k_nvar, numel, data, DU0, _tmp);             /// * 8x straight loop
-    DU v = SQRT(*_tmp);                                ///< copy to host (D2H, page fault)
+    D2H(&v, _tmp, sizeof(DU));                         /// * copy to host (D2H, page fault)
+    v = SQRT(*_tmp);                                   
     SCALAR(v); return v;
 }
 __HOST__ DU
 Tensor::max() {
     const DU x = -FLT_MAX;
-    cudaMemcpy(_tmp, &x, sizeof(DU), cudaMemcpyHostToDevice);
-    FORK(k_max, numel, data, _tmp, true);              ///< find max
-    DU v = *_tmp;
+    H2D(_tmp, &x, sizeof(DU));                         /// * pre-set min, copy host to device
+    FORK(k_max, numel, data, _tmp, true);              /// * find max
+    DU v;
+    D2H(&v, _tmp, sizeof(DU));                         /// * copy back to host
     SCALAR(v); return v;
 }
 __HOST__ DU
 Tensor::min() {
     const DU x = FLT_MAX;
-    cudaMemcpy(_tmp, &x, sizeof(DU), cudaMemcpyHostToDevice);
-    FORK(k_max, numel, data, _tmp, false);             ///< find min
-    DU v = *_tmp;
+    H2D(_tmp, &x, sizeof(DU));                         /// * pre-set max, copy host to device
+    FORK(k_max, numel, data, _tmp, false);             /// * find min
+    DU v;
+    D2H(&v, _tmp, sizeof(DU));                         /// * copy back to host
     SCALAR(v); return v;
 }
 __HOST__ DU
@@ -447,7 +456,8 @@ Tensor::dot(Tensor &B) {
         FORK1(k_dot, 1, 1, data, B.data, _tmp, DU1, DU0, numel, 1);
     }
     else ERROR("A.dot(B) dim? %ld != %ld)\n", numel, B.numel);
-    DU v = *_tmp;                                     ///< copy D2H (page fault)
+    DU v;
+    D2H(&v, _tmp, sizeof(DU));                        ///< copy back to host
     SCALAR(v); return v;
 }
 __HOST__ DU
@@ -488,9 +498,10 @@ Tensor::loss(t4_loss op, Tensor &tgt) {
 }
 __HOST__ U32
 Tensor::has_nan() {
-    static int cnt;
-    cnt = 0;
-    FORK2(k_nan_inf, numel, data, &cnt);
+    int cnt = 0;
+    H2D(_tmp, &cnt, sizeof(U32));
+    FORK2(k_nan_inf, numel, data, (int*)_tmp);
+    D2H(&cnt, (int*)_tmp, sizeof(int));
     return cnt;
 }
 ///=======================================================================
