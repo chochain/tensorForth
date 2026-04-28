@@ -100,10 +100,10 @@ struct Tensor : public T4Base {
     
     static __HOST__  Tensor &copy(Tensor &A, Tensor &O);
     static __HOST__  Tensor &transpose(Tensor &A, Tensor &T);
-    static __HOST__  Tensor &inverse(Tensor &A, Tensor &I);  /// GaussJordan (with Pivot)
-    static __HOST__  Tensor &lu(Tensor &A);                  /// LU (no Pivot)
-    static __HOST__  Tensor &lu_inverse(Tensor &LU);         /// inverse a pre-processed LU (no Pivot)
-    static __HOST__  Tensor &plu(Tensor &A, Tensor &P, int *ns);/// LU with permutation vector
+    static __HOST__  Tensor &inverse(Tensor &A, Tensor &I);                /// GaussJordan (with Pivot)
+    static __HOST__  Tensor &lu_inverse(Tensor &A, Tensor &I, int *d_piv); /// inverse w PLU
+    static __HOST__  Tensor &plu(Tensor &A, int *d_piv);                   /// LU+permutation vector (in-place)
+    static __HOST__  Tensor &lu(Tensor &P, Tensor &A);                     /// LU = PA matrix
     static __HOST__  Tensor &batchsum(Tensor &A, Tensor &O);
     static __HOST__  Tensor &batchvar(Tensor &A, Tensor &G, Tensor &O);
     ///
@@ -143,6 +143,11 @@ struct Tensor : public T4Base {
     __HOST__ __INLINE__ DU   *slice(int n) { return &data[ HWC() * n ]; }
     __HOST__ __INLINE__ bool is_same_shape(Tensor &t) {
         return memcmp(shape, t.shape, sizeof(shape)) == 0;
+    }
+    __HOST__ __INLINE__ bool is_square(const char *name) {
+        const U32 M = H(), N = W();
+        if (M != N) { ERROR(" %s: square matrix required (%d x %d)\n", name, M, N); return false; }
+        return true;
     }
     ///
     /// tensor arithmetics
