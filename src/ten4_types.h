@@ -123,7 +123,12 @@ typedef float       F32;                    ///< single precision float
     const dim3 _g(((n) + _b.x - 1) / _b.x, 1, 1);           \
     fn<<<_g,_b>>>(__VA_ARGS__,n);                           \
 }
-#define FORK1(fn,n,...) {                                   \
+#define FORK1(fn, c, n, ...) {                              \
+    const dim3 _g((c), (n), 1);                             \
+    fn<<<_g,T4_DIM_SZ>>>(__VA_ARGS__);                      \
+    GPU_CHK();                                              \
+}
+#define FORK2(fn,n,...) {                                   \
     fn<<<1,T4_DIM_SQ>>>(__VA_ARGS__,n);                     \
     GPU_CHK();                                              \
 }
