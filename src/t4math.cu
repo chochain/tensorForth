@@ -6,143 +6,140 @@
  */
 #include <cooperative_groups.h>
 #include <cuda_pipeline.h>
-#include <float.h>             // FLT_MAX
 #include "t4math.h"
 
 namespace t4 {
 namespace cg = cooperative_groups;
 
 #if T4_DO_OBJ
-
-#define WARP_REDUCE(v)                              \
-    for (int off = 16; off > 0; off >>=1)           \
-        v += __shfl_down_sync(0xffffffff, v, off)
 ///
 /// collect sum per every thread sum per stride (T4_DIM_SQ)
 ///
-__KERN__ void
-k_sum(F32_RP src, F32_WP sum, long numel) {
-    __shared__ float _sum[32];
-    int t0 = threadIdx.x,      tx = blockIdx.x * blockDim.x + t0;
-    int tj = threadIdx.x % 32, ti = threadIdx.x / 32;
-
-    if (tx == 0) *sum = 0.0f;                                  /// * pre-zero
-    __syncthreads();
-                     
-    float v =  { 0.0f };                                       /// grid-stride loop (handles any N)
-    for (int i = tx; i < numel; i += blockDim.x * gridDim.x) {
+__GPU__ float
+d__stride_sum(float *src, long numel, long tid) {
+    float v { 0.0f };
+    for (long i=tid; i < numel; i+=blockDim.x * gridDim.x) {
         v += src[i];
     }
-    WARP_REDUCE(v);
-
-    if (tj == 0) _sum[ti] = v;                                 /// collect one thread per warp
-    __syncthreads();
-
-    if (ti == 0) {                                             /// share mem reduction
-        v = (t0 < (blockDim.x / 32)) ? _sum[tj] : 0.0f;
-        WARP_REDUCE(v);
-        if (tj == 0) atomicAdd(sum, v);                        /// * one add per block
+    return v;
+};
+///
+/// collect sum per every thread sum per stride (T4_DIM_SQ)
+///
+__GPU__ float
+d__stride_var(float* __restrict__ src, float avg, long numel, long tid) {
+    float v { 0.0f };
+    for (long i=tid; i < numel; i+=blockDim.x * gridDim.x) {
+        v += (src[i] - avg) * (src[i] - avg);
     }
-    __syncthreads();
+    return v;
+};
+///
+/// shuffle sum 32 to 1
+///
+__GPU__ float
+d__warp_sum(float v) {
+    for (int k = 16; k > 0; k /= 2) {
+        v += __shfl_down_sync(0xffffffff, v, k);
+    }
+    return v;
 }
-
-__KERN__ void
-k_nvar(F32_RP src, float avg, F32_WP var, long numel) {        ///< sum of T4_DIM_SQ threads
-    __shared__ float _sum[32];
-    int t0 = threadIdx.x,      tx = blockIdx.x * blockDim.x + t0;
-    int tj = threadIdx.x % 32, ti = threadIdx.x / 32;
-
-    if (tx == 0) *var = 0.0f;
-    __syncthreads();
-
-    float v =  { 0.0f };                                       ///< grid-stride loop (handles any N)
-    for (int i = tx; i < numel; i += blockDim.x * gridDim.x) {
-        float v0 = src[i] - avg;
-        v += v0 * v0;
-    }
-    WARP_REDUCE(v);
-    
-    // One thread per warp writes to shared memory
-    if (tj == 0) _sum[ti] = v;
-    __syncthreads();
-
-    if (ti == 0) {                                             /// share mem reduction
-        v = (t0 < (blockDim.x / 32)) ? _sum[tj] : 0.0f;
-        WARP_REDUCE(v);
-        if (tj == 0) atomicAdd(var, v);                        /// * one add per block
-    }
-}
-
-// ---------------------------------------------------------------------------
-// d__max / d__min
-//
-//   CUDA provides atomicMax/Min only for integers.  For positive floats the
-//   IEEE-754 bit pattern preserves magnitude order, so we can reinterpret
-//   the float as a uint32 and use the integer atomic safely.
-//   For negative floats the sign bit inverts the order, so we flip all bits
-//   before comparing (two's-complement trick).
-//
-//   Reference: https://docs.nvidia.com/cuda/cuda-c-programming-guide (B.12)
-// ---------------------------------------------------------------------------
-__GPU__ __forceinline__ void
-d__max(float *addr, float val, bool find_max) {
-    uint32_t raw_bits = __float_as_uint(val);                ///< original, unmodified
-    uint32_t new_bits = raw_bits;
-    
-    if (new_bits & 0x80000000u) new_bits = ~new_bits;        /// * flip for comparison only
-    
-    uint32_t assumed, cur = __float_as_uint(*addr);
-    do {
-        assumed = cur;
-        uint32_t cmp = (assumed & 0x80000000u) ? ~assumed : assumed;
-        if (find_max  && cmp >= new_bits) break;
-        if (!find_max && cmp <= new_bits) break;
-        cur = atomicCAS((uint32_t*)addr, assumed, raw_bits);  /// * write original bits
-    } while (cur != assumed);
-}
-
-__KERN__ void
-k_max(F32_RP src, F32_WP rst, bool find_max, long numel) {   ///< FORK(k_max, numel, ..)
-    __shared__ float _smem[T4_DIM_SQ];
-    
-    const int  t0     = threadIdx.x;
-    const long tx     = (long)blockIdx.x * blockDim.x + t0;
-    const long stride = (long)gridDim.x  * blockDim.x;
-
-    float mx = find_max ? -FLT_MAX : FLT_MAX;
-
-    #pragma unroll 4
-    for (long j = tx; j < numel; j += stride) {               ///< grid-stride pass — each thread own max
-        float v = src[j];
-        mx = find_max ? fmaxf(mx, v) : fminf(mx, v);
-    }
-    
-    _smem[t0] = mx;                                           ///< block-level shared memory tree reduction
-    __syncthreads();
-
+///
+/// collect sum per every thread sum per stride (T4_DIM_SQ)
+///
+__GPU__ float
+d__rollup_sum(float* __restrict__ smem) {
+    ///
+    /// sum up all warps
+    ///
+    float v { 0.0f };
     #pragma unroll
-    for (int half = T4_DIM_SQ >> 1; half > 0; half >>= 1) {
-        if (t0 < half) {
-            _smem[t0] = find_max
-                ? fmaxf(_smem[t0], _smem[t0 + half])
-                : fminf(_smem[t0], _smem[t0 + half]);
-        }
-        __syncthreads();
+    for (int i = 0; i < (T4_DIM_SQ>>5); i++) {
+        v += smem[i];
     }
-    if (t0 == 0) d__max(rst, _smem[0], find_max);
+    return v;
+}
+
+__KERN__ void
+k_sum_gemini(float *src, float *sum, long numel) {
+    float v = 0;
+    int idx = blockIdx.x * blockDim.x + threadIdx.x;
+
+    // Grid-stride loop (handles any N)
+    for (int i = idx; i < numel; i += blockDim.x * gridDim.x) {
+        v += src[i];
+    }
+
+    // Reduce within warp
+    v = d__warp_sum(v);
+
+    // One thread per warp writes to shared memory
+    __shared__ float _sum[32]; 
+    int lane = threadIdx.x % 32;
+    int wid = threadIdx.x / 32;
+    if (lane == 0) _sum[wid] = v;
+    __syncthreads();
+
+    // Final reduction in shared memory
+    if (wid == 0) {
+        v = (threadIdx.x < (blockDim.x / 32)) ? _sum[lane] : 0;
+        v = d__warp_sum(v);
+        // ONLY ONE ATOMIC PER BLOCK instead of one per thread
+        if (lane == 0) {
+            atomicAdd(sum, v);
+        }
+    }
+    __syncthreads();
+}
+
+__KERN__ void
+k_sum(float* __restrict__ src, float* __restrict__ sum, long numel) {             ///< sum of T4_DIM_SQ threads
+    auto const g   { cg::this_thread_block() };                /// total threads
+    auto const tid { g.thread_rank() };                        /// thread id
+    
+    float v { d__stride_sum(src, numel, tid) };                /// one sum per thread by stride
+    v = d__warp_sum(v);                                        /// a reduced sum per warp
+    
+    __shared__ float _sum[T4_DIM_SQ >> 5];                     ///< shared to keep warp sum
+    auto const tpi { cg::tiled_partition<32>(g).thread_rank() };
+    if (tpi == 0) _sum[tid >> 5] = v;                          /// collection from each warp
+    g.sync();
+    
+    if (tid == 0) {
+        *sum = d__rollup_sum(_sum);                            /// collection from each warp
+    }
+    g.sync();
+}
+
+__KERN__ void
+k_nvar(float *src, float *avg, float var, long numel) {        ///< sum of T4_DIM_SQ threads
+    __shared__ float _sum[T4_DIM_SQ >> 5];                     ///< shared to keep warp sum
+    
+    auto const g   { cg::this_thread_block() };                /// total threads
+    auto const tid { g.thread_rank() };                        /// thread id
+
+    float v { d__stride_var(src, var, numel, tid) };           /// collect one sum per thread
+    v = d__warp_sum(v);                                        /// a reduced sum per warp
+    
+    auto const tpi { cg::tiled_partition<32>(g).thread_rank() };
+    if (tpi == 0) _sum[tpi >> 5] = v;                        /// collection from each warp
+    
+    v = d__rollup_sum(_sum);                                   /// collection from each warp
+    
+    if (threadIdx.x == 0) *avg = v / numel;
 }
 ///
 ///> Batch sum (NHW per channel)
 ///
 __KERN__ void
-k_batchsum(F32_RP src, F32_WP sum, long HW) {
+k_batchsum(float *src, float *sum, long HW) {
     const long j  = (long)blockIdx.x*blockDim.x + threadIdx.x; ///< element index
     const int  c  = blockIdx.y, C = gridDim.y;                 ///< channel
     const int  n  = blockIdx.z;                                ///< batch slice index
     const long ns = HW * C * n;                                
     
     float v = (c < C && j < HW) ? src[ns + j * C + c] : 0.0f;
-    WARP_REDUCE(v);                                            ///< collect sum per warp
+    v = d__warp_sum(v);                                        ///< collect sum per warp
     ///
     /// sum up atomically (per channel, for batchnorm)
     /// slower than grid-stride loop when blocks are many
@@ -154,14 +151,13 @@ k_batchsum(F32_RP src, F32_WP sum, long HW) {
 ///> batch variance (NHW per channel)
 ///
 __KERN__ void
-k_batchnvar(F32_RP src, F32_RP avg, F32_WP var, long HW) {
+k_batchnvar(float *src, float*avg, float *var, long HW) {
     const long j  = (long)blockIdx.x * blockDim.x + threadIdx.x;  ///< element index
     const int  c  = blockIdx.y, C = gridDim.y;                    ///< channel
     const int  n  = blockIdx.z;                                   ///< batch slice index
     const long ns = HW * C * n;
     float v0 = (c < C && j < HW) ? src[(long)C * j + ns + c] - avg[c] : 0.0f;
-    float v  = v0 * v0;
-    WARP_REDUCE(v);                                               ///< collect sum per warp
+    float v  = d__warp_sum(v0*v0);                                ///< collect sum per warp
     ///
     /// sum up atomically (per channel, for batchnorm)
     ///
@@ -171,23 +167,23 @@ k_batchnvar(F32_RP src, F32_RP avg, F32_WP var, long HW) {
 
 struct Align4 { float data[4]; };
 __KERN__ void
-k_copy(F32_RP src, F32_WP dst, long n) {                          ///< Note: (src, dst)
-    long tx     = blockIdx.x * blockDim.x + threadIdx.x;
+k_copy(float *src, float *dst, long n) {                      ///< Note: (src, dst)
+    long idx = blockIdx.x * blockDim.x + threadIdx.x;
     long stride = blockDim.x * gridDim.x;
 
     // Use a struct to "hint" to the compiler we want 16-byte moves
     // while remaining safe for 4-byte alignment
-    for (long i = tx * 4; i < n - 3; i += stride * 4) {
+    for (long i = idx * 4; i < n - 3; i += stride * 4) {
         *(Align4*)&dst[i] = *(Align4*)&src[i];
     }
 
     // Standard cleanup loop for the end
-    for (long i = (n/4)*4 + tx; i < n; i += stride) {
+    for (long i = (n/4)*4 + idx; i < n; i += stride) {
         dst[i] = src[i];
     }
 }
 __KERN__ void
-k_transpose(F32_RP src, F32_WP dst, int H, int W) {           ///< Note: (src, dst)
+k_transpose(float *src, float *dst, int H, int W) {           ///< Note: (src, dst)
     const int j = blockIdx.x * blockDim.x + threadIdx.x;      ///< W range 2G  * 1K = 2T,  U41
     const int i = blockIdx.y * blockDim.y + threadIdx.y;      ///< H range 65K * 1K = 65M, U26
     const int c = blockIdx.z, C = gridDim.z;                  ///< channel deep
@@ -197,20 +193,20 @@ k_transpose(F32_RP src, F32_WP dst, int H, int W) {           ///< Note: (src, d
     }
 }
 __KERN__ void
-k_identity(F32_WP T, int H, int W) {                          ///< identity matrix (tensor)
+k_identity(float *t, int H, int W) {                          ///< identity matrix (tensor)
     const float i01[2] = { 0.0f, 1.0f };
     const int j = blockIdx.x * blockDim.x + threadIdx.x;
     const int i = blockIdx.y * blockDim.y + threadIdx.y;
     const int c = blockIdx.z, C = gridDim.z;                  ///< channel deep
 
     if (i < H && j < W && c < C) {
-        T[((long)W * i + j) * C + c] = i01[i==j];
+        t[((long)W * i + j) * C + c] = i01[i==j];
     }
 }
 
 #define DU_LNX   1.0e-12                                      /** log clamp */
 __KERN__ void
-k_math(math_op op, F32_XP A, float v, long n) {               ///< self modifying ops
+k_math(math_op op, float *A, float v, long n) {               ///< self modifying ops
     const long tx   = blockIdx.x * blockDim.x + threadIdx.x;
     const long step = gridDim.x * blockDim.x;
     for (long j = tx; j < n; j += step) {
@@ -240,26 +236,10 @@ k_math(math_op op, F32_XP A, float v, long n) {               ///< self modifyin
     }
 }
 ///
-/// tensor-scalar element-wise ops (grid-stride implementation)
-///
-__KERN__ void
-k_ts_op(math_op op, F32_XP A, float v, F32_XP O, long n) {
-    const long tx   = blockIdx.x * blockDim.x + threadIdx.x;
-    const long step = gridDim.x * blockDim.x;
-    for (long j = tx; j < n; j += step) {
-        switch (op) {                                         /// no divergence
-        case ADD: O[j] = A[j] + v; break;
-        case SUB: O[j] = A[j] - v; break;
-        case MUL: O[j] = A[j] * v; break;                     /// * convolution
-        case DIV: O[j] = A[j] / v; break;
-        }
-    }
-}
-///
 /// tensor-tensor element-wise ops (grid-stride implementation)
 ///
 __KERN__ void
-k_tt_op(math_op op, F32_RP A, F32_RP B, F32_WP O, long n) {
+k_tt_op(math_op op, float *A, float *B, float *O, long n) {
     const long tx   = blockIdx.x * blockDim.x + threadIdx.x;
     const long step = gridDim.x * blockDim.x;
     for (long j = tx; j < n; j += step) {
@@ -272,11 +252,27 @@ k_tt_op(math_op op, F32_RP A, F32_RP B, F32_WP O, long n) {
     }
 }
 ///
+/// tensor-scalar element-wise ops (grid-stride implementation)
+///
+__KERN__ void
+k_ts_op(math_op op, float *A, float v, float *O, long n) {
+    const long tx   = blockIdx.x * blockDim.x + threadIdx.x;
+    const long step = gridDim.x * blockDim.x;
+    for (long j = tx; j < n; j += step) {
+        switch (op) {                                         /// no divergence
+        case ADD: O[j] = A[j] + v; break;
+        case SUB: O[j] = A[j] - v; break;
+        case MUL: O[j] = A[j] * v; break;                     /// * convolution
+        case DIV: O[j] = A[j] / v; break;
+        }
+    }
+}
+///
 /// Binary Cross-Entropy (clamps output to >= -100)
 ///
 #define DU_EPS   1.0e-6                                       /* epsilon */
 __KERN__ void
-k_bce(F32_RP T, F32_XP O, long n) {
+k_bce(float *O, float *T, long n) {
     const long tx   = blockIdx.x * blockDim.x + threadIdx.x;
     const long step = gridDim.x * blockDim.x;
     for (long j = tx; j < n; j += step) {
@@ -290,9 +286,8 @@ k_bce(F32_RP T, F32_XP O, long n) {
 __KERN__ void
 k_nan_inf(float *src, int *cnt, long numel) {
     const long j  = (long)blockIdx.x*blockDim.x + threadIdx.x; ///< element index
-    
     int v = j < numel && (isnan(src[j]) || isinf(src[j])) ? 1 : 0;
-    WARP_REDUCE(v);
+    v = d__warp_sum(v);
     
     auto tp = cg::tiled_partition<32>(cg::this_thread_block());
     if (tp.thread_rank() == 0) atomicAdd_block(cnt, v);        ///< serialize sum
@@ -300,77 +295,6 @@ k_nan_inf(float *src, int *cnt, long numel) {
 __KERN__ void
 k_dummy() {}
 
-// ---------------------------------------------------------------------------
-// k_dot
-//
-//   Computes   O[n, c] = alpha * dot(A[n,:,c], B[n,:,c]) + beta * O[n,c]
-//
-//   Tensors are channel-last, rank-2 (H=1, W=K, C=C, N=N):
-//     A[n, k, c]  →  A.slice(n)[ k*C + c ]
-//     B[n, k, c]  →  B.slice(n)[ k*C + c ]
-//     O[n, c]     →  O.slice(n)[ c ]        (scalar per channel per sample)
-//
-//   Grid:  blockIdx.x = c  (channel),  blockIdx.y = n  (batch sample)
-//   Block: threadIdx.x in [0, T4_DIM_SZ)
-// ---------------------------------------------------------------------------
-#define VLEN  4                   ///< floats loaded per thread per unrolled step
-__KERN__ void
-k_dot(
-    F32_RP A, F32_RP B, F32_XP O,
-    float alpha, float beta, int K, int C)
-{
-    __shared__ float _smem[T4_DIM_SZ];
-    const int tx     = threadIdx.x;;                  ///< [0, T4_DIM_SZ)
-    const int stride = T4_DIM_SZ * VLEN;              ///< elements consumed per outer step
-    const int c      = blockIdx.x;                    ///< channel index
-
-    // -------------------------------------------------------------------------
-    // Phase 1: strided partial accumulation into a register
-    //
-    //   Thread tx owns elements k = tx, tx+T4_DIM_SZ, tx+2*T4_DIM_SZ, ...
-    //   The inner VLEN-unrolled loop amortises loop overhead and lets the
-    //   compiler issue independent FMAs for better ILP.
-    // -------------------------------------------------------------------------
-    float acc = { 0.0f };
-
-    int k = tx * VLEN;                               ///< stride index
-    #pragma unroll 4
-    for (; k + stride <= K; k += stride) {
-        #pragma unroll
-        for (int v = 0; v < VLEN; v++) {
-            const int idx = (k + v) * C + c;
-            acc += A[idx] * B[idx];
-        }
-    }
-    // Tail: handle remainder when K is not a multiple of stride
-    #pragma unroll
-    for (int v = 0; v < VLEN; v++) {
-        const int kv = k + v;
-        if (kv < K) {
-            const int idx = kv * C + c;
-            acc += A[idx] * B[idx];
-        }
-    }
-    // -------------------------------------------------------------------------
-    // Phase 2: warp-level reduce via shared memory
-    //
-    //   T4_DIM_SZ == 32 == warp size, so __syncthreads() is technically
-    //   redundant here, but kept for correctness if T4_DIM_SZ is ever
-    //   changed to a value larger than 32.
-    // -------------------------------------------------------------------------
-    _smem[tx] = acc;
-    __syncthreads();
-
-    #pragma unroll
-    for (int half = T4_DIM_SZ >> 1; half > 0; half >>= 1) {
-        if (tx < half) _smem[tx] += _smem[tx + half];
-        __syncthreads();
-    }
-    // -------------------------------------------------------------------------
-    // Thread 0 writes the final scalar for this (n, c) pair
-    // -------------------------------------------------------------------------
-    if (tx == 0) O[c] = _smem[0] * alpha + O[c] * beta;
-}
 ///=======================================================================
 /// GEMM methods
 ///
