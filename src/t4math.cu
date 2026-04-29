@@ -928,7 +928,7 @@ k_logdet(const float *lu, float *d_logdet, int *d_sign, int K) {
     for (int j = tx; j < K; j += blockDim.x) {            ///< block-stride
         float u = lu[j + j * K];                          ///< U[j,j] on diag
         if (u < 0.0f) { sign = -sign; u = -u; }
-        acc += LOG(u);
+        acc += LN(u);
     }
     
     _acc[tx] = acc;
