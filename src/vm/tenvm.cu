@@ -496,13 +496,13 @@ TensorVM::init() {
     ///@defgroup BLAS, 1-tensor ops, that create new tensor
     ///@brief - stick to PyTorch naming when possible
     ///@{
-    CODE("inverse",   blas1(T_INV));          ///< (A -- A Ai')   matrix inversion (GaussJordan)
-    CODE("det",       blas1(T_DET));          ///< (A -- A d)     matrix determinant
+    CODE("inverse",   blas1(T_INV));          ///< (A -- A A')    matrix inversion (GaussJordan)
+    CODE("luinv",     blas1(T_LUINV));        ///< (A -- A A')    matrix inversion (LU)
     CODE("lu",        blas1(T_LU));           ///< (A -- A P')    LU decomposition
-    CODE("luinv",     blas1(T_LUINV));        ///< (A -- A A')    inverse the LU matrix
     CODE("upper",     blas1(T_TRIU));         ///< (A -- A A')    upper triangle
     CODE("lower",     blas1(T_TRIL));         ///< (A -- A A')    lower triangle
     CODE("transpose", blas1(T_XPOS));         ///< (A -- A At)    matrix transpose
+    CODE("det",       blas1(T_DET));          ///< (A -- A d)     matrix determinant
     ///@}
     ///@defgroup 2-tensor matrix ops
     ///@{
