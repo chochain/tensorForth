@@ -930,6 +930,175 @@ k_logdet(const float *lu, float *d_logdet, int *d_sign, int K) {
     if (tx == 0) { *d_logdet = _acc[0]; *d_sign = _sgn[0]; }
 }
 
+#if 0   /// host-based code
+///
+/// matrix inversion (Gauss-Jordan with Pivot)
+/// Note: Gauss-Jordan elimination is expensive O(N^3)
+///
+__HOST__ void
+h_inverse(float *da, float *di, int n) {
+    auto swap_rows = [da, di, n](int u, int z) {
+        for (int k = 0; k < n; k++) {         ///> TODO: swap entire row
+            float ta = da[k + z * n], ti = di[k + z * n];
+            da[k + z * n] = da[k + u * n]; da[k + u * n] = ta;
+            di[k + z * n] = di[k + u * n]; di[k + u * n] = ti;
+        }
+    };
+    auto find_max = [da, n](int z) {
+        int u = z;
+        for (int i = z + 1; i < n; i++) {    ///> TODO: CDP reduce
+            if (ABS(da[z + i * n]) > ABS(da[z + u * n])) u = i;
+        }
+        if (ABS(da[z + u * n]) < DU_EPS) {
+            ERROR("  tensor#inverse sigular max=%g!\n", da[z + u * n]);
+            return -1;
+        }
+        return u;
+    };
+    auto diag = [da, di, n](int z) {
+        float r0 = da[z + z * n];
+        for (int k = 0; k < n; k++) {
+            int i = k + z * n;
+            di[i] /= r0;
+            da[i] /= r0;
+        }};
+    auto elim = [da, di, n](int z) {
+        for (int i = 0; i < n; i++) {
+            float r1 = da[z + i * n];
+            for (int k = 0; i!=z && k < n; k++) {
+                di[k + i * n] -= r1 * di[k + z * n];
+                da[k + i * n] -= r1 * da[k + z * n];
+            }
+        }};
+    for (int z = 0; z < n; z++) {
+        int u = find_max(z);
+        if (u < 0) break;
+        else if (u != z) {
+            swap_rows(u, z);
+        }
+        diag(z);
+        elim(z);
+    }
+}
+///
+/// LU decomposition (no Pivot)
+/// Note: A stores both L and U in-place to save space
+/// TODO: CDP
+///
+__HOST__ void
+h_lu(float *da, int n) {
+    auto elim = [da, n](int z) {
+        float ra = da[z + z * n];
+        if (fabs(ra) < float_EPS) return;      /// * if 0 skip the row
+        for (int y = z + 1; y < n; y++) {
+            float r1 = da[z + y * n] / ra;     /// * substitution
+            for (int k = z; k < n; k++) {
+                da[k + y * n] -= r1 * da[k + z * n];
+            }
+            da[z + y * n] = r1;             /// L stored in A to save space
+        }
+    };
+    for (int z = 0; z < n; z++) {
+        elim(z);               /// * eliminate variables in upper triangle
+	}
+}
+///
+/// LU (preprocessed) matrix inversion
+/// TODO: CDP
+///
+__HOST__ void
+h_lu_inverse(float *dd, int n) {
+    auto forward = [dd, n](int z) {
+        for (int y = z + 1; y < n; y++) {
+            float r1 = dd[z + y * n];
+            for (int k = 0; k < z; k++) {               /// columns before
+                dd[k + y * n] -= dd[k + z * n] * r1;
+            }
+            lu[z + y * n] = -r1;                        /// current z column
+        }};
+    auto backward = [dd, n](int z) {
+        float r0 = RCP(dd[z + z * n]);
+        dd[z + z * n] = r0;                             /// diag
+        for (int k = z + 1; k < n; k++) {               /// current z row
+            dd[k + z * n] *= r0;
+        }
+        for (int y = 0; y < z; y++) {                   /// factorize rows above
+            float r1 = dd[z + y * n];
+            dd[z + y *  n] = -r1 * r0;                  /// current z column
+            for (int k = z + 1; k < n; k++) {           /// columns after
+                dd[k + y * n] -= dd[k + z * n] * r1;
+            }
+        }};
+    
+    if (h_det(dd) < float_EPS) return;
+    
+    for (int z = 0; z < n - 1; z++)  forward(z);
+    for (int z = n - 1; z >= 0; z--) backward(z);
+}
+///
+/// PLU methods with permutation vector
+/// Note: A stores both L and U in-place to save space, use triu, trul to extract
+///       P is permutation vector
+/// TODO: CDP
+///
+__HOST__ int
+h_plu(float *da, float *dp, int *ns, int n) {
+    *ns = 0;                                  ///> initialize flip sign
+    auto swap_rows = [da, dp, n](int u, int z) {
+        float t = dp[z]; dp[z] = dp[u]; dp[u] = t;
+        for (int k = z; k < n; k++) {         ///> TODO: swap entire row
+            t = da[k + z * n];
+            da[k + z * n] = da[k + u * n];
+            da[k + u * n] = t;
+        }
+    };
+    auto find_max = [da, n](int z) {
+        int u = z;
+        for (int i = z + 1; i < n; i++) {    ///> TODO: CDP reduce
+            if (ABS(da[z + i * n]) > ABS(da[z + u * n])) u = i;
+        }
+        if (ABS(da[z + u * n]) < float_EPS) {
+            ERROR("  tensor#lu sigular!\n");
+            return -1;
+        }
+        return u;
+    };
+    auto elim = [da, n](int z) {
+        float ra = da[z + z * n];
+        if (fabs(ra) < float_EPS) return;       /// * if 0 skip the row
+        for (int y = z + 1; y < n; y++) {
+            float r1 = da[z + y * n] / ra;      /// * substitution
+            for (int k = z; k < n; k++) {
+                da[k + y * n] -= r1 * da[k + z * n];
+            }
+            da[z + y * n] = r1;                 /// L stored in A to save space
+        }
+    };
+    for (int z = 0; z < n; z++) dp[z] = z;      /// init permutation vector
+    for (int z = 0; z < n; z++) {
+        int u = find_max(z);   /// * pivot to reduce rounding error
+        if (u < 0) return A;
+        if (u != z) {          /// * swapping row which has maximum xth column element
+            swap_rows(u, z);
+            *ns += 1;
+        }
+        elim(z);               /// * eliminate variables in upper triangle
+    }
+    return 0;
+}
+///
+/// matrix determinant
+///
+__HOST__ float
+h_det(float *data, int n) {
+    float v = 1.0f;
+    
+    for (int z = 0; z < n; z++) v *= data[z + z * n];
+
+    return v;
+}
+#endif // 0 - host-based code
+
 #endif // T4_DO_OBJ
 } // namespace t4
 
