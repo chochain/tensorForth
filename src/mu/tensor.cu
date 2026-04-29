@@ -383,12 +383,12 @@ Tensor::plu(Tensor &A, int *d_piv) {             ///< update A -> PLU (in-place)
             ERROR("  tensor#plu: singular at column %d\n", z);
             return A;
         }
-        d_piv[z] = *d_pivot;                    ///< record for Stage 2 (lu_inverse)
+        d_piv[z] = *d_pivot;                     ///< record for Stage 2 (lu_inverse)
 
         if (u != z) FORK(k_swap_rows, K, da, nullptr, u, z);
         FORK(k_lu_col, K, da, z);
     }
-    return A;
+    return A;                                    /// * A = L\U, d_piv = P
 }
 
 __HOST__ Tensor&
@@ -398,81 +398,54 @@ Tensor::lu_inverse(Tensor &A, Tensor &I, int *d_piv) {
     int K = A.W();
     INFO("  tensor#lu_inverse [%d,%d]\n", K, K);
     
-    plu(A, d_piv);                                 ///< A -> PLU (in-place)
+    plu(A, d_piv);                                /// * A -> L\U, d_piv -> P (in-place)
 
     // -------------------------------------------------------------------------
     // Stage 2 — k_getri: solve A·X = I  (only 2 kernel launches, fully parallel)
     // -------------------------------------------------------------------------
     DU  *da = A.data, *di = I.data;
-    FORK(k_fsub, K, da, d_piv, di);                /// * L·Y = P·I
-    FORK(k_bsub, K, da, di);                       /// * U·X = Y
+    FORK(k_fsub, K, da, d_piv, di);               /// * L·Y = P·I
+    FORK(k_bsub, K, da, di);                      /// * U·X = Y
     
     return I;
 }
 
 __HOST__ Tensor&
-Tensor::lu(Tensor &P, Tensor &A) {
-    if (!A.is_square("A")) return A;
-    
-    // LU = PA;
-    return A;
+Tensor::lu(Tensor &LU, bool get_u) {
+    if (!LU.is_square("LU")) return LU;
+
+    const int K = LU.H();
+    MM_DB("  tensor#%s [%d,%d]\n", get_u ? "upper" : "lower", K, K);
+
+    FORK3(k_lu, K, K, 1, LU.data, get_u);         /// * turn LU to either L or U
+
+    return LU;
 }
 
 __HOST__ DU
 Tensor::det() {
     const U32 K = H();
 
-    int piv[K], *d_piv;                                 ///< permutation flags
-    MM_ALLOC(&d_piv, sizeof(int) * K);                  ///< d_piv[K], d_pivot[1], d_sign[1]
+    int piv[K], *d_piv;                           ///< permutation flags
+    MM_ALLOC(&d_piv, sizeof(int) * K);            ///< d_piv[K], d_pivot[1], d_sign[1]
     
-    plu(*this, d_piv);                                  ///< A → P·L·U in-place
-    D2H(piv, d_piv, sizeof(int) * K);                   /// * move to host
+    plu(*this, d_piv);                            ///< A → P·L·U in-place
+    D2H(piv, d_piv, sizeof(int) * K);             /// * move to host
     
-    int cnt = 0;                                        ///< swap count
+    int cnt = 0;                                  ///< swap count
     for (int i = 0; i < K; i++)
-        if (piv[i] != i) cnt++;                         ///< row swap counts
-    const int sign = (cnt % 2 == 0) ? 1 : -1;           ///< permutation sign
+        if (piv[i] != i) cnt++;                   ///< row swap counts
+    const int sign = (cnt % 2 == 0) ? 1 : -1;     ///< permutation sign
 
-    DU det;                                             /// product of U diagonal (in log space for stability)
-    FORK2(k_logdet, K, data, _tmp, d_piv);              /// * calculate log(determinant)
-    D2H(&det, _tmp, sizeof(DU));                        /// * capture d_det 
-    D2H(&cnt, d_piv, sizeof(int));                      /// * capture d_sign
+    DU det;                                       /// product of U diagonal (in log space for stability)
+    FORK2(k_logdet, K, data, _tmp, d_piv);        /// * calculate log(determinant)
+    D2H(&det, _tmp, sizeof(DU));                  /// * capture d_det 
+    D2H(&cnt, d_piv, sizeof(int));                /// * capture d_sign
     
     MM_FREE(d_piv);
 
-    det = EXP(det) * sign * cnt;                        /// * calculate determinant
+    det = EXP(det) * sign * cnt;                  /// * calculate determinant
     SCALAR(det); return det;
-}
-///
-/// matrix upper triangle
-///
-__HOST__ Tensor&
-Tensor::triu() {
-    U32 m = H(), n = W();
-    MM_DB("  tensor#upper [%d,%d]\n", m, n);
-
-    for (U32 z = 1; z < m; z++) {
-        for (U32 k = 0; k < z; k++) {
-            data[k + z * n] = DU0;
-        }
-    }
-    return *this;
-}
-///
-/// matrix lower triangle with diag filled with 1
-///
-__HOST__ Tensor&
-Tensor::tril() {
-    U32 m = H(), n = W();
-    MM_DB("  tensor#lower [%d,%d]\n", m, n);
-
-    for (U32 z = 0; z < m; z++) {
-        data[z + z * n] = DU1;
-        for (U32 k = z + 1; k < n; k++) {
-            data[k + z * n] = DU0;
-        }
-    }
-    return *this;
 }
 ///=======================================================================
 /// Tensor life-cycle ops
