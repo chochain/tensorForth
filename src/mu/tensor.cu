@@ -614,28 +614,26 @@ __HOST__ DU
 Tensor::det() {
     const U32 K = H();
 
-    int *d_flags;
-    MM_ALLOC(&d_flags, sizeof(int) * (K+2));            ///< d_piv[K], d_pivot[1], d_sign[1]
+    int piv[K], *d_piv;                                 ///< permutation flags
+    MM_ALLOC(&d_piv, sizeof(int) * K);                  ///< d_piv[K], d_pivot[1], d_sign[1]
     
-    DU *d_det = _tmp;                                   ///< use temp storage
-
-    plu(*this, d_flags);                                ///< A → P·L·U in-place
-
-    /// count row swaps for det(P) sign
+    plu(*this, d_piv);                                  ///< A → P·L·U in-place
+    D2H(piv, d_piv, sizeof(int) * K);                   /// * move to host
+    
     int cnt = 0;                                        ///< swap count
     for (int i = 0; i < K; i++)
-        if (d_flags[i] != i) cnt++;                     ///< via page fault
+        if (piv[i] != i) cnt++;                         ///< row swap counts
     const int sign = (cnt % 2 == 0) ? 1 : -1;           ///< permutation sign
 
-    /// product of U diagonal (in log space for stability)
-    DU det;
-    FORK2(k_det, K, data, d_det, &d_flags[K+1]);
-    D2H(&det, d_det, sizeof(DU));                       /// * capture d_det 
-    D2H(&cnt, &d_flags[K+1], sizeof(int));              /// * capture d_sign
+    DU det;                                             /// product of U diagonal (in log space for stability)
+    FORK2(k_logdet, K, data, _tmp, d_piv);              /// * calculate log(determinant)
+    D2H(&det, _tmp, sizeof(DU));                        /// * capture d_det 
+    D2H(&cnt, d_piv, sizeof(int));                      /// * capture d_sign
     
-    MM_FREE(d_flags);
-    
-    return sign * cnt * EXP(det);                       /// * calculate determinant
+    MM_FREE(d_piv);
+
+    det = EXP(det) * sign * cnt;                        /// * calculate determinant
+    SCALAR(det); return det;
 }
 ///
 /// matrix upper triangle
