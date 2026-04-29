@@ -93,8 +93,8 @@ typedef int                 EVENT;
 
 #endif // defined(__CUDACC__)  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-#define H2D(dst,src,sz)     cudaMemcpy((void*)dst, (void*)src, sz, cudaMemcpyHostToDevice)
-#define D2H(dst,src,sz)     cudaMemcpy((void*)dst, (void*)src, sz, cudaMemcpyDeviceToHost)
+#define H2D(dst,src,sz)     GPU_ERR(cudaMemcpy((void*)dst,(void*)src,sz,cudaMemcpyHostToDevice))
+#define D2H(dst,src,sz)     GPU_ERR(cudaMemcpy((void*)dst,(void*)src,sz,cudaMemcpyDeviceToHost))
 ///@}
 ///@name Portable types (Rust alike)
 ///@{
@@ -122,6 +122,7 @@ typedef float       F32;                    ///< single precision float
     const dim3 _b(T4_DIM_SQ, 1, 1);                         \
     const dim3 _g(((n) + _b.x - 1) / _b.x, 1, 1);           \
     fn<<<_g,_b>>>(__VA_ARGS__,n);                           \
+    GPU_CHK();                                              \
 }
 #define FORK1(fn, c, n, ...) {                              \
     const dim3 _g((c), (n), 1);                             \
