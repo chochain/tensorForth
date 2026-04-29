@@ -150,9 +150,13 @@ TensorVM::blas1(t4_ten_op op) {
         FREE(T);
         tx = false;
     }
-    case T_LU:  Tensor::lu(T, A); break;      /// * decompose A to LU
-    case T_TRIU: T.triu();        break;
-    case T_TRIL: T.tril();        break;
+    case T_LU: {                              /// * decompose A to L\U (permutation table d_piv discard)
+        Tensor &P = mmu.tensor(A.H());
+        Tensor::plu(T, (int*)P.data);
+        mmu.free(P);
+    } break;
+    case T_TRIU: Tensor::lu(T, true);  break; /// * T = LU (from plu) => U
+    case T_TRIL: Tensor::lu(T, false); break; /// * T = LU (from plu) => L
     case T_XPOS:
         T.reshape(A.W(), A.H());
         Tensor::transpose(A, T);  break;
