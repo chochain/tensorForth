@@ -334,51 +334,48 @@ Tensor::has_nan() {
 ///
 /// inverse — Gauss-Jordan matrix inversion
 ///
-/// @param A  square input matrix  [n x n], column-major (k + z*n)
-/// @param I  identity matrix in,  inverted matrix out  [n x n]
-///
-/// Both A.data and I.data must be cudaMallocManaged (managed memory).
-/// A is destroyed in-place (becomes identity); I becomes A^{-1}.
+/// @param A  square input matrix  [K x K], column-major (k + z * K)
+/// @param I  identity matrix in,  inverted matrix out  [K x K]
 ///
 __HOST__ Tensor&
-Tensor::inverse(Tensor &A, Tensor &I) {
-    if (!A.is_square("A") || !I.is_square("I")) return I;
+Tensor::inverse(Tensor &A, Tensor &I) {          /// * A=>I, I=>A^-1
+    if (!A.is_square("A") || !I.is_square("I")) return A;
     
     const int K = A.W();
     INFO("  tensor#inverse [%d,%d]\n", K, K);
     
-    int *d_pivot = (int*)A._tmp;                 /// pivot result
+    int *d_pivot = (int*)A._tmp;                 /// * pivot result
     DU  *da = A.data, *di = I.data;
     
     for (int z = 0; z < K; z++) {
         int u = 0;
-        FORK2(k_find_pivot, K, da, d_pivot, z);  /// find pivot row
+        FORK2(k_find_pivot, K, da, d_pivot, z);  /// * find pivot row
         D2H(&u, d_pivot, sizeof(int));
         if (u < 0) {
             ERROR("  tensor#inverse: singular matrix at column %d\n", z);
-            break;
+            return A;
         }
         if (u != z) {
-            FORK(k_swap_rows, K, da, di, u, z);  /// swap rows z ↔ u 
+            FORK(k_swap_rows, K, da, di, u, z);  /// * swap rows z ↔ u 
         }
-        FORK(k_diag, K, da, di, z);              /// normalise pivot row
-        FORK(k_elim, K, da, di, z);              /// eliminate column z from all other rows
+        FORK(k_diag, K, da, di, z);              /// * normalise pivot row
+        FORK(k_elim, K, da, di, z);              /// * eliminate column z from all other rows
     }
-    return I;
+    return I;                                    /// * A becomes identity matrix
 }
 
 __HOST__ Tensor&
-Tensor::plu(Tensor &A, int *d_piv) {
+Tensor::plu(Tensor &A, int *d_piv) {             ///< update A -> PLU (in-place)
     if (!A.is_square("A")) return A;
     
     const int K = A.W();
-    int *d_pivot = (int*)A._tmp;                ///< scalar: current pivot row
+    int *d_pivot = (int*)A._tmp;                 ///< scalar: current pivot row
     DU  *da = A.data;
     // -------------------------------------------------------------------------
     // Stage 1 — k_getrf: factorise A → P·L·U  (in-place, n sync points)
     // -------------------------------------------------------------------------
     for (int z = 0; z < K; z++) {
-        int u = 0;
+        int u = -1;
         FORK2(k_find_pivot, K, da, d_pivot, z);
         D2H(&u, d_pivot, sizeof(int));
         
@@ -386,7 +383,7 @@ Tensor::plu(Tensor &A, int *d_piv) {
             ERROR("  tensor#plu: singular at column %d\n", z);
             return A;
         }
-        d_piv[z] = *d_pivot;                       ///< record for Stage 2 (lu_inverse)
+        d_piv[z] = *d_pivot;                    ///< record for Stage 2 (lu_inverse)
 
         if (u != z) FORK(k_swap_rows, K, da, nullptr, u, z);
         FORK(k_lu_col, K, da, z);
@@ -401,17 +398,14 @@ Tensor::lu_inverse(Tensor &A, Tensor &I, int *d_piv) {
     int K = A.W();
     INFO("  tensor#lu_inverse [%d,%d]\n", K, K);
     
-    DU  *da = A.data, *di = I.data;
     plu(A, d_piv);                                 ///< A -> PLU (in-place)
 
-    INFO("A"); A.show(true);
-    INFO("I"); I.show(true);
-    
     // -------------------------------------------------------------------------
     // Stage 2 — k_getri: solve A·X = I  (only 2 kernel launches, fully parallel)
     // -------------------------------------------------------------------------
-    FORK(k_fsub, K, da, d_piv, di);                ///< L·Y = P·I
-    FORK(k_bsub, K, da, di);                       ///< U·X = Y
+    DU  *da = A.data, *di = I.data;
+    FORK(k_fsub, K, da, d_piv, di);                /// * L·Y = P·I
+    FORK(k_bsub, K, da, di);                       /// * U·X = Y
     
     return I;
 }
@@ -601,7 +595,6 @@ Tensor::plu(Tensor &A, Tensor &P, int *ns) {
     }
     return A;
 }
-#endif // 0 - host-based code
 ///
 /// matrix determinant
 ///
@@ -614,6 +607,35 @@ Tensor::det() {
     for (U32 z = 0; z < m; z++) v *= data[z + z * n];
 
     SCALAR(v); return v;
+}
+#endif // 0 - host-based code
+
+__HOST__ DU
+Tensor::det() {
+    const U32 K = H();
+
+    int *d_flags;
+    MM_ALLOC(&d_flags, sizeof(int) * (K+2));            ///< d_piv[K], d_pivot[1], d_sign[1]
+    
+    DU *d_det = _tmp;                                   ///< use temp storage
+
+    plu(*this, d_flags);                                ///< A → P·L·U in-place
+
+    /// count row swaps for det(P) sign
+    int cnt = 0;                                        ///< swap count
+    for (int i = 0; i < K; i++)
+        if (d_flags[i] != i) cnt++;                     ///< via page fault
+    const int sign = (cnt % 2 == 0) ? 1 : -1;           ///< permutation sign
+
+    /// product of U diagonal (in log space for stability)
+    DU det;
+    FORK2(k_det, K, data, d_det, &d_flags[K+1]);
+    D2H(&det, d_det, sizeof(DU));                       /// * capture d_det 
+    D2H(&cnt, &d_flags[K+1], sizeof(int));              /// * capture d_sign
+    
+    MM_FREE(d_flags);
+    
+    return sign * cnt * EXP(det);                       /// * calculate determinant
 }
 ///
 /// matrix upper triangle
