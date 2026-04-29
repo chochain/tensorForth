@@ -178,7 +178,7 @@ __KERN__ void k_elim(float *da, float *di, int z, int K);
 __KERN__ void k_lu_col(float *da, int z, int K);
 __KERN__ void k_fsub(const float *lu, const int *d_piv, float *di, int K);
 __KERN__ void k_bsub(const float *lu, float *di, int K);
-__KERN__ void k_det(const float *lu, float *d_logdet, int *d_sign, int K);
+__KERN__ void k_logdet(const float *lu, float *d_logdet, int *d_sign, int K);
 ///@}
 } // namespace t4
 #endif // __T4MATH_H_

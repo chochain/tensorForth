@@ -901,7 +901,7 @@ k_bsub(const float *lu, float *di, int K) {
 }
 
 __KERN__ void
-k_det(const float *lu, float *d_logdet, int *d_sign, int K) {
+k_logdet(const float *lu, float *d_logdet, int *d_sign, int K) {
     __shared__ float _acc[T4_DIM_SQ];
     __shared__ int   _sgn[T4_DIM_SQ];
 
