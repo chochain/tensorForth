@@ -150,21 +150,18 @@ TensorVM::blas1(t4_ten_op op) {
         FREE(T);
         tx = false;
     }
-    case T_DET: {
-        Tensor &P = mmu.tensor(A.H());        /// * dummy vector
-        Tensor::plu(T, (int*)P.data);         /// * decompose T to PLU
-        DU v  = T.det();                      /// * multiply diagnal
-        PUSH(*(int*)P.data ? -v : v);         /// * return determinant on TOS
-        FREE(P);                              /// * free unused tensors
-        FREE(T);
-        tx = false;
-    } break;
     case T_LU:  Tensor::lu(T, A); break;      /// * decompose A to LU
     case T_TRIU: T.triu();        break;
     case T_TRIL: T.tril();        break;
     case T_XPOS:
         T.reshape(A.W(), A.H());
         Tensor::transpose(A, T);  break;
+    case T_DET: {
+        DU v = T.det();                       /// * multiply diagnal
+        PUSH(v);
+        FREE(T);
+        tx = false;
+    } break;
     default:
         ERROR("opn[%d] not supported\n", op);
         FREE(T);
@@ -295,13 +292,13 @@ TensorVM::_tt_op(math_op op) {                ///< tensor-tensor ops
 __HOST__ Tensor&
 TensorVM::_tinv(Tensor &A, bool use_lu) {    ///< matrix inverse
     const int K = A.H();
-    Tensor &I = mmu.tensor(K, K).identity();
+    Tensor &I = mmu.tensor(K, K).identity(); ///< create an identify matrix
     if (use_lu) {
         Tensor &P = mmu.tensor(K);
         Tensor::lu_inverse(A, I, (int*)P.data);
         mmu.free(P);
     }
-    else Tensor::inverse(A, I);
+    else Tensor::inverse(A, I);              /// * Gause-Jordan
     return I;
 }
 
