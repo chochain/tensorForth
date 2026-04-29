@@ -815,7 +815,7 @@ k_elim(float *da, float *di, int z, int K) {
     if (ABS(r1) < DU_EPS) return;                ///< row already zeroed — skip
 
     for (int k = 0; k < K; k++) {
-        const int ki = k + tx * k, kz = k + z * K;
+        const int ki = k + tx * K, kz = k + z * K;
         da[ki] -= r1 * da[kz];
         di[ki] -= r1 * di[kz];
     }
@@ -867,7 +867,7 @@ k_lu_col(float *da, int z, int K) {
 // ===========================================================================
 __KERN__ void
 k_fsub(const float *lu, const int *d_piv, float *di, int K) {
-    const int tx = blockIdx.x * blockDim.x + threadIdx.x;
+    const int tx = blockIdx.x * blockDim.x + threadIdx.x;  ///< column of di
     if (tx >= K) return;
 
     /// apply row permutation to column j of I
@@ -878,26 +878,56 @@ k_fsub(const float *lu, const int *d_piv, float *di, int K) {
         }
     }
     /// forward substitution: unit lower triangular (diagonal = 1 not stored)
-    for (int k = 1; k < K; k++) {
+    for (int k = 1; k < K; k++) {                          ///< rows of di
         float s = di[tx + k * K];
-        for (int j = 0; j < tx; j++)
-            s -= lu[j + tx * K] * di[tx + j * K];     ///< L[k,j] * y[j]
+        for (int j = 0; j < k; j++)                        ///< inner rows (lower triangle of row k)
+            s -= lu[j + k * K] * di[tx + j * K];           /// * L[k,j] * y[j]
         di[tx + k * K] = s;
     }
 }
 
 __KERN__ void
 k_bsub(const float *lu, float *di, int K) {
-    const int tx = blockIdx.x * blockDim.x + threadIdx.x;
+    const int tx = blockIdx.x * blockDim.x + threadIdx.x; ///< column of di
     if (tx >= K) return;
 
     /// Backward substitution: upper triangular with explicit diagonal
-    for (int j = K - 1; j >= 0; j--) {
+    for (int j = K - 1; j >= 0; j--) {                    ///< rows of di
         float s = di[tx + j * K];
-        for (int k = j + 1; k < K; k++)
-            s -= lu[k + j * K] * di[tx + k * K];     ///< U[i,k] * x[k]
-        di[tx + j * K] = s / lu[j + tx * K];         ///< divide by U[i,i]
+        for (int k = j + 1; k < K; k++)                   ///< inner rows (lower triangle of row k)
+            s -= lu[k + j * K] * di[tx + k * K];          /// * U[i,k] * x[k]
+        di[tx + j * K] = s / lu[j + j * K];               /// * divided by U[j,j]
     }
+}
+
+__KERN__ void
+k_det(const float *lu, float *d_logdet, int *d_sign, int K) {
+    __shared__ float _acc[T4_DIM_SQ];
+    __shared__ int   _sgn[T4_DIM_SQ];
+
+    const int tx = threadIdx.x;
+    float acc  = 0.0f;                                    ///< logsum (use log for stability)
+    int   sign = 1;
+
+    for (int j = tx; j < K; j += blockDim.x) {            ///< block-stride
+        float u = lu[j + j * K];                          ///< U[j,j] on diag
+        if (u < 0.0f) { sign = -sign; u = -u; }
+        acc += LOG(u);
+    }
+    
+    _acc[tx] = acc;
+    _sgn[tx] = sign;
+    __syncthreads();
+
+    #pragma unroll
+    for (int half = T4_DIM_SQ >> 1; half > 0; half >>= 1) {
+        if (tx < half) {
+            _acc[tx] += _acc[tx + half];
+            _sgn[tx] *= _sgn[tx + half];
+        }
+        __syncthreads();
+    }
+    if (tx == 0) { *d_logdet = _acc[0]; *d_sign = _sgn[0]; }
 }
 
 #endif // T4_DO_OBJ
