@@ -23,14 +23,14 @@ typedef enum {
     T_DIV,
     T_SOLV,
     T_INV,
-    T_LU,
     T_LUINV,
-    T_DET,
+    T_LU,
     T_TRIU,
     T_TRIL,
-    T_XPOS
+    T_XPOS,
+    T_DET
 } t4_ten_op;
-#define TENSOR_OP "dot","div","solv","inv","lu","luinv","det","triu","tril","xpos"
+#define TENSOR_OP "dot","div","solv","inv","luinv","lu","triu","tril","xpos","det"
 
 typedef enum {
     L_NONE = 0,
