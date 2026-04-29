@@ -888,15 +888,31 @@ k_fsub(const float *lu, const int *d_piv, float *di, int K) {
 
 __KERN__ void
 k_bsub(const float *lu, float *di, int K) {
-    const int tx = blockIdx.x * blockDim.x + threadIdx.x; ///< column of di
+    const int tx = blockIdx.x * blockDim.x + threadIdx.x;  ///< column of di
     if (tx >= K) return;
 
     /// Backward substitution: upper triangular with explicit diagonal
-    for (int j = K - 1; j >= 0; j--) {                    ///< rows of di
+    for (int j = K - 1; j >= 0; j--) {                     ///< rows of di
         float s = di[tx + j * K];
-        for (int k = j + 1; k < K; k++)                   ///< inner rows (lower triangle of row k)
-            s -= lu[k + j * K] * di[tx + k * K];          /// * U[i,k] * x[k]
-        di[tx + j * K] = s / lu[j + j * K];               /// * divided by U[j,j]
+        for (int k = j + 1; k < K; k++)                    ///< inner rows (lower triangle of row k)
+            s -= lu[k + j * K] * di[tx + k * K];           /// * U[i,k] * x[k]
+        di[tx + j * K] = s / lu[j + j * K];                /// * divided by U[j,j]
+    }
+}
+
+__KERN__ void                                              
+k_lu(float *lu, bool get_u, int _K, int K) {
+    const int tx = blockIdx.x * blockDim.x + threadIdx.x;  ///< column k
+    const int ty = blockIdx.y * blockDim.y + threadIdx.y;  ///< row i
+    if (tx >= K || ty >= K) return;
+
+    float *v = &lu[tx + ty * K];
+    if (get_u) {
+        if (tx < ty)      *v = 0.0f;                       ///< diagonal + above: U[i,k]
+    }
+    else {
+        if (tx == ty)     *v = 1.0f;                       /// * on diagnal I[i,i]
+        else if (tx > ty) *v = 0.0f;                       ///< below diagonal: L[i,k]
     }
 }
 
