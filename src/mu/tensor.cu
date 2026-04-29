@@ -377,13 +377,13 @@ Tensor::plu(Tensor &A, int *d_piv) {             ///< update A -> PLU (in-place)
     for (int z = 0; z < K; z++) {
         int u = -1;
         FORK2(k_find_pivot, K, da, d_pivot, z);
-        D2H(&u, d_pivot, sizeof(int));
+        d_piv[z] = *d_pivot;                     ///< D2D, for Stage 2 (lu_inverse)
+        D2H(&u, d_pivot, sizeof(int));           /// * capture on host
         
         if (u < 0) {
             ERROR("  tensor#plu: singular at column %d\n", z);
             return A;
         }
-        d_piv[z] = *d_pivot;                     ///< record for Stage 2 (lu_inverse)
 
         if (u != z) FORK(k_swap_rows, K, da, nullptr, u, z);
         FORK(k_lu_col, K, da, z);
@@ -431,12 +431,12 @@ Tensor::det() {
     
     plu(*this, d_piv);                            ///< A → P·L·U in-place
     D2H(piv, d_piv, sizeof(int) * K);             /// * move to host
-    
-    int cnt = 0;                                  ///< swap count
-    for (int i = 0; i < K; i++)
-        if (piv[i] != i) cnt++;                   ///< row swap counts
-    const int sign = (cnt % 2 == 0) ? 1 : -1;     ///< permutation sign
 
+    int cnt = 0;                                  /// count row swaps for det(P) sign
+    for (int i = 0; i < K; i++)
+        if (piv[i] != i) cnt++;                   ///< each entry = one actual swap
+    const int sign = (cnt % 2 == 0) ? 1 : -1;
+    
     DU det;                                       /// product of U diagonal (in log space for stability)
     FORK2(k_logdet, K, data, _tmp, d_piv);        /// * calculate log(determinant)
     D2H(&det, _tmp, sizeof(DU));                  /// * capture d_det 
