@@ -24,13 +24,13 @@ typedef enum {
     T_SOLV,
     T_INV,
     T_LUINV,
-    T_LU,
+    T_PLU,
     T_TRIU,
     T_TRIL,
     T_XPOS,
     T_DET
 } t4_ten_op;
-#define TENSOR_OP "dot","div","solv","inv","luinv","lu","triu","tril","xpos","det"
+#define TENSOR_OP "dot","div","solv","inv","luinv","plu","triu","tril","xpos","det"
 
 typedef enum {
     L_NONE = 0,
@@ -102,7 +102,7 @@ struct Tensor : public T4Base {
     static __HOST__  Tensor &transpose(Tensor &A, Tensor &T);
     static __HOST__  Tensor &inverse(Tensor &A, Tensor &I);                /// GaussJordan (with Pivot)
     static __HOST__  Tensor &lu_inverse(Tensor &A, Tensor &I, int *d_piv); /// inverse w PLU
-    static __HOST__  Tensor &plu(Tensor &A, int *d_piv);                   /// LU+permutation vector (in-place)
+    static __HOST__  Tensor &plu(Tensor &A, Tensor &I, int *d_piv);        /// LU+permutation vector (in-place)
     static __HOST__  Tensor &lu(Tensor &LU, bool get_u);                   /// L\U => L or U
     static __HOST__  Tensor &batchsum(Tensor &A, Tensor &O);
     static __HOST__  Tensor &batchvar(Tensor &A, Tensor &G, Tensor &O);
