@@ -514,14 +514,14 @@ If all goes well, some warnings aside, *~/tests/ten4* is your executable. The fo
 <pre>
   matmul    (Ma Mb -- Ma Mb Mc) - matrix-matrix multiplication Mc = Ma @ Mb
   matdiv    (Ma Mb -- Ma Mb Mc) - matrix-matrix division Mc = Ma @ inverse(Mb)
-  inverse   (Ma    -- Ma Ma')   - matrix inversion (Gauss-Jordan with Pivot)
-  transpose (Ma    -- Ma Ma')   - matrix transpose
-  det       (Ma    -- Ma d)     - matrix determinant (with PLU)
-  lu        (Ma    -- Ma Ma')   - LU decomposition (no Pivot)
-  luinv     (Ma    -- Ma Ma')   - inverse of an LU matrix
+  inverse   (Ma    -- Ma Ma')   - matrix inversion (via Gauss-Jordan with Pivot)
+  luinv     (Ma    -- Ma Ma')   - matrix inversion (via PLU factorization)
+  plu       (Ma    -- Ma P LU)  - Ma => P and L\U
   upper     (Ma    -- Ma Ma')   - upper triangle
   lower     (Ma    -- Ma Ma')   - lower triangle with diag filled with 1s
-  solve     (Ab Ma -- Ab Ma Ax) - solve linear equation AX = B
+  transpose (Ma    -- Ma Ma')   - matrix transpose
+  det       (Ma    -- Ma d)     - matrix determinant (with PLU)
+  solve     (B A   -- B A X)    - solve linear equation AX = B
   gemm      (a b Ma Mb Mc -- a b Ma Mb Mc') - GEMM Mc' = a * Ma * Mb + b * Mc
 </pre>
 

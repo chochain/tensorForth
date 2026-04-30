@@ -3,7 +3,7 @@
 * vector, matrix, tensor objects (modeled to PyTorch)
 * TLSF tensor storage manager
 * matrix arithmetic (i.e. +, -, @, *, sum, min, max, avg, abs, negate, exp, log, pow)
-* linear algebra (i.e. copy, matmul, inverse, transpose, det, lu, luinv, upper, lower, solve)
+* linear algebra (i.e. copy, matmul, inverse, transpose, det, plu, luinv, upper, lower, solve)
 * matrix fill (i.e. zeros, ones, gradfill, full, eye, random)
 * matrix console input (i.e. matrix{..., vector{..., and T!{)
 * matrix print (i.e PyTorch-style, adjustable edge elements)
@@ -235,18 +235,18 @@ tensorForth 2.0 done.
 ||> `3 3 matrix{ 2 2 5 1 1 1 4 6 8 } copy`<br/>> **`matdiv`** `.`|`T2[3,3] T[3,3]`<br/>`matrix[3,3] = { { 1.0000 +0.0000 +0.0000 } { -0.0000 +1.0000 +0.0000 } { +0.0000 +0.0000 +1.0000 } }`|
 |inverse|(Ma -- Ma Ma')|matrix inversion (Gauss-Jordan with Pivot)|
 ||> `3 3 matrix{ 2 2 5 1 1 1 4 6 8 }`<br/>> **`inverse`**<br/>> `.`|`T2[3,3]`<br/>`T2[3,3] T[3,3]`<br/>`matrix[3,3] = { { 0.3333 +2.3333 -0.5000 } { -0.6667 -0.6667 +0.5000 } { +0.3333 -0.6667 +0.0000 } }`|
-|transpose|(Ma -- Ma Ma')|matrix transpose|
-|det|(Ma -- Ma d)|matrix determinant (with PLU)|
-||> `3 3 matrix{ 1 2 4 3 8 14 2 6 13 }`<br/>> **`det`**|`T2[3,3]`<br/>`T2[3,3] 6`|
-|lu|(Ma -- Ma Ma')|LU decomposition, no Pivot|
-||> `3 3 matrix{ 1 2 4 3 8 14 2 6 13 }`<br/>> **`lu`**`.`|`T2[3,3]`<br/>`matrix[3,3] = {`<br/>`{ +1.0000 +2.0000 +4.0000 }`<br/>`{ +3.0000 +2.0000 +2.0000 }`<br/>`{ +2.0000 +1.0000 +3.0000 } }`|
 |luinv|(Ma -- Ma Ma')|inverse of an LU matrix (i.e. forward & backward)|
 ||> `3 3 matrix{ 1 2 4 3 8 14 2 6 13 }`<br/>> **`luinv`**`.`|`T2[3,3]`<br/>`matrix[3,3] = {`<br/>`{ +1.0000 -1.0000 -0.6667 }`<br/>`{ -3.0000 +0.5000 -0.3333 }`<br/>`{ +1.0000 -1.0000 +0.3333 } }`|
+|plu|(Ma -- Ma P LU)|Ma => PLU decomposition, no Pivot|
+||> `3 3 matrix{ 1 2 4 3 8 14 2 6 13 }`<br/>> **`plu`**`.`|`T2[3,3]` `T2[3,3]` `T2[3,3] . .`<br/>`matrix[3,3] = {`<br/>`{ +3.0000 +8.0000 +14.0000 }`<br/>`{ +0.3333 -0.6667 -0.6667 }`<br/>`{ +0.6667 -1.0000 +3.0000 } }`<br>`matrix[3,3] = {`<br/>`{ +0.0000 +1.0000 +0.0000 }`<br/>`{ +1.0000 -0.0000 0.0000 }`<br/>`{ +0.0000 0.0000 +1.0000 } }`|
 |upper|(Ma -- Ma Ma')|upper triangle|
 ||> `3 3 matrix{ 1 -1 -2 -3 5 -4 1 -1 4 }`<br>> **`upper`**`.`|`T2[3,3]`<br/>`matrix[3,3] = {`<br/>`{ +1.0000 -1.0000 -2.0000 }`<br/>`{ +0.0000 +5.0000 -4.0000 }`<br/>`{ +0.0000 +0.0000 +4.0000 } }`|
 |lower|(Ma -- Ma Ma')|lower triangle with diag filled with 1s|
 ||> `3 3 matrix{ 1 -1 -2 -3 5 -4 1 -1 4 }`<br>> **`lower`**`.`|`T2[3,3]`<br/>`matrix[3,3] = {`<br/>`{ +1.0000 +0.0000 +0.0000 }`<br/>`{ -3.0000 +1.0000 +0.0000 }`<br/>`{ +1.0000 -1.0000 +1.0000 } }`|
-|solve|(Ab Ma -- Ab Ma Ax)|solve linear equation AX = B|
+|transpose|(Ma -- Ma Ma')|matrix transpose|
+|det|(Ma -- Ma d)|matrix determinant (with PLU)|
+||> `3 3 matrix{ 1 2 4 3 8 14 2 6 13 }`<br/>> **`det`**|`T2[3,3]`<br/>`T2[3,3] 6`|
+|solve|(B A -- B A X)|solve linear equation AX = B|
 ||> `3 vector{ 1 1 1 }`<br>> `3 3 matrix{ 5 7 4 3 -1 3 6 7 5 }`<br>> **`solve`**<br>> `dup .`|`T1[3]`<br/>`T1[3] T2[3,3]`<br/>`T1[3] T2[3,3] T1[3]`<br/>`vector[3] = { +8.0000 -1.0000 -8.0000 }`|
 |gemm|(a b Ma Mb Mc -- a b Ma Mb Mc')|GEMM Mc' = a * Ma * Mb + b * Mc|
 
