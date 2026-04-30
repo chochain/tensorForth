@@ -365,12 +365,12 @@ Tensor::inverse(Tensor &A, Tensor &I) {          /// * A=>I, I=>A^-1
 }
 
 __HOST__ Tensor&
-Tensor::plu(Tensor &A, int *d_piv) {             ///< update A -> PLU (in-place)
+Tensor::plu(Tensor &A, Tensor &I, int *d_piv) {  ///< update A -> PLU (in-place)
     if (!A.is_square("A")) return A;
     
     const int K = A.W();
     int *d_pivot = (int*)A._tmp;                 ///< scalar: current pivot row
-    DU  *da = A.data;
+    DU  *da = A.data, *di = I.data;
     // -------------------------------------------------------------------------
     // Stage 1 — k_getrf: factorise A → P·L·U  (in-place, n sync points)
     // -------------------------------------------------------------------------
@@ -388,7 +388,9 @@ Tensor::plu(Tensor &A, int *d_piv) {             ///< update A -> PLU (in-place)
         if (u != z) FORK(k_swap_rows, K, da, nullptr, u, z);
         FORK(k_lu_col, K, da, z);
     }
-    return A;                                    /// * A = L\U, d_piv = P
+    if (A!=I) FORK(k_pivot, K, da, d_piv, di);
+    
+    return I;                                    /// * A = L\U, I =>P, d_piv (permutation table)
 }
 
 __HOST__ Tensor&
@@ -398,14 +400,14 @@ Tensor::lu_inverse(Tensor &A, Tensor &I, int *d_piv) {
     int K = A.W();
     INFO("  tensor#lu_inverse [%d,%d]\n", K, K);
     
-    plu(A, d_piv);                                /// * A -> L\U, d_piv -> P (in-place)
+    plu(A, I, d_piv);                            /// * A -> L\U, I => P, d_piv (in-place)
 
     // -------------------------------------------------------------------------
     // Stage 2 — k_getri: solve A·X = I  (only 2 kernel launches, fully parallel)
     // -------------------------------------------------------------------------
     DU  *da = A.data, *di = I.data;
-    FORK(k_fsub, K, da, d_piv, di);               /// * L·Y = P·I
-    FORK(k_bsub, K, da, di);                      /// * U·X = Y
+    FORK(k_fsub, K, da, di);                     /// * L·Y = P·I
+    FORK(k_bsub, K, da, di);                     /// * U·X = Y
     
     return I;
 }
@@ -429,7 +431,7 @@ Tensor::det() {
     int piv[K], *d_piv;                           ///< permutation flags
     MM_ALLOC(&d_piv, sizeof(int) * K);            ///< d_piv[K], d_pivot[1], d_sign[1]
     
-    plu(*this, d_piv);                            ///< A → P·L·U in-place
+    plu(*this, *this, d_piv);                     ///< A → P·L·U in-place (*this, *this => no I update)
     D2H(piv, d_piv, sizeof(int) * K);             /// * move to host
 
     int cnt = 0;                                  /// count row swaps for det(P) sign
