@@ -6,40 +6,42 @@ dup .                             \ show it
 
 cr .( ### calculate determinant ) cr
 det                               \ get determinant
-.                                 \ => 6 show it
+.( determinant = ) .              \ => 6 show it
 
-cr .( ### GaussJordan ) cr
-inverse .                         \ inverse (Gauss-Jordan with Pivot) and print
+cr .( ### Gauss-Jordan ) cr
+inverse                           \ inverse (Gauss-Jordan with Pivot) and print
+.( inverse = ) .
+
+cr .( ### LU inverse ) cr
+luinv                             \ inverse with PLU, the standard way
+.( luinv = ) .
 drop
 
 cr .( ### inverse a matrix with LU ) cr
 3 3 matrix{ 1 2 4 3 8 14 2 6 13 } \ create a 3x3 matrix
 dup .                             \ print it
 
-cr .( ### show LU decomposition with L\U stacked ) cr
-lu                                \ create an LU matrix
-.                                 \ see L and U stacked
+cr .( ### show PLU decomposition ) cr
+plu                               \ => P and L\U
+2dup
+.( LU = ) .
+.( P = ) .
 
-cr .( ### inverse the LU matrix to L^-1\U^-1 stacked ) cr
-luinv                             \ inverse the LU matrix
-dup .
+cr .( ### get the L ) cr
+lower dup .( L = ) .              \ extract lower triangle (i.e. L)
+swap                              \ ( A P L LU -- )
 
-cr .( ### get the L^-1 ) cr
-lower dup .                       \ extract lower triangle (i.e. L^-1)
->r                                \ keep it on R-stack
+cr .( ### get the U ) cr
+upper dup .( U = ) .              \ extrace upper triangle (i.e. U)
+swap drop                         \ ( A P L U -- )
 
-cr .( ### get the U^-1 ) cr
-upper dup .                       \ extrace upper triangle (i.e. U^-1)
-r>                                \ retrieve L^-1 from R-stack
+cr .( ### A = PLU ) cr
+@=                                \ ( A P LU -- )
+@=                                \ ( A PLU -- )
+.( PLU = ) .                      \ show the result
+.( A   = ) .                      \ should be the same as PLU
 
-cr .( ### A^-1 = U^-1 @ L^-1 ) cr
-@                                 \ A^-1 = U^-1 @ L^-1
-.                                 \ show the result
-drop drop drop                    \ clean up left-over
-
-cr .( ### show A^-1 with GJ , for comparison ) cr
-inverse .                         \ inverse and print
-drop                              \ clean input matrix
+bye
 
 cr .( ### solve linear equation B = AX ) cr
 3 vector{ 1 1 1 }                 \ create B vector
