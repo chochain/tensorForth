@@ -150,10 +150,12 @@ TensorVM::blas1(t4_ten_op op) {
         FREE(T);
         tx = false;
     }
-    case T_LU: {                              /// * decompose A to L\U (permutation table d_piv discard)
-        Tensor &P = mmu.tensor(A.H());
-        Tensor::plu(T, (int*)P.data);
-        mmu.free(P);
+    case T_PLU: {                             /// * decompose A to L\U (permutation table d_piv discard)
+        Tensor &piv = mmu.tensor(A.H());      ///< permuation table
+        Tensor &I   = COPY(T).identity();     ///< identity matrix
+        Tensor::plu(T, I, (int*)piv.data);    /// * T => L\U, I => P
+        PUSH(I);                              /// * push P matrix
+        mmu.free(piv);                        /// * not used
     } break;
     case T_TRIU: Tensor::lu(T, true);  break; /// * T = LU (from plu) => U
     case T_TRIL: Tensor::lu(T, false); break; /// * T = LU (from plu) => L
@@ -500,11 +502,11 @@ TensorVM::init() {
     ///@defgroup BLAS, 1-tensor ops, that create new tensor
     ///@brief - stick to PyTorch naming when possible
     ///@{
-    CODE("inverse",   blas1(T_INV));          ///< (A -- A A')    matrix inversion (GaussJordan)
-    CODE("luinv",     blas1(T_LUINV));        ///< (A -- A A')    matrix inversion (LU)
-    CODE("lu",        blas1(T_LU));           ///< (A -- A P')    LU decomposition
-    CODE("upper",     blas1(T_TRIU));         ///< (A -- A A')    upper triangle
-    CODE("lower",     blas1(T_TRIL));         ///< (A -- A A')    lower triangle
+    CODE("inverse",   blas1(T_INV));          ///< (A -- A A')    matrix inversion (w GaussJordan)
+    CODE("luinv",     blas1(T_LUINV));        ///< (A -- A A')    matrix inversion (w PLU)
+    CODE("plu",       blas1(T_PLU));          ///< (A -- A P LU)  A => P L\U decomposition
+    CODE("upper",     blas1(T_TRIU));         ///< (A -- A U)     upper triangle
+    CODE("lower",     blas1(T_TRIL));         ///< (A -- A L)     lower triangle
     CODE("transpose", blas1(T_XPOS));         ///< (A -- A At)    matrix transpose
     CODE("det",       blas1(T_DET));          ///< (A -- A d)     matrix determinant
     ///@}
