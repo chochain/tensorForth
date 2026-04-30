@@ -204,8 +204,8 @@ TensorVM::blas2(t4_ten_op op, t4_drop_opt x) {
         if (C != B) PUSH(C);
         VLOG("} %s => C[%d,%d]\n", fn, C.H(), C.W());
     } break;
-    case T_SOLV: {              ///< solve B = AX
-        Tensor &X = _solv(A, B);
+    case T_SOLV: {              ///< solve A = BX
+        Tensor &X = _solv(B, A);///< note A, B flipped
         PUSH(X);
         VLOG("} %s => X[%d,%d]\n", fn, X.H(), X.W());
     } break;
@@ -352,16 +352,18 @@ TensorVM::_tdot(Tensor &A, Tensor &B) {      ///< A x B tensor dot product
 }
 
 __HOST__ __INLINE__ Tensor&
-TensorVM::_solv(Tensor &B, Tensor &A) {      /// Note: A, B flipped 
-    U16 m = A.H(), k = A.W(), n = B.H();     /// B[3,1] = A[3,3] * X
-    VLOG("  tenvm#_solv B[%d] = [%d,%d] * X\n", n, m, k);
+TensorVM::_solv(Tensor &A, Tensor &B) {      /// AX = B
+    U16 m = A.H(), k = A.W(), n = B.H();     /// A[3,3] * X = B[3,1]
+    VLOG("  tenvm#_solv [%d,%d] * X = B[%d]\n", m, k, n);
     
     if (B.rank!=1 || m!=k || k!=n) return B;
 
-    Tensor &I = _tinv(A, true);
+    Tensor &T = COPY(A);                     ///< retain A
+    Tensor &I = _tinv(T, true);              ///< T => I, T => A^-1
     Tensor &O = mmu.tensor(k);               /// resultant vector
     Tensor::mm(I, B, O);                     /// O = A^-1 x B
     FREE(I);
+    FREE(T);
     
     return O;
 }
