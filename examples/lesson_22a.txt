@@ -41,8 +41,6 @@ cr .( ### A = PLU ) cr
 .( PLU = ) .                      \ show the result
 .( A   = ) .                      \ should be the same as PLU
 
-bye
-
 cr .( ### solve linear equation B = AX ) cr
 3 vector{ 1 1 1 }                 \ create B vector
 3 3 matrix{ 5 7 4 3 -1 3 6 7 5 }  \ create A matrix
@@ -51,9 +49,9 @@ dup                               \ X should be {+8,-1,-8}
 .( verify { 8 -1 -8 } => ) .      \ show resultant
 
 cr .( ### verify result AX against B={ 1 1 1 } ) cr
-@                                 \ A@X compare to B
-.( verify { 1 1 1 } => ) .        \ B should be { 1 1 1 }
-drop drop drop                    \ clean up
+@=
+.( A@X = ) .
+.( B = ) .
 
 bye
 
