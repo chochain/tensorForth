@@ -866,7 +866,7 @@ k_lu_col(float *da, int z, int K) {
 //     x[i] = (y[i] - sum_{k>i} U[i,k] * x[k]) / U[i,i]
 // ===========================================================================
 __KERN__ void
-k_fsub(const float *lu, const int *d_piv, float *di, int K) {
+k_pivot(const float *lu, const int *d_piv, float *di, int K) {
     const int tx = blockIdx.x * blockDim.x + threadIdx.x;  ///< column of di
     if (tx >= K) return;
 
@@ -877,6 +877,12 @@ k_fsub(const float *lu, const int *d_piv, float *di, int K) {
             float t = di[tx + k * K]; di[tx + k * K] = di[tx + pk * K]; di[tx + pk * K] = t;
         }
     }
+}
+__KERN__ void
+k_fsub(const float *lu, float *di, int K) {
+    const int tx = blockIdx.x * blockDim.x + threadIdx.x;  ///< column of di
+    if (tx >= K) return;
+
     /// forward substitution: unit lower triangular (diagonal = 1 not stored)
     for (int k = 1; k < K; k++) {                          ///< rows of di
         float s = di[tx + k * K];
@@ -891,7 +897,7 @@ k_bsub(const float *lu, float *di, int K) {
     const int tx = blockIdx.x * blockDim.x + threadIdx.x;  ///< column of di
     if (tx >= K) return;
 
-    /// Backward substitution: upper triangular with explicit diagonal
+    /// backward substitution: upper triangular with explicit diagonal
     for (int j = K - 1; j >= 0; j--) {                     ///< rows of di
         float s = di[tx + j * K];
         for (int k = j + 1; k < K; k++)                    ///< inner rows (lower triangle of row k)
