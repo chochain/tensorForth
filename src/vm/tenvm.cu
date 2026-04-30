@@ -149,7 +149,7 @@ TensorVM::blas1(t4_ten_op op) {
         PUSH(I);
         FREE(T);
         tx = false;
-    }
+    } break;
     case T_PLU: {                             /// * decompose A to L\U (permutation table d_piv discard)
         Tensor &piv = mmu.tensor(A.H());      ///< permuation table
         Tensor &I   = COPY(T).identity();     ///< identity matrix
