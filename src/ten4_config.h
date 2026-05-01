@@ -16,14 +16,14 @@
 ///@name Debugging macros
 ///@{
 #define T4_APP_NAME         "tensorForth v4.0"
-#define T4_VERBOSE          2        /**< system verbose 0|1|2  */
+#define T4_VERBOSE          1        /**< system verbose 0|1|2  */
 #define T4_CASE_SENSITIVE   1        /**< interpreter case      */
-#define MM_DEBUG            1        /**< for my local testing  */
+#define MM_DEBUG            0        /**< for my local testing  */
 ///@}
 ///@name CUDA cooperative dynamic parallelism support
 ///@{
-#define T4_DO_OBJ           0        /**< enable tensor/matrix  */
-#define T4_DO_NN            0        /**< enable neural network */
+#define T4_DO_OBJ           1        /**< enable tensor/matrix  */
+#define T4_DO_NN            1        /**< enable neural network */
 #define T4_USE_STRBUF       0
 #define T4_PER_THREAD_STACK 8*1024   /**< init() stack overflow */
 ///@}
@@ -61,10 +61,12 @@
 #define T4_IBUF_SZ   1024      /**< host input buffer size       */
 #define T4_OBUF_SZ   8192      /**< device output buffer size    */
 #define T4_STRBUF_SZ 128       /**< temp string buffer size      */
+#define T4_MPOOL_SZ  1024      /**< host memory pool size        */
 #define T4_OSTORE_SZ (1024*1024*1024) /**< object storage size   */ 
 #define T4_TFREE_SZ  T4_NET_SZ /**< size of tensor free queue    */
 #define T4_RAND_SZ   1024      /**< number of random seeds       */
 #define T4_DIM_SZ    16        /**< CUDA GPU warp 16x16 threads  */
+#define T4_DIM_SZ2   (T4_DIM_SZ * 2)
 #define T4_DIM_SQ    (T4_DIM_SZ * T4_DIM_SZ)
 ///@}
 #endif // __TEN4_CONFIG_H_
