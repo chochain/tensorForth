@@ -114,7 +114,7 @@ typedef float       F32;                    ///< single precision float
 ///@name CUDA specific macros
 ///@note: consider use of fn<<<_g,_b,0,cudaStreamTailLaunch>>>(...)
 ///@{
-#define ALIGN(sz) ALIGN4(sz)
+#define ALIGN(sz)   ALIGN4(sz)
 #define WARP_REDUCE(v)                                      \
     for (int off = 16; off > 0; off >>=1)                   \
         v += __shfl_down_sync(0xffffffff, v, off)
@@ -126,7 +126,7 @@ typedef float       F32;                    ///< single precision float
 }
 #define FORK1(fn, c, n, ...) {                              \
     const dim3 _g((c), (n), 1);                             \
-    fn<<<_g,T4_DIM_SZ>>>(__VA_ARGS__);                      \
+    fn<<<_g,T4_DIM_SZ2>>>(__VA_ARGS__);                     \
     GPU_CHK();                                              \
 }
 #define FORK2(fn,n,...) {                                   \
