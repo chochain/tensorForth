@@ -227,7 +227,7 @@ Tensor::sum() {
     }
     else {
         H2D(_tmp, &v, sizeof(DU));                     /// * pre-zero _tmp
-        FORK2(k_sum, numel, data, _tmp);               /// * data[numel] for temp storage
+        FORK(k_sum, numel, data, _tmp);                /// * data[numel] for temp storage
         D2H(&v, _tmp, sizeof(DU));                     /// * copy to host (D2H, page fault)
     }
     SCALAR(v); return v;
@@ -241,7 +241,7 @@ __HOST__ DU
 Tensor::std() {
     DU v = DU0, mx = avg();
     H2D(_tmp, &v, sizeof(DU));                         /// * pre-zero temp
-    FORK2(k_nvar, numel, data, mx, _tmp);              /// * 8x straight loop
+    FORK(k_nvar, numel, data, mx, _tmp);               /// * 8x straight loop
     D2H(&v, _tmp, sizeof(DU));                         /// * copy to host (D2H, page fault)
     v = numel ? SQRT(v) / numel : DU0;             
     SCALAR(v); return v;
@@ -250,7 +250,7 @@ __HOST__ DU
 Tensor::norm() {                                       ///< return Euclidean Norm
     DU v = DU0;
     H2D(_tmp, &v, sizeof(DU));                         /// * pre-zero _tmp
-    FORK2(k_nvar, numel, data, DU0, _tmp);             /// * 8x straight loop
+    FORK(k_nvar, numel, data, DU0, _tmp);              /// * 8x straight loop
     D2H(&v, _tmp, sizeof(DU));                         /// * copy to host (D2H, page fault)
     v = SQRT(*_tmp);                                   
     SCALAR(v); return v;
@@ -323,7 +323,7 @@ __HOST__ U32
 Tensor::has_nan() {
     int cnt = 0;
     H2D(_tmp, &cnt, sizeof(U32));
-    FORK2(k_nan_inf, numel, data, (int*)_tmp);
+    FORK(k_nan_inf, numel, data, (int*)_tmp);
     D2H(&cnt, (int*)_tmp, sizeof(int));
     return cnt;
 }
