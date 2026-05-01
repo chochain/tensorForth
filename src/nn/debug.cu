@@ -13,9 +13,9 @@ namespace t4::nn {
 
 __HOST__ int
 Model::_check_nan(Tensor &t) {
-    _err = 0;
-    FORK(k_nan_inf, t.numel, t.data, &_err);
-    return _err;
+    *(int*)t._tmp = 0;
+    FORK(k_nan_inf, t.numel, t.data, (int*)t._tmp);
+    return *(int*)t._tmp;
 }
 
 __HOST__ void
