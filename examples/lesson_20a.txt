@@ -16,16 +16,16 @@ cr .( ### large matrix multiplication ) cr
 @                            \ multiply the matrices
 1024 /= .                    \ scale down element-wise and print
 
-cr .( ### benchmark - 100 loops ) cr
+cr .( ### benchmark - 1000 loops ) cr
 : mx                         \ create a word for benchmark loops
   dup >r clock >r            \ keep loop count and init clock on return stack
   for @ drop next            \ loop of matrix multiplication (and drop the result)
   clock r> -                 \ time it (clock1 - clock0)
-  r> 1 + / ." => "           \ retrieve loop count and calc average
-  . ."  msec/cycle" cr ;     \ print result
+  r> 1+ / ." => "            \ retrieve loop count and calc average
+  . ."  msec/cycle" cr ;     \ print result  (GTX1660 0.768 msec/cycle)
 see mx                       \ show the word
 0 trace
-99 mx                        \ run the multiplication loop 100 times
+999 mx                       \ run the multiplication loop 1000 times
 1 trace
 2drop                        \ drop the original two matrices
 
