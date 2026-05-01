@@ -99,14 +99,14 @@ __KERN__ void
 k_max(F32_RP src, F32_WP rst, bool find_max, long numel) {   ///< FORK(k_max, numel, ..)
     __shared__ float _smem[T4_DIM_SQ];
     
-    const int  t0     = threadIdx.x;
-    const long tx     = (long)blockIdx.x * blockDim.x + t0;
-    const long stride = (long)gridDim.x  * blockDim.x;
+    const int  t0   = threadIdx.x;
+    const long tx   = (long)blockIdx.x * blockDim.x + t0;
+    const long step = (long)gridDim.x  * blockDim.x;
 
     float mx = find_max ? -FLT_MAX : FLT_MAX;
 
     #pragma unroll 4
-    for (long j = tx; j < numel; j += stride) {               ///< grid-stride pass — each thread own max
+    for (long j = tx; j < numel; j += step) {                 ///< grid-stride pass — each thread own max
         float v = src[j];
         mx = find_max ? fmaxf(mx, v) : fminf(mx, v);
     }
@@ -166,17 +166,17 @@ k_batchnvar(F32_RP src, F32_RP avg, F32_WP var, long HW) {
 struct Align4 { float data[4]; };
 __KERN__ void
 k_copy(F32_RP src, F32_WP dst, long n) {                          ///< Note: (src, dst)
-    long tx     = blockIdx.x * blockDim.x + threadIdx.x;
-    long stride = blockDim.x * gridDim.x;
+    long tx   = blockIdx.x * blockDim.x + threadIdx.x;
+    long step = blockDim.x * gridDim.x;
 
     // Use a struct to "hint" to the compiler we want 16-byte moves
     // while remaining safe for 4-byte alignment
-    for (long i = tx * 4; i < n - 3; i += stride * 4) {
+    for (long i = tx * 4; i < n - 3; i += step * 4) {
         *(Align4*)&dst[i] = *(Align4*)&src[i];
     }
 
     // Standard cleanup loop for the end
-    for (long i = (n/4)*4 + tx; i < n; i += stride) {
+    for (long i = (n/4)*4 + tx; i < n; i += step) {
         dst[i] = src[i];
     }
 }
@@ -305,23 +305,23 @@ k_dummy() {}
 //     O[n, c]     →  O.slice(n)[ c ]        (scalar per channel per sample)
 //
 //   Grid:  blockIdx.x = c  (channel),  blockIdx.y = n  (batch sample)
-//   Block: threadIdx.x in [0, T4_DIM_SZ)
+//   Block: threadIdx.x in [0, T4_DIM_SZ*2)
 // ---------------------------------------------------------------------------
-#define VLEN  4                   ///< floats loaded per thread per unrolled step
+#define VLEN 4             ///< floats loaded per thread per unrolled step
 __KERN__ void
 k_dot(
     F32_RP A, F32_RP B, F32_XP O,
     float alpha, float beta, int K, int C)
 {
-    __shared__ float _smem[T4_DIM_SZ];
-    const int tx     = threadIdx.x;;                  ///< [0, T4_DIM_SZ)
-    const int stride = T4_DIM_SZ * VLEN;              ///< elements consumed per outer step
-    const int c      = blockIdx.x;                    ///< channel index
+    __shared__ float _smem[T4_DIM_SZ2];               ///< [0, 32)
+    const int tx   = threadIdx.x;
+    const int step = T4_DIM_SZ2 * VLEN;               ///< elements consumed per outer step
+    const int c    = blockIdx.x;                      ///< channel index
 
     // -------------------------------------------------------------------------
     // Phase 1: strided partial accumulation into a register
     //
-    //   Thread tx owns elements k = tx, tx+T4_DIM_SZ, tx+2*T4_DIM_SZ, ...
+    //   Thread tx owns elements k = tx, tx+T4_DIM_SZ2, tx+2*T4_DIM_SZ2, ...
     //   The inner VLEN-unrolled loop amortises loop overhead and lets the
     //   compiler issue independent FMAs for better ILP.
     // -------------------------------------------------------------------------
@@ -329,7 +329,7 @@ k_dot(
 
     int k = tx * VLEN;                               ///< stride index
     #pragma unroll 4
-    for (; k + stride <= K; k += stride) {
+    for (; k + step <= K; k += step) {
         #pragma unroll
         for (int v = 0; v < VLEN; v++) {
             const int idx = (k + v) * C + c;
@@ -356,7 +356,7 @@ k_dot(
     __syncthreads();
 
     #pragma unroll
-    for (int half = T4_DIM_SZ >> 1; half > 0; half >>= 1) {
+    for (int half = T4_DIM_SZ2 >> 1; half > 0; half >>= 1) {
         if (tx < half) _smem[tx] += _smem[tx + half];
         __syncthreads();
     }
