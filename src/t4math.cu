@@ -795,9 +795,9 @@ k_diag(float *da, float *di, int z, int K) {
     if (tx >= K) return;
 
     const float r0 = da[z + z * K];               ///< pivot value (already != 0)
-    const int   j  = tx + z * K;
-    da[j] /= r0;
-    di[j] /= r0;
+    const int   kj = tx + z * K;
+    da[kj] /= r0;
+    di[kj] /= r0;
 }
 // ---------------------------------------------------------------------------
 // k_elim — eliminate column z from every row i != z
