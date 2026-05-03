@@ -464,7 +464,7 @@ Tensor::reset(void *mem, U64 sz, t4_obj tt, t4_layer fn) {
         (U32)(sz > GB ? GB : 1L),
         1, 1
     };
-    const Tensor *t[4]= { NULL, NULL, NULL, NULL };
+    const Tensor *t[5]= { NULL, NULL, NULL, NULL, NULL };
     data    = (DU*)mem;
     grad_fn = fn;
     memcpy(stride, s, sizeof(s));
