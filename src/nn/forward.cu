@@ -138,29 +138,29 @@ __KERN__ void k_activate(
     const U64 tx   = blockIdx.x * blockDim.x + threadIdx.x;
     const U64 step = gridDim.x * blockDim.x;
     for (U64 j = tx; j < numel; j += step) {
-        DU k = I[j];                                       ///< use register
+        DU i = I[j];                                       ///< use register
         switch (op) {
         case L_RELU:
-            O[j] = k > DU0
-                ? (F[j]=DU1, k) : (F[j]=DU0);      break;  /// * 1|0
+            O[j] = i > DU0
+                ? (F[j]=DU1, i) : (F[j]=DU0);      break;  /// * 1|0
         case L_TANH:
-            O[j] = 0.5 * (DU1 + (k=TANH(k)));              /// * scaled to [0,1)
-            F[j] = DU1 - k*k;                      break;  /// * (1 - tanh^2)
+            O[j] = 0.5 * (DU1 + (i=TANH(i)));              /// * scaled to [0,1)
+            F[j] = DU1 - i*i;                      break;  /// * (1 - tanh^2)
         case L_SIGMOID:
-            O[j] = k = SIGMOID(k);
-            F[j] = k * (DU1 - k);                  break;  /// * sig*(1 - sig)
-        case L_SELU: O[j] = k > DU0                        /// * selu
-            ? (F[j] = SELU_L, k)
-            : (F[j] = SELU_LA * EXP(k)) - SELU_LA; break;
-        case L_LEAKYRL: O[j] = k > DU0
-            ? (F[j] = DU1, k)
-            : (F[j] = alpha) * k;                  break;
-        case L_ELU:     O[j] = k > DU0
-            ? (F[j] = DU1, k)
-            : (F[j] = alpha * EXP(k)) - alpha;     break;
+            O[j] = i = SIGMOID(i);
+            F[j] = i * (DU1 - i);                  break;  /// * sig*(1 - sig)
+        case L_SELU: O[j] = i > DU0                        /// * selu
+            ? (F[j] = SELU_L, i)
+            : (F[j] = SELU_LA * EXP(i)) - SELU_LA; break;
+        case L_LEAKYRL: O[j] = i > DU0
+            ? (F[j] = DU1, i)
+            : (F[j] = alpha) * i;                  break;
+        case L_ELU:     O[j] = i > DU0
+            ? (F[j] = DU1, i)
+            : (F[j] = alpha * EXP(i)) - alpha;     break;
         case L_DROPOUT:
             O[j] = F[j] > alpha
-            ? (F[j]=DU1, k) : (F[j]=DU0);          break;  /// * 1|0
+            ? (F[j]=DU1, i) : (F[j]=DU0);          break;  /// * 1|0
         }
     }
 }
@@ -188,10 +188,10 @@ Model::forward(Tensor &input) {
     Tensor &n0 = (*this)[0];    ///< reference model input layer
     if (*_trace) input.show();  /// * preview input data
 
-    if (input.numel != n0.numel) {
+    if (input.is_same_shape(n0)) {
         ERROR("nn#forward dataset wrong shape[%d,%d,%d,%d] != model input[[%d,%d,%d,%d]\n",
-            input.N(), input.H(), input.W(), input.C(),
-            n0.N(), n0.H(), n0.W(), n0.C());
+              n0.N(), n0.H(), n0.W(), n0.C(),
+              input.N(), input.H(), input.W(), input.C());
         return *this;
     }
     n0 = input;                 /// * copy dataset batch into the first layer [0,1)
