@@ -94,7 +94,7 @@ private:
     
 #if T4_DO_NN
     ///
-    /// NN model print methods
+    /// NN model print methods (in aio_model.cu)
     ///
     __HOST__ std::string _model(Model &m);
     __HOST__ std::string _parm(Tensor &in, Tensor &out);
