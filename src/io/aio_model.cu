@@ -66,17 +66,17 @@ AIO::nload(Model &m, char* fname, U8 mode, char *tib) {
 __HOST__ std::string
 AIO::_model(Model &m) {
     std::ostringstream ss;
-    auto tinfo = [&ss](Tensor &t, int i, int fn) {      ///> layer info
+    auto tinfo = [&ss](Tensor &t, int i, int fn) {      ///< layer info
         ss << '[' << std::setw(3) << i << "] "
            << Model::nname(fn) << ": "
            << to_s(t, false);
         int sz = 0;
-        for (int n = 0; n < 4; n++) {
+        for (int n = 0; n < 5; n++) {
             sz += t.grad[n] ? t.grad[n]->numel : 0;
         }
         ss << " #p=" << sz << ' ';
     };
-    auto finfo = [&ss](Tensor **g) {                    ///> gradient tensor info
+    auto finfo = [&ss](Tensor **g) {                    ///< gradient tensor info
         for (int i=0; g[i] && i < 2; i++) {
             ss << to_s(*g[i], false) << ' ';
         }
@@ -85,14 +85,14 @@ AIO::_model(Model &m) {
         ss << "ERROR, not an NN Model!";
         return ss.str();
     }
-    U64 n = m.numel;
+    int n = (int)m.numel;
 
-    ss << "NN Model[" << (n-1) << '/' << m.slots() << "]\n";
-    for (U64 i = 1; i < n; i++) {         /// skip root[0]
+    ss << "NN Model[" << (n-1) << '/' << T4_NET_SZ << "]\n";
+    for (int i = 0; i < n; i++) {
         Tensor &in = m[i], &out = m[i+1];
         tinfo(in, (int)i, in.grad_fn);
         finfo(in.grad);
-        ss << _parm(in, out) << '\n'; // << std::end;
+        ss << _parm(in, out) << '\n';     /// << std::end;
     }
 
     return ss.str();
@@ -139,7 +139,7 @@ AIO::_parm(Tensor &in, Tensor &out) {
 
 __HOST__ int
 AIO::_nsave_model(h_ostr &fs, Model &m) {
-    for (U16 i = 1; i < m.numel - 1; i++) {
+    for (int i = 0; i < (int)m.numel - 1; i++) {
         Tensor &in = m[i], &out = m[i+1];
         fs << _parm(in, out);
         
@@ -159,7 +159,7 @@ AIO::_nsave_param(h_ostr &fs, Model &m) {
         fs << "\n--- " << pn << "." << nm << std::endl;/// * section marker
         fs.write((char*)t.data, t.numel * sizeof(DU));
     };
-    for (U16 i = 1; i < m.numel - 1; i++) {
+    for (int i = 0; i < (int)m.numel - 1; i++) {
         Tensor   &in = m[i];                           ///< nth model layer
         t4_layer fn  = in.grad_fn;                     ///< layer function
         const char *nm = Model::nname(fn);             ///< layer name
@@ -214,7 +214,7 @@ AIO::_nload_param(h_istr &fs, Model &m) {
         IO_DB("= %ld bytes", fs.gcount());
         return 0;
     };
-    for (int i = 1; i < m.numel - 1; i++) {
+    for (int i = 0; i < (int)m.numel - 1; i++) {
         Tensor  &in = m[i];                            ///< layer tensor
         t4_layer fn = in.grad_fn;                      ///< layer function
         const char *nm = Model::nname(fn);
