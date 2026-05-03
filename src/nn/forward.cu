@@ -185,16 +185,16 @@ __KERN__ void k_batchnorm(
 //
 __HOST__ Model&
 Model::forward(Tensor &input) {
-    Tensor &n1 = (*this)[1];    ///< reference model input layer
+    Tensor &n0 = (*this)[0];    ///< reference model input layer
     if (*_trace) input.show();  /// * preview input data
 
-    if (input.numel != n1.numel) {
+    if (input.numel != n0.numel) {
         ERROR("nn#forward dataset wrong shape[%d,%d,%d,%d] != model input[[%d,%d,%d,%d]\n",
             input.N(), input.H(), input.W(), input.C(),
-            n1.N(), n1.H(), n1.W(), n1.C());
+            n0.N(), n0.H(), n0.W(), n0.C());
         return *this;
     }
-    n1 = input;                 /// * copy dataset batch into the first layer [0,1)
+    n0 = input;                 /// * copy dataset batch into the first layer [0,1)
     ///
     /// cascade execution layer by layer forward
     /// TODO: model execution becomes a superscalar pipeline
@@ -207,7 +207,7 @@ Model::forward(Tensor &input) {
     };
     NLOG("\nModel::forward starts {");
     DU t0 = System::clock(), t1 = t0, tt;           ///< performance measurement
-    for (U16 i = 1; i < numel - 1; i++) {
+    for (int i = 0; i < numel - 1; i++) {
         Tensor &in = (*this)[i], &out = (*this)[i + 1];
         if (*_trace) {
             info((tt=System::clock()) - t1, i, in, out);
