@@ -17,49 +17,45 @@ using mu::Tensor;
 __HOST__ const char*                ///< host network layer name 
 Model::nname(int i) {
     static const char *name[] = { LAYER_OP };
-    INFO("fetching nname[%d]=%p\n", i, name[i]);
+    NN_DB("fetching nname[%d]=%p\n", i, name[i]);
     return name[i];
 }
 /// @}
 /// @{
 /// @name constructor (indirect)
 __HOST__  void
-Model::init(MMU *mmu, Tensor &store, int &trace) {
-    T4Base::init(0, T4_MODEL, 0);           /// * T4Base attributes
+Model::init(MMU *mmu, int nsz, DU *store, int *trace) {
+    T4Base::init(0, T4_MODEL, 0);         /// * T4Base attributes (0, ttype, rank)
+    train    = 1;                           /// * T4Base.train
+    err      = 0;                           /// * T4base.err
+    data     = store;                       /// * T4base.data = network layer storage (host mode)
+    
     _mmu     = mmu;                         /// * cached memory controller
-    _store   = &store;
-    _trace   = &trace;
-    data     = store.data;                  /// * cached entries
-    train    = 1;
+    _nlayer  = nsz;                         /// * max number of layers
+    _trace   = trace;                       /// * tracing flag
+
     epoch    = 0;
     max_norm = DU0;                         /// * > DU0 to clip norm (more stable)
-    npush(store);                           /// * model.data[0] = store
 }
 /// @}
 /// @name layer access methods
 /// @{
 __HOST__ Tensor&
-Model::operator[](S64 i) {
-    /// * model.data[0] = store
-    /// so 1st layer starts from model.data[1]
-    return (Tensor&)_mmu->du2obj(data[(i < 0L) ? numel + i : i]);
+Model::operator[](S32 i) {
+    return (Tensor&)_mmu->du2obj(data[(i < 0) ? numel + i : i]);
 }
-__HOST__ int
-Model::slots() { return _store->numel; }
 
 __HOST__ Model&
 Model::npush(DU v) {
     data[numel++] = v;
-    U32 tsz = _store->numel;                ///< current allocated for layers
-    if (tsz <= numel) {                     /// * resize if too many layers
-        _mmu->resize(*_store, tsz + T4_NET_SZ);
-        data = _store->data;                /// * reset storage cached pointer
+    if (numel >= _nlayer) {                /// * check if too many layers
+        ERROR("Model layer storage maxed out, increase ten4_config.T4_NET_SZ (%d)\n", _nlayer);
     }
     return *this;
 }
 __HOST__ Model& Model::npush(Tensor &t) { return npush(_mmu->obj2du(t)); }
-__HOST__ DU     Model::npop()           { return data[--numel];  }
-__HOST__ int    Model::batch_size()     { return (*this)[1].N(); }
+__HOST__ DU     Model::npop()           { return numel ? data[--numel] : data[0];  }
+__HOST__ int    Model::batch_size()     { return numel ? ((Tensor&)_mmu->du2obj(data[0])).N() : 1; }
 /// @{
 /// @name Tensor constructors and randomizer
 /// @{
@@ -152,10 +148,10 @@ Model::_iconv(Tensor &in, U32 C0, DU bias, U16 *opt) {
     b->map(FILL, -0.5);
     
     NN_DB("    f[%d,%d,%d,%d]=", C1, Hf, Hf, C0);
-    for (U64 i=0; i<f->numel; i++) NN_DB("%6.3f", f->data[i]);
+    for (U64 i=0; i < f->numel; i++) NN_DB("%6.3f", f->data[i]);
     NN_DB("\n");
     NN_DB("    b[%d]=", C0);
-    for (U64 i=0; i<b->numel; i++) NN_DB("%6.3f", b->data[i]);
+    for (U64 i=0; i < b->numel; i++) NN_DB("%6.3f", b->data[i]);
     NN_DB("\n");
 #else  // !MM_DEBUG    
     RAND(*f, k);                                 /// * randomize f [-k, k)
@@ -186,7 +182,8 @@ Model::_ilinear(Tensor &in, U32 E0, DU bias) {
     
     DU k = SQRT(RCP(E0+E1));                      /// * default weight - Kaiming
 #if MM_DEBUG    
-    w->map(FILL, 0.5); w->data[32] = 1.0;
+    w->map(FILL, 0.5);
+    w->data[(w->numel >> 1)-1] = 1.0;             /// * add some irrabularity
     b->map(FILL, 0.0);
     
     NN_DB("    w[1,%d,%ld,1]", E0, E1);
