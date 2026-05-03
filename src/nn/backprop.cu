@@ -321,7 +321,7 @@ Model::_bconv(Tensor &in, Tensor &out) {
         }
         GPU_CHK();
     }
-    Tensor::copy(x, in);                             /// * X = dX (overwrite)
+    in = x;                                           /// * X = dX (overwrite all elements)
     
     if (*_trace > 1) { _dump_b("db", db); _dump_f("df", df); }
     return 0;
