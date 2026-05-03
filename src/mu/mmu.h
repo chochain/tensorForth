@@ -152,7 +152,7 @@ public:
     /// neaural network objects
     ///
     __HOST__  Dataset    &dataset(U32 batch_sz);                 ///< create a NN dataset
-    __HOST__  nn::Model  &model(int &trace, U32 sz=T4_NET_SZ);   ///< create a NN model
+    __HOST__  nn::Model  &model(int &trace, U32 nsz=T4_NET_SZ);  ///< create a NN model (nsz=max layers)
     __HOST__  void       free(nn::Model &m);
 #endif // T4_DO_NN
 #else  // !T4_DO_OBJ ==========================================================

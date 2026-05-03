@@ -337,22 +337,24 @@ MMU::dataset(U32 batch_sz) {                 /// * Note: data block is not alloc
 }
 
 __HOST__ Model&                              ///< create a NN model with NHWC input
-MMU::model(int &trace, U32 sz) {
-    MM_DB("mmu#model layers=%d {\n", sz);
+MMU::model(int &trace, U32 nsz) {
+    MM_DB("mmu#model max_layers=%d {\n", nsz);
     Model  *m = (Model*)_mpool.malloc();     /// * was = (Model*)_ostore.malloc(sizeof(Model));
-    Tensor &t = talloc(sz);                  /// * allocate tensor storage
-    m->init(this, t, trace);
+    DU     *t;                               /// * allocate network layer storage
+    H_ALLOC(&t, nsz * sizeof(DU));           ///
+    m->init(this, nsz, t, &trace);
     MM_DB("} mmu#model => M:%x\n", OBJ2X(*m));
     return *m;
 }
 
 __HOST__ void                                ///< release tensor memory blocks
 MMU::free(Model &m) {
-    int n = m.numel;
+    int n = (int)m.numel;
     MM_DB("mmu#free(N%d) N:%x {\n", n, OBJ2X(m));
-    for (int i = m.numel-1; i >= 0; i--) {
+    for (int i = n - 1; i >= 0; i--) {
         MM_DB("\t"); free(m[i]);             /// * release layer tensors
     }
+    H_FREE(m.data);
     _mpool.free(&m);                         /// * release model itself
     MM_DB("} mmu#free(N%d)\n", n);
 }
