@@ -50,7 +50,7 @@ NetVM::_nnop(t4_layer op) {     /// vtable dispatcher
     ///
     if (IS_M(tos)) {
         Model &m = MTOS;
-        VLOG(" N%ld {\n", m.numel);
+        VLOG(" N%d {\n", (int)m.numel);
         switch (op) {
         case L_FLATTEN:
         case L_RELU:
@@ -71,7 +71,7 @@ NetVM::_nnop(t4_layer op) {     /// vtable dispatcher
     if (M1V) {
         DU    a  = POP();
         Model &m = MTOS;
-        VLOG(" N%ld %g {\n", m.numel, a);
+        VLOG(" N%d %g {\n", (int)m.numel, a);
         switch (op) {
         case L_LINEAR:  m.add(op, INT(a), DU1);            return ok(); /* bias = 1.0 */
         case L_LEAKYRL:
@@ -91,7 +91,7 @@ NetVM::_nnop(t4_layer op) {     /// vtable dispatcher
         if (M2V) {                                 /// * param checking
             U32 c    = POPi;                       ///> number of output channels
             DU  bias = POP();                      ///> bias range [-bias, bias)
-            VLOG(" N%ld c=%d bias=%g {\n", MTOS.numel, c, bias);
+            VLOG(" N%d c=%d bias=%g {\n", (int)MTOS.numel, c, bias);
             MTOS.add(op, c, bias);                 /// * (N b c -- N')
         }
         else ERROR("( N [bias] n -- ) for linear required!");
@@ -111,7 +111,7 @@ NetVM::_nnop(t4_layer op) {     /// vtable dispatcher
         if (M2V) {
             U16 n = POPi;
             DU  m = POP();
-            VLOG(" N%ld n=%d m=%g", MTOS.numel, n, m);
+            VLOG(" N%d n=%d m=%g", (int)MTOS.numel, n, m);
             MTOS.add(op, n, m);
         }
         else ERROR("( N [mtum] n -- ) for upsample required?");
@@ -204,7 +204,7 @@ NetVM::_conv(U16 k) {
     U32 c    = POPi;                    ///> number of output channels
     DU  bias = POP();                   ///> convolution bias
     
-    VLOG("NetVM::conv N%ld k=%d c=%d bias=%g {\n", MTOS.numel, k, c, bias);
+    VLOG("NetVM::conv N%d k=%d c=%d bias=%g {\n", (int)MTOS.numel, k, c, bias);
     MTOS.add(L_CONV, c, bias, opt);
     VLOG("} NetVM::conv\n");
 }
