@@ -155,9 +155,10 @@ NetVM::_pickle(bool save) {                 ///< ( N addr len -- ) or ( N addr l
 __HOST__ void
 NetVM::_get_parm(int n) {
     if (!M1V) { ERROR("N n required?"); return; }
-    
-    S16 i = POPi;
-    Tensor *p = MTOS[i].grad[n];
+
+    S16    i  = POPi;
+    Tensor &t = MTOS[i];
+    Tensor *p = n ? t.grad[n] : (t.grad[0] ? t.grad[0] : t.grad[4]);
     if (p) {
         DU v = mmu.obj2du(*p);
         PUSH(DUP(v));
@@ -176,7 +177,7 @@ NetVM::_set_parm(int n) {
     Tensor &p = *MNOS[i].grad[n];
     Tensor &t = TTOS;
     if (t.numel == p.numel) {
-        Tensor::copy(t, p);
+        p = t;                          /// * copy all elements to p
         DU t = POP(); DROP(t);
     }
     else {
