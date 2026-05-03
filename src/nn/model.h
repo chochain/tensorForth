@@ -44,36 +44,33 @@ class Model : public T4Base {
     using Dataset = mu::Dataset;
 
     MMU    *_mmu;                ///< memory controller
-    Tensor *_store;              ///< model storage - Sequential, TODO: DAG
-    Tensor *_hot    = NULL;      ///< cached dataset one-hot vector
-    Tensor *_loss   = NULL;      ///< cached dataset loss vector
+    int    _nlayer  = 0;         ///< max number of layers
     int    _hit     = 0;         ///< hit counter
     int    _iter    = 0;         ///< iteration counter (for Adam)
-    int    *_trace;              ///< trace level
-    int    _err     = 0;
+    int    *_trace  = NULL;      ///< trace level
+    Tensor *_hot    = NULL;      ///< cached dataset one-hot vector
+    Tensor *_loss   = NULL;      ///< cached dataset loss vector
     
 public:
-    DU     max_norm = DU0;       ///< gradient clipping
     int    epoch    = 0;         ///< TODO: for learning rate decay
+    DU     max_norm = DU0;       ///< gradient clipping
     ///
     /// @name Derivertive ops
     /// @{
-    static __HOST__ const char* nname(int n);    ///< network layer name on host
+    static __HOST__ const char* nname(int n);            ///< network layer name on host
     /// @}
     /// @name constructor (indirect)
     /// @{
-    __HOST__  void   init(MMU *mmu, Tensor &store, int &trace);
-    __HOST__  void   tick() { epoch++; _iter=0; } ///< advance epoch counter
+    __HOST__  void   init(MMU *mmu, int numel, DU *store, int *trace);
+    __HOST__  void   tick() { epoch++; _iter=0; }        ///< advance epoch counter
     /// @}
     /// @name layer access methods
     /// @{
-    __HOST__ Tensor &operator[](S64 i);          ///< 64-bit indexing (negative possible)
-    __HOST__ int    slots();
-    
-    __HOST__  Model  &npush(DU v);
-    __HOST__  Model  &npush(Tensor &t);
-    __HOST__  DU     npop();
-    __HOST__  int    batch_size();
+    __HOST__  Tensor &operator[](S32 i);                 ///< get nth layer tensor (negative possible)
+    __HOST__  Model  &npush(DU v);                       ///< append a layer (object as DU) into model
+    __HOST__  Model  &npush(Tensor &t);                  ///< append a layer (Tensor) into model
+    __HOST__  DU     npop();                             ///< remove the last layer
+    __HOST__  int    batch_size();                       ///< model batch size (input layer)
     /// @}
     /// @name Tensor constructors and randomizer
     /// @{
