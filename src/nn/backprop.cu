@@ -202,7 +202,7 @@ Model::backprop(Tensor &tgt) {
     
     NLOG("\nModel#backprop starts {");
     DU  t0 = System::clock(), t1 = t0, tt;                ///< performance measurement
-    for (int i = numel - 2, j = 0; i > 0; i--, j++) {     /// numel=number of layers
+    for (int i = numel - 2, j = 0; i >= 0; i--, j++) {    ///< feed backward, skip last (output) layer
         Tensor &in = (*this)[i], &out = (*this)[i + 1];
         if (*_trace) {
             trace((tt=System::clock()) - t1, i, in, out);
