@@ -119,7 +119,7 @@ Model::gradient(const char *nm, t4_optimizer op, GdFunc fn, DU *parm) {
     /// cascade execution layer by layer forward
     ///
     DU t0 = System::clock();                      ///< performance measurement
-    for (int i = 1; i < numel - 1; i++) {         /// TODO: parallel layer update
+    for (int i = 0; i < numel - 1; i++) {         /// TODO: parallel layer update
         Tensor &in = (*this)[i];
         Tensor &w  = *in.grad[0], &dw = *in.grad[2];
         Tensor &b  = *in.grad[1], &db = *in.grad[3];
