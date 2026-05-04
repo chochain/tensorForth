@@ -38,22 +38,23 @@ CL_INCS := \
 # GL libraries (deprecated v4.x, i.e. separation of View from M and C)
 GL_LIB  :=
 #GL_LIB  := -lGL -lGLU -lglut -lX11 -lcudadevrt
-#GL_INCS :=
-GL_INCS := \
-	/u01/src/stb \
-	${CUDA_HOME}/cuda-samples/Common \
-	${CUDA_HOME}/cuda-samples/Samples/2_Concepts_and_Techniques/imageDenoising
+GL_INCS :=
+#GL_INCS := \
+#	/u01/src/stb \
+#	${CUDA_HOME}/cuda-samples/Common \
+#	${CUDA_HOME}/cuda-samples/Samples/2_Concepts_and_Techniques/imageDenoising
 
 NVCC:=${CUDA_HOME}/bin/nvcc
 NVCC_FLAGS:= \
 	-ccbin g++ \
 	-D__CUDACC__ \
 	-Isrc $(GL_INCS:%=-I%) \
-	-t 0 -c -std=c++17 -O3 -lineinfo \
+	-t 0 -c -std=c++17 -O0 -g -lineinfo \
 	--device-c --expt-extended-lambda \
-	--expt-relaxed-constexpr \
+	-Xptxas -v \
 	-gencode arch=${CUDA_ARCH},code=${CUDA_CODE}
 
+#	--expt-relaxed-constexpr \
 #	--device-debug --debug --use_fast_math \
 
 NVLINK_FLAGS:= \
