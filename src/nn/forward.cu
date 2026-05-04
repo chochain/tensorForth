@@ -188,10 +188,10 @@ Model::forward(Tensor &input) {
     Tensor &n0 = (*this)[0];    ///< reference model input layer
     if (*_trace) input.show();  /// * preview input data
 
-    if (input.is_same_shape(n0)) {
+    if (input.numel != n0.numel) {
         ERROR("nn#forward dataset wrong shape[%d,%d,%d,%d] != model input[[%d,%d,%d,%d]\n",
-              n0.N(), n0.H(), n0.W(), n0.C(),
-              input.N(), input.H(), input.W(), input.C());
+              input.N(), input.H(), input.W(), input.C(),
+              n0.N(), n0.H(), n0.W(), n0.C());
         return *this;
     }
     n0 = input;                 /// * copy dataset batch into the first layer [0,1)
