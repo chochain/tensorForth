@@ -54,7 +54,7 @@ __KERN__ void k_adam(
 __HOST__ Model&
 Model::grad_alloc(t4_optimizer op) {
     NLOG("  #grad_alloc {\n");
-    for (int i = 1; i < numel - 1; i++) {
+    for (int i = 0; i < numel - 1; i++) {
         Tensor &in = (*this)[i];
         Tensor *w = in.grad[0], *dw = in.grad[2];   ///< filter tensor pointers
         Tensor *b = in.grad[1], *db = in.grad[3];   ///< bias tensor pointers
@@ -113,6 +113,7 @@ Model::gradient(const char *nm, t4_optimizer op, GdFunc fn, DU *parm) {
     NLOG("\nModel::%s starts (%s) batch_sz=%d, lr=%7.4f, mtum/b1=%6.3f, b2=%6.3f {\n",
          nm, train ? "trainning" : "testing",
          (*this)[1].N(), parm[0], parm[1], parm[2]);
+    
     if (_iter++==0 && epoch==0) grad_alloc(op);   /// * allocate m & v tensors
     if (!train) return *this;                     /// * bail if not in trainning
     ///
