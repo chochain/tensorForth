@@ -17,7 +17,7 @@ using mu::Tensor;
 __HOST__ const char*                ///< host network layer name 
 Model::nname(int i) {
     static const char *name[] = { LAYER_OP };
-    NN_DB("fetching nname[%d]=%p\n", i, name[i]);
+    NN_DB("  fetching nname[%d]=%p=>%s\n", i, name[i], name[i]);
     return name[i];
 }
 /// @}
