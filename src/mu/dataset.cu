@@ -15,7 +15,8 @@ using ld::Corpus;
 ///
 /// for init debug LOG_COUNT 1 with sample=3 is good
 ///
-#define LOG_COUNT 300          /**< debug dump frequency */
+//#define LOG_COUNT 300          /**< debug dump frequency */
+#define LOG_COUNT 1          /**< debug dump frequency */
 ///
 /// initial dataset setup
 /// init flow:
@@ -30,6 +31,7 @@ using ld::Corpus;
 ///      if (ds_name != null)  - init
 ///        -> corpus::init     - setup dimensions
 ///        -> _reshape         - set dimensions for the first batch (no alloc yet)
+///        -> corpus::rewind
 ///      -> corpus::fetch      - fetch host label/image blocks from files
 ///      -> _load              - transfer host blocks to device memory
 /// Note:
@@ -98,29 +100,32 @@ __HOST__ int
 
 __HOST__ void
 Dataset::_load(U8 *cp_data, U8 *cp_label, int n, DU mean, DU std) {
-    const DU m = mean * 256, s = std * 256;
-    const U64 nx = n * H() * W() * C();  ///< partial mini-batch
+    const DU  M  = mean * 256, S = std * 256;     ///< default mean=0, std=1
+    const U64 NX = HWC() * n;                     ///< partial mini-batch
     ///
     /// Allocate managed memory if needed
     /// data and label buffer from Managed memory instead of TLSF
     /// Note: numel is known only after reading from Corpus
     ///       (see ~/src/io/aio_model#_dsfetch)
     ///
-    if (!data)  MM_ALLOC(&data,  numel * sizeof(DU));
+    if (!data)  {
+        MM_ALLOC(&data,  sizeof(DU) * (numel+1));
+        _tmp = &data[numel];                      /// * tmp storage for sum, std
+    }
     if (!label) MM_ALLOC(&label, N() * sizeof(U32));
     ///
     /// scale cp_data into DU for nn/forward
     ///
-    DU  *d = data;                            ///< data in managed memory
-    for (U64 i = 0; i < nx; i++, cp_data++) { ///< nx < numel (partial mini-batch)
-        *d++ = (I2D((int)*cp_data) - m) / s;  /// * normalize
+    DU  *d = data;                                ///< data in managed memory
+    for (U64 i = 0; i < NX; i++, cp_data++) {     ///< NX < numel (partial mini-batch)
+        *d++ = (I2D((int)*cp_data) - M) / S;      /// * normalize
     }
     ///
     /// scale cp_label into U32 for nn/loss
     ///
-    U32 *t = label;                           ///< label in managed memory
-    for (U32 i = 0; i < n; i++, cp_label++) { ///< n < N (partial mini-batch)
-        *t++ = (U32)*cp_label;                /// * copy label to device memory
+    U32 *t = label;                               ///< label in managed memory
+    for (U32 i = 0; i < n; i++, cp_label++) {     ///< n < N (partial mini-batch)
+        *t++ = (U32)*cp_label;                    /// * copy label to device memory
     }
 #if MM_DEBUG    
     INFO("dataset.data=>");
