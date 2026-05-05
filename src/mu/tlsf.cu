@@ -93,6 +93,8 @@ TLSF::malloc(U64 sz) {
 
     void *data = BLK_DATA(blk);
     MM_DB("  } tlsf#malloc => %x:%lx\n", TADDR(data), sz);
+    GPU_CHK();
+    
     return data;                                       /// * pointer to raw space
 }
 
@@ -132,7 +134,8 @@ TLSF::realloc(void *p0, U64 sz) {
     void *ret = this->malloc(bsz);
     MEMCPY(ret, (const void*)p0, (size_t)sz);          ///< deep copy, !!using CUDA provided memcpy
     this->free(p0);                                    /// reclaim block
-
+    
+    GPU_CHK();
     return ret;
 }
 
@@ -154,6 +157,8 @@ TLSF::free(void *ptr) {
     /// the block is free now, try to merge a free block before if exists
     _merge_prev(blk);
     MM_DB("  } tlsf#free(%x)\n", TADDR(ptr));
+    
+    GPU_CHK();
 }
 
 //================================================================
