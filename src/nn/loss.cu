@@ -35,7 +35,7 @@ Model::onehot(Tensor &t) {
         ERROR("Model.onehot dimension is not [%d,1,%d,1]\n", N, E);
         return t;
     }
-    _hot = &t;                                      ///< keep onehot from dataset (hardcopy)
+    _hot = &t;                                      ///< retrieve onehot from dataset (hardcopy)
     _hit = hit(true);
     
     return *_hot;                                   ///< assign onehot vector
@@ -56,7 +56,7 @@ Model::onehot(Dataset &dset) {
         }
         INFO("}\n");
     };
-    if (!_hot) _hot = &T4(N, E);                    ///< alloc one-hot vector if needed
+    if (!_hot) _hot = &T4(N, 1, E, 1);              ///< alloc one-hot vector if needed
     _hot->zeros();                                  ///< reset all elements
     
     NLOG("\n  Model::onehot(ds) {\n");
