@@ -202,6 +202,7 @@ MMU::talloc(U64 sz) {
     void   *d = _ostore.malloc((sz+1) * sizeof(DU));  // one extra for temp storage
     MM_DB("} mmu#talloc => T:%x+%x\n", OBJ2X(*t), (U32)((U8*)d - _data));
     t->reset(d, sz);
+    GPU_CHK();
     status();
     return *t;
 }
@@ -249,12 +250,15 @@ MMU::free(Tensor &t) {
     if (t.grad_fn != L_NONE) {
         MM_DB("{\n");
         for (int i=0; t.mtum[i] && i < 4; i++) {
-            if (t.mtum[i] == t.grad[i]) continue;   /// * dummy pointers for SGD
+            if (t.mtum[i] == t.grad[i]) continue;             /// * dummy pointers for SGD
             MM_DB("\t\t"); free(*t.mtum[i]);
         }
+        if (t.mtum[4]) { MM_DB("\t\t"); free(*t.mtum[4]); }   /// * free batchnorm xhat
         for (int i=0; t.grad[i] && i < 4; i++) {
-            MM_DB("\t\t"); free(*t.grad[i]);    /// recursive
+            MM_DB("\t\t"); free(*t.grad[i]);                  /// * free w, b, dw, db
         }
+        if (t.grad[4]) { MM_DB("\t\t"); free(*t.grad[4]);}    /// * free mask (activate layer)
+
         MM_DB("\t} ");
     }
     _mpool.free(&t);              /// * free tensor object itself
@@ -340,8 +344,8 @@ __HOST__ Model&                              ///< create a NN model with NHWC in
 MMU::model(int &trace, U32 nsz) {
     MM_DB("mmu#model max_layers=%d {\n", nsz);
     Model  *m = (Model*)_mpool.malloc();     /// * was = (Model*)_ostore.malloc(sizeof(Model));
-    DU     *t;                               /// * allocate network layer storage
-    H_ALLOC(&t, nsz * sizeof(DU));           ///
+    DU     *t;                               /// * allocate network layer storage (in host heap)
+    H_ALLOC(&t, nsz * sizeof(DU));
     m->init(this, nsz, t, &trace);
     MM_DB("} mmu#model => M:%x\n", OBJ2X(*m));
     return *m;
