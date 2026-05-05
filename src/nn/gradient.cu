@@ -56,8 +56,7 @@ Model::grad_alloc(t4_optimizer op) {
     NLOG("  #grad_alloc {\n");
     for (int i = 0; i < numel - 1; i++) {
         Tensor &in = (*this)[i];
-        Tensor *w = in.grad[0], *dw = in.grad[2];   ///< filter tensor pointers
-        Tensor *b = in.grad[1], *db = in.grad[3];   ///< bias tensor pointers
+        Tensor *w  = in.grad[0], *b = in.grad[1];   ///< filter, bias tensor pointers
         
         NLOG("    %3d> %8s w,b[%d,%d]", i, nname(in.grad_fn), w ? 1 : 0, b ? 1 : 0);
         switch (op) {
@@ -67,27 +66,28 @@ Model::grad_alloc(t4_optimizer op) {
             break;
         case OPTI_SGDM:
             if (w && !in.mtum[0]) {
-                in.mtum[0] = &T4(*dw).zeros();      ///< m of w (zero filled)
+                in.mtum[0] = &T4(*w).zeros();       ///< m of w (zero filled)
                 in.mtum[2] = NULL;                  ///< dummy
             }
             if (b && !in.mtum[1]) {
-                in.mtum[1] = &T4(*db).zeros();      ///< m of b (zero filled)
+                in.mtum[1] = &T4(*b).zeros();       ///< m of b (zero filled)
                 in.mtum[3] = NULL;                  ///< dummy
             }
             break;
         case OPTI_ADAM:
             if (w && !in.mtum[0]) {
-                in.mtum[0] = &T4(*dw).zeros();      ///< m of w (zeor filled)
-                in.mtum[2] = &T4(*dw).zeros();      ///< v of w (zero filled)
+                in.mtum[0] = &T4(*w).zeros();       ///< m of w (zeor filled)
+                in.mtum[2] = &T4(*w).zeros();       ///< v of w (zero filled)
             }
             if (b && !in.mtum[1]) {
-                in.mtum[1] = &T4(*db).zeros();      ///< m of b (zero filled)
-                in.mtum[3] = &T4(*db).zeros();      ///< v of b (zero filled)
+                in.mtum[1] = &T4(*b).zeros();       ///< m of b (zero filled)
+                in.mtum[3] = &T4(*b).zeros();       ///< v of b (zero filled)
             }
             break;
         }
         NLOG(" mtum=%x,%x,%x,%x\n",  M2X(0), M2X(1), M2X(2), M2X(3));
     }
+    GPU_CHK();
     NLOG("  } #grad_alloc\n");
     return *this;
 }
@@ -100,7 +100,7 @@ Model::gradient(const char *nm, t4_optimizer op, GdFunc fn, DU *parm) {
         Tensor &g, Tensor &dg, Tensor &m, Tensor &v) {
         NLOG("     %c[%2d,%2d,%2d,%2d] Σ=%6.3f - %6.3f",
               k, g.N(), g.H(), g.W(), g.C(), g.sum(), dg.sum());
-        if (*_trace > 1) {
+        if (*_trace > 1 && g.numel < T4_DIM_SQ) {
             Tensor::_dump(g.data, g.H(), g.W(), g.C());
             Tensor::_dump(dg.data, dg.H(), dg.W(), dg.C());
             fn(parm, g, dg, m, v);                    /// * execute grad function
