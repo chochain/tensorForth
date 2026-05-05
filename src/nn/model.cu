@@ -60,15 +60,13 @@ __HOST__ int    Model::batch_size()     { return numel ? ((Tensor&)_mmu->du2obj(
 /// @name Tensor constructors and randomizer
 /// @{
 __HOST__ void
-Model::FREE(Tensor &t)   { _mmu->free(t); }
+Model::FREE(Tensor &t)    { _mmu->free(t); }
 __HOST__ Tensor&
-Model::VEC(U64 sz)       { return _mmu->tensor(sz); }
-__HOST__ Tensor&
-Model::T4(U32 n, U32 h)  { return _mmu->tensor(n, h, 1, 1); }
+Model::VEC(U64 sz)        { return _mmu->tensor(sz); }
 __HOST__ Tensor&
 Model::T4(U32 n, U32 h, U32 w, U32 c) { return _mmu->tensor(n, h, w, c); }
 __HOST__ Tensor&
-Model::T4(Tensor &t)     { return T4(t.N(), t.H(), t.W(), t.C()); }
+Model::T4(Tensor &t)      { return T4(t.N(), t.H(), t.W(), t.C()); }
 __HOST__ void
 Model::RAND(Tensor &t, DU scale) {              ///< short hand to System::rand
     NN_DB("sys#rand(T%d) numel=%ld bias=%.2f, scale=%.2f\n",
@@ -143,7 +141,7 @@ Model::_iconv(Tensor &in, U32 C0, DU bias, U16 *opt) {
     Tensor *dx = in.grad[4] = &T4(N1, in.H(), in.W(), C1).zeros();       ///< dx
 
     DU k = SQRT(6.0 * RCP(Hf * Wf * C1));        /// * filter default range - Kaiming
-#if MM_DEBUG    
+#if (MM_DEBUG && T4_VERBOSE > 2)
     f->map(FILL, 0.5);                           /// * debug
     b->map(FILL, -0.5);
     
@@ -181,7 +179,7 @@ Model::_ilinear(Tensor &in, U32 E0, DU bias) {
     in.xparm = bias;                              /// * keep for persistence
     
     DU k = SQRT(RCP(E0+E1));                      /// * default weight - Kaiming
-#if MM_DEBUG    
+#if (MM_DEBUG && T4_VERBOSE > 2)
     w->map(FILL, 0.5);
     w->data[(w->numel >> 1)-1] = 1.0;             /// * add some irrabularity
     b->map(FILL, 0.0);
@@ -261,12 +259,12 @@ Model::_ibatchnorm(Tensor &in, DU m) {
     NN_DB("    model#ibatchnorm m=%5.3f {\n", m);
     const int C = in.C();                        /// C0==C1
     in.grad[0] = &VEC(C*2).zeros();              ///> weight/gamma, bias/beta
-    in.grad[2] = &VEC(C*2).zeros();              ///> d_gamma, d_beta
+    in.grad[1] = &VEC(C*2).zeros();              ///> d_gamma, d_beta
     in.grad[4] = &T4(in);                        ///> x_hat (same as in)
     in.mtum[4] = &VEC(C*2);                      ///> batch sum/var
 
-    for (int c=0; c < C; c++) {                  /// * default gamma=1.0, beta=0.0
-        in.grad[0]->data[c] = DU1;
+    for (int c=0; c < C * 2; c++) {              /// * default gamma=1.0, beta=0.0
+        in.grad[0]->data[c] = c < C ? DU1 : DU0;
     }
     in.xparm = m;                                ///> default EMA momentum = 0.1
     
