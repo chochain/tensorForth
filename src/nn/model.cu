@@ -59,8 +59,6 @@ __HOST__ int    Model::batch_size()     { return numel ? ((Tensor&)_mmu->du2obj(
 /// @{
 /// @name Tensor constructors and randomizer
 /// @{
-__HOST__ Tensor&
-Model::COPY(Tensor &t)   { return _mmu->copy(t); }
 __HOST__ void
 Model::FREE(Tensor &t)   { _mmu->free(t); }
 __HOST__ Tensor&
@@ -69,6 +67,8 @@ __HOST__ Tensor&
 Model::T4(U32 n, U32 h)  { return _mmu->tensor(n, h, 1, 1); }
 __HOST__ Tensor&
 Model::T4(U32 n, U32 h, U32 w, U32 c) { return _mmu->tensor(n, h, w, c); }
+__HOST__ Tensor&
+Model::T4(Tensor &t)     { return T4(t.N(), t.H(), t.W(), t.C()); }
 __HOST__ void
 Model::RAND(Tensor &t, DU scale) {              ///< short hand to System::rand
     NN_DB("sys#rand(T%d) numel=%ld bias=%.2f, scale=%.2f\n",
@@ -185,12 +185,14 @@ Model::_ilinear(Tensor &in, U32 E0, DU bias) {
     w->map(FILL, 0.5);
     w->data[(w->numel >> 1)-1] = 1.0;             /// * add some irrabularity
     b->map(FILL, 0.0);
-    
+
     NN_DB("    w[1,%d,%ld,1]", E0, E1);
-    for (U32 e0=0; e0<E0; e0++) {
-        NN_DB("\ne0=%d ", e0);
-        for (U64 e1=0; e1<E1; e1++) {
-            NN_DB("%5.2f", w->data[E1*e0 + e1]);
+    if (w->numel < T4_DIM_SQ) {
+        for (U32 e0=0; e0<E0; e0++) {
+            NN_DB("\ne0=%d ", e0);
+            for (U64 e1=0; e1<E1; e1++) {
+                NN_DB("%5.2f", w->data[E1*e0 + e1]);
+            }
         }
     }
     NN_DB("\n");
@@ -218,9 +220,9 @@ Model::_iflatten(Tensor &in) {
 __HOST__ void
 Model::_isoftmax(Tensor &in) {
 	NN_DB("    model#isoftmax {\n");
-    Tensor &out = COPY(in);                      ///> output tensor sizing
-    in.grad[4] = &T4(1,in.H(),in.W(), in.C());   ///> activation mask
+    in.grad[4]  = &T4(1,in.H(),in.W(),in.C());   ///> activation mask
     
+    Tensor &out = T4(in);                        ///> output tensor sizing
     npush(out);                                  /// * stage for next stage
 	NN_DB("    } model#isoftmax\n");
 }
@@ -228,11 +230,10 @@ Model::_isoftmax(Tensor &in) {
 __HOST__ void
 Model::_iactivate(Tensor &in, DU alpha) {
     NN_DB("    model#iactivate alpha=%6.3f {\n", alpha);
-    Tensor &out = COPY(in);
-    Tensor *msk = in.grad[4] = &COPY(in);        ///> activation mask
-
+    Tensor *msk = in.grad[4] = &T4(in);          ///> activation mask
     in.xparm = alpha;                            /// * keep bias
     
+    Tensor &out = T4(in.N(), in.H(), in.W(), in.C());
     npush(out);
     NN_DB("    } model#iactivate\n");
 }
@@ -261,7 +262,7 @@ Model::_ibatchnorm(Tensor &in, DU m) {
     const int C = in.C();                        /// C0==C1
     in.grad[0] = &VEC(C*2).zeros();              ///> weight/gamma, bias/beta
     in.grad[2] = &VEC(C*2).zeros();              ///> d_gamma, d_beta
-    in.grad[4] = &COPY(in);                      ///> x_hat (same as in)
+    in.grad[4] = &T4(in);                        ///> x_hat (same as in)
     in.mtum[4] = &VEC(C*2);                      ///> batch sum/var
 
     for (int c=0; c < C; c++) {                  /// * default gamma=1.0, beta=0.0
@@ -269,7 +270,7 @@ Model::_ibatchnorm(Tensor &in, DU m) {
     }
     in.xparm = m;                                ///> default EMA momentum = 0.1
     
-    Tensor &out = COPY(in);                      /// * retain dimensions
+    Tensor &out = T4(in);                        /// * retain dimensions
     npush(out);
     NN_DB("    } model#ibatchnorm\n");
 }
