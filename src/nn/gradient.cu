@@ -67,22 +67,22 @@ Model::grad_alloc(t4_optimizer op) {
             break;
         case OPTI_SGDM:
             if (w && !in.mtum[0]) {
-                in.mtum[0] = &COPY(*dw).zeros();    ///< m of w (zero filled)
+                in.mtum[0] = &T4(*dw).zeros();      ///< m of w (zero filled)
                 in.mtum[2] = NULL;                  ///< dummy
             }
             if (b && !in.mtum[1]) {
-                in.mtum[1] = &COPY(*db).zeros();    ///< m of b (zero filled)
+                in.mtum[1] = &T4(*db).zeros();      ///< m of b (zero filled)
                 in.mtum[3] = NULL;                  ///< dummy
             }
             break;
         case OPTI_ADAM:
             if (w && !in.mtum[0]) {
-                in.mtum[0] = &COPY(*dw).zeros();    ///< m of w (zeor filled)
-                in.mtum[2] = &COPY(*dw).zeros();    ///< v of w (zero filled)
+                in.mtum[0] = &T4(*dw).zeros();      ///< m of w (zeor filled)
+                in.mtum[2] = &T4(*dw).zeros();      ///< v of w (zero filled)
             }
             if (b && !in.mtum[1]) {
-                in.mtum[1] = &COPY(*db).zeros();    ///< m of b (zero filled)
-                in.mtum[3] = &COPY(*db).zeros();    ///< v of b (zero filled)
+                in.mtum[1] = &T4(*db).zeros();      ///< m of b (zero filled)
+                in.mtum[3] = &T4(*db).zeros();      ///< v of b (zero filled)
             }
             break;
         }
