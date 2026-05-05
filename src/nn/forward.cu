@@ -205,7 +205,7 @@ Model::forward(Tensor &input) {
             in.sum() / in.N() / in.C(), in.xparm,
             out.N(), out.H(), out.W(), out.C());
     };
-    NLOG("\nModel::forward starts {");
+    NLOG("\nModel::forward starts trace=%d {", *_trace);
     DU t0 = System::clock(), t1 = t0, tt;           ///< performance measurement
     for (int i = 0; i < numel - 1; i++) {
         Tensor &in = (*this)[i], &out = (*this)[i + 1];
@@ -324,11 +324,11 @@ Model::_flinear(Tensor &in, Tensor &out) {
           in.N(), in.H(), in.W(), in.C(), E0, E1, b.numel);
     
     if (*_trace > 1) {
-        _dump_w("w", w, true);
+        _dump_w("w", w, w.numel < T4_DIM_SQ);
         _dump_b("b", b);
     }
 
-    if (w.numel < T4_DIM_SQ) {                        /// * threshold control
+    if (0 && w.numel < T4_DIM_SQ) {                        /// * threshold control
         NN_DB("* in = "); in.show(true);
         qa_calc(w.data, b.data);                      /// * serial code
         NN_DB(" => out"); out.show(true);
@@ -337,12 +337,9 @@ Model::_flinear(Tensor &in, Tensor &out) {
         // O[N,E0] = I[N,E1] @ W[E0,E1]^T + B[E0]
         // In your Tensor layout: A=in(H=N,W=E1,C=1), B=w(H=E0,W=E1,C=1)
         // tB=true transposes W from [E0,E1] to [E1,E0] for the multiply
-        NN_DB(" in = "); in.show(true);
         Tensor::linear(in, w, out, N, E0, E1,         /// * Y[N,E0] = X[N,E1] @ W[E0,E1]^T
                        DU1, DU0, false, true);
-        NN_DB(" => out"); out.show(true);
         FORK3(k_bias, N, E0, 1, b.data, out.data);    /// * Y[N,E0] += B[E0]
-        NN_DB(" +=b => out"); out.show(true);
     }    
     return 0;
 }
