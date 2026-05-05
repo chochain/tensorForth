@@ -74,11 +74,11 @@ public:
     /// @}
     /// @name Tensor constructors and randomizer
     /// @{
-    __HOST__ Tensor &COPY(Tensor &t);                    ///< hardcopy a tensor (proxy to mmu)
     __HOST__ void   FREE(Tensor &t);
     __HOST__ Tensor &VEC(U64 sz);                        ///< proxy to MMU::tensor
     __HOST__ Tensor &T4(U32 n, U32 h);
     __HOST__ Tensor &T4(U32 n, U32 h, U32 w, U32 c);
+    __HOST__ Tensor &T4(Tensor &t);                      ///< copy a structure of a tensor
     __HOST__ void   RAND(Tensor &t, DU scale);           ///< proxy to System::rand
     /// @}
     /// @name main NN methods
