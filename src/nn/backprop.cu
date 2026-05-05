@@ -172,7 +172,7 @@ Model::broadcast(Tensor &tgt) {
     Tensor &out = (*this)[-1];                   ///< model output
     U64    HWC  = out.HWC();                     ///< sample size
     U32    N    = out.N();
-    if (!_hot) _hot = &T4(N, HWC);               ///< allocate onehot vector if needed
+    if (!_hot) _hot = &T4(N, 1, HWC, 1);         ///< allocate onehot vector if needed
     for (U32 n = 0; n < N; n++) {                /// * loop through batch, TODO: Kernel
         DU  v = tgt.data[n];                     ///< target vector
         DU *h = _hot->slice(n);                  ///< take a sample
@@ -360,7 +360,7 @@ Model::_blinear(Tensor &in, Tensor &out) {
             }
         }
     };
-    if (w.numel < T4_DIM_SQ) {                        /// * threshold control
+    if (0 && w.numel < T4_DIM_SQ) {                        /// * threshold control
         NN_DB("* out = "); out.show(true);
         qa_calc();                                    /// * serial mode (validation)
         NN_DB(" => in"); in.show(true);
@@ -378,7 +378,7 @@ Model::_blinear(Tensor &in, Tensor &out) {
     }
     if (train && *_trace > 1) {
         _dump_b("db", db);
-        _dump_w("dw", dw, true);
+        _dump_w("dw", dw, dw.numel < T4_DIM_SQ);
     }
     return 0;
 }
@@ -439,8 +439,8 @@ Model::_bbatchnorm(Tensor &in, Tensor &out) {
     const U64 HW = (U64)W * H, NHW = HW * N;
 
     DU *w   = &in.grad[0]->data[0];                    ///< weight/gamma (scale)
-    DU *dw  = &in.grad[2]->data[0];                    ///< d_gamma
-    DU *db  = &in.grad[2]->data[C];                    ///< d_beta
+    DU *dw  = &in.grad[1]->data[0];                    ///< d_gamma
+    DU *db  = &in.grad[1]->data[C];                    ///< d_beta
     DU *xht = in.grad[4]->data;                        ///< x_hat
     DU *sum = &in.mtum[4]->data[0];                    ///< batch sum
     DU *var = &in.mtum[4]->data[C];                    ///< batch 1.0 / (var+e)^0.5
