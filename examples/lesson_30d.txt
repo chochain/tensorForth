@@ -42,7 +42,7 @@ mstat                             \ obj#used[69]
 
 .( #### calculate loss ) cr
 2 4 matrix{ 0 0 1 0 0 1 0 0 }     \ create one-hot vector
-2 4 1 1 reshape4 dup              \ reshape it into a labeled rank-4 tensor
+2 1 4 1 reshape4 dup              \ reshape it into a labeled rank-4 tensor
 .( onehot vector= ) .             \ display (print the view instead of the T4)
 constant hot1                     \ store the tensor in a constant
 
