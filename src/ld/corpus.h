@@ -17,12 +17,8 @@ namespace t4::ld {
 /// 2. moved to host heap if OK
 /// 3. pre-fetching can be done in a separate thread
 ///
-#define DS_ALLOC(p, sz)                                             \
-    if (cudaMallocManaged(p, sz) != cudaSuccess) {                  \
-        fprintf(stderr, "ERROR: Corpus malloc(%d) failed.\n", sz);  \
-        exit(-1);                                                   \
-    }
-#define IO_ERROR(fn) fprintf(stderr, "ERROR: open file %s failed\n", fn)
+#define DS_ALLOC(p, sz)      MM_ALLOC(p, sz)
+#define IO_ERROR(fn)         ERROR("failed to open file %s\n", fn);
 
 struct Corpus {
     const char *ds_name;     ///< data source name
