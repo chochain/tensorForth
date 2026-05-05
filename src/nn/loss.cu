@@ -32,10 +32,10 @@ Model::onehot(Tensor &t) {
         FREE(*_hot);
     }
     else if (t.N()!=N || (U32)t.HWC() != E) {
-        ERROR("Model.onehot dimension is not [%d,%d,1,1]\n", N, E);
+        ERROR("Model.onehot dimension is not [%d,1,%d,1]\n", N, E);
         return t;
     }
-    _hot = &t;
+    _hot = &t;                                      ///< keep onehot from dataset (hardcopy)
     _hit = hit(true);
     
     return *_hot;                                   ///< assign onehot vector
@@ -127,7 +127,7 @@ Model::loss(t4_loss op, Tensor &tgt) {              ///< loss against target vec
         return DU0;
     }
     if (_loss) *_loss = out;                        /// duplicate out vector
-    else       _loss = &COPY(out);                  /// allocate & copy out vector
+    else       _loss  = &_mmu->copy(out);           /// allocate & copy out vector
 
     DU z = _loss->loss(op, tgt);                    /// * calculate loss per op
 
