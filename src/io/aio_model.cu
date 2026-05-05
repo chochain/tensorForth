@@ -80,6 +80,7 @@ AIO::_model(Model &m) {
         for (int i=0; g[i] && i < 2; i++) {
             ss << to_s(*g[i], false) << ' ';
         }
+        if (g[4]) ss << to_s(*g[4], false) << ' ';
     };
     if (!m.is_model()) {
         ss << "ERROR, not an NN Model!";
