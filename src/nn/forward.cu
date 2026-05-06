@@ -25,25 +25,31 @@ namespace t4::nn {
 /// TODO: stride, dilation, [C1]NCHW filter,
 ///       [see](https://github.com/vdumoulin/conv_arithmetic)
 ///
-template<int TS, int R>          ///> tile size, kernel radius
+template<int TS, int R>            ///> tile size, kernel radius
 __KERN__ void k_conv2d(
-    DU *I, DU *F, DU *B, DU *O,  ///> input I[HxW], F[KxK] kernel, B[C] bias, output O[HxW]
-    int H, int W, int C1         ///< (H0==H1, W0==W1), input channels
+    DU *I, DU *F, DU *B, DU *O,    ///> input I[HxW], F[KxK] kernel, B[C] bias, output O[HxW]
+    int H, int W, int C1, int C0   ///< (H0==H1, W0==W1), input/output channels
     ) {
     constexpr  int KS  = 2 * R + 1;                   ///< center pixel + radius
     constexpr  int SSZ = (TS + KS - 1);
     __shared__ float _I[SSZ][SSZ];                    ///< shared memory
     __shared__ float _F[KS][KS];                      ///< cached filter, shared by all threads
+    
+    const int  c0   = blockIdx.z % C0;                ///< channel deep
+    const int  n    = blockIdx.z / C0;                ///< mini-batch sample idx
+    const int  HWC1 = H * W * C1, HWC0 = H * W * C0;
 
+    DU *n_I  = I + n * HWC1;                          ///< input  slice [n]
+    DU *n_O  = O + n * HWC0;                          ///< output slice [n]
+    
     const int  tx = threadIdx.x, j0 = tx + blockIdx.x * TS;   ///< output coordinates
     const int  ty = threadIdx.y, i0 = ty + blockIdx.y * TS;   /// * i0,j0=0:15
-    const int  c0 = blockIdx.z,  C0 = gridDim.z;      ///< channel deep
     const long z0 = ((long)W * i0 + j0) * C0 + c0;    ///< output array index
     const int  load_id = ty * TS + tx;
     ///
     /// process z0, i.e. [TS, TS, C] cells per kernel call
     ///
-    if (i0 < H && j0 < W) O[z0] = B[c0];              /// * Y = B
+    if (i0 < H && j0 < W) n_O[z0] = B[c0];            /// * Y = B
 
     for (int c1 = 0; c1 < C1; c1++) {                 ///< each input channel, TODO: multi-stream
         const int zf = C0 * KS * KS * c1 + c0;        ///< filter index [C1,KS,KS,C0]
@@ -58,7 +64,7 @@ __KERN__ void k_conv2d(
             int gi = (blockIdx.y * TS) - R + si;
             int gj = (blockIdx.x * TS) - R + sj;
             _I[si][sj] = (gi >=0 && gi < H && gj >=0 && gj < W)
-                ? I[((long)W * gi + gj) * C1 + c1] : DU0;               /// * cache input data
+                ? n_I[((long)W * gi + gj) * C1 + c1] : DU0;               /// * cache input data
         }
         __syncthreads();                             /// * smem write barrier
         ///
@@ -73,7 +79,9 @@ __KERN__ void k_conv2d(
                     sum += _F[y][x] * _I[ty+y][tx+x];/// Y += W * X
                 }
             }
-            if (i0 < H && j0 < W) O[z0] += sum;      /// Y += W * X
+            if (i0 < H && j0 < W) {
+                atomicAdd(&n_O[z0], sum);            /// Y += W * X
+            }
         }
         __syncthreads();
     }
@@ -215,7 +223,7 @@ Model::forward(Tensor &input) {
         }
         _fstep(in, out);
 
-        if (_check_nan(out)) {
+        if (*_trace && _check_nan(out)) {
             ERROR("nn#forward Nan %s\n", nname(in.grad_fn));
             in.show();
             out.show();
@@ -271,10 +279,10 @@ Model::_fstep(Tensor &in, Tensor &out) {
 
 #define TSZ(r)    (T4_DIM_SZ - 2*(r))      /** 16,14,12,10 for r=0,1,2,3.. conv */
 #define TILE(v,t) ((v) + (t) - 1)/(t)      /** dim of tile  */
-#define CONV(r)                                                               \
-    k_conv2d<TSZ(r),(r)>                                                      \
-    <<<dim3(TILE(W,TSZ(r)),TILE(H,TSZ(r)),C0), dim3(T4_DIM_SZ,T4_DIM_SZ,1)>>> \
-    (d1, f.data, b.data, d0, H, W, C1)
+#define CONV(r)                                                                 \
+    k_conv2d<TSZ(r),(r)>                                                        \
+    <<<dim3(TILE(W,TSZ(r)),TILE(H,TSZ(r)),C0*N), dim3(T4_DIM_SZ,T4_DIM_SZ,1)>>> \
+    (in.data, f.data, b.data, out.data, H, W, C1, C0)
 
 __HOST__ int
 Model::_fconv(Tensor &in, Tensor &out) {
@@ -284,19 +292,16 @@ Model::_fconv(Tensor &in, Tensor &out) {
     const U32 N = out.N(), H = out.H(), W = out.W();      ///< outpt dimensions
     const U32 C0 = out.C(), C1 = in.C();                  ///< output, input channel deep
 
-    for (U32 n = 0; n < N; n++) {                         ///< TODO: multi-stream 
-        DU *d1 = in.slice(n), *d0 = out.slice(n);
-        U32 r  = (f.H() - 1) >> 1;
-        
-        switch(r) {
-        case 0: CONV(0); break;                           ///< 1x1 (52 reg)
-        case 1: CONV(1); break;                           ///< 3x3 (56 reg)
-        case 2: CONV(2); break;                           ///< 5x5 (64 reg)
-        case 3: CONV(3); break;                           ///< 7x7 (72 reg)
-        default: ERROR("nn#fconv kernel_size=%d not supported\n", f.H()); return -1;
-        }
-        GPU_CHK();
+    U32 r  = (f.H() - 1) >> 1;
+    switch(r) {
+    case 0: CONV(0); break;                               ///< 1x1 (52 reg)
+    case 1: CONV(1); break;                               ///< 3x3 (56 reg)
+    case 2: CONV(2); break;                               ///< 5x5 (64 reg)
+    case 3: CONV(3); break;                               ///< 7x7 (72 reg)
+    default: ERROR("nn#fconv kernel_size=%d not supported\n", f.H()); return -1;
     }
+    GPU_CHK();
+    
     return 0;
 }
 
