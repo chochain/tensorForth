@@ -85,7 +85,7 @@ Debug::words() {
     
     keep_fmt();
     fout << std::dec;
-    for (int i=1, sz=0; i < DIDX; i++) {
+    for (int i=0, sz=0; i < DIDX; i++) {
         const char *name = DICT(i).name;
         fout << "  " << name;
         sz += name[0]=='\n' ? WIDTH : (strlen(name) + 2); /// * page break?
