@@ -137,7 +137,7 @@ Model::gradient(const char *nm, t4_optimizer op, GdFunc fn, DU *parm) {
                 }
             }
 */            
-            if (_check_nan(w)) {
+            if (*_trace && _check_nan(w)) {
                 ERROR("nn::grad.w Nan %s\n", nname(in.grad_fn));
                 w.show();
                 this->err = 1;
@@ -146,7 +146,7 @@ Model::gradient(const char *nm, t4_optimizer op, GdFunc fn, DU *parm) {
         }
         if (in.mtum[1]) {
             step('b', b, db, *in.mtum[1], *in.mtum[3]);
-            if (_check_nan(b)) {
+            if (*_trace && _check_nan(b)) {
                 ERROR("nn::grad.b Nan %s\n", nname(in.grad_fn));
                 b.show();
                 this->err = 1;
