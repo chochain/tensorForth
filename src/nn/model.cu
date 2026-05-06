@@ -141,7 +141,7 @@ Model::_iconv(Tensor &in, U32 C0, DU bias, U16 *opt) {
     Tensor *dx = in.grad[4] = &T4(N1, in.H(), in.W(), C1).zeros();       ///< dx
 
     DU k = SQRT(6.0 * RCP(Hf * Wf * C1));        /// * filter default range - Kaiming
-#if (MM_DEBUG && T4_VERBOSE > 2)
+#if (MM_DEBUG && T4_VERBOSE > 1)
     f->map(FILL, 0.5);                           /// * debug
     b->map(FILL, -0.5);
     
@@ -179,7 +179,7 @@ Model::_ilinear(Tensor &in, U32 E0, DU bias) {
     in.xparm = bias;                              /// * keep for persistence
     
     DU k = SQRT(RCP(E0+E1));                      /// * default weight - Kaiming
-#if (MM_DEBUG && T4_VERBOSE > 2)
+#if (MM_DEBUG && T4_VERBOSE > 1)
     w->map(FILL, 0.5);
     w->data[(w->numel >> 1)-1] = 1.0;             /// * add some irrabularity
     b->map(FILL, 0.0);
