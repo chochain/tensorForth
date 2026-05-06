@@ -13,72 +13,83 @@ namespace t4::nn {
 /// convolution filter derivatives
 /// TODO: stride, dilation, [C1]NCHW filter
 ///
-template<int TS, int R>    ///> tile size, kernel radius
+template<int TS, int R>
 __KERN__ void k_dconv2d(
-    DU *I, DU *DX, DU *F, DU *DF, DU *DB, DU *O,     ///< input I[HxW], F,DF[KSxKS], output O[HxW]
-    int H, int W, int C0, bool train                 ///< H1==H0, W1==W0, output Channels
-    ) {
+    DU *I, DU *DX, DU *F, DU *DF, DU *DB, DU *O,
+    int H, int W, int C0, int C1, int N, bool train)  /// add C1, N
+{
     constexpr int KS  = 2 * R + 1;
     constexpr int SSZ = TS + KS - 1;
-    __shared__ DU _I[SSZ][SSZ];                      ///< input cache tile
-    __shared__ DU _O[SSZ][SSZ];                      ///< output cache tile
+    
+    __shared__ DU _I[SSZ][SSZ];
+    __shared__ DU _O[SSZ][SSZ];
     __shared__ DU _df[KS][KS];
 
-    const int  tx = threadIdx.x, j1 = tx + blockIdx.x * TS;
-    const int  ty = threadIdx.y, i1 = ty + blockIdx.y * TS;
-    const int  c1 = blockIdx.z,  C1 = gridDim.z;     ///< channel deep
-    const int  load_id = ty * TS + tx;
-    ///
-    /// process z1, i.e. [TS, TS, C1] cells per kernel call
-    ///
+    const int c1   = blockIdx.z % C1;                 ///< input channel
+    const int n    = blockIdx.z / C1;                 ///< batch sample
+    const int HWC1 = H * W * C1, HWC0 = H * W * C0;
+
+    DU *n_I  = I  + n * HWC1;                         ///< input  slice [n]
+    DU *n_O  = O  + n * HWC0;                         ///< output slice [n]
+    DU *n_DX = DX + n * HWC1;                         ///< dX     slice [n]
+
+    const int tx = threadIdx.x, j1 = tx + blockIdx.x * TS;
+    const int ty = threadIdx.y, i1 = ty + blockIdx.y * TS;
+    const int load_id = ty * TS + tx;                 ///< [0, TS*TS)
+
     const int zi = blockIdx.y * TS - R, zj = blockIdx.x * TS - R;
-    for (int t = load_id; t < SSZ*SSZ; t += TS*TS) { /// * cached X (input) tile
+
+    /// load input tile _I — once per kernel call (shared across all c0)
+    for (int t = load_id; t < SSZ*SSZ; t += TS*TS) {
         int si = t / SSZ, sj = t % SSZ;
-        int gi = zi + si, gj = zj + sj;
+        int gi = zi + si,  gj = zj + sj;
         _I[si][sj] = (gi>=0 && gi<H && gj>=0 && gj<W)
-            ? I[((long)W * gi + gj) * C1 + c1] : DU0;
+            ? n_I[((long)W * gi + gj) * C1 + c1] : DU0;
     }
-    ///
-    /// for each output channel
-    ///
-    for (int c0 = 0; c0 < C0; c0++) {                ///< each dY channel
-        for (int t=load_id; t < SSZ*SSZ; t += TS*TS) {
+
+    for (int c0 = 0; c0 < C0; c0++) {
+        /// load dY tile _O for this c0
+        for (int t = load_id; t < SSZ*SSZ; t += TS*TS) {
             int si = t / SSZ, sj = t % SSZ;
-            int gi = zi + si, gj = zj + sj;
-            _O[si][sj] = (gi >=0 && gi < H && gj >=0 && gj < W)
-                ? O[((long)W * gi + gj) * C0 + c0] : DU0;               /// * cache input data
+            int gi = zi + si,  gj = zj + sj;
+            _O[si][sj] = (gi>=0 && gi<H && gj>=0 && gj<W)
+                ? n_O[((long)W * gi + gj) * C0 + c0] : DU0;
         }
-        if (tx < KS && ty < KS) _df[ty][tx] = DU0;   /// * _df[KS][KS]
+        if (tx < KS && ty < KS) _df[ty][tx] = DU0;
         __syncthreads();
-        
-        /// dB[c0] += dY[c0]
+
+        /// dB[c0] — warp reduce over tile pixels
         DU db = (train && tx < TS && ty < TS) ? _O[ty+R][tx+R] : DU0;
         WARP_REDUCE(db);
-        if ((ty * blockDim.x + tx) % 32 == 0) {
-            atomicAdd(&DB[c0], db);
-        }
-        
-        const U64 zf = (U64)C0 * KS * KS * c1 + c0;      ///< filter index F[C1,KS,KS,C0]
-        if (tx < TS && ty < TS) {                        /// * within tile [14x14]
-             DU sum = DU0;                               ///< dX sum, DF[c1,0,0,c0] (TSxTS threads)
-             for (int y=0, y1=KS-1; y < KS; y++, y1--) {
-                 for (int x=0, x1=KS-1; x < KS; x++, x1--) {
-                    int fi = zf + (y1 * KS + x1) * C0;   ///< rot180 index
-                    DU  dy = _O[ty+y][tx+x];
-                    sum += F[fi] * dy;                   /// * dX = F @ dY
-                    if (train) {                         /// * dF = dY @ X
-                        atomicAdd(&_df[y][x], dy * _I[ty+y][tx+x]); 
-                    }
+        if ((ty * blockDim.x + tx) % 32 == 0) atomicAdd(&DB[c0], db);
+
+        /// dX and dF — all 256 threads participate in warp reduce for dF
+        const U64 zf = (U64)C0 * KS*KS * c1 + c0;
+        DU sum = DU0;
+        for (int y = 0, y1 = KS-1; y < KS; y++, y1--) {
+            for (int x = 0, x1 = KS-1; x < KS; x++, x1--) {
+                DU dy  = (tx < TS && ty < TS) ? _O[ty+y][tx+x] : DU0;
+                int fi = zf + (y1 * KS + x1) * C0;        ///< rot180
+
+                /// dX accumulation (in-tile threads only)
+                if (tx < TS && ty < TS) sum += F[fi] * dy;
+                if (!train) continue;
+
+                /// dF — warp reduce across ALL 256 threads, not just TS*TS
+                DU df0 = dy * ((tx < TS && ty < TS) ? _I[ty+y][tx+x] : DU0);
+                WARP_REDUCE(df0);
+                if ((ty * blockDim.x + tx) % 32 == 0) {
+                    atomicAdd(&_df[y][x], df0);           ///< 7 atomics/weight vs 196
                 }
             }
-            if (i1 < H && j1 < W) {                       /// * collect dX (per C1)
-                DX[((long)W * i1 + j1) * C1 + c1] += sum; ///< final dX
-            }
+        }
+        if (tx < TS && ty < TS && i1 < H && j1 < W) {
+            atomicAdd(&n_DX[((long)W * i1 + j1) * C1 + c1], sum);
         }
         __syncthreads();
 
         if (tx < KS && ty < KS) {
-            atomicAdd(&DF[zf + (ty * KS + tx) * C0], _df[ty][tx]); /// * dF += sum(_df)
+            atomicAdd(&DF[zf + (ty * KS + tx) * C0], _df[ty][tx]);
         }
         __syncthreads();
     }
@@ -210,7 +221,7 @@ Model::backprop(Tensor &tgt) {
         }
         _bstep(in, out);
 
-        if (_check_nan(in)) {
+        if (*_trace && _check_nan(in)) {
             ERROR("nn#backprop Nan %s\n", nname(in.grad_fn));
             in.show();
             out.show();
@@ -290,38 +301,36 @@ Model::_bstep(Tensor &in, Tensor &out) {
 
 #define TSZ(r)    (T4_DIM_SZ - 2*(r))      /** 16,14,12 for 1x1,3x3,5x5 conv */
 #define TILE(v,t) ((v) + (t) - 1)/(t)      /** dim of tile  */
-#define DCONV(r)                                                              \
-    k_dconv2d<TSZ(r),(r)>                                                     \
-    <<<dim3(TILE(W,TSZ(r)),TILE(H,TSZ(r)),C0), dim3(T4_DIM_SZ,T4_DIM_SZ,1)>>> \
-    (d1, dx, f.data, df.data, db.data, d0, H, W, C0, train)
+#define DCONV(r)                                                                   \
+    k_dconv2d<TSZ(r),(r)>                                                          \
+    <<<dim3(TILE(W,TSZ(r)), TILE(H,TSZ(r)), C1*N), dim3(T4_DIM_SZ,T4_DIM_SZ,1)>>>  \
+    (in.data, dx.data, f.data, df.data, db.data, out.data, H, W, C0, C1, N, train)
 
 __HOST__ int
 Model::_bconv(Tensor &in, Tensor &out) {
-    Tensor &f = *in.grad[0], &df = *in.grad[2];      ///< filter tensors
-    Tensor &b = *in.grad[1], &db = *in.grad[3];      ///< bias tensors
-    Tensor &x = *in.grad[4];                         ///< dX storage
+    Tensor &f  = *in.grad[0], &df = *in.grad[2];
+    Tensor &b  = *in.grad[1], &db = *in.grad[3];
+    Tensor &dx = *in.grad[4];
 
     NN_DB(" f[%d,%d,%d,%d], b[%ld]", f.N(), f.H(), f.W(), f.C(), b.numel);
-
-    const int N = in.N(), H = in.H(), W = in.W();    ///< input dimensions
+    
+    const int N = in.N(), H = in.H(), W = in.W();
     const int C1 = in.C(), C0 = out.C();
-    
+
     if (*_trace > 1) { _dump_b("b", b); _dump_f("f", f); }
-    
-    x.zeros();
-    for (int n = 0; n < N; n++) {                    ///< accumulative over N samples TODO: multi-stream
-        DU *d1 = in.slice(n), *dx = x.slice(n), *d0 = out.slice(n);
-        const int r = (f.H() - 1) >> 1;              ///< kernel radius
-        switch (r) {
-        case 0: DCONV(0); break;
-        case 1: DCONV(1); break;
-        case 2: DCONV(2); break;
-        case 3: DCONV(3); break;
-        default: ERROR("nn#bconv kernel_size %d not supported\n", f.H()); return -1;
-        }
-        GPU_CHK();
+     
+    cudaMemset(dx.data, 0, dx.numel * sizeof(DU));      ///< pre-zero dX
+
+    const int r = (f.H() - 1) >> 1;
+    switch (r) {
+    case 0: DCONV(0); break;
+    case 1: DCONV(1); break;
+    case 2: DCONV(2); break;
+    case 3: DCONV(3); break;
+    default: ERROR("nn#bconv kernel_size %d not supported\n", f.H()); return -1;
     }
-    in = x;                                           /// * X = dX (overwrite all elements)
+    GPU_CHK();                                         /// * one sync for the whole batch
+    in = dx;                                           /// * x = dX (overwrite all elements)
     
     if (*_trace > 1) { _dump_b("db", db); _dump_f("df", df); }
     return 0;
