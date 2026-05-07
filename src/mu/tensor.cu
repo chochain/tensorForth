@@ -349,7 +349,7 @@ Tensor::inverse(Tensor &A, Tensor &I) {          /// * A=>I, I=>A^-1
     
     for (int z = 0; z < K; z++) {
         int u = 0;
-        FORK2(k_find_pivot, K, da, d_pivot, z);  /// * find pivot row
+        FORK2(k_find_pivot, 1, K, da, d_pivot, z);  /// * find pivot row
         D2H(&u, d_pivot, sizeof(int));
         if (u < 0) {
             ERROR("  tensor#inverse: singular matrix at column %d\n", z);
@@ -376,7 +376,7 @@ Tensor::plu(Tensor &A, Tensor &I, int *d_piv) {  ///< update A -> PLU (in-place)
     // -------------------------------------------------------------------------
     for (int z = 0; z < K; z++) {
         int u = -1;
-        FORK2(k_find_pivot, K, da, d_pivot, z);
+        FORK2(k_find_pivot, 1, K, da, d_pivot, z);
         d_piv[z] = *d_pivot;                     ///< D2D, for Stage 2 (lu_inverse)
         D2H(&u, d_pivot, sizeof(int));           /// * capture on host
         
@@ -440,7 +440,7 @@ Tensor::det() {
     const int sign = (cnt % 2 == 0) ? 1 : -1;
     
     DU det;                                       /// product of U diagonal (in log space for stability)
-    FORK2(k_logdet, K, data, _tmp, d_piv);        /// * calculate log(determinant)
+    FORK2(k_logdet, 1, K, data, _tmp, d_piv);     /// * calculate log(determinant)
     D2H(&det, _tmp, sizeof(DU));                  /// * capture d_det 
     D2H(&cnt, d_piv, sizeof(int));                /// * capture d_sign
     
@@ -467,10 +467,12 @@ Tensor::reset(void *mem, U64 sz, t4_obj tt, t4_layer fn) {
     const Tensor *t[5]= { NULL, NULL, NULL, NULL, NULL };
     data    = (DU*)mem;
     grad_fn = fn;
+    
     memcpy(stride, s, sizeof(s));
     memcpy(shape,  h, sizeof(h));
     memcpy(grad,   t, sizeof(t));
     memcpy(mtum,   t, sizeof(t));
+
     _tmp = &data[numel];                             /// * point tmp stroage to data[numel]
     
     return *this;

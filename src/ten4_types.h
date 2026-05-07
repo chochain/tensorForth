@@ -129,8 +129,8 @@ typedef float       F32;                    ///< single precision float
     fn<<<_g,T4_DIM_SZ2>>>(__VA_ARGS__);                     \
     GPU_CHK();                                              \
 }
-#define FORK2(fn,n,...) {                                   \
-    fn<<<1,T4_DIM_SQ>>>(__VA_ARGS__,n);                     \
+#define FORK2(fn,_g,n,...) {                                \
+    fn<<<_g,T4_DIM_SQ>>>(__VA_ARGS__,n);                    \
     GPU_CHK();                                              \
 }
 #define FORK3(fn,h,w,c,...) {                               \
