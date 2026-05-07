@@ -16,30 +16,30 @@ namespace t4::nn {
 template<int TS, int R>
 __KERN__ void k_dconv2d(
     DU *I, DU *DX, DU *F, DU *DF, DU *DB, DU *O,
-    int H, int W, int C0, int C1, int N, bool train)  /// add C1, N
+    int H, int W, int C0, int C1, bool train)
 {
     constexpr int KS  = 2 * R + 1;
     constexpr int SSZ = TS + KS - 1;
-    
     __shared__ DU _I[SSZ][SSZ];
     __shared__ DU _O[SSZ][SSZ];
     __shared__ DU _df[KS][KS];
 
-    const int c1   = blockIdx.z % C1;                 ///< input channel
-    const int n    = blockIdx.z / C1;                 ///< batch sample
+    const int c0   = blockIdx.z % C0;                   ///< ← c0 now from grid
+    const int c1   = (blockIdx.z / C0) % C1;
+    const int n    = blockIdx.z / (C0 * C1);
     const int HWC1 = H * W * C1, HWC0 = H * W * C0;
 
-    DU *n_I  = I  + n * HWC1;                         ///< input  slice [n]
-    DU *n_O  = O  + n * HWC0;                         ///< output slice [n]
-    DU *n_DX = DX + n * HWC1;                         ///< dX     slice [n]
+    DU *n_I  = I  + n * HWC1;
+    DU *n_O  = O  + n * HWC0;
+    DU *n_DX = DX + n * HWC1;
 
     const int tx = threadIdx.x, j1 = tx + blockIdx.x * TS;
     const int ty = threadIdx.y, i1 = ty + blockIdx.y * TS;
-    const int load_id = ty * TS + tx;                 ///< [0, TS*TS)
+    const int load_id = ty * TS + tx;
 
     const int zi = blockIdx.y * TS - R, zj = blockIdx.x * TS - R;
 
-    /// load input tile _I — once per kernel call (shared across all c0)
+    /// load _I tile — this c1 slice
     for (int t = load_id; t < SSZ*SSZ; t += TS*TS) {
         int si = t / SSZ, sj = t % SSZ;
         int gi = zi + si,  gj = zj + sj;
@@ -47,51 +47,52 @@ __KERN__ void k_dconv2d(
             ? n_I[((long)W * gi + gj) * C1 + c1] : DU0;
     }
 
-    for (int c0 = 0; c0 < C0; c0++) {
-        /// load dY tile _O for this c0
-        for (int t = load_id; t < SSZ*SSZ; t += TS*TS) {
-            int si = t / SSZ, sj = t % SSZ;
-            int gi = zi + si,  gj = zj + sj;
-            _O[si][sj] = (gi>=0 && gi<H && gj>=0 && gj<W)
-                ? n_O[((long)W * gi + gj) * C0 + c0] : DU0;
+    /// load _O tile — this c0 slice  (loaded once, no loop)
+    for (int t = load_id; t < SSZ*SSZ; t += TS*TS) {
+        int si = t / SSZ, sj = t % SSZ;
+        int gi = zi + si,  gj = zj + sj;
+        _O[si][sj] = (gi>=0 && gi<H && gj>=0 && gj<W)
+            ? n_O[((long)W * gi + gj) * C0 + c0] : DU0;
+    }
+    if (tx < KS && ty < KS) _df[ty][tx] = DU0;
+    __syncthreads();
+
+    /// dB — one block per c0, warp reduce then atomic
+    DU db = (train && tx < TS && ty < TS) ? _O[ty+R][tx+R] : DU0;
+    #pragma unroll
+    for (int off = 16; off > 0; off >>= 1)
+        db += __shfl_down_sync(0xffffffff, db, off);
+    if ((ty * blockDim.x + tx) % 32 == 0) atomicAdd(&DB[c0], db);
+
+    const U64 zf = (U64)C0 * KS*KS * c1 + c0;
+
+    /// dX and dF
+    DU dx_acc = DU0;                                   ///< register accumulator
+    for (int y = 0, y1 = KS-1; y < KS; y++, y1--) {
+        for (int x = 0, x1 = KS-1; x < KS; x++, x1--) {
+            DU dy  = (tx < TS && ty < TS) ? _O[ty+y][tx+x] : DU0;
+            int fi = zf + (y1 * KS + x1) * C0;
+
+            if (tx < TS && ty < TS) dx_acc += F[fi] * dy;
+            if (!train) continue;
+
+            DU df0 = dy * ((tx < TS && ty < TS) ? _I[ty+y][tx+x] : DU0);
+            #pragma unroll
+            for (int off = 16; off > 0; off >>= 1)
+                df0 += __shfl_down_sync(0xffffffff, df0, off);
+            if ((ty * blockDim.x + tx) % 32 == 0)
+                atomicAdd(&_df[y][x], df0);
         }
-        if (tx < KS && ty < KS) _df[ty][tx] = DU0;
-        __syncthreads();
+    }
+    __syncthreads();
 
-        /// dB[c0] — warp reduce over tile pixels
-        DU db = (train && tx < TS && ty < TS) ? _O[ty+R][tx+R] : DU0;
-        WARP_REDUCE(db);
-        if ((ty * blockDim.x + tx) % 32 == 0) atomicAdd(&DB[c0], db);
-
-        /// dX and dF — all 256 threads participate in warp reduce for dF
-        const U64 zf = (U64)C0 * KS*KS * c1 + c0;
-        DU sum = DU0;
-        for (int y = 0, y1 = KS-1; y < KS; y++, y1--) {
-            for (int x = 0, x1 = KS-1; x < KS; x++, x1--) {
-                DU dy  = (tx < TS && ty < TS) ? _O[ty+y][tx+x] : DU0;
-                int fi = zf + (y1 * KS + x1) * C0;        ///< rot180
-
-                /// dX accumulation (in-tile threads only)
-                if (tx < TS && ty < TS) sum += F[fi] * dy;
-                if (!train) continue;
-
-                /// dF — warp reduce across ALL 256 threads, not just TS*TS
-                DU df0 = dy * ((tx < TS && ty < TS) ? _I[ty+y][tx+x] : DU0);
-                WARP_REDUCE(df0);
-                if ((ty * blockDim.x + tx) % 32 == 0) {
-                    atomicAdd(&_df[y][x], df0);           ///< 7 atomics/weight vs 196
-                }
-            }
-        }
-        if (tx < TS && ty < TS && i1 < H && j1 < W) {
-            atomicAdd(&n_DX[((long)W * i1 + j1) * C1 + c1], sum);
-        }
-        __syncthreads();
-
-        if (tx < KS && ty < KS) {
-            atomicAdd(&DF[zf + (ty * KS + tx) * C0], _df[ty][tx]);
-        }
-        __syncthreads();
+    /// dX — now needs atomic since multiple c0 blocks write same DX element
+    if (tx < TS && ty < TS && i1 < H && j1 < W) {
+        atomicAdd(&n_DX[((long)W * i1 + j1) * C1 + c1], dx_acc);
+    }
+    /// dF — write accumulated _df to global
+    if (tx < KS && ty < KS) {
+        atomicAdd(&DF[zf + (ty * KS + tx) * C0], _df[ty][tx]);
     }
 }
 
@@ -105,43 +106,58 @@ __KERN__ void k_dlinear_db(DU *O, DU *DB, int N, int E0) {
     if (e0 < E0 && n < N) atomicAdd(&DB[e0], O[n * E0 + e0]);
 }
 
-template<int KS>                                      /// kernel size
-__KERN__ void k_dpool(
-    t4_layer op,
-    DU *I, DU *O,                                     ///< input, output buffers
-    U32 H, U32 W                                      ///< output HW (C1==C0)
-    ) {
-    const U32 KSQ= KS * KS;
-    const U64 HW = (U64)H * W;                        ///< HxW
-    const U64 k0 = (U64)blockIdx.x * blockDim.x + threadIdx.x;
-    const U32 j0 = k0 % W;                            ///< output x dim
-    const U32 c  = blockIdx.y, C = gridDim.y;         ///< channel deep
-    const U64 ns = HW * C * blockIdx.z;               ///< batch slice idx
-    const U64 z0 = (U64)C * k0 + ns + c;              ///< output array index
-    const U64 z1 = (U64)C * KS * j0 + KSQ * ((k0 - j0) * C + ns) + c;
+template<int KS>
+__KERN__ void k_dpool(t4_layer op, DU *I, DU *O, U32 H, U32 W)
+{
+    const U32 KSQ = KS * KS;
+    const U64 HW  = (U64)H * W;
+    const U64 k0  = (U64)blockIdx.x * blockDim.x + threadIdx.x;
 
-    if (k0 < HW && c < C) {
-        const U64 RI = (U64)KS * C * (W - 1);         ///< input cell row increment
-        DU *ix = &I[z1], *t = ix;                     /// *ix input tensor cell
-        DU2 v  = (op != L_AVGPOOL) ? *ix : O[z0] / KSQ;
-        for (U32 y = 0; y < KS; y++) {     /// * handle one kernel
-            for (U32 x = 0; x < KS; x++) {
-                DU dx = *ix;
-                switch (op) {
-                case L_AVGPOOL: *ix = v;             break;
-                case L_MAXPOOL:
-                    *ix = DU0;             /// * zero out all elements
-                    if (dx > v) { v = dx; t = ix; }  break;
-                case L_MINPOOL:
-                    *ix = DU0;
-                    if (dx < v) { v = dx; t = ix; }  break;
-                case L_USAMPLE: *ix = O[z0];         break;
-                }
-                ix += C;                   /// * next cell
+    if (k0 >= HW) return;
+    
+    const U32 j0  = k0 % W;                                ///< output col
+    const U32 c   = blockIdx.y, C  = gridDim.y;
+    const U64 ns  = HW * C * blockIdx.z;                   ///< output batch offset
+
+    const U64 z0  = ns + k0 * C + c;                       ///< output (dY) index
+    const U64 z1  =                                      ///< input tile, acc=0.9897
+        (ns + k0 * C) * KSQ + j0 * KS * C + c;
+//    const U64 z1 =                                         ///< orig, (shift output col), acc=0.9987
+//        (ns + k0 * C) * KSQ + j0 * KS * C + c - j0 * KSQ * C;
+    const U64 RI  = (U64)(W - 1) * KS * C;                 ///< row advance after KS cols
+
+    DU *ix = &I[z1];
+    DU *t  = ix;                                           ///< argmax/argmin ptr
+    DU  v  = (op != L_AVGPOOL) ? *ix : O[z0];              ///< init value
+
+    /// op hoisted outside loop
+    switch (op) {
+    case L_AVGPOOL: v /= KSQ;
+    case L_USAMPLE:
+        /// distribute dY equally across all KS*KS input cells
+        for (U32 y = 0; y < KS; y++, ix += RI)
+            for (U32 x = 0; x < KS; x++, ix += C) *ix = v;
+        break;
+    case L_MAXPOOL:
+        /// zero all, find argmax, write dY to argmax position
+        for (U32 y = 0; y < KS; y++, ix += RI) {
+            for (U32 x = 0; x < KS; x++, ix += C) {
+                DU dx = *ix; *ix = DU0;
+                if (dx > v) { v = dx; t = ix; }
             }
-            ix += RI;                      /// * next input row
         }
-        if (op==L_MAXPOOL || op==L_MINPOOL) *t = O[z0];    /// * update arg cell
+        *t = O[z0];                                        ///< dY at argmax
+        break;
+    case L_MINPOOL:
+        /// zero all, find argmin, write dY to argmin position
+        for (U32 y = 0; y < KS; y++, ix += RI) {
+            for (U32 x = 0; x < KS; x++, ix += C) {
+                DU dx = *ix; *ix = DU0;
+                if (dx < v) { v = dx; t = ix; }
+            }
+        }
+        *t = O[z0];                                        ///< dY at argmin
+        break;
     }
 }
 
@@ -301,10 +317,10 @@ Model::_bstep(Tensor &in, Tensor &out) {
 
 #define TSZ(r)    (T4_DIM_SZ - 2*(r))      /** 16,14,12 for 1x1,3x3,5x5 conv */
 #define TILE(v,t) ((v) + (t) - 1)/(t)      /** dim of tile  */
-#define DCONV(r)                                                                   \
-    k_dconv2d<TSZ(r),(r)>                                                          \
-    <<<dim3(TILE(W,TSZ(r)), TILE(H,TSZ(r)), C1*N), dim3(T4_DIM_SZ,T4_DIM_SZ,1)>>>  \
-    (in.data, dx.data, f.data, df.data, db.data, out.data, H, W, C0, C1, N, train)
+#define DCONV(r)                                                                      \
+    k_dconv2d<TSZ(r),(r)>                                                             \
+    <<<dim3(TILE(W,TSZ(r)), TILE(H,TSZ(r)), C0*C1*N), dim3(T4_DIM_SZ,T4_DIM_SZ,1)>>>  \
+    (in.data, dx.data, f.data, df.data, db.data, out.data, H, W, C0, C1, train)
 
 __HOST__ int
 Model::_bconv(Tensor &in, Tensor &out) {
