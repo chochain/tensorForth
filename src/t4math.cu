@@ -14,7 +14,7 @@ namespace cg = cooperative_groups;
 
 #if T4_DO_OBJ
 
-#define WARP_REDUCE(v)                              \
+#define WARP_SUM(v)                                 \
     for (int off = 16; off > 0; off >>=1)           \
         v += __shfl_down_sync(0xffffffff, v, off)
 ///
@@ -30,14 +30,14 @@ k_sum(F32_RP src, F32_WP sum, long numel) {
     for (int i = tx; i < numel; i += blockDim.x * gridDim.x) {
         v += src[i];
     }
-    WARP_REDUCE(v);
+    WARP_SUM(v);
 
     if (tj == 0) _sum[ti] = v;                                 /// collect one thread per warp
     __syncthreads();
 
     if (ti == 0) {                                             /// share mem reduction
         v = (t0 < (blockDim.x / 32)) ? _sum[tj] : 0.0f;
-        WARP_REDUCE(v);
+        WARP_SUM(v);
         if (tj == 0) atomicAdd(sum, v);                        /// * one add per block
     }
     __syncthreads();
@@ -54,7 +54,7 @@ k_nvar(F32_RP src, float avg, F32_WP var, long numel) {        ///< sum of T4_DI
         float v0 = src[i] - avg;
         v += v0 * v0;
     }
-    WARP_REDUCE(v);
+    WARP_SUM(v);
     
     // One thread per warp writes to shared memory
     if (tj == 0) _sum[ti] = v;
@@ -62,7 +62,7 @@ k_nvar(F32_RP src, float avg, F32_WP var, long numel) {        ///< sum of T4_DI
 
     if (ti == 0) {                                             /// share mem reduction
         v = (t0 < (blockDim.x / 32)) ? _sum[tj] : 0.0f;
-        WARP_REDUCE(v);
+        WARP_SUM(v);
         if (tj == 0) atomicAdd(var, v);                        /// * one add per block
     }
 }
@@ -136,7 +136,7 @@ k_batchsum(F32_RP src, F32_WP sum, long HW) {
     const long ns = HW * C * n;                                
     
     float v = (c < C && j < HW) ? src[ns + j * C + c] : 0.0f;
-    WARP_REDUCE(v);                                            ///< collect sum per warp
+    WARP_SUM(v);                                               ///< collect sum per warp
     ///
     /// sum up atomically (per channel, for batchnorm)
     /// slower than grid-stride loop when blocks are many
@@ -155,7 +155,7 @@ k_batchnvar(F32_RP src, F32_RP avg, F32_WP var, long HW) {
     const long ns = HW * C * n;
     float v0 = (c < C && j < HW) ? src[(long)C * j + ns + c] - avg[c] : 0.0f;
     float v  = v0 * v0;
-    WARP_REDUCE(v);                                               ///< collect sum per warp
+    WARP_SUM(v);                                                  ///< collect sum per warp
     ///
     /// sum up atomically (per channel, for batchnorm)
     ///
@@ -286,7 +286,7 @@ k_nan_inf(F32_RP src, int *cnt, long numel) {
     const long j = (long)blockIdx.x*blockDim.x + threadIdx.x; ///< element index
     
     int v = j < numel && (isnan(src[j]) || isinf(src[j])) ? 1 : 0;
-    WARP_REDUCE(v);
+    WARP_SUM(v);
     
     auto tp = cg::tiled_partition<32>(cg::this_thread_block());
     if (tp.thread_rank() == 0) atomicAdd_block(cnt, v);        ///< serialize sum
