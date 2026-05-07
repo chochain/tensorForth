@@ -32,12 +32,14 @@ __KERN__ void k_conv2d(
     ) {
     constexpr  int KS  = 2 * R + 1;                   ///< center pixel + radius
     constexpr  int SSZ = (TS + KS - 1);
+    
     __shared__ float _I[SSZ][SSZ];                    ///< shared memory
     __shared__ float _F[KS][KS];                      ///< cached filter, shared by all threads
     
-    const int  c0   = blockIdx.z % C0;                ///< channel deep
-    const int  n    = blockIdx.z / C0;                ///< mini-batch sample idx
-    const int  HWC1 = H * W * C1, HWC0 = H * W * C0;
+    const int c0   = blockIdx.z % C0;                   ///< ← c0 now from grid
+    const int c1   = (blockIdx.z / C0) % C1;
+    const int n    = blockIdx.z / (C0 * C1);
+    const int HWC1 = H * W * C1, HWC0 = H * W * C0;
 
     DU *n_I  = I + n * HWC1;                          ///< input  slice [n]
     DU *n_O  = O + n * HWC0;                          ///< output slice [n]
@@ -49,41 +51,36 @@ __KERN__ void k_conv2d(
     ///
     /// process z0, i.e. [TS, TS, C] cells per kernel call
     ///
-    if (i0 < H && j0 < W) n_O[z0] = B[c0];            /// * Y = B
-
-    for (int c1 = 0; c1 < C1; c1++) {                 ///< each input channel, TODO: multi-stream
-        const int zf = C0 * KS * KS * c1 + c0;        ///< filter index [C1,KS,KS,C0]
-        if (tx < KS && ty < KS) {                     /// * each tile[14x14]
-            float *fx = &F[zf];
-            for (int y=0; y < KS; y++) {
-                for (int x = 0; x < KS; x++, fx+=C0) _F[y][x] = *fx;
-            }
-        }
-        for (int t=load_id; t < SSZ*SSZ; t += TS*TS) {
-            int si = t / SSZ, sj = t % SSZ;
-            int gi = (blockIdx.y * TS) - R + si;
-            int gj = (blockIdx.x * TS) - R + sj;
-            _I[si][sj] = (gi >=0 && gi < H && gj >=0 && gj < W)
-                ? n_I[((long)W * gi + gj) * C1 + c1] : DU0;               /// * cache input data
-        }
-        __syncthreads();                             /// * smem write barrier
-        ///
-        /// Y = sum(W * X)
-        ///
-        if (tx < TS && ty < TS) {                    /// * each tile[14x14]
-            DU sum = DU0;                            ///< sum of W * X
+    const long zf = (long)C0 * KS * KS * c1 + c0;       ///< filter index [C1,KS,KS,C0]
+    if (tx < KS && ty < KS) {
+        _F[ty][tx] = F[zf + (ty * KS + tx) * C0 + c0];  ///< base: filter[c1, 0, 0, c0]
+    }
+    ///
+    /// load input tile _I — cooperative load, all TS×TS threads participate
+    ///
+    for (int t=load_id; t < SSZ*SSZ; t += TS*TS) {
+        int si = t / SSZ, sj = t % SSZ;
+        int gi = (blockIdx.y * TS) - R + si;
+        int gj = (blockIdx.x * TS) - R + sj;
+        _I[si][sj] = (gi >=0 && gi < H && gj >=0 && gj < W)
+            ? n_I[((long)W * gi + gj) * C1 + c1] : DU0;               /// * cache input data
+    }
+    __syncthreads();                                 /// * smem write barrier
+    ///
+    /// Y = sum(W * X) + B
+    /// accumulate in register, single global write at end — no atomicAdd
+    /// each (n, i0, j0, c0) is owned by exactly one block → no race
+    ///
+    if (tx < TS && ty < TS && i0 < H && j0 < W) {    /// * each tile[14x14]
+        DU sum = B[c0];                              ///< Y = B  (register)
+        #pragma unroll
+        for (int y = 0; y < KS; y++) {               /// * process one KS * KS cell
             #pragma unroll
-            for (int y = 0; y < KS; y++) {           /// * process one KS * KS cell
-                #pragma unroll
-                for (int x = 0; x < KS; x++) {       /// * TODO: CC check unroll
-                    sum += _F[y][x] * _I[ty+y][tx+x];/// Y += W * X
-                }
-            }
-            if (i0 < H && j0 < W) {
-                atomicAdd(&n_O[z0], sum);            /// Y += W * X
+            for (int x = 0; x < KS; x++) {
+                sum += _F[y][x] * _I[ty + y][tx + x];     ///< Y += F * X
             }
         }
-        __syncthreads();
+        n_O[z0] = sum;                                     ///< single write, no atomic
     }
 }
 
@@ -99,41 +96,51 @@ __KERN__ void k_bias(DU *B, DU *O, int N, int E0) {
     }
 }
 
-template<int KS>                                      /// kernel size
-__KERN__ void k_pool(
-    t4_layer op,                                      ///< pooling ops
-    DU *I, DU *O,                                     ///< input, output buffers
-    U32 H, U32 W                                      ///< output HW (C0==C1)
-    ) {
-    const U64 HW = (U64)H * W;                        ///< output dimension
-    const U64 k0 = (U64)blockIdx.x * blockDim.x + threadIdx.x;
-    const U32 KSQ= KS * KS;
-    const U32 j0 = k0 % W;                            ///< output x dim
-    const U32 c  = blockIdx.y, C = gridDim.y;         ///< channel deep
-    const U64 ns = HW * C * blockIdx.z;               ///< batch slice idx
-    const U64 z0 = (U64)C * k0 + ns + c;              ///< output array index
-    const U64 z1 = (U64)C * KS * j0 + ((k0 - j0) * C + ns) * KSQ + c;
-    const U64 RI = ((U64)W - 1) * KS * C;             ///< input cell row increment
-    const bool avg = (op != L_MAXPOOL && op != L_MINPOOL);
+#define KS_TILE(fn)                                 \
+    for (int y = 0; y < KS; y++, ix += RI)          \
+        for (int x = 0; x < KS; x++, ix += C) fn
 
-    if (k0 < HW && c < C) {
-        DU *ix = &I[z1];
-        DU2 v  = avg ? DU0 : *ix;
-        for (int y = 0; y < KS; y++) {
-            for (int x = 0; x < KS; x++) {
-                DU dx = *ix;
-                switch (op) {
-                case L_USAMPLE:
-                case L_AVGPOOL: v += dx;        break;
-                case L_MAXPOOL: v = MAX(dx, v); break;
-                case L_MINPOOL: v = MIN(dx, v); break;
-                }
-                ix += C;                             /// * next cell
-            }
-            ix += RI;                                /// * next row
-        }
-        O[z0] = avg ? v / KSQ : v;
+
+template<int KS>
+__KERN__ void k_pool(t4_layer op, DU *I, DU *O, U32 H, U32 W)
+{
+    const U32 KSQ = KS * KS;
+    const U64 HW  = (U64)H * W;
+    const U64 k0  = (U64)blockIdx.x * blockDim.x + threadIdx.x;
+
+    if (k0 >= HW) return;
+
+    const U32 j0  = k0 % W;                               ///< output col
+    const U32 c   = blockIdx.y, C = gridDim.y;
+    const U64 ns  = HW * C * blockIdx.z;                  ///< output batch offset
+    const U64 z0  = ns + k0 * C + c;                      ///< output index
+    const U64 z1  =                                     ///< input tile, acc=0.9897
+        (ns + k0 * C) * KSQ + j0 * KS * C + c;        
+//    const U64 z1 =                                        ///< orig, (shift output col), acc=0.9987
+//        (ns + k0 * C) * KSQ + j0 * KS * C + c - j0 * KSQ * C;
+    const U64 RI  = (U64)(W - 1) * KS * C;                ///< row advance after each KS cols
+
+    DU *ix = &I[z1];                                      ///< first elem for max/min
+    DU  v  = (op == L_MAXPOOL || op == L_MINPOOL) ? DU0 : *ix;
+
+    /// op hoisted outside loop — no per-iteration branch
+    switch (op) {
+    case L_USAMPLE:
+    case L_AVGPOOL:
+        for (int y = 0; y < KS; y++, ix += RI)
+            for (int x = 0; x < KS; x++, ix += C) v += *ix;
+        v /= KSQ;
+        break;
+    case L_MAXPOOL:
+        for (int y = 0; y < KS; y++, ix += RI)
+            for (int x = 0; x < KS; x++, ix += C) v = MAX(*ix, v);
+        break;
+    case L_MINPOOL:
+        for (int y = 0; y < KS; y++, ix += RI)
+            for (int x = 0; x < KS; x++, ix += C) v = MIN(*ix, v);
+        break;
     }
+    O[z0] = v;
 }
 
 #define SELU_L  1.0507                     /** Selu lambda */
