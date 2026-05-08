@@ -62,6 +62,8 @@ Corpus *Mnist::fetch(int bid, int n, bool trace) {
     ///
     int b0   = _get_labels(bid, n);             ///< load batch labels
     batch_sz = _get_images(bid, n);             ///< load batch images
+    GPU_CHK();                                  /// * device sync after memory update
+    
     if (b0 != batch_sz) {
         ERROR("Mnist::fetch #label=%d != #image=%d\n", b0, batch_sz);
         return NULL;
