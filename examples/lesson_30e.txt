@@ -82,6 +82,8 @@ constant ds0                        \ keep dataset in a constant
     ds0 rewind                      \ rewind entire dataset 
   next ;
 
+see nn_c
+see epoch
 .( ### start training )
 ds0                                 \ put dataset at TOS
 20 cnn                              \ execute multiple (20) epoches
