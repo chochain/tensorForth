@@ -15,8 +15,8 @@ using ld::Corpus;
 ///
 /// for init debug LOG_COUNT 1 with sample=3 is good
 ///
-//#define LOG_COUNT 300          /**< debug dump frequency */
-#define LOG_COUNT 1          /**< debug dump frequency */
+#define LOG_COUNT 600          /**< debug dump frequency */
+//#define LOG_COUNT 1          /**< debug dump frequency */
 ///
 /// initial dataset setup
 /// init flow:
@@ -41,7 +41,7 @@ using ld::Corpus;
 __HOST__ int
     Dataset::fetch(char *ds_name, bool rewind, bool trace) {
     static const char *fn = "dataset#fetch";
-    static int tick = 0;
+    static long tick = 0;
     ///
     /// search cache for top <=> dataset pair
     ///
@@ -90,10 +90,9 @@ __HOST__ int
     ///
     /// debug tracing/preview
     ///
-    if (LOG_COUNT && (++tick == LOG_COUNT)) {     /// * when LOG_COUNT != 0
-        INFO(" batch[%d] loaded\n", batch_id);
+    if (LOG_COUNT && ((++tick % LOG_COUNT)==0)) { /// * when LOG_COUNT != 0
+        INFO("  batch[%d]/epoch, total batch = %ld\n", batch_id, tick);
         cp->show(n < 3 ? n : 3);
-        tick = 0;
     }
     return 0;
 }
