@@ -4,6 +4,7 @@
  *
  * <pre>Copyright (C) 2022- GreenII, this file is distributed under BSD 3-Clause License.</pre>
  */
+#include <float.h>
 #include "model.h"
 ///
 /// General Notations
@@ -110,17 +111,14 @@ __KERN__ void k_pool(t4_layer op, DU *I, DU *O, U32 H, U32 W)
 
     if (k0 >= HW) return;
 
-    const U32 j0  = k0 % W;                               ///< output col
+    const U32 j0  = k0 % W;                                ///< output col
     const U32 c   = blockIdx.y, C = gridDim.y;
-    const U64 ns  = HW * C * blockIdx.z;                  ///< output batch offset
-    const U64 z0  = ns + k0 * C + c;                      ///< output index
-    const U64 z1  =                                     ///< input tile, acc=0.9897
-        (ns + k0 * C) * KSQ + j0 * KS * C + c;        
-//    const U64 z1 =                                        ///< orig, (shift output col), acc=0.9987
-//        (ns + k0 * C) * KSQ + j0 * KS * C + c - j0 * KSQ * C;
-    const U64 RI  = (U64)(W - 1) * KS * C;                ///< row advance after each KS cols
+    const U64 ns  = HW * C * blockIdx.z;                   ///< output batch offset
+    const U64 z0  = ns + k0 * C + c;                       ///< output index
+    const U64 z1  = (ns + k0 * C) * KSQ + j0 * KS * C + c; ///< input tile, acc=0.9897
+    const U64 RI  = (U64)(W - 1) * KS * C;                 ///< row advance after each KS cols
 
-    DU *ix = &I[z1];                                      ///< first elem for max/min
+    DU *ix = &I[z1];                                       ///< first elem for max/min
     DU  v  = (op == L_MAXPOOL || op == L_MINPOOL) ? DU0 : *ix;
 
     /// op hoisted outside loop — no per-iteration branch
@@ -179,6 +177,102 @@ __KERN__ void k_activate(
         }
     }
 }
+///
+/// k_softmax_small — one block per sample, C ≤ 256
+///
+__KERN__ void k_softmax_small(DU *I, DU *O, int C) {
+    __shared__ DU _smem[32];              ///< shared: partial max then partial sum
+    __shared__ DU _max, _sum;             ///< block-wide max, sum
+
+    const int CX = T4_DIM_SQ / 32;
+    const int c  = threadIdx.x;           ///< channel index
+    const int n  = blockIdx.x;            ///< sample index
+    
+    DU *s = &I[(long)n * C];              ///< slice for input n = blockIdx.x
+    DU *d = &O[(long)n * C];              ///< slice for output n = blockIdx.x
+
+    DU mx = (c < C) ? s[c] : -FLT_MAX;    ///< init max (register)
+    WARP_MAX(mx);
+
+    const int warp_id = c / 32;           ///< collect one result per warp into shared memory
+    const int lane    = c % 32;
+    if (lane == 0) _smem[warp_id] = mx;
+    __syncthreads();
+
+    if (c < 32) {                         /// final reduce across warps — first warp only
+        mx = (c < CX) ? _smem[c] : -FLT_MAX;
+        WARP_MAX(mx);
+        if (c == 0) _max = mx;            ///< broadcast max to all threads
+    }
+    __syncthreads();
+
+    DU sm = DU0;                         ///< init sum (register)
+    if (c < C) {
+        sm   = EXP(s[c] - _max);         /// * numerical stability: x - max
+        d[c] = sm;                       /// * keep for final average
+    }
+    WARP_SUM(sm);                        /// * partial sum
+    if (lane == 0) _smem[warp_id] = sm;
+    __syncthreads();
+    
+    if (c < 32) {                        /// * warp sum
+        sm = (c < CX) ? _smem[c] : DU0;
+        WARP_SUM(sm);
+        if (c == 0) _sum = sm;           /// * broadcast sum to all threads
+    }
+    __syncthreads();
+
+    if (c < C) d[c] /= _sum;             /// * device each elements
+}
+
+__KERN__ void k_softmax(DU *I, DU *O, int C) {
+    __shared__ DU _smem[32];             ///< 8 warp results, padded to 32
+    __shared__ DU _max, _sum;
+
+    const int CX   = T4_DIM_SQ / 32;     ///< number of warps = 8
+    const int c    = threadIdx.x;
+    const int n    = blockIdx.x;         ///< sample index  ← fix
+    const int step = blockDim.x;         ///< stride = T4_DIM_SQ = 256
+    const int lane = c % 32;
+    const int warp = c / 32;
+
+    DU *s = &I[(long)n * C], *d = &O[(long)n * C];
+
+    DU mx = -FLT_MAX;                    ///< strip max
+    for (int j = c; j < C; j += step) {
+        mx = MAX(mx, s[j]);
+    }
+    WARP_MAX(mx);
+    if (lane == 0) _smem[warp] = mx;
+    __syncthreads();
+
+    if (c < 32) {                        ///< full warp 0 — no divergence
+        mx = (c < CX) ? _smem[c] : -FLT_MAX;
+        WARP_MAX(mx);
+        if (c == 0) _max = mx;
+    }
+    __syncthreads();
+
+    for (int j = c; j < C; j += step) {  /// * calc each exp(v - _max)
+        d[j] = EXP(s[j] - _max);
+    }
+    __syncthreads();
+
+    DU sm = DU0;                         ///< stride sum
+    for (int j = c; j < C; j += step) sm += d[j];
+    WARP_SUM(sm);
+    if (lane == 0) _smem[warp] = sm;
+    __syncthreads();
+
+    if (c < 32) {                        ///< full warp 0 — no divergence
+        sm = (c < CX) ? _smem[c] : DU0;
+        WARP_SUM(sm);
+        if (c == 0) _sum = sm;
+    }
+    __syncthreads();
+
+    for (int j = c; j < C; j += step) d[j] /= _sum; /// * normalize
+}
 
 __KERN__ void k_batchnorm(
     DU *I, DU *O,  DU *X,                  ///< input, filter, output tensors
@@ -200,8 +294,8 @@ __KERN__ void k_batchnorm(
 //
 __HOST__ Model&
 Model::forward(Tensor &input) {
-    Tensor &n0 = (*this)[0];    ///< reference model input layer
-    if (*_trace) input.show();  /// * preview input data
+    Tensor &n0 = (*this)[0];              ///< reference model input layer
+    if (*_trace) input.show();            /// * preview input data
 
     if (input.numel != n0.numel) {
         ERROR("nn#forward dataset wrong shape[%d,%d,%d,%d] != model input[[%d,%d,%d,%d]\n",
@@ -384,16 +478,15 @@ Model::_fpool(Tensor &in, Tensor &out, t4_layer fn) {
 
 __HOST__ int
 Model::_fsoftmax(Tensor &in, Tensor &out) {
-    Tensor &t = *in.grad[4];                    ///< temp tensor [1,H,W,C]
-    DU     *d = t.data;                         ///< keep data pointer
-    out = in;                                   /// copy content for exe calc
-    for (U32 n = 0; n < out.N(); n++) {         ///< loop thru mini-batch
-        t.data = out.slice(n);                  /// * assign a slice to temp tensor
-        t -= t.max();                           /// * down shift (prevent overflow)
-        t.map(EXP);                             /// * softmax = exp(xi)/sum(exp(xi))
-        t.map(MUL, RCP(t.sum()));      
+    const U32 N = in.N();                       ///< batch size
+    const U32 C = (U32)in.HWC();                ///< classes per sample = H*W*C
+    
+    if (C <= T4_DIM_SQ) {                       /// * one block per sample, all C classes fit in one block
+        FORK2(k_softmax_small, N, C, in.data, out.data);
     }
-    t.data = d;                                 /// * restore data pointer
+    else {
+        FORK2(k_softmax, N, C, in.data, out.data);
+    }
     return 0;
 }
 
