@@ -120,10 +120,7 @@ __KERN__ void k_dpool(t4_layer op, DU *I, DU *O, U32 H, U32 W)
     const U64 ns  = HW * C * blockIdx.z;                   ///< output batch offset
 
     const U64 z0  = ns + k0 * C + c;                       ///< output (dY) index
-    const U64 z1  =                                      ///< input tile, acc=0.9897
-        (ns + k0 * C) * KSQ + j0 * KS * C + c;
-//    const U64 z1 =                                         ///< orig, (shift output col), acc=0.9987
-//        (ns + k0 * C) * KSQ + j0 * KS * C + c - j0 * KSQ * C;
+    const U64 z1  = (ns + k0 * C) * KSQ + j0 * KS * C + c; ///< input tile, acc=0.9897
     const U64 RI  = (U64)(W - 1) * KS * C;                 ///< row advance after KS cols
 
     DU *ix = &I[z1];
