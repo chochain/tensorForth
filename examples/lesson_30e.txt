@@ -52,7 +52,7 @@ variable lox                        \ create var for epoch latest loss
   10 linear softmax ;               \ 2nd linear layer (10 channels) and softmax output
   
 .( ### setup network model )
-50 28 28 1 nn.model                 \ create a model (50 per mini-batch of 28x28x1 img)
+100 28 28 1 nn.model                \ create a model (100 per mini-batch of 28x28x1 img)
 nn_c                                \ append neural network layers (just a word in Forth)
 constant md0                        \ keep as a constant
 
