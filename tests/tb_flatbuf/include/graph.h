@@ -7,7 +7,7 @@
 
 #include "writer.h"
 
-namespace tensorboard {
+namespace graph {
 
 // ── GraphDef ───────────────────────────────────────────────────────────
 struct AttrValue {
@@ -109,13 +109,13 @@ private:
         at.str(1, k);
         at.raw(2, buf);
 
-        _dump(at.buf(), k.c_str(), "");
+        tensorboard::_dump(at.buf(), k.c_str(), "");
         
         raw(5, at.buf());               // NodeDef.attr
     }
-};
+};  // class Node
 
-class GraphWriter : public EventWriter {
+class GraphWriter : public tensorboard::EventWriter {
     std::vector<Node> _net;
         
 public:
@@ -137,6 +137,6 @@ public:
         
         _write(event.buf());
     }
-};
+}; // class GraphWriter
 
-} // class Node
+} // namespace graph
