@@ -1,60 +1,65 @@
+#include <zlib.h>
 #include "types.h"
 
 // ─── PNG Encoder (uncompressed deflate stored blocks) ────────────────────────
 namespace png {
     
 static U32 adler32(const U8* d, USZ n) {
-    U32 s1=1,s2=0;
-    for (USZ i=0; i<n; i++) {
-        s1=(s1+d[i])%65521;
-        s2=(s2+s1)%65521;
+    U32 s1=1, s2=0;
+    for (USZ i = 0; i < n; i++) {
+        s1 = (s1+d[i]) % 65521;
+        s2 = (s2+s1) % 65521;
     }
-    return (s2<<16)|s1;
+    return (s2<<16) | s1;
 }
 
 static U32 crc32_png(const U8* d, USZ n) {
-    static U32 t[256]; static BOOL init=false;
+    static U32  t[256];
+    static BOOL init=false;
     if (!init) {
-        for (U32 i=0;i<256;i++) {
+        for (U32 i=0; i < 256; i++) {
             U32 c=i;
-            for(int k=0;k<8;k++) c=(c&1)?(0xEDB88320u^(c>>1)):(c>>1);
+            for(int k=0; k<8; k++) {
+                c = (c&1) ? (0xEDB88320u ^ (c>>1)) : (c>>1);
+            }
             t[i]=c;
         }
         init=true;
     }
-    U32 c=0xFFFFFFFFu;
-    for(USZ i=0;i<n;i++) c=t[(c^d[i])&0xFF]^(c>>8);
-    return c^0xFFFFFFFFu;
+    U32 c=0xffffffffu;
+    for(USZ i=0; i<n; i++) c = t[(c^d[i]) & 0xFF]^(c>>8);
+    
+    return c^0xffffffffu;
 }
 
 static void push_be32(U8V& v,U32 n){
-    v.push_back((n>>24)&0xFF);
-    v.push_back((n>>16)&0xFF);
-    v.push_back((n>>8)&0xFF);
-    v.push_back(n&0xFF);
+    v.push_back((n>>24) & 0xff);
+    v.push_back((n>>16) & 0xff);
+    v.push_back((n>>8)  & 0xff);
+    v.push_back(n & 0xff);
 }
 
 static void write_chunk(U8V& out, const char type[4], const U8V& data){
     push_be32(out,static_cast<U32>(data.size()));
-    out.insert(out.end(),type,type+4);
-    out.insert(out.end(),data.begin(),data.end());
+    out.insert(out.end(), type, type+4);
+    out.insert(out.end(), data.begin(), data.end());
     
     U8V ci;
-    ci.insert(ci.end(),type,type+4);
-    ci.insert(ci.end(),data.begin(),data.end());
-    push_be32(out,crc32_png(ci.data(),ci.size()));
+    ci.insert(ci.end(), type, type+4);
+    ci.insert(ci.end(), data.begin(), data.end());
+    push_be32(out, crc32_png(ci.data(), ci.size()));
 }
 
-inline U8V raw2png(int w,int h,const U8V& px,int ch=3){
+inline U8V raw2png(int w,int h, const U8V& px,int ch=3){
     U8V out;
-    static const U8 sig[]={137,80,78,71,13,10,26,10};
-    out.insert(out.end(),sig,sig+8);
+    static const U8 sig[] = { 137, 80, 78, 71, 13, 10, 26, 10 };
+    out.insert(out.end(), sig, sig+8);
     {
         U8V ihdr;
         push_be32(ihdr,w);
         push_be32(ihdr,h);
         ihdr.push_back(8);
-        ihdr.push_back(ch==1?0:(ch==4?6:2));
+        ihdr.push_back(ch==1 ? 0 : (ch==4?6:2));
         ihdr.push_back(0);
         ihdr.push_back(0);
         ihdr.push_back(0);
@@ -62,27 +67,42 @@ inline U8V raw2png(int w,int h,const U8V& px,int ch=3){
     }
 
     int rb=w*ch; U8V sl;
-    for(int y=0;y<h;y++){
+    for(int y=0; y < h; y++){
         sl.push_back(0);
-        sl.insert(sl.end(),px.begin()+y*rb,px.begin()+(y+1)*rb);
+        sl.insert(sl.end(), px.begin()+y*rb, px.begin()+(y+1)*rb);
     }
+
     U8V zlib;
     zlib.push_back(0x78);
     zlib.push_back(0x01);
     
-    USZ pos=0,tot=sl.size();
-    while(pos<tot) {
-        USZ  bsz=std::min(tot-pos,(USZ)65535);
-        BOOL last=(pos+bsz>=tot);
-        U16  bl=static_cast<U16>(bsz),bn=static_cast<U16>(~bl);
-        zlib.push_back(last?0x01:0x00);
-        zlib.push_back(bl&0xFF);zlib.push_back((bl>>8)&0xFF);
-        zlib.push_back(bn&0xFF);zlib.push_back((bn>>8)&0xFF);
-        zlib.insert(zlib.end(),sl.begin()+pos,sl.begin()+pos+bsz);
-        pos+=bsz;
+    USZ pos=0, tot=sl.size();
+    while (pos < tot) {
+        USZ  bsz  = std::min(tot-pos, (USZ)65535);
+        BOOL last = (pos+bsz >= tot);
+        U16  bl   = static_cast<U16>(bsz), bn=static_cast<U16>(~bl);
+        zlib.push_back(last ? 0x01 : 0x00);
+        zlib.push_back(bl & 0xff);
+        zlib.push_back((bl>>8) & 0xff);
+        zlib.push_back(bn & 0xff);
+        zlib.push_back((bn>>8) & 0xff);
+        zlib.insert(zlib.end(), sl.begin()+pos, sl.begin()+pos+bsz);
+        pos += bsz;
     }
-    push_be32(zlib,adler32(sl.data(),sl.size()));
-    write_chunk(out,"IDAT",zlib); write_chunk(out,"IEND",{});
+/*
+    // After building sl (scanlines), compress with zlib:
+    uLongf zlen = compressBound(sl.size());
+    std::vector<uint8_t> zbuf(zlen);
+    compress2(zbuf.data(), &zlen, sl.data(), sl.size(), Z_DEFAULT_COMPRESSION);
+
+    U8V zlib_data;
+    zlib_data.push_back(0x78); zlib_data.push_back(0x9c);                   // zlib header
+    zlib_data.insert(zlib_data.end(), zbuf.begin()+2, zbuf.begin()+zlen-4); // skip zlib wrapper, keep raw deflate
+*/  
+    push_be32(zlib, adler32(sl.data(), sl.size()));
+    write_chunk(out,"IDAT", zlib);
+    write_chunk(out,"IEND", {});
+    
     return out;
 }
 
