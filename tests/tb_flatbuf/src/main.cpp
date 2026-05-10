@@ -10,11 +10,20 @@
  * SummaryMetadata protobuf message, which is how TensorBoard identifies
  * which plugin should handle each data type.
  *
- * Usage:
+ * Env: Ubuntu 22.04
+ *   python -m venv ~/.venv
+ *   source ~/.venv/bin/activate.sh  (or activate.csh)
+ *   pip list --local
+ *     + pip install tensorboard (if tensorboard is missing)
+ *
+ * Build and publish:
  *   ./tb_demo [output_dir]
- *   tensorboard --logdir <output_dir>
+ *   tensorboard --logdir <output_dir>             (for local access)
+ *   tensorboard --bind_all --logdir <output_dir>  (for remote access)
+ *
+ * Usage:
+ *   browser, open http://host:6006/
  */
-
 #include "writer.h"
 #include "graph.h"
 
@@ -326,9 +335,9 @@ int main(int argc, char* argv[]) {
     
     try {
         demo_graph(logdir);
-//        demo_scalars(logdir);
-//        demo_images(logdir);
-//        demo_histograms(logdir);
+        demo_scalars(logdir);
+        demo_images(logdir);
+        demo_histograms(logdir);
     } catch (const std::exception& e) {
         std::cerr << "\n  ERROR: " << e.what() << "\n";
         return 1;
