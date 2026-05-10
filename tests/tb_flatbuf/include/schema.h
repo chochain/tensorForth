@@ -295,6 +295,7 @@ Summary.Value {
 
 #include "flatbuf.h"
 #include "encoder.h"
+#include "png.h"
 
 namespace schema {
     // TensorProto for scalar F32. Canonical encoding matching protobuf serializer:
@@ -328,6 +329,34 @@ namespace schema {
         return tp.buf();
     }
     
+    U8V image_tensor(int w, int h, const U8V& px) {
+        auto png = png::raw2png(w, h, px, 3);            // 3=channels (RGB default)
+
+        // TB 2.10+ Time Series format: DT_STRING tensor with [w, h, png...]
+        // string_val[0] = width as decimal ASCII
+        // string_val[1] = height as decimal ASCII  
+        // string_val[2] = raw PNG bytes
+        proto::Encoder tp;
+        tp.s32(1, 7);                                    // dtype = DT_STRING
+        tp.str(8, std::to_string(w));                    // string_val[0]: width
+        tp.str(8, std::to_string(h));                    // string_val[1]: height
+        tp.raw(8, png.data(), png.size());               // string_val[2]: PNG bytes
+        
+        return tp.buf();
+    }
+
+    U8V image_raw(int w, int h, const U8V& px) {         // < TB2.10
+        auto png = png::raw2png(w, h, px, 3);
+        
+        proto::Encoder img;
+        img.s32(1, h);
+        img.s32(2, w);
+        img.s32(3, 3);                                   // colorspace = RGB
+        img.raw(4, png.data(), png.size());              // encoded_image_string
+
+        return img.buf();
+    }
+
     // Plugin metadata – note: metadata goes in Summary.Value field 9
     U8V scalar_meta() {
         proto::Encoder pd;        // SummaryMetadata.PluginData
@@ -353,13 +382,26 @@ namespace schema {
         return meta.buf();
     }
 
-    U8V image_meta(S32 max_images = 1) {
+    U8V image_meta() {
+        // ImagePluginData content: use FlatBuffers encoding from flatbuf.h
+        // or omit content entirely — TB handles missing content gracefully
+        proto::Encoder pd;
+        pd.str(1, "images");                  // plugin_name
+        // content omitted — TB defaults to max_images=3
+
+        proto::Encoder meta;
+        meta.raw(1, pd.buf());
+        meta.s32(4, 3);                       // data_class = DATA_CLASS_BLOB_SEQUENCE
+        return meta.buf();
+    }
+    
+    U8V image_meta_old(S32 max_images = 1) { // < TB2.10
         proto::Encoder pc;
-        pc.s32(1, max_images);    // max_images_per_step
+        pc.s32(1, max_images);    // max_images_per_step, TB2.10+ default to 3
         
         proto::Encoder pd;
         pd.str(1, "images");      // plugin_name
-        pd.raw(2, pc.buf());      // content
+        pd.raw(2, pc.buf());      // content, TB2.10+ ignores it
         
         proto::Encoder meta;
         meta.raw(1, pd.buf());
@@ -375,7 +417,18 @@ namespace schema {
         
         proto::Encoder meta;
         meta.raw(1, pd.buf());
-//        meta.s32(4, 1);           // data_class = DATA_CLASS_SCALAR
+        
+        return meta.buf();
+    }
+    
+    U8V histo_meta_old() {        // < TB2.10
+        proto::Encoder pd;
+        pd.str(1, "histograms");  // plugin_name
+        // empty content for histogram
+        
+        proto::Encoder meta;
+        meta.raw(1, pd.buf());
+        meta.s32(4, 1);           // data_class = DATA_CLASS_SCALAR
         
         return meta.buf();
     }
