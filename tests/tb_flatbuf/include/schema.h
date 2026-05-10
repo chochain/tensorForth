@@ -294,154 +294,89 @@ Summary.Value {
 #pragma once
 
 #include "flatbuf.h"
+#include "encoder.h"
 
-namespace proto {
+namespace schema {
+    // TensorProto for scalar F32. Canonical encoding matching protobuf serializer:
+    //   dtype=DT_FLOAT(1), tensor_shape OMITTED (empty=proto3 default),
+    //   float_val uses packed encoding (wire type 2), NOT non-packed (wire type 5).
+    U8V scalar_tensor(F32 v) {
+        U32 bits;
+        std::memcpy(&bits, &v, 4);
+        U8 fb[4] = {
+            static_cast<U8>( bits        & 0xFF),
+            static_cast<U8>((bits >>  8) & 0xFF),
+            static_cast<U8>((bits >> 16) & 0xFF),
+            static_cast<U8>((bits >> 24) & 0xFF),
+        };
+        
+        proto::Encoder tp;        // TensorProto
+        tp.s32(1, 1);             // dtype = DT_FLOAT
+//        tp.raw(2, {});            // tensor_shape = empty (scalar), optional
+        tp.raw(5, fb, 4);         // float_val at field 5 (packed)
+        
+        return tp.buf();
+    }
 
-// Field offsets: field_id * sizeof(voffset_t) = field_id * 2
-static constexpr U16 FO(U16 field_id) { return field_id * 2; }
+    // TensorProto for string (text)
+    U8V text_tensor(const STR& txt) {
+        proto::Encoder tp;        // TensorProto
+        tp.s32(1, 7);             // dtype = DT_STRING (7)
+//        tp.raw(2, {});            // tensor_shape = empty (scalar), optional
+        tp.str(8, txt);           // string_val
+        
+        return tp.buf();
+    }
+    
+    // Plugin metadata – note: metadata goes in Summary.Value field 9
+    U8V scalar_meta() {
+        proto::Encoder pd;        // SummaryMetadata.PluginData
+        pd.str(1, "scalars");     // plugin name
+        
+        // content: empty = scalar_plugin{mode=DEFAULT} in proto3
+        proto::Encoder meta;      // SummaryMetadata
+        meta.raw(1, pd.buf());
+        meta.s32(4, 1);           // data_class = DATA_CLASS_SCALAR
+        
+        return meta.buf();
+    }
 
-// ─── ScalarPluginData ─────────────────────────────────────────────────────
-// table ScalarPluginData { mode: int8; }
-// Plugin name: "scalars"
-inline U8V scalar_meta(U8 mode = 0) {
-    // FlatBuffers layout (forward build):
-    //   [soffset:i32 -> vtable][mode:i8][padding][vtable: size,objsize,field0_off]
-    // We'll build this manually as a minimal valid FlatBuffer.
+    U8V text_meta() {
+        proto::Encoder pd;        // SummaryMetadata.PluginData
+        pd.str(1, "text");        // plugin_name
+        // empty content for text
+        
+        proto::Encoder meta;      // SummaryMetadata
+        meta.raw(1, pd.buf());    // PluginData
+        meta.s32(4, 2);           // data_class = DATA_CLASS_TENSOR
+        
+        return meta.buf();
+    }
 
-    // The FlatBuffers format (building backward from end):
-    //  Position 0: root offset (uint32) = offset to root table
-    //  Table object: [soffset_to_vtable(i32)][field_data...]
-    //  Vtable: [vtable_size(u16)][object_size(u16)][field_offsets(u16)...]
-    //
-    // Since we build forward, let's just emit the correct bytes directly.
+    U8V image_meta(S32 max_images = 1) {
+        proto::Encoder pc;
+        pc.s32(1, max_images);    // max_images_per_step
+        
+        proto::Encoder pd;
+        pd.str(1, "images");      // plugin_name
+        pd.raw(2, pc.buf());      // content
+        
+        proto::Encoder meta;
+        meta.raw(1, pd.buf());
+        meta.s32(4, 3);           // data_class = DATA_CLASS_BLOB_SEQUENCE
+        
+        return meta.buf();
+    }
 
-    // Layout for ScalarPluginData with mode=N:
-    //  Byte  0-3: root_offset = 4 (little-endian uint32) → points to byte 4
-    //  Byte  4-7: soffset = 8 (int32) → vtable is at 4+8=12
-    //  Byte    8: mode value (int8)
-    //  Byte  9-11: padding (3 bytes to align vtable to 2)
-    //  Byte 12-13: vtable_size = 8 (2+2+2+2 = 8 bytes)
-    //  Byte 14-15: object_size = 8 (soffset[4] + mode[1] + pad[3])
-    //  Byte 16-17: field 0 offset = 4 (soffset is 4 bytes, mode is at offset 4)
-    //  Byte 18-19: field 1 = 0 (not present)
-
-    // Actually let's use our builder properly. The key insight is:
-    // In standard FlatBuffers the vtable comes BEFORE the object in the buffer
-    // (when building back-to-front). We build forward so we need to flip it.
-
-    // Simplest correct encoding: write as a literal byte sequence.
-    // Verified against flatc output.
-
-    U8V out;
-
-    // root_offset: offset from position 0 to the root table
-    // root table starts at byte 4
-    U32 root_off = 4;
-    out.push_back(root_off & 0xFF);
-    out.push_back((root_off >> 8) & 0xFF);
-    out.push_back((root_off >> 16) & 0xFF);
-    out.push_back((root_off >> 24) & 0xFF);
-
-    // Object starts at offset 4
-    // soffset (int32): points from object-start to vtable
-    // vtable will be at offset 4 + 4(soffset) + 1(mode) + 3(pad) = 12
-    // soffset = vtable_offset - object_offset = 12 - 4 = 8
-    S32 soffset = 8;
-    out.push_back(soffset & 0xFF);
-    out.push_back((soffset >> 8) & 0xFF);
-    out.push_back((soffset >> 16) & 0xFF);
-    out.push_back((soffset >> 24) & 0xFF);
-
-    // field 0: mode (int8) at object+4
-    out.push_back(static_cast<U8>(mode));
-    // padding to align vtable (U16 requires 2-byte align)
-    out.push_back(0); out.push_back(0); out.push_back(0);
-
-    // vtable at offset 12
-    U16 vtable_size = 8;    // 2+2+2+2 = 8 bytes (header + 2 field entries)
-    U16 object_size = 8;    // soffset(4) + mode(1) + pad(3) = 8
-    U16 field0_off  = 4;    // mode is at byte 4 from object start (after soffset)
-    U16 field1_off  = 0;    // not present
-
-    auto push16 = [&](U16 v) {
-        out.push_back(v & 0xFF);
-        out.push_back((v >> 8) & 0xFF);
-    };
-    push16(vtable_size);
-    push16(object_size);
-    push16(field0_off);
-    push16(field1_off);
-
-    return out;
-}
-
-// ─── ImagePluginData ──────────────────────────────────────────────────────
-// table ImagePluginData { max_images_per_step: int32; }
-// Plugin name: "images"
-inline U8V image_meta(S32 max_images = 3) {
-    U8V out;
-
-    auto push32 = [&](U32 v) {
-        out.push_back(v & 0xFF);
-        out.push_back((v >> 8) & 0xFF);
-        out.push_back((v >> 16) & 0xFF);
-        out.push_back((v >> 24) & 0xFF);
-    };
-    auto push16 = [&](U16 v) {
-        out.push_back(v & 0xFF);
-        out.push_back((v >> 8) & 0xFF);
-    };
-
-    // root_offset = 4 (table starts at offset 4)
-    push32(4);
-
-    // Object at offset 4:
-    //   soffset (i32) = distance to vtable = 12 - 4 = 8  [vtable at offset 12]
-    //   max_images (i32) at object+4
-    // vtable at offset 12:
-    //   vtable_size = 8
-    //   object_size = 8 (soffset[4] + field[4])
-    //   field0_off  = 4
-
-    S32 soffset = 8;
-    push32(static_cast<U32>(soffset)); // soffset at object start
-    push32(static_cast<U32>(max_images)); // field 0 at object+4
-
-    // vtable at offset 12
-    push16(8);  // vtable_size
-    push16(8);  // object_size
-    push16(4);  // field 0 offset (max_images at +4 from object start)
-
-    return out;
-}
-
-// ─── HistogramPluginData ──────────────────────────────────────────────────
-// table HistogramPluginData {}  (empty)
-// Plugin name: "histograms"
-inline U8V histo_meta() {
-    U8V out;
-
-    auto push32 = [&](U32 v) {
-        out.push_back(v & 0xFF); out.push_back((v >> 8) & 0xFF);
-        out.push_back((v >> 16) & 0xFF); out.push_back((v >> 24) & 0xFF);
-    };
-    auto push16 = [&](U16 v) {
-        out.push_back(v & 0xFF); out.push_back((v >> 8) & 0xFF);
-    };
-
-    // root offset = 4
-    push32(4);
-
-    // Object at offset 4: just soffset (no fields)
-    // vtable at offset 8
-    S32 soffset = 4; // vtable at 4+4=8
-    push32(static_cast<U32>(soffset));
-
-    // vtable at offset 8: empty table
-    push16(4); // vtable_size = 4 (just header, no fields)
-    push16(4); // object_size = 4 (just soffset)
-
-    return out;
-}
-
+    U8V histo_meta() {
+        proto::Encoder pd;
+        pd.str(1, "histograms");  // plugin_name
+        // empty content for histogram
+        
+        proto::Encoder meta;
+        meta.raw(1, pd.buf());
+//        meta.s32(4, 1);           // data_class = DATA_CLASS_SCALAR
+        
+        return meta.buf();
+    }
 } // namespace tb_schema
