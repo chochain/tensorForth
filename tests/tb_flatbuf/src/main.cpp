@@ -128,7 +128,7 @@ void demo_scalars(const STR& logdir) {
 
     int num_steps = 100;
 
-    for (int step = 0; step < num_steps; ++step) {
+    for (int step = 0; step <= num_steps; ++step) {
         // Simulated training loss (exponential decay + noise)
         F32 t     = static_cast<F32>(step) / num_steps;
         F32 loss  = 2.0f * std::exp(-3.0f * t) + 0.1f + noise(rng);
