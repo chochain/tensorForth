@@ -8,7 +8,6 @@
 #include "types.h"
 #include "crc32c.h"
 #include "schema.h"
-#include "png.h"
 #include "encoder.h"
 
 #include <ctime>
@@ -101,25 +100,27 @@ public:
         _write(_summary(enc.buf(), step));
     }
 
-    // ── Image (RGB row-major, 3 bytes/pixel) ────────────────────────────────
     void add_image(
         const STR& tag,
-        int width,
-        int height,
-        const U8V& pixels_rgb,
+        int w, int h, const U8V& px,
         S64 step) {
-        auto png = png::raw2png(width, height, pixels_rgb, 3);
-        
-        proto::Encoder img;
-        img.s32(1, height);
-        img.s32(2, width);
-        img.s32(3, 3);                                   // colorspace = RGB
-        img.raw(4, png.data(), png.size());              // encoded_image_string
-        
+        proto::Encoder enc;
+        enc.str(1, tag);
+        enc.raw(8, schema::image_tensor(w, h, px));      // tensor   → field 8
+        enc.raw(9, schema::image_meta());                // metadata → field 9
+
+        _write(_summary(enc.buf(), step));
+    }
+    
+    // ── Image (RGB row-major, 3 bytes/pixel) ────────────────────────────────
+    void add_image_old(    // < TB2.10
+        const STR& tag,
+        int w, int h, const U8V& px,
+        S64 step) {
         proto::Encoder enc;
         enc.str(1, tag);                                 // tag
         enc.raw(9, schema::image_meta());                // metadata → field 9
-        enc.raw(4, img.buf());                           // image    → field 4
+        enc.raw(4, schema::image_raw(w, h, px));         // image    → field 4
         
         _write(_summary(enc.buf(), step));
     }
@@ -132,13 +133,12 @@ public:
         int num_buckets = 30) {
         if (values.empty()) return;
         
-        F64 vmin = *std::min_element(values.begin(), values.end());
-        F64 vmax = *std::max_element(values.begin(), values.end());
         F64 vsum = 0, vsumsq = 0;
         for (F64 v : values) { vsum += v; vsumsq += v*v; }
         
+        F64  vmin,   vmax;
         F64V limits, counts;
-        _buckets(vmin, vmax, values, num_buckets, limits, counts);
+        _buckets(values, num_buckets, vmin, vmax, limits, counts);
         
         proto::Encoder histo;
         histo.f64(1, vmin);
@@ -194,8 +194,11 @@ protected:
     }
 
     void _buckets(
-        F64 vmin, F64 vmax, const F64V& values,
-        int nb, F64V& limits, F64V& counts) {
+        const F64V& values, int nb,
+        F64& vmin, F64& vmax, F64V& limits, F64V& counts) {
+        vmin = *std::min_element(values.begin(), values.end());
+        vmax = *std::max_element(values.begin(), values.end());
+        
         if (vmin == vmax) {
             limits.push_back(vmin + 1e-10);
             counts.push_back((F64)values.size());
