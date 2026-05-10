@@ -271,33 +271,34 @@ protected:
         
         proto::Encoder meta;
         meta.raw(1, pd.buf());
-        meta.s32(4, 1);           // data_class = DATA_CLASS_SCALAR
+//        meta.s32(4, 1);           // data_class = DATA_CLASS_SCALAR
         
         return meta.buf();
     }
 
     void _buckets(
-        F64 vmin,
-        F64 vmax,
-        const F64V& values,
-        int nb, F64V& limits,
-        F64V& counts) {
+        F64 vmin, F64 vmax, const F64V& values,
+        int nb, F64V& limits, F64V& counts) {
         if (vmin == vmax) {
-            limits.push_back(vmin+1e-10);
+            limits.push_back(vmin + 1e-10);
             counts.push_back((F64)values.size());
             return;
         }
-        
-        F64 bw = (vmax-vmin)/nb;
-        for (int i=0;i<nb;i++) {
-            limits.push_back(vmin+(i+1)*bw);
+        F64 bw = (vmax - vmin) / nb;
+
+        // Add an empty underflow bin so the left edge is represented
+        limits.push_back(vmin);        // ← ADD THIS
+        counts.push_back(0.0);         // ← ADD THIS
+
+        for (int i = 0; i < nb; i++) {
+            limits.push_back(vmin + (i + 1) * bw);
             counts.push_back(0.0);
         }
-        
-        limits.back()=vmax+1e-10;
-        for (F64 v:values) {
-            int b=std::max(0,std::min(nb-1,(int)((v-vmin)/bw)));
-            counts[b]+=1.0;
+        limits.back() = vmax + 1e-10;
+
+        for (F64 v : values) {
+            int b = std::max(0, std::min(nb - 1, (int)((v - vmin) / bw)));
+            counts[b + 1] += 1.0;      // ← offset by 1 to skip underflow bin
         }
     }
 };
