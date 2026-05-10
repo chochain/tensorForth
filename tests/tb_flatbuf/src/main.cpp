@@ -10,11 +10,11 @@
  * SummaryMetadata protobuf message, which is how TensorBoard identifies
  * which plugin should handle each data type.
  *
- * Env: Ubuntu 22.04
+ * Env: Ubuntu 22.04+
  *   python -m venv ~/.venv
  *   source ~/.venv/bin/activate.sh  (or activate.csh)
- *   pip list --local
- *     + pip install tensorboard (if tensorboard is missing)
+ *   pip list --local (make sure TensorBoard 2.20+ is installed)
+ *     + pip install tensorboard (if missing)
  *
  * Build and publish:
  *   ./tb_demo [output_dir]
@@ -55,62 +55,62 @@ static void print_section(const STR& title) {
 // ─── Demo 0: GraphDef ─────────────────────────────────────────────────
 void demo_graph(const STR& logdir) {
     STR path = make_event_path(logdir, "graphs");
-    tensorboard::GraphWriter grapher(path);
+    graph::GraphWriter grf(path);
     std::cout << "  Writing to: " << path << "\n";
 
-    tensorboard::Node n1("input", "Placeholder", "");
+    graph::Node n1("input", "Placeholder", "");
     U32V s1 = { 10, 28, 28, 1 };
     n1.add_type("dtype", 1);
     n1.add_shape(s1);
-    grapher.add_node(n1);
+    grf.add_node(n1);
 
-    tensorboard::Node n1a("conv1/weights", "Const");
+    graph::Node n1a("conv1/weights", "Const");
     U32V f1 = { 3, 3, 1, 32 };
     F32V v1 = { 0.1 };
     n1a.add_tensor(f1, v1);
 //    n.add_value("b", tensorboard::AttrValue(0.5));
-    grapher.add_node(n1a);
+    grf.add_node(n1a);
     
-    tensorboard::Node n1b("conv1/Conv2D", "Conv2D", "input");
+    graph::Node n1b("conv1/Conv2D", "Conv2D", "input");
     U16V r1 = { 1, 1, 1, 1 };
     n1b.add_input("conv1/weights");
     n1b.add_shape(s1);
     n1b.add_stride(r1);
-    grapher.add_node(n1b);
+    grf.add_node(n1b);
 
-    tensorboard::Node n1c("conv1/Relu", "Relu", "conv1/Conv2D");
+    graph::Node n1c("conv1/Relu", "Relu", "conv1/Conv2D");
     n1c.add_shape(s1);
-    grapher.add_node(n1c);
+    grf.add_node(n1c);
 
-    tensorboard::Node n2("pool/MaxPool", "MaxPool", "conv1/Relu");
+    graph::Node n2("pool/MaxPool", "MaxPool", "conv1/Relu");
     U16V rx = { 1, 2, 2, 1 };
     n2.add_shape(s1);
     n2.add_stride(rx);
-    grapher.add_node(n2);
+    grf.add_node(n2);
     
-    tensorboard::Node n2a("conv2/weights", "Const");
+    graph::Node n2a("conv2/weights", "Const");
     U32V s2 = { 10, 14, 14, 1 };
     F32V v2 = { 0.2 };
     n2a.add_tensor(s2, v2);
 //    n.add_value("b", tensorboard::AttrValue(0.5));
-    grapher.add_node(n2a);
+    grf.add_node(n2a);
     
-    tensorboard::Node n2b("conv2/Conv2D", "Conv2D", "pool/MaxPool");
+    graph::Node n2b("conv2/Conv2D", "Conv2D", "pool/MaxPool");
     U16V r2 = { 1, 1, 1, 1 };
     n2b.add_input("conv2/weights");
     n2b.add_shape(s2);
     n2b.add_stride(r2);
-    grapher.add_node(n2b);
+    grf.add_node(n2b);
     
-    tensorboard::Node n2c("conv2/Relu", "Relu", "conv2/Conv2D");
+    graph::Node n2c("conv2/Relu", "Relu", "conv2/Conv2D");
     n2c.add_shape(s2);
-    grapher.add_node(n2c);
+    grf.add_node(n2c);
 
-    tensorboard::Node n2d("flatten/Reshape", "Reshape", "conv2/Relu");
+    graph::Node n2d("flatten/Reshape", "Reshape", "conv2/Relu");
     n2d.add_shape(s2);
-    grapher.add_node(n2d);
+    grf.add_node(n2d);
 
-    grapher.write();
+    grf.write();
 }
 
 // ─── Demo 1: Scalar Summaries ─────────────────────────────────────────────────
@@ -269,8 +269,9 @@ void demo_images(const STR& logdir) {
 // ─── Demo 3: Histogram Summaries ──────────────────────────────────────────────
 
 // Generate normally distributed random values
-static F64V normal_samples(std::mt19937& rng, int n,
-                                           F64 mean, F64 stddev) {
+static F64V normal_samples(
+    std::mt19937& rng, int n, F64 mean, F64 stddev)
+{
     std::normal_distribution<F64> dist(mean, stddev);
     F64V v(n);
     for (auto& x : v) x = dist(rng);
@@ -334,10 +335,10 @@ int main(int argc, char* argv[]) {
     std::cout << ".tfevents files: " << logdir << "\n";
     
     try {
-        demo_graph(logdir);
         demo_scalars(logdir);
         demo_images(logdir);
         demo_histograms(logdir);
+        demo_graph(logdir);
     } catch (const std::exception& e) {
         std::cerr << "\n  ERROR: " << e.what() << "\n";
         return 1;
