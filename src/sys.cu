@@ -154,8 +154,8 @@ System::_process_event(io_event *ev) {       ///< process simple IO requests
     case GT_U32:
     case GT_FLOAT:
     case GT_STR:
-    case GT_FMT:
-    case GT_OBJ: db->print(vp, ev->gt); break;
+    case GT_FMT: db->print(vp, ev->gt);    break;
+    case GT_OBJ: db->print_obj(*(DU*)vp);  break;
     default: ERROR("event type not supported: %d\n", (int)ev->gt); break;
     }
     DEBUG("} System::process(gt=%x)\n", ev->gt);
