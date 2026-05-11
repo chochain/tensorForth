@@ -222,11 +222,12 @@ typedef enum {
     OP_SEE,
     OP_DUMP,
     OP_SS,
-    OP_TSAVE,
-    OP_DATA,
-    OP_FETCH,
-    OP_NSAVE,
-    OP_NLOAD
+    OP_TSHOW,                         ///< show tensor
+    OP_TSAVE,                         ///< persist tensor (for NumPy, Panda)
+    OP_DATA,                          ///< dataset init
+    OP_FETCH,                         ///< dataset retrieve
+    OP_NSAVE,                         ///< network model presistance
+    OP_NLOAD                          ///< network modek restore
 } OP;
 ///@}
 ///>name File Access Mode for IO Event
