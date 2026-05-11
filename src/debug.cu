@@ -51,13 +51,14 @@ Debug::reset_fmt() { fout.copyfmt(_fmt0); }
 ///
 __HOST__ void
 Debug::print(void *vp, U8 gt) {
+    if (gt==GT_FMT) io->setfmt(fout, vp);
+    else fout << io->to_s(vp, gt);
+}
+__HOST__ void
+Debug::print_obj(DU v) {                  ///< proxy object to IO subsystem
 #if T4_DO_OBJ
-    DU v = *(DU*)vp;
-    if (gt==GT_OBJ) fout << io->marshall(mu->du2obj(v));
-    else
+    fout << io->marshall(mu->du2obj(v));
 #endif // T4_DO_OBJ
-        if (gt==GT_FMT) io->setfmt(fout, vp);
-        else fout << io->to_s(vp, gt);
 }
 __HOST__ void
 Debug::ss_dump(DU tos, int id_sz, int base) {
