@@ -391,6 +391,8 @@ TensorVM::_ttos_dump() {
     U32    *p = (U32*)&t;
     INFO(".X %s(%04x)[%08x %08x %08x %08x].data(%p)\n",
           nm[t.ttype], DU2X(tos), p[0], p[1], p[2], p[3], t.data);
+    
+    syscall(OP_TSHOW, tos, DU2X(tos), 0, (char*)nm[t.ttype]);  /// * show on Tensorboard
 }
 ///
 /// Tensor Vocabulary
