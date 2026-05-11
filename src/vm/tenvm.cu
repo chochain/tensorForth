@@ -387,12 +387,16 @@ __HOST__ void
 TensorVM::_ttos_dump() {
     const char* nm[] = { "tensor", "model", "dataset", "xxx" };
     if (!IS_OBJ(tos)) { INFO(".X v=%g", tos); return; }
+    
+    IU   len  = POPi;                         ///< string length (not used for now)
+    IU   adr  = POPi;                         ///< address to pmem
+    char *tag = (char*)MEM(adr);              ///< pointer to string on PAD
     T4Base &t = mmu.du2obj(tos);
     U32    *p = (U32*)&t;
-    INFO(".X %s(%04x)[%08x %08x %08x %08x].data(%p)\n",
-          nm[t.ttype], DU2X(tos), p[0], p[1], p[2], p[3], t.data);
+    INFO(".X %s %s(%04x)[%08x %08x %08x %08x].data(%p)\n",
+         nm[t.ttype], tag, DU2X(tos), p[0], p[1], p[2], p[3], t.data);
     
-    syscall(OP_TSHOW, tos, DU2X(tos), 0, (char*)nm[t.ttype]);  /// * show on Tensorboard
+    syscall(OP_TSHOW, tos, t.ttype, DU2X(tos), tag);  /// * show on Tensorboard
 }
 ///
 /// Tensor Vocabulary
@@ -559,7 +563,7 @@ TensorVM::init() {
     CODE("min",
          if (IS_OBJ(tos)) PUSH(TTOS.min());
          else xop2(MIN));
-    CODE(".x", _ttos_dump());
+    CODE(".x", _ttos_dump());                 /// * ( T adr len -- )
     ///@}
     TRACE("TensorVM[%d]::init ok, sizeof(Tensor)=%ld\n", id, sizeof(Tensor));
 }
