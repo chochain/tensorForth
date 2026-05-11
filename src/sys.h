@@ -50,8 +50,10 @@ public:
     /// System functions
     ///
     __HOST__ int       readline(int hold);
-    __HOST__ io_event  *process_event(io_event *ev);
-    __HOST__ void      flush();
+    __HOST__ void      flush();                 ///< flush all events to output
+    
+    __HOST__ io_event  *_process_event(io_event *ev);
+    __HOST__ io_event  *_process_opx(io_event *ev);
     ///
     /// debuging controls
     ///
