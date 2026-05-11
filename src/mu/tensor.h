@@ -190,7 +190,7 @@ struct Tensor : public T4Base {
     static __HOST__ void _dump(DU *v, U32 H, U32 W, U32 C);
     static __HOST__ void _view(DU *v, U32 H, U32 W, U32 C, DU mean, DU scale);
     
-    __HOST__ void show(bool dump=false);
+    __HOST__ int show(bool dump=false);
     ///
     /// tensor-scalar operators
     ///

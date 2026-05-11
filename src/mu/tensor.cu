@@ -653,7 +653,7 @@ Tensor::_view(DU *v, U32 H, U32 W, U32 C, DU mean, DU scale) {
     delete csum;
 }
 
-__HOST__ void
+__HOST__ int
 Tensor::show(bool dump) {
     const U32 N  = this->N(), H = this->H(), W = this->W(), C = this->C();
     const U64 hw = (U64)H * W;
@@ -669,6 +669,7 @@ Tensor::show(bool dump) {
         if (hw > 36L) _view(d, H, W, C, mean, scale);
     }
     INFO("\n");
+    return 0;
 }
 
 #endif // T4_DO_OBJ
