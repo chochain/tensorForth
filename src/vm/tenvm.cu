@@ -369,34 +369,26 @@ TensorVM::_solv(Tensor &A, Tensor &B) {      /// AX = B
 }
 
 __HOST__ void
-TensorVM::_pickle(bool save) {
-    U8   mode= FAM_WO;                        ///< file mode (W/O,R/W)|BIN
+TensorVM::_pickle(bool show, bool load) {
+    U8  mode  = show ? 0 : (load ? FAM_RO   : FAM_WO);
+    OP  op    = show ? OP_TSHOW : (load ? OP_TLOAD : OP_TSAVE);
     
     if (ss.idx > 1 && IS_OBJ(ss[-2])) { /* OK */ }
-    else if (ss.idx > 2 && IS_OBJ(ss[-3])) mode |= POPi;
+    else if (ss.idx > 2 && IS_OBJ(ss[-3])) mode = POPi;
     else { ERROR("tensor adr len [mode]?\n"); return; }
-    
-    IU   len  = POPi;                         ///< string length (not used for now)
-    IU   adr  = POPi;                         ///< address to pmem
-    char *fn  = (char*)MEM(adr);              ///< pointer to string on PAD
-    
-    syscall(OP_TSAVE, tos, mode, 0, fn);      /// * issue save command
-}
-
-__HOST__ void
-TensorVM::_ttos_dump() {
-    const char* nm[] = { "tensor", "model", "dataset", "xxx" };
-    if (!IS_OBJ(tos)) { INFO(".X v=%g", tos); return; }
     
     IU   len  = POPi;                         ///< string length (not used for now)
     IU   adr  = POPi;                         ///< address to pmem
     char *tag = (char*)MEM(adr);              ///< pointer to string on PAD
     T4Base &t = mmu.du2obj(tos);
-    U32    *p = (U32*)&t;
-    INFO(".X %s %s(%04x)[%08x %08x %08x %08x].data(%p)\n",
-         nm[t.ttype], tag, DU2X(tos), p[0], p[1], p[2], p[3], t.data);
-    
-    syscall(OP_TSHOW, tos, t.ttype, DU2X(tos), tag);  /// * show on Tensorboard
+#if MM_DEBUG
+    const char* nm[] = { "tensor", "model", "dataset", "xxx" };
+    U32   *p = (U32*)&t;
+    INFO(".X %s(%04x)[%08x %08x %08x %08x].data(%p) => %s\n",
+         nm[t.ttype], DU2X(tos), p[0], p[1], p[2], p[3], t.data, tag);
+#endif // MM_DEBUG    
+
+    syscall(op, tos, mode, DU2X(tos), tag);   /// * show to Tensorboard or load/store tensor
 }
 ///
 /// Tensor Vocabulary
@@ -543,8 +535,8 @@ TensorVM::init() {
     CODE("bin",       PUSH(FAM_RAW));         ///< raw/binary file
     CODE("w/o",       PUSH(FAM_WO));          ///< write-only file
     CODE("r/w",       PUSH(FAM_RW));          ///< read-write file
-    CODE("save",      _pickle(true));         ///< ( T fn len -- T ) save tensor to a file
-    CODE("load",      _pickle(false));        ///< ( T fn -- T' ) fill a tensor from file
+    CODE("save",      _pickle(false, true));  ///< ( T fn len -- T ) save tensor to a file
+    CODE("load",      _pickle(false, false)); ///< ( T fn -- T' ) fill a tensor from file
     ///
     /// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
     ///
@@ -563,7 +555,7 @@ TensorVM::init() {
     CODE("min",
          if (IS_OBJ(tos)) PUSH(TTOS.min());
          else xop2(MIN));
-    CODE(".x", _ttos_dump());                 /// * ( T adr len -- )
+    CODE(".x", _pickle(true, false));         /// * ( T adr len -- )
     ///@}
     TRACE("TensorVM[%d]::init ok, sizeof(Tensor)=%ld\n", id, sizeof(Tensor));
 }
