@@ -224,6 +224,7 @@ typedef enum {
     OP_SS,
     OP_TSHOW,                         ///< show tensor
     OP_TSAVE,                         ///< persist tensor (for NumPy, Panda)
+    OP_TLOAD,                         ///< load tensor from NumPy dump
     OP_DATA,                          ///< dataset init
     OP_FETCH,                         ///< dataset retrieve
     OP_NSAVE,                         ///< network model presistance
@@ -237,8 +238,9 @@ typedef std::ostream h_ostr;          ///< host output ostream
 
 typedef enum {
     FAM_WO  = 0,
-    FAM_RW  = 1,
-    FAM_RAW = 2
+    FAM_RO  = 1,
+    FAM_RW  = 2,
+    FAM_RAW = 3
 } FAM;
 ///@}
 ///>name IO Event
