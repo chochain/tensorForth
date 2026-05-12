@@ -81,8 +81,7 @@ private:
     ///
     /// tensor IO
     ///
-    __HOST__ void   _pickle(bool save);                      ///< save/load a tensor to/from a file
-    __HOST__ void   _ttos_dump();
+    __HOST__ void   _pickle(bool show, bool load);           ///< save/load a tensor to/from a file
 };
 ///@}
 
