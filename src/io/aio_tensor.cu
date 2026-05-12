@@ -33,6 +33,45 @@ AIO::tsave(Tensor &t, char *fname, U8 mode) {
     IO_DB("} => completed\n");
     return 0;
 }
+
+#define  STB_IMAGE_WRITE_IMPLEMENTATION
+#include "stb_image_write.h"
+
+__HOST__ int
+AIO::tshow(Tensor &t, char *tag, int n_per_row) {
+    const int  N   = t.N(), H = t.H(), W = t.W(), C = t.C();
+    const long HWC = t.HWC();
+    const int  WT  = n_per_row * W;                     ///< with of one tiled row
+    const int  HT  = (N + n_per_row - 1)/ n_per_row;    ///< rows of tiles
+    DU  mean = t.avg(), scale = 128.0 / t.std();        /// P=95%
+
+    auto tile = [&](U8 *px, DU *v, int ht, int n) {
+        U8 *p = &px[(ht * H * WT + n * W) * 3];
+        for (int y = 0; y < H; y++) {
+            for (int x = 0, c = 0; x < W; x++, c = 0) {
+                while (c++ < 3) {
+                    *p++ = (*v - mean) * scale + 128.0;
+                    if (c < C) v++;
+                }
+            }
+            p += (WT - W) * 3;
+        }
+    };
+
+    U8 px[(HT * H) * WT * 3];                           /// RGB
+    DU h_d[H*W*C];                                      /// host buffer
+    for (U32 n = 0, ht = 0; n < N+n_per_row-1;) {
+        if (n < N) {
+            DU *d = t.slice(n);                         /// 1HWC
+//            D2H(h_d, d, sizeof(DU)*HWC);
+            tile(px, d, ht, n % n_per_row);
+        }
+        if ((++n % n_per_row) == 0) ht++;
+    }
+    stbi_write_png(tag, WT, H * HT, 3, (const void*)px, W * 3);
+        
+    return 0;
+}
 ///
 /// Tensor IO private methods
 ///
