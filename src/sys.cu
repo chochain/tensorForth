@@ -182,7 +182,7 @@ System::_process_opx(io_event *ev) {         ///< process composit IO types
             ev = NEXT_EVENT(ev);
             char *fn = (char*)ev->data;                     ///> filename
             o->op==OP_TSHOW
-                ? t.show(true)                              /// * send to Tensorboard 
+                ? io->tshow(t, fn)                          /// * send to Tensorboard 
                 : io->tsave(t, fn, o->m);                   /// * persist for NumPy
         }
         else ERROR("%x is not a tensor\n", DU2X(o->n));
