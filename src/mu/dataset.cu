@@ -15,7 +15,7 @@ using ld::Corpus;
 ///
 /// for init debug LOG_COUNT 1 with sample=3 is good
 ///
-#define LOG_COUNT 600          /**< debug dump frequency */
+#define LOG_COUNT 300          /**< debug dump frequency */
 //#define LOG_COUNT 1          /**< debug dump frequency */
 ///
 /// initial dataset setup
@@ -92,6 +92,9 @@ __HOST__ int
     ///
     if (LOG_COUNT && ((++tick % LOG_COUNT)==0)) { /// * when LOG_COUNT != 0
         INFO("  batch[%d]/epoch, total batch = %ld\n", batch_id, tick);
+        
+        if (tick == LOG_COUNT) cp->tshow(tick, n);
+
         cp->show(n < 3 ? n : 3);
     }
     return 0;
