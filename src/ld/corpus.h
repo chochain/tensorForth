@@ -7,6 +7,8 @@
 #ifndef __LD_CORPUS_H
 #define __LD_CORPUS_H
 #pragma once
+#include <sstream>
+#include <string>
 #include "ten4_types.h"
 
 #if  (T4_DO_OBJ && T4_DO_NN)
@@ -62,8 +64,11 @@ struct Corpus {
         ERROR("batch(U8*) implemented?\n");
         return this;
     }
-    virtual Corpus *show(int n) { return this; }
-    virtual Corpus *rewind() { eof = 0; return this; }
+    virtual Corpus *rewind()                { eof = 0; return this; }
+    
+    virtual Corpus *tshow(int id, int n) { return this; }
+    virtual Corpus *show(int n)          { return this; }
+
     virtual U8 *operator [](int idx){ return &data[idx * cell()]; }    ///< data point
 };
 
