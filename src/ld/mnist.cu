@@ -84,52 +84,6 @@ Corpus *Mnist::fetch(int bid, int n, bool trace) {
     return this;
 }
 
-#define  STB_IMAGE_WRITE_IMPLEMENTATION
-#define  N_PER_ROW 10
-#include "../io/stb_image_write.h"
-
-Corpus *Mnist::tshow(int id, int N) {
-    const int WT = N_PER_ROW * W;
-    const int HT = (N + N_PER_ROW - 1) / N_PER_ROW;
-
-    auto tile = [&](U8 *px, U8 *d, int idx) {
-        int ht = idx / N_PER_ROW, wt = idx % N_PER_ROW;
-        U8 *p = &px[(ht * H * WT + wt * W) * 3];
-        for (int y = 0; y < H; y++) {
-            for (int x = 0, c = 0; x < W; x++, c=0) {
-                while (c < 3) {                  /// RGB
-                    *p++ = *d;
-                    if (c++ < C) d++;            /// advance if more than 1 channel
-                }
-            }
-            p += (WT - W) * 3;                   /// skip to next row in tile
-        }
-    };
-
-    /// zero-init so unfilled padding tiles are black
-    U8 px[(HT * H) * WT * 3] = {};              
-    for (int n = 0; n < N + N_PER_ROW - 1; n++) {
-        if (n < N) tile(px, (*this)[n], n);
-    }
-
-    auto fname = [](std::string url) {
-        if (!url.empty() && url.back() == '/') url.pop_back();
-        int idx = url.find_last_of('/');
-        return (idx != std::string::npos) ? url.substr(idx + 1) : url;
-    };
-    
-    std::string url = ds_name;
-    std::stringstream ss; ss << fname(url) << "_" << id << ".png";
-    std::string tag = ss.str();
-    
-    /// stride must be WT*3 (full tiled row), not W*3
-    if (trace) INFO("\tMnist create %s for Tensorboard\n", tag.c_str());
-    if (!stbi_write_png(tag.c_str(), WT, H * HT, 3, px, WT * 3)) {
-        ERROR("%s write failed\n", tag.c_str());
-    }
-    return this;
-}
-
 Corpus *Mnist::show(int N) {
     static const char *map = " .:-=+*#%@";
 
