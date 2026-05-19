@@ -1,5 +1,6 @@
 /*
- * proto_encode.h - Minimal Protocol Buffers wire-format encoder
+ * @file
+ * @brief proto_encode.h - Minimal Protocol Buffers wire-format encoder
  *
  * Supports:
  *   - Varint (field types: int32, int64, uint32, uint64, bool, enum)
@@ -12,13 +13,11 @@
  *   1 = 64-bit
  *   2 = Length-delimited
  *   5 = 32-bit
- *
  */
 #pragma once
-
 #include "types.h"
 
-namespace proto {
+namespace t4::tb {
 
 class Encoder {
 public:
@@ -155,4 +154,4 @@ private:
     U8V _buf;
 };
 
-} // namespace proto
+} // namespace t4::tb
