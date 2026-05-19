@@ -1,8 +1,14 @@
+/*
+ * @file
+ * @brief  —  TensorBoard PNG converter
+ *
+ */
+#pragma once
 #include <zlib.h>
 #include "types.h"
 
 // ─── PNG Encoder (uncompressed deflate stored blocks) ────────────────────────
-namespace png {
+namespace t4::tb::png {
     
 static U32 adler32(const U8* d, USZ n) {
     U32 s1=1, s2=0;
@@ -107,5 +113,5 @@ inline U8V raw2png(int w,int h, const U8V& px,int ch=3){
     return out;
 }
 
-} // namespace png
+} // namespace t4::tb::png
 
