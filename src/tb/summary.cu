@@ -1,0 +1,96 @@
+/** -*- c++ -*-
+ * @file
+ * @brief Tensorboard class - async IO module implementation
+ *
+ * <pre>Copyright (C) 2021- GreenII, this file is distributed under BSD 3-Clause License.</pre>
+ */
+#include "summary.h"
+
+namespace t4::tb {
+
+#if T4_DO_TB
+__HOST__ void
+Summary::set_step(int step) { _step = step; }
+
+__HOST__ void
+Summary::scalar(const char *tag, F32 v) {
+    add_scalar(tag, v, _step);
+}
+
+__HOST__ void
+Summary::text(const char *tag, const char *txt) {
+    add_text(tag, txt, _step);
+}
+
+__HOST__ void
+Summary::image(const char *tag, Tensor &t) {
+    const U32 W = t.W(), H = t.H(), C = t.C();
+    const DU  mean = t.avg(), scale = (t.std() - 0.5f) * 128.0f;  /// 95%
+    U8 px[W * H * 3];
+    DU h[W * H * C];
+    for (int n = 0; n < t.N(); n++) {
+        DU *d = t.slice(n);
+        D2H(h, d, sizeof(DU) * W * H * C);
+        for (int y = 0; y < H; y++) {
+            U8 *p = &px[(y * W) * 3];
+            for (int x = 0; x < W; x++, h++) {
+                DU vx = (*h - mean) * scale + 128.5f;
+                U8 v  = (U8)std::min(255, std::max(vx, 0));
+                *p++ = v;
+                *p++ = v;
+                *p++ = v;
+            }
+        }
+        add_image(tag, W, H, px, _step);
+    }
+}
+
+__HOST__ void
+Summary::image_tile(const char *tag, Tensor &t, int n_per_row) {
+    const U32 N    = t.N(), H  = t.H(), W = t.W(), C = t.C();
+    const int WT   = n_per_row * W;
+    const int HT   = (N + n_per_row - 1) / n_per_row;
+    const DU  mean = t.avg(), scale = (t.std() - 0.5f) * 128.0f;  /// 95%
+
+    auto tile = [&](U8 *px, DU *v, int idx) {
+        int ht = idx / n_per_row, wt = idx % n_per_row;
+        U8 *p = &px[(ht * H * WT + wt * W) * 3];
+        for (int y = 0; y < H; y++) {
+            for (int x = 0, c = 0; x < W; x++, c=0) {
+                while (c < 3) {                  /// RGB
+                    DU vx = (*v - mean) * scale + 128.5f;
+                    *p++ = (U8)std::min(255, std::max(vx, 0));
+                    if (c++ < C) v++;            /// advance if more than 1 channel
+                }
+            }
+            p += (WT - W) * 3;                   /// skip to next row in tile
+        }
+    };
+
+    U8 px[(HT * H) * WT * 3] = {};               ///< zero-init, so unfilled are black
+    DU h[H * W * C];                             ///< host block
+    for (int n = 0; n < N; n++) {
+        DU *d = t.slice(n);                      ///< device block
+        D2H(h, d, sizeof(DU) * H * W * C);       /// * copy to host
+        tile(px, h, n);                          /// * fill tile by tile
+    }
+    add_image(tag, W, H, px, _step);
+}
+
+__HOST__ void
+Summary::histo(const char *tag, Tensor &t, int n_bucket) {
+    add_histo(tag, t.data, t.numel, _step, n_bucket);
+}
+
+__HOST__ void
+Summary::graph(const char *tag, Model &m) {
+    init_graph();
+    for (int n = 0; n < m.numel; n++) {
+        //
+    }
+    add_graph();
+}
+#endif // T4_DO_TB
+
+} // namespace t4::tb
+
