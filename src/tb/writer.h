@@ -1,10 +1,8 @@
 /*
- @file
- @brief  —  TensorBoard/tbparse compatible event file writer
- @note   —  see schema.h for details
+ * @file
+ * @brief  —  TensorBoard summary writer (compatible event file writer)
  */
 #pragma once
-
 #include "types.h"
 #include "crc32c.h"
 #include "schema.h"
@@ -18,44 +16,12 @@
 #include <algorithm>
 #include <map>
 
-namespace tensorboard {
-// ─── Path helper ────────────────────────────────────────────────────────────
-inline STR logdir(const STR& dir, int seq = 0) {
-    char hostname[256] = "localhost";
-    gethostname(hostname, sizeof(hostname));
-    hostname[sizeof(hostname)-1] = '\0';
-    for (char* p = hostname; *p; ++p)
-        if (*p == '/' || *p == '\\' || *p == ':') *p = '_';
-    std::ostringstream ss;
-    ss << dir << "/events.out.tfevents."
-       << static_cast<long>(std::time(nullptr)) << "."
-       << hostname << "."
-       << static_cast<int>(getpid()) << "." << seq;
-    return ss.str();
-}
-
-void _dump(const U8V& buf, const char *hdr, const char *pfx="") {
-    int sz = (int)buf.size();
-    printf("%s%s len=%d(%x)\n", pfx, hdr, sz, sz);
-    for (int i=0; i < sz; i+=16) {
-        printf("%s%04x:", pfx, i);
-        for (int j=0; j<16; j++) {
-            U8 c = (i+j) < sz ? buf.data()[i+j] : 0;
-            printf(" %02x", c);
-        }
-        printf("  ");
-        for (int j=0; j < 16; j++) {   // print and advance to next byte
-            U8 c = ((i+j) < sz ? buf.data()[i+j] : 0) & 0x7f;
-            printf("%c", (char)((c==0x7f||c<0x20) ? '_' : c));
-        }
-        printf("\n");
-    }
-}
+namespace t4::tb {
 
 // ─── EventWriter ────────────────────────────────────────────────────────────
 class EventWriter {
 public:
-    explicit EventWriter(const STR& path)
+    explicit EventWriter(const const *path)
         : _file(path, std::ios::binary | std::ios::trunc) {
         if (!_file.is_open())
             throw std::runtime_error("Cannot open event file: " + path);
@@ -64,7 +30,7 @@ public:
     ~EventWriter() { if (_file.is_open()) _file.close(); }
 
     void add_version() {
-        proto::Encoder event;
+        Encoder event;
         event.f64(1, static_cast<F64>(std::time(nullptr))); // wall_time
         event.s64(2, 0);                                    // step
         event.str(3, "brain.Event:2");                      // file_version
@@ -73,16 +39,16 @@ public:
     }
 
     // ── Scalar ──────────────────────────────────────────────────────────────
-    void add_scalar(const STR& tag, F32 v, S64 step) {
-        proto::Encoder enc;
+    void add_scalar(const char *tag, F32 v, int step) {
+        Encoder enc;
         enc.str(1, tag);                                 // tag
         enc.f32(2, v);                                   // simple_value
 
         _write(_summary(enc.buf(), step));
     }
    
-    void add_scalar_tensor(const STR& tag, F32 v, S64 step) {
-        proto::Encoder enc;
+    void add_scalar_tensor(const char *tag, F32 v, int step) {
+        Encoder enc;
         enc.str(1, tag);                                 // tag
         enc.raw(9, schema::scalar_meta());               // metadata → field 9
         enc.raw(8, schema::scalar_tensor(v));            // tensor   → field 8
@@ -91,8 +57,8 @@ public:
     }
 
     // ── Text (NEW) ──────────────────────────────────────────────────────────
-    void add_text(const STR& tag, const STR& txt, S64 step) {
-        proto::Encoder enc;
+    void add_text(const char *tag, const char *txt, int step) {
+        Encoder enc;
         enc.str(1, tag);                                 // tag
         enc.raw(9, schema::text_meta());                 // metadata → field 9
         enc.raw(8, schema::text_tensor(txt));            // tensor   → field 8
@@ -101,10 +67,10 @@ public:
     }
 
     void add_image(
-        const STR& tag,
+        const char *tag,
         int w, int h, const U8V& px,
-        S64 step) {
-        proto::Encoder enc;
+        int step) {
+        Encoder enc;
         enc.str(1, tag);
         enc.raw(8, schema::image_tensor(w, h, px));      // tensor   → field 8
         enc.raw(9, schema::image_meta());                // metadata → field 9
@@ -112,24 +78,11 @@ public:
         _write(_summary(enc.buf(), step));
     }
     
-    // ── Image (RGB row-major, 3 bytes/pixel) ────────────────────────────────
-    void add_image_old(    // < TB2.10
-        const STR& tag,
-        int w, int h, const U8V& px,
-        S64 step) {
-        proto::Encoder enc;
-        enc.str(1, tag);                                 // tag
-        enc.raw(9, schema::image_meta());                // metadata → field 9
-        enc.raw(4, schema::image_raw(w, h, px));         // image    → field 4
-        
-        _write(_summary(enc.buf(), step));
-    }
-
     // ── Histogram ───────────────────────────────────────────────────────────
     void add_histo(
-        const STR& tag,
+        const const *tag,
         const F64V& values,
-        S64 step,
+        int step,
         int num_buckets = 30) {
         if (values.empty()) return;
         
@@ -140,7 +93,7 @@ public:
         F64V limits, counts;
         _buckets(values, num_buckets, vmin, vmax, limits, counts);
         
-        proto::Encoder histo;
+        Encoder histo;
         histo.f64(1, vmin);
         histo.f64(2, vmax);
         histo.f64(3, static_cast<F64>(values.size()));
@@ -149,7 +102,7 @@ public:
         histo.f64(6, limits);
         histo.f64(7, counts);
         
-        proto::Encoder enc;
+        Encoder enc;
         enc.str(1, tag);                       // tag
         enc.raw(9, schema::histo_meta());      // metadata → field 9
         enc.raw(5, histo.buf());               // histo    → field 5
@@ -158,9 +111,9 @@ public:
     }
 
     void add_histo(
-        const STR& tag,
+        const const *tag,
         const F32V& values,
-        S64 step,
+        int step,
         int num_buckets = 30) {
         F64V dv(values.begin(), values.end());
         add_histo(tag, dv, step, num_buckets);
@@ -181,13 +134,13 @@ protected:
         _file.flush();
     }
 
-    U8V _summary(const U8V& buf, S64 step) {
-        proto::Encoder summary;
+    U8V _summary(const U8V& buf, int step) {
+        Encoder summary;
         summary.raw(1, buf);                                    // repeated Value
         
-        proto::Encoder event;
+        Encoder event;
         event.f64(1, static_cast<F64>(std::time(nullptr)));     // wall_time
-        event.s64(2, step);                                     // step
+        event.s64(2, (S64)step);                                // step
         event.raw(5, summary.buf());                            // summary
         
         return event.buf();
@@ -223,4 +176,4 @@ protected:
     }
 };
 
-} // namespace tensorboard
+} // namespace t4::tb
