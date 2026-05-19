@@ -222,13 +222,20 @@ typedef enum {
     OP_SEE,
     OP_DUMP,
     OP_SS,
-    OP_TSHOW,                         ///< show tensor
+    /// tensor, dataset ops
     OP_TSAVE,                         ///< persist tensor (for NumPy, Panda)
     OP_TLOAD,                         ///< load tensor from NumPy dump
     OP_DATA,                          ///< dataset init
     OP_FETCH,                         ///< dataset retrieve
     OP_NSAVE,                         ///< network model presistance
-    OP_NLOAD                          ///< network modek restore
+    OP_NLOAD,                         ///< network modek restore
+    /// tensorboard ops
+    TB_STEP,                          ///< set current step
+    TB_HIST,                          ///< histogram event
+    TB_IMAGE,                         ///< image event
+    TB_SCALAR,                        ///< scalar event
+    TB_TEXT,                          ///< text event
+    TB_GRAPH                          ///< graph event
 } OP;
 ///@}
 ///>name File Access Mode for IO Event
