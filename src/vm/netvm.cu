@@ -445,16 +445,23 @@ NetVM::init() {
          Tensor::batchvar(A, G, O);
          PUSH(O);
          FREE(G));
-    ///
+    ///@}
+#if T4_DO_TB    
+    ///@defgroup TensorBoard SummaryWriter
+    ///@{
+    CODE(".graph",    _tboard(TB_GRAPH));          ///< ( N path_addr len -- )
+    ///@}
+#endif // T4_DO_TB    
     /// ===========================================================================
     ///
-    /// * overwrite/extended word
-    ///
+    ///defgroup overwrite/extended word
+    ///@{
     CODE("boot",      mmu.clear(FIND((char*)"network") + 1));
     CODE("flatten",   _nnop(L_FLATTEN));
     CODE("save",      _pickle(true));              /// * save trainned model
     CODE("load",      _pickle(false));             /// * load trainned model
     CODE("\nUser::",  {});                         ///< page break
+    ///@}
     
     TRACE("NetVM::init ok, sizeof(Model)=%ld, sizeof(Dataset)=%ld\n", sizeof(Model), sizeof(Dataset));
 };
