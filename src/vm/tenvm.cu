@@ -369,9 +369,9 @@ TensorVM::_solv(Tensor &A, Tensor &B) {      /// AX = B
 }
 
 __HOST__ void
-TensorVM::_pickle(bool show, bool load) {
-    U8  mode  = show ? 0 : (load ? FAM_RO   : FAM_WO);
-    OP  op    = show ? OP_TSHOW : (load ? OP_TLOAD : OP_TSAVE);
+TensorVM::_pickle(bool load, bool png) {
+    U8  mode  = png ? 0 : (load ? FAM_RO   : FAM_WO);
+    OP  op    = png ? OP_TPNG : (load ? OP_TLOAD : OP_TSAVE);
     
     if (ss.idx > 1 && IS_OBJ(ss[-2])) { /* OK */ }
     else if (ss.idx > 2 && IS_OBJ(ss[-3])) mode = POPi;
@@ -389,6 +389,22 @@ TensorVM::_pickle(bool show, bool load) {
 #endif // MM_DEBUG    
 
     syscall(op, tos, mode, DU2X(tos), tag);   /// * show to Tensorboard or load/store tensor
+}
+
+__HOST__ void
+TensorVM::_tboard(OP op) {
+    if (op == TB_STEP) 
+    switch (op) {
+    case TB_INIT:
+    case TB_SCALAR:
+    case TB_TEXT:
+    case TB_IMAGE:
+    case TB_TILE:
+    case TB_HISTO: break;
+#if T4_DO_NN        
+    case TB_GRAPH:
+#endif // T4_DO_NN        
+    }
 }
 ///
 /// Tensor Vocabulary
@@ -535,9 +551,21 @@ TensorVM::init() {
     CODE("bin",       PUSH(FAM_RAW));         ///< raw/binary file
     CODE("w/o",       PUSH(FAM_WO));          ///< write-only file
     CODE("r/w",       PUSH(FAM_RW));          ///< read-write file
-    CODE("save",      _pickle(false, true));  ///< ( T fn len -- T ) save tensor to a file
+    CODE("save",      _pickle(true, false));  ///< ( T fn len -- T ) save tensor to a file
     CODE("load",      _pickle(false, false)); ///< ( T fn -- T' ) fill a tensor from file
-    ///
+    ///@}
+#if T4_DO_TB    
+    ///@defgroup TensorBoard SummaryWriter
+    ///@{
+    CODE(".event",    _tboard(TB_INIT));      ///< ( path_addr len -- )
+    CODE(".step",     _tboard(TB_STEP));      ///< ( i -- )
+    CODE(".scalar",   _tboard(TB_SCALAR));    ///< ( v tag_addr len -- )
+    CODE(".text",     _tboard(TB_TEXT));      ///< ( txt_addr len tag_addr len -- )
+    CODE(".image",    _tboard(TB_IMAGE));     ///< ( T tag_addr len -- )
+    CODE(".tile",     _tboard(TB_TILE));      ///< ( T n_wide tag_addr len -- )
+    CODE(".histo",    _tboard(TB_HISTO));     ///< ( T n_bucket tag_addr len -- )
+    ///@}
+#endif // T4_DO_TB    
     /// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
     ///
     ///@defgroup redefined tensor ops
@@ -555,7 +583,7 @@ TensorVM::init() {
     CODE("min",
          if (IS_OBJ(tos)) PUSH(TTOS.min());
          else xop2(MIN));
-    CODE(".x", _pickle(true, false));         /// * ( T adr len -- )
+    CODE(".png", _pickle(false, true));      /// * ( T adr len -- )
     ///@}
     TRACE("TensorVM[%d]::init ok, sizeof(Tensor)=%ld\n", id, sizeof(Tensor));
 }
