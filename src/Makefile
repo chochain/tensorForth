@@ -49,6 +49,7 @@ T4_LIBS :=
 -include src/ld/Makefile
 -include src/nn/Makefile
 # -include src/vu/Makefile
+-include src/tb/Makefile
 
 .PHONY: src clean clean-src
 
