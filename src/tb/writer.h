@@ -7,6 +7,7 @@
 #include "crc32c.h"
 #include "schema.h"
 #include "encoder.h"
+#include "graph.h"
 
 #include <ctime>
 #include <cmath>
@@ -111,12 +112,36 @@ public:
     }
 
     void add_histo(
-        const const *tag,
-        const F32V& values,
-        int step,
-        int num_buckets = 30) {
-        F64V dv(values.begin(), values.end());
+        const char *tag,
+        const DU   *values,
+        const int  numel,
+        const int  step,
+        const int  n_buckets = 30) {
+        F64V dv(numel);
+        for (int i = 0; i < numel; i++) dv[i] = (F64)value[i];
         add_histo(tag, dv, step, num_buckets);
+    }
+    
+    // ── Graph ───────────────────────────────────────────────────────────
+    void init_graph() {
+        _net.clear();
+    }
+    
+    void add_node(const graph::Node& node) {
+        _net.push_back(node);
+    }
+
+    void add_graph(S64 step=0) {
+        proto::Encoder graph;
+        for (auto n : _net) {
+            graph.raw(1, n.buf());
+        }
+        
+        proto::Encoder event;
+        event.s64(2, step);
+        event.raw(4, graph.buf());
+        
+        _write(event.buf());
     }
 
 protected:
