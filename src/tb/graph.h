@@ -109,34 +109,27 @@ private:
         at.str(1, k);
         at.raw(2, buf);
 
-        tensorboard::_dump(at.buf(), k.c_str(), "");
+        _dump(at.buf(), k.c_str(), "");
         
         raw(5, at.buf());               // NodeDef.attr
     }
-};  // class Node
-
-class GraphWriter : public tensorboard::EventWriter {
-    std::vector<Node> _net;
-        
-public:
-    explicit GraphWriter(const STR& path) : EventWriter(path) {}
-
-    void add_node(const Node& node) {
-        _net.push_back(node);
-    }
-
-    void write(S64 step=0) {
-        proto::Encoder graph;
-        for (auto n : _net) {
-            graph.raw(1, n.buf());
+    void _dump(const U8V& buf, const char *hdr, const char *pfx="") {
+        int sz = (int)buf.size();
+        printf("%s%s len=%d(%x)\n", pfx, hdr, sz, sz);
+        for (int i=0; i < sz; i+=16) {
+            printf("%s%04x:", pfx, i);
+            for (int j=0; j<16; j++) {
+                U8 c = (i+j) < sz ? buf.data()[i+j] : 0;
+                printf(" %02x", c);
+            }
+            printf("  ");
+            for (int j=0; j < 16; j++) {   // print and advance to next byte
+                U8 c = ((i+j) < sz ? buf.data()[i+j] : 0) & 0x7f;
+                printf("%c", (char)((c==0x7f||c<0x20) ? '_' : c));
+            }
+            printf("\n");
         }
-        
-        proto::Encoder event;
-        event.s64(2, step);
-        event.raw(4, graph.buf());
-        
-        _write(event.buf());
     }
-}; // class GraphWriter
+};  // class Node
 
 } // namespace graph
