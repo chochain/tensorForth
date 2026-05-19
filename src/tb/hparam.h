@@ -7,7 +7,7 @@
 
 #include "writer.h"
 
-namespace tensorboard {
+namespace t4::tb {
 
 // ─── HParam value types ─────────────────────────────────────────────────────
 struct HParamValue {
@@ -167,4 +167,4 @@ private:
     }
 };
 
-} // namespace tensorboard
+} // namespace t4::tb
