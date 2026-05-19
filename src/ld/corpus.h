@@ -64,10 +64,8 @@ struct Corpus {
         ERROR("batch(U8*) implemented?\n");
         return this;
     }
-    virtual Corpus *rewind()                { eof = 0; return this; }
-    
-    virtual Corpus *tshow(int id, int n) { return this; }
-    virtual Corpus *show(int n)          { return this; }
+    virtual Corpus *rewind()    { eof = 0; return this; }
+    virtual Corpus *show(int n) { return this; }
 
     virtual U8 *operator [](int idx){ return &data[idx * cell()]; }    ///< data point
 };
