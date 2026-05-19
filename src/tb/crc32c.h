@@ -1,8 +1,12 @@
+/*
+ * @file
+ * @brief  —  CRC32 calc
+ *
+ */
 #pragma once
-
 #include "types.h"
 
-namespace crc32c {
+namespace t4::tb::crc32c {
 
 // Crc32c (Castagnoli) lookup table
 static U32  _kt[256];
