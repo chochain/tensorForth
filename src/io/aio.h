@@ -62,7 +62,7 @@ public:
     
     __HOST__ std::string marshall(T4Base &t);                 ///< tensor to stream
     __HOST__ int  tsave(Tensor &t, char *fname, U8 mode);
-    __HOST__ int  tshow(Tensor &t, char *tag, int n_per_row=10);
+    __HOST__ int  t2png(Tensor &t, char *tag, int n_per_row=10);
     
 #if T4_DO_NN    
     ///
