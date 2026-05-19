@@ -1,22 +1,16 @@
+/**
+ * @file
+ * @brief Tensorboard universal types
+ *
+ * <pre>Copyright (C) 2026 GreenII, this file is distributed under BSD 3-Clause License.</pre>
+ */
 #pragma once
-
 #include <cstdint>
 #include <vector>
 #include <unistd.h>
 #include <cstring>
 #include <string>
-
-typedef bool              BOOL;
-typedef size_t            USZ;
-typedef uint8_t           U8;
-typedef uint16_t          U16;
-typedef uint32_t          U32;
-typedef uint64_t          U64;
-typedef int32_t           S32;
-typedef int64_t           S64;
-typedef float             F32;
-typedef double            F64;
-typedef uintptr_t         PTR;
+#include "ten4_types.h"
 
 typedef std::string       STR;
 typedef std::vector<U8>   U8V;
