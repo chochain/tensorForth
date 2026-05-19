@@ -38,39 +38,49 @@ AIO::tsave(Tensor &t, char *fname, U8 mode) {
 #include "stb_image_write.h"
 
 __HOST__ int
-AIO::tshow(Tensor &t, char *tag, int n_per_row) {
-    const int  N   = t.N(), H = t.H(), W = t.W(), C = t.C();
-    const long HWC = t.HWC();
-    const int  WT  = n_per_row * W;                     ///< with of one tiled row
-    const int  HT  = (N + n_per_row - 1)/ n_per_row;    ///< rows of tiles
-    DU  mean = t.avg(), scale = 128.0 / t.std();        /// P=95%
+AIO::t2png(Tensor &t, char *tag, int n_per_row) {
+    const int N   = t.N(), H = t.H(), W = t.W(), C = t.C();
+    const int WT  = n_per_row * W;
+    const int HT  = (N + n_per_row - 1) / n_per_row;
+    const DU  mean= t.avg(), scale = (t.std() - 0.5f) * 128.0f;
 
-    auto tile = [&](U8 *px, DU *v, int ht, int n) {
-        U8 *p = &px[(ht * H * WT + n * W) * 3];
+    auto tile = [&](U8 *px, DU *v, int idx) {
+        int ht = idx / n_per_row, wt = idx % n_per_row;
+        U8 *p = &px[(ht * H * WT + wt * W) * 3];
         for (int y = 0; y < H; y++) {
-            for (int x = 0, c = 0; x < W; x++, c = 0) {
-                while (c++ < 3) {
-                    *p++ = (*v - mean) * scale + 128.0;
-                    if (c < C) v++;
+            for (int x = 0, c = 0; x < W; x++, c=0) {
+                while (c < 3) {                  /// RGB
+                    DU vx = (*v - mean) * scale + 128.5f;
+                    *p++ = (U8)std::min(255, std::max(vx, 0));
+                    if (c++ < C) v++;            /// advance if more than 1 channel
                 }
             }
-            p += (WT - W) * 3;
+            p += (WT - W) * 3;                   /// skip to next row in tile
         }
     };
 
-    U8 px[(HT * H) * WT * 3];                           /// RGB
-    DU h_d[H*W*C];                                      /// host buffer
-    for (U32 n = 0, ht = 0; n < N+n_per_row-1;) {
-        if (n < N) {
-            DU *d = t.slice(n);                         /// 1HWC
-//            D2H(h_d, d, sizeof(DU)*HWC);
-            tile(px, d, ht, n % n_per_row);
-        }
-        if ((++n % n_per_row) == 0) ht++;
+    U8 px[(HT * H) * WT * 3] = {};               ///< zero-init, so unfilled are black
+    U8 h[H * W * C];                             ///< host block
+    for (int n = 0; n < N; n++) {
+        DU *d = t.slice(n);
+        D2H(h, d, sizeof(DU) * H * W * C);
+        tile(px, h, n);
     }
-    stbi_write_png(tag, WT, H * HT, 3, (const void*)px, W * 3);
-        
-    return 0;
+/*
+    auto fname = [](std::string url) {
+        if (!url.empty() && url.back() == '/') url.pop_back();
+        int idx = url.find_last_of('/');
+        return (idx != std::string::npos) ? url.substr(idx + 1) : url;
+    };
+    std::string url = ds_name;
+    std::stringstream ss; ss << fname(url) << "_" << id << ".png";
+    std::string tag = ss.str();
+*/    
+    /// stride must be WT*3 (full tiled row), not W*3
+    if (!stbi_write_png(tag, WT, H * HT, 3, px, WT * 3)) {
+        ERROR("%s write failed\n", tag);
+    }
+    return this;
 }
 ///
 /// Tensor IO private methods
