@@ -175,12 +175,15 @@ System::_process_opx(io_event *ev) {         ///< process composit IO types
     case OP_DUMP:  db->mem_dump(UINT(o->n), o->i);       break;
     case OP_SS:    db->ss_dump(o->n, o->i, o->m);        break;
 #if T4_DO_OBJ // vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
+    case OP_T2PNG:
     case OP_TSAVE: {
         mu::Tensor &t = (mu::Tensor&)mu->du2obj(o->n);
         if (t.is_tensor()) {
             ev = NEXT_EVENT(ev);
             char *fn = (char*)ev->data;                     ///> filename
-            io->tsave(t, fn, o->m);                         /// * persist for NumPy
+            OP_T2PNG
+                ? io->tpng(t, fn)
+                : io->tsave(t, fn, o->m);                   /// * persist for NumPy
         }
         else ERROR("%x is not a tensor\n", DU2X(o->n));
     } break;
