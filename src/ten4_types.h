@@ -223,6 +223,7 @@ typedef enum {
     OP_DUMP,
     OP_SS,
     /// tensor, dataset ops
+    OP_T2PNG,                         ///< persist tensor to a PNG file
     OP_TSAVE,                         ///< persist tensor (for NumPy, Panda)
     OP_TLOAD,                         ///< load tensor from NumPy dump
     OP_DATA,                          ///< dataset init
@@ -230,11 +231,13 @@ typedef enum {
     OP_NSAVE,                         ///< network model presistance
     OP_NLOAD,                         ///< network modek restore
     /// tensorboard ops
+    TB_INIT,                          ///< initialize SummaryWriter
     TB_STEP,                          ///< set current step
-    TB_HIST,                          ///< histogram event
-    TB_IMAGE,                         ///< image event
     TB_SCALAR,                        ///< scalar event
     TB_TEXT,                          ///< text event
+    TB_IMAGE,                         ///< image event
+    TB_TILE,                          ///< image in tile (10 wide)
+    TB_HISTO,                         ///< histogram event
     TB_GRAPH                          ///< graph event
 } OP;
 ///@}
