@@ -576,7 +576,7 @@ TensorVM::init() {
     ///@}
     ///@defgroup TensorBoard SummaryWriter
     ///@{
-    CODE(".tbinit",   _tboard(TB_INIT));      ///< ( path_addr len -- )  .s" run1"
+    CODE(".tboard",   _tboard(TB_INIT));      ///< ( path_addr len -- )  .s" run1"
     CODE(".step",     _tboard(TB_STEP));      ///< ( i -- )
     CODE(".scalar",   _tboard(TB_SCALAR));    ///< ( v tag_addr len -- )
     CODE(".text",     _tboard(TB_TEXT));      ///< ( txt_addr len tag_addr len -- )
