@@ -1,13 +1,12 @@
 /*
  * @file
- * @brief  —  TensorBoard PNG converter
- *
+ * @brief  —  TensorBoard PNG Encoder
+ *    uncompressed deflate stored blocks, or
+ *    zlib compressed with #include <zlib.h> and gcc with -lz
  */
 #pragma once
-#include <zlib.h>
 #include "types.h"
 
-// ─── PNG Encoder (uncompressed deflate stored blocks) ────────────────────────
 namespace t4::tb::png {
     
 static U32 adler32(const U8* d, USZ n) {
@@ -77,34 +76,37 @@ inline U8V raw2png(int w,int h, const U8V& px,int ch=3){
         sl.push_back(0);
         sl.insert(sl.end(), px.begin()+y*rb, px.begin()+(y+1)*rb);
     }
-/*
-    // uncompressed PNG
-    U8V zlib;
-    zlib.push_back(0x78);
-    zlib.push_back(0x01);
+    
+#if ZLIB
+    /// compress with zlib (#include zlib.h; and gcc link with -lz)
+    uLongf zlen = compressBound(sl.size());
+    std::vector<uint8_t> zbuf(zlen);
+    compress2(zbuf.data(), &zlen, sl.data(), sl.size(), Z_DEFAULT_COMPRESSION);
+    
+    U8V zdat;
+    zdat.push_back(0x78); zdat.push_back(0x9c);                   // zlib header
+    zdat.insert(zdat.end(), zbuf.begin()+2, zbuf.begin()+zlen-4); // skip zlib wrapper, keep raw deflate
+    
+#else // !ZLIB
+    /// uncompressed PNG
+    U8V zdat;
+    zdat.push_back(0x78);
+    zdat.push_back(0x01);
     
     USZ pos=0, tot=sl.size();
     while (pos < tot) {
         USZ  bsz  = std::min(tot-pos, (USZ)65535);
         BOOL last = (pos+bsz >= tot);
         U16  bl   = static_cast<U16>(bsz), bn=static_cast<U16>(~bl);
-        zlib.push_back(last ? 0x01 : 0x00);
-        zlib.push_back(bl & 0xff);
-        zlib.push_back((bl>>8) & 0xff);
-        zlib.push_back(bn & 0xff);
-        zlib.push_back((bn>>8) & 0xff);
-        zlib.insert(zlib.end(), sl.begin()+pos, sl.begin()+pos+bsz);
+        zdat.push_back(last ? 0x01 : 0x00);
+        zdat.push_back(bl & 0xff);
+        zdat.push_back((bl>>8) & 0xff);
+        zdat.push_back(bn & 0xff);
+        zdat.push_back((bn>>8) & 0xff);
+        zdat.insert(zdat.end(), sl.begin()+pos, sl.begin()+pos+bsz);
         pos += bsz;
     }
-*/
-    // compress with zlib (gcc link with -lz)
-    uLongf zlen = compressBound(sl.size());
-    std::vector<uint8_t> zbuf(zlen);
-    compress2(zbuf.data(), &zlen, sl.data(), sl.size(), Z_DEFAULT_COMPRESSION);
-
-    U8V zdat;
-    zdat.push_back(0x78); zdat.push_back(0x9c);                   // zlib header
-    zdat.insert(zdat.end(), zbuf.begin()+2, zbuf.begin()+zlen-4); // skip zlib wrapper, keep raw deflate
+#endif // ZLIB    
 
     push_be32(zdat, adler32(sl.data(), sl.size()));
     write_chunk(out,"IDAT", zdat);
