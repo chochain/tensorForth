@@ -13,7 +13,7 @@ namespace t4::tb::schema {
 // TensorProto for scalar F32. Canonical encoding matching protobuf serializer:
 //   dtype=DT_FLOAT(1), tensor_shape OMITTED (empty=proto3 default),
 //   float_val uses packed encoding (wire type 2), NOT non-packed (wire type 5).
-U8V scalar_tensor(F32 v) {
+inline U8V scalar_tensor(F32 v) {
     U32 bits;
     std::memcpy(&bits, &v, 4);
     U8 fb[4] = {
@@ -32,7 +32,7 @@ U8V scalar_tensor(F32 v) {
 }
 
 // TensorProto for string (text)
-U8V text_tensor(const char *txt) {
+inline U8V text_tensor(const char *txt) {
     Encoder tp;               ///< TensorProto
     tp.s32(1, 7);             /// * dtype = DT_STRING (7)
 //        tp.raw(2, {});            /// * tensor_shape = empty (scalar), optional
@@ -41,7 +41,7 @@ U8V text_tensor(const char *txt) {
     return tp.buf();
 }
 
-U8V image_tensor(int w, int h, const U8V& px) {
+inline U8V image_tensor(int w, int h, const U8V& px) {
     auto png = png::raw2png(w, h, px, 3);            ///< convert raw to PNG (RGB)
 
     Encoder tp;
@@ -55,15 +55,15 @@ U8V image_tensor(int w, int h, const U8V& px) {
     // string_val[0] = width as decimal ASCII
     // string_val[1] = height as decimal ASCII  
     // string_val[2] = raw PNG bytes
-    tp.str(8, std::to_string(w));                    /// * string_val[0]: width
-    tp.str(8, std::to_string(h));                    /// * string_val[1]: height
+    tp.str(8, std::to_string(w).c_str());            /// * string_val[0]: width
+    tp.str(8, std::to_string(h).c_str());            /// * string_val[1]: height
     tp.raw(8, png.data(), png.size());               /// * string_val[2]: PNG bytes
 
     return tp.buf();
 }
     
 /// Plugin metadata – note: metadata goes in Summary.Value field 9
-U8V scalar_meta() {
+inline U8V scalar_meta() {
     Encoder pd;                                     ///< SummaryMetadata.PluginData
     pd.str(1, "scalars");                           /// * plugin name
         
@@ -75,7 +75,7 @@ U8V scalar_meta() {
     return meta.buf();
 }
 
-U8V text_meta() {
+inline U8V text_meta() {
     Encoder pd;                                     ///< SummaryMetadata.PluginData
     pd.str(1, "text");                              /// * plugin_name
     /// empty content for text
@@ -87,7 +87,7 @@ U8V text_meta() {
     return meta.buf();
 }
 
-U8V image_meta() {
+inline U8V image_meta() {
     /// ImagePluginData content: use FlatBuffers encoding from flatbuf.h
     /// or omit content entirely — TB handles missing content gracefully
     Encoder pd;
@@ -100,7 +100,7 @@ U8V image_meta() {
     return meta.buf();
 }
     
-U8V histo_meta() {
+inline U8V histo_meta() {
     Encoder pd;
     pd.str(1, "histograms");                        /// * plugin_name
     /// empty content for histogram
