@@ -24,30 +24,29 @@ struct AttrValue {
     AttrValue(S32 v)         : type(AV_INT),   dt_type(3), i(v) {}
     AttrValue(BOOL v)        : type(AV_BOOL),  dt_type(10),i(v) {}
     AttrValue(const char *s) : type(AV_STR),   dt_type(7), p(reinterpret_cast<PTR>(s)) {}
-    AttrValue(STR& s)        : AttrValue(s.c_str()) {}
 };
 
 class Node : public Encoder {
 public:    
-    explicit Node(const STR& name, const STR& op) {
+    explicit Node(const char *name, const char *op) {
         str(1, name);
         str(2, op);
     }
-    explicit Node(const STR& name, const STR& op, const STR& input) { // NodeDef
+    explicit Node(const char *name, const char *op, const char *input) { // NodeDef
         str(1, name);
         str(2, op);
         add_input(input);
     }
-    void add_input(const STR& input) {
-        if (input.size() > 0) str(3, input);
+    void add_input(const char *input) {
+        if (strlen(input) > 0) str(3, input);
     }
-    void add_type(const STR& name, int dt_type=1) {  // DT_FLOAT
+    void add_type(const char *name, int dt_type=1) {  // DT_FLOAT
         Encoder dt;
         dt.s32(6, dt_type);
 
         _attr(name, dt.buf());
     }
-    void add_value(const STR& k, const AttrValue& av) {
+    void add_value(const char *k, const AttrValue& av) {
         Encoder v;
         switch (av.type) {
         case AttrValue::AV_FLOAT: v.f32(4, av.f);        break;
@@ -103,12 +102,12 @@ private:
         }
         return v.buf();
     }
-    void _attr(const STR& k, U8V buf) { ///< add attribute
+    void _attr(const char *k, U8V buf) { ///< add attribute
         Encoder at;
         at.str(1, k);
         at.raw(2, buf);
 
-        _dump(at.buf(), k.c_str(), "");
+        _dump(at.buf(), k, "");
         
         raw(5, at.buf());               /// * NodeDef.attr
     }
