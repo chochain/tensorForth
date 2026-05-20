@@ -127,10 +127,6 @@ public:
         _buf.insert(_buf.end(), data.begin(), data.end());
     }
 
-    void str(U32 field, const STR& s) {
-        raw(field, reinterpret_cast<const U8*>(s.c_str()), s.size());
-    }
-    
     void str(U32 field, const char *s) {
         raw(field, (const U8*)s, strlen(s));
     }
