@@ -9,18 +9,6 @@
 namespace t4::tb {
 
 #if T4_DO_TB
-__HOST__ void
-Summary::set_step(int step) { _step = step; }
-
-__HOST__ void
-Summary::scalar(const char *tag, F32 v) {
-    add_scalar(tag, v, _step);
-}
-
-__HOST__ void
-Summary::text(const char *tag, const char *txt) {
-    add_text(tag, txt, _step);
-}
 
 __HOST__ void
 Summary::image(const char *tag, Tensor &t) {
@@ -46,7 +34,7 @@ Summary::image(const char *tag, Tensor &t) {
 }
 
 __HOST__ void
-Summary::image_tile(const char *tag, Tensor &t, int n_per_row) {
+Summary::tile(const char *tag, Tensor &t, int n_per_row) {
     const U32 N    = t.N(), H  = t.H(), W = t.W(), C = t.C();
     const int WT   = n_per_row * W;
     const int HT   = (N + n_per_row - 1) / n_per_row;
