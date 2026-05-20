@@ -446,12 +446,6 @@ NetVM::init() {
          PUSH(O);
          FREE(G));
     ///@}
-#if T4_DO_TB    
-    ///@defgroup TensorBoard SummaryWriter
-    ///@{
-    CODE(".graph",    _tboard(TB_GRAPH));          ///< ( N path_addr len -- )
-    ///@}
-#endif // T4_DO_TB    
     /// ===========================================================================
     ///
     ///defgroup overwrite/extended word
