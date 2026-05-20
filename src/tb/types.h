@@ -20,6 +20,7 @@ typedef int64_t           S64;
 typedef float             F32;
 typedef double            F64;
 
+typedef F32               DU;
 typedef bool              BOOL;
 typedef uintptr_t         PTR;
 typedef std::string       STR;
