@@ -367,11 +367,13 @@ TensorVM::_solv(Tensor &A, Tensor &B) {      /// AX = B
     
     return O;
 }
-
+///
+/// Marshall functions (support async ops)
+///
 __HOST__ void
 TensorVM::_pickle(bool load, bool png) {
     U8  mode  = png ? 0 : (load ? FAM_RO   : FAM_WO);
-    OP  op    = png ? OP_TPNG : (load ? OP_TLOAD : OP_TSAVE);
+    OP  op    = png ? OP_T2PNG : (load ? OP_TLOAD : OP_TSAVE);
     
     if (ss.idx > 1 && IS_OBJ(ss[-2])) { /* OK */ }
     else if (ss.idx > 2 && IS_OBJ(ss[-3])) mode = POPi;
@@ -390,20 +392,37 @@ TensorVM::_pickle(bool load, bool png) {
 
     syscall(op, tos, mode, DU2X(tos), tag);   /// * show to Tensorboard or load/store tensor
 }
-
+///
+/// TensorBoard functions (support async ops)
+///
 __HOST__ void
-TensorVM::_tboard(OP op) {
-    if (op == TB_STEP) 
+TensorVM::_tboard(TB_OP op) {
+    if (op == TB_STEP) { sys.tbx(TB_STEP, 0, POPi); return; }
+
+    IU   len  = POPi, adr = POPi;             ///< tag address to pmem (len not used)
+    char *tag = (char*)MEM(adr);              ///< pointer to string on PAD
+    
     switch (op) {
-    case TB_INIT:
-    case TB_SCALAR:
-    case TB_TEXT:
-    case TB_IMAGE:
-    case TB_TILE:
-    case TB_HISTO: break;
+    case TB_INIT:   sys.tbx(TB_INIT, tag);          break;
+    case TB_SCALAR: sys.tbx(TB_SCALAR, tag, POP()); break;
+    case TB_TEXT: {
+        sys.tbx(TB_TEXT, tag); 
+        IU   len1 = POPi, adr1 = POPi;        ///< text address to pmem 
+        char *txt = (char*)MEM(adr1);         ///< pointer to string on PAD
+        sys.op_fn(txt);
+    } break;
+    case TB_IMAGE: sys.tbx(TB_IMAGE, tag, POP());   break;
+    case TB_TILE:  {
+        IU n_per_row = POPi;
+        sys.tbx(TB_TILE, tag, POP(), n_per_row);
+    } break;
+    case TB_HISTO: {
+        IU n_bucket = POPi;
+        sys.tbx(TB_TILE, tag, POP(), n_bucket);
+    }  break;
 #if T4_DO_NN        
-    case TB_GRAPH:
-#endif // T4_DO_NN        
+    case TB_GRAPH: sys.tbx(TB_GRAPH, tag, POP());   break;
+#endif // T4_DO_NN
     }
 }
 ///
@@ -553,19 +572,20 @@ TensorVM::init() {
     CODE("r/w",       PUSH(FAM_RW));          ///< read-write file
     CODE("save",      _pickle(true, false));  ///< ( T fn len -- T ) save tensor to a file
     CODE("load",      _pickle(false, false)); ///< ( T fn -- T' ) fill a tensor from file
-    ///@}
 #if T4_DO_TB    
+    ///@}
     ///@defgroup TensorBoard SummaryWriter
     ///@{
-    CODE(".event",    _tboard(TB_INIT));      ///< ( path_addr len -- )
+    CODE(".tbinit",   _tboard(TB_INIT));      ///< ( path_addr len -- )  .s" run1"
     CODE(".step",     _tboard(TB_STEP));      ///< ( i -- )
     CODE(".scalar",   _tboard(TB_SCALAR));    ///< ( v tag_addr len -- )
     CODE(".text",     _tboard(TB_TEXT));      ///< ( txt_addr len tag_addr len -- )
     CODE(".image",    _tboard(TB_IMAGE));     ///< ( T tag_addr len -- )
     CODE(".tile",     _tboard(TB_TILE));      ///< ( T n_wide tag_addr len -- )
     CODE(".histo",    _tboard(TB_HISTO));     ///< ( T n_bucket tag_addr len -- )
-    ///@}
+    CODE(".graph",    _tboard(TB_GRAPH));     ///< ( N path_addr len -- )
 #endif // T4_DO_TB    
+    ///@}
     /// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
     ///
     ///@defgroup redefined tensor ops
