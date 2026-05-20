@@ -92,9 +92,6 @@ __HOST__ int
     ///
     if (LOG_COUNT && ((++tick % LOG_COUNT)==0)) { /// * when LOG_COUNT != 0
         INFO("  batch[%d]/epoch, total batch = %ld\n", batch_id, tick);
-        
-        if (tick == LOG_COUNT) cp->tshow(tick, n);
-
         cp->show(n < 3 ? n : 3);
     }
     return 0;
