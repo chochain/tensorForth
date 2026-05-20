@@ -35,13 +35,25 @@ __HOST__ __INLINE__ _setprec setprec(int p)  { return _setprec((U8)p); }
 ///> Forth parameterized manipulators
 ///
 struct _opx {
-    U32 op : 4;   ///> max 16 ops
+    U32 op : 4;   ///> complex object types (max 16 ops)
     U32 m  : 8;   ///> mode - file access, format
     U32 i  : 20;  ///> max 16K
-    DU  n;        ///> F32
+    DU  n;        ///> F32 (tensor object id)
     
     __HOST__ _opx(OP op0, DU n0, U8 m0, int i0=0) : n(n0) {
         op = op0; m = m0; i = i0;
+    }
+};
+///
+///> TensorBoard parameterized manipulators
+///
+struct _tbx {
+    U32 op : 4;   ///> (TensorBoard ops) max 16 ops
+    U32 i  : 28;  ///> max 256M
+    DU  n;        ///> F32 (tensor object id)
+    
+    __HOST__ _tbx(TB_OP op0, DU n0, int i0=0) : n(n0) {
+        op = op0; i = i0;
     }
 };
 ///
@@ -49,6 +61,9 @@ struct _opx {
 ///
 __HOST__ __INLINE__ _opx opx(OP op, DU n=DU0, U8 m=0, int i=0) {
     return _opx(op, n, m, i);
+}
+__HOST__ __INLINE__ _tbx tbx(TB_OP op, DU n=DU0, int i=0) {
+    return _tbx(op, n, i);
 }
 ///
 ///> Ostream class
@@ -82,6 +97,19 @@ __HOST__ __INLINE__ void _debug(GT gt, U8 *vp, U32 sz) {
             case OP_SS:    printf("ss_dump(%d)",  o->i);            break;
             case OP_DATA:  printf("data(%d)",     o->i);            break;
             case OP_FETCH: printf("fetch(%d)",    o->i);            break;
+            }
+        } break;
+        case GT_TB: {
+            _opx *o = (_opx*)d;
+            switch (o->op) {
+            case TB_INIT:  printf("tb_init()");    break;
+            case TB_STEP:  printf("tb_step()");    break;
+            case TB_SCALAR:printf("tb_num()");     break;
+            case TB_TEXT:  printf("tb_text()");    break;
+            case TB_IMAGE: printf("tb_image()");   break;
+            case TB_TILE:  printf("tb_tile()");    break;
+            case TB_HISTO: printf("tb_histo()");   break;
+            case TB_GRAPH: printf("tb_graph()");   break;
             }
         } break;
         default: printf("unknown type %d", gt);
@@ -165,6 +193,11 @@ public:
     __HOST__ Ostream& operator<<(_opx o) {
         DEBUG("  ostr#_write(_opx)\n");
         _write(GT_OPX, (U8*)&o, sizeof(o));
+        return *this;
+    }
+    __HOST__ Ostream& operator<<(_tbx o) {
+        DEBUG("  ostr#_write(_tbx)\n");
+        _write(GT_TBX, (U8*)&o, sizeof(o));
         return *this;
     }
 };
