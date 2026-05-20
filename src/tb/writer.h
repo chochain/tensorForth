@@ -3,29 +3,22 @@
  * @brief  —  TensorBoard summary writer (compatible event file writer)
  */
 #pragma once
-#include "types.h"
-#include "crc32c.h"
-#include "schema.h"
-#include "encoder.h"
-#include "graph.h"
+#include <ctime>          // std::time
+#include <fstream>        // std::ofstream, std::ios
 
-#include <ctime>
-#include <cmath>
-#include <fstream>
-#include <sstream>
-#include <stdexcept>
-#include <algorithm>
-#include <map>
+#include "crc32c.h"       // include types.h
+#include "schema.h"       // include encoder.h, png.h
+#include "graph.h"        // include encoder.h
 
 namespace t4::tb {
 
 // ─── EventWriter ────────────────────────────────────────────────────────────
 class EventWriter {
 public:
-    explicit EventWriter(const const *path)
+    explicit EventWriter(const char *path)
         : _file(path, std::ios::binary | std::ios::trunc) {
         if (!_file.is_open())
-            throw std::runtime_error("Cannot open event file: " + path);
+            throw std::runtime_error((STR("Cannot open event file: ") + path).c_str());
         add_version();
     }
     ~EventWriter() { if (_file.is_open()) _file.close(); }
@@ -81,7 +74,7 @@ public:
     
     // ── Histogram ───────────────────────────────────────────────────────────
     void add_histo(
-        const const *tag,
+        const char *tag,
         const F64V& values,
         int step,
         int num_buckets = 30) {
@@ -113,13 +106,13 @@ public:
 
     void add_histo(
         const char *tag,
-        const DU   *values,
+        const F32  *values,
         const int  numel,
         const int  step,
         const int  n_buckets = 30) {
         F64V dv(numel);
-        for (int i = 0; i < numel; i++) dv[i] = (F64)value[i];
-        add_histo(tag, dv, step, num_buckets);
+        for (int i = 0; i < numel; i++) dv[i] = (F64)values[i];
+        add_histo(tag, dv, step, n_buckets);
     }
     
     // ── Graph ───────────────────────────────────────────────────────────
@@ -132,12 +125,12 @@ public:
     }
 
     void add_graph(S64 step=0) {
-        proto::Encoder graph;
+        Encoder graph;
         for (auto n : _net) {
             graph.raw(1, n.buf());
         }
         
-        proto::Encoder event;
+        Encoder event;
         event.s64(2, step);
         event.raw(4, graph.buf());
         
@@ -145,7 +138,8 @@ public:
     }
 
 protected:
-    std::ofstream _file;
+    std::ofstream            _file;        ///< output stream
+    std::vector<graph::Node> _net;         ///< storage for Graph nodes
 
     void _write(const U8V& buf) {
         U64 len = buf.size();
