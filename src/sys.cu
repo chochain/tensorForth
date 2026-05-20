@@ -10,6 +10,7 @@
 #include "sys.h"                     /// include mmu/tensor.h
 #include "mu/dataset.h"
 #include "nn/model.h"
+#include "tb/summary.h"
 
 namespace t4 {
 using io::AIO;
@@ -60,6 +61,7 @@ System::System(h_istr &i, h_ostr &o, int khz, int verbo)
     mu = MMU::get_mmu();             /// * instantiate memory controller
     io = AIO::get_io(&_trace);       /// * instantiate async IO controler
     db = Debug::get_db(o);           /// * tracing instrumentation
+    tb = new tb::Summary();          /// * TensorBoard streamer (_logdir=/tmp/tb/ten4)
     ///
     ///> setup randomizer
     ///
@@ -123,6 +125,8 @@ System::rand(DU *d, U64 sz, rand_opt o, DU bias, DU scale) {
 ///@{
 #include <iostream>
 #include <string>
+#define NEXT_EVENT(ev) ((io_event*)((char*)&(ev)->data[0] + (ev)->sz))
+
 __HOST__ int
 System::readline(int hold) {                 ///< feed a line into device input stream
     if (hold) return 1;                      ///< do not clear input buffer
@@ -137,13 +141,12 @@ System::flush() {
     io_event *e = (io_event*)_ostr->rdbuf(); /// * managed mem read, auto sync
     while (e->gt != GT_EMPTY) {              /// * walk linked-list
         e = e->gt == GT_OPX                  /// * process composit or simple event
-            ? _process_opx(e) : _process_event(e);
+            ? _process_opx(e)
+            : (e->gt == GT_TBX) ? _process_tb(e) : _process_event(e);
     }
     fout << std::flush;
     _ostr->clear();
 }
-
-#define NEXT_EVENT(n) ((io_event*)((char*)&ev->data[0] + ev->sz))
 
 __HOST__ io_event*
 System::_process_event(io_event *ev) {       ///< process simple IO requests
@@ -159,7 +162,7 @@ System::_process_event(io_event *ev) {       ///< process simple IO requests
     default: ERROR("event type not supported: %d\n", (int)ev->gt); break;
     }
     DEBUG("} System::process(gt=%x)\n", ev->gt);
-    return NEXT_EVENT(e);
+    return NEXT_EVENT(ev);
 }
 
 __HOST__ io_event*
@@ -182,7 +185,7 @@ System::_process_opx(io_event *ev) {         ///< process composit IO types
             ev = NEXT_EVENT(ev);
             char *fn = (char*)ev->data;                     ///> filename
             OP_T2PNG
-                ? io->tpng(t, fn)
+                ? io->t2png(t, fn)
                 : io->tsave(t, fn, o->m);                   /// * persist for NumPy
         }
         else ERROR("%x is not a tensor\n", DU2X(o->n));
@@ -223,18 +226,38 @@ System::_process_opx(io_event *ev) {         ///< process composit IO types
         }
         else ERROR("%x is not a model\n", DU2X(o->n));
     } break;
+    }
+    return NEXT_EVENT(ev);
+}
+
+__HOST__ io_event*
+System::_process_tb(io_event *ev) {                ///< process TensorBoard ops
 #if T4_DO_TB  //==========================================================
-    case TB_STEP:  break;
-    case TB_HIST:  break;
-    case TB_IMAGE: io->tshow(t, fn); break;
-    case TB_SCALAR:
-    case TB_TEXT:
-    case TB_GRAPH: break;
+    void *vp = (void*)ev->data;                    ///< fetch payload in buffered print node
+    io::_opx o = *(io::_opx*)vp;                   ///< make a hardcopy
+    
+    TB_OP tb_op = (TB_OP)o.m;
+    if (tb_op == TB_STEP) { tb->set_step(o.i); return NEXT_EVENT(ev); }
+
+    ev = NEXT_EVENT(ev);
+    const char *tag = (const char*)ev->data;
+
+    switch (tb_op) {
+    case TB_INIT:   tb->init(tag);                              break;
+    case TB_SCALAR: tb->scalar(tag, o.n);                       break;
+    case TB_TEXT: {
+        ev = NEXT_EVENT(ev);
+        tb->text(tag, (char*)ev->data);
+    } break;
+    case TB_IMAGE: tb->image(tag, mu->du2obj(o.n));             break;
+    case TB_TILE:  tb->tile(tag,  mu->du2obj(o.n), o.i);        break;
+    case TB_HISTO: tb->histo(tag, mu->du2obj(o.n), o.i);        break;
+    case TB_GRAPH: tb->graph(tag, (nn::Model&)mu->du2obj(o.n)); break;
 #endif // T4_DO_TB        
 #endif // T4_DO_NN =======================================================
 #endif // T4_DO_OBJ ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
     }
-    return NEXT_EVENT(e);
+    return NEXT_EVENT(ev);
 }
 ///@}
 
