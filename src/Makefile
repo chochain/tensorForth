@@ -30,7 +30,8 @@ T4_EXT := \
 	./src/vm/eforth.h \
 	./src/vm/tenvm.h \
 	./src/vm/netvm.h \
-	./src/nn/model.h
+	./src/nn/model.h \
+	./src/tb/summary.h
 
 T4_OBJS := $(T4_SRCS:%.cu=%.o)
 
@@ -38,10 +39,10 @@ OBJS += $(T4_OBJS)
 
 # Every subdirectory with source files must be described here
 #SUBDIRS := nn vu ld vm io mu  # vu excluded after v4.x
-SUBDIRS := nn ld vm io mu      # stream devel
+SUBDIRS := nn ld vm io mu tb   # stream devel
 
-#T4_LIBS := $(SUBDIRS:%=-Isrc/%)
-T4_LIBS :=
+T4_LIBS := $(SUBDIRS:%=-Isrc/%)
+#T4_LIBS :=
 
 -include src/mu/Makefile
 -include src/io/Makefile
