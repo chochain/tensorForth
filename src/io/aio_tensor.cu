@@ -5,8 +5,9 @@
  *
  * <pre>Copyright (C) 2021- GreenII, this file is distributed under BSD 3-Clause License.</pre>
  */
-#include <iomanip>       /// setprecision
+#include <iomanip>       // setprecision
 #include <fstream>
+#include <cmath>         // max, min
 #include "aio.h"
 
 #if T4_DO_OBJ
@@ -51,7 +52,7 @@ AIO::t2png(Tensor &t, char *tag, int n_per_row) {
             for (int x = 0, c = 0; x < W; x++, c=0) {
                 while (c < 3) {                  /// RGB
                     DU vx = (*v - mean) * scale + 128.5f;
-                    *p++ = (U8)std::min(255, std::max(vx, 0));
+                    *p++ = (U8)MIN(255, MAX(vx, 0));
                     if (c++ < C) v++;            /// advance if more than 1 channel
                 }
             }
@@ -60,7 +61,7 @@ AIO::t2png(Tensor &t, char *tag, int n_per_row) {
     };
 
     U8 px[(HT * H) * WT * 3] = {};               ///< zero-init, so unfilled are black
-    U8 h[H * W * C];                             ///< host block
+    DU h[H * W * C];                             ///< host block
     for (int n = 0; n < N; n++) {
         DU *d = t.slice(n);
         D2H(h, d, sizeof(DU) * H * W * C);
@@ -78,9 +79,9 @@ AIO::t2png(Tensor &t, char *tag, int n_per_row) {
 */    
     /// stride must be WT*3 (full tiled row), not W*3
     if (!stbi_write_png(tag, WT, H * HT, 3, px, WT * 3)) {
-        ERROR("%s write failed\n", tag);
+        ERROR("%s write failed\n", tag); return -1;
     }
-    return this;
+    return 0;
 }
 ///
 /// Tensor IO private methods
