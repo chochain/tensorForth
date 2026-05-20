@@ -10,9 +10,20 @@
 #include <unistd.h>
 #include <cstring>
 #include <string>
-#include "ten4_types.h"
 
+typedef uint8_t           U8;
+typedef uint16_t          U16;
+typedef uint32_t          U32;
+typedef uint64_t          U64;
+typedef int32_t           S32;
+typedef int64_t           S64;
+typedef float             F32;
+typedef double            F64;
+
+typedef bool              BOOL;
+typedef uintptr_t         PTR;
 typedef std::string       STR;
+typedef std::size_t       USZ;
 typedef std::vector<U8>   U8V;
 typedef std::vector<U16>  U16V;
 typedef std::vector<U32>  U32V;
