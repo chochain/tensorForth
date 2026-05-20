@@ -7,10 +7,10 @@
 #include <iostream>
 #include <chrono>
 #include <thread>
-#include "sys.h"                     /// include mmu/tensor.h
+#include "mu/tensor.h"
 #include "mu/dataset.h"
 #include "nn/model.h"
-#include "tb/summary.h"
+#include "sys.h"                     /// include mmu/tensor.h
 
 namespace t4 {
 using io::AIO;
@@ -243,16 +243,16 @@ System::_process_tb(io_event *ev) {                ///< process TensorBoard ops
     const char *tag = (const char*)ev->data;
 
     switch (tb_op) {
-    case TB_INIT:   tb->init(tag);                              break;
-    case TB_SCALAR: tb->scalar(tag, o.n);                       break;
+    case TB_INIT:   tb->init(tag);                                break;
+    case TB_SCALAR: tb->scalar(tag, o.n);                         break;
     case TB_TEXT: {
         ev = NEXT_EVENT(ev);
         tb->text(tag, (char*)ev->data);
     } break;
-    case TB_IMAGE: tb->image(tag, mu->du2obj(o.n));             break;
-    case TB_TILE:  tb->tile(tag,  mu->du2obj(o.n), o.i);        break;
-    case TB_HISTO: tb->histo(tag, mu->du2obj(o.n), o.i);        break;
-    case TB_GRAPH: tb->graph(tag, (nn::Model&)mu->du2obj(o.n)); break;
+    case TB_IMAGE: tb->image(tag, (mu::Tensor&)mu->du2obj(o.n));      break;
+    case TB_TILE:  tb->tile(tag,  (mu::Tensor&)mu->du2obj(o.n), o.i); break;
+    case TB_HISTO: tb->histo(tag, (mu::Tensor&)mu->du2obj(o.n), o.i); break;
+    case TB_GRAPH: tb->graph(tag, (nn::Model&)mu->du2obj(o.n));       break;
 #endif // T4_DO_TB        
 #endif // T4_DO_NN =======================================================
 #endif // T4_DO_OBJ ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
