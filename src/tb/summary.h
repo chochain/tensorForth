@@ -24,29 +24,32 @@ class Summary : public EventWriter {
 #endif // DO_OBJ
     
 public:
-    Summary(const char *subdir="ten4", const char *root = "/tmp/tb")
-        : _rundir((STR(root) + "/" + subdir).c_str()), _step(0), EventWriter(_rundir) {
-        mkdir(root, 0755);            /// * create TensorBoard logdir
-        mkdir(_rundir, 0755);         /// * create Event/Run subdir
+    Summary(const char *root = "/tmp/tb") : _root(root), _step(0) {
+        mkdir(root, 0755);                    /// * create TensorBoard logdir
     }
     
 #if T4_DO_TB
-    __HOST__ void set_step(int step);
-    __HOST__ void scalar(const char *tag, F32 v);
-    __HOST__ void text(const char *tag, const char *txt);
-    __HOST__ void image(const char *tag, Tensor &t);
-    __HOST__ void image_tile(const char *tag, Tensor &t, int n_per_row);
-    __HOST__ void histo(const char *tag, Tensor &t, int n_bucket);
+    __HOST__ void init(const char *run_id) {
+        const char *rundir = (std::string(_root) + "/" + run_id).c_str();
+        mkdir(rundir, 0755);                  /// * create Event/Run subdir
+        setup(_logname(rundir).c_str());
+    }
+    __HOST__ void set_step(int step)                     { _step = step; }
+    __HOST__ void scalar(const char *tag, F32 v)         { add_scalar(tag, v, _step); }
+    __HOST__ void text(const char *tag, const char *txt) { add_text(tag, txt, _step); }
+    __HOST__ void image(const char *tag, T4Base &t);
+    __HOST__ void tile(const char *tag, T4Base &t, int n_per_row);
+    __HOST__ void histo(const char *tag, T4Base &t, int n_bucket);
     __HOST__ void graph(const char *tag, Model &m);
 #endif // T4_DO_TB
 
 private:
-    const char *_rundir;                     ///< root directory for events
+    const char *_root;                       ///< root directory for events
     int         _step;                       ///< current step of event
 
     // ─── Path helper ────────────────────────────────────────────────────────────
     // FIX 3: use hostname + PID in filename as TensorBoard 2.x requires
-    STR _logdir(const STR &dir, int seq = 0) {
+    std::string _logname(const char *dir, int seq = 0) {
         char hostname[256] = "localhost";
         gethostname(hostname, sizeof(hostname));
         hostname[sizeof(hostname)-1] = '\0';
