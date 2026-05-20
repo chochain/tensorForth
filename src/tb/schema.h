@@ -32,7 +32,7 @@ U8V scalar_tensor(F32 v) {
 }
 
 // TensorProto for string (text)
-U8V text_tensor(const const *txt) {
+U8V text_tensor(const char *txt) {
     Encoder tp;               ///< TensorProto
     tp.s32(1, 7);             /// * dtype = DT_STRING (7)
 //        tp.raw(2, {});            /// * tensor_shape = empty (scalar), optional
