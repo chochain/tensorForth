@@ -28,12 +28,14 @@ SRCS := src/ten4.cu
 OBJS := $(SRCS:%.cu=%.o)
 
 # Cutlass library in ${CUTLASS_HOME}/build/tools/library
-CL_LIB  := -L${CUTLASS_HOME}/build/tools/library -lcutlass
+#CL_LIB  := -L${CUTLASS_HOME}/build/tools/library -lcutlass
+CL_LIB  :=
 CL_TOOL := ${CUTLASS_HOME}/tools
-CL_INCS := \
-	${CUTLASS_HOME}/include \
-	${CUTLASS_HOME}/tools/library/include \
-	${CUTLASS_HOME}/tools/util/include
+#CL_INCS := \
+#	${CUTLASS_HOME}/include \
+#	${CUTLASS_HOME}/tools/library/include \
+#	${CUTLASS_HOME}/tools/util/include
+CL_INCS :=
 
 # GL libraries (deprecated v4.x, i.e. separation of View from M and C)
 GL_LIB  :=
