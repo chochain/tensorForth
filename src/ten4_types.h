@@ -6,6 +6,7 @@
  */
 #ifndef __TEN4_TYPES_H_
 #define __TEN4_TYPES_H_
+#pragma  once
 #include <stdio.h>
 #include "ten4_config.h"
 ///
