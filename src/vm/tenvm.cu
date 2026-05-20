@@ -397,31 +397,27 @@ TensorVM::_pickle(bool load, bool png) {
 ///
 __HOST__ void
 TensorVM::_tboard(TB_OP op) {
-    if (op == TB_STEP) { sys.tbx(TB_STEP, 0, POPi); return; }
+    if (op == TB_STEP) { sys.tbx(op, 0, POPi); return; }
 
     IU   len  = POPi, adr = POPi;             ///< tag address to pmem (len not used)
     char *tag = (char*)MEM(adr);              ///< pointer to string on PAD
-    
+
     switch (op) {
-    case TB_INIT:   sys.tbx(TB_INIT, tag);          break;
-    case TB_SCALAR: sys.tbx(TB_SCALAR, tag, POP()); break;
-    case TB_TEXT: {
-        sys.tbx(TB_TEXT, tag); 
-        IU   len1 = POPi, adr1 = POPi;        ///< text address to pmem 
-        char *txt = (char*)MEM(adr1);         ///< pointer to string on PAD
-        sys.op_fn(txt);
+    case TB_INIT:
+    case TB_TEXT:   sys.tbx(op, tag);        break;
+    case TB_SCALAR: sys.tbx(op, tag, POP()); break;
+    case TB_IMAGE:  {
+        DU t = POP(); sys.tbx(op, tag, t);
+        if (IS_OBJ(t)) { mmu.mark_free(t); state = HOLD; }
     } break;
-    case TB_IMAGE: sys.tbx(TB_IMAGE, tag, POP());   break;
-    case TB_TILE:  {
-        IU n_per_row = POPi;
-        sys.tbx(TB_TILE, tag, POP(), n_per_row);
+    case TB_TILE: 
+    case TB_HISTO:  {
+        IU n = POPi; DU t = POP();
+        sys.tbx(op, tag, t, n);
+        if (IS_OBJ(t)) { mmu.mark_free(t); state = HOLD; }
     } break;
-    case TB_HISTO: {
-        IU n_bucket = POPi;
-        sys.tbx(TB_TILE, tag, POP(), n_bucket);
-    }  break;
 #if T4_DO_NN        
-    case TB_GRAPH: sys.tbx(TB_GRAPH, tag, POP());   break;
+    case TB_GRAPH: sys.tbx(op, tag, tos);    break;   /// * non-destructive
 #endif // T4_DO_NN
     }
 }
@@ -579,11 +575,11 @@ TensorVM::init() {
     CODE(".tboard",   _tboard(TB_INIT));      ///< ( path_addr len -- )  .s" run1"
     CODE(".step",     _tboard(TB_STEP));      ///< ( i -- )
     CODE(".scalar",   _tboard(TB_SCALAR));    ///< ( v tag_addr len -- )
-    CODE(".text",     _tboard(TB_TEXT));      ///< ( txt_addr len tag_addr len -- )
+    CODE(".text",     _tboard(TB_TEXT));      ///< ( txt_addr len -- )
     CODE(".image",    _tboard(TB_IMAGE));     ///< ( T tag_addr len -- )
     CODE(".tile",     _tboard(TB_TILE));      ///< ( T n_wide tag_addr len -- )
     CODE(".histo",    _tboard(TB_HISTO));     ///< ( T n_bucket tag_addr len -- )
-    CODE(".graph",    _tboard(TB_GRAPH));     ///< ( N path_addr len -- )
+    CODE(".graph",    _tboard(TB_GRAPH));     ///< ( N path_addr len -- N ) non-destructive
 #endif // T4_DO_TB    
     ///@}
     /// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
