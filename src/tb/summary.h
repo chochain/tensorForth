@@ -7,6 +7,8 @@
 #ifndef __TB_SUMMARY_H
 #define __TB_SUMMARY_H
 #pragma once
+#include <sstream>                    // ostringstream
+#include <sys/stat.h>                 // mkdir (POSIX)
 #include "writer.h"
 
 namespace t4::nn { class Model;  }    /// forward declare
@@ -23,9 +25,9 @@ class Summary : public EventWriter {
     
 public:
     Summary(const char *subdir="ten4", const char *root = "/tmp/tb")
-        : _rundir(STR(root + "/" + subdir).c_str()), _step(0), EventWriter(_rundir) {
+        : _rundir((STR(root) + "/" + subdir).c_str()), _step(0), EventWriter(_rundir) {
         mkdir(root, 0755);            /// * create TensorBoard logdir
-        mkdir(_run_dir, 0755);        /// * create Event/Run subdir
+        mkdir(_rundir, 0755);         /// * create Event/Run subdir
     }
     
 #if T4_DO_TB
