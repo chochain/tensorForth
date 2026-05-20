@@ -27,9 +27,10 @@ class System : public OnHost {                  ///< singleton class
     __HOST__ ~System();
     
 public:
-    mu::MMU  *mu;                               ///< memory management unit
-    io::AIO  *io;                               ///< HOST IO manager
-    Debug    *db;                               ///< tracer (i.e. JTAG)
+    mu::MMU      *mu;                           ///< memory management unit
+    io::AIO      *io;                           ///< HOST IO manager
+    tb::Summary  *tb;                           ///< TensorBoard SummaryWriter
+    Debug        *db;                           ///< tracer (i.e. JTAG)
     ///
     /// singleton System controller
     ///
@@ -54,6 +55,7 @@ public:
     
     __HOST__ io_event  *_process_event(io_event *ev);
     __HOST__ io_event  *_process_opx(io_event *ev);
+    __HOST__ io_event  *_process_tb(io_event *ev);
     ///
     /// debuging controls
     ///
@@ -68,6 +70,11 @@ public:
         *_ostr << io::opx(op, n, m, i);
     }
     __HOST__  void op_fn(char *fname) { *_ostr << fname; } ///< print filename
+    
+    __HOST__  void tbx(TB_OP op, char *tag, DU n=DU0, int i=0) { ///< tensorboard operator
+        *_ostr << io::tbx(op, n, i);
+        *_ostr << tag;
+    }
     ///
     /// input stream handler
     ///
