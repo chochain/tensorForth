@@ -15,13 +15,22 @@ namespace t4::tb {
 // ─── EventWriter ────────────────────────────────────────────────────────────
 class EventWriter {
 public:
-    explicit EventWriter(const char *path)
-        : _file(path, std::ios::binary | std::ios::trunc) {
-        if (!_file.is_open())
-            throw std::runtime_error((STR("Cannot open event file: ") + path).c_str());
+    ~EventWriter() { teardown(); }
+
+    void setup(const char *fname) {
+        teardown();       
+        
+        _file = new std::ofstream(fname, std::ios::binary | std::ios::trunc);
+        if (!_file || !_file->is_open()) {
+            const char *err = (std::string("Cannot open event file: ") + fname).c_str();
+            throw std::runtime_error(err);
+        }
         add_version();
     }
-    ~EventWriter() { if (_file.is_open()) _file.close(); }
+
+    void teardown() {
+        if (_file && _file->is_open()) _file->close(); 
+    }
 
     void add_version() {
         Encoder event;
@@ -138,19 +147,19 @@ public:
     }
 
 protected:
-    std::ofstream            _file;        ///< output stream
+    std::ofstream            *_file;       ///< output stream
     std::vector<graph::Node> _net;         ///< storage for Graph nodes
 
     void _write(const U8V& buf) {
         U64 len = buf.size();
         U32 lc = crc32c::mask(crc32c::value(reinterpret_cast<const U8*>(&len), 8));
         U32 dc = crc32c::mask(crc32c::value(buf.data(), buf.size()));
-        _file.write(reinterpret_cast<const char*>(&len),       8);
-        _file.write(reinterpret_cast<const char*>(&lc),        4);
-        _file.write(reinterpret_cast<const char*>(buf.data()), buf.size());
-        _file.write(reinterpret_cast<const char*>(&dc),        4);
+        _file->write(reinterpret_cast<const char*>(&len),       8);
+        _file->write(reinterpret_cast<const char*>(&lc),        4);
+        _file->write(reinterpret_cast<const char*>(buf.data()), buf.size());
+        _file->write(reinterpret_cast<const char*>(&dc),        4);
         
-        _file.flush();
+        _file->flush();
     }
 
     U8V _summary(const U8V& buf, int step) {
