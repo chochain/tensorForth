@@ -210,7 +210,8 @@ typedef enum {
     GT_STR,
     GT_OBJ,
     GT_FMT,                           ///< output formatting
-    GT_OPX                            ///< memory or IO data type
+    GT_OPX,                           ///< complex object ops
+    GT_TBX                            ///< tensorboard ops
 } GT;
 ///@}
 ///>name General Opocode Type for IO Event
@@ -230,8 +231,12 @@ typedef enum {
     OP_FETCH,                         ///< dataset retrieve
     OP_NSAVE,                         ///< network model presistance
     OP_NLOAD,                         ///< network modek restore
-    /// tensorboard ops
-    TB_INIT,                          ///< initialize SummaryWriter
+} OP;
+///@}
+///>name TensorBoard Opocode Type
+///@{
+typedef enum {
+    TB_INIT = 0,                      ///< initialize SummaryWriter
     TB_STEP,                          ///< set current step
     TB_SCALAR,                        ///< scalar event
     TB_TEXT,                          ///< text event
@@ -239,7 +244,7 @@ typedef enum {
     TB_TILE,                          ///< image in tile (10 wide)
     TB_HISTO,                         ///< histogram event
     TB_GRAPH                          ///< graph event
-} OP;
+} TB_OP;
 ///@}
 ///>name File Access Mode for IO Event
 ///@{
