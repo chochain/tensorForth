@@ -82,7 +82,7 @@ private:
     /// tensor IO
     ///
     __HOST__ void   _pickle(bool show, bool load);           ///< save/load a tensor to/from a file
-    __HOST__ void   _tboard(OP op);                          ///< save/load a tensor to/from a file
+    __HOST__ void   _tboard(TB_OP op);                       ///< save/load a tensor to/from a file
 };
 ///@}
 
