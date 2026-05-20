@@ -10,6 +10,7 @@
 
 #include <curand_kernel.h>
 #include "debug.h"                              ///< include mmu/mmu.h, io/aio.h
+#include "tb/summary.h"
 
 namespace t4 {
 ///
