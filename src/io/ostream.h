@@ -190,14 +190,14 @@ public:
         _write(GT_STR, (U8*)s, len);
         return *this;
     }
-    __HOST__ Ostream& operator<<(_opx o) {
+    __HOST__ Ostream& operator<<(_opx x) {
         DEBUG("  ostr#_write(_opx)\n");
-        _write(GT_OPX, (U8*)&o, sizeof(o));
+        _write(GT_OPX, (U8*)&x, sizeof(x));
         return *this;
     }
-    __HOST__ Ostream& operator<<(_tbx o) {
+    __HOST__ Ostream& operator<<(_tbx x) {
         DEBUG("  ostr#_write(_tbx)\n");
-        _write(GT_TBX, (U8*)&o, sizeof(o));
+        _write(GT_TBX, (U8*)&x, sizeof(x));
         return *this;
     }
 };
