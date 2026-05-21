@@ -28,11 +28,11 @@ public:
     Summary(const char *root = "/tmp/tb", const char *run_id="run1")
         : _root(root), _run_id(run_id), _step(0) {
         mkdir(root, 0755);            /// * create TensorBoard logdir
-        init(run_id);
+        init();
     }
     
 #if T4_DO_TB
-    __HOST__ void init(const char *run_id);
+    __HOST__ void init(const char *run_id=NULL);
     __HOST__ void set_step(int step)                     { _step = step; }
     __HOST__ void scalar(const char *tag, F32 v)         { add_scalar(tag, v, _step); }
     __HOST__ void text(const char *tag, const char *txt) { add_text(tag, txt, _step); }
@@ -49,7 +49,7 @@ private:
 
     // ─── Path helper ────────────────────────────────────────────────────────────
     // FIX 3: use hostname + PID in filename as TensorBoard 2.x requires
-    std::string _logname(const char *dir, int seq = 0) {
+    std::string _logname(std::string &dir, int seq = 0) {
         char hostname[256] = "localhost";
         gethostname(hostname, sizeof(hostname));
         hostname[sizeof(hostname)-1] = '\0';
