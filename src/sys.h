@@ -39,10 +39,6 @@ public:
     static __HOST__ System *get_sys();          ///< singleton getter
     static __HOST__ void   free_sys();          ///< singleton destructor
     ///
-    /// TensorBoard support
-    ///
-    static __HOST__ void   *setup_tb(const char *tb_logdir, const char *tb_run_id);
-    ///
     /// static System timing interfaces
     ///
     static __HOST__ DU   clock();
@@ -52,6 +48,10 @@ public:
     ///
     static __HOST__ void rand(DU d, rand_opt o);
     static __HOST__ void rand(DU *d, U64 sz, rand_opt o, DU bias=DU0, DU scale=DU1);
+    ///
+    /// TensorBoard support
+    ///
+    __HOST__ void      setup_tb(const char *tb_logdir, const char *tb_run_id);
     ///
     /// System functions
     ///
