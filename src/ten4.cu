@@ -143,7 +143,7 @@ TensorForth::TensorForth(int device, int verbose) {
 }
 
 __HOST__ void
-TensorForth::setup() {
+TensorForth::setup(const char *tb_logdir, const char *tb_run_id) {
     for (int i=0; i < T4_VM_COUNT; i++) {
         VM_Handle *h = &vm_pool[i];
         GPU_ERR(cudaStreamCreate(&h->st));          /// * allocate stream
@@ -151,6 +151,12 @@ TensorForth::setup() {
         GPU_ERR(cudaEventCreate(&h->t1));
     }
     _vm_init(sys, vm_pool);
+
+    if (!tb_logdir || !tb_run_id) return;
+
+    std::cout << "\\ TensorBoard logdir="  << tb_logdir << ", run_id=" << tb_run_id
+              << std::endl;
+    sys->setup_tb(tb_logdir, tb_run_id);
 }
 ///
 /// collect VM states into vmst_cnt
@@ -272,7 +278,12 @@ int main(int argc, char**argv) {
     std::cout << T4_APP_NAME << std::endl;
 
     t4::TensorForth *f = new t4::TensorForth(opt.device_id, opt.verbose);
-    f->setup();
+    f->setup(
+#if T4_DO_TB
+        opt.tb_logdir ? opt.tb_logdir : "/u01/tb",
+        opt.tb_run_id ? opt.tb_run_id : "run1"
+#endif // T4_DO_TB 
+    );
     f->main_loop();
     f->teardown();
 
