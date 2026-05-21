@@ -20,8 +20,8 @@ struct Options {
     float beta            = 0.0;
     int   nbatch          = 1;
     int   iteration       = 1;
-    const char *tb_logdir = "default";      /// * default value
-    const char *tb_run_id = "run1";         /// * default value
+    const char *tb_logdir = NULL;
+    const char *tb_run_id = NULL;
     ///
     /// command line option parser
     ///
@@ -43,18 +43,18 @@ struct Options {
         char opt;
         while ((opt = getopt(argc, argv, "hv:d:y:x:k:n:i:a:b:t::r::")) != -1) {
             switch (opt) {
-            case 'h': help      = true;                        break;
-            case 'v': verbose   = atoi(optarg);                break;
-            case 'd': device_id = atoi(optarg);                break;
-            case 'y': problem_size[0] = atoi(optarg);          break;
-            case 'x': problem_size[1] = atoi(optarg);          break;
-            case 'k': problem_size[2] = atoi(optarg);          break;
-            case 'n': nbatch    = atoi(optarg);                break;
-            case 'i': iteration = atoi(optarg);                break;
-            case 'a': alpha     = atof(optarg);                break;
-            case 'b': beta      = atof(optarg);                break;
-            case 't': tb_logdir = optarg ? optarg : "/u01/tb"; break;
-            case 'r': tb_run_id = optarg ? optarg : "run1";    break;
+            case 'h': help      = true;                 break;
+            case 'v': verbose   = atoi(optarg);         break;
+            case 'd': device_id = atoi(optarg);         break;
+            case 'y': problem_size[0] = atoi(optarg);   break;
+            case 'x': problem_size[1] = atoi(optarg);   break;
+            case 'k': problem_size[2] = atoi(optarg);   break;
+            case 'n': nbatch    = atoi(optarg);         break;
+            case 'i': iteration = atoi(optarg);         break;
+            case 'a': alpha     = atof(optarg);         break;
+            case 'b': beta      = atof(optarg);         break;
+            case 't': if (optarg) tb_logdir = optarg;   break;
+            case 'r': if (optarg) tb_run_id = optarg;   break;
             default:
                 print_usage(std::cerr);
                 exit(EXIT_FAILURE);
