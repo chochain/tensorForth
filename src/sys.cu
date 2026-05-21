@@ -87,11 +87,6 @@ System::get_sys(h_istr &i, h_ostr &o, int khz, int verbo) {
 }
 __HOST__ System *System::get_sys()  { return _sys; }
 __HOST__ void    System::free_sys() { if (_sys) delete _sys; }
-
-__HOST__
-System::setup_tb(const char *tb_logdir, const char *tb_run_id) {
-    tb = new tb::Summary(tb_logdir, tb_run_id);     /// * TensorBoard streamer (_logdir=/u01/tb/)
-}
 ///
 ///@name cross platform timing support
 ///
@@ -123,6 +118,13 @@ System::rand(DU *d, U64 sz, rand_opt o, DU bias, DU scale) {
     /// rand states are dependent, cannot run parallel with multi-blocks
     k_rand<<<1, T4_RAND_SZ>>>(d, sz, bias, scale, o);
     GPU_CHK();
+}
+///@}
+///@name TensorBoard support
+///@{
+__HOST__ void
+System::setup_tb(const char *tb_logdir, const char *tb_run_id) {
+    tb = new tb::Summary(tb_logdir, tb_run_id);     /// * TensorBoard streamer (_logdir=/u01/tb/)
 }
 ///@}
 ///@name event loop handler
