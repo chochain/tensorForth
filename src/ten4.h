@@ -38,7 +38,7 @@ public:
     TensorForth(int device=0, int verbose=0);
     ~TensorForth();
 
-    __HOST__ void  setup();
+    __HOST__ void  setup(const char *tb_logdir=NULL, const char *tb_run_id=NULL);
     __HOST__ int   more_job();               ///< tally fetch state of VMs
     __HOST__ void  run();                    ///< run (and profile) VMs once
     __HOST__ void  profile();                ///< profile VM elapse
