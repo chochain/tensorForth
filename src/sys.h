@@ -39,6 +39,10 @@ public:
     static __HOST__ System *get_sys();          ///< singleton getter
     static __HOST__ void   free_sys();          ///< singleton destructor
     ///
+    /// TensorBoard support
+    ///
+    static __HOST__ void   *setup_tb(const char *tb_logdir, const char *tb_run_id);
+    ///
     /// static System timing interfaces
     ///
     static __HOST__ DU   clock();
@@ -73,8 +77,9 @@ public:
     __HOST__  void op_fn(char *fname) { *_ostr << fname; } ///< print filename
     
     __HOST__  void tbx(TB_OP op, char *tag, DU n=DU0, int i=0) { ///< tensorboard operator
+        INFO("sys#tbx(op=%d, tag=%s, n=%g, i=%d\n", op, tag, n, i);
         *_ostr << io::tbx(op, n, i);
-        *_ostr << tag;
+        if (tag) *_ostr << tag;
     }
     ///
     /// input stream handler
