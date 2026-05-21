@@ -3,7 +3,7 @@
 */
 #ifndef __OPT_H_
 #define __OPT_H_
-
+#pragma once
 #include <getopt.h>            ///< GNU option parser
 
 typedef uint32_t U32;
@@ -20,6 +20,8 @@ struct Options {
     float beta            = 0.0;
     int   nbatch          = 1;
     int   iteration       = 1;
+    const char *tb_logdir = "default";      /// * default value
+    const char *tb_run_id = "run1";         /// * default value
     ///
     /// command line option parser
     ///
@@ -39,18 +41,20 @@ struct Options {
         };
         */
         char opt;
-        while ((opt = getopt(argc, argv, "hv:d:y:x:k:n:i:a:b:")) != -1) {
+        while ((opt = getopt(argc, argv, "hv:d:y:x:k:n:i:a:b:t::r::")) != -1) {
             switch (opt) {
-            case 'h': help      = true;         break;
-            case 'v': verbose   = atoi(optarg); break;
-            case 'd': device_id = atoi(optarg); break;
-            case 'y': problem_size[0] = atoi(optarg); break;
-            case 'x': problem_size[1] = atoi(optarg); break;
-            case 'k': problem_size[2] = atoi(optarg); break;
-            case 'n': nbatch    = atoi(optarg); break;
-            case 'i': iteration = atoi(optarg); break;
-            case 'a': alpha     = atof(optarg); break;
-            case 'b': beta      = atof(optarg); break;
+            case 'h': help      = true;                        break;
+            case 'v': verbose   = atoi(optarg);                break;
+            case 'd': device_id = atoi(optarg);                break;
+            case 'y': problem_size[0] = atoi(optarg);          break;
+            case 'x': problem_size[1] = atoi(optarg);          break;
+            case 'k': problem_size[2] = atoi(optarg);          break;
+            case 'n': nbatch    = atoi(optarg);                break;
+            case 'i': iteration = atoi(optarg);                break;
+            case 'a': alpha     = atof(optarg);                break;
+            case 'b': beta      = atof(optarg);                break;
+            case 't': tb_logdir = optarg ? optarg : "/u01/tb"; break;
+            case 'r': tb_run_id = optarg ? optarg : "run1";    break;
             default:
                 print_usage(std::cerr);
                 exit(EXIT_FAILURE);
@@ -185,6 +189,8 @@ struct Options {
             << "  -h        list all GPUs and this usage statement.\n"
             << "  -d <int>  GPU device id\n"
             << "  -v <int>  Verbosity level, 0: default, 1: mmu debug, 2: more details\n\n"
+            << "  -t logdir TensorBoard logdir (default=/tmp/tb/)\n"
+            << "  -r run_id TensorBoard run_id (default=run1)\n"
             << "Examples:\n"
             << "$ ./tests/ten4 -h    ;# display help\n"
             << "$ ./tests/ten4 -d 0  ;# use device 0\n"
