@@ -18,7 +18,7 @@ public:
     ~EventWriter() { teardown(); }
 
     void setup(const char *fname) {
-        teardown();       
+        INFO("EventWriter#setup fname=%s\n", fname);
         
         _file = new std::ofstream(fname, std::ios::binary | std::ios::trunc);
         if (!_file || !_file->is_open()) {
@@ -147,8 +147,8 @@ public:
     }
 
 protected:
-    std::ofstream            *_file;       ///< output stream
-    std::vector<graph::Node> _net;         ///< storage for Graph nodes
+    std::ofstream            *_file = NULL; ///< output stream
+    std::vector<graph::Node> _net;          ///< storage for Graph nodes
 
     void _write(const U8V& buf) {
         U64 len = buf.size();
