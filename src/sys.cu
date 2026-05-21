@@ -61,7 +61,6 @@ System::System(h_istr &i, h_ostr &o, int khz, int verbo)
     mu = MMU::get_mmu();             /// * instantiate memory controller
     io = AIO::get_io(&_trace);       /// * instantiate async IO controler
     db = Debug::get_db(o);           /// * tracing instrumentation
-    tb = new tb::Summary();          /// * TensorBoard streamer (_logdir=/tmp/tb/ten4)
     ///
     ///> setup randomizer
     ///
@@ -88,6 +87,11 @@ System::get_sys(h_istr &i, h_ostr &o, int khz, int verbo) {
 }
 __HOST__ System *System::get_sys()  { return _sys; }
 __HOST__ void    System::free_sys() { if (_sys) delete _sys; }
+
+__HOST__
+System::setup_tb(const char *tb_logdir, const char *tb_run_id) {
+    tb = new tb::Summary(tb_logdir, tb_run_id);     /// * TensorBoard streamer (_logdir=/u01/tb/)
+}
 ///
 ///@name cross platform timing support
 ///
@@ -233,26 +237,24 @@ System::_process_opx(io_event *ev) {         ///< process composit IO types
 __HOST__ io_event*
 System::_process_tb(io_event *ev) {                ///< process TensorBoard ops
 #if T4_DO_TB  //==========================================================
-    void *vp = (void*)ev->data;                    ///< fetch payload in buffered print node
-    io::_opx o = *(io::_opx*)vp;                   ///< make a hardcopy
+    void *vp   = (void*)ev->data;                 ///< fetch payload in buffered print node
+    io::_tbx x = *(io::_tbx*)vp;                  ///< make a hardcopy
     
-    TB_OP tb_op = (TB_OP)o.m;
-    if (tb_op == TB_STEP) { tb->set_step(o.i); return NEXT_EVENT(ev); }
-
     ev = NEXT_EVENT(ev);
-    const char *tag = (const char*)ev->data;
+    if (x.op == TB_STEP) { tb->set_step(x.i); return ev; }
 
-    switch (tb_op) {
-    case TB_INIT:   tb->init(tag);                                break;
-    case TB_SCALAR: tb->scalar(tag, o.n);                         break;
+    const char *tag = (const char*)ev->data;      ///< retrieve tag for Tensorboard
+    switch (x.op) {
+    case TB_INIT:   tb->init(tag);   /* tag as logname */            break;
+    case TB_SCALAR: tb->scalar(tag, x.n);                            break;
     case TB_TEXT: {
         ev = NEXT_EVENT(ev);
         tb->text(tag, (char*)ev->data);
     } break;
-    case TB_IMAGE: tb->image(tag, (mu::Tensor&)mu->du2obj(o.n));      break;
-    case TB_TILE:  tb->tile(tag,  (mu::Tensor&)mu->du2obj(o.n), o.i); break;
-    case TB_HISTO: tb->histo(tag, (mu::Tensor&)mu->du2obj(o.n), o.i); break;
-    case TB_GRAPH: tb->graph(tag, (nn::Model&)mu->du2obj(o.n));       break;
+    case TB_IMAGE: tb->image(tag, (mu::Tensor&)mu->du2obj(x.n));      break;
+    case TB_TILE:  tb->tile(tag,  (mu::Tensor&)mu->du2obj(x.n), x.i); break;
+    case TB_HISTO: tb->histo(tag, (mu::Tensor&)mu->du2obj(x.n), x.i); break;
+    case TB_GRAPH: tb->graph(tag, (nn::Model&)mu->du2obj(x.n));       break;
 #endif // T4_DO_TB        
 #endif // T4_DO_NN =======================================================
 #endif // T4_DO_OBJ ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
