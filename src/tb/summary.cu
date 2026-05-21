@@ -14,13 +14,13 @@ namespace t4::tb {
 
 __HOST__ void
 Summary::init(const char *run_id) {
-    if (_run_id && strcmp(run_id, _run_id) != 0) {
+    if (run_id && strcmp(run_id, _run_id) != 0) {
         teardown();
+        _run_id = run_id;
     }
-    _run_id = run_id;
-    const char *rundir  = (std::string(_root) + "/" + run_id).c_str();
-    mkdir(rundir, 0755);                  /// * create Event/Run subdir
+    std::string rundir  = std::string(_root) + "/" + _run_id;
     std::string logname = _logname(rundir);
+    mkdir(rundir.c_str(), 0755);                  /// * create Event/Run subdir
     EventWriter::setup(logname.c_str());
 }
 
