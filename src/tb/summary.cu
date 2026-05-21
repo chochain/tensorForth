@@ -13,6 +13,18 @@ namespace t4::tb {
 #if T4_DO_TB
 
 __HOST__ void
+Summary::init(const char *run_id) {
+    if (_run_id && strcmp(run_id, _run_id) != 0) {
+        teardown();
+    }
+    _run_id = run_id;
+    const char *rundir  = (std::string(_root) + "/" + run_id).c_str();
+    mkdir(rundir, 0755);                  /// * create Event/Run subdir
+    std::string logname = _logname(rundir);
+    EventWriter::setup(logname.c_str());
+}
+
+__HOST__ void
 Summary::image(const char *tag, Tensor &t) {
     const U32 W = t.W(), H = t.H(), C = t.C();
     const DU  mean = t.avg(), scale = (t.std() - 0.5f) * 128.0f;  /// 95%
