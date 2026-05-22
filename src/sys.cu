@@ -187,7 +187,7 @@ System::_process_opx(io_event *ev) {         ///< process composit IO types
     case OP_T2PNG:
     case OP_TSAVE: {
         mu::Tensor &t = (mu::Tensor&)mu->du2obj(o->n);
-        if (t.is_tensor()) {
+        if (t.is_tensor() || t.is_dataset()) {
             ev = NEXT_EVENT(ev);
             char *fn = (char*)ev->data;                     ///> filename
             OP_T2PNG
