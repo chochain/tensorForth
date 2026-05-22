@@ -1,18 +1,18 @@
 .( ## MNIST convolution to TensorBoard output ## ) cr
-clock constant t0                   \ starting time (benchmark)
-variable dsz                        \ number of corpus sample
+value t0                            \ starting time (benchmark)
+value dsz                           \ number of corpus sample
 variable hit 0 hit !                \ create var for hit counter, and zero it
-variable ni 0 ni !
 variable lox                        \ create var for epoch latest loss
 0.001 constant lr                   \ init learning rate (for Adam)
 : stat                              \ statistics sent to tensorboard
-  dup .tbstep                                          \ set tensorboard step
-  clock t0 - 1000 / dup s" train/time" .scalar         \ time (in sec)
-  hit @ dsz @ /     dup s" train/acc"  .scalar 0 hit ! \ accuracy
-  lox @             dup s" train/loss" .scalar         \ loss
-  lr                dup s" train/lr"   .scalar         \ learn rate
+  dup .tbstep                                     \ set tensorboard step
+  clock t0 - 1000 / dup s" train/time" .scalar    \ time (in sec)
+  hit @ dsz /       dup s" train/acc"  .scalar    \ accuracy
+  lox @             dup s" train/loss" .scalar    \ loss
+  lr                dup s" train/lr"   .scalar    \ learn rate
   s" MNIST step=%d, time=%g, acc=%g loss=%g learn_rate=%g" sprintf \ text substitude
-  s" progress/text" .text ;
+  s" progress/text" .text
+  0 hit ! ;                         \ reset hit count
 
 .( ### our network model )
 100 28 28 1 nn.model                \ create a model (100 per mini-batch of 28x28x1 img)
@@ -24,7 +24,7 @@ constant md0                        \ keep as a constant
 .( ### setup dataset )
 md0                                 \ put NN model on TOS
 batchsize dataset mnist_train       \ create MNIST dataset with model batch size
-dup nn.len dsz !                    \ get dataset total number of samples
+dup nn.len to dsz                   \ get dataset total number of samples
 constant ds0                        \ keep dataset in a constant
 
 .( ### create our CNN framework )
@@ -43,10 +43,11 @@ constant ds0                        \ keep dataset in a constant
     ds0 rewind                      \ rewind entire dataset 
   loop ;
 
-.( ### start training )
 0 trace                             \ reduce trace verbosity
+.( ### start training )
 ds0                                 \ put dataset at TOS
-dup 10 s" corpus/image" .tile       \ create sample image, 10-wide, on tensorboard
+dup 10 s" corpus/image" .tile       \ create sample corpus image, 10-wide, on tensorboard
+clock to t0                         \ get starting time
 20 cnn                              \ execute multiple (20) epoches
 drop                                \ drop dataset
 
