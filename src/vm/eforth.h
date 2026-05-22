@@ -145,6 +145,7 @@ private:
     ///
     __HOST__ void _ss_dump();                  ///< display current stack contents
     __HOST__ void _print(io_op o, DU v=DU0);   ///< proxy to sys.dot
+    __HOST__ void _sprintf();                  ///> ( n1 [n2, .. ] addr u -- )
     
 #if (T4_DO_OBJ && T4_DO_NN)    
     ///

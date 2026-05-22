@@ -413,6 +413,7 @@ ForthVM::init() {
 //    CODE("included",                                      /// include external file
 //         POP();                                           /// string length, not used
 //         sys.load(MEM(POP())));                           /// include external file
+    CODE("sprintf", _sprintf());                            /// ( n1 [ n2, .. ] addr u -- addr' u' )
     CODE("clock", DU t = System::clock(); SCALAR(t); PUSH(t));
     CODE("bye",   state = STOP);                            /// atomicExch(&state, STOP)
     ///@}
@@ -563,6 +564,53 @@ ForthVM::_print(io_op o, DU v) {
         state = HOLD;                    ///< forced flush (memory safe)
     }
 #endif // T4_DO_OBJ
+}
+///
+///  String substitude similar to printf
+///    %d - integer
+///    %f - float
+///    %x - hex
+///    %s - string
+///    %p - pointer (memory block)
+///
+#include <string>
+#include <sstream>
+#include <iomanip>
+__HOST__ void
+ForthVM::_sprintf() {                      ///> ( n1 [n2, .. ] addr u -- )
+    std::string       buf;
+    std::stringstream n;
+    auto t2s = [&](char c) {               ///< template to string
+        n.str("");                         /// * clear stream
+        switch (c) {
+        case 'd': n << UINT(POP());                break;
+        case 'g':
+        case 'f': n << (DU)POP();                  break;
+        case 'x': n << "0x" << std::hex << UINT(POP()); break;
+        case 's': POP(); n << (char*)MEM(POP());   break;  /// also handles raw stream
+        case 'p':
+            n << "p " << UINT(POP());
+            n << ' '  << UINT(POP());              break;
+        default : n << c << '?';                   break;
+        }
+        return n.str();
+    };
+    
+    POPi;                                  ///< strlen, not used
+    buf.append((char*)MEM(POP()));         /// copy string on stack
+    for (size_t i=buf.find_last_of('%');   ///> find % from back
+         i != std::string::npos;           /// * until not found
+         i=buf.find_last_of('%',i?i-1:0)) {
+        if (i && buf[i-1]=='%') {          /// * double %%
+            buf.replace(--i,1,"");         /// * drop one %
+        }
+        else buf.replace(i, 2, t2s(buf[i+1]));
+    }
+    IU h0  = HERE;
+    DU len = add_str(buf.c_str());
+    PUSH(h0); PUSH(len);
+    
+    mmu.set_here(h0);
 }
         
 #if (T4_DO_OBJ && T4_DO_NN)
