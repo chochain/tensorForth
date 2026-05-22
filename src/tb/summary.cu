@@ -72,11 +72,11 @@ Summary::tile(const char *tag, Tensor &t, int n_per_row) {
     };
 
     U8V px((HT * H) * WT * 3);                  ///< zero-init, so unfilled are black
-    DU  h[H * W * C];                           ///< host block
+    DU  h[t.numel];                             ///< host block (watch out, heap space)
+    D2H(h, t.data, sizeof(DU) * t.numel);       /// * copy to host
     for (int n = 0; n < N; n++) {
-        DU *d = t.slice(n);                     ///< device block
-        D2H(h, d, sizeof(DU) * H * W * C);      /// * copy to host
-        tile(px, h, n);                         /// * fill tile by tile
+        DU *hx = &h[n * H * W * C];
+        tile(px, hx, n);                         /// * fill tile by tile
     }
     add_image(tag, WT, H * HT, px, _step);
 }
