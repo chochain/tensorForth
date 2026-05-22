@@ -405,8 +405,12 @@ TensorVM::_tboard(TB_OP op) {
     };
 
     switch (op) {
-    case TB_INIT:                             /// * TB_STEP handled by lambda
-    case TB_TEXT:   sys.tbx(op, tag);        break;
+    case TB_INIT: sys.tbx(op, tag);          break; /// * TB_STEP handled by lambda
+    case TB_TEXT: {
+        sys.tbx(op, tag);
+        IU len1  = POPi, adr1 = POPi;               ///< txt address to pmem (len not used)
+        sys.op_fn((char*)MEM(adr1));                ///< work only in a word (PAD is shared)
+    } break;
     case TB_SCALAR: sys.tbx(op, tag, POP()); break;
     case TB_IMAGE:  {
         DU t = POP();
