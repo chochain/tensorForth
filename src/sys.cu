@@ -251,7 +251,9 @@ System::_process_tb(io_event *ev) {                ///< process TensorBoard ops
     case TB_SCALAR: tb->scalar(tag, x.n);                            break;
     case TB_TEXT: {
         ev = NEXT_EVENT(ev);
-        tb->text(tag, (char*)ev->data);
+        const char *txt = (const char*)ev->data;  ///< get a hardcopy
+        INFO("  tag=%s, txt=%s\n", tag, txt);
+        tb->text(tag, txt);
     } break;
     case TB_IMAGE: tb->image(tag, (mu::Tensor&)mu->du2obj(x.n));      break;
     case TB_TILE:  tb->tile(tag,  (mu::Tensor&)mu->du2obj(x.n), x.i); break;
