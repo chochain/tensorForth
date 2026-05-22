@@ -15,8 +15,8 @@ using ld::Corpus;
 ///
 /// for init debug LOG_COUNT 1 with sample=3 is good
 ///
-#define LOG_COUNT 300          /**< debug dump frequency */
-//#define LOG_COUNT 1          /**< debug dump frequency */
+#define LOG_COUNT 1          /**< debug dump frequency */
+//#define LOG_COUNT 300          /**< debug dump frequency */
 ///
 /// initial dataset setup
 /// init flow:
@@ -90,7 +90,7 @@ __HOST__ int
     ///
     /// debug tracing/preview
     ///
-    if (LOG_COUNT && ((++tick % LOG_COUNT)==0)) { /// * when LOG_COUNT != 0
+    if (LOG_COUNT > 1 && (++tick % LOG_COUNT)==0) {
         INFO("  batch[%d]/epoch, total batch = %ld\n", batch_id, tick);
         cp->show(n < 3 ? n : 3);
     }
@@ -99,8 +99,9 @@ __HOST__ int
 
 __HOST__ void
 Dataset::_load(U8 *cp_data, U8 *cp_label, int n, DU mean, DU std) {
-    const DU  M  = mean * 256, S = std * 256;     ///< default mean=0, std=1
-    const U64 NX = HWC() * n;                     ///< partial mini-batch
+    const DU  M  = mean * 256.0f;                ///< default mean=0
+    const DU  S  = std  * 256.0f;                ///< default std=1
+    const U64 NX = HWC() * n;                    ///< partial mini-batch
     ///
     /// Allocate managed memory if needed
     /// data and label buffer from Managed memory instead of TLSF
@@ -126,6 +127,7 @@ Dataset::_load(U8 *cp_data, U8 *cp_label, int n, DU mean, DU std) {
     for (U32 i = 0; i < n; i++, cp_label++) {     ///< n < N (partial mini-batch)
         *t++ = (U32)*cp_label;                    /// * copy label to device memory
     }
+    
 #if MM_DEBUG    
     INFO("dataset.data=>");
     _dump(data, H(), W(), C());
