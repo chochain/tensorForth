@@ -49,10 +49,11 @@ Summary::image(const char *tag, Tensor &t) {
 
 __HOST__ void
 Summary::tile(const char *tag, Tensor &t, int n_per_row) {
-    const U32 N    = t.N(), H  = t.H(), W = t.W(), C = t.C();
-    const int WT   = n_per_row * W;
-    const int HT   = (N + n_per_row - 1) / n_per_row;
-    const DU mean = t.avg(), scale = (t.std() - 0.5f) * 128.0f;  /// 95%
+    const U32  N     = t.N(), H  = t.H(), W = t.W(), C = t.C();
+    const int  WT    = n_per_row * W;
+    const int  HT    = (N + n_per_row - 1) / n_per_row;
+    const DU   mean  = t.avg();
+    const DU   scale = (64.0f / t.std());        /// 2 std = 95%
 
     auto tile = [&](U8V &px, DU *v, int idx) {
         int ht = idx / n_per_row, wt = idx % n_per_row;
@@ -60,8 +61,9 @@ Summary::tile(const char *tag, Tensor &t, int n_per_row) {
         for (int y = 0; y < H; y++) {
             for (int x = 0, c = 0; x < W; x++, c=0) {
                 while (c < 3) {                  /// RGB
-                    DU vx = (*v - mean) * scale + 128.5f;
-                    *p++ = (U8)MIN(255, MAX(vx, 0));
+                    DU vx = (*v - mean) * scale + 128.0f;
+                    *p++ = (x==0 && y==0)
+                        ? 128 : static_cast<U8>(MIN(255, MAX(vx, 0)));
                     if (c++ < C) v++;            /// advance if more than 1 channel
                 }
             }
@@ -76,7 +78,7 @@ Summary::tile(const char *tag, Tensor &t, int n_per_row) {
         D2H(h, d, sizeof(DU) * H * W * C);      /// * copy to host
         tile(px, h, n);                         /// * fill tile by tile
     }
-    add_image(tag, W, H, px, _step);
+    add_image(tag, WT, H * HT, px, _step);
 }
 
 __HOST__ void
