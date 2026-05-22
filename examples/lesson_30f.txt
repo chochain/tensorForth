@@ -6,11 +6,13 @@ variable ni 0 ni !
 variable lox                        \ create var for epoch latest loss
 0.001 constant lr                   \ init learning rate (for Adam)
 : stat                              \ statistics sent to tensorboard
-  .tbstep                                        \ set step
-  clock t0 - 1000 /     s" train/time" .scalar   \ time (in sec)
-  hit @ dsz @ / 0 hit ! s" train/acc"  .scalar   \ accuracy
-  lox @                 s" train/loss" .scalar   \ loss
-  lr                    s" train/lr"   .scalar ; \ learn rate
+  dup .tbstep                                          \ set tensorboard step
+  clock t0 - 1000 / dup s" train/time" .scalar         \ time (in sec)
+  hit @ dsz @ /     dup s" train/acc"  .scalar 0 hit ! \ accuracy
+  lox @             dup s" train/loss" .scalar         \ loss
+  lr                dup s" train/lr"   .scalar         \ learn rate
+  s" MNIST step=%d, time=%g, acc=%g loss=%g learn_rate=%g" sprintf \ text substitude
+  s" progress/text" .text ;
 
 .( ### our network model )
 100 28 28 1 nn.model                \ create a model (100 per mini-batch of 28x28x1 img)
