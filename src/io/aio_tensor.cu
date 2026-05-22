@@ -40,10 +40,11 @@ AIO::tsave(Tensor &t, char *fname, U8 mode) {
 
 __HOST__ int
 AIO::t2png(Tensor &t, char *tag, int n_per_row) {
-    const int N   = t.N(), H = t.H(), W = t.W(), C = t.C();
-    const int WT  = n_per_row * W;
-    const int HT  = (N + n_per_row - 1) / n_per_row;
-    const DU  mean= t.avg(), scale = (t.std() - 0.5f) * 128.0f;
+    const int N     = t.N(), H = t.H(), W = t.W(), C = t.C();
+    const int WT    = n_per_row * W;
+    const int HT    = (N + n_per_row - 1) / n_per_row;
+    const DU  mean  = t.avg();
+    const DU  scale = 64.0f / t.std();           ///< 2 std = 95%
 
     auto tile = [&](U8 *px, DU *v, int idx) {
         int ht = idx / n_per_row, wt = idx % n_per_row;
@@ -64,19 +65,9 @@ AIO::t2png(Tensor &t, char *tag, int n_per_row) {
     DU h[H * W * C];                             ///< host block
     for (int n = 0; n < N; n++) {
         DU *d = t.slice(n);
-        D2H(h, d, sizeof(DU) * H * W * C);
+        D2H(h, d, sizeof(DU) * H * W * C);       ///< copy from device to host
         tile(px, h, n);
     }
-/*
-    auto fname = [](std::string url) {
-        if (!url.empty() && url.back() == '/') url.pop_back();
-        int idx = url.find_last_of('/');
-        return (idx != std::string::npos) ? url.substr(idx + 1) : url;
-    };
-    std::string url = ds_name;
-    std::stringstream ss; ss << fname(url) << "_" << id << ".png";
-    std::string tag = ss.str();
-*/    
     /// stride must be WT*3 (full tiled row), not W*3
     if (!stbi_write_png(tag, WT, H * HT, 3, px, WT * 3)) {
         ERROR("%s write failed\n", tag); return -1;
