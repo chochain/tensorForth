@@ -22,7 +22,7 @@ class System : public OnHost {                  ///< singleton class
     io::Istream  *_istr;                        ///< managed input stream
     io::Ostream  *_ostr;                        ///< managed output stream
     int          _trace;
-    char         _pad[T4_STRBUF_SZ];            ///< terminal input buffer
+    char         _tib[T4_STRBUF_SZ];            ///< terminal input buffer
     
     __HOST__ System(h_istr &i, h_ostr &o, int khz, int verbo);
     __HOST__ ~System();
@@ -88,19 +88,19 @@ public:
         char c; *_istr >> c; return c;
     }
     __HOST__  char *scan(char delim)  {
-        _istr->get_idiom(_pad, delim); return _pad;       ///< scan input stream for a given char
+        _istr->get_idiom(_tib, delim); return _tib;        ///< scan input stream for a given char
     }
     __HOST__  char *fetch() {                              ///< fetch next idiom
-        return (*_istr >> _pad) ? _pad : NULL;
+        return (*_istr >> _tib) ? _tib : NULL;
     }
     __HOST__  void clrbuf() { _istr->clear(); }
     ///
     /// output methods
     ///
     __HOST__  void spaces(int n) {                         ///< show spaces
-        for (int i = 0; i < n; i++) _pad[i] = ' ';
-        _pad[n] = '\0';
-        *_ostr << _pad;
+        for (int i = 0; i < n; i++) _tib[i] = ' ';
+        _tib[n] = '\0';
+        *_ostr << _tib;
     }
     __HOST__  void dot(io_op o, DU v=DU0) {                ///< print literals
         switch (o) {
