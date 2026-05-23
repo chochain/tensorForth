@@ -25,7 +25,12 @@ Summary::init(const char *run_id) {
 }
 
 __HOST__ void
-Summary::image(const char *tag, Tensor &t) {
+Summary::image(const char *tag, T4Base &b) {
+    if (!(b.is_tensor() || b.is_dataset())) {
+        ERROR("summary#image requires tensor or dataset (b.ttype=%d)\n", b.ttype);
+        return;
+    }
+    Tensor &t = (Tensor&)b;
     const U32 W = t.W(), H = t.H(), C = t.C();
     const DU  mean = t.avg(), scale = (t.std() - 0.5f) * 128.0f;  /// 95%
     U8V px(W * H * 3);
@@ -48,7 +53,12 @@ Summary::image(const char *tag, Tensor &t) {
 }
 
 __HOST__ void
-Summary::tile(const char *tag, Tensor &t, int n_per_row) {
+Summary::tile(const char *tag, T4Base &b, int n_per_row) {
+    if (!(b.is_tensor() || b.is_dataset())) {
+        ERROR("summary#tile requires tensor or dataset (b.ttype=%d)\n", b.ttype);
+        return;
+    }
+    Tensor &t = (Tensor&)b;
     const U32  N     = t.N(), H  = t.H(), W = t.W(), C = t.C();
     const int  WT    = n_per_row * W;
     const int  HT    = (N + n_per_row - 1) / n_per_row;
@@ -82,12 +92,24 @@ Summary::tile(const char *tag, Tensor &t, int n_per_row) {
 }
 
 __HOST__ void
-Summary::histo(const char *tag, Tensor &t, int n_bucket) {
-    add_histo(tag, t.data, t.numel, _step, n_bucket);
+Summary::histo(const char *tag, T4Base &b, int n_bucket) {
+    if (!b.is_tensor()) {
+        ERROR("summary#histo requires tensor (b.ttype=%d)\n", b.ttype);
+        return;
+    }
+    Tensor &t = (Tensor&)b;
+    DU tx[t.numel];
+    D2H(tx, t.data, sizeof(DU) * t.numel);
+    add_histo(tag, tx, t.numel, _step, n_bucket);
 }
 
 __HOST__ void
-Summary::graph(const char *tag, Model &m) {
+Summary::graph(const char *tag, T4Base &b) {
+    if (!b.is_model()) {
+        ERROR("summary#graph requires model (b.ttype=%d)\n", b.ttype);
+        return;
+    }
+    Model &m = (Model&)b;
     init_graph();
     for (int i = 0; i < m.numel; i++) {
         Tensor &in = m[i], &out = m[i + 1];
