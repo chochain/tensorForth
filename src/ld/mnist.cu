@@ -30,6 +30,8 @@ Corpus *Mnist::init(bool trace) {
         return v;
     };
     if (_open()) return NULL;
+    data  = NULL;
+    label = NULL;
 
     U32 X0, X1, N1=0;
     if (t_in) {
