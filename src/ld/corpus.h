@@ -35,11 +35,11 @@ struct Corpus {
             U32   xxx  : 31; ///< reserved
         };
     };
-    U8 *data  = NULL;        ///< source data pointer
-    U8 *label = NULL;        ///< label data pointer
+    U8 *data;                ///< source data pointer
+    U8 *label;               ///< label data pointer
     
     Corpus(const char *data_name, const char *label_name)
-        : ds_name(data_name), tg_name(label_name), N(0) {}
+        : ds_name(data_name), tg_name(label_name), N(0), data(NULL), label(NULL) {}
     
     ~Corpus() {
         if (!data) return;
