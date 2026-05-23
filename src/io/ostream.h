@@ -40,7 +40,7 @@ struct _opx {
     U32 i  : 20;  ///> max 16K
     DU  n;        ///> F32 (tensor object id)
     
-    __HOST__ _opx(OP op0, DU n0, U8 m0, int i0=0) : n(n0) {
+    __HOST__ _opx(OP op0, DU n0=DU0, U8 m0=0, int i0=0) : n(n0) {
         op = op0; m = m0; i = i0;
     }
 };
@@ -52,7 +52,7 @@ struct _tbx {
     U32 i  : 28;  ///> max 256M
     DU  n;        ///> F32 (tensor object id)
     
-    __HOST__ _tbx(TB_OP op0, DU n0, int i0=0) : n(n0) {
+    __HOST__ _tbx(TB_OP op0, DU n0=DU0, int i0=0) : n(n0) {
         op = op0; i = i0;
     }
 };
