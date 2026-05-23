@@ -336,6 +336,7 @@ MMU::dataset(U32 batch_sz) {                 /// * Note: data block is not alloc
     ds->init(0, T4_DATASET, 4);
     ds->N()      = batch_sz;                 /// * other members filled in host mode
     ds->batch_id = 0;                        /// * setup control flag
+    ds->label    = NULL;
     MM_DB("} mmu#dataset => D:%x\n", OBJ2X(*ds));
     return *ds;
 }
