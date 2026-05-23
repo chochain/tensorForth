@@ -44,16 +44,19 @@ class Model : public T4Base {
     using Dataset = mu::Dataset;
 
     MMU    *_mmu;                ///< memory controller
-    int    _nlayer  = 0;         ///< max number of layers
-    int    _hit     = 0;         ///< hit counter
-    int    _iter    = 0;         ///< iteration counter (for Adam)
-    int    *_trace  = NULL;      ///< trace level
-    Tensor *_hot    = NULL;      ///< cached dataset one-hot vector
-    Tensor *_loss   = NULL;      ///< cached dataset loss vector
+    int    _nlayer;              ///< max number of layers
+    int    _hit;                 ///< hit counter
+    int    _iter;                ///< iteration counter (for Adam)
+    int    *_trace;              ///< trace level
+    Tensor *_hot;                ///< cached dataset one-hot vector
+    Tensor *_loss;               ///< cached dataset loss vector
     
 public:
     int    epoch    = 0;         ///< TODO: for learning rate decay
     DU     max_norm = DU0;       ///< gradient clipping
+
+    __HOST__ Model()                                     ///< init for mallco
+        : T4Base(), _mmu(NULL),  _hot(NULL), _loss(NULL) {}
     ///
     /// @name Derivertive ops
     /// @{

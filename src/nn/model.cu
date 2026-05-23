@@ -32,7 +32,11 @@ Model::init(MMU *mmu, int nsz, DU *store, int *trace) {
     
     _mmu     = mmu;                         /// * cached memory controller
     _nlayer  = nsz;                         /// * max number of layers
+    _hit     = 0;                           /// * zero hit count
+    _iter    = 0;                           /// * zero iteration count
     _trace   = trace;                       /// * tracing flag
+    _hot     = NULL;                        /// * init for mpool.malloc
+    _loss    = NULL;                        /// * init for mpool.malloc
 
     epoch    = 0;
     max_norm = DU0;                         /// * > DU0 to clip norm (more stable)
