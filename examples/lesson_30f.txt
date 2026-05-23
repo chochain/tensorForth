@@ -1,9 +1,9 @@
 .( ## MNIST convolution to TensorBoard output ## ) cr
-value t0                            \ starting time (benchmark)
-value dsz                           \ number of corpus sample
+0 value t0                          \ starting time (benchmark)
+1 value dsz                         \ number of corpus sample
 variable hit 0 hit !                \ create var for hit counter, and zero it
 variable lox                        \ create var for epoch latest loss
-0.001 constant lr                   \ init learning rate (for Adam)
+0.001 value lr                      \ init learning rate (for Adam)
 : stat                              \ statistics sent to tensorboard
   dup .tbstep                                     \ set tensorboard step
   clock t0 - 1000 / dup s" train/time" .scalar    \ time (in sec)
@@ -21,8 +21,9 @@ flatten 100 linear relu             \ a linear layer with relu (100 channels)
 10 linear softmax                   \ 2nd linear layer (10 channels) and softmax output
 constant md0                        \ keep as a constant
 
+1 trace
 .( ### setup dataset )
-md0                                 \ put NN model on TOS
+md0 network                         \ put NN model on TOS
 batchsize dataset mnist_train       \ create MNIST dataset with model batch size
 dup nn.len to dsz                   \ get dataset total number of samples
 constant ds0                        \ keep dataset in a constant
@@ -35,15 +36,22 @@ constant ds0                        \ keep dataset in a constant
     backprop                        \ neural network back propegation
     lr nn.adam                      \ train with Adam Gradient Descent (b1=0.9,b2=0.999)
   next ;                            \ fetch next mini-batch from return stack (till done)
+
+: histo ( N -- N )                  \ capture histogram to tensorboard
+  0 nn.w 30 s" nn/conv0" .histo         \ convolution filter (30-buckets)
+  2 nn.w 30 s" nn/relu2" .histo         \ activation 
+  4 nn.w 30 s" nn/lin4"  .histo         \ 1st linear filter
+  6 nn.w 30 s" nn/lin6"  .histo ;       \ 2nd linear filter
   
 : cnn ( N ds n -- N' ) 1+ 0         \ run multiple [1..n] epochs 
   do
     epoch r@ stat                   \ run one epoch, display statistics
+    histo                           \ send histograms to tensorboard
     lr 0.9 * [to] lr                \ decay learning rate
     ds0 rewind                      \ rewind entire dataset 
   loop ;
 
-0 trace                             \ reduce trace verbosity
+0 trace
 .( ### start training )
 ds0                                 \ put dataset at TOS
 dup 10 s" corpus/image" .tile       \ create sample corpus image, 10-wide, on tensorboard
