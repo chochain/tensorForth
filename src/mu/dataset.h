@@ -18,12 +18,12 @@ struct Dataset : public Tensor {
     int   setsize  =  0;             ///< total number of samples
     int   batch_id =  0;             ///< current batch id
     int   done     =  1;             ///< completed
-    U32   *label   = NULL;           ///< label data on host
+    U32   *label;                    ///< label data on host
     ///
     /// constructors (for host testing mostly)
     ///
     __HOST__ Dataset(U32 n, U32 h, U32 w, U32 c)
-        : Tensor(n, h, w, c) {
+        : Tensor(n, h, w, c), label(NULL) {
         MM_ALLOC(&label, n * sizeof(U32));
         TRACE("Dataset[%d,%d,%d,%d] created\n", n, h, w, c);
     }
