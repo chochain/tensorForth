@@ -39,12 +39,12 @@ struct T4Base : public OnHost {
             DU    xparm;     ///< float parameter
         };
     };
-    DU  *data = NULL;        ///< managed memory block pointer (Note: instead of from TLSF)
+    DU  *data;               ///< managed memory block pointer (Note: instead of from TLSF)
     ///
     /// class contructors
     ///
     __HOST__ T4Base() :
-        numel(0), rank(0) {}
+        numel(0), rank(0), data(NULL) {}
     __HOST__ T4Base(U64 sz) :
         numel(sz), rank(1) {
         H_ALLOC((void**)&data, (size_t)numel * sizeof(DU));
@@ -54,7 +54,7 @@ struct T4Base : public OnHost {
         H_ALLOC((void**)&data, (size_t)numel * sizeof(DU));
     }
     __HOST__ T4Base(U32 n, U32 h, U32 w, U32 c) :
-        numel((U64)n * h * w * c), rank(4) {
+        numel((U64)n * h * w * c), rank(4), data(NULL) {
         H_ALLOC((void**)&data, (size_t)numel * sizeof(DU));
     }
     __HOST__ ~T4Base() {
