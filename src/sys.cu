@@ -174,63 +174,63 @@ System::_process_event(io_event *ev) {       ///< process simple IO requests
 __HOST__ io_event*
 System::_process_opx(io_event *ev) {         ///< process composit IO types
     void *vp = (void*)ev->data;              ///< fetch payload in buffered print node
-    io::_opx *o = (io::_opx*)vp;
-    DEBUG("  _opx(OP=%d, m=%d, i=%d, n=0x%08x=%g)\n", o->op, o->m, o->i, DU2X(o->n), o->n);
-    switch (o->op) {
-    case OP_FLUSH: fout << std::flush;                   break;
-    case OP_DICT:  db->dict_dump();                      break;
-    case OP_WORDS: db->words();                          break;
-    case OP_SEE:   db->see(o->i, o->m);                  break;
-    case OP_DUMP:  db->mem_dump(UINT(o->n), o->i);       break;
-    case OP_SS:    db->ss_dump(o->n, o->i, o->m);        break;
+    io::_opx o = *((io::_opx*)vp);           ///< capture a hardcopy
+    DEBUG("  _opx(OP=%d, m=%d, i=%d, n=0x%08x=%g)\n", o.op, o.m, o.i, DU2X(o.n), o.n);
+    switch (o.op) {
+    case OP_FLUSH: fout << std::flush;           break;
+    case OP_DICT:  db->dict_dump();              break;
+    case OP_WORDS: db->words();                  break;
+    case OP_SEE:   db->see(o.i, o.m);            break;
+    case OP_DUMP:  db->mem_dump(UINT(o.n), o.i); break;
+    case OP_SS:    db->ss_dump(o.n, o.i, o.m);   break;
 #if T4_DO_OBJ // vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
     case OP_T2PNG:
     case OP_TSAVE: {
-        mu::Tensor &t = (mu::Tensor&)mu->du2obj(o->n);
+        mu::Tensor &t = (mu::Tensor&)mu->du2obj(o.n);
         if (t.is_tensor() || t.is_dataset()) {
             ev = NEXT_EVENT(ev);
             char *fn = (char*)ev->data;                     ///> filename
             OP_T2PNG
                 ? io->t2png(t, fn)
-                : io->tsave(t, fn, o->m);                   /// * persist for NumPy
+                : io->tsave(t, fn, o.m);                    /// * persist for NumPy
         }
-        else ERROR("%x is not a tensor\n", DU2X(o->n));
+        else ERROR("%x is not a tensor\n", DU2X(o.n));
     } break;
 #if T4_DO_NN  //==========================================================
     case OP_DATA: {
-        mu::Dataset &ds = (mu::Dataset&)mu->du2obj(o->n);
+        mu::Dataset &ds = (mu::Dataset&)mu->du2obj(o.n);
         if (ds.is_dataset()) {                              /// * indeed a dataset?
             ev = NEXT_EVENT(ev);                            ///< get dataset repo name
             char *ds_nm = (char*)ev->data;                  /// * dataset name
             ds.fetch(ds_nm, 0, _trace);                     /// * fetch first batch
         }
-        else ERROR("%x is not a dataset\n", DU2X(o->n));
+        else ERROR("%x is not a dataset\n", DU2X(o.n));
     } break;
     case OP_FETCH: {
-        mu::Dataset &ds = (mu::Dataset&)mu->du2obj(o->n);
+        mu::Dataset &ds = (mu::Dataset&)mu->du2obj(o.n);
         if (ds.is_dataset()) {
-            ds.fetch(NULL, o->m, _trace);                   /// * fetch/rewind dataset batch
+            ds.fetch(NULL, o.m, _trace);                    /// * fetch/rewind dataset batch
         }
-        else ERROR("%x is not a dataset\n", DU2X(o->n));
+        else ERROR("%x is not a dataset\n", DU2X(o.n));
     } break;  
     case OP_NSAVE: {
-        nn::Model &m = (nn::Model&)mu->du2obj(o->n);
+        nn::Model &m = (nn::Model&)mu->du2obj(o.n);
         if (m.is_model()) {
             ev = NEXT_EVENT(ev);                            ///< get dataset repo name
             char *fn = (char*)ev->data;                     ///< filename
-            io->nsave(m, fn, o->m);                         /// * o->m FAM mode
+            io->nsave(m, fn, o.m);                          /// * o->m FAM mode
         }
-        else ERROR("%x is not a model\n", DU2X(o->n));
+        else ERROR("%x is not a model\n", DU2X(o.n));
     } break;
     case OP_NLOAD: {
-        nn::Model &m = (nn::Model&)mu->du2obj(o->n);
+        nn::Model &m = (nn::Model&)mu->du2obj(o.n);
         if (m.is_model()) {
             ev = NEXT_EVENT(ev);
             _istr->clear();
             char *fn = (char*)ev->data;                    ///< filename
-            io->nload(m, fn, o->m, _istr->rdbuf());        /// * fetch into rdbuf
+            io->nload(m, fn, o.m, _istr->rdbuf());         /// * fetch into rdbuf
         }
-        else ERROR("%x is not a model\n", DU2X(o->n));
+        else ERROR("%x is not a model\n", DU2X(o.n));
     } break;
     }
     return NEXT_EVENT(ev);
