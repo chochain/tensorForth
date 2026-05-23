@@ -255,10 +255,10 @@ System::_process_tb(io_event *ev) {                ///< process TensorBoard ops
         INFO("  tag=%s, txt=%s\n", tag, txt);
         tb->text(tag, txt);
     } break;
-    case TB_IMAGE: tb->image(tag, (mu::Tensor&)mu->du2obj(x.n));      break;
-    case TB_TILE:  tb->tile(tag,  (mu::Tensor&)mu->du2obj(x.n), x.i); break;
-    case TB_HISTO: tb->histo(tag, (mu::Tensor&)mu->du2obj(x.n), x.i); break;
-    case TB_GRAPH: tb->graph(tag, (nn::Model&)mu->du2obj(x.n));       break;
+    case TB_IMAGE: tb->image(tag, mu->du2obj(x.n));      break;
+    case TB_TILE:  tb->tile(tag,  mu->du2obj(x.n), x.i); break;
+    case TB_HISTO: tb->histo(tag, mu->du2obj(x.n), x.i); break;
+    case TB_GRAPH: tb->graph(tag, mu->du2obj(x.n));      break;
 #endif // T4_DO_TB        
 #endif // T4_DO_NN =======================================================
 #endif // T4_DO_OBJ ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
