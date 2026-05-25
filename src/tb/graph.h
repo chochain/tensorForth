@@ -27,16 +27,19 @@ struct AttrValue {
 };
 
 class Node : public Encoder {
-public:    
-    explicit Node(const char *name, const char *op) {
+public:
+    explicit Node() {}
+    explicit Node(const char *name, const char *op)                    { init(name, op);        }
+    explicit Node(const char *name, const char *op, const char *input) { init(name, op, input); }
+    
+    void init(const char *name, const char *op) {
         str(1, name);
         str(2, op);
-    }
-    explicit Node(const char *name, const char *op, const char *input) { // NodeDef
-        str(1, name);
-        str(2, op);
+    };
+    void init(const char *name, const char *op, const char *input) {
+        init(name, op);
         add_input(input);
-    }
+    };
     void add_input(const char *input) {
         if (strlen(input) > 0) str(3, input);
     }
