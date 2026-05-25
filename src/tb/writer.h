@@ -18,7 +18,7 @@ public:
     ~EventWriter() { teardown(); }
 
     void setup(const char *fname) {
-        INFO("EventWriter#setup fname=%s\n", fname);
+        INFO("  EventWriter#setup fname=%s\n", fname);
         
         _file = new std::ofstream(fname, std::ios::binary | std::ios::trunc);
         if (!_file || !_file->is_open()) {
