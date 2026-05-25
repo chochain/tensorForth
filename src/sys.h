@@ -77,7 +77,6 @@ public:
     __HOST__  void op_fn(char *fname) { *_ostr << fname; } ///< print filename
     
     __HOST__  void tbx(TB_OP op, char *tag, DU n=DU0, int i=0) { ///< tensorboard operator
-        INFO("sys#tbx(op=%d, tag=%s, n=%g, i=%d\n", op, tag, n, i);
         *_ostr << io::tbx(op, n, i);
         if (tag) *_ostr << tag;
     }
