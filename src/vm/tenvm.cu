@@ -403,9 +403,11 @@ TensorVM::_tboard(TB_OP op) {
     auto mark = [&](DU t) {
         if (IS_OBJ(t)) { mmu.mark_free(t); state = HOLD; }
     };
-
+    ///
+    /// * Note, TB_STEP, TB_GRAPH are handled in lambda directly
+    ///
     switch (op) {
-    case TB_INIT: sys.tbx(op, tag);          break; /// * TB_STEP handled by lambda
+    case TB_INIT: sys.tbx(op, tag);          break;
     case TB_TEXT: {
         sys.tbx(op, tag);
         IU len1  = POPi, adr1 = POPi;               ///< txt address to pmem (len not used)
@@ -423,9 +425,6 @@ TensorVM::_tboard(TB_OP op) {
         sys.tbx(op, tag, t, n);
         mark(t);                              /// * hold Tensor before destroy
     } break;
-#if T4_DO_NN        
-    case TB_GRAPH: sys.tbx(op, tag, tos);    break;   /// * non-destructive
-#endif // T4_DO_NN
     }
 }
 ///
@@ -579,14 +578,16 @@ TensorVM::init() {
     ///@}
     ///@defgroup TensorBoard SummaryWriter
     ///@{
-    CODE(".tbinit",   _tboard(TB_INIT));          ///< ( path_addr len -- )  .s" run1"
+    CODE(".tbinit",   _tboard(TB_INIT));      ///< ( path_addr len -- )  .s" run1"
     CODE(".tbstep",   sys.tbx(TB_STEP, 0, 0, POPi)); ///< ( i -- )
-    CODE(".scalar",   _tboard(TB_SCALAR));        ///< ( v tag_addr len -- )
-    CODE(".text",     _tboard(TB_TEXT));          ///< ( txt_addr len -- )
-    CODE(".image",    _tboard(TB_IMAGE));         ///< ( T tag_addr len -- )
-    CODE(".tile",     _tboard(TB_TILE));          ///< ( T n_wide tag_addr len -- )
-    CODE(".histo",    _tboard(TB_HISTO));         ///< ( T n_bucket tag_addr len -- )
-    CODE(".graph",    _tboard(TB_GRAPH));         ///< ( N path_addr len -- N ) non-destructive
+    CODE(".scalar",   _tboard(TB_SCALAR));    ///< ( v tag_addr len -- )
+    CODE(".text",     _tboard(TB_TEXT));      ///< ( txt_addr len -- )
+    CODE(".image",    _tboard(TB_IMAGE));     ///< ( T tag_addr len -- )
+    CODE(".tile",     _tboard(TB_TILE));      ///< ( T n_wide tag_addr len -- )
+    CODE(".histo",    _tboard(TB_HISTO));     ///< ( T n_bucket tag_addr len -- )
+#if T4_DO_NN    
+    CODE(".graph",    sys.tbx(TB_GRAPH, (char*)"", tos));   ///< ( N -- N ) non-destructive
+#endif // T4_DO_NN    
 #endif // T4_DO_TB    
     ///@}
     /// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
