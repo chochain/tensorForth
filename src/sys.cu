@@ -243,7 +243,8 @@ System::_process_tb(io_event *ev) {                ///< process TensorBoard ops
     io::_tbx x = *(io::_tbx*)vp;                  ///< make a hardcopy
     
     ev = NEXT_EVENT(ev);
-    if (x.op == TB_STEP) { tb->set_step(x.i); return ev; }
+    if (x.op == TB_STEP)  { tb->set_step(x.i);          return ev; }
+    if (x.op == TB_GRAPH) { tb->graph(mu->du2obj(x.n)); return ev; }
 
     const char *tag = (const char*)ev->data;      ///< retrieve tag for Tensorboard
     switch (x.op) {
@@ -258,7 +259,6 @@ System::_process_tb(io_event *ev) {                ///< process TensorBoard ops
     case TB_IMAGE: tb->image(tag, mu->du2obj(x.n));      break;
     case TB_TILE:  tb->tile(tag,  mu->du2obj(x.n), x.i); break;
     case TB_HISTO: tb->histo(tag, mu->du2obj(x.n), x.i); break;
-    case TB_GRAPH: tb->graph(tag, mu->du2obj(x.n));      break;
 #endif // T4_DO_TB        
 #endif // T4_DO_NN =======================================================
 #endif // T4_DO_OBJ ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
