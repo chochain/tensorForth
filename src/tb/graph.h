@@ -110,7 +110,7 @@ private:
         at.str(1, k);
         at.raw(2, buf);
 
-        _dump(at.buf(), k, "");
+//        _dump(at.buf(), k, "");       /// * for tracing
         
         raw(5, at.buf());               /// * NodeDef.attr
     }
