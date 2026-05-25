@@ -39,7 +39,7 @@ public:
     __HOST__ void image(const char *tag, T4Base &b);
     __HOST__ void tile(const char *tag, T4Base &b, int n_per_row);
     __HOST__ void histo(const char *tag, T4Base &b, int n_bucket);
-    __HOST__ void graph(const char *tag, T4Base &b);
+    __HOST__ void graph(T4Base &b);
 #endif // T4_DO_TB
 
 private:
@@ -49,7 +49,7 @@ private:
 
     // ─── Path helper ────────────────────────────────────────────────────────────
     // FIX 3: use hostname + PID in filename as TensorBoard 2.x requires
-    std::string _logname(std::string &dir, int seq = 0) {
+    __HOST__ std::string _logname(std::string &dir, int seq = 0) {
         char hostname[256] = "localhost";
         gethostname(hostname, sizeof(hostname));
         hostname[sizeof(hostname)-1] = '\0';
