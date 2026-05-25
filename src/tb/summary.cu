@@ -102,21 +102,62 @@ Summary::histo(const char *tag, T4Base &b, int n_bucket) {
     D2H(tx, t.data, sizeof(DU) * t.numel);
     add_histo(tag, tx, t.numel, _step, n_bucket);
 }
-
+///
+/// print model layer parameters
+///    
+/// dataflow op: Placeholder, Const, Variable, Variable2, VarHandleOp
+/// structure op: NoOp, Assign, AssignAdd, AssignSub
+/// math op: Add, BiasAdd, Sub, Mul, Div, RealDiv
+/// nn   op: Conv2D, Maxpool, AvgPool, Softmax
+/// act  op: Relu, Relu6, Sigmoid, Tanh
+/// Node(name, op, input)
+///    
 __HOST__ void
-Summary::graph(const char *tag, T4Base &b) {
+Summary::graph(T4Base &b) {
     if (!b.is_model()) {
         ERROR("summary#graph requires model (b.ttype=%d)\n", b.ttype);
         return;
     }
+    const char *op[] = {
+        "Output", "Conv2D", "MatMul", "Reshape",
+        "Relu", "Tanh", "Sigmoid", "Selu", "LeakyRelu", "Elu",
+        "Dropout", "Softmax", "LogSoftmax",
+        "AvgPool", "MaxPool", "MinPool", "BatchNorm", "UpSample"
+    };
+    auto _tname = [op](Tensor &t, int i) {
+        std::ostringstream ss;
+        ss << op[t.grad_fn] << "_" << i << "/" << Model::nname(t.grad_fn);
+        return ss.str();
+    };
+    auto _node_attr = [](graph::Node &n, Tensor &t) {
+        U32V s = { t.N(), t.H(), t.W(), t.C() };
+        n.add_type("dtype", 1);
+        n.add_shape(s);
+    };
+    
     Model &m = (Model&)b;
     init_graph();
+    
+    graph::Node nn[m.numel];                    ///< allocate nodes
+    graph::Node n0("input", "Placeholder", ""); ///< input node
+    _node_attr(n0, m[0]);
+    add_node(n0);
+
     for (int i = 0; i < m.numel; i++) {
-        Tensor &in = m[i], &out = m[i + 1];
+        graph::Node &n = nn[i];
+        Tensor &in = m[i];
+        std::string nm  = _tname(in, i);
+        std::string nm0 = i==0 ? std::string("input") : _tname(m[i-1], i-1);
+        
+        INFO("%s <= %s fn=%d\n", nm0.c_str(), nm.c_str(), in.grad_fn);
+        
+        n.init(nm.c_str(), op[in.grad_fn], nm0.c_str());
+        _node_attr(n, in);
+        
+        add_node(n);
     }
     add_graph();
 }
-
 #endif // T4_DO_TB
 
 } // namespace t4::tb
