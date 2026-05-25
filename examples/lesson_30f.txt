@@ -5,11 +5,12 @@ variable hit 0 hit !                \ create var for hit counter, and zero it
 variable lox                        \ create var for epoch latest loss
 0.001 value lr                      \ init learning rate (for Adam)
 : stat                              \ statistics sent to tensorboard
-  dup .tbstep                                     \ set tensorboard step
-  clock t0 - 1000 / dup s" train/time" .scalar    \ time (in sec)
-  hit @ dsz /       dup s" train/acc"  .scalar    \ accuracy
-  lox @             dup s" train/loss" .scalar    \ loss
-  lr                dup s" train/lr"   .scalar    \ learn rate
+  dup ." epoch=" .  dup .tbstep     \ set tensorboard step (keep copy)
+  clock t0 - 1000 / dup dup s" train/time" .scalar \ time (in sec)
+  . ." sec" cr
+  hit @ dsz /       dup s" train/acc"  .scalar     \ accuracy
+  lox @             dup s" train/loss" .scalar     \ loss
+  lr                dup s" train/lr"   .scalar     \ learn rate
   s" MNIST step=%d, time=%g, acc=%g loss=%g learn_rate=%g" sprintf \ text substitude
   s" progress/text" .text
   0 hit ! ;                         \ reset hit count
