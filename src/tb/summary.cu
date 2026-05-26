@@ -18,8 +18,9 @@ Summary::init(const char *run_id) {
         teardown();
         _run_id = run_id;
     }
-    std::string rundir  = std::string(_root) + "/" + _run_id;
-    std::string logname = _logname(rundir);
+    STR rundir  = STR(_root) + "/" + esc(_run_id);
+    STR logname = _logname(rundir);
+
     mkdir(rundir.c_str(), 0755);                  /// * create Event/Run subdir
     EventWriter::setup(logname.c_str());
 }
@@ -100,6 +101,7 @@ Summary::histo(const char *tag, T4Base &b, int n_bucket) {
     Tensor &t = (Tensor&)b;
     DU tx[t.numel];
     D2H(tx, t.data, sizeof(DU) * t.numel);
+    
     add_histo(tag, tx, t.numel, _step, n_bucket);
 }
 ///
@@ -126,7 +128,7 @@ Summary::graph(T4Base &b) {
     };
     auto _tname = [op](Tensor &t, int i) {
         std::ostringstream ss;
-        ss << op[t.grad_fn] << "_" << i << "/" << Model::nname(t.grad_fn);
+        ss <<  op[t.grad_fn] << "_" << i << "/" << Model::nname(t.grad_fn);
         return ss.str();
     };
     auto _node_attr = [](graph::Node &n, Tensor &t) {
@@ -159,8 +161,6 @@ Summary::graph(T4Base &b) {
     add_graph();
 }
 
-typedef std::string STR;
-
 __HOST__ void
 Summary::embed(const char* tag, T4Base &b) {
     if (!b.is_tensor()) {
@@ -171,12 +171,13 @@ Summary::embed(const char* tag, T4Base &b) {
     F32    v[t.numel];
     D2H(v, t.data, sizeof(DU) * t.numel);         /// * move from device to host
     
-    std::string rundir = std::string(_root) + "/" + _run_id;
-    const char *path   = rundir.c_str();
+    STR rundir       = STR(_root) + "/" + esc(_run_id);
+    const char *path = rundir.c_str();
     
-    _proj.add_embedding(path, tag, v, t.N(), t.HWC());
+    _proj.add_embedding(path, esc(tag).c_str(), v, t.N(), t.HWC());
     _proj.flush_config(path);                     /// * safe to call repeatedly — overwrites
 }
+
 #endif // T4_DO_TB
 
 } // namespace t4::tb
