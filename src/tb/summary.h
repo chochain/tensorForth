@@ -10,6 +10,7 @@
 #include <iostream>
 #include <sstream>                    // ostringstream
 #include <sys/stat.h>                 // mkdir, gethostname, getpid (POSIX)
+#include "projector.h"
 #include "writer.h"
 
 namespace t4::nn { class Model;  }    /// forward declare
@@ -40,12 +41,14 @@ public:
     __HOST__ void tile(const char *tag, T4Base &b, int n_per_row);
     __HOST__ void histo(const char *tag, T4Base &b, int n_bucket);
     __HOST__ void graph(T4Base &b);
+    __HOST__ void embed(const char *tag, T4Base &b);
 #endif // T4_DO_TB
 
 private:
-    const char *_root;                       ///< root directory for events
-    const char *_run_id;
-    int         _step;                       ///< current step of event
+    const char       *_root;                      ///< root directory for events
+    const char       *_run_id;
+    int              _step;                       ///< current step of event
+    embed::Projector _proj;                       ///< embedding projector
 
     // ─── Path helper ────────────────────────────────────────────────────────────
     // FIX 3: use hostname + PID in filename as TensorBoard 2.x requires
