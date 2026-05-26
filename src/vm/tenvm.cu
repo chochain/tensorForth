@@ -409,12 +409,13 @@ TensorVM::_tboard(TB_OP op) {
     switch (op) {
     case TB_INIT: sys.tbx(op, tag);          break;
     case TB_TEXT: {
+        IU len1 = POPi, adr1 = POPi;          ///< txt address to pmem (len not used)
         sys.tbx(op, tag);
-        IU len1  = POPi, adr1 = POPi;               ///< txt address to pmem (len not used)
-        sys.op_fn((char*)MEM(adr1));                ///< work only in a word (PAD is shared)
+        sys.op_fn((char*)MEM(adr1));          ///< work only in a word (PAD is shared)
     } break;
     case TB_SCALAR: sys.tbx(op, tag, POP()); break;
-    case TB_IMAGE:  {
+    case TB_IMAGE:
+    case TB_EMBED: {
         DU t = POP();
         sys.tbx(op, tag, t);
         mark(t);                              /// * hold Tensor before destroy
@@ -581,10 +582,11 @@ TensorVM::init() {
     CODE(".tbinit",   _tboard(TB_INIT));      ///< ( path_addr len -- )  .s" run1"
     CODE(".tbstep",   sys.tbx(TB_STEP, 0, 0, POPi)); ///< ( i -- )
     CODE(".scalar",   _tboard(TB_SCALAR));    ///< ( v tag_addr len -- )
-    CODE(".text",     _tboard(TB_TEXT));      ///< ( txt_addr len -- )
+    CODE(".text",     _tboard(TB_TEXT));      ///< ( txt_addr len tag_addr len -- )
     CODE(".image",    _tboard(TB_IMAGE));     ///< ( T tag_addr len -- )
     CODE(".tile",     _tboard(TB_TILE));      ///< ( T n_wide tag_addr len -- )
     CODE(".histo",    _tboard(TB_HISTO));     ///< ( T n_bucket tag_addr len -- )
+    CODE(".embed",    _tboard(TB_EMBED));     ///< ( T tag_addr len -- )
 #if T4_DO_NN    
     CODE(".graph",    sys.tbx(TB_GRAPH, (char*)"", tos));   ///< ( N -- N ) non-destructive
 #endif // T4_DO_NN    
