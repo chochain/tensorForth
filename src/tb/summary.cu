@@ -158,7 +158,25 @@ Summary::graph(T4Base &b) {
     }
     add_graph();
 }
+
+typedef std::string STR;
+
+__HOST__ void
+Summary::embed(const char* tag, T4Base &b) {
+    if (!b.is_tensor()) {
+        ERROR("summary#embed requires tensor (b.ttype=%d)\n", b.ttype);
+        return;
+    }
+    Tensor &t = (Tensor&)b;
+    F32    v[t.numel];
+    D2H(v, t.data, sizeof(DU) * t.numel);         /// * move from device to host
+    
+    std::string rundir = std::string(_root) + "/" + _run_id;
+    const char *path   = rundir.c_str();
+    
+    _proj.add_embedding(path, tag, v, t.N(), t.HWC());
+    _proj.flush_config(path);                     /// * safe to call repeatedly — overwrites
+}
 #endif // T4_DO_TB
 
 } // namespace t4::tb
-
