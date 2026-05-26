@@ -99,7 +99,7 @@ __HOST__ __INLINE__ void _debug(GT gt, U8 *vp, U32 sz) {
             case OP_FETCH: printf("fetch(%d)",    o->i);            break;
             }
         } break;
-        case GT_TB: {
+        case GT_TBX: {
             _opx *o = (_opx*)d;
             switch (o->op) {
             case TB_INIT:  printf("tb_init()");    break;
