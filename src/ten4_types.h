@@ -244,7 +244,8 @@ typedef enum {
     TB_IMAGE,                         ///< image event
     TB_TILE,                          ///< image in tile (10 wide)
     TB_HISTO,                         ///< histogram event
-    TB_GRAPH                          ///< graph event
+    TB_GRAPH,                         ///< graph event
+    TB_EMBED                          ///< embedding projector
 } TB_OP;
 ///@}
 ///>name File Access Mode for IO Event
