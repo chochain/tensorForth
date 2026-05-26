@@ -16,6 +16,7 @@ TB_INCS := \
 	src/tb/hparam.h \
 	src/tb/types.h \
 	src/tb/writer.h \
+	src/tb/projector.h \
 	src/tb/summary.h
 
 TB_OBJS := $(TB_SRCS:%.cu=%.o)
