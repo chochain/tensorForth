@@ -244,21 +244,21 @@ System::_process_tb(io_event *ev) {                ///< process TensorBoard ops
     void *vp   = (void*)ev->data;                 ///< fetch payload in buffered print node
     io::_tbx x = *(io::_tbx*)vp;                  ///< make a hardcopy
 
-    INFO("  sys#tbx(op=%d, n=%g, i=%d", x.op, x.n, x.i);
+    if (_trace) INFO("  sys#tbx(op=%d, n=%g, i=%d", x.op, x.n, x.i);
 
     ev = NEXT_EVENT(ev);
     if (x.op == TB_STEP)  { tb->set_step(x.i);          DEBUG(")\n"); return ev; }
     if (x.op == TB_GRAPH) { tb->graph(mu->du2obj(x.n)); DEBUG(")\n"); return ev; }
 
     const char *tag = (const char*)ev->data;      ///< retrieve tag for Tensorboard
-    INFO(", tag=%s)\n", tag);
+    if (_trace) INFO(", tag=%s)\n", tag);
     switch (x.op) {
     case TB_INIT:   tb->init(tag);   /* tag as logname */            break;
     case TB_SCALAR: tb->scalar(tag, x.n);                            break;
     case TB_TEXT: {
         ev = NEXT_EVENT(ev);
         const char *txt = (const char*)ev->data;  ///< get a hardcopy
-        INFO("    tag=%s, txt=%s\n", tag, txt);
+        if (_trace) INFO("    txt=%s\n", txt);
         tb->text(tag, txt);
     } break;
     case TB_IMAGE: tb->image(tag, mu->du2obj(x.n));      break;
