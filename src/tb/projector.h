@@ -36,12 +36,12 @@ public:
         USZ         HWC,         ///< dimension of each vector
         const char  *meta=NULL)
     {
-        STR base    = STR(logdir) + "/" + _sanitize(name);
+        STR base    = STR(logdir) + "/" + tag;
         STR t_path  = base + "_tensors.tsv";
         STR m_path  = base + "_metadata.tsv";
 
         _write_tensors(t_path, data, N, HWC);
-        _write_metadata(m_path, tag, N, HWC);
+        _write_metadata(m_path, tag, N, meta);
         
         _list.push_back({ tag, t_path, m_path, HWC });
     }
@@ -71,43 +71,6 @@ public:
 private:
     std::vector<Embedding> _list;
 
-    // Replace spaces/slashes with underscores for safe filenames
-    static STR _sanitize(const STR& s) {
-        STR out = s;
-        for (char& c : out)
-            if (c == ' ' || c == '/' || c == '\\') c = '_';
-        return out;
-    }
-
-
-    void _write_metadata(
-        const STR& path, const char *name, USZ N, USZ HWC, const char *meta) {
-        std::ofstream f(path);
-        if (!f.is_open())
-            throw std::runtime_error("Cannot write metadata: " + path);
-
-        // Single-column metadata needs no header; multi-column needs one
-        if (meta) {
-            STR hdr(meta);
-            std::replace(hdr.begin(), hdr.end(), ' ', '\t');
-            f << hdr << '\n';
-        }
-        else if (!meta && HWC > 1) {
-            for (int n = 0; n < N; n++) {
-                if (n) f << '\t';
-                f << name;
-            }
-            f << '\n';
-        }
-        for (int n = 0; n < N; n++) {
-            for (int i = 0; i < HWC; i++) {
-                if (i) f << '\t';
-                f << name << '.' << n << '.' << i;
-            }
-            f << '\n';
-        }
-    }
-    
     void _write_tensors(
         const STR& path, const F32* data, USZ N, USZ HWC) {
         std::ofstream f(path);
@@ -120,6 +83,24 @@ private:
                 f << data[n * HWC + i];
             }
             f << '\n';
+        }
+    }
+    
+    void _write_metadata(
+        const STR& path, const char *tag, USZ N, const char *meta) {
+        std::ofstream f(path);
+        if (!f.is_open())
+            throw std::runtime_error("Cannot write metadata: " + path);
+
+        // Single-column metadata needs no header; multi-column needs one
+        if (meta) {
+            STR hdr(meta);
+            std::replace(hdr.begin(), hdr.end(), ' ', '\t');
+            f << hdr << '\n';
+        }
+        
+        for (int n = 0; n < N; n++) {
+            f << tag << '.' << n << '\n';
         }
     }
 };
