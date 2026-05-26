@@ -20,17 +20,15 @@ __KERN__ void k_dconv2d(
 {
     constexpr int KS  = 2 * R + 1;
     constexpr int SSZ = TS + KS - 1;
-    __shared__ DU _I[SSZ][SSZ];
-    __shared__ DU _O[SSZ][SSZ];
-    __shared__ DU _df[KS][KS];
+    __shared__ DU _I[SSZ][SSZ], _O[SSZ][SSZ];           ///< shared I/O blocks
+    __shared__ DU _df[KS][KS];                          ///< shared filter
 
     const int c0   = blockIdx.z % C0;                   ///< ← c0 now from grid
     const int c1   = (blockIdx.z / C0) % C1;
     const int n    = blockIdx.z / (C0 * C1);
     const int HWC1 = H * W * C1, HWC0 = H * W * C0;
 
-    DU *n_I  = I  + n * HWC1;
-    DU *n_O  = O  + n * HWC0;
+    DU *n_I  = I  + n * HWC1, *n_O  = O  + n * HWC0;    ///< I/O tile pointers
     DU *n_DX = DX + n * HWC1;
 
     const int tx = threadIdx.x, j1 = tx + blockIdx.x * TS;
@@ -81,7 +79,7 @@ __KERN__ void k_dconv2d(
             for (int off = 16; off > 0; off >>= 1)
                 df0 += __shfl_down_sync(0xffffffff, df0, off);
             if ((ty * blockDim.x + tx) % 32 == 0)
-                atomicAdd(&_df[y][x], df0);
+                atomicAdd(&_df[y][x], df0);            /// * df keeps tile-sum
         }
     }
     __syncthreads();
@@ -224,7 +222,7 @@ Model::backprop(Tensor &tgt) {
     };
     if (_bloss(tgt)) return *this;                        /// * pre-calculate dLoss
     
-    NLOG("\nModel#backprop starts {");
+    NLOG("\nModel::backprop starts trace=%d train=%d {", *_trace, train);
     DU  t0 = System::clock(), t1 = t0, tt;                ///< performance measurement
     for (int i = numel - 2, j = 0; i >= 0; i--, j++) {    ///< feed backward, skip last (output) layer
         Tensor &in = (*this)[i], &out = (*this)[i + 1];
@@ -382,21 +380,21 @@ Model::_blinear(Tensor &in, Tensor &out) {
             }
         }
     };
-    if (0 && w.numel < T4_DIM_SQ) {                        /// * threshold control
+    if (0 && w.numel < T4_DIM_SQ) {                   /// * threshold control
         NN_DB("* out = "); out.show(true);
         qa_calc();                                    /// * serial mode (validation)
         NN_DB(" => in"); in.show(true);
     }
     else {
         if (train) {
-            db.zeros();                                          /// * pre-zero dB
+            db.zeros();                               /// * pre-zero dB
             FORK3(k_dlinear_db, N, E0, 1, out.data, db.data);    /// * dB += sum(dY)
-            Tensor::linear(out, in, dw, E0, E1, N,               /// * dW[E0,E1] = dY[N,E0]^T @ X[N,E1]
-                           DU1, DU0, true, false);
+            Tensor::linear(                           /// * dW[E0,E1] = dY[N,E0]^T @ X[N,E1]
+                out, in, dw, E0, E1, N, DU1, DU0, true, false);
         }
-        in.zeros();                                              /// * dX = 0
-        Tensor::linear(out, w, in, N, E1, E0,                    /// * dX[N,E1] = dY[N,E0] @ W[E0,E1]
-                       DU1, DU0, false, false);
+        in.zeros();                                   /// * dX = 0
+        Tensor::linear(                               /// * dX[N,E1] = dY[N,E0] @ W[E0,E1]
+            out, w, in, N, E1, E0, DU1, DU0, false, false);
     }
     if (train && *_trace > 1) {
         _dump_b("db", db);
@@ -407,15 +405,15 @@ Model::_blinear(Tensor &in, Tensor &out) {
 
 __HOST__ int
 Model::_bactivate(Tensor &in, Tensor &out) {
-    Tensor::ten_op(MUL, out, *in.grad[4], in);     /// * in = msk * out
+    Tensor::ten_op(MUL, out, *in.grad[4], in);        /// * in = msk * out
     return 0;
 }
 
 __HOST__ int
 Model::_bpool(Tensor &in, Tensor &out, t4_layer fn) {
-    const U32 W = out.W(), H = out.H();           ///< output dimensions
+    const U32 W = out.W(), H = out.H();               ///< output dimensions
     const U32 C = out.C(), N = out.N();
-    const int ks = in.stride[0];                  ///< kernel size (square)
+    const int ks = in.stride[0];                      ///< kernel size (square)
     switch(ks) {
     case 2: FORK4(k_dpool<2>, fn, in.data, out.data, H, W); break;
     case 3: FORK4(k_dpool<3>, fn, in.data, out.data, H, W); break;
@@ -428,16 +426,16 @@ Model::_bpool(Tensor &in, Tensor &out, t4_layer fn) {
 ///
 ///> upsampling =~ reverse pooling (calls forward k_pool)
 ///
-template<int KS>                                        /// forward declare (in forward.cu)
+template<int KS>                                      /// forward declare (in forward.cu)
 __KERN__ void k_pool(t4_layer op, DU *I, DU *O, U32 H, U32 W);
 __HOST__ int
 Model::_bupsample(Tensor &in, Tensor &out, t4_layer fn) {
-    const U32 W  = in.W(), H = in.H();                  ///< input dimensions (reversed pool)
+    const U32 W  = in.W(), H = in.H();                ///< input dimensions (reversed pool)
     const U32 C  = in.C(), N = in.N();
-    const int me = in.iparm;                            ///< upsample method, TODO
-    const int ks = in.stride[0];                        ///< kernel size (square?)
+    const int me = in.iparm;                          ///< upsample method, TODO
+    const int ks = in.stride[0];                      ///< kernel size (square?)
 
-    switch(ks) {                                        /// by kernel size
+    switch(ks) {                                      /// by kernel size
     case 2: FORK4(k_pool<2>, fn, out.data, in.data, H, W); break;
     case 3: FORK4(k_pool<3>, fn, out.data, in.data, H, W); break;
     default:
