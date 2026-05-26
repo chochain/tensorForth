@@ -17,6 +17,8 @@ namespace t4::nn { class Model;  }    /// forward declare
 namespace t4::mu { class Tensor; }
 namespace t4::tb {
 
+typedef std::string STR;
+
 class Summary : public EventWriter {
 #if T4_DO_OBJ
     using Tensor  = mu::Tensor;       ///< aliases
@@ -26,9 +28,18 @@ class Summary : public EventWriter {
 #endif // DO_OBJ
     
 public:
+    /// Replace spaces/slashes with underscores for safe filenames
+    static STR esc(const STR& s) {
+        STR out = s;
+        for (char& c : out)
+            if (c == ' ' || c == '/' || c == '\\') c = '_';
+        return out;
+    }
+    static STR esc(const char *s) { return esc(STR(s)); }
+
     Summary(const char *root = "/tmp/tb", const char *run_id="run1")
         : _root(root), _run_id(run_id), _step(0) {
-        mkdir(root, 0755);            /// * create TensorBoard logdir
+        mkdir(_root, 0755);                        /// * create TensorBoard logdir
         init();
     }
     
@@ -52,7 +63,7 @@ private:
 
     // ─── Path helper ────────────────────────────────────────────────────────────
     // FIX 3: use hostname + PID in filename as TensorBoard 2.x requires
-    __HOST__ std::string _logname(std::string &dir, int seq = 0) {
+    __HOST__ STR _logname(STR &dir, int seq = 0) {
         char hostname[256] = "localhost";
         gethostname(hostname, sizeof(hostname));
         hostname[sizeof(hostname)-1] = '\0';
