@@ -153,9 +153,9 @@ __KERN__ void k_activate(
     for (U64 j = tx; j < numel; j += step) {
         DU i = I[j];                                       ///< use register
         switch (op) {
-        case L_RELU:
-            O[j] = i > DU0
-                ? (F[j]=DU1, i) : (F[j]=DU0);      break;  /// * 1|0
+        case L_RELU: O[j] = i > DU0                        /// * 1|0
+            ? (F[j]=DU1, i)
+            : (F[j]=DU0);                          break;
         case L_TANH:
             O[j] = 0.5 * (DU1 + (i=TANH(i)));              /// * scaled to [0,1)
             F[j] = DU1 - i*i;                      break;  /// * (1 - tanh^2)
@@ -168,12 +168,12 @@ __KERN__ void k_activate(
         case L_LEAKYRL: O[j] = i > DU0
             ? (F[j] = DU1, i)
             : (F[j] = alpha) * i;                  break;
-        case L_ELU:     O[j] = i > DU0
+        case L_ELU: O[j] = i > DU0
             ? (F[j] = DU1, i)
             : (F[j] = alpha * EXP(i)) - alpha;     break;
-        case L_DROPOUT:
-            O[j] = F[j] > alpha
-            ? (F[j]=DU1, i) : (F[j]=DU0);          break;  /// * 1|0
+        case L_DROPOUT: O[j] = F[j] > alpha                /// * 1|0
+            ? (F[j]=DU1, i)
+            : (F[j]=DU0);                          break;
         }
     }
 }
