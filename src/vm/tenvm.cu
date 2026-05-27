@@ -94,30 +94,35 @@ TensorVM::xop2(math_op op, t4_drop_opt x) {
         VLOG("} %d> %s => %g ss.idx=%d\n", id, fn, tos, ss.idx);
     } break;                        
     case 1 /* st */: {                            /// * scalar-tensor op ( n T -- T' )
+        DU     v  = ss[-1];                       /// * scalar as NOS
+        Tensor &A = TTOS;                         /// * Tensor on TOS
         VLOG("%d> %s %g %s A[%ld] {\n",
-             id, fn, ss[-1], _op[op], TTOS.numel);
-        Tensor &O = _st_op(op, x);
+             id, fn, v, _op[op], A.numel);
+        Tensor &O = _st_op(op, v, A, x);
         if (x==T_KEEP) PUSH(O);
         else           ss.pop();
         VLOG("} %s => O[%ld]\n", fn, O.numel);
     } break;
     case 2 /* ts */: {                            /// * tensor-scalar op ( T n -- T n T' )
-        VLOG("%d> %s A[%d,%d] %s %g {\n",
-             id, fn, TNOS.H(), TNOS.W(), _op[op], tos);
-        Tensor &O = _ts_op(op, x);
+        Tensor &A = TNOS;
+        VLOG("%d> %s A[%d,%d,%d,%d] %s %g {\n",
+             id, fn, A.N(), A.H(), A.W(), A.C(), _op[op], tos);
+        Tensor &O = _ts_op(op, A, tos, x);        /// * broadcast_op(tensor, scalar)
         if (x==T_KEEP) PUSH(O);
         else           POP();
-        VLOG("} %s => O[%d,%d]\n", fn, O.H(), O.W());
+        VLOG("} %s => O[%d,%d,%d,%d]\n", fn, O.N(), O.H(), O.W(), O.C());
     } break;
     case 3 /* tt */: {
-        VLOG("%d> %s A[%d,%d] %s B[%d,%d] {\n",
-             id, fn, TNOS.H(), TNOS.W(), _op[op], TTOS.H(), TTOS.W());
-        Tensor &O = _tt_op(op);          /// * tensor-tensor element op ( A B -- A B C )
+        Tensor &A = TNOS, &B = TTOS;
+        VLOG("%d> %s A[%d,%d,%d,%d] %s B[%d,%d,%d,%d] {\n",
+             id, fn, A.N(), A.H(), A.W(), A.C(),
+             _op[op], B.N(), B.H(), B.W(), B.C());
+        Tensor &O = _tt_op(op, A, B);             /// * tensor-tensor element op ( A B -- A B C )
         if (O != TTOS) {
             if (x==T_DROP) { DROP(POP()); DROP(POP()); }
             PUSH(O);
         }
-        VLOG("} %s => O[%d,%d]\n", fn, O.H(), O.W());
+        VLOG("} %s => O[%d,%d,%d,%d]\n", fn, O.N(), O.H(), O.W(), O.C());
     } break;
     }
 }
@@ -243,9 +248,7 @@ TensorVM::gemm(int opt) {                           ///< GEMM ( a b A B C -- a b
 /// scalar-tensor ops
 ///
 __HOST__ __INLINE__ Tensor&
-TensorVM::_st_op(math_op op, t4_drop_opt x) { ///< scalar tensor op
-    Tensor &A = TTOS;                         /// * Tensor on TOS
-    DU     v  = ss[-1];                       /// * scalar as NOS
+TensorVM::_st_op(math_op op, DU v, Tensor &A, t4_drop_opt x) { ///< scalar tensor op
     Tensor &O = x==T_KEEP ? COPY(A) : A;      /// * make a hard copy (and parameters)
     if (op==DIV || op==SUB) {                 /// * op(scaler, tensor)
         Tensor &B = mmu.tensor(A.numel);      /// * working tensor
@@ -254,15 +257,15 @@ TensorVM::_st_op(math_op op, t4_drop_opt x) { ///< scalar tensor op
         FREE(B);                              /// * free working tensor
     }
     else Tensor::ten_op(op, A, v, O);         /// * broadcast_op(tensor, scalar)
-    
     return O;
 }
-
+///
+/// tensor-scalar ops
+///
 __HOST__ __INLINE__ Tensor&
-TensorVM::_ts_op(math_op op, t4_drop_opt x) { ///< tensor scalar op
-    Tensor &A = TNOS;                         ///< tensor on NOS
+TensorVM::_ts_op(math_op op, Tensor &A, DU v, t4_drop_opt x) { ///< scalar tensor op
     Tensor &O = x==T_KEEP ? COPY(A) : A;      ///< make a hard copy of A
-    Tensor::ten_op(op, A, tos, O);            /// * broadcast_op(tensor, scalar)
+    Tensor::ten_op(op, A, v, O);              /// * broadcast_op(tensor, scalar)
     return O;
 }
 ///
@@ -281,17 +284,17 @@ TensorVM::_ts_op(math_op op, t4_drop_opt x) { ///< tensor scalar op
     - For example, if tensor1 is a (j x 1 x n x m) Tensor and tensor2 is a (k x m x p) Tensor, the returned tensor will be an (j x k x n x p) Tensor.
 */
 __HOST__ __INLINE__ Tensor&
-TensorVM::_tt_op(math_op op) {                ///< tensor-tensor ops
-    Tensor &A = TNOS, &B = TTOS;
+TensorVM::_tt_op(math_op op, Tensor &A, Tensor &B) {  ///< tensor-tensor ops
     ///
     /// tensor, tensor op
     ///
-    if (!A.is_same_shape(B)) return (ERROR("dim?\n"), B);
-
-    Tensor &O = COPY(A);                      ///< make a hard copy
+    if ((A.N()==1 || B.N()==1) && A.HWC() != B.HWC()) {
+        return (ERROR("} dim?\n"), B);
+    }
+    Tensor &O = COPY(A.N()==1 ? B : A);       ///< make a hard copy
     Tensor::ten_op(op, A, B, O);              /// * Hadamard ops
-    if (A.rank==1) O.reshape(O.numel);
-    
+
+    if (B.rank==1) O.reshape(O.numel);
     return O;
 }
 
@@ -323,6 +326,8 @@ TensorVM::_tdiv(Tensor &A, Tensor &B) {      ///< tensor division
 
 __HOST__ __INLINE__ Tensor&
 TensorVM::_tdot(Tensor &A, Tensor &B) {      ///< A x B tensor dot product
+    U32 Na = A.N(), Ha = A.H(), Wa = A.W(), Ca = A.C();
+    U32 Nb = B.N(), Hb = B.H(), Wb = B.W(), Cb = B.C();
     if (A.rank==1 && B.rank==1 &&            ///> dot(vector, vector)
         A.numel==B.numel) {
         VLOG("  tenvm#_tdot A[%ld] · B[%ld]", A.numel, B.numel);
@@ -331,22 +336,30 @@ TensorVM::_tdot(Tensor &A, Tensor &B) {      ///< A x B tensor dot product
         PUSH(v);
         return B;                            /// * non-tensor
     }
-    if (B.rank==1 && A.W()==B.numel) {       ///> inner(tensor, vector)
-        Tensor &C = mmu.tensor(A.H());
+    if (B.rank==1 && Wa==B.numel) {          ///> inner(tensor, vector)
+        Tensor &C = mmu.tensor(Ha);
         VLOG("  tenvm#_tdot A[%d,%d] · B[%d] => C[%d]\n",
-              A.H(), A.W(), B.H(), C.H());
+             Ha, Wa, Hb, C.H());
         Tensor::mm(A, B, C);
         return C;
     }
-    if (A.rank==2 && B.rank==2 &&
-        A.W()==B.H()) {                      /// * tensor @ tensor
-        Tensor &C = mmu.tensor(A.H(), B.W());
+    if (A.rank==2 && B.rank==2 && Wa==Hb) {  /// * tensor @ tensor
+        Tensor &C = mmu.tensor(Ha, Wb);
         VLOG("  tenvm#_tdot A[%d,%d] · B[%d,%d] => C[%d,%d]\n",
-              A.H(), A.W(), B.H(), B.W(), C.H(), C.W());
+             Ha, Wa, Hb, Wb, C.H(), C.W());
         Tensor::mm(A, B, C);
         return C;
     }
-    ERROR("A.W!=B.H dim?");
+    if ((Na==1 || Nb==1) &&                  /// * tensor @ tensor (broadcast)
+        Na != Nb && Ca==Cb && Wa==Hb) {
+        U32    N  = std::max(Na, Nb);
+        Tensor &C = mmu.tensor(N, Ha, Wb, Ca);
+        VLOG("  tenvm#_tdot A[%d,%d,%d,%d] · B[%d,%d,%d,%d] => C[%d,%d,%d,%d]\n",
+             Na, Ha, Wa, Ca, Nb, Hb, Wb, Cb, C.N(), C.H(), C.W(), C.C());
+        Tensor::mm(A, B, C);
+        return C;
+    }
+    ERROR("A.W != B.H dim?");
     
     return A;                                /// * i.e. skip in xop2
 }
