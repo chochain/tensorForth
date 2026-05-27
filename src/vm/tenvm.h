@@ -67,10 +67,9 @@ private:
     ///
     /// tensor ops based on data types
     ///
-    __HOST__ void   _ss_op(math_op op);                      ///< scalar-scalar (eForth) ops
-    __HOST__ Tensor &_st_op(math_op op, t4_drop_opt x);      ///< scalar tensor op (broadcast)
-    __HOST__ Tensor &_ts_op(math_op op, t4_drop_opt x);      ///< tensor scalar op (broadcast)
-    __HOST__ Tensor &_tt_op(math_op op);                     ///< tensor tensor op
+    __HOST__ Tensor &_st_op(math_op op, DU v, Tensor &A, t4_drop_opt x);  ///< scalar tensor op (broadcast)
+    __HOST__ Tensor &_ts_op(math_op op, Tensor &A, DU v, t4_drop_opt x);  ///< tensor scalar op (broadcast)
+    __HOST__ Tensor &_tt_op(math_op op, Tensor &A, Tensor &B);            ///< tensor tensor op
     ///
     /// tensor-tensor ops
     ///
