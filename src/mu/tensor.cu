@@ -17,19 +17,37 @@ __HOST__ Tensor&
 Tensor::ten_op(math_op op, Tensor &A, DU v, Tensor &O) {
     U32 N = A.N(), H = A.H(), W = A.W(), C = A.C();
     _OP(MATH_OP);
-    MM_DB("  tensor#ten_op O[%d,%d,%d,%d] = A %s %6.2f\n", N, H, W, C, _op[op], v);
+    MM_DB("  tensor#ten_op O[%d,%d,%d,%d] = A %s %g\n", N, H, W, C, _op[op], v);
     FORK(k_ts_op, A.numel, op, A.data, v, O.data);
     return O;
 }
 ///
 /// tensor-tensor element-wise C = A op B where op=ADD|SUB|MUL|DIV (Hadamard)
+/// Note: broadcast when one of the N is 1 and the other is > 1
 ///
 __HOST__ Tensor&
 Tensor::ten_op(math_op op, Tensor &A, Tensor &B, Tensor &O) {
-    U32 N = A.N(), H = A.H(), W = A.W(), C = A.C();
+    U32 Na = A.N(), Ha = A.H(), Wa = A.W(), Ca = A.C();
+    U32 Nb = B.N(), Hb = B.H(), Wb = B.W(), Cb = B.C();
     _OP(MATH_OP);
-    MM_DB("  tensor#ten_op O[%d,%d,%d,%d] = A %s B\n", N, H, W, C, _op[op]);
-    FORK(k_tt_op, A.numel, op, A.data, B.data, O.data);
+
+    if (A.HWC() != B.HWC() || (Na==1 ? B.numel : A.numel) != O.numel) {
+        ERROR("  tensor#ten_op A.HWC(%ld)!=B.HWC(%ld) or N, C diff\n", A.HWC(), B.HWC());
+        return O;
+    }
+    if ((Na==1 || Nb==1) && (Na != Nb)) {
+        MM_DB("  tensor#ten_op A[%d,%d,%d,%d] %s B[%d,%d,%d,%d] => O[%d,%d,%d,%d]\n",
+              Na, Ha, Wa, Ca, _op[op], Nb, Hb, Wb, Cb, O.N(), O.H(), O.W(), O.C());
+        for (int n = 0; n < std::max(Na, Nb); n++) {       ///< broadcast
+            DU *da = A.slice(Na==1 ? 0 : n), *db = B.slice(Nb==1 ? 0 : n);
+            FORK(k_tt_op, A.HWC(), op, da, db, O.slice(n));
+        }
+    }
+    else {
+        MM_DB("  tensor#ten_op O[%d,%d,%d,%d] = A %s B\n",
+              O.N(), O.H(), O.W(), O.C(), _op[op]);
+        FORK(k_tt_op, A.numel, op, A.data, B.data, O.data);
+    }
     return O;
 }
 // ---------------------------------------------------------------------------
@@ -40,12 +58,13 @@ Tensor::ten_op(math_op op, Tensor &A, Tensor &B, Tensor &O) {
 // ---------------------------------------------------------------------------
 __HOST__ Tensor&
 Tensor::dot(Tensor &A, Tensor &B, Tensor &O, DU alpha, DU beta) {
-    const U32 K = A.W(), C = A.C(), N = A.N();   ///< vector length, channels, batch_size
+    const U32 K  = A.W(), C = A.C();        ///< vector length, channels, batch_size
+    const U32 Na = A.N(), Nb = B.N();       ///< boradcast if Na < N 
 
-    MM_DB("  tensor#dot O[%d,%d,%d,%d] = %g A @ B + %g O\n", N, 1, K, C, alpha, beta);
-    for (U32 n = 0; n < N; n++) {
-        DU *da = A.slice(n), *db = B.slice(n), *dx = O.slice(n);
-        FORK1(k_dot, C, 1, da, db, dx, alpha, beta, K, C);
+    MM_DB("  tensor#dot O[%d,%d,%d,%d] = %g A @ B + %g O\n", Nb, 1, K, C, alpha, beta);
+    for (U32 n = 0; n < std::max(Na, Nb); n++) {
+        DU *da = A.slice(Na==1 ? 0 : n), *db = B.slice(Nb==1 ? 0 : n);
+        FORK1(k_dot, C, 1, da, db, O.slice(n), alpha, beta, K, C);
     }
     return O;
 }
@@ -103,25 +122,27 @@ Tensor::gemm(Tensor &A, Tensor &B, Tensor &O, DU alpha, DU beta, bool tA, bool t
 
 __HOST__ Tensor&
 Tensor::gemm1(Tensor &A, Tensor &B, Tensor &O, DU alpha, DU beta, bool tA, bool tB) {
-    U32 H = A.H(), W = B.W(), Ka = A.W(), Kb = B.H();
-    U32 N = B.N(), C = B.C();
+    U32 H  = A.H(), W = B.W(), Ka = A.W(), Kb = B.H();
+    U32 Na = A.N(), Nb = B.N(), C = B.C();
+    U32 N  = std::max(Na, Nb);
     if (Ka != Kb || N != O.N() || C != O.C()) {
         ERROR("  tensor#gemm1 ka(%d)!=kb(%d) or N, C diff\n", Ka, Kb);
         return O;
     }
     MM_DB("  tensor#gemm1 K=%d, a=%g, b=%g => NHWC=[%d,%d,%d,%d]\n",
-          Ka, alpha, beta, N, H, W, C);
+          Ka, alpha, beta, std::N, H, W, C);
 
     for (U32 n = 0; n < N; n++) {
-        DU *da = A.slice(n), *db = B.slice(n), *dx = O.slice(n);
-        FORK3(k_gemm, H, W, C, da, db, dx, alpha, beta, tA, tB, Ka);
+        DU *da = A.slice(Na==1 ? 0 : n), *db = B.slice(Nb==1 ? 0 : n);
+        FORK3(k_gemm, H, W, C, da, db, O.slice(n), alpha, beta, tA, tB, Ka);
     }
     return O;
 }
 __HOST__ Tensor&
 Tensor::gemm2(Tensor &A, Tensor &B, Tensor &O, DU alpha, DU beta, bool tA, bool tB) {
-    U32 H = A.H(), W = B.W(), Ka = A.W(), Kb = B.H();
-    U32 N = B.N(), C = B.C();
+    U32 H  = A.H(), W = B.W(), Ka = A.W(), Kb = B.H();
+    U32 Na = A.N(), Nb = B.N(), C = B.C();
+    U32 N  = std::max(Na, Nb);
     if (Ka != Kb || N != O.N() || C != O.C()) {
         ERROR("  tensor#gemm2 ka(%d)!=kb(%d) or N, C diff\n", Ka, Kb);
         return O;
@@ -130,8 +151,8 @@ Tensor::gemm2(Tensor &A, Tensor &B, Tensor &O, DU alpha, DU beta, bool tA, bool 
           Ka, alpha, beta, N, H, W, C);
 
     for (U32 n = 0; n < N; n++) {
-        DU *da = A.slice(n), *db = B.slice(n), *dx = O.slice(n);
-        FORK3(k_gemm_claude, H, W, C, da, db, dx, alpha, beta, tA, tB, Ka);
+        DU *da = A.slice(Na==1 ? 0 : n), *db = B.slice(Nb==1 ? 0 : n);
+        FORK3(k_gemm_claude, H, W, C, da, db, O.slice(n), alpha, beta, tA, tB, Ka);
     }
     return O;
 }
@@ -139,7 +160,8 @@ __HOST__ Tensor&
 Tensor::gemm3(Tensor &A, Tensor &B, Tensor &O, DU alpha, DU beta, bool tA, bool tB) {
     U32 H  = tA ? A.W() : A.H(), W  = tB ? B.H() : B.W();
     U32 Ka = tA ? A.H() : A.W(), Kb = tB ? B.W() : B.H();
-    U32 N  = B.N(), C = B.C();
+    U32 Na = A.N(), Nb = B.N(), C = B.C();   ///< broadcast if Na==1 or Nb==1
+    U32 N  = std::max(Na, Nb);
 
     if (Ka != Kb || N != O.N() || C != O.C()) {
         ERROR("  tensor#gemm3 ka(%d)!=kb(%d) or N, C diff\n", Ka, Kb);
@@ -149,8 +171,8 @@ Tensor::gemm3(Tensor &A, Tensor &B, Tensor &O, DU alpha, DU beta, bool tA, bool 
           Ka, alpha, beta, N, H, W, C);
 
     for (U32 n = 0; n < N; n++) {
-        DU *da = A.slice(n), *db = B.slice(n), *dx = O.slice(n);
-        FORK3T(k_gemm_tile_claude, H, W, C, da, db, dx, alpha, beta, tA, tB, Ka);
+        DU *da = A.slice(Na==1 ? 0 : n), *db = B.slice(Nb==1 ? 0 : n);
+        FORK3T(k_gemm_tile_claude, H, W, C, da, db, O.slice(n), alpha, beta, tA, tB, Ka);
     }
     return O;
 }
@@ -159,7 +181,8 @@ Tensor::gemm4(Tensor &A, Tensor &B, Tensor &O, DU alpha, DU beta, bool tA, bool 
     U32 H  = tA ? A.W() : A.H(), W  = tB ? B.H() : B.W();
     U32 Ka = tA ? A.H() : A.W(), Kb = tB ? B.W() : B.H();
     //       0  ? E0    : 1           1  ? E0    : E1
-    U32 N  = B.N(), C = B.C();
+    U32 Na = A.N(), Nb = B.N(), C = B.C();
+    U32 N  = std::max(Na, Nb);
 
     if (Ka != Kb || N != O.N() || C != O.C()) {
         ERROR("  tensor#gemm4 ka(%d)!=kb(%d) or N, C diff\n", Ka, Kb);
@@ -169,8 +192,8 @@ Tensor::gemm4(Tensor &A, Tensor &B, Tensor &O, DU alpha, DU beta, bool tA, bool 
           Ka, alpha, beta, N, H, W, C);
 
     for (U32 n = 0; n < N; n++) {
-        DU *da = A.slice(n), *db = B.slice(n), *dx = O.slice(n);
-        FORK3T(k_gemm_tile_claude_x2, H, W, C, da, db, dx, alpha, beta, tA, tB, Ka);
+        DU *da = A.slice(Na==1 ? 0 : n), *db = B.slice(Nb==1 ? 0 : n);
+        FORK3T(k_gemm_tile_claude_x2, H, W, C, da, db, O.slice(n), alpha, beta, tA, tB, Ka);
     }
     return O;
 }
