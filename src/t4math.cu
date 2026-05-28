@@ -266,16 +266,44 @@ k_tt_op(math_op op, F32_RP A, F32_RP B, F32_WP O, long n) {
     }
 }
 ///
-/// Binary Cross-Entropy (clamps output to >= -100)
+/// Fused Binary Cross-Entropy + reduction
 ///
-#define DU_EPS   1.0e-6                                       /* epsilon */
+/// Each thread computes BCE for its element(s) via grid-stride loop,
+/// accumulates locally, then the block reduces to a single atomicAdd —
+/// identical two-level (warp shuffle → shared) pattern as the original k_sum.
+///
+/// Eliminates:
+///   - second kernel launch (k_sum)
+///   - round-trip write+read of per-element BCE values to global memory
+///
+/// O[] is left unmodified (BCE value is accumulated into register v only).
+///
+#define DU_EPS   1.0e-6                                /* epsilon */
 __KERN__ void
-k_bce(F32_RP T, F32_XP O, long n) {
-    const long tx   = blockIdx.x * blockDim.x + threadIdx.x;
-    const long step = gridDim.x * blockDim.x;
-    for (long j = tx; j < n; j += step) {
-//        O[i] = ABS(T[i]) < DU_EPS ? LN(DU1 - O[i] + DU_EPS) : LN(O[i] + DU_EPS);
-        O[j] = T[j] * LN(O[j] + DU_EPS) + (1.0f - T[j]) * LN(1.0f - O[j] + DU_EPS);
+k_bce(F32_RP T, F32_RP O, F32_WP loss, long numel) {
+    __shared__ float _sum[32];                         ///< one slot per warp
+
+    const int  t0   = threadIdx.x;
+    const int  tj   = t0 % 32, ti = t0 / 32;           ///< lane in warp, idx in block
+    const long tx   = (long)blockIdx.x * blockDim.x + t0;
+    const long step = (long)gridDim.x  * blockDim.x;
+
+    /// --- grid-stride: accumulate BCE locally ---
+    float v = 0.0f;
+    for (long j = tx; j < numel; j += step) {
+        float t = T[j], o = O[j];
+        v += t * LN(o + DU_EPS) + (1.0f - t) * LN(1.0f - o + DU_EPS);
+    }
+    /// --- warp-level shuffle reduction ---
+    WARP_SUM(v);
+    if (tj == 0) _sum[ti] = v;
+    __syncthreads();
+
+    /// --- block-level reduction over warp sums ---
+    if (ti == 0) {
+        v = (t0 < (blockDim.x / 32)) ? _sum[tj] : 0.0f;
+        WARP_SUM(v);
+        if (tj == 0) atomicAdd(loss, v);             ///< one atomic per block
     }
 }
 ///
