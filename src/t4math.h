@@ -143,7 +143,7 @@ __KERN__ void k_identity(F32_WP T, int h, int w);
 __KERN__ void k_math(math_op op, F32_XP dst, float v, long n);             ///< tensor math ops
 __KERN__ void k_ts_op(math_op op, F32_XP A, float v, F32_XP O, long n);    ///< tensor-scalar ops
 __KERN__ void k_tt_op(math_op op, F32_RP A, F32_RP B, F32_WP O, long n);   ///< tensor-tensor ops
-__KERN__ void k_bce(F32_RP T, F32_XP O, long n);
+__KERN__ void k_bce(F32_RP T, F32_RP O, F32_WP v, long n);
 ///@}    
 ///@name Tensor debug ops (kernel mode)
 ///@{
