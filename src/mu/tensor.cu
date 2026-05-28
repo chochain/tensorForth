@@ -29,6 +29,7 @@ __HOST__ Tensor&
 Tensor::ten_op(math_op op, Tensor &A, Tensor &B, Tensor &O) {
     U32 Na = A.N(), Ha = A.H(), Wa = A.W(), Ca = A.C();
     U32 Nb = B.N(), Hb = B.H(), Wb = B.W(), Cb = B.C();
+    U32 N  = std::max(Na, Nb);
     _OP(MATH_OP);
 
     if (A.HWC() != B.HWC() || (Na==1 ? B.numel : A.numel) != O.numel) {
@@ -38,7 +39,7 @@ Tensor::ten_op(math_op op, Tensor &A, Tensor &B, Tensor &O) {
     if ((Na==1 || Nb==1) && (Na != Nb)) {
         MM_DB("  tensor#ten_op A[%d,%d,%d,%d] %s B[%d,%d,%d,%d] => O[%d,%d,%d,%d]\n",
               Na, Ha, Wa, Ca, _op[op], Nb, Hb, Wb, Cb, O.N(), O.H(), O.W(), O.C());
-        for (int n = 0; n < std::max(Na, Nb); n++) {       ///< broadcast
+        for (int n = 0; n < N; n++) {       ///< broadcast
             DU *da = A.slice(Na==1 ? 0 : n), *db = B.slice(Nb==1 ? 0 : n);
             FORK(k_tt_op, A.HWC(), op, da, db, O.slice(n));
         }
@@ -59,10 +60,11 @@ Tensor::ten_op(math_op op, Tensor &A, Tensor &B, Tensor &O) {
 __HOST__ Tensor&
 Tensor::dot(Tensor &A, Tensor &B, Tensor &O, DU alpha, DU beta) {
     const U32 K  = A.W(), C = A.C();        ///< vector length, channels, batch_size
-    const U32 Na = A.N(), Nb = B.N();       ///< boradcast if Na < N 
+    const U32 Na = A.N(), Nb = B.N();       ///< boradcast if Na < N
+    const U32 N  = std::max(Na, Nb);
 
-    MM_DB("  tensor#dot O[%d,%d,%d,%d] = %g A @ B + %g O\n", Nb, 1, K, C, alpha, beta);
-    for (U32 n = 0; n < std::max(Na, Nb); n++) {
+    MM_DB("  tensor#dot O[%d,%d,%d,%d] = %g A @ B + %g O\n", N, 1, K, C, alpha, beta);
+    for (U32 n = 0; n < N; n++) {
         DU *da = A.slice(Na==1 ? 0 : n), *db = B.slice(Nb==1 ? 0 : n);
         FORK1(k_dot, C, 1, da, db, O.slice(n), alpha, beta, K, C);
     }
@@ -326,8 +328,10 @@ Tensor::loss(t4_loss op, Tensor &tgt) {
         z = sum();
         break;
     case LOSS_BCE: {                 /// * binary cross_entropy, input from sigmoid
-        FORK(k_bce, numel, tgt.data, data);
-        z = -sum();                  /// * -(y * ln(out_i) + (1-y) * ln(1-out_i))
+        cudaMemset(_tmp, 0, sizeof(DU));
+        FORK(k_bce, numel, tgt.data, data, _tmp);
+        D2H(&z, _tmp, sizeof(DU));
+        z = -z;
     } break;
     case LOSS_CE:                    /// * cross_entropy, input from softmax
         map(LN);                     /// * log(out_i)
