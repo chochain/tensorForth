@@ -230,7 +230,7 @@ Model::backprop(Tensor &tgt) {
             trace((tt=System::clock()) - t1, i, in, out);
             t1 = tt;
         }
-        _bstep(in, out);
+        _bstep(in, out, j==0);
 
         if (*_trace && _check_nan(in)) {
             ERROR("nn#backprop Nan %s\n", nname(in.grad_fn));
@@ -270,10 +270,14 @@ Model::_bloss(Tensor &tgt) {                     ///> pre-calc dLoss
     ///   + log-softmax + NLL (Negative Log Likelihood) for multi-class
     ///
     switch (fn) {
+    case L_LINEAR:                               /// * linear  + MSE
     case L_SIGMOID:                              /// * sigmoid + BCE
     case L_SOFTMAX:                              /// * softmax + CE
-    case L_LOGSMAX: out -= tgt;  break;          /// * log-softmax + NLL
-    default:        out  = tgt;  break;          /// * pass thru pre-calc dLoss, i.g. MSE
+    case L_LOGSMAX:                              /// * log-softmax + NLL
+        out -= tgt;
+        out *=  DU1 / tgt.N();                   /// * normalize match forward 1/N
+        break;          
+    default: out = tgt;  break;                  /// * pass thru pre-calc dLoss
     }
     if (*_trace) out.show();                     /// * display loss if trace on
     
@@ -283,22 +287,24 @@ Model::_bloss(Tensor &tgt) {                     ///> pre-calc dLoss
 }
 
 __HOST__ void
-Model::_bstep(Tensor &in, Tensor &out) {
+Model::_bstep(Tensor &in, Tensor &out, bool last_layer) {
     ///
     /// layer function dispatcher
     ///
     t4_layer fn = in.grad_fn;                       ///< layer function
     switch(fn) {
     case L_CONV:    _bconv(in, out);         break; /// * convolution
-    case L_LINEAR:  _blinear(in, out);       break; /// * out = w @ in + b
+    case L_LINEAR:
+        if (last_layer) in = out;                   /// * linear + MSE
+        else            _blinear(in, out);   break; /// * out = w @ in + b
     case L_FLATTEN: in = out;                break; /// * pass dY to X
     case L_RELU:
     case L_TANH:                                    /// * in = (1 - t^2)*out
-    case L_SIGMOID:                                 /// * in = s*(1 - s)*out
     case L_SELU:
     case L_LEAKYRL:
     case L_ELU:
     case L_DROPOUT: _bactivate(in, out);     break; /// * in = msk * out
+    case L_SIGMOID:                                 /// * sigmoid + BCE
     case L_SOFTMAX:                                 /// * softmax + CrossEntropy (pass thru)
     case L_LOGSMAX: in = out;                break; /// * log-softmax + NLL (pass thru)
     case L_MAXPOOL:
