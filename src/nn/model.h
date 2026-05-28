@@ -145,7 +145,7 @@ private:
     /// @name backward ops
     /// @{
     __HOST__ int    _bloss(Tensor &tgt);
-    __HOST__ void   _bstep(Tensor &in, Tensor &out);
+    __HOST__ void   _bstep(Tensor &in, Tensor &out, bool last_layer);
     __HOST__ int    _bconv(Tensor &in, Tensor &out);
     __HOST__ int    _blinear(Tensor &in, Tensor &out);
     __HOST__ int    _bactivate(Tensor &in, Tensor &out);
