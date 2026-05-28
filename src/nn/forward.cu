@@ -119,7 +119,7 @@ __KERN__ void k_pool(t4_layer op, DU *I, DU *O, U32 H, U32 W)
     const U64 RI  = (U64)(W - 1) * KS * C;                 ///< row advance after each KS cols
 
     DU *ix = &I[z1];                                       ///< first elem for max/min
-    DU  v  = (op == L_MAXPOOL || op == L_MINPOOL) ? DU0 : *ix;
+    DU  v  = (op == L_MAXPOOL || op == L_MINPOOL) ? *ix : DU0;
 
     /// op hoisted outside loop — no per-iteration branch
     switch (op) {
@@ -480,6 +480,7 @@ __HOST__ int
 Model::_fsoftmax(Tensor &in, Tensor &out) {
     const U32 N = in.N();                       ///< batch size
     const U32 C = (U32)in.HWC();                ///< classes per sample = H*W*C
+    /// * Note: grad[4] mask is not used
     
     if (C <= T4_DIM_SQ) {                       /// * one block per sample, all C classes fit in one block
         FORK2(k_softmax_small, N, C, in.data, out.data);
@@ -491,7 +492,7 @@ Model::_fsoftmax(Tensor &in, Tensor &out) {
 }
 
 __HOST__ int
-Model::_flogsoftmax(Tensor &in, Tensor &out) {  /// * TODO: DCP
+Model::_flogsoftmax(Tensor &in, Tensor &out) {  
     Tensor &t = *in.grad[4];                    ///< temp tensor [1,H,W,C];
     DU     *d = t.data;                         ///< cache tensor data
     out = in;                                   /// * copy in data to out
