@@ -53,7 +53,7 @@ AIO::t2png(Tensor &t, char *tag, int n_per_row) {
             for (int x = 0, c = 0; x < W; x++, c=0) {
                 while (c < 3) {                  /// RGB
                     DU vx = (*v - mean) * scale + 128.5f;
-                    *p++ = (U8)MIN(255, MAX(vx, 0));
+                    *p++ = (U8)MIN(255.0f, MAX(vx, 0.0f));
                     if (c++ < C) v++;            /// advance if more than 1 channel
                 }
             }
