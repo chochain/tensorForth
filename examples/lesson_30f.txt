@@ -26,7 +26,7 @@ constant md0                        \ keep as a constant
 .( ### setup dataset )
 md0                                 \ put NN model on TOS
 batchsize dataset mnist_train       \ create MNIST dataset with model batch size
-dup nn.len to dsz                   \ get dataset total number of samples
+nn.len to dsz                       \ get dataset total number of samples
 constant ds0                        \ keep dataset in a constant
 
 .( ### create our CNN framework )

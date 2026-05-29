@@ -60,7 +60,7 @@ constant md0                        \ keep as a constant
 md0                                 \ put NN model on TOS
 dup .( network model created => ) . \ display NN model, note that . (dot) is destructive
 batchsize dataset mnist_train       \ create MNIST dataset with model batch size
-dup nn.len dsz !                    \ get dataset total number of samples
+nn.len dsz !                        \ get dataset total number of samples
 constant ds0                        \ keep dataset in a constant
 
 .( ### create our CNN framework )
