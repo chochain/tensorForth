@@ -499,7 +499,7 @@ TensorVM::init() {
          ten_lvl = IS_OBJ(tos) ? 1 : 0);
     CODE("zeros",     xop1(FILL, DU0));       ///< fill tensor with 0s
     CODE("ones",      xop1(FILL, DU1));       ///< fill tensor with 1s
-    CODE("full",      xop1(FILL, POP()));     ///< fill tensor with a value
+    CODE("fill",      xop1(FILL, POP()));     ///< fill tensor with a value
     CODE("gradfill",  xop1(GFILL, DU1));      ///< gradient fill a tensor
     CODE("eye",       xop1(IDEN));            ///< fill 1s in diag
     CODE("rand",      sys.rand(tos, UNIFORM));///< uniform randomize a tensor or number
