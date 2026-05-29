@@ -89,7 +89,7 @@ __KERN__ void k_dconv2d(
         atomicAdd(&n_DX[((long)W * i1 + j1) * C1 + c1], dx_acc);
     }
     /// dF — write accumulated _df to global
-    if (tx < KS && ty < KS) {
+    if (train && tx < KS && ty < KS) {
         atomicAdd(&DF[zf + (ty * KS + tx) * C0], _df[ty][tx]);
     }
 }
