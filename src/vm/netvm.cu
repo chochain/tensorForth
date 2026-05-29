@@ -407,7 +407,7 @@ NetVM::init() {
     CODE("forward", _forward());                /// * forward propegation
     CODE("backprop",_backprop());               /// * back propegation
     CODE("broadcast",
-         if (IS_M(ss[-1]) && TOS1T) {                  /// * TOS is a onehot vector
+         if (IS_M(ss[-1]) && TOS1T) {           /// * TOS is a onehot vector
              DU y = POP();
              MTOS.broadcast((Tensor&)mmu.du2obj(y));
              DROP(y);
@@ -420,7 +420,7 @@ NetVM::init() {
     CODE(">n",      if (M1V) { DU t = POP(); MTOS.npush(t); });
     CODE("n@",      if (!M1V) return;
          S32    i  = POPi;
-         Tensor &t = MTOS[i];
+         Tensor &t = MTOS[i];                     /// * 0: first layer, -1: input
          DU     v  = mmu.obj2du(t);
          PUSH(DUP(v)));
     CODE("nn.len",                                 ///< total number of samples
