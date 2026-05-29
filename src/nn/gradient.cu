@@ -41,7 +41,7 @@ __KERN__ void k_adam(
         const DU mi = M[j] = b1 * M[j] + (DU1 - b1) * dg;        ///< momentum
         const DU vi = V[j] = b2 * V[j] + (DU1 - b2) * dg * dg;   ///< velocity
         
-        G[j] -= lrc * mi / (SQRT(vi) + DU_EPS);                  /// * update gradient, clipped
+        G[j] -= lrc * mi / (_SQRT(vi) + DU_EPS);                 /// * update gradient, clipped
         DG[j] = DU0;                                             /// * zero out dG for next round
     }
 }
