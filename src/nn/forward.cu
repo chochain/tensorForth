@@ -155,25 +155,25 @@ __KERN__ void k_activate(
         switch (op) {
         case L_RELU: O[j] = i > DU0                        /// * 1|0
             ? (F[j]=DU1, i)
-            : (F[j]=DU0);                          break;
+            : (F[j]=DU0);                           break;
         case L_TANH:
             O[j] = 0.5 * (DU1 + (i=TANH(i)));              /// * scaled to [0,1)
-            F[j] = DU1 - i*i;                      break;  /// * (1 - tanh^2)
+            F[j] = DU1 - i*i;                       break; /// * (1 - tanh^2)
         case L_SIGMOID:
             O[j] = i = SIGMOID(i);
-            F[j] = i * (DU1 - i);                  break;  /// * sig*(1 - sig)
+            F[j] = i * (DU1 - i);                   break; /// * sig*(1 - sig)
         case L_SELU: O[j] = i > DU0                        /// * selu
             ? (F[j] = SELU_L, i)
-            : (F[j] = SELU_LA * EXP(i)) - SELU_LA; break;
+            : (F[j] = SELU_LA * _EXP(i)) - SELU_LA; break;
         case L_LEAKYRL: O[j] = i > DU0
             ? (F[j] = DU1, i)
-            : (F[j] = alpha) * i;                  break;
+            : (F[j] = alpha) * i;                   break;
         case L_ELU: O[j] = i > DU0
             ? (F[j] = DU1, i)
-            : (F[j] = alpha * EXP(i)) - alpha;     break;
+            : (F[j] = alpha * _EXP(i)) - alpha;     break;
         case L_DROPOUT: O[j] = F[j] > alpha                /// * 1|0
             ? (F[j]=DU1, i)
-            : (F[j]=DU0);                          break;
+            : (F[j]=DU0);                           break;
         }
     }
 }
@@ -208,7 +208,7 @@ __KERN__ void k_softmax_small(DU *I, DU *O, int C) {
 
     DU sm = DU0;                         ///< init sum (register)
     if (c < C) {
-        sm   = EXP(s[c] - _max);         /// * numerical stability: x - max
+        sm   = _EXP(s[c] - _max);        /// * numerical stability: x - max
         d[c] = sm;                       /// * keep for final average
     }
     WARP_SUM(sm);                        /// * partial sum
@@ -254,7 +254,7 @@ __KERN__ void k_softmax(DU *I, DU *O, int C) {
     __syncthreads();
 
     for (int j = c; j < C; j += step) {  /// * calc each exp(v - _max)
-        d[j] = EXP(s[j] - _max);
+        d[j] = _EXP(s[j] - _max);
     }
     __syncthreads();
 
