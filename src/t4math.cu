@@ -212,19 +212,19 @@ k_math(math_op op, F32_XP A, float v, long n) {               ///< self modifyin
         switch(op) {
         case ABS:   A[j] = ABS(ak);                   break;
         case NEG:   A[j] = NEG(ak);                   break;
-        case EXP:   A[j] = EXP(ak);                   break;  /// * clamped
-        case LN:    A[j] = LN(MAX(ak, DU_LNX));       break;  /// * clamped
-        case LOG:   A[j] = LOG(MAX(ak, DU_LNX));      break;  /// * clamped
+        case EXP:   A[j] = _EXP(ak);                  break;  /// * clamped
+        case LN:    A[j] = _LN(MAX(ak, DU_LNX));      break;  /// * clamped
+        case LOG:   A[j] = _LOG(MAX(ak, DU_LNX));     break;  /// * clamped
         case TANH:  A[j] = TANH(ak);                  break;
         case RELU:  A[j] = RELU(ak);                  break;
         case SIGM:  A[j] = SIGMOID(ak);               break;
-        case SQRT:  A[j] = SQRT(MAX(ak, 0.0));        break;  /// * guarded
-        case RCP:   A[j] = RCP(ak);                   break;  /// 1/x
-        case SAT:   A[j] = SAT(ak);                   break;  /// [0.0..1.0]
+        case SQRT:  A[j] = _SQRT(MAX(ak, 0.0));       break;  /// * guarded
+        case RCP:   A[j] = _RCP(ak);                  break;  /// 1/x
+        case SAT:   A[j] = _SAT(ak);                  break;  /// [0.0..1.0]
         case FILL:  A[j] = v;                         break;
         case GFILL: A[j] = v * j / n;                 break;  /// gradient fill
         case SCALE: A[j] *= v;                        break;
-        case POW:   A[j] = POW(ak, v);                break;  /// x^v
+        case POW:   A[j] = _POW(ak, v);               break;  /// x^v
         case ADD:   A[j] += v;                        break;
         case SUB:   A[j] -= v;                        break;
         case MUL:   A[j] *= v;                        break;
@@ -242,10 +242,10 @@ k_ts_op(math_op op, F32_XP A, float v, F32_XP O, long n) {
     const long step = gridDim.x * blockDim.x;
     for (long j = tx; j < n; j += step) {
         switch (op) {                                         /// no divergence
-        case ADD: O[j] = A[j] + v; break;
-        case SUB: O[j] = A[j] - v; break;
-        case MUL: O[j] = A[j] * v; break;                     /// * convolution
-        case DIV: O[j] = A[j] / v; break;
+        case ADD: O[j] = _ADD(A[j], v); break;
+        case SUB: O[j] = _SUB(A[j], v); break;
+        case MUL: O[j] = _MUL(A[j], v); break;                /// * convolution
+        case DIV: O[j] = _DIV(A[j], v); break;
         }
     }
 }
@@ -258,10 +258,10 @@ k_tt_op(math_op op, F32_RP A, F32_RP B, F32_WP O, long n) {
     const long step = gridDim.x * blockDim.x;
     for (long j = tx; j < n; j += step) {
         switch (op) {                                         /// no divergence
-        case ADD: O[j] = A[j] + B[j]; break;
-        case SUB: O[j] = A[j] - B[j]; break;
-        case MUL: O[j] = A[j] * B[j]; break;                  /// * convolution
-        case DIV: O[j] = A[j] / B[j]; break;
+        case ADD: O[j] = _ADD(A[j], B[j]); break;
+        case SUB: O[j] = _SUB(A[j], B[j]); break;
+        case MUL: O[j] = _MUL(A[j], B[j]); break;             /// * convolution
+        case DIV: O[j] = _DIV(A[j], B[j]); break;
         }
     }
 }
@@ -292,7 +292,7 @@ k_bce(F32_RP T, F32_RP O, F32_WP loss, long numel) {
     float v = 0.0f;
     for (long j = tx; j < numel; j += step) {
         float t = T[j], o = O[j];
-        v += t * LN(o + DU_EPS) + (1.0f - t) * LN(1.0f - o + DU_EPS);
+        v += t * _LN(o + DU_EPS) + (1.0f - t) * _LN(1.0f - o + DU_EPS);
     }
     /// --- warp-level shuffle reduction ---
     WARP_SUM(v);
