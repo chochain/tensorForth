@@ -43,7 +43,7 @@ Summary::image(const char *tag, T4Base &b) {
             U8 *p = &px[(y * W) * 3];
             for (int x = 0; x < W; x++, h++) {
                 DU vx = (*h - mean) * scale + 128.5f;
-                U8 v  = (U8)MIN(255, MAX(vx, 0));
+                U8 v  = (U8)MIN(255.0f, MAX(vx, 0));
                 *p++ = v;
                 *p++ = v;
                 *p++ = v;
@@ -74,7 +74,7 @@ Summary::tile(const char *tag, T4Base &b, int n_per_row) {
                 while (c < 3) {                  /// RGB
                     DU vx = (*v - mean) * scale + 128.0f;
                     *p++ = (x==0 && y==0)
-                        ? 128 : static_cast<U8>(MIN(255, MAX(vx, 0)));
+                        ? 128 : static_cast<U8>(MIN(255.0f, MAX(vx, 0.0f)));
                     if (c++ < C) v++;            /// advance if more than 1 channel
                 }
             }
