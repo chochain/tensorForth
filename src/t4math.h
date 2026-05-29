@@ -52,34 +52,8 @@ typedef enum {
 
 #define MATH_OP "abs","neg","exp","ln","log","tanh","relu","sigmoid","sqrt","rcp","sat","iden","fill","gfill","scale","pow","+","-","*","/","mod","max","min","mul2","mod2"
 
-#if 0 // GPU mode __CUDA_ARCH__
-
-#define ABS(d)       (fabsf(d))                 /**< absolute value         */
-#define NEG(d)       (-d)                       /**< negate                 */
-#define EXP(d)       (__expf(d))                /**< exponential(float)     */
-#define LN(d)        (__logf(d))                /**< natural logrithm       */
-#define LOG(d)       (__log10f(d))              /**< log10                  */
-#define TANH(d)      (atanhf(d))                /**< tanh(float)            */
-#define RELU(d)      (MAX(0.0, d))              /**< relu(float)            */
-#define SIGMOID(d)   (RCP(1.0+EXP(-(d))))       /**< sigmoid(float)         */
-#define SQRT(d)      (__fsqrt_rn(d))            /**< square root            */
-#define RCP(x)       (__frcp_rn(x))             /**< reciprocol 1/x         */
-#define SAT(d)       (__saturatef(d))           /**< clamp into [0.0..1.0]  */
-#define POW(d,e)     (__powf(d,e))              /**< power d^(e)            */
-#define ADD(x,y)     (__fadd_rn(x,y))           /**< addition               */
-#define SUB(x,y)     (__fsub_rn(x,y))           /**< subtraction            */
-#define MUL(x,y)     (__fmul_rn(x,y))           /**< multiplication         */
-#define DIV(x,y)     (__fdiv_rn(x,y))           /**< division               */
-#define MOD(t,n)     (fmodf(t,n))               /**< fmod two floats        */
-#define MAX(x,y)     (fmax(x,y))                /**< maximum of the two     */
-#define MIN(x,y)     (fmin(x,y))                /**< minimum of the two     */
-#define MUL2(x2,y2)  (__dmul_rn(x2,y2))         /**< double precision mul   */
-#define MOD2(x2,y2)  (fmod(x2,y2))              /**< double precision mod   */
-
-#else // (HOST mode) !__CUDA_ARCH__
-
 #include <cmath>
-#define ABS(d)       (fabs(d))                  /**< absolute value         */
+#define ABS(d)       (fabsf(d))                 /**< absolute value         */
 #define NEG(d)       (-d)                       /**< negate                 */
 #define EXP(d)       (expf(d))                  /**< exponential(float)     */
 #define LN(d)        (logf(d))                  /**< natural logrithm       */
@@ -90,6 +64,10 @@ typedef enum {
 #define SQRT(d)      (sqrtf(d))                 /**< square root            */
 #define RCP(x)       (1.0f/(x))                 /**< reciprocol 1/x         */
 #define SAT(d)       (MIN(1.0f,MAX(0.0f,(d))))  /**< clamp into [0.0..1.0]  */
+// * IDEN  ops no math ref
+// * FILL
+// * GFILL
+// * SCALE
 #define POW(d,e)     (powf((d),(e)))            /**< power d^(e)            */
 #define ADD(x,y)     ((x)+(y))                  /**< addition               */
 #define SUB(x,y)     ((x)-(y))                  /**< subtraction            */
@@ -100,8 +78,21 @@ typedef enum {
 #define MIN(x,y)     (fminf((x),(y)))           /**< minimum of the two     */
 #define MUL2(x2,y2)  ((DU2)(x2)*(y2))           /**< double precision mul   */
 #define MOD2(x2,y2)  (fmod((DU2)(x2),(DU2)(y2)))/**< double precision mod   */
-
-#endif // (GPU mode) __CUDA_ARCH__
+///
+/// * CUDA intrinsic functions (static)
+///
+#define _EXP(d)      (__expf(d))                /**< exponential(float)     */
+#define _LN(d)       (__logf(d))                /**< natural logrithm       */
+#define _LOG(d)      (__log10f(d))              /**< log10                  */
+#define _SQRT(d)     (__fsqrt_rn(d))            /**< square root            */
+#define _RCP(x)      (__frcp_rn(x))             /**< reciprocol 1/x         */
+#define _SAT(d)      (__saturatef(d))           /**< clamp into [0.0..1.0]  */
+#define _POW(d,e)    (__powf(d,e))              /**< power d^(e)            */
+#define _ADD(x,y)    (__fadd_rn(x,y))           /**< addition               */
+#define _SUB(x,y)    (__fsub_rn(x,y))           /**< subtraction            */
+#define _MUL(x,y)    (__fmul_rn(x,y))           /**< multiplication         */
+#define _DIV(x,y)    (__fdiv_rn(x,y))           /**< division               */
+#define _MUL2(x2,y2) (__dmul_rn(x2,y2))         /**< double precision mul   */
 
 typedef enum {
     T_DROP = 0,
