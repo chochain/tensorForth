@@ -296,7 +296,7 @@ __HOST__ Tensor&
 MMU::dim(Tensor &t0) {
     const int map[] = { 3, 0, 1, 2 };       /// HWCN => NHWC
     Tensor &t = tensor(4);
-    for (int i=0; i<4; i++) t[i] = t0[map[i]];
+    for (int i=0; i<4; i++) t[i] = t0.shape[map[i]];
     return t;
 }
 ///
