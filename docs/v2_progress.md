@@ -4,7 +4,7 @@
 * TLSF tensor storage manager
 * matrix arithmetic (i.e. +, -, @, *, sum, min, max, avg, abs, negate, exp, log, pow)
 * linear algebra (i.e. copy, matmul, inverse, transpose, det, plu, luinv, upper, lower, solve)
-* matrix fill (i.e. zeros, ones, gradfill, full, eye, random)
+* matrix fill (i.e. zeros, ones, fill, gradfill, eye, random)
 * matrix console input (i.e. matrix{..., vector{..., and T!{)
 * matrix print (i.e PyTorch-style, adjustable edge elements)
 * tensor reference instead of deep copy (i.e. dup, over, pick, r@)
@@ -156,8 +156,8 @@ tensorForth 2.0 done.
 ||> `2 2 matrix`**`ones`**<br/>> `.`|`T2[2,2]`<br/>`matrix[2,2] = { { +1.0000 +1.0000 } { +1.0000 +1.0000 } }`|
 |gradfill|(Ta -- Ta')|fill tensor with linear gradient values [0,1.0) for debugging mostly|
 ||> `2 2 matrix`**`gradfill`**<br/>> `.`|`T2[2,2]`<br/>`matrix[2,2] = { { +0.0000 +0.2500 } { +0.5000 +0.7500 } }`|
-|full|(Ta n -- Ta')|fill tensor with number on TOS|
-||> `2 2 matrix 3`**`full`**<br/>> `.`|`T2[2,2]`<br/>`matrix[2,2] = { { +3.0000 +3.0000 } { +3.0000 +3.0000 } }`|
+|fill|(Ta n -- Ta')|fill tensor with number on TOS|
+||> `2 2 matrix 3`**`fill`**<br/>> `.`|`T2[2,2]`<br/>`matrix[2,2] = { { +3.0000 +3.0000 } { +3.0000 +3.0000 } }`|
 |eye|(Ta -- Ta')|fill diag with 1 and other with 0|
 ||> `3 3 matrix`**`eye`**<br/>> `.`|`T2[3,3]`<br/>`matrix[3,3] = {`<br/>`{ +1.0000 +0.0000 +0.0000 }`<br/>`{ +0.0000 +1.0000 +0.0000 }`<br/>`{ +0.0000 +0.0000 +1.0000 } }`|
 |rand|(Ta -- Ta')|fill tensor with uniform [0.00, 1.00) random numbers|

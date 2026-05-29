@@ -429,8 +429,8 @@ If all goes well, some warnings aside, *~/tests/ten4* is your executable. The fo
 <pre>
   zeros     (Ta   -- Ta')   - fill tensor with zeros
   ones      (Ta   -- Ta')   - fill tensor with ones
+  fill      (Ta n -- Ta')   - fill tensor with number on TOS
   gradfill  (Ta   -- Ta')   - gradient fill elements from 0 to 1
-  full      (Ta n -- Ta')   - fill tensor with number on TOS
   eye       (Ta   -- Ta')   - fill diag with 1 and other with 0
   rand      (Ta   -- Ta')   - fill tensor with uniform random numbers
   randn     (Ta   -- Ta')   - fill tensor with normal distribution random numbers
@@ -660,7 +660,7 @@ If all goes well, some warnings aside, *~/tests/ten4* is your executable. The fo
 * vector, matrix, tensor objects (modeled to PyTorch)
 * TLSF tensor storage manager (now 4G max)
 * matrix arithmetic (i.e. +, -, *, copy, matmul, transpose)
-* matrix fill (i.e. zeros, ones, full, eye, random)
+* matrix fill (i.e. zeros, ones, fill, eye, random)
 * matrix console input (i.e. matrix[..., array[..., and T![)
 * matrix print (i.e PyTorch-style, adjustable edge elements)
 * tensor view (i.e. dup, over, pick, r@)
