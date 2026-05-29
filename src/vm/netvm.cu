@@ -161,7 +161,7 @@ NetVM::_get_parm(int n) {
     Tensor *p = n ? t.grad[n] : (t.grad[0] ? t.grad[0] : t.grad[4]);
     if (p) {
         DU v = mmu.obj2du(*p);
-        PUSH(DUP(v));
+        PUSH(DUP(v));                      /// * soft-copy
     }
     else PUSH(DU0);
 }
@@ -173,12 +173,16 @@ __HOST__ void
 NetVM::_set_parm(int n) {
     if (!MTV) { ERROR("N T n required?"); return; }
 
-    S16    i  = POPi;
-    Tensor &p = *MNOS[i].grad[n];
-    Tensor &t = TTOS;
-    if (t.numel == p.numel) {
-        p = t;                          /// * copy all elements to p
-        DU t = POP(); DROP(t);
+    S16    i   = POPi;
+    Tensor &t  = TTOS;
+    Tensor &mt = MNOS[i];
+    Tensor *p = n ? mt.grad[n] : (mt.grad[0] ? mt.grad[0] : mt.grad[4]);
+    if (p && t.numel == p->numel) {
+        if (*p != t) {                  /// * same tensor?
+            *p = t;                     /// * copy all elements to p
+            DU x = POP(); DROP(x);      /// * free TOS tensor
+        }
+        else ERROR("Updating the same param tensor");
     }
     else {
         PUSH(i);                        /// * restore n
@@ -420,11 +424,13 @@ NetVM::init() {
          DU     v  = mmu.obj2du(t);
          PUSH(DUP(v)));
     CODE("nn.len",                                 ///< total number of samples
-         if (TOS1D) {
-             Tensor &t = (Tensor&)mmu.du2obj(POP());
-             PUSH(t.is_tensor() ? t.N() : ((Dataset&)t).setsize);
+         if (IS_OBJ(tos)) {
+             Tensor &t = (Tensor&)mmu.du2obj(tos);
+             PUSH(t.is_model()
+                  ? t.numel
+                  : (t.is_tensor() ? t.N() : ((Dataset&)t).setsize));
          }
-         else ERROR("TOS a tensor or dataset?\n"));
+         else ERROR("TOS a tensor, dataset, or model?\n"));
     CODE("nn.w",    _get_parm(0));                 ///< tensor.weight
     CODE("nn.b",    _get_parm(1));                 ///< tensor.bias
     CODE("nn.dw",   _get_parm(2));                 ///< tensor.weight.grad
