@@ -298,12 +298,12 @@ Model::forward(Tensor &input) {
     if (*_trace) input.show();            /// * preview input data
 
     if (input.numel != n0.numel) {
-        ERROR("nn#forward dataset wrong shape[%d,%d,%d,%d] != model input[[%d,%d,%d,%d]\n",
+        ERROR("nn#forward dataset wrong shape[%d,%d,%d,%d] != model input[%d,%d,%d,%d]\n",
               input.N(), input.H(), input.W(), input.C(),
               n0.N(), n0.H(), n0.W(), n0.C());
         return *this;
     }
-    n0 = input;                 /// * copy dataset batch into the first layer [0,1)
+    n0 = input;           /// * copy tensor or dataset batch into the first layer [0,1)
     ///
     /// cascade execution layer by layer forward
     /// TODO: model execution becomes a superscalar pipeline
@@ -388,7 +388,7 @@ Model::_fstep(Tensor &in, Tensor &out) {
 __HOST__ int
 Model::_fconv(Tensor &in, Tensor &out) {
     Tensor &f = *in.grad[0], &b = *in.grad[1];            ///< filter (1x1, 3x3, 5x5, 7x7), bias tensor
-    NN_DB(" f[%d,%d,%d,%d], b[%ld]", f.N(), f.H(), f.W(), f.C(), b.numel);
+    NN_DB(" f[%d,%d], b[%ld]", f.H(), f.W(), b.numel);
 
     const U32 N = out.N(), H = out.H(), W = out.W();      ///< outpt dimensions
     const U32 C0 = out.C(), C1 = in.C();                  ///< output, input channel deep
@@ -424,10 +424,9 @@ Model::_flinear(Tensor &in, Tensor &out) {
             }
         }
     };
-    Tensor &w = *in.grad[0], &b = *in.grad[1];        ///< weight, bias tensors
+    Tensor &w  = *in.grad[0], &b  = *in.grad[1];        ///< weight, bias tensors
 
-    NN_DB(" = in[%d,%d,%d,%d] @ w[1,%d,%d,1]^T + b[%ld])",
-          in.N(), in.H(), in.W(), in.C(), E0, E1, b.numel);
+    NN_DB(" = in[%d,%d] @ w[%d,%d]^T + b[%ld])", in.H(), in.W(), E0, E1, b.numel);
     
     if (*_trace > 1) {
         _dump_w("w", w, w.numel < T4_DIM_SQ);
@@ -435,9 +434,9 @@ Model::_flinear(Tensor &in, Tensor &out) {
     }
 
     if (0 && w.numel < T4_DIM_SQ) {                        /// * threshold control
-        NN_DB("* in = "); in.show(true);
+//        NN_DB("* in = "); in.show(true);
         qa_calc(w.data, b.data);                      /// * serial code
-        NN_DB(" => out"); out.show(true);
+//        NN_DB(" => out"); out.show(true);
     }
     else {
         // O[N,E0] = I[N,E1] @ W[E0,E1]^T + B[E0]
@@ -455,6 +454,9 @@ Model::_factivate(Tensor &in, Tensor &out, t4_layer fn) {
     DU alpha = in.xparm;
     FORK(k_activate, in.numel, 
          fn, in.data, in.grad[4]->data, out.data, alpha);
+    if (train && *_trace > 1) {
+        _dump_f("msk", *in.grad[4]);
+    }
     return 0;
 }
 
