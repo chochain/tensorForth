@@ -101,11 +101,12 @@ Model::gradient(const char *nm, t4_optimizer op, GdFunc fn, DU *parm) {
         NLOG("     %c[%2d,%2d,%2d,%2d] Σ=%6.3f - %6.3f",
               k, g.N(), g.H(), g.W(), g.C(), g.sum(), dg.sum());
         if (*_trace > 1 && g.numel < T4_DIM_SQ) {
-            Tensor::_dump(g.data, g.H(), g.W(), g.C());
-            Tensor::_dump(dg.data, dg.H(), dg.W(), dg.C());
+            INFO("\nbefore %c =", k); Tensor::_dump(g.data, g.H(), g.W(), g.C());
+            INFO("\nbefore d%c=", k); Tensor::_dump(dg.data, dg.H(), dg.W(), dg.C());
             fn(parm, g, dg, m, v);                    /// * execute grad function
-            Tensor::_dump(g.data, g.H(), g.W(), g.C());
-            Tensor::_dump(dg.data, dg.H(), dg.W(), dg.C());
+            INFO("\nafter  %c =", k); Tensor::_dump(g.data, g.H(), g.W(), g.C());
+            INFO("\nafter  d%c=", k); Tensor::_dump(dg.data, dg.H(), dg.W(), dg.C());
+            INFO("\n");
         }
         else fn(parm, g, dg, m, v);                   /// * execute grad function
         NLOG(" => %cΣ=%6.3f\n", k, g.sum());
