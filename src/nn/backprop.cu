@@ -220,7 +220,7 @@ Model::backprop(Tensor &tgt) {
             out.sum() / out.N() / out.C(),
             out.N(), out.H(), out.W(), out.C());
     };
-    if (_bloss(tgt)) return *this;                        /// * pre-calculate dLoss
+    if (_bprep(tgt)) return *this;                        /// * dLoss pass-thru
     
     NLOG("\nModel::backprop starts trace=%d train=%d {", *_trace, train);
     DU  t0 = System::clock(), t1 = t0, tt;                ///< performance measurement
@@ -248,16 +248,16 @@ Model::backprop(Tensor &tgt) {
 /// private methods
 ///
 __HOST__ int
-Model::_bloss(Tensor &tgt) {                     ///> pre-calc dLoss
+Model::_bprep(Tensor &tgt) {                     ///> pre-calc dLoss pass-thru
     Tensor &out = (*this)[-1];                   ///< output layer, used as dLoss
     if (out.numel != tgt.numel) {                /// * check dimensions of target vector
-        ERROR("Model#bloss: Onehot wrong shape[%d,%d,%d,%d] != [%d,%d,%d,%d], numel=%ld,%ld ",
+        ERROR("Model#bprep: Onehot wrong shape[%d,%d,%d,%d] != [%d,%d,%d,%d], numel=%ld,%ld ",
               tgt.N(), tgt.H(), tgt.W(), tgt.C(),
               out.N(), out.H(), out.W(), out.C(), tgt.numel, out.numel);
         return 1;
     }
     
-    NLOG("Model::bloss input(onehot) numel=%ld OK {", tgt.numel);
+    NLOG("Model::bprep input(onehot) numel=%ld OK {", tgt.numel);
     
     t4_layer fn = (*this)[-2].grad_fn;           ///< final activation layer
     ///
@@ -329,12 +329,15 @@ Model::_bconv(Tensor &in, Tensor &out) {
     Tensor &b  = *in.grad[1], &db = *in.grad[3];
     Tensor &dx = *in.grad[4];
 
-    NN_DB(" f[%d,%d,%d,%d], b[%ld]", f.N(), f.H(), f.W(), f.C(), b.numel);
+    NN_DB(" f[%d,%d], b[%ld]", f.H(), f.W(), b.numel);
     
     const int N = in.N(), H = in.H(), W = in.W();
     const int C1 = in.C(), C0 = out.C();
 
-    if (*_trace > 1) { _dump_b("b", b); _dump_f("f", f); }
+    if (*_trace > 1) {
+        _dump_b("before b",   b); _dump_f("before f",  f);
+        _dump_b("before db", db); _dump_f("before df", df);
+    }
      
     cudaMemset(dx.data, 0, dx.numel * sizeof(DU));      ///< pre-zero dX
 
@@ -349,7 +352,9 @@ Model::_bconv(Tensor &in, Tensor &out) {
     GPU_CHK();                                         /// * one sync for the whole batch
     in = dx;                                           /// * x = dX (overwrite all elements)
     
-    if (*_trace > 1) { _dump_b("db", db); _dump_f("df", df); }
+    if (*_trace > 1) {
+        _dump_b("after db", db); _dump_f("after df", df);
+    }
     return 0;
 }
 
@@ -362,6 +367,10 @@ Model::_blinear(Tensor &in, Tensor &out) {
     
     NN_DB("\n\tdw[%d,%d] += out'[%ld,1] @ in^t[1,%ld]", C0, C1, E0, E1);
     NN_DB("\n\tin[%ld,1] = w^t[%d,%d] @ out'[%ld,1]", E1, C1, C0, E0);
+    if (train && *_trace > 1) {
+        _dump_b("before db", db);
+        _dump_w("before dw", dw, dw.numel < T4_DIM_SQ);
+    }
     
     auto qa_calc = [&]() {
         for (int n = 0; n < in.N(); n++) {            ///< acc over N samples
@@ -387,30 +396,32 @@ Model::_blinear(Tensor &in, Tensor &out) {
         }
     };
     if (0 && w.numel < T4_DIM_SQ) {                   /// * threshold control
-        NN_DB("* out = "); out.show(true);
+//        NN_DB("* out = "); out.show(true);
         qa_calc();                                    /// * serial mode (validation)
-        NN_DB(" => in"); in.show(true);
+//        NN_DB(" => in"); in.show(true);
     }
     else {
         if (train) {
-            db.zeros();                               /// * pre-zero dB
             FORK3(k_dlinear_db, N, E0, 1, out.data, db.data);    /// * dB += sum(dY)
-            Tensor::linear(                           /// * dW[E0,E1] = dY[N,E0]^T @ X[N,E1]
-                out, in, dw, E0, E1, N, DU1, DU0, true, false);
+            Tensor::linear(                           /// * dW[E0,E1] += dY[N,E0]^T @ X[N,E1]
+                out, in, dw, E0, E1, N, DU1, DU1, true, false);
         }
         in.zeros();                                   /// * dX = 0
         Tensor::linear(                               /// * dX[N,E1] = dY[N,E0] @ W[E0,E1]
             out, w, in, N, E1, E0, DU1, DU0, false, false);
     }
     if (train && *_trace > 1) {
-        _dump_b("db", db);
-        _dump_w("dw", dw, dw.numel < T4_DIM_SQ);
+        _dump_b("after db", db);
+        _dump_w("after dw", dw, dw.numel < T4_DIM_SQ);
     }
     return 0;
 }
 
 __HOST__ int
 Model::_bactivate(Tensor &in, Tensor &out) {
+    if (train && *_trace > 1) {
+        _dump_f("msk", *in.grad[4]);
+    }
     Tensor::ten_op(MUL, out, *in.grad[4], in);        /// * in = msk * out
     return 0;
 }
