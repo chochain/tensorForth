@@ -1,54 +1,62 @@
-.( ## GAN tests Z = A X + B ) cr        \ linear regression in matrix form
-100 constant N                          \ mini-batch size (100 points)
+.( ## GAN tests Z = X @ A + B ) cr      \ linear regression in matrix form
+32 constant N                           \ mini-batch size (64 points)
 
+.( ### regression matrix and offset )
+2 2 matrix{ 1 2 -0.1 0.5 } constant A   \ Gaussian transformation matrix
+1 2 matrix{ 1 2 }          constant B   \ create offset matrix
+: X ( -- t4 ) N 1 2 1 tensor randn ;    \ N points of random { x1, x2 }
+: Z ( -- t4 ) X A @= B += ;             \ one set of real samples i.e. Z = AX + B
+
+: w_ ( N -- N' )                        \ init w to 0.02 (~0.707 too aggressive)
+  -2 nn.w 0.02 fill drop                \ get w of last layer (-1 is output), set to 0.02
+  -2 nn.b 0.02 fill drop ;              \ get b of last layer, set to 0.02
+  
 .( ### build generator network )
-N 2 1 1 nn.model                        \ generator model
-2 linear                                \ just one linear layer, w=2x2 (bias=1.0)
+N 1 2 1 nn.model                        \ generator model
+2 linear w_                             \ just one linear layer, w=2x2 (bias=1.0)
+flatten                                 \ trainable (linear + MSE => pass-thru)
 constant G                              \ kept as a constant
 
 .( ### build discriminator network )
-N 2 1 1 nn.model                        \ discriminator model
-5 linear 0.2 leakyrelu                  \ 1st linear layer
-3 linear 0.2 leakyrelu                  \ 2nd linear layer
-1 linear sigmoid                        \ binary output layer
+N 1 2 1 nn.model                        \ discriminator model
+5 linear w_ 0.2 leakyrelu               \ 1st linear layer
+3 linear w_ 0.2 leakyrelu               \ 2nd linear layer
+1 linear w_ sigmoid                     \ binary output layer
 constant D                              \ kept as a constant
 
-.( ### regression matrix and offset )
-2 2 matrix{ 1 2 -1 -2 } constant A                \ linear transformation matrix
-N 2 matrix ones                                   \ N data points
-2 2 matrix{ 1 0 0 2 } @= constant B               \ create offset matrix
-
-.( ### our entire GAN here )
-0 constant _g 0 constant _r 0 constant _f         \ loss for gen, real, and fake
+.( ### statistics and weight/bias dump )
+0 value _g 0 value _r 0 value _f                  \ loss for gen, real, and fake
 : stat ( -- )                                     \ display statistics
-  cr ." w,b=" G 1 nn.w . 1 nn.b . drop
+  cr ." w,b=" G 0 nn.w . 0 nn.b . drop
   ." G=" _g . ." , Dr=" _r . ." , Df=" _f . cr ;
 
-N 1 1 1 tensor ones constant  REAL                \ onehot tersor for a real set
+.( ### our entire GAN here )
+N 1 1 1 tensor ones  constant REAL                \ onehot tersor for a real set
 N 1 1 1 tensor zeros constant FAKE                \ onehot tensor for a fake set
-: X ( -- t4 ) N 2 matrix randn ;                  \ N points of random { x1, x2 }
-: Z ( -- t4 ) X A @= B += ;                       \ one set of real samples i.e. Z = AX + B
-: gen ( -- t4 ) G X forward -1 n@ swap drop ;     \ generate one set of fake samples
-  
+: F ( -- t4 ) G X forward -1 n@ swap drop ;       \ generate a mini-batch of fake samples
 : train_d ( D -- D' )
   1 trainable                                     \ make D discriminator trainable
-  Z   forward REAL loss.bce [to] _r REAL backprop \ treat real samples as real
-  gen forward FAKE loss.bce [to] _f FAKE backprop \ treat fake samples as fake
+  Z forward REAL loss.bce [to] _r REAL backprop   \ treat real samples as real
+  F forward FAKE loss.bce [to] _f FAKE backprop   \ treat fake samples as fake
   0.001 nn.adam ;                                 \ train, Adam (b1=0.9,b2=0.999)
-: train_g ( D -- D )
+: train_g ( D -- D' )
   0 trainable                                     \ make D testing mode (read only)
-  gen forward REAL loss.bce [to] _g REAL backprop \ now treat fake samples as real
-  1 n@ G swap ( D G t ) backprop                  \ propagate dX back to G
+  F forward REAL loss.bce [to] _g REAL backprop   \ now treat fake samples as real
+  0 n@ G swap ( D G t ) backprop                  \ propagate dX back to G
   0.001 nn.adam ( D G ) drop ;                    \ refine/train G with Adam
 
 : epoch ( -- ) D                                  \ put D on TOS
-  99 for train_d train_g next                     \ train with 100 * N samples    
+  40 for train_d train_g next                     \ train with 40 * N samples
   drop ;                                          \ drop D
-: gan ( n -- ) 1- for epoch stat next ;           \ run n epoch
+: gan ( n -- ) 1-                                 \ run n epoch
+  for
+    epoch stat
+    F r@ s" e%d" sprintf .embed                   \ send to tensorboard (projector)
+  next ;
 
-.( ### expect loss G=>low, Dr=>low, Df=>high, i.e. thinking fake as real )
-0 trace                                           \ reduce debug verbosity
-10 gan                                            \ run multiple (10) epochs
-gen N 2 reshape2 s" l32a.out" save                \ generate N trained { x1, x2 }
+.( ### expect 50% loss G, Dr, Df ~> 0.69 = ln 0.5, can't tell the difference)
+0 trace
+Z s" z0" .embed                                   \ send real set to tensorboard 
+20 gan                                            \ run multiple (20) epochs
 
 bye
