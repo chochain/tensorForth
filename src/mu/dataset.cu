@@ -1,4 +1,4 @@
-/**
+/** -*- c++ -*-
  * @file
  * @brief Dataset class - host-side dataset object
  *
