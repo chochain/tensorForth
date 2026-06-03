@@ -48,13 +48,13 @@ constant ds0                        \ keep dataset in a constant
   do
     epoch r@ stat                   \ run one epoch, display statistics
     histo                           \ send histograms to tensorboard
-    lr 0.9 * [to] lr                \ decay learning rate
+    lr 0.95 * [to] lr               \ decay learning rate
     ds0 rewind                      \ rewind entire dataset 
   loop ;
 
 .( ### start training )
-md0 network .graph                  \ display model as text, and to tensorboard graph
-ds0 dup 10 s" corpus/image" .tile   \ dataset, sample images, 10-wide, to tensorboard
+md0 network .graph                  \ put model as TOS, show and to tensorboard graph
+ds0 dup 10 s" corpus/image" .tile   \ get dataset, sample images, 10-wide, to tensorboard
 clock to t0                         \ get starting time
 20 cnn                              \ execute multiple (20) epoches
 drop                                \ drop dataset
