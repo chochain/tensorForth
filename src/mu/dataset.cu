@@ -85,7 +85,9 @@ __HOST__ int
     /// transfer host into device memory
     /// if needed, allocate Dataset device (managed) memory blocks
     ///
-    _load(cp->data, cp->label, n);                /// * transfer to device memory
+    DU mean  = I2D(cp->mean);                     /// * normalization
+    DU scale = I2D(cp->scale);                    /// * to [0, 1)
+    _load(cp->data, cp->label, n, mean, scale);   /// * transfer to device memory
     batch_id++;
     ///
     /// debug tracing/preview
@@ -98,9 +100,7 @@ __HOST__ int
 }
 
 __HOST__ void
-Dataset::_load(U8 *cp_data, U8 *cp_label, int n, DU mean, DU std) {
-    const DU  M  = mean * 256.0f;                ///< default mean=0
-    const DU  S  = std  * 256.0f;                ///< default std=1
+Dataset::_load(U8 *cp_data, U8 *cp_label, int n, DU mean, DU scale) {
     const U64 NX = HWC() * n;                    ///< partial mini-batch
     ///
     /// Allocate managed memory if needed
@@ -118,7 +118,7 @@ Dataset::_load(U8 *cp_data, U8 *cp_label, int n, DU mean, DU std) {
     ///
     DU  *d = data;                                ///< data in managed memory
     for (U64 i = 0; i < NX; i++, cp_data++) {     ///< NX < numel (partial mini-batch)
-        *d++ = (I2D((int)*cp_data) - M) / S;      /// * normalize
+        *d++ = (I2D((int)*cp_data) - mean) / scale;  /// * normalize
     }
     ///
     /// scale cp_label into U32 for nn/loss
