@@ -25,6 +25,8 @@ namespace t4::ld {
 struct Corpus {
     const char *ds_name;     ///< data source name
     const char *tg_name;     ///< target label name
+    const int  mean;         ///< normalization mean
+    const int  scale;        ///< normalization scale
 
     U32 N, H, W, C;          ///< set dimensions and channel size
     U32 batch_sz = 0;
@@ -38,8 +40,9 @@ struct Corpus {
     U8 *data;                ///< source data pointer
     U8 *label;               ///< label data pointer
     
-    Corpus(const char *data_name, const char *label_name)
-        : ds_name(data_name), tg_name(label_name), N(0), data(NULL), label(NULL) {}
+    Corpus(const char *data_name, const char *label_name, int mean=0, int scale=256)
+        : ds_name(data_name), tg_name(label_name), mean(mean), scale(scale),
+          N(0), data(NULL), label(NULL) {}
     
     ~Corpus() {
         if (!data) return;
