@@ -157,8 +157,8 @@ __KERN__ void k_activate(
             ? (F[j]=DU1, i)
             : (F[j]=DU0);                           break;
         case L_TANH:
-            O[j] = 0.5 * (DU1 + (i=TANH(i)));              /// * scaled to [0,1)
-            F[j] = DU1 - i*i;                       break; /// * (1 - tanh^2)
+            O[j] = i = TANH(i);                            /// * [-1, 1)
+            F[j] = DU1 - i * i;                     break; /// * (1 - tanh^2)
         case L_SIGMOID:
             O[j] = i = SIGMOID(i);
             F[j] = i * (DU1 - i);                   break; /// * sig*(1 - sig)
