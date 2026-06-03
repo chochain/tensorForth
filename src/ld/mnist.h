@@ -27,8 +27,8 @@ class Mnist : public Corpus {
     std::ifstream t_in;                      ///< target label file handle
     
 public:
-    Mnist(const char *data_name, const char *label_name)
-        : Corpus(data_name, label_name) {}
+    Mnist(const char *data_name, const char *label_name, DU mean, DU scale)
+        : Corpus(data_name, label_name, mean, scale) {}
     ~Mnist() { _close(); }
 
     virtual Corpus *init(bool trace);                  ///< setup/check sizing
