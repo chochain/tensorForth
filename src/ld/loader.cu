@@ -31,11 +31,13 @@ void Loader::init() {
     _cp_map["mnist_train"] =
         new Mnist(
             "../data/MNIST/raw/train-images-idx3-ubyte",
-            "../data/MNIST/raw/train-labels-idx1-ubyte");
+            "../data/MNIST/raw/train-labels-idx1-ubyte",
+            0, 256);                        ///< normalization (mean, and scale)
     _cp_map["mnist_test"] =
         new Mnist(
             "../data/MNIST/raw/t10k-images-idx3-ubyte",
-            "../data/MNIST/raw/t10k-labels-idx1-ubyte");
+            "../data/MNIST/raw/t10k-labels-idx1-ubyte",
+            0, 256);                        ///< normalization (mean, and scale)
 }
 
 Corpus *Loader::get(Dataset &ds, const char *ds_name) {
