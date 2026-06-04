@@ -147,7 +147,6 @@ NetVM::_pickle(bool save) {                 ///< ( N addr len -- ) or ( N addr l
         tos, mode, 0,                       /// * object, write mode, idx/len
         fn);                                /// * file name
 }
-
 ///
 /// fetch parameters onto TOS
 /// n=0:W, 1:B, 2:dW, 3:dB
@@ -402,6 +401,14 @@ NetVM::init() {
          Dataset &ds  = mmu.dataset(POPi);      ///< batch size
          PUSH(mmu.obj2du((T4Base&)ds));         /// * create a dataset as TOS
          syscall(OP_DATA, tos, 0, 0, dsn));     /// * issue a dataset init
+    CODE("normalize",                           /// * ( DS mean scale -- DS' )
+         T4Base &t = mmu.du2obj(ss[-2]);        ///< retrieve dataset ref
+         if (t.is_dataset()) {
+             DU scale = POP(); IU mean = POPi;  ///< fetch mean & scale
+             syscall(OP_NORM, tos);             /// * send dataset
+             syscall(OP_NORM, scale, 0, mean);  /// * send normalization parms
+         }
+         else ERROR("DS mean scale?\n"));
     CODE("fetch",   syscall(OP_FETCH, tos, 0)); /// * fetch a dataset batch
     CODE("rewind",  syscall(OP_FETCH, tos, 1)); /// * rewind a dataset (batch_id=0)
     CODE("forward", _forward());                /// * forward propegation
