@@ -337,6 +337,7 @@ MMU::dataset(U32 batch_sz) {                 /// * Note: data block is not alloc
     ds->N()      = batch_sz;                 /// * other members filled in host mode
     ds->batch_id = 0;                        /// * setup control flag
     ds->label    = NULL;
+    ds->normalize(0.0f, 256.0f);             /// * default normalization
     MM_DB("} mmu#dataset => D:%x\n", OBJ2X(*ds));
     return *ds;
 }
