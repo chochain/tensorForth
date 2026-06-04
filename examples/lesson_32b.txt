@@ -1,88 +1,85 @@
 .( ## GAN demo - MNIST ) cr
-\ 100 constant N                              \ mini-batch sample count
-1 trace
-3 constant N                              \ mini-batch sample count
-
-.( ### output file name handlers )
-: fn s" ../out/l7_0000" ;                   \ filename storage
-fn drop 10 + constant pos                   \ pointer to filename last digits
-: n2i ( n i -- )                            \ set n at ith digit
-  pos + >r 10 mod $30 + r> c! ;
-: setfn ( n -- )                            \ create next filename
-  3 for dup i n2i 10 / next drop ;          \ fill 4 digits into fn
+100 constant N                               \ mini-batch sample count
+0.0001 value d_lr 0.0004 value g_lr          \ init learning rates
+0 value t0                                   \ to keep starting timestamp
+0 value _gr 0 value _dr 0 value _df          \ loss for gen, real, and fake
+N 1 1 1 tensor ones  constant REAL           \ onehot vector for real
+N 1 1 1 tensor zeros constant FAKE           \ onehot vector for fake
+: loss_dr ( D -- D ) REAL loss.bce [to] _dr ;
+: loss_df ( D -- D ) FAKE loss.bce [to] _df ;
+: loss_gr ( D -- D ) REAL loss.bce [to] _gr ;
+: adj_lr  ( n -- )                           \ decay learning rate
+    40 > if                                     \ drop learning rate after 40 epochs
+      d_lr 0.96 * [to] d_lr                     \ D learning rate decay 
+      g_lr 0.96 * [to] g_lr                     \ G learning rate decay
+    then ;
 
 .( ### benchmark/statistics ) cr
-variable _en 0 _en !                        \ epoch number
-variable _bn 0 _bn !                        \ mini-batch counter
-variable _gr variable _dr variable _df      \ loss for gen, real, and fake
-: stat ( -- ) cr                            \ display loss statistics
-  ." t=" clock 1000 / .
-  ." , epoch=" _en @ dup >r .
-  ." , G="  _gr @ r@ / . 0 _gr !
-  ." , Dr=" _dr @ r@ / . 0 _dr !
-  ." , Df=" _df @ r> / . 0 _df !
-  cr mstat ;
+: stat ( n -- )                              \ progress and and to tensorboard
+  dup .tbstep                                   \ set tensorboard step
+  clock t0 - 1000 /                             \ calc time spent (in sec)
+       dup s" gan/time"      .scalar            \ send scalar to tensorboard
+  _gr  dup s" gan/gen_loss"  .scalar            \ Generator loss
+  _dr  dup s" gan/real_loss" .scalar            \ Loss of real samples
+  _df  dup s" gan/fake_loss" .scalar            \ Loss of fake samples
+  g_lr dup s" gan/gen_lr"    .scalar            \ Generator learn rate
+  s" step=%d, time=%g, Loss G, Dr, Df=(%g, %g, %g) lr=%g"  \ sprintf format
+  sprintf 2dup type cr                          \ fill PAD, type on screen
+  s" progress/text" .text ;                     \ and to tensorboard
+
+.( ### progress ) cr
+variable _i 0 _i !                          \ mini-batch counter
 : hint ( -- )                               \ display '.' (dot) for progress 
-  _bn @ 1+ dup _bn !
-  10 mod 0= if 46 emit then ;
-: save_img ( t4 -- )
-  _en @ dup 1+ _en ! setfn                  \ create next filename
-  fn bin save drop ;                        \ save raw image file
+  _i @ 1+ dup _i !
+  100 mod 0= if 46 emit then ;
 
 .( ### create discriminator network ) cr
-N 28 28 1 nn.model                          \ define Discriminator model (8-layer)
+N 28 28 1 nn.model                          \ define Discriminator input [Nx28x28x1]
 512 linear 0.2 leakyrelu 0.3 dropout        \ 1st linear layer
 256 linear 0.2 leakyrelu 0.3 dropout        \ 2nd linear layer
 1 linear sigmoid                            \ binary output layer
 constant D                                  \ kept as constant D
 
 .( ### create generator network ) cr
-N 128 1 1 nn.model                          \ define Generator Model (6-layer)
+N 128 1 1 nn.model                          \ define Generator Model (128 latent seed)
 256 linear 0.2 leakyrelu                    \ 1st linear layer
 512 linear 0.2 leakyrelu                    \ 2nd linear layer
-784 linear tanh                             \ 28x28x1, (1+tanh)/2 output [0,1)
+784 linear tanh                             \ [Nx28x28x1], tanh output [-1,1)
 constant G                                  \ kept as constant G
 
-.( ### our entire GAN here )
-0.00001 constant d_lr 0.00001 constant g_lr \ init learning rates
+.( ### our entire GAN here ) cr
 N dataset mnist_train                       \ create dataset MNIST (Real data)
-\ constant ds0                                \ kept as a constant
+128 128 normalize                           \ mean, scale samples from [0, 1) to [-1, 1)
+constant ds0                                \ kept as a constant
 
-bye
+: X N 128 1 1 tensor randn ;                \ create N [0,1) random seeds
+: F ( -- t4 )                               \ generate a mini-batch of fake images
+  G X forward -1 n@                             \ feed random seeds to generator
+  N 28 28 1 reshape4 ( G t ) swap drop ;        \ reshape to [Nx28x28x1]
 
-: REAL N 1 1 1 tensor ones ;                \ create a real label tensor
-: FAKE N 1 1 1 tensor zeros ;               \ create a fake label tensor
-: seed N 128 1 1 tensor randn ;             \ create randn avg=0,std=1 input for fake data
-: gen ( -- t4 )                             \ generate a mini-batch of fake images
-  G seed forward -1 n@                      \ feed random seeds to generator
-  N 28 28 1 reshape4                        \ reshape to [N, 28, 28, 1]
-  swap drop ;                               \ drop view of G
-
-: train_d ( D -- )
-  1 trainable                                     \ ensure D trainable
-  ds0 forward REAL loss.bce _dr +! REAL backprop  \ feed D with real data (from rs)
-  gen forward FAKE loss.bce _df +! FAKE backprop  \ feed D with fake data, update D
-  d_lr 0.5 nn.adam ;                              \ train D, Adam (b1=0.5,b2=1-lr)
-: train_g ( D -- )
-  0 trainable                                     \ D testing only
-  gen forward REAL loss.bce _gr +! REAL backprop  \ feed D as real (but without updating)
-  1 n@ G swap ( D G t ) backprop                  \ propagate image dX to G backprop
-  g_lr 0.5 nn.adam ( D G ) drop ;                 \ train G, Adam (b1=0.5,b2=1-lr)
+: train_d ( D -- D' ) 1 trainable           \ train D (ensure D trainable)
+  ds0 forward loss_dr REAL backprop             \ feed D with real data
+  F   forward loss_df FAKE backprop             \ feed D with fake data
+  d_lr 0.5 nn.adam ;                            \ train D, Adam (b1=0.5, b2=1-lr)
+: train_g ( D -- D' ) 0 trainable           \ train G, no D update
+  F   forward loss_gr REAL backprop             \ feed D fake as real
+  0 n@ G swap ( D G t4 ) backprop               \ propagate image dX to update G
+  g_lr 0.5 nn.adam ( D G ) drop ;               \ train G, Adam (b1=0.5, b2=1-lr)
   
-: epoch ( D ds -- D )                       \ one epoch for the given data source
-  for                                       \ loop thru mini-batches (on rs)
-    train_d train_g hint                    \ training and display '.' for progress
-  next ( D ) 0 _bn ! ;                      \ loop, if next mini-batch available
-: gan ( D ds n -- D ds )
-  for
-    epoch stat gen save_img                 \ create image dump per epoch
-    d_lr 0.95 * [to] d_lr                   \ D learning rate decay 
-    g_lr 0.95 * [to] g_lr                   \ D learning rate decay 
-    ds0 rewind ( D ds )                     \ rewind dataset 
-  next ;
+: epoch ( D ds -- D' )                      \ one epoch for the given data source
+  for train_d train_g hint next ;               \ loop thru mini-batches (on rs)
+: gan ( D ds n -- D ds ) 1+ 0               \ run multiple epochs
+  do                                            \ loop thru [0..n]
+    epoch                                       \ run an epoch (full MNIST set)
+    r@ stat r@ adj_lr                           \ send stat, and adjust learning rate
+    F 10 s" gen/image" .tile                    \ send fake image to tensorboard
+    ds0 rewind ( D ds )                         \ rewind dataset 
+  loop ;
 
-\ expected loss G=>low, Dr=>low, Df=>high (thinking fake as real)
-D ds0 epoch \ 99 gan
+.( ### expect 50% loss G, Dr, Df ~> 0.69 = ln 0.5, i.e. can't tell fake from real) cr
+0 trace
+clock to t0
+D ds0 99 gan
 
 bye
 
