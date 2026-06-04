@@ -25,15 +25,27 @@ struct Dataset : public Tensor {
     __HOST__ Dataset(U32 n, U32 h, U32 w, U32 c)
         : Tensor(n, h, w, c), label(NULL) {
         MM_ALLOC(&label, n * sizeof(U32));
-        TRACE("Dataset[%d,%d,%d,%d] created\n", n, h, w, c);
+        INFO("Dataset[%d,%d,%d,%d] created\n", n, h, w, c);
     }
     __HOST__ ~Dataset() {
         if (!label) return;
         MM_FREE((void*)label);
     }
+    __HOST__ void normalize(DU mean, DU scale) {
+        _mean = mean;
+        if (ZEQ(scale)) {
+            ERROR("scale == 0?\n");
+            _scale = 1.0f;
+        }
+        else _scale = 1.0f / scale;
+        INFO("  dataset _mean=%g, _scale=%g\n", _mean, _scale);
+    }
     __HOST__ int fetch(char *ds_name, bool rewind, bool trace);
 
 private:
+    DU _mean  = 0.0f;
+    DU _scale = 1.0f / 256.0f;
+    
     __HOST__ void _reshape(U32 n, U32 h, U32 w, U32 c) {
         DEBUG("Dataset::setup(%d, %d, %d, %d)\n", n, h, w, c);
         ///
@@ -43,7 +55,7 @@ private:
         Tensor::reshape(n, h, w, c);   /// * reshape to 4-D tensor
     }
     __HOST__ void _load(
-        U8 *cp_data, U8 *cp_label, int n, DU mean=DU0, DU std=DU1);
+        U8 *cp_data, U8 *cp_label, int n);
 };
 
 } // namespace t4::mu
