@@ -25,7 +25,7 @@ struct Dataset : public Tensor {
     __HOST__ Dataset(U32 n, U32 h, U32 w, U32 c)
         : Tensor(n, h, w, c), label(NULL) {
         MM_ALLOC(&label, n * sizeof(U32));
-        INFO("Dataset[%d,%d,%d,%d] created\n", n, h, w, c);
+        TRACE("Dataset[%d,%d,%d,%d] created\n", n, h, w, c);
     }
     __HOST__ ~Dataset() {
         if (!label) return;
@@ -38,7 +38,6 @@ struct Dataset : public Tensor {
             _scale = 1.0f;
         }
         else _scale = 1.0f / scale;
-        INFO("  dataset _mean=%g, _scale=%g\n", _mean, _scale);
     }
     __HOST__ int fetch(char *ds_name, bool rewind, bool trace);
 
