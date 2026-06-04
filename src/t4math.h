@@ -58,7 +58,7 @@ typedef enum {
 #define EXP(d)       (expf(d))                  /**< exponential(float)     */
 #define LN(d)        (logf(d))                  /**< natural logrithm       */
 #define LOG(d)       (log10f(d))                /**< log10                  */
-#define TANH(d)      (atanhf(d))                /**< tanh(float)            */
+#define TANH(d)      (tanhf(d))                 /**< tanh(float)            */
 #define RELU(d)      (MAX(0.0f, (d)))           /**< relu(float)            */
 #define SIGMOID(d)   (RCP(1.0f+EXP(-(d))))      /**< sigmoid(float)         */
 #define SQRT(d)      (sqrtf(d))                 /**< square root            */
