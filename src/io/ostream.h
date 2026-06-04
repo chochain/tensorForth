@@ -96,6 +96,7 @@ __HOST__ __INLINE__ void _debug(GT gt, U8 *vp, U32 sz) {
             case OP_DUMP:  printf("dump(%d, %d)", (U32)o->n, o->i); break;
             case OP_SS:    printf("ss_dump(%d)",  o->i);            break;
             case OP_DATA:  printf("data(%d)",     o->i);            break;
+            case OP_NORM:  printf("norm(%d)",     o->i);            break;
             case OP_FETCH: printf("fetch(%d)",    o->i);            break;
             }
         } break;
