@@ -206,6 +206,17 @@ System::_process_opx(io_event *ev) {         ///< process composit IO types
         }
         else ERROR("%x is not a dataset\n", DU2X(o.n));
     } break;
+    case OP_NORM: {
+        mu::Dataset &ds = (mu::Dataset&)mu->du2obj(o.n);
+        if (ds.is_dataset()) {
+            ev = NEXT_EVENT(ev);                            ///< get dataset repo name
+            io::_opx x = *((io::_opx*)ev->data);            ///< capture a hardcopy
+            INFO("  OP_NORM(mean=%d, scale=%g)\n", x.i, x.n);
+            ds.normalize(I2D((int)x.i), x.n);               /// * fetch first batch
+            ds.fetch(NULL, true, _trace);                   /// * rewind/load dataset
+        }
+        else ERROR("%x is not a dataset\n", DU2X(o.n));
+    } break;  
     case OP_FETCH: {
         mu::Dataset &ds = (mu::Dataset&)mu->du2obj(o.n);
         if (ds.is_dataset()) {
