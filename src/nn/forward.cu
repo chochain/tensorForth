@@ -325,9 +325,9 @@ Model::forward(Tensor &input) {
         _fstep(in, out);
 
         if (*_trace && _check_nan(out)) {
-            ERROR("nn#forward Nan %s\n", nname(in.grad_fn));
-            in.show();
-            out.show();
+            ERROR("nn#forward Nan in %s\n", nname(in.grad_fn));
+            INFO("in=");  in.show(true);
+            INFO("out="); out.show(true);
             this->err = 1;
             break;
         }
