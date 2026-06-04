@@ -229,6 +229,7 @@ typedef enum {
     OP_TSAVE,                         ///< persist tensor (for NumPy, Panda)
     OP_TLOAD,                         ///< load tensor from NumPy dump
     OP_DATA,                          ///< dataset init
+    OP_NORM,                          ///< dataset normalization
     OP_FETCH,                         ///< dataset retrieve
     OP_NSAVE,                         ///< network model presistance
     OP_NLOAD,                         ///< network modek restore
