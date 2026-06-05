@@ -1,5 +1,5 @@
 .( ## GAN demo - MNIST ) cr
-100 constant N                               \ mini-batch sample count
+256 constant N                               \ mini-batch sample count
 0.0001 value d_lr 0.0004 value g_lr          \ init learning rates
 0 value t0                                   \ to keep starting timestamp
 0 value _gr 0 value _dr 0 value _df          \ loss for gen, real, and fake
@@ -9,7 +9,7 @@ N 1 1 1 tensor zeros constant FAKE           \ onehot vector for fake
 : loss_df ( D -- D ) FAKE loss.bce [to] _df ;
 : loss_gr ( D -- D ) REAL loss.bce [to] _gr ;
 : adj_lr  ( n -- )                           \ decay learning rate
-    40 > if                                     \ drop learning rate after 40 epochs
+    50 > if                                     \ drop learning rate after 50 epochs
       d_lr 0.96 * [to] d_lr                     \ D learning rate decay 
       g_lr 0.96 * [to] g_lr                     \ G learning rate decay
     then ;
@@ -72,7 +72,7 @@ constant ds0                                \ kept as a constant
   do                                            \ loop thru [0..n]
     epoch                                       \ run an epoch (full MNIST set)
     r@ stat r@ adj_lr                           \ send stat, and adjust learning rate
-    F 10 s" gen/image" .tile                    \ send fake image to tensorboard
+    F 16 s" gen/image" .tile                    \ fake images, 16-wide, to tensorboard
     ds0 rewind ( D ds )                         \ rewind dataset 
   loop ;
 
