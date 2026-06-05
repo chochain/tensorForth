@@ -160,18 +160,19 @@ Here's how to build
 * pull a CUDA 11.4 + Ubuntu 20.04 docker image, a template is provided in ~/examples/cuda114_Docker
 * run the CUDA container with your environment variables, a template provided in ~/examples/docker_cuda114
 
-    Examples
     <pre>
     > # for my old GT1030 on Ubuntu 20.04
     > cd examples
     > cp cuda114_Dockerfile Dockerfile
     > docker build -t cuda:v114 .
     > ./docker_cuda114
+    </pre>
 
 * or install nVidia 535 driver
 * install a CUDA 12.2 + Ubuntu 22.04 docker image, a template is provided in ~/examples/cuda122_Docker
 * run the CUDA container with your environment variables, a template provided in ~/examples/docker_cuda122
 
+    <pre>
     > # for my cheap GTX1660 on Ubuntu 22.04
     > cd examples
     > cp cuda122_Dockerfile Dockerfile
