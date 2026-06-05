@@ -26,8 +26,8 @@
 Compiled programs run fast on Linux. Command-line interface and shell scripting tie them together. Small tools are built along the way, productivity grows with time, especially in the hands of researchers.
 
 *Niklaus Wirth*: **Algorithms + Data Structures = Programs**
-* Too much on Algorithms - most modern languages, i.e. OOP, abstraction, template, ...
-* Too focused on Data Structures - APL, SQL, ...
+* but too much on Algorithms - most modern languages, i.e. OOP, abstraction, template, ...
+* or too focused on Data Structures - APL, SQL, ...
 
 *Numpy* kind of solves both. So, for AI projects today, we use *Python* mostly. However, when GPU got involved, to enable processing on CUDA device, say with *Numba*, *TaiChi* or the likes, mostly there will be a behind the scene 'just-in-time' transcoding to C/C++ followed by compilation then load and run. In a sense, your *Python* code behaves like a *Makefile* which requires compilers/linker available on the host box. The common code-compile-run-debug cycle is especially counter-productive with ML's extra-long run stage.
 
@@ -59,7 +59,7 @@ Since GPUs have good compiler support nowadays and I've ported the latest [*eFor
 
 It would be amusing to find someone brave enough to work the NVVM IR or even PTX assembly into a Forth that resides on GPU micro-cores in the fashion of [*GreenArray*](https://www.greenarraychips.com/), or to forge an FPGA doing similar kind of things.
 
-In the end, languages don't really matter. It's the problem they solve. Having an interactive Forth in GPU does not mean a lot by itself. However, by adding matrix for linear algebra, or tensors for machine learning following the path from Numpy to PyTorch, with massively parallelism plus the cleanness of **Forth**, I hope it can be useful one day, hopefully! 
+In the end, languages don't really matter. It's the problem they solve. Having an interactive Forth in GPU does not mean a lot by itself. However, by adding matrix for linear algebra, or tensors for machine learning following the path from Numpy to PyTorch, with massively parallelism plus the cleanness of **Forth**, it might be useful one day, hopefully! 
 
 ### Example - Small Matrix ops
 <pre>
