@@ -4,26 +4,31 @@
 * Forth VM that supports tensor calculus and Convolution Neural Network with dynamic parallelism in CUDA
 
 ### Status
+* **CUDA11.4** legacy version for Kepler, Maxwell (i.e. Jetson Nano/TX), Pascal, and Volta only
 |version|feature|stage|description|conceptual comparable|
 |---|---|---|---|---|
 |[1.0](https://github.com/chochain/tensorForth/releases/tag/v1.0.2)|**float**|production|extended eForth with F32 float|Python|
 |[2.0](https://github.com/chochain/tensorForth/releases/tag/v2.0.2)|**matrix**|production|+ vector and matrix objects|NumPy|
 |[2.2](https://github.com/chochain/tensorForth/releases/tag/v2.2.2)|**lapack**|production|+ linear algebra methods|SciPy|
-|[3.0](https://github.com/chochain/tensorForth/releases/tag/v3.0.0)|**CNN**|beta|+ Machine Learning with autograd|Torch|
-|[3.2](https://github.com/chochain/tensorForth/releases/tag/v3.2.0)|**GAN**|alpha|+ Generative Adversarial Net|PyTorch.GAN|
+|[3.0](https://github.com/chochain/tensorForth/releases/tag/v3.0.0)|**CNN**|production|+ Machine Learning with autograd|Torch|
+|[3.2](https://github.com/chochain/tensorForth/releases/tag/v3.2.0)|**GAN**|beta|+ Generative Adversarial Net|PyTorch.GAN|
+
+* **CUDA12+** version for Turing, Ampere, and on
+|[3.4](https://github.com/chochain/tensorForth/releases/tag/v3.4.0)|**GAN+TB**|beta|+ TensorBoard output|PyTorch+Tensorboard|
 |4.0|**Transformer**|developing|add Transformer ops|PyTorch.Transformer|
 |4.2|**Retentive**|analyzing|add RetNet ops|PyTorch.RetNet|
 
+
 ### Why?
-Compiled programs run fast on Linux. On the other hand, command-line interface and shell scripting tie them together in operation. With interactive development, small tools are built along the way, productivity usually grows with time, especially in the hands of researchers.
+Compiled programs run fast on Linux. Command-line interface and shell scripting tie them together. Small tools are built along the way, productivity grows with time, especially in the hands of researchers.
 
 *Niklaus Wirth*: **Algorithms + Data Structures = Programs**
 * Too much on Algorithms - most modern languages, i.e. OOP, abstraction, template, ...
 * Too focused on Data Structures - APL, SQL, ...
 
-*Numpy* kind of solves both. So, for AI projects today, we use *Python* mostly. However, when GPU got involved, to enable processing on CUDA device, say with *Numba* or the likes, mostly there will be a behind the scene 'just-in-time' transcoding to C/C++ followed by compilation then load and run. In a sense, your *Python* code behaves like a *Makefile* which requires compilers/linker available on the host box. The common code-compile-run-debug cycle is especially counter-productive with ML's extra-long run stage.
+*Numpy* kind of solves both. So, for AI projects today, we use *Python* mostly. However, when GPU got involved, to enable processing on CUDA device, say with *Numba*, *TaiChi* or the likes, mostly there will be a behind the scene 'just-in-time' transcoding to C/C++ followed by compilation then load and run. In a sense, your *Python* code behaves like a *Makefile* which requires compilers/linker available on the host box. The common code-compile-run-debug cycle is especially counter-productive with ML's extra-long run stage.
 
-Forth language encourages incremental build-test cycle. Having a 'shell', resides in GPU, that can interactively and incrementally develop/run each AI layer/node as a small 'subroutine' without dropping back to host system might better assist building a rapid and accurate system. Some might argue that this kind of CUDA kernel will kill GPU with branch divergence. Yes, indeed and there's always space for improvment. However, the performance of the 'shell scripts' themselves is not really the point of discussion. So, here we are!
+Forth language encourages incremental build-test cycle. Having a 'GPU shell', that can interactively and incrementally develop/run each AI layer/node can potentially build a cleaner system. So, here we are!
 
 > **tensor + Forth = tensorForth!**
 
@@ -43,16 +48,14 @@ More details to come but here are some samples of tensorForth in action
   > |<img src="https://raw.githubusercontent.com/chochain/tensorForth/master/docs/img/ten4_l7_progress2.png" width="880px" height="400px">|<img src="https://raw.githubusercontent.com/chochain/tensorForth/master/docs/img/ten4_l7_loss.png" width="300px" height="300px"><br/>|
 
 ### How?
-* **Pre CUDA12**
-    GPU, behaves like a co-processor or a DSP chip. It has no OS, no string support, and runs its own memory. Most of the available libraries are built for host instead of device i.e. to initiate calls from CPU into GPU but not the other way around. So, to be interactive, a memory manager, IO, and syncing with CPU are things needed to be had. It's pretty much like creating a Forth from scratch for a new processor as in the old days. CUDA Dynamic Parallelism was a perfect fit for the Forth VM running on a GPU and I had the entire REPL run within GPU without even coming back to host.
-* **Post CUDA12**
-    Unfortunately, nVidia has decided the cost of keeping track of internal synchronization was too high. Well, understanbly, the GPU cores became asynchronous. The v2.0 Dynamic Parallelism is not backward compatible. That also killed my dream! So, today, the architecture of **tensorForth** has been reduced to something not unlike other platforms i.e. TensorFlow, Pytorch, ... They run codes on host and only send computation-heavy tasks to GPU. Ce la vie!
+* GPU, behaves like a co-processor or a DSP chip. It has no OS, no string support, and runs its own memory. Most of the available libraries are built for host instead of device i.e. to initiate calls from CPU into GPU but not the other way around. So, to be interactive, a memory manager, IO, and syncing with CPU are things needed to be had. It's pretty much like creating a Forth from scratch for a new processor as in the old days. CUDA Dynamic Parallelism was a perfect fit for the Forth VM running on a GPU and I had the entire REPL run within GPU without even coming back to host.
+* **Post CUDA12**, unfortunately, nVidia has decided the cost of keeping track of internal synchronization was too high. Well, understanbly, the GPU cores became asynchronous. The v2.0 Dynamic Parallelism is not backward compatible. That sort of killed my dream of having everything on GPU! So, today, the architecture of **tensorForth** has VMs run in host and send computation-heavy tasks to GPU.
     
-Since GPUs have good compiler support nowadays and I've ported the latest [*eForth*](https://github.com/chochain/eforth) to lambda-based in C++, pretty much all words can be transferred straight forward. However, having *FP32* or *float32* as my basic data unit, so later I can morph them to *FP16*, or even fixed-point, there are some small stuffs such as addressing and logic ops that require some attention.
+Since GPUs have good compiler support nowadays and I've ported the latest [*eForth*](https://github.com/chochain/eforth) to lambda-based in C++, pretty much all words can be transferred straight forward. With *FP32* or *float32* as the basic data unit, the addressing and logic ops took some attensions. Though today the codebase is in C++, the class/methods implementation might come back to Forth in the form of loadable blocks so it can be self-hosted.
 
-The codebase will be in C for my own understanding of the multi-trip data flows. In the future, the class/methods implementation can come back to Forth in the form of loadable blocks so maintainability and extensibility can be utilized as other self-hosting systems. It would be amusing to find someone brave enough to work the NVVM IR or even PTX assembly into a Forth that resides on GPU micro-cores in the fashion of [*GreenArray*](https://www.greenarraychips.com/), or to forge an FPGA doing similar kind of things.
+It would be amusing to find someone brave enough to work the NVVM IR or even PTX assembly into a Forth that resides on GPU micro-cores in the fashion of [*GreenArray*](https://www.greenarraychips.com/), or to forge an FPGA doing similar kind of things.
 
-In the end, languages don't really matter. It's the problem they solve. Having an interactive Forth in GPU does not mean a lot by itself. However by adding vector, matrix, linear algebra support with a breath of **APL**'s massively parallel from GPUs. Neural Network tensor ops with backprop following the path from Numpy to PyTorch, plus the cleanness of **Forth**, it can be useful one day, hopefully! 
+In the end, languages don't really matter. It's the problem they solve. Having an interactive Forth in GPU does not mean a lot by itself. However, by adding matrix for linear algebra, or tensors for machine learning following the path from Numpy to PyTorch, with massively parallelism plus the cleanness of **Forth**, I hope it can be useful one day, hopefully! 
 
 ### Example - Small Matrix ops
 <pre>
@@ -116,45 +119,42 @@ matrix[1024,512] = {                 \ in PyTorch style (edgeitem=3)
 
 ### Example - CNN Training on MNIST dataset
 <pre>
-10 28 28 1 nn.model                         \ create a network model (input dimensions)
+10 constant N                               \ mini-batch sample count
+N 28 28 1 nn.model                          \ create a network model (input dimensions)
 0.5 10 conv2d 2 maxpool relu                \ add a convolution block
 0.5 20 conv2d 0.5 dropout 2 maxpool relu    \ add another convolution block
 flatten 49 linear                           \ add reduction layer to 49-feature, and
 0.5 dropout 10 linear softmax               \ final 10-feature fully connected output
 constant md0                                \ we can keep the model as a constant
                                 
-md0 batchsize dataset mnist_train           \ create a MNIST dataset with model batch size
+N dataset mnist_train                       \ create a MNIST dataset with model batch size
+128 128 normalize                           \ adjust samples from [0,1) to [-1,1)
 constant ds0                                \ keep the dataset as a constant
 
 \ the entire CNN training framework here
-: epoch ( N D -- N' )                       \ one epoch thru entire training dataset
+: epoch ( M ds -- M' )                      \ one epoch thru entire training dataset
   for                                       \ loop thru dataset per mini-batch
     forward                                 \ neural network forward pass
     backprop                                \ neural network back propagation
     0.01 nn.sgd                             \ training with Stochastic Gradient Descent
   next ;                                    \ next mini-batch (kept on return stack)
-: cnn ( N D n -- N' D )                     \ run multiple epochs
-  for epoch ds0 rewind next ;
+: cnn ( M ds n -- M' ds ) 1-                \ run multiple epochs
+  for epoch ds0 rewind next drop ;
 
-ds0 19 cnn drop                             \ put dataset as TOS, run the CNN for 20 epochs
+ds0 20 cnn                                  \ put dataset as TOS, run the CNN for 20 epochs
 s" tests/my_net.t4" save                    \ persist the trained network
 </pre>
 
 ### To Build, and Verify
-Note: Everything is broken by once moved to CUDA 12. It deprecated cudaDeviceSynchronize which is heavily used by my CUDA Dynamic Parallelism (CDP 1.0) code. Calling to a child-grid is now async which parent-grid does not and cannot get data back for further processing. I need a new way to sync data in parallel pipelines. Not sure it's all possible with the new cudaStreamTailLaunch. Alternatively, Claude suggested change architecture to use queue-based solution. We'll see...
-
-So, if you have an older Nvidia card before Turing and on an older version of OS (say Ubuntu 22.04), check the compability chart first [here](https://forums.developer.nvidia.com/t/ubuntu-install-specific-old-cuda-drivers-combo/214601/5)
+There are two versions of **tensorForth**. After nVidia moved to CUDA12, the Dynamic Parallelism of child-grid is now async. The CUDA11.4, synced version, can work only on older GPUs. Check the compability chart first [here](https://forums.developer.nvidia.com/t/ubuntu-install-specific-old-cuda-drivers-combo/214601/5)
 
 Here's how to build
 
-* install CUDA 11.4+ on your machine
-* download one of the releases from the list above to your local directory
-
-or, with CUDA Docker image (strongly recommended)
+* on your OS, install nVidia 470 driver
 * install Docker Engine on your box, follow standard Docker installation guide
 * install nvidia-container-toolkit
-* pull a CUDA 11.4+ docker image, a template is provided in ~/examples/cuda11_Docker
-* run the CUDA container with your environment variables, a template provided in ~/examples/docker_cuda11
+* pull a CUDA 11.4 + Ubuntu 20.04 docker image, a template is provided in ~/examples/cuda114_Docker
+* run the CUDA container with your environment variables, a template provided in ~/examples/docker_cuda114
 
     Examples
     <pre>
@@ -164,11 +164,15 @@ or, with CUDA Docker image (strongly recommended)
     > docker build -t cuda:v114 .
     > ./docker_cuda114
 
-    > # for my cheap GT1660 on Ubuntu 24.04
+* or install nVidia 535 driver
+* install a CUDA 12.2 + Ubuntu 22.04 docker image, a template is provided in ~/examples/cuda122_Docker
+* run the CUDA container with your environment variables, a template provided in ~/examples/docker_cuda122
+
+    > # for my cheap GTX1660 on Ubuntu 22.04
     > cd examples
-    > cp cuda116_Dockerfile Dockerfile
-    > docker build -t cuda:v116 .
-    > ./docker_cuda116
+    > cp cuda122_Dockerfile Dockerfile
+    > docker build -t cuda:v122 .
+    > ./docker_cuda122
     </pre>
 
 Note: Those cards are what I have. Let me know if it works on your cards/OS.
@@ -177,17 +181,18 @@ Note: Those cards are what I have. Let me know if it works on your cards/OS.
 
     cd to your ten4 repo directory,
     per your GPU card, update root Makefile to your desired CUDA_ARCH, CUDA_CODE
-    type 'make all' to build
+        * for example: GT1030 sm_61, GTX1660 sm_75
+    type 'make -j4 all' to build
 
 #### build using IDE (Eclipse)
 
     install Eclipse
-    install CUDA SDK 11.6 or above for Eclipse (from Nvidia site)
+    install CUDA SDK 11.4 or 12.2 for Eclipse (from Nvidia site)
     create project by importing from your local repo root
     exclude directories - ~/tests, ~/img
     set File=>Properties=>C/C++ Build=>Setting=>NVCC compiler
-      + Dialect=C++14
-      + CUDA=5.2 or above (depends on your GPU)
+      + Dialect=C++17
+      + CUDA=11.4 or 12.2 (depends on your download)
       + Optimization=O2 or O3
     build project
 
