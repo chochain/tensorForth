@@ -5,6 +5,7 @@
 
 ### Status
 * **CUDA11.4** legacy version for Kepler, Maxwell (i.e. Jetson Nano/TX), Pascal, and Volta only
+
 |version|feature|stage|description|conceptual comparable|
 |---|---|---|---|---|
 |[1.0](https://github.com/chochain/tensorForth/releases/tag/v1.0.2)|**float**|production|extended eForth with F32 float|Python|
@@ -14,10 +15,12 @@
 |[3.2](https://github.com/chochain/tensorForth/releases/tag/v3.2.0)|**GAN**|beta|+ Generative Adversarial Net|PyTorch.GAN|
 
 * **CUDA12+** version for Turing, Ampere, and on
+
+|version|feature|stage|description|conceptual comparable|
+|---|---|---|---|---|
 |[3.4](https://github.com/chochain/tensorForth/releases/tag/v3.4.0)|**GAN+TB**|beta|+ TensorBoard output|PyTorch+Tensorboard|
 |4.0|**Transformer**|developing|add Transformer ops|PyTorch.Transformer|
 |4.2|**Retentive**|analyzing|add RetNet ops|PyTorch.RetNet|
-
 
 ### Why?
 Compiled programs run fast on Linux. Command-line interface and shell scripting tie them together. Small tools are built along the way, productivity grows with time, especially in the hands of researchers.
