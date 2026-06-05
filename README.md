@@ -38,11 +38,11 @@ Forth language encourages incremental build-test cycle. Having a 'GPU shell', th
 ### What?
 More details to come but here are some samples of tensorForth in action
 * Machine Learning
-  > |GAN MNIST Progress|TensorBoard Model Graph|
+  > |Generative Adversarial Network|TensorBoard Model Graph|
   > |---|---|
   > |<img src="https://raw.githubusercontent.com/chochain/tensorForth/master/docs/img/t4_gan_mnist_snip_all.png" width="600px">|<img src="https://raw.githubusercontent.com/chochain/tensorForth/master/docs/img/t4_tb_snip04.png" width="600px">|
   
-* Benchmarks (on MNIST)
+* Benchmarks
   > |Different Neural Network Models|Different Gradient Descent Methods|
   > |---|---|
   > |<img src="https://raw.githubusercontent.com/chochain/tensorForth/master/docs/img/ten4_model_cmp.png" width="600px" height="400px">|<img src="https://raw.githubusercontent.com/chochain/tensorForth/master/docs/img/ten4_gradient_cmp.png" width="600px" height="400px">|
@@ -50,10 +50,6 @@ More details to come but here are some samples of tensorForth in action
   > |2D Convolution vs Linear+BatchNorm|Effectiveness of Different Activations|
   > |---|---|
   > |<img src="https://raw.githubusercontent.com/chochain/tensorForth/master/docs/img/ten4_cnv_vs_bn.png" width="600px" height="400px">|<img src="https://raw.githubusercontent.com/chochain/tensorForth/master/docs/img/ten4_act_cmp.png" width="600px" height="400px">|
-
-  > |Generative Adversarial Network (MNIST)|Generator & Discriminator Losses|
-  > |---|---|
-  > |<img src="https://raw.githubusercontent.com/chochain/tensorForth/master/docs/img/t4_gam_mnist_out.gif" width="600px">|<img src="https://raw.githubusercontent.com/chochain/tensorForth/master/docs/img/ten4_l7_loss.png" width="600px"><br/>|
 
 ### How?
 * GPU, behaves like a co-processor or a DSP chip. It has no OS, no string support, and runs its own memory. Most of the available libraries are built for host instead of device i.e. to initiate calls from CPU into GPU but not the other way around. So, to be interactive, a memory manager, IO, and syncing with CPU are things needed to be had. It's pretty much like creating a Forth from scratch for a new processor as in the old days. CUDA Dynamic Parallelism was a perfect fit for the Forth VM running on a GPU and I had the entire REPL run within GPU without even coming back to host.
