@@ -8,19 +8,19 @@
 
 |version|feature|stage|description|conceptual comparable|
 |---|---|---|---|---|
-|[3.4](https://github.com/chochain/tensorForth/releases/tag/v3.4.0)|**GAN+TB**|beta|+ TensorBoard output|PyTorch+Tensorboard|
-|4.0|**Transformer**|developing|add Transformer ops|PyTorch.Transformer|
 |4.2|**Retentive**|analyzing|add RetNet ops|PyTorch.RetNet|
+|4.0|**Transformer**|developing|add Transformer ops|PyTorch.Transformer|
+|[3.4](https://github.com/chochain/tensorForth/releases/tag/v3.4.0)|**GAN+TB**|beta|+ TensorBoard output|PyTorch.GAN+Tensorboard|
 
 * **CUDA11.4** legacy version, for Kepler, Maxwell (i.e. Jetson Nano/TX), Pascal, and Volta only
 
 |version|feature|stage|description|conceptual comparable|
 |---|---|---|---|---|
-|[1.0](https://github.com/chochain/tensorForth/releases/tag/v1.0.2)|**float**|production|extended eForth with F32 float|Python|
-|[2.0](https://github.com/chochain/tensorForth/releases/tag/v2.0.2)|**matrix**|production|+ vector and matrix objects|NumPy|
-|[2.2](https://github.com/chochain/tensorForth/releases/tag/v2.2.2)|**lapack**|production|+ linear algebra methods|SciPy|
-|[3.0](https://github.com/chochain/tensorForth/releases/tag/v3.0.0)|**CNN**|production|+ Machine Learning with autograd|Torch|
 |[3.2](https://github.com/chochain/tensorForth/releases/tag/v3.2.0)|**GAN**|beta|+ Generative Adversarial Net|PyTorch.GAN|
+|[3.0](https://github.com/chochain/tensorForth/releases/tag/v3.0.0)|**CNN**|production|+ Machine Learning with autograd|Torch|
+|[2.2](https://github.com/chochain/tensorForth/releases/tag/v2.2.2)|**lapack**|production|+ linear algebra methods|SciPy|
+|[2.0](https://github.com/chochain/tensorForth/releases/tag/v2.0.2)|**matrix**|production|+ vector and matrix objects|NumPy|
+|[1.0](https://github.com/chochain/tensorForth/releases/tag/v1.0.2)|**float**|production|extended eForth with F32 float|Python|
 
 ### Why?
 Compiled programs run fast on Linux. Command-line interface and shell scripting tie them together. Small tools are built along the way, productivity grows with time, especially in the hands of researchers.
