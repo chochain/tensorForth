@@ -1,5 +1,5 @@
 .( ## GAN tests Z = X @ A + B ) cr      \ linear regression in matrix form
-32 constant N                           \ mini-batch size (64 points)
+64 constant N                           \ mini-batch size (64 points)
 
 .( ### regression matrix and offset )
 2 2 matrix{ 1 2 -0.1 0.5 } constant A   \ Gaussian transformation matrix
