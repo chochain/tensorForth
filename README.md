@@ -53,7 +53,7 @@ More details to come but here are some samples of tensorForth in action
 
   > |Generative Adversarial Network (MNIST)|Generator & Discriminator Losses|
   > |---|---|
-  > |<img src="https://raw.githubusercontent.com/chochain/tensorForth/master/docs/img/t4_gam_mnist_out.gif" width="880px">|<img src="https://raw.githubusercontent.com/chochain/tensorForth/master/docs/img/ten4_l7_loss.png" width="300px" height="300px"><br/>|
+  > |<img src="https://raw.githubusercontent.com/chochain/tensorForth/master/docs/img/t4_gam_mnist_out.gif" width="600px">|<img src="https://raw.githubusercontent.com/chochain/tensorForth/master/docs/img/ten4_l7_loss.png" width="600px"><br/>|
 
 ### How?
 * GPU, behaves like a co-processor or a DSP chip. It has no OS, no string support, and runs its own memory. Most of the available libraries are built for host instead of device i.e. to initiate calls from CPU into GPU but not the other way around. So, to be interactive, a memory manager, IO, and syncing with CPU are things needed to be had. It's pretty much like creating a Forth from scratch for a new processor as in the old days. CUDA Dynamic Parallelism was a perfect fit for the Forth VM running on a GPU and I had the entire REPL run within GPU without even coming back to host.
