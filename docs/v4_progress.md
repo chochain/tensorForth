@@ -97,21 +97,30 @@ Also, each VM operates its own outer-interpreter which processes incoming stream
 * On host   - metadata of objects (Tensors, Model, Dataset), fixed-size
 * On device - the content of objects, CUDA Unified Memory, TLSF-based
 
-### Changes Completed
+### Updates (from TODO)
 * VM
-  x CUDA 12 migration
-    x [GEMM](https://siboehm.com/articles/22/CUDA-MMM)
+  + CUDA 12 migration
 * Design & Instrumentation
-  x Visulization via TensorBoard
-    x output tensor in HWC format
-    x util from raw to png (with STB)
-    x for PIL (Python Image Lib), matplotlib
-    x [tfevents](https://github.com/mlverse/tfevents)
-    x [protobuf](https://chromium.googlesource.com/external/github.com/tensorflow/tensorflow/+/r0.10/tensorflow/g3doc/how_tos/tool_developers/index.md)
-    x [tensorflow EventWriter](https://stackoverflow.com/questions/48610803/how-i-can-use-filewrite-summary-in-tensorflow-c-api-to-view-it-in-tensorboard/48702823#48702823)
-    x [pytorch SummaryWriter](https://github.com/pytorch/pytorch/blob/main/torch/utils/tensorboard/writer.py)
-    x [pytorch TensorBoard writer](https://github.com/pytorch/pytorch/blob/main/torch/utils/tensorboard/writer.py)
+  + Visulization via TensorBoard
+    - output tensor in HWC format
+    - tiled png output
+    - export raw image to png (with STB), and for PIL (Python Image Lib), matplotlib
 * Tuning
-  + Review all kernel functions (with Claude ai)
+  + Use nVidia intrinsic functions when available
+  + Review all BLAS kernel functions, collected into t4math module
+    - use grid-stride and warp shuffle when possible
+    - unroll every loop when possible
+    - highly tuned GEMM, shared memory tile 
+    - refined Gauss-Jordan/LU matrix ops
+  + Review all Neural network kernel functions
+
+### References
++ [GEMM](https://siboehm.com/articles/22/CUDA-MMM)
++ [tfevents](https://github.com/mlverse/tfevents)
++ [protobuf](https://chromium.googlesource.com/external/github.com/tensorflow/tensorflow/+/r0.10/tensorflow/g3doc/how_tos/tool_developers/index.md)
++ [tensorflow EventWriter](https://stackoverflow.com/questions/48610803/how-i-can-use-filewrite-summary-in-tensorflow-c-api-to-view-it-in-tensorboard/48702823#48702823)
++ [pytorch SummaryWriter](https://github.com/pytorch/pytorch/blob/main/torch/utils/tensorboard/writer.py)
++ [pytorch TensorBoard writer](https://github.com/pytorch/pytorch/blob/main/torch/utils/tensorboard/writer.py)
+
 
 
