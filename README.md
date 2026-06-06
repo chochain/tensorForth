@@ -8,9 +8,9 @@
 
 |version|feature|stage|description|conceptual comparable|
 |---|---|---|---|---|
-|4.2|**Retentive**|analyzing|add RetNet ops|PyTorch.RetNet|
-|4.0|**Transformer**|developing|add Transformer ops|PyTorch.Transformer|
-|[3.4](https://github.com/chochain/tensorForth/releases/tag/v3.4.0)|**GAN+TB**|beta|+ TensorBoard output|PyTorch.GAN+Tensorboard|
+|4.4|**Retentive**|analyzing|add RetNet ops|PyTorch.RetNet|
+|5.0|**Transformer**|developing|add Transformer ops|PyTorch.Transformer|
+|[4.0](https://github.com/chochain/tensorForth/releases/tag/v4.0.0)|**GAN + TB**|beta|+ TensorBoard output|PyTorch.GAN|
 
 * **CUDA11.4** legacy version, for Kepler, Maxwell (i.e. Jetson Nano/TX), Pascal, and Volta only
 
@@ -313,231 +313,231 @@ If all goes well, some warnings aside, *~/tests/ten4* is your executable. The fo
 ## Machine Learning vocabularies (see [doc3](./docs/v3_progress.md) for detail and examples)
 ### Model creation, query, and persistence
 <pre>
-  nn.model   (n h w c -- N)      - create a Neural Network model with (n,h,w,c) input
-  >n         (N T -- N')         - manually add tensor to model
-  n@         (N n -- N T)        - fetch layered tensor from model, -1 is the latest layer
-  nn.w       (N n -- N T)        - query weight tensor of nth layer (0 means N/A)
-  nn.b       (N n -- N T)        - query bias tensor of nth layer (0 means N/A)
-  nn.dw      (N n -- N T)        - query weight gradient tensor of nth layer (0 means N/A)
-  nn.db      (N n -- N T)        - query bias gradient tensor of nth layer (0 means N/A)
-  nn.w=      (N T n -- N')       - set weight tensor of nth layer
-  nn.b=      (N T n -- N')       - set bias tensor of nth layer
-  network    (N -- N)            - display network model
+  nn.model   ( n h w c -- M )      - create a Neural Network model with (n,h,w,c) input
+  >n         ( M T -- M' )         - manually add tensor to model
+  n@         ( M n -- M T )        - fetch layered tensor from model, -1 is the latest layer
+  nn.w       ( M n -- M T )        - query weight tensor of nth layer (0 means N/A)
+  nn.b       ( M n -- M T )        - query bias tensor of nth layer (0 means N/A)
+  nn.dw      ( M n -- M T )        - query weight gradient tensor of nth layer (0 means N/A)
+  nn.db      ( M n -- M T )        - query bias gradient tensor of nth layer (0 means N/A)
+  nn.w=      ( M T n -- M' )       - set weight tensor of nth layer
+  nn.b=      ( M T n -- M' )       - set bias tensor of nth layer
+  network    ( M -- M )            - display network model
 
-  load       (N adr len [fam] -- N') - load trained network from a given file name
-  save       (N adr len [fam] -- N)  - export network as a file
+  load       ( M adr len [fam] -- M' ) - load trained network from a given file name
+  save       ( M adr len [fam] -- M )  - export network as a file
 </pre>
 
 ### Dataset and Batch controls
 <pre>
-  dataset    (n -- D)            - create a dataset with batch size = n, and given name i.e. 10 dataset abc
-  fetch      (D -- D')           - fetch a mini-batch from dataset on return stack
-  rewind     (D -- D')           - rewind dataset internal counters (for another epoch)
-  batchsize  (D -- D b)          - get input batch size of a model
-  nn.len     (D -- D n)          - query total num of samples of dataset from corpus
+  dataset    ( n -- D )            - create a dataset with batch size = n, and given name i.e. 10 dataset abc
+  normalize  ( D m s -- D' )
+  fetch      ( D -- D' )           - fetch a mini-batch from dataset on return stack
+  rewind     ( D -- D' )           - rewind dataset internal counters (for another epoch)
+  batchsize  ( D -- D b )          - get input batch size of a model
+  nn.len     ( D -- D n )          - query total num of samples of dataset from corpus
 
-  forward    (N -- N')           - execute one forward path with rs[-1] dataset, layer-by-layer in given model
-  forward    (N ds -- N')        - execute one forward propagation with TOS dataset, layer-by-layer in given model
-  backprop   (N -- N')           - execute one backward propagation, adding derivatives for all parameters
-  backprop   (N T -- N')         - execute one backward propagation with given onehot vector
-  broadcast  (N T -- N' )        - broadcast onehot tensor into Network Model (for backprop)
+  forward    ( M -- M )            - execute one forward path with rs[-1] dataset, layer-by-layer in given model
+  forward    ( M D -- M )          - execute one forward propagation with TOS dataset, layer-by-layer in given model
+  backprop   ( M -- M' )           - execute one backward propagation, adding derivatives for all parameters
+  backprop   ( M T -- M' )         - execute one backward propagation with given onehot vector
 
-  for        (N ds -- N')        - loop through a dataset, ds will be pushed onto return stack
-  next       (N -- N')           - loop if any subset of dataset left, or ds is pop off return stack
-  trainable  (N f -- N')         - enable/disable network trainable flag
+  for        ( M D -- M )          - loop through a dataset, ds will be pushed onto return stack
+  next       ( M -- M )            - loop if any subset of dataset left, or ds is pop off return stack
+  trainable  ( M f -- M' )         - enable/disable network trainable flag
 </pre>
 
 ### Convolution, Dense, and Pooling Layers
 <pre>
-  conv2d     (N -- N')           - create a 2D convolution 3x3 filter, stride=1, padding=same, dilation=0, bias=0.5
-  conv2d     (N b c -- N')       - create a 2D convolution, bias=b, c channels output, with default 3x3 filter
-  conv2d     (N b c A -- N')     - create a 2D convolution, bias=b, c channels output, with config i.g. Vector[5, 5, 3, 2, 1] for (5x5, padding=3, stride=2, dilation=1, bias=0.3)
-  conv1x1    (N b c -- N')       - create a 1x1 convolution, bias=b, c channels output, stride=1, padding=same, dilation=0
-  flatten    (N -- N')           - flatten a tensor (usually input to linear)
+  conv2d     ( M -- M' )           - create a 2D convolution 3x3 filter, stride=1, padding=same, dilation=0, bias=0.5
+  conv2d     ( M b c -- M' )       - create a 2D convolution, bias=b, c channels output, with default 3x3 filter
+  conv2d     ( M b c A -- M' )     - create a 2D convolution, bias=b, c channels output, with config i.g. Vector[5, 5, 3, 2, 1] for (5x5, padding=3, stride=2, dilation=1, bias=0.3)
+  conv1x1    ( M b c -- M' )       - create a 1x1 convolution, bias=b, c channels output, stride=1, padding=same, dilation=0
+  flatten    ( M -- M' )           - flatten a tensor (usually input to linear)
 
-  linear     (N b n -- N')       - linearize (y = Wx + b) from Ta input to n out_features
-  linear     (N n -- N')         - linearize (y = Wx), bias=0.0 from Ta input to n out_features
+  linear     ( M b n -- M' )       - linearize (y = Wx + b) from Ta input to n out_features
+  linear     ( M n -- M' )         - linearize (y = Wx), bias=0.0 from Ta input to n out_features
 
-  maxpool    (N n -- N')         - nxn cells maximum pooling
-  avgpool    (N n -- N')         - nxn cells average pooling
-  minpool    (N n -- N')         - nxn cell minimum pooling
-  dropout    (N p -- N')         - zero out p% of channel data (add noise between data points)
-  upsample   (N n -- N')         - upsample to nearest size=n, 2x2 and 3x3 supported
-  upsample   (N m n -- N')       - upsample size=n, 2x2 and 3x3 supported, method=[0 nearest, 1=linear, 2=bilinear, 3=cubic
-  batchnorm  (N -- N')           - batch normal layer with default momentum=0.1
-  batchnorm  (N m -- N')         - batch normal with momentum=m
+  maxpool    ( M n -- M' )         - nxn cells maximum pooling
+  avgpool    ( M n -- M' )         - nxn cells average pooling
+  minpool    ( M n -- M' )         - nxn cell minimum pooling
+  dropout    ( M p -- M' )         - zero out p% of channel data (add noise between data points)
+  upsample   ( M n -- M' )         - upsample to nearest size=n, 2x2 and 3x3 supported
+  upsample   ( M m n -- M' )       - upsample size=n, 2x2 and 3x3 supported, method=[0 nearest, 1=linear, 2=bilinear, 3=cubic
+  batchnorm  ( M -- M' )           - batch normal layer with default momentum=0.1
+  batchnorm  ( M m -- M' )         - batch normal with momentum=m
 </pre>
 
 ### Activation (non-linear) and Classifier
 <pre>
-  tanh       (N -- N')           - add tanh layer to network model
-  relu       (N -- N')           - add Rectified Linear Unit to network model
-  sigmoid    (N -- N')           - add sigmoid 1/(1+exp^-z) activation to network model, used in binary cross entropy
-  selu       (N -- N')           - add Selu alpha(exp-1) activation to network model
-  leakyrelu  (N a -- N')         - add leaky ReLU with slope=a
-  leu        (N a -- N')         - add exponential linear unit alpha=a
+  tanh       ( M -- M' )           - add tanh layer to network model
+  relu       ( M -- M' )           - add Rectified Linear Unit to network model
+  sigmoid    ( M -- M' )           - add sigmoid 1/(1+exp^-z) activation to network model, used in binary cross entropy
+  selu       ( M -- M' )           - add Selu alpha(exp-1) activation to network model
+  leakyrelu  ( M a -- M' )         - add leaky ReLU with slope=a
+  leu        ( M a -- M' )         - add exponential linear unit alpha=a
   
-  softmax    (N -- N')           - add probability vector exp(x)/sum(exp(x)) to network model, feeds loss.ce, used in multi-class
-  logsoftmax (N -- N')           - add probability vector x - log(sum(exp(x))) to network model, feeds loss.nll, used in multi-class
+  softmax    ( M -- M' )           - add probability vector exp(x)/sum(exp(x)) to network model, feeds loss.ce, used in multi-class
+  logsoftmax ( M -- M' )           - add probability vector x - log(sum(exp(x))) to network model, feeds loss.nll, used in multi-class
 </pre>
 
 ### Loss and Gradient ops
 <pre>
-  loss.mse   (N Ta -- N Ta n)    - mean squared error, takes output from linear layer
-  loss.bce   (N Ta -- N Ta n)    - binary cross-entropy, takes output from sigmoid activation
-  loss.ce    (N Ta -- N Ta n)    - cross-entropy, takes output from softmax activation
-  loss.nll   (N Ta -- N Ta n)    - negative log likelihood, takes output from log-softmax activation
+  loss.mse   ( M Ta -- M Ta n )    - mean squared error, takes output from linear layer
+  loss.bce   ( M Ta -- M Ta n )    - binary cross-entropy, takes output from sigmoid activation
+  loss.ce    ( M Ta -- M Ta n )    - cross-entropy, takes output from softmax activation
+  loss.nll   ( M Ta -- M Ta n )    - negative log likelihood, takes output from log-softmax activation
   
-  nn.loss    (N Ta -- N Ta n)    - auto select between mse, bce, ce, nll based on last model output layer
-  nn.zero    (N -- N')           - manually zero gradient tensors
-  nn.sgd     (N p -- N')         - apply SGD(learn_rate=p, momentum=0.0) model back propagation
-  nn.sgd     (N p m -- N')       - apply SGD(learn_rate=p, momentum=m) model back propagation
-  nn.adam    (N a -- N')         - apply Adam backprop alpha=a, default b1=0.9, b2=0.999
-  nn.adam    (N a b1 -- N')      - apply Adam backprop alpha=a, beta1=b1, default beta2=0.999
-  nn.adam    (N a b1 b2 -- N')   - apply Adam backprop alpha=a, beta1=b1, beta2=b2
-  nn.zero    (N -- N')           - reset momentum tensors
-  nn.onehot  (N -- N T)          - get cached onehot vector from a model
-  nn.hit     (N -- N n)          - get number of hit (per mini-batch) of a model
+  nn.loss    ( M Ta -- M Ta n )    - auto select between mse, bce, ce, nll based on last model output layer
+  nn.zero    ( M -- M' )           - manually zero gradient tensors
+  nn.sgd     ( M p -- M' )         - apply SGD(learn_rate=p, momentum=0.0) model back propagation
+  nn.sgd     ( M p m -- M' )       - apply SGD(learn_rate=p, momentum=m) model back propagation
+  nn.adam    ( M a -- M' )         - apply Adam backprop alpha=a, default b1=0.9, b2=0.999
+  nn.adam    ( M a b1 -- M' )      - apply Adam backprop alpha=a, beta1=b1, default beta2=0.999
+  nn.adam    ( M a b1 b2 -- M' )   - apply Adam backprop alpha=a, beta1=b1, beta2=b2
+  nn.zero    ( M -- M' )           - reset momentum tensors
+  nn.onehot  ( M -- M T )          - get cached onehot vector from a model
+  nn.hit     ( M -- M n )          - get number of hit (per mini-batch) of a model
 </pre>
 
 ## Tensor Calculus vocabularies (see [doc2](./docs/v2_progress.md) for detail and examples)
 ### Tensor creation
 <pre>
-  vector    (n       -- T1)     - create a 1-D array and place on top of stack (TOS)
-  matrix    (h w     -- T2)     - create 2-D matrix and place on TOS
-  tensor    (n h w c -- T4)     - create a 4-D NHWC tensor on TOS
-  vector{   (n       -- T1)     - create 1-D array from console stream
-  matrix{   (h w     -- T2)     - create a 2-D matrix from console stream
-  view      (Ta      -- Ta Va)  - create a view (shallow copy) of a tensor
-  copy      (Ta      -- Ta Ta') - duplicate (deep copy) a tensor on TOS
+  vector    ( n       -- T1 )      - create a 1-D array and place on top of stack (TOS)
+  matrix    ( h w     -- T2 )      - create 2-D matrix and place on TOS
+  tensor    ( n h w c -- T4 )      - create a 4-D NHWC tensor on TOS
+  vector{   ( n       -- T1 )      - create 1-D array from console stream
+  matrix{   ( h w     -- T2 )      - create a 2-D matrix from console stream
+  view      ( T       -- T V )     - create a view (shallow copy) of a tensor
+  copy      ( T       -- T T' )    - duplicate (deep copy) a tensor on TOS
 </pre>
 
 ### Duplication ops (reference creation)
 <pre>
-  dup       (Ta    -- Ta Ta)    - create a reference of a tensor on TOS
-  over      (Ta Tb -- Ta Tb Ta) - create a reference of the 2nd item (NOS)
-  2dup      (Ta Tb -- Ta Tb Ta Tb)
-  2over     (Ta Tb Tc Td -- Ta Tb Tc Td Ta Tb)
+  dup       ( Ta    -- Ta Ta )    - create a reference of a tensor on TOS
+  over      ( Ta Tb -- Ta Tb Ta ) - create a reference of the 2nd item (NOS)
+  2dup      ( Ta Tb -- Ta Tb Ta Tb )
+  2over     ( Ta Tb Tc Td -- Ta Tb Tc Td Ta Tb )
 </pre>
 
 ### Tensor/View print (destructive as in Forth)
 <pre>
-  . (dot)   (Va -- )        - print a view of a tensor
-  . (dot)   (Ta -- )        - print a vector, matrix, or tensor
-  . (dot)   (Ma -- )        - print a neaural network model
+  . (dot)   ( V -- )  - print a view of a tensor
+  . (dot)   ( T -- )  - print a vector, matrix, or tensor
+  . (dot)   ( M -- )  - print a neaural network model
 </pre>
 
 ### Shape adjustment (change shape of original tensor or view)
 <pre>
-  flatten   (Ta -- T1a')    - reshape a tensor or view to 1-D array
-  reshape2  (Ta -- T2a')    - reshape to a 2-D matrix view
-  reshape4  (Ta -- T4a')    - reshape to a 4-D NHWC tensor or view
-  same_shape? (Ta Tb -- Ta Tb T/F) - check whether Ta and Tb are the same shape
+  flatten   ( T -- T1' )             - reshape a tensor or view to 1-D array
+  reshape2  ( T h w -- T2' )         - reshape to a 2-D matrix view
+  reshape4  ( T n h w c -- T4' )     - reshape to a 4-D NHWC tensor or view
+  same_shape? ( Ta Tb -- Ta Tb T/F ) - check whether Ta and Tb are the same shape
 </pre>
 
 ### Fill tensor with init values (data updated to original tensor)
 <pre>
-  zeros     (Ta   -- Ta')   - fill tensor with zeros
-  ones      (Ta   -- Ta')   - fill tensor with ones
-  fill      (Ta n -- Ta')   - fill tensor with number on TOS
-  gradfill  (Ta   -- Ta')   - gradient fill elements from 0 to 1
-  eye       (Ta   -- Ta')   - fill diag with 1 and other with 0
-  rand      (Ta   -- Ta')   - fill tensor with uniform random numbers
-  randn     (Ta   -- Ta')   - fill tensor with normal distribution random numbers
-  ={        (Ta   -- Ta')   - fill tensor with console input from the first element
-  ={        (Ta n -- Ta')   - fill tensor with console input starting at n'th element
+  zeros     ( T   -- T' )   - fill tensor with zeros
+  ones      ( T   -- T' )   - fill tensor with ones
+  fill      ( T n -- T' )   - fill tensor with number on TOS
+  gradfill  ( T   -- T' )   - gradient fill elements from 0 to 1
+  eye       ( T   -- T' )   - fill diag with 1 and other with 0
+  rand      ( T   -- T' )   - fill tensor with uniform random numbers
+  randn     ( T   -- T' )   - fill tensor with normal distribution random numbers
+  ={        ( T   -- T' )   - fill tensor with console input from the first element
+  ={        ( T n -- T' )   - fill tensor with console input starting at n'th element
 </pre>
 
 ### Tensor slice and dice
 <pre>
-  dim       (T -- T Td)    - tensor dimensions, Td is a vector[4] of { N, H, W, C }
-  t@        (T  i -- T n)  - fetch ith element from a tensor (in NHWC order)
-  t!        (T  i n -- T') - store n into ith element of a tensor (in NHWC order)
-  slice     (Ta i0 i1 j0 j1 -- Ta Ta') - numpy.slice[i0:i1,j0:j1,]
+  dim       ( T -- T Td )   - tensor dimensions, Td is a vector[4] of { N, H, W, C }
+  t@        ( T i -- T n )  - fetch ith element from a tensor (in NHWC order)
+  t!        ( T i n -- T' ) - store n into ith element of a tensor (in NHWC order)
+  slice     ( T i0 i1 j0 j1 -- T T' ) - numpy.slice[i0:i1,j0:j1,]
 </pre>
 
 ### Tensor-scalar, tensor-tensor arithmetic (by default non-destructive)
 <pre>
-  +         (Ta Tb -- Ta Tb Tc)  - tensor element-wise addition Tc = Ta + Tb
-  +         (Ta n  -- Ta n  Ta') - tensor-scalar addition (broadcast) Ta' = Ta + n
-  +         (n  Ta -- n  Ta Ta') - scalar-tensor addition (broadcast) Ta' = Ta + n
-  -         (Ta Tb -- Ta Tb Tc)  - tensor element-wise subtraction Tc = Ta - Tb
-  -         (Ta n  -- Ta n  Ta') - tensor-scalar subtraction (broadcast) Ta' = Ta - n
-  -         (n  Ta -- n  Ta Ta') - tensor-scalar subtraction (broadcast) Ta' = n - Ta
-  @         (Ta Tb -- Ta Tb Tc)  - matrix-matrix inner product Tc = Ta @ Tb, i.e. matmul
-  @         (Ta Ab -- Ta Ab Ac)  - matrix-vector inner product Ac = Ta @ Ab
-  @         (Aa Ab -- Aa Ab n)   - vector-vector inner product n = Aa @ Ab, i.e. dot
-  *         (Ta Tb -- Ta Tb Tc)  - tensor-tensor element-wise multiplication Tc = Ta * Tb
-  *         (Ta Ab -- Ta Ab Ta') - matrix-vector multiplication Ta' = Ta * column_vector(Ab)
-  *         (Ta n  -- Ta n  Ta') - tensor-scalar multiplication Ta' = n * Ta, i.e. scale up
-  *         (n  Ta -- n  Ta Ta') - scalar-tensor multiplication Ta' = n * Ta, i.e. scale up
-  /         (Ta Tb -- Ta Tb Tc)  - tensor-tensor element-wise divide Tc = Ta / Tb
-  /         (Ta n  -- Ta n  Ta') - tensor-scalar scale down Ta' = 1/n * Ta
-  sum       (Ta    -- Ta n)      - sum all elements of a tensor
-  avg       (Ta    -- Ta n)      - average of all elements of a tensor
-  max       (Ta    -- Ta n)      - max of all elements of a tensor
-  min       (Ta    -- Ta n)      - min of all elements of a tensor
+  +         ( Ta Tb -- Ta Tb Tc )  - tensor element-wise addition Tc = Ta + Tb
+  +         ( Ta n  -- Ta n  Ta' ) - tensor-scalar addition (broadcast) Ta' = Ta + n
+  +         ( n  Ta -- n  Ta Ta' ) - scalar-tensor addition (broadcast) Ta' = Ta + n
+  -         ( Ta Tb -- Ta Tb Tc )  - tensor element-wise subtraction Tc = Ta - Tb
+  -         ( Ta n  -- Ta n  Ta' ) - tensor-scalar subtraction (broadcast) Ta' = Ta - n
+  -         ( n  Ta -- n  Ta Ta' ) - tensor-scalar subtraction (broadcast) Ta' = n - Ta
+  @         ( Ta Tb -- Ta Tb Tc )  - matrix-matrix inner product Tc = Ta @ Tb, i.e. matmul
+  @         ( Ta Ab -- Ta Ab Ac )  - matrix-vector inner product Ac = Ta @ Ab
+  @         ( Aa Ab -- Aa Ab n )   - vector-vector inner product n = Aa @ Ab, i.e. dot
+  *         ( Ta Tb -- Ta Tb Tc )  - tensor-tensor element-wise multiplication Tc = Ta * Tb
+  *         ( Ta Ab -- Ta Ab Ta' ) - matrix-vector multiplication Ta' = Ta * column_vector(Ab)
+  *         ( Ta n  -- Ta n  Ta' ) - tensor-scalar multiplication Ta' = n * Ta, i.e. scale up
+  *         ( n  Ta -- n  Ta Ta' ) - scalar-tensor multiplication Ta' = n * Ta, i.e. scale up
+  /         ( Ta Tb -- Ta Tb Tc )  - tensor-tensor element-wise divide Tc = Ta / Tb
+  /         ( Ta n  -- Ta n  Ta' ) - tensor-scalar scale down Ta' = 1/n * Ta
+  sum       ( T     -- T n )       - sum all elements of a tensor
+  avg       ( T     -- T n )       - average of all elements of a tensor
+  max       ( T     -- T n )       - max of all elements of a tensor
+  min       ( T     -- T n )       - min of all elements of a tensor
 </pre>
 
 ### Tensor element-wise math ops (destructive, as in Forth)
 <pre>
-  abs       (Ta    -- Ta')   - absolute Ta' = abs(Ta)
-  exp       (Ta    -- Ta')   - exponential Ta' = exp(Ta)
-  ln        (Ta    -- Ta')   - natural log Ta' = ln(Ta)
-  log       (Ta    -- Ta')   - logrithm tanh Ta' = log(Ta)
-  tanh      (Ta    -- Ta')   - tanh Ta' = tanh(Ta)
-  relu      (Ta    -- Ta')   - ReLU Ta' = max(0, Ta)
-  sigmoid   (Ta    -- Ta')   - Sigmoid Ta' = 1/(1+exp(-Ta))
-  sqrt      (Ta    -- Ta')   - Square Root Ta' = sqrt(Ta)
-  1/x       (Ta    -- Ta')   - reciprocal Ta' = 1/Ta
-  negate    (Ta    -- Ta')   - negate   Ta' = -(Ta)
+  abs       ( T -- T' )   - absolute T' = abs(T)
+  exp       ( T -- T' )   - exponential T' = exp(T)
+  ln        ( T -- T' )   - natural log T' = ln(T)
+  log       ( T -- T' )   - logrithm tanh T' = log(T)
+  tanh      ( T -- T' )   - tanh T' = tanh(T)
+  relu      ( T -- T' )   - ReLU T' = max(0, T)
+  sigmoid   ( T -- T' )   - Sigmoid T' = 1/(1+exp(-T))
+  sqrt      ( T -- T' )   - Square Root T' = sqrt(T)
+  1/x       ( T -- T' )   - reciprocal T' = 1/T
+  negate    ( T -- T' )   - negate   T' = -(T)
 </pre>
 
 ### Tensor-tensor arithmetic (destructive, as in Forth)
 <pre>
-  +=        (Ta Tb -- Tc)    - tensor element-wise addition Tc = Ta + Tb
-  +=        (Ta n  -- Ta')   - tensor-scalar addition (broadcast) Ta' = Ta + n
-  +=        (n  Ta -- Ta')   - scalar-tensor addition (broadcast) Ta' = Ta + n
-  -=        (Ta Tb -- Tc)    - tensor element-wise subtraction Tc = Ta - Tb
-  -=        (Ta n  -- Ta')   - tensor-scalar subtraction (broadcast) Ta' = Ta - n
-  -=        (n  Ta -- Ta')   - scalar-tensor subtraction (broadcast) Ta' = n - Ta
-  @=        (Ta Tb -- Tc)    - matrix-matrix inner product Tc = Ta @ Tb, i.e. matmul
-  @=        (Ta Ab -- Ac)    - matrix-vector inner product Ac = Ta @ Ab
-  @=        (Aa Ab -- Ac)    - vector-vector inner product n = Aa @ Ab, i.e. dot
-  *=        (Ta Tb -- Tc)    - matrix-matrix element-wise multiplication Tc = Ta * Tb
-  *=        (Ta Ab -- Ac')   - matrix-vector multiplication Ac' = Ta * Ab
-  *=        (Ta n  -- Ta')   - tensor-scalar multiplication Ta' = n * Ta
-  *=        (n  Ta -- Ta')   - scalar-tensor multiplication Ta' = n * Ta
-  /=        (Ta Tb -- Tc)    - matrix-matrix element-wise Tc = Ta / Tb 
-  /=        (Ta n  -- Ta')   - tensor-scalar scale down multiplication Ta' = 1/n * Ta
+  +=        ( Ta Tb -- Tc )    - tensor element-wise addition Tc = Ta + Tb
+  +=        ( Ta n  -- Ta' )   - tensor-scalar addition (broadcast) Ta' = Ta + n
+  +=        ( n  Ta -- Ta' )   - scalar-tensor addition (broadcast) Ta' = Ta + n
+  -=        ( Ta Tb -- Tc )    - tensor element-wise subtraction Tc = Ta - Tb
+  -=        ( Ta n  -- Ta' )   - tensor-scalar subtraction (broadcast) Ta' = Ta - n
+  -=        ( n  Ta -- Ta' )   - scalar-tensor subtraction (broadcast) Ta' = n - Ta
+  @=        ( Ta Tb -- Tc )    - matrix-matrix inner product Tc = Ta @ Tb, i.e. matmul
+  @=        ( Ta Ab -- Ac )    - matrix-vector inner product Ac = Ta @ Ab
+  @=        ( Aa Ab -- Ac )    - vector-vector inner product n = Aa @ Ab, i.e. dot
+  *=        ( Ta Tb -- Tc )    - matrix-matrix element-wise multiplication Tc = Ta * Tb
+  *=        ( Ta Ab -- Ac' )   - matrix-vector multiplication Ac' = Ta * Ab
+  *=        ( Ta n  -- Ta' )   - tensor-scalar multiplication Ta' = n * Ta
+  *=        ( n  Ta -- Ta' )   - scalar-tensor multiplication Ta' = n * Ta
+  /=        ( Ta Tb -- Tc )    - matrix-matrix element-wise Tc = Ta / Tb 
+  /=        ( Ta n  -- Ta' )   - tensor-scalar scale down multiplication Ta' = 1/n * Ta
 </pre>
 
 ### Tensor-Tensor loss functions (by default destructive, as in Forth)
 <pre>
-  loss.mse  (Tx Ty -- Tx')   - Mean Square Loss
-  loss.bce  (Tx Ty -- Tx')   - Binary Cross Entropy Loss
-  loss.ce   (Tx Ty -- Tx')   - Categorical Cross Entropy Loss
-  loss.nll  (Tx Ty -- Tx')   - Negative Log Likelihood Loss
+  loss.mse  ( Ta Tb -- Ta' )   - Mean Square Loss
+  loss.bce  ( Ta Tb -- Ta' )   - Binary Cross Entropy Loss
+  loss.ce   ( Ta Tb -- Ta' )   - Categorical Cross Entropy Loss
+  loss.nll  ( Ta Tb -- Ta' )   - Negative Log Likelihood Loss
 </pre>
 
 ### Linear Algebra (by default non-destructive)
 <pre>
-  matmul    (Ma Mb -- Ma Mb Mc) - matrix-matrix multiplication Mc = Ma @ Mb
-  matdiv    (Ma Mb -- Ma Mb Mc) - matrix-matrix division Mc = Ma @ inverse(Mb)
-  inverse   (Ma    -- Ma Ma')   - matrix inversion (via Gauss-Jordan with Pivot)
-  luinv     (Ma    -- Ma Ma')   - matrix inversion (via PLU factorization)
-  plu       (Ma    -- Ma P LU)  - Ma => P and L\U
-  upper     (Ma    -- Ma Ma')   - upper triangle
-  lower     (Ma    -- Ma Ma')   - lower triangle with diag filled with 1s
-  transpose (Ma    -- Ma Ma')   - matrix transpose
-  det       (Ma    -- Ma d)     - matrix determinant (with PLU)
-  solve     (B A   -- B A X)    - solve linear equation AX = B
-  gemm      (a b Ma Mb Mc -- a b Ma Mb Mc') - GEMM Mc' = a * Ma * Mb + b * Mc
+  matmul    ( Ta Tb -- Ta Tb Tc ) - matrix-matrix multiplication Tc = Ma @ Mb
+  matdiv    ( Ta Tb -- Ta Tb Tc ) - matrix-matrix division Mc = Ma @ inverse(Mb)
+  inverse   ( T     -- T Ti )     - matrix inversion (via Gauss-Jordan with Pivot)
+  luinv     ( T     -- T Ti )     - matrix inversion (via PLU factorization)
+  plu       ( T     -- T Tp Tlu ) - Ma => P and L\U
+  upper     ( T     -- T Tu)      - upper triangle
+  lower     ( T     -- T Tl)      - lower triangle with diag filled with 1s
+  transpose ( T     -- T Tx')     - matrix transpose
+  det       ( T     -- T d)       - matrix determinant (with PLU)
+  solve     ( Tb Ta -- Tb Ta Tx)  - solve linear equation Ta @ Tx = Tb
+  gemm      ( a b Ta Tb Tc -- a b Tb Tb Tc' ) - GEMM Tc' = a * Ta * Tb + b * Tc
 </pre>
 
 ### Tensor I/O, Persistence
 <pre>
-  save      (T adr len [fam] -- T) - pickle tensor to OS file (default text mode)
+  save      ( T adr len [fam] -- T ) - pickle tensor to OS file (default text mode)
 </pre>
 
 ### TODO - by priorities
