@@ -22,6 +22,23 @@
 |[2.0](https://github.com/chochain/tensorForth/releases/tag/v2.0.2)|**matrix**|production|+ vector and matrix objects|NumPy|
 |[1.0](https://github.com/chochain/tensorForth/releases/tag/v1.0.2)|**float**|production|extended eForth with F32 float|Python|
 
+### What?
+More details later, but here are some samples of tensorForth in action
+
+* Machine Learning with Forth, shows progress on TensorBoard
+  > |Generative Adversarial Network|TensorBoard Model Graph|
+  > |---|---|
+  > |<img src="https://raw.githubusercontent.com/chochain/tensorForth/master/docs/img/t4_gan_mnist_snip_all.png" width="600px">|<img src="https://raw.githubusercontent.com/chochain/tensorForth/master/docs/img/t4_tb_snip04.png" width="600px">|
+  
+* Build models with built-in layers, activations, and gradient descent methods
+  > |Neural Network Models|Gradient Descent Methods|
+  > |---|---|
+  > |<img src="https://raw.githubusercontent.com/chochain/tensorForth/master/docs/img/ten4_model_cmp.png" width="600px" height="400px">|<img src="https://raw.githubusercontent.com/chochain/tensorForth/master/docs/img/ten4_gradient_cmp.png" width="600px" height="400px">|
+  
+  > |2D Convolution vs Linear+BatchNorm|Effectiveness of Different Activations|
+  > |---|---|
+  > |<img src="https://raw.githubusercontent.com/chochain/tensorForth/master/docs/img/ten4_cnv_vs_bn.png" width="600px" height="400px">|<img src="https://raw.githubusercontent.com/chochain/tensorForth/master/docs/img/ten4_act_cmp.png" width="600px" height="400px">|
+
 ### Why?
 Compiled programs run fast on Linux. Command-line interface and shell scripting tie them together. Small tools are built along the way, productivity grows with time, especially in the hands of researchers.
 
@@ -34,22 +51,6 @@ Compiled programs run fast on Linux. Command-line interface and shell scripting 
 Forth language encourages incremental build-test cycle. Having a 'GPU shell', that can interactively and incrementally develop/run each AI layer/node can potentially build a cleaner system. So, here we are!
 
 > **tensor + Forth = tensorForth!**
-
-### What?
-More details to come but here are some samples of tensorForth in action
-* Machine Learning
-  > |Generative Adversarial Network|TensorBoard Model Graph|
-  > |---|---|
-  > |<img src="https://raw.githubusercontent.com/chochain/tensorForth/master/docs/img/t4_gan_mnist_snip_all.png" width="600px">|<img src="https://raw.githubusercontent.com/chochain/tensorForth/master/docs/img/t4_tb_snip04.png" width="600px">|
-  
-* Benchmarks
-  > |Different Neural Network Models|Different Gradient Descent Methods|
-  > |---|---|
-  > |<img src="https://raw.githubusercontent.com/chochain/tensorForth/master/docs/img/ten4_model_cmp.png" width="600px" height="400px">|<img src="https://raw.githubusercontent.com/chochain/tensorForth/master/docs/img/ten4_gradient_cmp.png" width="600px" height="400px">|
-  
-  > |2D Convolution vs Linear+BatchNorm|Effectiveness of Different Activations|
-  > |---|---|
-  > |<img src="https://raw.githubusercontent.com/chochain/tensorForth/master/docs/img/ten4_cnv_vs_bn.png" width="600px" height="400px">|<img src="https://raw.githubusercontent.com/chochain/tensorForth/master/docs/img/ten4_act_cmp.png" width="600px" height="400px">|
 
 ### How?
 * GPU, behaves like a co-processor or a DSP chip. It has no OS, no string support, and runs its own memory. Most of the available libraries are built for host instead of device i.e. to initiate calls from CPU into GPU but not the other way around. So, to be interactive, a memory manager, IO, and syncing with CPU are things needed to be had. It's pretty much like creating a Forth from scratch for a new processor as in the old days. CUDA Dynamic Parallelism was a perfect fit for the Forth VM running on a GPU and I had the entire REPL run within GPU without even coming back to host.
@@ -541,9 +542,12 @@ If all goes well, some warnings aside, *~/tests/ten4* is your executable. The fo
 </pre>
 
 ### TODO - by priorities
+* Data
+  + add loader plug-in API - CIFAR
+  + add K-fold sampler
+  + data API - Python(cffi), Ruby(FFI)
 * VM
   + CUDA 12 migration
-    - [GEMM](https://siboehm.com/articles/22/CUDA-MMM)
     - Stream Management (cudaStreamAddCallback) and Event Management
     - EventSync/LaunchHostFunc, flip calling from GPU=>CPU (requires CUDA Stream + event pool)
     - dynamic Graph
@@ -556,16 +560,7 @@ If all goes well, some warnings aside, *~/tests/ten4* is your executable. The fo
   + inter-VM loader (from VM->VM)
   + free_tensor as linked-list (instead of an array)
 * Design & Instrumentation
-  x Visulization via Netron
-  x Visulization via TensorBoard
-    x output tensor in HWC format
-    x util from raw to png (with STB)
-    x for PIL (Python Image Lib), matplotlib
-    x [tfevents](https://github.com/mlverse/tfevents)
-    x [protobuf](https://chromium.googlesource.com/external/github.com/tensorflow/tensorflow/+/r0.10/tensorflow/g3doc/how_tos/tool_developers/index.md)
-    x [tensorflow EventWriter](https://stackoverflow.com/questions/48610803/how-i-can-use-filewrite-summary-in-tensorflow-c-api-to-view-it-in-tensorboard/48702823#48702823)
-    x [pytorch SummaryWriter](https://github.com/pytorch/pytorch/blob/main/torch/utils/tensorboard/writer.py)
-    x [pytorch TensorBoard writer](https://github.com/pytorch/pytorch/blob/main/torch/utils/tensorboard/writer.py)
+  + Visulization via Netron
   + Llama
     x [llama2.c](https://www.signalpop.com/2024/02/10/understanding-llama2-c-and-chatgpt-a-visual-design-walkthrough/)
     - [Review](https://www.hostinger.com/tutorials/what-is-ollama). Local LLM environment with pre-train model.
@@ -609,10 +604,6 @@ If all goes well, some warnings aside, *~/tests/ten4* is your executable. The fo
   + GNN - dynamic graph with VMs. Value proposition.
   + Mamba - State Space Model [mamba](https://www.ibm.com/think/topics/mamba-model)
   + Multi-Domain, i.e. MDNet
-* Data
-  + add loader plug-in API - CIFAR
-  + add K-fold sampler
-  + data API - Python(cffi), Ruby(FFI)
 * Refactor
   + study Scikit-learn (discrete functions)
   + study [Taichi](https://github.com/taichi-dev/taichi)
