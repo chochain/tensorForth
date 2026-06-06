@@ -99,155 +99,155 @@ tensorForth 2.0 done.
 ### Tensor creation ops
 |word|param/example|tensor creation ops|
 |---|---|---|
-|vector|(n -- T1)|create a 1-D array and place on top of stack (TOS)|
+|vector|( n -- T1 )|create a 1-D array and place on top of stack (TOS)|
 ||> `5 `**`vector`**|`T1[5]`|
-|matrix|(h w -- T2)|create 2-D matrix and place on TOS|
+|matrix|( h w -- T2 )|create 2-D matrix and place on TOS|
 ||> `2 3`**`matrix`**|`T2[2,3]`|
-|tensor|(n h w c -- T4)|create a 4-D NHWC tensor on TOS|
+|tensor|( n h w c -- T4 )|create a 4-D NHWC tensor on TOS|
 ||> `64 224 224 3`**`tensor`**|`T4[64,224,224,3]`|
-|vector{|(n -- T1)|create 1-D array from console stream|
+|vector{|( n -- T1 )|create 1-D array from console stream|
 ||> `5`**`vector{`**`1 2 3 4 5 }`|`T1[5]`|
-|matrix{|(h w -- T2)|create a 2-D matrix as TOS|
+|matrix{|( h w -- T2 )|create a 2-D matrix as TOS|
 ||> `2 3`**`matrix{`**`1 2 3 4 5 6 }`<br/>> `3 2`**`matrix{`**`{ 1 2 } { 3 4 } { 5 6 } }`|`T2[2,3]`</br>`T2[2,3] T2[3,2]`|
-|view|(Ta -- Ta Va)|create a view (shallow copy) of a tensor on TOS|
+|view|( T -- T V )|create a view (shallow copy) of a tensor on TOS|
 ||> `2 3 matrix`<br/>> **`view`**|`T2[2,3]`<br/>`T2[2,3] V2[2,3]`|
-|copy|(Ta -- Ta Ta')|duplicate (deep copy) a tensor on TOS|
+|copy|( T -- T T' )|duplicate (deep copy) a tensor on TOS|
 ||> `2 3 matrix`<br/>> **`copy`**|`T2[2,3]`<br/>`T2[2,3] T2[2,3]`|
 
 ### duplication (reference) ops
 |word|param/example|reference creation ops|
 |---|---|---|
-|dup|(Ta -- Ta Ta)|create a reference of a tensor on TOS|
+|dup|( Ta -- Ta Ta )|create a reference of a tensor on TOS|
 ||> `2 3 matrix{ 1 2 3 4 5 6 }`<br/>> **`dup`**|`T2[2,3]`<br/>`T2[2,3] T2[2,3]`|
-|over|(Ta Tb -- Ta Tb Ta)||
+|over|( Ta Tb -- Ta Tb Ta )||
 ||> `2 3 matrix{ 1 2 3 4 5 6 }`<br/>> `3 2 matrix`<br/>> **`over`**|`T2[2,3]`<br/>`T2[2,3] T2[3,2]`<br/>`T2[2,3] T2[3,2] T2[2,3]`|
-|2dup|(Ta Tb -- Ta Tb Ta Tb)||
+|2dup|( Ta Tb -- Ta Tb Ta Tb )||
 ||> `2 3 matrix{ 1 2 3 4 5 6 }`<br/>> `3 2 matrix`<br/>> **`2dup`**|`T2[2,3]`<br/>`T2[2,3] T2[3,2]`<br/>`T2[2,3] T2[3,2] T2[2,3] T2[3,2]`|
-|2over|(Ta Tb Tc Td -- Ta Tb Tc Td Ta Tb)|`...`|
+|2over|( Ta Tb Tc Td -- Ta Tb Tc Td Ta Tb )|`...`|
 
 ### Tensor print (non-destructive)
 |word|param/example|Tensor print|
 |---|---|---|
-|. (dot)|(T1 -- T1)|print vector|
+|. (dot)|( T1 -- T1 )|print vector|
 ||> `5 vector{ 1 2 3 4 5 }`<br/>> **`.`**|`T1[5]`<br/>`vector[5] = { +1.0000 +2.0000 +3.0000 +4.0000 +5.0000 }`|
-|. (dot)|(T2 -- T2)|print matrix|
+|. (dot)|( T2 -- T2 )|print matrix|
 ||> `2 3 matrix{ 1 2 3 4 5 6 }`<br/>> **`.`**|`T2[2,3]`<br/>`matrix[2,3] = { { +1.0000 +2.0000 +3.0000 } { +4.0000 +5.0000 +6.0000 } }`|
-|. (dot)|(V2 -- V2)|print a view|
+|. (dot)|( V2 -- V2 )|print a view|
 ||> `2 3 matrix{ 1 2 3 4 5 6 }`<br/>> view<br/>> **`.`**|`T2[2,3]`<br/>`T2[2,3] V2[2,3]`<br/>`matrix[2,3] = { { +1.0000 +2.0000 +3.0000 } { +4.0000 +5.0000 +6.0000 } }`|
 
 ### Shape adjustment ops
 |word|param/example|Shape adjusting ops|
 |---|---|---|
-|flatten|(Ta -- Ta')|reshape a tensor or view to 1-D array|
+|flatten|( T -- T' )|reshape a tensor or view to 1-D array|
 ||> `2 3 matrix{ 1 2 3 4 5 6 }`<br/>> **`flatten`**<br/>> `.`|`T2[2,3]`</br>`T1[6]`<br/>`vector[6] = { +1.0000 +2.0000 +3.0000 +4.0000 +5.0000 +6.0000 }`|
-|reshape2|(h w Ta -- Ta')|reshape to a 2-D matrix/view|
+|reshape2|( h w T -- T' )|reshape to a 2-D matrix/view|
 ||> `2 3 matrix{ 1 2 3 4 5 6 }`<br/>> `dup .`<br/>> `3 2`**`reshape2`**</br>> `dup .`|`T2[2,3]`<br/>`matrix[2,3] = { { +1.0000 +2.0000 +3.0000 } { +4.0000 +5.0000 +6.0000 } }`<br/>`T2[3,2]`<br/>`matrix[3,2] = { { +1.0000 +2.0000 } { +3.0000 +4.0000 } { +5.0000 +6.0000 } }`|
-|reshape4|(n h w c Ta -- Ta')|reshape to a 4-D NHWC tensor or view|
+|reshape4|( n h w c T -- T' )|reshape to a 4-D NHWC tensor or view|
 ||> `2 3 matrix{ 1 2 3 4 5 6 }`<br/>> `1 3 2 1`**`reshape4`**|`T2[2,3]`<br/>`T4[1,3,2,1]`|
-|same_shape?|(Ta Tb -- Ta Tb T/F)|check whether Ta and Tb are the same shape|
+|same_shape?|( Ta Tb -- Ta Tb T/F )|check whether Ta and Tb are the same shape|
 ||> `1 2 matrix{ 1 1 }`<br/>> `2 1 matrix{ 2 2 }`<br/>> **`same_shape?`**|`T2[1,2] T2[2,1] 0`|
 
 ### Tensor Fill ops
 |word|param/example|Fill tensor with init values|
 |---|---|---|
-|zeros|(Ta -- Ta')|fill tensor with zeros|
+|zeros|( T -- T' )|fill tensor with zeros|
 ||> `2 3 matrix`**`zeros`**<br/>> `.`|`T2[2,3]`<br/>`matrix[2,3] = { { +0.0000 +0.0000 +0.0000 } { +0.0000 +0.0000 +0.0000 } }`|
-|ones|(Ta -- Ta')|fill tensor with ones|
+|ones|( T -- T' )|fill tensor with ones|
 ||> `2 2 matrix`**`ones`**<br/>> `.`|`T2[2,2]`<br/>`matrix[2,2] = { { +1.0000 +1.0000 } { +1.0000 +1.0000 } }`|
-|gradfill|(Ta -- Ta')|fill tensor with linear gradient values [0,1.0) for debugging mostly|
+|gradfill|( T -- T' )|fill tensor with linear gradient values [0,1.0) for debugging mostly|
 ||> `2 2 matrix`**`gradfill`**<br/>> `.`|`T2[2,2]`<br/>`matrix[2,2] = { { +0.0000 +0.2500 } { +0.5000 +0.7500 } }`|
-|fill|(Ta n -- Ta')|fill tensor with number on TOS|
+|fill|( T n -- T' )|fill tensor with number on TOS|
 ||> `2 2 matrix 3`**`fill`**<br/>> `.`|`T2[2,2]`<br/>`matrix[2,2] = { { +3.0000 +3.0000 } { +3.0000 +3.0000 } }`|
-|eye|(Ta -- Ta')|fill diag with 1 and other with 0|
+|eye|( T -- T' )|fill diag with 1 and other with 0|
 ||> `3 3 matrix`**`eye`**<br/>> `.`|`T2[3,3]`<br/>`matrix[3,3] = {`<br/>`{ +1.0000 +0.0000 +0.0000 }`<br/>`{ +0.0000 +1.0000 +0.0000 }`<br/>`{ +0.0000 +0.0000 +1.0000 } }`|
-|rand|(Ta -- Ta')|fill tensor with uniform [0.00, 1.00) random numbers|
+|rand|( T -- T' )|fill tensor with uniform [0.00, 1.00) random numbers|
 ||> `2 2 matrix`**`rand`**<br/>> `.`|`T2[2,2]`<br/>`matrix[2,2] = { { +0.5000 +0.1953 } { +0.1094 +0.4141 } }`|
-|randn|(Ta -- Ta')|fill tensor with standard distribution random numbers|
+|randn|( T -- T' )|fill tensor with standard distribution random numbers|
 ||> `2 2 matrix`**`randn`**<br/>> `.`|`T2[2,2]`<br/>`matrix[2,2] = { { -0.2170 -0.0695 } { -0.0107 +2.6791 } }`|
-|={|(Ta -- Ta')|fill tensor with console input values from the first element|
+|={|( T -- T' )|fill tensor with console input values from the first element|
 ||> `2 3 matrix`<br/>> **`={`**`1 2 3 4 5 6 }`<br/>> `.`|`T2[2,3]`<br/>`T2[2,3]`<br/>`matrix[2,3] = { { +1.0000 +2.0000 +3.0000 } { +4.0000 +5.0000 +6.0000 } }`|
-|={|(Ta n -- Ta')|fill tensor from console starting at the indexed element|
+|={|( T n -- T' )|fill tensor from console starting at the indexed element|
 ||> `2 3 matrix zeros`<br/>> **`2 ={`**`1 2 }`<br/>> `.`|`T2[2,3]`<br/>`T2[2,3]`<br/>`matrix[2,3] = { { +0.0000 +0.0000 +1.0000 } { +2.0000 +0.0000 +0.0000 } }`|
 
 ### Tensor slice and dice
 |word|param/example|tensor slicing ops (non-destructive)|
 |---|---|---|
-|dim|(T -- T Td)|tensor dimensions, Td is a vector[4] of { N, H, W, C }|
-|t@|(T i -- T n)|fetch ith element from a tensor (in NHWC order)|
-|t!|(T i v -- T')|store n into ith element of a tensor (in NHWC order)|
-|slice|(Ta x0 x1 y0 y1 -- Ta Ta')|numpy.slice[x0:x1, y0:y1, ]|
+|dim|( T -- T Td )|tensor dimensions, Td is a vector[4] of { N, H, W, C }|
+|t@|( T i -- T n )|fetch ith element from a tensor (in NHWC order)|
+|t!|( T i v -- T' )|store n into ith element of a tensor (in NHWC order)|
+|slice|( Ta x0 x1 y0 y1 -- Ta Ta' )|numpy.slice[x0:x1, y0:y1, ]|
 ||> `4 4 matrix rand`<br/>> `dup .`<br/>> **`1 3 1 3 slice`**<br/>> `.`|`T2[4,4]`<br/>`matrix[4,4] = {`<br/> `{ +0.0940 +0.5663 +0.3323 +0.0840 }`<br/> `{ +0.6334 +0.3548 +0.1104 +0.7236 }`<br/> `{ +0.2781 +0.0530 +0.7532 +0.4145 }`<br/> `{ +0.4473 +0.0823 +0.1551 +0.3159 } }`<br> `matrix[2,2] = {`<br/> `{ +0.3548 +0.1104 }`</br> `{ +0.0530 +0.7532 } }`|
 
 ### Tensor Arithmetic ops
 |word|param/example|Tensor arithmetic ops (non-destructive)|
 |---|---|---|
-|+|(Ta Tb -- Ta Tb Tc)|tensor element-wise addition Tc = Ta + Tb|
+|+|( Ta Tb -- Ta Tb Tc )|tensor element-wise addition Tc = Ta + Tb|
 ||> `2 2 matrix rand`<br/>> `dup .`<br/>> `2 2 matrix ones`<br/>> **`+`**<br/>> `.`|`T2[2,2]`<br/>`matrix[2,2] = { { -0.5000 +0.1953 } { +0.1094 +0.4141 } }`<br/>`T2[2,2] T2[2,2]`<br/>`T2[2,2] T2[2,2] T[2,2]`<br/>`matrix[2,2] = { { +0.5000 +1.1953 } { +1.1094 +1.4141 } }`|
-|+|(Ta n  -- Ta n  Ta')|tensor-scalar addition (broadcast) Ta' = Ta + n|
-|+|(n  Ta -- n  Ta Ta')|scalar-tensor addition (broadcast) Ta' = Ta + n|
-|-|(Ta Tb -- Ta Tb Tc)|tensor element-wise subtraction Tc = Ta - Tb|
-|-|(Ta n  -- Ta n  Ta')|tensor-scalar subtraction (broadcast) Ta' = Ta - n|
-|-|(n  Ta -- n  Ta Ta')|scalar-tensor subtraction (broadcast) Ta' = n - Ta|
-|@|(Ta Tb -- Ta Tb Tc)|matrix-matrix inner product Tc = Ta @ Tb|
-|@|(Ta Ab -- Ta Tb Ac)|matrix-vector inner product Ac = Ta @ Ab|
-|@|(Aa Ab -- Aa Ab n)|vector-vector inner product n = Aa @ Ab, i.e. dot|
-|*|(Ta Tb -- Ta Tb Tc)|matrix-matrix element-wise multiplication Tc = Ta * Tb|
-|*|(Ta n  -- Ta n Ta')|tensor-scalar multiplication Ta' = n * Ta, i.e. scale up|
-|*|(n  Ta -- n  Ta Ta')|scalar-tensor multiplication Ta' = n * Ta, i.e. scale up|
-|*|(Aa Ab -- Aa Ab Ac)|vector-vector outer product Ac = Aa * Ab|
-|/|(Ta Tb -- Ta Tb Tc)|matrix-matrix element-wise division Tc = Ta / Tb|
-|/|(Ta n  -- Ta Ta')|tensor-scalar division Ta = 1/n * Ta, i.e. scale down|
-|sum|(Ta -- Ta n)|sum all elements of a tensor|
-|avg|(Ta -- Ta n)|average all elements of a tensor|
-|max|(Ta -- Ta n)|max of all elements of a tensor|
-|min|(Ta -- Ta n)|min of all elements of a tensor|
+|+|( Ta n  -- Ta n  Ta' )|tensor-scalar addition (broadcast) Ta' = Ta + n|
+|+|( n  Ta -- n  Ta Ta' )|scalar-tensor addition (broadcast) Ta' = Ta + n|
+|-|( Ta Tb -- Ta Tb Tc )|tensor element-wise subtraction Tc = Ta - Tb|
+|-|( Ta n  -- Ta n  Ta' )|tensor-scalar subtraction (broadcast) Ta' = Ta - n|
+|-|( n  Ta -- n  Ta Ta' )|scalar-tensor subtraction (broadcast) Ta' = n - Ta|
+|@|( Ta Tb -- Ta Tb Tc )|matrix-matrix inner product Tc = Ta @ Tb|
+|@|( Ta Ab -- Ta Tb Ac )|matrix-vector inner product Ac = Ta @ Ab|
+|@|( Aa Ab -- Aa Ab n )|vector-vector inner product n = Aa @ Ab, i.e. dot|
+|*|( Ta Tb -- Ta Tb Tc )|matrix-matrix element-wise multiplication Tc = Ta * Tb|
+|*|( Ta n  -- Ta n Ta' )|tensor-scalar multiplication Ta' = n * Ta, i.e. scale up|
+|*|( n  Ta -- n  Ta Ta' )|scalar-tensor multiplication Ta' = n * Ta, i.e. scale up|
+|*|( Aa Ab -- Aa Ab Ac )|vector-vector outer product Ac = Aa * Ab|
+|/|( Ta Tb -- Ta Tb Tc )|matrix-matrix element-wise division Tc = Ta / Tb|
+|/|( Ta n  -- Ta Ta' )|tensor-scalar division Ta = 1/n * Ta, i.e. scale down|
+|sum|( T -- T n )|sum all elements of a tensor|
+|avg|( T -- T n )|average all elements of a tensor|
+|max|( T -- T n )|max of all elements of a tensor|
+|min|( T -- T n )|min of all elements of a tensor|
 
 ### Tensor Arithmetic ops (self-assign, i.e. destructive as in Forth)
 |word|param/example|Tensor arithmetic ops (destructive)|
 |---|---|---|
-|abs|(Ta -- Ta')|tensor element-wise absolute Ta' = abs(Ta)|
-|negate|(Ta -- Ta')|tensor element-wise negate Ta' = -(Ta)|
-|exp|(Ta -- Ta')|tensor element-wise exponential Ta' = exp(Ta)|
-|log|(Ta -- Ta')|tensor element-wise natural logarithm Ta' = ln(Ta)|
-|pow|(Ta n -- Ta')|tensor element-wise power Ta' = e^n(Ta)|
-|+=|(Ta Tb -- Tc)|tensor element-wise addition Tc = Ta + Tb|
+|abs|( T -- T' )|tensor element-wise absolute T' = abs(T)|
+|negate|( T -- T' )|tensor element-wise negate T' = -(T)|
+|exp|( T -- T' )|tensor element-wise exponential T' = exp(T)|
+|log|( T -- T' )|tensor element-wise natural logarithm T' = ln(T)|
+|pow|( T n -- T' )|tensor element-wise power T' = e^n(T)|
+|+=|( Ta Tb -- Ta' )|tensor element-wise addition Ta' = Ta + Tb|
 ||> `2 2 matrix rand`<br/>> `dup .`<br/>> `2 2 matrix ones`<br/>> **`+=`**<br/>> `.`|`T2[2,2]`<br/>`matrix[2,2] = { { -0.5000 +0.1953 } { +0.1094 +0.4141 } }`<br/>`T2[2,2] T2[2,2]`<br/>`T2[2,2]`<br/>`matrix[2,2] = { { +0.5000 +1.1953 } { +1.1094 +1.4141 } }`|
-|+=|(Ta n  -- Ta')|tensor-scalar addition (broadcast) Ta' = Ta + n|
-|+=|(n  Ta -- Ta')|scalar-tensor addition (broadcast) Ta' = Ta + n|
-|-=|(Ta Tb -- Tc)|tensor element-wise subtraction Tc = Ta - Tb|
-|-=|(Ta n  -- Ta')|tensor-scalar subtraction (broadcast) Ta' = Ta - n|
-|-=|(n  Ta -- Ta')|scalar-tensor subtraction (broadcast) Ta' = n - Ta|
-|@=|(Ta Tb -- Tc)|matrix-matrix inner product Tc = Ta @ Tb|
-|@=|(Ta Ab -- Ac)|matrix-vector inner product Ac = Ta @ Ab|
-|@=|(Aa Ab -- n)|vector-vector inner (dot) product n = Aa * Ab|
-|*=|(Ta Tb -- Tc)|matrix-matrix element-wise multiplication Tc = Ta * Tb|
-|*=|(Ta n  -- Ta')|tensor-scalar multiplication Ta' = n * Ta|
-|*=|(n  Ta -- Ta')|scalar-tensor multiplication Ta' = n * Ta|
-|*=|(Aa Ab -- Ac')|vector-vector multiplication Ac = Aa * Ab|
-|/=|(Ta Tb -- Tc)|matrix-matrix element-wise division Tc = Ta / Tb|
-|/=|(Ta n  -- Ta')|tensor-scalar division Ta = 1/n * Ta|
+|+=|( T n  -- T' )|tensor-scalar addition (broadcast) T' = T + n|
+|+=|( n  T -- T' )|scalar-tensor addition (broadcast) T' = T + n|
+|-=|( Ta Tb -- Ta' )|tensor element-wise subtraction Ta' = Ta - Tb|
+|-=|( T n  -- T' )|tensor-scalar subtraction (broadcast) T' = T - n|
+|-=|( n  T -- T' )|scalar-tensor subtraction (broadcast) T' = n - T|
+|@=|( Ta Tb -- Ta' )|matrix-matrix inner product Ta' = Ta @ Tb|
+|@=|( T A -- T' )|matrix-vector inner product T' = T @ A|
+|@=|( Aa Ab -- n )|vector-vector inner (dot) product n = Aa * Ab|
+|*=|( Ta Tb -- Ta' )|matrix-matrix element-wise multiplication Ta' = Ta * Tb|
+|*=|( T n  -- T' )|tensor-scalar multiplication T' = n * T|
+|*=|( n  T -- T' )|scalar-tensor multiplication T' = n * T|
+|*=|( Aa Ab -- Ac' )|vector-vector multiplication Aa' = Aa * Ab|
+|/=|( Ta Tb -- Ta' )|matrix-matrix element-wise division Ta = Ta / Tb|
+|/=|( T n  -- T' )|tensor-scalar division Ta = 1/n * Ta|
 
 ### Linear Algebra ops
 |word|param/example|Matrix arithmetic ops (non-destructive)|
 |---|---|---|
-|matmul|(Ma Mb -- Ma Mb Mc)|matrix multiplication Mc = Ma @ Mb|
-|matdiv|(Ma Mb -- Ma Mb Mc)|matrix division Mc = Ma @ inverse(Mb)|
+|matmul|( Ta Tb -- Ta Tb Tc )|matrix multiplication Tc = Ta @ Tb|
+|matdiv|( Ta Tb -- Ta Tb Tc )|matrix division Tc = Ta @ inverse(Tb)|
 ||> `3 3 matrix{ 2 2 5 1 1 1 4 6 8 } copy`<br/>> **`matdiv`** `.`|`T2[3,3] T[3,3]`<br/>`matrix[3,3] = { { 1.0000 +0.0000 +0.0000 } { -0.0000 +1.0000 +0.0000 } { +0.0000 +0.0000 +1.0000 } }`|
-|inverse|(Ma -- Ma Ma')|matrix inversion (Gauss-Jordan with Pivot)|
+|inverse|( Ta -- Ta Ti )|matrix inversion (Gauss-Jordan with Pivot)|
 ||> `3 3 matrix{ 2 2 5 1 1 1 4 6 8 }`<br/>> **`inverse`**<br/>> `.`|`T2[3,3]`<br/>`T2[3,3] T[3,3]`<br/>`matrix[3,3] = { { 0.3333 +2.3333 -0.5000 } { -0.6667 -0.6667 +0.5000 } { +0.3333 -0.6667 +0.0000 } }`|
-|luinv|(Ma -- Ma Ma')|inverse of an LU matrix (i.e. forward & backward)|
+|luinv|( Ta -- Ta Ti )|inverse of an LU matrix (i.e. forward & backward)|
 ||> `3 3 matrix{ 1 2 4 3 8 14 2 6 13 }`<br/>> **`luinv`**`.`|`T2[3,3]`<br/>`matrix[3,3] = {`<br/>`{ +1.0000 -1.0000 -0.6667 }`<br/>`{ -3.0000 +0.5000 -0.3333 }`<br/>`{ +1.0000 -1.0000 +0.3333 } }`|
-|plu|(Ma -- Ma P LU)|Ma => PLU decomposition, no Pivot|
+|plu|( Ta -- Ta Tp Tlu)|Ma => PLU decomposition, no Pivot|
 ||> `3 3 matrix{ 1 2 4 3 8 14 2 6 13 }`<br/>> **`plu`**`.`|`T2[3,3]` `T2[3,3]` `T2[3,3] . .`<br/>`matrix[3,3] = {`<br/>`{ +3.0000 +8.0000 +14.0000 }`<br/>`{ +0.3333 -0.6667 -0.6667 }`<br/>`{ +0.6667 -1.0000 +3.0000 } }`<br>`matrix[3,3] = {`<br/>`{ +0.0000 +1.0000 +0.0000 }`<br/>`{ +1.0000 -0.0000 0.0000 }`<br/>`{ +0.0000 0.0000 +1.0000 } }`|
-|upper|(Ma -- Ma Ma')|upper triangle|
+|upper|( Ta -- Ta Tu )|upper triangle|
 ||> `3 3 matrix{ 1 -1 -2 -3 5 -4 1 -1 4 }`<br>> **`upper`**`.`|`T2[3,3]`<br/>`matrix[3,3] = {`<br/>`{ +1.0000 -1.0000 -2.0000 }`<br/>`{ +0.0000 +5.0000 -4.0000 }`<br/>`{ +0.0000 +0.0000 +4.0000 } }`|
-|lower|(Ma -- Ma Ma')|lower triangle with diag filled with 1s|
+|lower|( Ta -- Ta Tl )|lower triangle with diag filled with 1s|
 ||> `3 3 matrix{ 1 -1 -2 -3 5 -4 1 -1 4 }`<br>> **`lower`**`.`|`T2[3,3]`<br/>`matrix[3,3] = {`<br/>`{ +1.0000 +0.0000 +0.0000 }`<br/>`{ -3.0000 +1.0000 +0.0000 }`<br/>`{ +1.0000 -1.0000 +1.0000 } }`|
-|transpose|(Ma -- Ma Ma')|matrix transpose|
-|det|(Ma -- Ma d)|matrix determinant (with PLU)|
+|transpose|( Ta -- Ta Tt )|matrix transpose|
+|det|( Ta -- Ma d)|matrix determinant (with PLU)|
 ||> `3 3 matrix{ 1 2 4 3 8 14 2 6 13 }`<br/>> **`det`**|`T2[3,3]`<br/>`T2[3,3] 6`|
-|solve|(B A -- B A X)|solve linear equation AX = B|
+|solve|(Tb Ta -- Tb Ta Tx )|solve linear equation Ta @ Tx = Tb|
 ||> `3 vector{ 1 1 1 }`<br>> `3 3 matrix{ 5 7 4 3 -1 3 6 7 5 }`<br>> **`solve`**<br>> `dup .`|`T1[3]`<br/>`T1[3] T2[3,3]`<br/>`T1[3] T2[3,3] T1[3]`<br/>`vector[3] = { +8.0000 -1.0000 -8.0000 }`|
-|gemm|(a b Ma Mb Mc -- a b Ma Mb Mc')|GEMM Mc' = a * Ma * Mb + b * Mc|
+|gemm|( a b Ta Tb Tc -- a b Ta Tb Tc' )|GEMM Tc' = a * Ta @ Tb + b * Tc|
 
 

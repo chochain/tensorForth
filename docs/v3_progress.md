@@ -69,6 +69,7 @@ ds1                                       \ put dataset on TOS
   * Dataset
     > + format - NHWC (as in TensorFlow)
     > + mini-batch fetch
+    > + normalization
     > + rewind
     > + loader - MNIST
   * Viewer (some more work)
@@ -79,108 +80,108 @@ ds1                                       \ put dataset on TOS
 #### Model creation, query, and persistence
 |word|param/example|tensor creation ops|
 |---|---|---|
-|nn.model|(n h w c -- N)|create a Neural Network model with (n,h,w,c) input|
-|network|(N -- N)|display network model|
-|>n|(N T -- N')|manually add tensor to model|
-|n@|(N n -- N T)|fetch value tensor of nth layer from model, -1 is the latest layer|
-|nn.w|(N n -- N T)|fetch weight tensor of nth layer from model, 0 means N/A|
-|nn.b|(N n -- N T)|fetch weight tensor of nth layer from model, 0 means N/A|
-|nn.dw|(N n -- N T)|fetch weight gradient tensor of nth layer from model, 0 means N/A|
-|nn.db|(N n -- N T)|fetch weight gradient tensor of nth layer from model, 0 means N/A|
-|nn.w=|(N T n -- N')|set weight tensor of nth layer from model|
-|nn.b=|(N T n -- N')|set weight tensor of nth layer from model|
-|load|(N adr len [fam] -- N')|load trained network from a given file name|
-|save|(N adr len [fam] -- N)|export network as a file|
+|nn.model|( n h w c -- M )|create a Neural Network model with [n,h,w,c] input|
+|network|( M -- M )|display network model|
+|>n|( M T -- M' )|manually add tensor to model|
+|n@|( M n -- N T )|fetch value tensor of nth layer from model, -1 is the latest layer|
+|nn.w|( M n -- N T )|fetch weight tensor of nth layer from model, 0 means N/A|
+|nn.b|( M n -- N T )|fetch weight tensor of nth layer from model, 0 means N/A|
+|nn.dw|( M n -- N T )|fetch weight gradient tensor of nth layer from model, 0 means N/A|
+|nn.db|( M n -- N T )|fetch weight gradient tensor of nth layer from model, 0 means N/A|
+|nn.w=|( M T n -- M' )|set weight tensor of nth layer from model|
+|nn.b=|( M T n -- M' )|set weight tensor of nth layer from model|
+|load|( M adr len [fam] -- M' )|load trained network from a given file name|
+|save|( M adr len [fam] -- M )|export network as a file|
     
 #### Dataset ops
 |word|param/example|tensor creation ops|
 |---|---|---|
-|dataset|(n -- D)|create a dataset with batch size = n, and given name i.e. 10 dataset abc|
-|fetch|(D -- D')|fetch a mini-batch from dataset on return stack|
-|rewind|(D -- D')|rewind dataset internal counters (for another epoch)|
-|batchsize|(D -- D b)|get input batch size of a model|
-|nn.len|(D -- D n)|query total num of samples of dataset from corpus|
+|dataset|( n -- D )|create a dataset with batch size = n, and given name i.e. 10 dataset abc|
+|fetch|( D -- D' )|fetch a mini-batch from dataset on return stack|
+|rewind|( D -- D' )|rewind dataset internal counters (for another epoch)|
+|batchsize|( D -- D b )|get input batch size of a model|
+|nn.len|( D -- D n )|query total num of samples of dataset from corpus|
 
 #### Batch controls
 |word|param/example|tensor creation ops|
 |---|---|---|
-|forward|(N -- N')|execute one forward path with rs[-1] dataset, layer-by-layer in given model|
-|forward|(N ds -- N')|execute one forward propagation with TOS dataset, layer-by-layer in given model|
-|backprop|(N -- N')|execute one backward propagation, adding derivatives for all parameters|
-|backprop|(N T -- N')|execute one backward propagation with given onehot vector|
-|for|(N ds -- N')|loop through a dataset, ds will be pushed onto return stack|
-|next|(N -- N')|loop if any subset of dataset left, or ds is pop off return stack|
-|trainable|(N f -- N)|set/unset network model trainable flag|
+|forward|( M -- M' )|execute one forward path with rs[-1] dataset, layer-by-layer in given model|
+|forward|( M D -- M' )|execute one forward propagation with TOS dataset, layer-by-layer in given model|
+|backprop|( M -- M' )|execute one backward propagation, adding derivatives for all parameters|
+|backprop|( M T -- M' )|execute one backward propagation with given onehot vector|
+|for|( M D -- M' )|loop through a dataset, ds will be pushed onto return stack|
+|next|( M -- M' )|loop if any subset of dataset left, or ds is pop off return stack|
+|trainable|( M f -- M )|set/unset network model trainable flag|
 
 #### Convolution and Linear functions (destructive by default)
 |word|param/example|tensor creation ops|
 |---|---|---|
-|conv1x1|(N b c -- N')|create a 1x1 convolution, bias=b, c channels output|
-|conv2d|(N -- N')|create a 2D convolution 3x3 filter, stride=1, padding=same, dilation=0, bias=0.5|
-|conv2d|(N b c -- N')|create a 2D convolution, bias=b, c channels output, with default 3x3 filter|
-|conv2d|(N b c A -- N')|create a 2D convolution, bias=b, c channels output, with config i.g. Vector[5, 5, 3, 2, 1] for (5x5, padding=3, stride=2, dilation=1, bias=0.3)|
-|flatten|(N -- N')|flatten a tensor (usually input to linear)|
-|linear|(N b n -- N')|linearize (y = Wx + b) from Ta input to n out_features|
-|linear|(N n -- N')|linearize (y = Wx) bias=0.0 from Ta input to n out_features|
+|conv1x1|( M b c -- M' )|create a 1x1 convolution, bias=b, c channels output|
+|conv2d|( M -- M' )|create a 2D convolution 3x3 filter, stride=1, padding=same, dilation=0, bias=0.5|
+|conv2d|( M b c -- M' )|create a 2D convolution, bias=b, c channels output, with default 3x3 filter|
+|conv2d|( M b c A -- M' )|create a 2D convolution, bias=b, c channels output, with config i.g. Vector[5, 5, 3, 2, 1] for (5x5, padding=3, stride=2, dilation=1, bias=0.3)|
+|flatten|( M -- M' )|flatten a tensor (usually input to linear)|
+|linear|( M b n -- M' )|linearize (y = Wx + b) from Ta input to n out_features|
+|linear|( M n -- M' )|linearize (y = Wx) bias=0.0 from Ta input to n out_features|
 
 #### Activation (non-linear)
 |word|param/example|tensor creation ops|
 |---|---|---|
-|tanh|(Ta -- Ta')|tensor element-wise tanh Ta' = tanh(Ta)|
-|relu|(Ta -- Ta')|tensor element-wise ReLU Ta' = max(0, Ta)|
-|sigmoid|(Ta -- Ta')|tensor element-wise Sigmoid Ta' = sigmoid(Ta)|
-|sqrt|(Ta -- Ta')|tensor element-wise Sqrt Ta' = sqrt(Ta)|
-|relu|(N -- N')|add Rectified Linear Unit to network model|
-|tanh|(N -- N')|add tanh layer to network model|
-|sigmoid|(N -- N')|add sigmoid 1/(1+exp^-z) activation to network model, used in binary|
-|selu|(N -- N')|add Selu layer to network model|
-|leakyrelu|(N a -- N')|add leaky ReLU activation with slope=a to network model|
-|elu|(N a -- N')|add exponential linear unit activation with alpha=a to network model|
+|tanh|( T -- T' )|tensor element-wise tanh Ta' = tanh(Ta)|
+|relu|( T -- T' )|tensor element-wise ReLU Ta' = max(0, Ta)|
+|sigmoid|( T -- T' )|tensor element-wise Sigmoid Ta' = sigmoid(Ta)|
+|sqrt|( Ta -- Ta')|tensor element-wise Sqrt Ta' = sqrt(Ta)|
+|relu|( M -- M' )|add Rectified Linear Unit to network model|
+|tanh|( M -- M' )|add tanh layer to network model|
+|sigmoid|( M -- M' )|add sigmoid 1/(1+exp^-z) activation to network model, used in binary|
+|selu|( M -- M' )|add Selu layer to network model|
+|leakyrelu|( M a -- M' )|add leaky ReLU activation with slope=a to network model|
+|elu|( M a -- M' )|add exponential linear unit activation with alpha=a to network model|
 
 #### Pooling, Dropout, and UpSampling
 |word|param/example|tensor creation ops|
 |---|---|---|
-|maxpool|(N n -- N')|nxn cells maximum pooling|
-|avgpool|(N n -- N')|nxn cells average pooling|
-|minpool|(N n -- N')|nxn cell minimum pooling|
-|dropout|(N p -- N')|zero out p% of channel data (add noise between data points)|
-|upsample|(N n -- N')|upsample to nearest size=n, 2x2 and 3x3 supported|
-|upsample|(N m n -- N')|upsample size=n, 2x2 and 3x3 support, method: 0=nearest, 1=linear, 2=bilinear, 3=cubic|
-|batchnorm|(N -- N')|add batchnorm layer with default momentum=0.1|
-|batchnorm|(N m -- N')|add batchnorm layer with momentum=m|
+|maxpool|( M n -- M' )|nxn cells maximum pooling|
+|avgpool|( M n -- M' )|nxn cells average pooling|
+|minpool|( M n -- M' )|nxn cell minimum pooling|
+|dropout|( M p -- M' )|zero out p% of channel data (add noise between data points)|
+|upsample|( M n -- M' )|upsample to nearest size=n, 2x2 and 3x3 supported|
+|upsample|( M m n -- M' )|upsample size=n, 2x2 and 3x3 support, method: 0=nearest, 1=linear, 2=bilinear, 3=cubic|
+|batchnorm|( M -- M' )|add batchnorm layer with default momentum=0.1|
+|batchnorm|( M m -- M' )|add batchnorm layer with momentum=m|
 
 #### Classifier
 |word|param/example|tensor creation ops|
 |---|---|---|
-|softmax|(N -- N')|add probability vector exp(x)/sum(exp(x)) to network model, feeds loss.ce, used in multi-class|
-|logsoftmax|(N -- N')|add probability vector x - log(sum(exp(x))) to network model, feeds loss.nll, used in multi-class|
+|softmax|( M -- M' )|add probability vector exp(x)/sum(exp(x)) to network model, feeds loss.ce, used in multi-class|
+|logsoftmax|( M -- M' )|add probability vector x - log(sum(exp(x))) to network model, feeds loss.nll, used in multi-class|
     
 #### Loss and hit count
 |word|param/example|tensor creation ops|
 |---|---|---|
-|loss.mse|(N Ta -- N Ta n)|mean squared error, take output from linear layer|
-|loss.bce|(N Ta -- N Ta n)|binary cross-entropy, takes output from sigmoid layer|
-|loss.ce|(N Ta -- N Ta n)|cross-entropy, takes output from softmax activation|
-|loss.nll|(N Ta -- N Ta n)|negative log likelihood, takes output from log-softmax activation|
-|nn.loss|(N Ta -- N Ta n)|auto select loss function from last output layer|
+|loss.mse|( M T -- M T n )|mean squared error, take output from linear layer|
+|loss.bce|( M T -- M T n )|binary cross-entropy, takes output from sigmoid layer|
+|loss.ce|( M T -- M T n )|cross-entropy, takes output from softmax activation|
+|loss.nll|( M T -- M T n )|negative log likelihood, takes output from log-softmax activation|
+|nn.loss|( M T -- M T n )|auto select loss function from last output layer|
 
 #### Gradient ops
 |word|param/example|tensor creation ops|
 |---|---|---|
-|nn.sgd|(N p -- N')|apply SGD(learn_rate=p, momentum=0.0) model back propagation|
-|nn.sgd|(N p m -- N')|apply SGD(learn_rate=p, momentum=m) model back propagation|
-|nn.adam|(N a -- N')|apply Adam backprop alpha=a, default beta1=0.9, beta2=0.999|
-|nn.adam|(N a b1 -- N')|apply Adam backprop alpha=a, beta1=b1, default beta2=0.999|
-|nn.adam|(N a b1 b2 -- N')|apply Adam backprop alpha=a, beta1=b1, beta2=b2|
-|nn.zero|(N -- N')|reset momentum tensors|
-|nn.onehot|(N -- N T)|get cached onehot vector from a model|
-|nn.hit|(N -- N n)|get number of hit (per mini-batch) of a model|
+|nn.sgd|( M p -- M' )|apply SGD(learn_rate=p, momentum=0.0) model back propagation|
+|nn.sgd|( M p m -- M' )|apply SGD(learn_rate=p, momentum=m) model back propagation|
+|nn.adam|( M a -- M' )|apply Adam backprop alpha=a, default beta1=0.9, beta2=0.999|
+|nn.adam|( M a b1 -- M' )|apply Adam backprop alpha=a, beta1=b1, default beta2=0.999|
+|nn.adam|( M a b1 b2 -- M' )|apply Adam backprop alpha=a, beta1=b1, beta2=b2|
+|nn.zero|( M -- M' )|reset momentum tensors|
+|nn.onehot|( M -- M T )|get cached onehot vector from a model|
+|nn.hit|( M -- M n )|get number of hit (per mini-batch) of a model|
 
 #### TODO: Tensor ops
 |word|param/example|tensor creation ops|
 |---|---|---|
-|stack|(Aa Ab i - Aa Ab Tc)|stack arrays on given axis|
-|split|(Ta i - Ta Aa Ab Ac)|split matrix into matrix on a given axis|
+|stack|( Aa Ab i - Aa Ab Tc )|stack arrays on given axis|
+|split|( Ta i - Ta Aa Ab Ac )|split matrix into matrix on a given axis|
 
 ### Back-propagation Case Study - MNIST
 {% include backprop.html %}
@@ -201,7 +202,7 @@ ds1                                       \ put dataset on TOS
 |fwd |softmax |(OUT -- PB)        |PB labels         |-       |(OUT labels -- dOUT)              |
 |    |loss.ce |(PB labels -- loss)|                  |        |                                  |
 ||||||
-|back|nn.sgd  |(N &eta; -- )      |[f1' b1' f2' b2' w3' b3' w4' b3']|f -= &eta; * df||
+|back|nn.sgd  |( M &eta; -- )      |[f1' b1' f2' b2' w3' b3' w4' b3']|f -= &eta; * df||
 
 ### References for NN forward and backward propagation
 * https://explained.ai/matrix-calculus/
