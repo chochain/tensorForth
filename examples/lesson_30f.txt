@@ -1,5 +1,5 @@
 .( ## MNIST convolution to TensorBoard output ## ) cr
-100 constant N                      \ mini-batch size (number of samples)
+256 constant N                      \ mini-batch size (number of samples)
 0 value t0                          \ starting time (benchmark)
 1 value dsz                         \ number of corpus sample
 variable hit 0 hit !                \ create var for hit counter, and zero it
@@ -50,13 +50,22 @@ constant ds0                        \ keep dataset in a constant
     histo                           \ send histograms to tensorboard
     lr 0.95 * [to] lr               \ decay learning rate
     ds0 rewind                      \ rewind entire dataset 
-  loop ;
+  loop ( M ds ) drop ;
 
 .( ### start training )
 md0 network .graph                  \ put model as TOS, show and to tensorboard graph
-ds0 dup 10 s" corpus/image" .tile   \ get dataset, sample images, 10-wide, to tensorboard
+ds0 dup 16 s" corpus/image" .tile   \ get dataset, sample images, 10-wide, to tensorboard
 clock to t0                         \ get starting time
 20 cnn                              \ execute multiple (20) epoches
-drop                                \ drop dataset
+
+.( ### validation )
+0 trainable                         \ ( M -- M' ), turn off training
+N dataset mnist_test                \ create MNIST test dataset with model batch size
+nn.len to dsz                       \ get dataset total number of samples
+constant ds1                        \ keep testing dataset as a constant
+
+0 hit !                             \ validation run
+ds1 epoch                           \ ( M ds -- M )
+." test/acc=" hit @ dsz / .         \ display tests accuracy
 
 bye
