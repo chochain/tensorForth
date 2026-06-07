@@ -52,7 +52,7 @@ constant ds0                        \ keep dataset in a constant
     ds0 rewind                      \ rewind entire dataset 
   loop ( M ds ) drop ;
 
-.( ### start training )
+.( ### training )
 md0 network .graph                  \ put model as TOS, show and to tensorboard graph
 ds0 dup 16 s" corpus/image" .tile   \ get dataset, sample images, 10-wide, to tensorboard
 clock to t0                         \ get starting time
@@ -66,6 +66,7 @@ constant ds1                        \ keep testing dataset as a constant
 
 0 hit !                             \ validation run
 ds1 epoch                           \ ( M ds -- M )
-." test/acc=" hit @ dsz / .         \ display tests accuracy
+hit @ dsz 2dup /
+s" test/acc = %d/%d => %g" sprintf type cr \ display validation accuracy
 
 bye
