@@ -7,6 +7,8 @@
 #ifndef __LD_CORPUS_H
 #define __LD_CORPUS_H
 #pragma once
+#include <iostream>
+#include <fstream>                           /// std::ifstream
 #include <sstream>
 #include <string>
 #include "ten4_types.h"
@@ -25,7 +27,9 @@ namespace t4::ld {
 struct Corpus {
     const char *ds_name;     ///< data source name
     const char *tg_name;     ///< target label name
-
+    int        min;          ///< range of the source data
+    int        max;     
+    
     U32 N, H, W, C;          ///< set dimensions and channel size
     U32 batch_sz = 0;
     union {
@@ -38,8 +42,9 @@ struct Corpus {
     U8 *data;                ///< source data pointer
     U8 *label;               ///< label data pointer
     
-    Corpus(const char *data_name, const char *label_name)
-        : ds_name(data_name), tg_name(label_name), N(0), data(NULL), label(NULL) {}
+    Corpus(const char *data_name, const char *label_name, int min, int max)
+        : ds_name(data_name), tg_name(label_name), min(min), max(max),
+          N(0), data(NULL), label(NULL) {}
     
     ~Corpus() {
         if (!data) return;
@@ -57,17 +62,28 @@ struct Corpus {
         ds_free(ds_name, data);
         if (label) ds_free(tg_name, label);
     }
-    int cell() { return H * W * C; }                         ///< size of an element
     
-    virtual Corpus *init(bool trace) { return NULL; }        /// * initialize dimensions
-    virtual Corpus *fetch(int bid, int n, bool trace) {      /// * load a batch
-        ERROR("batch(U8*) implemented?\n");
-        return this;
+    int cell() { return H * W * C; }                         ///< size of an element
+    virtual U8 *operator [](int idx){ return &data[idx * cell()]; }     ///< data point
+    
+    virtual Corpus *init(bool trace) { return NULL; }                   ///< initialize dimensions
+    virtual Corpus *fetch(int bid, int n, bool trace) { return NULL; }; ///< load a mini-batch
+    
+    virtual Corpus *show(int n);                             ///< show/preview n samples
+    
+    virtual Corpus *rewind() {
+        _ds.clear(); _tg.clear(); eof = 0; return this;
     }
-    virtual Corpus *rewind()    { eof = 0; return this; }
-    virtual Corpus *show(int n) { return this; }
 
-    virtual U8 *operator [](int idx){ return &data[idx * cell()]; }    ///< data point
+protected:
+    std::ifstream _ds;                                       ///< data file handle
+    std::ifstream _tg;                                       ///< target label file handle
+
+    virtual int _open();                                     ///< open data sources
+    virtual int _close();                                    ///< close data sources
+    
+    virtual int _get_labels(int bid, int hdr, int bsz);      ///< load labels
+    virtual int _get_images(int bid, int hdr, int bsz);      ///< load images/data
 };
 
 } // namespace t4::ld
