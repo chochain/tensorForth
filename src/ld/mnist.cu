@@ -66,8 +66,8 @@ Corpus *Mnist::fetch(int bid, int n, bool trace) {
     ///
     /// fetch labels and images (and set eof if any of EOF reached)
     ///
-    int b0   = _get_labels(bid, sizeof(U32) * 2, n * sizeof(U8));  ///< load batch labels
-    batch_sz = _get_images(bid, sizeof(U32) * 4, n * cell());      ///< load batch images
+    int b0   = _get_labels(bid, n);             ///< load batch labels
+    batch_sz = _get_images(bid, n);             ///< load batch images
     GPU_CHK();                                  /// * device sync after memory update
     
     if (b0 != batch_sz) {
@@ -86,6 +86,85 @@ Corpus *Mnist::fetch(int bid, int n, bool trace) {
         INFO("\tMnist batch[%d] loaded=%d/%d done=%d\n", bid, off, N, eof);
     }
     return this;
+}
+
+Corpus *Mnist::show(int N) {
+    static const char *map = " .:-=+*#%@";
+
+    for (int i = 0; i < H; i++) {
+        for (int n =0; n < N; n++) {
+            U8 *img = (*this)[n] + i * W;
+            for (int j = 0; j < W; j++, img++) {
+                char c  = map[*img / 26];
+                char c1 = map[((int)*img + (int)*(img+1)) / 52];
+                INFO("%c%c", c, c1);                 /// double width
+            }
+            INFO("|");
+        }
+        INFO("\n");
+    }
+    for (int n = 0; n < N; n++) {
+        INFO(" label=%-2d ", (int)label[n]);
+        for (int j = 0; j < W*2 - 10; j++) INFO("-");
+        INFO("+");
+    }
+    INFO("\n");
+
+    return this;
+}
+///
+/// tracing to make sure process is going
+///
+int Mnist::_open() {
+    if (ds_name) {
+        _ds.open(ds_name, std::ios::binary);
+        if (!_ds.is_open()) { IO_ERROR(ds_name); return -1; }
+    }
+    if (tg_name) {
+        _tg.open(tg_name, std::ios::binary);
+        if (!_tg.is_open()) { IO_ERROR(tg_name); return -1; }
+    }
+    return 0;
+}
+
+int Mnist::_close() {
+    if (_ds.is_open()) _ds.close();
+    if (_tg.is_open()) _tg.close();
+    return 0;
+}
+
+int Mnist::_get_labels(int bid, int n) {
+    int hdr = sizeof(U32) * 2;
+    int bsz = n * sizeof(U8);
+    
+    if (!label) DS_ALLOC(&label, bsz);             ///< allocate managed memory
+
+    _tg.seekg(hdr + bid * bsz);                    /// * seek by batch
+    _tg.read((char*)label, bsz);                   /// * fetch batch labels
+
+    int cnt = _tg.gcount();                        ///< # of labels extracted
+
+    char c = _tg.peek();                           ///< check EOF
+    eof |= _tg.eof();                              /// * set EOF flag
+
+    return cnt;
+}
+
+int Mnist::_get_images(int bid, int n) {
+    int hdr = sizeof(U32) * 4;
+    int bsz = n * cell();
+    
+    if (!data) DS_ALLOC(&data, bsz);               ///< allocate managed memory
+
+    _ds.seekg(hdr + bid * bsz);                    /// * seek by batch id
+    _ds.read((char*)data, bsz);                    /// * fetch batch images
+
+    int cnt = _ds.gcount() / cell();               ///< # of sample fetched
+    
+    char c = _ds.peek();                           ///< check EOF
+    eof |= _ds.eof();                              /// * set EOF flag
+
+    return cnt;
 }
 
 } // namespace t4::ld
