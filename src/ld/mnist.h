@@ -7,6 +7,8 @@
 #ifndef __LDR_MNIST_H
 #define __LDR_MNIST_H
 #pragma once
+#include <iostream>
+#include <fstream>                           /// std::ifstream
 #include "ten4_config.h"
 
 #if (T4_DO_OBJ && T4_DO_NN)
@@ -26,6 +28,20 @@ public:
 
     virtual Corpus *init(bool trace);                  ///< setup/check sizing
     virtual Corpus *fetch(int bid, int n, bool trace); ///< fetch bid'th mini-batch
+    virtual Corpus *rewind() {
+        _ds.clear(); _tg.clear(); return Corpus::rewind();
+    }
+    virtual Corpus *show(int n);
+
+private:
+    std::ifstream _ds;                                 ///< data file handle
+    std::ifstream _tg;                                 ///< target label file handle
+
+    virtual int _open();                               ///< open data sources
+    virtual int _close();                              ///< close data sources
+
+    virtual int _get_labels(int bid, int n);           ///< load labels
+    virtual int _get_images(int bid, int n);           ///< load images/data
 };
 
 } // namespace t4::ld
