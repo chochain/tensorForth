@@ -10,39 +10,22 @@
 #include "ten4_config.h"
 
 #if (T4_DO_OBJ && T4_DO_NN)
-
-#include <iostream>
-#include <fstream>                           /// std::ifstream
 #include "corpus.h"
 
 namespace t4::ld {
 
-typedef uint8_t   U8;
-typedef uint32_t  U32;
 ///
 /// MNIST NN data
 ///
 class Mnist : public Corpus {
-    std::ifstream d_in;                      ///< data file handle
-    std::ifstream t_in;                      ///< target label file handle
     
 public:
     Mnist(const char *data_name, const char *label_name)
-        : Corpus(data_name, label_name) {}
+        : Corpus(data_name, label_name, 0, 256) {}
     ~Mnist() { _close(); }
 
     virtual Corpus *init(bool trace);                  ///< setup/check sizing
     virtual Corpus *fetch(int bid, int n, bool trace); ///< fetch bid'th mini-batch
-    virtual Corpus *rewind() { d_in.clear(); t_in.clear(); return Corpus::rewind(); }
-    
-    virtual Corpus *show(int n);                       ///< show/preview n samples
-
-private:
-    int _open();
-    int _close();
-    
-    int _get_labels(int bid, int n);
-    int _get_images(int bid, int n);
 };
 
 } // namespace t4::ld
