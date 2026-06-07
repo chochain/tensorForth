@@ -32,18 +32,20 @@ Corpus *Mnist::init(bool trace) {
     if (_open()) return NULL;
     data  = NULL;
     label = NULL;
+    min   = 0;
+    max   = 256;
 
     U32 X0, X1, N1=0;
-    if (t_in) {
-        X1 = _u32(t_in);    ///< label magic number 0x0801
-        N1 = _u32(t_in);
+    if (_tg) {
+        X1 = _u32(_tg);    ///< label magic number 0x0801
+        N1 = _u32(_tg);
         if (trace) INFO("\tMNIST label: magic=%08x => [%d]\n", X1, N1);
     }
-    if (d_in) {
-        X0 = _u32(d_in);    ///< image magic number 0x0803
-        N  = _u32(d_in);
-        H  = _u32(d_in);
-        W  = _u32(d_in);
+    if (_ds) {
+        X0 = _u32(_ds);    ///< image magic number 0x0803
+        N  = _u32(_ds);
+        H  = _u32(_ds);
+        W  = _u32(_ds);
         C  = 1;
         if (trace) INFO("\tMNIST image: magic=%08x => [%d][%d,%d,%d]\n",
               X0, N, H, W, C);
@@ -64,8 +66,8 @@ Corpus *Mnist::fetch(int bid, int n, bool trace) {
     ///
     /// fetch labels and images (and set eof if any of EOF reached)
     ///
-    int b0   = _get_labels(bid, n);             ///< load batch labels
-    batch_sz = _get_images(bid, n);             ///< load batch images
+    int b0   = _get_labels(bid, sizeof(U32) * 2, n * sizeof(U8));  ///< load batch labels
+    batch_sz = _get_images(bid, sizeof(U32) * 4, n * cell());      ///< load batch images
     GPU_CHK();                                  /// * device sync after memory update
     
     if (b0 != batch_sz) {
@@ -84,85 +86,6 @@ Corpus *Mnist::fetch(int bid, int n, bool trace) {
         INFO("\tMnist batch[%d] loaded=%d/%d done=%d\n", bid, off, N, eof);
     }
     return this;
-}
-
-Corpus *Mnist::show(int N) {
-    static const char *map = " .:-=+*#%@";
-
-    for (int i = 0; i < H; i++) {
-        for (int n =0; n < N; n++) {
-            U8 *img = (*this)[n] + i * W;
-            for (int j = 0; j < W; j++, img++) {
-                char c  = map[*img / 26];
-                char c1 = map[((int)*img + (int)*(img+1)) / 52];
-                INFO("%c%c", c, c1);                 /// double width
-            }
-            INFO("|");
-        }
-        INFO("\n");
-    }
-    for (int n = 0; n < N; n++) {
-        INFO(" label=%-2d ", (int)label[n]);
-        for (int j = 0; j < W*2 - 10; j++) INFO("-");
-        INFO("+");
-    }
-    INFO("\n");
-
-    return this;
-}
-///
-/// tracing to make sure process is going
-///
-int Mnist::_open() {
-    if (ds_name) {
-        d_in.open(ds_name, std::ios::binary);
-        if (!d_in.is_open()) { IO_ERROR(ds_name); return -1; }
-    }
-    if (tg_name) {
-        t_in.open(tg_name, std::ios::binary);
-        if (!t_in.is_open()) { IO_ERROR(tg_name); return -1; }
-    }
-    return 0;
-}
-
-int Mnist::_close() {
-    if (d_in.is_open()) d_in.close();
-    if (t_in.is_open()) t_in.close();
-    return 0;
-}
-
-int Mnist::_get_labels(int bid, int n) {
-    int hdr = sizeof(U32) * 2;                     ///< header to skip over
-    int bsz = sizeof(U8) * n;                      ///< batch size
-
-    if (!label) DS_ALLOC(&label, bsz);             ///< allocate managed memory
-
-    t_in.seekg(hdr + bid * bsz);                   /// * seek by batch
-    t_in.read((char*)label, bsz);                  /// * fetch batch labels
-
-    int cnt = t_in.gcount();                       ///< # of labels extracted
-
-    char c = t_in.peek();                          ///< check EOF
-    eof |= t_in.eof();                             /// * set EOF flag
-
-    return cnt;
-}
-
-int Mnist::_get_images(int bid, int n) {
-    int hdr = sizeof(U32) * 4;                     ///< header to skip over
-    int bsz = n * cell();                          ///< image block size
-
-    if (!data) DS_ALLOC(&data, bsz);               ///< allocate managed memory
-
-    d_in.seekg(hdr + bid * bsz);                   /// * seek by batch id
-    d_in.read((char*)data, bsz);                   /// * fetch batch images
-
-    int cnt = d_in.gcount() / cell();              ///< # of sample fetched
-    
-    char c = t_in.peek();                          ///< check EOF
-    eof |= d_in.eof();                             /// * set EOF flag
-
-    return cnt;
 }
 
 } // namespace t4::ld
