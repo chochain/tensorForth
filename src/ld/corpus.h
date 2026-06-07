@@ -7,8 +7,6 @@
 #ifndef __LD_CORPUS_H
 #define __LD_CORPUS_H
 #pragma once
-#include <iostream>
-#include <fstream>                           /// std::ifstream
 #include <sstream>
 #include <string>
 #include "ten4_types.h"
@@ -68,22 +66,8 @@ struct Corpus {
     
     virtual Corpus *init(bool trace) { return NULL; }                   ///< initialize dimensions
     virtual Corpus *fetch(int bid, int n, bool trace) { return NULL; }; ///< load a mini-batch
-    
-    virtual Corpus *show(int n);                             ///< show/preview n samples
-    
-    virtual Corpus *rewind() {
-        _ds.clear(); _tg.clear(); eof = 0; return this;
-    }
-
-protected:
-    std::ifstream _ds;                                       ///< data file handle
-    std::ifstream _tg;                                       ///< target label file handle
-
-    virtual int _open();                                     ///< open data sources
-    virtual int _close();                                    ///< close data sources
-    
-    virtual int _get_labels(int bid, int hdr, int bsz);      ///< load labels
-    virtual int _get_images(int bid, int hdr, int bsz);      ///< load images/data
+    virtual Corpus *rewind()    { eof = 0; return this; }
+    virtual Corpus *show(int n) { return this; }                        ///< show/preview n samples
 };
 
 } // namespace t4::ld
