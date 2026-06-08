@@ -19,7 +19,7 @@ namespace t4::ld {
 /// 2. moved to host heap if OK
 /// 3. pre-fetching can be done in a separate thread
 ///
-#define DS_ALLOC(p, sz)      MM_ALLOC(p, sz)
+#define DS_ALLOC(p, sz)      H_ALLOC(p, sz)
 #define IO_ERROR(fn)         ERROR("failed to open file %s\n", fn);
 
 struct Corpus {
