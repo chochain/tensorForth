@@ -32,21 +32,23 @@ Summary::image(const char *tag, T4Base &b) {
         return;
     }
     Tensor &t = (Tensor&)b;
-    const U32 W = t.W(), H = t.H(), C = t.C();
-    const DU  mean = t.avg(), scale = (t.std() - 0.5f) * 128.0f;  /// 95%
-    U8V px(W * H * 3);
-    DU  hx[W * H * C];
-    for (int n = 0; n < t.N(); n++) {
-        DU *d = t.slice(n), *h = hx;
+    const int N = t.N(), W = t.W(), H = t.H(), C = t.C();
+    const DU mean = t.avg(), scale = (t.std() - 0.5f) * 128.0f;  /// 95%
+    
+    U8V  px(H * W * 3);
+    F32V hx(H * W * C);
+    for (int n = 0; n < N; n++) {
+        DU *d = t.slice(n), *h = hx.data();
         D2H(h, d, sizeof(DU) * W * H * C);
         for (int y = 0; y < H; y++) {
             U8 *p = &px[(y * W) * 3];
             for (int x = 0; x < W; x++, h++) {
-                DU vx = (*h - mean) * scale + 128.5f;
-                U8 v  = (U8)MIN(255.0f, MAX(vx, 0));
-                *p++ = v;
-                *p++ = v;
-                *p++ = v;
+                for (int c = 0; c < MAX(C, 3); c++) {
+                    DU vx = (*h + mean) * scale;
+                    U8 v  = (U8)MIN(255.0f, MAX(vx, 0));
+                    *p++ = v;
+                    if (c < C) h++;
+                }
             }
         }
         add_image(tag, W, H, px, _step);
@@ -60,36 +62,37 @@ Summary::tile(const char *tag, T4Base &b, int n_per_row) {
         return;
     }
     Tensor &t = (Tensor&)b;
-    const U32  N     = t.N(), H  = t.H(), W = t.W(), C = t.C();
-    const int  WT    = n_per_row * W;
-    const int  HT    = (N + n_per_row - 1) / n_per_row;
-    const DU   mean  = t.avg();
-    const DU   scale = (64.0f / t.std());        /// 2 std = 95%
+    const int  N    = t.N(), H = t.H(), W = t.W(), C = t.C();
+    const int  WT   = W * n_per_row;
+    const int  HT   = H * ((N + n_per_row - 1) / n_per_row);
+    const F32  mean = 0.0f, scale = 256.0f;
+//    const F32  mean  = t.avg(), scale = 64.0f / t.std();        /// 2 std = 95%
 
-    auto tile = [&](U8V &px, DU *v, int idx) {
-        int ht = idx / n_per_row, wt = idx % n_per_row;
-        U8 *p = &px[(ht * H * WT + wt * W) * 3];
+    U8V  px(HT * WT * 3);                         ///< zero-init, so unfilled are black
+    F32V hx(t.numel);                             ///< host block on heap (CC: watch)
+    D2H(hx.data(), t.data, t.numel * sizeof(DU)); /// * copy device to host
+
+    for (int n = 0; n < N; n++) {                 ///< CC TODO: in worker thread
+        F32 *v = &hx[n * H * W * C];              ///< or pre-build px in kernel
+        int ty = n / n_per_row, tx = n % n_per_row;
         for (int y = 0; y < H; y++) {
-            for (int x = 0, c = 0; x < W; x++, c=0) {
-                while (c < 3) {                  /// RGB
-                    DU vx = (*v - mean) * scale + 128.0f;
-                    *p++ = (x==0 && y==0)
-                        ? 128 : static_cast<U8>(MIN(255.0f, MAX(vx, 0.0f)));
-                    if (c++ < C) v++;            /// advance if more than 1 channel
+            U8 *p = px.data() + ((ty * H + y) * WT + tx * W) * 3;
+            for (int x = 0; x < W; x++) {
+                if (x==0 || x==(W-1) || y==0 || y==(H-1)) {       /// * boarder
+                    p[0] = 196; p[1] = 160; p[2] = 160;
+                    p += 3;
                 }
+                else {
+                    for (int c = 0; c < 3; c++) {
+                        DU vx = (*(v + (c < C ? c : C-1)) + mean) * scale;
+                        *p++ = static_cast<U8>(MIN(255.0f, MAX(vx, 0.0f)));
+                    }
+                }
+                v += C;
             }
-            p += (WT - W) * 3;                   /// skip to next row in tile
         }
-    };
-
-    U8V px((HT * H) * WT * 3);                  ///< zero-init, so unfilled are black
-    DU  h[t.numel];                             ///< host block (watch out, heap space)
-    D2H(h, t.data, sizeof(DU) * t.numel);       /// * copy to host
-    for (int n = 0; n < N; n++) {
-        DU *hx = &h[n * H * W * C];
-        tile(px, hx, n);                         /// * fill tile by tile
     }
-    add_image(tag, WT, H * HT, px, _step);
+    add_image(tag, WT, HT, px, _step);
 }
 
 __HOST__ void
