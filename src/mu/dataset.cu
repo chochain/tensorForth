@@ -86,7 +86,7 @@ __HOST__ int
     /// if needed, allocate Dataset device (managed) memory blocks
     ///
     _load(cp->data, cp->label, n);                /// * transfer to device memory
-    batch_id++;
+    batch_id++;                                   /// * CC TODO: async prefetch
     ///
     /// debug tracing/preview
     ///
@@ -114,17 +114,19 @@ Dataset::_load(U8 *cp_data, U8 *cp_label, int n) {
     ///
     /// scale cp_data into DU for nn/forward
     ///
-    DU  *d = data;                                ///< data in managed memory
+    DU  d[NX];                                    ///< host buffer on heap (CC: watch)
     for (U64 i = 0; i < NX; i++, cp_data++) {     ///< NX < numel (partial mini-batch)
-        *d++ = (I2D((int)*cp_data) - _mean) * _scale;  /// * normalize
+        d[i] = (I2D((int)*cp_data) - _mean) * _scale;  /// * normalize
     }
+    H2D(data, d, NX * sizeof(DU));                ///< data in managed memory
     ///
     /// scale cp_label into U32 for nn/loss
     ///
-    U32 *t = label;                               ///< label in managed memory
+    U32 *t = (U32*)&d[0];                         ///< reuse data buffer
     for (U32 i = 0; i < n; i++, cp_label++) {     ///< n < N (partial mini-batch)
         *t++ = (U32)*cp_label;                    /// * copy label to device memory
     }
+    H2D(label, d, n * sizeof(DU));                ///< label in managed memory
     
 #if MM_DEBUG    
     INFO("dataset.data=>");
