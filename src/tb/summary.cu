@@ -33,7 +33,7 @@ Summary::image(const char *tag, T4Base &b) {
     }
     Tensor &t = (Tensor&)b;
     const int N = t.N(), W = t.W(), H = t.H(), C = t.C();
-    const DU mean = t.avg(), scale = (t.std() - 0.5f) * 128.0f;  /// 95%
+    const DU mean = t.avg(), scale = 64.0f / t.std();       /// 95%
     
     U8V  px(H * W * 3);
     F32V hx(H * W * C);
@@ -43,10 +43,9 @@ Summary::image(const char *tag, T4Base &b) {
         for (int y = 0; y < H; y++) {
             U8 *p = &px[(y * W) * 3];
             for (int x = 0; x < W; x++, h++) {
-                for (int c = 0; c < MAX(C, 3); c++) {
+                for (int c = 0; c < 3; c++) {
                     DU vx = (*h + mean) * scale;
-                    U8 v  = (U8)MIN(255.0f, MAX(vx, 0));
-                    *p++ = v;
+                    *p++ = (U8)MIN(255.0f, MAX(vx, 0));;
                     if (c < C) h++;
                 }
             }
@@ -62,9 +61,10 @@ Summary::tile(const char *tag, T4Base &b, int n_per_row) {
         return;
     }
     Tensor &t = (Tensor&)b;
+    const int  B    = 2;                          ///< border
     const int  N    = t.N(), H = t.H(), W = t.W(), C = t.C();
-    const int  WT   = W * n_per_row;
-    const int  HT   = H * ((N + n_per_row - 1) / n_per_row);
+    const int  WT   = (W+B) * n_per_row + B;
+    const int  HT   = (H+B) * ((N + n_per_row - 1) / n_per_row) + B;
     const F32  mean = 0.0f, scale = 256.0f;
 //    const F32  mean  = t.avg(), scale = 64.0f / t.std();        /// 2 std = 95%
 
@@ -76,19 +76,12 @@ Summary::tile(const char *tag, T4Base &b, int n_per_row) {
         F32 *v = &hx[n * H * W * C];              ///< or pre-build px in kernel
         int ty = n / n_per_row, tx = n % n_per_row;
         for (int y = 0; y < H; y++) {
-            U8 *p = px.data() + ((ty * H + y) * WT + tx * W) * 3;
-            for (int x = 0; x < W; x++) {
-                if (x==0 || x==(W-1) || y==0 || y==(H-1)) {       /// * boarder
-                    p[0] = 196; p[1] = 160; p[2] = 160;
-                    p += 3;
+            U8 *p = px.data() + ((ty * (H+B) + y + B) * WT + tx * (W+B) + B) * 3;
+            for (int x = 0; x < W; x++, v += C) {
+                for (int c = 0; c < 3; c++) {
+                    DU vx = (*(v + (c < C ? c : C-1)) + mean) * scale;
+                    *p++ = static_cast<U8>(MIN(255.0f, MAX(vx, 0.0f)));
                 }
-                else {
-                    for (int c = 0; c < 3; c++) {
-                        DU vx = (*(v + (c < C ? c : C-1)) + mean) * scale;
-                        *p++ = static_cast<U8>(MIN(255.0f, MAX(vx, 0.0f)));
-                    }
-                }
-                v += C;
             }
         }
     }
