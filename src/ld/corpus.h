@@ -25,11 +25,13 @@ namespace t4::ld {
 struct Corpus {
     const char *ds_name;     ///< data source name
     const char *tg_name;     ///< target label name
-    int        min;          ///< range of the source data
-    int        max;     
+    
+    U32 min;                 ///< range of the source data
+    U32 max;
+    U32 corpus_sz;
+    U32 batch_sz;
     
     U32 N, H, W, C;          ///< set dimensions and channel size
-    U32 batch_sz = 0;
     union {
         U32 ctrl = 0;        ///< corpus control 
         struct {
@@ -42,14 +44,15 @@ struct Corpus {
     
     Corpus(const char *data_name, const char *label_name, int min, int max)
         : ds_name(data_name), tg_name(label_name), min(min), max(max),
-          N(0), data(NULL), label(NULL) {}
+          corpus_sz(0), data(NULL), label(NULL) {}
     
     ~Corpus() {
         if (!data) return;
 
         cudaPointerAttributes attr;
-        cudaPointerGetAttributes(&attr, data);
-        int host = attr.devicePointer==NULL;
+        int host =
+            cudaPointerGetAttributes(&attr, data)==cudaErrorInvalidValue &&
+            attr.devicePointer==NULL;
         
         auto ds_free = [this, host](const char *name, U8 *p) {
             static const char *dev[] = { "CUDA Managed" , "HOST" };
@@ -61,13 +64,14 @@ struct Corpus {
         if (label) ds_free(tg_name, label);
     }
     
-    int cell() { return H * W * C; }                         ///< size of an element
-    virtual U8 *operator [](int idx){ return &data[idx * cell()]; }     ///< data point
+    virtual U8 *operator [](int idx){ return &data[idx * cell()]; }  ///< data point
     
-    virtual Corpus *init(bool trace) { return NULL; }                   ///< initialize dimensions
-    virtual Corpus *fetch(int bid, int n, bool trace) { return NULL; }; ///< load a mini-batch
+    int cell() { return H * W * C; }                                 ///< size of an element
+    
+    virtual Corpus *init(int mini_bsz, bool trace) { return NULL; }  ///< initialize dimensions
+    virtual int    fetch(int bid, bool trace) { return 0; };         ///< load a mini-batch
     virtual Corpus *rewind()    { eof = 0; return this; }
-    virtual Corpus *show(int n) { return this; }                        ///< show/preview n samples
+    virtual Corpus *show(int n) { return this; }                     ///< show/preview n samples
 };
 
 } // namespace t4::ld
