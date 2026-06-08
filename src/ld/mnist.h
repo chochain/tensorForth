@@ -26,8 +26,8 @@ public:
         : Corpus(data_name, label_name, 0, 256) {}
     ~Mnist() { _close(); }
 
-    virtual Corpus *init(bool trace);                  ///< setup/check sizing
-    virtual Corpus *fetch(int bid, int n, bool trace); ///< fetch bid'th mini-batch
+    virtual Corpus *init(int mini_bsz, bool trace);    ///< setup/check sizing
+    virtual int    fetch(int bid, bool trace);         ///< fetch bid'th mini-batch
     virtual Corpus *rewind() {
         _ds.clear(); _tg.clear(); return Corpus::rewind();
     }
@@ -40,8 +40,8 @@ private:
     virtual int _open();                               ///< open data sources
     virtual int _close();                              ///< close data sources
 
-    virtual int _get_labels(int bid, int n);           ///< load labels
-    virtual int _get_images(int bid, int n);           ///< load images/data
+    virtual int _get_labels(int bid);                  ///< load labels
+    virtual int _get_images(int bid);                  ///< load images/data
 };
 
 } // namespace t4::ld
