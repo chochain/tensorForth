@@ -435,7 +435,7 @@ NetVM::init() {
              Tensor &t = (Tensor&)mmu.du2obj(tos);
              PUSH(t.is_model()
                   ? t.numel
-                  : (t.is_tensor() ? t.N() : ((Dataset&)t).setsize));
+                  : (t.is_tensor() ? t.N() : ((Dataset&)t).dataset_size));
          }
          else ERROR("TOS a tensor, dataset, or model?\n"));
     CODE("nn.w",    _get_parm(0));                 ///< tensor.weight
