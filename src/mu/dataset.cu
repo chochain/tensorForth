@@ -54,15 +54,15 @@ __HOST__ int
         ERROR("  } %s => not found in Loader\n", fn); return -1;
     }
     if (ds_name) {                                /// * init load
-        if (cp->init(trace)==NULL) {
+        if (cp->init(N(), trace)==NULL) {
             ERROR("  } %s => corpus init failed!\n", fn); return -2;
         }
         ///
         /// setsize is the total number of samples
         /// while N matches the sample size of mini-batch input tensor
         ///
-        setsize = cp->N;                          /// * total number of samples
-        _reshape(N(), cp->H, cp->W, cp->C);       /// * reshape ds to match Corpus mini-batch
+        dataset_size = cp->corpus_sz;
+        _reshape(cp->N, cp->H, cp->W, cp->C);     /// * reshape ds to match Corpus mini-batch
     }
     if (rewind) {
         cp->rewind();
@@ -71,7 +71,7 @@ __HOST__ int
     ///
     /// load a mini-batch of data points
     ///
-    if (!cp->fetch(batch_id, N(), trace)) {       /// * fetch a batch from Corpus
+    if (!cp->fetch(batch_id, trace)) {            /// * fetch a batch from Corpus
         ERROR("  } %s => corpus fetch failed\n", fn);  return -3;
     }
     int n = cp->batch_sz;                         ///< actural mini-batch fetched
@@ -99,7 +99,7 @@ __HOST__ int
 
 __HOST__ void
 Dataset::_load(U8 *cp_data, U8 *cp_label, int n) {
-    const U64 NX = HWC() * n;                    ///< partial mini-batch
+    int NX = n * HWC();
     ///
     /// Allocate managed memory if needed
     /// data and label buffer from Managed memory instead of TLSF
@@ -114,23 +114,23 @@ Dataset::_load(U8 *cp_data, U8 *cp_label, int n) {
     ///
     /// scale cp_data into DU for nn/forward
     ///
-    DU  d[NX];                                    ///< host buffer on heap (CC: watch)
-    for (U64 i = 0; i < NX; i++, cp_data++) {     ///< NX < numel (partial mini-batch)
+    std::vector<DU> d(NX);                        ///< host buffer on heap (CC: watch)
+    for (int i = 0; i < NX; i++, cp_data++) {     ///< NX < numel (partial mini-batch)
         d[i] = (I2D((int)*cp_data) - _mean) * _scale;  /// * normalize
     }
-    H2D(data, d, NX * sizeof(DU));                ///< data in managed memory
+    H2D(data, d.data(), NX * sizeof(DU));         ///< data in managed memory
     ///
     /// scale cp_label into U32 for nn/loss
     ///
-    U32 *t = (U32*)&d[0];                         ///< reuse data buffer
+    U32 *t = (U32*)d.data();                      ///< reuse data buffer
     for (U32 i = 0; i < n; i++, cp_label++) {     ///< n < N (partial mini-batch)
         *t++ = (U32)*cp_label;                    /// * copy label to device memory
     }
-    H2D(label, d, n * sizeof(DU));                ///< label in managed memory
+    H2D(label, d.data(), n * sizeof(DU));         ///< label in managed memory
     
-#if MM_DEBUG    
+#if MM_DEBUG
     INFO("dataset.data=>");
-    _dump(data, H(), W(), C());
+    _dump(d.data(), H(), W(), C());
 #endif // MM_DEBUG
 }
 
