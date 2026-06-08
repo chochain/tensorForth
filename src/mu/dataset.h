@@ -15,10 +15,10 @@
 namespace t4::mu {
 
 struct Dataset : public Tensor {
-    int   setsize  =  0;             ///< total number of samples
-    int   batch_id =  0;             ///< current batch id
-    int   done     =  1;             ///< completed
-    U32   *label;                    ///< label data on host
+    U64   dataset_size =  0;           ///< size of entire corpus
+    int   batch_id     =  0;           ///< current batch id
+    int   done         =  1;           ///< completed
+    U32   *label;                      ///< label data on host
     ///
     /// constructors (for host testing mostly)
     ///
@@ -53,8 +53,7 @@ private:
         numel = (U64)n * h * w * c;    /// * number of batch elements
         Tensor::reshape(n, h, w, c);   /// * reshape to 4-D tensor
     }
-    __HOST__ void _load(
-        U8 *cp_data, U8 *cp_label, int n);
+    __HOST__ void _load(U8 *cp_data, U8 *cp_label, int n);
 };
 
 } // namespace t4::mu
