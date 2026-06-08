@@ -24,7 +24,8 @@ class Cifar10 : public Corpus {
 #define IMAGE_H     32
 #define IMAGE_W     32
 #define IMAGE_C     3
-#define IMAGE_BSZ   (IMAGE_H * IMAGE_W * IMAGE_C)
+#define IMAGE_HW    (IMAGE_H * IMAGE_W)
+#define IMAGE_BSZ   (IMAGE_HW * IMAGE_C)
 #define SAMPLE_BSZ  (LABEL_BSZ + IMAGE_BSZ)         /** 3073 */
     
 public:
