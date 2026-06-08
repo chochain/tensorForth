@@ -94,8 +94,8 @@ typedef int                 EVENT;
 
 #endif // defined(__CUDACC__)  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-#define H2D(dst,src,sz)     GPU_ERR(cudaMemcpy((void*)dst,(void*)src,sz,cudaMemcpyHostToDevice))
-#define D2H(dst,src,sz)     GPU_ERR(cudaMemcpy((void*)dst,(void*)src,sz,cudaMemcpyDeviceToHost))
+#define H2D(dst,src,sz)     GPU_ERR(cudaMemcpy((void*)(dst),(void*)(src),sz,cudaMemcpyHostToDevice))
+#define D2H(dst,src,sz)     GPU_ERR(cudaMemcpy((void*)(dst),(void*)(src),sz,cudaMemcpyDeviceToHost))
 ///@}
 ///@name Portable types (Rust alike)
 ///@{
