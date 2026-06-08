@@ -3,13 +3,14 @@
 #
 # Add inputs and outputs from these tool invocations to the build variables
 LD_SRCS := \
-	src/ld/corpus.cu \
 	src/ld/mnist.cu \
+	src/ld/cifar10.cu \
 	src/ld/loader.cu
 
 LD_INCS := \
 	src/ld/corpus.h \
 	src/ld/mnist.h \
+	src/ld/cifar10.h \
 	src/ld/loader.h
 
 LD_EXT := \
