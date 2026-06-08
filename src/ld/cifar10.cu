@@ -18,13 +18,15 @@ namespace t4::ld {
 //#define MAX_BATCH 3          /**< debug, limit number of mini-batches */
 #define MAX_BATCH 0          /**< debug, limit number of mini-batches */
 
-Corpus *Cifar10::init(bool trace) {
+Corpus *Cifar10::init(int mini_bsz, bool trace) {
     if (_open()) return NULL;
     data  = NULL;
     label = NULL;
     min   = 0;
     max   = 256;
+    N     = mini_bsz;
 
+    int n = 0;
     if (_ds) {
         _ds.seekg(0, std::ios::end);         /// * read to the end
         std::streampos fsz = _ds.tellg();    ///< file size
@@ -32,31 +34,33 @@ Corpus *Cifar10::init(bool trace) {
         
         if (fsz % SAMPLE_BSZ) {
             ERROR("Cifar10::init file size %d != multiply of %d\n", (int)fsz, SAMPLE_BSZ);
-            return NULL;
+            return 0;
         }
-        N  = fsz / SAMPLE_BSZ;
+        n  = fsz / SAMPLE_BSZ;
         H  = IMAGE_H;
         W  = IMAGE_W;
         C  = IMAGE_C;
         
-        if (trace) INFO("\tCIFAR-10 samples: [%d][%d,%d,%d]\n", N, H, W, C);
+        if (trace) INFO("\tCIFAR-10 samples: [%d][%d,%d,%d]\n", n, H, W, C);
     }
+    corpus_sz = n;
+    batch_sz  = 0;
+
     return this;
 }
 
-Corpus *Cifar10::fetch(int bid, int n, bool trace) {
-    int off = n * bid;                          ///< batch offset index
-    if (eof || off >= N) {                      /// * beyond total sample count?
+int Cifar10::fetch(int bid, bool trace) {
+    int off = N * bid;                          ///< batch offset index
+    if (eof || off >= corpus_sz) {              /// * beyond total sample count?
         ERROR("Cifar10::fetch EOF reached (needs rewind)\n");
-        eof=1; return this;
+        eof=1; return 0;
     }
     ///
     /// fetch labels and images (and set eof if any of EOF reached)
     ///
-    batch_sz = _get_data(bid, n);               ///< load batch images
-    GPU_CHK();                                  /// * device sync after memory update
+    int n = batch_sz = _get_data(bid);          ///< load, update actual size loaded
     
-    if ((off += batch_sz) >= N) eof = 1;        /// * EOF reached
+    if ((off += n) >= corpus_sz) eof = 1;       /// * EOF reached
     ///
     /// control partial batch for debugging
     ///
@@ -65,9 +69,9 @@ Corpus *Cifar10::fetch(int bid, int n, bool trace) {
         eof = 1;
     }
     if (trace) {
-        INFO("\tCIFAR-10 batch[%d] loaded=%d/%d done=%d\n", bid, off, N, eof);
+        INFO("\tCIFAR-10 batch[%d] loaded=%d/%d done=%d\n", bid, off, corpus_sz, eof);
     }
-    return this;
+    return batch_sz;
 }
 
 int Cifar10::_open() {
@@ -83,23 +87,23 @@ int Cifar10::_close() {
     return 0;
 }
 
-int Cifar10::_get_data(int bid, int n) {
-    if (!label) DS_ALLOC(&label, n * LABEL_BSZ);   ///< allocate label memory block
-    if (!data)  DS_ALLOC(&data,  n * IMAGE_BSZ);   ///< allocate image memory block
+int Cifar10::_get_data(int bid) {
+    if (!label) DS_ALLOC(&label, N * LABEL_BSZ);   ///< allocate label memory block
+    if (!data)  DS_ALLOC(&data,  N * IMAGE_BSZ);   ///< allocate image memory block
 
-    int pos = bid * n * SAMPLE_BSZ;                ///< file pos
+    int pos = bid * N * SAMPLE_BSZ;                ///< file pos
     _ds.seekg(pos);                                /// * seek by batch id
 
-    char buf[n * SAMPLE_BSZ];                      ///< buffer on heap (CC: watch)
-    _ds.read(buf, n * SAMPLE_BSZ);                 /// * read a mini-batch
+    std::vector<U8> buf(N * SAMPLE_BSZ);           ///< buffer on heap (CC: watch)
+    _ds.read((char*)buf.data(), buf.size());       /// * read a mini-batch
     
-    int cnt = (int)_ds.gcount();                   ///< total bytes read so far
+    int cnt = (int)_ds.gcount();                   ///< bytes read this batch
     if (cnt % SAMPLE_BSZ) {
         ERROR("Cifar10::_get_data byte read %d != multiply of %d\n", cnt, SAMPLE_BSZ);
     }
     cnt /= SAMPLE_BSZ;
     
-    char *bp = buf, *tp = (char*)label, *dp = (char*)data;
+    U8 *bp = buf.data(), *tp = label, *dp = data;
     for (int i = 0; i < cnt; i++) {
         *tp = *bp;                                 /// * read label
         tp  += LABEL_BSZ;
