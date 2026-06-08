@@ -68,7 +68,7 @@ int Cifar10::fetch(int bid, bool trace) {
         batch_sz = n >> 1;                      /// * fake a partial batch
         eof = 1;
     }
-    if (trace) {
+    if (1 || trace) {
         INFO("\tCIFAR-10 batch[%d] loaded=%d/%d done=%d\n", bid, off, corpus_sz, eof);
     }
     return batch_sz;
@@ -101,22 +101,23 @@ int Cifar10::_get_data(int bid) {
     if (cnt % SAMPLE_BSZ) {
         ERROR("Cifar10::_get_data byte read %d != multiply of %d\n", cnt, SAMPLE_BSZ);
     }
-    cnt /= SAMPLE_BSZ;
+    int n = cnt / SAMPLE_BSZ;                      ///< actual samples loaded
     
     U8 *bp = buf.data(), *tp = label, *dp = data;
-    for (int i = 0; i < cnt; i++) {
-        *tp = *bp;                                 /// * read label
-        tp  += LABEL_BSZ;
-        bp  += LABEL_BSZ;
-        
-        memcpy(dp, bp, IMAGE_BSZ);                 /// * read image
-        dp  += IMAGE_BSZ;
-        bp  += IMAGE_BSZ;
+    for (int i = 0; i < n; i++) {
+        *tp++ = *bp;                               /// * read label
+        bp += LABEL_BSZ;
+        for (int j = 0; j < IMAGE_HW; j++) {       /// * image
+            *dp++ = *(bp + j);                     /// * R
+            *dp++ = *(bp + IMAGE_HW + j);          /// * G
+            *dp++ = *(bp + IMAGE_HW * 2 + j);      /// * B
+        }
+        bp += IMAGE_BSZ;
     }
     char c = _ds.peek();
     eof |= _ds.eof();                              /// * set EOF flag, if done
     
-    return cnt;                                    /// * number of samples fetched
+    return n;                                      /// * number of samples fetched
 }
 
 } // namespace t4::ld
