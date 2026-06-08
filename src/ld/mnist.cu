@@ -18,7 +18,7 @@ namespace t4::ld {
 //#define MAX_BATCH 3          /**< debug, limit number of mini-batches */
 #define MAX_BATCH 0          /**< debug, limit number of mini-batches */
 
-Corpus *Mnist::init(bool trace) {
+Corpus *Mnist::init(int mini_bsz, bool trace) {
     auto _u32 = [this](std::ifstream &fs) {
         U32 v = 0;
         char x;
@@ -34,58 +34,61 @@ Corpus *Mnist::init(bool trace) {
     label = NULL;
     min   = 0;
     max   = 256;
+    N     = mini_bsz;
 
-    U32 X0, X1, N1=0;
+    U32 x0, x1, n1=0, n = 0;
     if (_tg) {
-        X1 = _u32(_tg);    ///< label magic number 0x0801
-        N1 = _u32(_tg);
-        if (trace) INFO("\tMNIST label: magic=%08x => [%d]\n", X1, N1);
+        x1 = _u32(_tg);    /// * label magic number 0x0801
+        n1 = _u32(_tg);    /// * total number of labels
+        if (trace) INFO("\tMNIST label: magic=%08x => [%d]\n", x1, n1);
     }
     if (_ds) {
-        X0 = _u32(_ds);    ///< image magic number 0x0803
-        N  = _u32(_ds);
+        x0 = _u32(_ds);    /// * image magic number 0x0803
+        n  = _u32(_ds);    /// * total number of images [N,H,W,C]
         H  = _u32(_ds);
         W  = _u32(_ds);
         C  = 1;
         if (trace) INFO("\tMNIST image: magic=%08x => [%d][%d,%d,%d]\n",
-              X0, N, H, W, C);
+              x0, n, H, W, C);
     }
-    if (N != N1) {
-        ERROR("Mnist::init label count %d != image count %d\n", N1, N);
+    if (n != n1) {
+        ERROR("Mnist::init label count %d != image count %d\n", n1, n);
         return NULL;
     }
+    corpus_sz = n;
+    batch_sz  = 0;
+    
     return this;
 }
 
-Corpus *Mnist::fetch(int bid, int n, bool trace) {
-    int off = n * bid;                          ///< batch offset index
-    if (eof || off >= N) {                      /// * beyond total sample count?
+int Mnist::fetch(int bid, bool trace) {
+    int off = N * bid;                          ///< batch offset index
+    if (eof || off >= corpus_sz) {              /// * beyond total sample count?
         ERROR("Mnist::fetch EOF reached (needs rewind)\n");
-        eof=1; return this;
+        eof=1; return 0;
     }
     ///
     /// fetch labels and images (and set eof if any of EOF reached)
     ///
-    int b0   = _get_labels(bid, n);             ///< load batch labels
-    batch_sz = _get_images(bid, n);             ///< load batch images
-    GPU_CHK();                                  /// * device sync after memory update
+    int n    = _get_labels(bid);                ///< load batch labels
+    batch_sz = _get_images(bid);                ///< load batch images
     
-    if (b0 != batch_sz) {
-        ERROR("Mnist::fetch #label=%d != #image=%d\n", b0, batch_sz);
-        return NULL;
+    if (n != batch_sz) {
+        ERROR("Mnist::fetch #label=%d != #image=%d\n", n, batch_sz);
+        return 0;
     }
-    if ((off += batch_sz) >= N) eof = 1;        /// * EOF reached
+    if ((off += n) >= corpus_sz) eof = 1;       /// * EOF reached
     ///
     /// control partial batch for debugging
     ///
     if (MAX_BATCH && ((bid+1) >= MAX_BATCH)) {  /// * forced stop? (debug)
-        batch_sz = n >> 1;                      /// * fake a partial batch
+        batch_sz = N >> 1;                      /// * fake a partial batch
         eof = 1;
     }
     if (trace) {
-        INFO("\tMnist batch[%d] loaded=%d/%d done=%d\n", bid, off, N, eof);
+        INFO("\tMnist batch[%d] loaded=%d/%d done=%d\n", bid, off, corpus_sz, eof);
     }
-    return this;
+    return batch_sz;
 }
 
 Corpus *Mnist::show(int N) {
@@ -133,9 +136,9 @@ int Mnist::_close() {
     return 0;
 }
 
-int Mnist::_get_labels(int bid, int n) {
-    int hdr = sizeof(U32) * 2;
-    int bsz = n * sizeof(U8);
+int Mnist::_get_labels(int bid) {
+    const int bsz = N * sizeof(U8);
+    const int hdr = sizeof(U32) * 2;
     
     if (!label) DS_ALLOC(&label, bsz);             ///< allocate managed memory
 
@@ -150,9 +153,9 @@ int Mnist::_get_labels(int bid, int n) {
     return cnt;
 }
 
-int Mnist::_get_images(int bid, int n) {
-    int hdr = sizeof(U32) * 4;
-    int bsz = n * cell();
+int Mnist::_get_images(int bid) {
+    const int hdr = sizeof(U32) * 4;
+    const int bsz = N * cell();
     
     if (!data) DS_ALLOC(&data, bsz);               ///< allocate managed memory
 
