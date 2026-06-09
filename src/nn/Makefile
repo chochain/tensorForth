@@ -4,6 +4,7 @@
 # Add inputs and outputs from these tool invocations to the build variables
 NN_SRCS := \
 	src/nn/model.cu \
+	src/nn/nmath.cu \
 	src/nn/forward.cu \
 	src/nn/backprop.cu \
 	src/nn/loss.cu \
@@ -11,7 +12,8 @@ NN_SRCS := \
 	src/nn/gradient.cu
 
 NN_INCS := \
-	src/nn/model.h
+	src/nn/model.h \
+	src/nn/nmath.h
 
 NN_OBJS := $(NN_SRCS:%.cu=%.o)
 
