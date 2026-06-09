@@ -30,18 +30,12 @@ namespace t4::nn {
 
 #define SELU_L  1.0507                     /** Selu lambda */
 #define SELU_LA 1.7581                     /** Selu alpha  */
-///
+///============================================================================
 /// forward
+///============================================================================
+/// template<int TS, int R> void k_conv2d   ///> include at the end of this file
+/// template<int KS>        void k_pool
 ///
-template<int TS, int R>                     ///> tile size, kernel radius
-__KERN__ void k_conv2d(
-    DP_R I, DP_W O,                         ///> input I[HxW], output O[HxW]
-    DP_R F, DP_R B,                         ///> kernel F[KxK], bias B[C]
-    int H, int W, int C1, int C0);          ///< (H0==H1, W0==W1), input/output channels
-template<int KS>
-__KERN__ void k_pool(
-    t4_layer op,
-    DP_R I, DP_W O, int H, int W);
 __KERN__ void k_bias(
     DP_R B, DP_W O, int N, int E0);
 __KERN__ void k_activate(
@@ -61,19 +55,14 @@ __KERN__ void k_batchnorm(
     DP_R avg, DP_R rvar,                    ///< mean, 1.0/(stdvar + e)
     DP_R w, DP_R b,                         ///< gamma, beta
     long HW);                               ///< H0=H1, W0==W1 (C0==C1)
-///
+///============================================================================
 /// backprop
+///============================================================================
+/// template<int TS, int R> void k_dconv2d  /// included at the end of 
+/// template<int KS>        void k_dpool
 ///
-template<int TS, int R>
-__KERN__ void k_dconv2d(
-    DP_R I, DP_W O, DP_W DX,                ///> input I[HxW], output O[HxW], dX[HxW]
-    DP_R F, DP_W DF, DP_W DB,               ///> kernel F, dF[KxK], bias dB[C]
-    int H, int W, int C0, int C1, bool train);
-template<int KS>
-__KERN__ void k_dpool(
-    t4_layer op, DP_X I, DP_R O, int H, int W);
 __KERN__ void k_dlinear_db(
-    DP_W O, DP_W DB, int N, int E0);
+    DP_R O, DP_W DB, int N, int E0);
 __KERN__ void k_dbatchnorm_1(
     DP_W I, DP_X O, DP_R X,                 ///< input, output, x_hat tensors
     DP_R sum, DP_R g_var, long HW);         ///< sum(x_hat), gamma/(stdvar+e)
@@ -92,6 +81,8 @@ __KERN__ void k_adam(
     int N,                                   ///< batch size
     DU lrc, DU b1, DU b2,                    ///< corrected learn rate, beta(momemtum)
     long numel);
+
+#include "nmath.tcu"                         ///< templates
 
 #endif  // (T4_DO_OBJ && T4_DO_NN)
 } // namespace t4::nn
