@@ -5,47 +5,12 @@
  * <pre>Copyright (C) 2022- GreenII, this file is distributed under BSD 3-Clause License.</pre>
  */
 #include "model.h"
+#include "nmath.h"
 
 #if (T4_DO_OBJ && T4_DO_NN)
 #include "dataset.h"
 
 namespace t4::nn {
-
-__KERN__ void k_sgd(
-    DU *G, DU *DG, DU *M,                   ///< w, dw, and momemtum tensors
-    U32 N, DU lr, DU b,                     ///< batch size, learn rate, beta(momemtum)
-    U64 numel                               ///< HWC
-    ) {
-    const U64 tx   = blockIdx.x * blockDim.x + threadIdx.x;
-    const U64 step = gridDim.x * blockDim.x;
-    for (U64 j = tx; j < numel; j += step) {
-        DU dg = DG[j] / N;                             ///< dG batch avg
-        if (ZEQ(b)) G[j] -= lr * dg;
-        else {
-            DU mi = M[j] = b * M[j] + (DU1 - b) * dg;  ///< momentum
-            G[j] -= lr * mi;                           /// * update gradient
-        }
-        DG[j] = DU0;                                   /// * zero after batch
-    }
-}
-
-__KERN__ void k_adam(
-    DU *G, DU *DG, DU *M, DU *V,            ///< w, dw, and momemtum tensors
-    U32 N, DU lrc, DU b1, DU b2,            ///< batch size,corrected learn rate, beta(momemtum)
-    U64 numel                               ///< HWC
-    ) {
-    const U64 tx   = blockIdx.x * blockDim.x + threadIdx.x;
-    const U64 step = gridDim.x * blockDim.x;
-    for (U64 j = tx; j < numel; j += step) {
-        const DU dg = DG[j];                                     ///< dG (no batch avg)
-        const DU mi = M[j] = b1 * M[j] + (DU1 - b1) * dg;        ///< momentum
-        const DU vi = V[j] = b2 * V[j] + (DU1 - b2) * dg * dg;   ///< velocity
-        
-        G[j] -= lrc * mi / (_SQRT(vi) + DU_EPS);                 /// * update gradient, clipped
-        DG[j] = DU0;                                             /// * zero out dG for next round
-    }
-}
-
 ///
 ///> grad_alloc
 ///  @brief - allocate Momentum and Velocity tensors
