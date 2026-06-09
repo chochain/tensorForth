@@ -21,12 +21,12 @@ namespace cg = cooperative_groups;
 /// collect sum per every thread sum per stride (T4_DIM_SQ)
 ///
 __KERN__ void
-k_sum(F32_RP src, F32_WP sum, long numel) {
-    __shared__ float _sum[32];
+k_sum(DP_R src, DP_W sum, long numel) {
+    __shared__ DU _sum[32];
     int t0 = threadIdx.x,      tx = blockIdx.x * blockDim.x + t0;
     int tj = threadIdx.x % 32, ti = threadIdx.x / 32;
 
-    float v =  { 0.0f };                                       /// grid-stride loop (handles any N)
+    DU v =  { 0.0f };                                          /// grid-stride loop (handles any N)
     for (int i = tx; i < numel; i += blockDim.x * gridDim.x) {
         v += src[i];
     }
@@ -44,14 +44,14 @@ k_sum(F32_RP src, F32_WP sum, long numel) {
 }
 
 __KERN__ void
-k_nvar(F32_RP src, float avg, F32_WP var, long numel) {        ///< sum of T4_DIM_SQ threads
-    __shared__ float _sum[32];
+k_nvar(DP_R src, DU avg, DP_W var, long numel) {               ///< sum of T4_DIM_SQ threads
+    __shared__ DU _sum[32];
     int t0 = threadIdx.x,      tx = blockIdx.x * blockDim.x + t0;
     int tj = threadIdx.x % 32, ti = threadIdx.x / 32;
 
-    float v =  { 0.0f };                                       ///< grid-stride loop (handles any N)
+    DU v =  { 0.0f };                                          ///< grid-stride loop (handles any N)
     for (int i = tx; i < numel; i += blockDim.x * gridDim.x) {
-        float v0 = src[i] - avg;
+        DU v0 = src[i] - avg;
         v += v0 * v0;
     }
     WARP_SUM(v);
@@ -72,42 +72,42 @@ k_nvar(F32_RP src, float avg, F32_WP var, long numel) {        ///< sum of T4_DI
 //
 //   CUDA provides atomicMax/Min only for integers.  For positive floats the
 //   IEEE-754 bit pattern preserves magnitude order, so we can reinterpret
-//   the float as a uint32 and use the integer atomic safely.
+//   the DU as a uint32 and use the integer atomic safely.
 //   For negative floats the sign bit inverts the order, so we flip all bits
 //   before comparing (two's-complement trick).
 //
 //   Reference: https://docs.nvidia.com/cuda/cuda-c-programming-guide (B.12)
 // ---------------------------------------------------------------------------
 __GPU__ __forceinline__ void
-d__max(float *addr, float val, bool find_max) {
-    uint32_t raw_bits = __float_as_uint(val);                ///< original, unmodified
-    uint32_t new_bits = raw_bits;
+d__max(DU *addr, DU val, bool find_max) {
+    U32 raw_bits = __float_as_uint(val);                        ///< original, unmodified
+    U32 new_bits = raw_bits;
     
-    if (new_bits & 0x80000000u) new_bits = ~new_bits;        /// * flip for comparison only
+    if (new_bits & 0x80000000u) new_bits = ~new_bits;           /// * flip for comparison only
     
-    uint32_t assumed, cur = __float_as_uint(*addr);
+    U32 assumed, cur = __float_as_uint(*addr);
     do {
         assumed = cur;
-        uint32_t cmp = (assumed & 0x80000000u) ? ~assumed : assumed;
+        U32 cmp = (assumed & 0x80000000u) ? ~assumed : assumed;
         if (find_max  && cmp >= new_bits) break;
         if (!find_max && cmp <= new_bits) break;
-        cur = atomicCAS((uint32_t*)addr, assumed, raw_bits);  /// * write original bits
+        cur = atomicCAS((U32*)addr, assumed, raw_bits);        /// * write original bits
     } while (cur != assumed);
 }
 
 __KERN__ void
-k_max(F32_RP src, F32_WP rst, bool find_max, long numel) {   ///< FORK(k_max, numel, ..)
-    __shared__ float _smem[T4_DIM_SQ];
+k_max(DP_R src, DP_W rst, bool find_max, long numel) {         ///< FORK(k_max, numel, ..)
+    __shared__ DU _smem[T4_DIM_SQ];
     
     const int  t0   = threadIdx.x;
     const long tx   = (long)blockIdx.x * blockDim.x + t0;
     const long step = (long)gridDim.x  * blockDim.x;
 
-    float mx = find_max ? -FLT_MAX : FLT_MAX;
+    DU mx = find_max ? -FLT_MAX : FLT_MAX;
 
     #pragma unroll 4
     for (long j = tx; j < numel; j += step) {                 ///< grid-stride pass — each thread own max
-        float v = src[j];
+        DU v = src[j];
         mx = find_max ? fmaxf(mx, v) : fminf(mx, v);
     }
     
@@ -129,14 +129,14 @@ k_max(F32_RP src, F32_WP rst, bool find_max, long numel) {   ///< FORK(k_max, nu
 ///> Batch sum (NHW per channel)
 ///
 __KERN__ void
-k_batchsum(F32_RP src, F32_WP sum, long HW) {
-    const long j  = (long)blockIdx.x*blockDim.x + threadIdx.x; ///< element index
-    const int  c  = blockIdx.y, C = gridDim.y;                 ///< channel
-    const int  n  = blockIdx.z;                                ///< batch slice index
+k_batchsum(DP_R src, DP_W sum, long HW) {
+    const long j  = (long)blockIdx.x*blockDim.x + threadIdx.x;     ///< element index
+    const int  c  = blockIdx.y, C = gridDim.y;                     ///< channel
+    const int  n  = blockIdx.z;                                    ///< batch slice index
     const long ns = HW * C * n;                                
     
-    float v = (c < C && j < HW) ? src[ns + j * C + c] : 0.0f;
-    WARP_SUM(v);                                               ///< collect sum per warp
+    DU v = (c < C && j < HW) ? src[ns + j * C + c] : 0.0f;
+    WARP_SUM(v);                                                   ///< collect sum per warp
     ///
     /// sum up atomically (per channel, for batchnorm)
     /// slower than grid-stride loop when blocks are many
@@ -148,13 +148,13 @@ k_batchsum(F32_RP src, F32_WP sum, long HW) {
 ///> batch variance (NHW per channel)
 ///
 __KERN__ void
-k_batchnvar(F32_RP src, F32_RP avg, F32_WP var, long HW) {
+k_batchnvar(DP_R src, DP_R avg, DP_W var, long HW) {
     const long j  = (long)blockIdx.x * blockDim.x + threadIdx.x;  ///< element index
     const int  c  = blockIdx.y, C = gridDim.y;                    ///< channel
     const int  n  = blockIdx.z;                                   ///< batch slice index
     const long ns = HW * C * n;
-    float v0 = (c < C && j < HW) ? src[(long)C * j + ns + c] - avg[c] : 0.0f;
-    float v  = v0 * v0;
+    DU v0 = (c < C && j < HW) ? src[(long)C * j + ns + c] - avg[c] : 0.0f;
+    DU v  = v0 * v0;
     WARP_SUM(v);                                                  ///< collect sum per warp
     ///
     /// sum up atomically (per channel, for batchnorm)
@@ -163,9 +163,9 @@ k_batchnvar(F32_RP src, F32_RP avg, F32_WP var, long HW) {
     if (c < C && tp.thread_rank() == 0) atomicAdd_block(&var[c], v);
 }
 
-struct Align4 { float data[4]; };
+struct Align4 { DU data[4]; };
 __KERN__ void
-k_copy(F32_RP src, F32_WP dst, long n) {                          ///< Note: (src, dst)
+k_copy(DP_R src, DP_W dst, long n) {                             ///< Note: (src, dst)
     long tx   = blockIdx.x * blockDim.x + threadIdx.x;
     long step = blockDim.x * gridDim.x;
 
@@ -181,21 +181,21 @@ k_copy(F32_RP src, F32_WP dst, long n) {                          ///< Note: (sr
     }
 }
 __KERN__ void
-k_transpose(F32_RP src, F32_WP dst, int H, int W) {           ///< Note: (src, dst)
-    const int j = blockIdx.x * blockDim.x + threadIdx.x;      ///< W range 2G  * 1K = 2T,  U41
-    const int i = blockIdx.y * blockDim.y + threadIdx.y;      ///< H range 65K * 1K = 65M, U26
-    const int c = blockIdx.z, C = gridDim.z;                  ///< channel deep
+k_transpose(DP_R src, DP_W dst, int H, int W) {                 ///< Note: (src, dst)
+    const int j = blockIdx.x * blockDim.x + threadIdx.x;        ///< W range 2G  * 1K = 2T,  U41
+    const int i = blockIdx.y * blockDim.y + threadIdx.y;        ///< H range 65K * 1K = 65M, U26
+    const int c = blockIdx.z, C = gridDim.z;                    ///< channel deep
 
     if (i < H && j < W && c < C) {
         dst[((long)H * j + i) * C + c] = src[((long)W * i + j) * C + c];
     }
 }
 __KERN__ void
-k_identity(F32_WP T, int H, int W) {                          ///< identity matrix (tensor)
-    const float i01[2] = { 0.0f, 1.0f };
+k_identity(DP_W T, int H, int W) {                              ///< identity matrix (tensor)
+    const DU i01[2] = { 0.0f, 1.0f };
     const int j = blockIdx.x * blockDim.x + threadIdx.x;
     const int i = blockIdx.y * blockDim.y + threadIdx.y;
-    const int c = blockIdx.z, C = gridDim.z;                  ///< channel deep
+    const int c = blockIdx.z, C = gridDim.z;                    ///< channel deep
 
     if (i < H && j < W && c < C) {
         T[((long)W * i + j) * C + c] = i01[i==j];
@@ -204,27 +204,27 @@ k_identity(F32_WP T, int H, int W) {                          ///< identity matr
 
 #define DU_LNX   1.0e-12                                      /** log clamp */
 __KERN__ void
-k_math(math_op op, F32_XP A, float v, long n) {               ///< self modifying ops
+k_math(math_op op, DP_X A, DU v, long n) {                     ///< self modifying ops
     const long tx   = blockIdx.x * blockDim.x + threadIdx.x;
     const long step = gridDim.x * blockDim.x;
     for (long j = tx; j < n; j += step) {
-        float ak = A[j];                                      ///< cache value
+        DU ak = A[j];                                          ///< cache value
         switch(op) {
         case ABS:   A[j] = ABS(ak);                   break;
         case NEG:   A[j] = NEG(ak);                   break;
-        case EXP:   A[j] = _EXP(ak);                  break;  /// * clamped
-        case LN:    A[j] = _LN(MAX(ak, DU_LNX));      break;  /// * clamped
-        case LOG:   A[j] = _LOG(MAX(ak, DU_LNX));     break;  /// * clamped
+        case EXP:   A[j] = _EXP(ak);                  break;   /// * clamped
+        case LN:    A[j] = _LN(MAX(ak, DU_LNX));      break;   /// * clamped
+        case LOG:   A[j] = _LOG(MAX(ak, DU_LNX));     break;   /// * clamped
         case TANH:  A[j] = TANH(ak);                  break;
         case RELU:  A[j] = RELU(ak);                  break;
         case SIGM:  A[j] = SIGMOID(ak);               break;
-        case SQRT:  A[j] = _SQRT(MAX(ak, 0.0));       break;  /// * guarded
-        case RCP:   A[j] = _RCP(ak);                  break;  /// 1/x
-        case SAT:   A[j] = _SAT(ak);                  break;  /// [0.0..1.0]
+        case SQRT:  A[j] = _SQRT(MAX(ak, 0.0));       break;   /// * guarded
+        case RCP:   A[j] = _RCP(ak);                  break;   /// 1/x
+        case SAT:   A[j] = _SAT(ak);                  break;   /// [0.0..1.0]
         case FILL:  A[j] = v;                         break;
-        case GFILL: A[j] = v * j / n;                 break;  /// gradient fill
+        case GFILL: A[j] = v * j / n;                 break;   /// gradient fill
         case SCALE: A[j] *= v;                        break;
-        case POW:   A[j] = _POW(ak, v);               break;  /// x^v
+        case POW:   A[j] = _POW(ak, v);               break;   /// x^v
         case ADD:   A[j] += v;                        break;
         case SUB:   A[j] -= v;                        break;
         case MUL:   A[j] *= v;                        break;
@@ -237,7 +237,7 @@ k_math(math_op op, F32_XP A, float v, long n) {               ///< self modifyin
 /// tensor-scalar element-wise ops (grid-stride implementation)
 ///
 __KERN__ void
-k_ts_op(math_op op, F32_XP A, float v, F32_XP O, long n) {
+k_ts_op(math_op op, DP_X A, DU v, DP_X O, long n) {
     const long tx   = blockIdx.x * blockDim.x + threadIdx.x;
     const long step = gridDim.x * blockDim.x;
     for (long j = tx; j < n; j += step) {
@@ -253,7 +253,7 @@ k_ts_op(math_op op, F32_XP A, float v, F32_XP O, long n) {
 /// tensor-tensor element-wise ops (grid-stride implementation)
 ///
 __KERN__ void
-k_tt_op(math_op op, F32_RP A, F32_RP B, F32_WP O, long n) {
+k_tt_op(math_op op, DP_R A, DP_R B, DP_W O, long n) {
     const long tx   = blockIdx.x * blockDim.x + threadIdx.x;
     const long step = gridDim.x * blockDim.x;
     for (long j = tx; j < n; j += step) {
@@ -280,18 +280,18 @@ k_tt_op(math_op op, F32_RP A, F32_RP B, F32_WP O, long n) {
 ///
 #define DU_EPS   1.0e-6                                /* epsilon */
 __KERN__ void
-k_bce(F32_RP T, F32_RP O, F32_WP loss, long numel) {
-    __shared__ float _sum[32];                         ///< one slot per warp
+k_bce(DP_R T, DP_R O, DP_W loss, long numel) {
+    __shared__ DU _sum[32];                                  ///< one slot per warp
 
     const int  t0   = threadIdx.x;
-    const int  tj   = t0 % 32, ti = t0 / 32;           ///< lane in warp, idx in block
+    const int  tj   = t0 % 32, ti = t0 / 32;                 ///< lane in warp, idx in block
     const long tx   = (long)blockIdx.x * blockDim.x + t0;
     const long step = (long)gridDim.x  * blockDim.x;
 
     /// --- grid-stride: accumulate BCE locally ---
-    float v = 0.0f;
+    DU v = 0.0f;
     for (long j = tx; j < numel; j += step) {
-        float t = T[j], o = O[j];
+        DU t = T[j], o = O[j];
         v += t * _LN(o + DU_EPS) + (1.0f - t) * _LN(1.0f - o + DU_EPS);
     }
     /// --- warp-level shuffle reduction ---
@@ -303,14 +303,14 @@ k_bce(F32_RP T, F32_RP O, F32_WP loss, long numel) {
     if (ti == 0) {
         v = (t0 < (blockDim.x / 32)) ? _sum[tj] : 0.0f;
         WARP_SUM(v);
-        if (tj == 0) atomicAdd(loss, v);             ///< one atomic per block
+        if (tj == 0) atomicAdd(loss, v);                    ///< one atomic per block
     }
 }
 ///
 ///> check Nan or Inf
 ///
 __KERN__ void
-k_nan_inf(F32_RP src, int *cnt, long numel) {
+k_nan_inf(DP_R src, int *cnt, long numel) {
     const long j = (long)blockIdx.x*blockDim.x + threadIdx.x; ///< element index
     
     int v = j < numel && (isnan(src[j]) || isinf(src[j])) ? 1 : 0;
@@ -338,13 +338,13 @@ k_dummy() {}
 #define VLEN 4             ///< floats loaded per thread per unrolled step
 __KERN__ void
 k_dot(
-    F32_RP A, F32_RP B, F32_XP O,
-    float alpha, float beta, int K, int C)
+    DP_R A, DP_R B, DP_X O,
+    DU alpha, DU beta, int K, int C)
 {
-    __shared__ float _smem[T4_DIM_SZ2];               ///< [0, 32)
+    __shared__ DU _smem[T4_DIM_SZ2];               ///< [0, 32)
     const int tx   = threadIdx.x;
-    const int step = T4_DIM_SZ2 * VLEN;               ///< elements consumed per outer step
-    const int c    = blockIdx.x;                      ///< channel index
+    const int step = T4_DIM_SZ2 * VLEN;            ///< elements consumed per outer step
+    const int c    = blockIdx.x;                   ///< channel index
 
     // -------------------------------------------------------------------------
     // Phase 1: strided partial accumulation into a register
@@ -353,7 +353,7 @@ k_dot(
     //   The inner VLEN-unrolled loop amortises loop overhead and lets the
     //   compiler issue independent FMAs for better ILP.
     // -------------------------------------------------------------------------
-    float acc = { 0.0f };
+    DU acc = { 0.0f };
 
     int k = tx * VLEN;                               ///< stride index
     #pragma unroll 4
@@ -399,8 +399,9 @@ k_dot(
 #define TILE 16
 __KERN__ void
 k_gemm(                      ///< O[M*N*C] = a * A[M*K*C] @ B[K*N*C] + b * O[M*N*C]
-    F32_XP A, F32_XP B, F32_XP O,
-    float alpha, float beta, bool tA, bool tB, int K, int M, int N)
+    DP_X A, DP_X B, DP_X O,
+    DU alpha, DU beta, bool tA, bool tB,
+    int K, int M, int N)
 {
     const int n0 = threadIdx.x + blockIdx.x * blockDim.x;   ///< W
     const int m0 = threadIdx.y + blockIdx.y * blockDim.y;   ///< H
@@ -409,8 +410,8 @@ k_gemm(                      ///< O[M*N*C] = a * A[M*K*C] @ B[K*N*C] + b * O[M*N
     const long z0 = ((long)N * m0 + n0) * C + c;            ///< output index
 
     if (m0 < M && n0 < N && c < C) {                        /// * TODO: tiled
-        float  *ax  = &A[(long)C * K * m0 + c];
-        float  *bx  = &B[(long)C * n0 + c];
+        DU  *ax  = &A[(long)C * K * m0 + c];
+        DU  *bx  = &B[(long)C * n0 + c];
         double acc  = 0.0f;                                 /// * TODO: suffle sum
         for (int k = 0; k < K; k++, ax += C, bx += WC) {
             acc += (*ax) * (*bx);
@@ -439,15 +440,16 @@ k_gemm(                      ///< O[M*N*C] = a * A[M*K*C] @ B[K*N*C] + b * O[M*N
 // ---------------------------------------------------------------------------
 __KERN__ void
 k_gemm_claude(
-    F32_RP A, F32_RP B, F32_XP O,
-    float alpha, float beta, bool tA, bool tB, int K, int M, int N)
+    DP_R A, DP_R B, DP_X O,
+    DU alpha, DU beta, bool tA, bool tB,
+    int K, int M, int N)
 {
     const int tx = threadIdx.x, n0 = blockIdx.x * TILE + tx;   ///< output column  (W dim)
     const int ty = threadIdx.y, m0 = blockIdx.y * TILE + ty;   ///< output row     (H dim)
     const int c  = blockIdx.z,  C  = gridDim.z;
 
     // Shared memory tiles — one for A, one for B
-    __shared__ float _sA[TILE][TILE], _sB[TILE][TILE];
+    __shared__ DU _sA[TILE][TILE], _sB[TILE][TILE];
 
     double acc = 0.0f;
 
@@ -505,8 +507,9 @@ k_gemm_claude(
 // ---------------------------------------------------------------------------
 __KERN__ void
 k_gemm_tile_claude(
-    F32_RP A, F32_RP B, F32_XP O,
-    float alpha, float beta, bool tA, bool tB, int K, int M, int N) 
+    DP_R A, DP_R B, DP_X O,
+    DU alpha, DU beta, bool tA, bool tB,
+    int K, int M, int N) 
 {
     const int tx = threadIdx.x, ty = threadIdx.y;  ///< [T4_DIM_SZ, T4_DIM_SZ]
     const int c  = blockIdx.z,  C  = gridDim.z;    ///< channels
@@ -514,13 +517,13 @@ k_gemm_tile_claude(
     // -------------------------------------------------------------------------
     // Shared memory tiles
     // -------------------------------------------------------------------------
-    __shared__ float _sA[BK][BM];               ///< [k-strip depth][output rows]
-    __shared__ float _sB[BK][BN];               ///< [k-strip depth][output cols]
+    __shared__ DU _sA[BK][BM];               ///< [k-strip depth][output rows]
+    __shared__ DU _sB[BK][BN];               ///< [k-strip depth][output cols]
 
     // -------------------------------------------------------------------------
     // Register accumulators — TM × TN per thread, zero-initialised
     // -------------------------------------------------------------------------
-    float acc[TM][TN] = {};
+    DU acc[TM][TN] = {};
 
     // -------------------------------------------------------------------------
     // Cooperative tile loading
@@ -579,7 +582,7 @@ k_gemm_tile_claude(
         // each rA / rB value is loaded once and reused TN / TM times.
         #pragma unroll
         for (int k = 0; k < BK; k++) {
-            float rA[TM], rB[TN];
+            DU rA[TM], rB[TN];
             #pragma unroll
             for (int m = 0; m < TM; m++) rA[m] = _sA[k][ty * TM + m];
             #pragma unroll
@@ -613,8 +616,9 @@ k_gemm_tile_claude(
 ///
 __KERN__ void
 k_gemm_tile_claude_x2(
-    F32_RP A, F32_RP B, F32_XP O,
-    float alpha, float beta, bool tA, bool tB, int K, int M, int N) 
+    DP_R A, DP_R B, DP_X O,
+    DU alpha, DU beta, bool tA, bool tB,
+    int K, int M, int N) 
 {
     const int tx = threadIdx.x, ty = threadIdx.y;  ///< [T4_DIM_SZ, T4_DIM_SZ]
     const int c  = blockIdx.z,  C  = gridDim.z;    ///< channels
@@ -622,13 +626,13 @@ k_gemm_tile_claude_x2(
     // -------------------------------------------------------------------------
     // Shared memory tiles
     // -------------------------------------------------------------------------
-    __shared__ float _sA[2][BK][BM];        ///< [k-strip depth][output rows]
-    __shared__ float _sB[2][BK][BN];        ///< [k-strip depth][output cols]
+    __shared__ DU _sA[2][BK][BM];        ///< [k-strip depth][output rows]
+    __shared__ DU _sB[2][BK][BN];        ///< [k-strip depth][output cols]
 
     // -------------------------------------------------------------------------
     // Register accumulators — TM × TN per thread, zero-initialised
     // -------------------------------------------------------------------------
-    float acc[TM][TN] = {};
+    DU acc[TM][TN] = {};
 
     // -------------------------------------------------------------------------
     // Cooperative tile loading
@@ -696,7 +700,7 @@ k_gemm_tile_claude_x2(
     {                                                                   \
         _Pragma("unroll")                                               \
         for (int k = 0; k < BK; k++) {                                  \
-            float rA[TM], rB[TN];                                       \
+            DU rA[TM], rB[TN];                                       \
             _Pragma("unroll")                                           \
             for (int m = 0; m < TM; m++) rA[m] = _sA[(buf)][k][ty*TM+m];\
             _Pragma("unroll")                                           \
@@ -766,16 +770,16 @@ k_gemm_tile_claude_x2(
 /// k_find_pivot — argmax of |A[z,i]| for i=z..n-1, returns row index in d_pivot
 ///
 __KERN__ void
-k_find_pivot(const float *da, int *d_pivot, int z, int K) {
-    __shared__ float _val[T4_DIM_SQ];
+k_find_pivot(const DU *da, int *d_pivot, int z, int K) {
+    __shared__ DU _val[T4_DIM_SQ];
     __shared__ int   _idx[T4_DIM_SQ];
 
     const int tx = threadIdx.x;
-    float val = -1.0f;
+    DU val = -1.0f;
     int   idx = z;
 
     for (int j = z + tx; j < K; j += blockDim.x) {             /// grid-stride over given rows i = z .. n-1
-        float v = ABS(da[z + j * K]);
+        DU v = ABS(da[z + j * K]);
         if (v > val) { val = v; idx = j; }
     }
 
@@ -803,26 +807,26 @@ k_find_pivot(const float *da, int *d_pivot, int z, int K) {
 //   1 thread per column k, grid = (ceil(n/T4_DIM_SQ), 1)
 // ---------------------------------------------------------------------------
 __KERN__ void
-k_swap_rows(float *da, float *di, int u, int z, int K) {
+k_swap_rows(DU *da, DU *di, int u, int z, int K) {
     const int tx = blockIdx.x * blockDim.x + threadIdx.x;
     if (tx >= K) return;
 
     const int iz = tx + z * K;
     const int iu = tx + u * K;
 
-    float ta = da[iz]; da[iz] = da[iu]; da[iu] = ta;
-    if (di) { float ti = di[iz]; di[iz] = di[iu]; di[iu] = ti; }
+    DU ta = da[iz]; da[iz] = da[iu]; da[iu] = ta;
+    if (di) { DU ti = di[iz]; di[iz] = di[iu]; di[iu] = ti; }
 }
 // ---------------------------------------------------------------------------
 // k_diag — normalise pivot row z by diagonal element A[z,z]
 //   1 thread per column k
 // ---------------------------------------------------------------------------
 __KERN__ void
-k_diag(float *da, float *di, int z, int K) {
+k_diag(DU *da, DU *di, int z, int K) {
     const int tx = blockIdx.x * blockDim.x + threadIdx.x;
     if (tx >= K) return;
 
-    const float r0 = da[z + z * K];               ///< pivot value (already != 0)
+    const DU r0 = da[z + z * K];               ///< pivot value (already != 0)
     const int   kj = tx + z * K;
     da[kj] /= r0;
     di[kj] /= r0;
@@ -835,11 +839,11 @@ k_diag(float *da, float *di, int z, int K) {
 //     for i != z:  row_i -= A[z,i] * row_z
 // ---------------------------------------------------------------------------
 __KERN__ void
-k_elim(float *da, float *di, int z, int K) {
+k_elim(DU *da, DU *di, int z, int K) {
     const int tx = blockIdx.x * blockDim.x + threadIdx.x;
     if (tx >= K || tx == z) return;
 
-    const float r1 = da[z + tx * K];             ///< A[z, i]
+    const DU r1 = da[z + tx * K];             ///< A[z, i]
     if (ABS(r1) < DU_EPS) return;                ///< row already zeroed — skip
 
     for (int k = 0; k < K; k++) {
@@ -866,12 +870,12 @@ k_elim(float *da, float *di, int z, int K) {
 //     da[k + i*n]  k >= i  →  U[i,k]  (upper triangle with diagonal)
 // ===========================================================================
 __KERN__ void
-k_lu_col(float *da, int z, int K) {
+k_lu_col(DU *da, int z, int K) {
     const int tx = blockIdx.x * blockDim.x + threadIdx.x;
     if (tx <= z || tx >= K) return;                  ///< rows below pivot only
     
-    const float pivot = da[z + z * K];               ///< U[z,z]
-    const float lik   = da[z + tx * K] / pivot;      ///< multiplier L[i,z]
+    const DU pivot = da[z + z * K];               ///< U[z,z]
+    const DU lik   = da[z + tx * K] / pivot;      ///< multiplier L[i,z]
     da[z + tx * K]  = lik;                           ///< store in-place (lower tri)
 
     for (int k = z + 1; k < K; k++)                  ///< Schur complement
@@ -894,7 +898,7 @@ k_lu_col(float *da, int z, int K) {
 //     x[i] = (y[i] - sum_{k>i} U[i,k] * x[k]) / U[i,i]
 // ===========================================================================
 __KERN__ void
-k_pivot(const float *lu, const int *d_piv, float *di, int K) {
+k_pivot(const DU *lu, const int *d_piv, DU *di, int K) {
     const int tx = blockIdx.x * blockDim.x + threadIdx.x;  ///< column of di
     if (tx >= K) return;
 
@@ -902,18 +906,18 @@ k_pivot(const float *lu, const int *d_piv, float *di, int K) {
     for (int k = 0; k < K; k++) {
         int pk = d_piv[k];
         if (pk != k) {
-            float t = di[tx + k * K]; di[tx + k * K] = di[tx + pk * K]; di[tx + pk * K] = t;
+            DU t = di[tx + k * K]; di[tx + k * K] = di[tx + pk * K]; di[tx + pk * K] = t;
         }
     }
 }
 __KERN__ void
-k_fsub(const float *lu, float *di, int K) {
+k_fsub(const DU *lu, DU *di, int K) {
     const int tx = blockIdx.x * blockDim.x + threadIdx.x;  ///< column of di
     if (tx >= K) return;
 
     /// forward substitution: unit lower triangular (diagonal = 1 not stored)
     for (int k = 1; k < K; k++) {                          ///< rows of di
-        float s = di[tx + k * K];
+        DU s = di[tx + k * K];
         for (int j = 0; j < k; j++)                        ///< inner rows (lower triangle of row k)
             s -= lu[j + k * K] * di[tx + j * K];           /// * L[k,j] * y[j]
         di[tx + k * K] = s;
@@ -921,13 +925,13 @@ k_fsub(const float *lu, float *di, int K) {
 }
 
 __KERN__ void
-k_bsub(const float *lu, float *di, int K) {
+k_bsub(const DU *lu, DU *di, int K) {
     const int tx = blockIdx.x * blockDim.x + threadIdx.x;  ///< column of di
     if (tx >= K) return;
 
     /// backward substitution: upper triangular with explicit diagonal
     for (int j = K - 1; j >= 0; j--) {                     ///< rows of di
-        float s = di[tx + j * K];
+        DU s = di[tx + j * K];
         for (int k = j + 1; k < K; k++)                    ///< inner rows (lower triangle of row k)
             s -= lu[k + j * K] * di[tx + k * K];           /// * U[i,k] * x[k]
         di[tx + j * K] = s / lu[j + j * K];                /// * divided by U[j,j]
@@ -935,12 +939,12 @@ k_bsub(const float *lu, float *di, int K) {
 }
 
 __KERN__ void                                              
-k_lu(float *lu, bool get_u, int _K, int K) {
+k_lu(DU *lu, bool get_u, int _K, int K) {
     const int tx = blockIdx.x * blockDim.x + threadIdx.x;  ///< column k
     const int ty = blockIdx.y * blockDim.y + threadIdx.y;  ///< row i
     if (tx >= K || ty >= K) return;
 
-    float *v = &lu[tx + ty * K];
+    DU *v = &lu[tx + ty * K];
     if (get_u) {
         if (tx < ty)      *v = 0.0f;                       ///< diagonal + above: U[i,k]
     }
@@ -951,16 +955,16 @@ k_lu(float *lu, bool get_u, int _K, int K) {
 }
 
 __KERN__ void
-k_logdet(const float *lu, float *d_logdet, int *d_sign, int K) {
-    __shared__ float _acc[T4_DIM_SQ];
+k_logdet(const DU *lu, DU *d_logdet, int *d_sign, int K) {
+    __shared__ DU _acc[T4_DIM_SQ];
     __shared__ int   _sgn[T4_DIM_SQ];
 
     const int tx = threadIdx.x;
-    float acc  = 0.0f;                                    ///< logsum (use log for stability)
+    DU acc  = 0.0f;                                    ///< logsum (use log for stability)
     int   sign = 1;
 
     for (int j = tx; j < K; j += blockDim.x) {            ///< block-stride
-        float u = lu[j + j * K];                          ///< U[j,j] on diag
+        DU u = lu[j + j * K];                          ///< U[j,j] on diag
         if (u < 0.0f) { sign = -sign; u = -u; }
         acc += LN(u);
     }
@@ -986,10 +990,10 @@ k_logdet(const float *lu, float *d_logdet, int *d_sign, int K) {
 /// Note: Gauss-Jordan elimination is expensive O(N^3)
 ///
 __HOST__ void
-h_inverse(float *da, float *di, int n) {
+h_inverse(DU *da, DU *di, int n) {
     auto swap_rows = [da, di, n](int u, int z) {
         for (int k = 0; k < n; k++) {         ///> TODO: swap entire row
-            float ta = da[k + z * n], ti = di[k + z * n];
+            DU ta = da[k + z * n], ti = di[k + z * n];
             da[k + z * n] = da[k + u * n]; da[k + u * n] = ta;
             di[k + z * n] = di[k + u * n]; di[k + u * n] = ti;
         }
@@ -1006,7 +1010,7 @@ h_inverse(float *da, float *di, int n) {
         return u;
     };
     auto diag = [da, di, n](int z) {
-        float r0 = da[z + z * n];
+        DU r0 = da[z + z * n];
         for (int k = 0; k < n; k++) {
             int i = k + z * n;
             di[i] /= r0;
@@ -1014,7 +1018,7 @@ h_inverse(float *da, float *di, int n) {
         }};
     auto elim = [da, di, n](int z) {
         for (int i = 0; i < n; i++) {
-            float r1 = da[z + i * n];
+            DU r1 = da[z + i * n];
             for (int k = 0; i!=z && k < n; k++) {
                 di[k + i * n] -= r1 * di[k + z * n];
                 da[k + i * n] -= r1 * da[k + z * n];
@@ -1036,12 +1040,12 @@ h_inverse(float *da, float *di, int n) {
 /// TODO: CDP
 ///
 __HOST__ void
-h_lu(float *da, int n) {
+h_lu(DU *da, int n) {
     auto elim = [da, n](int z) {
-        float ra = da[z + z * n];
+        DU ra = da[z + z * n];
         if (fabs(ra) < float_EPS) return;      /// * if 0 skip the row
         for (int y = z + 1; y < n; y++) {
-            float r1 = da[z + y * n] / ra;     /// * substitution
+            DU r1 = da[z + y * n] / ra;     /// * substitution
             for (int k = z; k < n; k++) {
                 da[k + y * n] -= r1 * da[k + z * n];
             }
@@ -1057,23 +1061,23 @@ h_lu(float *da, int n) {
 /// TODO: CDP
 ///
 __HOST__ void
-h_lu_inverse(float *dd, int n) {
+h_lu_inverse(DU *dd, int n) {
     auto forward = [dd, n](int z) {
         for (int y = z + 1; y < n; y++) {
-            float r1 = dd[z + y * n];
+            DU r1 = dd[z + y * n];
             for (int k = 0; k < z; k++) {               /// columns before
                 dd[k + y * n] -= dd[k + z * n] * r1;
             }
             lu[z + y * n] = -r1;                        /// current z column
         }};
     auto backward = [dd, n](int z) {
-        float r0 = RCP(dd[z + z * n]);
+        DU r0 = RCP(dd[z + z * n]);
         dd[z + z * n] = r0;                             /// diag
         for (int k = z + 1; k < n; k++) {               /// current z row
             dd[k + z * n] *= r0;
         }
         for (int y = 0; y < z; y++) {                   /// factorize rows above
-            float r1 = dd[z + y * n];
+            DU r1 = dd[z + y * n];
             dd[z + y *  n] = -r1 * r0;                  /// current z column
             for (int k = z + 1; k < n; k++) {           /// columns after
                 dd[k + y * n] -= dd[k + z * n] * r1;
@@ -1092,10 +1096,10 @@ h_lu_inverse(float *dd, int n) {
 /// TODO: CDP
 ///
 __HOST__ int
-h_plu(float *da, float *dp, int *ns, int n) {
+h_plu(DU *da, DU *dp, int *ns, int n) {
     *ns = 0;                                  ///> initialize flip sign
     auto swap_rows = [da, dp, n](int u, int z) {
-        float t = dp[z]; dp[z] = dp[u]; dp[u] = t;
+        DU t = dp[z]; dp[z] = dp[u]; dp[u] = t;
         for (int k = z; k < n; k++) {         ///> TODO: swap entire row
             t = da[k + z * n];
             da[k + z * n] = da[k + u * n];
@@ -1114,10 +1118,10 @@ h_plu(float *da, float *dp, int *ns, int n) {
         return u;
     };
     auto elim = [da, n](int z) {
-        float ra = da[z + z * n];
+        DU ra = da[z + z * n];
         if (fabs(ra) < float_EPS) return;       /// * if 0 skip the row
         for (int y = z + 1; y < n; y++) {
-            float r1 = da[z + y * n] / ra;      /// * substitution
+            DU r1 = da[z + y * n] / ra;      /// * substitution
             for (int k = z; k < n; k++) {
                 da[k + y * n] -= r1 * da[k + z * n];
             }
@@ -1139,9 +1143,9 @@ h_plu(float *da, float *dp, int *ns, int n) {
 ///
 /// matrix determinant
 ///
-__HOST__ float
-h_det(float *data, int n) {
-    float v = 1.0f;
+__HOST__ DU
+h_det(DU *data, int n) {
+    DU v = 1.0f;
     
     for (int z = 0; z < n; z++) v *= data[z + z * n];
 
