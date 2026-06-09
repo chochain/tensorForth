@@ -46,7 +46,7 @@ __KERN__ void k_bias(
     DP_R B, DP_W O, int N, int E0);
 __KERN__ void k_activate(
     t4_layer op,                            ///< function to call 
-    DP_R I, DP_W F, DP_W O,                 ///< input, filter, output tensors
+    DP_R I, DP_W O, DP_W F,                 ///< input, output, filter tensors
     DU alpha, long numel);                  ///< number of tensor elements
 __KERN__ void k_softmax_small(              ///< one block per sample, C ≤ 256
     DP_R I, DP_W O, int C);

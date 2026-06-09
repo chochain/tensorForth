@@ -145,7 +145,7 @@ __KERN__ void k_bias(
 
 __KERN__ void k_activate(
     t4_layer op,                           ///< function to call
-    DP_R I, DP_W F, DP_W O,                ///< input, filter, output tensors
+    DP_R I, DP_W O, DP_W F,                ///< input, filter, output tensors
     DU alpha, long numel                   ///< number of tensor elements
     ) {
     const long tx   = blockIdx.x * blockDim.x + threadIdx.x;
