@@ -29,6 +29,7 @@ MU_OBJS := $(MU_SRCS:%.cu=%.o)
 OBJS += $(MU_OBJS)
 
 MU_EXT := \
+	src/nn/ntypes.h \
 	src/nn/model.h \
 	src/ld/loader.h \
 	src/ld/corpus.h
