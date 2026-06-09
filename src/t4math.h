@@ -6,6 +6,7 @@
  */
 #ifndef __T4MATH_H_
 #define __T4MATH_H_
+#pragma once
 #include <stdio.h>
 #include <stdint.h>
 #include <stddef.h>
@@ -117,61 +118,65 @@ typedef enum {
     fn<<<_g,_b>>>(__VA_ARGS__,h,w);          \
     GPU_CHK();                               \
 }
-#define F32_RP   const float * __restrict__
-#define F32_WP         float * __restrict__
-#define F32_XP         float *
+
+typedef float     DU;
+typedef uint32_t  U32;
+
+#define DP_R   const DU* __restrict__
+#define DP_W         DU* __restrict__
+#define DP_X         DU*
 ///@}
 ///@name Tensor ops (kernel mode)
 ///@{
-__KERN__ void k_sum(F32_RP src, F32_WP sum, long numel);
-__KERN__ void k_nvar(F32_RP src, float avg, F32_WP var, long numel);       ///< n * variance
-__KERN__ void k_max(F32_RP src, F32_WP rst, bool find_max, long numel);    ///< find_max=true max or false=min
-__KERN__ void k_batchsum(F32_RP src, F32_WP sum, long numel);
-__KERN__ void k_batchnvar(F32_RP src, F32_RP avg, F32_WP var, long numel);
-__KERN__ void k_copy(F32_RP src, F32_WP dst, long n);                      ///< Note: (src, dst)
-__KERN__ void k_transpose(F32_RP src, F32_WP dst, int h, int w);           ///< Note: (src, dst), TODO: CDP
-__KERN__ void k_identity(F32_WP T, int h, int w);
-__KERN__ void k_math(math_op op, F32_XP dst, float v, long n);             ///< tensor math ops
-__KERN__ void k_ts_op(math_op op, F32_XP A, float v, F32_XP O, long n);    ///< tensor-scalar ops
-__KERN__ void k_tt_op(math_op op, F32_RP A, F32_RP B, F32_WP O, long n);   ///< tensor-tensor ops
-__KERN__ void k_bce(F32_RP T, F32_RP O, F32_WP v, long n);
+__KERN__ void k_sum(DP_R src, DP_W sum, long numel);
+__KERN__ void k_nvar(DP_R src, DU avg, DP_W var, long numel);          ///< n * variance
+__KERN__ void k_max(DP_R src, DP_W rst, bool find_max, long numel);    ///< find_max=true max or false=min
+__KERN__ void k_batchsum(DP_R src, DP_W sum, long numel);
+__KERN__ void k_batchnvar(DP_R src, DP_R avg, DP_W var, long numel);
+__KERN__ void k_copy(DP_R src, DP_W dst, long n);                      ///< Note: (src, dst)
+__KERN__ void k_transpose(DP_R src, DP_W dst, int h, int w);           ///< Note: (src, dst), TODO: CDP
+__KERN__ void k_identity(DP_W T, int h, int w);
+__KERN__ void k_math(math_op op, DP_X dst, DU v, long n);              ///< tensor math ops
+__KERN__ void k_ts_op(math_op op, DP_X A, DU v, DP_X O, long n);       ///< tensor-scalar ops
+__KERN__ void k_tt_op(math_op op, DP_R A, DP_R B, DP_W O, long n);     ///< tensor-tensor ops
+__KERN__ void k_bce(DP_R T, DP_R O, DP_W v, long n);
 ///@}    
 ///@name Tensor debug ops (kernel mode)
 ///@{
-__KERN__ void k_nan_inf(F32_RP src, int *n, long numel);
+__KERN__ void k_nan_inf(DP_R src, int *n, long numel);
 __KERN__ void k_dummy();
 ///@}
 ///@}
 ///@name BLAS ops
 ///@{
 __KERN__ void k_dot(
-    F32_RP A,  F32_RP B, F32_XP O,          ///< O[N,C] = a * A[N,1,K,C] * B[N,1,K,C]
-    float alpha, float beta, int K, int C);
-__KERN__ void k_gemm(                       ///< O[N,H,W,C] = a * A[N,H,K,C] @ B[N,K,W,C] + b * O[N,H,W,C]
-    F32_XP A, F32_XP B, F32_XP O,
-    float alpha, float beta, bool tA, bool tB, int K, int M, int N);  
+    DP_R A,  DP_R B, DP_X O,          ///< O[N,C] = a * A[N,1,K,C] * B[N,1,K,C]
+    DU alpha, DU beta, int K, int C);
+__KERN__ void k_gemm(                 ///< O[N,H,W,C] = a * A[N,H,K,C] @ B[N,K,W,C] + b * O[N,H,W,C]
+    DP_X A, DP_X B, DP_X O,
+    DU alpha, DU beta, bool tA, bool tB, int K, int M, int N);  
 __KERN__ void k_gemm_claude(
-    F32_RP A, F32_RP B, F32_XP O,
-    float alpha, float beta, bool tA, bool tB, int K, int M, int N);
+    DP_R A, DP_R B, DP_X O,
+    DU alpha, DU beta, bool tA, bool tB, int K, int M, int N);
 __KERN__ void k_gemm_tile_claude(
-    F32_RP A, F32_RP B, F32_XP O,
-    float alpha, float beta,  bool tA, bool tB, int K, int M, int N);
+    DP_R A, DP_R B, DP_X O,
+    DU alpha, DU beta,  bool tA, bool tB, int K, int M, int N);
 __KERN__ void k_gemm_tile_claude_x2(
-    F32_RP A, F32_RP B, F32_XP O,
-    float alpha, float beta,  bool tA, bool tB, int K, int M, int N);
+    DP_R A, DP_R B, DP_X O,
+    DU alpha, DU beta,  bool tA, bool tB, int K, int M, int N);
 ///@}
 ///@name Matrix inversion ops - Gauss-Jordan, LU
 ///@{
-__KERN__ void k_find_pivot(const float *da, int *d_pivot, int z, int K);
-__KERN__ void k_swap_rows(float *da, float *di, int u, int z, int K);
-__KERN__ void k_diag(float *da, float *di, int z, int K);
-__KERN__ void k_elim(float *da, float *di, int z, int K);
-__KERN__ void k_lu_col(float *da, int z, int K);
-__KERN__ void k_pivot(const float *lu, const int *d_piv, float *di, int K);
-__KERN__ void k_fsub(const float *lu, float *di, int K);
-__KERN__ void k_bsub(const float *lu, float *di, int K);
-__KERN__ void k_lu(float *lu, bool get_u, int _K, int K);
-__KERN__ void k_logdet(const float *lu, float *d_logdet, int *d_sign, int K);
+__KERN__ void k_find_pivot(const DU *da, int *d_pivot, int z, int K);
+__KERN__ void k_swap_rows(DU *da, DU *di, int u, int z, int K);
+__KERN__ void k_diag(DU *da, DU *di, int z, int K);
+__KERN__ void k_elim(DU *da, DU *di, int z, int K);
+__KERN__ void k_lu_col(DU *da, int z, int K);
+__KERN__ void k_pivot(const DU *lu, const int *d_piv, DU *di, int K);
+__KERN__ void k_fsub(const DU *lu, DU *di, int K);
+__KERN__ void k_bsub(const DU *lu, DU *di, int K);
+__KERN__ void k_lu(DU *lu, bool get_u, int _K, int K);
+__KERN__ void k_logdet(const DU *lu, DU *d_logdet, int *d_sign, int K);
 ///@}
 } // namespace t4
 #endif // __T4MATH_H_
