@@ -146,7 +146,7 @@ Model::_bstep(Tensor &in, Tensor &out, bool last_layer) {
 #define DCONV(r)                                                                      \
     k_dconv2d<TSZ(r),(r)>                                                             \
     <<<dim3(TILE(W,TSZ(r)), TILE(H,TSZ(r)), C0*C1*N), dim3(T4_DIM_SZ,T4_DIM_SZ,1)>>>  \
-    (in.data, dx.data, f.data, df.data, db.data, out.data, H, W, C0, C1, train)
+    (in.data, out.data, dx.data, f.data, df.data, db.data, H, W, C0, C1, train)
 
 __HOST__ int
 Model::_bconv(Tensor &in, Tensor &out) {
