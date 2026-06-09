@@ -116,7 +116,7 @@ Model::_fstep(Tensor &in, Tensor &out) {
 #define CONV(r)                                                                 \
     k_conv2d<TSZ(r),(r)>                                                        \
     <<<dim3(TILE(W,TSZ(r)),TILE(H,TSZ(r)),C0*N), dim3(T4_DIM_SZ,T4_DIM_SZ,1)>>> \
-    (in.data, f.data, b.data, out.data, H, W, C1, C0)
+    (in.data, out.data, f.data, b.data, H, W, C1, C0)
 
 __HOST__ int
 Model::_fconv(Tensor &in, Tensor &out) {
@@ -186,7 +186,7 @@ __HOST__ int
 Model::_factivate(Tensor &in, Tensor &out, t4_layer fn) {
     DU alpha = in.xparm;
     FORK(k_activate, in.numel, 
-         fn, in.data, in.grad[4]->data, out.data, alpha);
+         fn, in.data, out.data, in.grad[4]->data, alpha);
     if (train && *_trace > 1) {
         _dump_f("msk", *in.grad[4]);
     }
@@ -246,27 +246,34 @@ Model::_flogsoftmax(Tensor &in, Tensor &out) {
 ///
 __HOST__ int
 Model::_fbatchnorm(Tensor &in, Tensor &out) {
-    const U32 N   = out.N(), C = out.C(), H = out.H(), W = out.W(); ///< C0==C1
-    const U64 HW  = (U64)H * W;                        ///< size of a page
-    const U64 NHW = HW * N;                            ///< size of entire batch
+    const cudaStream_t st = 0;
+    const U32 N   = out.N(), C = out.C(), H = out.H(), W = out.W();
+    const U64 HW  = (U64)H * W;
+    const U64 NHW = HW * N;
 
-    DU *w   = &in.grad[0]->data[0];                    ///< weight/gamma
-    DU *b   = &in.grad[0]->data[C];                    ///< bias/beta
-    DU *xht = in.grad[4]->data;                        ///< x_hat
-    DU *avg = &in.mtum[4]->data[0];                    ///< mean
-    DU *var = &in.mtum[4]->data[C];                    ///< 1.0/(sqrt(var)+e)
+    DU *w   = &in.grad[0]->data[0];
+    DU *b   = &in.grad[0]->data[C];
+    DU *xht = in.grad[4]->data;
+    DU *avg = &in.mtum[4]->data[0];
+    DU *var = &in.mtum[4]->data[C];
 
-    for (U32 c=0; c < C; c++) avg[c] = var[c] = DU0;   /// * zero out
-    FORK4(k_batchsum, in.data, avg, HW);               /// * capture sum
+    cudaMemsetAsync(avg, 0, 2 * C * sizeof(DU), st);  ///< zeros avg and var in one call
 
-    for (U32 c=0; c < C; c++) avg[c] *= DU1 / NHW;     /// * calc mean per channel
-    FORK4(k_batchnvar, in.data, avg, var, HW);         /// * capture n*variance
+    // 1. accumulate Σx and Σx² per channel
+    const int  blk0 = (int)MAX(32LL, MIN(HW, (U64)1024));
+    const dim3 grd0(C, N, 1);
+    const int  smem_sz  = 2 * blk0 * sizeof(DU);
+    k_batchnorm_stat<<<grd0, blk0, smem_sz, st>>>(in.data, avg, var, HW);
+    GPU_CHK();
 
-    const DU m = in.xparm;                             ///< ETA momentum, TODO:
-    for (U32 c=0; c < C; c++) {
-        var[c] = DU1 / (SQRT(var[c] / NHW) + DU_EPS);  ///< gvar = gamma/(stdvar + e)
-    }
-    FORK4(k_batchnorm, in.data, out.data, xht, avg, var, w, b, HW); /// * O = x_hat*gamma + beta
+    // 2. finalise mean and rvar — no CPU round-trip
+    const int blk1 = min((int)C, 1024);
+    const int grd1 = ((int)C + blk1 - 1) / blk1;
+    k_batchnorm_calc<<<grd1, blk1, 0, st>>>(avg, var, (long)NHW);
+    GPU_CHK();
+
+    // 3. apply normalisation
+    FORK4(k_batchnorm, in.data, out.data, xht, avg, var, w, b, HW);  ///< TODO: pass stream
     return 0;
 }
 ///
