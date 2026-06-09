@@ -13,6 +13,7 @@ NN_SRCS := \
 
 NN_INCS := \
 	src/nn/model.h \
+	src/nn/ntypes.h \
 	src/nn/nmath.h
 
 NN_OBJS := $(NN_SRCS:%.cu=%.o)
