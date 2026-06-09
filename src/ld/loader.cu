@@ -9,6 +9,7 @@
 #if (T4_DO_OBJ && T4_DO_NN)
 #include <map>
 #include "mnist.h"
+#include "cifar10.h"
 
 namespace t4::ld {
 using mu::Dataset;
@@ -36,6 +37,12 @@ void Loader::init() {
         new Mnist(
             "../data/MNIST/raw/t10k-images-idx3-ubyte",
             "../data/MNIST/raw/t10k-labels-idx1-ubyte");
+    _cp_map["cifar10_train"] =
+        new Cifar10(
+            "../data/CIFAR10/cifar-10-batches-bin/data_batch_1.bin");
+    _cp_map["cifar10_train"] =
+        new Cifar10(
+            "../data/CIFAR10/cifar-10-batches-bin/test_batch.bin");
 }
 
 Corpus *Loader::get(Dataset &ds, const char *ds_name) {
