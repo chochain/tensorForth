@@ -4,11 +4,12 @@
  *
  * <pre>Copyright (C) 2022- GreenII, this file is distributed under BSD 3-Clause License.</pre>
  */
-#ifndef __NN_NMATHL_H
-#define __NN_NMATHL_H
+#ifndef __NN_NMATH_H
+#define __NN_NMATH_H
 #pragma once
-#include <float.h>
-#include "ten4_config.h"
+#include "ten4_types.h"
+#include "t4math.h"
+#include "ntypes.h"
 ///
 /// General Notations
 ///   xx1  : 1 stands for input,  i.g. i1 - x dimension index for input
@@ -23,11 +24,9 @@
 /// TODO: stride, dilation, [C1]NCHW filter,
 ///       [see](https://github.com/vdumoulin/conv_arithmetic)
 /// 
-#if (T4_DO_OBJ && T4_DO_NN)
-
 namespace t4::nn {
-typedef float     DU;
-typedef uint32_t  U32;
+
+#if (T4_DO_OBJ && T4_DO_NN)
 
 #define SELU_L  1.0507                     /** Selu lambda */
 #define SELU_LA 1.7581                     /** Selu alpha  */
@@ -36,47 +35,66 @@ typedef uint32_t  U32;
 ///
 template<int TS, int R>                     ///> tile size, kernel radius
 __KERN__ void k_conv2d(
-    DU *I, DU *F, DU *B, DU *O,             ///> input I[HxW], F[KxK] kernel, B[C] bias, output O[HxW]
-    U32 H, U32 W, U32 C1, U32 C0);          ///< (H0==H1, W0==W1), input/output channels
-template<U32 KS>
-__KERN__ void k_pool(t4_layer op, DU *I, DU *O, U32 H, U32 W);
-__KERN__ void k_bias(DU *B, DU *O, U32 N, U32 E0);
+    DP_R I, DP_W O,                         ///> input I[HxW], output O[HxW]
+    DP_R F, DP_R B,                         ///> kernel F[KxK], bias B[C]
+    int H, int W, int C1, int C0);          ///< (H0==H1, W0==W1), input/output channels
+template<int KS>
+__KERN__ void k_pool(
+    t4_layer op,
+    DP_R I, DP_W O, int H, int W);
+__KERN__ void k_bias(
+    DP_R B, DP_W O, int N, int E0);
 __KERN__ void k_activate(
-    t4_layer op, DU *I, DU *F, DU *O,       ///< func, input, filter, output tensors
-    DU alpha, U64 numel);                   ///< number of tensor elements
-__KERN__ void k_softmax_small(DU *I, DU *O, U32 C);  ///< one block per sample, C ≤ 256
-__KERN__ void k_softmax(DU *I, DU *O, U32 C);
+    t4_layer op,                            ///< function to call 
+    DP_R I, DP_W F, DP_W O,                 ///< input, filter, output tensors
+    DU alpha, long numel);                  ///< number of tensor elements
+__KERN__ void k_softmax_small(              ///< one block per sample, C ≤ 256
+    DP_R I, DP_W O, int C);
+__KERN__ void k_softmax(
+    DP_R I, DP_W O, int C);
+__KERN__ void k_batchnorm_stat(
+    DP_R src, DP_W avg, DP_W var, long HW); ///< input  [N, HW, C] (NHWC)
+__KERN__ void k_batchnorm_calc(             ///< copy avg, var per C
+    DP_X avg, DP_X var, long NHW);
 __KERN__ void k_batchnorm(
-    DU *I, DU *O,  DU *X,                   ///< input, filter, output tensors
-    DU *avg, DU *rvar,                      ///< mean, 1.0/(stdvar + e)
-    DU *w, DU *b, U64 HW);                  ///< gamma, beta, H0=H1, W0==W1 (C0==C1)
+    DP_R I, DP_W O, DP_X X,                 ///< input, filter, output tensors
+    DP_R avg, DP_R rvar,                    ///< mean, 1.0/(stdvar + e)
+    DP_R w, DP_R b,                         ///< gamma, beta
+    long HW);                               ///< H0=H1, W0==W1 (C0==C1)
 ///
 /// backprop
 ///
-template<U32 TS, U32 R>
+template<int TS, int R>
 __KERN__ void k_dconv2d(
-    DU *I, DU *DX, DU *F, DU *DF, DU *DB, DU *O,
-    U32 H, U32 W, U32 C0, U32 C1, bool train);
-template<U32 KS>
-__KERN__ void k_dpool(t4_layer op, DU *I, DU *O, U32 H, U32 W);
-__KERN__ void k_dlinear_db(DU *O, DU *DB, U32 N, U32 E0);
+    DP_R I, DP_W O, DP_W DX,                ///> input I[HxW], output O[HxW], dX[HxW]
+    DP_R F, DP_W DF, DP_W DB,               ///> kernel F, dF[KxK], bias dB[C]
+    int H, int W, int C0, int C1, bool train);
+template<int KS>
+__KERN__ void k_dpool(
+    t4_layer op, DP_X I, DP_R O, int H, int W);
+__KERN__ void k_dlinear_db(
+    DP_W O, DP_W DB, int N, int E0);
 __KERN__ void k_dbatchnorm_1(
-    DU *I, DU *O, DU *X,                    ///< input, output, x_hat tensors
-    DU *sum, DU *g_var, U64 HW);            ///< sum(x_hat), gamma/(stdvar+e)
+    DP_W I, DP_X O, DP_R X,                 ///< input, output, x_hat tensors
+    DP_R sum, DP_R g_var, long HW);         ///< sum(x_hat), gamma/(stdvar+e)
 __KERN__ void k_dbatchnorm_2(
-    DU *I, DU *X, DU *sum, U64 HW);         ///< input, x_hat, H0=H1, W0==W1 (C0==C1)
+    DP_W I, DP_R X, DP_R sum, long HW);     ///< input, x_hat, H0=H1, W0==W1 (C0==C1)
 ///
 /// * gradient
 ///
 __KERN__ void k_sgd(
-    DU *G, DU *DG, DU *M,                    ///< w, dw, and momemtum tensors
-    U32 N, DU lr, DU b, U64 numel);          ///< batch size, learn rate, beta(momemtum)
+    DP_X G, DP_X DG, DP_X M,                 ///< w, dw, and momemtum tensors
+    int N,                                   ///< batch size
+    DU lr, DU b,                             ///< learn rate, beta(momemtum)
+    long numel);
 __KERN__ void k_adam(
-    DU *G, DU *DG, DU *M, DU *V,             ///< w, dw, and momemtum tensors
-    U32 N, DU lrc, DU b1, DU b2, U64 numel); ///< batch size,corrected learn rate, beta(momemtum)
-
-} // namespace t4::nn
+    DP_X G, DP_X DG, DP_X M, DP_X V,         ///< w, dw, and momemtum tensors
+    int N,                                   ///< batch size
+    DU lrc, DU b1, DU b2,                    ///< corrected learn rate, beta(momemtum)
+    long numel);
 
 #endif  // (T4_DO_OBJ && T4_DO_NN)
-#endif // __NN_MODEL_H
+} // namespace t4::nn
+
+#endif // __NN_NMATH_H
 //==========================================================================
