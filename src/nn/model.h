@@ -10,24 +10,11 @@
 #include "ten4_config.h"
 
 #if (T4_DO_OBJ && T4_DO_NN)
-#include "sys.h"             /// * ms, rand
-#include "mu/mmu.h"
+#include "sys.h"                  /// * ms, rand
+#include "ntypes.h"               /// * neural network layers and types
 
 namespace t4::mu { class Tensor; class Dataset; }
 namespace t4::nn {
-
-typedef enum {
-    UP_NEAREST = 0,
-    UP_LINEAR,
-    UP_BILINEAR,
-    UP_CUBIC
-} t4_upsample;
-
-typedef enum {
-    OPTI_SGD = 0,            ///< Stochastic Gradient Descent
-    OPTI_SGDM,               ///< SGD with momemtum
-    OPTI_ADAM                ///< Adam gradient
-} t4_optimizer;
 ///
 ///< gradient function pointer
 ///
