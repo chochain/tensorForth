@@ -81,7 +81,7 @@ NetVM::_nnop(t4_layer op) {     /// vtable dispatcher
         case L_MAXPOOL: 
         case L_MINPOOL: m.add(op, INT(a));                 return ok();
         case L_BATCHNM: m.add(op, 0, a);                   return ok();
-        case L_USAMPLE: m.add(op, INT(a), nn::UP_NEAREST); return ok();
+        case L_USAMPLE: m.add(op, INT(a), UP_NEAREST);     return ok();
         }
         PUSH(a);                                   /// * restore tos
         /// continue to error handling cases
