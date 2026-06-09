@@ -1,0 +1,249 @@
+/** -*- c++ -*-
+ * @file
+ * @brief Neural Network templated kernel functions
+ * @note template can only be included at the end of a .h
+ *
+ * <pre>Copyright (C) 2022- GreenII, this file is distributed under BSD 3-Clause License.</pre>
+ */
+///==============================================================================
+/// forward
+///==============================================================================
+template<int TS, int R>                    ///> tile size, kernel radius
+__KERN__ void k_conv2d(
+    DP_R I, DP_W O,                        ///> input I[HxW], output O[HxW]
+    DP_R F, DP_R B,                        ///> kernel F[KxK], bias B[C]
+    int H, int W, int C1, int C0           ///< (H0==H1, W0==W1), input/output channels
+    ) {
+    constexpr  int KS  = 2 * R + 1;                ///< center pixel + radius
+    constexpr  int SSZ = (TS + KS - 1);
+    
+    __shared__ DU _I[SSZ][SSZ];                    ///< shared memory
+    __shared__ DU _F[KS][KS];                      ///< cached filter, shared by all threads
+    
+    const int c0   = blockIdx.z % C0;              ///< ← c0 now from grid
+    const int c1   = (blockIdx.z / C0) % C1;
+    const int n    = blockIdx.z / (C0 * C1);
+    const int HWC1 = H * W * C1, HWC0 = H * W * C0;
+
+    DP_R n_I = I + n * HWC1;                       ///< input  slice [n]
+    DP_W n_O = O + n * HWC0;                       ///< output slice [n]
+    
+    const int  tx = threadIdx.x, j0 = tx + blockIdx.x * TS;   ///< output coordinates
+    const int  ty = threadIdx.y, i0 = ty + blockIdx.y * TS;   /// * i0,j0=0:15
+    const long z0 = ((long)W * i0 + j0) * C0 + c0;    ///< output array index
+    const int  load_id = ty * TS + tx;
+    ///
+    /// process z0, i.e. [TS, TS, C] cells per kernel call
+    ///
+    const long zf = (long)C0 * KS * KS * c1 + c0;     ///< filter index [C1,KS,KS,C0]
+    if (tx < KS && ty < KS) {
+        _F[ty][tx] = F[zf + (ty * KS + tx) * C0 + c0];///< base: filter[c1, 0, 0, c0]
+    }
+    ///
+    /// load input tile _I — cooperative load, all TS×TS threads participate
+    ///
+    for (int t=load_id; t < SSZ*SSZ; t += TS*TS) {
+        int si = t / SSZ, sj = t % SSZ;
+        int gi = (blockIdx.y * TS) - R + si;
+        int gj = (blockIdx.x * TS) - R + sj;
+        _I[si][sj] = (gi >=0 && gi < H && gj >=0 && gj < W)
+            ? n_I[((long)W * gi + gj) * C1 + c1] : DU0;       /// * cache input data
+    }
+    __syncthreads();                                 /// * smem write barrier
+    ///
+    /// Y = sum(W * X) + B
+    /// accumulate in register, single global write at end — no atomicAdd
+    /// each (n, i0, j0, c0) is owned by exactly one block → no race
+    ///
+    if (tx < TS && ty < TS && i0 < H && j0 < W) {    /// * each tile[14x14]
+        DU sum = B[c0];                              ///< Y = B  (register)
+        #pragma unroll
+        for (int y = 0; y < KS; y++) {               /// * process one KS * KS cell
+            #pragma unroll
+            for (int x = 0; x < KS; x++) {
+                sum += _F[y][x] * _I[ty + y][tx + x];     ///< Y += F * X
+            }
+        }
+        n_O[z0] = sum;                               ///< single write, no atomic
+    }
+}
+
+template<int KS>
+__KERN__ void k_pool(
+    t4_layer op,
+    DP_R I, DP_W O, int H, int W)
+{
+    const int  KSQ = KS * KS;
+    const long HW  = (long)H * W;
+    const long k0  = (long)blockIdx.x * blockDim.x + threadIdx.x;
+
+    if (k0 >= HW) return;
+
+    const int  j0  = k0 % W;                                ///< output col
+    const int  c   = blockIdx.y, C = gridDim.y;
+    const long ns  = HW * C * blockIdx.z;                   ///< output batch offset
+    const long z0  = ns + k0 * C + c;                       ///< output index
+    const long z1  = (ns + k0 * C) * KSQ + j0 * KS * C + c; ///< input tile, acc=0.9897
+    const long RI  = (long)(W - 1) * KS * C;                ///< row advance after each KS cols
+
+    DP_R ix = &I[z1];                                       ///< first elem for max/min
+    DU   v  = (op == L_MAXPOOL || op == L_MINPOOL) ? *ix : DU0;
+
+    /// op hoisted outside loop — no per-iteration branch
+    switch (op) {
+    case L_USAMPLE:
+    case L_AVGPOOL:
+        for (int y = 0; y < KS; y++, ix += RI)
+            for (int x = 0; x < KS; x++, ix += C) v += *ix;
+        v /= KSQ;
+        break;
+    case L_MAXPOOL:
+        for (int y = 0; y < KS; y++, ix += RI)
+            for (int x = 0; x < KS; x++, ix += C) v = MAX(*ix, v);
+        break;
+    case L_MINPOOL:
+        for (int y = 0; y < KS; y++, ix += RI)
+            for (int x = 0; x < KS; x++, ix += C) v = MIN(*ix, v);
+        break;
+    }
+    O[z0] = v;
+}
+///==============================================================================
+/// backprop
+///==============================================================================
+template<int TS, int R>                                 ///< template can stay with .cu only
+__KERN__ void k_dconv2d(
+    DP_R I, DP_R O,                                     ///< input, output tensors
+    DP_W DX, DP_R F, DP_W DF, DP_R DB,                  ///< dX, F kernel, dF, and dB
+    int H, int W, int C0, int C1, bool train)
+{
+    constexpr int KS  = 2 * R + 1;
+    constexpr int SSZ = TS + KS - 1;
+    __shared__ DU _I[SSZ][SSZ], _O[SSZ][SSZ];           ///< shared I/O blocks
+    __shared__ DU _df[KS][KS];                          ///< shared filter
+
+    const int c0   = blockIdx.z % C0;                   ///< ← c0 now from grid
+    const int c1   = (blockIdx.z / C0) % C1;
+    const int n    = blockIdx.z / (C0 * C1);
+    const int HWC1 = H * W * C1, HWC0 = H * W * C0;
+
+    DP_R n_I  = I  + n * HWC1;                          ///< I/O tile pointers
+    DP_R n_O  = O  + n * HWC0;
+    DP_W n_DX = DX + n * HWC1;
+
+    const int tx = threadIdx.x, j1 = tx + blockIdx.x * TS;
+    const int ty = threadIdx.y, i1 = ty + blockIdx.y * TS;
+    const int load_id = ty * TS + tx;
+
+    const int zi = blockIdx.y * TS - R, zj = blockIdx.x * TS - R;
+
+    /// load _I tile — this c1 slice
+    for (int t = load_id; t < SSZ*SSZ; t += TS*TS) {
+        int si = t / SSZ, sj = t % SSZ;
+        int gi = zi + si,  gj = zj + sj;
+        _I[si][sj] = (gi>=0 && gi<H && gj>=0 && gj<W)
+            ? n_I[((long)W * gi + gj) * C1 + c1] : DU0;
+    }
+
+    /// load _O tile — this c0 slice  (loaded once, no loop)
+    for (int t = load_id; t < SSZ*SSZ; t += TS*TS) {
+        int si = t / SSZ, sj = t % SSZ;
+        int gi = zi + si,  gj = zj + sj;
+        _O[si][sj] = (gi>=0 && gi<H && gj>=0 && gj<W)
+            ? n_O[((long)W * gi + gj) * C0 + c0] : DU0;
+    }
+    if (tx < KS && ty < KS) _df[ty][tx] = DU0;
+    __syncthreads();
+
+    /// dB — one block per c0, warp reduce then atomic
+    DU db = (train && tx < TS && ty < TS) ? _O[ty+R][tx+R] : DU0;
+    #pragma unroll
+    for (int off = 16; off > 0; off >>= 1)
+        db += __shfl_down_sync(0xffffffff, db, off);
+    if ((ty * blockDim.x + tx) % 32 == 0) atomicAdd((DU*)&DB[c0], db);
+
+    const long zf = (long)C0 * KS*KS * c1 + c0;
+
+    /// dX and dF
+    DU dx_acc = DU0;                                   ///< register accumulator
+    for (int y = 0, y1 = KS-1; y < KS; y++, y1--) {
+        for (int x = 0, x1 = KS-1; x < KS; x++, x1--) {
+            DU dy  = (tx < TS && ty < TS) ? _O[ty+y][tx+x] : DU0;
+            int fi = zf + (y1 * KS + x1) * C0;
+
+            if (tx < TS && ty < TS) dx_acc += F[fi] * dy;
+            if (!train) continue;
+
+            DU df0 = dy * ((tx < TS && ty < TS) ? _I[ty+y][tx+x] : DU0);
+            #pragma unroll
+            for (int off = 16; off > 0; off >>= 1)
+                df0 += __shfl_down_sync(0xffffffff, df0, off);
+            if ((ty * blockDim.x + tx) % 32 == 0)
+                atomicAdd(&_df[y][x], df0);            /// * df keeps tile-sum
+        }
+    }
+    __syncthreads();
+
+    /// dX — now needs atomic since multiple c0 blocks write same DX element
+    if (tx < TS && ty < TS && i1 < H && j1 < W) {
+        atomicAdd(&n_DX[((long)W * i1 + j1) * C1 + c1], dx_acc);
+    }
+    /// dF — write accumulated _df to global
+    if (train && tx < KS && ty < KS) {
+        atomicAdd(&DF[zf + (ty * KS + tx) * C0], _df[ty][tx]);
+    }
+}
+
+template<int KS>
+__KERN__ void k_dpool(
+    t4_layer op, DP_X I, DP_R O, int H, int W)
+{
+    const int KSQ = KS * KS;
+    const long HW = (long)H * W;
+    const long k0 = (long)blockIdx.x * blockDim.x + threadIdx.x;
+
+    if (k0 >= HW) return;
+    
+    const int  j0 = k0 % W;                                ///< output col
+    const int  c  = blockIdx.y, C  = gridDim.y;
+    const long ns = HW * C * blockIdx.z;                   ///< output batch offset
+
+    const long z0 = ns + k0 * C + c;                       ///< output (dY) index
+    const long z1 = (ns + k0 * C) * KSQ + j0 * KS * C + c; ///< input tile, acc=0.9897
+    const long RI = (long)(W - 1) * KS * C;                ///< row advance after KS cols
+
+    DP_X ix = &I[z1];
+    DU *t  = ix;                                           ///< argmax/argmin ptr
+    DU  v  = (op != L_AVGPOOL) ? *ix : O[z0];              ///< init value
+
+    /// op hoisted outside loop
+    switch (op) {
+    case L_AVGPOOL: v /= KSQ;
+    case L_USAMPLE:
+        /// distribute dY equally across all KS*KS input cells
+        for (int y = 0; y < KS; y++, ix += RI)
+            for (int x = 0; x < KS; x++, ix += C) *ix = v;
+        break;
+    case L_MAXPOOL:
+        /// zero all, find argmax, write dY to argmax position
+        for (int y = 0; y < KS; y++, ix += RI) {
+            for (int x = 0; x < KS; x++, ix += C) {
+                DU dx = *ix; *ix = DU0;
+                if (dx > v) { v = dx; t = ix; }
+            }
+        }
+        *t = O[z0];                                        ///< dY at argmax
+        break;
+    case L_MINPOOL:
+        /// zero all, find argmin, write dY to argmin position
+        for (int y = 0; y < KS; y++, ix += RI) {
+            for (int x = 0; x < KS; x++, ix += C) {
+                DU dx = *ix; *ix = DU0;
+                if (dx < v) { v = dx; t = ix; }
+            }
+        }
+        *t = O[z0];                                        ///< dY at argmin
+        break;
+    }
+}
+//===============================================================================
