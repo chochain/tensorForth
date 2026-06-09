@@ -386,7 +386,7 @@ __KERN__ void k_dconv2d(
     const int HWC1 = H * W * C1, HWC0 = H * W * C0;
 
     DP_R n_I  = I  + n * HWC1;                          ///< I/O tile pointers
-    DP_W n_O  = O  + n * HWC0;
+    DP_R n_O  = O  + n * HWC0;
     DP_W n_DX = DX + n * HWC1;
 
     const int tx = threadIdx.x, j1 = tx + blockIdx.x * TS;
