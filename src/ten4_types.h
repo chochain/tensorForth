@@ -161,8 +161,8 @@ typedef float       F32;                    ///< single precision float
 typedef U32         IU;                     /**< instruction unit       */
 typedef F32         DU;                     /**< data unit              */
 typedef F64         DU2;                    /**< double preciesion data */
-#define DU0         ((DU)0.0)               /**< default data value 0   */
-#define DU1         ((DU)1.0)               /**< default data value 1   */
+#define DU0         ((DU)0.0f)              /**< default data value 0   */
+#define DU1         ((DU)1.0f)              /**< default data value 1   */
 #define DU_EPS      ((DU)1.0e-6)            /**< floating point epsilon */
 #define ZEQ(d)      (ABS(d) < DU_EPS)       /**< zero check             */
 #define EQ(a,b)     (ZEQ((a) - (b)))        /**< arithmatic equal       */
