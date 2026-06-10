@@ -257,8 +257,8 @@ Model::_bpool(Tensor &in, Tensor &out, t4_layer fn) {
     const U32 C = out.C(), N = out.N();
     const int ks = in.stride[0];                      ///< kernel size (square)
     switch(ks) {
-    case 2: FORK4(k_dpool<2>, fn, in.data, out.data, H, W); break;
-    case 3: FORK4(k_dpool<3>, fn, in.data, out.data, H, W); break;
+    case 2: FORK4(k_dpool<2>, 0, fn, in.data, out.data, H, W); break;
+    case 3: FORK4(k_dpool<3>, 0, fn, in.data, out.data, H, W); break;
     default:
         ERROR("nn#bpool kernel_size=%d not supported\n", ks);
         return -1;
@@ -276,8 +276,8 @@ Model::_bupsample(Tensor &in, Tensor &out, t4_layer fn) {
     const int ks = in.stride[0];                      ///< kernel size (square?)
 
     switch(ks) {                                      /// by kernel size
-    case 2: FORK4(k_pool<2>, fn, out.data, in.data, H, W); break;
-    case 3: FORK4(k_pool<3>, fn, out.data, in.data, H, W); break;
+    case 2: FORK4(k_pool<2>, 0, fn, out.data, in.data, H, W); break;
+    case 3: FORK4(k_pool<3>, 0, fn, out.data, in.data, H, W); break;
     default:
         ERROR("nn#bupsample size=%d not supported\n", ks);
         return -1;
@@ -288,40 +288,49 @@ Model::_bupsample(Tensor &in, Tensor &out, t4_layer fn) {
 ///> batchnorm
 ///  @brief:
 ///    see https://kevinzakka.github.io/2016/09/14/batch_normalization/
-///  @note
-///    my own implmentation having dbeta and dgamma divided by HW
-///    which is different from original document by does better
-///    in preventing gradient explosion
+///
+/// Launch sequence (was 4 kernels + 2 CPU loops; now 3 kernels, 0 CPU sync):
+///
+///   1. k_batchnorm_1 - fused Σdout and Σ(dout·x̂) in one tensor pass
+///   2. k_batchnorm_2 - per-channel epilogue: accumulate dW/dB, scale sums
+///   3. k_dbatchnorm  - fused dX update in one tensor pass
 ///
 __HOST__ int
 Model::_bbatchnorm(Tensor &in, Tensor &out) {
-    const U32 N = out.N(), H = out.H(), W = out.W(), C = out.C();   ///< C0==C1, N1=N0
-    const U64 HW = (U64)W * H, NHW = HW * N;
+    const int  N   = out.N(), H = out.H(), W = out.W(), C = out.C();
+    const long HW  = (long)H * W;
+    const long NHW = HW * N;
 
-    DU *w   = &in.grad[0]->data[0];                    ///< weight/gamma (scale)
-    DU *dw  = &in.grad[1]->data[0];                    ///< d_gamma
-    DU *db  = &in.grad[1]->data[C];                    ///< d_beta
-    DU *xht = in.grad[4]->data;                        ///< x_hat
-    DU *sum = &in.mtum[4]->data[0];                    ///< batch sum
-    DU *var = &in.mtum[4]->data[C];                    ///< batch 1.0 / (var+e)^0.5
+    DU *w   = &in.grad[0]->data[0];        ///< gamma (scale)  [C]
+    DU *dw  = &in.grad[1]->data[0];        ///< d_gamma        [C]
+    DU *db  = &in.grad[1]->data[C];        ///< d_beta         [C]
+    DU *xht = in.grad[4]->data;            ///< x_hat          [N,H,W,C]
+    DU *s1  = &in.mtum[4]->data[0];        ///< sum_dout       [N*C]  (reused as s1 after scale)
+    DU *s2  = &in.mtum[4]->data[N*C];      ///< sum_dout_xhat  [N*C]  (reused as s2 after scale)
+    DU *var = &in.mtum[4]->data[N*C*2];    ///< 1/sqrt(var+e)  [C]
 
-    FORK4(k_batchsum, out.data, sum, HW);              /// * capture out sum(dout)     
-    
-    for (U32 c=0; c < C; c++) {
-        if (train) db[c] += (sum[c] /= NHW);           /// * collect dbeta = sum(dout) (/ HW?)
-        var[c] *= w[c];                                /// * var <= gamma * ivar
+    // zero the accumulators before reduction
+    cudaMemset(s1, 0, sizeof(DU) * N * C);
+    cudaMemset(s2, 0, sizeof(DU) * N * C);
+
+    /// 1. fused reduction ---
+    {
+        const int nwarps  = (T4_DIM_SQ + 31) >> 5;
+        const int smem_sz = 2 * nwarps * sizeof(DU);
+        FORK4(k_batchnorm_1, smem_sz, out.data, xht, s1, s2, HW);
     }
-    FORK4(k_dbatchnorm_1,                              /// * dX = gamma*ivar*(dout - sum(dout)/N)
-        in.data, out.data, xht, sum, var, HW);         /// * also, dout *= x_hat
-    
-    FORK4(k_batchsum, out.data, sum, HW);              /// * capture sum(dout * x_hat)
-
-    for (U32 c=0; c < C; c++) {
-        if (train) dw[c]  += (sum[c] /= NHW);          /// * collect dgamma = sum(dout * x_hat)( / HW?)
-        sum[c] *= var[c] / N;                          /// * scale sum
+    /// 2. per-channel scale (no CPU sync needed) ---
+    //   launched as <<<C, 1>>> so each channel is one thread in one block;
+    //   gridDim.x == C is used inside the kernel as the channel stride for [N*C].
+    {
+        dim3 blk(C, 1, 1);
+        k_batchnorm_2<<<1, blk>>>(
+            w, dw, db, s1, s2, var, N, NHW, train);
+        GPU_CHK();
     }
-    FORK4(k_dbatchnorm_2, in.data, xht, sum, HW);      /// * dX -= gamma*ivar*x_hat*sum(dout * x_hat) / N
-    
+    /// 3. fused dX update ---
+    FORK4(k_dbatchnorm, 0, in.data, out.data, xht, s1, s2, HW);
+
     return 0;
 }
 
