@@ -202,8 +202,8 @@ Model::_fpool(Tensor &in, Tensor &out, t4_layer fn) {
     NN_DB(" %dx%d", ks0, ks1);
     
     switch(ks0) {                                       /// pooling kernel size
-    case 2: FORK4(k_pool<2>, fn, in.data, out.data, H, W); break;
-    case 3: FORK4(k_pool<3>, fn, in.data, out.data, H, W); break;
+    case 2: FORK4(k_pool<2>, 0, fn, in.data, out.data, H, W); break;
+    case 3: FORK4(k_pool<3>, 0, fn, in.data, out.data, H, W); break;
     default:
         ERROR("nn#fpool kernel_size=%d not supported\n", ks0);
         return -1;
@@ -259,21 +259,23 @@ Model::_fbatchnorm(Tensor &in, Tensor &out) {
 
     cudaMemsetAsync(avg, 0, 2 * C * sizeof(DU), st);  ///< zeros avg and var in one call
 
-    // 1. accumulate Σx and Σx² per channel
-    const int  blk0 = (int)MAX(32LL, MIN(HW, (U64)1024));
-    const dim3 grd0(C, N, 1);
-    const int  smem_sz  = 2 * blk0 * sizeof(DU);
-    k_batchnorm_stat<<<grd0, blk0, smem_sz, st>>>(in.data, avg, var, HW);
-    GPU_CHK();
-
-    // 2. finalise mean and rvar — no CPU round-trip
-    const int blk1 = min((int)C, 1024);
-    const int grd1 = ((int)C + blk1 - 1) / blk1;
-    k_batchnorm_calc<<<grd1, blk1, 0, st>>>(avg, var, (long)NHW);
-    GPU_CHK();
-
-    // 3. apply normalisation
-    FORK4(k_batchnorm, in.data, out.data, xht, avg, var, w, b, HW);  ///< TODO: pass stream
+    /// 1. accumulate Σx and Σx² per channel
+    {
+        const int  blk = (int)MAX(32LL, MIN(HW, (U64)1024));
+        const dim3 grd(C, N, 1);
+        const int  smem_sz  = 2 * blk * sizeof(DU);
+        k_batchnorm_stat<<<grd, blk, smem_sz, st>>>(in.data, avg, var, HW);
+        GPU_CHK();
+    }
+    /// 2. finalise mean and rvar — no CPU round-trip
+    {
+        const int blk = min((int)C, 1024);
+        const int grd = ((int)C + blk - 1) / blk;
+        k_batchnorm_calc<<<grd, blk, 0, st>>>(avg, var, (long)NHW);
+        GPU_CHK();
+    }
+    /// 3. apply normalisation
+    FORK4(k_batchnorm, 0, in.data, out.data, xht, avg, var, w, b, HW);  ///< TODO: pass stream
     return 0;
 }
 ///
@@ -287,8 +289,8 @@ Model::_fupsample(Tensor &in, Tensor &out) {
     const int ks = in.stride[0];                        ///< upsampling size
 
     switch(ks) {
-    case 2: FORK4(k_dpool<2>, L_USAMPLE, out.data, in.data, H, W); break;
-    case 3: FORK4(k_dpool<3>, L_USAMPLE, out.data, in.data, H, W); break;
+    case 2: FORK4(k_dpool<2>, 0, L_USAMPLE, out.data, in.data, H, W); break;
+    case 3: FORK4(k_dpool<3>, 0, L_USAMPLE, out.data, in.data, H, W); break;
     default:
         ERROR("nn#fupsample size=%d not supported\n", ks);
         return -1;
