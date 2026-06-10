@@ -544,8 +544,25 @@ If all goes well, some warnings aside, *~/tests/ten4* is your executable. The fo
 ### TODO - by priorities
 * Data
   + add loader plug-in API - CIFAR
+    - [Howto](https://franky07724-57962.medium.com/once-upon-a-time-in-cifar-10-c26bb056b4ce)
+    - [Different Layers](https://machinelearningmastery.com/how-to-develop-a-cnn-from-scratch-for-cifar-10-photo-classification/)
+    - ImageDataGenerator (torchvision.transforms: resize, center-crop, shift, flip, width-change)
   + add K-fold sampler
-  + data API - Python(cffi), Ruby(FFI)
+* Model
+  + GAN
+    - [CIFAR-10](https://machinelearningmastery.com/how-to-develop-a-generative-adversarial-network-for-a-cifar-10-small-object-photographs-from-scratch/)
+    - [Pytorch DCGAN](https://docs.pytorch.org/tutorials/beginner/dcgan_faces_tutorial.html)
+    - [CelebA](https://medium.com/@manoharmanok/implementing-dcgan-in-pytorch-using-the-celeba-dataset-a-comprehensive-guide-660e6e8e29d2)
+    - [AC-GAN](https://machinelearningmastery.com/how-to-develop-an-auxiliary-classifier-gan-ac-gan-from-scratch-with-keras/)
+    - use pre-trained model, i.e. [transfer learning](https://openaccess.thecvf.com/content_ECCV_2018/papers/yaxing_wang_Transferring_GANs_generating_ECCV_2018_paper.pdf)
+    - torch.eval() i.e. normalize using running stat, disable dropout (vs torch.train())
+  + New Layers
+   - [Deconvolution](https://www.mdpi.com/2078-2489/15/11/711)
+      * add [Transposed Convolution](https://d2l.ai/chapter_computer-vision/transposed-conv.html). Less used now b/c it creates checkerboard pattern, see https://distill.pub/2016/deconv-checkerboard/)
+      * 1x1 Convolution (resize #channel)
+   - residual net i.e. [ResNet](https://d2l.ai/chapter_convolutional-modern/resnet.html)
+      * branch & concatenate (i.e Inception in GoogLeNet)
+   - add Swish, Mish
 * VM
   + CUDA 12 migration
     - Stream Management (cudaStreamAddCallback) and Event Management
@@ -570,10 +587,6 @@ If all goes well, some warnings aside, *~/tests/ten4* is your executable. The fo
   + ONNX model exporter (protobuf), can be read by Netron
   + ONNX model importer, load pretrained models (from Model Zoo, Hugging Face)
 * Model
-  + GAN
-    - [AC-GAN](https://machinelearningmastery.com/how-to-develop-an-auxiliary-classifier-gan-ac-gan-from-scratch-with-keras/)
-    - use pre-trained model, i.e. [transfer learning](https://openaccess.thecvf.com/content_ECCV_2018/papers/yaxing_wang_Transferring_GANs_generating_ECCV_2018_paper.pdf)
-    - torch.eval() i.e. normalize using running stat, disable dropout (vs torch.train())
   + Diffusion, [Stable Diffusion](https://stability.ai/). Pre-trained only?
   + Transformer
     - Review
@@ -595,12 +608,6 @@ If all goes well, some warnings aside, *~/tests/ten4* is your executable. The fo
       * [llama.cpp](https://github.com/ggerganov/llama.cpp?tab=readme-ov-file)
       * [llama2.c](https://github.com/karpathy/llama2.c/tree/b3c4b6c3c4bbff42e5211293280307019368ccb5?fbclid=IwY2xjawHhZS9leHRuA2FlbQIxMAABHcJp5Zx2VvEderi5aE7JRTtTrNiqe02gY-UOOveFiCvm_iMHgo8NRbj8QQ_aem__PtK6HblJyToUFr5Mov_dA). 700-line C. Tiny Llama trainning + inferencing.
   + RetNet
-  + New Layers
-      * 1x1 Convolution (resize #channel)
-      * residual net i.e. [ResNet](https://d2l.ai/chapter_convolutional-modern/resnet.html)
-      * branch & concatenate (i.e Inception in GoogLeNet)
-      * add Swish, Mish
-      * add [Transposed Convolution](https://d2l.ai/chapter_computer-vision/transposed-conv.html). Less used now b/c it creates checkerboard pattern, see https://distill.pub/2016/deconv-checkerboard/)
   + GNN - dynamic graph with VMs. Value proposition.
   + Mamba - State Space Model [mamba](https://www.ibm.com/think/topics/mamba-model)
   + Multi-Domain, i.e. MDNet
@@ -644,7 +651,7 @@ If all goes well, some warnings aside, *~/tests/ten4* is your executable. The fo
 * 3rd-party lib Integration
   + integrate CUB, CUTLASS (utilities.init, gemm_api) - slow, later
   + pre-processor (DALI) + GPUDirect - heavy, later
-+ calling API - Python(cffi), Ruby(FFI)
+  + calling API - Python(cffi), Ruby(FFI)
 
 ## History
 ### [Release 1.0](./docs/v1_progress.md) features
