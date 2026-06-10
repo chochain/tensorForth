@@ -63,14 +63,28 @@ __KERN__ void k_batchnorm(
 ///
 __KERN__ void k_dlinear_db(
     DP_R O, DP_W DB, int N, int E0);
-__KERN__ void k_dbatchnorm_1(
-    DP_W I, DP_X O, DP_R X,                 ///< input, output, x_hat tensors
-    DP_R sum, DP_R g_var, long HW);         ///< sum(x_hat), gamma/(stdvar+e)
-__KERN__ void k_dbatchnorm_2(
-    DP_W I, DP_R X, DP_R sum, long HW);     ///< input, x_hat, H0=H1, W0==W1 (C0==C1)
-///
-/// * gradient
-///
+__KERN__ void k_batchnorm_1(                ///< reduce
+    DP_R dout, DP_R xhat,                   ///< upstream gradient, saved x_hat
+    DP_W sum_dout,                          ///< out: Σ dout        [N*C]
+    DP_W sum_dout_xhat,                     ///< out: Σ dout*x_hat  [N*C]
+    long HW);                               ///< H*W spatial elements
+__KERN__ void k_batchnorm_2(
+    DP_R W,                                 ///< gamma  [C]
+    DP_W DW, DP_W DB,                       ///< d_gamma, d_beta accumulators [C]
+    DP_W sum_dout,                          ///< in: Σ dout  [N*C]  → out: gvar*mean_dout
+    DP_W sum_dout_xhat,                     ///< in: Σ dout*x̂ [N*C] → out: gvar*mean_dout_xhat
+    DP_R var,                               ///< 1/sqrt(var+e)  [C]
+    int  N, long NHW, bool train);          ///< batch size
+__KERN__ void k_dbatchnorm(                 ///< final update
+    DP_W DX,                                ///< output gradient tensor   [N,H,W,C]
+    DP_R dout,                              ///< upstream gradient        [N,H,W,C]
+    DP_R xhat,                              ///< saved x_hat              [N,H,W,C]
+    DP_R s1,                                ///< gvar * mean(dout)        [N,C]
+    DP_R s2,                                ///< gvar * mean(dout * x_hat)[N,C]
+    long HW);                               ///< H*W
+///============================================================================
+/// gradient
+///============================================================================
 __KERN__ void k_sgd(
     DP_X G, DP_X DG, DP_X M,                 ///< w, dw, and momemtum tensors
     int N,                                   ///< batch size
@@ -82,7 +96,7 @@ __KERN__ void k_adam(
     DU lrc, DU b1, DU b2,                    ///< corrected learn rate, beta(momemtum)
     long numel);
 
-#include "nmath.tcu"                         ///< templates
+#include "nmath.tcu"                         ///< templates (EOF include)
 
 #endif  // (T4_DO_OBJ && T4_DO_NN)
 } // namespace t4::nn
