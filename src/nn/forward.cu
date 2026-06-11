@@ -107,6 +107,7 @@ Model::_fstep(Tensor &in, Tensor &out) {
     case L_MINPOOL: _fpool(in, out, fn);     break;
     case L_BATCHNM: _fbatchnorm(in, out);    break;
     case L_USAMPLE: _fupsample(in, out);     break;
+    case L_DCONV:   _bconv(in, out);         break;
     default: ERROR("nn#fstep layer=%d not supported\n", fn);
     }
 }
