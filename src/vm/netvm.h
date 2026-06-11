@@ -48,7 +48,7 @@ private:
     /// @}
     /// @name Convolution, loss and Gradiant ops
     /// @{
-    __HOST__ void _conv(U16 k=3);                 ///< init convolution layer
+    __HOST__ void _conv(U16 k, bool txn=false, U16 s=1, U16 p=1, U16 d=1); ///< init convolution layer
     __HOST__ void _forward();                     ///< forward propegation handler
     __HOST__ void _backprop();                    ///< backward propegation handler
     __HOST__ void _loss(t4_loss op);              ///< calculate loss
