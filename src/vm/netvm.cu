@@ -189,28 +189,34 @@ NetVM::_set_parm(int n) {
     }
 }
 /// Convolution ops
-/// @default: kxk filter, padding=1, stride=1, dilation=1
+/// @default: kxk filter, transpose=false, stride=1, padding=1, dilation=1
 /// @parameters
-///    k: kernel size
+///    k  : kernel size
+///    txn: transpose
+///    s  : stride
+///    p  : padding
+///    d  : dilation
 ///
 __HOST__ void
-NetVM::_conv(U16 k) {
-    U16 opt[] = { k, k, 1, 1, 1 };      ///> default config vector
-    if (TOS1T) {                        ///> if optional vector given
-        Tensor &v = TTOS;
+NetVM::_conv(U16 k, bool txn, U16 s, U16 p, U16 d) {
+    U16 opt[] = { k, k, s, p, d };      ///< kernel,kernel,stride,padding,dilation
+    if (TOS1T) {                        /// * if optional vector given
+        Tensor &v = TTOS;               ///< tensor setup
         if (v.rank == 1) {
             for (int i=0; i<5; i++) opt[i] = (U16)v.data[i];
             DU t = POP(); DROP(t);
         }
         else { ERROR("vec?"); return; }
     }
-    if (!M2V) { ERROR("Model#add bias c for conv2d required!"); return; }
-    U32 c    = POPi;                    ///> number of output channels
-    DU  bias = POP();                   ///> convolution bias
+    if (!M2V) { ERROR("Model#add bias c for conv2d/dconv2d required!"); return; }
+    const U32      c    = POPi;                           ///> number of output channels
+    const DU       bias = POP();                          ///> convolution bias
+    const t4_layer op   = txn ? L_DCONV : L_CONV;
+    const char     *nm  = Model::nname(op);
     
-    VLOG("NetVM::conv N%d k=%d c=%d bias=%g {\n", (int)MTOS.numel, k, c, bias);
-    MTOS.add(L_CONV, c, bias, opt);
-    VLOG("} NetVM::conv\n");
+    VLOG("NetVM::%s N%d k=%d c=%d bias=%g {\n", nm, (int)MTOS.numel, k, c, bias);
+    MTOS.add(op, c, bias, opt);
+    VLOG("} NetVM::%s\n", nm);
 }
 ///
 /// forward propegation handler
@@ -298,8 +304,9 @@ NetVM::init() {
     ///@}
     ///@defgroup Convolution and Linear ops
     ///@{
-    CODE("conv1x1",   _conv(1));              ///> (N b c -- N')
-    CODE("conv2d",    _conv(3));              ///> (N b c [A] -- N')
+    CODE("conv1x1",   _conv(1));              ///> (N b c -- N')      1x1, stride=1
+    CODE("conv2d",    _conv(3));              ///> (N b c [A] -- N')  3x3, stride=1
+    CODE("dconv2d",   _conv(4, true, 2));     ///> (N b c [A] -- N')  4x4, stride=2
     CODE("linear",    _nnop(L_LINEAR));       ///> (N b c -- N')
     ///@}
     ///@defgroup BatchNorm and Activation ops
