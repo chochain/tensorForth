@@ -44,22 +44,15 @@ __KERN__ void k_conv2d(
     __shared__ DU _I[SSZ][SSZ];            ///< cached input patch
     __shared__ DU _F[KS][KS];              ///< cached filter (one C1,C0 plane)
 
-    const int c0  = blockIdx.z % C0;
-    const int c1  = (blockIdx.z / C0) % C1;
+    const int c0  = blockIdx.z % C0, c1  = (blockIdx.z / C0) % C1;
     const int n   = blockIdx.z / (C0 * C1);
 
     DP_R n_I = I + (long)n * H1 * W1 * C1;        ///< input  slice [n]
     DP_W n_O = O + (long)n * H0 * W0 * C0;        ///< output slice [n]
 
-    const int tx = threadIdx.x, ty = threadIdx.y;
-
-    /// output pixel this thread owns
-    const int j0 = tx + blockIdx.x * TS;          ///< output col
-    const int i0 = ty + blockIdx.y * TS;          ///< output row
-
-    /// top-left input pixel for this output tile (no padding)
-    const int gi0 = blockIdx.y * TS * S;
-    const int gj0 = blockIdx.x * TS * S;
+    const int tx  = threadIdx.x,          ty = threadIdx.y;
+    const int j0  = tx + blockIdx.x * TS, i0 = ty + blockIdx.y * TS;  ///< output row,col
+    const int gj0 = blockIdx.x * TS * S,  gi0 = blockIdx.y * TS * S;  /// tile top-left
     ///
     /// load filter plane [c1, :, :, c0] into shared memory
     ///
@@ -73,9 +66,8 @@ __KERN__ void k_conv2d(
     /// cooperative load of input patch _I[SSZ][SSZ]
     ///
     for (int t = load_id; t < SSZ * SSZ; t += TS * TS) {
-        int si = t / SSZ, sj = t % SSZ;
-        int gi = gi0 + si;
-        int gj = gj0 + sj;
+        int si = t / SSZ,  sj = t % SSZ;
+        int gi = gi0 + si, gj = gj0 + sj;
         _I[si][sj] = (gi >= 0 && gi < H1 && gj >= 0 && gj < W1)
             ? n_I[((long)W1 * gi + gj) * C1 + c1] : DU0;
     }
@@ -85,8 +77,7 @@ __KERN__ void k_conv2d(
     ///
     if (tx < TS && ty < TS && i0 < H0 && j0 < W0) {
         DU sum = B[c0];
-        const int si0 = ty * S;                    ///< top-left of receptive field in _I
-        const int sj0 = tx * S;
+        const int si0 = ty * S, sj0 = tx * S; ///< top-left of receptive field in _I
         #pragma unroll
         for (int y = 0; y < KS; y++) {
             #pragma unroll
@@ -177,25 +168,17 @@ __KERN__ void k_dconv2d(
     __shared__ DU _O[TS][TS];                           ///< output-grad tile
     __shared__ DU _df[KS][KS];                         ///< per-tile dF accumulator
 
-    const int c0 = blockIdx.z % C0;
-    const int c1 = (blockIdx.z / C0) % C1;
+    const int c0 = blockIdx.z % C0, c1 = (blockIdx.z / C0) % C1;
     const int n  = blockIdx.z / (C0 * C1);
 
     DP_R n_I  = I  + (long)n * H1 * W1 * C1;
     DP_R n_O  = O  + (long)n * H0 * W0 * C0;           ///< dO has output spatial dims
     DP_W n_DX = DX + (long)n * H1 * W1 * C1;
 
-    const int tx = threadIdx.x, ty = threadIdx.y;
+    const int tx  = threadIdx.x,          ty  = threadIdx.y;
+    const int j0  = tx + blockIdx.x * TS, i0  = ty + blockIdx.y * TS; ///< output col,row
+    const int gj0 = blockIdx.x * TS * S,  gi0 = blockIdx.y * TS * S;  ///< tile top-left
     const int load_id = ty * TS + tx;
-
-    /// output pixel this thread owns
-    const int j0 = tx + blockIdx.x * TS;               ///< output col
-    const int i0 = ty + blockIdx.y * TS;               ///< output row
-
-    /// top-left of the input patch for this output tile
-    const int gi0 = blockIdx.y * TS * S;
-    const int gj0 = blockIdx.x * TS * S;
-
     ///
     /// load _O[TS][TS] — output-grad tile (output-space)
     ///
@@ -203,7 +186,6 @@ __KERN__ void k_dconv2d(
         _O[ty][tx] = (i0 < H0 && j0 < W0)
             ? n_O[((long)W0 * i0 + j0) * C0 + c0] : DU0;
     }
-
     ///
     /// load _I[ISZ][ISZ] — input patch (input-space)
     ///
@@ -213,13 +195,11 @@ __KERN__ void k_dconv2d(
         _I[si][sj] = (gi >= 0 && gi < H1 && gj >= 0 && gj < W1)
             ? n_I[((long)W1 * gi + gj) * C1 + c1] : DU0;
     }
-
     /// zero shared dF accumulator
     for (int t = load_id; t < KS * KS; t += TS * TS) {
         _df[t / KS][t % KS] = DU0;
     }
     __syncthreads();
-
     ///
     /// dB — sum dO over spatial positions; warp-reduce then atomic
     ///
@@ -261,7 +241,6 @@ __KERN__ void k_dconv2d(
             }
         }
     }
-
     /// pass 2: scatter dX — all F[] loads and multiplies are already done
     if (active) {
         #pragma unroll
@@ -306,24 +285,17 @@ __KERN__ void k_dconv2d0(
     __shared__ DU _O[TS][TS];                    ///< output-grad tile
     __shared__ DU _df[KS][KS];                   ///< per-tile dF accumulator
 
-    const int c0 = blockIdx.z % C0;
-    const int c1 = (blockIdx.z / C0) % C1;
+    const int c0 = blockIdx.z % C0, c1 = (blockIdx.z / C0) % C1;
     const int n  = blockIdx.z / (C0 * C1);
 
     DP_R n_I  = I  + (long)n * H1 * W1 * C1;
     DP_R n_O  = O  + (long)n * H0 * W0 * C0;     ///< dO has output spatial dims
     DP_W n_DX = DX + (long)n * H1 * W1 * C1;
 
-    const int tx = threadIdx.x, ty = threadIdx.y;
+    const int tx  = threadIdx.x,          ty  = threadIdx.y;
+    const int j0  = tx + blockIdx.x * TS, i0  = ty + blockIdx.y * TS; ///< output row,col
+    const int gj0 = blockIdx.x * TS * S,  gi0 = blockIdx.y * TS * S;  ///< tile top-left
     const int load_id = ty * TS + tx;
-
-    /// output pixel this thread owns
-    const int j0 = tx + blockIdx.x * TS;         ///< output col
-    const int i0 = ty + blockIdx.y * TS;         ///< output row
-
-    /// top-left of the input patch for this output tile
-    const int gi0 = blockIdx.y * TS * S;
-    const int gj0 = blockIdx.x * TS * S;
     ///
     /// load _O[TS][TS] — output-grad tile (output-space)
     ///
@@ -340,7 +312,6 @@ __KERN__ void k_dconv2d0(
         _I[si][sj] = (gi >= 0 && gi < H1 && gj >= 0 && gj < W1)
             ? n_I[((long)W1 * gi + gj) * C1 + c1] : DU0;
     }
-
     /// zero shared dF accumulator
     for (int t = load_id; t < KS * KS; t += TS * TS) {
         _df[t / KS][t % KS] = DU0;
@@ -361,10 +332,10 @@ __KERN__ void k_dconv2d0(
     ///   dX[i0*S+ky, j0*S+kx] += F[ky,kx]  * dO[i0,j0]    (scatter → atomic)
     ///   dF[ky,kx]             += I[i0*S+ky, j0*S+kx] * dO[i0,j0]  (reduce)
     ///
-    const bool active   = (tx < TS && ty < TS && i0 < H0 && j0 < W0);
-    const DU   dO_val   = active ? _O[ty][tx] : DU0;
-    const long zf_base  = (long)c1 * KS * KS * C0 + c0;
-    const int  lane     = (ty * blockDim.x + tx) & 31;  ///< warp lane (avoids % each iter)
+    const bool active  = (tx < TS && ty < TS && i0 < H0 && j0 < W0);
+    const long zf_base = (long)c1 * KS * KS * C0 + c0;
+    const int  lane    = (ty * blockDim.x + tx) & 31;  ///< warp lane (avoids % each iter)
+    const DU   dO_val  = active ? _O[ty][tx] : DU0;
     ///
     /// single pass: compute dX and dF together per (ky,kx).
     /// dx_acc[KS][KS] is gone — scatter immediately, saving KS*KS registers.
@@ -378,16 +349,14 @@ __KERN__ void k_dconv2d0(
 
             /// dX: scatter in-loop — no accumulator array needed
             if (active) {
-                const int gi = i0 * S + ky;
-                const int gj = j0 * S + kx;
+                const int gi = i0 * S + ky, gj = j0 * S + kx;
                 if (gi < H1 && gj < W1) {
                     atomicAdd(
                         &n_DX[((long)W1 * gi + gj) * C1 + c1],
                         F[fi_flip] * dO_val);
                 }
             }
-
-            /// dF: warp-reduce dO*I, one atomicAdd to shared accumulator
+            /// dF: warp-reduce dO * I, one atomicAdd to shared accumulator
             if (train) {
                 const DU i_val = active ? _I[ty * S + ky][tx * S + kx] : DU0;
                 DU df0 = dO_val * i_val;
