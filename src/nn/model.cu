@@ -89,23 +89,24 @@ Model::add(t4_layer fn, U32 n, DU bias, U16 *opt) {
 
     for (int i=0; i<5; i++) in.grad[i] = in.mtum[i] = NULL;
     switch(fn) {
-    case L_CONV:    _iconv(in, n, bias, opt);   break;
-    case L_LINEAR:  _ilinear(in, n, bias);      break;
-    case L_FLATTEN: _iflatten(in);              break;
+    case L_CONV:    _iconv(in, n, bias, opt);        break;
+    case L_LINEAR:  _ilinear(in, n, bias);           break;
+    case L_FLATTEN: _iflatten(in);                   break;
     case L_RELU:
     case L_TANH:
     case L_SIGMOID:
     case L_SELU:
     case L_LEAKYRL:
     case L_ELU:
-    case L_DROPOUT: _iactivate(in, bias);       break;
+    case L_DROPOUT: _iactivate(in, bias);            break;
     case L_SOFTMAX:
-    case L_LOGSMAX: _isoftmax(in);              break;
+    case L_LOGSMAX: _isoftmax(in);                   break;
     case L_AVGPOOL:
     case L_MAXPOOL:
-    case L_MINPOOL: _ipool(in, (U16)n);         break;
-    case L_BATCHNM: _ibatchnorm(in, bias);      break;
-    case L_USAMPLE: _iup(in, n, bias);          break;
+    case L_MINPOOL: _ipool(in, (U16)n);              break;
+    case L_BATCHNM: _ibatchnorm(in, bias);           break;
+    case L_USAMPLE: _iup(in, n, bias);               break;
+    case L_DCONV:   _iconv(in, n, bias, opt, true);  break;
     default: ERROR("Model#add layer %d not supported\n", fn);
     }
     in.grad_fn = fn;                           /// * set layer function name
@@ -116,20 +117,31 @@ Model::add(t4_layer fn, U32 n, DU bias, U16 *opt) {
     return *this;
 }
 /// @}
-/// @name Convolution and Linear ops
+/// @name Convolution/Deconvolution and Linear ops
 /// @{
 __HOST__ void
-Model::_iconv(Tensor &in, U32 C0, DU bias, U16 *opt) {
-    U32 N1 = in.N(), C1 = in.C();                     ///> batch_sz, channels
-    U16 Hf = opt[0], Wf = opt[1];                     ///> filter sizing
-    U16 p  = (Hf>1&&opt[2]) ? opt[2] : (Hf-1)/2;      ///> padding
-    U16 s  = opt[3], d = opt[4];                      ///> stride, dilation
-    U16 H0 = (in.H() - Hf + p*2) / s + 1;             ///> output height
-    U16 W0 = (in.W() - Wf + p*2) / s + 1;             ///> output width
-    
-    NN_DB("    model#iconv %dx%d bias=%4.2f {\n", Hf, Wf, bias);
-    if (Hf != Wf || (Hf != 1 && Hf != 3 && Hf != 5)) {
-        ERROR("nn#iconv f=[%d,%d]? 1x1, 3x3, and 5x5 supported only.\n", Hf, Wf);
+Model::_iconv(Tensor &in, U32 C0, DU bias, U16 *opt, bool txn) {
+    U32 N1 = in.N(), H1 = in.H(), W1 = in.W(), C1 = in.C();
+    U16 Hf = opt[0], Wf = opt[1];                     ///< filter sizing
+    U16 s  = opt[2], d = opt[4];                      ///< stride, dilation
+    U16 p  = (Hf>1 && opt[3]) ? opt[3] : (Hf-1)/2;    ///< padding
+    U16 H0, W0, p0;                                   ///< output padding
+    const char *nm = nname(txn ? L_DCONV : L_CONV);   ///< layer name
+    if (txn) {                                        /// * transposed
+        p0 = (H1 + p*2 - Hf) % s;                     /// * output padding
+        H0 = (H1 - 1) * s - p*2 + Hf + p0;            /// * output height
+        W0 = (W1 - 1) * s - p*2 + Wf + p0;            /// * output width
+    }
+    else {                                            /// * non-transposed
+        p0 = 0;                                       /// * no output padding
+        H0 = (H1 - Hf + p*2) / s + 1;                 /// * output height
+        W0 = (H1 - Wf + p*2) / s + 1;                 /// * output width
+    }
+    NN_DB("    model#i% %dx%d bias=%4.2f {\n", nm, Hf, Wf, bias);
+    if ((Hf != Wf) ||
+        (!txn && (Hf != 1 && Hf != 3 && Hf != 5)) ||
+        (txn && (Hf != 4))) {
+        ERROR("nn#i%s f=[%d,%d]? 1x1, 3x3, 4x4, and 5x5 supported only.\n", nm, Hf, Wf);
         return;
     }
     in.stride[0] = in.stride[1] = s;
@@ -138,11 +150,11 @@ Model::_iconv(Tensor &in, U32 C0, DU bias, U16 *opt) {
     /// filter: C1 to C0 fully connected
     /// TODO: filters's 5th dimension is stored in parm field for now
     ///
-    Tensor *f  = in.grad[0] = &T4(C1, Hf, Wf, C0);                       ///< f
-    Tensor *df = in.grad[2] = &T4(C1, Hf, Wf, C0).zeros();               ///< df
-    Tensor *b  = in.grad[1] = &VEC(C0);                                  ///< b
-    Tensor *db = in.grad[3] = &VEC(C0).zeros();                          ///< db
-    Tensor *dx = in.grad[4] = &T4(N1, in.H(), in.W(), C1).zeros();       ///< dx
+    Tensor *f  = in.grad[0] = &T4(C1, Hf, Wf, C0);           ///< f
+    Tensor *df = in.grad[2] = &T4(C1, Hf, Wf, C0).zeros();   ///< df
+    Tensor *b  = in.grad[1] = &VEC(C0);                      ///< b
+    Tensor *db = in.grad[3] = &VEC(C0).zeros();              ///< db
+    Tensor *dx = in.grad[4] = &T4(N1, H1, W1, C1).zeros();   ///< dx
 
     DU k = SQRT(6.0 * RCP(Hf * Wf * C1));        /// * filter default range - Kaiming
 #if (MM_DEBUG && T4_VERBOSE > 1)
@@ -163,7 +175,7 @@ Model::_iconv(Tensor &in, U32 C0, DU bias, U16 *opt) {
     
     Tensor &out= T4(N1, H0, W0, C0);             ///> output tensor
     npush(out);                                  /// * stage for next stage
-    NN_DB("    } model#iconv => k=%6.3f, f.std=%6.3f b.std=%6.3f\n",  k, f->std(), b->std());
+    NN_DB("    } model#i%s => k=%6.3f, f.std=%6.3f b.std=%6.3f\n", nm, k, f->std(), b->std());
 }
 __HOST__ void
 Model::_ilinear(Tensor &in, U32 E0, DU bias) {
