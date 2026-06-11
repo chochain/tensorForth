@@ -111,7 +111,8 @@ AIO::_parm(Tensor &in, Tensor &out) {
     std::ostringstream ss;
     switch(fn) {
     case L_NONE:    /* do nothing  */                  break;
-    case L_CONV:   ss << "bias=" << p << ", C="
+    case L_CONV:
+    case L_DCONV:  ss << "bias=" << p << ", C="
                       << out.C();                      break;
     case L_LINEAR: ss << "bias=" << p << ", H="
                       << in.grad[0]->H();              break;
