@@ -102,8 +102,9 @@ public:
 private:
     /// @name Convolution and Linear initializer
     /// @{
-    __HOST__ void   _iconv(Tensor &in, U32 c, DU bias, U16 *opt);    ///< 2D convolution
-    __HOST__ void   _ilinear(Tensor &in, U32 n, DU bias);            ///< linearize (Dense) with n output
+    __HOST__ void   _iconv(Tensor &in, U32 c, DU bias, U16 *opt);    ///< Conv2D
+    __HOST__ void   _idconv(Tensor &in, U32 c, DU bias, U16 *opt);   ///< ConvTranspose2D
+    __HOST__ void   _ilinear(Tensor &in, U32 n, DU bias);            ///< Dense
     __HOST__ void   _iflatten(Tensor &in);                           ///< flatten
     /// @}
     /// @name Activation ops
