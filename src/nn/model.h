@@ -102,15 +102,15 @@ public:
 private:
     /// @name Convolution and Linear initializer
     /// @{
-    __HOST__ void   _iconv(Tensor &in, U32 c, DU bias, U16 *opt);    ///< Conv2D
-    __HOST__ void   _idconv(Tensor &in, U32 c, DU bias, U16 *opt);   ///< ConvTranspose2D
-    __HOST__ void   _ilinear(Tensor &in, U32 n, DU bias);            ///< Dense
-    __HOST__ void   _iflatten(Tensor &in);                           ///< flatten
+    __HOST__ void   _iconv(                                       ///< Conv2D, and
+        Tensor &in, U32 c, DU bias, U16 *opt, bool txn=false);    ///< ConvTranspose2D
+    __HOST__ void   _ilinear(Tensor &in, U32 n, DU bias);         ///< Dense
+    __HOST__ void   _iflatten(Tensor &in);                        ///< flatten
     /// @}
     /// @name Activation ops
     /// @{
-    __HOST__ void   _isoftmax(Tensor &in);                           ///< for softmax, logsoftmax
-    __HOST__ void   _iactivate(Tensor &in, DU alpha);                ///< relu, tanh, sigmoid, zero out p% of channel data (add noise between data points)
+    __HOST__ void   _isoftmax(Tensor &in);                        ///< for softmax, logsoftmax
+    __HOST__ void   _iactivate(Tensor &in, DU alpha);             ///< relu, tanh, sigmoid, zero out p% of channel data (add noise between data points)
     /// @}
     /// @name Pooling and Dropout ops
     /// @{
