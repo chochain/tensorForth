@@ -119,7 +119,7 @@ matrix[1024,512] = {                 \ in PyTorch style (edgeitem=3)
   clock r> - ;                              \ time it (clock1 - clock0)
  <0 T2[1024,2048] T2[2048,512]> ok
 999 mx                                      \ now try 1000 loops
- <0 T2[1024,2048] T2[2048,512] 3.938+04> ok \ that is 39.38 sec (i.e. ~40ms / loop)
+ <0 T2[1024,2048] T2[2048,512] 3584> ok     \ that is 3.584 sec (i.e. ~3.6ms / loop)
 </pre>
 
 ### Example - CNN Training on MNIST dataset
@@ -587,6 +587,8 @@ If all goes well, some warnings aside, *~/tests/ten4* is your executable. The fo
   + ONNX model exporter (protobuf), can be read by Netron
   + ONNX model importer, load pretrained models (from Model Zoo, Hugging Face)
 * Model
+  + Collections
+    - Deep Layer Aggregration [DLA](https://arxiv.org/pdf/1707.06484)
   + Diffusion, [Stable Diffusion](https://stability.ai/). Pre-trained only?
   + Transformer
     - Review
