@@ -141,12 +141,15 @@ Model::_bstep(Tensor &in, Tensor &out, bool last_layer) {
     }
 }
 
-#define TSZ(r)    (T4_DIM_SZ - 2*(r))      /** 16,14,12 for 1x1,3x3,5x5 conv */
-#define TILE(v,t) ((v) + (t) - 1)/(t)      /** dim of tile  */
-#define DCONV(r)                                                                      \
-    k_dconv2d<TSZ(r),(r)>                                                             \
-    <<<dim3(TILE(W,TSZ(r)), TILE(H,TSZ(r)), C0*C1*N), dim3(T4_DIM_SZ,T4_DIM_SZ,1)>>>  \
-    (in.data, out.data, dx.data, f.data, df.data, db.data, H, W, C0, C1, train)
+#define TILE(v,t) (((v) + (t) - 1)/(t))            /** number of tiles */
+#define DCONV(ks, s) do {                                           \
+        constexpr int TS = (T4_DIM_SZ - (ks) + (s)) / (s);          \
+        k_dconv2d<TS, (ks), (s)>                                    \
+            <<<dim3(TILE(W0, TS), TILE(H0, TS), C0*C1*N),           \
+            dim3(T4_DIM_SZ, T4_DIM_SZ, 1)>>>                        \
+            (in.data, out.data, dx.data, f.data, df.data, db.data,  \
+             H1, W1, H0, W0, C0, C1, train);                        \
+    } while(0)
 
 __HOST__ int
 Model::_bconv(Tensor &in, Tensor &out) {
@@ -155,28 +158,33 @@ Model::_bconv(Tensor &in, Tensor &out) {
     Tensor &dx = *in.grad[4];
 
     NN_DB(" f[%d,%d], b[%ld]", f.H(), f.W(), b.numel);
-    
-    const int N = in.N(), H = in.H(), W = in.W();
-    const int C1 = in.C(), C0 = out.C();
+
+    const int N  = in.N(),  H1 = in.H(),  W1 = in.W();    ///< input dims
+    const int H0 = out.H(), W0 = out.W();                  ///< output dims
+    const int C1 = in.C(),  C0 = out.C();
 
     if (*_trace > 1) {
         _dump_b("before b",   b); _dump_f("before f",  f);
         _dump_b("before db", db); _dump_f("before df", df);
     }
-     
-    cudaMemset(dx.data, 0, dx.numel * sizeof(DU));      ///< pre-zero dX
 
-    const int r = (f.H() - 1) >> 1;
-    switch (r) {
-    case 0: DCONV(0); break;
-    case 1: DCONV(1); break;
-    case 2: DCONV(2); break;
-    case 3: DCONV(3); break;
-    default: ERROR("nn#bconv kernel_size %d not supported\n", f.H()); return -1;
+    cudaMemset(dx.data, 0, dx.numel * sizeof(DU));          ///< pre-zero dX
+
+    const U32 KS = f.H();
+    const U32 S  = in.stride[0];                            ///< forward-pass stride
+
+    switch (KS) {
+    case 1: DCONV(1, 1);  break;
+    case 3: DCONV(3, 1);  break;
+    case 4: DCONV(4, 2);  break;
+    case 5: DCONV(5, 1);  break;
+    default:
+        ERROR("nn#bconv kernel_size=%d stride=%d not supported\n", KS, S);
+        return -1;
     }
-    GPU_CHK();                                         /// * one sync for the whole batch
-    in = dx;                                           /// * x = dX (overwrite all elements)
-    
+    GPU_CHK();
+    in = dx;                                                ///< x = dX (overwrite)
+
     if (*_trace > 1) {
         _dump_b("after db", db); _dump_f("after df", df);
     }
