@@ -31,14 +31,15 @@ typedef enum {
     L_MAXPOOL,
     L_MINPOOL,
     L_BATCHNM,      //> Batch Norm
-    L_USAMPLE       //> UpSample
+    L_USAMPLE,      //> UpSample
+    L_DCONV         //> ConvTranspose
 } t4_layer;
 
 #define LAYER_OP \
     "output ", "conv2d ", "linear ", "flatten", "relu   ", \
     "tanh   ", "sigmoid", "selu   ", "leakyrl", "elu    ", \
     "dropout", "softmax", "logsmax", "avgpool", "maxpool", \
-    "minpool", "batchnm", "upsampl"
+    "minpool", "batchnm", "upsampl", "dconv2d"
 
 typedef enum {
     LOSS_MSE = 0,            ///< mean square error
