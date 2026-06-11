@@ -26,7 +26,7 @@
 ///   SSZ = TS*S + (KS - S)  =  (TS-1)*S + KS
 ///
 template<int TS, int KS, int S=1>
-__global__ void k_conv2d(
+__KERN__ void k_conv2d(
     DP_R I, DP_W O,                        ///> input  I[H_in × W_in × C1]
     DP_R F, DP_R B,                        ///> kernel F[C1 × KS × KS × C0], bias B[C0]
     int H1, int W1,                        ///< input  spatial dims
@@ -161,7 +161,7 @@ __KERN__ void k_pool(
 /// Multiple blocks can write the same dX cell → atomicAdd required.
 ///
 template<int TS, int KS, int S=1>
-__global__ void k_dconv2d(
+__KERN__ void k_dconv2d(
     DP_R I,  DP_R O,                             ///< forward input I, output grad dO
     DP_W DX, DP_R F, DP_W DF, DP_W DB,           ///< dX, filter F, dF, dB
     int H1,  int W1,                             ///< INPUT spatial dims
@@ -185,11 +185,11 @@ __global__ void k_dconv2d(
 
     const int tx = threadIdx.x, ty = threadIdx.y;
     const int load_id = ty * TS + tx;
-    
+
     /// output pixel this thread owns
     const int j0 = tx + blockIdx.x * TS;         ///< output col
     const int i0 = ty + blockIdx.y * TS;         ///< output row
-    
+
     /// top-left of the input patch for this output tile
     const int gi0 = blockIdx.y * TS * S;
     const int gj0 = blockIdx.x * TS * S;
@@ -222,7 +222,7 @@ __global__ void k_dconv2d(
             ? _O[ty][tx] : DU0;
     WARP_SUM(db);
     if ((ty * blockDim.x + tx) % 32 == 0) atomicAdd(&DB[c0], db);
-
+    ///
     /// dX and dF — iterate over kernel positions
     ///
     /// For forward:  O[i0,j0] = sum_{ky,kx} F[ky,kx] * I[i0*S+ky, j0*S+kx]
@@ -230,59 +230,42 @@ __global__ void k_dconv2d(
     ///   dX[i0*S+ky, j0*S+kx] += F[ky,kx]  * dO[i0,j0]    (scatter → atomic)
     ///   dF[ky,kx]             += I[i0*S+ky, j0*S+kx] * dO[i0,j0]  (reduce)
     ///
-    const bool active = (tx < TS && ty < TS && i0 < H0 && j0 < W0);
-    const DU   dO_val = active ? _O[ty][tx] : DU0;
-    const long zf_base = (long)c1 * KS * KS * C0 + c0;
-
-    DU dx_acc[KS][KS];                                 ///< per-thread register accumulator
-    #pragma unroll
-    for (int y = 0; y < KS; y++)
-        #pragma unroll
-        for (int x = 0; x < KS; x++)
-            dx_acc[y][x] = DU0;
-
+    const bool active   = (tx < TS && ty < TS && i0 < H0 && j0 < W0);
+    const DU   dO_val   = active ? _O[ty][tx] : DU0;
+    const long zf_base  = (long)c1 * KS * KS * C0 + c0;
+    const int  lane     = (ty * blockDim.x + tx) & 31;  ///< warp lane (avoids % each iter)
+    ///
+    /// single pass: compute dX and dF together per (ky,kx).
+    /// dx_acc[KS][KS] is gone — scatter immediately, saving KS*KS registers.
+    ///
     #pragma unroll
     for (int ky = 0; ky < KS; ky++) {
         #pragma unroll
         for (int kx = 0; kx < KS; kx++) {
-            /// filter weight F[ky,kx,c1,c0] (180°-flipped for dX)
-            const int fi_fwd  = zf_base + (ky * KS + kx) * C0;          ///< forward index
-            const int fi_flip = zf_base + ((KS-1-ky) * KS + (KS-1-kx)) * C0; ///< flipped
+            /// 180°-flipped filter index for dX
+            const int fi_flip = zf_base + ((KS-1-ky) * KS + (KS-1-kx)) * C0;
 
-            /// input pixel in shared patch: thread (tx,ty) → input (ty*S+ky, tx*S+kx)
-            const DU i_val = active ? _I[ty * S + ky][tx * S + kx] : DU0;
+            /// dX: scatter in-loop — no accumulator array needed
+            if (active) {
+                const int gi = i0 * S + ky;
+                const int gj = j0 * S + kx;
+                if (gi < H1 && gj < W1) {
+                    atomicAdd(
+                        &n_DX[((long)W1 * gi + gj) * C1 + c1],
+                        F[fi_flip] * dO_val);
+                }
+            }
 
-            /// dX scatter — accumulate in register, write after loop
-            if (active) dx_acc[ky][kx] = F[fi_flip] * dO_val;
-
-            /// dF — reduce dy*I across the tile
+            /// dF: warp-reduce dO*I, one atomicAdd to shared accumulator
             if (train) {
+                const DU i_val = active ? _I[ty * S + ky][tx * S + kx] : DU0;
                 DU df0 = dO_val * i_val;
                 WARP_SUM(df0);
-                if ((ty * blockDim.x + tx) % 32 == 0) {
-                    atomicAdd(&_df[ky][kx], df0);
-                }
+                if (lane == 0) atomicAdd(&_df[ky][kx], df0);
             }
         }
     }
     __syncthreads();
-
-    ///
-    /// scatter dX — each thread writes to its S-strided input location(s)
-    /// Multiple output tiles can map to the same input pixel → atomicAdd.
-    ///
-    if (active) {
-        #pragma unroll
-        for (int ky = 0; ky < KS; ky++) {
-            #pragma unroll
-            for (int kx = 0; kx < KS; kx++) {
-                int gi = i0 * S + ky;
-                int gj = j0 * S + kx;
-                if (gi < H1 && gj < W1)
-                    atomicAdd(&n_DX[((long)W1 * gi + gj) * C1 + c1], dx_acc[ky][kx]);
-            }
-        }
-    }
 
     ///
     /// flush _df tile → global dF
