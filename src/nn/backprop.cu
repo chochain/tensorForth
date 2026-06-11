@@ -137,6 +137,7 @@ Model::_bstep(Tensor &in, Tensor &out, bool last_layer) {
     case L_MINPOOL: _bpool(in, out, fn);     break;
     case L_BATCHNM: _bbatchnorm(in, out);    break;
     case L_USAMPLE: _bupsample(in, out, fn); break;
+    case L_DCONV:   _fconv(in, out);         break;
     default: ERROR("nn#bstep layer=%d not supported\n", fn);
     }
 }
