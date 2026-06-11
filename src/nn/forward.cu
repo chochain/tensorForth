@@ -111,28 +111,38 @@ Model::_fstep(Tensor &in, Tensor &out) {
     }
 }
 
-#define TSZ(r)    (T4_DIM_SZ - 2*(r))      /** 16,14,12,10 for r=0,1,2,3.. conv */
-#define TILE(v,t) ((v) + (t) - 1)/(t)      /** dim of tile  */
-#define CONV(r)                                                                 \
-    k_conv2d<TSZ(r),(r)>                                                        \
-    <<<dim3(TILE(W,TSZ(r)),TILE(H,TSZ(r)),C0*N), dim3(T4_DIM_SZ,T4_DIM_SZ,1)>>> \
-    (in.data, out.data, f.data, b.data, H, W, C1, C0)
+#define TILE(v,t) (((v) + (t) - 1)/(t))       /** number of tiles */
+#define CONV(ks, s) do {                                  \
+    constexpr int TS = (T4_DIM_SZ - (ks) + (s)) / (s);    \
+    k_conv2d<TS, (ks), (s)>                               \
+        <<<dim3(TILE(W0, TS), TILE(H0, TS), C0*C1*N),     \
+        dim3(T4_DIM_SZ, T4_DIM_SZ, 1)>>>                  \
+        (in.data, out.data, f.data, b.data,               \
+         H1, W1, H0, W0, C1, C0);                         \
+    } while(0)
 
 __HOST__ int
 Model::_fconv(Tensor &in, Tensor &out) {
-    Tensor &f = *in.grad[0], &b = *in.grad[1];            ///< filter (1x1, 3x3, 5x5, 7x7), bias tensor
+    Tensor &f = *in.grad[0], &b = *in.grad[1];    ///< filter, bias tensors
     NN_DB(" f[%d,%d], b[%ld]", f.H(), f.W(), b.numel);
 
-    const U32 N = out.N(), H = out.H(), W = out.W();      ///< outpt dimensions
-    const U32 C0 = out.C(), C1 = in.C();                  ///< output, input channel deep
+    const U32 N  = out.N(), H0 = out.H(), W0 = out.W(); ///< output dimensions
+    const U32 H1 = in.H(),  W1 = in.W();                ///< input dimensions
+    const U32 C0 = out.C(), C1 = in.C();                ///< output/input channels
 
-    U32 r  = (f.H() - 1) >> 1;
-    switch(r) {
-    case 0: CONV(0); break;                               ///< 1x1 (52 reg)
-    case 1: CONV(1); break;                               ///< 3x3 (56 reg)
-    case 2: CONV(2); break;                               ///< 5x5 (64 reg)
-    case 3: CONV(3); break;                               ///< 7x7 (72 reg)
-    default: ERROR("nn#fconv kernel_size=%d not supported\n", f.H()); return -1;
+    const U32 KS = f.H();                               ///< kernel side length
+    const U32 S  = in.stride[0];                        ///< stride (stored in Tensor.stride[0])
+    ///
+    /// dispatch on (kernel size, stride) pairs.
+    ///
+    switch (KS) {
+    case 1: CONV(1, 1);   break;
+    case 3: CONV(3, 1);   break;
+    case 4: CONV(4, 2);   break;
+    case 5: CONV(5, 1);   break;
+    default:
+        ERROR("nn#fconv kernel_size=%d stride=%d not supported\n", KS, S);
+        return -1;
     }
     GPU_CHK();
     
