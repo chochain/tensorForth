@@ -199,11 +199,11 @@ NetVM::_set_parm(int n) {
 ///
 __HOST__ void
 NetVM::_conv(U16 k, bool txn, U16 s, U16 p, U16 d) {
-    U16 opt[] = { k, k, s, p, d };      ///< kernel,kernel,stride,padding,dilation
+    U16 opt[] = { k, s, p, d };         ///< kernel,stride,padding,dilation
     if (TOS1T) {                        /// * if optional vector given
         Tensor &v = TTOS;               ///< tensor setup
         if (v.rank == 1) {
-            for (int i=0; i<5; i++) opt[i] = (U16)v.data[i];
+            for (int i=0; i < 4 && i < v.numel; i++) opt[i] = (U16)v.data[i];
             DU t = POP(); DROP(t);
         }
         else { ERROR("vec?"); return; }
