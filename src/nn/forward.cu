@@ -112,14 +112,14 @@ Model::_fstep(Tensor &in, Tensor &out) {
     }
 }
 
-#define TILE(v,t) (((v) + (t) - 1)/(t))       /** number of tiles */
-#define CONV(ks, s) do {                                  \
-    constexpr int TS = (T4_DIM_SZ - (ks) + (s)) / (s);    \
-    k_conv2d<TS, (ks), (s)>                               \
-        <<<dim3(TILE(W0, TS), TILE(H0, TS), C0*C1*N),     \
-        dim3(T4_DIM_SZ, T4_DIM_SZ, 1)>>>                  \
-        (in.data, out.data, f.data, b.data,               \
-         H1, W1, H0, W0, C1, C0);                         \
+#define TILE(v,t) (((v) + (t) - 1)/(t))     /** number of tiles */
+#define CONV(ks,s,p) do {                                       \
+    constexpr int TS = (T4_DIM_SZ - (ks) + (s)) / (s);          \
+    dim3 blk(T4_DIM_SZ, T4_DIM_SZ, 1);                          \
+    dim3 grd(TILE(W0, TS), TILE(H0, TS), C0 * C1 * N);          \
+    k_conv2d<TS, (ks), (s), (p)><<<grd,blk>>>(                  \
+        in.data, out.data, f.data, b.data,                      \
+        H1, W1, H0, W0, C1, C0);                                \
     } while(0)
 
 __HOST__ int
@@ -133,17 +133,20 @@ Model::_fconv(Tensor &in, Tensor &out) {
 
     const U32 KS = f.H();                               ///< kernel side length
     const U32 S  = in.stride[0];                        ///< stride (stored in Tensor.stride[0])
+    const U32 P  = in.stride[2];                        ///< padding (stored in Tensor.stride[2])
     ///
-    /// dispatch on (kernel size, stride) pairs.
+    /// dispatch on (kernel size, stride, padding) triples.
     ///
-    switch (KS) {
-    case 1: CONV(1, 1);   break;
-    case 3: CONV(3, 1);   break;
-    case 4: CONV(4, 2);   break;
-    case 5: CONV(5, 1);   break;
-    default:
-        ERROR("nn#fconv kernel_size=%d stride=%d not supported\n", KS, S);
+    switch ((KS << 8) | (S<<4) |  P) {
+    case 0x110: CONV(1, 1, 0);   break;
+    case 0x310: CONV(3, 1, 0);   break;   ///< P=0 for most cases
+    case 0x311: CONV(3, 1, 1);   break;   ///< P=1 for CIFAR-10 padding => same-size
+    case 0x420: CONV(4, 2, 0);   break;   ///< ConvTranspose2D
+    case 0x510: CONV(5, 1, 0);   break;
+    default: {
+        ERROR("nn#fconv kernel_size=%d stride=%d padding=%d not supported\n", KS, S, P);
         return -1;
+    }
     }
     GPU_CHK();
     
@@ -206,17 +209,17 @@ Model::_factivate(Tensor &in, Tensor &out, t4_layer fn) {
 
 __HOST__ int
 Model::_fpool(Tensor &in, Tensor &out, t4_layer fn) {
-    const U32 W  = out.W(), H = out.H();                ///< output dimensions
-    const U32 C  = out.C(), N = out.N();
-    const int ks0= in.stride[0], ks1=in.stride[1];      ///< kernel size
+    const U32 W = out.W(), H = out.H();                ///< output dimensions
+    const U32 C = out.C(), N = out.N();
+    const int K = in.stride[0];                        ///< kernel (TODO: rectangle)
 
-    NN_DB(" %dx%d", ks0, ks1);
+    NN_DB(" %dx%d", K, K);
     
-    switch(ks0) {                                       /// pooling kernel size
+    switch(K) {                                        /// pooling kernel size
     case 2: FORK4(k_pool<2>, 0, fn, in.data, out.data, H, W); break;
     case 3: FORK4(k_pool<3>, 0, fn, in.data, out.data, H, W); break;
     default:
-        ERROR("nn#fpool kernel_size=%d not supported\n", ks0);
+        ERROR("nn#fpool kernel_size=%d not supported\n", K);
         return -1;
     }
     return 0;
@@ -297,13 +300,13 @@ Model::_fupsample(Tensor &in, Tensor &out) {
     const U32 W  = in.W(), H = in.H();                  ///< input dimensions (reversed pool)
     const U32 C  = in.C(), N = in.N();
     const int me = in.iparm;                            ///< upsample method, TODO
-    const int ks = in.stride[0];                        ///< upsampling size
+    const int K  = in.stride[0];                        ///< upsampling size
 
-    switch(ks) {
+    switch(K) {
     case 2: FORK4(k_dpool<2>, 0, L_USAMPLE, out.data, in.data, H, W); break;
     case 3: FORK4(k_dpool<3>, 0, L_USAMPLE, out.data, in.data, H, W); break;
     default:
-        ERROR("nn#fupsample size=%d not supported\n", ks);
+        ERROR("nn#fupsample size=%d not supported\n", K);
         return -1;
     }
     return 0;
