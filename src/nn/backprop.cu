@@ -143,13 +143,13 @@ Model::_bstep(Tensor &in, Tensor &out, bool last_layer) {
 }
 
 #define TILE(v,t) (((v) + (t) - 1)/(t))            /** number of tiles */
-#define DCONV(ks, s) do {                                           \
-        constexpr int TS = (T4_DIM_SZ - (ks) + (s)) / (s);          \
-        k_dconv2d<TS, (ks), (s)>                                    \
-            <<<dim3(TILE(W0, TS), TILE(H0, TS), C0*C1*N),           \
-            dim3(T4_DIM_SZ, T4_DIM_SZ, 1)>>>                        \
-            (in.data, out.data, dx.data, f.data, df.data, db.data,  \
-             H1, W1, H0, W0, C0, C1, train);                        \
+#define DCONV(ks,s,p) do {                                              \
+        constexpr int TS = (T4_DIM_SZ - (ks) + (s)) / (s);              \
+        dim3 blk(T4_DIM_SZ, T4_DIM_SZ, 1);                              \
+        dim3 grd(TILE(W0, TS), TILE(H0, TS), C0*C1*N);                  \
+        k_dconv2d<TS, (ks), (s), (p)><<<grd,blk>>>(                     \
+            in.data, out.data, dx.data, f.data, df.data, db.data,       \
+            H1, W1, H0, W0, C0, C1, train);                             \
     } while(0)
 
 __HOST__ int
@@ -160,7 +160,7 @@ Model::_bconv(Tensor &in, Tensor &out) {
 
     NN_DB(" f[%d,%d], b[%ld]", f.H(), f.W(), b.numel);
 
-    const int N  = in.N(),  H1 = in.H(),  W1 = in.W();    ///< input dims
+    const int N  = in.N(),  H1 = in.H(),  W1 = in.W();     ///< input dims
     const int H0 = out.H(), W0 = out.W();                  ///< output dims
     const int C1 = in.C(),  C0 = out.C();
 
@@ -169,18 +169,20 @@ Model::_bconv(Tensor &in, Tensor &out) {
         _dump_b("before db", db); _dump_f("before df", df);
     }
 
-    cudaMemset(dx.data, 0, dx.numel * sizeof(DU));          ///< pre-zero dX
+    cudaMemset(dx.data, 0, dx.numel * sizeof(DU));         ///< pre-zero dX
 
-    const U32 KS = f.H();
-    const U32 S  = in.stride[0];                            ///< forward-pass stride
+    const U32 K = f.H();
+    const U32 S = in.stride[0];                            ///< stride
+    const U32 P = in.stride[2];                            ///< padding
 
-    switch (KS) {
-    case 1: DCONV(1, 1);  break;
-    case 3: DCONV(3, 1);  break;
-    case 4: DCONV(4, 2);  break;
-    case 5: DCONV(5, 1);  break;
+    switch ((K<<8) | (S<<4) | P) {
+    case 0x110: DCONV(1, 1, 0);  break;
+    case 0x310: DCONV(3, 1, 0);  break;  /// * 3x3 s1 for most of CNN
+    case 0x311: DCONV(3, 1, 1);  break;  /// * 3×3  s1  (P=1 for CIFAR-10)
+    case 0x420: DCONV(4, 2, 0);  break;  /// * 4×4  s2 ConvTranspose2D
+    case 0x510: DCONV(5, 1, 0);  break;  /// * 5×5  s1
     default:
-        ERROR("nn#bconv kernel_size=%d stride=%d not supported\n", KS, S);
+        ERROR("nn#bconv kernel_size=%d stride=%d padding=%d not supported\n", K, S, P);
         return -1;
     }
     GPU_CHK();
@@ -264,12 +266,15 @@ __HOST__ int
 Model::_bpool(Tensor &in, Tensor &out, t4_layer fn) {
     const U32 W = out.W(), H = out.H();               ///< output dimensions
     const U32 C = out.C(), N = out.N();
-    const int ks = in.stride[0];                      ///< kernel size (square)
-    switch(ks) {
+    const int K = in.stride[0];                      ///< kernel size (square)
+    
+    NN_DB(" %dx%d", K, K);
+    
+    switch(K) {
     case 2: FORK4(k_dpool<2>, 0, fn, in.data, out.data, H, W); break;
     case 3: FORK4(k_dpool<3>, 0, fn, in.data, out.data, H, W); break;
     default:
-        ERROR("nn#bpool kernel_size=%d not supported\n", ks);
+        ERROR("nn#bpool kernel_size=%d not supported\n", K);
         return -1;
     }
     return 0;
@@ -282,13 +287,13 @@ Model::_bupsample(Tensor &in, Tensor &out, t4_layer fn) {
     const U32 W  = in.W(), H = in.H();                ///< input dimensions (reversed pool)
     const U32 C  = in.C(), N = in.N();
     const int me = in.iparm;                          ///< upsample method, TODO
-    const int ks = in.stride[0];                      ///< kernel size (square?)
+    const int K  = in.stride[0];                      ///< kernel size (square?)
 
-    switch(ks) {                                      /// by kernel size
+    switch(K) {                                       /// by kernel size
     case 2: FORK4(k_pool<2>, 0, fn, out.data, in.data, H, W); break;
     case 3: FORK4(k_pool<3>, 0, fn, out.data, in.data, H, W); break;
     default:
-        ERROR("nn#bupsample size=%d not supported\n", ks);
+        ERROR("nn#bupsample size=%d not supported\n", K);
         return -1;
     }
     return 0;
