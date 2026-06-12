@@ -104,8 +104,7 @@ AIO::_model(Model &m) {
 __HOST__ std::string
 AIO::_parm(Tensor &in, Tensor &out) {
     t4_layer fn = in.grad_fn;             ///< layer function
-    int      ks0= in.stride[0];           ///< kernel size
-    int      ks1= in.stride[1];           ///< kernel size
+    int      K  = in.stride[0];           ///< kernel size
     DU       p  = in.xparm;               ///< layer parameter
     
     std::ostringstream ss;
@@ -128,11 +127,11 @@ AIO::_parm(Tensor &in, Tensor &out) {
     case L_LOGSMAX: /* do nothing */                   break;
     case L_AVGPOOL:
     case L_MAXPOOL:
-    case L_MINPOOL: ss << "n=" << ks0 << "x" << ks1;   break;
+    case L_MINPOOL: ss << "n=" << K << "x" << K;       break;
     case L_BATCHNM: ss << "mtum=" << p;                break;
     case L_USAMPLE: {
         const char *nm[] = { "nearest", "linear", "bilinear", "cubic" };
-        ss << ks0 << "x" << ks1 << " " << nm[in.iparm];
+        ss << K << "x" << K << " " << nm[in.iparm];
     } break;
     default: ss << "unknown layer=" << fn;             break;
     }
