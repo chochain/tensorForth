@@ -31,11 +31,12 @@ namespace t4::nn {
 #define SELU_L  1.0507                     /** Selu lambda */
 #define SELU_LA 1.7581                     /** Selu alpha  */
 ///============================================================================
-/// forward
+/// @name forward kernel functions
+/// @note - template functions included at the end of this file
+///   template<TS,K,S,P> void k_conv2d(...)
+///   template<K>        void k_pool(...)
 ///============================================================================
-/// template<int TS, int R> void k_conv2d   ///> include at the end of this file
-/// template<int KS>        void k_pool
-///
+/// @{
 __KERN__ void k_bias(
     DP_R B, DP_W O, int N, int E0);
 __KERN__ void k_activate(
@@ -55,12 +56,14 @@ __KERN__ void k_batchnorm(
     DP_R avg, DP_R rvar,                    ///< mean, 1.0/(stdvar + e)
     DP_R w, DP_R b,                         ///< gamma, beta
     long HW);                               ///< H0=H1, W0==W1 (C0==C1)
+///@}
 ///============================================================================
-/// backprop
+/// @name backprop kernel functions
+/// @note - template functions included at the end of this file
+///   template<TS,K,S,P> void k_dconv2d(...)
+///   template<K>        void k_dpool(...)
 ///============================================================================
-/// template<int TS, int R> void k_dconv2d  /// included at the end of 
-/// template<int KS>        void k_dpool
-///
+///@{
 __KERN__ void k_dlinear_db(
     DP_R O, DP_W DB, int N, int E0);
 __KERN__ void k_batchnorm_1(                ///< reduce
@@ -82,9 +85,11 @@ __KERN__ void k_dbatchnorm(                 ///< final update
     DP_R s1,                                ///< gvar * mean(dout)        [N,C]
     DP_R s2,                                ///< gvar * mean(dout * x_hat)[N,C]
     long HW);                               ///< H*W
+///@}
 ///============================================================================
-/// gradient
+/// @name gradient kernel functions
 ///============================================================================
+///@{
 __KERN__ void k_sgd(
     DP_X G, DP_X DG, DP_X M,                 ///< w, dw, and momemtum tensors
     int N,                                   ///< batch size
@@ -95,7 +100,7 @@ __KERN__ void k_adam(
     int N,                                   ///< batch size
     DU lrc, DU b1, DU b2,                    ///< corrected learn rate, beta(momemtum)
     long numel);
-
+///@}
 #include "nmath.tcu"                         ///< templates (EOF include)
 
 #endif  // (T4_DO_OBJ && T4_DO_NN)
