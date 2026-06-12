@@ -122,46 +122,47 @@ Model::add(t4_layer fn, U32 n, DU bias, U16 *opt) {
 __HOST__ void
 Model::_iconv(Tensor &in, U32 C0, DU bias, U16 *opt, bool txn) {
     U32 N1 = in.N(), H1 = in.H(), W1 = in.W(), C1 = in.C();
-    U16 Hf = opt[0], Wf = opt[1];                     ///< filter sizing
-    U16 s  = opt[2], d = opt[4];                      ///< stride, dilation
-    U16 p  = (Hf>1 && opt[3]) ? opt[3] : (Hf-1)/2;    ///< padding
-    U16 H0, W0, p0;                                   ///< output padding
+    U16 Kx = opt[0], Ky = opt[0];                     ///< kernel sizes (TODO: rectangle)
+    U16 S  = opt[1], D  = opt[3];                     ///< stride, (TODO: dilation)
+    U16 P  = (Kx>1 && opt[2]) ? opt[2] : (Kx-1)/2;    ///< padding (TODO: rectangle)
+    U16 H0, W0, P0;                                   ///< output padding
     const char *nm = nname(txn ? L_DCONV : L_CONV);   ///< layer name
     if (txn) {                                        /// * transposed
-        p0 = (H1 + p*2 - Hf) % s;                     /// * output padding
-        H0 = (H1 - 1) * s - p*2 + Hf + p0;            /// * output height
-        W0 = (W1 - 1) * s - p*2 + Wf + p0;            /// * output width
+        P0 = (H1 + P*2 - Kx) % S;                     /// * output padding
+        H0 = (H1 - 1) * S - P*2 + Kx + P0;            /// * output height
+        W0 = (W1 - 1) * S - P*2 + Ky + P0;            /// * output width
     }
     else {                                            /// * non-transposed
-        p0 = 0;                                       /// * no output padding
-        H0 = (H1 - Hf + p*2) / s + 1;                 /// * output height
-        W0 = (H1 - Wf + p*2) / s + 1;                 /// * output width
+        P0 = 0;                                       /// * no output padding
+        H0 = (H1 - Kx + P*2) / S + 1;                 /// * output height
+        W0 = (H1 - Ky + P*2) / S + 1;                 /// * output width
     }
-    NN_DB("    model#i% %dx%d bias=%4.2f {\n", nm, Hf, Wf, bias);
-    if ((Hf != Wf) ||
-        (!txn && (Hf != 1 && Hf != 3 && Hf != 5)) ||
-        (txn && (Hf != 4))) {
-        ERROR("nn#i%s f=[%d,%d]? 1x1, 3x3, 4x4, and 5x5 supported only.\n", nm, Hf, Wf);
+    NN_DB("    model#i% %dx%d bias=%4.2f {\n", nm, Kx, Ky, bias);
+    if ((Kx != Ky) ||
+        (!txn && (Kx != 1 && Kx != 3 && Kx != 5)) ||
+        (txn && (Kx != 4))) {
+        ERROR("nn#i%s f=[%d,%d]? 1x1, 3x3, 4x4, and 5x5 supported only.\n", nm, Kx, Ky);
         return;
     }
-    in.stride[0] = in.stride[1] = s;
+    in.stride[0] = in.stride[1] = S;
+    in.stride[2] = in.stride[3] = P;
     in.xparm = bias;
     ///
     /// filter: C1 to C0 fully connected
     /// TODO: filters's 5th dimension is stored in parm field for now
     ///
-    Tensor *f  = in.grad[0] = &T4(C1, Hf, Wf, C0);           ///< f
-    Tensor *df = in.grad[2] = &T4(C1, Hf, Wf, C0).zeros();   ///< df
+    Tensor *f  = in.grad[0] = &T4(C1, Kx, Ky, C0);           ///< f
+    Tensor *df = in.grad[2] = &T4(C1, Kx, Ky, C0).zeros();   ///< df
     Tensor *b  = in.grad[1] = &VEC(C0);                      ///< b
     Tensor *db = in.grad[3] = &VEC(C0).zeros();              ///< db
     Tensor *dx = in.grad[4] = &T4(N1, H1, W1, C1).zeros();   ///< dx
 
-    DU k = SQRT(6.0 * RCP(Hf * Wf * C1));        /// * filter default range - Kaiming
+    DU k = SQRT(6.0 * RCP(Kx * Ky * C1));        /// * filter default range - Kaiming
 #if (MM_DEBUG && T4_VERBOSE > 1)
     f->map(FILL, 0.5);                           /// * debug
     b->map(FILL, -0.5);
     
-    NN_DB("    f[%d,%d,%d,%d]=", C1, Hf, Hf, C0);
+    NN_DB("    f[%d,%d,%d,%d]=", C1, Kx, Ky, C0);
     for (U64 i=0; i < f->numel; i++) NN_DB("%6.3f", f->data[i]);
     NN_DB("\n");
     NN_DB("    b[%d]=", C0);
@@ -177,6 +178,7 @@ Model::_iconv(Tensor &in, U32 C0, DU bias, U16 *opt, bool txn) {
     npush(out);                                  /// * stage for next stage
     NN_DB("    } model#i%s => k=%6.3f, f.std=%6.3f b.std=%6.3f\n", nm, k, f->std(), b->std());
 }
+
 __HOST__ void
 Model::_ilinear(Tensor &in, U32 E0, DU bias) {
     NN_DB("    model#ilinear bias=%4.2f {\n", bias);
