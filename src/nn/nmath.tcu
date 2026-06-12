@@ -10,29 +10,31 @@
 ///==============================================================================
 ///
 /// k_conv2d — supports both odd kernels (KS=2R+1, stride=1) and
-///             even kernels (e.g. KS=4, stride=S).
+///             even kernels (e.g. KS=4, stride=S), with optional
+///             zero-padding P on all four sides.
 ///
 /// Template params:
 ///   TS  — output tile side (threads per block edge)
 ///   KS  — kernel side (1,3,4,5,7 …)
 ///   S   — stride (1 or 2)
+///   P   — zero-padding applied to each side of the input (0,1,2 …)
 ///
 /// Output spatial size (caller must pre-compute):
-///   H0 = (H1 - KS) / S + 1   (no padding)
-///   W0 = (W1 - KS) / S + 1
+///   H0 = (H1 + 2*P - KS) / S + 1
+///   W0 = (W1 + 2*P - KS) / S + 1
 ///
 /// Shared-memory input patch covers the input region touched by
-/// one TS×TS output tile:
-///   SSZ = TS*S + (KS - S)  =  (TS-1)*S + KS
+/// one TS×TS output tile (same as before; padding is handled by
+/// the existing bounds-check that zero-fills out-of-range loads):
+///   SSZ = (TS-1)*S + KS
 ///
-//__launch_bounds__(T4_DIM_SZ * T4_DIM_SZ, 4)           ///< to control occupancy
-template<int TS, int KS, int S=1>
+template<int TS, int KS, int S, int P>
 __KERN__ void k_conv2d(
-    DP_R I, DP_W O,                        ///> input  I[H_in × W_in × C1]
-    DP_R F, DP_R B,                        ///> kernel F[C1 × KS × KS × C0], bias B[C0]
-    int H1, int W1,                        ///< input  spatial dims
-    int H0, int W0,                        ///< output spatial dims
-    int C1, int C0                         ///< input / output channels
+    DP_R I, DP_W O,                          ///< input  I[N1 x H1 × W1 × C1]
+    DP_R F, DP_R B,                          ///< kernel F[C1 × KS × KS × C0], bias B[C0]
+    int H1, int W1,                          ///< input  spatial dims
+    int H0, int W0,                          ///< output spatial dims
+    int C1, int C0                           ///< input / output channels
     ) {
     ///
     /// shared-memory patch size for this tile under stride S:
@@ -41,18 +43,27 @@ __KERN__ void k_conv2d(
     ///
     constexpr int SSZ = (TS - 1) * S + KS;
 
-    __shared__ DU _I[SSZ][SSZ];            ///< cached input patch
-    __shared__ DU _F[KS][KS];              ///< cached filter (one C1,C0 plane)
+    __shared__ DU _I[SSZ][SSZ];              ///< cached input patch
+    __shared__ DU _F[KS][KS];                ///< cached filter (one C1,C0 plane)
 
-    const int c0  = blockIdx.z % C0, c1  = (blockIdx.z / C0) % C1;
+    const int c0  = blockIdx.z % C0;         ///< blockIdx.z = C0 * C1 * N
+    const int c1  = (blockIdx.z / C0) % C1;
     const int n   = blockIdx.z / (C0 * C1);
 
-    DP_R n_I = I + (long)n * H1 * W1 * C1;        ///< input  slice [n]
-    DP_W n_O = O + (long)n * H0 * W0 * C0;        ///< output slice [n]
+    DP_R n_I = I + (long)n * H1 * W1 * C1;   ///< input  slice [n]
+    DP_W n_O = O + (long)n * H0 * W0 * C0;   ///< output slice [n]
 
-    const int tx  = threadIdx.x,          ty = threadIdx.y;
-    const int j0  = tx + blockIdx.x * TS, i0 = ty + blockIdx.y * TS;  ///< output row,col
-    const int gj0 = blockIdx.x * TS * S,  gi0 = blockIdx.y * TS * S;  /// tile top-left
+    const int tx = threadIdx.x, ty = threadIdx.y;
+
+    /// output pixel this thread owns
+    const int j0 = tx + blockIdx.x * TS;     ///< output col
+    const int i0 = ty + blockIdx.y * TS;     ///< output row
+    ///
+    /// top-left input pixel for this output tile, accounting for padding:
+    ///   output pixel (blockIdx.y*TS) maps to input pixel (blockIdx.y*TS*S - P)
+    ///
+    const int gi0 = blockIdx.y * TS * S - P;
+    const int gj0 = blockIdx.x * TS * S - P;
     ///
     /// load filter plane [c1, :, :, c0] into shared memory
     ///
@@ -77,7 +88,7 @@ __KERN__ void k_conv2d(
     ///
     if (tx < TS && ty < TS && i0 < H0 && j0 < W0) {
         DU sum = B[c0];
-        const int si0 = ty * S, sj0 = tx * S; ///< top-left of receptive field in _I
+        const int si0 = ty * S, sj0 = tx * S;  ///< top-left of receptive field in _I
         #pragma unroll
         for (int y = 0; y < KS; y++) {
             #pragma unroll
@@ -85,7 +96,7 @@ __KERN__ void k_conv2d(
                 sum += _F[y][x] * _I[si0 + y][sj0 + x];
             }
         }
-        n_O[((long)W0 * i0 + j0) * C0 + c0] = sum; ///< single write, no atomic
+        n_O[((long)W0 * i0 + j0) * C0 + c0] = sum;   ///< single write, no atomic
     }
 }
 
@@ -141,7 +152,7 @@ __KERN__ void k_pool(
 ///   S   — forward-pass stride
 ///
 /// Dimensions (H1,W1 are INPUT dims; H0,W0 are output dims):
-///   H0 = (H1 - KS) / S + 1,  W0 = (W1 - KS) / S + 1
+///   H0 = (H1 + 2*P - KS) / S + 1,  W0 = (W1 + 2*P - KS) / S + 1
 ///
 /// Shared memory strategy:
 ///   _O[TS][TS]           — output-grad tile (TS×TS output pixels)
@@ -149,11 +160,11 @@ __KERN__ void k_pool(
 ///     ISZ = (TS-1)*S + KS  (same formula as forward SSZ)
 ///   _df[KS][KS]          — per-tile dF accumulator
 ///
-/// dX scatter: output pixel (i0,j0) only touches input (i0*S+ky, j0*S+kx).
+/// dX scatter: forward input coordinate is (i0*S + ky - P, j0*S + kx - P).
+/// Must guard gi >= 0 && gj >= 0 (pad region has no real input cell).
 /// Multiple blocks can write the same dX cell → atomicAdd required.
 ///
-//__launch_bounds__(T4_DIM_SZ * T4_DIM_SZ, 4)           ///< to control occupancy
-template<int TS, int KS, int S=1>
+template<int TS, int KS, int S, int P>
 __KERN__ void k_dconv2d(
     DP_R I,  DP_R O,                                    ///< forward input I, output grad dO
     DP_W DX, DP_R F, DP_W DF, DP_W DB,                  ///< dX, filter F, dF, dB
@@ -168,17 +179,25 @@ __KERN__ void k_dconv2d(
     __shared__ DU _O[TS][TS];                           ///< output-grad tile
     __shared__ DU _df[KS][KS];                         ///< per-tile dF accumulator
 
-    const int c0 = blockIdx.z % C0, c1 = (blockIdx.z / C0) % C1;
+    const int c0 = blockIdx.z % C0;
+    const int c1 = (blockIdx.z / C0) % C1;
     const int n  = blockIdx.z / (C0 * C1);
 
     DP_R n_I  = I  + (long)n * H1 * W1 * C1;
     DP_R n_O  = O  + (long)n * H0 * W0 * C0;           ///< dO has output spatial dims
     DP_W n_DX = DX + (long)n * H1 * W1 * C1;
 
-    const int tx  = threadIdx.x,          ty  = threadIdx.y;
-    const int j0  = tx + blockIdx.x * TS, i0  = ty + blockIdx.y * TS; ///< output col,row
-    const int gj0 = blockIdx.x * TS * S,  gi0 = blockIdx.y * TS * S;  ///< tile top-left
+    const int tx = threadIdx.x, ty = threadIdx.y;
     const int load_id = ty * TS + tx;
+
+    /// output pixel this thread owns
+    const int j0 = tx + blockIdx.x * TS;               ///< output col
+    const int i0 = ty + blockIdx.y * TS;               ///< output row
+
+    /// top-left of the input patch for this output tile, accounting for padding
+    const int gi0 = blockIdx.y * TS * S - P;
+    const int gj0 = blockIdx.x * TS * S - P;
+
     ///
     /// load _O[TS][TS] — output-grad tile (output-space)
     ///
@@ -186,6 +205,7 @@ __KERN__ void k_dconv2d(
         _O[ty][tx] = (i0 < H0 && j0 < W0)
             ? n_O[((long)W0 * i0 + j0) * C0 + c0] : DU0;
     }
+
     ///
     /// load _I[ISZ][ISZ] — input patch (input-space)
     ///
@@ -195,30 +215,36 @@ __KERN__ void k_dconv2d(
         _I[si][sj] = (gi >= 0 && gi < H1 && gj >= 0 && gj < W1)
             ? n_I[((long)W1 * gi + gj) * C1 + c1] : DU0;
     }
+
     /// zero shared dF accumulator
     for (int t = load_id; t < KS * KS; t += TS * TS) {
         _df[t / KS][t % KS] = DU0;
     }
     __syncthreads();
+
     ///
     /// dB — sum dO over spatial positions; warp-reduce then atomic
     ///
     DU db = (train && tx < TS && ty < TS && i0 < H0 && j0 < W0)
             ? _O[ty][tx] : DU0;
-    WARP_SUM(db);
+    #pragma unroll
+    for (int off = 16; off > 0; off >>= 1)
+        db += __shfl_down_sync(0xffffffff, db, off);
     if ((ty * blockDim.x + tx) % 32 == 0) atomicAdd(&DB[c0], db);
+
     ///
     /// dX and dF — iterate over kernel positions
     ///
     /// For forward:  O[i0,j0] = sum_{ky,kx} F[ky,kx] * I[i0*S+ky, j0*S+kx]
     /// So:
     ///   dX[i0*S+ky, j0*S+kx] += F[ky,kx]  * dO[i0,j0]    (scatter → atomic)
-    ///   dF[ky,kx]            += I[i0*S+ky, j0*S+kx] * dO[i0,j0]  (reduce)
+    ///   dF[ky,kx]             += I[i0*S+ky, j0*S+kx] * dO[i0,j0]  (reduce)
     ///
     const bool active   = (tx < TS && ty < TS && i0 < H0 && j0 < W0);
     const DU   dO_val   = active ? _O[ty][tx] : DU0;
     const long zf_base  = (long)c1 * KS * KS * C0 + c0;
     const int  lane     = (ty * blockDim.x + tx) & 31;  ///< warp lane (avoids % each iter)
+
     ///
     /// pass 1: compute dX into registers and dF into shared — no atomics yet for dX.
     /// With 16 registers free (48 used, 64 ceiling), dx_acc[KS][KS] fits cleanly.
@@ -241,22 +267,22 @@ __KERN__ void k_dconv2d(
             }
         }
     }
+
     /// pass 2: scatter dX — all F[] loads and multiplies are already done
     if (active) {
         #pragma unroll
         for (int ky = 0; ky < KS; ky++) {
             #pragma unroll
             for (int kx = 0; kx < KS; kx++) {
-                const int gi = i0 * S + ky, gj = j0 * S + kx;
-                if (gi < H1 && gj < W1) {
-                    atomicAdd(
-                        &n_DX[((long)W1 * gi + gj) * C1 + c1],
-                        dx_acc[ky][kx]);
-                }
+                const int gi = i0 * S + ky - P;
+                const int gj = j0 * S + kx - P;
+                if (gi >= 0 && gi < H1 && gj >= 0 && gj < W1)
+                    atomicAdd(&n_DX[((long)W1 * gi + gj) * C1 + c1], dx_acc[ky][kx]);
             }
         }
     }
     __syncthreads();
+
     ///
     /// flush _df tile → global dF
     ///
