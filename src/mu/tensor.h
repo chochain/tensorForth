@@ -42,7 +42,7 @@ namespace t4::mu {
 #endif // T4_VERBOSE
 
 struct Tensor : public T4Base {
-    U16      stride[4] = {1,1,1,1}; ///< stride=HWCN, for calc memory offset
+    U16      stride[4] = {1,1,1,1}; ///< [strideH, strideW, paddingH, paddingW]
     U32      shape[4]  = {1,1,1,1}; ///< shape=HWCN, matrix C=N=1, vector W=C=N=1
     t4_layer grad_fn   = L_NONE;    ///< grandiant funtion type
     Tensor   *grad[5];              ///< gradient and jacobian tensors
