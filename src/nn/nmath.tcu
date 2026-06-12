@@ -197,7 +197,6 @@ __KERN__ void k_dconv2d(
     /// top-left of the input patch for this output tile, accounting for padding
     const int gi0 = blockIdx.y * TS * S - P;
     const int gj0 = blockIdx.x * TS * S - P;
-
     ///
     /// load _O[TS][TS] — output-grad tile (output-space)
     ///
@@ -205,7 +204,6 @@ __KERN__ void k_dconv2d(
         _O[ty][tx] = (i0 < H0 && j0 < W0)
             ? n_O[((long)W0 * i0 + j0) * C0 + c0] : DU0;
     }
-
     ///
     /// load _I[ISZ][ISZ] — input patch (input-space)
     ///
@@ -221,17 +219,13 @@ __KERN__ void k_dconv2d(
         _df[t / KS][t % KS] = DU0;
     }
     __syncthreads();
-
     ///
     /// dB — sum dO over spatial positions; warp-reduce then atomic
     ///
     DU db = (train && tx < TS && ty < TS && i0 < H0 && j0 < W0)
             ? _O[ty][tx] : DU0;
-    #pragma unroll
-    for (int off = 16; off > 0; off >>= 1)
-        db += __shfl_down_sync(0xffffffff, db, off);
+    WARP_SUM(db);
     if ((ty * blockDim.x + tx) % 32 == 0) atomicAdd(&DB[c0], db);
-
     ///
     /// dX and dF — iterate over kernel positions
     ///
@@ -244,12 +238,17 @@ __KERN__ void k_dconv2d(
     const DU   dO_val   = active ? _O[ty][tx] : DU0;
     const long zf_base  = (long)c1 * KS * KS * C0 + c0;
     const int  lane     = (ty * blockDim.x + tx) & 31;  ///< warp lane (avoids % each iter)
-
     ///
     /// pass 1: compute dX into registers and dF into shared — no atomics yet for dX.
     /// With 16 registers free (48 used, 64 ceiling), dx_acc[KS][KS] fits cleanly.
     /// Decoupling accumulation from scatter lets the compiler pipeline F[] loads
     /// across the full KS×KS body before hitting any atomic contention.
+    ///
+    /// CC: ?with dx_acc, speed almost identical (compare to k_dconv2d0 below)
+    ///     4x4 => 64 registers (vs 48 without)
+    ///     5x5 => 84 registers (vs 61 without)
+    ///     possibly because MNIST 28x28 is small, SM are under-filled, so
+    ///     memory latency and launch overhead dictate, wait for CelebA 64x64x3 and see
     ///
     DU dx_acc[KS][KS];
     #pragma unroll
@@ -267,7 +266,6 @@ __KERN__ void k_dconv2d(
             }
         }
     }
-
     /// pass 2: scatter dX — all F[] loads and multiplies are already done
     if (active) {
         #pragma unroll
@@ -282,7 +280,6 @@ __KERN__ void k_dconv2d(
         }
     }
     __syncthreads();
-
     ///
     /// flush _df tile → global dF
     ///
@@ -296,7 +293,7 @@ __KERN__ void k_dconv2d(
 ///
 /// * no dx_acc to conserve registers (more atomicAdd)
 ///
-template<int TS, int KS, int S=1>
+template<int TS, int KS, int S, int P>
 __KERN__ void k_dconv2d0(
     DP_R I,  DP_R O,                             ///< forward input I, output grad dO
     DP_W DX, DP_R F, DP_W DF, DP_W DB,           ///< dX, filter F, dF, dB
@@ -318,10 +315,12 @@ __KERN__ void k_dconv2d0(
     DP_R n_O  = O  + (long)n * H0 * W0 * C0;     ///< dO has output spatial dims
     DP_W n_DX = DX + (long)n * H1 * W1 * C1;
 
-    const int tx  = threadIdx.x,          ty  = threadIdx.y;
-    const int j0  = tx + blockIdx.x * TS, i0  = ty + blockIdx.y * TS; ///< output row,col
-    const int gj0 = blockIdx.x * TS * S,  gi0 = blockIdx.y * TS * S;  ///< tile top-left
+    const int tx  = threadIdx.x, ty  = threadIdx.y;
     const int load_id = ty * TS + tx;
+    const int j0  = tx + blockIdx.x * TS;        ///< output row,col
+    const int i0  = ty + blockIdx.y * TS;
+    const int gi0 = blockIdx.y * TS * S - P;     /// top-left of the input patch
+    const int gj0 = blockIdx.x * TS * S - P;
     ///
     /// load _O[TS][TS] — output-grad tile (output-space)
     ///
@@ -375,8 +374,8 @@ __KERN__ void k_dconv2d0(
 
             /// dX: scatter in-loop — no accumulator array needed
             if (active) {
-                const int gi = i0 * S + ky, gj = j0 * S + kx;
-                if (gi < H1 && gj < W1) {
+                const int gi = i0 * S + ky - P, gj = j0 * S + kx - P;
+                if (gi >=0 && gi < H1 && gj >= 0 && gj < W1) {
                     atomicAdd(
                         &n_DX[((long)W1 * gi + gj) * C1 + c1],
                         F[fi_flip] * dO_val);
