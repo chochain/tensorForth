@@ -58,8 +58,8 @@ constant ds1                        \ keep testing dataset as a constant
   hit @ dsz1 / dup ." test/acc=" . cr \ show test accuracy
   s" test/acc" .scalar ;              \ send to tensorboard
 
-: cnn ( M n -- M' ) 1+ 0            \ run multiple [0..n] epochs 
-  do
+: cnn ( M n -- M' )                 \ full CNN run
+  1+ 0 do                             \ multiple epochs [0..n]
     train_epoch                       \ run one trainning epoch
     r@ stat histo                     \ send statistics, histogram to tensorboard
     test_epoch                        \ run one validation epoch
@@ -68,8 +68,9 @@ constant ds1                        \ keep testing dataset as a constant
 
 0 trace
 .( ###  )
-md0 network .graph                  \ put model as TOS, show and to tensorboard graph
-ds0 16 s" corpus/image" .tile       \ get dataset, sample images, 10-wide, to tensorboard
+md0 network dup .graph              \ put model as TOS, show and to tensorboard graph
+ds0 16 s" mnist/train" .tile        \ sample training dataset, 16-wide, to tensorboard
+ds1 16 s" mnist/test"  .tile        \ sample testing  dataset, 16-wide
 clock to t0                         \ get starting time
 20 cnn                              \ execute multiple (20) epoches
 
