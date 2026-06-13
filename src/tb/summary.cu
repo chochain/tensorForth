@@ -147,7 +147,7 @@ Summary::graph(T4Base &b) {
         std::string nm  = _tname(in, i);
         std::string nm0 = i==0 ? std::string("input") : _tname(m[i-1], i-1);
         
-        INFO("%s <= %s fn=%d\n", nm0.c_str(), nm.c_str(), in.grad_fn);
+//        INFO("%s <= %s fn=%d\n", nm0.c_str(), nm.c_str(), in.grad_fn);
         
         n.init(nm.c_str(), op[in.grad_fn], nm0.c_str());
         _node_attr(n, in);
