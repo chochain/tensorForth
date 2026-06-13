@@ -257,15 +257,15 @@ Model::_iactivate(Tensor &in, DU alpha) {
 /// @name Pooling, Dropout, and UpSample ops
 /// @{
 __HOST__ void
-Model::_ipool(Tensor &in, U16 f) {
-    NN_DB("    model#ipool %dx%d {\n", f, f);
-    if (f != 2 && f != 3) {
-        ERROR("nn#ipool f=%dx%d? 2x2 and 3x3 supported only\n", f, f);
+Model::_ipool(Tensor &in, U16 k) {
+    NN_DB("    model#ipool %dx%d {\n", k, k);
+    if (k != 2 && k != 3) {
+        ERROR("nn#ipool k=%dx%d? 2x2 and 3x3 supported only\n", k, k);
         return;
     }
-    U32 H0 = (in.H() - f) / f + 1;
-    U32 W0 = (in.W() - f) / f + 1;
-    U16 s[4] = { f, f, 1, 1 }; memcpy(in.stride, s, sizeof(s));  /// stride
+    U32 H0 = (in.H() + k - 1) / k;
+    U32 W0 = (in.W() + k - 1) / k;
+    U16 s[4] = { k, 1, 1, 0 }; memcpy(in.stride, s, sizeof(s));  /// stride
     
     Tensor &out = T4(in.N(), H0, W0, in.C());
     npush(out);                                  /// * stage for next stage
@@ -292,21 +292,21 @@ Model::_ibatchnorm(Tensor &in, DU m) {
 }
 
 __HOST__ void
-Model::_iup(Tensor &in, U16 f, DU method) {
-    NN_DB("    model#iup upsample %dx%d {\n", f, f);
-    if (f != 2 && f != 3) {
-        ERROR("nn#iup f=%dx%d? only 2x2 and 3x3 supported\n", f, f);
+Model::_iup(Tensor &in, U16 k, DU method) {
+    NN_DB("    model#iup upsample %dx%d {\n", k, k);
+    if (k != 2 && k != 3) {
+        ERROR("nn#iup k=%dx%d? only 2x2 and 3x3 supported\n", k, k);
         return;
     }
     in.iparm = INT(D2I(method));                 /// * method id
                                                  /// * used by backprop
-    U32 H0 = in.H() * f;
-    U32 W0 = in.W() * f;
-    U16 s[4] = { f, f, 1, 1 }; memcpy(in.stride, s, sizeof(s));  ///< stride
+    U32 H0 = in.H() * k;
+    U32 W0 = in.W() * k;
+    U16 s[4] = { k, 1, 1, 1 }; memcpy(in.stride, s, sizeof(s));  ///< stride
     
     Tensor &out = T4(in.N(), H0, W0, in.C());
     npush(out);                                  /// * stage for next stage
-    NN_DB("    } model#iup %dx%d {\n", f, f);
+    NN_DB("    } model#iup %dx%d {\n", k, k);
 }
 /// @}
 
