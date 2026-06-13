@@ -601,7 +601,7 @@ TensorVM::init() {
     CODE(".histo",    _tboard(TB_HISTO));     ///< ( T n_bucket tag_addr len -- )
     CODE(".embed",    _tboard(TB_EMBED));     ///< ( T tag_addr len -- )
 #if T4_DO_NN    
-    CODE(".graph",    sys.tbx(TB_GRAPH, (char*)"", tos));   ///< ( N -- N ) non-destructive
+    CODE(".graph",    sys.tbx(TB_GRAPH, (char*)"", POP()));   ///< ( N -- )
 #endif // T4_DO_NN    
 #endif // T4_DO_TB    
     ///@}
