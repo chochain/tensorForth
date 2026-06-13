@@ -17,6 +17,7 @@ namespace t4::mu {
 struct Dataset : public Tensor {
     U64   dataset_size =  0;           ///< size of entire corpus
     int   batch_id     =  0;           ///< current batch id
+    int   batch_sz     =  0;           ///< current batch size loaded
     int   done         =  1;           ///< completed
     U32   *label;                      ///< label data on host
     ///

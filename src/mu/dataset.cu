@@ -74,7 +74,7 @@ __HOST__ int
     if (!cp->fetch(batch_id, trace)) {            /// * fetch a batch from Corpus
         ERROR("  } %s => corpus fetch failed\n", fn);  return -3;
     }
-    int n = cp->batch_sz;                         ///< actural mini-batch fetched
+    int n = batch_sz = cp->batch_sz;              ///< actural mini-batch fetched
     done = cp->eof;
     if (trace) {
         INFO("  } %s => batch[%d] ", fn, batch_id);
