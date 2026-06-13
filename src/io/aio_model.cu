@@ -104,17 +104,20 @@ AIO::_model(Model &m) {
 __HOST__ std::string
 AIO::_parm(Tensor &in, Tensor &out) {
     t4_layer fn = in.grad_fn;             ///< layer function
-    int      K  = in.stride[0];           ///< kernel size
+    int      S  = in.stride[0];           ///< stride or pool kernel
     DU       p  = in.xparm;               ///< layer parameter
     
     std::ostringstream ss;
     switch(fn) {
     case L_NONE:    /* do nothing  */                  break;
     case L_CONV:
-    case L_DCONV:  ss << "bias=" << p << ", C="
-                      << out.C();                      break;
-    case L_LINEAR: ss << "bias=" << p << ", H="
-                      << in.grad[0]->H();              break;
+    case L_DCONV:  ss << "bias=" << p
+                      << ", C="  << out.C()
+                      << ", K=" << in.grad[0]->H()
+                      << ", S=" << S
+                      << ", P=" << in.stride[2];       break;
+    case L_LINEAR: ss << "bias=" << p
+                      << ", H="  << in.grad[0]->H();   break;
     case L_FLATTEN:
     case L_RELU:
     case L_TANH:
@@ -127,11 +130,11 @@ AIO::_parm(Tensor &in, Tensor &out) {
     case L_LOGSMAX: /* do nothing */                   break;
     case L_AVGPOOL:
     case L_MAXPOOL:
-    case L_MINPOOL: ss << "n=" << K << "x" << K;       break;
+    case L_MINPOOL: ss << S << "x" << S;               break;
     case L_BATCHNM: ss << "mtum=" << p;                break;
     case L_USAMPLE: {
         const char *nm[] = { "nearest", "linear", "bilinear", "cubic" };
-        ss << K << "x" << K << " " << nm[in.iparm];
+        ss << S << "x" << S << " " << nm[in.iparm];
     } break;
     default: ss << "unknown layer=" << fn;             break;
     }
