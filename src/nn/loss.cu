@@ -46,7 +46,7 @@ Model::onehot(Tensor &t) {
 __HOST__ Tensor&
 Model::onehot(Dataset &dset) {
     Tensor &out = (*this)[-1];                      ///< model output
-    U32    N    = out.N();                          ///< mini-batch size
+    U32    N    = dset.batch_sz;                    ///< mini-batch size
     U32    E    = (U32)out.HWC();                   ///< channel sizes
     
     auto show = [E](DU *h, U32 n, U32 m) {
@@ -56,9 +56,9 @@ Model::onehot(Dataset &dset) {
         }
         INFO("}\n");
     };
-    if (!_hot) _hot = &T4(N, 1, E, 1);              ///< alloc one-hot vector if needed
+    if (!_hot) _hot = &T4(out.N(), 1, E, 1);        ///< alloc one-hot vector if needed
     _hot->zeros();                                  ///< reset all elements
-    
+
     NLOG("\n  Model::onehot(ds) {\n");
     for (U32 n = 0; n < N; n++) {                   /// * loop through batch
         DU *h = _hot->slice(n);                     ///< take a sample
