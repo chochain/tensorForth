@@ -100,6 +100,11 @@ __KERN__ void k_adam(
     int N,                                   ///< batch size
     DU lrc, DU b1, DU b2,                    ///< corrected learn rate, beta(momemtum)
     long numel);
+__KERN__ void k_adamw(
+    DP_X G, DP_X DG, DP_X M, DP_X V,         ///< w, dw, and momemtum tensors
+    int N,                                   ///< batch size
+    DU lrc, DU b1, DU b2, DU dw,             ///< corrected learn rate, beta(momemtum)
+    long numel);
 ///@}
 #include "nmath.tcu"                         ///< templates (EOF include)
 

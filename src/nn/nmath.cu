@@ -450,6 +450,24 @@ __KERN__ void k_adam(
         DG[j] = DU0;                                      /// * zero out dG for next round
     }
 }
+
+__KERN__ void k_adamw(
+    DP_X G, DP_X DG, DP_X M, DP_X V,           ///< w, dw, and momemtum tensors
+    int N,                                     ///< batch size
+    DU lrc, DU b1, DU b2, DU wd,               ///< corrected learn rate, beta(momemtum)
+    long numel                                 ///< HWC
+    ) {
+    const long tx   = blockIdx.x * blockDim.x + threadIdx.x;
+    const long step = gridDim.x * blockDim.x;
+    for (long j = tx; j < numel; j += step) {
+        const DU dg = DG[j];
+        const DU mi = M[j] = b1 * M[j] + (DU1 - b1) * dg;
+        const DU vi = V[j] = b2 * V[j] + (DU1 - b2) * dg * dg;
+
+        G[j] -= lrc * (mi / (_SQRT(vi) + DU_EPS) - wd * dg); // ← decoupled weight decay
+        DG[j] = DU0;
+    }
+}
 #endif  // (T4_DO_OBJ && T4_DO_NN)
 
 } // namespace t4::nn
