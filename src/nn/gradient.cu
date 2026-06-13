@@ -40,6 +40,7 @@ Model::grad_alloc(t4_optimizer op) {
             }
             break;
         case OPTI_ADAM:
+        case OPTI_ADAMW:
             if (w && !in.mtum[0]) {
                 in.mtum[0] = &T4(*w).zeros();       ///< m of w (zeor filled)
                 in.mtum[2] = &T4(*w).zeros();       ///< v of w (zero filled)
@@ -147,11 +148,24 @@ Model::adam(DU lr, DU b1, DU b2) {
              g.data, dg.data, m.data, v.data,
              g.N(), parm[0], parm[1], parm[2]);
     };
-    DU decay = epoch                       ///< exponential decay, TODO: AdamW
+    DU decay = epoch
         ? SQRT(DU1 - POW(b2, epoch)) / (DU1 - POW(b1, epoch))
         : DU1;
     DU parm[3] = { lr, b1, b2 };   ///< learn rate, betas
+    
     return gradient("adam", OPTI_ADAM, update, parm);
+}
+
+__HOST__ Model&
+Model::adamw(DU lr, DU b1, DU b2, DU wd) {
+    auto update = [](DU *parm, Tensor &g, Tensor &dg, Tensor &m, Tensor &v) {
+        FORK(k_adamw, g.numel,
+             g.data, dg.data, m.data, v.data,
+             g.N(), parm[0], parm[1], parm[2], parm[3]);
+    };
+    DU parm[4] = { lr, b1, b2, wd };   ///< learn rate, betas, weight_decay
+    
+    return gradient("adamw", OPTI_ADAMW, update, parm);
 }
 
 } // namespace t4::nn
