@@ -209,8 +209,8 @@ NetVM::_conv(U16 k, bool txn, U16 s, U16 p, U16 d) {
         else { ERROR("vec?"); return; }
     }
     if (!M2V) { ERROR("Model#add bias c for conv2d/dconv2d required!"); return; }
-    const U32      c    = POPi;                           ///> number of output channels
-    const DU       bias = POP();                          ///> convolution bias
+    const U32      c    = POPi;                   ///> number of output channels
+    const DU       bias = POP();                  ///> convolution bias
     const t4_layer op   = txn ? L_DCONV : L_CONV;
     const char     *nm  = Model::nname(op);
     
@@ -390,7 +390,18 @@ NetVM::init() {
              DU lr = POP();                   /// * learing rate 
              MTOS.adam(lr);                   /// * default b1=0.9, b2=0.999
          }
-         else ERROR("rate beta1 nn.adam?\n"));
+         else ERROR("rate [beta1] nn.adam?\n"));
+    CODE("nn.adamw",
+         if (M2V) {                           ///> (N lr wd -- N')
+             DU wd = POP();                   ///< weight decay i.g. 0.01
+             DU lr = POP();                   ///< learning rate i.g. 0.001
+             MTOS.adam(lr, wd);               /// * default b1 0.9, b2=0.999
+         }
+         else if (M1V) {                      ///> (N lr -- N')
+             DU lr = POP();                   /// * learing rate 
+             MTOS.adam(lr);                   /// * default b1=0.9, b2=0.999, wd=0.01
+         }
+         else ERROR("rate [wd] nn.adamw?\n"));
     CODE("nn.max_norm",
          if (M1V) MTOS.max_norm = POP();      /// * set max gradient normal
          else ERROR("norm model?\n"));
