@@ -58,7 +58,8 @@ typedef enum {
 typedef enum {
     OPTI_SGD = 0,            ///< Stochastic Gradient Descent
     OPTI_SGDM,               ///< SGD with momemtum
-    OPTI_ADAM                ///< Adam gradient
+    OPTI_ADAM,               ///< Adam gradient
+    OPTI_ADAMW               ///< AdamW grandient (decouple decay)
 } t4_optimizer;
 
 } // namespace t4
