@@ -139,10 +139,9 @@ Model::_fconv(Tensor &in, Tensor &out) {
     ///
     switch ((KS << 8) | (S<<4) |  P) {
     case 0x110: CONV(1, 1, 0);   break;
-    case 0x310: CONV(3, 1, 0);   break;   ///< P=0 for most cases
-    case 0x311: CONV(3, 1, 1);   break;   ///< P=1 for CIFAR-10 padding => same-size
-    case 0x420: CONV(4, 2, 0);   break;   ///< ConvTranspose2D
-    case 0x510: CONV(5, 1, 0);   break;
+    case 0x311: CONV(3, 1, 1);   break;   /// * S=1, P=1 => same-size
+    case 0x421: CONV(4, 2, 1);   break;   /// * S=2, P=1 => same-size (ConvTranspose2D)
+    case 0x512: CONV(5, 1, 2);   break;   /// * S=1, P=2 => same size
     default: {
         ERROR("nn#fconv kernel_size=%d stride=%d padding=%d not supported\n", KS, S, P);
         return -1;

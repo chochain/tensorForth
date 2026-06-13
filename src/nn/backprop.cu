@@ -177,10 +177,9 @@ Model::_bconv(Tensor &in, Tensor &out) {
 
     switch ((K<<8) | (S<<4) | P) {
     case 0x110: DCONV(1, 1, 0);  break;
-    case 0x310: DCONV(3, 1, 0);  break;  /// * 3x3 s1 for most of CNN
-    case 0x311: DCONV(3, 1, 1);  break;  /// * 3×3  s1  (P=1 for CIFAR-10)
-    case 0x420: DCONV(4, 2, 0);  break;  /// * 4×4  s2 ConvTranspose2D
-    case 0x510: DCONV(5, 1, 0);  break;  /// * 5×5  s1
+    case 0x311: DCONV(3, 1, 1);  break;   /// * S=1, P=1 => same-size
+    case 0x421: DCONV(4, 2, 1);  break;   /// * S=2, P=1 => same-size (ConvTranspose2D)
+    case 0x512: DCONV(5, 1, 2);  break;   /// * S=1, P=2 => same size
     default:
         ERROR("nn#bconv kernel_size=%d stride=%d padding=%d not supported\n", K, S, P);
         return -1;
