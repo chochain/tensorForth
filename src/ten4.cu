@@ -152,10 +152,12 @@ TensorForth::setup(const char *tb_logdir, const char *tb_run_id) {
     }
     _vm_init(sys, vm_pool);
 
-    if (!tb_logdir || !tb_run_id) return;
-
-    std::cout << "\\ TensorBoard logdir="  << tb_logdir << ", run_id=" << tb_run_id
-              << std::endl;
+    if (!tb_logdir || !tb_run_id) {
+        ERROR("tb_logdir=%s tb_run_id=%s\n", tb_logdir, tb_run_id);
+        return;
+    }
+    std::cout << "\\ TensorBoard logdir="  << tb_logdir
+              << ", run_id=" << tb_run_id  << std::endl;
     sys->setup_tb(tb_logdir, tb_run_id);
 }
 ///
@@ -280,8 +282,7 @@ int main(int argc, char**argv) {
     t4::TensorForth *f = new t4::TensorForth(opt.device_id, opt.verbose);
     f->setup(
 #if T4_DO_TB
-        opt.tb_logdir ? opt.tb_logdir : "/u01/tb",
-        opt.tb_run_id ? opt.tb_run_id : "run1"
+        opt.tb_logdir ? opt.tb_logdir : "/u01/tb", opt.tb_run_id
 #endif // T4_DO_TB 
     );
     f->main_loop();
