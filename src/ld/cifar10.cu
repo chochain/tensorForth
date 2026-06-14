@@ -68,7 +68,7 @@ int Cifar10::fetch(int bid, bool trace) {
         batch_sz = n >> 1;                      /// * fake a partial batch
         eof = 1;
     }
-    if (1 || trace) {
+    if (trace) {
         INFO("\tCIFAR-10 batch[%d] loaded=%d/%d done=%d\n", bid, off, corpus_sz, eof);
     }
     return batch_sz;
