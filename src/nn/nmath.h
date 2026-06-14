@@ -66,12 +66,12 @@ __KERN__ void k_batchnorm(
 ///@{
 __KERN__ void k_dlinear_db(
     DP_R O, DP_W DB, int N, int E0);
-__KERN__ void k_batchnorm_1(                ///< reduce
+__KERN__ void k_dbatchnorm_1(               ///< reduce
     DP_R dout, DP_R xhat,                   ///< upstream gradient, saved x_hat
     DP_W sum_dout,                          ///< out: Σ dout        [N*C]
     DP_W sum_dout_xhat,                     ///< out: Σ dout*x_hat  [N*C]
     long HW);                               ///< H*W spatial elements
-__KERN__ void k_batchnorm_2(
+__KERN__ void k_dbatchnorm_2(
     DP_R W,                                 ///< gamma  [C]
     DP_W DW, DP_W DB,                       ///< d_gamma, d_beta accumulators [C]
     DP_W sum_dout,                          ///< in: Σ dout  [N*C]  → out: gvar*mean_dout

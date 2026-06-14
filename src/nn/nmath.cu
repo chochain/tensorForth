@@ -289,7 +289,7 @@ __KERN__ void k_dlinear_db(
     if (e0 < E0 && n < N) atomicAdd(&DB[e0], O[n * E0 + e0]);
 }
 ///
-/// k_batchnorm_1 - reduce, fused reduction (replaces two k_batchsum calls)
+/// k_dbatchnorm_1 - reduce, fused reduction (replaces two k_batchsum calls)
 ///
 /// Computes per-channel, per-batch-slice:
 ///   sum_dout[n,c]      = Σ_{j} dout[n,j,c]
@@ -298,7 +298,7 @@ __KERN__ void k_dlinear_db(
 /// Two-level reduction: warp → shared memory → one atomicAdd per block,
 /// eliminating the per-warp serialization bottleneck of the original.
 ///
-__KERN__ void k_batchnorm_1(
+__KERN__ void k_dbatchnorm_1(
     DP_R dout, DP_R xhat,               ///< upstream gradient, saved x_hat
     DP_W sum_dout,                      ///< out: Σ dout        [N*C]
     DP_W sum_dout_xhat,                 ///< out: Σ dout*x_hat  [N*C]
@@ -351,7 +351,7 @@ __KERN__ void k_batchnorm_1(
 ///   s1[n,c]  = gvar[c] * mean_dout[n,c]          (used in dX)
 ///   s2[n,c]  = gvar[c] * mean_dout_xhat[n,c]     (used in dX)
 ///
-__KERN__ void k_batchnorm_2(
+__KERN__ void k_dbatchnorm_2(
     DP_R W,                             ///< gamma  [C]
     DP_W DW, DP_W DB,                   ///< d_gamma, d_beta accumulators [C]
     DP_W sum_dout,                      ///< in: Σ dout  [N*C]  → out: gvar*mean_dout
