@@ -593,7 +593,7 @@ TensorVM::init() {
     ///@defgroup TensorBoard SummaryWriter
     ///@{
     CODE(".tbinit",   _tboard(TB_INIT));      ///< ( path_addr len -- )  .s" run1"
-    CODE(".tbstep",   sys.tbx(TB_STEP, 0, 0, POPi)); ///< ( i -- )
+    CODE(".tbstep",   sys.tbx(TB_STEP, NULL, 0, POPi)); ///< ( i -- )
     CODE(".scalar",   _tboard(TB_SCALAR));    ///< ( v tag_addr len -- )
     CODE(".text",     _tboard(TB_TEXT));      ///< ( txt_addr len tag_addr len -- )
     CODE(".image",    _tboard(TB_IMAGE));     ///< ( T tag_addr len -- )
@@ -601,7 +601,7 @@ TensorVM::init() {
     CODE(".histo",    _tboard(TB_HISTO));     ///< ( T n_bucket tag_addr len -- )
     CODE(".embed",    _tboard(TB_EMBED));     ///< ( T tag_addr len -- )
 #if T4_DO_NN    
-    CODE(".graph",    sys.tbx(TB_GRAPH, (char*)"", POP()));   ///< ( N -- )
+    CODE(".graph",    sys.tbx(TB_GRAPH, NULL, POP()));   ///< ( N -- )
 #endif // T4_DO_NN    
 #endif // T4_DO_TB    
     ///@}
