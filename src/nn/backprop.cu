@@ -314,9 +314,10 @@ Model::_bbatchnorm(Tensor &in, Tensor &out) {
     const long HW  = (long)H * W;
     const long NHW = HW * N;
 
-    DU *w   = &in.grad[0]->data[0];          ///< gamma (scale)  [C]
-    DU *dw  = &in.grad[1]->data[0];          ///< d_gamma        [C]
-    DU *db  = &in.grad[1]->data[C];          ///< d_beta         [C]
+    DU *w   = in.grad[0]->data;              ///< gamma (scale)  [C]
+    DU *dw  = in.grad[2]->data;              ///< d_gamma        [C]
+    DU *b   = in.grad[1]->data;              ///< beta           [C] (not used)
+    DU *db  = in.grad[3]->data;              ///< d_beta         [C]
     DU *xht = in.grad[4]->data;              ///< x_hat          [NHWC]
     DU *s1  = &in.mtum[4]->data[0];          ///< sum_dout       [NC]  (reused as s1 after scale)
     DU *s2  = &in.mtum[4]->data[N * C];      ///< sum_dout_xhat  [NC]  (reused as s2 after scale)
@@ -329,14 +330,14 @@ Model::_bbatchnorm(Tensor &in, Tensor &out) {
     {
         const int nwarps  = (T4_DIM_SQ + 31) >> 5;
         const int smem_sz = 2 * nwarps * sizeof(DU);
-        FORK4(k_batchnorm_1, smem_sz, out.data, xht, s1, s2, HW);
+        FORK4(k_dbatchnorm_1, smem_sz, out.data, xht, s1, s2, HW);
     }
     /// 2. per-channel scale (no CPU sync needed) ---
     //   launched as <<<C, 1>>> so each channel is one thread in one block;
     //   gridDim.x == C is used inside the kernel as the channel stride for [N*C].
     {
         dim3 _b(C, 1, 1);
-        k_batchnorm_2<<<1, _b>>>(
+        k_dbatchnorm_2<<<1, _b>>>(
             w, dw, db, s1, s2, var, N, NHW, train);
         GPU_CHK();
     }
