@@ -310,21 +310,20 @@ Model::_bupsample(Tensor &in, Tensor &out, t4_layer fn) {
 ///
 __HOST__ int
 Model::_bbatchnorm(Tensor &in, Tensor &out) {
-    const int  N   = out.N(), H = out.H(), W = out.W(), C = out.C();
+    const int  N   = out.N(), H = out.H(), W = out.W(), C = out.C();  ///< in==out
     const long HW  = (long)H * W;
     const long NHW = HW * N;
 
-    DU *w   = &in.grad[0]->data[0];        ///< gamma (scale)  [C]
-    DU *dw  = &in.grad[1]->data[0];        ///< d_gamma        [C]
-    DU *db  = &in.grad[1]->data[C];        ///< d_beta         [C]
-    DU *xht = in.grad[4]->data;            ///< x_hat          [N,H,W,C]
-    DU *s1  = &in.mtum[4]->data[0];        ///< sum_dout       [N*C]  (reused as s1 after scale)
-    DU *s2  = &in.mtum[4]->data[N*C];      ///< sum_dout_xhat  [N*C]  (reused as s2 after scale)
-    DU *var = &in.mtum[4]->data[N*C*2];    ///< 1/sqrt(var+e)  [C]
+    DU *w   = &in.grad[0]->data[0];          ///< gamma (scale)  [C]
+    DU *dw  = &in.grad[1]->data[0];          ///< d_gamma        [C]
+    DU *db  = &in.grad[1]->data[C];          ///< d_beta         [C]
+    DU *xht = in.grad[4]->data;              ///< x_hat          [NHWC]
+    DU *s1  = &in.mtum[4]->data[0];          ///< sum_dout       [NC]  (reused as s1 after scale)
+    DU *s2  = &in.mtum[4]->data[N * C];      ///< sum_dout_xhat  [NC]  (reused as s2 after scale)
+    DU *var = &in.mtum[4]->data[N * C * 2];  ///< 1/sqrt(var+e)  [C]
 
     // zero the accumulators before reduction
-    cudaMemset(s1, 0, sizeof(DU) * N * C);
-    cudaMemset(s2, 0, sizeof(DU) * N * C);
+    cudaMemset(s1, 0, N * C * 2 * sizeof(DU));
 
     /// 1. fused reduction ---
     {
@@ -336,8 +335,8 @@ Model::_bbatchnorm(Tensor &in, Tensor &out) {
     //   launched as <<<C, 1>>> so each channel is one thread in one block;
     //   gridDim.x == C is used inside the kernel as the channel stride for [N*C].
     {
-        dim3 blk(C, 1, 1);
-        k_batchnorm_2<<<1, blk>>>(
+        dim3 _b(C, 1, 1);
+        k_batchnorm_2<<<1, _b>>>(
             w, dw, db, s1, s2, var, N, NHW, train);
         GPU_CHK();
     }
