@@ -276,13 +276,13 @@ __HOST__ void
 Model::_ibatchnorm(Tensor &in, DU m) {
     NN_DB("    model#ibatchnorm m=%5.3f {\n", m);
     const int N = in.N(), C = in.C();            /// C0==C1
-    in.grad[0] = &VEC(C*2).zeros();              ///> weight/gamma, bias/beta
-    in.grad[1] = &VEC(C*2).zeros();              ///> d_gamma, d_beta
-    in.grad[4] = &T4(in);                        ///> x_hat (same as in)
-    in.mtum[4] = &VEC(N * C * 2 + C);            ///> batch sum/var
+    in.grad[0] = &VEC(C * 2).zeros();            ///> weight/gamma, bias/beta
+    in.grad[1] = &VEC(C * 2).zeros();            ///> d_gamma, d_beta
+    in.grad[4] = &T4(in);                        ///> x_hat [in.NHWC]
+    in.mtum[4] = &VEC(N * C * 2 + C);            ///> s1[NC] + s2[NC] + var[C]
 
     for (int c=0; c < C * 2; c++) {              /// * default gamma=1.0, beta=0.0
-        in.grad[0]->data[c] = c < C ? DU1 : DU0;
+        in.grad[0]->data[c] = c < C ? DU1 : DU0; /// * TODO: cudaMemset
     }
     in.xparm = m;                                ///> default EMA momentum = 0.1
     
