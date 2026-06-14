@@ -201,10 +201,13 @@ __HOST__ void
 NetVM::_conv(U16 k, bool txn, U16 s, U16 p, U16 d) {
     U16 opt[] = { k, s, p, d };         ///< kernel,stride,padding,dilation
     if (TOS1T) {                        /// * if optional vector given
-        Tensor &v = TTOS;               ///< tensor setup
-        if (v.rank == 1) {
-            for (int i=0; i < 4 && i < v.numel; i++) opt[i] = (U16)v.data[i];
-            DU t = POP(); DROP(t);
+        Tensor &t = TTOS;               ///< tensor setup
+        if (t.rank == 1) {
+            int n = MIN(t.numel, 4);
+            DU vo[4];
+            D2H(vo, t.data, sizeof(DU) * n);
+            DU x = POP(); DROP(x);
+            for (int i = 0; i < n; i++) opt[i] = (U16)D2I(vo[i]);
         }
         else { ERROR("vec?"); return; }
     }
@@ -245,10 +248,10 @@ NetVM::_forward() {
 __HOST__ void
 NetVM::_backprop() {
     if (IS_M(ss[-1]) && TOS1T) {                  /// * TOS is a onehot vector
-        DU y = POP();                     
-        MTOS.backprop((Tensor&)mmu.du2obj(y));    /// * backprop(target vector)
+        Tensor &t = TTOS;                         ///< get onehot vector
+        MTOS.backprop(t);                         /// * backprop(target vector)
         if (MTOS.err) state = STOP;               /// * bail if error
-        DROP(y);                                  /// * release onehot tensor
+        DU x = POP(); DROP(x);                    /// * release onehot tensor
     }
     else if (IS_M(tos)) {                         /// * use default output
         MTOS.backprop();                          
