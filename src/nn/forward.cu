@@ -264,10 +264,10 @@ Model::_fbatchnorm(Tensor &in, Tensor &out) {
     const U64 HW  = (U64)H * W;
     const U64 NHW = HW * N;
 
-    DU *w   = &in.grad[0]->data[0];          ///< weight [C]
-    DU *b   = &in.grad[0]->data[C];          ///< bias   [C]
-    DU *xht = in.grad[4]->data;              ///< x_hat  [out.NHWC]
-    DU *avg = &in.mtum[4]->data[0];          ///< avg    [C] - wiped for s1/s2
+    DU *w   = in.grad[0]->data;              ///< gamma  [C]
+    DU *b   = in.grad[1]->data;              ///< beta   [C]
+    DU *xht = in.grad[4]->data;              ///< x_hat  [in.NHWC]
+    DU *avg = &in.mtum[4]->data[0];          ///< avg    [C] - tmp, also s1/s2 in backprop
     DU *var = &in.mtum[4]->data[N * C * 2];  ///< var    [C] - read by backprop as rvar
 
     cudaMemsetAsync(avg, 0, C * 2 * sizeof(DU), st);  ///< zeros avg, var in one call
