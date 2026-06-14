@@ -264,27 +264,27 @@ Model::_fbatchnorm(Tensor &in, Tensor &out) {
     const U64 HW  = (U64)H * W;
     const U64 NHW = HW * N;
 
-    DU *w   = &in.grad[0]->data[0];
-    DU *b   = &in.grad[0]->data[C];
-    DU *xht = in.grad[4]->data;
-    DU *avg = &in.mtum[4]->data[0];
-    DU *var = &in.mtum[4]->data[C];
+    DU *w   = &in.grad[0]->data[0];          ///< weight [C]
+    DU *b   = &in.grad[0]->data[C];          ///< bias   [C]
+    DU *xht = in.grad[4]->data;              ///< x_hat  [out.NHWC]
+    DU *avg = &in.mtum[4]->data[0];          ///< avg    [C] - wiped for s1/s2
+    DU *var = &in.mtum[4]->data[N * C * 2];  ///< var    [C] - read by backprop as rvar
 
-    cudaMemsetAsync(avg, 0, 2 * C * sizeof(DU), st);  ///< zeros avg and var in one call
+    cudaMemsetAsync(avg, 0, C * 2 * sizeof(DU), st);  ///< zeros avg, var in one call
 
     /// 1. accumulate Σx and Σx² per channel
     {
-        const int  blk = (int)MAX(32LL, MIN(HW, (U64)1024));
-        const dim3 grd(C, N, 1);
-        const int  smem_sz  = 2 * blk * sizeof(DU);
-        k_batchnorm_stat<<<grd, blk, smem_sz, st>>>(in.data, avg, var, HW);
+        const int  _b = (int)MAX(32LL, MIN(HW, (U64)1024));
+        const dim3 _g(C, N, 1);
+        const int  smem_sz  = 2 * _b * sizeof(DU);
+        k_batchnorm_stat<<<_g, _b, smem_sz, st>>>(in.data, avg, var, HW);
         GPU_CHK();
     }
     /// 2. finalise mean and rvar — no CPU round-trip
     {
-        const int blk = min((int)C, 1024);
-        const int grd = ((int)C + blk - 1) / blk;
-        k_batchnorm_calc<<<grd, blk, 0, st>>>(avg, var, (long)NHW);
+        const int _b = MIN((int)C, 1024);
+        const int _g = ((int)C + _b - 1) / _b;
+        k_batchnorm_calc<<<_g, _b, 0, st>>>(avg, var, (long)NHW);
         GPU_CHK();
     }
     /// 3. apply normalisation
