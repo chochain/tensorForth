@@ -30,8 +30,8 @@ class System : public OnHost {                  ///< singleton class
 public:
     mu::MMU      *mu;                           ///< memory management unit
     io::AIO      *io;                           ///< HOST IO manager
-    tb::Summary  *tb;                           ///< TensorBoard SummaryWriter
-    Debug        *db;                           ///< tracer (i.e. JTAG)
+    tb::Summary  *tb = NULL;                    ///< TensorBoard SummaryWriter
+    Debug        *db = NULL;                    ///< tracer (i.e. JTAG)
     ///
     /// singleton System controller
     ///
