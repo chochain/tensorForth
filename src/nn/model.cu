@@ -111,8 +111,8 @@ Model::add(t4_layer fn, U32 n, DU bias, U16 *opt) {
     }
     in.grad_fn = fn;                           /// * set layer function name
     Tensor &out = (*this)[-1];                 /// * output tensor
-    NLOG("  } Model::add %s => out[%d,%d,%d,%d]\n",
-          nname(fn), out.N(), out.H(), out.W(), out.C());
+    NLOG("  } Model::add[%ld] %s => out[%d,%d,%d,%d]\n",
+         numel, nname(fn), out.N(), out.H(), out.W(), out.C());
     
     return *this;
 }
@@ -137,11 +137,11 @@ Model::_iconv(Tensor &in, U32 C0, DU bias, U16 *opt, bool txn) {
         H0 = (H1 - Kx + P*2) / S + 1;                 /// * output height
         W0 = (H1 - Ky + P*2) / S + 1;                 /// * output width
     }
-    NN_DB("    model#i% %dx%d bias=%4.2f {\n", nm, Kx, Ky, bias);
+    NN_DB("    model#%s %dx%d bias=%4.2f {\n", nm, Kx, Ky, bias);
     if ((Kx != Ky) ||
         (!txn && (Kx != 1 && Kx != 3 && Kx != 5)) ||
         (txn && (Kx != 4))) {
-        ERROR("nn#i%s f=[%d,%d]? 1x1, 3x3, 4x4, and 5x5 supported only.\n", nm, Kx, Ky);
+        ERROR("nn#iconv %s f=[%d,%d]? 1x1, 3x3, 4x4, and 5x5 supported only.\n", nm, Kx, Ky);
         return;
     }
     in.stride[0] = in.stride[1] = S;
