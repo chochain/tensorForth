@@ -47,15 +47,16 @@ __KERN__ void k_softmax_small(              ///< one block per sample, C ≤ 256
     DP_R I, DP_W O, int C);
 __KERN__ void k_softmax(
     DP_R I, DP_W O, int C);
-__KERN__ void k_batchnorm_stat(
-    DP_R src, DP_W avg, DP_W var, long HW); ///< input  [N, HW, C] (NHWC)
-__KERN__ void k_batchnorm_calc(             ///< copy avg, var per C
-    DP_X avg, DP_X var, long NHW);
-__KERN__ void k_batchnorm(
-    DP_R I, DP_W O, DP_X X,                 ///< input, filter, output tensors
-    DP_R avg, DP_R rvar,                    ///< mean, 1.0/(stdvar + e)
-    DP_R w, DP_R b,                         ///< gamma, beta
-    long HW);                               ///< H0=H1, W0==W1 (C0==C1)
+__KERN__ void k_batchnorm_1(                ///< accumulate Σx and Σx² per channel
+    DP_R src,                               ///< input  [N, HW, C] (NHWC)
+    DP_W avg, DP_W var, long HW);
+__KERN__ void k_batchnorm_2(                ///< calc mean and rvar
+    DP_X avg, DP_X var, long NHW);          /// * var keeps rvar for backprop
+__KERN__ void k_batchnorm_3(                ///< normalize O, keep X as xhat
+    DP_R I, DP_W O, DP_X X,                 ///< input, output, x_hat tensors
+    DP_R avg, DP_R rvar,                    /// * mean, 1.0/(stdvar + e)
+    DP_R w, DP_R b,                         /// * gamma, beta
+    long HW);                               /// * H0=H1, W0==W1 (C0==C1)
 ///@}
 ///============================================================================
 /// @name backprop kernel functions
@@ -66,24 +67,23 @@ __KERN__ void k_batchnorm(
 ///@{
 __KERN__ void k_dlinear_db(
     DP_R O, DP_W DB, int N, int E0);
-__KERN__ void k_dbatchnorm_1(               ///< reduce
+__KERN__ void k_dbatchnorm_1(               ///< fuse reduction
     DP_R dout, DP_R xhat,                   ///< upstream gradient, saved x_hat
-    DP_W sum_dout,                          ///< out: Σ dout        [N*C]
-    DP_W sum_dout_xhat,                     ///< out: Σ dout*x_hat  [N*C]
+    DP_W sum_dout, DP_W sum_dout_xhat,      ///< Σ dout [NC], Σ dout*x_hat  [NC]
     long HW);                               ///< H*W spatial elements
-__KERN__ void k_dbatchnorm_2(
+__KERN__ void k_dbatchnorm_2(               ///< per-channel scale
     DP_R W,                                 ///< gamma  [C]
     DP_W DW, DP_W DB,                       ///< d_gamma, d_beta accumulators [C]
-    DP_W sum_dout,                          ///< in: Σ dout  [N*C]  → out: gvar*mean_dout
-    DP_W sum_dout_xhat,                     ///< in: Σ dout*x̂ [N*C] → out: gvar*mean_dout_xhat
-    DP_R var,                               ///< 1/sqrt(var+e)  [C]
-    int  N, long NHW, bool train);          ///< batch size
-__KERN__ void k_dbatchnorm(                 ///< final update
-    DP_W DX,                                ///< output gradient tensor   [N,H,W,C]
-    DP_R dout,                              ///< upstream gradient        [N,H,W,C]
-    DP_R xhat,                              ///< saved x_hat              [N,H,W,C]
-    DP_R s1,                                ///< gvar * mean(dout)        [N,C]
-    DP_R s2,                                ///< gvar * mean(dout * x_hat)[N,C]
+    DP_W sum_dout,                          ///< in: Σ dout   [NC] → out: gvar*mean_dout
+    DP_W sum_dout_xhat,                     ///< in: Σ dout*x̂ [NC] → out: gvar*mean_dout_xhat
+    DP_R rvar,                              ///< 1/sqrt(var+e)  [C]
+    long NHW, bool train);                  ///< batch size
+__KERN__ void k_dbatchnorm_3(               ///< final update
+    DP_W DX,                                ///< output gradient tensor   [NHWC]
+    DP_R dout,                              ///< upstream gradient        [NHWC]
+    DP_R xhat,                              ///< saved x_hat              [NHWC]
+    DP_R s1,                                ///< gvar * mean(dout)        [NC]
+    DP_R s2,                                ///< gvar * mean(dout * x_hat)[NC]
     long HW);                               ///< H*W
 ///@}
 ///============================================================================
