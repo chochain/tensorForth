@@ -39,7 +39,7 @@ void Loader::init() {
             "../data/MNIST/raw/t10k-labels-idx1-ubyte");
     _cp_map["cifar10_train"] =
         new Cifar10(
-            "../data/CIFAR10/cifar-10-batches-bin/data_batch_1.bin");
+            "../data/CIFAR10/cifar-10-batches-bin/data_batch.bin");
     _cp_map["cifar10_test"] =
         new Cifar10(
             "../data/CIFAR10/cifar-10-batches-bin/test_batch.bin");
