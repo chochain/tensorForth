@@ -126,13 +126,13 @@ __HOST__ Tensor&
 Tensor::gemm1(Tensor &A, Tensor &B, Tensor &O, DU alpha, DU beta, bool tA, bool tB) {
     U32 H  = A.H(), W = B.W(), Ka = A.W(), Kb = B.H();
     U32 Na = A.N(), Nb = B.N(), C = B.C();
-    U32 N  = std::max(Na, Nb);
+    U32 N  = std::max(Na, Nb);                   /// * integers
     if (Ka != Kb || N != O.N() || C != O.C()) {
         ERROR("  tensor#gemm1 ka(%d)!=kb(%d) or N, C diff\n", Ka, Kb);
         return O;
     }
     MM_DB("  tensor#gemm1 K=%d, a=%g, b=%g => NHWC=[%d,%d,%d,%d]\n",
-          Ka, alpha, beta, std::N, H, W, C);
+          Ka, alpha, beta, N, H, W, C);
 
     for (U32 n = 0; n < N; n++) {
         DU *da = A.slice(Na==1 ? 0 : n), *db = B.slice(Nb==1 ? 0 : n);
@@ -144,7 +144,7 @@ __HOST__ Tensor&
 Tensor::gemm2(Tensor &A, Tensor &B, Tensor &O, DU alpha, DU beta, bool tA, bool tB) {
     U32 H  = A.H(), W = B.W(), Ka = A.W(), Kb = B.H();
     U32 Na = A.N(), Nb = B.N(), C = B.C();
-    U32 N  = std::max(Na, Nb);
+    U32 N  = std::max(Na, Nb);                   /// * integers
     if (Ka != Kb || N != O.N() || C != O.C()) {
         ERROR("  tensor#gemm2 ka(%d)!=kb(%d) or N, C diff\n", Ka, Kb);
         return O;
