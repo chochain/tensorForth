@@ -249,8 +249,8 @@ __HOST__ void
 NetVM::_backprop() {
     if (IS_M(ss[-1]) && TOS1T) {                  /// * TOS is a onehot vector
         Tensor &t = TTOS;                         ///< get onehot vector
-        MTOS.backprop(t);                         /// * backprop(target vector)
-        if (MTOS.err) state = STOP;               /// * bail if error
+        MNOS.backprop(t);                         /// * backprop(target vector)
+        if (MNOS.err) state = STOP;               /// * bail if error
         DU x = POP(); DROP(x);                    /// * release onehot tensor
     }
     else if (IS_M(tos)) {                         /// * use default output
