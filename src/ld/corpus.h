@@ -28,8 +28,8 @@ struct Corpus {
     
     U32 min;                 ///< range of the source data
     U32 max;
-    U32 corpus_sz;
-    U32 batch_sz;
+    U32 corpus_sz;           ///< number of total samples
+    U32 batch_sz;            ///< number of samples of current mini-batch 
     
     U32 N, H, W, C;          ///< set dimensions and channel size
     union {
