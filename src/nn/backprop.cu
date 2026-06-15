@@ -45,7 +45,7 @@ Model::backprop(Tensor &tgt) {
             out.sum() / out.N() / out.C(),
             out.N(), out.H(), out.W(), out.C());
     };
-    if (_bprep(tgt)) return *this;                        /// * dLoss pass-thru
+    if (_bprep(tgt)) return *this;                        /// * dLoss pre-calc or pass-thru
     
     NLOG("\nModel::backprop starts trace=%d train=%d {", *_trace, train);
     DU  t0 = System::clock(), t1 = t0, tt;                ///< performance measurement
@@ -98,11 +98,8 @@ Model::_bprep(Tensor &tgt) {                     ///> pre-calc dLoss pass-thru
     case L_LINEAR:                               /// * linear  + MSE
     case L_SIGMOID:                              /// * sigmoid + BCE
     case L_SOFTMAX:                              /// * softmax + CE
-    case L_LOGSMAX:                              /// * log-softmax + NLL
-        out -= tgt;
-        out *=  DU1 / tgt.N();                   /// * normalize match forward 1/N
-        break;          
-    default: out = tgt;  break;                  /// * pass thru pre-calc dLoss
+    case L_LOGSMAX: out -= tgt; break;           /// * log-softmax + NLL
+    default:        out  = tgt;  break;          /// * pass thru pre-calc dLoss
     }
     if (*_trace) out.show();                     /// * display loss if trace on
     
