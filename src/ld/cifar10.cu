@@ -15,8 +15,8 @@ namespace t4::ld {
 ///
 /// for init debug MAX_BATCH 3
 ///
-//#define MAX_BATCH 3          /**< debug, limit number of mini-batches */
-#define MAX_BATCH 0          /**< debug, limit number of mini-batches */
+#define MAX_BATCH 3          /**< debug, limit number of mini-batches */
+//#define MAX_BATCH 0          /**< debug, limit number of mini-batches */
 
 Corpus *Cifar10::init(int mini_bsz, bool trace) {
     if (_open()) return NULL;
@@ -58,7 +58,7 @@ int Cifar10::fetch(int bid, bool trace) {
     ///
     /// fetch labels and images (and set eof if any of EOF reached)
     ///
-    int n = batch_sz = _get_data(bid);          ///< load, update actual size loaded
+    int n = batch_sz = _get_data(bid, trace);   ///< load, update actual size loaded
     
     if ((off += n) >= corpus_sz) eof = 1;       /// * EOF reached
     ///
@@ -87,7 +87,9 @@ int Cifar10::_close() {
     return 0;
 }
 
-int Cifar10::_get_data(int bid) {
+int Cifar10::_get_data(int bid, bool trace) {
+    bool first = label==NULL;
+    
     if (!label) DS_ALLOC(&label, N * LABEL_BSZ);   ///< allocate label memory block
     if (!data)  DS_ALLOC(&data,  N * IMAGE_BSZ);   ///< allocate image memory block
 
@@ -116,7 +118,19 @@ int Cifar10::_get_data(int bid) {
     }
     char c = _ds.peek();
     eof |= _ds.eof();                              /// * set EOF flag, if done
-    
+
+    auto dump_1st = [](U8 *label, int n) {
+        const char *nm[] = {
+            "plane", "car",   "bird",  "cat",   "deer",
+            "dog",   "frog ", "horse", "ship ", "truck", "ERROR"
+        };
+        for (int i = 0; i < n; i++) {
+            int idx = (int)label[i];
+            INFO("%-5s%c", nm[idx < 10 ? idx : 10], ((i+1)%16) ? ' ' : '\n');
+        }
+    };
+    if (trace && first) dump_1st(label, n);
+
     return n;                                      /// * number of samples fetched
 }
 
