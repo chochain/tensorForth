@@ -263,8 +263,8 @@ System::_process_tb(io_event *ev) {               ///< process TensorBoard ops
     if (x.op == TB_STEP || x.op == TB_GRAPH) {
         if (tb) {
             switch (x.op) {
-            case TB_STEP:  tb->set_step(x.i);
-            case TB_GRAPH: tb->graph(mu->du2obj(x.n));
+            case TB_STEP:  tb->set_step(x.i);             break;
+            case TB_GRAPH: tb->graph(mu->du2obj(x.n));    break;
             }
             if (_trace) INFO(")\n");
         }
