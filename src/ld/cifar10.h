@@ -42,7 +42,7 @@ private:
     virtual int _open();                               ///< open data sources
     virtual int _close();                              ///< close data sources
 
-    virtual int _get_data(int bid);                    ///< load labels
+    virtual int _get_data(int bid, bool trace);        ///< load labels
 };
 
 } // namespace t4::ld
