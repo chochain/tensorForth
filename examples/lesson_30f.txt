@@ -39,6 +39,9 @@ N dataset mnist_test                \ create MNIST test dataset with model batch
 nn.len to dsz1                      \ get dataset total number of samples
 constant ds1                        \ keep testing dataset as a constant
 
+ds0 16 s" mnist/train" .tile        \ sample training dataset, 16-wide, to tensorboard
+ds1 16 s" mnist/test"  .tile        \ sample testing  dataset, 16-wide
+
 .( ### create our CNN framework )
 : train_epoch ( M -- M' )           \ one epoch of trainning i.e. to learn
   0 hit ! ds0 rewind                  \ run thru trainning dataset
@@ -59,19 +62,17 @@ constant ds1                        \ keep testing dataset as a constant
   s" test/acc" .scalar ;              \ send to tensorboard
 
 : cnn ( M n -- M' )                 \ full CNN run
+  clock [to] t0                       \ get starting time
   1+ 0 do                             \ multiple epochs [0..n]
     train_epoch                       \ run one trainning epoch
     r@ stat histo                     \ send statistics, histogram to tensorboard
     test_epoch                        \ run one validation epoch
-    lr 0.95 * [to] lr                 \ decay learning rate
+    lr 0.9 * [to] lr                  \ decay learning rate
   loop ;
 
 0 trace
 .( ###  )
 md0 network dup .graph              \ put model as TOS, show and to tensorboard graph
-ds0 16 s" mnist/train" .tile        \ sample training dataset, 16-wide, to tensorboard
-ds1 16 s" mnist/test"  .tile        \ sample testing  dataset, 16-wide
-clock to t0                         \ get starting time
 20 cnn                              \ execute multiple (20) epoches
 
 bye
