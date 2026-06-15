@@ -302,11 +302,10 @@ Model::_bupsample(Tensor &in, Tensor &out, t4_layer fn) {
 ///  @brief:
 ///    see https://kevinzakka.github.io/2016/09/14/batch_normalization/
 ///
-/// Launch sequence (was 4 kernels + 2 CPU loops; now 3 kernels, 0 CPU sync):
-///
-///   1. k_batchnorm_1 - fused Σdout and Σ(dout·x̂) in one tensor pass
-///   2. k_batchnorm_2 - per-channel epilogue: accumulate dW/dB, scale sums
-///   3. k_dbatchnorm  - fused dX update in one tensor pass
+/// Launch sequence
+///   1. k_dbatchnorm_1 - fused Σdout and Σ(dout·x̂) in one tensor pass
+///   2. k_dbatchnorm_2 - per-channel epilogue: accumulate dW/dB, scale sums
+///   3. k_dbatchnorm_3 - fused dX update in one tensor pass
 ///
 __HOST__ int
 Model::_bbatchnorm(Tensor &in, Tensor &out) {
@@ -314,36 +313,40 @@ Model::_bbatchnorm(Tensor &in, Tensor &out) {
     const long HW  = (long)H * W;
     const long NHW = HW * N;
 
-    DU *w   = in.grad[0]->data;              ///< gamma (scale)  [C]
-    DU *dw  = in.grad[2]->data;              ///< d_gamma        [C]
-    DU *b   = in.grad[1]->data;              ///< beta           [C] (not used)
-    DU *db  = in.grad[3]->data;              ///< d_beta         [C]
-    DU *xht = in.grad[4]->data;              ///< x_hat          [NHWC]
-    DU *s1  = &in.mtum[4]->data[0];          ///< sum_dout       [NC]  (reused as s1 after scale)
-    DU *s2  = &in.mtum[4]->data[N * C];      ///< sum_dout_xhat  [NC]  (reused as s2 after scale)
-    DU *var = &in.mtum[4]->data[N * C * 2];  ///< 1/sqrt(var+e)  [C]
+    Tensor &w   = *in.grad[0];                  ///< gamma (scale)  [C]
+    Tensor &dw  = *in.grad[2];                  ///< d_gamma        [C]
+    Tensor &b   = *in.grad[1];                  ///< beta           [C] (not used)
+    Tensor &db  = *in.grad[3];                  ///< d_beta         [C]
+    Tensor &xht = *in.grad[4];                  ///< x_hat          [NHWC]
+    
+    DU *s1  = &in.mtum[4]->data[0];             ///< sum_dout       [NC]  (reused as s1 after scale)
+    DU *s2  = &in.mtum[4]->data[N * C];         ///< sum_dout_xhat  [NC]  (reused as s2 after scale)
+    DU *var = &in.mtum[4]->data[N * C * 2];     ///< 1/sqrt(var+e)  [C]
 
     // zero the accumulators before reduction
     cudaMemset(s1, 0, N * C * 2 * sizeof(DU));
-
+    
     /// 1. fused reduction ---
     {
         const int nwarps  = (T4_DIM_SQ + 31) >> 5;
         const int smem_sz = 2 * nwarps * sizeof(DU);
-        FORK4(k_dbatchnorm_1, smem_sz, out.data, xht, s1, s2, HW);
+        FORK4(k_dbatchnorm_1, smem_sz, out.data, xht.data, s1, s2, HW); 
     }
     /// 2. per-channel scale (no CPU sync needed) ---
-    //   launched as <<<C, 1>>> so each channel is one thread in one block;
-    //   gridDim.x == C is used inside the kernel as the channel stride for [N*C].
+    //   launched as <<<N, C>>> so each channel is one thread in one block;
+    //   blockDim.x == C is used inside the kernel as the channel stride for [N*C].
     {
-        dim3 _b(C, 1, 1);
-        k_dbatchnorm_2<<<1, _b>>>(
-            w, dw, db, s1, s2, var, N, NHW, train);
+        k_dbatchnorm_2<<<N, C>>>(
+            w.data, dw.data, db.data, s1, s2, var, NHW, train);
         GPU_CHK();
     }
     /// 3. fused dX update ---
-    FORK4(k_dbatchnorm, 0, in.data, out.data, xht, s1, s2, HW);
-
+    FORK4(k_dbatchnorm_3, 0, in.data, out.data, xht.data, s1, s2, HW);
+    
+    if (*_trace > 1) {
+        _dump_b("dw", dw);
+        _dump_b("db", db);
+    }
     return 0;
 }
 
