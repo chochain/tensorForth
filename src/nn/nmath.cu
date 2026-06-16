@@ -185,7 +185,6 @@ __KERN__ void k_softmax(
 
     for (int j = c; j < C; j += step) d[j] /= _sum; /// * normalize
 }
-
 ///
 ///> Batch norm statistics: mean and variance in a single kernel.
 ///  One block per (channel, batch) pair.
@@ -199,48 +198,43 @@ k_batchnorm_1(
     DP_W   var,           ///< output M2    [C]  (accumulated over N outside)
     long   HW             ///< H * W
 ) {
-    extern __shared__ DU smem[];   ///< [blockDim.x] for sum, reused for sumsq
-    DU *s_sum = smem;
-    DU *s_sq  = smem + blockDim.x;
+    __shared__ DU s_sum[32];   ///< one slot per warp (max 32 warps)
+    __shared__ DU s_sq[32];
 
-    const int  c  = blockIdx.x;                              ///< channel
-    const int  n  = blockIdx.y;                              ///< batch index
-    const int  C  = gridDim.x;
-    const long ns = HW * C * n;
+    const int  tx      = threadIdx.x;
+    const int  lane    = tx & 31;
+    const int  warp_id = tx >> 5;
+    const int  c       = blockIdx.x;
+    const int  n       = blockIdx.y;
+    const int  C       = gridDim.x;
+    const long ns      = HW * C * n;
 
-    // --- grid-stride accumulation into registers ---
-    DU t_sum = DU0, t_sq = DU0;
-    for (long j = threadIdx.x; j < HW; j += blockDim.x) {
-        DU v = src[ns + j * C + c];
-        t_sum += v;
-        t_sq  += v * v;
+    DU t_sum = 0.0f, t_sq = 0.0f;
+    for (long j = tx; j < HW; j += blockDim.x) {
+        DU v  = src[ns + j * C + c];
+        t_sum   += v;
+        t_sq    += v * v;
     }
 
-    // --- store into shared memory ---
-    s_sum[threadIdx.x] = t_sum;
-    s_sq [threadIdx.x] = t_sq;
+    WARP_SUM(t_sum);     /// * warp sum from register
+    WARP_SUM(t_sq);
+
+    if (lane == 0) {
+        s_sum[warp_id] = t_sum;
+        s_sq [warp_id] = t_sq;
+    }
     __syncthreads();
 
-    // --- tree reduction in shared memory ---
-    for (int stride = blockDim.x >> 1; stride >= 32; stride >>= 1) {
-        if (threadIdx.x < stride) {
-            s_sum[threadIdx.x] += s_sum[threadIdx.x + stride];
-            s_sq [threadIdx.x] += s_sq [threadIdx.x + stride];
-        }
-        __syncthreads();
-    }
+    const int nwarps = (blockDim.x + 31) >> 5;
+    if (warp_id == 0) {
+        t_sum = (lane < nwarps) ? s_sum[lane] : DU0;
+        t_sq  = (lane < nwarps) ? s_sq [lane] : DU0;
+        WARP_SUM(t_sum);
+        WARP_SUM(t_sq);
 
-    // --- final warp reduction (no __syncthreads needed inside a warp) ---
-    if (threadIdx.x < 32) {
-        DU ws = s_sum[threadIdx.x];
-        DU wv = s_sq [threadIdx.x];
-        WARP_SUM(ws);
-        WARP_SUM(wv);
-
-        // one write per block, serialised across N slices with global atomic
-        if (threadIdx.x == 0) {
-            atomicAdd(&avg[c], ws);
-            atomicAdd(&var[c], wv);
+        if (lane == 0) {
+            atomicAdd(&avg[c], t_sum);
+            atomicAdd(&var[c], t_sq);
         }
     }
 }
@@ -258,18 +252,29 @@ k_batchnorm_2(
     var[c] = DU1 / (_SQRT(b_var) + DU_EPS);
 }
 
-__KERN__ void k_batchnorm_3(
-    DP_R I, DP_W O, DP_W X,                ///< input, filter, output tensors
-    DP_R avg, DP_R rvar,                   ///< mean, 1.0/(stdvar + e)
-    DP_R w, DP_R b,                        ///< gamma, beta
+__KERN__ void
+k_batchnorm_3(
+    DP_R I, DP_W O, DP_X X,                 ///< input, output, x_hat tensors
+    DP_R avg, DP_R rvar,                    /// * mean, 1.0/(stdvar + e)
+    DP_R w, DP_R b,                         /// * gamma, beta
     long HW                                ///< H0=H1, W0==W1 (C0==C1)
-    ) {
-    const long j = (long)blockIdx.x * blockDim.x + threadIdx.x; ///< element index
-    const int  c = blockIdx.y, n = blockIdx.z, C = gridDim.y;   ///< channel deep, batch id
-    const long k = (HW * n + j) * C + c;                        ///< output tensor index
+    ) {                                
+    __shared__ DU s_avg, s_var, s_w, s_b;
+
+    const long j  = (long)blockIdx.x * blockDim.x + threadIdx.x; ///< spatial [0,HW)
+    const int  c  = blockIdx.y, C = gridDim.y;                   ///< channel [0,C)
+    const int  n  = blockIdx.z;                                  ///< batch   [0,N)
+    const long k  = (HW * n + j) * C + c;
+    
+    // one thread loads the 4 scalars for this block's channel
+    if (threadIdx.x == 0) {
+        s_avg = avg[c];  s_var = rvar[c];
+        s_w   = w[c];    s_b   = b[c];
+    }
+    __syncthreads();
 
     if (j < HW) {
-        O[k] = (X[k] = (I[k] - avg[c]) * rvar[c]) * w[c] + b[c];
+        O[k] = (X[k] = (I[k] - s_avg) * s_var) * s_w + s_b;
     }
 }
 ///==============================================================================
@@ -308,8 +313,8 @@ __KERN__ void k_dbatchnorm_1(
     const int  n   = blockIdx.z, nc = C * n + c;
     const long k   = (HW * n + j) * C + c;
 
-    DU v1 = (c < C && j < HW) ? dout[k]          : DU0;
-    DU v2 = (c < C && j < HW) ? dout[k] * xhat[k]: DU0;
+    DU v1 = (c < C && j < HW) ? dout[k]           : DU0;
+    DU v2 = (c < C && j < HW) ? dout[k] * xhat[k] : DU0;
 
     // --- level 1: warp reduce ---
     WARP_SUM(v1);
