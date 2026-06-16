@@ -28,7 +28,7 @@ namespace t4::nn {
 __HOST__ Model&
 Model::forward(Tensor &input) {
     Tensor &n0 = (*this)[0];              ///< reference model input layer
-    if (*_trace) input.show();            /// * preview input data
+    if (*_trace) input.show(true);        /// * preview input data
 
     if (input.numel != n0.numel) {
         ERROR("nn#forward dataset wrong shape[%d,%d,%d,%d] != model input[%d,%d,%d,%d]\n",
@@ -64,7 +64,7 @@ Model::forward(Tensor &input) {
             this->err = 1;
             break;
         }
-        if (*_trace > 1) out.show();
+        if (*_trace > 1) out.show(true);
     }
     ///
     /// collect onehot vector and hit count
@@ -274,20 +274,19 @@ Model::_fbatchnorm(Tensor &in, Tensor &out) {
     cudaMemsetAsync(avg, 0, C * 2 * sizeof(DU), st);  ///< zeros avg, var in one call
 
     auto dump_av = [&]() {
-        DU h_avg[C], h_var[C];
-        D2H(h_avg, avg, sizeof(DU) * C);
-        D2H(h_var, var, sizeof(DU) * C);
+        F32V hx(C*2);
+        D2H(&hx[0], avg, sizeof(DU) * C);
+        D2H(&hx[C], var, sizeof(DU) * C);
         INFO("\navg/var");
-        for (int c=0; c<C; c++) INFO("%8.2g/%8.2g ", h_avg[c], h_var[c]);
+        for (int c=0; c<C; c++) INFO("%8.2g/%8.2g ", hx[c], hx[C+c]);
     };
     /// 1. accumulate Σx and Σx² per channel
     {
         const int  _b = (int)MAX(32LL, MIN(HW, (U64)1024));
         const dim3 _g(C, N, 1);
-        const int  smem_sz  = 2 * _b * sizeof(DU);
-        k_batchnorm_1<<<_g, _b, smem_sz, st>>>(in.data, avg, var, HW);
+        k_batchnorm_1<<<_g, _b, 0, st>>>(in.data, avg, var, HW);
         GPU_CHK();
-//        dump_av();
+        if (*_trace > 1) dump_av();
     }
     /// 2. finalise mean and rvar — no CPU round-trip
     {
@@ -295,15 +294,15 @@ Model::_fbatchnorm(Tensor &in, Tensor &out) {
         const int _g = ((int)C + _b - 1) / _b;
         k_batchnorm_2<<<_g, _b, 0, st>>>(avg, var, (long)NHW);
         GPU_CHK();
-//        dump_av(); INFO("\n");
+        if (*_trace > 1) { dump_av(); INFO("\n"); }
     }
     /// 3. apply normalisation
     FORK4(k_batchnorm_3, 0, in.data, out.data, xht.data,
           avg, var, w.data, b.data, HW);                 ///< TODO: pass stream
     if (*_trace > 1) {
-        _dump_b("w", w);           /// 1.0
-        _dump_b("b", b);           /// 0.0
-        INFO("xht="); xht.show();  /// out = (xht = (I - avg) * rvar) * w + b
+        _dump_b("w", w);             /// 1.0
+        _dump_b("b", b);             /// 0.0
+        INFO("\nxht="); xht.show();  /// out = (xht = (I - avg) * rvar) * w + b
     }
     return 0;
 }
