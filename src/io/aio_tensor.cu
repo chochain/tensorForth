@@ -62,8 +62,8 @@ AIO::t2png(Tensor &t, char *tag, int n_per_row) {
     };
 
     U8 px[(HT * H) * WT * 3] = {};               ///< zero-init, so unfilled are black
-    DU h[t.numel];                               ///< host block (on heap space)
-    D2H(h, t.data, sizeof(DU) * t.numel);        ///< copy from device to host
+    std::vector<DU> h(t.numel);                  ///< host block (on heap space)
+    D2H(h.data(), t.data, sizeof(DU) * t.numel); ///< copy from device to host
     for (int n = 0; n < N; n++) {
         DU *hx = &h[n * H * W * C];
         tile(px, hx, n);
