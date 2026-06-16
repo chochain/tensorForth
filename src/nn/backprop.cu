@@ -64,7 +64,7 @@ Model::backprop(Tensor &tgt) {
             this->err = 1;
             break;
         }
-        if (*_trace > 1) in.show();
+        if (*_trace > 1) in.show(true);
     }
     NLOG("\n} Model::backprop %5.2f ms\n", System::clock() - t0);
     return *this;
@@ -88,7 +88,7 @@ Model::_bprep(Tensor &tgt) {                     ///> pre-calc dLoss pass-thru
     ///
     /// * NN typically utilize the following functions as final layer.
     ///   Their derivative, when associated with specific loss functions,
-    ///   can be treated as pass-thru 
+    ///   can be treated as (p - y) or pre-calc pass-thru 
     ///
     ///   + sigmod + BCE (BinaryCrossEntropy) loss for binary categorization
     ///   + softmax + CE (CrossEntropy) loss for multi-class categorization
@@ -101,7 +101,7 @@ Model::_bprep(Tensor &tgt) {                     ///> pre-calc dLoss pass-thru
     case L_LOGSMAX: out -= tgt; break;           /// * log-softmax + NLL
     default:        out  = tgt;  break;          /// * pass thru pre-calc dLoss
     }
-    if (*_trace) out.show();                     /// * display loss if trace on
+    if (*_trace) out.show(true);                     /// * display loss if trace on
     
     NLOG("}\n");
 
