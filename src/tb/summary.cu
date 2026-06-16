@@ -95,10 +95,10 @@ Summary::histo(const char *tag, T4Base &b, int n_bucket) {
         return;
     }
     Tensor &t = (Tensor&)b;
-    DU tx[t.numel];
-    D2H(tx, t.data, sizeof(DU) * t.numel);
+    F32V tx(t.numel);
+    D2H(tx.data(), t.data, sizeof(DU) * t.numel);
     
-    add_histo(tag, tx, t.numel, _step, n_bucket);
+    add_histo(tag, tx.data(), t.numel, _step, n_bucket);
 }
 ///
 /// print model layer parameters
