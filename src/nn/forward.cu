@@ -208,15 +208,16 @@ Model::_factivate(Tensor &in, Tensor &out, t4_layer fn) {
 
 __HOST__ int
 Model::_fpool(Tensor &in, Tensor &out, t4_layer fn) {
-    const U32 W = out.W(), H = out.H();                ///< output dimensions
-    const U32 C = out.C(), N = out.N();
-    const int K = in.stride[0];                        ///< kernel (TODO: rectangle)
+    const U32 C  = out.C(), N  = out.N();
+    const U32 H0 = out.H(), W0 = out.W();
+    const U32 H1 = in.H(),  W1 = in.W();
+    const int K  = in.stride[0];
 
     NN_DB(" %dx%d", K, K);
     
-    switch(K) {                                        /// pooling kernel size
-    case 2: FORK4(k_pool<2>, 0, fn, in.data, out.data, H, W); break;
-    case 3: FORK4(k_pool<3>, 0, fn, in.data, out.data, H, W); break;
+    switch (K) {
+    case 2: FORK4P(k_pool<2>, fn, in.data, out.data, H1, W1, H0, W0, C); break;
+    case 3: FORK4P(k_pool<3>, fn, in.data, out.data, H1, W1, H0, W0, C); break;
     default:
         ERROR("nn#fpool kernel_size=%d not supported\n", K);
         return -1;
@@ -260,16 +261,15 @@ Model::_flogsoftmax(Tensor &in, Tensor &out) {
 __HOST__ int
 Model::_fbatchnorm(Tensor &in, Tensor &out) {
     const cudaStream_t st = 0;
-    const U32 N   = out.N(), C = out.C(), H = out.H(), W = out.W();
+    const U32 N   = out.N(), C = out.C(), H = out.H(), W = out.W();  ///< in==out
     const U64 HW  = (U64)H * W;
     const U64 NHW = HW * N;
 
-    Tensor &w   = *in.grad[0];                  ///< gamma  [C]
-    Tensor &b   = *in.grad[1];                  ///< beta   [C]
-    Tensor &xht = *in.grad[4];                  ///< x_hat  [in.NHWC]
+    Tensor &w   = *in.grad[0], &b = *in.grad[1]; ///< gamma[C], beta[C]
+    Tensor &xht = *in.grad[4];                   ///< x_hat  [in.NHWC]
         
-    DU *avg = &in.mtum[4]->data[0];             ///< avg    [C] - tmp, also s1/s2 in backprop
-    DU *var = &in.mtum[4]->data[N * C * 2];     ///< var    [C] - read by backprop as rvar
+    DU *avg = &in.mtum[4]->data[0];              ///< avg    [C] - tmp, also s1/s2 in backprop
+    DU *var = &in.mtum[4]->data[N * C * 2];      ///< var    [C] - read by backprop as rvar
 
     cudaMemsetAsync(avg, 0, C * 2 * sizeof(DU), st);  ///< zeros avg, var in one call
 
@@ -311,14 +311,15 @@ Model::_fbatchnorm(Tensor &in, Tensor &out) {
 ///
 __HOST__ int
 Model::_fupsample(Tensor &in, Tensor &out) {
-    const U32 W  = in.W(), H = in.H();                  ///< input dimensions (reversed pool)
-    const U32 C  = in.C(), N = in.N();
+    const U32 C  = in.C(),  N  = in.N();
+    const U32 H1 = in.H(),  W1 = in.W();                ///< input dimensions (reversed pool)
+    const U32 H0 = out.H(), W0 = out.W();
     const int me = in.iparm;                            ///< upsample method, TODO
     const int K  = in.stride[0];                        ///< upsampling size
 
     switch(K) {
-    case 2: FORK4(k_dpool<2>, 0, L_USAMPLE, out.data, in.data, H, W); break;
-    case 3: FORK4(k_dpool<3>, 0, L_USAMPLE, out.data, in.data, H, W); break;
+    case 2: FORK4P(k_dpool<2>, L_USAMPLE, out.data, in.data, H1, W1, H0, W0, C); break;
+    case 3: FORK4P(k_dpool<3>, L_USAMPLE, out.data, in.data, H1, W1, H0, W0, C); break;
     default:
         ERROR("nn#fupsample size=%d not supported\n", K);
         return -1;
