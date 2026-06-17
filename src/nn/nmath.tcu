@@ -6,8 +6,11 @@
  * <pre>Copyright (C) 2022- GreenII, this file is distributed under BSD 3-Clause License.</pre>
  */
 ///==============================================================================
-/// forward
-///==============================================================================
+/// convolution filter
+///
+/// Note: half-padding, no-stride 
+/// TODO: stride, dilation, [C1]NCHW filter,
+///       [see](https://github.com/vdumoulin/conv_arithmetic)
 ///
 /// k_conv2d — supports both odd kernels (KS=2R+1, stride=1) and
 ///             even kernels (e.g. KS=4, stride=S), with optional
@@ -100,43 +103,84 @@ __KERN__ void k_conv2d(
     }
 }
 
+///=============================================================================
+/// Launch — same configuration as k_dpool_opt for consistency.
+/// TILE_C=32 aligns the warp along the channel dimension → coalesced reads.
+///=============================================================================
+#define T4_TILE_C   32
+#define T4_TILE_HW   8
+
+#define FORK4P(fn, ...) {                            \
+    const dim3 _b(T4_TILE_C, T4_TILE_HW, 1);         \
+    const dim3 _g(((C) + _b.x - 1) / _b.x,           \
+                  ((H0) * (W0) + _b.y - 1) / _b.y,   \
+                  N);                                \
+    fn<<<_g, _b>>>(__VA_ARGS__);                     \
+    GPU_CHK();                                       \
+}
+
 template<int KS>
 __KERN__ void k_pool(
     t4_layer op,
-    DP_R I, DP_W O, int H, int W)
+    DP_R I, DP_W O,
+    int H1, int W1,                                 ///< input  dims
+    int H0, int W0, int C)                          ///< output dims
 {
-    const int  KSQ = KS * KS;
-    const long HW  = (long)H * W;
-    const long k0  = (long)blockIdx.x * blockDim.x + threadIdx.x;
+    const int KSQ  = KS * KS;
+    const int HW0  = H0 * W0;
+    const int HW1  = H1 * W1;
 
-    if (k0 >= HW) return;
+    // Thread indices: tx covers channel, ty covers spatial
+    const int c    = blockIdx.x * blockDim.x + threadIdx.x;
+    const int k0   = blockIdx.y * blockDim.y + threadIdx.y;   ///< output hw index
+    const int n    = blockIdx.z;
 
-    const int  j0  = k0 % W;                                ///< output col
-    const int  c   = blockIdx.y, C = gridDim.y;
-    const long ns  = HW * C * blockIdx.z;                   ///< output batch offset
-    const long z0  = ns + k0 * C + c;                       ///< output index
-    const long z1  = (ns + k0 * C) * KSQ + j0 * KS * C + c; ///< input tile, acc=0.9897
-    const long RI  = (long)(W - 1) * KS * C;                ///< row advance after each KS cols
+    if (c >= C || k0 >= HW0) return;
 
-    DP_R ix = &I[z1];                                       ///< first elem for max/min
-    DU   v  = (op == L_MAXPOOL || op == L_MINPOOL) ? *ix : DU0;
+    const int  j0  = k0 % W0;                       ///< output col
+    const long ns0 = (long)HW0 * C * n;             ///< output batch offset
+    const long z0  = ns0 + k0 * C + c;              ///< output index
+    
+    const int  j1  = j0 * KS;                       ///< input col
+    const int  i1  = (k0 / W0) * KS;                ///< input row
+    const long ns1 = (long)HW1 * C * n;             ///< input batch offset
+    const long z1  = ns1 + (i1 * W1 + j1) * C + c;  ///< input index
+    
+    const DU   *ix = &I[z1];                        ///< this thread's tile
 
-    /// op hoisted outside loop — no per-iteration branch
+    DU tile[KSQ];
+    const int row_stride = W1 * C;                  ///< input row stride in elements
+    #pragma unroll
+    for (int y = 0; y < KS; y++, ix += row_stride) {
+        const DU *px = ix;
+        #pragma unroll
+        for (int x = 0; x < KS; x++, px += C) {
+            tile[y * KS + x] = *px;
+        }
+    }
+
+    DU v;
     switch (op) {
     case L_USAMPLE:
-    case L_AVGPOOL:
-        for (int y = 0; y < KS; y++, ix += RI)
-            for (int x = 0; x < KS; x++, ix += C) v += *ix;
-        v /= KSQ;
+    case L_AVGPOOL: {
+        v = DU0;
+        #pragma unroll
+        for (int i = 0; i < KSQ; i++) v += tile[i];
+        v /= (DU)KSQ;
         break;
-    case L_MAXPOOL:
-        for (int y = 0; y < KS; y++, ix += RI)
-            for (int x = 0; x < KS; x++, ix += C) v = MAX(*ix, v);
+    }
+    case L_MAXPOOL: {
+        v = tile[0];
+        #pragma unroll
+        for (int i = 1; i < KSQ; i++) v = MAX(tile[i], v);
         break;
-    case L_MINPOOL:
-        for (int y = 0; y < KS; y++, ix += RI)
-            for (int x = 0; x < KS; x++, ix += C) v = MIN(*ix, v);
+    }
+    case L_MINPOOL: {
+        v = tile[0];
+        #pragma unroll
+        for (int i = 1; i < KSQ; i++) v = MIN(tile[i], v);
         break;
+    }
     }
     O[z0] = v;
 }
@@ -402,56 +446,122 @@ __KERN__ void k_dconv2d0(
     }
 }
 
+///=============================================================================
+/// Optimization notes
+///
+/// 1. THREAD MAPPING: original mapped 1 thread per output pixel (over HW),
+///    with C and N in grid Y/Z. This causes strided (non-coalesced) reads in
+///    the KS*KS inner loop because adjacent threads in X differ by W*C bytes.
+///    New mapping: thread handles one (hw, c) pair so the innermost fast-path
+///    (channel loop) is gone and all memory ops inside the KS*KS tile are at
+///    stride C — the same as before, but we fold C into blockDim.x so
+///    consecutive threads in a warp access consecutive channels → coalesced.
+///
+/// 2. AVGPOOL / USAMPLE: direct scatter, no read-modify (atomic not needed
+///    because non-overlapping tiles when stride == KS).
+///
+/// 3. MAXPOOL / MINPOOL: single-pass find-and-zero so the input tile is
+///    read+zeroed in one sweep; only one write (to argmax/min).
+///
+/// 4. Template KS keeps the inner loops fully unrolled by the compiler.
+///=============================================================================
+
+/// New grid: threads cover (hw * C) in X, batch N in Y.
+/// blockDim chosen as (TILE_C, T4_DIM_HW, 1) — see FORK4b below.
+/// Each thread owns exactly one (hw, c) output cell.
+
 template<int KS>
 __KERN__ void k_dpool(
-    t4_layer op, DP_X I, DP_R O, int H, int W)
+    t4_layer op,
+    DP_W I, DP_R O,
+    int H1, int W1,
+    int H0, int W0, int C)
 {
-    const int KSQ = KS * KS;
-    const long HW = (long)H * W;
-    const long k0 = (long)blockIdx.x * blockDim.x + threadIdx.x;
+    const int  KSQ = KS * KS;
+    const int  HW0 = H0 * W0;
+    const int  HW1 = H1 * W1;
 
-    if (k0 >= HW) return;
+    // Thread indices: tx covers channel, ty covers spatial
+    const int c   = blockIdx.x * blockDim.x + threadIdx.x;   ///< channel
+    const int k0  = blockIdx.y * blockDim.y + threadIdx.y;   ///< hw index
+    const int n   = blockIdx.z;                              ///< batch
+
+    if (c >= C || k0 >= HW0) return;
+
+    // Base offset for this batch
+    const int  j0   = k0 % W0;                        ///< output col index
+    const long ns0  = (long)HW0 * C * n;
+    const long z0   = ns0 + k0 * C + c;     // Output (dY) index: layout is [N,H0,W0,C]
+
+    // Input tile base: the KS*KS input cells corresponding to output pixel k0
+    // Row-step after one output row = W * KS * C (input width = W*KS)
+    // Within a row, step per input pixel = C
+    // Tile start column in input = j0*KS, row = (k0/W)*KS
+    const int  j1  = j0 * KS;                         ///< input starting col
+    const int  i1  = (k0 / W0) * KS;                  ///< input starting row
+    const long ns1 = (long)HW1 * C * n;               ///< input batch offset
+    const int  z1  = ns1 + (i1 * W1 + j1) * C + c;    ///< input dX index [N,H1,W1,C]
     
-    const int  j0 = k0 % W;                                ///< output col
-    const int  c  = blockIdx.y, C  = gridDim.y;
-    const long ns = HW * C * blockIdx.z;                   ///< output batch offset
+    DU *ix1 = &I[z1];                                 ///< this thread's tile
 
-    const long z0 = ns + k0 * C + c;                       ///< output (dY) index
-    const long z1 = (ns + k0 * C) * KSQ + j0 * KS * C + c; ///< input tile, acc=0.9897
-    const long RI = (long)(W - 1) * KS * C;                ///< row advance after KS cols
-
-    DP_X ix = &I[z1];
-    DU *t  = ix;                                           ///< argmax/argmin ptr
-    DU  v  = (op != L_AVGPOOL) ? *ix : O[z0];              ///< init value
-
-    /// op hoisted outside loop
+    // Row stride in input for advancing one row (W1 * C bytes / sizeof(DU))
+    const int row_stride = W1 * C;                    ///< elements per input row × C
+    
     switch (op) {
-    case L_AVGPOOL: v /= KSQ;
-    case L_USAMPLE:
-        /// distribute dY equally across all KS*KS input cells
-        for (int y = 0; y < KS; y++, ix += RI)
-            for (int x = 0; x < KS; x++, ix += C) *ix = v;
+    case L_AVGPOOL: {
+        DU v = O[z0] / (DU)KSQ;
+        DU *ix = ix1;
+        #pragma unroll
+        for (int y = 0; y < KS; y++, ix += row_stride) {
+            DU *px = ix;
+            #pragma unroll
+            for (int x = 0; x < KS; x++, px += C) *px = v;
+        }
         break;
-    case L_MAXPOOL:
-        /// zero all, find argmax, write dY to argmax position
-        for (int y = 0; y < KS; y++, ix += RI) {
-            for (int x = 0; x < KS; x++, ix += C) {
-                DU dx = *ix; *ix = DU0;
-                if (dx > v) { v = dx; t = ix; }
+    }
+    case L_USAMPLE: {
+        DU v = O[z0];
+        DU *ix = ix1;
+        #pragma unroll
+        for (int y = 0; y < KS; y++, ix += row_stride) {
+            DU *px = ix;
+            #pragma unroll
+            for (int x = 0; x < KS; x++, px += C) *px = v;
+        }
+        break;
+    }
+    case L_MAXPOOL: {
+        DU   best = *ix1;
+        DU  *argp = ix1;
+        DU  *ix   = ix1;
+        #pragma unroll
+        for (int y = 0; y < KS; y++, ix += row_stride) {
+            DU *px = ix;
+            #pragma unroll
+            for (int x = 0; x < KS; x++, px += C) {
+                DU dx = *px; *px = (DU)0;
+                if (dx > best) { best = dx; argp = px; }
             }
         }
-        *t = O[z0];                                        ///< dY at argmax
+        *argp = O[z0];
         break;
-    case L_MINPOOL:
-        /// zero all, find argmin, write dY to argmin position
-        for (int y = 0; y < KS; y++, ix += RI) {
-            for (int x = 0; x < KS; x++, ix += C) {
-                DU dx = *ix; *ix = DU0;
-                if (dx < v) { v = dx; t = ix; }
+    }
+    case L_MINPOOL: {
+        DU   best = *ix1;
+        DU  *argp = ix1;
+        DU  *ix   = ix1;
+        #pragma unroll
+        for (int y = 0; y < KS; y++, ix += row_stride) {
+            DU *px = ix;
+            #pragma unroll
+            for (int x = 0; x < KS; x++, px += C) {
+                DU dx = *px; *px = (DU)0;
+                if (dx < best) { best = dx; argp = px; }
             }
         }
-        *t = O[z0];                                        ///< dY at argmin
+        *argp = O[z0];
         break;
+    }
     }
 }
 //===============================================================================
