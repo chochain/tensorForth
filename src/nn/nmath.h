@@ -53,9 +53,9 @@ __KERN__ void k_batchnorm_1(                ///< accumulate Σx and Σx² per ch
 __KERN__ void k_batchnorm_2(                ///< calc mean and rvar
     DP_X avg, DP_X var, long NHW);          /// * var keeps rvar for backprop
 __KERN__ void k_batchnorm_3(                ///< normalize O, keep X as xhat
-    DP_R I, DP_W O, DP_X X,                 ///< input, output, x_hat tensors
+    DP_R I, DP_W O, DP_X XH,                ///< input, output, x_hat tensors
     DP_R avg, DP_R rvar,                    /// * mean, 1.0/(stdvar + e)
-    DP_R w, DP_R b,                         /// * gamma, beta
+    DP_R W, DP_R B,                         /// * gamma, beta
     long HW);                               /// * H0=H1, W0==W1 (C0==C1)
 ///@}
 ///============================================================================
@@ -68,20 +68,21 @@ __KERN__ void k_batchnorm_3(                ///< normalize O, keep X as xhat
 __KERN__ void k_dlinear_db(
     DP_R O, DP_W DB, int N, int E0);
 __KERN__ void k_dbatchnorm_1(               ///< fuse reduction
-    DP_R dout, DP_R xhat,                   ///< upstream gradient, saved x_hat
-    DP_W sum_dout, DP_W sum_dout_xhat,      ///< Σ dout [NC], Σ dout*x_hat  [NC]
+    DP_R D0, DP_R XH,                       ///< upstream gradient, saved x_hat
+    DP_W sum_d0,                            ///< Σ dout       [NC]
+    DP_W sum_d0xh,                          ///< Σ dout*x̂     [NC]
     long HW);                               ///< H*W spatial elements
 __KERN__ void k_dbatchnorm_2(               ///< per-channel scale
     DP_R W,                                 ///< gamma  [C]
     DP_W DW, DP_W DB,                       ///< d_gamma, d_beta accumulators [C]
-    DP_W sum_dout,                          ///< in: Σ dout   [NC] → out: gvar*mean_dout
-    DP_W sum_dout_xhat,                     ///< in: Σ dout*x̂ [NC] → out: gvar*mean_dout_xhat
+    DP_W sum_d0,                            ///< in: Σ dout   [NC] → out: gvar*mean_dout
+    DP_W sum_d0xh,                          ///< in: Σ dout*x̂ [NC] → out: gvar*mean_dout_xhat
     DP_R rvar,                              ///< 1/sqrt(var+e)  [C]
     long NHW, bool train);                  ///< batch size
 __KERN__ void k_dbatchnorm_3(               ///< final update
     DP_W DX,                                ///< output gradient tensor   [NHWC]
-    DP_R dout,                              ///< upstream gradient        [NHWC]
-    DP_R xhat,                              ///< saved x_hat              [NHWC]
+    DP_R D0,                                ///< upstream gradient        [NHWC]
+    DP_R XH,                                ///< saved x_hat              [NHWC]
     DP_R s1,                                ///< gvar * mean(dout)        [NC]
     DP_R s2,                                ///< gvar * mean(dout * x_hat)[NC]
     long HW);                               ///< H*W
