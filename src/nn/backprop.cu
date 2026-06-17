@@ -306,10 +306,10 @@ Model::_bupsample(Tensor &in, Tensor &out, t4_layer fn) {
 ///
 __HOST__ int
 Model::_bbatchnorm(Tensor &in, Tensor &out) {
-    const int  N   = in.N(), H = in.H(), W = in.W(), C = in.C();  ///< in==out
-    const long HW  = (long)H * W;
-    const long NHW = HW * N;
-    const int  NC2 = N * C * 2;
+    const U32 N   = in.N(), H = in.H(), W = in.W(), C = in.C();  ///< in==out
+    const U32 HW  = H * W;
+    const U64 NHW = HW * N;
+    const U32 NC2 = N * C * 2;
 
     Tensor &w   = *in.grad[0], &b = *in.grad[1]; ///< gamma[C], beta[C]
     Tensor &dw  = *in.grad[2], &db= *in.grad[3]; ///< d_gamma[C], d_beta[C]
@@ -332,14 +332,13 @@ Model::_bbatchnorm(Tensor &in, Tensor &out) {
     };
     /// 1. fused reduction ---
     {
-        const int nwarps  = (T4_DIM_SQ + 31) >> 5;
-        const int smem_sz = 2 * nwarps * sizeof(DU);
+        const U32 nwarp   = (T4_DIM_SQ + 31) >> 5;
+        const U32 smem_sz = 2 * nwarp * sizeof(DU);
         FORK4(k_dbatchnorm_1, smem_sz, out.data, xht.data, s1, s2, HW); 
         if (*_trace > 1) dump_s();
     }
     /// 2. per-channel scale (no CPU sync needed) ---
-    //   launched as <<<N, C>>> so each channel is one thread in one block;
-    //   blockDim.x == C is used inside the kernel as the channel stride for [N*C].
+    ///   launched as <<<N, C>>> so each channel is one thread in one block;
     {
         k_dbatchnorm_2<<<N, C>>>(
             w.data, dw.data, db.data, s1, s2, var, NHW, train);
