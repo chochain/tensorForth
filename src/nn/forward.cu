@@ -4,7 +4,8 @@
  *
  * <pre>Copyright (C) 2022- GreenII, this file is distributed under BSD 3-Clause License.</pre>
  */
-#include <float.h>
+#include <algorithm>         // std::max, std::min
+//#include <float.h>
 #include "model.h"
 #include "nmath.h"
 ///
@@ -211,7 +212,7 @@ Model::_fpool(Tensor &in, Tensor &out, t4_layer fn) {
     const U32 C  = out.C(), N  = out.N();
     const U32 H0 = out.H(), W0 = out.W();
     const U32 H1 = in.H(),  W1 = in.W();
-    const int K  = in.stride[0];
+    const U32 K  = in.stride[0];
 
     NN_DB(" %dx%d", K, K);
     
@@ -262,8 +263,8 @@ __HOST__ int
 Model::_fbatchnorm(Tensor &in, Tensor &out) {
     const cudaStream_t st = 0;
     const U32 N   = out.N(), C = out.C(), H = out.H(), W = out.W();  ///< in==out
-    const U64 HW  = (U64)H * W;
-    const U64 NHW = HW * N;
+    const U32 HW  = H * W;
+    const U64 NHW = (U64)HW * N;
 
     Tensor &w   = *in.grad[0], &b = *in.grad[1]; ///< gamma[C], beta[C]
     Tensor &xht = *in.grad[4];                   ///< x_hat  [in.NHWC]
@@ -282,7 +283,7 @@ Model::_fbatchnorm(Tensor &in, Tensor &out) {
     };
     /// 1. accumulate Σx and Σx² per channel
     {
-        const int  _b = (int)MAX(32LL, MIN(HW, (U64)1024));
+        const int  _b = std::max(32, std::min((int)HW, 1024));
         const dim3 _g(C, N, 1);
         k_batchnorm_1<<<_g, _b, 0, st>>>(in.data, avg, var, HW);
         GPU_CHK();
@@ -290,9 +291,9 @@ Model::_fbatchnorm(Tensor &in, Tensor &out) {
     }
     /// 2. finalise mean and rvar — no CPU round-trip
     {
-        const int _b = MIN((int)C, 1024);
-        const int _g = ((int)C + _b - 1) / _b;
-        k_batchnorm_2<<<_g, _b, 0, st>>>(avg, var, (long)NHW);
+        const int _b = std::max(32, std::min((int)C, 1024));
+        const int _g = (C + _b - 1) / _b;
+        k_batchnorm_2<<<_g, _b, 0, st>>>(avg, var, NHW, C);
         GPU_CHK();
         if (*_trace > 1) { dump_av(); INFO("\n"); }
     }
