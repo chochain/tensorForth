@@ -260,15 +260,14 @@ Model::_bactivate(Tensor &in, Tensor &out) {
 
 __HOST__ int
 Model::_bpool(Tensor &in, Tensor &out, t4_layer fn) {
-    const U32 W = out.W(), H = out.H();               ///< output dimensions
-    const U32 C = out.C(), N = out.N();
-    const int K = in.stride[0];                      ///< kernel size (square)
-    
-    NN_DB(" %dx%d", K, K);
-    
-    switch(K) {
-    case 2: FORK4(k_dpool<2>, 0, fn, in.data, out.data, H, W); break;
-    case 3: FORK4(k_dpool<3>, 0, fn, in.data, out.data, H, W); break;
+    const U32 C  = out.C(), N  = out.N();
+    const U32 H0 = out.H(), W0 = out.W();
+    const U32 H1 = in.H(),  W1 = in.W();
+    const int K  = in.stride[0];                      ///< kernel size (square)
+
+    switch (K) {
+    case 2: FORK4P(k_dpool<2>, fn, in.data, out.data, H1, W1, H0, W0, C); break;
+    case 3: FORK4P(k_dpool<3>, fn, in.data, out.data, H1, W1, H0, W0, C); break;
     default:
         ERROR("nn#bpool kernel_size=%d not supported\n", K);
         return -1;
@@ -280,14 +279,15 @@ Model::_bpool(Tensor &in, Tensor &out, t4_layer fn) {
 ///
 __HOST__ int
 Model::_bupsample(Tensor &in, Tensor &out, t4_layer fn) {
-    const U32 W  = in.W(), H = in.H();                ///< input dimensions (reversed pool)
-    const U32 C  = in.C(), N = in.N();
+    const U32 C  = in.C(),  N  = in.N();
+    const U32 H1 = in.H(),  W1 = in.W();              ///< input dimensions (reversed pool)
+    const U32 H0 = out.H(), W0 = out.W();
     const int me = in.iparm;                          ///< upsample method, TODO
     const int K  = in.stride[0];                      ///< kernel size (square?)
 
     switch(K) {                                       /// by kernel size
-    case 2: FORK4(k_pool<2>, 0, fn, out.data, in.data, H, W); break;
-    case 3: FORK4(k_pool<3>, 0, fn, out.data, in.data, H, W); break;
+    case 2: FORK4P(k_pool<2>, fn, out.data, in.data, H1, W1, H0, W0, C); break;
+    case 3: FORK4P(k_pool<3>, fn, out.data, in.data, H1, W1, H0, W0, C); break;
     default:
         ERROR("nn#bupsample size=%d not supported\n", K);
         return -1;
@@ -306,28 +306,36 @@ Model::_bupsample(Tensor &in, Tensor &out, t4_layer fn) {
 ///
 __HOST__ int
 Model::_bbatchnorm(Tensor &in, Tensor &out) {
-    const int  N   = out.N(), H = out.H(), W = out.W(), C = out.C();  ///< in==out
+    const int  N   = in.N(), H = in.H(), W = in.W(), C = in.C();  ///< in==out
     const long HW  = (long)H * W;
     const long NHW = HW * N;
+    const int  NC2 = N * C * 2;
 
-    Tensor &w   = *in.grad[0];                  ///< gamma (scale)  [C]
-    Tensor &dw  = *in.grad[2];                  ///< d_gamma        [C]
-    Tensor &b   = *in.grad[1];                  ///< beta           [C] (not used)
-    Tensor &db  = *in.grad[3];                  ///< d_beta         [C]
-    Tensor &xht = *in.grad[4];                  ///< x_hat          [NHWC]
+    Tensor &w   = *in.grad[0], &b = *in.grad[1]; ///< gamma[C], beta[C]
+    Tensor &dw  = *in.grad[2], &db= *in.grad[3]; ///< d_gamma[C], d_beta[C]
+    Tensor &xht = *in.grad[4];                   ///< x_hat          [NHWC]
     
-    DU *s1  = &in.mtum[4]->data[0];             ///< sum_dout       [NC]  (reused as s1 after scale)
-    DU *s2  = &in.mtum[4]->data[N * C];         ///< sum_dout_xhat  [NC]  (reused as s2 after scale)
-    DU *var = &in.mtum[4]->data[N * C * 2];     ///< 1/sqrt(var+e)  [C]
+    DU *s1  = &in.mtum[4]->data[0];              ///< sum_dout       [NC]  (reused as s1 after scale)
+    DU *s2  = &in.mtum[4]->data[N*C];            ///< sum_dout_xhat  [NC]  (reused as s2 after scale)
+    DU *var = &in.mtum[4]->data[NC2];            ///< 1/sqrt(var+e)  [C]
 
     // zero the accumulators before reduction
-    cudaMemset(s1, 0, N * C * 2 * sizeof(DU));
+    cudaMemset(s1, 0, NC2 * sizeof(DU));
     
+    auto dump_s = [&]() {
+        F32V hx(NC2);
+        D2H(&hx[0], s1, NC2 * sizeof(DU));
+        for (int n=0; n<N; n++) {
+            INFO("\n    s%d= ", n);
+            for (int c=0; c<C; c++) INFO("%8.2g/%8.2g ", hx[n*C+c], hx[(N+n)*C+c]);
+        }
+    };
     /// 1. fused reduction ---
     {
         const int nwarps  = (T4_DIM_SQ + 31) >> 5;
         const int smem_sz = 2 * nwarps * sizeof(DU);
         FORK4(k_dbatchnorm_1, smem_sz, out.data, xht.data, s1, s2, HW); 
+        if (*_trace > 1) dump_s();
     }
     /// 2. per-channel scale (no CPU sync needed) ---
     //   launched as <<<N, C>>> so each channel is one thread in one block;
@@ -336,6 +344,7 @@ Model::_bbatchnorm(Tensor &in, Tensor &out) {
         k_dbatchnorm_2<<<N, C>>>(
             w.data, dw.data, db.data, s1, s2, var, NHW, train);
         GPU_CHK();
+        if (*_trace > 1) dump_s();
     }
     /// 3. fused dX update ---
     FORK4(k_dbatchnorm_3, 0, in.data, out.data, xht.data, s1, s2, HW);
