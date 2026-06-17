@@ -5,7 +5,7 @@
  *
  * <pre>Copyright (C) 2022- GreenII, this file is distributed under BSD 3-Clause License.</pre>
  */
-#include <float.h>
+#include <float.h>              // -FLT_MAX
 #include "nmath.h"
 ///
 /// General Notations
@@ -175,10 +175,10 @@ __KERN__ void k_softmax(
 ///
 __KERN__ void
 k_batchnorm_1(
-    DP_R   src,           ///< input  [N, HW, C] (NHWC)
-    DP_W   avg,           ///< output mean  [C]  (accumulated over N outside)
-    DP_W   var,           ///< output M2    [C]  (accumulated over N outside)
-    long   HW             ///< H * W
+    DP_R src,           ///< input  [N, HW, C] (NHWC)
+    DP_W avg,           ///< output mean  [C]  (accumulated over N outside)
+    DP_W var,           ///< output M2    [C]  (accumulated over N outside)
+    int  HW             ///< H * W
 ) {
     __shared__ DU s_sum[32];   ///< one slot per warp (max 32 warps)
     __shared__ DU s_sq[32];
@@ -186,7 +186,7 @@ k_batchnorm_1(
     const int  tx   = threadIdx.x;
     const int  c    = blockIdx.x, C = gridDim.x;   ///< channels
     const int  n    = blockIdx.y;                  ///< sample index
-    const long ns   = HW * C * n;
+    const long ns   = (long)HW * C * n;
     const int  lane = tx & 31, warp_id = tx >> 5;
 
     DU t_sum = 0.0f, t_sq = 0.0f;
@@ -218,37 +218,38 @@ k_batchnorm_1(
         }
     }
 }
-
-// gridDim = (C, 1, 1), one thread per channel
+// <<<(((C+31)/32, max(32,C)>>> one thread per channel
 __KERN__ void
 k_batchnorm_2(
-    DP_X avg, DP_X var, long NHW) {
+    DP_X avg, DP_X var, long NHW, int C) {
     const int c = blockIdx.x * blockDim.x + threadIdx.x;
-    
-    DU b_avg = avg[c] / NHW;
-    DU b_var = var[c] / NHW - b_avg * b_avg;
-    
-    avg[c] = b_avg;
-    var[c] = DU1 / (_SQRT(b_var) + DU_EPS);
-}
 
+    if (c < C) {
+        DU b_avg = avg[c] / NHW;
+        DU b_var = var[c] / NHW - b_avg * b_avg;
+    
+        avg[c] = b_avg;
+        var[c] = DU1 / (_SQRT(b_var) + DU_EPS);
+    }
+}
+// <<<(256,1,1),((HW+255)/256,C,N)>>>
 __KERN__ void
 k_batchnorm_3(
     DP_R I, DP_W O, DP_X XH,                ///< input, output, x_hat tensors
     DP_R avg, DP_R rvar,                    /// * mean, 1.0/(stdvar + e)
     DP_R W, DP_R B,                         /// * gamma, beta
-    long HW                                 ///< H0=H1, W0==W1 (C0==C1)
+    int  HW                                 ///< H0=H1, W0==W1 (C0==C1)
     ) {                                
     __shared__ DU s_avg, s_var, s_w, s_b;
 
-    const long j  = (long)blockIdx.x * blockDim.x + threadIdx.x; ///< spatial [0,HW)
-    const int  c  = blockIdx.y, C = gridDim.y;                   ///< channel [0,C)
-    const int  n  = blockIdx.z;                                  ///< batch   [0,N)
-    const long k  = (HW * n + j) * C + c;
+    const int  j  = blockIdx.x * blockDim.x + threadIdx.x; ///< spatial [0,HW)
+    const int  c  = blockIdx.y, C = gridDim.y;             ///< channel [0,C)
+    const int  n  = blockIdx.z;                            ///< batch   [0,N)
+    const long k  = ((long)HW * n + j) * C + c;
     
     // one thread loads the 4 scalars for this block's channel
     if (threadIdx.x == 0) {
-        s_avg = avg[c];  s_var = rvar[c];
+        s_avg = avg[c];  s_var = rvar[c];   ///< average, rvar per channel
         s_w   = W[c];    s_b   = B[c];
     }
     __syncthreads();
@@ -282,17 +283,18 @@ __KERN__ void k_dlinear_db(
 ///
 /// Two-level reduction: warp → shared memory → one atomicAdd per block,
 ///
+///<<<(256,1,1),((HW+255)/256,C,N)>>>
 __KERN__ void k_dbatchnorm_1(
     DP_R D0, DP_R XH,                   ///< upstream gradient, saved x_hat
     DP_W sum_d0,                        ///< out: Σ dout        [N*C]
     DP_W sum_d0xh,                      ///< out: Σ dout*x_hat  [N*C]
-    long HW                             ///< H*W spatial elements
+    int HW                              ///< H*W spatial elements
     ) {
-    const long tx  = threadIdx.x;
-    const long j   = (long)blockIdx.x * blockDim.x + tx;
-    const int  c   = blockIdx.y, C  = gridDim.y;
-    const int  n   = blockIdx.z, nc = C * n + c;
-    const long k   = (HW * n + j) * C + c;
+    const int  tx = threadIdx.x;
+    const int  j  = blockIdx.x * blockDim.x + tx;
+    const int  c  = blockIdx.y, C  = gridDim.y;
+    const int  n  = blockIdx.z, nc = C * n + c;
+    const long k  = ((long)HW * n + j) * C + c;
 
     DU v1 = (c < C && j < HW) ? D0[k]         : DU0;
     DU v2 = (c < C && j < HW) ? D0[k] * XH[k] : DU0;
@@ -302,25 +304,25 @@ __KERN__ void k_dbatchnorm_1(
     WARP_SUM(v2);
 
     // --- level 2: shared memory across warps in this block ---
-    const int nwarps  = (blockDim.x + 31) >> 5;
-    const int lane    = tx & 31, warp_id = tx >> 5;
+    const int nwarp = (blockDim.x + 31) >> 5;
+    const int lane  = tx & 31, warp_id = tx >> 5;
 
     extern __shared__ DU smem[];       ///< smem[0,nwarps)=v1, smem[nwarps,2*nwarps)=v2
-    DU *smem1 = smem;
-    DU *smem2 = smem + nwarps;
+    DU *s1 = smem;
+    DU *s2 = smem + nwarp;
 
-    if (lane == 0) { smem1[warp_id] = v1; smem2[warp_id] = v2; }
+    if (lane == 0) { s1[warp_id] = v1; s2[warp_id] = v2; }
     __syncthreads();
 
     if (warp_id == 0) {
-        v1 = (lane < nwarps) ? smem1[lane] : DU0;
-        v2 = (lane < nwarps) ? smem2[lane] : DU0;
+        v1 = (lane < nwarp) ? s1[lane] : DU0;
+        v2 = (lane < nwarp) ? s2[lane] : DU0;
         
         WARP_SUM(v1);
         WARP_SUM(v2);
         
         if (lane == 0 && c < C) {
-            atomicAdd(&sum_d0[nc],      v1);
+            atomicAdd(&sum_d0[nc],   v1);
             atomicAdd(&sum_d0xh[nc], v2);
         }
     }
@@ -340,6 +342,7 @@ __KERN__ void k_dbatchnorm_1(
 /// One thread per (n,c): no serial loop over N, but db/dw accumulation
 /// across n now requires atomicAdd since each n is a separate block.
 ///
+///<<<N, C>>>
 __KERN__ void k_dbatchnorm_2(
     DP_R W,                             ///< gamma  [C]
     DP_W DW, DP_W DB,                   ///< d_gamma, d_beta accumulators [C]
@@ -349,15 +352,15 @@ __KERN__ void k_dbatchnorm_2(
     long NHW,                           ///< N*H*W
     bool do_train
     ) {
-    const int c    = threadIdx.x, C = blockDim.x;    ///< channel index
-    const int n    = blockIdx.x;                     ///< batch index
-    const DU  gvar = rvar[c] * W[c];                 ///< gamma * rvar
-    const int k    = n * C + c;
+    const int c     = threadIdx.x, C = blockDim.x;    ///< channel index
+    const int n     = blockIdx.x;                     ///< batch index
+    const int k     = n * C + c;
+    
+    const DU gvar   = rvar[c] * W[c];                 ///< gamma * rvar
+    const DU g_d0   = sum_d0[k]   / NHW;
+    const DU g_d0xh = sum_d0xh[k] / NHW;
 
-    const DU g_d0   = sum_d0[k]   / (DU)NHW;
-    const DU g_d0xh = sum_d0xh[k] / (DU)NHW;
-
-    // overwrite sums in place; k_dbatchnorm_3 will read them
+    /// overwrite sums in place; k_dbatchnorm_3 will read them
     sum_d0[k]   = gvar * g_d0;
     sum_d0xh[k] = gvar * g_d0xh;
 
@@ -376,18 +379,19 @@ __KERN__ void k_dbatchnorm_2(
 /// Reads dout and xhat exactly once
 /// Writes result directly into in.data (dX).
 ///
+///<<<(256,1,1),((HW+255)/256,C,N)>>>
 __KERN__ void k_dbatchnorm_3(
     DP_W DX,                            ///< output gradient tensor   [N,H,W,C]
     DP_R D0,                            ///< upstream gradient        [N,H,W,C]
     DP_R XH,                            ///< saved x_hat              [N,H,W,C]
     DP_R g_d0,                          ///< gvar * mean(dout)        [N,C]
     DP_R g_d0xh,                        ///< gvar * mean(dout * x_hat)[N,C]
-    long HW                             ///< H*W
+    int HW                              ///< H*W
     ) {
-    const long j  = (long)blockIdx.x * blockDim.x + threadIdx.x;
+    const int  j  = blockIdx.x * blockDim.x + threadIdx.x;  ///< [0,HW)
     const int  c  = blockIdx.y, C  = gridDim.y;
     const int  n  = blockIdx.z, nc = C * n + c;
-    const long k  = (HW * n + j) * C + c;
+    const long k  = ((long)HW * n + j) * C + c;
 
     if (c < C && j < HW) {
         DX[k] = D0[k] - g_d0[nc] - XH[k] * g_d0xh[nc];
