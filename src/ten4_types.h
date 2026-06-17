@@ -147,7 +147,7 @@ typedef float       F32;                    ///< single precision float
 }
 #define FORK4(fn,sm,...) { /** N,H,W,C (default params) */  \
     const dim3 _b(T4_DIM_SQ, 1, 1);                         \
-    const dim3 _g(((long)(W)*(H) + _b.x - 1) / _b.x, C, N); \
+    const dim3 _g(((W)*(H) + _b.x - 1) / _b.x, C, N);       \
     fn<<<_g,_b,sm>>>(__VA_ARGS__);                          \
     GPU_CHK();                                              \
 }
