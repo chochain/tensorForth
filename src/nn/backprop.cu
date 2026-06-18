@@ -331,6 +331,7 @@ Model::_bbatchnorm(Tensor &in, Tensor &out) {
         }
     };
     /// 1. fused reduction ---
+    ///<<<((HW+255)/256,C,N),(256,1,1)>>>
     {
         const U32 nwarp   = (T4_DIM_SQ + 31) >> 5;
         const U32 smem_sz = 2 * nwarp * sizeof(DU);
@@ -340,13 +341,14 @@ Model::_bbatchnorm(Tensor &in, Tensor &out) {
     /// 2. per-channel scale (no CPU sync needed) ---
     ///   launched as <<<N, C>>> so each channel is one thread in one block;
     {
-        k_dbatchnorm_2<<<N, C>>>(
-            w.data, dw.data, db.data, s1, s2, var, NHW, train);
+        k_dbatchnorm_2<<<N, C>>>(dw.data, db.data, s1, s2, NHW, train);
         GPU_CHK();
         if (*_trace > 1) dump_s();
     }
     /// 3. fused dX update ---
-    FORK4(k_dbatchnorm_3, 0, in.data, out.data, xht.data, s1, s2, HW);
+    ///<<<((HW+255)/256,C,N),(256,1,1)>>>
+    FORK4(k_dbatchnorm_3, 0,
+          w.data, out.data, xht.data, in.data, s1, s2, var, HW);
     
     if (*_trace > 1) {
         _dump_b("dw", dw);
