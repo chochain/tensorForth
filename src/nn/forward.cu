@@ -265,14 +265,16 @@ Model::_fbatchnorm(Tensor &in, Tensor &out) {
     const U32 N   = out.N(), C = out.C(), H = out.H(), W = out.W();  ///< in==out
     const U32 HW  = H * W;
     const U64 NHW = (U64)HW * N;
+    const U32 NC2 = N * C * 2;
 
     Tensor &w   = *in.grad[0], &b = *in.grad[1]; ///< gamma[C], beta[C]
     Tensor &xht = *in.grad[4];                   ///< x_hat  [in.NHWC]
         
     DU *avg = &in.mtum[4]->data[0];              ///< avg    [C] - tmp, also s1/s2 in backprop
-    DU *var = &in.mtum[4]->data[N * C * 2];      ///< var    [C] - read by backprop as rvar
+    DU *var = &in.mtum[4]->data[NC2];            ///< var    [C] - read by backprop as rvar
 
-    cudaMemsetAsync(avg, 0, C * 2 * sizeof(DU), st);  ///< zeros avg, var in one call
+    cudaMemsetAsync(avg, 0, C * sizeof(DU), st); ///< zeros avg
+    cudaMemsetAsync(var, 0, C * sizeof(DU), st); ///< zeros var
 
     auto dump_av = [&]() {
         F32V hx(C*2);
@@ -299,7 +301,7 @@ Model::_fbatchnorm(Tensor &in, Tensor &out) {
     }
     /// 3. apply normalisation
     FORK4(k_batchnorm_3, 0, in.data, out.data, xht.data,
-          avg, var, w.data, b.data, HW);                 ///< TODO: pass stream
+          w.data, b.data, avg, var, HW);                 ///< TODO: pass stream
     if (*_trace > 1) {
         _dump_b("w", w);             /// 1.0
         _dump_b("b", b);             /// 0.0
