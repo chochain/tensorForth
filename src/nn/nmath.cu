@@ -173,9 +173,10 @@ __KERN__ void k_softmax(
 ///  gridDim = (C, N, 1),  blockDim = (min(HW, 1024), 1, 1)
 ///  No atomics — each block fully owns its (c, n) slice.
 ///
+/// <<<(C,N,1),(HW,1,1)>>>
 __KERN__ void
 k_batchnorm_1(
-    DP_R src,           ///< input  [N, HW, C] (NHWC)
+    DP_R I,             ///< input  [N, HW, C] (NHWC)
     DP_W avg,           ///< output mean  [C]  (accumulated over N outside)
     DP_W var,           ///< output M2    [C]  (accumulated over N outside)
     int  HW             ///< H * W
@@ -183,33 +184,34 @@ k_batchnorm_1(
     __shared__ DU s_sum[32];   ///< one slot per warp (max 32 warps)
     __shared__ DU s_sq[32];
 
-    const int  tx   = threadIdx.x;
-    const int  c    = blockIdx.x, C = gridDim.x;   ///< channels
-    const int  n    = blockIdx.y;                  ///< sample index
-    const long ns   = (long)HW * C * n;
-    const int  lane = tx & 31, warp_id = tx >> 5;
+    const int  tx = threadIdx.x;
+    const int  c  = blockIdx.x, C = gridDim.x;     ///< channels
+    const int  n  = blockIdx.y;                    ///< sample index
+    const long ns = (long)HW * C * n;
 
-    DU t_sum = 0.0f, t_sq = 0.0f;
-    for (long j = tx; j < HW; j += blockDim.x) {
-        DU v  = src[ns + j * C + c];
-        t_sum   += v;
-        t_sq    += v * v;
+    DU t_sum = DU0, t_sq = DU0;
+    for (int j = tx; j < HW; j += blockDim.x) {    /// * grid-stride sum
+        DU v  = I[ns + j * C + c];
+        t_sum += v;
+        t_sq  += v * v;
     }
 
-    WARP_SUM(t_sum);     /// * warp sum from register
+    WARP_SUM(t_sum);                               /// S0=[0,32),S32=[32,64),...
     WARP_SUM(t_sq);
 
-    if (lane == 0) {
-        s_sum[warp_id] = t_sum;
+    const int lane = tx & 31, warp_id = tx >> 5;
+    if (lane == 0) {                               /// * collect warp sum
+        s_sum[warp_id] = t_sum;                    /// * keeps S0,S32,...
         s_sq [warp_id] = t_sq;
     }
     __syncthreads();
 
-    const int nwarps = (blockDim.x + 31) >> 5;
+    const int nwarp = (blockDim.x + 31) >> 5;      ///< (HW) > 32
     if (warp_id == 0) {
-        t_sum = (lane < nwarps) ? s_sum[lane] : DU0;
-        t_sq  = (lane < nwarps) ? s_sq [lane] : DU0;
-        WARP_SUM(t_sum);
+        t_sum = (lane < nwarp) ? s_sum[lane] : DU0;
+        t_sq  = (lane < nwarp) ? s_sq [lane] : DU0;
+        
+        WARP_SUM(t_sum);                           /// * S0+S32+...
         WARP_SUM(t_sq);
 
         if (lane == 0) {
@@ -221,34 +223,36 @@ k_batchnorm_1(
 // <<<(((C+31)/32, max(32,C)>>> one thread per channel
 __KERN__ void
 k_batchnorm_2(
-    DP_X avg, DP_X var, long NHW, int C) {
+    DP_X avg, DP_X var, long NHW, int C
+) {
     const int c = blockIdx.x * blockDim.x + threadIdx.x;
 
-    if (c < C) {
-        DU b_avg = avg[c] / NHW;
-        DU b_var = var[c] / NHW - b_avg * b_avg;
+    if (c >= C) return;                           /// * guard
+
+    DU b_avg = avg[c] / (DU)NHW;
+    DU b_var = var[c] / (DU)NHW - b_avg * b_avg;
     
-        avg[c] = b_avg;
-        var[c] = DU1 / (_SQRT(b_var) + DU_EPS);
-    }
+    avg[c] = b_avg;
+    var[c] = DU1 / (_SQRT(MAX(b_var,DU0)) + DU_EPS);
 }
-// <<<(256,1,1),((HW+255)/256,C,N)>>>
+// <<<((HW+255)/256,C,N),(256,1,1)>>>
 __KERN__ void
 k_batchnorm_3(
-    DP_R I, DP_W O, DP_X XH,                ///< input, output, x_hat tensors
-    DP_R avg, DP_R rvar,                    /// * mean, 1.0/(stdvar + e)
+    DP_R I, DP_W O, DP_W XH,                ///< input, output, x_hat tensors
     DP_R W, DP_R B,                         /// * gamma, beta
+    DP_R avg, DP_R rvar,                    /// * mean, 1.0/(stdvar + e)
     int  HW                                 ///< H0=H1, W0==W1 (C0==C1)
-    ) {                                
+) {
     __shared__ DU s_avg, s_var, s_w, s_b;
 
-    const int  j  = blockIdx.x * blockDim.x + threadIdx.x; ///< spatial [0,HW)
+    const int  tx = threadIdx.x;                           ///< [0,256)
+    const int  j  = blockIdx.x * blockDim.x + tx;          ///< spatial [0,HW)
     const int  c  = blockIdx.y, C = gridDim.y;             ///< channel [0,C)
     const int  n  = blockIdx.z;                            ///< batch   [0,N)
     const long k  = ((long)HW * n + j) * C + c;
     
     // one thread loads the 4 scalars for this block's channel
-    if (threadIdx.x == 0) {
+    if (tx == 0) {
         s_avg = avg[c];  s_var = rvar[c];   ///< average, rvar per channel
         s_w   = W[c];    s_b   = B[c];
     }
@@ -278,12 +282,12 @@ __KERN__ void k_dlinear_db(
 /// k_dbatchnorm_1 - reduce, fused reduction
 ///
 /// Computes per-channel, per-batch-slice:
-///   sum_dout[n,c]      = Σ_{j} dout[n,j,c]
-///   sum_dout_xhat[n,c] = Σ_{j} dout[n,j,c] * xhat[n,j,c]
+///   sum_dout[n,c]      = Σ_{j} dout[n,(1,j),c]
+///   sum_dout_xhat[n,c] = Σ_{j} dout[n,(1,j),c] * xhat[n,(1,j),c]
 ///
 /// Two-level reduction: warp → shared memory → one atomicAdd per block,
 ///
-///<<<(256,1,1),((HW+255)/256,C,N)>>>
+///<<<((HW+255)/256,C,N),(256,1,1)>>>
 __KERN__ void k_dbatchnorm_1(
     DP_R D0, DP_R XH,                   ///< upstream gradient, saved x_hat
     DP_W sum_d0,                        ///< out: Σ dout        [N*C]
@@ -291,34 +295,36 @@ __KERN__ void k_dbatchnorm_1(
     int HW                              ///< H*W spatial elements
     ) {
     const int  tx = threadIdx.x;
-    const int  j  = blockIdx.x * blockDim.x + tx;
+    const int  j  = blockIdx.x * blockDim.x + tx;  ///< [0,HW)
     const int  c  = blockIdx.y, C  = gridDim.y;
     const int  n  = blockIdx.z, nc = C * n + c;
-    const long k  = ((long)HW * n + j) * C + c;
+    const long k  = ((long)HW * n + j) * C + c;    ///< [NHWC]
 
-    DU v1 = (c < C && j < HW) ? D0[k]         : DU0;
-    DU v2 = (c < C && j < HW) ? D0[k] * XH[k] : DU0;
+    DU v1 = (j < HW) ? D0[k]         : DU0;
+    DU v2 = (j < HW) ? D0[k] * XH[k] : DU0;
 
     // --- level 1: warp reduce ---
-    WARP_SUM(v1);
+    WARP_SUM(v1);                                  /// * S0=[0,32),S32=[32,64),...
     WARP_SUM(v2);
 
     // --- level 2: shared memory across warps in this block ---
-    const int nwarp = (blockDim.x + 31) >> 5;
+    const int nwarp = (blockDim.x + 31) >> 5;      ///< ((HW+255)/256)/32 warps
     const int lane  = tx & 31, warp_id = tx >> 5;
 
-    extern __shared__ DU smem[];       ///< smem[0,nwarps)=v1, smem[nwarps,2*nwarps)=v2
-    DU *s1 = smem;
-    DU *s2 = smem + nwarp;
-
-    if (lane == 0) { s1[warp_id] = v1; s2[warp_id] = v2; }
+    extern __shared__ DU smem[];   ///< smem[0,nwarps)=v1, smem[nwarps,2*nwarps)=v2
+    DU *s1 = &smem[0];
+    DU *s2 = &smem[nwarp];
+    
+    if (lane == 0) {                           
+        s1[warp_id] = v1; s2[warp_id] = v2;        /// * collect S0,S32,...
+    }
     __syncthreads();
 
     if (warp_id == 0) {
         v1 = (lane < nwarp) ? s1[lane] : DU0;
         v2 = (lane < nwarp) ? s2[lane] : DU0;
         
-        WARP_SUM(v1);
+        WARP_SUM(v1);                              /// * S0+S32+...
         WARP_SUM(v2);
         
         if (lane == 0 && c < C) {
@@ -336,33 +342,30 @@ __KERN__ void k_dbatchnorm_1(
 ///
 ///   db[c]   += Σ_n mean(dout)          (beta gradient)
 ///   dw[c]   += Σ_n mean(dout * x_hat)  (gamma gradient)
-///   s1[n,c]  = gvar[c] * mean_dout[n,c]          (used in dX)
-///   s2[n,c]  = gvar[c] * mean_dout_xhat[n,c]     (used in dX)
+///   s1[n,c]  = mean_dout[n,c]          (used in dX)
+///   s2[n,c]  = mean_dout_xhat[n,c]     (used in dX)
 ///
 /// One thread per (n,c): no serial loop over N, but db/dw accumulation
 /// across n now requires atomicAdd since each n is a separate block.
 ///
 ///<<<N, C>>>
 __KERN__ void k_dbatchnorm_2(
-    DP_R W,                             ///< gamma  [C]
     DP_W DW, DP_W DB,                   ///< d_gamma, d_beta accumulators [C]
-    DP_W sum_d0,                        ///< in: Σ dout  [N*C]  → out: gvar*mean_dout
-    DP_W sum_d0xh,                      ///< in: Σ dout*x̂ [N*C] → out: gvar*mean_dout_xhat
-    DP_R rvar,                          ///< 1/sqrt(var+e)  [C]
+    DP_X sum_d0,                        ///< in: Σ dout   [N*C] → mean_dout
+    DP_X sum_d0xh,                      ///< in: Σ dout*x̂ [N*C] → mean_dout_xhat
     long NHW,                           ///< N*H*W
     bool do_train
     ) {
     const int c     = threadIdx.x, C = blockDim.x;    ///< channel index
     const int n     = blockIdx.x;                     ///< batch index
-    const int k     = n * C + c;
+    const int nc    = n * C + c;
     
-    const DU gvar   = rvar[c] * W[c];                 ///< gamma * rvar
-    const DU g_d0   = sum_d0[k]   / NHW;
-    const DU g_d0xh = sum_d0xh[k] / NHW;
+    const DU g_d0   = sum_d0[nc]   / (DU)NHW;
+    const DU g_d0xh = sum_d0xh[nc] / (DU)NHW;
 
     /// overwrite sums in place; k_dbatchnorm_3 will read them
-    sum_d0[k]   = gvar * g_d0;
-    sum_d0xh[k] = gvar * g_d0xh;
+    sum_d0[nc]   = g_d0;
+    sum_d0xh[nc] = g_d0xh;
 
     if (do_train) {
         atomicAdd(&DB[c], g_d0);        ///< serialize N*C threads
@@ -372,20 +375,21 @@ __KERN__ void k_dbatchnorm_2(
 ///
 /// k_dbatchnorm_3 —  fused final dX update
 ///
-/// dX[n,j,c] = gvar[c] * ( dout[n,j,c]
-///                        - s1[n,c]              // mean(dout) term
-///                        - xhat[n,j,c]*s2[n,c]) // mean(dout·x̂)·x̂ term
+/// dX[n,j,c] = g_var[c] *
+///   (dout[n,1,j,c] - g_d0[n,c] - x_hat[n,1,j,c] * g_d0xh[n,c])
 ///
 /// Reads dout and xhat exactly once
 /// Writes result directly into in.data (dX).
 ///
-///<<<(256,1,1),((HW+255)/256,C,N)>>>
+///<<<((HW+255)/256,C,N),(256,1,1)>>>
 __KERN__ void k_dbatchnorm_3(
-    DP_W DX,                            ///< output gradient tensor   [N,H,W,C]
-    DP_R D0,                            ///< upstream gradient        [N,H,W,C]
-    DP_R XH,                            ///< saved x_hat              [N,H,W,C]
-    DP_R g_d0,                          ///< gvar * mean(dout)        [N,C]
-    DP_R g_d0xh,                        ///< gvar * mean(dout * x_hat)[N,C]
+    DP_R W,                             ///< gamma  [C]
+    DP_R D0,                            ///< upstream gradient      [N,H,W,C]
+    DP_R XH,                            ///< saved x_hat            [N,H,W,C]
+    DP_W DX,                            ///< output gradient tensor [N,H,W,C]
+    DP_R g_d0,                          ///< mean(dout)             [N,C]
+    DP_R g_d0xh,                        ///< mean(dout * x_hat)     [N,C]
+    DP_R rvar,                          ///< 1/sqrt(var+e)          [C]
     int HW                              ///< H*W
     ) {
     const int  j  = blockIdx.x * blockDim.x + threadIdx.x;  ///< [0,HW)
@@ -393,9 +397,9 @@ __KERN__ void k_dbatchnorm_3(
     const int  n  = blockIdx.z, nc = C * n + c;
     const long k  = ((long)HW * n + j) * C + c;
 
-    if (c < C && j < HW) {
-        DX[k] = D0[k] - g_d0[nc] - XH[k] * g_d0xh[nc];
-        // Note: gvar is already folded into g_d0 and g_d0xh by k_batchnorm_2
+    if (j < HW) {
+        const DU g_var= rvar[c] * W[c];        ///< gamma * rvar
+        DX[k] = g_var * (D0[k] - g_d0[nc] - XH[k] * g_d0xh[nc]);
     }
 }
 
