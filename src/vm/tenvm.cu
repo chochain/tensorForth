@@ -70,7 +70,9 @@ TensorVM::xop1(math_op op, DU v) {
     case FILL:
     case GFILL:
     case SCALE:
-    case POW:   A.map(op, v);   break;
+    case POW:
+    case SIN:
+    case COS:   A.map(op, v);   break;
     case IDEN:  A.identity();   break;
     default: ERROR("opn[%d] not supprted\n", op);
     }
@@ -537,6 +539,7 @@ TensorVM::init() {
          });
     CODE("t!",  IU i = POPi; DU v = POP(); if (IS_OBJ(tos)) TTOS[i]=v);
     ///@}
+#if T4_DO_MATH    
     ///@defgroup 1-tensor ops in-place (i.e. destructive, as in Forth)
     ///@{
     CODE("exp",       xop1(EXP));             ///< (A -- A')
@@ -548,8 +551,12 @@ TensorVM::init() {
     CODE("sqrt",      xop1(SQRT));
     CODE("1/x",       xop1(RCP));             ///< reciprocal
     CODE("sat",       xop1(SAT));
-    CODE("pow",       xop1(POW, POP()));      ///< scale tensor with TOS
+    CODE("pow",       VM::xop2(POW));
+    CODE("sin",       xop1(SIN));
+    CODE("cos",       xop1(COS));
+    CODE("PI",        PUSH(PI); SCALAR(tos));
     ///@}
+#endif // T4_DO_MATH    
     ///@defgroup BLAS, 1-tensor ops, that create new tensor
     ///@brief - stick to PyTorch naming when possible
     ///@{
