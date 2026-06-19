@@ -95,9 +95,9 @@ public:
                              t4_optimizer op,
                              GdFunc fn,                 
                              DU *parm);
-    __HOST__ Model  &sgd(DU lr, DU b=0.9);                             ///< stochastic gradient descent
-    __HOST__ Model  &adam(DU lr, DU b1=0.9, DU b2=0.999);              ///< Adam gradient descent
-    __HOST__ Model  &adamw(DU lr, DU wd=0.01, DU b1=0.9, DU b2=0.999); ///< AdamW gradient descent
+    __HOST__ Model  &sgd(DU lr, DU b=0.9);                              ///< stochastic gradient descent
+    __HOST__ Model  &adam(DU lr, DU b1=0.9, DU b2=0.999);               ///< Adam gradient descent
+    __HOST__ Model  &adamw(DU lr, DU wd=0.001, DU b1=0.9, DU b2=0.999); ///< AdamW gradient descent
     /// @}
     
 private:
