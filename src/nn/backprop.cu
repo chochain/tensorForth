@@ -351,8 +351,8 @@ Model::_bbatchnorm(Tensor &in, Tensor &out) {
           w.data, out.data, xht.data, in.data, s1, s2, var, HW);
     
     if (*_trace > 1) {
-        _dump_b("dw", dw);
-        _dump_b("db", db);
+        _dump_b("db=sum_s0", db);
+        _dump_b("dw-sum_s1", dw);
     }
     return 0;
 }
