@@ -48,28 +48,30 @@ typedef enum {
     MAX,
     MIN,
     MUL2,
-    MOD2
+    MOD2,
+    SIN,
+    COS
 } math_op;
 
-#define MATH_OP "abs","neg","exp","ln","log","tanh","relu","sigmoid","sqrt","rcp","sat","iden","fill","gfill","scale","pow","+","-","*","/","mod","max","min","mul2","mod2"
+#define MATH_OP "abs","neg","exp","ln","log","tanh","relu","sigmoid","sqrt","rcp","sat","iden","fill","gfill","scale","pow","+","-","*","/","mod","max","min","mul2","mod2","sin","cos"
 
 #include <cmath>
-#define ABS(d)       (fabsf(d))                 /**< absolute value         */
-#define NEG(d)       (-d)                       /**< negate                 */
-#define EXP(d)       (expf(d))                  /**< exponential(float)     */
-#define LN(d)        (logf(d))                  /**< natural logrithm       */
-#define LOG(d)       (log10f(d))                /**< log10                  */
-#define TANH(d)      (tanhf(d))                 /**< tanh(float)            */
-#define RELU(d)      (MAX(0.0f, (d)))           /**< relu(float)            */
-#define SIGMOID(d)   (RCP(1.0f+EXP(-(d))))      /**< sigmoid(float)         */
-#define SQRT(d)      (sqrtf(d))                 /**< square root            */
+#define ABS(x)       (fabsf(x))                 /**< absolute value         */
+#define NEG(x)       (-x)                       /**< negate                 */
+#define EXP(x)       (expf(x))                  /**< exponential(float)     */
+#define LN(x)        (logf(x))                  /**< natural logrithm       */
+#define LOG(x)       (log10f(x))                /**< log10                  */
+#define TANH(x)      (tanhf(x))                 /**< tanh(float)            */
+#define RELU(x)      (MAX(0.0f, (x)))           /**< relu(float)            */
+#define SIGMOID(x)   (RCP(1.0f+EXP(-(x))))      /**< sigmoid(float)         */
+#define SQRT(x)      (sqrtf(x))                 /**< square root            */
 #define RCP(x)       (1.0f/(x))                 /**< reciprocol 1/x         */
-#define SAT(d)       (MIN(1.0f,MAX(0.0f,(d))))  /**< clamp into [0.0..1.0]  */
+#define SAT(x)       (MIN(1.0f,MAX(0.0f,(x))))  /**< clamp into [0.0..1.0]  */
 // * IDEN  ops no math ref
 // * FILL
 // * GFILL
 // * SCALE
-#define POW(d,e)     (powf((d),(e)))            /**< power d^(e)            */
+#define POW(x,y)     (powf((x),(y)))            /**< power d^(e)            */
 #define ADD(x,y)     ((x)+(y))                  /**< addition               */
 #define SUB(x,y)     ((x)-(y))                  /**< subtraction            */
 #define MUL(x,y)     ((x)*(y))                  /**< multiplication         */
@@ -79,6 +81,9 @@ typedef enum {
 #define MIN(x,y)     (fminf((x),(y)))           /**< minimum of the two     */
 #define MUL2(x2,y2)  ((DU2)(x2)*(y2))           /**< double precision mul   */
 #define MOD2(x2,y2)  (fmod((DU2)(x2),(DU2)(y2)))/**< double precision mod   */
+#define SIN(r)       (sinf(r))
+#define COS(r)       (cosf(r))
+#define PI           (3.1415927f)
 ///
 /// * CUDA intrinsic functions (static)
 ///
