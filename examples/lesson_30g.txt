@@ -1,88 +1,110 @@
 .( ## CIFAR-10 convolution to TensorBoard output ## ) cr
-4 constant N                      \ mini-batch size (number of samples)
-0 value t0                          \ starting time (benchmark)
-1 value dsz0 1 value dsz1           \ number of corpus sample
-variable hit 0 hit !                \ create var for hit counter, and zero it
-variable lox                        \ create var for epoch latest loss
-0.001 value lr                      \ init learning rate (for Adam)
+256   constant N                    \ mini-batch size (number of samples)
+50    constant T                    \ number of epochs
+0.001 constant LR                   \ init learning rate(for AdamW)
+
+0 value  _t0   LR value _lr         \ starting time and learning rate (benchmark)
+1 value  _sz0  1  value _sz1        \ number of corpus sample
+variable _ht                        \ create var for hit counter, and zero it
+variable _lx                        \ create var for epoch latest loss
+
+\ cosine annealing: lr = lr_min + 0.5 * (lr_max - lr_min) * (1.0 + cos(t/T * PI))
+: lr_cos ( t -- ) T / PI * cos 1.0 + 0.5 * LR * [to] _lr ;   \ cosine annealing
 : stat                              \ statistics sent to tensorboard
-  dup ." epoch=" .  dup .tbstep     \ set tensorboard step (keep copy)
-  clock t0 - 1000 / dup dup s" train/time" .scalar \ time (in sec)
+  dup ." epoch=" .   dup .tbstep    \ set tensorboard step (keep copy)
+  clock _t0 - 1000 / dup dup s" train/time" .scalar \ time (in sec)
   . ." sec" cr
-  hit @ dsz0 /      dup s" train/acc"  .scalar     \ accuracy
-  lox @             dup s" train/loss" .scalar     \ loss
-  lr                dup s" train/lr"   .scalar     \ learn rate
+  _ht @ _sz0 /       dup s" train/acc"  .scalar     \ accuracy
+  _lx @              dup s" train/loss" .scalar     \ loss
+  _lr                dup s" train/lr"   .scalar     \ learn rate
   s" CIFAR-10 step=%d, time=%g, acc=%g loss=%g learn_rate=%g" sprintf \ text substitude
-  s" progress/text" .text
-  0 hit ! ;                         \ reset hit count
+  s" progress/text" .text ;
 
-3 vector{ 3 1 1 } constant K3       \ conv2d default 3x3 kernel, stride=1, padding=1
-: +conv ( c -- ) 0 swap             \ add a convolution layer with c channels, bias=0
-  K3 conv2d batchnorm relu ;
-  
-0 trace
-.( ### our network model )
-N 32 32 3 nn.model                  \ create a model (100 per mini-batch of 32x32x3 img)
-0.5 10 conv2d batchnorm relu
-\ 64 +conv 64 +conv                   \ block-1: 32x32x64, 2-3x3 conv2d layers = 1-5x5
-\ 2 maxpool 0.25 dropout              \ 2x2 maxpooling, 25% dropout to prevent overfitting
-\ 128 +conv 128 +conv                 \ block-2: 16x16x128,
-\ 2 maxpool 0.3 dropout               \ 2x2 maxpooling, 30% dropout
-\ 256 +conv 256 +conv                 \ block-3: 8x8x256
-\ 2 maxpool 0.4 dropout               \ 2x2 maxpooling, 40% dropout
-\ 512 linear batchnorm relu           \ output block: fully-connect 4x4x256=4096 to 1x512
-\ 0.5 dropout                         \ 50% dropout to prevent overfitting
-10 linear softmax                   \ fully-connect 512 to final 10-classes
-constant M0                         \ keep as a constant
-
-: histo ( M -- M )                  \ capture histogram to tensorboard
-  0 nn.w 30 s" nn/conv0" .histo         \ convolution filter (30-buckets)
-  2 nn.w 30 s" nn/relu2" .histo         \ activation 
-  4 nn.w 30 s" nn/lin4"  .histo         \ 1st linear filter
-  6 nn.w 30 s" nn/lin6"  .histo ;       \ 2nd linear filter
-  
 .( ### setup datasets )
 N dataset cifar10_train             \ create CIFAR-10 training dataset, N sample/batch
-nn.len to dsz0                      \ get dataset total number of samples
+nn.len to _sz0                      \ get dataset total number of samples
 constant DS0                        \ keep dataset in a constant
 
 N dataset cifar10_test              \ create CIFAR-10 test dataset with model batch size
-nn.len to dsz1                      \ get dataset total number of samples
+nn.len to _sz1                      \ get dataset total number of samples
 constant DS1                        \ keep testing dataset as a constant
+
+\ DS0 16 s" cf10/train" .tile         \ sample training images, 16-wide, to tensorboard
+\ DS1 16 s" cf10/test"  .tile         \ sample testing images, 16-wide
+
+\ layer macros
+: act ( M p -- M' )                 \ activation with 2x2 maxpool and p% dropout
+  >r 2 maxpool r> dropout ;
+: cbnr ( M c -- M' )                \ add a convolution layer with c channels, BN, p% dropout
+  0 swap conv2d batchnorm relu ;
+: 2cbnr ( M c -- M' )               \ stacked 3x3 conv2d layers =~ 1-5x5 + better activation
+  dup >r cbnr r> cbnr ;
+\ different model blocks
+: 1bx0 ( M -- M' )                  \ 1 block of (Conv+ReLU)+Act
+  0 64 conv2d relu 0.25 act
+  2 maxpool ;
+: 1bx1 ( M -- M' )                  \ 1 block of (Conv+RN+ReLU)+Act
+  0 64 conv2d batchnorm relu 0.25 act
+  2 maxpool ;
+: 3bx0 ( M -- M' )                  \ 3 blocks of (Conv+ReLU)+Act
+  0 64  conv2d relu 0.20 act
+  0 128 conv2d relu 0.25 act
+  0 256 conv2d relu 0.30 act ;
+: 3bx1 ( M -- M' )                  \ 3 blocks of 1x(Conv+BN+ReLU)+Act => 83~86%
+  64  cbnr  0.25 act                  \ block-1: 32x32x64,  2x2 maxpooling, 25% dropout
+  128 cbnr  0.30 act                  \ block-2: 16x16x128, 2x2 maxpooling, 30% dropout
+  256 cbnr  0.40 act ;                \ block-3: 8x8x256,   2x2 maxpooling, 40% dropout
+: 3bx2 ( M -- M' )                  \ 3 blocks of 2x(Conv+BN+ReLU)+Act => 86~91%
+  64  2cbnr 0.25 act                  \ block-1: 32x32x64,  2x2 maxpooling, 25% dropout
+  128 2cbnr 0.30 act                  \ block-2: 16x16x128, 2x2 maxpooling, 30% dropout
+  256 2cbnr 0.40 act ;                \ block-3: 8x8x256,   2x2 maxpooling, 40% dropout
+
+: histo ( M -- M )                  \ capture histogram to tensorboard
+  20 n@   30 s" nn/bn_o"  .histo
+  20 nn.w 30 s" nn/bn_g"  .histo      \ batchnorm output
+  20 nn.b 30 s" nn/bn_b"  .histo
+  28 n@   30 s" nn/fc_o"  .histo      \ last FC output
+  28 nn.w 30 s" nn/fc_w"  .histo ;    \ 2nd linear filter
+
+0 trace
+.( ### our network model )
+N 32 32 3 nn.model                  \ create a model (100 per mini-batch of 32x32x3 img)
+1bx0                                \ convolution blocks (1bx0|1bx1|3bx0|3bx1|3bx2)
+flatten 512 linear                  \ output block: fully-connect to 1x512
+batchnorm relu 0.5 dropout          \ normalize and 50% dropout to prevent overfitting
+10 linear softmax                   \ fully-connect 512 to final 10-classes
+constant M0                         \ keep as a constant
 
 .( ### create our CNN framework )
 : train_epoch ( M -- M' )           \ one epoch thru entire dataset
-  0 hit ! DS0 rewind
+  0 _ht ! DS0 rewind
   for                                 \ starting first mini-batch (from return stack)
     forward                           \ neural network forward pass
-    loss.ce lox ! nn.hit hit +!       \ collect latest loss and accumulate hit
+    loss.ce _lx ! nn.hit _ht +!       \ collect latest loss and accumulate hit
     backprop                          \ neural network back propegation
-    lr nn.adam                        \ train with Adam Gradient Descent (b1=0.9,b2=0.999)
+    _lr nn.adamw                      \ train with AdamW (b1=0.9,b2=0.999,wd=0.01)
   next ;                              \ fetch next batch from return stack (till done)
 
 : test_epoch ( M -- M )             \ one epoch of validation, i.e. to check how well
-  0 hit ! DS1 rewind                  \ run thru testing dataset
+  0 _ht ! DS1 rewind                  \ run thru testing dataset
   for                                 \ starting first mini-batch (from return stack)
      forward                          \ forward pass
-     nn.hit hit +!                    \ collect latest accumulate hit
+     nn.hit _ht +!                    \ collect latest accumulate hit
   next                                \ fetch next mini-batch
-  hit @ dsz1 / dup ." test/acc=" . cr \ show test accuracy
+  _ht @ _sz1 / dup                    \ calculate tests accuracy
+  ." test/acc=" . cr                  \ show on monitor
   s" test/acc" .scalar ;              \ send to tensorboard
 
 : cnn ( M n -- M' )                 \ full CNN run
+  clock [to] _t0                      \ get starting time
   1+ 0 do                             \ multiple epochs [0..n]
     train_epoch                       \ run one trainning epoch
-    r@ stat histo                     \ send statistics, histogram to tensorboard
+    r@ stat \ histo                     \ send statistics and histograms
     test_epoch                        \ run one validation epoch
-    lr 0.95 * [to] lr                 \ decay learning rate
+    r@ lr_cos                         \ decay learning rate
   loop ;
 
-.( ### run )
-M0 network \ dup .graph               \ put model as TOS, show and to tensorboard graph
-\ DS0 16 s" cf10/train" .tile         \ sample training images, 16-wide, to tensorboard
-\ DS1 16 s" cf10/test"  .tile         \ sample testing images, 16-wide
-clock to t0                         \ get starting time
-DS0 forward
-\ 20 cnn                            \ execute multiple (20) epoches
+M0 network                          \ put model as TOS, show and to tensorboard graph
+T cnn                               \ execute multiple (20) epoches
 
 bye
