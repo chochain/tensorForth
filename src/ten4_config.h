@@ -23,6 +23,7 @@
 ///@name CUDA cooperative dynamic parallelism support
 ///@{
 #define T4_DO_OBJ           1        /**< enable tensor/matrix  */
+#define T4_DO_MATH          1        /**< enable trig functions */
 #define T4_DO_NN            1        /**< enable neural network */
 #define T4_DO_TB            1        /**< enable tensorboard IO */
 #define T4_USE_STRBUF       0
