@@ -190,9 +190,8 @@ Model::_ilinear(Tensor &in, U32 E0, DU bias) {
     Tensor *db = in.grad[3] = &VEC(E0).zeros();                   ///> db
     
     if (in.W() != E1) {
-        NN_DB("    reshape in[%d,%d,%d,%d]", in.N(), in.H(), in.W(), in.C());
-        in.reshape(in.N(), 1, E1, 1);
-        NN_DB(" => in[%d,%d,%d,%d]\n", in.N(), in.H(), in.W(), in.C());
+        INFO("    WARN linear: treats in[%d,%d,%d,%d] as [%d,1,%ld,1]\n",
+             N1, in.H(), in.W(), in.C(), N1, E1);
     }
     in.xparm = bias;                              /// * keep for persistence
     
