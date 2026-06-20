@@ -214,7 +214,7 @@ System::_process_opx(io_event *ev) {         ///< process composit IO types
             io::_opx x = *((io::_opx*)ev->data);            ///< capture a hardcopy
             INFO("  OP_NORM(mean=%d, scale=%g)\n", x.i, x.n);
             ds.normalize(I2D((int)x.i), x.n);               /// * fetch first batch
-            ds.fetch(NULL, true, _trace);                   /// * rewind/load dataset
+            ds.rewind(_trace);                              /// * rewind/load dataset
         }
         else ERROR("%x is not a dataset\n", DU2X(o.n));
     } break;  
