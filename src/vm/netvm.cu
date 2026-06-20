@@ -153,7 +153,7 @@ NetVM::_pickle(bool save) {                 ///< ( N addr len -- ) or ( N addr l
 ///
 __HOST__ void
 NetVM::_get_parm(int n) {
-    if (!M1V) { ERROR("N n required?"); return; }
+    if (!M1V || n > 4) { ERROR("N n(<5) required?"); return; }
 
     S16    i  = POPi;
     Tensor &t = MTOS[i];
@@ -463,6 +463,7 @@ NetVM::init() {
     CODE("nn.b",    _get_parm(1));                 ///< tensor.bias
     CODE("nn.dw",   _get_parm(2));                 ///< tensor.weight.grad
     CODE("nn.db",   _get_parm(3));                 ///< tensor.bias.grad
+    CODE("nn.ex",   _get_parm(4));                 ///< tensor.extended
     CODE("nn.w=",   _set_parm(0));                 ///< populate tensor.weight
     CODE("nn.b=",   _set_parm(1));                 ///< populate tensor.bias
     CODE("bsum",
