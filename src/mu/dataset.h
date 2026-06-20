@@ -41,6 +41,7 @@ struct Dataset : public Tensor {
         else _scale = 1.0f / scale;
     }
     __HOST__ int fetch(char *ds_name, bool rewind, bool trace);
+    __HOST__ int rewind(bool trace) { return fetch(NULL, true, trace); }
 
 private:
     DU _mean  = 0.0f;
