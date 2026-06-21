@@ -10,6 +10,8 @@
 #include "mu/tensor.h"
 #include "mu/dataset.h"
 #include "nn/model.h"
+#include "tb/summary.h"
+#include "debug.h"
 #include "sys.h"                     /// include mmu/tensor.h
 
 namespace t4 {
@@ -21,7 +23,7 @@ System  *_sys = NULL;                ///< singleton controller on host
 /// Forth Virtual Machine operational macros to reduce verbosity
 ///
 __HOST__
-System::System(h_istr &i, h_ostr &o, int khz, int verbo)
+System::System(io::istr &i, io::ostr &o, int khz, int verbo)
     : fin(i), fout(o),
       _istr(new io::Istream()), _ostr(new io::Ostream()),
       _khz(khz), _trace(verbo) {
@@ -49,7 +51,7 @@ System::~System() {
 }
 
 __HOST__ System*
-System::get_sys(h_istr &i, h_ostr &o, int khz, int verbo) {
+System::get_sys(io::istr &i, io::ostr &o, int khz, int verbo) {
     if (!_sys) _sys = new System(i, o, khz, verbo);
     return _sys;
 }
