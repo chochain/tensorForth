@@ -9,11 +9,9 @@
 #pragma  once
 
 #include "ten4_types.h"
-#include "util.h"
-
-typedef std::istream h_istr;    ///< host input stream
 
 namespace t4::io {
+typedef std::istream istr;      ///< host input stream
 ///
 /// istream class
 ///
@@ -62,7 +60,7 @@ public:
         int nidx = _tok(delim);             /// index to next token
 
         if (nidx > 0) {                     /// token found
-            MEMCPY(s, &_buf[_idx], _gn);    /// CUDA memcpy
+            memcpy(s, &_buf[_idx], _gn);    /// host memcpy
             _idx = nidx + (delim != ' ');   /// advance index
             s[_gn] = '\0';                  /// terminated with '\0'
             DEBUG("ibuf[%d] >> '%s' (%d bytes)\n", _idx, s, _gn);
