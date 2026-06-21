@@ -16,7 +16,7 @@ using vm::Param;
 Debug *_db = NULL;                            ///< singleton Debug controller
 
 __HOST__ Debug*
-Debug::get_db(h_ostr &o) {
+Debug::get_db(io::ostr &o) {
     if (!_db) _db = new Debug(o);
     return _db;
 }
