@@ -5,7 +5,6 @@
  * <pre>Copyright (C) 2022- GreenII, this file is distributed under BSD 3-Clause License.</pre>
  */
 #include <algorithm>         // std::max, std::min
-//#include <float.h>
 #include "model.h"
 #include "nmath.h"
 ///
