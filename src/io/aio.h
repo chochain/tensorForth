@@ -12,12 +12,13 @@
 #define __IO_AIO_H
 #pragma once
 
+#include "t4base.h"
 #include "istream.h"
 #include "ostream.h"
-#include "mu/tensor.h"
 
-namespace t4::nn { class Model;   }   /// forward declare
-namespace t4::mu { class Dataset; }
+namespace t4::nn { class Model;  }    ///< forward declaration
+namespace t4::mu { class Tensor; class Dataset; }
+
 namespace t4::io {
 
 #define IO_DB(...)  { if (trace) INFO(__VA_ARGS__); }
@@ -51,7 +52,7 @@ public:
     static __HOST__ AIO *get_io(int *verbo=NULL);             ///< assume AIO is instantiated
     static __HOST__ void free_io();
 
-    static __HOST__ void setfmt(h_ostr &o, void *vp);
+    static __HOST__ void setfmt(ostr &o, void *vp);
     
     static __HOST__ std::string to_s(DU v, int base);         ///< display pure value
     static __HOST__ std::string to_s(void *vp, U8 gt);        ///< display value by type
@@ -89,9 +90,9 @@ private:
     ///
     /// Tensor persistence (i.e. serialization) methods
     ///
-    __HOST__ int  _tsave_txt(h_ostr &fs, Tensor &t);
-    __HOST__ int  _tsave_raw(h_ostr &fs, Tensor &t);
-    __HOST__ int  _tsave_npy(h_ostr &fs, Tensor &t);
+    __HOST__ int  _tsave_txt(ostr &fs, Tensor &t);
+    __HOST__ int  _tsave_raw(ostr &fs, Tensor &t);
+    __HOST__ int  _tsave_npy(ostr &fs, Tensor &t);
     
 #if T4_DO_NN
     ///
@@ -102,10 +103,10 @@ private:
     ///
     /// Model persistence (i.e. serialization) methods
     ///
-    __HOST__ int  _nsave_model(h_ostr &fs, Model &m);
-    __HOST__ int  _nsave_param(h_ostr &fs, Model &m);
-    __HOST__ int  _nload_model(h_istr &fs, Model &m, char *fname, char *tib);
-    __HOST__ int  _nload_param(h_istr &fs, Model &m);
+    __HOST__ int  _nsave_model(ostr &fs, Model &m);
+    __HOST__ int  _nsave_param(ostr &fs, Model &m);
+    __HOST__ int  _nload_model(istr &fs, Model &m, char *fname, char *tib);
+    __HOST__ int  _nload_param(istr &fs, Model &m);
 
 #endif // T4_DO_NN
 #endif // T4_DO_OBJ ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
