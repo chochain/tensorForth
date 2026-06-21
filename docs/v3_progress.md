@@ -3,14 +3,15 @@ A Forth word can be seen as a nested function in processing data flow, i.e. y = 
   
 ### A CNN Training Example - MNIST
 <pre>
-10 28 28 1 nn.model                       \ create a network model (input dimensions)
+10 constant N                             \ N samples per mini-batch
+N 28 28 1 nn.model                        \ create a network model (input dimensions)
 0.5 10 conv2d 2 maxpool relu              \ add a convolution block
 0.5 20 conv2d 0.5 dropout 2 maxpool relu  \ add another convolution block
 flatten 49 linear                         \ add reduction layer to 49 features, and the
 0.5 dropout 10 linear softmax             \ final fully connected 10-feature output
 constant md0                              \ we can store the model in a constant
                                 
-md0 batchsize dataset mnist_train         \ create a MNIST dataset with model batch size
+N dataset mnist_train                     \ create a MNIST dataset with model batch size
 constant ds0                              \ save dataset in a constant
 
 variable acc 0 acc !                      \ create an accuracy counter, and zero it
@@ -20,7 +21,7 @@ variable lst 0 lst !
   ." : hit=" acc @ . 0 acc !
   ." , loss=" lst @ . cr ;
   
-: epoch ( N D -- N' )                     \ an CNN epoch (thru entire dataset)
+: epoch ( M D -- M' )                     \ an CNN epoch (thru entire dataset)
   for                                     \ loop thru dataset per mini-batch
     forward                               \ neural net forward pass
     loss.ce lst ! nn.hit acc +!           \ calculate loss and total hit rate
@@ -28,11 +29,11 @@ variable lst 0 lst !
     0.01 0.0 nn.sgd                       \ execute stochastic gradient decent
     46 emit                               \ display progress '.'
   next ;
-: cnn ( N D n -- N' D )                   \ entire CNN in one word
+: cnn ( M D n -- M' D ) 1-                \ entire CNN in one word [0..n]
   for epoch r@ stat ds0 rewind next ;     \ run multiple epochs
 
 ds0                                       \ put dataset as TOS
-19 cnn                                    \ execute multiple epochs
+20 cnn                                    \ execute multiple epochs
 drop                                      \ drop dataset from TOS
 
 s" tests/my_net.t4" save                  \ persist the trained network
@@ -83,11 +84,12 @@ ds1                                       \ put dataset on TOS
 |nn.model|( n h w c -- M )|create a Neural Network model with [n,h,w,c] input|
 |network|( M -- M )|display network model|
 |>n|( M T -- M' )|manually add tensor to model|
-|n@|( M n -- N T )|fetch value tensor of nth layer from model, -1 is the latest layer|
-|nn.w|( M n -- N T )|fetch weight tensor of nth layer from model, 0 means N/A|
-|nn.b|( M n -- N T )|fetch weight tensor of nth layer from model, 0 means N/A|
-|nn.dw|( M n -- N T )|fetch weight gradient tensor of nth layer from model, 0 means N/A|
-|nn.db|( M n -- N T )|fetch weight gradient tensor of nth layer from model, 0 means N/A|
+|n@|( M n -- M T )|fetch value tensor of nth layer from model, -1 is the latest layer|
+|nn.w|( M n -- M T )|fetch weight tensor of nth (0-based) layer from model|
+|nn.b|( M n -- M T )|fetch weight tensor of nth layer from model|
+|nn.dw|( M n -- M T )|fetch weight gradient tensor of nth layer from model|
+|nn.db|( M n -- M T )|fetch weight gradient tensor of nth layer from model|
+|nn.ex|( M n -- M T )|fetch extended/mask tensor of nth layer from model|
 |nn.w=|( M T n -- M' )|set weight tensor of nth layer from model|
 |nn.b=|( M T n -- M' )|set weight tensor of nth layer from model|
 |load|( M adr len [fam] -- M' )|load trained network from a given file name|
@@ -127,6 +129,8 @@ ds1                                       \ put dataset on TOS
 #### Activation (non-linear)
 |word|param/example|tensor creation ops|
 |---|---|---|
+|sin|( T -- T' )|tensor element-wise sine Ta' = sin(Ta)|
+|cos|( T -- T' )|tensor element-wise cosine Ta' = cos(Ta)|
 |tanh|( T -- T' )|tensor element-wise tanh Ta' = tanh(Ta)|
 |relu|( T -- T' )|tensor element-wise ReLU Ta' = max(0, Ta)|
 |sigmoid|( T -- T' )|tensor element-wise Sigmoid Ta' = sigmoid(Ta)|
