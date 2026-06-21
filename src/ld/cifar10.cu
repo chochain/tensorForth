@@ -15,8 +15,8 @@ namespace t4::ld {
 ///
 /// for init debug MAX_BATCH 3
 ///
-#define MAX_BATCH 3          /**< debug, limit number of mini-batches */
-//#define MAX_BATCH 0          /**< debug, limit number of mini-batches */
+//#define MAX_BATCH 3          /**< debug, limit number of mini-batches */
+#define MAX_BATCH 0          /**< debug, limit number of mini-batches */
 
 Corpus *Cifar10::init(int mini_bsz, bool trace) {
     if (_open()) return NULL;
