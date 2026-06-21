@@ -6,10 +6,32 @@
  */
 #ifndef __IO_OSTREAM_H_
 #define __IO_OSTREAM_H_
+#pragma  once
 #include "ten4_types.h"
 #include "util.h"
 
+typedef std::ostream h_ostr;          ///< host output ostream
+
 namespace t4::io {
+
+typedef struct {
+    U32 gt : 4;     // 16 io event types
+    U32 sz : 28;    // max 256M payload
+    U8  data[];     // data array
+} event;
+///
+///@name File Access Mode for IO Event
+///@{
+typedef enum {
+    FAM_WO  = 0,
+    FAM_RO  = 1,
+    FAM_RW  = 2,
+    FAM_RAW = 3
+} FAM;
+///@}
+
+#define EVENT_HDR  sizeof(U32)
+///@}
 //================================================================
 ///
 ///> printf internal version data container.
@@ -119,10 +141,8 @@ __HOST__ __INLINE__ void _debug(GT gt, U8 *vp, U32 sz) {
 #endif // T4_VERBOSE > 1
     }
     __HOST__  void _write(GT gt, U8 *vp, U32 sz) {
-//        if (threadIdx.x!=0) return;               /// only thread 0 within a block can write
-
         //_LOCK;
-        io_event *e = (io_event*)&_buf[_idx];     /// allocate next node
+        event *e = (event*)&_buf[_idx];           /// allocate next node
 
         e->gt   = gt;                             /// data type
         e->sz   = ALIGN(sz);                      /// data alignment (32-bit)
