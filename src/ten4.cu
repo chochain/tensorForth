@@ -18,6 +18,7 @@
  */
 #include <iostream>          // cin, cout
 #include <signal.h>
+#include "debug.h"           // only when sys->db is called
 #include "ten4.h"            // wrapper
 
 namespace t4 {
