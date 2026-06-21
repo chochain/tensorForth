@@ -6,12 +6,14 @@
  */
 #ifndef __UTIL_H_
 #define __UTIL_H_
+#pragma once
+
 #include <stdint.h>
 #include <stddef.h>
 #include "ten4_config.h"
 
 namespace t4 {
-
+///@}
 ///@name Alignment macros
 ///@{
 #define ALIGN2(sz)  ((sz) + (sz & 0x1))
@@ -29,8 +31,20 @@ extern "C" {
 
 __HOST__ uint32_t    hbin_to_u32(const void *bin);
 __HOST__ uint16_t    hbin_to_u16(const void *bin);
+    
 #if defined(__CUDACC__)
+///>name Random Number Generator algorithm
+///@{
+typedef enum {
+    UNIFORM = 0,
+    NORMAL
+} rand_opt;
 ///
+///@name Random number generator
+///@{
+__KERN__ void        k_rand_init(long seed);
+__KERN__ void        k_rand(float *mat, long sz, float bias, float scale, rand_opt ntype);
+///@}
 ///@name Endianess conversion
 ///@{
 __GPU__ uint32_t     bin_to_u32(const void *bin);
