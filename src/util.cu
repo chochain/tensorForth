@@ -1,11 +1,13 @@
 /** -*- c++ -*-
  * @file
  * @brief common utility functions implementation
+ *  + CUDA randomizer
  *  + Memory cpy/set/cmp
  *  + String hasher
  *
  * <pre>Copyright (C) 2022- GreenII, this file is distributed under BSD 3-Clause License.</pre>
  */
+#include <curand_kernel.h>
 #include <cooperative_groups.h>
 #include "util.h"
 
@@ -40,6 +42,38 @@ __HOST__ uint16_t
 hbin_to_u16(const void *bin) {
     uint16_t x = *((uint16_t *)bin);
     return ((x & 0xff) << 8) | ((x >> 8) & 0xff);
+}
+
+__GPU__ curandState *_rand_st;       ///< for random number generator
+///
+/// random number generator setup
+/// Note: kept here because curandStates stays in CUDA memory
+///
+__KERN__ void
+k_rand_init(long seed) {
+    int x = blockIdx.x * blockDim.x + threadIdx.x;
+    if (x==0) {
+        _rand_st = (curandState*)malloc(sizeof(curandState) * T4_RAND_SZ);
+    }
+    __syncthreads();
+    curand_init(seed, x, 0, &_rand_st[x]);
+}
+
+__KERN__ void
+k_rand(float *mat, long sz, float bias, float scale, rand_opt ntype) {
+    int  n  = (sz / blockDim.x) + 1;  ///< loop counter
+    int  tx = threadIdx.x;            ///< thread idx (T4_RAN_SZ)
+    long x  = (long)tx;                 
+    
+    curandState s = _rand_st[tx];     /// * cache state into local register
+    for (int i=0; i < n; i++, x+=blockDim.x) {  /// * scroll through pages
+        if (x < sz) {
+            mat[x]= scale * (
+                bias + (ntype==NORMAL ? curand_normal(&s) : curand_uniform(&s))
+                );
+        }
+    }
+    _rand_st[tx] = s;                /// * copy state back to global memory
 }
 
 __GPU__ void
