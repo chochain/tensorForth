@@ -15,6 +15,7 @@
 
 namespace t4::mu { class Tensor; class Dataset; }
 namespace t4::nn {
+typedef std::vector<F32>  F32V;
 ///
 ///< gradient function pointer
 ///
