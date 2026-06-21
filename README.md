@@ -143,7 +143,7 @@ constant ds0                                \ keep the dataset as a constant
     backprop                                \ neural network back propagation
     0.01 nn.sgd                             \ training with Stochastic Gradient Descent
   next ;                                    \ next mini-batch (kept on return stack)
-: cnn ( M ds n -- M' ds ) 1-                \ run multiple epochs
+: cnn ( M ds n -- M' ds ) 1-                \ run multiple [0..n] epochs
   for epoch ds0 rewind next drop ;
 
 ds0 20 cnn                                  \ put dataset as TOS, run the CNN for 20 epochs
@@ -304,6 +304,8 @@ If all goes well, some warnings aside, *~/tests/ten4* is your executable. The fo
     </pre>
 
     ~/tests> ./ten4 < ../examples/lesson_30e.txt # CNN - MNIST full framework, 20 epochs
+    
+    ~/tests> ./ten4 < ../examples/lesson_30f.txt # CNN - MNIST, output to tensorboard
 
 * Tests v3.2 GAN ops
 
@@ -317,10 +319,11 @@ If all goes well, some warnings aside, *~/tests/ten4* is your executable. The fo
   nn.model   ( n h w c -- M )      - create a Neural Network model with (n,h,w,c) input
   >n         ( M T -- M' )         - manually add tensor to model
   n@         ( M n -- M T )        - fetch layered tensor from model, -1 is the latest layer
-  nn.w       ( M n -- M T )        - query weight tensor of nth layer (0 means N/A)
-  nn.b       ( M n -- M T )        - query bias tensor of nth layer (0 means N/A)
-  nn.dw      ( M n -- M T )        - query weight gradient tensor of nth layer (0 means N/A)
-  nn.db      ( M n -- M T )        - query bias gradient tensor of nth layer (0 means N/A)
+  nn.w       ( M n -- M T )        - query weight tensor of nth (zero-based) layer
+  nn.b       ( M n -- M T )        - query bias tensor of nth layer
+  nn.dw      ( M n -- M T )        - query weight gradient tensor of nth layer
+  nn.db      ( M n -- M T )        - query bias gradient tensor of nth layer
+  nn.ex      ( M n -- M T )        - query extended/mask tensor of nth layer
   nn.w=      ( M T n -- M' )       - set weight tensor of nth layer
   nn.b=      ( M T n -- M' )       - set bias tensor of nth layer
   network    ( M -- M )            - display network model
@@ -486,6 +489,8 @@ If all goes well, some warnings aside, *~/tests/ten4* is your executable. The fo
   exp       ( T -- T' )   - exponential T' = exp(T)
   ln        ( T -- T' )   - natural log T' = ln(T)
   log       ( T -- T' )   - logrithm tanh T' = log(T)
+  sin       ( T -- T' )   - sine T' = sin(T)
+  cos       ( T -- T' )   - cosine T' = cos(T)
   tanh      ( T -- T' )   - tanh T' = tanh(T)
   relu      ( T -- T' )   - ReLU T' = max(0, T)
   sigmoid   ( T -- T' )   - Sigmoid T' = 1/(1+exp(-T))
