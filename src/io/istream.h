@@ -6,8 +6,12 @@
  */
 #ifndef __IO_ISTREAM_H_
 #define __IO_ISTREAM_H_
+#pragma  once
+
 #include "ten4_types.h"
 #include "util.h"
+
+typedef std::istream h_istr;    ///< host input stream
 
 namespace t4::io {
 ///
