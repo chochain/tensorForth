@@ -7,6 +7,7 @@
 #ifndef __DEBUG_H
 #define __DEBUG_H
 #pragma once
+
 #include <iomanip>                                        /// setw, setprec, setbase...
 #include "t4base.h"                                       ///< include ten4_types.h
 #include "io/aio.h"
@@ -14,26 +15,24 @@
 #include "mu/mmu.h"
 
 namespace t4 {
-
-#define ENDL    '\n'
 ///
 ///@name Debugger/Tracer class
 ///@{
 class Debug {                                             ///< friend class to MMU and AIO
     mu::MMU  *mu;                                         ///< memory controller
     io::AIO  *io;                                         ///< streaming io controller
-    h_ostr   &fout;                                       ///< host output stream
+    io::ostr &fout;                                       ///< host output stream
     
     char     tmp[256];                                    ///< tmp string buffer
     
-    __HOST__ Debug(h_ostr &o) : fout(o) {
+    __HOST__ Debug(io::ostr &o) : fout(o) {
         mu = mu::MMU::get_mmu();
         io = io::AIO::get_io();
     }
     __HOST__ ~Debug() { TRACE("\\   Debug: instance freed\n"); }
     
 public:
-    static __HOST__ Debug *get_db(h_ostr &o);             ///< singleton contructor
+    static __HOST__ Debug *get_db(io::ostr &o);           ///< singleton contructor
     static __HOST__ Debug *get_db();                      ///< singleton getter
     static __HOST__ void  free_db();                      ///< singleton destructor
     
