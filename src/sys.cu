@@ -17,39 +17,6 @@ using io::AIO;
 using mu::MMU;
 
 System  *_sys = NULL;                ///< singleton controller on host
-__GPU__ int _khz  = 0;
-__GPU__ curandState *_rand_st;       ///< for random number generator
-///
-/// random number generator setup
-/// Note: kept here because curandStates stays in CUDA memory
-///
-__KERN__ void
-k_rand_init(U64 seed, int khz) {
-    int x = blockIdx.x * blockDim.x + threadIdx.x;
-    if (x==0) {
-        _khz = khz;
-        _rand_st = (curandState*)malloc(sizeof(curandState) * T4_RAND_SZ);
-    }
-    __syncthreads();
-    curand_init(seed, x, 0, &_rand_st[x]);
-}
-
-__KERN__ void
-k_rand(DU *mat, U64 sz, DU bias, DU scale, rand_opt ntype) {
-    U32 n  = (sz / blockDim.x) + 1;  ///< loop counter
-    U32 tx = threadIdx.x;            ///< thread idx (T4_RAN_SZ)
-    U64 x  = (U64)tx;                 
-    
-    curandState s = _rand_st[tx];    /// * cache state into local register
-    for (U32 i=0; i<n; i++, x+=blockDim.x) {  /// * scroll through pages
-        if (x < sz) {
-            mat[x]= scale * (
-                bias + (ntype==NORMAL ? curand_normal(&s) : curand_uniform(&s))
-                );
-        }
-    }
-    _rand_st[tx] = s;                /// * copy state back to global memory
-}
 ///
 /// Forth Virtual Machine operational macros to reduce verbosity
 ///
@@ -57,7 +24,7 @@ __HOST__
 System::System(h_istr &i, h_ostr &o, int khz, int verbo)
     : fin(i), fout(o),
       _istr(new io::Istream()), _ostr(new io::Ostream()),
-      _trace(verbo) {
+      _khz(khz), _trace(verbo) {
     mu = MMU::get_mmu();             /// * instantiate memory controller
     io = AIO::get_io(&_trace);       /// * instantiate async IO controler
     db = Debug::get_db(o);           /// * tracing instrumentation
@@ -65,7 +32,7 @@ System::System(h_istr &i, h_ostr &o, int khz, int verbo)
     ///
     ///> setup randomizer
     ///
-    k_rand_init<<<1, T4_RAND_SZ>>>(time(NULL), khz);  /// serialized randomizer
+    k_rand_init<<<1, T4_RAND_SZ>>>(time(NULL));  /// serialized randomizer
     GPU_CHK();
 
     INFO("\\ System OK\n");
