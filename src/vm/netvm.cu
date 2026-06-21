@@ -133,7 +133,7 @@ NetVM::_nnop(t4_layer op) {     /// vtable dispatcher
 ///
 __HOST__ void
 NetVM::_pickle(bool save) {                 ///< ( N addr len -- ) or ( N addr len mode -- )
-    U8   mode= save ? FAM_WO : FAM_RW;      ///< file access mode
+    U8   mode= save ? io::FAM_WO : io::FAM_RW;   ///< file access mode
 
     if (ss.idx > 1 && IS_OBJ(ss[-2])) { /* OK */ }
     else if (ss.idx > 2 && IS_OBJ(ss[-3])) mode |= POPi;       ///< TODO: RAW format

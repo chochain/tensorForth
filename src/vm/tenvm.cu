@@ -387,7 +387,7 @@ TensorVM::_solv(Tensor &A, Tensor &B) {      /// AX = B
 ///
 __HOST__ void
 TensorVM::_pickle(bool load, bool png) {
-    U8  mode  = png ? 0 : (load ? FAM_RO   : FAM_WO);
+    U8  mode  = png ? 0 : (load ? io::FAM_RO   : io::FAM_WO);
     OP  op    = png ? OP_T2PNG : (load ? OP_TLOAD : OP_TSAVE);
     
     if (ss.idx > 1 && IS_OBJ(ss[-2])) { /* OK */ }
@@ -590,9 +590,9 @@ TensorVM::init() {
     ///@defgroup Tensor persistance
     ///@brief - stick to PyTorch naming when possible
     ///@{
-    CODE("bin",       PUSH(FAM_RAW));         ///< raw/binary file
-    CODE("w/o",       PUSH(FAM_WO));          ///< write-only file
-    CODE("r/w",       PUSH(FAM_RW));          ///< read-write file
+    CODE("bin",       PUSH(io::FAM_RAW));     ///< raw/binary file
+    CODE("w/o",       PUSH(io::FAM_WO));      ///< write-only file
+    CODE("r/w",       PUSH(io::FAM_RW));      ///< read-write file
     CODE("save",      _pickle(true, false));  ///< ( T fn len -- T ) save tensor to a file
     CODE("load",      _pickle(false, false)); ///< ( T fn -- T' ) fill a tensor from file
 #if T4_DO_TB    
