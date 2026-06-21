@@ -4,6 +4,7 @@
  *
  * <pre>Copyright (C) 2022- GreenII, this file is distributed under BSD 3-Clause License.</pre>
  */
+#include <sstream>
 #include "eforth.h"
 
 #if (T4_DO_OBJ && T4_DO_NN)
@@ -573,9 +574,6 @@ ForthVM::_print(io_op o, DU v) {
 ///    %s - string
 ///    %p - pointer (memory block)
 ///
-#include <string>
-#include <sstream>
-#include <iomanip>
 __HOST__ void
 ForthVM::_sprintf() {                      ///> ( n1 [n2, .. ] addr u -- )
     std::string       buf;
