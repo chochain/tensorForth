@@ -8,7 +8,6 @@
 #define __SYS_H
 #pragma once
 
-#include <curand_kernel.h>
 #include "debug.h"                              ///< include mmu/mmu.h, io/aio.h
 #include "tb/summary.h"
 
@@ -21,6 +20,7 @@ class System : public OnHost {                  ///< singleton class
     h_ostr       &fout;                             
     io::Istream  *_istr;                        ///< managed input stream
     io::Ostream  *_ostr;                        ///< managed output stream
+    int          _khz;                          ///< GPU clock speed
     int          _trace;
     char         _tib[T4_STRBUF_SZ];            ///< terminal input buffer
     
