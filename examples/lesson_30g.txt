@@ -22,10 +22,12 @@ variable _lx                        \ create var for epoch latest loss
 
 .( ### setup datasets )
 N dataset cifar10_train             \ create CIFAR-10 training dataset, N sample/batch
+\ 128 128 normalize                   \ [0,1) => [-1,1)
 nn.len to _sz0                      \ get dataset total number of samples
 constant DS0                        \ keep dataset in a constant
 
 N dataset cifar10_test              \ create CIFAR-10 test dataset with model batch size
+\ 128 128 normalize                   \ [0,1) => [-1,1)
 nn.len to _sz1                      \ get dataset total number of samples
 constant DS1                        \ keep testing dataset as a constant
 
@@ -34,24 +36,22 @@ constant DS1                        \ keep testing dataset as a constant
 
 \ layer macros
 : cbnr ( M c -- M' )                \ add a convolution layer with c channels, BN, p% dropout
-  0 swap conv2d batchnorm relu ;
+  0 swap conv2d 0.01 batchnorm relu ;
 : 2cbnr ( M c -- M' )               \ stacked 3x3 conv2d layers =~ 1-5x5 + better activation
   dup >r cbnr r> cbnr ;
 : act ( M p -- M' )                 \ activation with 2x2 maxpool and p% dropout
   >r 2 maxpool r> dropout ;
 
 \ different model blocks
-: 1bx0 ( M -- M' )                       \ 1 block of (Conv+ReLU+Act)
-  0 64  conv2d relu 0.25 act ;               \ big FC, but acc lower (overfitting)
-: 1bxp ( M -- M' )                       \ 1 block of (Conv+ReLU+Act)+Pool
-  0 64  conv2d relu 0.25 act 2 maxpool ;     \ 1/4 FC neurons (20=>15 sec/epoch)
-: 2bx0 ( M -- M' )                       \ 2x(Conv+ReLU+Act)+Pool
-  0 64  conv2d relu 0.20 act
-  0 256 conv2d relu 0.30 act 2 maxpool ;
-: 3bx0 ( M -- M' )                       \ 3x(Conv+ReLU+Act)+Pool
-  0 64  conv2d relu 0.20 act
-  0 128 conv2d relu 0.25 act
-  0 256 conv2d relu 0.30 act 2 maxpool ;
+: 1bx0 ( M -- M' )                  \ 1 block of (Conv+ReLU+Act)
+  0 64  conv2d relu 0.25 act ;           \ big FC, but acc lower (overfitting)
+: 1bxp ( M -- M' )                  \ 1 block of (Conv+ReLU+Act)+Pool
+  0 64  conv2d relu 0.25 act 2 maxpool ; \ 1/4 FC neurons (20=>15 sec/epoch)
+: 1bx1 ( M -- M' )                  \ 1 block of (Conv+BN+ReLU+Act)
+  64 cbnr   0.10 act 2 maxpool ;         \ extra batchnorm
+: 2bx1 ( M -- M' )                  \ 2x(Conv+BN+ReLU+Act)+Pool
+  64  cbnr  0.10 act                     \ block-1: 32x32x64, 2x2 pool, 10% dropout
+  64  cbnr  0.20 act ;                   \ block-2: 16x16x64, 2x2 pool, 20% dropout
 : 3bx1 ( M -- M' )                  \ 3 blocks of 1x(Conv+BN+ReLU)+Act => 83~86%
   64  cbnr  0.25 act                  \ block-1: 32x32x64,  2x2 maxpooling, 25% dropout
   128 cbnr  0.30 act                  \ block-2: 16x16x128, 2x2 maxpooling, 30% dropout
@@ -61,15 +61,25 @@ constant DS1                        \ keep testing dataset as a constant
   128 2cbnr 0.30 act                  \ block-2: 16x16x128, 2x2 maxpooling, 30% dropout
   256 2cbnr 0.40 act ;                \ block-3: 8x8x256,   2x2 maxpooling, 40% dropout
 
-: histo ( M -- M )                  \ capture histogram to tensorboard
-  0  nn.w 30 s" nn/cn_0"  .histo      \ batchnorm output
-  4  nn.w 30 s" nn/cn_4"  .histo ;    \ last FC output
+: histo_bn ( M -- M )                  \ capture histogram to tensorboard
+  0  n@ 30 s" nn/cn1" .histo
+  1  n@ 30 s" nn/bn1" .histo      \ 1-blk ReLU
+  5  n@ 30 s" nn/bn2" .histo ;    \ 2-blk ReLU
+: histo_bnv ( M -- M )                  \ capture histogram to tensorboard
+  0  n@ 30 s" nn/cn1v" .histo
+  1  n@ 30 s" nn/bn1v" .histo      \ 1-blk ReLU
+  5  n@ 30 s" nn/bn2v" .histo ;    \ 2-blk ReLU
+: histo_relu ( M -- M )                  \ capture histogram to tensorboard
+  2  n@ 30 s" nn/relu1" .histo      \ 1-blk ReLU
+  6  n@ 30 s" nn/relu2" .histo ;    \ 2-blk ReLU
 
 0 trace
 .( ### our network model )
 N 32 32 3 nn.model                  \ create a model (100 per mini-batch of 32x32x3 img)
-2bx0                                \ convolution blocks (1bx0|1bxp|2bx0|3bx0|3bx1|3bx2)
-flatten 512 linear                  \ output block: fully-connect to 1x512
+\ 2bx1                                \ convolution blocks (1bx0|1bxp|2bx0|3bx0|3bx1|3bx2)
+64 cbnr 2 maxpool
+128 cbnr 0.2 act
+512 linear                          \ output block: fully-connect to 1x512
 batchnorm relu 0.5 dropout          \ normalize and 50% dropout to prevent overfitting
 10 linear softmax                   \ fully-connect 512 to final 10-classes
 constant M0                         \ keep as a constant
@@ -98,12 +108,14 @@ constant M0                         \ keep as a constant
   clock [to] _t0                      \ get starting time
   1+ 0 do                             \ multiple epochs [0..n]
     train_epoch                       \ run one trainning epoch
-    r@ stat histo                     \ send statistics and histograms
+    r@ stat histo_bn                     \ send statistics and histograms
     test_epoch                        \ run one validation epoch
+    histo_bnv
     r@ lr_cos                         \ decay learning rate
   loop ;
 
 M0 network                          \ put model as TOS, show and to tensorboard graph
-2 cnn                               \ execute multiple (20) epoches
+\ T cnn                               \ execute T epoches
+\ 0 cnn
 
 bye
