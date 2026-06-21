@@ -8,23 +8,27 @@
 #define __SYS_H
 #pragma once
 
-#include "debug.h"                              ///< include mmu/mmu.h, io/aio.h
-#include "tb/summary.h"
+#include "t4base.h"                             ///< include ten4_types.h
+#include "io/aio.h"
+#include "mu/mmu.h"
+
+namespace t4     { class Debug;   }             ///< forward declaration
+namespace t4::tb { class Summary; }
 
 namespace t4 {
 ///
 ///@name System Manager Class
 ///@{
 class System : public OnHost {                  ///< singleton class
-    h_istr       &fin;                          ///< host input stream
-    h_ostr       &fout;                             
+    io::istr     &fin;                          ///< host input stream
+    io::ostr     &fout;
     io::Istream  *_istr;                        ///< managed input stream
     io::Ostream  *_ostr;                        ///< managed output stream
     int          _khz;                          ///< GPU clock speed
     int          _trace;
     char         _tib[T4_STRBUF_SZ];            ///< terminal input buffer
     
-    __HOST__ System(h_istr &i, h_ostr &o, int khz, int verbo);
+    __HOST__ System(io::istr &i, io::ostr &o, int khz, int verbo);
     __HOST__ ~System();
     
 public:
@@ -35,7 +39,7 @@ public:
     ///
     /// singleton System controller
     ///
-    static __HOST__ System *get_sys(h_istr &i, h_ostr &o, int khz, int verbo);
+    static __HOST__ System *get_sys(io::istr &i, io::ostr &o, int khz, int verbo);
     static __HOST__ System *get_sys();          ///< singleton getter
     static __HOST__ void   free_sys();          ///< singleton destructor
     ///
