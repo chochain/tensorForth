@@ -8,11 +8,71 @@
 #include <iomanip>       // setprecision
 #include <fstream>
 #include <cmath>         // max, min
+#include "tensor.h"
 #include "aio.h"
 
 #if T4_DO_OBJ
 
 namespace t4::io {
+
+__HOST__ std::string
+AIO::to_s(T4Base &t, bool view) {
+    static const char tn[2][4] = {                ///< sync with t4_obj
+        { 'T', 'N', 'D', 'X' }, { 't', 'n', 'd', 'x' }
+    };
+    std::ostringstream ss;
+    
+    ss << tn[view][t.ttype];
+    switch(t.rank) {
+    case 0:            break;                     ///< network model
+    case 1: ss << '1'; break;
+    case 2: ss << '2'; break;
+    case 3: ss << '3'; break;
+    case 4: ss << '4'; break;
+    case 5: ss << "5[" << t.iparm << "]"; break;
+    }
+    ss << shape(t);
+    
+    return ss.str();
+}
+
+__HOST__ std::string
+AIO::shape(T4Base &b) {
+    Tensor &t = (Tensor&)b;
+    std::ostringstream ss;
+
+    ss << '[';
+    switch (t.rank) {
+    case 0: ss << (t.numel - 1);         break;   /// network model
+    case 1: ss << t.numel;               break;
+    case 2: ss << t.H() << ',' << t.W(); break;
+    case 3: ss << "na";                  break;
+    case 4:
+    case 5: ss << t.N() << ',' << t.H() << ','
+               << t.W() << ',' << t.C(); break;
+    }
+    ss << ']';
+    
+#if MM_DEBUG
+    if (t.rank==2 || t.rank==5) ss << t.numel;
+#endif // MM_DEBUG
+    
+    return ss.str();
+}
+
+__HOST__ std::string
+AIO::marshall(T4Base &t) {
+    DEBUG("  aio#print(fs, t4base=%p)\n", &t);
+    switch (t.ttype) {
+    case T4_TENSOR:
+    case T4_DATASET: return _tensor((Tensor&)t);
+#if T4_DO_NN
+    case T4_MODEL:   return _model((Model&)t);
+#endif // T4_DO_NN        
+    }
+    return std::string("");
+}
+///@}
 
 __HOST__ int
 AIO::tsave(Tensor &t, char *fname, U8 mode) {
@@ -166,7 +226,7 @@ AIO::_tensor(Tensor &t) {
 /// Tensor & NN model persistence (i.e. serialization) methods
 ///
 __HOST__ int
-AIO::_tsave_txt(h_ostr &fs, Tensor &t) {
+AIO::_tsave_txt(ostr &fs, Tensor &t) {
     int tmp = _thres;
     _thres  = 1024;                                     /// * allow 1K*1K cells
     fs << _tensor(t);              
@@ -175,7 +235,7 @@ AIO::_tsave_txt(h_ostr &fs, Tensor &t) {
 }
 
 __HOST__ int
-AIO::_tsave_raw(h_ostr &fs, Tensor &t) {
+AIO::_tsave_raw(ostr &fs, Tensor &t) {
     const char hdr[2] = { 'T', '4' };
     const int N = t.N(), HWC = t.HWC();
     U8 *buf = (U8*)malloc(HWC);                         ///< buffer for one slice
@@ -194,7 +254,7 @@ AIO::_tsave_raw(h_ostr &fs, Tensor &t) {
 }
 
 __HOST__ int
-AIO::_tsave_npy(h_ostr &fs, Tensor &t) {
+AIO::_tsave_npy(ostr &fs, Tensor &t) {
     /// TODO:
     return 0;
 }
