@@ -542,6 +542,21 @@ If all goes well, some warnings aside, *~/tests/ten4* is your executable. The fo
 </pre>
 
 ### TODO - by priorities
+* Refactor
+  + host/kernel code separation 
+  + study Scikit-learn (discrete functions)
+  + study [Taichi](https://github.com/taichi-dev/taichi)
+    - SNode
+    - JIT
+    - parallelization
+    - auto diff
+  + study JAX
+    - JIT (XLA)
+    - auto parallelization (pmap)
+    - auto vectorization (vmap)
+    - auto diff (grad), diffrax (RK4, Dormand-Prince)
+  + check namespace
+  + warp-level collectives (study libcu++, MordenGPU for kernel)
 * Data
   + add loader plug-in API - CIFAR
     - [Howto](https://franky07724-57962.medium.com/once-upon-a-time-in-cifar-10-c26bb056b4ce)
@@ -577,15 +592,11 @@ If all goes well, some warnings aside, *~/tests/ten4* is your executable. The fo
   + inter-VM loader (from VM->VM)
   + free_tensor as linked-list (instead of an array)
 * Design & Instrumentation
-  + Visulization via Netron
   + Llama
     x [llama2.c](https://www.signalpop.com/2024/02/10/understanding-llama2-c-and-chatgpt-a-visual-design-walkthrough/)
     - [Review](https://www.hostinger.com/tutorials/what-is-ollama). Local LLM environment with pre-train model.
     - [GGML Tensor library]( https://github.com/ggerganov/ggml). Host-oriented, review kernel code.
     - [GGUF](https://github.com/ggerganov/ggml/blob/master/docs/gguf.md). Optimized for GPU, cross-platform, structured model storage.
-* Inter-op
-  + ONNX model exporter (protobuf), can be read by Netron
-  + ONNX model importer, load pretrained models (from Model Zoo, Hugging Face)
 * Model
   + Collections
     - Deep Layer Aggregration [DLA](https://arxiv.org/pdf/1707.06484)
@@ -613,20 +624,6 @@ If all goes well, some warnings aside, *~/tests/ten4* is your executable. The fo
   + GNN - dynamic graph with VMs. Value proposition.
   + Mamba - State Space Model [mamba](https://www.ibm.com/think/topics/mamba-model)
   + Multi-Domain, i.e. MDNet
-* Refactor
-  + study Scikit-learn (discrete functions)
-  + study [Taichi](https://github.com/taichi-dev/taichi)
-    - SNode
-    - JIT
-    - parallelization
-    - auto diff
-  + study JAX
-    - JIT (XLA)
-    - auto parallelization (pmap)
-    - auto vectorization (vmap)
-    - auto diff (grad), diffrax (RK4, Dormand-Prince)
-  + check namespace
-  + warp-level collectives (study libcu++, MordenGPU for kernel)
 
 ### LATER
 * Tuning
@@ -643,12 +640,16 @@ If all goes well, some warnings aside, *~/tests/ten4* is your executable. The fo
 * Model
   + Latent Diffusion, [Stable Diffusion](https://stability.ai/). Pre-trained only?
   + RNN, **lost to Transformer**
+* Inter-op
+  + ONNX model exporter (protobuf), can be read by Netron
+  + ONNX model importer, load pretrained models (from Model Zoo, Hugging Face)
 * Data - **use ONNX instead**
   + NCHW tensor format support (as in PyTorch)
   + loader - .petastorm, .csv (available on github)
   + model persistence - .npy, .petastorm, hdf5
 * Visualization - **use TensorBoard instead**
   + nvdiffrast https://nvlabs.github.io/nvdiffrast/
+  + Netron - web-based NN model viewer (support .onnx, .pt, .h5)
   + OpenGL/WASM
 * 3rd-party lib Integration
   + integrate CUB, CUTLASS (utilities.init, gemm_api) - slow, later
