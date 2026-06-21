@@ -4,6 +4,7 @@
  *
  * <pre>Copyright (C) 2021- GreenII, this file is distributed under BSD 3-Clause License.</pre>
  */
+#include <iomanip>       /// setbase, setprecision, ostringstream
 #include <fstream>
 #include "aio.h"
 
@@ -142,7 +143,7 @@ AIO::_parm(Tensor &in, Tensor &out) {
 }
 
 __HOST__ int
-AIO::_nsave_model(h_ostr &fs, Model &m) {
+AIO::_nsave_model(ostr &fs, Model &m) {
     for (int i = 0; i < (int)m.numel - 1; i++) {
         Tensor &in = m[i], &out = m[i+1];
         fs << _parm(in, out);
@@ -158,7 +159,7 @@ AIO::_nsave_model(h_ostr &fs, Model &m) {
 }
 
 __HOST__ int
-AIO::_nsave_param(h_ostr &fs, Model &m) {
+AIO::_nsave_param(ostr &fs, Model &m) {
     auto _dump = [&fs](const char pn, const char *nm, Tensor &t) {
         fs << "\n--- " << pn << "." << nm << std::endl;/// * section marker
         fs.write((char*)t.data, t.numel * sizeof(DU));
@@ -181,7 +182,7 @@ AIO::_nsave_param(h_ostr &fs, Model &m) {
 }
 
 __HOST__ int
-AIO::_nload_model(h_istr &fs, Model &m, char *fname, char *tib) {
+AIO::_nload_model(istr &fs, Model &m, char *fname, char *tib) {
     std::string line;
     while (getline(fs, line) && line[0] == '\\') {     /// * TODO: check version
         IO_DB("\n%s", line.c_str());
@@ -205,7 +206,7 @@ AIO::_nload_model(h_istr &fs, Model &m, char *fname, char *tib) {
 }
 
 __HOST__ int
-AIO::_nload_param(h_istr &fs, Model &m) {
+AIO::_nload_param(istr &fs, Model &m) {
     auto _read = [this, &fs](const char *pn, const char *nm, Tensor &t) {
         std::string line;                              ///< input string
         IO_DB("\n%s %s[%d,%d,%d,%d] ", nm, pn, t.N(), t.H(), t.W(), t.C());
