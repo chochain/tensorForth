@@ -201,7 +201,7 @@ constexpr U32 EXT_FLAG    = 0x80000000;              /**< extention flag */
 #define AS_VIEW(v)  (0)
 #endif // T4_DO_OBJ
 ///@}
-///>name General Data Types for IO Event
+///@name General Data Types for IO Event
 ///@{
 typedef enum {
     GT_EMPTY = 0,
@@ -215,7 +215,7 @@ typedef enum {
     GT_TBX                            ///< tensorboard ops
 } GT;
 ///@}
-///>name General Opocode Type for IO Event
+///@name General Opocode Type for IO Event
 ///@{
 typedef enum {
     OP_FLUSH = 0,                     ///< flush output stream
@@ -235,7 +235,7 @@ typedef enum {
     OP_NLOAD,                         ///< network modek restore
 } OP;
 ///@}
-///>name TensorBoard Opocode Type
+///@name TensorBoard Opocode Type
 ///@{
 typedef enum {
     TB_INIT = 0,                      ///< initialize SummaryWriter
@@ -249,35 +249,7 @@ typedef enum {
     TB_EMBED                          ///< embedding projector
 } TB_OP;
 ///@}
-///>name File Access Mode for IO Event
-///@{
-typedef std::istream h_istr;          ///< host input stream
-typedef std::ostream h_ostr;          ///< host output ostream
-
-typedef enum {
-    FAM_WO  = 0,
-    FAM_RO  = 1,
-    FAM_RW  = 2,
-    FAM_RAW = 3
-} FAM;
-///@}
-///>name IO Event
-typedef struct {
-    U32 gt : 4;     // 16 io event types
-    U32 sz : 28;    // max 256M payload
-    U8  data[];     // data array
-} io_event;
-
-#define EVENT_HDR  sizeof(U32)
-///@}
-///>name Random Number Generator
-///@{
-typedef enum {
-    UNIFORM = 0,
-    NORMAL
-} rand_opt;
-///@}
-///>name IO operators
+///@name IO operators
 ///@{
 typedef enum { CR=0, RDX, DOT, UDOT, EMIT, SPCS } io_op;
 ///@}
