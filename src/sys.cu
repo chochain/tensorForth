@@ -99,7 +99,7 @@ System::setup_tb(const char *tb_logdir, const char *tb_run_id) {
 ///@{
 #include <iostream>
 #include <string>
-#define NEXT_EVENT(ev) ((io_event*)((char*)&(ev)->data[0] + (ev)->sz))
+#define NEXT_EVENT(ev) ((io::event*)((char*)&(ev)->data[0] + (ev)->sz))
 
 __HOST__ int
 System::readline(int hold) {                 ///< feed a line into device input stream
@@ -112,7 +112,7 @@ System::readline(int hold) {                 ///< feed a line into device input 
 
 __HOST__ void
 System::flush() {
-    io_event *e = (io_event*)_ostr->rdbuf(); /// * managed mem read, auto sync
+    io::event *e = (io::event*)_ostr->rdbuf(); /// * managed mem read, auto sync
     while (e->gt != GT_EMPTY) {              /// * walk linked-list
         e = e->gt == GT_OPX                  /// * process composit or simple event
             ? _process_opx(e)
@@ -122,8 +122,8 @@ System::flush() {
     _ostr->clear();
 }
 
-__HOST__ io_event*
-System::_process_event(io_event *ev) {       ///< process simple IO requests
+__HOST__ io::event*
+System::_process_event(io::event *ev) {      ///< process simple IO requests
     void *vp = (void*)ev->data;              ///< fetch payload in buffered print node
     DEBUG("System::process(gt=%x) {\n", ev->gt);
     switch (ev->gt) {
@@ -139,8 +139,8 @@ System::_process_event(io_event *ev) {       ///< process simple IO requests
     return NEXT_EVENT(ev);
 }
 
-__HOST__ io_event*
-System::_process_opx(io_event *ev) {         ///< process composit IO types
+__HOST__ io::event*
+System::_process_opx(io::event *ev) {        ///< process composit IO types
     void *vp = (void*)ev->data;              ///< fetch payload in buffered print node
     io::_opx o = *((io::_opx*)vp);           ///< capture a hardcopy
     DEBUG("  _opx(OP=%d, m=%d, i=%d, n=0x%08x=%g)\n", o.op, o.m, o.i, DU2X(o.n), o.n);
@@ -217,8 +217,8 @@ System::_process_opx(io_event *ev) {         ///< process composit IO types
     return NEXT_EVENT(ev);
 }
 
-__HOST__ io_event*
-System::_process_tb(io_event *ev) {               ///< process TensorBoard ops
+__HOST__ io::event*
+System::_process_tb(io::event *ev) {              ///< process TensorBoard ops
 #if T4_DO_TB  //==========================================================
     void *vp   = (void*)ev->data;                 ///< fetch payload in buffered print node
     io::_tbx x = *(io::_tbx*)vp;                  ///< make a hardcopy

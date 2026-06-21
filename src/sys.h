@@ -51,16 +51,16 @@ public:
     ///
     /// TensorBoard support
     ///
-    __HOST__ void      setup_tb(const char *tb_logdir, const char *tb_run_id);
+    __HOST__ void        setup_tb(const char *tb_logdir, const char *tb_run_id);
     ///
     /// System functions
     ///
-    __HOST__ int       readline(int hold);
-    __HOST__ void      flush();                 ///< flush all events to output
+    __HOST__ int         readline(int hold);
+    __HOST__ void        flush();                 ///< flush all events to output
     
-    __HOST__ io_event  *_process_event(io_event *ev);
-    __HOST__ io_event  *_process_opx(io_event *ev);
-    __HOST__ io_event  *_process_tb(io_event *ev);
+    __HOST__ io::event  *_process_event(io::event *ev);
+    __HOST__ io::event  *_process_opx(io::event *ev);
+    __HOST__ io::event  *_process_tb(io::event *ev);
     ///
     /// debuging controls
     ///
