@@ -1,0 +1,12 @@
+(add-hook 'forth-mode-hook (lambda ()
+  ;; Define the regex pattern and tie it directly to a hex color
+  (font-lock-add-keywords nil
+    '(("\\<\\(for\\|next\\|r@\\|to\\)\\>" . font-lock-keyword-face)))
+  (font-lock-add-keywords nil
+    '(("\\<\\(forward\\|backprop\\|fetch\\|rewind\\)\\>" . font-lock-type-face)))
+  (font-lock-add-keywords nil
+    '(("\\<\\(network\\|n@\\|nn\\.\\w+\\|loss\\.\\w+\\|dataset\\)\\>" . font-lock-variable-name-face)))
+  (font-lock-add-keywords nil
+    '(("\\<\\(conv2d\\|linear\\|relu\\|tanh\\|sigmoid\\|softmax\\|batchnorm\\|maxpool\\|dropout\\)\\>" . font-lock-constant-face)))
+  ))
+
