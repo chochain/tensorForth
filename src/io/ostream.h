@@ -10,14 +10,14 @@
 #include "ten4_types.h"
 #include "util.h"
 
-typedef std::ostream h_ostr;          ///< host output ostream
-
 namespace t4::io {
+typedef std::ostream ostr;            ///< host output ostream
+#define ENDL         '\n'
 
 typedef struct {
-    U32 gt : 4;     // 16 io event types
-    U32 sz : 28;    // max 256M payload
-    U8  data[];     // data array
+    U32 gt : 4;                       ///< 16 io event types
+    U32 sz : 28;                      ///< max 256M payload
+    U8  data[];                       ///< data array
 } event;
 ///
 ///@name File Access Mode for IO Event
@@ -101,7 +101,7 @@ __HOST__ __INLINE__ void _debug(GT gt, U8 *vp, U32 sz) {
         printf("  ostr#_debug(gt=%x,sz=%d) obuf[%d] << ", gt, sz, _idx);
         if (!sz) return;
         U8 d[T4_STRBUF_SZ];
-        MEMCPY(d, vp, sz);
+        memcpy(d, vp, sz);
         switch(gt) {
         case GT_INT:   printf("%d",      *(IU*)d);  break;
         case GT_U32:   printf("%u",      *(U32*)d); break;
@@ -152,7 +152,7 @@ __HOST__ __INLINE__ void _debug(GT gt, U8 *vp, U32 sz) {
         _debug(gt, vp, e->sz);
 
         if ((_idx + inc) > _max) inc = 0;         /// overflow, skip
-        else MEMCPY(e->data, vp, e->sz);          /// deep copy, TODO: shallow copy via managed memory
+        else memcpy(e->data, vp, e->sz);          /// deep copy, TODO: shallow copy via managed memory
 
         _buf[(_idx += inc)] = (char)GT_EMPTY;     /// advance index and mark end of stream
         //_UNLOCK;
