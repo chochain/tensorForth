@@ -7,8 +7,8 @@
 #ifndef __IO_OSTREAM_H_
 #define __IO_OSTREAM_H_
 #pragma  once
-#include "ten4_types.h"
-#include "util.h"
+
+#include <cstring>
 
 namespace t4::io {
 typedef std::ostream ostr;            ///< host output ostream
@@ -207,7 +207,7 @@ public:
     }
     __HOST__ Ostream& operator<<(const char *s) {
         DEBUG("  ostr#_write(\"%s\")\n", s);
-        int len = STRLENB(s)+1;
+        int len = (int)strlen(s)+1;
         _write(GT_STR, (U8*)s, len);
         return *this;
     }
