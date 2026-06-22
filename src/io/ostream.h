@@ -9,6 +9,7 @@
 #pragma  once
 
 #include <cstring>
+#include "ten4_types.h"
 
 namespace t4::io {
 typedef std::ostream ostr;            ///< host output ostream
