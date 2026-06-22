@@ -1,43 +1,12 @@
 #
-# tensorForth src/nn/Makefile
+# tensorForth src/nn/module.mk
 #
-# Add inputs and outputs from these tool invocations to the build variables
+# Data-only fragment — no rules, no boilerplate.
+# All compile logic lives in mk/module.mk.
+
 NN_SRCS := \
+	src/nn/layer.cu \
 	src/nn/model.cu \
-	src/nn/nmath.cu \
-	src/nn/forward.cu \
-	src/nn/backprop.cu \
-	src/nn/loss.cu \
-	src/nn/debug.cu \
-	src/nn/gradient.cu
+	src/nn/network.cu
 
-NN_INCS := \
-	src/nn/model.h \
-	src/nn/ntypes.h \
-	src/nn/nmath.h
-
-NN_OBJS := $(NN_SRCS:%.cu=%.o)
-
-OBJS += $(NN_OBJS)
-
-NN_EXT := \
-	src/t4base.h \
-	src/mu/tensor.h \
-	src/mu/dataset.h \
-	src/mu/mmu.h
-
-NN_LIBS := -Isrc/mu
-
-.PHONY: src src-nn src-ds clean clean-src
-
-src-nn: $(NN_OBJS) $(NN_INCS)
-
-# Each subdirectory must supply rules for building sources it contributes
-src/nn/%.o: src/nn/%.cu $(NN_INCS) $(NN_EXT)
-	@echo '<Source><Action>Compile</Action><Filename>$<</Filename><Status>'
-	-$(NVCC) $(NVCC_FLAGS) $(NN_LIBS) -o "$@" "$<" || $(NV_ERR)
-	@echo '</Source>'
-	@echo ' '
-
-clean-src-nn:
-	-$(RM) $(NN_OBJS)
+$(eval $(call MODULE_RULES,NN,src/nn))
