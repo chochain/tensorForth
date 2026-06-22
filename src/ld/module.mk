@@ -6,7 +6,7 @@
 
 LD_SRCS := \
 	src/ld/loader.cpp \
-	src/ld/mminst.cpp \
+	src/ld/mnist.cpp \
 	src/ld/cifar10.cpp
 
 LD_DIRS :=
