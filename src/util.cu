@@ -7,11 +7,14 @@
  *
  * <pre>Copyright (C) 2022- GreenII, this file is distributed under BSD 3-Clause License.</pre>
  */
+#if __CUDACC__
+
 #include <curand_kernel.h>
 #include <cooperative_groups.h>
 #include "util.h"
 
 namespace t4 {
+
 namespace cg = cooperative_groups;
 
 typedef int           WORD;
@@ -20,29 +23,6 @@ typedef int           WORD;
 
 #define DYNA_HASH_THRESHOLD     128
 #define HASH_K                  1000003
-
-__HOST__ uint32_t
-hbin_to_u32(const void *bin) {
-    uint32_t x = *((uint32_t*)bin);
-    return
-        ((x & 0xff)   << 24) |
-        ((x & 0xff00) << 8)  |
-        ((x >> 8)  & 0xff00) |
-        ((x >> 24) & 0x00ff);
-}
-
-//================================================================
-/*!@brief
-  Get 16bit value from memory big endian.
-
-  @param    bin Pointer of memory.
-  @return   16-bit unsigned value.
-*/
-__HOST__ uint16_t
-hbin_to_u16(const void *bin) {
-    uint16_t x = *((uint16_t *)bin);
-    return ((x & 0xff) << 8) | ((x >> 8) & 0xff);
-}
 
 __GPU__ curandState *_rand_st;       ///< for random number generator
 ///
@@ -163,6 +143,29 @@ _hash(const char *str, int bsz) {
 #endif // 0
     return *h;
 }
+__HOST__ uint32_t
+hbin_to_u32(const void *bin) {
+    uint32_t x = *((uint32_t*)bin);
+    return
+        ((x & 0xff)   << 24) |
+        ((x & 0xff00) << 8)  |
+        ((x >> 8)  & 0xff00) |
+        ((x >> 24) & 0x00ff);
+}
+
+//================================================================
+/*!@brief
+  Get 16bit value from memory big endian.
+
+  @param    bin Pointer of memory.
+  @return   16-bit unsigned value.
+*/
+__HOST__ uint16_t
+hbin_to_u16(const void *bin) {
+    uint16_t x = *((uint16_t *)bin);
+    return ((x & 0xff) << 8) | ((x >> 8) & 0xff);
+}
+
 //================================================================
 /*!@brief
   little endian to big endian converter
@@ -414,4 +417,6 @@ d_hash(const char *s) {
 }
 
 } // namespace t4
+
+#endif // __CUDACC__
 
