@@ -12,12 +12,14 @@
 #define __IO_AIO_H
 #pragma once
 
+#include <iomanip>       /// setbase, setprecision
+#include <fstream>
 #include "t4base.h"
 #include "istream.h"
 #include "ostream.h"
 
 namespace t4::nn { class Model;  }    ///< forward declaration
-namespace t4::mu { class Tensor; class Dataset; }
+namespace t4::mu { class Tensor; }
 
 namespace t4::io {
 
@@ -27,7 +29,6 @@ class AIO {                           ///< create in host mode
 #if T4_DO_OBJ    
     using Tensor  = mu::Tensor;       ///< aliases
 #if T4_DO_NN    
-    using Dataset = mu::Dataset;
     using Model   = nn::Model;
 #endif // DO_NN
 #endif // DO_OBJ
@@ -75,10 +76,10 @@ public:
 #endif // T4_DO_OBJ
     
 private:
-    int     _radix = 10;                       ///< output stream radix
-    int     _thres = 10;                       ///< max cell count for each dimension
-    int     _edge  = 3;                        ///< number of tensor edge items
-    int     _prec  = 4;                        ///< shown floating point precision
+    U32     _radix = 10;                       ///< output stream radix
+    U32     _thres = 10;                       ///< max cell count for each dimension
+    U32     _edge  = 3;                        ///< number of tensor edge items
+    U32     _prec  = 4;                        ///< shown floating point precision
 
 #if T4_DO_OBJ // vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
     ///
