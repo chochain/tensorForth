@@ -13,32 +13,23 @@
 #include "ten4_config.h"
 
 namespace t4 {
-///@}
-///@name Alignment macros
-///@{
-#define ALIGN2(sz)  ((sz) + (sz & 0x1))
-#define ALIGN4(sz)  ((sz) + (-(sz) & 0x3))
-#define ALIGN8(sz)  ((sz) + (-(sz) & 0x7))
-#define ALIGN16(sz) ((sz) + (-(sz) & 0xf))
-///@}
-#define __HOST__     __host__
-#define __KERN__     __global__
-#define __GPU__      __device__
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-__HOST__ uint32_t    hbin_to_u32(const void *bin);
-__HOST__ uint16_t    hbin_to_u16(const void *bin);
-    
-#if defined(__CUDACC__)
 ///>name Random Number Generator algorithm
 ///@{
 typedef enum {
     UNIFORM = 0,
     NORMAL
 } rand_opt;
+    
+#ifdef __CUDACC__
+    
+#define __HOST__     __host__
+#define __KERN__     __global__
+#define __GPU__      __device__
 ///
 ///@name Random number generator
 ///@{
@@ -47,6 +38,9 @@ __KERN__ void        k_rand(float *mat, long sz, float bias, float scale, rand_o
 ///@}
 ///@name Endianess conversion
 ///@{
+__HOST__ uint32_t    hbin_to_u32(const void *bin);
+__HOST__ uint16_t    hbin_to_u16(const void *bin);
+    
 __GPU__ uint32_t     bin_to_u32(const void *bin);
 __GPU__ uint16_t     bin_to_u16(const void *bin);
 
