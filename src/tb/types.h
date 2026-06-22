@@ -4,6 +4,9 @@
  *
  * <pre>Copyright (C) 2026 GreenII, this file is distributed under BSD 3-Clause License.</pre>
  */
+#ifndef __TB_TYPES_H
+#define __TB_TYPES_H
+
 #pragma once
 #include <cstdint>
 #include <vector>
@@ -31,3 +34,4 @@ typedef std::vector<U32>  U32V;
 typedef std::vector<F32>  F32V;
 typedef std::vector<F64>  F64V;
 
+#endif // __TB_TYPES_H

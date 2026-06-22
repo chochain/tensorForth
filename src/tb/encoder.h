@@ -14,6 +14,9 @@
  *   2 = Length-delimited
  *   5 = 32-bit
  */
+#ifndef __TB_ENCODER_H
+#define __TB_ENCODER_H
+
 #pragma once
 #include "types.h"
 
@@ -151,3 +154,5 @@ private:
 };
 
 } // namespace t4::tb
+
+#endif // __TB_ENCODER_H

@@ -5,10 +5,12 @@
  * Writes projector_config.pbtxt + TSV tensor/metadata files
  * into the log directory for the TensorBoard Projector plugin.
  */
+#ifndef __TB_PROJECTOR_H
+#define __TB_PROJECTOR_H
+
 #pragma once
 #include <fstream>
 #include <sstream>
-//#include <stdexcept>
 #include <iterator>
 #include "types.h"
 
@@ -99,10 +101,12 @@ private:
             f << hdr << '\n';
         }
         
-        for (int n = 0; n < N; n++) {
+        for (U32 n = 0; n < N; n++) {
             f << tag << '.' << n << '\n';
         }
     }
 };
 
 } // namespace t4::tb::embed
+
+#endif // __TB_PROJECTOR_H

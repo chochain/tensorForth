@@ -3,6 +3,9 @@
  @brief - GraphDef event writer
  @note - see schema.h for details
  */
+#ifndef __TB_GRAPH_H
+#define __TB_GRAPH_H
+
 #pragma once
 #include "encoder.h"
 
@@ -134,3 +137,5 @@ private:
 };  // class Node
 
 } // namespace t4::tb::graph
+
+#endif // __TB_GRAPH_H

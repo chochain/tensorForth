@@ -3,6 +3,9 @@
  * @brief  —  CRC32 calc
  *
  */
+#ifndef __TB_CRC32_H
+#define __TB_CRC32_H
+
 #pragma once
 #include "types.h"
 
@@ -45,3 +48,5 @@ inline U32 mask(U32 crc) {
 }
 
 } // namespace crc32c
+
+#endif // __TB_CRC32_H

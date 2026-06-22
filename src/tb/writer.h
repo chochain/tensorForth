@@ -2,6 +2,9 @@
  * @file
  * @brief  —  TensorBoard summary writer (compatible event file writer)
  */
+#ifndef __TB_WRITER_H
+#define __TB_WRITER_H
+
 #pragma once
 #include <ctime>          // std::time
 #include <fstream>        // std::ofstream, std::ios
@@ -205,3 +208,5 @@ protected:
 };
 
 } // namespace t4::tb
+
+#endif // __TB_WRITER_H

@@ -4,6 +4,9 @@
  *
  * <pre>Copyright (C) 2026 GreenII, this file is distributed under BSD 3-Clause License.</pre>
  */
+#ifndef __TB_SCHEMA_H
+#define __TB_SCHEMA_H
+
 #pragma once
 #include "encoder.h"
 #include "png.h"
@@ -112,3 +115,5 @@ inline U8V histo_meta() {
 }
 
 } // namespace t4:tb::schema
+
+#endif // __TB_SCHEMA_H

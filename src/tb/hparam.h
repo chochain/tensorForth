@@ -3,6 +3,9 @@
  @brief - HParams event writer
  @note - see schema.h for details
  */
+#ifndef __TB_HPARAM_H
+#define __TB_HPARAM_H
+
 #pragma once
 
 #include "writer.h"
@@ -168,3 +171,5 @@ private:
 };
 
 } // namespace t4::tb
+
+#endif // __TB_HPARAM_H

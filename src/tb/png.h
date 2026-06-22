@@ -4,6 +4,9 @@
  *    uncompressed deflate stored blocks, or
  *    zlib compressed with #include <zlib.h> and gcc with -lz
  */
+#ifndef __TB_PNG_H
+#define __TB_PNG_H
+
 #pragma once
 #include "types.h"
 
@@ -116,4 +119,6 @@ inline U8V raw2png(int w,int h, const U8V& px,int ch=3){
 }
 
 } // namespace t4::tb::png
+
+#endif // __TB_PNG_H
 
