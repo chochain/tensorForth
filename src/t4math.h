@@ -12,10 +12,6 @@
 #include <stddef.h>
 #include "ten4_config.h"
 
-#define __HOST__     __host__
-#define __KERN__     __global__
-#define __GPU__      __device__
-
 namespace t4 {
 
 ///@name cross platform floating-point ALU support (see nvcc -use_fast_math flag)
@@ -55,7 +51,7 @@ typedef enum {
 
 #define MATH_OP "abs","neg","exp","ln","log","tanh","relu","sigmoid","sqrt","rcp","sat","iden","fill","gfill","scale","pow","+","-","*","/","mod","max","min","mul2","mod2","sin","cos"
 
-#include <cmath>
+#ifdef  __CUDACC__
 #define ABS(x)       (fabsf(x))                 /**< absolute value         */
 #define NEG(x)       (-x)                       /**< negate                 */
 #define EXP(x)       (expf(x))                  /**< exponential(float)     */
@@ -124,6 +120,10 @@ typedef enum {
     GPU_CHK();                               \
 }
 
+#define __HOST__     __host__
+#define __KERN__     __global__
+#define __GPU__      __device__
+
 typedef float     DU;
 typedef uint32_t  U32;
 
@@ -183,6 +183,8 @@ __KERN__ void k_bsub(const DU *lu, DU *di, int K);
 __KERN__ void k_lu(DU *lu, bool get_u, int _K, int K);
 __KERN__ void k_logdet(const DU *lu, DU *d_logdet, int *d_sign, int K);
 ///@}
+#endif  // __CUDACC__
+
 } // namespace t4
 #endif // __T4MATH_H_
     
