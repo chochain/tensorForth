@@ -1,7 +1,9 @@
 # Google App Engine generated folder
 appengine-generated/
 /src/*.o
+/src/*.d
 /src/*/*.o
+/src/*/*.d
 /src/*.cpp?.ii
 /src/*.cubin
 /src/*.fatbin*
