@@ -146,7 +146,6 @@ struct Tensor : public T4Base {
     __HOST__ Tensor &zeros();                     ///< fill zeros to all elements
     __HOST__ Tensor &map(math_op op, DU v=DU0);   ///< element-wise absolute
     __HOST__ Tensor &normalize(DU avg, DU std);
-    __HOST__ void   copy_to_host(void* dst) { cudaMemcpy(dst, data, numel, cudaMemcpyDeviceToHost); }
     ///
     /// IO
     ///
