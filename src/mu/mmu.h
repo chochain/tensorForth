@@ -8,6 +8,7 @@
 #define __MU_MMU_H
 #pragma once
 #include <mutex>
+#include <cstring>          // strlen, memcpy
 #include "vector.h"
 #include "tensor.h"
 #include "dataset.h"
@@ -81,12 +82,12 @@ public:
     __HOST__  void colon(const char *name);                         ///< define colon word
     __HOST__  __INLINE__ int  align()      { int i = (-_midx & 0x3); _midx += i; return i; }
     __HOST__  __INLINE__ void clear(IU i)  {                        ///< clear dictionary
-        _midx = _dict[i].pfa - STRLENB(_dict[i].name);
+        _midx = _dict[i].pfa - strlen(_dict[i].name);
         _didx = i; 
     }
     __HOST__  __INLINE__ void add(Code *c);                         ///< create word (deep copy)
     __HOST__  __INLINE__ void add(U8* v, int sz, bool adv=true) {   ///< copy data to heap, TODO: dynamic parallel
-        MEMCPY(&_pmem[_midx], v, sz); if (adv) _midx += sz;        /// * advance HERE
+        memcpy(&_pmem[_midx], v, sz); if (adv) _midx += sz;         /// * advance HERE
     }
     __HOST__  __INLINE__ void set_here(IU a) { _midx = a; }         ///< set branch target address
     ///
@@ -129,8 +130,9 @@ public:
         return *t;
     }
     __HOST__ DU     obj2du(T4Base &t) {                      ///< conver Obj to DU
-        U32 o = OBJ2X(t) | T4_TT_OBJ;                        ///< mark object bit
-        return *(DU*)&o;                                     ///< convert to DU value
+        UFP o = (UFP)OBJ2X(t);
+        U32 v = *reinterpret_cast<U32*>(o) | T4_TT_OBJ;      ///
+        return *reinterpret_cast<DU*>(o) = I2D(v);           ///< convert to DU value
     }
     ///
     /// tensor object life-cycle methods
