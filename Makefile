@@ -45,6 +45,11 @@ GL_INCS :=
 #	/u01/src/stb \
 #	${CUDA_HOME}/cuda-samples/Common \
 #	${CUDA_HOME}/cuda-samples/Samples/2_Concepts_and_Techniques/imageDenoising
+CC = g++
+CC_FLAG = -std=c++17 -c -g -O3 -Wall \
+          -Isrc $(GL_INCS:%=-I%) \
+          -fomit-frame-pointer -fno-stack-check -fno-stack-protector \
+		  -march=native -ffast-math -funroll-loops
 
 NVCC:=${CUDA_HOME}/bin/nvcc
 NVCC_FLAGS:= \
@@ -66,6 +71,7 @@ NVLINK_FLAGS:= \
 	$(GL_LIB) \
 	-gencode arch=${CUDA_ARCH},code=${CUDA_CODE}
 
+CC_ERR := echo "CC_FAILED"
 NV_ERR := echo "NVCC_FAILED"
 
 # Add inputs and outputs from these tool invocations to the build variables
