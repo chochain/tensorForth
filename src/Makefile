@@ -1,8 +1,8 @@
 #
-# tensorForth src/Makefile
+# tensorForth src/module.mk
 #
 # Add inputs and outputs from these tool invocations to the build variables
-# CUDA nvcc compiler and linker flags
+#
 T4_SRCS := \
 	./src/sys.cu \
 	./src/debug.cu \
@@ -10,66 +10,7 @@ T4_SRCS := \
 	./src/t4math.cu \
 	./src/ten4.cu
 
-T4_INCS := \
-	./src/ten4_config.h \
-	./src/ten4_types.h \
-	./src/opt.h \
-	./src/sys.h \
-	./src/util.h \
-	./src/t4math.h \
-	./src/debug.h \
-	./src/t4base.h \
-	./src/ten4.h
+T4_DIRS := src src/io src/mu src/vm src/nn src/tb
+T4_LIBS :=
 
-T4_EXT := \
-	./src/io/aio.h \
-	./src/mu/mmu.h \
-	./src/mu/dataset.h \
-	./src/vm/param.h \
-	./src/vm/vm.h \
-	./src/vm/eforth.h \
-	./src/vm/tenvm.h \
-	./src/vm/netvm.h \
-	./src/nn/model.h \
-	./src/tb/summary.h
-
-T4_OBJS := $(T4_SRCS:%.cu=%.o)
-
-OBJS += $(T4_OBJS)
-
-# Every subdirectory with source files must be described here
-#SUBDIRS := nn vu ld vm io mu  # vu excluded after v4.x
-SUBDIRS := nn ld vm io mu tb   # stream devel
-
-T4_LIBS := $(SUBDIRS:%=-Isrc/%)
-#T4_LIBS :=
-
--include src/mu/Makefile
--include src/io/Makefile
--include src/vm/Makefile
--include src/ld/Makefile
--include src/nn/Makefile
-# -include src/vu/Makefile
--include src/tb/Makefile
-
-.PHONY: src clean clean-src
-
-src: $(SUBDIR:%=src-%)
-
-src-t4: $(T4_OBJS) $(T4_INCS) $(T4_EXT)
-
-# Each subdirectory must supply rules for building sources it contributes
-src/%.o: src/%.cu
-	@echo '<Source><Action>Compile</Action><Filename>$<</Filename><Status>'
-	$(NVCC) $(NVCC_FLAGS) $(T4_LIBS) -o "$@" "$<" || $(NV_ERR)
-	@echo '</Source>'
-	@echo ' '
-
-src/%.o: src/%.cpp
-	@echo '<Source><Action>Compile</Action><Filename>$<</Filename><Status>'
-	$(CC) $(CC_FLAG) -o "$@" "$<" || $(CC_ERR)
-	@echo '</Source>'
-	@echo ' '
-
-clean-src: $(SUBDIRS:%=clean-src-%)
-	-$(RM) $(T4_OBJS)
+$(eval $(call MODULE_RULES,T4,src))
