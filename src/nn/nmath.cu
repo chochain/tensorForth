@@ -5,6 +5,7 @@
  *
  * <pre>Copyright (C) 2022- GreenII, this file is distributed under BSD 3-Clause License.</pre>
  */
+#ifdef __CUDACC__
 #include <float.h>              // -FLT_MAX
 #include "nmath.h"
 ///
@@ -463,4 +464,5 @@ __KERN__ void k_adamw(
 #endif  // (T4_DO_OBJ && T4_DO_NN)
 
 } // namespace t4::nn
+#endif  // __CUDACC__
 //==========================================================================

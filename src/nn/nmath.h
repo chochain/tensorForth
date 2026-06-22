@@ -6,6 +6,7 @@
  */
 #ifndef __NN_NMATH_H
 #define __NN_NMATH_H
+#ifdef  __CUDACC__
 #pragma once
 #include "ten4_types.h"
 #include "t4math.h"
@@ -112,5 +113,6 @@ __KERN__ void k_adamw(
 #endif  // (T4_DO_OBJ && T4_DO_NN)
 } // namespace t4::nn
 
+#endif // __CUDACC__
 #endif // __NN_NMATH_H
 //==========================================================================
