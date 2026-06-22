@@ -3,16 +3,16 @@
 #
 # Add inputs and outputs from these tool invocations to the build variables
 IO_SRCS := \
-	src/io/aio.cu \
-	src/io/aio_tensor.cu \
-	src/io/aio_model.cu
+	src/io/aio.cpp \
+	src/io/aio_tensor.cpp \
+	src/io/aio_model.cpp
 
 IO_INCS := \
 	src/io/istream.h \
 	src/io/ostream.h \
 	src/io/aio.h
 
-IO_OBJS := $(IO_SRCS:%.cu=%.o)
+IO_OBJS := $(IO_SRCS:%.cpp=%.o)
 
 # extra include from other directries
 IO_EXT:= \
@@ -20,10 +20,8 @@ IO_EXT:= \
 	src/ten4_types.h \
 	src/tbase.h \
 	src/util.h \
-	src/mu/mmu.h \
 	src/mu/tensor.h \
-	src/nn/model.h \
-	src/tb/summary.h
+	src/nn/model.h
 
 #IO_LIBS := -Isrc/mu -Isrc/nn -Isrc/tb
 IO_LIBS :=
@@ -35,9 +33,9 @@ OBJS += $(IO_OBJS)
 src-io: $(IO_OBJS)
 
 # Each subdirectory must supply rules for building sources it contributes
-src/io/%.o: src/io/%.cu $(IO_INCS) $(IO_EXT)
+src/io/%.o: src/io/%.cpp $(IO_INCS) $(IO_EXT)
 	@echo '<Source><Action>Compile</Action><Filename>$<</Filename><Status>'
-	-$(NVCC) $(NVCC_FLAGS) $(IO_LIBS) -o "$@" "$<" || $(NV_ERR)
+	-$(CC) $(CC_FLAGS) $(IO_LIBS) -o "$@" "$<" || $(CC_ERR)
 	@echo '</Status></Source>'
 	@echo ' '
 
