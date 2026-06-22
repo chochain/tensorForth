@@ -9,9 +9,32 @@
 #pragma once
 #include "ten4_types.h"
 
-#if T4_DO_OBJ                /// * only when Object is activated
-
 namespace t4 {
+
+#if T4_DO_OBJ                /// * only when Object is activated
+///
+/// object classification macros
+///
+constexpr U32 T4_TYPE_MSK = 0x3;          ///< obj view flag
+constexpr U32 T4_TT_OBJ   = 0x1;          ///< data unit flag
+constexpr U32 T4_TT_VIEW  = 0x3;          ///< view of object
+constexpr U32 EXT_FLAG    = 0x80000000;   /**< extention flag */
+
+struct Variant {             /// * DU <=> pointer conversion utility class
+    uintptr_t raw;
+    Variant(void *ptr) : raw(reinterpret_cast<uintptr_t>(ptr)) {}
+    U32  addr()        { return (U32)(raw & ~T4_TYPE_MSK); }
+    bool is_obj()      { return (raw & T4_TT_OBJ) != 0; }
+    bool is_view()     { return (raw & T4_TYPE_MSK)==T4_TT_VIEW; }
+    void as_view()     { U32 *v = reinterpret_cast<U32*>(raw & ~T4_TYPE_MSK); *v |= T4_TT_VIEW; }
+    void as_scalar()   { U32 *v = reinterpret_cast<U32*>(raw & ~T4_TYPE_MSK); *v &= ~T4_TT_OBJ; }
+};
+#define DU2X(v)     ((U32)Variant(&v).raw)           /**< to U32 ptr     */
+#define SCALAR(v)   (Variant(&v).as_scalar())        /**< set DU flag    */
+
+#define IS_OBJ(v)   (Variant(&v).is_obj())           /**< if is an obj   */
+#define IS_VIEW(v)  (Variant(&v).is_view())
+#define AS_VIEW(v)  (Variant(&v).as_view(), (v))
 ///
 /// tensorForth object types
 ///
@@ -91,8 +114,65 @@ struct T4Base : public OnHost {
     __HOST__ __INLINE__ bool is_dataset() { return ttype == T4_DATASET; }
 };
 
-} // namespace t4
+#ifdef __CUDACC__     // vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
+///
+///@name CUDA kernel launching macros
+///@note: consider use of fn<<<_g,_b,0,cudaStreamTailLaunch>>>(...)
+///@{
+#define WARP_SUM(v)                                         \
+    for (int off = 16; off > 0; off >>=1)                   \
+        v += __shfl_down_sync(0xffffffff, v, off)
+#define WARP_MAX(v)                                         \
+    for (int off = 16; off > 0; off >>= 1)                  \
+        v = MAX(v, __shfl_down_sync(0xffffffff, v, off))
+
+#define FORK(fn,n,...) {                                    \
+    const dim3 _b(T4_DIM_SQ, 1, 1);                         \
+    const dim3 _g(((n) + _b.x - 1) / _b.x, 1, 1);           \
+    fn<<<_g,_b>>>(__VA_ARGS__,n);                           \
+    GPU_CHK();                                              \
+}
+#define FORK1(fn, c, n, ...) {                              \
+    const dim3 _g((c), (n), 1);                             \
+    fn<<<_g,T4_DIM_SZ2>>>(__VA_ARGS__);                     \
+    GPU_CHK();                                              \
+}
+#define FORK2(fn,_g,n,...) {                                \
+    fn<<<_g,T4_DIM_SQ>>>(__VA_ARGS__,n);                    \
+    GPU_CHK();                                              \
+}
+#define FORK3(fn,h,w,c,...) {                               \
+    const dim3 _b(T4_DIM_SZ, T4_DIM_SZ, 1);                 \
+    const dim3 _g(((w) + _b.x - 1) / _b.x,                  \
+                  ((h) + _b.y - 1) / _b.y, c);              \
+    fn<<<_g,_b>>>(__VA_ARGS__,h,w);                         \
+    GPU_CHK();                                              \
+}
+#define FORK4(fn,sm,...) { /** N,H,W,C (default params) */  \
+    const dim3 _b(T4_DIM_SQ, 1, 1);                         \
+    const dim3 _g(((W)*(H) + _b.x - 1) / _b.x, C, N);       \
+    fn<<<_g,_b,sm>>>(__VA_ARGS__);                          \
+    GPU_CHK();                                              \
+}
+///@}
+struct Managed {
+    void *operator new(size_t sz) {
+        void *ptr;
+        MM_ALLOC(&ptr, sz);
+        DEBUG("new Managed Obj %p size=%ld byes\n", ptr, sz);
+        return ptr;
+    }
+    void operator delete(void *ptr) { MM_FREE(ptr); }
+};
+#endif // __CUDACC__  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+#else  // !T4_DO_OBJ
+#define IS_OBJ(v)   (0)
+#define IS_VIEW(v)  (0)
+#define AS_VIEW(v)
 
 #endif // T4_DO_OBJ
+
+} // namespace t4
 #endif // __T4BASE_H
 
