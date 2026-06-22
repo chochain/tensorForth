@@ -32,8 +32,8 @@ public:
     Cifar10(const char *data_name) : Corpus(data_name, NULL, 0, 256) {}
     ~Cifar10() { _close(); }
 
-    virtual Corpus *init(int mini_bsz, bool trace);    ///< setup/check sizing
-    virtual int    fetch(int bid, bool trace);         ///< fetch bid'th mini-batch
+    virtual Corpus *init(U32 mini_bsz, bool trace);    ///< setup/check sizing
+    virtual U32    fetch(U32 bid, bool trace);         ///< fetch bid'th mini-batch
     virtual Corpus *rewind() { _ds.clear(); return Corpus::rewind(); }
 
 private:
@@ -42,7 +42,7 @@ private:
     virtual int _open();                               ///< open data sources
     virtual int _close();                              ///< close data sources
 
-    virtual int _get_data(int bid, bool trace);        ///< load labels
+    virtual U32 _get_data(U32 bid, bool trace);        ///< load labels
 };
 
 } // namespace t4::ld

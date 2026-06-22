@@ -15,7 +15,6 @@
 #include "corpus.h"
 
 namespace t4::ld {
-
 ///
 /// MNIST NN data
 ///
@@ -26,12 +25,12 @@ public:
         : Corpus(data_name, label_name, 0, 256) {}
     ~Mnist() { _close(); }
 
-    virtual Corpus *init(int mini_bsz, bool trace);    ///< setup/check sizing
-    virtual int    fetch(int bid, bool trace);         ///< fetch bid'th mini-batch
+    virtual Corpus *init(U32 mini_bsz, bool trace);    ///< setup/check sizing
+    virtual U32    fetch(U32 bid, bool trace);         ///< fetch bid'th mini-batch
     virtual Corpus *rewind() {
         _ds.clear(); _tg.clear(); return Corpus::rewind();
     }
-    virtual Corpus *show(int n);
+    virtual Corpus *show(U32 n);
 
 private:
     std::ifstream _ds;                                 ///< data file handle
@@ -40,8 +39,8 @@ private:
     virtual int _open();                               ///< open data sources
     virtual int _close();                              ///< close data sources
 
-    virtual int _get_labels(int bid);                  ///< load labels
-    virtual int _get_images(int bid);                  ///< load images/data
+    virtual U32 _get_labels(U32 bid);                  ///< load labels
+    virtual U32 _get_images(U32 bid);                  ///< load images/data
 };
 
 } // namespace t4::ld

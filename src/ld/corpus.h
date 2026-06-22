@@ -19,7 +19,14 @@ namespace t4::ld {
 /// 2. moved to host heap if OK
 /// 3. pre-fetching can be done in a separate thread
 ///
+#if __CUDACC__
 #define DS_ALLOC(p, sz)      H_ALLOC(p, sz)
+#define DS_FREE(p)           H_FREE(p)
+#else
+#define DS_ALLOC(p, sz)      H_ALLOC(p, sz)
+#define DS_FREE(p)           H_FREE(p)
+#endif // __CUDACC__
+
 #define IO_ERROR(fn)         ERROR("failed to open file %s\n", fn);
 
 struct Corpus {
@@ -48,30 +55,34 @@ struct Corpus {
     
     ~Corpus() {
         if (!data) return;
-
+        
+        static const char *dev[] = { "CUDA Managed" , "HOST" };
+        
+#if __CUDACC__
         cudaPointerAttributes attr;
         int host =
             cudaPointerGetAttributes(&attr, data)==cudaErrorInvalidValue &&
             attr.devicePointer==NULL;
+        cudaFree(data);
+        if (label) cudaFree(label);
+#else  // !__CUDACC__
+        int host = 1;
+        free(data);
+        if (label) free(label);
+#endif // __CUDACC__
         
-        auto ds_free = [this, host](const char *name, U8 *p) {
-            static const char *dev[] = { "CUDA Managed" , "HOST" };
-            if (host) free(p);
-            else      cudaFree(p);
-            INFO("%s freed from %s memory", name, dev[host]);
-        };
-        ds_free(ds_name, data);
-        if (label) ds_free(tg_name, label);
+        INFO("%s freed from %s memory", ds_name, dev[host]);
+        if (label) INFO("%s freed from %s memory", tg_name, dev[host]);
     }
     
     virtual U8 *operator [](int idx){ return &data[idx * cell()]; }  ///< data point
     
-    int cell() { return H * W * C; }                                 ///< size of an element
+    U64 cell() { return (U64)H * W * C; }                            ///< size of an element
     
-    virtual Corpus *init(int mini_bsz, bool trace) { return NULL; }  ///< initialize dimensions
-    virtual int    fetch(int bid, bool trace) { return 0; };         ///< load a mini-batch
+    virtual Corpus *init(U32 mini_bsz, bool trace) { return NULL; }  ///< initialize dimensions
+    virtual U32    fetch(U32 bid, bool trace) { return 0; };         ///< load a mini-batch
     virtual Corpus *rewind()    { eof = 0; return this; }
-    virtual Corpus *show(int n) { return this; }                     ///< show/preview n samples
+    virtual Corpus *show(U32 n) { return this; }                     ///< show/preview n samples
 };
 
 } // namespace t4::ld
