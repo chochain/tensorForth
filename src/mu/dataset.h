@@ -23,25 +23,13 @@ struct Dataset : public Tensor {
     ///
     /// constructors (for host testing mostly)
     ///
-    __HOST__ Dataset(U32 n, U32 h, U32 w, U32 c)
-        : Tensor(n, h, w, c), label(NULL) {
-        MM_ALLOC(&label, n * sizeof(U32));
-        TRACE("Dataset[%d,%d,%d,%d] created\n", n, h, w, c);
-    }
-    __HOST__ ~Dataset() {
-        if (!label) return;
-        MM_FREE((void*)label);
-    }
-    __HOST__ void normalize(DU mean, DU scale) {
-        _mean = mean;
-        if (ZEQ(scale)) {
-            ERROR("scale == 0?\n");
-            _scale = 1.0f;
-        }
-        else _scale = 1.0f / scale;
-    }
-    __HOST__ int fetch(char *ds_name, bool rewind, bool trace);
-    __HOST__ int rewind(bool trace) { return fetch(NULL, true, trace); }
+    __HOST__ Dataset(U32 n, U32 h, U32 w, U32 c);
+    __HOST__ ~Dataset();
+    
+    __HOST__ void normalize(DU mean, DU scale);
+    
+    __HOST__ int  fetch(char *ds_name, bool rewind, bool trace);
+    __HOST__ int  rewind(bool trace) { return fetch(NULL, true, trace); }
 
 private:
     DU _mean  = 0.0f;

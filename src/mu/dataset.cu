@@ -16,6 +16,29 @@ using ld::Corpus;
 /// for init debug LOG_COUNT 1 with sample=3 is good
 ///
 #define LOG_COUNT 1          /**< debug dump frequency */
+
+__HOST__
+Dataset::Dataset(U32 n, U32 h, U32 w, U32 c)
+    : Tensor(n, h, w, c), label(NULL) {
+    MM_ALLOC(&label, n * sizeof(U32));
+    TRACE("Dataset[%d,%d,%d,%d] created\n", n, h, w, c);
+}
+
+__HOST__
+Dataset::~Dataset() {
+    if (!label) return;
+    MM_FREE((void*)label);
+}
+
+__HOST__ void
+Dataset::normalize(DU mean, DU scale) {
+    _mean = mean;
+    if (ZEQ(scale)) {
+        ERROR("scale == 0?\n");
+        _scale = 1.0f;
+    }
+    else _scale = 1.0f / scale;
+}
 //#define LOG_COUNT 300          /**< debug dump frequency */
 ///
 /// initial dataset setup
