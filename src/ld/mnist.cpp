@@ -18,7 +18,7 @@ namespace t4::ld {
 //#define MAX_BATCH 3          /**< debug, limit number of mini-batches */
 #define MAX_BATCH 0          /**< debug, limit number of mini-batches */
 
-Corpus *Mnist::init(int mini_bsz, bool trace) {
+Corpus *Mnist::init(U32 mini_bsz, bool trace) {
     auto _u32 = [this](std::ifstream &fs) {
         U32 v = 0;
         char x;
@@ -61,8 +61,8 @@ Corpus *Mnist::init(int mini_bsz, bool trace) {
     return this;
 }
 
-int Mnist::fetch(int bid, bool trace) {
-    int off = N * bid;                          ///< batch offset index
+U32 Mnist::fetch(U32 bid, bool trace) {
+    U32 off = N * bid;                          ///< batch offset index
     if (eof || off >= corpus_sz) {              /// * beyond total sample count?
         ERROR("Mnist::fetch EOF reached (needs rewind)\n");
         eof=1; return 0;
@@ -70,7 +70,7 @@ int Mnist::fetch(int bid, bool trace) {
     ///
     /// fetch labels and images (and set eof if any of EOF reached)
     ///
-    int n    = _get_labels(bid);                ///< load batch labels
+    U32 n    = _get_labels(bid);                ///< load batch labels
     batch_sz = _get_images(bid);                ///< load batch images
     
     if (n != batch_sz) {
@@ -91,13 +91,13 @@ int Mnist::fetch(int bid, bool trace) {
     return batch_sz;
 }
 
-Corpus *Mnist::show(int N) {
+Corpus *Mnist::show(U32 N) {
     static const char *map = " .:-=+*#%@";
 
-    for (int i = 0; i < H; i++) {
-        for (int n =0; n < N; n++) {
+    for (U32 i = 0; i < H; i++) {
+        for (U32 n =0; n < N; n++) {
             U8 *img = (*this)[n] + i * W;
-            for (int j = 0; j < W; j++, img++) {
+            for (U32 j = 0; j < W; j++, img++) {
                 char c  = map[*img / 26];
                 char c1 = map[((int)*img + (int)*(img+1)) / 52];
                 INFO("%c%c", c, c1);                 /// double width
@@ -106,9 +106,9 @@ Corpus *Mnist::show(int N) {
         }
         INFO("\n");
     }
-    for (int n = 0; n < N; n++) {
+    for (U32 n = 0; n < N; n++) {
         INFO(" label=%-2d ", (int)label[n]);
-        for (int j = 0; j < W*2 - 10; j++) INFO("-");
+        for (U32 j = 0; j < W*2 - 10; j++) INFO("-");
         INFO("+");
     }
     INFO("\n");
@@ -136,35 +136,35 @@ int Mnist::_close() {
     return 0;
 }
 
-int Mnist::_get_labels(int bid) {
-    const int bsz = N * sizeof(U8);
-    const int hdr = sizeof(U32) * 2;
+U32 Mnist::_get_labels(U32 bid) {
+    const U32 bsz = N * sizeof(U8);
+    const U32 hdr = sizeof(U32) * 2;
     
     if (!label) DS_ALLOC(&label, bsz);             ///< allocate managed memory
 
     _tg.seekg(hdr + bid * bsz);                    /// * seek by batch
     _tg.read((char*)label, bsz);                   /// * fetch batch labels
 
-    int cnt = _tg.gcount();                        ///< # of labels extracted
+    U32 cnt = _tg.gcount();                        ///< # of labels extracted
 
-    char c = _tg.peek();                           ///< check EOF
+    _tg.peek();                                    ///< check EOF
     eof |= _tg.eof();                              /// * set EOF flag
 
     return cnt;
 }
 
-int Mnist::_get_images(int bid) {
-    const int hdr = sizeof(U32) * 4;
-    const int bsz = N * cell();
+U32 Mnist::_get_images(U32 bid) {
+    const U32 hdr = sizeof(U32) * 4;
+    const U32 bsz = N * cell();
     
     if (!data) DS_ALLOC(&data, bsz);               ///< allocate managed memory
 
     _ds.seekg(hdr + bid * bsz);                    /// * seek by batch id
     _ds.read((char*)data, bsz);                    /// * fetch batch images
 
-    int cnt = _ds.gcount() / cell();               ///< # of sample fetched
+    U32 cnt = _ds.gcount() / cell();               ///< # of sample fetched
     
-    char c = _ds.peek();                           ///< check EOF
+    _ds.peek();                                    ///< check EOF
     eof |= _ds.eof();                              /// * set EOF flag
 
     return cnt;
