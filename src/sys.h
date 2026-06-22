@@ -9,6 +9,7 @@
 #pragma once
 
 #include "t4base.h"                             ///< include ten4_types.h
+#include "util.h"                               ///< rand_opt
 #include "io/aio.h"
 #include "mu/mmu.h"
 
