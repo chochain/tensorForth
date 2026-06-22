@@ -1,13 +1,15 @@
 /**
  * @file
- * @brief tensorForth macros and internal type definitions
+ * @brief tensorForth host macros and internal type definitions
  *
  * <pre>Copyright (C) 2022- GreenII, this file is distributed under BSD 3-Clause License.</pre>
  */
 #ifndef __TEN4_TYPES_H_
 #define __TEN4_TYPES_H_
 #pragma  once
-#include <stdio.h>
+
+#include <cstdio>
+#include <cmath>
 #include "ten4_config.h"
 ///
 ///@name Debug/Tracing options
@@ -40,63 +42,26 @@
 #define NN_DB(...)
 #endif // MM_DEBUG
 ///@}
-///@name CUDA support macros
-///@{
-#if defined(__CUDACC__)     // vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
-
-#include <cuda.h>
-#include <cooperative_groups.h>
-
 namespace t4 {
-    
-#define __GPU__             __device__
-#define __HOST__            __host__
-#define __BOTH__            __host__ __device__
-#define __KERN__            __global__
-#define __INLINE__          __forceinline__
-typedef cudaStream_t        STREAM;
-typedef cudaEvent_t         EVENT;
 
-//#define MUTEX_LOCK(p)       while (atomicCAS((int *)&p, 0, 1)!=0)
-//#define MUTEX_FREE(p)       atomicExch((int *)&p, 0)
+#define __INLINE__  [[gnu::always_inline]] inline
+
+///@name Alignment macros
+///@{
+#define ALIGN2(sz)  ((sz) + (sz & 0x1))
+#define ALIGN4(sz)  ((sz) + (-(sz) & 0x3))
+#define ALIGN8(sz)  ((sz) + (-(sz) & 0x7))
+#define ALIGN16(sz) ((sz) + (-(sz) & 0xf))
+#define ALIGN(sz)   ALIGN4(sz)
+///@}
 #define MUTEX_LOCK(p)
 #define MUTEX_FREE(p)
 
 #define ASSERT(X) \
     if (!(X)) ERROR("ASSERT: line %d in %s\n", __LINE__, __FILE__);
-#define GPU_SYNC()          cudaDeviceSynchronize()
-#define GPU_ERR(c) {             \
-    cudaError_t code = (c);      \
-    if (code != cudaSuccess) {   \
-        ERROR("cudaERROR[%d] %s@%s %d\n", code, cudaGetErrorString(code), __FILE__, __LINE__); \
-        cudaDeviceReset();       \
-    }}
-#define GPU_CHK()          GPU_ERR(cudaDeviceSynchronize())
-#define MM_ALLOC(...)      GPU_ERR(cudaMallocManaged(__VA_ARGS__))
-#define MM_FREE(m)         GPU_ERR(cudaFree(m))
 #define H_ALLOC(p,...)     *((void**)(p)) = std::malloc(__VA_ARGS__)
 #define H_FREE(m)          std::free(m)
-
-
-namespace cg = cooperative_groups;
-#define K_RUN(...)         GPU_ERR(cudaLaunchCooperativeKernel(__VA_ARGS__))
-
-#else  // defined(__CUDACC__)  ===============================================
-
-#define __GPU__
-#define __HOST__
-#define __KERN__
-#define __INLINE__          inline
-typedef int                 STREAM;
-typedef int                 EVENT;
-
-#define ASSERT(X)           assert(x)
-
-#endif // defined(__CUDACC__)  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-#define H2D(dst,src,sz)     GPU_ERR(cudaMemcpy((void*)(dst),(void*)(src),sz,cudaMemcpyHostToDevice))
-#define D2H(dst,src,sz)     GPU_ERR(cudaMemcpy((void*)(dst),(void*)(src),sz,cudaMemcpyDeviceToHost))
-///@}
+///
 ///@name Portable types (Rust alike)
 ///@{
 typedef uint64_t    U64;                    ///< 64-bit unsigned integer
@@ -112,46 +77,6 @@ typedef int16_t     S16;                    ///< 16-bit signed integer
 typedef double      F64;                    ///< double precision float
 typedef float       F32;                    ///< single precision float
 ///@}
-///@name CUDA specific macros
-///@note: consider use of fn<<<_g,_b,0,cudaStreamTailLaunch>>>(...)
-///@{
-#define ALIGN(sz)   ALIGN4(sz)
-#define WARP_SUM(v)                                         \
-    for (int off = 16; off > 0; off >>=1)                   \
-        v += __shfl_down_sync(0xffffffff, v, off)
-#define WARP_MAX(v)                                         \
-    for (int off = 16; off > 0; off >>= 1)                  \
-        v = MAX(v, __shfl_down_sync(0xffffffff, v, off))
-
-#define FORK(fn,n,...) {                                    \
-    const dim3 _b(T4_DIM_SQ, 1, 1);                         \
-    const dim3 _g(((n) + _b.x - 1) / _b.x, 1, 1);           \
-    fn<<<_g,_b>>>(__VA_ARGS__,n);                           \
-    GPU_CHK();                                              \
-}
-#define FORK1(fn, c, n, ...) {                              \
-    const dim3 _g((c), (n), 1);                             \
-    fn<<<_g,T4_DIM_SZ2>>>(__VA_ARGS__);                     \
-    GPU_CHK();                                              \
-}
-#define FORK2(fn,_g,n,...) {                                \
-    fn<<<_g,T4_DIM_SQ>>>(__VA_ARGS__,n);                    \
-    GPU_CHK();                                              \
-}
-#define FORK3(fn,h,w,c,...) {                               \
-    const dim3 _b(T4_DIM_SZ, T4_DIM_SZ, 1);                 \
-    const dim3 _g(((w) + _b.x - 1) / _b.x,                  \
-                  ((h) + _b.y - 1) / _b.y, c);              \
-    fn<<<_g,_b>>>(__VA_ARGS__,h,w);                         \
-    GPU_CHK();                                              \
-}
-#define FORK4(fn,sm,...) { /** N,H,W,C (default params) */  \
-    const dim3 _b(T4_DIM_SQ, 1, 1);                         \
-    const dim3 _g(((W)*(H) + _b.x - 1) / _b.x, C, N);       \
-    fn<<<_g,_b,sm>>>(__VA_ARGS__);                          \
-    GPU_CHK();                                              \
-}
-///@}
 //===============================================================================
 /// tensorForth common data types
 ///
@@ -164,7 +89,7 @@ typedef F64         DU2;                    /**< double preciesion data */
 #define DU0         ((DU)0.0f)              /**< default data value 0   */
 #define DU1         ((DU)1.0f)              /**< default data value 1   */
 #define DU_EPS      ((DU)1.0e-6)            /**< floating point epsilon */
-#define ZEQ(d)      (ABS(d) < DU_EPS)       /**< zero check             */
+#define ZEQ(d)      (fabsf(d) < DU_EPS)     /**< zero check             */
 #define EQ(a,b)     (ZEQ((a) - (b)))        /**< arithmatic equal       */
 #define LT(a,b)     (((a) - (b)) < -DU_EPS) /**< arithmatic lesser than */
 #define GT(a,b)     (((a) - (b)) > DU_EPS)  /**< arithmatic greater than*/
@@ -176,31 +101,10 @@ typedef F64         DU2;                    /**< double preciesion data */
 ///   static_cast<int>(23.5) => 23 (truncate)
 ///   __float2int_rn(23.5)   => 24 (to round-to-nearest)
 ///
-#define INT(f)      (static_cast<S32>(f))            /**< floor integer -1.99=>-1, -2.01=>-2 */
-#define UINT(f)     (static_cast<U32>(f))            /**< unsigned int -1.99=>1, 2.01=>2,    */
-#define I2D(i)      (static_cast<DU>(i))             /**< expand int to float                */
-//#define D2I(f)      (__float2int_rn(f))              /**< nearest-even int 1.99=>2, 2.01=>2  */
-#define D2I(f)      (static_cast<S32>(f))
-///
-/// object classification macros
-///
-constexpr U32 T4_TYPE_MSK = 0x00000003;              /**< obj view flag  */
-constexpr U32 T4_TT_OBJ   = 0x00000001;              /**< data unit flag */
-constexpr U32 T4_TT_VIEW  = 0x00000003;              /**< view of object */
-constexpr U32 EXT_FLAG    = 0x80000000;              /**< extention flag */
-#define DU2X(v)     (*(U32*)&(v))                    /**< to U32 ptr     */
-#define SCALAR(v)   (DU2X(v) &= ~T4_TT_OBJ)          /**< set DU flag    */
-
-#if T4_DO_OBJ
-#define IS_OBJ(v)   ((DU2X(v) & T4_TT_OBJ)!=0)             /**< if is an obj   */
-#define IS_VIEW(v)  ((DU2X(v) & T4_TYPE_MSK)==T4_TT_VIEW)
-#define AS_VIEW(v)  ((DU2X(v) |= T4_TT_VIEW), (v))
-#else  // !T4_DO_OBJ
-#define IS_OBJ(v)   (0)
-#define IS_VIEW(v)  (0)
-#define AS_VIEW(v)  (0)
-#endif // T4_DO_OBJ
-///@}
+#define INT(f)      (static_cast<S32>(f))   /**< floor integer -1.99=>-1, -2.01=>-2 */
+#define UINT(f)     (static_cast<U32>(f))   /**< unsigned int -1.99=>1, 2.01=>2,    */
+#define I2D(i)      (static_cast<DU>(i))    /**< expand int to float                */
+#define D2I(f)      (static_cast<S32>(f))   /**< DU to signed integer               */
 ///@name General Data Types for IO Event
 ///@{
 typedef enum {
@@ -267,15 +171,6 @@ typedef enum {
     DO, KEY, MAX_OP=0xf
 } prim_op;
 ///@}
-struct Managed {
-    void *operator new(size_t sz) {
-        void *ptr;
-        MM_ALLOC(&ptr, sz);
-        DEBUG("new Managed Obj %p size=%ld byes\n", ptr, sz);
-        return ptr;
-    }
-    void operator delete(void *ptr) { MM_FREE(ptr); }
-};
 struct OnHost {
     void *operator new(size_t sz) {
         void *ptr;
@@ -285,6 +180,45 @@ struct OnHost {
     }
     void operator delete(void *ptr) { H_FREE(ptr); }
 };
+
+#ifdef __CUDACC__     // vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
+#include <cuda.h>
+#include <cooperative_groups.h>
+///
+///@name CUDA support macros
+///@{
+#define __GPU__             __device__
+#define __HOST__            __host__
+#define __BOTH__            __host__ __device__
+#define __KERN__            __global__
+#define __INLINE__          __forceinline__
+typedef cudaStream_t        STREAM;
+typedef cudaEvent_t         EVENT;
+
+//#define MUTEX_LOCK(p)       while (atomicCAS((int *)&p, 0, 1)!=0)
+//#define MUTEX_FREE(p)       atomicExch((int *)&p, 0)
+
+#define GPU_SYNC()          cudaDeviceSynchronize()
+#define GPU_ERR(c) {             \
+    cudaError_t code = (c);      \
+    if (code != cudaSuccess) {   \
+        ERROR("cudaERROR[%d] %s@%s %d\n", code, cudaGetErrorString(code), __FILE__, __LINE__); \
+        cudaDeviceReset();       \
+    }}
+#define GPU_CHK()          GPU_ERR(cudaDeviceSynchronize())
+#define MM_ALLOC(...)      GPU_ERR(cudaMallocManaged(__VA_ARGS__))
+#define MM_FREE(m)         GPU_ERR(cudaFree(m))
+
+namespace cg = cooperative_groups;
+#define K_RUN(...)         GPU_ERR(cudaLaunchCooperativeKernel(__VA_ARGS__))
+
+#define H2D(dst,src,sz)    GPU_ERR(cudaMemcpy((void*)(dst),(void*)(src),sz,cudaMemcpyHostToDevice))
+#define D2H(dst,src,sz)    GPU_ERR(cudaMemcpy((void*)(dst),(void*)(src),sz,cudaMemcpyDeviceToHost))
+///@}
+#else  // !__CUDACC__
+#define __HOST__
+
+#endif // __CUDACC__  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 } // namespace t4
 
