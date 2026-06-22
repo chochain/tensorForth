@@ -7,6 +7,7 @@
 #ifndef __NN_MODEL_H
 #define __NN_MODEL_H
 #pragma once
+#include <vector>
 #include "ten4_config.h"
 
 #if (T4_DO_OBJ && T4_DO_NN)
@@ -15,7 +16,6 @@
 
 namespace t4::mu { class Tensor; class Dataset; }
 namespace t4::nn {
-typedef std::vector<F32>  F32V;
 ///
 ///< gradient function pointer
 ///
