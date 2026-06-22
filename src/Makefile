@@ -65,5 +65,11 @@ src/%.o: src/%.cu
 	@echo '</Source>'
 	@echo ' '
 
+src/%.o: src/%.cpp
+	@echo '<Source><Action>Compile</Action><Filename>$<</Filename><Status>'
+	$(CC) $(CC_FLAG) -o "$@" "$<" || $(CC_ERR)
+	@echo '</Source>'
+	@echo ' '
+
 clean-src: $(SUBDIRS:%=clean-src-%)
 	-$(RM) $(T4_OBJS)
