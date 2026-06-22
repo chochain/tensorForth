@@ -1,15 +1,10 @@
 #
 # tensorForth root Makefile
 #
--include ${HOME}/makefile.init
-
-RM := rm
-
 APP_NAME  := ten4
-APP_HOME  := ${HOME}/devel/forth/$(APP_NAME)
+APP_HOME  := $(HOME)/devel/forth/$(APP_NAME)
 APP_TGT   := $(APP_HOME)/tests/$(APP_NAME)
 
-CUDA_LIB  := ${CUDA_HOME}/targets/x86_64-linux/lib
 # GeForce GTX 1660, 1650 (Turing)
 CUDA_ARCH := compute_75
 CUDA_CODE := sm_75
@@ -23,87 +18,77 @@ CUDA_CODE := sm_75
 #CUDA_ARCH:= compute_35
 #CUDA_CODE:= sm_35
 
-# All of the sources participating in the build are defined here
-SRCS := src/ten4.cu
-OBJS := $(SRCS:%.cu=%.o)
+# ── Toolchain ─────────────────────────────────────────────────────────────────
+NVCC       := $(CUDA_HOME)/bin/nvcc
+NVCC_FLAGS := -ccbin g++ \
+	          -D__CUDACC__ \
+	          -Isrc $(GL_INCS:%=-I%) \
+	          -t 0 -c -std=c++17 -O0 -g -lineinfo \
+	          --device-c --expt-extended-lambda \
+	          -Xptxas -v \
+	          -gencode arch=$(CUDA_ARCH),code=$(CUDA_CODE)
+NV_ERR     := echo "NVCC_FAILED"
 
-# Cutlass library in ${CUTLASS_HOME}/build/tools/library
-#CL_LIB  := -L${CUTLASS_HOME}/build/tools/library -lcutlass
-CL_LIB  :=
-CL_TOOL := ${CUTLASS_HOME}/tools
-#CL_INCS := \
-#	${CUTLASS_HOME}/include \
-#	${CUTLASS_HOME}/tools/library/include \
-#	${CUTLASS_HOME}/tools/util/include
-CL_INCS :=
+CC         := g++
+CC_FLAGS   := -std=c++17 -c -g -O3 -Wall \
+	          -Isrc $(GL_INCS:%=-I%) \
+	          -fomit-frame-pointer -fno-stack-check -fno-stack-protector \
+	          -march=native -ffast-math -funroll-loops
+CC_ERR     := echo "CC_FAILED"
 
-# GL libraries (deprecated v4.x, i.e. separation of View from M and C)
-GL_LIB  :=
-#GL_LIB  := -lGL -lGLU -lglut -lX11 -lcudadevrt
-GL_INCS :=
-#GL_INCS := \
-#	/u01/src/stb \
-#	${CUDA_HOME}/cuda-samples/Common \
-#	${CUDA_HOME}/cuda-samples/Samples/2_Concepts_and_Techniques/imageDenoising
-CC = g++
-CC_FLAG = -std=c++17 -c -g -O3 -Wall \
-          -Isrc $(GL_INCS:%=-I%) \
-          -fomit-frame-pointer -fno-stack-check -fno-stack-protector \
-		  -march=native -ffast-math -funroll-loops
+RM         := rm -f
 
-NVCC:=${CUDA_HOME}/bin/nvcc
-NVCC_FLAGS:= \
-	-ccbin g++ \
-	-D__CUDACC__ \
-	-Isrc $(GL_INCS:%=-I%) \
-	-t 0 -c -std=c++17 -O0 -g -lineinfo \
-	--device-c --expt-extended-lambda \
-	-Xptxas -v \
-	-gencode arch=${CUDA_ARCH},code=${CUDA_CODE}
+# ── Output binary ─────────────────────────────────────────────────────────────
+CUDA_LIB   := -L$(CUDA_HOME)/targets/x86_64-linux/lib
+CL_LIBS    :=
+#CL_LIBS    := -L$(CUTLASS_HOME)/build/tools/library -lcutlass
+GL_LIBS    :=
+#GL_LIBS    := -lGL -lGLU -lglut -lX11 -lcudadevrt
 
-#	--expt-relaxed-constexpr \
-#	--device-debug --debug --use_fast_math \
+#LINK_FLAGS := -lcudart -lcublas            # adjust per your CUDA libs
+LINK_FLAGS := -ccbin g++ \
+              -Xnvlink --suppress-stack-size-warning \
+              $(CUDA_LIB) $(CL_LIBS) $(GL_LIBS) \
+              -gencode arch=$(CUDA_ARCH),code=$(CUDA_CODE)
 
-NVLINK_FLAGS:= \
-	-ccbin g++ \
-	-Xnvlink --suppress-stack-size-warning \
-	-L$(CUDA_LIB) \
-	$(GL_LIB) \
-	-gencode arch=${CUDA_ARCH},code=${CUDA_CODE}
+# IMPORTANT: must be declared before any module fragment is included,
+# so that each module's $(eval $(call ..)) can safely += into it.
+OBJS       :=
 
-CC_ERR := echo "CC_FAILED"
-NV_ERR := echo "NVCC_FAILED"
+# ── Module registry ───────────────────────────────────────────────────────────
+# To add a new module: drop a src/<mod>/module.mk, append the name here.
+MODULES    := mu io vm ld nn tb
 
-# Add inputs and outputs from these tool invocations to the build variables
--include src/Makefile
--include tests/Makefile
+# ── Load shared rule template (must come before module fragments) ──────────────
+include module_rules.mk
 
-# Extra pre-compiled object and libraries
-USER_OBJS :=
-USER_LIBS :=
+# ── Load each module's data fragment (populates OBJS via +=) ──────────────────
+#include src/module.mk
+include $(MODULES:%=src/%/module.mk)
 
-OPTIONAL_TOOL_DEPS := \
-	$(wildcard ${HOME}/makefile.defs) \
-	$(wildcard ${HOME}/makefile.init) \
-	$(wildcard ${HOME}/makefile.targets)
+# ── Top-level targets ─────────────────────────────────────────────────────────
+.PHONY: all clean
 
-.PHONY: all tests clean
+# Compile all modules, then link into the final binary
+all: $(APP_NAME)
 
-# All Target
-all: src $(APP_NAME)
+show:
+	@echo $(MODULES:%=src/%/module.mk)
 
-tests: test
-
-# Tool invocations
-$(APP_NAME): $(OBJS) $(USER_OBJS) $(OPTIONAL_TOOL_DEPS)
+# Link step: nvcc drives the link so CUDA device code is resolved correctly.
+# Depends on all module .o files accumulated in OBJS.
+$(APP_NAME): $(OBJS)
 	@echo '<App><Action>Link</Action><Filename>$<</Filename><Status>'
-	$(NVCC) $(NVLINK_FLAGS) -o $(APP_TGT) $^ || $(NV_ERR)
+	$(NVCC) $(LINK_FLAGS) $(OBJS) -o $(APP_TGT) $^ || $(NV_ERR)
 	@echo '</Status></App>'
-	@echo ' '
+	@echo 'Built: $@'
 
-clean: clean-src clean-test
-	-$(RM) $(APP_TGT)
-	@echo ' '
+clean: $(MODULES:%=clean-src-%)
+	-$(RM) $(APP_NAME)
 
-# other targets
--include ../makefile.targets
+# ── Auto-generated header dependencies ────────────────────────────────────────
+# Compiler writes .d files alongside .o files via -MMD -MP.
+# Include them so header changes trigger the right recompiles.
+# The leading '-' silences "file not found" on a clean build.
+DEPS :=
+-include $(DEPS)
