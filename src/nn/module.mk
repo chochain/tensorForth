@@ -4,9 +4,12 @@
 # Data-only fragment — no rules, no boilerplate.
 # All compile logic lives in mk/module.mk.
 
-NN_SRCS := \
-	src/nn/layer.cu \
-	src/nn/model.cu \
-	src/nn/network.cu
+NN_CUSRCS := \
+	layer.cu \
+	model.cu \
+	network.cu
 
-$(eval $(call MODULE_RULES,NN,src/nn))
+NN_DIRS :=
+NN_LIBS :=
+
+$(eval $(call MODULE_RULE,NN,src/nn))

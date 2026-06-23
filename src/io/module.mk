@@ -5,11 +5,11 @@
 # All compile logic lives in mk/module.mk.
 
 IO_SRCS := \
-	src/io/aio.cpp \
-	src/io/aio_tensor.cpp \
-	src/io/aio_model.cpp
+	aio.cpp \
+	aio_tensor.cpp \
+	aio_model.cpp
 
 IO_DIRS :=
 IO_LIBS :=
 
-$(eval $(call CPP_MODULE,IO,src/io))
+$(eval $(call MODULE_RULE,IO,src/io))

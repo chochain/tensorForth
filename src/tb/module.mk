@@ -2,10 +2,10 @@
 # tensorForth src/tb/module.mk
 #
 # Add inputs and outputs from these tool invocations to the build variables
-TB_SRCS := \
-	src/tb/summary.cu
+TB_CUSRCS := \
+	summary.cu
 
 TB_DIRS :=
 TB_LIBS :=
 
-$(eval $(call CUDA_MODULE,TB,src/tb))
+$(eval $(call MODULE_RULE,TB,src/tb))

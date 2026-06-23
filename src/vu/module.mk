@@ -2,35 +2,12 @@
 # tensorForth src/vu/Makefile
 #
 # Add inputs and outputs from these tool invocations to the build variables
-VU_SRCS := \
-	src/vu/gui.cu \
-	src/vu/vu.cu \
-	src/vu/mnist_vu.cu
+VU_CUSRCS :=    \
+	gui.cu      \
+	vu.cu       \
+	mnist_vu.cu
 
-VU_INCS := \
-	src/ten4_types.h \
-	src/vu/vu.h \
-	src/vu/mnist_vu.h
+VU_DIRS :=
+VU_LIBS :=
 
-VU_OBJS := $(VU_SRCS:%.cu=%.o)
-
-OBJS += $(VU_OBJS)
-
-VU_EXT := \
-	src/ld/corpus.h
-
-VU_LIBS:= -Isrc/ld -Isrc/vu
-
-.PHONY: src-vu clean-src-vu
-
-src-vu: $(VU_OBJS)
-
-# Each subdirectory must supply rules for building sources it contributes
-src/vu/%.o: src/vu/%.cu $(VU_INCS) $(VU_EXT)
-	@echo '<Source><Action>Compile</Action><Filename>$<</Filename><Status>'
-	-$(NVCC) $(NVCC_FLAGS) $(VU_LIBS) -o "$@" "$<" || $(NV_ERR)
-	@echo '</Status></Source>'
-	@echo ' '
-
-clean-src-vu:
-	-$(RM) $(VU_OBJS)
+$(eval $(call MODULE_RULE,VU,src/vu))

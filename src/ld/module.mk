@@ -5,11 +5,11 @@
 # All compile logic lives in mk/module.mk.
 
 LD_SRCS := \
-	src/ld/loader.cpp \
-	src/ld/mnist.cpp \
-	src/ld/cifar10.cpp
+	loader.cpp \
+	mnist.cpp \
+	cifar10.cpp
 
 LD_DIRS :=
 LD_LIBS :=
 
-$(eval $(call CPP_MODULE,LD,src/ld))
+$(eval $(call MODULE_RULE,LD,src/ld))
