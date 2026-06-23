@@ -1,6 +1,6 @@
 /**
  * @file
- * @brief Vu class - CUDA Image Viewer base class
+ * @brief Vu class - GL Image Viewer base class
  *
  * <pre>Copyright (C) 2022- GreenII, this file is distributed under BSD 3-Clause License.</pre>
  */
@@ -11,7 +11,7 @@
 #include "ten4_types.h"
 
 #if (T4_DO_OBJ && T4_DO_NN)      /// * only when object system is active
-#include "corpus.h"              /// in ../ld
+#include "ld/corpus.h"           /// in ../ld
 
 namespace t4::vu {
 
