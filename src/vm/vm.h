@@ -9,7 +9,6 @@
 #pragma once
 
 #include "sys.h"                      /// system interface
-#include "t4math.h"                   /// math macros
 #include "mu/vector.h"
 
 namespace t4::vm {
