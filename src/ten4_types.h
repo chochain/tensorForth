@@ -9,7 +9,12 @@
 #pragma  once
 
 #include <cstdio>
+#include <cstdint>
 #include <cmath>
+#if __CUDACC__
+#include <cuda.h>
+#include <cooperative_groups.h>
+#endif // __CUDACC__
 #include "ten4_config.h"
 ///
 ///@name Debug/Tracing options
@@ -42,10 +47,9 @@
 #define NN_DB(...)
 #endif // MM_DEBUG
 ///@}
+
 namespace t4 {
-
-#define __INLINE__  [[gnu::always_inline]] inline
-
+///
 ///@name Alignment macros
 ///@{
 #define ALIGN2(sz)  ((sz) + (sz & 0x1))
@@ -54,13 +58,14 @@ namespace t4 {
 #define ALIGN16(sz) ((sz) + (-(sz) & 0xf))
 #define ALIGN(sz)   ALIGN4(sz)
 ///@}
+
 #define MUTEX_LOCK(p)
 #define MUTEX_FREE(p)
 
 #define ASSERT(X) \
     if (!(X)) ERROR("ASSERT: line %d in %s\n", __LINE__, __FILE__);
-#define H_ALLOC(p,...)     *((void**)(p)) = std::malloc(__VA_ARGS__)
-#define H_FREE(m)          std::free(m)
+#define H_ALLOC(p,...)     *((void**)(p)) = malloc(__VA_ARGS__)
+#define H_FREE(m)          free(m)
 ///
 ///@name Portable types (Rust alike)
 ///@{
@@ -181,9 +186,8 @@ struct OnHost {
     void operator delete(void *ptr) { H_FREE(ptr); }
 };
 
+
 #ifdef __CUDACC__     // vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
-#include <cuda.h>
-#include <cooperative_groups.h>
 ///
 ///@name CUDA support macros
 ///@{
@@ -217,6 +221,7 @@ namespace cg = cooperative_groups;
 ///@}
 #else  // !__CUDACC__
 #define __HOST__
+#define __INLINE__         [[gnu::always_inline]] inline
 
 #endif // __CUDACC__  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
