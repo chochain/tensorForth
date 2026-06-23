@@ -11,6 +11,7 @@
 #include <stdint.h>
 #include <stddef.h>
 #include "ten4_config.h"
+#include "t4base.h"
 
 namespace t4 {
 
