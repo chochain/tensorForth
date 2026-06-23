@@ -13,7 +13,7 @@ VM::VM(int id, System &sys)
     : id(id), state(STOP), sys(sys), mmu(*sys.mu) {
     ss.init(mmu.vmss(id), T4_SS_SZ);
     rs.init(mmu.vmrs(id), T4_RS_SZ);
-    TRACE("\\ VM[%d] created, sys=%p ss=%p, rs=%p\n", id, &sys, ss.v, rs.v);
+    TRACE("\\ VM[%d] created, sys=%p ss=%p, rs=%p\n", id, &sys, &ss[0], &rs[0]);
 }
 ///
 /// VM Outer interpreter
