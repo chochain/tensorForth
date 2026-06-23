@@ -4,7 +4,6 @@
  *
  * <pre>Copyright (C) 2022- GreenII, this file is distributed under BSD 3-Clause License.</pre>
  */
-#ifdef __CUDACC__
 #include <cooperative_groups.h>
 #include <cuda_pipeline.h>
 #include <float.h>             // FLT_MAX
@@ -1156,6 +1155,4 @@ h_det(DU *data, int n) {
 
 #endif // T4_DO_OBJ
 } // namespace t4
-
-#endif // __CUDACC__
 
