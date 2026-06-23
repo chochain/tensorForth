@@ -12,6 +12,7 @@
 #include "nn/model.h"
 #include "tb/summary.h"
 #include "debug.h"
+#include "util.h"                    /// k_rand
 #include "sys.h"                     /// include mmu/tensor.h
 
 namespace t4 {
