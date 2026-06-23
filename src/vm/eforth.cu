@@ -14,8 +14,10 @@
 
 namespace t4::vm {
 using mu::Code;
+#if (T4_DO_OBJ && T4_DO_NN)
 using mu::Dataset;
 using nn::Model;
+#endif // (T4_DO_OBJ && T4_DO_NN)
 
 __HOST__
 ForthVM::ForthVM(int id, System &sys) : VM(id, sys) {
