@@ -8,7 +8,6 @@
 #define __IO_ISTREAM_H_
 #pragma  once
 
-#include <cstring>
 #include "ten4_types.h"
 
 namespace t4::io {
