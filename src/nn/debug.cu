@@ -7,7 +7,7 @@
 #include "model.h"
 
 #if (T4_DO_OBJ && T4_DO_NN)
-#include "dataset.h"
+#include "mu/dataset.h"
 
 namespace t4::nn {
 
