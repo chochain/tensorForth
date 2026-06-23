@@ -276,7 +276,7 @@ Model::_fbatchnorm(Tensor &in, Tensor &out) {
     cudaMemsetAsync(var, 0, C * sizeof(DU), st); ///< zeros var
 
     auto dump_av = [&]() {
-        F32V hx(C*2);
+        std::vector<F32> hx(C*2);
         D2H(&hx[0], avg, sizeof(DU) * C);
         D2H(&hx[C], var, sizeof(DU) * C);
         INFO("\navg/var");
