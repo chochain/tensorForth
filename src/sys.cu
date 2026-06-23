@@ -7,6 +7,7 @@
 #include <iostream>
 #include <chrono>
 #include <thread>
+#include <string>
 #include "mu/tensor.h"
 #include "mu/dataset.h"
 #include "nn/model.h"
@@ -27,7 +28,8 @@ __HOST__
 System::System(io::istr &i, io::ostr &o, int khz, int verbo)
     : fin(i), fout(o),
       _istr(new io::Istream()), _ostr(new io::Ostream()),
-      _khz(khz), _trace(verbo) {
+      _khz(khz), _trace(verbo)
+{
     mu = MMU::get_mmu();             /// * instantiate memory controller
     io = AIO::get_io(&_trace);       /// * instantiate async IO controler
     db = Debug::get_db(o);           /// * tracing instrumentation
@@ -35,16 +37,16 @@ System::System(io::istr &i, io::ostr &o, int khz, int verbo)
     ///
     ///> setup randomizer
     ///
+#if T4_DO_OBJ    
     k_rand_init<<<1, T4_RAND_SZ>>>(time(NULL));  /// serialized randomizer
     GPU_CHK();
+#endif // T4_DO_OBJ    
 
     INFO("\\ System OK\n");
 }
 
 __HOST__
 System::~System() {
-//    cudaDeviceSynchronize();        /// * sync before freeing everything
-    
     AIO::free_io();
     Debug::free_db();
     MMU::free_mmu();
@@ -87,21 +89,16 @@ System::rand(DU d, rand_opt o) {
 __HOST__ void
 System::rand(DU *d, U64 sz, rand_opt o, DU bias, DU scale) {
     /// rand states are dependent, cannot run parallel with multi-blocks
+#if T4_DO_OBJ    
     k_rand<<<1, T4_RAND_SZ>>>(d, sz, bias, scale, o);
     GPU_CHK();
-}
-///@}
-///@name TensorBoard support
-///@{
-__HOST__ void
-System::setup_tb(const char *tb_logdir, const char *tb_run_id) {
-    tb = new tb::Summary(tb_logdir, tb_run_id);     /// * TensorBoard streamer (_logdir=/u01/tb/)
+#else  // !T4_DO_OBJ
+    ERROR("n/a");
+#endif // T4_DO_OBJ    
 }
 ///@}
 ///@name event loop handler
 ///@{
-#include <iostream>
-#include <string>
 #define NEXT_EVENT(ev) ((io::event*)((char*)&(ev)->data[0] + (ev)->sz))
 
 __HOST__ int
@@ -147,6 +144,7 @@ System::_process_opx(io::event *ev) {        ///< process composit IO types
     void *vp = (void*)ev->data;              ///< fetch payload in buffered print node
     io::_opx o = *((io::_opx*)vp);           ///< capture a hardcopy
     DEBUG("  _opx(OP=%d, m=%d, i=%d, n=0x%08x=%g)\n", o.op, o.m, o.i, DU2X(o.n), o.n);
+        
     switch (o.op) {
     case OP_FLUSH: fout << std::flush;           break;
     case OP_DICT:  db->dict_dump();              break;
@@ -154,7 +152,7 @@ System::_process_opx(io::event *ev) {        ///< process composit IO types
     case OP_SEE:   db->see(o.i, o.m);            break;
     case OP_DUMP:  db->mem_dump(UINT(o.n), o.i); break;
     case OP_SS:    db->ss_dump(o.n, o.i, o.m);   break;
-#if T4_DO_OBJ // vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
+#if T4_DO_OBJ    // vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
     case OP_T2PNG:
     case OP_TSAVE: {
         mu::Tensor &t = (mu::Tensor&)mu->du2obj(o.n);
@@ -167,7 +165,7 @@ System::_process_opx(io::event *ev) {        ///< process composit IO types
         }
         else ERROR("%x is not a tensor\n", DU2X(o.n));
     } break;
-#if T4_DO_NN  //==========================================================
+#if T4_DO_NN    //==========================================================
     case OP_DATA: {
         mu::Dataset &ds = (mu::Dataset&)mu->du2obj(o.n);
         if (ds.is_dataset()) {                              /// * indeed a dataset?
@@ -214,19 +212,30 @@ System::_process_opx(io::event *ev) {        ///< process composit IO types
         }
         else ERROR("%x is not a model\n", DU2X(o.n));
     } break;
-    }
-#endif // T4_DO_NN =======================================================
+#endif // T4_DO_NN  =======================================================
 #endif // T4_DO_OBJ ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    }
     return NEXT_EVENT(ev);
+}
+///@}
+///@name TensorBoard support
+///@{
+//==========================================================
+__HOST__ void
+System::setup_tb(const char *tb_logdir, const char *tb_run_id) {
+#if T4_DO_TB 
+    tb = new tb::Summary(tb_logdir, tb_run_id);   /// * TensorBoard streamer (_logdir=/u01/tb/)
+#endif // T4_DO_TB
+    return;
 }
 
 __HOST__ io::event*
 System::_process_tb(io::event *ev) {              ///< process TensorBoard ops
-#if T4_DO_TB  //==========================================================
     void *vp   = (void*)ev->data;                 ///< fetch payload in buffered print node
     io::_tbx x = *(io::_tbx*)vp;                  ///< make a hardcopy
 
     if (!tb || _trace) INFO("  sys#tbx(op=%d, n=%g, i=%d", x.op, x.n, x.i);
+#if T4_DO_TB
     ev = NEXT_EVENT(ev);
     
     /// * opcodes withut tag
@@ -262,7 +271,7 @@ System::_process_tb(io::event *ev) {              ///< process TensorBoard ops
     case TB_HISTO: tb->histo(tag, mu->du2obj(x.n), x.i);  break;
     case TB_EMBED: tb->embed(tag, mu->du2obj(x.n));       break;
     }
-#endif // T4_DO_TB        
+#endif // T4_DO_TB
     return NEXT_EVENT(ev);
 }
 ///@}
