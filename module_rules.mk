@@ -25,7 +25,7 @@ $(1)_INCS   := $$($(1)_DIRS:%=-I%)
 OBJS        += $$($(1)_OBJS) $$($(1)_CUOBJS)
 DEPS        += $$($(1)_DEPS) $$($(1)_CUDEPS)
 
-.PHONY: src-$(call lc,$(1)) clean-src-$(call lc,$(1))
+.PHONY: src-$(call lc,$(1)) clean-$(call lc,$(1))
 
 src-$(call lc,$(1)): $$($(1)_OBJS) $$($(1)_CUOBJS)
 
