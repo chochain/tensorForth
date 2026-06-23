@@ -37,13 +37,13 @@ public:
     }
     static STR esc(const char *s) { return esc(STR(s)); }
 
+#if T4_DO_TB
     Summary(const char *root = "/tmp/tb", const char *run_id="run1")
         : _root(root), _run_id(run_id), _step(0) {
         mkdir(_root, 0755);                        /// * create TensorBoard logdir
         init();
     }
     
-#if T4_DO_TB
     __HOST__ void init(const char *run_id=NULL);
     __HOST__ void set_step(int step)                     { _step = step; }
     __HOST__ void scalar(const char *tag, F32 v)         { add_scalar(tag, v, _step); }
@@ -53,7 +53,6 @@ public:
     __HOST__ void histo(const char *tag, T4Base &b, int n_bucket);
     __HOST__ void graph(T4Base &b);
     __HOST__ void embed(const char *tag, T4Base &b);
-#endif // T4_DO_TB
 
 private:
     const char       *_root;                      ///< root directory for events
@@ -79,6 +78,8 @@ private:
 
         return ss.str();
     }
+#endif // T4_DO_TB
+    
 };
 
 } // namespace t4::tb
