@@ -10,8 +10,6 @@
 #include "ten4_types.h"
 
 namespace t4 {
-
-#if T4_DO_OBJ                /// * only when Object is activated
 ///
 /// object classification macros
 ///
@@ -38,6 +36,8 @@ struct Variant {             /// * DU <=> pointer conversion utility class
 ///
 /// tensorForth object types
 ///
+#if T4_DO_OBJ                /// * only when Object is activated
+
 typedef enum {
     T4_TENSOR = 0,           ///< tensor object
     T4_MODEL,                ///< NN model
@@ -165,12 +165,6 @@ struct Managed {
     void operator delete(void *ptr) { MM_FREE(ptr); }
 };
 #endif // __CUDACC__  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-#else  // !T4_DO_OBJ
-#define IS_OBJ(v)   (0)
-#define IS_VIEW(v)  (0)
-#define AS_VIEW(v)
-
 #endif // T4_DO_OBJ
 
 } // namespace t4
