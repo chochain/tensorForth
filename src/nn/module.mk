@@ -4,10 +4,14 @@
 # Data-only fragment — no rules, no boilerplate.
 # All compile logic lives in mk/module.mk.
 
-NN_CUSRCS := \
-	layer.cu \
-	model.cu \
-	network.cu
+NN_CUSRCS :=    \
+	nmath.cu    \
+	model.cu    \
+	forward.cu  \
+	backprop.cu \
+	loss.cu     \
+	debug.cu    \
+	gradient.cu \
 
 NN_DIRS :=
 NN_LIBS :=
