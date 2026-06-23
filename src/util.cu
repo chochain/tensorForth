@@ -7,10 +7,9 @@
  *
  * <pre>Copyright (C) 2022- GreenII, this file is distributed under BSD 3-Clause License.</pre>
  */
-#if __CUDACC__
-
 #include <curand_kernel.h>
 #include <cooperative_groups.h>
+#include "ten4_types.h"
 #include "util.h"
 
 namespace t4 {
@@ -417,6 +416,4 @@ d_hash(const char *s) {
 }
 
 } // namespace t4
-
-#endif // __CUDACC__
 

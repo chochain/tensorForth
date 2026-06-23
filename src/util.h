@@ -16,7 +16,7 @@ namespace t4 {
 
 #ifdef __cplusplus
 extern "C" {
-#endif
+#endif // __cplusplus
 
 ///>name Random Number Generator algorithm
 ///@{
@@ -49,6 +49,7 @@ __GPU__ void         u32_to_bin(uint32_t l, const void *bin);
 ///@}
 ///@name Memory ops
 ///@{
+#if __CUDA_ARCH__
 //__GPU__ void         d_memcpy(void *t, const void *s, size_t n);
 //__GPU__ void         d_memset(void *t, int c, size_t n);
 #define d_memcpy(t,s,n) memcpy(t,s,n)
@@ -72,7 +73,6 @@ __GPU__ long         d_strtol(const char *s, char **p, int base=10);
 __GPU__ double       d_strtof(const char *s, char **p);
 __GPU__ int          d_hash(const char *s);
 ///@}
-#if defined(__CUDA_ARCH__)
 ///==========================================================================
 ///@name Unified memory ops
 ///@{
@@ -101,8 +101,7 @@ __GPU__ int          d_hash(const char *s);
 #define STRTOF(s,p)     d_strtof((const char*)(s), (char**)(p))
 #define HASH(s)         d_hash((const char*)(s))
 ///@}
-#else  // !defined(__CUDA_ARCH__)
-//#include <stdio.h>
+#else  // !__CUDA_ARCH__
 ///
 ///@name Unified memory ops
 ///@{
@@ -131,12 +130,12 @@ __GPU__ int          d_hash(const char *s);
 #define STRTOF(s,p)     strtof(s,p)
 #define HASH(s)         calc_hash(s)
 ///@}
-#endif // defined(__CUDA_ARCH__)    
-#endif // defined(__CUDACC__)
+#endif // __CUDA_ARCH__
+#endif // __CUDACC__
 
 #ifdef __cplusplus
 }
-#endif
+#endif // __cplusplus
 
 } // namespace t4
 #endif // __UTIL_H_
