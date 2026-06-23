@@ -8,8 +8,6 @@
 #define __MU_MMU_H
 #pragma once
 #include <mutex>
-#include <cstring>          // strlen, memcpy
-#include "vector.h"
 #include "tensor.h"
 #include "dataset.h"
 #include "code.h"
