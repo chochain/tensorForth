@@ -8,7 +8,6 @@
 #define __MU_TENSOR_H
 #pragma once
 #include "t4math.h"
-#include "t4base.h"
 #include "nn/ntypes.h"
 
 #if T4_DO_OBJ         /// * only when object system is activated
