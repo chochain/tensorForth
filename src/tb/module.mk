@@ -5,4 +5,7 @@
 TB_SRCS := \
 	src/tb/summary.cu
 
-$(eval $(call MODULE_RULES,TB,src/tb))
+TB_DIRS :=
+TB_LIBS :=
+
+$(eval $(call CUDA_MODULE,TB,src/tb))
