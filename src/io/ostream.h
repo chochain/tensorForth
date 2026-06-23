@@ -107,7 +107,7 @@ __HOST__ __INLINE__ void _debug(GT gt, U8 *vp, U32 sz) {
         case GT_U32:   printf("%u",      *(U32*)d); break;
         case GT_FLOAT: printf("%G",      *(DU*)d);  break;
         case GT_STR:   printf("%s",      d);        break;
-        case GT_OBJ:   printf("Obj[%x]", DU2X(d));  break;
+        case GT_OBJ:   printf("Obj[%lx]", (UFP)vp); break;
         case GT_FMT:   printf("%08x",    *(U32*)d); break;
         case GT_OPX: {
             _opx *o = (_opx*)d;

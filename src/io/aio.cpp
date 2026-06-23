@@ -67,7 +67,7 @@ AIO::to_s(void *vp, U8 gt) {
     case GT_OBJ:   ss << "ERROR: see sys#marshall"; break;
     case GT_FMT:   ss << "ERROR: see debug#print";  break;
     }
-    DEBUG("  aio#print(fs, *v=0x%08x=%g, gt=%x)\n", DU2X(*(DU*)vp), *(DU*)vp, gt);
+    DEBUG("  aio#print(fs, *v=0x%lx=%g, gt=%x)\n", (UFP)vp, *(DU*)vp, gt);
     
     return ss.str();
 }
