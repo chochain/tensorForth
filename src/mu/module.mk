@@ -5,10 +5,10 @@
 # All compile logic lives in mk/module.mk.
 
 MU_SRCS :=     \
+	tlsf.cpp   \
 	mpool.cpp  
 
 MU_CUSRCS :=   \
-	tlsf.cu    \
 	tensor.cu  \
 	mmu.cu     \
 	dataset.cu

@@ -8,8 +8,8 @@
  *
  * <pre>Copyright (C) 2022 GreenII. This file is distributed under BSD 3-Clause License.</p>
 */
+#include <cstring>
 #include "ten4_types.h"
-#include "util.h"               /// MEMCPY
 #include "tlsf.h"
 
 #if T4_DO_OBJ                   /// * only when object system is activated
@@ -93,6 +93,7 @@ TLSF::malloc(U64 sz) {
 
     void *data = BLK_DATA(blk);
     MM_DB("  } tlsf#malloc => %x:%lx\n", TADDR(data), sz);
+    GPU_CHK();
     
     return data;                                       /// * pointer to raw space
 }
@@ -131,9 +132,10 @@ TLSF::realloc(void *p0, U64 sz) {
     /// it is better to allocate a block and release the original one
     ///
     void *ret = this->malloc(bsz);
-    MEMCPY(ret, (const void*)p0, (size_t)sz);          ///< deep copy, !!using CUDA provided memcpy
+    memcpy(ret, (const void*)p0, (size_t)sz);          ///< deep copy, !!using CUDA provided memcpy
     this->free(p0);                                    /// reclaim block
     
+    GPU_CHK();
     return ret;
 }
 
@@ -155,6 +157,8 @@ TLSF::free(void *ptr) {
     /// the block is free now, try to merge a free block before if exists
     _merge_prev(blk);
     MM_DB("  } tlsf#free(%x)\n", TADDR(ptr));
+    
+    GPU_CHK();
 }
 
 //================================================================
