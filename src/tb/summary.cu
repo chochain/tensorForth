@@ -10,7 +10,7 @@
 
 namespace t4::tb {
 
-#if T4_DO_TB
+#if (T4_DO_OBJ && T4_DO_TB)
 
 __HOST__ void
 Summary::init(const char *run_id) {
@@ -174,6 +174,6 @@ Summary::embed(const char* tag, T4Base &b) {
     _proj.flush_config(path);                     /// * safe to call repeatedly — overwrites
 }
 
-#endif // T4_DO_TB
+#endif // (T4_DO_OBJ && T4_DO_TB)
 
 } // namespace t4::tb
