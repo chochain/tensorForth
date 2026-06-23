@@ -296,7 +296,7 @@ d_strchr(const char *s, const char c) {
 
 __GPU__ char*
 d_strcat(char *t, const char *s) {
-    d_memcpy(t+STRLENB(t), s, STRLENB(s)+1);
+    MEMCPY(t+STRLENB(t), s, STRLENB(s)+1);
     return t;
 }
 
@@ -322,7 +322,7 @@ d_itoa(int v, char *s, int base) {
     } while (x != 0);
     if (sign) *p--='-';
     x = &b[35] - p;
-    d_memcpy(s, (p+1), x);
+    MEMCPY(s, (p+1), x);
     return x-1;
 }
 
