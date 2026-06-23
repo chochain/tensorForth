@@ -323,7 +323,7 @@ Model::_bbatchnorm(Tensor &in, Tensor &out) {
     cudaMemset(s1, 0, NC2 * sizeof(DU));
     
     auto dump_s = [&]() {
-        F32V hx(NC2);
+        std::vector<F32> hx(NC2);
         D2H(&hx[0], s1, NC2 * sizeof(DU));
         for (int n=0; n<N; n++) {
             INFO("\n    s%d= ", n);
