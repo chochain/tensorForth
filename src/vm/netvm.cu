@@ -135,15 +135,15 @@ __HOST__ void
 NetVM::_pickle(bool save) {                 ///< ( N addr len -- ) or ( N addr len mode -- )
     U8   mode= save ? io::FAM_WO : io::FAM_RW;   ///< file access mode
 
-    if (ss.idx > 1 && IS_OBJ(ss[-2])) { /* OK */ }
-    else if (ss.idx > 2 && IS_OBJ(ss[-3])) mode |= POPi;       ///< TODO: RAW format
+    if (ss.size() > 1 && IS_OBJ(ss[-2])) { /* OK */ }
+    else if (ss.size() > 2 && IS_OBJ(ss[-3])) mode |= POPi;       ///< TODO: RAW format
     else { ERROR("(model|tensor) adr len [mode]?\n"); return; }
     
     IU   len = POPi;                        ///< string length (not used for now)
     IU   adr = POPi;                        ///< address to pmem
     char *fn = (char*)MEM(adr);             ///< pointer to string on PAD
     syscall(
-        IS_M(tos) ? (save ? OP_NSAVE : OP_NLOAD) : OP_TSAVE,   /// * op (event)
+        IS_M(tos) ? (save ? OP_NSAVE : OP_NLOAD) : OP_TSAVE,      /// * op (event)
         tos, mode, 0,                       /// * object, write mode, idx/len
         fn);                                /// * file name
 }
@@ -294,7 +294,7 @@ NetVM::init() {
     ///@{
     CODE("\nNetwork::", {});                  ///< page break
     CODE("nn.model",                          ///> (n h w c -- N)
-         if (ss.idx < 4 ||                    /// * param check
+         if (ss.size() < 4 ||                 /// * param check
              IS_OBJ(tos) || IS_OBJ(ss[-1]) ||
              IS_OBJ(ss[-2]) || IS_OBJ(ss[-3])) {
              ERROR("n h w c?\n"); return;

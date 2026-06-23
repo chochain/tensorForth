@@ -90,10 +90,10 @@ TensorVM::xop2(math_op op, t4_drop_opt x) {
     int tt = (IS_OBJ(ss[-1]) ? 2 : 0) | (IS_OBJ(tos) ? 1 : 0);
     switch (tt) {                                 /// tensor flags
     case 0 /* ss */: {                            /// * scalar-scalar op ( a b -- c  )
-        VLOG("%d> %s %g %g %s ss.idx=%d {\n",
-             id, fn, ss[-1], tos, _op[op], ss.idx);
+        VLOG("%d> %s %g %g %s ss.size=%d {\n",
+             id, fn, ss[-1], tos, _op[op], ss.size());
         VM::xop2(op);
-        VLOG("} %d> %s => %g ss.idx=%d\n", id, fn, tos, ss.idx);
+        VLOG("} %d> %s => %g ss.size=%d\n", id, fn, tos, ss.size());
     } break;                        
     case 1 /* st */: {                            /// * scalar-tensor op ( n T -- T' )
         DU     v  = ss[-1];                       /// * scalar as NOS
@@ -390,8 +390,8 @@ TensorVM::_pickle(bool load, bool png) {
     U8  mode  = png ? 0 : (load ? io::FAM_RO   : io::FAM_WO);
     OP  op    = png ? OP_T2PNG : (load ? OP_TLOAD : OP_TSAVE);
     
-    if (ss.idx > 1 && IS_OBJ(ss[-2])) { /* OK */ }
-    else if (ss.idx > 2 && IS_OBJ(ss[-3])) mode = POPi;
+    if (ss.size() > 1 && IS_OBJ(ss[-2])) { /* OK */ }
+    else if (ss.size() > 2 && IS_OBJ(ss[-3])) mode = POPi;
     else { ERROR("tensor adr len [mode]?\n"); return; }
     
     IU   len  = POPi;                         ///< string length (not used for now)
