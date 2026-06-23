@@ -54,10 +54,6 @@ public:
     static __HOST__ void rand(DU d, rand_opt o);
     static __HOST__ void rand(DU *d, U64 sz, rand_opt o, DU bias=DU0, DU scale=DU1);
     ///
-    /// TensorBoard support
-    ///
-    __HOST__ void        setup_tb(const char *tb_logdir, const char *tb_run_id);
-    ///
     /// System functions
     ///
     __HOST__ int         readline(int hold);
@@ -65,6 +61,10 @@ public:
     
     __HOST__ io::event  *_process_event(io::event *ev);
     __HOST__ io::event  *_process_opx(io::event *ev);
+    ///
+    /// TensorBoard support
+    ///
+    __HOST__ void        setup_tb(const char *tb_logdir, const char *tb_run_id);
     __HOST__ io::event  *_process_tb(io::event *ev);
     ///
     /// debuging controls
