@@ -57,13 +57,13 @@ OBJS       :=
 
 # ── Module registry ───────────────────────────────────────────────────────────
 # To add a new module: drop a src/<mod>/module.mk, append the name here.
-MODULES    := mu io vm ld nn tb
+MODULES    := mu io vm ld nn tb  # vu
 
 # ── Load shared rule template (must come before module fragments) ──────────────
 include module_rules.mk
 
 # ── Load each module's data fragment (populates OBJS via +=) ──────────────────
-#include src/module.mk
+include src/module.mk
 include $(MODULES:%=src/%/module.mk)
 
 # ── Top-level targets ─────────────────────────────────────────────────────────
@@ -83,7 +83,7 @@ $(APP_NAME): $(OBJS)
 	@echo '</Status></App>'
 	@echo 'Built: $@'
 
-clean: $(MODULES:%=clean-src-%)
+clean: $(MODULES:%=clean-%)
 	-$(RM) $(APP_NAME)
 
 # ── Auto-generated header dependencies ────────────────────────────────────────
