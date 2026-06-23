@@ -11,6 +11,7 @@
 #include <cstdio>
 #include <cstdint>
 #include <cmath>
+#include <cstring>
 #if __CUDACC__
 #include <cuda.h>
 #include <cooperative_groups.h>
@@ -64,8 +65,6 @@ namespace t4 {
 
 #define ASSERT(X) \
     if (!(X)) ERROR("ASSERT: line %d in %s\n", __LINE__, __FILE__);
-#define H_ALLOC(p,...)     *((void**)(p)) = malloc(__VA_ARGS__)
-#define H_FREE(m)          free(m)
 ///
 ///@name Portable types (Rust alike)
 ///@{
@@ -176,16 +175,6 @@ typedef enum {
     DO, KEY, MAX_OP=0xf
 } prim_op;
 ///@}
-struct OnHost {
-    void *operator new(size_t sz) {
-        void *ptr;
-        H_ALLOC(&ptr, sz);
-        DEBUG("new Host Obj %p size=%ld byes\n", ptr, sz);
-        return ptr;
-    }
-    void operator delete(void *ptr) { H_FREE(ptr); }
-};
-
 
 #ifdef __CUDACC__     // vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
 ///
@@ -212,6 +201,8 @@ typedef cudaEvent_t         EVENT;
 #define GPU_CHK()          GPU_ERR(cudaDeviceSynchronize())
 #define MM_ALLOC(...)      GPU_ERR(cudaMallocManaged(__VA_ARGS__))
 #define MM_FREE(m)         GPU_ERR(cudaFree(m))
+#define H_ALLOC(p,...)     *((void**)(p)) = std::malloc(__VA_ARGS__)
+#define H_FREE(m)          std::free(m)
 
 namespace cg = cooperative_groups;
 #define K_RUN(...)         GPU_ERR(cudaLaunchCooperativeKernel(__VA_ARGS__))
@@ -219,11 +210,26 @@ namespace cg = cooperative_groups;
 #define H2D(dst,src,sz)    GPU_ERR(cudaMemcpy((void*)(dst),(void*)(src),sz,cudaMemcpyHostToDevice))
 #define D2H(dst,src,sz)    GPU_ERR(cudaMemcpy((void*)(dst),(void*)(src),sz,cudaMemcpyDeviceToHost))
 ///@}
-#else  // !__CUDACC__
+
+#else  // !__CUDACC__ (i.e. on host)
+
+#define H_ALLOC(p,...)     *((void**)(p)) = malloc(__VA_ARGS__)
+#define H_FREE(m)          free(m)
+#define GPU_CHK()
 #define __HOST__
 #define __INLINE__         [[gnu::always_inline]] inline
 
 #endif // __CUDACC__  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+struct OnHost {
+    void *operator new(size_t sz) {
+        void *ptr;
+        H_ALLOC(&ptr, sz);
+        DEBUG("new Host Obj %p size=%ld byes\n", ptr, sz);
+        return ptr;
+    }
+    void operator delete(void *ptr) { H_FREE(ptr); }
+};
 
 } // namespace t4
 
