@@ -14,6 +14,8 @@
 
 namespace t4 {
 
+#if __CUDACC__
+
 namespace cg = cooperative_groups;
 
 typedef int           WORD;
@@ -414,6 +416,8 @@ __GPU__ int
 d_hash(const char *s) {
     return _hash(s, STRLENB(s));
 }
+
+#endif // __CUDACC__
 
 } // namespace t4
 
