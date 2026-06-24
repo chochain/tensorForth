@@ -2,10 +2,12 @@
 # tensorForth src/vm/module.mk
 #
 # Add inputs and outputs from these tool invocations to the build variables
-VM_CUSRCS := \
-	vm.cu \
-	eforth.cu \
-	tenvm.cu \
+VM_SRCS :=     \
+	vm.cpp     \
+	eforth.cpp \
+	tenvm.cpp
+
+VM_CUSRCS :=   \
 	netvm.cu
 
 VM_DIRS :=
