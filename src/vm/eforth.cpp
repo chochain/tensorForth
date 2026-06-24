@@ -21,9 +21,7 @@ using nn::Model;
 
 __HOST__
 ForthVM::ForthVM(int id, System &sys) : VM(id, sys) {
-    printf("dict[0] vvvv\n");
     dict = mmu.dict(0);
-    printf("dict[0] ^^^^");
     base = id;                                 /// * pmem[id], 0..USER_AREA-1 reserved
     *MEM(base) = 10;
     TRACE("\\  ::ForthVM[%d]\n", id);
