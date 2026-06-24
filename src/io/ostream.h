@@ -1,24 +1,42 @@
 /**
  * @file
- * @brief Ostream class - kernel managed output stream module.
+ * @brief Ostream class - typed binary event queue for kernel-host marshalling
+ *
+ * Note: despite the name and << syntax, this is NOT a text stream.
+ * It is a fixed flat-buffer binary event queue carrying typed payloads
+ * (_opx, _tbx, DU, strings, ints) consumed by the host dispatcher.
+ * std::ostream cannot replace it because of DU/IS_OBJ discrimination,
+ * _opx/_tbx dispatch packets, and the binary obuf_fmt encoding.
  *
  * <pre>Copyright (C) 2022- GreenII, this file is distributed under BSD 3-Clause License.</pre>
  */
 #ifndef __IO_OSTREAM_H_
 #define __IO_OSTREAM_H_
 #pragma  once
-
 #include "ten4_types.h"
 
 namespace t4::io {
 typedef std::ostream ostr;            ///< host output ostream
 #define ENDL         '\n'
+///
+///> Binary event header — sits at every slot in _buf.
+///  data() points to the byte immediately after the header.
+///
+struct event {
+    U32 gt : 4;                       ///< GT type tag (16 types)
+    U32 sz : 28;                      ///< payload size in bytes (max 256M)
 
-typedef struct {
-    U32 gt : 4;                       ///< 16 io event types
-    U32 sz : 28;                      ///< max 256M payload
-    U8  data[];                       ///< data array
-} event;
+    __HOST__ __INLINE__ U8* data() {
+        return reinterpret_cast<U8*>(this) + sizeof(event);
+    }
+    __HOST__ __INLINE__ const U8* data() const {
+        return reinterpret_cast<const U8*>(this) + sizeof(event);
+    }
+};
+
+static_assert(sizeof(event) == sizeof(U32), "event header must be 4 bytes");
+
+#define EVENT_HDR  sizeof(event)
 ///
 ///@name File Access Mode for IO Event
 ///@{
@@ -29,85 +47,96 @@ typedef enum {
     FAM_RAW = 3
 } FAM;
 ///@}
-
-#define EVENT_HDR  sizeof(U32)
-///@}
 //================================================================
 ///
-///> printf internal version data container.
+///> Binary format state — serialised as a GT_FMT payload, NOT text.
+///  Cannot be replaced by std::setw etc. since those target text streams.
 ///
-typedef struct {
-    U8 base;
-    U8 width;
-    U8 prec;
-    U8 fill;
-} obuf_fmt;
+struct obuf_fmt {
+    U8 base  = 10;
+    U8 width = 0;
+    U8 prec  = 0;
+    U8 fill  = ' ';
+    
+    __HOST__ __INLINE__ void reset() { base=10; width=0; prec=0; fill=' '; }
+};
 ///
-///> implement kernel iomanip classes
+///> Iomanip token structs — carry a single formatting field into operator<<.
+///  Kept custom because they serialise into obuf_fmt binary payloads.
 ///
-struct _setbase { U8  base;  __HOST__ _setbase(U8 b) : base(b)  {}};
-struct _setw    { U8  width; __HOST__ _setw(U8 w)    : width(w) {}};
-struct _setfill { U8  fill;  __HOST__ _setfill(U8 f) : fill(f)  {}};
-struct _setprec { U8  prec;  __HOST__ _setprec(U8 p) : prec(p)  {}};
+struct _setbase { U8 base;  __HOST__ _setbase(U8 b) : base(b)  {}};
+struct _setw    { U8 width; __HOST__ _setw(U8 w)    : width(w) {}};
+struct _setfill { U8 fill;  __HOST__ _setfill(U8 f) : fill(f)  {}};
+struct _setprec { U8 prec;  __HOST__ _setprec(U8 p) : prec(p)  {}};
+
 __HOST__ __INLINE__ _setbase setbase(int b)  { return _setbase((U8)b); }
 __HOST__ __INLINE__ _setw    setw(int w)     { return _setw((U8)w);    }
 __HOST__ __INLINE__ _setfill setfill(char f) { return _setfill((U8)f); }
 __HOST__ __INLINE__ _setprec setprec(int p)  { return _setprec((U8)p); }
 ///
-///> Forth parameterized manipulators
+///> Forth operation dispatch packet.
+///  op : 4  — operation enum (max 16 ops)
+///  m  : 8  — mode / file access flags
+///  i  : 20 — index argument (max 1M)
+///  n       — DU float / tensor object id
 ///
 struct _opx {
-    U32 op : 4;   ///> complex object types (max 16 ops)
-    U32 m  : 8;   ///> mode - file access, format
-    U32 i  : 20;  ///> max 16K
-    DU  n;        ///> F32 (tensor object id)
+    U32 op : 4;   ///< complex object types (max 16 ops)
+    U32 m  : 8;   ///< mode - file access, format
+    U32 i  : 20;  ///< integer max 1M
+    DU  n;        ///< F32 (tensor object id)
     
     __HOST__ _opx(OP op0, DU n0=DU0, U8 m0=0, int i0=0) : n(n0) {
         op = op0; m = m0; i = i0;
     }
 };
 ///
-///> TensorBoard parameterized manipulators
+///> TensorBoard dispatch packet.
+///  op : 4  — TB_OP enum (max 16 ops)
+///  i  : 28 — index argument (max 256M)
+///  n       — DU float / tensor object id
 ///
 struct _tbx {
-    U32 op : 4;   ///> (TensorBoard ops) max 16 ops
-    U32 i  : 28;  ///> max 256M
-    DU  n;        ///> F32 (tensor object id)
+    U32 op : 4;   ///< (TensorBoard ops) max 16 ops
+    U32 i  : 28;  ///< max 256M
+    DU  n;        ///< F32 (tensor object id)
     
     __HOST__ _tbx(TB_OP op0, DU n0=DU0, int i0=0) : n(n0) {
         op = op0; i = i0;
     }
 };
 ///
-///> Kernel-Host parameter constructor
+///> Kernel-Host Convenience factory functions
 ///
-__HOST__ __INLINE__ _opx opx(OP op, DU n=DU0, U8 m=0, int i=0) {
-    return _opx(op, n, m, i);
-}
-__HOST__ __INLINE__ _tbx tbx(TB_OP op, DU n=DU0, int i=0) {
-    return _tbx(op, n, i);
-}
+__HOST__ __INLINE__ _opx opx(OP op, DU n=DU0, U8 m=0, int i=0) { return _opx(op, n, m, i); }
+__HOST__ __INLINE__ _tbx tbx(TB_OP op, DU n=DU0, int i=0)      { return _tbx(op, n, i);    }
 ///
-///> Ostream class
+///> Ostream — typed binary event queue.
+///
+///  Layout of _buf:
+///    [ event hdr (4B) | payload (ALIGN(sz) B) ] [ event hdr | payload ] ... GT_EMPTY
+///
+///  The host dispatcher walks _buf reading event headers and dispatching
+///  by GT type. This is the only consumer of the binary format.
 ///
 class Ostream : public OnHost {
-    int      _max = 0;
-    int      _idx = 0;
-    obuf_fmt _fmt = { 10, 0, 0, ' '};
-    char    *_buf;
+    int      _max      = 0;
+    int      _idx      = 0;
+    bool     _overflow = false;      ///< set when a write was dropped
+    obuf_fmt _fmt      = { 10, 0, 0, ' '};
+    char    *_buf      = nullptr;
 
-__HOST__ __INLINE__ void _debug(GT gt, U8 *vp, U32 sz) {
+    __HOST__ void _debug(GT gt, U8 *d, U32 sz) {
 #if T4_VERBOSE > 1
         printf("  ostr#_debug(gt=%x,sz=%d) obuf[%d] << ", gt, sz, _idx);
         if (!sz) return;
-        U8 d[T4_STRBUF_SZ];
-        memcpy(d, vp, sz);
+
         switch(gt) {
         case GT_INT:   printf("%d",      *(IU*)d);  break;
         case GT_U32:   printf("%u",      *(U32*)d); break;
         case GT_FLOAT: printf("%G",      *(DU*)d);  break;
         case GT_STR:   printf("%s",      d);        break;
-        case GT_OBJ:   printf("Obj[%lx]", (UFP)vp); break;
+        case GT_OBJ:   printf("Obj[%lx]", (UFP)d);  break;
         case GT_FMT:   printf("%08x",    *(U32*)d); break;
         case GT_OPX: {
             _opx *o = (_opx*)d;
@@ -142,17 +171,19 @@ __HOST__ __INLINE__ void _debug(GT gt, U8 *vp, U32 sz) {
     }
     __HOST__  void _write(GT gt, U8 *vp, U32 sz) {
         //_LOCK;
-        event *e = (event*)&_buf[_idx];           /// allocate next node
+        event* e = reinterpret_cast<event*>(&_buf[_idx]);  /// allocate next node
 
-        e->gt   = gt;                             /// data type
-        e->sz   = ALIGN(sz);                      /// data alignment (32-bit)
+        e->gt = gt;                               /// data type
+        e->sz = ALIGN(sz);                        /// data alignment (32-bit)
 
-        int inc = EVENT_HDR + e->sz;              /// calc node allocation size
+        int inc = (int)(EVENT_HDR + e->sz);       /// calc node allocation size
 
-        _debug(gt, vp, e->sz);
-
-        if ((_idx + inc) > _max) inc = 0;         /// overflow, skip
-        else memcpy(e->data, vp, e->sz);          /// deep copy, TODO: shallow copy via managed memory
+        if ((_idx + inc) > _max) {
+            _overflow = true;                     /// * flag
+            return;                               /// overflow, skip
+        }
+        memcpy(e->data(), vp, sz);                /// deep copy, TODO: shallow copy via managed memory
+        _debug(gt, e->data(), e->sz);
 
         _buf[(_idx += inc)] = (char)GT_EMPTY;     /// advance index and mark end of stream
         //_UNLOCK;
@@ -160,19 +191,22 @@ __HOST__ __INLINE__ void _debug(GT gt, U8 *vp, U32 sz) {
     __HOST__ Ostream& _wfmt() { _write(GT_FMT, (U8*)&_fmt, sizeof(obuf_fmt)); return *this; }
 
 public:
-    Ostream(U32 sz=T4_OBUF_SZ) { H_ALLOC(&_buf, _max=sz);  }
-    ~Ostream()                 { H_FREE(_buf); }
+    __HOST__ Ostream(U32 sz=T4_OBUF_SZ) { H_ALLOC(&_buf, _max=(int)sz);  }
+    __HOST__ ~Ostream()                 { H_FREE(_buf); }
     ///
     /// clear output buffer
     ///
     __HOST__ Ostream& clear() {
         // LOCK
         _buf[_idx=0] = (char)GT_EMPTY;
+        _overflow    = false;
+        _fmt.reset();
         // UNLOCK
         return *this;
     }
-    __HOST__ char *rdbuf() { return _buf; }
-    __HOST__ U32 tellp()   { return (U32)_idx; }
+    __HOST__ char *rdbuf()   { return _buf;      }
+    __HOST__ U32  tellp()    { return (U32)_idx; }
+    __HOST__ bool overflow() { return _overflow; }
     ///
     /// iomanip control
     ///
@@ -185,39 +219,38 @@ public:
     ///
     __HOST__ Ostream& operator<<(char c) {
         char buf[4] = { c, '\0', '\0', '\0' };
-        DEBUG("  ostr#_write('%c')\n", c);
+        DEBUG("  ostr<<'%c'\n", c);
         _write(GT_STR, (U8*)buf, 4);
         return *this;
     }
     __HOST__ Ostream& operator<<(S32 i) {
-        DEBUG("  ostr#_write(S32) %d\n", i);
+        DEBUG("  ostr<<S32(%d)\n", i);
         _write(GT_INT, (U8*)&i, sizeof(S32));
         return *this;
     }
     __HOST__ Ostream& operator<<(U32 i) {
-        DEBUG("  ostr#_write(U32) %d\n", i);
+        DEBUG("  ostr<<U32(%u)\n", i);
         _write(GT_U32, (U8*)&i, sizeof(U32));
         return *this;
     }
     __HOST__ Ostream& operator<<(DU d) {
         GT t = IS_OBJ(d) ? GT_OBJ : GT_FLOAT;
-        DEBUG("  ostr#_write(DU) %d, %g\n", t, d);
+        DEBUG("  ostr<<DU(gt=%d, %g)\n", t, d);
         _write(t, (U8*)&d, sizeof(DU));
         return *this;
     }
     __HOST__ Ostream& operator<<(const char *s) {
-        DEBUG("  ostr#_write(\"%s\")\n", s);
-        int len = (int)strlen(s)+1;
-        _write(GT_STR, (U8*)s, len);
+        DEBUG("  ostr<<\"%s\"\n", s);
+        _write(GT_STR, (U8*)s, (U32)strlen(s)+1);
         return *this;
     }
     __HOST__ Ostream& operator<<(_opx x) {
-        DEBUG("  ostr#_write(_opx)\n");
+        DEBUG("  ostr<<_opx\n");
         _write(GT_OPX, (U8*)&x, sizeof(x));
         return *this;
     }
     __HOST__ Ostream& operator<<(_tbx x) {
-        DEBUG("  ostr#_write(_tbx)\n");
+        DEBUG("  ostr<<_tbx\n");
         _write(GT_TBX, (U8*)&x, sizeof(x));
         return *this;
     }
