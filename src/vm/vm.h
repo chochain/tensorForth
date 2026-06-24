@@ -8,6 +8,7 @@
 #define __VM_VM_H
 #pragma once
 
+#include "t4math.h"
 #include "sys.h"                      /// system interface
 #include "mu/vector.h"
 
@@ -31,6 +32,7 @@ namespace t4::vm {
     case SAT:  t = SAT(t);          break;      \
     case SIN:  t = SIN(t);          break;      \
     case COS:  t = COS(t);          break;      \
+    default:                        break;      \
     }                                           \
     SCALAR(t); tos = t
 
@@ -47,6 +49,7 @@ namespace t4::vm {
     case MUL2: t = MUL2(n,t);       break;      \
     case MOD2: t = MOD2(n,t);       break;      \
     case POW:  t = POW(t, n);       break;      \
+    default:                        break;      \
     }                                           \
     SCALAR(t); tos = t
 
