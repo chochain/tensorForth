@@ -25,7 +25,19 @@ typedef int           WORD;
 #define DYNA_HASH_THRESHOLD     128
 #define HASH_K                  1000003
 
-__GPU__ curandState *_rand_st;       ///< for random number generator
+__HOST__ void
+t4_rand_init(long seed) {
+    k_rand_init<<<1, T4_RAND_SZ>>>(seed);  /// serialized randomizer
+    GPU_CHK();
+}
+
+__HOST__ void
+t4_rand(float *d, long sz, rand_opt opt, float bias, float scale) {
+    k_rand<<<1, T4_RAND_SZ>>>(d, sz, opt, bias, scale);
+    GPU_CHK();
+}
+
+__GPU__ curandState *_rand_st;             ///< for random number generator
 ///
 /// random number generator setup
 /// Note: kept here because curandStates stays in CUDA memory
@@ -41,7 +53,7 @@ k_rand_init(long seed) {
 }
 
 __KERN__ void
-k_rand(float *mat, long sz, float bias, float scale, rand_opt ntype) {
+k_rand(float *mat, long sz, rand_opt opt, float bias, float scale) {
     int  n  = (sz / blockDim.x) + 1;  ///< loop counter
     int  tx = threadIdx.x;            ///< thread idx (T4_RAN_SZ)
     long x  = (long)tx;                 
@@ -50,7 +62,7 @@ k_rand(float *mat, long sz, float bias, float scale, rand_opt ntype) {
     for (int i=0; i < n; i++, x+=blockDim.x) {  /// * scroll through pages
         if (x < sz) {
             mat[x]= scale * (
-                bias + (ntype==NORMAL ? curand_normal(&s) : curand_uniform(&s))
+                bias + (opt==NORMAL ? curand_normal(&s) : curand_uniform(&s))
                 );
         }
     }

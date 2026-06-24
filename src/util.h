@@ -24,8 +24,8 @@ typedef enum {
     UNIFORM = 0,
     NORMAL
 } rand_opt;
-    
-#ifdef __CUDACC__
+
+#if __CUDACC__
     
 #define __HOST__     __host__
 #define __KERN__     __global__
@@ -33,8 +33,11 @@ typedef enum {
 ///
 ///@name Random number generator
 ///@{
+__HOST__ void        t4_rand_init(long seed);
+__HOST__ void        t4_rand(float *d, long sz, rand_opt opt, float bias, float scale);
+    
 __KERN__ void        k_rand_init(long seed);
-__KERN__ void        k_rand(float *mat, long sz, float bias, float scale, rand_opt ntype);
+__KERN__ void        k_rand(float *mat, long sz, rand_opt opt, float bias, float scale);
 ///@}
 ///@name Endianess conversion
 ///@{
@@ -49,7 +52,6 @@ __GPU__ void         u32_to_bin(uint32_t l, const void *bin);
 ///@}
 ///@name Memory ops
 ///@{
-#if __CUDA_ARCH__
 //__GPU__ void         d_memcpy(void *t, const void *s, size_t n);
 //__GPU__ void         d_memset(void *t, int c, size_t n);
 #define d_memcpy(t,s,n) memcpy(t,s,n)
@@ -73,9 +75,12 @@ __GPU__ long         d_strtol(const char *s, char **p, int base=10);
 __GPU__ double       d_strtof(const char *s, char **p);
 __GPU__ int          d_hash(const char *s);
 ///@}
+#endif // __CUDACC__
+    
 ///==========================================================================
 ///@name Unified memory ops
 ///@{
+#if __CUDA_ARCH__
 #define MEMCPY(t,s,n)   d_memcpy((void*)(t), (void*)(s), (size_t)(n))       /** TODO: cudaMemcpyAsyn */
 #define MEMSET(t,c,n)   d_memset((void*)(t), (int)(c), (size_t)(n))
 #define MEMCMP(t,s,n)   d_memcmp((const char*)(t), (const char*)(s), (size_t)(n))
@@ -131,7 +136,6 @@ __GPU__ int          d_hash(const char *s);
 #define HASH(s)         calc_hash(s)
 ///@}
 #endif // __CUDA_ARCH__
-#endif // __CUDACC__
 
 #ifdef __cplusplus
 }
