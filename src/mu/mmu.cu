@@ -5,6 +5,7 @@
  * <pre>Copyright (C) 2022- GreenII, this file is distributed under BSD 3-Clause License.</pre>
  */
 #include <iomanip>             /// setw, setbase
+#include "util.h"              /// STRCMP, MEMCPY
 #include "mmu.h"
 #include "dataset.h"
 #include "nn/model.h"
