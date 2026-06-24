@@ -8,8 +8,9 @@
 #define __VM_EFORTH_H
 #pragma once
 
-#include "param.h"                      ///< Parameter field
-#include "vm.h"                         ///< VM base class
+#include "util.h"                       /// * STRLEN,STRCHR
+#include "param.h"                      /// * Parameter field
+#include "vm.h"                         /// * VM base class
 
 namespace t4::vm {
 ///
@@ -116,8 +117,8 @@ protected:
         add_w(p);
     }
     __HOST__ int  add_str(const char *s, bool adv=true) {
-        int sz = STRLENB(s)+1;                ///< calculate string length
-        sz = ALIGN(sz);                       /// * then adjust alignment (combine?)
+        int sz = STRLENB(s)+1;                 ///< calculate string length
+        sz = ALIGN(sz);                        /// * then adjust alignment (combine?)
         mmu.add((U8*)s, sz, adv);
         return sz;
     }
@@ -128,7 +129,7 @@ protected:
     };
     __HOST__ void add_lit(DU v, bool exit=false) {  ///< add a literal/varirable
         add_p(LIT, 0, false, exit);
-        add_du(v);                            /// * store in extended IU
+        add_du(v);                             /// * store in extended IU
     }
     
 private:    
