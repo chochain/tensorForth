@@ -34,14 +34,8 @@ System::System(io::istr &i, io::ostr &o, int khz, int verbo)
     io = AIO::get_io(&_trace);       /// * instantiate async IO controler
     db = Debug::get_db(o);           /// * tracing instrumentation
     tb = NULL;
-    ///
-    ///> setup randomizer
-    ///
-#if T4_DO_OBJ    
-    k_rand_init<<<1, T4_RAND_SZ>>>(time(NULL));  /// serialized randomizer
-    GPU_CHK();
-#endif // T4_DO_OBJ    
-
+    t4_rand_init(time(NULL));        /// * initialize randomizer
+    
     INFO("\\ System OK\n");
 }
 
@@ -89,9 +83,8 @@ System::rand(DU d, rand_opt o) {
 __HOST__ void
 System::rand(DU *d, U64 sz, rand_opt o, DU bias, DU scale) {
     /// rand states are dependent, cannot run parallel with multi-blocks
-#if T4_DO_OBJ    
-    k_rand<<<1, T4_RAND_SZ>>>(d, sz, bias, scale, o);
-    GPU_CHK();
+#if T4_DO_OBJ
+    t4_rand(d, sz, bias, scale, o);
 #else  // !T4_DO_OBJ
     ERROR("n/a");
 #endif // T4_DO_OBJ    
@@ -99,7 +92,7 @@ System::rand(DU *d, U64 sz, rand_opt o, DU bias, DU scale) {
 ///@}
 ///@name event loop handler
 ///@{
-#define NEXT_EVENT(ev) ((io::event*)((char*)&(ev)->data[0] + (ev)->sz))
+#define NEXT_EVENT(ev) ((io::event*)((ev)->data() + (ev)->sz))
 
 __HOST__ int
 System::readline(int hold) {                 ///< feed a line into device input stream
@@ -124,7 +117,7 @@ System::flush() {
 
 __HOST__ io::event*
 System::_process_event(io::event *ev) {      ///< process simple IO requests
-    void *vp = (void*)ev->data;              ///< fetch payload in buffered print node
+    void *vp = (void*)ev->data();            ///< fetch payload in buffered print node
     DEBUG("System::process(gt=%x) {\n", ev->gt);
     switch (ev->gt) {
     case GT_INT:
@@ -141,7 +134,7 @@ System::_process_event(io::event *ev) {      ///< process simple IO requests
 
 __HOST__ io::event*
 System::_process_opx(io::event *ev) {        ///< process composit IO types
-    void *vp = (void*)ev->data;              ///< fetch payload in buffered print node
+    void *vp = (void*)ev->data();            ///< fetch payload in buffered print node
     io::_opx o = *((io::_opx*)vp);           ///< capture a hardcopy
     DEBUG("  _opx(OP=%d, m=%d, i=%d, n=0x%08x=%g)\n", o.op, o.m, o.i, DU2X(o.n), o.n);
         
@@ -158,7 +151,7 @@ System::_process_opx(io::event *ev) {        ///< process composit IO types
         mu::Tensor &t = (mu::Tensor&)mu->du2obj(o.n);
         if (t.is_tensor() || t.is_dataset()) {
             ev = NEXT_EVENT(ev);
-            char *fn = (char*)ev->data;                     ///> filename
+            char *fn = (char*)ev->data();                   ///> filename
             OP_T2PNG
                 ? io->t2png(t, fn)
                 : io->tsave(t, fn, o.m);                    /// * persist for NumPy
@@ -170,7 +163,7 @@ System::_process_opx(io::event *ev) {        ///< process composit IO types
         mu::Dataset &ds = (mu::Dataset&)mu->du2obj(o.n);
         if (ds.is_dataset()) {                              /// * indeed a dataset?
             ev = NEXT_EVENT(ev);                            ///< get dataset repo name
-            char *ds_nm = (char*)ev->data;                  /// * dataset name
+            char *ds_nm = (char*)ev->data();                /// * dataset name
             ds.fetch(ds_nm, 0, _trace);                     /// * fetch first batch
         }
         else ERROR("%x is not a dataset\n", DU2X(o.n));
@@ -179,7 +172,7 @@ System::_process_opx(io::event *ev) {        ///< process composit IO types
         mu::Dataset &ds = (mu::Dataset&)mu->du2obj(o.n);
         if (ds.is_dataset()) {
             ev = NEXT_EVENT(ev);                            ///< get dataset repo name
-            io::_opx x = *((io::_opx*)ev->data);            ///< capture a hardcopy
+            io::_opx x = *((io::_opx*)ev->data());          ///< capture a hardcopy
             INFO("  OP_NORM(mean=%d, scale=%g)\n", x.i, x.n);
             ds.normalize(I2D((int)x.i), x.n);               /// * fetch first batch
             ds.rewind(_trace);                              /// * rewind/load dataset
@@ -197,7 +190,7 @@ System::_process_opx(io::event *ev) {        ///< process composit IO types
         nn::Model &m = (nn::Model&)mu->du2obj(o.n);
         if (m.is_model()) {
             ev = NEXT_EVENT(ev);                            ///< get dataset repo name
-            char *fn = (char*)ev->data;                     ///< filename
+            char *fn = (char*)ev->data();                   ///< filename
             io->nsave(m, fn, o.m);                          /// * o->m FAM mode
         }
         else ERROR("%x is not a model\n", DU2X(o.n));
@@ -207,7 +200,7 @@ System::_process_opx(io::event *ev) {        ///< process composit IO types
         if (m.is_model()) {
             ev = NEXT_EVENT(ev);
             _istr->clear();
-            char *fn = (char*)ev->data;                    ///< filename
+            char *fn = (char*)ev->data();                  ///< filename
             io->nload(m, fn, o.m, _istr->rdbuf());         /// * fetch into rdbuf
         }
         else ERROR("%x is not a model\n", DU2X(o.n));
@@ -231,7 +224,7 @@ System::setup_tb(const char *tb_logdir, const char *tb_run_id) {
 
 __HOST__ io::event*
 System::_process_tb(io::event *ev) {              ///< process TensorBoard ops
-    void *vp   = (void*)ev->data;                 ///< fetch payload in buffered print node
+    void *vp   = (void*)ev->data();               ///< fetch payload in buffered print node
     io::_tbx x = *(io::_tbx*)vp;                  ///< make a hardcopy
 
     if (!tb || _trace) INFO("  sys#tbx(op=%d, n=%g, i=%d", x.op, x.n, x.i);
@@ -251,7 +244,7 @@ System::_process_tb(io::event *ev) {              ///< process TensorBoard ops
         return ev;
     }
     /// * opcode with tags
-    const char *tag = (const char*)ev->data;      ///< retrieve tag for Tensorboard
+    const char *tag = (const char*)ev->data();    ///< retrieve tag for Tensorboard
     if (!tb || _trace) INFO(", tag=%s)\n", tag);
     if (!tb) {
         if (x.op==TB_TEXT) ev = NEXT_EVENT(ev);
