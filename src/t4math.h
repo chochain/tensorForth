@@ -15,6 +15,11 @@
 
 namespace t4 {
 
+typedef enum {
+    T_DROP = 0,
+    T_KEEP
+} t4_drop_opt;
+
 ///@name cross platform floating-point ALU support (see nvcc -use_fast_math flag)
 ///@{
 typedef enum {
@@ -52,7 +57,6 @@ typedef enum {
 
 #define MATH_OP "abs","neg","exp","ln","log","tanh","relu","sigmoid","sqrt","rcp","sat","iden","fill","gfill","scale","pow","+","-","*","/","mod","max","min","mul2","mod2","sin","cos"
 
-#ifdef  __CUDACC__
 #define ABS(x)       (fabsf(x))                 /**< absolute value         */
 #define NEG(x)       (-x)                       /**< negate                 */
 #define EXP(x)       (expf(x))                  /**< exponential(float)     */
@@ -81,6 +85,8 @@ typedef enum {
 #define SIN(r)       (sinf(r))
 #define COS(r)       (cosf(r))
 #define PI           (3.1415927f)
+
+#ifdef  __CUDACC__
 ///
 /// * CUDA intrinsic functions (static)
 ///
@@ -96,11 +102,6 @@ typedef enum {
 #define _MUL(x,y)    (__fmul_rn(x,y))           /**< multiplication         */
 #define _DIV(x,y)    (__fdiv_rn(x,y))           /**< division               */
 #define _MUL2(x2,y2) (__dmul_rn(x2,y2))         /**< double precision mul   */
-
-typedef enum {
-    T_DROP = 0,
-    T_KEEP
-} t4_drop_opt;
 ///@}
 ///@name GEMM Tiling parameters
 ///@{
