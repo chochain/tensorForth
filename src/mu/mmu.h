@@ -99,8 +99,8 @@ public:
         return 0;
     }
     __HOST__  __INLINE__ void wd(U8 *c, DU d)   {
-        DU v = rd(c);
 #if T4_DO_OBJ        
+        DU v = rd(c);
         if (IS_OBJ(v)) drop(du2obj(v));                            /// * obj decref
 #endif // T4_DO_OBJ        
         *(DU*)c = d;
