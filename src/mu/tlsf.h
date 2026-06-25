@@ -44,10 +44,10 @@ typedef struct free_block {          ///< 16-bytes (i.e. mininum allocation per 
 ///@}
 ///@name Block navigation macros
 ///@{
-#define NEXT_FREE(b)    ((b)->next ? (free_block*)(_heap + (b)->next) : NULL)
-#define PREV_FREE(b)    ((b)->prev ? (free_block*)(_heap + (b)->prev) : NULL)
-#define BLK_AFTER(b)    (((b)->bsz           ) ? U8PADD(b, (b)->bsz             ) : NULL)        /**> following adjacent memory block  */
-#define BLK_BEFORE(b)   (((b)->psz&~FREE_FLAG) ? U8PSUB(b, ((b)->psz&~FREE_FLAG)) : NULL)        /**> prior adjacent memory block      */
+#define NEXT_FREE(b)    ((b)->next ? (free_block*)(_heap + (b)->next) : NIL)
+#define PREV_FREE(b)    ((b)->prev ? (free_block*)(_heap + (b)->prev) : NIL)
+#define BLK_AFTER(b)    (((b)->bsz           ) ? U8PADD(b, (b)->bsz             ) : NIL)        /**> following adjacent memory block  */
+#define BLK_BEFORE(b)   (((b)->psz&~FREE_FLAG) ? U8PSUB(b, ((b)->psz&~FREE_FLAG)) : NIL)        /**> prior adjacent memory block      */
 #define BLK_DATA(b)     (U8PADD(b, sizeof(used_block)))                                          /**> pointer to raw data space        */
 #define BLK_HEAD(p)     (U8PSUB(p, sizeof(used_block)))                                          /**> block header from raw pointer    */
 ///@}
@@ -86,7 +86,7 @@ class TLSF : public OnHost {
 
     mutable std::mutex _mutex;          ///< multi-threading control
     
-    __HOST__  TLSF() : _heap(nullptr), _heap_sz(0) {}            ///< singleton
+    __HOST__  TLSF() : _heap(NIL), _heap_sz(0) {}                ///< singleton
     __HOST__  ~TLSF() {}
     
 public:
