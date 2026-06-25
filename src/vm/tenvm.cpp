@@ -33,7 +33,7 @@ TensorVM::process(char *idiom) {
         TTOS.data[ten_off++] = n;             /// * append to tensor.data (no stack used)
     }
     else {                                    ///> or, add value onto data stack
-        VLOG("vm%d> ss.push(%g)=%08x\n", id, n, DU2X(n));
+        VLOG("vm%d> ss.push(%g)=%08x\n", id, n, (U32)DU2X(n));
         PUSH(n);
     }
     return 1;
@@ -394,7 +394,7 @@ TensorVM::_pickle(bool load, bool png) {
     else if (ss.size() > 2 && IS_OBJ(ss[-3])) mode = POPi;
     else { ERROR("tensor adr len [mode]?\n"); return; }
     
-    IU   len  = POPi;                         ///< string length (not used for now)
+    POPi;                                     ///< string length (not used for now)
     IU   adr  = POPi;                         ///< address to pmem
     char *tag = (char*)MEM(adr);              ///< pointer to string on PAD
     T4Base &t = mmu.du2obj(tos);
@@ -402,7 +402,7 @@ TensorVM::_pickle(bool load, bool png) {
     const char* nm[] = { "tensor", "model", "dataset", "xxx" };
     U32   *p = (U32*)&t;
     INFO(".X %s(%04x)[%08x %08x %08x %08x].data(%p) => %s\n",
-         nm[t.ttype], DU2X(tos), p[0], p[1], p[2], p[3], t.data, tag);
+         nm[t.ttype], (U32)DU2X(tos), p[0], p[1], p[2], p[3], t.data, tag);
 #endif // MM_DEBUG    
 
     syscall(op, tos, mode, DU2X(tos), tag);   /// * show to Tensorboard or load/store tensor
@@ -412,7 +412,7 @@ TensorVM::_pickle(bool load, bool png) {
 ///
 __HOST__ void
 TensorVM::_tboard(TB_OP op) { 
-    IU   len  = POPi, adr = POPi;             ///< tag address to pmem (len not used)
+    POPi; IU adr = POPi;                      ///< tag address to pmem (len not used)
     char *tag = (char*)MEM(adr);              ///< pointer to string on PAD
 
     auto mark = [&](DU t) {
@@ -424,7 +424,7 @@ TensorVM::_tboard(TB_OP op) {
     switch (op) {
     case TB_INIT: sys.tbx(op, tag);          break;
     case TB_TEXT: {
-        IU len1 = POPi, adr1 = POPi;          ///< txt address to pmem (len not used)
+        POPi; IU adr1 = POPi;                 ///< txt address to pmem (len not used)
         sys.tbx(op, tag);
         sys.op_fn((char*)MEM(adr1));          ///< work only in a word (PAD is shared)
     } break;
@@ -441,6 +441,7 @@ TensorVM::_tboard(TB_OP op) {
         sys.tbx(op, tag, t, n);
         mark(t);                              /// * hold Tensor before destroy
     } break;
+    default: ERROR("_tboard not supported op=%d \n", op);
     }
 }
 ///
