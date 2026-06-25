@@ -255,12 +255,12 @@ Tensor::sum() {
         FORK(k_sum, numel, data, _tmp);                /// * data[numel] for temp storage
         D2H(&v, _tmp, sizeof(DU));                     /// * copy to host (D2H, page fault)
     }
-    SCALAR(v); return v;
+    return SCALAR(v);
 }
 __HOST__ DU
 Tensor::avg() {
     DU v = sum() / numel;
-    SCALAR(v); return v;
+    return SCALAR(v);
 }
 __HOST__ DU
 Tensor::std() {
@@ -269,7 +269,7 @@ Tensor::std() {
     FORK(k_nvar, numel, data, mx, _tmp);               /// * 8x straight loop
     D2H(&v, _tmp, sizeof(DU));                         /// * copy to host (D2H, page fault)
     v = numel ? SQRT(v) / numel : DU0;             
-    SCALAR(v); return v;
+    return SCALAR(v);
 }
 __HOST__ DU
 Tensor::norm() {                                       ///< return Euclidean Norm
@@ -278,7 +278,7 @@ Tensor::norm() {                                       ///< return Euclidean Nor
     FORK(k_nvar, numel, data, DU0, _tmp);              /// * 8x straight loop
     D2H(&v, _tmp, sizeof(DU));                         /// * copy to host (D2H, page fault)
     v = SQRT(*_tmp);                                   
-    SCALAR(v); return v;
+    return SCALAR(v);
 }
 __HOST__ DU
 Tensor::max() {
@@ -287,7 +287,7 @@ Tensor::max() {
     FORK(k_max, numel, data, _tmp, true);              /// * find max
     DU v;
     D2H(&v, _tmp, sizeof(DU));                         /// * copy back to host
-    SCALAR(v); return v;
+    return SCALAR(v);
 }
 __HOST__ DU
 Tensor::min() {
@@ -296,7 +296,7 @@ Tensor::min() {
     FORK(k_max, numel, data, _tmp, false);             /// * find min
     DU v;
     D2H(&v, _tmp, sizeof(DU));                         /// * copy back to host
-    SCALAR(v); return v;
+    return SCALAR(v);
 }
 __HOST__ DU
 Tensor::dot(Tensor &B) {
@@ -306,7 +306,7 @@ Tensor::dot(Tensor &B) {
     else ERROR("A.dot(B) dim? %ld != %ld)\n", numel, B.numel);
     DU v;
     D2H(&v, _tmp, sizeof(DU));                        ///< copy back to host
-    SCALAR(v); return v;
+    return SCALAR(v);
 }
 __HOST__ DU
 Tensor::loss(t4_loss op, Tensor &tgt) {
@@ -344,7 +344,7 @@ Tensor::loss(t4_loss op, Tensor &tgt) {
     }
     z /= N();                        /// * mini-batch average
     
-    SCALAR(z); return z;             /// make sum a scalar value (not object)
+    return SCALAR(z);                /// make sum a scalar value (not object)
 }
 __HOST__ U32
 Tensor::has_nan() {
@@ -412,7 +412,7 @@ Tensor::plu(Tensor &A, Tensor &I, int *d_piv) {  ///< update A -> PLU (in-place)
             return A;
         }
 
-        if (u != z) FORK(k_swap_rows, K, da, nullptr, u, z);
+        if (u != z) FORK(k_swap_rows, K, da, NIL, u, z);
         FORK(k_lu_col, K, da, z);
     }
     if (A!=I) FORK(k_pivot, K, da, d_piv, di);
@@ -474,7 +474,8 @@ Tensor::det() {
     MM_FREE(d_piv);
 
     det = EXP(det) * sign * cnt;                  /// * calculate determinant
-    SCALAR(det); return det;
+    
+    return SCALAR(det);
 }
 ///=======================================================================
 /// Tensor life-cycle ops
@@ -508,7 +509,7 @@ Tensor::reset(void *mem, U64 sz, t4_obj tt, t4_layer fn) {
 __HOST__ Tensor&
 Tensor::reshape(U64 sz) {
     if (sz == numel) {
-        reset(data, numel, (t4_obj)ttype, grad_fn);   /// preserve ttype and fn
+        reset(data, numel, (t4_obj)ttype, grad_fn); /// preserve ttype and fn
         MM_DB("  tensor#reshaped(%ld)\n", numel);
     }
     else {
