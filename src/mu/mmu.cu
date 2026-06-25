@@ -172,7 +172,7 @@ MMU::sweep() {
     LOCK();
     for (int i = 0, n=_fidx; n && i < n; i++) {
         DU v = _mark[i];
-        MM_DB("mmu#release T:%x from free[%d]\n", (U32)DU2X(v) & ~T4_TT_OBJ, i);
+        MM_DB("mmu#release T:%x from free[%d]\n", (U32)(DU2X(v) & ~T4_TT_OBJ), i);
         drop(du2obj(v));
     }
     _fidx = 0;
@@ -204,6 +204,7 @@ MMU::talloc(U64 sz) {
     MM_DB("} mmu#talloc => T:%x+%x\n", OBJ2X(*t), (U32)((U8*)d - _data));
     t->reset(d, sz);
     GPU_CHK();
+        
     status();
     return *t;
 }
