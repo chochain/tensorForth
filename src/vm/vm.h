@@ -34,7 +34,7 @@ namespace t4::vm {
     case COS:  t = COS(t);          break;      \
     default:                        break;      \
     }                                           \
-    SCALAR(t); tos = t
+    tos = SCALAR(t);
 
 #define XOP2(op)                                \
     DU t = tos, n = ss.pop();                   \
@@ -51,7 +51,7 @@ namespace t4::vm {
     case POW:  t = POW(t, n);       break;      \
     default:                        break;      \
     }                                           \
-    SCALAR(t); tos = t
+    tos = SCALAR(t);
 
 ///@}
 ///@name virtual machine base class
