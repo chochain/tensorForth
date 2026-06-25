@@ -77,7 +77,7 @@ _next_utf8(char **sp) {
     else if ((c & 0xE0) == 0xC0)    b=2;
     else if ((c & 0xF0) == 0xE0)    b=3;
     else if ((c & 0xF8) == 0xF0)    b=4;
-    else *sp=NULL;                  // invalid utf8
+    else *sp=NIL;                   /// * invalid utf8
 
     *sp+=b;
 }
@@ -305,7 +305,7 @@ d_strchr(const char *s, const char c) {
     for (; p && *p!='\0'; p++) {
         if (*p==c) return p;
     }
-    return NULL;
+    return NIL;
 }
 
 __GPU__ char*
