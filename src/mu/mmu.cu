@@ -172,7 +172,7 @@ MMU::sweep() {
     LOCK();
     for (int i = 0, n=_fidx; n && i < n; i++) {
         DU v = _mark[i];
-        MM_DB("mmu#release T:%x from free[%d]\n", DU2X(v) & ~T4_TT_OBJ, i);
+        MM_DB("mmu#release T:%x from free[%d]\n", (U32)DU2X(v) & ~T4_TT_OBJ, i);
         drop(du2obj(v));
     }
     _fidx = 0;
@@ -243,6 +243,7 @@ MMU::resize(Tensor &t, U64 sz) {
     _ostore.free(d0);            /// * release 
     status();
 }
+
 __HOST__ void                    ///< release tensor memory blocks
 MMU::free(Tensor &t) {
     int n = t.rank;
