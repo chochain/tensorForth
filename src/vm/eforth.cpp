@@ -205,7 +205,8 @@ ForthVM::init() {
     CODE("*/mod",                                                 /// ( a b c -- d e )
          DU2 n = MUL2(ss.pop(), ss.pop());
          DU2 t = tos;
-         DU  m = MOD2(n, tos); SCALAR(m); ss.push(m);
+         DU  m = MOD2(n, tos);
+         SCALAR(m); ss.push(m);
          tos = D2I(n / t));
     ///@}
     ///@defgroup Binary logic ops (convert to integer first)
