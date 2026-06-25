@@ -35,8 +35,8 @@ class System : public OnHost {                  ///< singleton class
 public:
     mu::MMU      *mu;                           ///< memory management unit
     io::AIO      *io;                           ///< HOST IO manager
-    tb::Summary  *tb = NULL;                    ///< TensorBoard SummaryWriter
-    Debug        *db = NULL;                    ///< tracer (i.e. JTAG)
+    tb::Summary  *tb = NIL;                     ///< TensorBoard SummaryWriter
+    Debug        *db = NIL;                     ///< tracer (i.e. JTAG)
     ///
     /// singleton System controller
     ///
@@ -95,7 +95,7 @@ public:
         _istr->get_idiom(_tib, delim); return _tib;        ///< scan input stream for a given char
     }
     __HOST__  char *fetch() {                              ///< fetch next idiom
-        return (*_istr >> _tib) ? _tib : NULL;
+        return (*_istr >> _tib) ? _tib : NIL;
     }
     __HOST__  void clrbuf() { _istr->clear(); }
     ///
