@@ -78,7 +78,7 @@ show:
 # Link step: nvcc drives the link so CUDA device code is resolved correctly.
 # Depends on all module .o files accumulated in OBJS.
 $(APP_NAME): $(OBJS)
-	@echo '<App><Action>Link</Action><Filename>$<</Filename><Status>'
+	@echo '<App>$(APP_NAME)<Action>Link</Action><Filename>$(APP_TGT)</Filename><Status>'
 	$(NVCC) $(LINK_FLAGS) -o $(APP_TGT) $^ || $(NV_ERR)
 	@echo '</Status></App>'
 	@echo 'Built: $@'
