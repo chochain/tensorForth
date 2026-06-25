@@ -50,7 +50,7 @@ public:
     static void io_unlock();          ///< unlock IO
 #endif // DO_MULTITASK
 
-    static __HOST__ AIO *get_io(int *verbo=NULL);             ///< assume AIO is instantiated
+    static __HOST__ AIO *get_io(int *verbo=NIL);              ///< assume AIO is instantiated
     static __HOST__ void free_io();
 
     static __HOST__ void setfmt(ostr &o, void *vp);

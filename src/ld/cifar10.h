@@ -29,7 +29,7 @@ class Cifar10 : public Corpus {
 #define SAMPLE_BSZ  (LABEL_BSZ + IMAGE_BSZ)         /** 3073 */
     
 public:
-    Cifar10(const char *data_name) : Corpus(data_name, NULL, 0, 256) {}
+    Cifar10(const char *data_name) : Corpus(data_name, NIL, 0, 256) {}
     ~Cifar10() { _close(); }
 
     virtual Corpus *init(U32 mini_bsz, bool trace);    ///< setup/check sizing

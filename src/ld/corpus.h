@@ -51,7 +51,7 @@ struct Corpus {
     
     Corpus(const char *data_name, const char *label_name, int min, int max)
         : ds_name(data_name), tg_name(label_name), min(min), max(max),
-          corpus_sz(0), data(NULL), label(NULL) {}
+          corpus_sz(0), data(NIL), label(NIL) {}
     
     ~Corpus() {
         if (!data) return;
@@ -62,7 +62,7 @@ struct Corpus {
         cudaPointerAttributes attr;
         int host =
             cudaPointerGetAttributes(&attr, data)==cudaErrorInvalidValue &&
-            attr.devicePointer==NULL;
+            attr.devicePointer==NIL;
         cudaFree(data);
         if (label) cudaFree(label);
 #else  // !__CUDACC__
@@ -79,7 +79,7 @@ struct Corpus {
     
     U64 cell() { return (U64)H * W * C; }                            ///< size of an element
     
-    virtual Corpus *init(U32 mini_bsz, bool trace) { return NULL; }  ///< initialize dimensions
+    virtual Corpus *init(U32 mini_bsz, bool trace) { return NIL; }   ///< initialize dimensions
     virtual U32    fetch(U32 bid, bool trace) { return 0; };         ///< load a mini-batch
     virtual Corpus *rewind()    { eof = 0; return this; }
     virtual Corpus *show(U32 n) { return this; }                     ///< show/preview n samples

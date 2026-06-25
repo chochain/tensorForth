@@ -18,7 +18,7 @@ namespace t4::ld {
 
 struct Loader {
     static void   init();
-    static Corpus *get(mu::Dataset &ds, const char *ds_name=NULL);
+    static Corpus *get(mu::Dataset &ds, const char *ds_name=NIL);
 };
 
 } // namespace t4::ld

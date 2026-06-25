@@ -124,7 +124,7 @@ class Ostream : public OnHost {
     int      _idx      = 0;
     bool     _overflow = false;      ///< set when a write was dropped
     obuf_fmt _fmt      = { 10, 0, 0, ' '};
-    char    *_buf      = nullptr;
+    char    *_buf      = NIL;
 
     __HOST__ void _debug(GT gt, U8 *d, U32 sz) {
 #if T4_VERBOSE > 1

@@ -98,6 +98,7 @@ typedef F64         DU2;                    /**< double preciesion data */
 #define LT(a,b)     (((a) - (b)) < -DU_EPS) /**< arithmatic lesser than */
 #define GT(a,b)     (((a) - (b)) > DU_EPS)  /**< arithmatic greater than*/
 #define BOOL(d)     (ZEQ(d) ? DU0 : -DU1)   /**< default boolean        */
+#define NIL         (nullptr)               /**< null pointer           */
 ///
 /// data conversion macros
 ///
