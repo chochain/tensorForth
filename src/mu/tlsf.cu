@@ -396,7 +396,7 @@ TLSF::_mmu_ok()    {                           ///< mmu sanity check
     LOCK();
     used_block *p0 = (used_block*)_heap;
     used_block *p1 = (used_block*)BLK_AFTER(p0);
-    U32 tot = sizeof(used_block);
+    U64 tot = sizeof(used_block);
     while (p1) {
         if (p0->bsz != (p1->psz&~FREE_FLAG)) {         /// * linked-list ERROR!
             return 0;                                  /// * memory integrity broken!
@@ -414,7 +414,7 @@ TLSF::_show_stat() {
     ///
     /// stat pre-adjusted for the stopper block
     ///
-    int tot=sizeof(used_block), free=0, used=0;
+    U64 tot=sizeof(used_block), free=0, used=0;
     int nblk=-1, nused=-1, nfree=0, nfrag=0;
 
     used_block *p = (used_block*)_heap;
@@ -438,7 +438,7 @@ TLSF::_show_stat() {
     float pct = 100.0*used/tot;
 
     INFO("\\ TLSF: used[%d]=%d(0x%x) %.2f%% allocated", nused, used, used, pct);
-    INFO(" free[%d]=%d(0x%x), total=%d(0x%x)", nfree, free, free, tot, tot);
+    INFO(" free[%d]=%d(0x%x), total=%ld(0x%lx)", nfree, free, free, tot, tot);
     INFO(" nblk=%d, nfrag=%d\n", nblk, nfrag);
 #endif // MM_DEBUG
 }
