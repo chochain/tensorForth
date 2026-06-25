@@ -8,9 +8,9 @@
 #define __NN_NTYPES_H
 #pragma once
 
-#if (T4_DO_OBJ && T4_DO_NN)
-
 namespace t4 {
+
+#if T4_DO_OBJ
 
 //===============================================================================
 typedef enum {
@@ -35,18 +35,20 @@ typedef enum {
     L_DCONV         //> ConvTranspose
 } t4_layer;
 
+typedef enum {
+    LOSS_MSE = 0,                ///< mean square error
+    LOSS_BCE,                    ///< binary cross entropy (sigmoid input)
+    LOSS_CE,                     ///< cross entropy (softmax input)
+    LOSS_NLL                     ///< negative log-likelihood (logsoftmax input)
+} t4_loss;
+
+#if T4_DO_NN
+
 #define LAYER_OP \
     "output ", "conv2d ", "linear ", "flatten", "relu   ", \
     "tanh   ", "sigmoid", "selu   ", "leakyrl", "elu    ", \
     "dropout", "softmax", "logsmax", "avgpool", "maxpool", \
     "minpool", "batchnm", "upsampl", "dconv2d"
-
-typedef enum {
-    LOSS_MSE = 0,            ///< mean square error
-    LOSS_BCE,                ///< binary cross entropy (sigmoid input)
-    LOSS_CE,                 ///< cross entropy (softmax input)
-    LOSS_NLL                 ///< negative log-likelihood (logsoftmax input)
-} t4_loss;
 
 typedef enum {
     UP_NEAREST = 0,
@@ -62,7 +64,9 @@ typedef enum {
     OPTI_ADAMW               ///< AdamW grandient (decouple decay)
 } t4_optimizer;
 
+#endif // T4_DO_NN
+#endif // T4_DO_OBJ
+
 } // namespace t4
 
-#endif // T4_DO_NN
 #endif // __NN_NTYPES_H
