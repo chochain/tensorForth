@@ -20,7 +20,7 @@ namespace t4 {
 using io::AIO;
 using mu::MMU;
 
-System  *_sys = NULL;                ///< singleton controller on host
+System  *_sys = NIL;                 ///< singleton controller on host
 ///
 /// Forth Virtual Machine operational macros to reduce verbosity
 ///
@@ -33,8 +33,8 @@ System::System(io::istr &i, io::ostr &o, int khz, int verbo)
     mu = MMU::get_mmu();             /// * instantiate memory controller
     io = AIO::get_io(&_trace);       /// * instantiate async IO controler
     db = Debug::get_db(o);           /// * tracing instrumentation
-    tb = NULL;
-    t4_rand_init(time(NULL));        /// * initialize randomizer
+    tb = NIL;
+    t4_rand_init(time(NIL));         /// * initialize randomizer
     
     INFO("\\ System OK\n");
 }
@@ -84,7 +84,7 @@ __HOST__ void
 System::rand(DU *d, U64 sz, rand_opt o, DU bias, DU scale) {
     /// rand states are dependent, cannot run parallel with multi-blocks
 #if T4_DO_OBJ
-    t4_rand(d, sz, bias, scale, o);
+    t4_rand(d, sz, o, bias, scale);
 #else  // !T4_DO_OBJ
     ERROR("n/a");
 #endif // T4_DO_OBJ    
@@ -136,7 +136,7 @@ __HOST__ io::event*
 System::_process_opx(io::event *ev) {        ///< process composit IO types
     void *vp = (void*)ev->data();            ///< fetch payload in buffered print node
     io::_opx o = *((io::_opx*)vp);           ///< capture a hardcopy
-    DEBUG("  _opx(OP=%d, m=%d, i=%d, n=0x%08x=%g)\n", o.op, o.m, o.i, DU2X(o.n), o.n);
+    DEBUG("  _opx(OP=%d, m=%d, i=%d, n=0x%08x=%g)\n", o.op, o.m, o.i, (U32)DU2X(o.n), o.n);
         
     switch (o.op) {
     case OP_FLUSH: fout << std::flush;           break;
@@ -156,7 +156,7 @@ System::_process_opx(io::event *ev) {        ///< process composit IO types
                 ? io->t2png(t, fn)
                 : io->tsave(t, fn, o.m);                    /// * persist for NumPy
         }
-        else ERROR("%x is not a tensor\n", DU2X(o.n));
+        else ERROR("%x is not a tensor\n", (U32)DU2X(o.n));
     } break;
 #if T4_DO_NN    //==========================================================
     case OP_DATA: {
@@ -182,7 +182,7 @@ System::_process_opx(io::event *ev) {        ///< process composit IO types
     case OP_FETCH: {
         mu::Dataset &ds = (mu::Dataset&)mu->du2obj(o.n);
         if (ds.is_dataset()) {
-            ds.fetch(NULL, o.m, _trace);                    /// * fetch/rewind dataset batch
+            ds.fetch(NIL, o.m, _trace);                     /// * fetch/rewind dataset batch
         }
         else ERROR("%x is not a dataset\n", DU2X(o.n));
     } break;  
