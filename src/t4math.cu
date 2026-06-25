@@ -278,7 +278,6 @@ k_tt_op(math_op op, DP_R A, DP_R B, DP_W O, long n) {
 ///
 /// O[] is left unmodified (BCE value is accumulated into register v only).
 ///
-#define DU_EPS   1.0e-6                                /* epsilon */
 __KERN__ void
 k_bce(DP_R T, DP_R O, DP_W loss, long numel) {
     __shared__ DU _sum[32];                                  ///< one slot per warp
