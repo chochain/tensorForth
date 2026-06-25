@@ -29,7 +29,7 @@ struct Dataset : public Tensor {
     __HOST__ void normalize(DU mean, DU scale);
     
     __HOST__ int  fetch(char *ds_name, bool rewind, bool trace);
-    __HOST__ int  rewind(bool trace) { return fetch(NULL, true, trace); }
+    __HOST__ int  rewind(bool trace) { return fetch(NIL, true, trace); }
 
 private:
     DU _mean  = 0.0f;

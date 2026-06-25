@@ -13,7 +13,7 @@ using vm::Param;
 ///
 ///@name singleton constructor
 ///@{
-Debug *_db = NULL;                            ///< singleton Debug controller
+Debug *_db = NIL;                          ///< singleton Debug controller
 
 __HOST__ Debug*
 Debug::get_db(io::ostr &o) {
@@ -37,7 +37,7 @@ Code prim[] = {
     Code("var",  VAR),   Code("str",   STR),  Code("dotq",  DOTQ), Code("bran ", BRAN),
     Code("0bran",ZBRAN), Code("for  ", FOR),  Code("do",    DO),   Code("key",   KEY)
 };
-std::ios _fmt0(NULL);                     ///< static format storage
+std::ios _fmt0(NIL);                      ///< static format storage
 ///@}
 ///@name 
 ///@brief AIO takes managed memory blocks as input and output buffers
