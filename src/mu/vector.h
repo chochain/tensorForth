@@ -31,23 +31,25 @@
 namespace t4::mu {
 
 template<typename T, int N=VECTOR_INC>
-struct Vector {
-    T    *v     = nullptr;  ///< data buffer (owned or external)
+class Vector {
+    T    *v     = NIL;      ///< data buffer (owned or external)
     int   idx   = 0;        ///< number of elements stored
     int   max   = 0;        ///< allocated capacity
     bool  owned = false;    ///< true if we allocated v ourselves
+    
+public:    
     ///
     /// Constructors / Destructor
     ///
     __HOST__ Vector() : idx(0), max(N), owned(true) {
-        v = N ? new T[N] : nullptr;
+        v = N ? new T[N] : NIL;
     }
     __HOST__ Vector(T a[], int n) : idx(0), max(n), owned(true) {
-        v = n ? new T[n] : nullptr;
+        v = n ? new T[n] : NIL;
         merge(a, n);
     }
     __HOST__ Vector(const Vector<T>& a) : idx(0), max(a.idx), owned(true) {
-        v = a.idx ? new T[a.idx] : nullptr;
+        v = a.idx ? new T[a.idx] : NIL;
         merge(const_cast<Vector<T>&>(a));
     }
     __HOST__ ~Vector() { _free(); }
@@ -72,6 +74,9 @@ struct Vector {
     __HOST__ __INLINE__ T& operator[](int i) {
         int ri = i < 0 ? idx + i : i;
         ASSERT(ri >= 0 && ri < idx);   ///< bounds check (debug)
+        if (ri < 0 || ri >= idx) {
+            printf("EEEEE vector.h i=%d, idx=%d => ri=%d\n", i, idx, ri);
+        }
         return v[ri];
     }
     __HOST__ __INLINE__ const T& operator[](int i) const {
@@ -167,7 +172,7 @@ private:
     __HOST__ __INLINE__ void _free() {
         if (owned && v) {
             delete[] v;
-            v     = nullptr;
+            v     = NIL;
             max   = 0;
             idx   = 0;
             owned = false;

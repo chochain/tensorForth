@@ -82,7 +82,7 @@ TLSF::malloc(U64 sz) {
 
     LOCK();
     U32 index       = _find_free_index(bsz);
-    if (index == 0xff) return nullptr;
+    if (index == 0xff) return NIL;
     free_block *blk = _set_used(index);                ///< take the indexed block off free list
 
     _split(blk, bsz);                                  /// * allocate the block, free up the rest
