@@ -13,22 +13,21 @@ namespace t4 {
 ///
 /// object classification macros
 ///
-constexpr U32 T4_TYPE_MSK = 0x3;          ///< obj view flag
-constexpr U32 T4_TT_OBJ   = 0x1;          ///< data unit flag
-constexpr U32 T4_TT_VIEW  = 0x3;          ///< view of object
-constexpr U32 EXT_FLAG    = 0x80000000;   /**< extention flag */
+constexpr UFP T4_TYPE_MSK = 0x3;    ///< obj view flag
+constexpr UFP T4_TT_OBJ   = 0x1;    ///< data unit flag
+constexpr UFP T4_TT_VIEW  = 0x3;    ///< view of object
 
-struct Variant {             /// * DU <=> pointer conversion utility class
-    uintptr_t raw;
-    Variant(void *ptr) : raw(reinterpret_cast<uintptr_t>(ptr)) {}
-    U32  addr()        { return (U32)(raw & ~T4_TYPE_MSK); }
+struct Variant {                    ///< DU <=> pointer conversion utility class
+    UFP raw;
+    Variant(void *ptr) : raw(reinterpret_cast<UFP>(ptr)) {}
+    UFP  addr()        { return raw & ~T4_TYPE_MSK;     }
     bool is_obj()      { return (raw & T4_TT_OBJ) != 0; }
     bool is_view()     { return (raw & T4_TYPE_MSK)==T4_TT_VIEW; }
-    void as_view()     { U32 *v = reinterpret_cast<U32*>(raw & ~T4_TYPE_MSK); *v |= T4_TT_VIEW; }
-    void as_scalar()   { U32 *v = reinterpret_cast<U32*>(raw & ~T4_TYPE_MSK); *v &= ~T4_TT_OBJ; }
+    void as_view()     { U32 *v = reinterpret_cast<U32*>(addr()); *v |= T4_TT_VIEW; }
+    void as_scalar()   { U32 *v = reinterpret_cast<U32*>(addr()); *v &= ~T4_TT_OBJ; }
 };
-#define DU2X(v)     ((U32)Variant(&v).raw)           /**< to U32 ptr     */
-#define SCALAR(v)   (Variant(&v).as_scalar())        /**< set DU flag    */
+#define DU2X(v)     ((UFP)Variant(&v).raw)           /**< to U32 ptr     */
+#define SCALAR(v)   (Variant(&v).as_scalar(), (v))   /**< set DU flag    */
 
 #define IS_OBJ(v)   (Variant(&v).is_obj())           /**< if is an obj   */
 #define IS_VIEW(v)  (Variant(&v).is_view())
@@ -67,7 +66,7 @@ struct T4Base : public OnHost {
     /// class contructors
     ///
     __HOST__ T4Base() :
-        numel(0), rank(0), data(NULL) {}
+        numel(0), rank(0), data(NIL) {}
     __HOST__ T4Base(U64 sz) :
         numel(sz), rank(1) {
         H_ALLOC((void**)&data, (size_t)numel * sizeof(DU));
@@ -77,7 +76,7 @@ struct T4Base : public OnHost {
         H_ALLOC((void**)&data, (size_t)numel * sizeof(DU));
     }
     __HOST__ T4Base(U32 n, U32 h, U32 w, U32 c) :
-        numel((U64)n * h * w * c), rank(4), data(NULL) {
+        numel((U64)n * h * w * c), rank(4), data(NIL) {
         H_ALLOC((void**)&data, (size_t)numel * sizeof(DU));
     }
     __HOST__ ~T4Base() {
@@ -93,7 +92,7 @@ struct T4Base : public OnHost {
         nref  = 1;
         iparm = 0;
         xparm = DU0;
-        data  = NULL;
+        data  = NIL;
     }
     __HOST__ __INLINE__ DU   &operator[](int i) { return data[i]; }
     __HOST__ __INLINE__ int  ref_inc() {
