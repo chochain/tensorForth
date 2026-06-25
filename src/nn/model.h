@@ -44,7 +44,7 @@ public:
     DU     max_norm = DU0;       ///< gradient clipping
 
     __HOST__ Model()                                     ///< init for mallco
-        : T4Base(), _mmu(NULL),  _hot(NULL), _loss(NULL) {}
+        : T4Base(), _mmu(NIL),  _hot(NIL), _loss(NIL) {}
     ///
     /// @name Derivertive ops
     /// @{
@@ -73,7 +73,7 @@ public:
     /// @}
     /// @name main NN methods
     /// @{
-    __HOST__ Model  &add(t4_layer fn, U32 n=0, DU alpha=DU0, U16 *opt=NULL);
+    __HOST__ Model  &add(t4_layer fn, U32 n=0, DU alpha=DU0, U16 *opt=NIL);
     __HOST__ Model  &forward(Tensor &input);             ///< network feed forward
     __HOST__ Model  &broadcast(Tensor &tgt);
     __HOST__ Model  &backprop();                         ///< back propegation with default onehot vector (built during forward pass from dataset labels)

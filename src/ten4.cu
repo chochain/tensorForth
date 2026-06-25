@@ -257,7 +257,7 @@ void sigtrap() {
     sigemptyset(&sa.sa_mask);
     sa.sa_sigaction = sigsegv_handler;
     sa.sa_flags     = SA_SIGINFO;
-    sigaction(SIGSEGV, &sa, NULL);
+    sigaction(SIGSEGV, &sa, NIL);
 }
 
 #include "opt.h"
