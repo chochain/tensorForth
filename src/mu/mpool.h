@@ -30,11 +30,11 @@ namespace t4::mu {
 //  next free block (intrusive singly-linked free list).
 // ============================================================================
 class Mpool {
-    int    _bsz;                             ///< block size
-    int    _nblock;                          ///< max number of blocks
+    size_t _bsz;                             ///< block size
     char*  _storage;                         ///< malloc'd flat buffer
     void*  _free_head;                       ///< head of the free list
     int    _alloc_cnt;
+    int    _nblock;                          ///< max number of blocks
 
     mutable std::mutex _mutex;               ///< multi-threading control
     
@@ -52,10 +52,12 @@ public:
     /// ------------------------------------------------------------------
     /// Core API
     /// ------------------------------------------------------------------
-    void  *init(int bsz, int nblock);         ///< construction only via get_instance()
+    void  *init(size_t bsz, int nblock);      ///< construction only via get_instance()
     void  *malloc();                          ///< Returns a block. Throws std::bad_alloc if exhausted.
     void  free(void *ptr);                    ///< Returns a block to the pool. No-op on nullptr.
-    int   offset(void *ptr) const { return (char*)ptr - _storage; } ///< ptr offset to _storage
+    ptrdiff_t offset(void *ptr) const {       ///< ptr offset to _storage (signed diff)
+        return (char*)ptr - _storage;
+    }
     void  status();                           ///< for sanity check
     ///
     /// Non-copyable, non-movable.

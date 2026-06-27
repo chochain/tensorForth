@@ -21,7 +21,7 @@ namespace t4::mu {
 ///
 #define LOCK()    std::unique_lock<std::mutex> lock(_mutex)
 #define UNLOCK()  lock.unlock()
-#define OFFSET(p) ((int)((char*)(p) - _storage))           /** storage offset */
+#define OFFSET(p) ((UFP)((char*)(p) - _storage))           /** storage offset */
 
 Mpool &Mpool::get_instance() {
     static Mpool pool0;                   ///< constructed once, destroyed at program exit
@@ -31,7 +31,7 @@ Mpool &Mpool::get_instance() {
 // ============================================================================
 // private Constructor / Destructor
 // ============================================================================
-void *Mpool::init(int bsz, int nblock) {
+void *Mpool::init(size_t bsz, int nblock) {
     LOCK();
     _bsz       = bsz;
     _nblock    = nblock;
@@ -63,12 +63,12 @@ void *Mpool::malloc() {
     ++_alloc_cnt;
     
     MM_DB("    mpool#alloc_cnt = %d\n"
-          "  } mpoolf#malloc => %x:%x\n", _alloc_cnt, OFFSET(blk), _bsz);
+          "  } mpoolf#malloc => %zx:%zx\n", _alloc_cnt, OFFSET(blk), _bsz);
     return blk;
 }
 
 void Mpool::free(void *ptr) {
-    MM_DB("  mpool#free(%x) %d(0x%x) {\n", OFFSET(ptr), _bsz, _bsz);
+    MM_DB("  mpool#free(%zx) %zd(0x%zx) {\n", OFFSET(ptr), _bsz, _bsz);
     if (!ptr) return;
 
     assert(is_own(ptr) && "Mpool::dealloc: pointer does not belong to this pool");
@@ -79,12 +79,12 @@ void Mpool::free(void *ptr) {
     _free_head = ptr;
     _alloc_cnt--;
     MM_DB("    mpool#alloc_cnt = %d\n"
-          "  } mpool#free(%x)\n", _alloc_cnt, OFFSET(ptr));
+          "  } mpool#free(%zx)\n", _alloc_cnt, OFFSET(ptr));
 }
 
 void Mpool::status() {
     LOCK();
-    MM_DB("\\ OBJ : used[%d] (fixed 0x%xB), free[%d/%d]\n",
+    MM_DB("\\ OBJ : used[%d] (fixed 0x%zxB), free[%d/%d]\n",
          _alloc_cnt, _bsz, (_nblock - _alloc_cnt), _nblock);
 }
 
