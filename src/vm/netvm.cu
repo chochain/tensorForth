@@ -492,7 +492,7 @@ NetVM::init() {
     CODE("\nUser::",  {});                         ///< page break
     ///@}
     
-    TRACE("NetVM::init ok, sizeof(Model)=%ld, sizeof(Dataset)=%ld\n", sizeof(Model), sizeof(Dataset));
+    TRACE("NetVM::init ok, sizeof(Model)=%zu, sizeof(Dataset)=%zu\n", sizeof(Model), sizeof(Dataset));
 };
 
 } // namespace t4::vm

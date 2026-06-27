@@ -33,7 +33,7 @@ TensorVM::process(char *idiom) {
         TTOS.data[ten_off++] = n;             /// * append to tensor.data (no stack used)
     }
     else {                                    ///> or, add value onto data stack
-        VLOG("vm%d> ss.push(%g)=%08x\n", id, n, (U32)DU2X(n));
+        VLOG("vm%d> ss.push(%g)=%08x\n", id, n, DU2X(n));
         PUSH(n);
     }
     return 1;
@@ -402,7 +402,7 @@ TensorVM::_pickle(bool load, bool png) {
     const char* nm[] = { "tensor", "model", "dataset", "xxx" };
     U32   *p = (U32*)&t;
     INFO(".X %s(%04x)[%08x %08x %08x %08x].data(%p) => %s\n",
-         nm[t.ttype], (U32)DU2X(tos), p[0], p[1], p[2], p[3], t.data, tag);
+         nm[t.ttype], DU2X(tos), p[0], p[1], p[2], p[3], t.data, tag);
 #endif // MM_DEBUG    
 
     syscall(op, tos, mode, DU2X(tos), tag);   /// * show to Tensorboard or load/store tensor
@@ -632,7 +632,7 @@ TensorVM::init() {
          else xop2(MIN));
     CODE(".png", _pickle(false, true));      /// * ( T adr len -- )
     ///@}
-    TRACE("TensorVM[%d]::init ok, sizeof(Tensor)=%ld\n", id, sizeof(Tensor));
+    TRACE("TensorVM[%d]::init ok, sizeof(Tensor)=%zu\n", id, sizeof(Tensor));
 }
 
 } // namespace t4::vm

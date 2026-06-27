@@ -430,7 +430,7 @@ ForthVM::init() {
     CODE("u>",     {});
     CODE("within", {});
 #endif
-    TRACE("ForthVM[%d]::init ok, dict=%p, sizeof(Code)=%ld, sizoef(Param)=%ld\n",
+    TRACE("ForthVM[%d]::init ok, dict=%p, sizeof(Code)=%zu, sizoef(Param)=%zu\n",
           id, dict, sizeof(Code), sizeof(Param));
 }
 ///======================================================================
