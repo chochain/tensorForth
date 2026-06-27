@@ -226,7 +226,7 @@ struct OnHost {
     void *operator new(size_t sz) {
         void *ptr;
         H_ALLOC(&ptr, sz);
-        DEBUG("new Host Obj %p size=%ld byes\n", ptr, sz);
+        DEBUG("new Host Obj %p size=%zu byes\n", ptr, sz);
         return ptr;
     }
     void operator delete(void *ptr) { H_FREE(ptr); }
