@@ -139,7 +139,7 @@ MMU::status(bool hdr) {
 __HOST__ void
 MMU::dict_dump() {
     Code *c = _dict;
-    INFO("Built-in Dictionary [name0=0x%lx, xt0=0x%lx]\n", _NM0, _XT0);
+    INFO("Built-in Dictionary [name0=0x%zx, xt0=0x%zx]\n", _NM0, _XT0);
     for (int i=0; i<_didx; i++, c++) {      ///< dump dictionary from device
         IU  ix  = c->udf ? c->pfa : (UFP)c->xt - _XT0;
         INFO("%4d|%03x> name=%6x, %s=%6x %s\n", i, i,
@@ -172,7 +172,7 @@ MMU::sweep() {
     LOCK();
     for (int i = 0, n=_fidx; n && i < n; i++) {
         DU v = _mark[i];
-        MM_DB("mmu#release T:%x from free[%d]\n", (U32)(DU2X(v) & ~T4_TT_OBJ), i);
+        MM_DB("mmu#release T:%x from free[%d]\n", DU2X(v) & (U32)~T4_TT_OBJ, i);
         drop(du2obj(v));
     }
     _fidx = 0;
@@ -189,7 +189,7 @@ __HOST__ void
 MMU::mark_free(DU v) {              ///< mark a tensor free for release
     if (IS_VIEW(v)) return;
     T4Base &t = du2obj(v);
-    MM_DB("mmu#mark T:%x to free[%d]\n", OBJ2X(t), _fidx);
+    MM_DB("mmu#mark T:%zx to free[%d]\n", OBJ2X(t), _fidx);
 
     LOCK();
     if (_fidx < T4_TFREE_SZ) _mark[_fidx++] = obj2du(t);
@@ -201,7 +201,7 @@ MMU::talloc(U64 sz) {
     MM_DB("mmu#talloc(0x%lx) {\n", sz);
     Tensor *t = (Tensor*)_mpool.malloc();
     void   *d = _ostore.malloc((sz+1) * sizeof(DU));  // one extra for temp storage
-    MM_DB("} mmu#talloc => T:%x+%x\n", OBJ2X(*t), (U32)((U8*)d - _data));
+    MM_DB("} mmu#talloc => T:%zx+%x\n", OBJ2X(*t), (U32)((U8*)d - _data));
     t->reset(d, sz);
     GPU_CHK();
         
@@ -248,7 +248,7 @@ MMU::resize(Tensor &t, U64 sz) {
 __HOST__ void                    ///< release tensor memory blocks
 MMU::free(Tensor &t) {
     int n = t.rank;
-    MM_DB("mmu#free(T%d) numel=%ld T:%x {\n", n, t.numel, OBJ2X(t));
+    MM_DB("mmu#free(T%d) numel=%ld T:%zx {\n", n, t.numel, OBJ2X(t));
     _ostore.free(t.data);        /// * free physical data
     if (t.grad_fn != L_NONE) {
         MM_DB("{\n");
@@ -276,7 +276,7 @@ __HOST__ Tensor&
 MMU::copy(Tensor &t0) {
     if (!t0.is_tensor()) return t0;         ///> skip, TODO: copy model
 
-    MM_DB("mmu#copy(T%d:%x) numel=%ld {\n", t0.rank, OBJ2X(t0), t0.numel);
+    MM_DB("mmu#copy(T%d:%zx) numel=%ld {\n", t0.rank, OBJ2X(t0), t0.numel);
     Tensor *t1 = (Tensor*)_mpool.malloc();  /// * was = *(Tensor*)_ostore.malloc(sizeof(Tensor));
     memcpy(t1, &t0, sizeof(Tensor));        /// * copy attributes
     ///
@@ -292,7 +292,7 @@ MMU::copy(Tensor &t0) {
     t1->data = (DU*)_ostore.malloc(bsz);
     *t1 = t0;                               /// * copy all tensor elements
     
-    MM_DB("} mmu#copy(T%d) => T%d:%x\n", t0.rank, t1->rank, OBJ2X(*t1));
+    MM_DB("} mmu#copy(T%d) => T%d:%zx\n", t0.rank, t1->rank, OBJ2X(*t1));
     return *t1;
 }
 __HOST__ Tensor&
@@ -341,7 +341,7 @@ MMU::dataset(U32 batch_sz) {                 /// * Note: data block is not alloc
     ds->batch_id = 0;                        /// * setup control flag
     ds->label    = NULL;
     ds->normalize(0.0f, 256.0f);             /// * default normalization
-    MM_DB("} mmu#dataset => D:%x\n", OBJ2X(*ds));
+    MM_DB("} mmu#dataset => D:%zx\n", OBJ2X(*ds));
     return *ds;
 }
 
@@ -352,14 +352,14 @@ MMU::model(int &trace, U32 nsz) {
     DU     *t;                               /// * allocate network layer storage (in host heap)
     H_ALLOC(&t, nsz * sizeof(DU));
     m->init(this, nsz, t, &trace);
-    MM_DB("} mmu#model => M:%x\n", OBJ2X(*m));
+    MM_DB("} mmu#model => M:%zx\n", OBJ2X(*m));
     return *m;
 }
 
 __HOST__ void                                ///< release tensor memory blocks
 MMU::free(Model &m) {
     int n = (int)m.numel;
-    MM_DB("mmu#free(N%d) N:%x {\n", n, OBJ2X(m));
+    MM_DB("mmu#free(N%d) N:%zx {\n", n, OBJ2X(m));
     for (int i = n - 1; i >= 0; i--) {
         MM_DB("\t"); free(m[i]);             /// * release layer tensors
     }
