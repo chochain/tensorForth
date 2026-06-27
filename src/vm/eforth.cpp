@@ -132,7 +132,7 @@ ForthVM::nest() {
             }
             else (*mmu.XT(ix.ioff))());              /// * execute built-in word
         }
-        VM_TLR(" => SS=%d, RS=%d, ip=%x", ss.size(), rs.size(), ip);
+        VM_TLR(" => SP=%d, RP=%d, ip=%x", SP, RP, ip);
     }
 }
 ///
@@ -397,7 +397,7 @@ ForthVM::init() {
     CODE("here",  PUSH(HERE));
     CODE("'",     IU w = FIND(sys.fetch()); if (w) PUSH(w));
     CODE(".s",    _ss_dump());
-    CODE("depth", PUSH(ss.size() - 1));
+    CODE("depth", PUSH(SP - 1));
     CODE("words", sys.op(OP_WORDS));
     CODE("dict",  sys.op(OP_DICT));                         /// dict_dump in host mode
     CODE("dict_dump", mmu.dict_dump());
@@ -556,7 +556,7 @@ ForthVM::_is_alias() {                                    /// create alias funct
 
 __HOST__ void
 ForthVM::_ss_dump() {
-    sys.dots(id, tos, ss.size(), *BASE);
+    sys.dots(id, tos, SP, *BASE);
 }
 
 __HOST__ void

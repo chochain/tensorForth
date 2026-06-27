@@ -22,8 +22,8 @@ namespace t4::vm {
 #define TTOS      ((Tensor&)mmu.du2obj(tos))        /**< tensor on TOS      */
 #define TNOS      ((Tensor&)mmu.du2obj(ss[-1]))     /**< tensor on NOS      */
 #define TOS1T     (IS_OBJ(tos) && TTOS.is_tensor())
-#define TOS2T     (ss.size() > 0 && TOS1T && IS_OBJ(ss[-1]) && TNOS.is_tensor())
-#define TOS3T     (ss.size() > 1 && TOS2T && IS_OBJ(ss[-2]) && mmu.du2obj(ss[-2]).is_tensor())
+#define TOS2T     (SP > 0 && TOS1T && IS_OBJ(ss[-1]) && TNOS.is_tensor())
+#define TOS3T     (SP > 1 && TOS2T && IS_OBJ(ss[-2]) && mmu.du2obj(ss[-2]).is_tensor())
 ///@}
 ///@name Tensor (multi-dimension array) class
 ///@{

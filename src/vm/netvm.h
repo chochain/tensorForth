@@ -15,14 +15,14 @@
 
 namespace t4::vm {
 
-#define MTOS     ((Model&)mmu.du2obj(tos))                                       /** Network Model on TOS   */
-#define MNOS     ((Model&)mmu.du2obj(ss[-1]))                                    /** Network Model on NOS   */
+#define MTOS     ((Model&)mmu.du2obj(tos))                                   /** Network Model on TOS   */
+#define MNOS     ((Model&)mmu.du2obj(ss[-1]))                                /** Network Model on NOS   */
 #define TOS1D    (IS_OBJ(tos) && (TTOS.is_tensor() || TTOS.is_dataset()))
 #define RS1D     (IS_OBJ(rs[-1]) && mmu.du2obj(rs[-1]).is_dataset())
-#define IS_M(v)  (IS_OBJ(v) && mmu.du2obj(v).is_model())                         /** check param is a model */
-#define M1V      (ss.size() > 0 && !IS_OBJ(tos) && IS_M(ss[-1]))                 /** NOS model w 1-param    */
-#define M2V      (ss.size() > 1 && !IS_OBJ(tos) && !IS_OBJ(ss[-1]) && IS_M(ss[-2])) /** ss[-2] model w 2-param */
-#define MTV      (ss.size() > 1 && !IS_OBJ(tos) && IS_OBJ(ss[-1]) && IS_M(ss[-2]))  /** ss[-2] model tensor w 1-param */
+#define IS_M(v)  (IS_OBJ(v) && mmu.du2obj(v).is_model())                     /** check param is a model */
+#define M1V      (SP > 0 && !IS_OBJ(tos) && IS_M(ss[-1]))                    /** NOS model w 1-param    */
+#define M2V      (SP > 1 && !IS_OBJ(tos) && !IS_OBJ(ss[-1]) && IS_M(ss[-2])) /** ss[-2] model w 2-param */
+#define MTV      (SP > 1 && !IS_OBJ(tos) && IS_OBJ(ss[-1]) && IS_M(ss[-2]))  /** ss[-2] model tensor w 1-param */
 
 class NetVM : public TensorVM {
     using Tensor = mu::Tensor;                   ///< alias
