@@ -120,17 +120,17 @@ public:
     ///
     /// short hands for eforth tensor ucodes (for DU <-> Tensor conversion)
     ///
-//    __HOST__ U32    OBJ2X(T4Base &t) { return (U8*)&t - _obj; }         ///< object offset in _ospace
-    __HOST__ U32    OBJ2X(T4Base &t) { return _mpool.offset((void*)&t); } ///< object offset in _ospace
+    __HOST__ UFP OBJ2X(T4Base &t) {                          ///< object offset in _mspace
+        return static_cast<UFP>(_mpool.offset((void*)&t));   /// * always positive
+    } 
     __HOST__ T4Base &du2obj(DU d) {                          ///< DU to Obj convertion
-        U32    off = DU2X(d) & ~T4_TYPE_MSK;                 ///< clear object bit
+        U32    off  = D2I(AS_OBJ(d));                        ///< clear object flag
         T4Base *t  = (T4Base*)(_obj + off);                  ///< convert to object pointer
         return *t;
     }
     __HOST__ DU     obj2du(T4Base &t) {                      ///< conver Obj to DU
-        UFP o = (UFP)OBJ2X(t);
-        U32 v = *reinterpret_cast<U32*>(o) | T4_TT_OBJ;      ///
-        return *reinterpret_cast<DU*>(o) = I2D(v);           ///< convert to DU value
+        DU v = I2D((U32)OBJ2X(t));                           ///< object offset to DU
+        return AS_OBJ(v);                                    /// * set object flag
     }
     ///
     /// tensor object life-cycle methods
