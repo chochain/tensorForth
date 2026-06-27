@@ -135,7 +135,7 @@ _display() {
     VUX(cudaGraphicsMapResources(1, &vu->cu_pbo, 0));   /// * lock CUDA vbo to GL buffer
     VUX(cudaGraphicsResourceGetMappedPointer(           /// * get device buffer pointer
             (void**)&d_buf, &bsz, vu->cu_pbo));
-    //printf("vu->cu_pbo=%p, d_buf=%p bsz=%ld\n", vu->cu_pbo, d_buf, bsz);
+    //printf("vu->cu_pbo=%p, d_buf=%p bsz=%zu\n", vu->cu_pbo, d_buf, bsz);
     
     if (d_buf) vu->display(d_buf);                      /// * update buffer content
     
@@ -184,7 +184,7 @@ _bind_texture(Vu *vu) {
 
     U64 bsz = vu->X * vu->Y * sizeof(uchar4);
     glGenBuffers(1, &gl_pbo);
-    printf(", gl_pbo[%d] size=%ld", gl_pbo, bsz);
+    printf(", gl_pbo[%d] size=%zu", gl_pbo, bsz);
     ///
     /// stream h_tex to pbo
     ///

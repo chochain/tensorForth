@@ -14,7 +14,7 @@ __HOST__
 Vu::Vu(ld::Corpus &cp, int x, int y) :
     corpus(cp), X(x ? x : corpus.W), Y(y ? y : corpus.H) {
     if (sizeof(uchar4) != 4) {
-        fprintf(stderr, "ERR: Bad uchar4 size = %ld\n", sizeof(uchar4));
+        fprintf(stderr, "ERR: Bad uchar4 size = %zu\n", sizeof(uchar4));
         exit(-1);
     }
     _init_host_tex();
@@ -40,7 +40,7 @@ Vu::_init_host_tex() {                    ///* shrink to fit
         fprintf(stderr, "Vu.h_tex host texture malloc failed\n");
         exit(-1);
     }
-    printf("Vu.h_tex=%p size=%ld", h_tex, bsz);
+    printf("Vu.h_tex=%p size=%zu", h_tex, bsz);
     
     int xs = (corpus.W + (X-1)) / X;      ///< x-stride
     int ys = (corpus.H + (Y-1)) / Y;      ///< y-stride
