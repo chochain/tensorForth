@@ -11,27 +11,28 @@
 
 namespace t4 {
 ///
-/// object classification macros
+/// object classification macros (watch out for 32 vs 64-bit host)
 ///
 constexpr UFP T4_TYPE_MSK = 0x3;    ///< obj view flag
 constexpr UFP T4_TT_OBJ   = 0x1;    ///< data unit flag
 constexpr UFP T4_TT_VIEW  = 0x3;    ///< view of object
 
-struct Variant {                    ///< DU <=> pointer conversion utility class
-    UFP raw;
-    Variant(void *ptr) : raw(reinterpret_cast<UFP>(ptr)) {}
-    UFP  addr()        { return raw & ~T4_TYPE_MSK;     }
-    bool is_obj()      { return (raw & T4_TT_OBJ) != 0; }
-    bool is_view()     { return (raw & T4_TYPE_MSK)==T4_TT_VIEW; }
-    void as_view()     { U32 *v = reinterpret_cast<U32*>(addr()); *v |= T4_TT_VIEW; }
-    void as_scalar()   { U32 *v = reinterpret_cast<U32*>(addr()); *v &= ~T4_TT_OBJ; }
+struct Variant {                    ///< DU(F32) <=> IU(U32) conversion utility class
+    IU    *iup;                     ///< IU pointer
+    Variant(void *p) : iup(reinterpret_cast<IU*>(p)) {}
+    bool   is_obj()    { return (*iup & T4_TT_OBJ) != 0; }
+    bool   is_view()   { return (*iup & T4_TYPE_MSK)==T4_TT_VIEW; }
+    DU     as_obj()    { *iup |= T4_TT_OBJ;  return *reinterpret_cast<DU*>(iup); }
+    DU     as_view()   { *iup |= T4_TT_VIEW; return *reinterpret_cast<DU*>(iup); }
+    DU     as_scalar() { *iup &= ~T4_TT_OBJ; return *reinterpret_cast<DU*>(iup); }
 };
-#define DU2X(v)     ((UFP)Variant(&v).raw)           /**< to U32 ptr     */
-#define SCALAR(v)   (Variant(&v).as_scalar(), (v))   /**< set DU flag    */
+#define DU2X(v)     (*Variant(&v).iup)               /**< get U32 @ pointer  */
+#define SCALAR(v)   (Variant(&v).as_scalar())        /**< set DU flag        */
 
-#define IS_OBJ(v)   (Variant(&v).is_obj())           /**< if is an obj   */
+#define IS_OBJ(v)   (Variant(&v).is_obj())           /**< if is an obj       */
 #define IS_VIEW(v)  (Variant(&v).is_view())
-#define AS_VIEW(v)  (Variant(&v).as_view(), (v))
+#define AS_OBJ(v)   (Variant(&v).as_obj())
+#define AS_VIEW(v)  (Variant(&v).as_view())
 ///
 /// tensorForth object types
 ///
@@ -158,7 +159,7 @@ struct Managed {
     void *operator new(size_t sz) {
         void *ptr;
         MM_ALLOC(&ptr, sz);
-        DEBUG("new Managed Obj %p size=%ld byes\n", ptr, sz);
+        DEBUG("new Managed Obj %p size=%zd byes\n", ptr, sz);
         return ptr;
     }
     void operator delete(void *ptr) { MM_FREE(ptr); }
