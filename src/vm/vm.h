@@ -34,7 +34,7 @@ namespace t4::vm {
     case COS:  t = COS(t);          break;      \
     default:                        break;      \
     }                                           \
-    tos = SCALAR(t);
+    tos = SCALAR(t)
 
 #define XOP2(op)                                \
     DU t = tos, n = ss.pop();                   \
@@ -51,12 +51,14 @@ namespace t4::vm {
     case POW:  t = POW(t, n);       break;      \
     default:                        break;      \
     }                                           \
-    tos = SCALAR(t);
+    tos = SCALAR(t)
 
 ///@}
 ///@name virtual machine base class
 ///@{
 typedef enum { STOP=0, HOLD, QUERY, NEST, VM_STATE_SZ } vm_state;   ///< ten4 states
+#define SP    (ss.size())             /** data stack pointer   */
+#define RP    (rs.size())             /** return stack pointer */
 
 class VM {                            ///< VM (created in kernal mode)
 public:
