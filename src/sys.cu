@@ -136,7 +136,7 @@ __HOST__ io::event*
 System::_process_opx(io::event *ev) {        ///< process composit IO types
     void *vp = (void*)ev->data();            ///< fetch payload in buffered print node
     io::_opx o = *((io::_opx*)vp);           ///< capture a hardcopy
-    DEBUG("  _opx(OP=%d, m=%d, i=%d, n=0x%08x=%g)\n", o.op, o.m, o.i, (U32)DU2X(o.n), o.n);
+    DEBUG("  _opx(OP=%d, m=%d, i=%d, n=%g(0x%08x)\n", o.op, o.m, o.i, o.n, DU2X(o.n));
         
     switch (o.op) {
     case OP_FLUSH: fout << std::flush;           break;
@@ -156,7 +156,7 @@ System::_process_opx(io::event *ev) {        ///< process composit IO types
                 ? io->t2png(t, fn)
                 : io->tsave(t, fn, o.m);                    /// * persist for NumPy
         }
-        else ERROR("%x is not a tensor\n", (U32)DU2X(o.n));
+        else ERROR("0x%x is not a tensor\n", DU2X(o.n));
     } break;
 #if T4_DO_NN    //==========================================================
     case OP_DATA: {
@@ -166,7 +166,7 @@ System::_process_opx(io::event *ev) {        ///< process composit IO types
             char *ds_nm = (char*)ev->data();                /// * dataset name
             ds.fetch(ds_nm, 0, _trace);                     /// * fetch first batch
         }
-        else ERROR("%x is not a dataset\n", DU2X(o.n));
+        else ERROR("0x%x is not a dataset\n", DU2X(o.n));
     } break;
     case OP_NORM: {
         mu::Dataset &ds = (mu::Dataset&)mu->du2obj(o.n);
@@ -177,14 +177,14 @@ System::_process_opx(io::event *ev) {        ///< process composit IO types
             ds.normalize(I2D((int)x.i), x.n);               /// * fetch first batch
             ds.rewind(_trace);                              /// * rewind/load dataset
         }
-        else ERROR("%x is not a dataset\n", DU2X(o.n));
+        else ERROR("0x%x is not a dataset\n", DU2X(o.n));
     } break;  
     case OP_FETCH: {
         mu::Dataset &ds = (mu::Dataset&)mu->du2obj(o.n);
         if (ds.is_dataset()) {
             ds.fetch(NIL, o.m, _trace);                     /// * fetch/rewind dataset batch
         }
-        else ERROR("%x is not a dataset\n", DU2X(o.n));
+        else ERROR("0x%x is not a dataset\n", DU2X(o.n));
     } break;  
     case OP_NSAVE: {
         nn::Model &m = (nn::Model&)mu->du2obj(o.n);
@@ -193,7 +193,7 @@ System::_process_opx(io::event *ev) {        ///< process composit IO types
             char *fn = (char*)ev->data();                   ///< filename
             io->nsave(m, fn, o.m);                          /// * o->m FAM mode
         }
-        else ERROR("%x is not a model\n", DU2X(o.n));
+        else ERROR("0x%x is not a model\n", DU2X(o.n));
     } break;
     case OP_NLOAD: {
         nn::Model &m = (nn::Model&)mu->du2obj(o.n);
@@ -203,7 +203,7 @@ System::_process_opx(io::event *ev) {        ///< process composit IO types
             char *fn = (char*)ev->data();                  ///< filename
             io->nload(m, fn, o.m, _istr->rdbuf());         /// * fetch into rdbuf
         }
-        else ERROR("%x is not a model\n", DU2X(o.n));
+        else ERROR("0x%x is not a model\n", DU2X(o.n));
     } break;
 #endif // T4_DO_NN  =======================================================
 #endif // T4_DO_OBJ ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
