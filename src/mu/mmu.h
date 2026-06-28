@@ -21,7 +21,7 @@ namespace t4::mu {
 /// Forth memory manager
 /// TODO: compare TLSF to RMM (Rapids Memory Manager)
 ///
-class MMU : public OnHost {
+class MMU {
     IU             _didx  = 0;      ///< dictionary index
     IU             _midx  = 0;      ///< parameter memory index
     IU             _fidx  = 0;      ///< index to freed tensor list
@@ -156,7 +156,7 @@ public:
     __HOST__  void       free(nn::Model &m);
 #endif // T4_DO_NN
 #else  // !T4_DO_OBJ ==========================================================
-    __HOST__  void   sweep()    {}                           ///< holder for no object
+    __HOST__  void   sweep() { return; }                         ///< holder for no object
     
 #endif // T4_DO_OBJ ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 };

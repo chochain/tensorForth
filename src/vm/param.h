@@ -12,7 +12,7 @@ namespace t4::vm {
 ///
 ///@name Parameter Structure
 ///@{
-struct Param : public OnHost {
+struct Param {
     union {
         IU pack;                   ///< collective (32-bit)
         struct {
