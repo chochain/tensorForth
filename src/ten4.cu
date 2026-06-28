@@ -51,7 +51,7 @@ _vm_done(VM_Handle *pool) {
 __HOST__ void
 _ten4_tally(System *sys, int *vmst_cnt, VM_Handle *pool) {
     sys->mu->sweep();                         ///< clear marked free tensors
-    
+
     for (int i = 0; i < vm::VM_STATE_SZ; i++) {
         vmst_cnt[i] = 0;
     }
@@ -136,19 +136,20 @@ TensorForth::TensorForth(int device, int verbose) {
     /// allocate tensorForth system memory blocks
     ///
     sys = System::get_sys(std::cin, std::cout, khz, T4_VERBOSE);
+}
+
+__HOST__ void
+TensorForth::setup(const char *tb_logdir, const char *tb_run_id) {
     ///
     /// allocate VM handle pool
     ///
     H_ALLOC(&vm_pool, sizeof(VM_Handle) * T4_VM_COUNT);
     H_ALLOC(&vmst_cnt, sizeof(int) * vm::VM_STATE_SZ);   /// * 4 states + 1 VM[0].hold
-}
-
-__HOST__ void
-TensorForth::setup(const char *tb_logdir, const char *tb_run_id) {
+    
     for (int i=0; i < T4_VM_COUNT; i++) {
         VM_Handle *h = &vm_pool[i];
-        GPU_ERR(cudaStreamCreate(&h->st));          /// * allocate stream
-        GPU_ERR(cudaEventCreate(&h->t0));           /// * allocate timers
+        GPU_ERR(cudaStreamCreate(&h->st));               /// * allocate stream
+        GPU_ERR(cudaEventCreate(&h->t0));                /// * allocate timers
         GPU_ERR(cudaEventCreate(&h->t1));
     }
     _vm_init(sys, vm_pool);
