@@ -20,7 +20,7 @@ namespace t4 {
 ///
 ///@name System Manager Class
 ///@{
-class System : public OnHost {                  ///< singleton class
+class System {                                  ///< singleton class
     io::istr     &fin;                          ///< host input stream
     io::ostr     &fout;
     io::Istream  *_istr;                        ///< managed input stream
