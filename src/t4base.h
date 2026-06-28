@@ -155,15 +155,6 @@ struct T4Base : public OnHost {
     GPU_CHK();                                              \
 }
 ///@}
-struct Managed {
-    void *operator new(size_t sz) {
-        void *ptr;
-        MM_ALLOC(&ptr, sz);
-        DEBUG("new Managed Obj %p size=%zd byes\n", ptr, sz);
-        return ptr;
-    }
-    void operator delete(void *ptr) { MM_FREE(ptr); }
-};
 #endif // __CUDACC__  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 #endif // T4_DO_OBJ
 
