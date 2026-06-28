@@ -36,7 +36,6 @@ class TensorForth {
     
 public:
     TensorForth(int device=0, int verbose=0);
-    ~TensorForth();
 
     __HOST__ void  setup(const char *tb_logdir=NIL, const char *tb_run_id=NIL);
     __HOST__ int   more_job();               ///< tally fetch state of VMs
