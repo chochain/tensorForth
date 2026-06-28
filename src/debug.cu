@@ -59,6 +59,7 @@ Debug::print_obj(DU v) {                  ///< proxy object to IO subsystem
 #if T4_DO_OBJ
     fout << io->marshall(mu->du2obj(v));
 #endif // T4_DO_OBJ
+    return;
 }
 __HOST__ void
 Debug::ss_dump(DU tos, int id_sz, int base) {
@@ -67,7 +68,9 @@ Debug::ss_dump(DU tos, int id_sz, int base) {
     DU *ss = mu->vmss(id);                ///< retrieve VM SS
     auto to_s = [this, base](DU v) {
 #if T4_DO_OBJ
-        if (IS_OBJ(v)) fout << io->to_s(mu->du2obj(v), IS_VIEW(v));
+        if (IS_OBJ(v)) {
+            fout << io->to_s(mu->du2obj(v), IS_VIEW(v));
+        }
         else
 #endif // T4_DO_OBJ
             fout << io->to_s(v, base);
