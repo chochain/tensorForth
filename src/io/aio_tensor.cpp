@@ -8,7 +8,6 @@
 #include <vector>
 #include "aio.h"
 #include "mu/tensor.h"
-
 #if T4_DO_OBJ
 
 namespace t4::io {

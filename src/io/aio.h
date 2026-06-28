@@ -72,7 +72,7 @@ public:
     ///
     __HOST__ int  nsave(Model &m, char *fname, U8 mode);
     __HOST__ int  nload(Model &m, char *fname, U8 mode, char *tib);
-#endif // T4_DO_NN    
+#endif // T4_DO_NN
 #endif // T4_DO_OBJ
     
 private:

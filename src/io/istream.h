@@ -15,7 +15,7 @@ typedef std::istream istr;      ///< host input stream
 ///
 /// istream class
 ///
-class Istream : public OnHost {
+class Istream {
     char *_buf;                 /// input buffer
     int  _idx  = 0;             /// current buffer index
     int  _gn   = 0;             /// number of byte processed

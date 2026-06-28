@@ -119,7 +119,7 @@ __HOST__ __INLINE__ _tbx tbx(TB_OP op, DU n=DU0, int i=0)      { return _tbx(op,
 ///  The host dispatcher walks _buf reading event headers and dispatching
 ///  by GT type. This is the only consumer of the binary format.
 ///
-class Ostream : public OnHost {
+class Ostream {
     int      _max      = 0;
     int      _idx      = 0;
     bool     _overflow = false;      ///< set when a write was dropped
