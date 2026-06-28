@@ -221,17 +221,6 @@ namespace cg = cooperative_groups;
 #define __INLINE__         [[gnu::always_inline]] inline
 
 #endif // __CUDACC__  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-struct OnHost {
-    void *operator new(size_t sz) {
-        void *ptr;
-        H_ALLOC(&ptr, sz);
-        DEBUG("new Host Obj %p size=%zu byes\n", ptr, sz);
-        return ptr;
-    }
-    void operator delete(void *ptr) { H_FREE(ptr); }
-};
-
 } // namespace t4
 
 #endif // __TEN4_TYPES_H_
