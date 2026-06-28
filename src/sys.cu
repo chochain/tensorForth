@@ -44,6 +44,10 @@ System::~System() {
     AIO::free_io();
     Debug::free_db();
     MMU::free_mmu();
+    
+    delete _istr;
+    delete _ostr;
+    
     INFO("\\ System: instance freed\n");
 }
 
@@ -145,7 +149,7 @@ System::_process_opx(io::event *ev) {        ///< process composit IO types
     case OP_SEE:   db->see(o.i, o.m);            break;
     case OP_DUMP:  db->mem_dump(UINT(o.n), o.i); break;
     case OP_SS:    db->ss_dump(o.n, o.i, o.m);   break;
-#if T4_DO_OBJ    // vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
+#if T4_DO_OBJ   // vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
     case OP_T2PNG:
     case OP_TSAVE: {
         mu::Tensor &t = (mu::Tensor&)mu->du2obj(o.n);
