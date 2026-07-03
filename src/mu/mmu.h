@@ -43,10 +43,10 @@ class MMU {
     __HOST__ ~MMU();
     
 public:
-    friend class t4::Debug;         ///< Debug can access my private members
+    friend class t4::Debug;          ///< Debug can access my private members
     
-    static __HOST__ MMU *get_mmu(); ///< singleton constructor/getter
-    static __HOST__ void free_mmu();///< singleton destructor
+    static __HOST__ MMU *get_mmu();  ///< singleton constructor/getter
+    static __HOST__ void free_mmu(); ///< singleton destructor
     ///
     /// function pointer conversion
     ///
@@ -70,11 +70,10 @@ public:
     ///
     /// compiler methods
     ///
-    template <typename F>
-    __HOST__  void add_word(const char *name, F &f, int im) {       ///< append or merge a new word
-        IU   w  = find(name);                                       ///< check whether word exists
+    __HOST__  void add_word(Code &c0) {                             ///< append or merge a new word
+        IU   w  = find(c0.name);                                    ///< check whether word exists
         Code &c = _dict[w ? w : _didx++];                           ///< new or exist Code object
-        c.set(name, f, im);                                         /// * hardcopy Code object
+        c.set(c0);                                                  /// * hardcopy Code object
         if (w) INFO("*** redefined: %s\n", c.name);
     }
     __HOST__  void colon(const char *name);                         ///< define colon word
