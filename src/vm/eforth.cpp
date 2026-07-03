@@ -130,7 +130,7 @@ ForthVM::nest() {
                 rs.push(ip);                         /// * setup call frame
                 ip = ix.ioff;                        /// * ip = word.pfa
             }
-            else (*mmu.XT(ix.ioff))());              /// * execute built-in word
+            else (*mmu.XT((IU)ix.ioff))(this));      /// * execute built-in word
         }
         VM_TLR(" => SP=%d, RP=%d, ip=%x", SP, RP, ip);
     }
@@ -139,9 +139,6 @@ ForthVM::nest() {
 ///> CALL - inner-interpreter proxy (inline macro does not run faster)
 ///
 __HOST__ __INLINE__ void ForthVM::call(IU w) {
-    using mu::FPTR;
-    using mu::MSK_ATTR;
-    
     Code &c = dict[w];                               /// * code reference
     DEBUG(" => call(%s) state=%d {\n", c.name, state);
     if (c.udf) {                                     /// * userd defined word
@@ -149,7 +146,7 @@ __HOST__ __INLINE__ void ForthVM::call(IU w) {
         ip = c.pfa;
         nest();                                      /// * Forth inner loop
     }
-    else (*(FPTR)((UFP)c.xt & MSK_ATTR))();          /// * execute function
+    else c.exec();                                   /// * built-in words
     DEBUG("} call(%s) state=%d\n", c.name, state);
 }
 ///
@@ -161,7 +158,7 @@ ForthVM::init() {
     if (id != 0) return;    /// * done once only
     
     CODE("\nForth::", {});  /// dict[0] not used, simplify find(), also keeps _XT0
-    CODE("nop",       {});  /// do nothing
+    CODE("nop",     DU x = tos; tos = x);     /// do nothing, burn mem <=> reg cycles
     ///
     /// @defgroup Stack ops
     /// @brief - opcode sequence can be changed below this line
