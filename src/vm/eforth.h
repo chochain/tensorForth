@@ -45,9 +45,9 @@ namespace t4::vm {
 ///@name Dictionary Compiler macros
 ///@note - a lambda without capture can degenerate into a function pointer
 ///@{
-#define ADD_CODE(n, g, im) {           \
-    auto f = [this] __HOST__ (){ g; }; \
-    mmu.add_word(n, f, im);            \
+#define ADD_CODE(n, g, im) {                 \
+    Code c0{ n, [this](){ g; }, im};         \
+    mmu.add_word(c0);                        \
 }
 #define CODE(n, g) ADD_CODE(n, g, false)
 #define IMMD(n, g) ADD_CODE(n, g, true)
@@ -65,8 +65,8 @@ protected:
     bool  compile= false;
     IU    base   = 0;
     
-    U32   *ptos  = (U32*)&tos;        ///< 32-bit mask for tos
-    mu::Code *dict  = 0;              ///< dictionary array (cached)
+    U32   *ptos  = (U32*)&tos;         ///< 32-bit mask for tos
+    mu::Code *dict  = 0;               ///< dictionary array (cached)
     ///
     /// Forth outer interpreter
     ///
@@ -93,7 +93,7 @@ protected:
     ///
     /// stack operator short hands
     ///
-    __HOST__ __INLINE__ IU   FIND(char *name) { return mmu.find(name);  }
+    __HOST__ __INLINE__ IU   FIND(char *name) { return mmu.find(name); }
     __HOST__ __INLINE__ DU   POP()      { DU n=tos; tos=ss.pop(); return n; }
     __HOST__ __INLINE__ DU   PUSH(DU v) { ss.push(tos); return tos = v;     }
 #if T4_DO_OBJ    
