@@ -70,6 +70,10 @@ MMU::~MMU() {
     H_FREE(_pmem);
     H_FREE(_vmrs);
     H_FREE(_vmss);
+    Code *c = &_dict[0];
+    for (int i=0; i < _didx; i++, c++) {    /// * scan thru for max range
+        c->~Code();
+    }
     H_FREE(_dict);
     TRACE("\\   MMU: memory freed\n");
 }
@@ -85,8 +89,8 @@ MMU::free_mmu() {
 ///
 /// static functions (for type conversion)
 ///
-__HOST__  FPTR MMU::XT(IU ioff)      { return (FPTR)(_XT0 + ioff);  }
-__HOST__  IU   MMU::XTOFF(FPTR xt)   { return (IU)((UFP)xt - _XT0); }
+__HOST__  FPTR MMU::XT(IU ioff)    { return (FPTR)(_XT0 + ioff);  }
+__HOST__  IU   MMU::XTOFF(FPTR xt) { return (IU)((UFP)xt - _XT0); }
 ///
 /// dictionary management methods
 /// TODO: use const Code[] directly, as ROM, to prevent deep copy
