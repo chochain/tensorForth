@@ -9,37 +9,22 @@
 
 namespace t4::mu {
 ///
-/// CUDA functor (device only)
-/// Note: nvstd::function is generic and smaller (at 56-byte)
-///
-///@name light-weight functor object implementation
-///@brief functor object (80-byte allocated by CUDA)
-///@{
-struct fop { __HOST__ virtual void operator()() = 0; }; ///< functor virtual class
-template<typename F>                                    ///< template functor class
-struct functor : fop {
-    F op;                                               ///< reference to lambda
-    __HOST__ __INLINE__ functor(const F f) : op(f) {    ///< constructor
-        DEBUG("code#fop:%p => ", this);
-    }
-    __HOST__ __INLINE__ void operator()() { op(); }     ///< lambda invoke
-};
-typedef fop* FPTR;                ///< lambda function pointer
-///@}
 ///@name Code class for dictionary word
 ///@brief -
-///  +-------------------+-------------------+
-///  |    *name          |       xt          |
-///  +-------------------+----+----+---------+
-///                      |attr|nfa |   pfa   |
-///                      +----+----+---------+
+///  +-------------------+-------------------+-------------------+
+///  |    *name          |       xt          |        cap        |
+///  +-------------------+----+----+---------+-------------------+
+///                                          |attr|nfa |   pfa   |
+///                                          +----+----+---------+
 ///@{
+typedef   void (*FPTR)(void*);    ///< realized lambda
 constexpr UFP MSK_ATTR = ~0x3;    /// xt pointer mask (for union attributes)
+
 struct Code {
-    const char *name = 0;         ///< name field
+    const char *name = NIL;       ///< name field
+    FPTR xt = NIL;                ///< lambda execution (64-bit)
     union {
-        FPTR xt = 0;              ///< lambda pointer (CUDA 64-bit)
-        U64  *fp;                 ///< function pointer (for debugging)
+        UFP cap = 0;              ///< lambda captured pointer (VM*, 64-bit)
         struct {
             U32 udf : 1;          ///< colon defined word
             U32 imm : 1;          ///< immediate flag
@@ -49,21 +34,31 @@ struct Code {
             IU  pfa;              ///< param field offset to pmem space (32-bit)
         };
     };
-    __HOST__ Code(const char *n, IU w) : name(n), xt((FPTR)((UFP)w)) {}  ///< primitives
-    __HOST__ ~Code() { DEBUG("Code(%s) freed\n", name); }                ///< destructor
-/*
-    __GPU__ Code() {}             ///< blank struct (for initilization)
-    __GPU__ Code(const char *n, FPTR fp, bool im) : name(n), xt(fp) {  ///< built-in and colon words
-        imm = im;
-        DEBUG("%cCode(name=%p, xt=%p) %s\n", im ? '*' : ' ', name, xt, n);
+    template<typename F> constexpr
+    __HOST__ Code(const char *n, F&& f, bool im) : name(n) {  ///< built-in
+        using T = typename std::decay<F>::type;               ///< get cleaned type
+        static_assert(
+            sizeof(T) == sizeof(void*),
+            "Error: lambda must only capture [this] (8-byte layout)"
+        );
+        std::swap(cap, reinterpret_cast<UFP&>(f));            /// * copy lambda interal ptr
+        xt = [](void *data) {
+            auto *fp = reinterpret_cast<T*>(&data);
+            (*fp)();
+        };
+        imm = im ? 1 : 0;
+        INFO("%cCode{name=%p, cap=%zx, xt=%p} %s\n", im ? '*' : ' ', name, cap, xt, n);
     }
-*/    
-    template<typename F>          ///< template function for lambda
-    __HOST__ void set(const char *n, F &f, bool im) {
-        name = n;
-        xt   = new functor<F>(f);
-        imm  = im ? 1 : 0;
-        DEBUG("%cCode(name=%p, xt=%p) %s\n", im ? '*' : ' ', name, xt, n);
+    __HOST__ ~Code() { DEBUG("Code(%s) freed\n", name); }     ///< destructor
+    __HOST__ void set(Code &c) {
+        name = c.name;
+        xt   = c.xt;
+        cap  = c.cap;
+    }
+    void exec()  {
+        if (xt && (cap & MSK_ATTR)) {
+            xt(reinterpret_cast<void*>(cap & MSK_ATTR));
+        }
     }
 };
 
