@@ -281,14 +281,14 @@ int main(int argc, char**argv) {
 
     std::cout << T4_APP_NAME << std::endl;
 
-    t4::TensorForth *f = new t4::TensorForth(opt.device_id, opt.verbose);
-    f->setup(
+    t4::TensorForth f(opt.device_id, opt.verbose);
+    f.setup(
 #if T4_DO_TB
         opt.tb_logdir ? opt.tb_logdir : "/u01/tb", opt.tb_run_id
 #endif // T4_DO_TB 
     );
-    f->main_loop();
-    f->teardown();
+    f.main_loop();
+    f.teardown();
 
     std::cout << T4_APP_NAME << " done." << std::endl;
 
