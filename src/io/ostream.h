@@ -27,10 +27,10 @@ struct event {
     U32 sz : 28;                      ///< payload size in bytes (max 256M)
 
     __HOST__ __INLINE__ U8* data() {
-        return reinterpret_cast<U8*>(this) + sizeof(event);
+        return (U8*)this + sizeof(event);
     }
     __HOST__ __INLINE__ const U8* data() const {
-        return reinterpret_cast<const U8*>(this) + sizeof(event);
+        return (const U8*)this + sizeof(event);
     }
 };
 
@@ -171,7 +171,7 @@ class Ostream {
     }
     __HOST__  void _write(GT gt, U8 *vp, U32 sz) {
         //_LOCK;
-        event* e = reinterpret_cast<event*>(&_buf[_idx]);  /// allocate next node
+        event* e = (event*)&_buf[_idx];           /// allocate next node
 
         e->gt = gt;                               /// data type
         e->sz = ALIGN(sz);                        /// data alignment (32-bit)
