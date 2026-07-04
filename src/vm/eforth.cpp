@@ -130,7 +130,7 @@ ForthVM::nest() {
                 rs.push(ip);                         /// * setup call frame
                 ip = ix.ioff;                        /// * ip = word.pfa
             }
-            else (*mmu.XT((IU)ix.ioff))(this));      /// * execute built-in word
+            else (*mmu.XT(ix.ioff))(this));          /// * execute built-in word
         }
         VM_TLR(" => SP=%d, RP=%d, ip=%x", SP, RP, ip);
     }
