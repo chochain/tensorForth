@@ -77,7 +77,7 @@ typedef struct free_block {          ///< 16-bytes (i.e. mininum allocation per 
 ///@}
 ///@name TLSF main structure
 ///@{
-class TLSF : public OnHost {
+class TLSF {
     U8         *_heap;                  ///< CUDA kernel tensor storage memory pool
     U64        _heap_sz;                ///< size of tensor storage memory pool
     U32        _l1_map = 0;             ///< 1st level (FLI) hit map
