@@ -80,7 +80,7 @@ Summary::tile(const char *tag, T4Base &b, int n_per_row) {
             for (int x = 0; x < W; x++, v += C) {
                 for (int c = 0; c < 3; c++) {
                     DU vx = (*(v + (c < C ? c : C-1)) + mean) * scale;
-                    *p++ = static_cast<U8>(MIN(255.0f, MAX(vx, 0.0f)));
+                    *p++ = (U8)MIN(255.0f, MAX(vx, 0.0f));
                 }
             }
         }
