@@ -70,9 +70,11 @@ public:
     ///
     /// compiler methods
     ///
-    __HOST__  void add_word(Code &c0) {                             ///< append or merge a new word
-        IU   w  = find(c0.name);                                    ///< check whether word exists
+    template <typename F>
+    __HOST__  void add_word(const char *name, F &&f, bool im) {     ///< append or merge a new word
+        IU   w  = find(name);                                       ///< check whether word exists
         Code &c = _dict[w ? w : _didx++];                           ///< new or exist Code object
+        Code c0{ name, f, im };
         c.set(c0);                                                  /// * hardcopy Code object
         if (w) INFO("*** redefined: %s\n", c.name);
     }
