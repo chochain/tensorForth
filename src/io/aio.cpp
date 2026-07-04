@@ -40,12 +40,12 @@ AIO::to_s(DU v, int base) {                        ///< display pure value
     DU t, f = modff(v, &t);                        ///< split v into integral, fraction
     int dec = base==10;                            ///< decimal output
     int i = 0;                                     
-    if (dec && abs(f) > DU_EPS) {                  ///< number with fractions
+    if (dec && fabsf(f) > DU_EPS) {                ///< number with fractions
         sprintf(buf, "%0.6g", v);
     }
     else {                                         ///< by-digit (Forth's <# #S #>)
-        U32 n = dec ? (U32)(abs(v)) : (U32)(v);    ///< handle negative
-        i = 33;  buf[i]='\0';                      /// * C++ can do only base=8,10,16
+        U32 n = dec ? (U32)(fabsf(v)) : (U32)(v);  ///< handle negative
+        i = 33; buf[i]='\0';                       /// * C++ can do only base=8,10,16
         do {                                       ///> digit-by-digit
             U8 d = (U8)(n % base);  n /= base;
             buf[--i] = d > 9 ? (d-10)+'a' : d+'0';
