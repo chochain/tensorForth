@@ -46,8 +46,8 @@ namespace t4::vm {
 ///@note - a lambda without capture can degenerate into a function pointer
 ///@{
 #define ADD_CODE(n, g, im) {                 \
-    Code c0{ n, [this](){ g; }, im};         \
-    mmu.add_word(c0);                        \
+    auto f = [this](){ g; };                 \
+    mmu.add_word(n, std::move(f), im);       \
 }
 #define CODE(n, g) ADD_CODE(n, g, false)
 #define IMMD(n, g) ADD_CODE(n, g, true)
