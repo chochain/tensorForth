@@ -35,15 +35,15 @@ void *Mpool::init(size_t bsz, int nblock) {
     LOCK();
     _bsz       = bsz;
     _nblock    = nblock;
-    _storage   = static_cast<char*>(std::malloc(bsz * nblock));
+    _storage   = (char*)std::malloc(bsz * nblock);
     if (!_storage) throw std::bad_alloc{};
 
-    for (int i = 0; i < nblock - 1; ++i) { /// setup free list, each point to next
+    for (int i = 0; i < nblock - 1; ++i) {    /// setup free list, each point to next
         void* here = _block(i);
         void* next = _block(i + 1);
-        *reinterpret_cast<void**>(here) = next;
+        *(void**)here = next;
     }
-    *reinterpret_cast<void**>(_block(nblock - 1)) = nullptr;  ///< end of list
+    *(void**)(_block(nblock - 1)) = nullptr;  ///< end of list
     
     _free_head = _block(0);
 
@@ -59,7 +59,7 @@ void *Mpool::malloc() {
     if (!_free_head) throw std::bad_alloc{};
 
     void* blk = _free_head;
-    _free_head  = *reinterpret_cast<void**>(_free_head);
+    _free_head  = *(void**)_free_head;
     ++_alloc_cnt;
     
     MM_DB("    mpool#alloc_cnt = %d\n"
@@ -75,7 +75,7 @@ void Mpool::free(void *ptr) {
 
     LOCK();
 
-    *reinterpret_cast<void**>(ptr) = _free_head;
+    *(void**)ptr = _free_head;
     _free_head = ptr;
     _alloc_cnt--;
     MM_DB("    mpool#alloc_cnt = %d\n"

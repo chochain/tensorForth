@@ -103,7 +103,7 @@ public:
 
 private:
     void* _block(int i) const {
-        return static_cast<void*>(_storage + i * _bsz);
+        return (void*)(_storage + i * _bsz);
     }
 };
 

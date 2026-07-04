@@ -120,7 +120,7 @@ public:
     /// short hands for eforth tensor ucodes (for DU <-> Tensor conversion)
     ///
     __HOST__ UFP OBJ2X(T4Base &t) {                          ///< object offset in _mspace
-        return static_cast<UFP>(_mpool.offset((void*)&t));   /// * always positive
+        return (UFP)(_mpool.offset((void*)&t));              /// * always positive
     } 
     __HOST__ T4Base &du2obj(DU d) {                          ///< DU to Obj convertion
         U32    off  = D2I(AS_OBJ(d));                        ///< clear object flag

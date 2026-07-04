@@ -644,10 +644,10 @@ Tensor::_view(DU *v, U32 H, U32 W, U32 C, DU mean, DU scale) {
         // static const char *lk = " `.-:^=;i>+!*zsv7C3tno5xakhdOUAXR#$0MW%Q"; /// 40 shades
         static const char *lk = " `.-:;!+*ixekO#@";     /// 16 shades
         static const int   sz = 16;
-        int i  = static_cast<int>((v + 1.0) * sz/2);
+        int i = (int)((v + 1.0) * sz/2);
         return lk[i < 0 ? 0 : (i < sz ? i : sz-1)];
     };
-    const U64 hw = H * W, sr = static_cast<U64>(sqrtf(hw));
+    const U64 hw = H * W, sr = (U64)sqrtf(hw);
     const U32 sh = (hw / sr) + ((hw - sr*sr) > 0L ? 1 : 0);
     const U32 w  = W > 1 ? W : (hw < 36L ? H : sr);
     const U32 h  = W > 1 ? H : (hw < 36L ? 1 : sh);
