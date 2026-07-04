@@ -47,7 +47,7 @@ typedef enum {
 ///
 /// tensorForth base object class
 ///
-struct T4Base : public OnHost {
+struct T4Base {
     U64 numel;               ///< number of data elements
     union {
         U64 attr = 0;        ///< attrbutes collective
