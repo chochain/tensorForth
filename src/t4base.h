@@ -18,21 +18,21 @@ constexpr UFP T4_TT_OBJ   = 0x1;    ///< data unit flag
 constexpr UFP T4_TT_VIEW  = 0x3;    ///< view of object
 
 struct Variant {                    ///< DU(F32) <=> IU(U32) conversion utility class
-    IU    *iup;                     ///< IU pointer
-    Variant(void *p) : iup(reinterpret_cast<IU*>(p)) {}
-    bool   is_obj()    { return (*iup & T4_TT_OBJ) != 0; }
-    bool   is_view()   { return (*iup & T4_TYPE_MSK)==T4_TT_VIEW; }
-    DU     as_obj()    { *iup |= T4_TT_OBJ;  return *reinterpret_cast<DU*>(iup); }
-    DU     as_view()   { *iup |= T4_TT_VIEW; return *reinterpret_cast<DU*>(iup); }
-    DU     as_scalar() { *iup &= ~T4_TT_OBJ; return *reinterpret_cast<DU*>(iup); }
+    volatile U32 *u32p;             ///< U32 pointer (for bit altering)
+    Variant(void *p) : u32p((U32*)p) {}
+    bool   is_obj()    { return (*u32p & T4_TT_OBJ) != 0;          }
+    bool   is_view()   { return (*u32p & T4_TYPE_MSK)==T4_TT_VIEW; }
+    DU     as_obj()    { *u32p |= T4_TT_OBJ;  return *(DU*)u32p;   }
+    DU     as_view()   { *u32p |= T4_TT_VIEW; return *(DU*)u32p;   }
+    DU     as_scalar() { *u32p &= ~T4_TT_OBJ; return *(DU*)u32p;   }
 };
-#define DU2X(v)     (*Variant(&v).iup)               /**< get U32 @ pointer  */
-#define SCALAR(v)   (Variant(&v).as_scalar())        /**< set DU flag        */
+#define DU2X(v)     (*Variant(&(v)).u32p)              /**< get U32 @ pointer  */
+#define SCALAR(v)   (Variant(&(v)).as_scalar())        /**< set DU flag        */
 
-#define IS_OBJ(v)   (Variant(&v).is_obj())           /**< if is an obj       */
-#define IS_VIEW(v)  (Variant(&v).is_view())
-#define AS_OBJ(v)   (Variant(&v).as_obj())
-#define AS_VIEW(v)  (Variant(&v).as_view())
+#define IS_OBJ(v)   (Variant(&(v)).is_obj())           /**< if is an obj       */
+#define IS_VIEW(v)  (Variant(&(v)).is_view())
+#define AS_OBJ(v)   (Variant(&(v)).as_obj())
+#define AS_VIEW(v)  (Variant(&(v)).as_view())
 ///
 /// tensorForth object types
 ///
