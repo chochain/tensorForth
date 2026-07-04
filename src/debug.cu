@@ -30,9 +30,9 @@ __HOST__ void  Debug::free_db() { if (_db) delete _db; }
 #define DICT(w)  (mu->_dict[w])               /** dictionary entry                   */
 #define XT0      ((UFP)DICT(0).xt)            /** base of lambda functions (i.e. xt) */
 ///@}
-///@name Primitive words to help printing
+///@name Primitive words to help printing (see ForthVM::nest for implementations)
 ///@{
-Code prim[] = {
+const Code prim[] = {
     Code(";",    EXIT),  Code("next ", NEXT), Code("loop ", LOOP), Code("lit",   LIT),
     Code("var",  VAR),   Code("str",   STR),  Code("dotq",  DOTQ), Code("bran ", BRAN),
     Code("0bran",ZBRAN), Code("for  ", FOR),  Code("do",    DO),   Code("key",   KEY)
@@ -66,7 +66,7 @@ Debug::ss_dump(DU tos, int id_sz, int base) {
     int id = id_sz >> 10;                 ///< VM id
     int sz = id_sz & 0x3ff;               ///< ss.idx
     DU *ss = mu->vmss(id);                ///< retrieve VM SS
-    auto to_s = [this, base](DU v) {
+    auto show = [this, base](DU v) {
 #if T4_DO_OBJ
         if (IS_OBJ(v)) {
             fout << io->to_s(mu->du2obj(v), IS_VIEW(v));
@@ -76,8 +76,8 @@ Debug::ss_dump(DU tos, int id_sz, int base) {
             fout << io->to_s(v, base);
         fout << ' ';
     };
-    for (int i=0; i < sz; i++) to_s(*ss++);
-    to_s(tos);
+    for (int i=0; i < sz; i++) show(*ss++);
+    show(tos);
     fout << "-> ok" << std::endl;
 }
 ///
