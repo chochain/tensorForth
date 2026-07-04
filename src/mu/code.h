@@ -34,22 +34,24 @@ struct Code {
             IU  pfa;              ///< param field offset to pmem space (32-bit)
         };
     };
+    
+    __HOST__ Code(const char *n, IU w) : name(n), cap((UFP)w) {}  ///< primitive
     template<typename F> constexpr
-    __HOST__ Code(const char *n, F&& f, bool im) : name(n) {  ///< built-in
-        using T = typename std::decay<F>::type;               ///< get cleaned type
+    __HOST__ Code(const char *n, F&& f, bool im) : name(n) {      ///< built-in
+        using T = typename std::decay<F>::type;                   ///< get cleaned type
         static_assert(
             sizeof(T) == sizeof(void*),
             "Error: lambda must only capture [this] (8-byte layout)"
         );
-        std::swap(cap, reinterpret_cast<UFP&>(f));            /// * copy lambda interal ptr
+        std::swap(cap, reinterpret_cast<UFP&>(f));  /// * copy lambda capture (VM*)
         xt = [](void *data) {
             auto *fp = reinterpret_cast<T*>(&data);
-            (*fp)();
+            (*fp)();                                /// * execute [cap](){...}
         };
         imm = im ? 1 : 0;
         INFO("%cCode{name=%p, cap=%zx, xt=%p} %s\n", im ? '*' : ' ', name, cap, xt, n);
     }
-    __HOST__ ~Code() { DEBUG("Code(%s) freed\n", name); }     ///< destructor
+    
     __HOST__ void set(Code &c) {
         name = c.name;
         xt   = c.xt;
