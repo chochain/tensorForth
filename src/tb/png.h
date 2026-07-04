@@ -48,7 +48,7 @@ static void push_be32(U8V& v,U32 n){
 }
 
 static void write_chunk(U8V& out, const char type[4], const U8V& data){
-    push_be32(out,static_cast<U32>(data.size()));
+    push_be32(out, (U32)data.size());
     out.insert(out.end(), type, type+4);
     out.insert(out.end(), data.begin(), data.end());
     
@@ -100,7 +100,7 @@ inline U8V raw2png(int w,int h, const U8V& px,int ch=3){
     while (pos < tot) {
         USZ  bsz  = std::min(tot-pos, (USZ)65535);
         BOOL last = (pos+bsz >= tot);
-        U16  bl   = static_cast<U16>(bsz), bn=static_cast<U16>(~bl);
+        U16  bl   = (U16)bsz, bn = (U16)~bl;
         zdat.push_back(last ? 0x01 : 0x00);
         zdat.push_back(bl & 0xff);
         zdat.push_back((bl>>8) & 0xff);

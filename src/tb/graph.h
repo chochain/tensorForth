@@ -26,7 +26,7 @@ struct AttrValue {
     AttrValue(S64 v)         : type(AV_INT),   dt_type(9), i(v) {}
     AttrValue(S32 v)         : type(AV_INT),   dt_type(3), i(v) {}
     AttrValue(BOOL v)        : type(AV_BOOL),  dt_type(10),i(v) {}
-    AttrValue(const char *s) : type(AV_STR),   dt_type(7), p(reinterpret_cast<PTR>(s)) {}
+    AttrValue(const char *s) : type(AV_STR),   dt_type(7), p((PTR)s) {}
 };
 
 class Node : public Encoder {
@@ -55,10 +55,10 @@ public:
     void add_value(const char *k, const AttrValue& av) {
         Encoder v;
         switch (av.type) {
-        case AttrValue::AV_FLOAT: v.f32(4, av.f);        break;
-        case AttrValue::AV_INT:   v.s64(3, av.i);        break;
-        case AttrValue::AV_STR:   v.str(2, reinterpret_cast<const char*>(av.p)); break;
-        case AttrValue::AV_BOOL:  v.write_bool(5, av.i); break;
+        case AttrValue::AV_FLOAT: v.f32(4, av.f);              break;
+        case AttrValue::AV_INT:   v.s64(3, av.i);              break;
+        case AttrValue::AV_STR:   v.str(2, (const char*)av.p); break;
+        case AttrValue::AV_BOOL:  v.write_bool(5, av.i);       break;
         }
         _attr(k, v.buf());
     }

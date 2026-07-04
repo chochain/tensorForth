@@ -49,7 +49,7 @@ public:
     }
 
     // Current write position (size of buffer so far)
-    U32 offset() const { return static_cast<U32>(_buf.size()); }
+    U32 offset() const { return (U32)_buf.size(); }
 
     USZ size() const { return _buf.size(); }
 
@@ -77,13 +77,13 @@ private:
     U32 write(T value) {
         align(sizeof(T));
         U32 pos = offset();
-        const U8* p = reinterpret_cast<const U8*>(&value);
+        const U8* p = (const U8*)&value;
         _buf.insert(_buf.end(), p, p + sizeof(T));
         return pos;
     }
 
     void write(const void* data, USZ len) {
-        const U8* p = reinterpret_cast<const U8*>(data);
+        const U8* p = (const U8*)data;
         _buf.insert(_buf.end(), p, p + len);
     }
 
@@ -91,7 +91,7 @@ public:
     // ── Strings ─────────────────────────────────────────────────────────────
     Offset<void> to_s(const char* str, USZ len) {
         align(4);
-        U32 pos = write<U32>(static_cast<U32>(len));
+        U32 pos = write<U32>((U32)len);
         write(str, len);
         _buf.push_back(0); // null terminator
         
@@ -113,12 +113,12 @@ public:
     template<typename T>
     Offset<void> vec(const T* data, USZ count) {
         align(4);
-        write<U32>(static_cast<U32>(count));
+        write<U32>((U32)count);
         if (count > 0) {
             align(sizeof(T));
             write(data, count * sizeof(T));
         }
-        return Offset<void>(static_cast<U32>(_buf.size() - count * sizeof(T) - sizeof(U32)));
+        return Offset<void>((U32)(_buf.size() - count * sizeof(T) - sizeof(U32)));
     }
 
     // Vector of offsets
@@ -127,7 +127,7 @@ public:
         // Collect positions first, then create vector of U32 relative offsets
         // For simplicity, store absolute offsets; we patch during Finish
         align(4);
-        U32 vec_start = write<U32>(static_cast<U32>(offsets.size()));
+        U32 vec_start = write<U32>((U32)offsets.size());
         for (auto& off : offsets) {
             write<U32>(off.o);
         }
@@ -187,8 +187,8 @@ public:
         U16 num_slots = (max_field_offset / 2) + 1;
         if (_vtable.empty()) num_slots = 0;
 
-        U16 vtable_size = static_cast<U16>((2 + num_slots) * 2);
-        U16 object_size = static_cast<U16>(table_end - _start + 4); // +4 for soffset
+        U16 vtable_size = (U16)((2 + num_slots) * 2);
+        U16 object_size = (U16)(table_end - _start + 4); // +4 for soffset
 
         align(2);
         U32 vtable_start = offset();
@@ -201,7 +201,7 @@ public:
             U16 slot_idx = foff / 2;
             if (slot_idx < num_slots) {
                 // offset from object start to this field
-                slots[slot_idx] = static_cast<U16>(fpos - _start);
+                slots[slot_idx] = (U16)(fpos - _start);
             }
         }
         for (auto s : slots) write<U16>(s);
@@ -211,7 +211,7 @@ public:
         // soffset = vtable_start - object_start (negative means vtable is after the object in our forward build)
         // In standard FlatBuffers, soffset = vtable_pos - object_pos (can be negative)
         // We're building forward, so vtable comes AFTER the object data
-        int32_t soffset = static_cast<int32_t>(vtable_start) - static_cast<int32_t>(_start);
+        S32 soffset = (S32)(vtable_start) - (S32)(_start);
 
         // Insert soffset at _start
         // We need to insert 4 bytes at position _start and shift everything
@@ -238,7 +238,7 @@ public:
         align(4);
         // Apply all soffset patches
         for (auto& [pos, val] : _soff) {
-            *reinterpret_cast<int32_t*>(_buf.data() + pos) = val;
+            *(S32*)(_buf.data() + pos) = val;
         }
         _soff.clear();
 
@@ -259,8 +259,8 @@ private:
     void _patch() {
         for (auto& [src_pos, dst_abs] : _pending) {
             // relative offset = dst_abs - src_pos
-            int32_t rel = static_cast<int32_t>(dst_abs) - static_cast<int32_t>(src_pos);
-            *reinterpret_cast<int32_t*>(_buf.data() + src_pos) = rel;
+            S32 rel = (S32)dst_abs - (S32)src_pos;
+            *(S32*)(_buf.data() + src_pos) = rel;
         }
         _pending.clear();
     }
@@ -275,7 +275,7 @@ private:
     // Pending relative offset patches: (src_abs_pos, dst_abs_pos)
     std::vector<std::pair<U32, U32>> _pending;
     // soffset patches: (_startpos, soffset_value)
-    std::vector<std::pair<U32, int32_t>> _soff;
+    std::vector<std::pair<U32, S32>> _soff;
     // All vtable start positions
     std::vector<U32> _voff;
 };

@@ -39,7 +39,7 @@ inline U32 value(const U8* data, USZ n) {
 }
 
 inline U32 value(const char* data, USZ n) {
-    return value(reinterpret_cast<const U8*>(data), n);
+    return value((const U8*)data, n);
 }
 
 // TensorBoard uses masked CRC:  ((crc >> 15 | crc << 17) + 0xa282ead8u)

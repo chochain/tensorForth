@@ -37,9 +37,9 @@ public:
 
     void add_version() {
         Encoder event;
-        event.f64(1, static_cast<F64>(std::time(nullptr))); // wall_time
-        event.s64(2, 0);                                    // step
-        event.str(3, "brain.Event:2");                      // file_version
+        event.f64(1, (F64)std::time(nullptr));           // wall_time
+        event.s64(2, 0);                                 // step
+        event.str(3, "brain.Event:2");                   // file_version
 
         _write(event.buf());
     }
@@ -102,7 +102,7 @@ public:
         Encoder histo;
         histo.f64(1, vmin);
         histo.f64(2, vmax);
-        histo.f64(3, static_cast<F64>(values.size()));
+        histo.f64(3, (F64)values.size());
         histo.f64(4, vsum);
         histo.f64(5, vsumsq);
         histo.f64(6, limits);
@@ -155,12 +155,12 @@ protected:
 
     void _write(const U8V& buf) {
         U64 len = buf.size();
-        U32 lc = crc32c::mask(crc32c::value(reinterpret_cast<const U8*>(&len), 8));
+        U32 lc = crc32c::mask(crc32c::value((U8*)&len, 8));
         U32 dc = crc32c::mask(crc32c::value(buf.data(), buf.size()));
-        _file->write(reinterpret_cast<const char*>(&len),       8);
-        _file->write(reinterpret_cast<const char*>(&lc),        4);
-        _file->write(reinterpret_cast<const char*>(buf.data()), buf.size());
-        _file->write(reinterpret_cast<const char*>(&dc),        4);
+        _file->write((const char*)&len,       8);
+        _file->write((const char*)&lc,        4);
+        _file->write((const char*)buf.data(), buf.size());
+        _file->write((const char*)&dc,        4);
         
         _file->flush();
     }
@@ -170,7 +170,7 @@ protected:
         summary.raw(1, buf);                                    // repeated Value
         
         Encoder event;
-        event.f64(1, static_cast<F64>(std::time(nullptr)));     // wall_time
+        event.f64(1, (F64)std::time(nullptr));                  // wall_time
         event.s64(2, (S64)step);                                // step
         event.raw(5, summary.buf());                            // summary
         

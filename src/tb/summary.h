@@ -72,9 +72,9 @@ private:
         
         std::ostringstream ss;
         ss << dir << "/events.out.tfevents."
-           << static_cast<long>(std::time(nullptr)) << "."
-           << hostname << "."
-           << static_cast<int>(getpid()) << "." << seq;
+           << (longs)std::time(nullptr) << "."
+           << hostname                  << "."
+           << (int)getpid()             << "." << seq;
 
         return ss.str();
     }

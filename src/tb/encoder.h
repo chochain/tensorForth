@@ -33,17 +33,17 @@ public:
     // ── Packing ───────────────────────────────────────────────────────────────
     void pack(U64 value) {
         while (value > 0x7F) {
-            _buf.push_back(static_cast<U8>((value & 0x7F) | 0x80));
+            _buf.push_back((U8)(value & 0x7F) | 0x80);
             value >>= 7;
         }
-        _buf.push_back(static_cast<U8>(value));
+        _buf.push_back((U8)value);
     }
 
     void pack(F64 value) {
         U64 bits;
         memcpy(&bits, &value, sizeof bits);
         for (int i = 0; i < 8; ++i) {
-            _buf.push_back(static_cast<U8>(bits & 0xFF));
+            _buf.push_back((U8)(bits & 0xFF));
             bits >>= 8;
         }
     }
@@ -52,7 +52,7 @@ public:
         U32 bits;
         memcpy(&bits, &value, sizeof bits);
         for (int i = 0; i < 4; ++i) {
-            _buf.push_back(static_cast<U8>(bits & 0xFF));
+            _buf.push_back((U8)(bits & 0xFF));
             bits >>= 8;
         }
     }
@@ -60,12 +60,12 @@ public:
     // ── Varint ───────────────────────────────────────────────────────────────
     void s32(U32 field, S32 value) {
         tag(field, 0);
-        pack(static_cast<U64>(static_cast<U32>(value)));
+        pack((U64)((U32)value));
     }
 
     void s64(U32 field, S64 value) {
         tag(field, 0);
-        pack(static_cast<U64>(value));
+        pack((U64)value);
     }
 
     void u32(U32 field, U32 value) {
@@ -88,7 +88,7 @@ public:
         U64 bits;
         memcpy(&bits, &value, sizeof bits);
         for (int i = 0; i < 8; ++i) {
-            _buf.push_back(static_cast<U8>(bits & 0xFF));
+            _buf.push_back((U8)(bits & 0xFF));
             bits >>= 8;
         }
     }

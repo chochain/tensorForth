@@ -20,15 +20,14 @@ struct HParamValue {
         S64 i;
         PTR p;     // uintptr_t (string pointer)
     };
-
-    HParamValue()              : type(HP_FLOAT)       {}
-    HParamValue(F64 v)         : type(HP_FLOAT), f(v) {}
-    HParamValue(F32 v)         : type(HP_FLOAT), f(v) {}
-    HParamValue(S64 v)         : type(HP_INT),   i(v) {}
-    HParamValue(S32 v)         : type(HP_INT),   i(v) {}
-    HParamValue(BOOL v)        : type(HP_BOOL),  i(v) {}
-    HParamValue(const char *s) : type(HP_STR),   p(reinterpret_cast<PTR>(s)) {}
-    HParamValue(STR& s)        : HParamValue(s.c_str()) {}
+    HParamValue()              : type(HP_FLOAT)            {}
+    HParamValue(F64 v)         : type(HP_FLOAT), f(v)      {}
+    HParamValue(F32 v)         : type(HP_FLOAT), f(v)      {}
+    HParamValue(S64 v)         : type(HP_INT),   i(v)      {}
+    HParamValue(S32 v)         : type(HP_INT),   i(v)      {}
+    HParamValue(BOOL v)        : type(HP_BOOL),  i(v)      {}
+    HParamValue(const char *s) : type(HP_STR),   p((PTR)s) {}
+    HParamValue(STR& s)        : HParamValue(s.c_str())    {}
 };
 
 class HParamWriter : public EventWriter {
@@ -90,7 +89,7 @@ public:
 
         // 2. Write metrics as regular scalars
         for (const auto& kv : metrics) {
-            add_scalar(kv.first, static_cast<F32>(kv.second), step);
+            add_scalar(kv.first, (F32)kv.second, step);
         }
         
         // 3. Write session end
@@ -156,13 +155,13 @@ private:
         proto::Encoder v;
         switch (hpv.type) {
         case HParamValue::HP_FLOAT: // number_value
-            v.f64(2, hpv.f);                                break;
+            v.f64(2, hpv.f);               break;
         case HParamValue::HP_INT:
-            v.f64(2, static_cast<F64>(hpv.i));              break;
+            v.f64(2, (F64)hpv.i);          break;
         case HParamValue::HP_STR:   // string_value
-            v.str(3, reinterpret_cast<const char*>(hpv.p)); break;
+            v.str(3, (const char*)hpv.p);  break;
         case HParamValue::HP_BOOL:  // bool_value
-            v.write_bool(4, hpv.i);                         break;
+            v.write_bool(4, hpv.i);        break;
         }
         p.raw(2, v.buf());
 

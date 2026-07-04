@@ -20,10 +20,10 @@ inline U8V scalar_tensor(F32 v) {
     U32 bits;
     std::memcpy(&bits, &v, 4);
     U8 fb[4] = {
-        static_cast<U8>( bits        & 0xFF),
-        static_cast<U8>((bits >>  8) & 0xFF),
-        static_cast<U8>((bits >> 16) & 0xFF),
-        static_cast<U8>((bits >> 24) & 0xFF),
+        (U8)(bits         & 0xFF),
+        (U8)((bits >>  8) & 0xFF),
+        (U8)((bits >> 16) & 0xFF),
+        (U8)((bits >> 24) & 0xFF),
     };
         
     Encoder tp;               ///< TensorProto
