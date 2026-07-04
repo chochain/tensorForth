@@ -16,7 +16,7 @@ namespace t4::vm {
 ///
 ///@name ALU opcodes (1-operand and 2-operand)
 ///@{
-#define XOP1(op)                                \
+#define XOP1(op) {                              \
     DU t = tos;                                 \
     switch (op) {                               \
     case ABS:  t = ABS(t);          break;      \
@@ -32,11 +32,12 @@ namespace t4::vm {
     case SAT:  t = SAT(t);          break;      \
     case SIN:  t = SIN(t);          break;      \
     case COS:  t = COS(t);          break;      \
-    default:                        break;      \
+    default: NA("op=%d?\n");        break;      \
     }                                           \
-    tos = SCALAR(t)
+    tos = SCALAR(t);                            \
+}
 
-#define XOP2(op)                                \
+#define XOP2(op) {                              \
     DU t = tos, n = ss.pop();                   \
     switch (op) {                               \
     case ADD:  t = ADD(n, t);       break;      \
@@ -49,9 +50,10 @@ namespace t4::vm {
     case MUL2: t = MUL2(n,t);       break;      \
     case MOD2: t = MOD2(n,t);       break;      \
     case POW:  t = POW(t, n);       break;      \
-    default:                        break;      \
+    default: NA("op=%d?\n");        break;      \
     }                                           \
-    tos = SCALAR(t)
+    tos = SCALAR(t);                            \
+}
 
 ///@}
 ///@name virtual machine base class
