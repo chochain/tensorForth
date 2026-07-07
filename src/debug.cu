@@ -28,7 +28,6 @@ __HOST__ void  Debug::free_db() { if (_db) delete _db; }
 #define MEM(a)   ((U8*)&mu->_pmem[a])         /** memory pointer by offset           */
 #define DIDX     (mu->_didx)                  /** number of dictionary entries       */
 #define DICT(w)  (mu->_dict[w])               /** dictionary entry                   */
-#define XT0      ((UFP)DICT(0).xt)            /** base of lambda functions (i.e. xt) */
 ///@}
 ///@name Primitive words to help printing (see ForthVM::nest for implementations)
 ///@{
@@ -171,13 +170,12 @@ Debug::see(IU w, int base, int trace) {
 ///@{
 __HOST__ void
 Debug::dict_dump() {
-    UFP xt0 = XT0;
     keep_fmt();
-    fout << "Built-in Dictionary: _XT0="
-         << std::hex << xt0 << std::setfill('0') << ENDL;
+    fout << "Built-in Dictionary: XT0=0x"
+         << std::hex << Code::XT0 << std::setfill('0') << ENDL;
     for (int i=0; i < DIDX; i++) {
         Code &c = DICT(i);
-        U32  ip = c.udf ? c.pfa : (U32)(((UFP)c.xt & mu::MSK_ATTR) - xt0);
+        U32  ip = (U32)c.pfa_or_xtoff();
         fout << std::dec << std::setw(4) << i << '|'
              << std::hex << std::setw(3) << i << '>'
              << (c.udf ? " pf=" : " xt=")
@@ -200,13 +198,13 @@ Debug::_d2h(const char *d_str) {
 }
 __HOST__ int
 Debug::_p2didx(Param *p) {
-    UFP xt0 = XT0;
+//    UFP xt0 = XT0;
     IU  pfa = p->ioff;
     for (int i = DIDX - 1; i > 0; --i) {
         Code &c  = DICT(i);
         bool hit = p->udf
             ? (c.udf  && pfa==c.pfa)
-            : (!c.udf && pfa==(IU)((UFP)c.xt - xt0));
+            : (!c.udf && pfa==(IU)((UFP)c.xt - Code::XT0));
         if (hit) return i;
     }
     return -1;                                     /// * not found
