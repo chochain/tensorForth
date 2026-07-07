@@ -19,15 +19,15 @@ constexpr UFP T4_TT_VIEW  = 0x3;    ///< view of object
 
 struct Variant {                    ///< DU(F32) <=> IU(U32) conversion utility class
     volatile U32 *u32p;             ///< U32 pointer (for bit altering)
-    Variant(void *p) : u32p((U32*)p) {}
-    bool   is_obj()    { return (*u32p & T4_TT_OBJ) != 0;          }
-    bool   is_view()   { return (*u32p & T4_TYPE_MSK)==T4_TT_VIEW; }
-    DU     as_obj()    { *u32p |= T4_TT_OBJ;  return *(DU*)u32p;   }
-    DU     as_view()   { *u32p |= T4_TT_VIEW; return *(DU*)u32p;   }
-    DU     as_scalar() { *u32p &= ~T4_TT_OBJ; return *(DU*)u32p;   }
+    inline Variant(volatile void *p) : u32p((volatile U32*)p) {}
+    inline bool is_obj()    { return (*u32p & T4_TT_OBJ) != 0;                 }
+    inline bool is_view()   { return (*u32p & T4_TYPE_MSK)==T4_TT_VIEW;        }
+    inline DU   as_obj()    { *u32p |= T4_TT_OBJ;  return *(volatile DU*)u32p; }
+    inline DU   as_view()   { *u32p |= T4_TT_VIEW; return *(volatile DU*)u32p; }
+    inline DU   as_scalar() { *u32p &= ~T4_TT_OBJ; return *(volatile DU*)u32p; }
 };
 #define DU2X(v)     (*Variant(&(v)).u32p)              /**< get U32 @ pointer  */
-#define SCALAR(v)   (Variant(&(v)).as_scalar())        /**< set DU flag        */
+#define SCALAR(v)   ((v)=Variant(&(v)).as_scalar())    /**< set DU flag        */
 
 #define IS_OBJ(v)   (Variant(&(v)).is_obj())           /**< if is an obj       */
 #define IS_VIEW(v)  (Variant(&(v)).is_view())
