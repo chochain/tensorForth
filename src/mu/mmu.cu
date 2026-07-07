@@ -22,9 +22,9 @@ using nn::Model;
 ///@note: CUDA does not support device static data
 ///@{
 UFP Code::cap = 0;
+UFP Code::XT0 = ~0;
+UFP Code::NM0 = ~0;
 MMU *_mmu = NIL;              ///< singleton MMU controler
-UFP _XT0;
-UFP _NM0;
 ///@}
 ///
 /// Forth Virtual Machine operational macros to reduce verbosity
@@ -88,11 +88,6 @@ MMU::free_mmu() {
     if (_mmu) delete _mmu;
 }
 ///
-/// static functions (for type conversion)
-///
-__HOST__  FPTR MMU::XT(IU ioff)    { return (FPTR)(_XT0 + ioff);  }
-__HOST__  IU   MMU::XTOFF(FPTR xt) { return (IU)((UFP)xt - _XT0); }
-///
 /// dictionary management methods
 /// TODO: use const Code[] directly, as ROM, to prevent deep copy
 ///
@@ -105,9 +100,8 @@ MMU::dict_validate() {
         if ((UFP)c->xt   < x0) x0 = (UFP)c->xt;
         if ((UFP)c->name < n0) n0 = (UFP)c->name;
     }
-    _XT0 = x0;
-    _NM0 = n0;
-    _dict[0].xt = (FPTR)x0;                 /// * borrow for xt0
+    Code::XT0 = x0;                         /// * update base pointer of lambdas
+    Code::NM0 = n0;                         /// * update base pointer of word names
 }
 
 __HOST__ IU
@@ -144,11 +138,11 @@ MMU::status(bool hdr) {
 __HOST__ void
 MMU::dict_dump() {
     Code *c = _dict;
-    INFO("Built-in Dictionary [name0=0x%zx, xt0=0x%zx]\n", _NM0, _XT0);
+    INFO("Built-in Dictionary [name0=0x%zx, xt0=0x%zx]\n", Code::NM0, Code::XT0);
     for (int i=0; i<_didx; i++, c++) {      ///< dump dictionary from device
-        IU  ix  = c->udf ? c->pfa : (UFP)c->xt - _XT0;
+        IU ix = c->pfa_or_xtoff();
         INFO("%4d|%03x> name=%6x, %s=%6x %s\n", i, i,
-             c->udf ? (c->pfa - c->nlen) : (U32)((UFP)c->name - _NM0),
+             c->udf ? (c->pfa - c->nlen) : (U32)((UFP)c->name - Code::NM0),
              c->udf ? "pf" : "xt", ix, c->name);
     }
 }

@@ -48,11 +48,6 @@ public:
     static __HOST__ MMU *get_mmu();  ///< singleton constructor/getter
     static __HOST__ void free_mmu(); ///< singleton destructor
     ///
-    /// function pointer conversion
-    ///
-    __HOST__  FPTR XT(IU ioff);      ///< function pointer from _XT0 offset 
-    __HOST__  IU   XTOFF(FPTR xt);   ///< _XT0 offset from function pointer
-    ///
     /// references to memory blocks
     ///
     __HOST__ __INLINE__ Code *dict(IU i)  { return &_dict[i]; }          ///< dictionary pointer
