@@ -21,7 +21,8 @@ using nn::Model;
 ///@name static class member
 ///@note: CUDA does not support device static data
 ///@{
-MMU *_mmu = NULL;              ///< singleton MMU controler
+UFP Code::cap = 0;
+MMU *_mmu = NIL;              ///< singleton MMU controler
 UFP _XT0;
 UFP _NM0;
 ///@}
