@@ -23,7 +23,7 @@ NVCC       := $(CUDA_HOME)/bin/nvcc
 NVCC_FLAGS := -ccbin g++ \
 	          -D__CUDACC__ \
 	          -Isrc $(GL_INCS:%=-I%) \
-	          -t 0 -c -std=c++17 -O0 -g -lineinfo \
+	          -t 0 -c -std=c++17 -O2 -g -lineinfo \
 	          --device-c --expt-extended-lambda \
 	          -Xptxas -v \
 	          -gencode arch=$(CUDA_ARCH),code=$(CUDA_CODE)
@@ -83,7 +83,7 @@ $(APP_NAME): $(OBJS)
 	@echo '</Status></App>'
 	@echo 'Built: $@'
 
-clean: $(MODULES:%=clean-%)
+clean: $(MODULES:%=clean-%) clean-t4
 	-$(RM) $(APP_NAME)
 
 # ── Auto-generated header dependencies ────────────────────────────────────────
