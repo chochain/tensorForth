@@ -187,24 +187,23 @@ ForthVM::init() {
     CODE("-",       xop2(SUB));
     CODE("*",       xop2(MUL));
     CODE("/",       xop2(DIV));
-    CODE("mod",     tos = D2I(MOD(ss.pop(), tos)); SCALAR(tos));  /// ( a b -- c )
-    CODE("fmod",    tos = MOD(ss.pop(), tos); SCALAR(tos));       /// ( a b -- c ) fmod = x - int(q)*y
+    CODE("mod",
+         DU m = I2D(D2I(ss.pop()) % D2I(tos)); tos = SCALAR(m));  /// ( a b -- c )
+    CODE("fmod",
+         DU m = MOD(ss.pop(), tos); tos = SCALAR(m));             /// ( a b -- c ) fmod = x - int(q)*y
     CODE("/mod",                                                  /// ( a b -- c d ) c=a%b, d=a/b
-         DU n = ss.pop();
-         DU m = MOD(n, tos); SCALAR(m); ss.push(m);
-         tos = DIV(n, tos); SCALAR(tos));
+         DU n = ss.pop(); DU m = MOD(n, tos); ss.push(m);
+         DU v = DIV(n, tos); tos = SCALAR(v));
     ///@}
     ///@defgroup FPU double precision ops
     ///@{
     CODE("*/",                                                    /// ( a b c -- d ) c= a*b / c
-         DU2 n = MUL2(ss.pop(), ss.pop());
-         tos = n / tos; SCALAR(tos));
+         DU2 n2 = MUL2(ss.pop(), ss.pop());
+         DU  v  = DIV(n2, tos); tos = SCALAR(v));
     CODE("*/mod",                                                 /// ( a b c -- d e )
-         DU2 n = MUL2(ss.pop(), ss.pop());
-         DU2 t = tos;
-         DU  m = MOD2(n, tos);
-         SCALAR(m); ss.push(m);
-         tos = D2I(n / t));
+         DU2 n2 = MUL2(ss.pop(), ss.pop());
+         DU  m  = MOD2(n2, tos); SCALAR(m); ss.push(m);
+         DU  v  = floorf(DIV(n2, tos)); tos = SCALAR(v));
     ///@}
     ///@defgroup Binary logic ops (convert to integer first)
     ///@{
