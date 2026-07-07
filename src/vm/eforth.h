@@ -111,7 +111,7 @@ protected:
     __HOST__ __INLINE__ void add_w(Param p) { add_iu(p.pack); }
     __HOST__ void add_w(IU w) {                ///< compile a word index into pmem
         mu::Code &c = dict[w];
-        IU       ix = c.udf ? c.pfa : mmu.XTOFF(c.xt);
+        IU       ix = (IU)c.pfa_or_xtoff();
         DEBUG(" add_w(%d) => ioff=%x %s\n", w, ix, c.name);
         Param p(MAX_OP, ix, c.udf);
         add_w(p);
