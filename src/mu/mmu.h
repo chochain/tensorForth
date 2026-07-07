@@ -70,14 +70,31 @@ public:
     ///
     /// compiler methods
     ///
-    template <typename F>
+    template <typename F>                                           /// * template stays in include file
     __HOST__  void add_word(const char *name, F &&f, bool im) {     ///< append or merge a new word
         IU   w  = find(name);                                       ///< check whether word exists
         Code &c = _dict[w ? w : _didx++];                           ///< new or exist Code object
-        Code c0{ name, f, im };
+        using T = typename std::decay<F>::type;                     ///< get cleaned type
+        static_assert(
+            sizeof(T) == sizeof(void*),
+            "Error: lambda must only capture [this] (8-byte layout)"
+            );
+        UFP cap = reinterpret_cast<UFP&>(f);                        ///< lambda captured (VM*)
+        if (Code::cap) {                                            /// * ensure VM* is unique
+            if (Code::cap != cap) {
+                ERROR("Code::cap altered %zx=>%zx", Code::cap, cap);
+            }
+        }
+        else Code::cap = cap;                                       /// * assign VM*
+        
+        FPTR xt = [](void *data) {
+            auto *fp = reinterpret_cast<T*>(&data);
+            (*fp)();                                                /// * execute [cap](){...}
+        };
+        Code c0{ name, xt, im };
         c.set(c0);                                                  /// * hardcopy Code object
         if (w) INFO("*** redefined: %s\n", c.name);
-    }
+    }        
     __HOST__  void colon(const char *name);                         ///< define colon word
     __HOST__  __INLINE__ int  align()      { int i = (-_midx & 0x3); _midx += i; return i; }
     __HOST__  __INLINE__ void clear(IU i)  {                        ///< clear dictionary
