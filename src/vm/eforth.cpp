@@ -130,7 +130,7 @@ ForthVM::nest() {
                 rs.push(ip);                         /// * setup call frame
                 ip = ix.ioff;                        /// * ip = word.pfa
             }
-            else (*mmu.XT(ix.ioff))(this));          /// * execute built-in word
+            else (*Code::XT(ix.ioff))(this));        /// * execute built-in word
         }
         VM_TLR(" => SP=%d, RP=%d, ip=%x", SP, RP, ip);
     }
@@ -157,7 +157,7 @@ ForthVM::init() {
     VM::init();
     if (id != 0) return;    /// * done once only
     
-    CODE("\nForth::", {});  /// dict[0] not used, simplify find(), also keeps _XT0
+    CODE("\nForth::", {});  /// dict[0] not used, simplify find()
     CODE("nop",     DU x = tos; tos = x);     /// do nothing, burn mem <=> reg cycles
     ///
     /// @defgroup Stack ops
@@ -441,10 +441,10 @@ ForthVM::parse(char *idiom) {
         return 0;                         /// * next, try as a number
     }
     Code &c = dict[w];
-    DEBUG("%06x[%3x]%c%c %s ",
-         c.udf ? c.pfa : mmu.XTOFF(c.xt), w,
-         c.imm ? '*' : ' ', c.udf ? 'u' : ' ',
-         c.name);
+    DEBUG("%06zx[%3x]%c%c %s ",
+        c.pfa_or_xtoff(), w,
+        c.imm ? '*' : ' ', c.udf ? 'u' : ' ',
+        c.name);
     
     if (compile && !c.imm) {              /// * in compile mode?
         add_w(w);                         /// * add found word to new colon word
