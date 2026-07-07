@@ -52,7 +52,6 @@ cr .( ### linear algebra - destructive ) cr
 cr .( ### matrix subtraction ) cr
 -=                           \ subtract matrices (destructive)
 .( = {{0 1 2}{3 4 5}} => ) . \ and print
-drop
 
 cr .( ### matrix multiplication ) cr
 2 3 matrix{ 1 2 3 0 4 5 }    \ create a 2x3 matrix
