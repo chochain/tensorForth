@@ -4,6 +4,8 @@
  *
  * <pre>Copyright (C) 2021- GreenII, this file is distributed under BSD 3-Clause License.</pre>
  */
+#include <ostream>
+#include <algorithm>
 #include "mu/tensor.h"
 #include "nn/model.h"
 #include "summary.h"
@@ -141,7 +143,7 @@ Summary::graph(T4Base &b) {
     _node_attr(n0, m[0]);
     add_node(n0);
 
-    for (int i = 0; i < m.numel; i++) {
+    for (int i = 0; i < (int)m.numel; i++) {
         graph::Node &n = nn[i];
         Tensor &in = m[i];
         std::string nm  = _tname(in, i);
