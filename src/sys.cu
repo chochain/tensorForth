@@ -259,7 +259,7 @@ System::_process_tb(io::event *ev) {              ///< process TensorBoard ops
     case TB_SCALAR: tb->scalar(tag, x.n);                 break;
     case TB_TEXT: {
         ev = NEXT_EVENT(ev);
-        const char *txt = (const char*)ev->data;  ///< get a hardcopy
+        const char *txt = (const char*)ev->data();  ///< get a hardcopy
         if (_trace) INFO("    txt=%s\n", txt);
         tb->text(tag, txt);
     } break;
