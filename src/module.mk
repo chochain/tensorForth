@@ -3,9 +3,11 @@
 #
 # Add inputs and outputs from these tool invocations to the build variables
 #
+T4_SRCS :=    \
+	sys.cpp   \
+	debug.cpp
+
 T4_CUSRCS :=  \
-	sys.cu    \
-	debug.cu  \
 	util.cu   \
 	t4math.cu \
 	ten4.cu
