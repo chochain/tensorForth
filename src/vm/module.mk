@@ -5,10 +5,10 @@
 VM_SRCS :=     \
 	vm.cpp     \
 	eforth.cpp \
-	tenvm.cpp
+	tenvm.cpp  \
+	netvm.cpp
 
-VM_CUSRCS :=   \
-	netvm.cu
+VM_CUSRCS :=
 
 VM_DIRS :=
 VM_LIBS :=
