@@ -149,6 +149,7 @@ struct Tensor : public T4Base {
     /// IO
     ///
     __HOST__ void to_s(std::ostream &fout);
+    __HOST__ void d2h(DU *h, int n=0);
     ///
     /// tensor debugger
     ///

@@ -599,6 +599,11 @@ Tensor::normalize(DU avg, DU std) {
     FORK(k_ts_op, numel, DIV, data, std, data);
     return *this;
 }
+
+__HOST__ void
+Tensor::d2h(DU *h, int n) {
+    D2H(h, data, sizeof(DU) * (n ? n : numel));
+}
 ///=======================================================================
 /// Tensor debugger
 ///
