@@ -25,17 +25,19 @@ typedef enum {
     NORMAL
 } rand_opt;
 
+///@name Random number generator interface
+///@{
+void t4_rand_init(long seed);
+void t4_rand(float *d, long sz, rand_opt opt, float bias, float scale);
+///@}
 #if __CUDACC__
     
 #define __HOST__     __host__
 #define __KERN__     __global__
 #define __GPU__      __device__
-///
-///@name Random number generator
-///@{
-__HOST__ void        t4_rand_init(long seed);
-__HOST__ void        t4_rand(float *d, long sz, rand_opt opt, float bias, float scale);
     
+///@name kernel Random number generator 
+///@{
 __KERN__ void        k_rand_init(long seed);
 __KERN__ void        k_rand(float *mat, long sz, rand_opt opt, float bias, float scale);
 ///@}
