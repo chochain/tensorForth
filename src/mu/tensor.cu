@@ -599,14 +599,14 @@ Tensor::normalize(DU avg, DU std) {
     FORK(k_ts_op, numel, DIV, data, std, data);
     return *this;
 }
-
-__HOST__ void
-Tensor::d2h(DU *h, int n) {
-    D2H(h, data, sizeof(DU) * (n ? n : numel));
-}
 ///=======================================================================
 /// Tensor debugger
 ///
+__HOST__ void
+Tensor::d2h(DU *h, DU *d, int bsz) {
+    D2H(h, d, bsz);                         /// * copy from device to host
+}
+
 __HOST__ void
 Tensor::_dump(DU *v, U32 H, U32 W, U32 C) {
     const DU  hw = I2D(H) * W, sr = sqrtf(hw);
