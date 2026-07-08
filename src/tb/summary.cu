@@ -39,7 +39,7 @@ Summary::image(const char *tag, T4Base &b) {
     F32V hx(H * W * C);
     for (int n = 0; n < N; n++) {
         DU *d = t.slice(n), *h = hx.data();
-        D2H(h, d, sizeof(DU) * W * H * C);
+        Tensor::d2h(h, d, sizeof(DU) * W * H * C);
         for (int y = 0; y < H; y++) {
             U8 *p = &px[(y * W) * 3];
             for (int x = 0; x < W; x++, h++) {
@@ -70,7 +70,7 @@ Summary::tile(const char *tag, T4Base &b, int n_per_row) {
 
     U8V  px(HT * WT * 3);                         ///< zero-init, so unfilled are black
     F32V hx(t.numel);                             ///< host block on heap (CC: watch)
-    D2H(hx.data(), t.data, t.numel * sizeof(DU)); /// * copy device to host
+    t.d2h(hx.data());                             /// * copy device to host
 
     for (int n = 0; n < N; n++) {                 ///< CC TODO: in worker thread
         F32 *v = &hx[n * H * W * C];              ///< or pre-build px in kernel
@@ -96,7 +96,7 @@ Summary::histo(const char *tag, T4Base &b, int n_bucket) {
     }
     Tensor &t = (Tensor&)b;
     F32V tx(t.numel);
-    D2H(tx.data(), t.data, sizeof(DU) * t.numel);
+    t.d2h(tx.data());                               /// * move data to host
     
     add_histo(tag, tx.data(), t.numel, _step, n_bucket);
 }
@@ -165,7 +165,7 @@ Summary::embed(const char* tag, T4Base &b) {
     }
     Tensor &t = (Tensor&)b;
     F32    v[t.numel];
-    D2H(v, t.data, sizeof(DU) * t.numel);         /// * move from device to host
+    t.d2h(v);                                     /// * move from device to host
     
     STR rundir       = STR(_root) + "/" + esc(_run_id);
     const char *path = rundir.c_str();
