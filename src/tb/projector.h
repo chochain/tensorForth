@@ -9,6 +9,7 @@
 #define __TB_PROJECTOR_H
 
 #pragma once
+#include <algorithm>
 #include <fstream>
 #include <sstream>
 #include <iterator>
