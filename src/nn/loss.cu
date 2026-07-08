@@ -28,7 +28,7 @@ Model::onehot(Tensor &t) {
     U32    N    = out.N();                          ///< mini-batch size
     U32    E    = (U32)out.HWC();                   ///< channel sizes
     if (_hot) {
-        ERROR("WARN: Model.onehot exists, replace with T%x\n", _mmu->OBJ2X(t));
+        ERROR("WARN: Model.onehot exists, replace with T%zx\n", _mmu->OBJ2X(t));
         FREE(*_hot);
     }
     else if (t.N()!=N || (U32)t.HWC() != E) {

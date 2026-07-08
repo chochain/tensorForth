@@ -51,7 +51,7 @@ Model::grad_alloc(t4_optimizer op) {
             }
             break;
         }
-        NLOG(" mtum=%x,%x,%x,%x\n",  M2X(0), M2X(1), M2X(2), M2X(3));
+        NLOG(" mtum=%zx,%zx,%zx,%zx\n",  M2X(0), M2X(1), M2X(2), M2X(3));
     }
     GPU_CHK();
     NLOG("  } #grad_alloc\n");
