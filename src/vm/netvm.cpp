@@ -37,13 +37,14 @@ NetVM::_nnop(t4_layer op) {     /// vtable dispatcher
             t -= t.max();                      ///< down shift (prevent overflow)
             t.map(EXP);
             t.map(MUL, RCP(t.sum()));          return ok();
-        case L_LOGSMAX:
+        case L_LOGSMAX: {
             DU sum = t.sum();
             if (sum > DU_EPS) t -= LOG(sum);
             else ERROR("logsoftmax tensor sum < 0!");
             return ok();
         }
-        /// * continue to zero param
+        default:  /* continue to zero param */ break;
+        }
     }
     ///
     /// zero parameter layers
@@ -62,8 +63,8 @@ NetVM::_nnop(t4_layer op) {     /// vtable dispatcher
         case L_SOFTMAX:
         case L_LOGSMAX: m.add(op);           return ok();
         case L_BATCHNM: m.add(op, 0, 0.1);   return ok(); /// * default momentum=0.1
+        default: /* continue to one param */ break;
         }
-        /// * continue to one param
     }
     ///
     /// one parameter layers
@@ -73,15 +74,16 @@ NetVM::_nnop(t4_layer op) {     /// vtable dispatcher
         Model &m = MTOS;
         VLOG(" N%d %g {\n", (int)m.numel, a);
         switch (op) {
-        case L_LINEAR:  m.add(op, INT(a), DU1);            return ok(); /* bias = 1.0 */
+        case L_LINEAR:  m.add(op, INT(a), DU1);         return ok(); /* bias = 1.0 */
         case L_LEAKYRL:
         case L_ELU:     
-        case L_DROPOUT: m.add(op, 0, a);                   return ok();
+        case L_DROPOUT: m.add(op, 0, a);                return ok();
         case L_AVGPOOL:
         case L_MAXPOOL: 
-        case L_MINPOOL: m.add(op, INT(a));                 return ok();
-        case L_BATCHNM: m.add(op, 0, a);                   return ok();
-        case L_USAMPLE: m.add(op, INT(a), UP_NEAREST);     return ok();
+        case L_MINPOOL: m.add(op, INT(a));              return ok();
+        case L_BATCHNM: m.add(op, 0, a);                return ok();
+        case L_USAMPLE: m.add(op, INT(a), UP_NEAREST);  return ok();
+        default: /* continue to error handling cases */ break;
         }
         PUSH(a);                                   /// * restore tos
         /// continue to error handling cases
@@ -122,6 +124,7 @@ NetVM::_nnop(t4_layer op) {     /// vtable dispatcher
             case L_RELU:    xop1(RELU, DU0); break;
             case L_TANH:    xop1(TANH);      break;
             case L_SIGMOID: xop1(SIGM);      break;
+            default: ERROR("nnop !IS_OBJ: layer %d not supported\n", op); break;
             }
         }
         else ERROR("layer %d not supported(2)\n", op);
@@ -204,8 +207,8 @@ NetVM::_conv(U16 k, bool txn, U16 s, U16 p, U16 d) {
         Tensor &t = TTOS;               ///< tensor setup
         if (t.rank == 1) {
             int n = MIN(t.numel, 4);
-            DU vo[4];
-            D2H(vo, t.data, sizeof(DU) * n);
+            DU  vo[4];                  ///< use stack frame to transfer
+            t.d2h(vo, n);
             DU x = POP(); DROP(x);
             for (int i = 0; i < n; i++) opt[i] = (U16)D2I(vo[i]);
         }
