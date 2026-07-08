@@ -56,7 +56,6 @@ private:
     ///
     /// methods for supporting see
     ///
-    __HOST__ char *_d2h(const char *d_str);                   ///< convert from device string
     __HOST__ int  _p2didx(vm::Param *p);                      ///< reverse lookup
     __HOST__ int  _see(vm::Param *p, int nv, int base);       ///< show by parameter memory pointer
 };

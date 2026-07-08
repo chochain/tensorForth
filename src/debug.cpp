@@ -88,7 +88,7 @@ Debug::words() {
     
     keep_fmt();
     fout << std::dec;
-    for (int i=0, sz=0; i < DIDX; i++) {
+    for (int i=0, sz=0; i < (int)DIDX; i++) {
         const char *name = DICT(i).name;
         fout << "  " << name;
         sz += name[0]=='\n' ? WIDTH : (strlen(name) + 2); /// * page break?
@@ -173,7 +173,7 @@ Debug::dict_dump() {
     keep_fmt();
     fout << "Built-in Dictionary: XT0=0x"
          << std::hex << Code::XT0 << std::setfill('0') << ENDL;
-    for (int i=0; i < DIDX; i++) {
+    for (int i=0; i < (int)DIDX; i++) {
         Code &c = DICT(i);
         U32  ip = (U32)c.pfa_or_xtoff();
         fout << std::dec << std::setw(4) << i << '|'
@@ -188,14 +188,6 @@ Debug::dict_dump() {
 ///@}
 ///@name methods for supporting words and see
 ///@{
-__HOST__ char*                            ///< convert device string to host
-Debug::_d2h(const char *d_str) {
-    int i = 0;
-    do {
-        cudaMemcpy(tmp+i, d_str+i, 1, cudaMemcpyDeviceToHost);
-    } while (tmp[i++]);
-    return tmp;
-}
 __HOST__ int
 Debug::_p2didx(Param *p) {
 //    UFP xt0 = XT0;
