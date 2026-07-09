@@ -4,35 +4,28 @@
 */
 #ifndef __TEN4_H_
 #define __TEN4_H_
-#include "vm/vm.h"           // proxy to sys.h
-#include "vm/eforth.h"       // just eForth
-#include "vm/tenvm.h"        // tensor/matrix set, or
-#include "vm/netvm.h"        // neural network set,
+#pragma once
+#include "vm/vm.h"
+#include "sys.h"
+
+namespace t4::vm {
+VM* vm_factory(vm::vm_level level, int id, System &sys);  /// * extern (in vm/vm.cpp)
+}
 
 namespace t4 {
-
-#if T4_DO_NN
-typedef vm::NetVM     VM_TYPE;
-#elif T4_DO_OBJ
-typedef vm::TensorVM  VM_TYPE;
-#else
-typedef vm::ForthVM   VM_TYPE;
-#endif
-
-#define WARP_SZ   32                        /** threads per warp       */
-#define WARP(t)   ((((t) + 31)>>5) << 5)    /** calculate block number */
+using vm::VM;
 
 struct VM_Handle {
-    VM_TYPE *vm;
-    STREAM  st;
-    EVENT   t0;
-    EVENT   t1;
+    VM      *vm;                             ///< polymorphic handle
+    STREAM  st;                              ///< CUDA stream
+    EVENT   t0;                              ///< CUDA starting event
+    EVENT   t1;                              ///< CUDA end event
 };
 
 class TensorForth {
     System    *sys;
-    VM_Handle *vm_pool;                      ///< CUDA stream per VM
-    int       *vmst_cnt;
+    VM_Handle vm_pool[T4_VM_COUNT];          ///< VM handles
+    int       vmst_cnt[vm::VM_STATE_MAX];    ///< state counters
     
 public:
     TensorForth(int device=0, int verbose=0);
