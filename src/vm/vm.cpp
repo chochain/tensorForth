@@ -14,12 +14,12 @@ namespace t4::vm {
 
 VM *vm_factory(vm_level level, int id, System &sys) {
     switch (level) {
+#if T4_DO_OBJ
 #if T4_DO_NN        
     case NET   : return new vm::NetVM(id, sys);
-#if T4_DO_OBJ
+#endif // T4_DO_NN        
     case TENSOR: return new vm::TensorVM(id, sys);
 #endif // T4_DO_OBJ
-#endif // T4_DO_NN        
     default    : return new vm::ForthVM(id, sys);
     }
 }
