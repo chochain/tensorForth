@@ -30,7 +30,7 @@ namespace t4::vm {
 class TensorVM : public ForthVM {
     using Tensor = mu::Tensor;             ///< alias
 public:
-    __HOST__ TensorVM(int id, System &sys) : ForthVM(id, sys) {
+    TensorVM(int id, System &sys) : ForthVM(id, sys) {
         TRACE("\\    ::TensorVM[%d]\n", id);
     }
     __HOST__ virtual void init();           ///< override ForthVM.init()

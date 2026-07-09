@@ -27,7 +27,7 @@ namespace t4::vm {
 class NetVM : public TensorVM {
     using Tensor = mu::Tensor;                   ///< alias
 public:
-    __HOST__ NetVM(int id, System &sys) : TensorVM(id, sys) {
+    NetVM(int id, System &sys) : TensorVM(id, sys) {
         TRACE("\\      ::NetVM[%d]\n", id);
     }
     ///

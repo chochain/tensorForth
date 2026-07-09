@@ -56,7 +56,7 @@ namespace t4::vm {
 ///@{
 class ForthVM : public VM {
 public:
-    __HOST__ ForthVM(int id, System &sys);
+    ForthVM(int id, System &sys);
     
     __HOST__ virtual void init();      ///< override VM
     __HOST__ virtual void resume();    ///< resume suspended work
