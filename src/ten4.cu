@@ -5,21 +5,32 @@
  * <pre>Copyright (C) 2022- GreenII, this file is distributed under BSD 3-Clause License.</pre>
  *
  * Benchmark: 1K*1K cycles on 3.2GHz AMD, Nvidia GTX1660
- *    + 9.3ms - ceforth50x as reference
- *    + 19.0s - 2000x slower! Most likely due to heavy branch divergence.
+ *    + 19.0s - 2000x slower than host-C! Most likely due to heavy branch divergence.
  *    + 21.1s - without NXT cache in nest()         => branch is slow
  *    + 19.1s - without push/pop WP                 => static ram access is fast
  *    + 20.3s - 16-bit IU, token indirect threading => not that much worse but portable
  *    + 11.3s - CUDA 11.6, 32-bit IU, nest with primitive, indirect threading (with offset)
  *    +  7.5s - CUDA 12.6, same code as above
  *    +  5.0s - Ubuntu 20.04 + 470 driver, GPU mode build in CUDA11.4 docker
- *    -=====================================================================================
  *    + 128ms - Ubuntu 22.04 + 535 driver, HOST mode build in CUDA 12.2 docker
+ *
+ * == VM migrated to Host =================================================================
+ * Benchmark: 10K*10K cycles on 3.2GHz AMD, Nvidia GTX1650 on host-mode
+ *    + 785ms - ceforth50x as reference
+ *    + 1024ms- Ubuntu 22.04 + 535 driver, HOST mode build in CUDA 12.2 docker
  */
 #include <iostream>          // cin, cout
 #include <signal.h>
 #include "debug.h"           // only when sys->db is called
 #include "ten4.h"            // wrapper
+
+#if T4_DO_NN
+#define VM_TYPE vm::NET
+#elif T4_DO_OBJ
+#define VM_TYPE vm::TENSOR
+#else
+#define VM_TYPE vm::FORTH
+#endif
 
 namespace t4 {
 using t4::vm::VM;
@@ -30,9 +41,9 @@ using t4::vm::VM;
 __HOST__ void
 _vm_init(System *sys, VM_Handle *pool) {
     for (int id = 0; id < T4_VM_COUNT; id++) {
-        VM *vm = pool[id].vm = new VM_TYPE(id, *sys);
+        VM *vm = pool[id].vm = vm::vm_factory(vm::FORTH, id, *sys);
         vm->init();                            /// * initialize dictionary (only by thread 0)
-    }        
+    }
     sys->mu->dict_validate();
     sys->mu->status(true);
     pool[0].vm->state = vm::QUERY;
@@ -52,7 +63,7 @@ __HOST__ void
 _ten4_tally(System *sys, int *vmst_cnt, VM_Handle *pool) {
     sys->mu->sweep();                         ///< clear marked free tensors
 
-    for (int i = 0; i < vm::VM_STATE_SZ; i++) {
+    for (int i = 0; i < vm::VM_STATE_MAX; i++) {
         vmst_cnt[i] = 0;
     }
     for (int id = 0; id < T4_VM_COUNT; id++) {
@@ -143,14 +154,11 @@ TensorForth::setup(const char *tb_logdir, const char *tb_run_id) {
     ///
     /// allocate VM handle pool
     ///
-    H_ALLOC(&vm_pool, sizeof(VM_Handle) * T4_VM_COUNT);
-    H_ALLOC(&vmst_cnt, sizeof(int) * vm::VM_STATE_SZ);   /// * 4 states + 1 VM[0].hold
-    
     for (int i=0; i < T4_VM_COUNT; i++) {
-        VM_Handle *h = &vm_pool[i];
-        GPU_ERR(cudaStreamCreate(&h->st));               /// * allocate stream
-        GPU_ERR(cudaEventCreate(&h->t0));                /// * allocate timers
-        GPU_ERR(cudaEventCreate(&h->t1));
+        VM_Handle &h = vm_pool[i];
+        GPU_ERR(cudaStreamCreate(&h.st));               /// * allocate stream
+        GPU_ERR(cudaEventCreate(&h.t0));                /// * allocate timers
+        GPU_ERR(cudaEventCreate(&h.t1));
     }
     _vm_init(sys, vm_pool);
 
@@ -177,10 +185,7 @@ TensorForth::run() {
     ///> execute VM per stream
     ///
     for (int i=0; i<T4_VM_COUNT; i++) {
-        VM_Handle *h  = &vm_pool[i];
-        VM        *vm = h->vm;
-
-        _vm_exec0(vm);       /// * each VM on their own stream
+        _vm_exec0(vm_pool[i].vm);       /// * each VM on their own stream
     }
 }
 
@@ -234,8 +239,6 @@ TensorForth::teardown(int sig) {
         GPU_ERR(cudaEventDestroy(h->t0));
         GPU_ERR(cudaStreamDestroy(h->st));
     }
-    H_FREE(vmst_cnt);           /// * release ten4 Managed memory
-    H_FREE(vm_pool);
 
     System::free_sys();          /// * release system
     cudaDeviceReset();
