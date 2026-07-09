@@ -7,58 +7,18 @@
 #ifndef __VM_VM_H
 #define __VM_VM_H
 #pragma once
-
-#include "t4math.h"
-#include "sys.h"                      /// system interface
 #include "mu/vector.h"
+#include "sys.h"                      /// system interface
 
 namespace t4::vm {
-///
-///@name ALU opcodes (1-operand and 2-operand)
+enum vm_level : int { FORTH, TENSOR, NET };
+enum vm_state : int { STOP=0, HOLD, QUERY, NEST, VM_STATE_MAX };
 ///@{
-#define XOP1(op) {                              \
-    DU t = tos;                                 \
-    switch (op) {                               \
-    case ABS:  t = ABS(t);          break;      \
-    case NEG:  t = NEG(t);          break;      \
-    case EXP:  t = EXP(t);          break;      \
-    case LN:   t = t > DU_EPS ? LN(t)  : DU0;  break; \
-    case LOG:  t = t > DU_EPS ? LOG(t) : DU0;  break; \
-    case TANH: t = TANH(t);         break;      \
-    case RELU: t = MAX(t, DU0);     break;      \
-    case SIGM: t = SIGMOID(t);      break;      \
-    case SQRT: t = SQRT(t);         break;      \
-    case RCP:  t = RCP(t);          break;      \
-    case SAT:  t = SAT(t);          break;      \
-    case SIN:  t = SIN(t);          break;      \
-    case COS:  t = COS(t);          break;      \
-    default: NA("op=%d?\n");        break;      \
-    }                                           \
-    tos = SCALAR(t);                            \
-}
-
-#define XOP2(op) {                              \
-    DU t = tos, n = ss.pop();                   \
-    switch (op) {                               \
-    case ADD:  t = ADD(n, t);       break;      \
-    case MUL:  t = MUL(n, t);       break;      \
-    case SUB:  t = SUB(n, t);       break;      \
-    case DIV:  t = DIV(n, t);       break;      \
-    case MOD:  t = MOD(n, t);       break;      \
-    case MAX:  t = MAX(n, t);       break;      \
-    case MIN:  t = MIN(n, t);       break;      \
-    case MUL2: t = MUL2(n,t);       break;      \
-    case MOD2: t = MOD2(n,t);       break;      \
-    case POW:  t = POW(t, n);       break;      \
-    default: NA("op=%d?\n");        break;      \
-    }                                           \
-    tos = SCALAR(t);                            \
-}
-
+///@name VM states
+///@{
 ///@}
 ///@name virtual machine base class
 ///@{
-typedef enum { STOP=0, HOLD, QUERY, NEST, VM_STATE_SZ } vm_state;   ///< ten4 states
 #define SP    (ss.size())             /** data stack pointer   */
 #define RP    (rs.size())             /** return stack pointer */
 
@@ -76,8 +36,8 @@ public:
     IU    ip     = 0;                 ///< instruction pointer
     DU    tos    = -DU1;              ///< cached top of stack
 
-    __HOST__  VM(int id, System &sys);
-    __HOST__  ~VM() { TRACE("%d ", id); }
+    VM(int id, System &sys);
+    virtual ~VM() = default;
     ///
     /// VM life-cycle controls
     ///
@@ -87,8 +47,8 @@ public:
     ///
     /// ALU operators
     ///
-    __HOST__ virtual void xop1(math_op op, DU v=DU0) { XOP1(op); }             ///< single operand operator
-    __HOST__ virtual void xop2(math_op op, t4_drop_opt x=T_KEEP) { XOP2(op); }  ///< 2-operand operator
+    __HOST__ virtual void xop1(math_op op, DU v=DU0);             ///< single operand operator
+    __HOST__ virtual void xop2(math_op op, t4_drop_opt x=T_KEEP); ///< 2-operand operator
     
 protected:
     bool  compile = false;            ///< compiling flag
@@ -123,6 +83,5 @@ protected:
 #endif // DO_MULTITASK    
 };
 ///@}
-
 } // namespace t4::vm
 #endif // __VM_VM_H
