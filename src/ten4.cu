@@ -162,6 +162,7 @@ TensorForth::setup(const char *tb_logdir, const char *tb_run_id) {
     }
     _vm_init(sys, vm_pool);
 
+#if T4_DO_TB    
     if (!tb_logdir || !tb_run_id) {
         ERROR("tb_logdir=%s tb_run_id=%s\n", tb_logdir, tb_run_id);
         return;
@@ -169,6 +170,7 @@ TensorForth::setup(const char *tb_logdir, const char *tb_run_id) {
     std::cout << "\\ TensorBoard logdir="  << tb_logdir
               << ", run_id=" << tb_run_id  << std::endl;
     sys->setup_tb(tb_logdir, tb_run_id);
+#endif // T4_DO_TB    
 }
 ///
 /// collect VM states into vmst_cnt
@@ -201,7 +203,7 @@ TensorForth::profile() {
         int m0 = (int)sys->mu->here() - 0x80;
         sys->db->mem_dump(m0 < 0 ? 0 : m0, 0x80);
     }
-#if 0    
+#if MM_DEBUG
     TRACE("VM.dt=[ ");
     for (int i=0; i<T4_VM_COUNT; i++) {
         VM_Handle *h  = &vm_pool[i];
@@ -285,11 +287,7 @@ int main(int argc, char**argv) {
     std::cout << T4_APP_NAME << std::endl;
 
     t4::TensorForth f(opt.device_id, opt.verbose);
-    f.setup(
-#if T4_DO_TB
-        opt.tb_logdir ? opt.tb_logdir : "/u01/tb", opt.tb_run_id
-#endif // T4_DO_TB 
-    );
+    f.setup(opt.tb_logdir ? opt.tb_logdir : "/u01/tb", opt.tb_run_id);
     f.main_loop();
     f.teardown();
 
