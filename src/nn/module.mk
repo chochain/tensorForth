@@ -3,15 +3,16 @@
 #
 # Data-only fragment — no rules, no boilerplate.
 # All compile logic lives in mk/module.mk.
+NN_SRCS :=    	\
+	loss.cpp	\
+	model.cpp
 
 NN_CUSRCS :=    \
 	nmath.cu    \
-	model.cu    \
 	forward.cu  \
 	backprop.cu \
-	loss.cu     \
 	debug.cu    \
-	gradient.cu \
+	gradient.cu
 
 NN_DIRS :=
 NN_LIBS :=

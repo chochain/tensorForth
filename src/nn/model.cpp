@@ -52,7 +52,7 @@ Model::operator[](S32 i) {
 __HOST__ Model&
 Model::npush(DU v) {
     data[numel++] = v;
-    if (numel >= _nlayer) {                /// * check if too many layers
+    if ((int)numel >= _nlayer) {           /// * check if too many layers
         ERROR("Model layer storage maxed out, increase ten4_config.T4_NET_SZ (%d)\n", _nlayer);
     }
     return *this;
