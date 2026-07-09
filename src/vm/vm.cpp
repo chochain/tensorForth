@@ -14,8 +14,12 @@ namespace t4::vm {
 
 VM *vm_factory(vm_level level, int id, System &sys) {
     switch (level) {
+#if T4_DO_NN        
     case NET   : return new vm::NetVM(id, sys);
+#if T4_DO_OBJ
     case TENSOR: return new vm::TensorVM(id, sys);
+#endif // T4_DO_OBJ
+#endif // T4_DO_NN        
     default    : return new vm::ForthVM(id, sys);
     }
 }
@@ -25,7 +29,7 @@ VM::VM(int id, System &sys)
     : id(id), state(STOP), sys(sys), mmu(*sys.mu) {
     ss.init(mmu.vmss(id), T4_SS_SZ);
     rs.init(mmu.vmrs(id), T4_RS_SZ);
-    TRACE("\\ VM[%d] created, sys=%p ss=%p, rs=%p\n", id, &sys, &ss[0], &rs[0]);
+    TRACE("\\ VM[%d] created, sys=%p ss=%p, rs=%p\n", id, &sys, &ss, &rs);
 }
 ///
 /// VM Outer interpreter
