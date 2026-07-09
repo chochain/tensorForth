@@ -73,7 +73,7 @@ _ten4_tally(System *sys, int *vmst_cnt, VM_Handle *pool) {
 }
 
 __HOST__ void
-_vm_exec0(VM *vm) {
+_vm_exec0(VM *vm, STREAM st) {                 ///< dispatcher, TODO: CC stream
     if (vm->state == vm::STOP) return;
     ///
     /// * enter ForthVM outer loop
@@ -187,7 +187,10 @@ TensorForth::run() {
     ///> execute VM per stream
     ///
     for (int i=0; i<T4_VM_COUNT; i++) {
-        _vm_exec0(vm_pool[i].vm);       /// * each VM on their own stream
+        VM_Handle &h  = vm_pool[i];               /// * each VM on their own stream
+        cudaEventRecord(h.t0, h.st);
+        _vm_exec0(h.vm, h.st);
+        cudaEventRecord(h.t1, h.st);
     }
 }
 
@@ -205,10 +208,10 @@ TensorForth::profile() {
     }
 #if MM_DEBUG
     TRACE("VM.dt=[ ");
+    float dt;
     for (int i=0; i<T4_VM_COUNT; i++) {
-        VM_Handle *h  = &vm_pool[i];
-        float dt;
-        cudaEventElapsedTime(&dt, h->t0, h->t1);
+        VM_Handle &h = vm_pool[i];
+        cudaEventElapsedTime(&dt, h.t0, h.t1);
         TRACE("%0.2f ", dt);
     }
     TRACE("]\n");
