@@ -41,7 +41,7 @@ using t4::vm::VM;
 __HOST__ void
 _vm_init(System *sys, VM_Handle *pool) {
     for (int id = 0; id < T4_VM_COUNT; id++) {
-        VM *vm = pool[id].vm = vm::vm_factory(vm::FORTH, id, *sys);
+        VM *vm = pool[id].vm = vm::vm_factory(VM_TYPE, id, *sys);
         vm->init();                            /// * initialize dictionary (only by thread 0)
     }
     sys->mu->dict_validate();
