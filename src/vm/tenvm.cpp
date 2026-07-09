@@ -397,8 +397,8 @@ TensorVM::_pickle(bool load, bool png) {
     POPi;                                     ///< string length (not used for now)
     IU   adr  = POPi;                         ///< address to pmem
     char *tag = (char*)MEM(adr);              ///< pointer to string on PAD
-    T4Base &t = mmu.du2obj(tos);
 #if MM_DEBUG
+    T4Base &t = mmu.du2obj(tos);
     const char* nm[] = { "tensor", "model", "dataset", "xxx" };
     U32   *p = (U32*)&t;
     INFO(".X %s(%04x)[%08x %08x %08x %08x].data(%p) => %s\n",
