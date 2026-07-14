@@ -4,10 +4,10 @@
  *
  * <pre>Copyright (C) 2022- GreenII, this file is distributed under BSD 3-Clause License.</pre>
  */
+#include <cstdio>
+#include <cstring>
 #include <map>
 #include "gui.h"
-
-#if (T4_DO_OBJ && T4_DO_NN)
 
 #define T4_VU_REFRESH_DELAY     100              /** ms     */
 #define T4_VU_X_CENTER          600              /** pixels */
@@ -15,15 +15,89 @@
 #define T4_VU_OFFSET            40               /** pixels */
 
 namespace t4::vu {
-    
-typedef std::map<int, Vu*> VuMap;
-VuMap   vu_map;
-GLuint  gl_pbo, gl_tex;        ///< GL pixel buffer object, texture
-GLuint  gl_shader = 0;         ///< GL floating point shader
+///
+/// GL extension function pointers - defined + resolved exactly once, here.
+/// (gui.h only declares them `extern`.)
+///
+#define GLFN(f,intf) intf f = (intf)glXGetProcAddress((const GLubyte*)#f)
+    GLFN(glBindBuffer,              PFNGLBINDBUFFERPROC);
+    GLFN(glDeleteBuffers,           PFNGLDELETEBUFFERSPROC);
+    GLFN(glBufferData,              PFNGLBUFFERDATAPROC);
+    GLFN(glBufferSubData,           PFNGLBUFFERSUBDATAPROC);
+    GLFN(glGenBuffers,              PFNGLGENBUFFERSPROC);
+    GLFN(glCreateProgram,           PFNGLCREATEPROGRAMPROC);
+    GLFN(glBindProgramARB,          PFNGLBINDPROGRAMARBPROC);
+    GLFN(glGenProgramsARB,          PFNGLGENPROGRAMSARBPROC);
+    GLFN(glDeleteProgramsARB,       PFNGLDELETEPROGRAMSARBPROC);
+    GLFN(glDeleteProgram,           PFNGLDELETEPROGRAMPROC);
+    GLFN(glGetProgramInfoLog,       PFNGLGETPROGRAMINFOLOGPROC);
+    GLFN(glGetProgramiv,            PFNGLGETPROGRAMIVPROC);
+    GLFN(glProgramParameteriEXT,    PFNGLPROGRAMPARAMETERIEXTPROC);
+    GLFN(glProgramStringARB,        PFNGLPROGRAMSTRINGARBPROC);
+    GLFN(glUnmapBuffer,             PFNGLUNMAPBUFFERPROC);
+    GLFN(glMapBuffer,               PFNGLMAPBUFFERPROC);
+    GLFN(glGetBufferParameteriv,    PFNGLGETBUFFERPARAMETERIVPROC);
+    GLFN(glLinkProgram,             PFNGLLINKPROGRAMPROC);
+    GLFN(glUseProgram,              PFNGLUSEPROGRAMPROC);
+    GLFN(glAttachShader,            PFNGLATTACHSHADERPROC);
+    GLFN(glCreateShader,            PFNGLCREATESHADERPROC);
+    GLFN(glShaderSource,            PFNGLSHADERSOURCEPROC);
+    GLFN(glCompileShader,           PFNGLCOMPILESHADERPROC);
+    GLFN(glDeleteShader,            PFNGLDELETESHADERPROC);
+    GLFN(glGetShaderInfoLog,        PFNGLGETSHADERINFOLOGPROC);
+    GLFN(glGetShaderiv,             PFNGLGETSHADERIVPROC);
+    GLFN(glUniform1i,               PFNGLUNIFORM1IPROC);
+    GLFN(glUniform1f,               PFNGLUNIFORM1FPROC);
+    GLFN(glUniform2f,               PFNGLUNIFORM2FPROC);
+    GLFN(glUniform3f,               PFNGLUNIFORM3FPROC);
+    GLFN(glUniform4f,               PFNGLUNIFORM4FPROC);
+    GLFN(glUniform1fv,              PFNGLUNIFORM1FVPROC);
+    GLFN(glUniform2fv,              PFNGLUNIFORM2FVPROC);
+    GLFN(glUniform3fv,              PFNGLUNIFORM3FVPROC);
+    GLFN(glUniform4fv,              PFNGLUNIFORM4FVPROC);
+    GLFN(glUniformMatrix4fv,        PFNGLUNIFORMMATRIX4FVPROC);
+    GLFN(glSecondaryColor3fv,       PFNGLSECONDARYCOLOR3FVPROC);
+    GLFN(glGetUniformLocation,      PFNGLGETUNIFORMLOCATIONPROC);
+    GLFN(glGenFramebuffersEXT,      PFNGLGENFRAMEBUFFERSEXTPROC);
+    GLFN(glBindFramebufferEXT,      PFNGLBINDFRAMEBUFFEREXTPROC);
+    GLFN(glDeleteFramebuffersEXT,   PFNGLDELETEFRAMEBUFFERSEXTPROC);
+    GLFN(glCheckFramebufferStatusEXT, PFNGLCHECKFRAMEBUFFERSTATUSEXTPROC);
+    GLFN(glGetFramebufferAttachmentParameterivEXT, PFNGLGETFRAMEBUFFERATTACHMENTPARAMETERIVEXTPROC);
+    GLFN(glFramebufferTexture1DEXT, PFNGLFRAMEBUFFERTEXTURE1DEXTPROC);
+    GLFN(glFramebufferTexture2DEXT, PFNGLFRAMEBUFFERTEXTURE2DEXTPROC);
+    GLFN(glFramebufferTexture3DEXT, PFNGLFRAMEBUFFERTEXTURE3DEXTPROC);
+    GLFN(glGenerateMipmapEXT,       PFNGLGENERATEMIPMAPEXTPROC);
+    GLFN(glGenRenderbuffersEXT,     PFNGLGENRENDERBUFFERSEXTPROC);
+    GLFN(glDeleteRenderbuffersEXT,  PFNGLDELETERENDERBUFFERSEXTPROC);
+    GLFN(glBindRenderbufferEXT,     PFNGLBINDRENDERBUFFEREXTPROC);
+    GLFN(glRenderbufferStorageEXT,  PFNGLRENDERBUFFERSTORAGEEXTPROC);
+    GLFN(glFramebufferRenderbufferEXT, PFNGLFRAMEBUFFERRENDERBUFFEREXTPROC);
+    GLFN(glClampColorARB,           PFNGLCLAMPCOLORARBPROC);
+    GLFN(glBindFragDataLocationEXT, PFNGLBINDFRAGDATALOCATIONEXTPROC);
+#if !defined(GLX_EXTENSION_NAME) || !defined(GL_VERSION_1_3)
+    GLFN(glActiveTexture,           PFNGLACTIVETEXTUREPROC);
+    GLFN(glClientActiveTexture,     PFNGLACTIVETEXTUREPROC);
+#endif
+#undef GLFN
 
-__HOST__ void _vu_set(int id, Vu *vu) { vu_map[id] = vu; }
-__HOST__ Vu   *_vu_get(int id)        { return vu_map.find(id)->second; }
-__HOST__ Vu   *_vu_curr()             { return _vu_get(glutGetWindow()); }
+///
+/// Per-window GL state. Previously gl_pbo/gl_tex were single globals shared
+/// (i.e. clobbered) across every open Vu window; now each window owns its
+/// own texture, pbo, and CUDA-GL interop binding.
+///
+struct _Win {
+    IRenderSource *src;      ///< the thing this window renders
+    GLInterop     interop;   ///< this window's CUDA<->GL pbo binding
+    GLuint        pbo = 0;
+    GLuint        tex = 0;
+};
+
+typedef std::map<int, _Win*> VuMap;
+VuMap   vu_map;
+GLuint  gl_shader = 0;         ///< GL floating point shader (shared, stateless)
+
+__HOST__ _Win *_vu_get(int id)  { return vu_map.find(id)->second; }
+__HOST__ _Win *_vu_curr()       { return _vu_get(glutGetWindow()); }
 ///
 /// default texture shader for displaying floating-point
 ///
@@ -35,15 +109,15 @@ _compile_shader() {
         "END";
 
     if (gl_shader) return;    ///< already compiled
-    
+
     glGenProgramsARB(1, &gl_shader);
     glBindProgramARB(GL_FRAGMENT_PROGRAM_ARB, gl_shader);
     glProgramStringARB(
         GL_FRAGMENT_PROGRAM_ARB, GL_PROGRAM_FORMAT_ASCII_ARB,
         (GLsizei)strlen(code), (GLubyte*)code);
-   
+
     GLint xpos;
-    glGetIntegerv(GL_PROGRAM_ERROR_POSITION_ARB, &xpos); /// CUDA GL extension
+    glGetIntegerv(GL_PROGRAM_ERROR_POSITION_ARB, &xpos);
     if (xpos != -1) {
         const GLubyte *errmsg = glGetString(GL_PROGRAM_ERROR_STRING_ARB);
         fprintf(stderr, "Shader error at: %d\n%s\n",  (int)xpos, errmsg);
@@ -52,32 +126,30 @@ _compile_shader() {
 }
 
 __HOST__ void
-_close_and_switch_vu() {
-    int id  = glutGetWindow();
-    Vu  *vu = _vu_get(id);
-    glutDestroyWindow(id);
-
-    if (vu->cu_pbo) {
-        VUX(cudaGraphicsUnregisterResource(vu->cu_pbo));
-    }
-    vu_map.erase(id);                        /// * erase by key
-    printf("\tvu.%d released...", id);
-    
-    if (vu_map.size() > 0) {
-        id = vu_map.rbegin()->first;         /// * use another window
-        glutSetWindow(id);
-        printf("vu.%d now active\n", id);
-    }
-    else printf("no avtive vu\n");
+_release_window(_Win *w) {
+    w->interop.unregister_pbo();             /// * safe even if never registered
+    if (w->pbo) glDeleteBuffers(1, &w->pbo);
+    if (w->tex) glDeleteTextures(1, &w->tex);
+    delete w;
 }
 
 __HOST__ void
 _shutdown() {
-    if (vu_map.size() > 0) return;
-    if (gl_shader) glDeleteProgramsARB(1, &gl_shader);    /// release shader
-    glDeleteBuffers(1, &gl_pbo);             /// * release GL video buffer
-    
-    printf("GLUT Done.\n");
+    int  id = glutGetWindow();
+    _Win *w = _vu_get(id);
+    _release_window(w);
+    vu_map.erase(id);
+    printf("\tvu.%d released...", id);
+
+    if (vu_map.size() > 0) {
+        int nid = vu_map.rbegin()->first;    /// * switch to another open window
+        glutSetWindow(nid);
+        printf("vu.%d now active\n", nid);
+    }
+    else {
+        if (gl_shader) { glDeleteProgramsARB(1, &gl_shader); gl_shader = 0; }
+        printf("no active vu, GLUT Done.\n");
+    }
 }
 
 __HOST__ void
@@ -96,7 +168,7 @@ _paint(int w, int h) {
     glVertex2f(-1, +3);
     glEnd();
     glFinish();
-    
+
     glutSwapBuffers();
     glutReportErrors();
 }
@@ -110,7 +182,7 @@ _mouse(int button, int state, int x, int y) {
     case GLUT_LEFT_BUTTON:
     case GLUT_MIDDLE_BUTTON:
     case GLUT_RIGHT_BUTTON:
-        _vu_curr()->mouse(button, state, x, y);
+        _vu_curr()->src->mouse(button, state, x, y);
         break;
     }
 }
@@ -120,41 +192,37 @@ _keyboard(unsigned char k, int /*x*/, int /*y*/) {
     switch (k) {
     case 27:     // ESC
     case 'q':
-    case 'Q': _close_and_switch_vu(); break;
-    default:  _vu_curr()->keyboard(k); break;
+    case 'Q': glutDestroyWindow(glutGetWindow()); break;  /// * triggers _shutdown
+    default:  _vu_curr()->src->keyboard(k); break;
     }
 }
 
 __HOST__ void
 _display() {
-    Vu *vu = _vu_curr();
-    
-    TColor *d_buf = NULL;
-    size_t bsz;
+    _Win *w = _vu_curr();
 
-    VUX(cudaGraphicsMapResources(1, &vu->cu_pbo, 0));   /// * lock CUDA vbo to GL buffer
-    VUX(cudaGraphicsResourceGetMappedPointer(           /// * get device buffer pointer
-            (void**)&d_buf, &bsz, vu->cu_pbo));
-    //printf("vu->cu_pbo=%p, d_buf=%p bsz=%zu\n", vu->cu_pbo, d_buf, bsz);
-    
-    if (d_buf) vu->display(d_buf);                      /// * update buffer content
-    
-    VUX(cudaGraphicsUnmapResources(1, &vu->cu_pbo, 0)); /// * unlock
-    
-    _paint(vu->X, vu->Y);                               /// * repaint GL
+    size_t bsz;
+    TColor *d_buf = (TColor*)w->interop.map(&bsz);   /// * lock CUDA vbo to GL buffer
+
+    if (d_buf) w->src->display(d_buf);               /// * update buffer content
+
+    w->interop.unmap();                               /// * unlock
+
+    _paint(w->src->width(), w->src->height());        /// * repaint GL
 }
 
 __HOST__ void
 _refresh(int) {
     if (!glutGetWindow()) return;
-    
+
     glutPostRedisplay();       /// mark current window for refresh
     glutTimerFunc(T4_VU_REFRESH_DELAY, _refresh, 0);
 }
 
 __HOST__ void
-_bind_texture(Vu *vu) {
+_bind_texture(_Win *w) {
     const GLuint fmt = GL_RGBA8, depth = GL_RGBA;
+    const int W = w->src->width(), H = w->src->height();
     /*
     /// See OpenGL Core 3.2 internal format
     switch (vu->N) {
@@ -165,47 +233,43 @@ _bind_texture(Vu *vu) {
     }
     */
     glEnable(GL_TEXTURE_2D);
-    glGenTextures(1, &gl_tex);
-    glBindTexture(GL_TEXTURE_2D, gl_tex);
+    glGenTextures(1, &w->tex);
+    glBindTexture(GL_TEXTURE_2D, w->tex);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S,     GL_CLAMP);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T,     GL_CLAMP);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexImage2D(GL_TEXTURE_2D, 0, fmt,
-                 vu->X, vu->Y, 0, depth, GL_UNSIGNED_BYTE, NULL);
-    /*
-    GLsync sync = glFenceSync(GL_SYNC_GPU_COMMANDS_COMPLETE, 0);
-    GLint  rst;
-    while (rst!=GL_SIGNALED) {
-        glSynciv(sync, GL_SYNC_STATUS, sizeof(rst), NULL, &rst);
-    }
-    */
-    printf(", gl_tex[%d]", gl_tex);
+    glTexImage2D(GL_TEXTURE_2D, 0, fmt, W, H, 0, depth, GL_UNSIGNED_BYTE, NULL);
+    printf(", gl_tex[%d]", w->tex);
 
-    U64 bsz = vu->X * vu->Y * sizeof(uchar4);
-    glGenBuffers(1, &gl_pbo);
-    printf(", gl_pbo[%d] size=%zu", gl_pbo, bsz);
+    size_t bsz = (size_t)W * H * sizeof(TColor);
+    glGenBuffers(1, &w->pbo);
+    printf(", gl_pbo[%d] size=%zu", w->pbo, bsz);
     ///
-    /// stream h_tex to pbo
+    /// Allocate the pbo. Initial contents are irrelevant - it's about to be
+    /// registered with write-discard, and CUDA fills it every frame - so
+    /// gui.cu no longer needs to reach into Vu's host texture to seed it.
     ///
-    glBindBuffer(GL_PIXEL_UNPACK_BUFFER_ARB, gl_pbo);
-    glBufferData(GL_PIXEL_UNPACK_BUFFER_ARB, bsz, vu->h_tex, GL_STREAM_COPY);
+    glBindBuffer(GL_PIXEL_UNPACK_BUFFER_ARB, w->pbo);
+    glBufferData(GL_PIXEL_UNPACK_BUFFER_ARB, bsz, NULL, GL_STREAM_COPY);
     // While a PBO is registered to CUDA, it can't be used
     // as the destination for OpenGL drawing calls.
     // But in our particular case OpenGL is used
     // to display the content of the PBO, specified by CUDA kernels,
     // so we need to register/unregister it (once only).
-    VUX(cudaGraphicsGLRegisterBuffer(
-        &vu->cu_pbo, gl_pbo, cudaGraphicsMapFlagsWriteDiscard));
+    w->interop.register_pbo(w->pbo);
 }
 
 extern "C" int
-gui_add(Vu *vu) {
-    printf("gui_add Vu(%d,%d)", vu->X, vu->Y);
-    
-    int z = T4_VU_OFFSET * vu_map.size();
-    glutInitWindowPosition(T4_VU_X_CENTER + z - (vu->X / 2), T4_VU_Y_CENTER + z);
-    glutInitWindowSize(vu->X, vu->Y);
+gui_add(IRenderSource *src) {
+    printf("gui_add Vu(%d,%d)", src->width(), src->height());
+
+    _Win *w = new _Win();
+    w->src  = src;
+
+    int z = T4_VU_OFFSET * (int)vu_map.size();
+    glutInitWindowPosition(T4_VU_X_CENTER + z - (src->width() / 2), T4_VU_Y_CENTER + z);
+    glutInitWindowSize(src->width(), src->height());
     ///
     /// create GL window
     ///
@@ -219,13 +283,13 @@ gui_add(Vu *vu) {
     glutTimerFunc(T4_VU_REFRESH_DELAY, _refresh, 0);
     glutCloseFunc(_shutdown);
     ///
-    /// * bind VU cuda texture to GL
+    /// * bind this window's texture/pbo and CUDA-GL interop
     ///
     _compile_shader();                      /// load GL float shader
-    _bind_texture(vu);                      /// * bind h_tex to GL buffer
-    _vu_set(id, vu);                        /// * keep (id,vu&) pair in vu_map
+    _bind_texture(w);                       /// * bind texture/pbo to this window
+    vu_map[id] = w;                         /// * keep (id, window) pair in vu_map
     printf(" => vu.%d\n", id);
-    
+
     return 0;
 }
 
@@ -237,7 +301,7 @@ gui_init(int *argc, char **argv) {
     glutInit(argc, argv);                /// * consumes X11 input parameters
     glutInitDisplayMode(GLUT_RGBA | GLUT_DOUBLE);
     printf("initialized\n");
-    
+
     return 0;
 }
 
@@ -246,5 +310,3 @@ gui_loop() {
     glutMainLoop();
     return 0;
 }
-
-#endif // (T4_DO_OBJ && T4_DO_NN)
