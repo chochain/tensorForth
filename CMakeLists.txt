@@ -12,7 +12,7 @@ set(CMAKE_CUDA_STANDARD_REQUIRED ON)
 # ── GPU architecture selection ─────────────────────────────────────────────
 # Replaces the commented CUDA_ARCH/CUDA_CODE blocks in the old Makefile.
 # Override at configure time instead of editing the build file, e.g.:
-#   cmake -B build -DCMAKE_CUDA_ARCHITECTURES=61        # GT 1030 (Pascal)
+#   cmake -B build -DCMAKE_CUDA_ARCHITECTURES=61         # GT 1030 (Pascal)
 #   cmake -B build -DCMAKE_CUDA_ARCHITECTURES=52         # Jetson Nano (Maxwell)
 #   cmake -B build -DCMAKE_CUDA_ARCHITECTURES=35         # older Kepler card
 #   cmake -B build -DCMAKE_CUDA_ARCHITECTURES="75;61;52" # fat binary, all three
@@ -41,7 +41,7 @@ set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 # ── Optional OpenGL/GLUT visualization (was commented GL_LIBS in Makefile) ──
 option(WITH_GL "Enable OpenGL/GLUT visualization module" OFF)
 
-# ── Shared module helper (equivalent of module_rules.mk) ───────────────────
+# ── Shared module helper ────────────────────────────────────────────────────
 include(cmake/Module.cmake)
 
 # ── SDL3 (visualization) ─────────────────────────────────────────────────────
@@ -60,7 +60,7 @@ if(WITH_CUTLASS)
   include(cmake/Cutlass.cmake)
 endif()
 
-# ── Root-level sources (was src/module.mk) ──────────────────────────────────
+# ── Root-level sources ──────────────────────────────────────────────────────
 add_subdirectory(src)
 
 # ── Module registry ─────────────────────────────────────────────────────────
@@ -82,7 +82,7 @@ foreach(mod ${MODULES})
   target_link_libraries(${PROJECT_NAME} PRIVATE ${mod})
 endforeach()
 
-# ── Tests / visualization executable (was tests/module.mk + `make tests`) ──
+# ── Tests / visualization executable ─────────────────────────────────────────
 add_subdirectory(tests)
 
 if(WITH_GL)
@@ -91,9 +91,8 @@ if(WITH_GL)
   target_link_libraries(${PROJECT_NAME} PRIVATE OpenGL::GL OpenGL::GLU X11::X11 glut)
 endif()
 
-# `cmake --build build --target ten4`       == old `make`
-# `cmake --build build --target mu`         == old `make src-mu`
-# `cmake --build build --target ten4_tests` == old `make tests`
-# `cmake --build build --target clean`      == old `make clean` (whole-project
-#                                              only; CMake has no free
-#                                              per-module clean-mu equivalent)
+# cmake --build build --target ten4       == make
+# cmake --build build --target mu         == make src-mu
+# cmake --build build --target ten4_tests == make tests
+# cmake --build build --target clean      == make clean (entire-project)
+# ninja -C build -t clean mu              == make clean-mu
