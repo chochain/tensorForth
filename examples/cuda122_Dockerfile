@@ -23,7 +23,8 @@ RUN apt-get update -y && \
         libnvidia-gl-535 \
         libxcb-cursor0 libxcb-xinput0 libxkbcommon-x11-0  \
         libxcb-shape0 libxcb-render-util0 libxcb-randr0 \
-        libxcb-keysyms1 libxcb-image0 libxcb-xinerama0 libxcb-icccm4 && \
+        libxcb-keysyms1 libxcb-image0 libxcb-xinerama0 libxcb-icccm4 \
+        cmake ninja-build && \
     apt-get clean
     
 RUN wget ${NSYS_URL}${NSYS_PKG} && dpkg -i $NSYS_PKG && rm $NSYS_PKG
