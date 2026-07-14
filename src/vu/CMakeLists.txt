@@ -10,7 +10,10 @@ set(VU_SRCS
 )
 
 set(VU_CUSRCS
-  # e.g. bmpvu.cu, glvu.cu
+  gui.cu
+  vu.cu
+  interop.cu
+  mnist_vu.cu
 )
 
 set(VU_DIRS)
