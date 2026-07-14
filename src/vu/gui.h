@@ -10,20 +10,19 @@
 #include <GL/gl.h>
 #include <GL/glx.h>
 #include <GL/freeglut.h>
-#include <cuda_gl_interop.h>
 
-#if (T4_DO_OBJ && T4_DO_NN)
-#include "vu.h"
+#include "render_source.h"     /// * IRenderSource only - no CUDA, no Vu, no Corpus
+#include "interop.h"           /// * GLInterop - CUDA-free by construction
 
 namespace t4::vu {
-
-#ifndef __GL_FUNC_EXTERN
-#define __GL_FUNC_EXTERN
-#define GLFN(f,intf) intf f = (intf)glXGetProcAddress((const GLubyte*)#f)
-#else
+///
+/// GL extension function pointers.
+/// Declared extern here, defined+resolved exactly once in gui.cu.
+/// (Previously these were defined in this header behind a first-include
+/// guard, which silently breaks - duplicate symbols at link time - the
+/// moment gui.h is #included from a second .cu file.)
+///
 #define GLFN(f,intf) extern intf f
-#endif  // __GL_FUNC_EXTERN
-
     GLFN(glBindBuffer,              PFNGLBINDBUFFERPROC);
     GLFN(glDeleteBuffers,           PFNGLDELETEBUFFERSPROC);
     GLFN(glBufferData,              PFNGLBUFFERDATAPROC);
@@ -86,5 +85,4 @@ namespace t4::vu {
 #undef GLFN
 } /// namespace t4::vu
 
-#endif // (T4_DO_OBJ && T4_DO_NN)
 #endif // __VU_GUI_H
