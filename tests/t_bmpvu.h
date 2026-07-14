@@ -7,9 +7,8 @@
  */
 #ifndef TEST_BMPVU_H
 #define TEST_BMPVU_H
-
-#include "corpus.h"
-#include "vu.h"
+#include "ld/corpus.h"
+#include "vu/vu.h"
 typedef uint8_t U8;
 
 #pragma pack(1)
@@ -38,7 +37,7 @@ typedef struct {
 
 class BmpLoader : public t4::ld::Corpus {
 public:
-    BmpLoader(const char *name) : t4::ld::Corpus(name, NULL) {}
+    BmpLoader(const char *name) : t4::ld::Corpus(name, NULL, 0, 256) {}
     virtual BmpLoader *load(int bsz=0, int bid=0);
 };
 
