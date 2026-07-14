@@ -22,6 +22,29 @@ endif()
 
 find_package(CUDAToolkit REQUIRED)
 
+# ── Workaround: FindCUDAToolkit sometimes misses cudadevrt ─────────────────
+# Known CMake bug (kitware issue #22279) — on some Ubuntu CUDA installs,
+# CUDAToolkit_LIBRARY_DIR resolves in a way that doesn't include
+# libcudadevrt.a even though the file is genuinely present. If the normal
+# find_package() didn't create the target, look for it explicitly and
+# build the imported target by hand so downstream `target_link_libraries(
+# ... CUDA::cudadevrt)` calls keep working unmodified.
+if(NOT TARGET CUDA::cudadevrt)
+  find_library(CUDA_cudadevrt_LIBRARY
+    NAMES cudadevrt
+    PATHS
+      ${CUDAToolkit_LIBRARY_DIR}
+      ${CUDAToolkit_TARGET_DIR}/lib
+      ${CUDAToolkit_TARGET_DIR}/lib64
+    REQUIRED
+  )
+  add_library(CUDA::cudadevrt STATIC IMPORTED)
+  set_target_properties(CUDA::cudadevrt PROPERTIES
+    IMPORTED_LOCATION "${CUDA_cudadevrt_LIBRARY}"
+  )
+  message(STATUS "cudadevrt: FindCUDAToolkit missed it, added manually (${CUDA_cudadevrt_LIBRARY})")
+endif()
+
 if(NOT CMAKE_BUILD_TYPE)
   set(CMAKE_BUILD_TYPE Release)
 endif()
@@ -41,7 +64,7 @@ set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 # ── Optional OpenGL/GLUT visualization (was commented GL_LIBS in Makefile) ──
 option(WITH_GL "Enable OpenGL/GLUT visualization module" OFF)
 
-# ── Shared module helper ────────────────────────────────────────────────────
+# ── Shared module helper (equivalent of module_rules.mk) ───────────────────
 include(cmake/Module.cmake)
 
 # ── SDL3 (visualization) ─────────────────────────────────────────────────────
@@ -60,12 +83,12 @@ if(WITH_CUTLASS)
   include(cmake/Cutlass.cmake)
 endif()
 
-# ── Root-level sources ──────────────────────────────────────────────────────
+# ── Root-level sources (was src/module.mk) ──────────────────────────────────
 add_subdirectory(src)
 
 # ── Module registry ─────────────────────────────────────────────────────────
 # To add a new module: drop src/<mod>/CMakeLists.txt, append the name here.
-set(MODULES mu io vm ld nn tb) # vu)
+set(MODULES mu io vm ld nn tb vu)
 foreach(mod ${MODULES})
   add_subdirectory(src/${mod})
 endforeach()
@@ -82,7 +105,7 @@ foreach(mod ${MODULES})
   target_link_libraries(${PROJECT_NAME} PRIVATE ${mod})
 endforeach()
 
-# ── Tests / visualization executable ─────────────────────────────────────────
+# ── Tests / visualization executable (was tests/module.mk + `make tests`) ──
 add_subdirectory(tests)
 
 if(WITH_GL)
@@ -91,8 +114,10 @@ if(WITH_GL)
   target_link_libraries(${PROJECT_NAME} PRIVATE OpenGL::GL OpenGL::GLU X11::X11 glut)
 endif()
 
-# cmake --build build --target ten4       == make
-# cmake --build build --target mu         == make src-mu
-# cmake --build build --target ten4_tests == make tests
-# cmake --build build --target clean      == make clean (entire-project)
-# ninja -C build -t clean mu              == make clean-mu
+# `cmake --build build --target ten4`       == old `make`
+# `cmake --build build --target mu`         == old `make src-mu`
+# `cmake --build build --target ten4_tests` == old `make tests`
+# `cmake --build build --target clean`      == old `make clean` (whole-project
+#                                              only; CMake has no free
+#                                              per-module clean-mu equivalent)
+# `ninja -C build -t clean mu`              == old `make clean-mu`
