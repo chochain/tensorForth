@@ -16,7 +16,7 @@ set(TS_CUSRCS
 set(TS_DIRS)
 set(TS_LIBS)
 
-#add_cuda_module(ts ${CMAKE_CURRENT_SOURCE_DIR})
+add_cuda_module(ts ${CMAKE_CURRENT_SOURCE_DIR})
 
 # ── Visualization test executable ───────────────────────────────────────────
 # Old rule (GLUT/X11 era):
@@ -40,17 +40,25 @@ set(TS_LIBS)
 set(OpenGL_GL_PREFERENCE GLVND)
 find_package(OpenGL REQUIRED)
 
-#add_executable(ten4_tests)
-#target_link_libraries(ten4_tests PRIVATE
-#  ts vu
-#  OpenGL::GL
-#  SDL3::SDL3
-#  CUDA::cudadevrt
-#)
-#set_target_properties(ten4_tests PROPERTIES
-#  RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/tests
-#  CUDA_SEPARABLE_COMPILATION ON
-#)
+# vu/gui.cu still calls GLUT directly (glutGetWindow, glutPostRedisplay,
+# glutKeyboardFunc, etc.) — it hasn't actually been migrated to SDL3 for
+# windowing/input yet, only assumed to be. Keep GLUT linked until that
+# source-level migration happens; SDL3 being linked doesn't make existing
+# GLUT calls resolve on its own.
+find_package(GLUT REQUIRED)
+
+add_executable(ten4_tests)
+target_link_libraries(ten4_tests PRIVATE
+  ts vu
+  OpenGL::GL
+  GLUT::GLUT
+  SDL3::SDL3
+  CUDA::cudadevrt
+)
+set_target_properties(ten4_tests PROPERTIES
+  RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/tests
+  CUDA_SEPARABLE_COMPILATION ON
+)
 
 # `cmake --build build --target ten4_tests`  == old `make tests`
 
