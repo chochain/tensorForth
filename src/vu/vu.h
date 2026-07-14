@@ -7,36 +7,33 @@
 #ifndef __VU_VU_H
 #define __VU_VU_H
 #pragma once
-#include <GL/gl.h>
 #include "ten4_types.h"
-
-#if (T4_DO_OBJ && T4_DO_NN)      /// * only when object system is active
+#include "render_source.h"       /// * IRenderSource - all gui.cu knows about Vu
 #include "ld/corpus.h"           /// in ../ld
 
 namespace t4::vu {
 
 #define VUX(g)   GPU_ERR(g)      /**< check UI error */
 
-typedef U32                         TColor;
-typedef cudaGraphicsResource_t      cuGfxPbo;      /* cudaGraphicsResource pointer */
-typedef cudaTextureObject_t         cuTexObj;      /* long long                    */
+typedef cudaTextureObject_t     cuTexObj;      /* long long */
 
-class Vu {
+class Vu : public IRenderSource {
     using Corpus = ld::Corpus;  ///< alias
 public:
     Corpus    &corpus;          ///< NN data source
     int       X, Y;             ///< view port dimensions
     uchar4    *h_tex   = NULL;  ///< host texture memory
     cudaArray *d_ary   = NULL;  ///< CUDA texture buffer on device
-    cuGfxPbo  cu_pbo   = NULL;  ///< OpenGL-CUDA pixel buffer object handle
     cuTexObj  cu_tex   = 0;     ///< CUDA textrure object handle
 
     __HOST__ Vu(Corpus &cp, int x=0, int y=0);
     __HOST__ ~Vu();
-    
-    __HOST__ virtual void mouse(int button, int state, int x, int y) {}
-    __HOST__ virtual void keyboard(U8 k)         {}
-    __HOST__ virtual void display(TColor *d_dst) {}
+
+    __HOST__ int  width()  const override { return X; }
+    __HOST__ int  height() const override { return Y; }
+    __HOST__ virtual void mouse(int button, int state, int x, int y) override {}
+    __HOST__ virtual void keyboard(U8 k)                              override {}
+    __HOST__ virtual void display(TColor *d_dst)                      override {}
 
 private:
     __HOST__ void _init_host_tex();
@@ -47,9 +44,7 @@ private:
 } // namespace t4::vu
 
 extern "C" int  gui_init(int *argc, char **argv);
-extern "C" int  gui_add(t4::vu::Vu *vu);
+extern "C" int  gui_add(t4::vu::IRenderSource *vu);
 extern "C" int  gui_loop();
 
-#endif // (T4_DO_OBJ && T4_DO_NN)
 #endif // __VU_VU_H
-
