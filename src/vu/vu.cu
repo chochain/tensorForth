@@ -6,8 +6,6 @@
  */
 #include "vu.h"
 
-#if (T4_DO_OBJ && T4_DO_NN)
-
 namespace t4::vu {
 
 __HOST__
@@ -117,6 +115,5 @@ Vu::_init_cuda_tex() {
 
 } // namespace t4::vu
 
-#endif // (T4_DO_OBJ && T4_DO_NN)
 
 
