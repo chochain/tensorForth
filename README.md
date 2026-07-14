@@ -183,22 +183,22 @@ Here's how to build
 
 Note: Those cards are what I have. Let me know if it works on your cards/OS.
 
-#### build with Makefile (Linux)
+#### build with cmake (Linux)
 
     cd to your ten4 repo directory,
-    per your GPU card, update root Makefile to your desired CUDA_ARCH, CUDA_CODE
-        * for example: GT1030 sm_61, GTX1660 sm_75
-    type 'make -j4 all' to build
+    review root CMakeLists.txt per your system, GPU card
+    type> cmake -B build -G Ninja -DCMAKE_CUDA_ARCHITECTURES=75
+    type> cmake --build build --target ten4
 
 #### build using IDE (Eclipse)
 
     install Eclipse
-    install CUDA SDK 11.4 or 12.2 for Eclipse (from Nvidia site)
+    install CUDA SDK 12.2 or higher for Eclipse (from Nvidia site)
     create project by importing from your local repo root
     exclude directories - ~/tests, ~/img
     set File=>Properties=>C/C++ Build=>Setting=>NVCC compiler
       + Dialect=C++17
-      + CUDA=11.4 or 12.2 (depends on your download)
+      + CUDA=12.2 (depends on your download)
       + Optimization=O2 or O3
     build project
 
