@@ -11,22 +11,14 @@
 #include <string>
 #include "ten4_types.h"
 
-#if  (T4_DO_OBJ && T4_DO_NN)
-
 namespace t4::ld {
 ///
-/// 1. Corpus data and label allocated from CUDA Managed Memory for debug
-/// 2. moved to host heap if OK
+/// 1. Corpus data and label allocated from host memory
+/// 2. moved to device by Loader::_load
 /// 3. pre-fetching can be done in a separate thread
 ///
-#if __CUDACC__
 #define DS_ALLOC(p, sz)      H_ALLOC(p, sz)
 #define DS_FREE(p)           H_FREE(p)
-#else
-#define DS_ALLOC(p, sz)      H_ALLOC(p, sz)
-#define DS_FREE(p)           H_FREE(p)
-#endif // __CUDACC__
-
 #define IO_ERROR(fn)         ERROR("failed to open file %s\n", fn);
 
 struct Corpus {
@@ -58,18 +50,9 @@ struct Corpus {
         
         static const char *dev[] = { "CUDA Managed" , "HOST" };
         
-#if __CUDACC__
-        cudaPointerAttributes attr;
-        int host =
-            cudaPointerGetAttributes(&attr, data)==cudaErrorInvalidValue &&
-            attr.devicePointer==NIL;
-        cudaFree(data);
-        if (label) cudaFree(label);
-#else  // !__CUDACC__
         int host = 1;
         free(data);
         if (label) free(label);
-#endif // __CUDACC__
         
         INFO("%s freed from %s memory", ds_name, dev[host]);
         if (label) INFO("%s freed from %s memory", tg_name, dev[host]);
@@ -87,6 +70,5 @@ struct Corpus {
 
 } // namespace t4::ld
 
-#endif // (T4_DO_OBJ && T4_DO_NN)
 #endif // __LD_CORPUS_H
 
