@@ -5,6 +5,7 @@
 VU_CUSRCS :=    \
 	gui.cu      \
 	vu.cu       \
+	interop.cu  \
 	mnist_vu.cu
 
 VU_DIRS :=
