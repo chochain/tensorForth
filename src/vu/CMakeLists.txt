@@ -1,18 +1,13 @@
 #
 # tensorForth src/vu/CMakeLists.txt
 #
-# PLACEHOLDER — copy the real VU_SRCS / VU_CUSRCS list over from your
-# existing src/vu/module.mk. Structure and SDL3 wiring below should be
-# correct as-is; only the file list needs filling in.
-
 set(VU_SRCS
-  # e.g. window.cpp
+  gui.cpp
 )
 
 set(VU_CUSRCS
-  gui.cu
-  vu.cu
   interop.cu
+  vu.cu
   mnist_vu.cu
 )
 
