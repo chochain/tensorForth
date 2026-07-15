@@ -67,6 +67,17 @@ option(WITH_GL "Enable OpenGL/GLUT visualization module" OFF)
 # ── Shared module helper (equivalent of module_rules.mk) ───────────────────
 include(cmake/Module.cmake)
 
+# ── Keep vendored FetchContent deps outside build/ ──────────────────────────
+# By default FetchContent downloads/builds under ${CMAKE_BINARY_DIR}/_deps,
+# i.e. inside build/ — so `rm -rf build` or a whole-tree clean deletes SDL3's
+# source and compiled static lib along with everything else, forcing a full
+# re-clone + rebuild next time. Relocating this one directory outside build/
+# means build/ can be nuked freely while SDL3 (and cutlass, once enabled)
+# stay put. Add .deps/ to .gitignore alongside build/.
+set(FETCHCONTENT_BASE_DIR "${CMAKE_SOURCE_DIR}/vendor" CACHE PATH
+  "Where FetchContent downloads/builds vendored deps (kept outside build/)"
+)
+
 # ── SDL3 (visualization) ─────────────────────────────────────────────────────
 # Finds a system SDL3 install, or builds it from source if not present
 # (Ubuntu 22.04 doesn't package SDL3). Exposes the SDL3::SDL3 target.
@@ -114,6 +125,7 @@ if(WITH_GL)
   target_link_libraries(${PROJECT_NAME} PRIVATE OpenGL::GL OpenGL::GLU X11::X11 glut)
 endif()
 
+# `cmake -B build`                             create ~/build directory
 # `cmake --build build --target ten4`       == old `make`
 # `cmake --build build --target mu`         == old `make src-mu`
 # `cmake --build build --target ten4_tests` == old `make tests`
@@ -121,3 +133,4 @@ endif()
 #                                              only; CMake has no free
 #                                              per-module clean-mu equivalent)
 # `ninja -C build -t clean mu`              == old `make clean-mu`
+# `cmake --build build --target sdl3_gl_demo   build ~/tests/sdl3_gl_demo

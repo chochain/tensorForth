@@ -12,6 +12,7 @@ appengine-generated/
 /src/*.ptx
 /tests/*
 /build/*
+/vendor/*
 !/tests/**/
 !/tests/*.*
 /tests/*.o
