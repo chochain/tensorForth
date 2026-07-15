@@ -2,23 +2,30 @@
 # tensorForth root CMakeLists.txt
 #
 cmake_minimum_required(VERSION 3.22)   # 3.24+ for clean CUDA_ARCHITECTURES handling
+
+# ── GPU architecture selection ─────────────────────────────────────────────
+# Replaces the commented CUDA_ARCH/CUDA_CODE blocks in the old Makefile.
+# Override at configure time instead of editing the build file, e.g.:
+#   cmake -B build -G Ninja -DCMAKE_CUDA_ARCHITECTURES=61         # GT 1030 (Pascal)
+#   cmake -B build -G Ninja -DCMAKE_CUDA_ARCHITECTURES=52         # Jetson Nano (Maxwell)
+#   cmake -B build -G Ninja -DCMAKE_CUDA_ARCHITECTURES=35         # older Kepler card
+#   cmake -B build -G Ninja -DCMAKE_CUDA_ARCHITECTURES="75;61;52" # fat binary, all three
+#
+# MUST be set before project(... LANGUAGES CUDA) — enabling the CUDA
+# language auto-populates CMAKE_CUDA_ARCHITECTURES from nvcc's own
+# toolkit-default (sm_52 on CUDA 12.2) if it isn't already set by then.
+# Setting it after project() means that auto-detected value wins silently,
+# and this fallback never actually fires.
+if(NOT CMAKE_CUDA_ARCHITECTURES)
+  set(CMAKE_CUDA_ARCHITECTURES 75)   # default: GTX 1660/1650 (Turing)
+endif()
+
 project(ten4 LANGUAGES CXX CUDA)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CUDA_STANDARD 17)
 set(CMAKE_CUDA_STANDARD_REQUIRED ON)
-
-# ── GPU architecture selection ─────────────────────────────────────────────
-# Replaces the commented CUDA_ARCH/CUDA_CODE blocks in the old Makefile.
-# Override at configure time instead of editing the build file, e.g.:
-#   cmake -B build -DCMAKE_CUDA_ARCHITECTURES=61         # GT 1030 (Pascal)
-#   cmake -B build -DCMAKE_CUDA_ARCHITECTURES=52         # Jetson Nano (Maxwell)
-#   cmake -B build -DCMAKE_CUDA_ARCHITECTURES=35         # older Kepler card
-#   cmake -B build -DCMAKE_CUDA_ARCHITECTURES="75;61;52" # fat binary, all three
-if(NOT CMAKE_CUDA_ARCHITECTURES)
-  set(CMAKE_CUDA_ARCHITECTURES 75)   # default: GTX 1660/1650 (Turing)
-endif()
 
 find_package(CUDAToolkit REQUIRED)
 
@@ -62,7 +69,7 @@ set(CMAKE_CUDA_SEPARABLE_COMPILATION ON)   # equivalent of --device-c
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
 # ── Optional OpenGL/GLUT visualization (was commented GL_LIBS in Makefile) ──
-option(WITH_GL "Enable OpenGL/GLUT visualization module" OFF)
+option(WITH_GL "Enable OpenGL/GLUT visualization module" ON)
 
 # ── Shared module helper (equivalent of module_rules.mk) ───────────────────
 include(cmake/Module.cmake)
