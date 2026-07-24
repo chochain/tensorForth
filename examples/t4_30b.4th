@@ -51,7 +51,7 @@ tgt backprop
 ." linear dW"     0 nn.dw .     \ L0 dW   ={ { 0.0094 0.0188 } { 0.0107 0.0214 } }
 ." top layer dX"  0 n@    .     \ L0 dX=dB={ 0.0818 0.1019 }
 
-0.5 nn.sgd                      \ learn at alpha=0.5 (default beta=0.0)
+0.5 0.0 nn.sgd                  \ SGD learn at alpha=0.5, beta 0.0 (default beta=0.9)
 ." L2 W"         2 nn.w .       \ L2 W={ { 0.3500 0.4000 } {  0.4500  0.5000 } }
                                 \     - 0.5 * { { 0.4398 0.4425 } { -0.1289 -0.1296 } }
                                 \     ={ { 0.1801 0.2287 } { 0.5644 0.6148 } }

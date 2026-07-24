@@ -53,10 +53,10 @@ tgt backprop                    \ back propegation
 ." top layer dX"  0 n@          \ L0 dX=dB={ 0.0818 0.1019 }x2
 .( verify n@ { { { 0.0818 } { 0.1019 } } { { 0.0818 } { 0.1019 } } } => ) .
 
-0.5 nn.sgd                      \ SGD learn at alpha=0.5 (default beta=0.0)
+0.5 0.0 nn.sgd                  \ SGD learn at alpha=0.5, beta 0.0 (default beta=0.9)
 ." L2 W"         2 nn.w .       \ L2 W={ { 0.3500 0.4000 } {  0.4500  0.5000 } }
                                 \     - 0.5 * { { 0.8797 0.8850 } { -0.2576 -0.2591 } }
-                                \     ={ { 0.0398 0.0075 } { 0.6288 0.6796 } }
+                                \     ={ { -0.0398 0.0075 } { 0.6288 0.6796 } }
 ." L2 dW"        2 nn.dw .      \ L2 dw=zeros (reset after sgd update)
 ." L2 B"         2 nn.b .       \ L2 b={ 0.6000 0.6000 } - 0.5 * { 1.4827 -0.4341 }
                                 \     ={ -0.1414 0.8171 }
