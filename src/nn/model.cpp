@@ -17,7 +17,6 @@ using mu::Tensor;
 __HOST__ const char*                ///< host network layer name 
 Model::nname(int i) {
     static const char *name[] = { LAYER_OP };
-    NN_DB("  fetching nname[%d]=%p=>%s\n", i, name[i], name[i]);
     return name[i];
 }
 /// @}
@@ -196,7 +195,9 @@ Model::_ilinear(Tensor &in, U32 E0, DU bias) {
     in.xparm = bias;                              /// * keep for persistence
     
     DU k = SQRT(RCP(E0+E1));                      /// * default weight - Kaiming
+    
 #if (MM_DEBUG && T4_VERBOSE > 1)
+    INFO("    WARN MM_DEBUG linear: W=0.5, B=0.0\n");
     w->map(FILL, 0.5);
     w->data[(w->numel >> 1)-1] = 1.0;             /// * add some irrabularity
     b->map(FILL, 0.0);
