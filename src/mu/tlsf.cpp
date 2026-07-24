@@ -441,8 +441,7 @@ TLSF::_show_stat() {
     float pct = 100.0*used/tot;
 
     INFO("\\ TLSF: used[%d]=%ld(0x%lx) %.2f%% allocated", nused, used, used, pct);
-    INFO(" free[%d]=%ld(0x%lx), total=%ld(0x%lx)", nfree, free, free, tot, tot);
-    INFO(" nblk=%d, nfrag=%d\n", nblk, nfrag);
+    INFO(" free[%d]=0x%lx nblk=%d, nfrag=%d\n", nfree, free, nblk, nfrag);
 #endif // MM_DEBUG
 }
 
