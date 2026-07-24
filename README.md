@@ -147,7 +147,7 @@ constant ds0                                \ keep the dataset as a constant
   for epoch ds0 rewind next drop ;
 
 ds0 20 cnn                                  \ put dataset as TOS, run the CNN for 20 epochs
-s" tests/my_net.t4" save                    \ persist the trained network
+s" model/my_net.t4" save                    \ persist the trained network
 </pre>
 
 ### To Build, and Verify
@@ -213,7 +213,7 @@ If all goes well, some warnings aside, *~/tests/ten4* is your executable. The fo
 ### Verifcation Cases
 * Test v1 eForth ops
 
-    ~/tests> ./ten4 < ../examples/lesson_10a.txt # for basic syntax checks
+    ~/build/tests> ./ten4 < ../examples/t4_10a.4th # for basic syntax checks
 
     you should see lots of output including the following
     <pre>
@@ -233,7 +233,7 @@ If all goes well, some warnings aside, *~/tests/ten4* is your executable. The fo
 
 * Test v2 matrix ops
 
-    ~/tests> ./ten4 < ../examples/lesson_20a.txt # for matrix ops
+    ~> ./build/tests/ten4 < ./examples/t4_20a.4th # for matrix ops
     <pre>
     ...
     { { 6 6 } { 9 9 } } * { { 0.5 0.5 } { 0.5 0.5 } } -1 T2[2,2] -> ok
@@ -243,7 +243,7 @@ If all goes well, some warnings aside, *~/tests/ten4* is your executable. The fo
     ...
     </pre>
 
-    ~/tests> ./ten4 < ../examples/lesson_22a.txt # for linear algebra stuffs
+    ~> ./build/tests/ten4 < ./examples/t4_22a.4th # for linear algebra stuffs
     <pre>
     ...
     verify { 1 1 1 } => vector[3] = { 1 1 1 }
@@ -254,7 +254,7 @@ If all goes well, some warnings aside, *~/tests/ten4* is your executable. The fo
 
 * Test v3 ML ops
 
-    ~/tests> ./ten4 < ../examples/lesson_30a.txt # NN model - single pass forward
+    ~> ./build/tests/ten4 < ./examples/t4_30a.4th # NN model - single pass forward
     <pre>
     ...
     verify { { 6 } { 13 } { 20 } } => tensor[1,3,1,1] = { {
@@ -264,11 +264,11 @@ If all goes well, some warnings aside, *~/tests/ten4* is your executable. The fo
     ...
     </pre>
 
-    ~/tests> ./ten4 < ../examples/lesson_30b.txt # NN model - single pass loss, and backprop
+    ~> ./build/tests/ten4 < ./examples/t4_30b.4th # NN model - single pass loss, and backprop
 
-    ~/tests> ./ten4 < ../examples/lesson_30c.txt # NN model - 2-sample full round-trip
+    ~> ./build/tests/ten4 < ./examples/t4_30c.4th # NN model - 2-sample full round-trip
 
-    ~/tests> ./ten4 < ../examples/lesson_30d.txt # CNN - MNIST single pass
+    ~> ./build/tests/ten4 < ./examples/t4_30d.4th # CNN - MNIST single pass
     <pre>
     ...
     NN model[13/128]
@@ -303,15 +303,16 @@ If all goes well, some warnings aside, *~/tests/ten4* is your executable. The fo
     ...
     </pre>
 
-    ~/tests> ./ten4 < ../examples/lesson_30e.txt # CNN - MNIST full framework, 20 epochs
+    ~> ./build/tests/ten4 < ./examples/t4_30e.4th # CNN - MNIST full framework, 20 epochs
     
-    ~/tests> ./ten4 < ../examples/lesson_30f.txt # CNN - MNIST, output to tensorboard
+    ~> ./build/tests/ten4 -t/tmp/tb -rrun1 < ./examples/t4_30f.4th # CNN - MNIST, output to tensorboard
+    note: -t{logdir} -r{run_id} where tensorboard can pick up the event files
 
 * Tests v3.2 GAN ops
 
-    ~/tests> ./ten4 < ../examples/lesson_32a.txt # GAN on NN single sample linear 2x2 layer verify
+    ~> ./build/tests/ten4 < ./examples/t4_32a.4th # GAN on NN single sample linear 2x2 layer verify
 
-    ~/tests> ./ten4 < ../examples/lesson_32b.txt # GAN on MINST dataset, 100 epochs
+    ~> ./build/tests/ten4 < ./examples/t4_32b.4th # GAN on MINST dataset, 100 epochs
 
 ## Machine Learning vocabularies (see [doc3](./docs/v3_progress.md) for detail and examples)
 ### Model creation, query, and persistence
