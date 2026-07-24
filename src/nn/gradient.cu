@@ -23,7 +23,7 @@ Model::grad_alloc(t4_optimizer op) {
         Tensor &in = (*this)[i];
         Tensor *w  = in.grad[0], *b = in.grad[1];   ///< filter, bias tensor pointers
         
-        NLOG("    %3d> %8s w,b[%d,%d]", i, nname(in.grad_fn), w ? 1 : 0, b ? 1 : 0);
+        NLOG("    %3d> %8s w,b[%d,%d] ", i, nname(in.grad_fn), w ? 1 : 0, b ? 1 : 0);
         switch (op) {
         case OPTI_SGD:
             in.mtum[0] = w; in.mtum[2] = NULL;      /// * dummy
@@ -51,7 +51,7 @@ Model::grad_alloc(t4_optimizer op) {
             }
             break;
         }
-        NLOG(" mtum=%zx,%zx,%zx,%zx\n",  M2X(0), M2X(1), M2X(2), M2X(3));
+        NLOG("mtum=%zx,%zx,%zx,%zx\n",  M2X(0), M2X(1), M2X(2), M2X(3));
     }
     GPU_CHK();
     NLOG("  } #grad_alloc\n");
