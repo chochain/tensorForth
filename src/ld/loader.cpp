@@ -31,18 +31,18 @@ Loader    _ldr;                             ///< loader
 void Loader::init() {
     _cp_map["mnist_train"] =
         new Mnist(
-            "../data/MNIST/raw/train-images-idx3-ubyte",
-            "../data/MNIST/raw/train-labels-idx1-ubyte");
+            "./data/MNIST/raw/train-images-idx3-ubyte",
+            "./data/MNIST/raw/train-labels-idx1-ubyte");
     _cp_map["mnist_test"] =
         new Mnist(
-            "../data/MNIST/raw/t10k-images-idx3-ubyte",
-            "../data/MNIST/raw/t10k-labels-idx1-ubyte");
+            "./data/MNIST/raw/t10k-images-idx3-ubyte",
+            "./data/MNIST/raw/t10k-labels-idx1-ubyte");
     _cp_map["cifar10_train"] =
         new Cifar10(
-            "../data/CIFAR10/cifar-10-batches-bin/data_batch.bin");
+            "./data/CIFAR10/cifar-10-batches-bin/data_batch.bin");
     _cp_map["cifar10_test"] =
         new Cifar10(
-            "../data/CIFAR10/cifar-10-batches-bin/test_batch.bin");
+            "./data/CIFAR10/cifar-10-batches-bin/test_batch.bin");
 }
 
 Corpus *Loader::get(Dataset &ds, const char *ds_name) {
