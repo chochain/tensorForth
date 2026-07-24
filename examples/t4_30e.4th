@@ -91,6 +91,6 @@ drop                                \ drop dataset
 
 .( ### persist trained network )
 network                             \ display NN model (same as . but nondistructive)
-s" model/l30e_c.t4" save            \ save trainned model
+s" /tmp/l30e_c.t4" save             \ save trainned model
 
 bye
