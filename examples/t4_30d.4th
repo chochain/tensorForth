@@ -38,16 +38,16 @@ mstat                             \ obj#used[69]
 
 .( #### fetch last layer i.e. output ) cr
 -1 n@                             \ fetch forward result from model
-.( output= ) .                    \ display the result/output layer
+." output= " .                    \ display the result/output layer
 
 .( #### calculate loss ) cr
-2 4 matrix{ 0 0 1 0 0 1 0 0 }     \ create one-hot vector
+8 vector{ 0 0 1 0 0 1 0 0 }       \ create one-hot vector
 2 1 4 1 reshape4 dup              \ reshape it into a labeled rank-4 tensor
-.( onehot vector= ) .             \ display (print the view instead of the T4)
+." onehot vector= " .             \ display (print the view instead of the T4)
 constant hot1                     \ store the tensor in a constant
 
 hot1                              \ retrieve the one-hot vector
-loss.ce .( loss= ) .              \ calculate network loss
+loss.ce ." loss="  .              \ calculate network loss
 
 : xdump ." xdump=>"
   mstat                           \ display MMU statistics
