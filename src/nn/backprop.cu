@@ -82,7 +82,7 @@ Model::_bprep(Tensor &tgt) {                     ///> pre-calc dLoss pass-thru
         return 1;
     }
     
-    NLOG("Model::bprep input(onehot) numel=%ld OK {", tgt.numel);
+    NLOG("Model::bprep input(onehot) numel=%ld OK {\n", tgt.numel);
     
     t4_layer fn = (*this)[-2].grad_fn;           ///< final activation layer
     ///
@@ -95,11 +95,11 @@ Model::_bprep(Tensor &tgt) {                     ///> pre-calc dLoss pass-thru
     ///   + log-softmax + NLL (Negative Log Likelihood) for multi-class
     ///
     switch (fn) {
-    case L_LINEAR:                               /// * linear  + MSE
-    case L_SIGMOID:                              /// * sigmoid + BCE
-    case L_SOFTMAX:                              /// * softmax + CE
-    case L_LOGSMAX: out -= tgt; break;           /// * log-softmax + NLL
-    default:        out  = tgt;  break;          /// * pass thru pre-calc dLoss
+    case L_LINEAR:                                   /// * linear  + MSE
+    case L_SIGMOID:                                  ///  sigmoid + BCE
+    case L_SOFTMAX:                                  /// * softmax + CE
+    case L_LOGSMAX: out -= tgt; break;               /// * log-softmax + NLL
+    default:        out  = tgt;  break;              /// * pass thru pre-calc dLoss
     }
     if (*_trace) out.show(true);                     /// * display loss if trace on
     
@@ -128,7 +128,7 @@ Model::_bstep(Tensor &in, Tensor &out, bool last_layer) {
     case L_DROPOUT: _bactivate(in, out);     break; /// * in = msk * out
     case L_SIGMOID:                                 /// * sigmoid + BCE
     case L_SOFTMAX:                                 /// * softmax + CrossEntropy (pass thru)
-    case L_LOGSMAX: in = out;                break; /// * log-softmax + NLL (pass thru)
+    case L_LOGSMAX: NN_DB("\n"); in = out;   break; /// * log-softmax + NLL (pass thru)
     case L_MAXPOOL:
     case L_AVGPOOL:
     case L_MINPOOL: _bpool(in, out, fn);     break;
@@ -194,11 +194,11 @@ __HOST__ int
 Model::_blinear(Tensor &in, Tensor &out) {
     Tensor &w = *in.grad[0], &dw = *in.grad[2];       ///< weight tensors
     Tensor &b = *in.grad[1], &db = *in.grad[3];       ///< bias tensors
-    const int  N  = in.N(),   C0 = w.H(), C1 = w.W(); ///< dimensions
+    const int  N  = in.N(),   C0 = w.H(), C1 = w.W(); ///< dimensions C0=E0, C1=E1
     const long E1 = in.HWC(), E0 = out.HWC();         ///< input, output element counts (for validation)
     
-    NN_DB("\n\tdw[%d,%d] += out'[%ld,1] @ in^t[1,%ld]", C0, C1, E0, E1);
-    NN_DB("\n\tin[%ld,1] = w^t[%d,%d] @ out'[%ld,1]", E1, C1, C0, E0);
+    NN_DB("\n\tdw[%d,%d] += outᵀ[%ld,%d] @ in[%d,%ld]", C0, C1, E0, N, N, E1);
+    NN_DB("\n\tin[%d,%ld] = out[%d,%ld] @ w[%d,%d]", N, E1, N, E0, C0, C1);
     if (train && *_trace > 1) {
         _dump_b("before db", db);
         _dump_w("before dw", dw, dw.numel < T4_DIM_SQ);
@@ -209,21 +209,21 @@ Model::_blinear(Tensor &in, Tensor &out) {
             DU *x = in.slice(n), *y = out.slice(n);
             if (train) {
                 DU *dp = dw.data;
-                for (int e0 = 0; e0 < E0; e0++) {     /// W[E0,E1]
-                    DU dy = y[e0];
-                    db[e0] += dy;                     /// * db += dY
-                    for (int e1 =0; e1 < E1; e1++) {
-                        *dp++ += dy * x[e1];          /// * dw += dY^t @ X
+                for (int c0 = 0; c0 < C0; c0++) {     /// W[C0=E0,C1=E1]
+                    DU dy = y[c0];
+                    db[c0] += dy;                     /// * db += dY
+                    for (int c1 =0; c1 < C1; c1++) {
+                        *dp++ += dy * x[c1];          /// * dw += dYᵀ @ X
                     }
                 }
             }
             DU *wd = w.data;
-            for (int e1 = 0; e1 < E1; e1++) {         /// * dX = w @ dY
+            for (int c1 = 0; c1 < C1; c1++) {         /// * dX = w @ dY
                 DU sum = DU0;
-                for (int e0 = 0; e0 < E0; e0++) {
-                    sum += wd[E1 * e0 + e1] * y[e0];
+                for (int c0 = 0; c0 < C0; c0++) {
+                    sum += wd[C1 * c0 + c1] * y[c0];
                 }
-                x[e1] = sum;
+                x[c1] = sum;
             }
         }
     };
@@ -234,11 +234,13 @@ Model::_blinear(Tensor &in, Tensor &out) {
     }
     else {
         if (train) {
+            NN_DB("\n  dW[E0,E1] += dYᵀ[E0,N] @ X[N,E1]");
             FORK3(k_dlinear_db, N, E0, 1, out.data, db.data);    /// * dB += sum(dY)
-            Tensor::linear(                           /// * dW[E0,E1] += dY[N,E0]^T @ X[N,E1]
+            Tensor::linear(                           /// * dW[E0,E1] += dYᵀ[E0,N] @ X[N,E1]
                 out, in, dw, E0, E1, N, DU1, DU1, true, false);
         }
         in.zeros();                                   /// * dX = 0
+        NN_DB("  dX[N,E1]   = dY[N,E0] @ W[E0,E1]");
         Tensor::linear(                               /// * dX[N,E1] = dY[N,E0] @ W[E0,E1]
             out, w, in, N, E1, E0, DU1, DU0, false, false);
     }

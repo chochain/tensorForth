@@ -163,7 +163,7 @@ Model::_flinear(Tensor &in, Tensor &out) {
                 DU sum = b[e0];                       /// * init with bias
                 printf("y[%d] = %g ", e0, sum);
                 for (U32 e1 = 0; e1 < E1; e1++) {     /// * input features
-                    sum += x[e1] * w[e0 * E1 + e1];   /// * Y = X @ W^T + B
+                    sum += x[e1] * w[e0 * E1 + e1];   /// * Y = X @ Wᵀ + B
                     printf(" +%g*%g=%g ", x[e1], w[e0*E1+e1], sum);
                 }
                 y[e0] = sum;
@@ -172,7 +172,7 @@ Model::_flinear(Tensor &in, Tensor &out) {
     };
     Tensor &w  = *in.grad[0], &b  = *in.grad[1];        ///< weight, bias tensors
 
-    NN_DB(" = in[%d,%d] @ w[%d,%d]^T + b[%ld])", in.H(), in.W(), E0, E1, b.numel);
+    NN_DB(" = in[%d,%d] @ wᵀ[%d,%d] + b[%ld])", in.H(), in.W(), E1, E0, b.numel);
     
     if (*_trace > 1) {
         _dump_w("w", w, w.numel < T4_DIM_SQ);
@@ -185,10 +185,10 @@ Model::_flinear(Tensor &in, Tensor &out) {
 //        NN_DB(" => out"); out.show(true);
     }
     else {
-        // O[N,E0] = I[N,E1] @ W[E0,E1]^T + B[E0]
+        // O[N,E0] = I[N,E1] @ Wᵀ[E1,E0] + B[E0]
         // In your Tensor layout: A=in(H=N,W=E1,C=1), B=w(H=E0,W=E1,C=1)
         // tB=true transposes W from [E0,E1] to [E1,E0] for the multiply
-        Tensor::linear(in, w, out, N, E0, E1,         /// * Y[N,E0] = X[N,E1] @ W[E0,E1]^T
+        Tensor::linear(in, w, out, N, E0, E1,         /// * Y[N,E0] = X[N,E1] @ Wᵀ[E1,E0]
                        DU1, DU0, false, true);
         FORK3(k_bias, N, E0, 1, b.data, out.data);    /// * Y[N,E0] += B[E0]
     }    
