@@ -8,8 +8,8 @@
 
 |version|feature|stage|description|conceptual comparable|
 |---|---|---|---|---|
-|4.4|**Retentive**|analyzing|add RetNet ops|PyTorch.RetNet|
 |5.0|**Transformer**|developing|add Transformer ops|PyTorch.Transformer|
+|4.2|**Retentive**|analyzing|add RetNet ops|PyTorch.RetNet|
 |[4.0](https://github.com/chochain/tensorForth/releases/tag/v4.0.0)|**GAN + TB**|beta|+ TensorBoard output|PyTorch.GAN|
 
 * **CUDA11.4** legacy version, for Kepler, Maxwell (i.e. Jetson Nano/TX), Pascal, and Volta only
@@ -252,7 +252,7 @@ If all goes well, some warnings aside, *~/tests/ten4* is your executable. The fo
     ...
     </pre>
 
-* Test v3 ML ops
+* Test v3/v4 ML ops
 
     ~> ./build/tests/ten4 < ./examples/t4_30a.4th # NN model - single pass forward
     <pre>
@@ -305,14 +305,17 @@ If all goes well, some warnings aside, *~/tests/ten4* is your executable. The fo
 
     ~> ./build/tests/ten4 < ./examples/t4_30e.4th # CNN - MNIST full framework, 20 epochs
     
-    ~> ./build/tests/ten4 -t/tmp/tb -rrun1 < ./examples/t4_30f.4th # CNN - MNIST, output to tensorboard
-    note: -t{logdir} -r{run_id} where tensorboard can pick up the event files
-
 * Tests v3.2 GAN ops
 
     ~> ./build/tests/ten4 < ./examples/t4_32a.4th # GAN on NN single sample linear 2x2 layer verify
 
     ~> ./build/tests/ten4 < ./examples/t4_32b.4th # GAN on MINST dataset, 100 epochs
+
+* Tests v4.0 CNN with TensorBoard output
+
+    ~> ./build/tests/ten4 -t/tmp/tb -rr1 < ./examples/t4_30f.4th # CNN - MNIST, output to tensorboard
+    note: -t{logdir} -r{run_id} where tensorboard can pick up the event files
+
 
 ## Machine Learning vocabularies (see [doc3](./docs/v3_progress.md) for detail and examples)
 ### Model creation, query, and persistence
