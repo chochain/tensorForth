@@ -304,18 +304,15 @@ If all goes well, some warnings aside, *~/tests/ten4* is your executable. The fo
     </pre>
 
     ~> ./build/tests/ten4 < ./examples/t4_30e.4th # CNN - MNIST full framework, 20 epochs
-    
-* Tests v3.2 GAN ops
 
     ~> ./build/tests/ten4 < ./examples/t4_32a.4th # GAN on NN single sample linear 2x2 layer verify
-
-    ~> ./build/tests/ten4 < ./examples/t4_32b.4th # GAN on MINST dataset, 100 epochs
 
 * Tests v4.0 CNN with TensorBoard output
 
     ~> ./build/tests/ten4 -t/tmp/tb -rr1 < ./examples/t4_40a.4th # CNN - MNIST, output to tensorboard
     note: -t{logdir} -r{run_id} where tensorboard can pick up the event files
 
+    ~> ./build/tests/ten4 -t/tmp/tb -rr2 < ./examples/t4_40b.4th # GAN on MINST dataset, 100 epochs
 
 ## Machine Learning vocabularies (see [doc3](./docs/v3_progress.md) for detail and examples)
 ### Model creation, query, and persistence
