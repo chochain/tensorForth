@@ -246,8 +246,7 @@ MMU::resize(Tensor &t, U64 sz) {
 
 __HOST__ void                    ///< release tensor memory blocks
 MMU::free(Tensor &t) {
-    int n = t.rank;
-    MM_DB("mmu#free(T%d) numel=%ld T:%zx {\n", n, t.numel, OBJ2X(t));
+    MM_DB("mmu#free(T%d) numel=%ld T:%zx {\n", t.rank, t.numel, OBJ2X(t));
     _ostore.free(t.data);        /// * free physical data
     if (t.grad_fn != L_NONE) {
         MM_DB("{\n");

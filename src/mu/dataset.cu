@@ -151,10 +151,10 @@ Dataset::_load(U8 *cp_data, U8 *cp_label, int n) {
     }
     H2D(label, d.data(), n * sizeof(DU));         ///< label in managed memory
     
-#if MM_DEBUG
+#if T4_VERBOSE > 1
     INFO("dataset.data=>");
     _dump(d.data(), H(), W(), C());
-#endif // MM_DEBUG
+#endif // T4_VERBOSE > 1
 }
 
 } // namespace t4::mu

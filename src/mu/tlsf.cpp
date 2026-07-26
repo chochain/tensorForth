@@ -412,7 +412,7 @@ TLSF::_mmu_ok()    {                           ///< mmu sanity check
 }
 __HOST__ void
 TLSF::_show_stat() {
-#if MM_DEBUG
+#if T4_VERBOSE > 1
     LOCK();
     ///
     /// stat pre-adjusted for the stopper block
@@ -442,7 +442,7 @@ TLSF::_show_stat() {
 
     INFO("\\ TLSF: used[%d]=%ld(0x%lx) %.2f%% allocated", nused, used, used, pct);
     INFO(" free[%d]=0x%lx nblk=%d, nfrag=%d\n", nfree, free, nblk, nfrag);
-#endif // MM_DEBUG
+#endif // T4_VERBOSE > 1
 }
 
 __HOST__ void
