@@ -17,12 +17,7 @@
 namespace t4::mu { class Tensor; class Dataset; }
 namespace t4::nn {
 ///
-///< gradient function pointer
-///
-typedef void (*GdFunc)(
-    DU *parm, mu::Tensor &w, mu::Tensor &dw, mu::Tensor &m, mu::Tensor &v);
-///
-///< Neural Network Model class
+/// NN module tracing level control
 ///
 #if MM_DEBUG
 #define NN_DB(...)            TRACE(__VA_ARGS__)
@@ -31,6 +26,14 @@ typedef void (*GdFunc)(
 #endif // MM_DEBUG
 #define NLOG(...)             { if (*_trace) INFO(__VA_ARGS__); }
 
+///
+///< gradient function pointer
+///
+typedef void (*GdFunc)(
+    DU *parm, mu::Tensor &w, mu::Tensor &dw, mu::Tensor &m, mu::Tensor &v);
+///
+///< Neural Network Model class
+///
 class Model : public T4Base {
     using MMU     = mu::MMU;     ///< alias
     using Tensor  = mu::Tensor;
