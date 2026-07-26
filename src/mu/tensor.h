@@ -11,6 +11,14 @@
 #include "nn/ntypes.h"
 
 #if T4_DO_OBJ         /// * only when object system is activated
+///
+/// Memory Management Unit tracing specific
+///
+#if MM_DEBUG
+#define MM_DB(...)    DEBUG(__VA_ARGS__)
+#else  // !MM_DEBUG
+#define MM_DB(...)
+#endif // MM_DEBUG
 
 //===============================================================================
 /// tensorForth tensor class
