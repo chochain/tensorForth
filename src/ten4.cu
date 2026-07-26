@@ -23,7 +23,9 @@
 #include <signal.h>
 #include "debug.h"           // only when sys->db is called
 #include "ten4.h"            // wrapper
-
+///
+/// VM factory control
+///
 #if T4_DO_NN
 #define VM_TYPE vm::NET
 #elif T4_DO_OBJ
@@ -206,7 +208,7 @@ TensorForth::profile() {
         int m0 = (int)sys->mu->here() - 0x80;
         sys->db->mem_dump(m0 < 0 ? 0 : m0, 0x80);
     }
-#if MM_DEBUG
+#if T4_VERBOSE > 1
     TRACE("VM.dt=[ ");
     float dt;
     for (int i=0; i<T4_VM_COUNT; i++) {
@@ -215,14 +217,14 @@ TensorForth::profile() {
         TRACE("%0.2f ", dt);
     }
     TRACE("]\n");
-#endif     
+#endif // T4_VERBOSE > 1
 }
 
 __HOST__ int
 TensorForth::main_loop() {
     sys->db->self_tests();
 
-    int i = 0;
+//    int i = 0;
     while (more_job() && sys->readline(vmst_cnt[vm::HOLD])) {
 //        if (++i > 200) break;                  /// * runaway loop guard TODO: CC
         run();
