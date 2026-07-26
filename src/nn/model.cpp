@@ -150,24 +150,25 @@ Model::_iconv(Tensor &in, U32 C0, DU bias, U16 *opt, bool txn) {
     /// filter: C1 to C0 fully connected
     /// TODO: filters's 5th dimension is stored in parm field for now
     ///
-    Tensor *f  = in.grad[0] = &T4(C1, Kx, Ky, C0);           ///< f
-    Tensor *df = in.grad[2] = &T4(C1, Kx, Ky, C0).zeros();   ///< df
-    Tensor *b  = in.grad[1] = &VEC(C0);                      ///< b
-    Tensor *db = in.grad[3] = &VEC(C0).zeros();              ///< db
-    Tensor *dx = in.grad[4] = &T4(N1, H1, W1, C1).zeros();   ///< dx
+    Tensor *f  = in.grad[0] = &T4(C1, Kx, Ky, C0);   ///< f
+    Tensor *b  = in.grad[1] = &VEC(C0);              ///< b
+    in.grad[2] = &T4(C1, Kx, Ky, C0).zeros();        ///< df
+    in.grad[3] = &VEC(C0).zeros();                   ///< db
+    in.grad[4] = &T4(N1, H1, W1, C1).zeros();        ///< dx
 
-    DU k = SQRT(6.0 * RCP(Kx * Ky * C1));        /// * filter default range - Kaiming
-#if (MM_DEBUG && T4_VERBOSE > 1)
+    DU k = SQRT(6.0 * RCP(Kx * Ky * C1));            /// * filter default range - Kaiming
+#if MM_DEBUG
+    INFO("    WARN MM_DEBUG _iconv: W=0.5, B=-0.5\n");
     f->map(FILL, 0.5);                           /// * debug
     b->map(FILL, -0.5);
     
-    NN_DB("    f[%d,%d,%d,%d]=", C1, Kx, Ky, C0);
-    for (U64 i=0; i < f->numel; i++) NN_DB("%6.3f", f->data[i]);
-    NN_DB("\n");
-    NN_DB("    b[%d]=", C0);
-    for (U64 i=0; i < b->numel; i++) NN_DB("%6.3f", b->data[i]);
-    NN_DB("\n");
-#else  // !MM_DEBUG    
+    TRACE("    f[%d,%d,%d,%d]=", C1, Kx, Ky, C0);
+    for (U64 i=0; i < f->numel; i++) TRACE("%6.3f", f->data[i]);
+    TRACE("\n");
+    TRACE("    b[%d]=", C0);
+    for (U64 i=0; i < b->numel; i++) TRACE("%6.3f", b->data[i]);
+    TRACE("\n");
+#else  // !MM_DEBUG
     RAND(*f, k);                                 /// * randomize f [-k, k)
     RAND(*b, bias);                              /// * randomize b [-bias, bias)
     
@@ -183,10 +184,10 @@ Model::_ilinear(Tensor &in, U32 E0, DU bias) {
     NN_DB("    model#ilinear bias=%4.2f {\n", bias);
     U32 N1 = in.N();
     U64 E1 = in.HWC();
-    Tensor *w  = in.grad[0] = &T4(1, E0, E1, 1);                  ///> w
-    Tensor *dw = in.grad[2] = &T4(1, E0, E1, 1).zeros();          ///> dw
-    Tensor *b  = in.grad[1] = &VEC(E0);                           ///> b
-    Tensor *db = in.grad[3] = &VEC(E0).zeros();                   ///> db
+    Tensor *w  = in.grad[0] = &T4(1, E0, E1, 1);  ///> w
+    Tensor *b  = in.grad[1] = &VEC(E0);           ///> b
+    in.grad[2] = &T4(1, E0, E1, 1).zeros();       ///> dw
+    in.grad[3] = &VEC(E0).zeros();                ///> db
     
     if (in.W() != E1) {
         INFO("    WARN linear: treats in[%d,%d,%d,%d] as [%d,1,%ld,1]\n",
@@ -196,27 +197,27 @@ Model::_ilinear(Tensor &in, U32 E0, DU bias) {
     
     DU k = SQRT(RCP(E0+E1));                      /// * default weight - Kaiming
     
-#if (MM_DEBUG && T4_VERBOSE > 1)
-    INFO("    WARN MM_DEBUG linear: W=0.5, B=0.0\n");
+#if MM_DEBUG
+    INFO("    WARN MM_DEBUG _ilinear: W=0.5, B=0.0\n");
     w->map(FILL, 0.5);
     w->data[(w->numel >> 1)-1] = 1.0;             /// * add some irrabularity
     b->map(FILL, 0.0);
 
-    NN_DB("    w[1,%d,%ld,1]", E0, E1);
+    TRACE("    w[1,%d,%ld,1]", E0, E1);
     if (w->numel < T4_DIM_SQ) {
         for (U32 e0=0; e0<E0; e0++) {
-            NN_DB("\ne0=%d ", e0);
+            TRACE("\ne0=%d ", e0);
             for (U64 e1=0; e1<E1; e1++) {
-                NN_DB("%5.2f", w->data[E1*e0 + e1]);
+                TRACE("%5.2f", w->data[E1*e0 + e1]);
             }
         }
     }
-    NN_DB("\n");
-#else    
+    TRACE("\n");
+#else  // !MM_DEBUG
     RAND(*w, k);                                  /// * randomize w [-k, k)
     RAND(*b, bias);                               /// * randomize b [-bias, bias)
     
-#endif // MM_DEBUG    
+#endif // MM_DEBUG
     
     Tensor &out = T4(N1, 1, E0, 1);               ///> output tensor sizing
     npush(out);                                   /// * stage for next stage
@@ -246,7 +247,7 @@ Model::_isoftmax(Tensor &in) {
 __HOST__ void
 Model::_iactivate(Tensor &in, DU alpha) {
     NN_DB("    model#iactivate alpha=%6.3f {\n", alpha);
-    Tensor *msk = in.grad[4] = &T4(in);          ///> activation mask
+    in.grad[4] = &T4(in);                        ///> activation mask
     in.xparm = alpha;                            /// * keep bias
     
     Tensor &out = T4(in.N(), in.H(), in.W(), in.C());
