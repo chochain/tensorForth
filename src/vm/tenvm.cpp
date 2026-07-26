@@ -397,13 +397,13 @@ TensorVM::_pickle(bool load, bool png) {
     POPi;                                     ///< string length (not used for now)
     IU   adr  = POPi;                         ///< address to pmem
     char *tag = (char*)MEM(adr);              ///< pointer to string on PAD
-#if MM_DEBUG
+#if T4_VERBOSE > 1
     T4Base &t = mmu.du2obj(tos);
     const char* nm[] = { "tensor", "model", "dataset", "xxx" };
     U32   *p = (U32*)&t;
     INFO(".X %s(%04x)[%08x %08x %08x %08x].data(%p) => %s\n",
          nm[t.ttype], DU2X(tos), p[0], p[1], p[2], p[3], t.data, tag);
-#endif // MM_DEBUG    
+#endif // T4_VERBOSE > 1
 
     syscall(op, tos, mode, DU2X(tos), tag);   /// * show to Tensorboard or load/store tensor
 }
