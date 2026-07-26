@@ -50,9 +50,9 @@ AIO::shape(T4Base &b) {
     }
     o << ']';
     
-#if MM_DEBUG
+#if T4_VERBOSE > 1
     if (t.rank==2 || t.rank==5) o << t.numel;
-#endif // MM_DEBUG
+#endif // T4_VERBOSE > 1
     
     return o.str();
 }

@@ -253,12 +253,12 @@ Debug::_see(Param *p, int nv, int base) {
 ///@{
 __HOST__ void
 Debug::self_tests() {
-#if MM_DEBUG    
+#if T4_VERBOSE > 1
     dict_dump();
     words();
     mem_dump(0, 256);
 //    ss_dump(0, 3, 10);        // might have junk in it
-#endif // MM_DEBUG    
+#endif // T4_VERBOSE > 1
 }
 ///@}
 
