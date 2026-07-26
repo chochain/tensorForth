@@ -24,6 +24,11 @@ typedef void (*GdFunc)(
 ///
 ///< Neural Network Model class
 ///
+#if MM_DEBUG
+#define NN_DB(...)            TRACE(__VA_ARGS__)
+#else  // !MM_DEBUG
+#define NN_DB(...)
+#endif // MM_DEBUG
 #define NLOG(...)             { if (*_trace) INFO(__VA_ARGS__); }
 
 class Model : public T4Base {
