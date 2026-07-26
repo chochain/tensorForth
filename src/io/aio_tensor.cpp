@@ -17,44 +17,44 @@ AIO::to_s(T4Base &t, bool view) {
     static const char tn[2][4] = {                ///< sync with t4_obj
         { 'T', 'N', 'D', 'X' }, { 't', 'n', 'd', 'x' }
     };
-    std::ostringstream ss;
+    std::ostringstream o;
     
-    ss << tn[view][t.ttype];
+    o << tn[view][t.ttype];
     switch(t.rank) {
-    case 0:            break;                     ///< network model
-    case 1: ss << '1'; break;
-    case 2: ss << '2'; break;
-    case 3: ss << '3'; break;
-    case 4: ss << '4'; break;
-    case 5: ss << "5[" << t.iparm << "]"; break;
+    case 0:           break;                      ///< network model
+    case 1: o << '1'; break;
+    case 2: o << '2'; break;
+    case 3: o << '3'; break;
+    case 4: o << '4'; break;
+    case 5: o << "5[" << t.iparm << "]"; break;
     }
-    ss << shape(t);
+    o << shape(t);
     
-    return ss.str();
+    return o.str();
 }
 
 __HOST__ std::string
 AIO::shape(T4Base &b) {
     Tensor &t = (Tensor&)b;
-    std::ostringstream ss;
+    std::ostringstream o;
 
-    ss << '[';
+    o << '[';
     switch (t.rank) {
-    case 0: ss << (t.numel - 1);         break;   /// network model
-    case 1: ss << t.numel;               break;
-    case 2: ss << t.H() << ',' << t.W(); break;
-    case 3: ss << "na";                  break;
+    case 0: o << (t.numel - 1);         break;    /// network model
+    case 1: o << t.numel;               break;
+    case 2: o << t.H() << ',' << t.W(); break;
+    case 3: o << "na";                  break;
     case 4:
-    case 5: ss << t.N() << ',' << t.H() << ','
-               << t.W() << ',' << t.C(); break;
+    case 5: o << t.N() << ',' << t.H() << ','
+              << t.W() << ',' << t.C(); break;
     }
-    ss << ']';
+    o << ']';
     
 #if MM_DEBUG
-    if (t.rank==2 || t.rank==5) ss << t.numel;
+    if (t.rank==2 || t.rank==5) o << t.numel;
 #endif // MM_DEBUG
     
-    return ss.str();
+    return o.str();
 }
 
 __HOST__ std::string
@@ -139,27 +139,27 @@ AIO::t2png(Tensor &t, char *tag, int n_per_row) {
 ///
 __HOST__ std::string
 AIO::_vec(DU *vd, U32 W, U32 C) {
-    std::ostringstream ss;
-    auto num = [&ss, C](DU *dx) {
+    std::ostringstream o;
+    auto num = [&o, C](DU *dx) {
         for (U32 k=0; k < C; k++) {
-            ss << (k>0 ? "_" : " ") << *dx++;
+            o << (k>0 ? "_" : " ") << *dx++;
         }
     };
-    ss.flags(std::ios::showpos | std::ios::right | std::ios::fixed);   /// enforce +- sign
-    ss.precision(_prec);                         ///< set precision
-    ss << "{";
+    o.flags(std::ios::showpos | std::ios::right | std::ios::fixed);   /// enforce +- sign
+    o.precision(_prec);                          ///< set precision
+    o << "{";
     U32 rw = (W <= _thres) ? W : (W < _edge ? W : _edge);
     for (U32 j=0; j < rw; j++) {                 ///< leading elements
         num(vd + j * C);
     }
     U32 x = W - rw;
-    if (x > rw) ss << " ...";                    ///< colomn break
+    if (x > rw) o << " ...";                     ///< colomn break
     
     for (U32 j=(x > rw ? x : rw); j < W; j++) {  ///< tailing elements
         num(vd + j * C);
     }
-    ss << " }";
-    return ss.str();
+    o << " }";
+    return o.str();
 }
 
 __HOST__ std::string
@@ -171,9 +171,9 @@ AIO::_mat(DU *td, U32 *shape) {
     const U64 WC= (U64)W * C;
     const U32 rh= range(H);                             ///< h range for ...
     
-    std::ostringstream ss;
-    auto row = [this, &ss, H, W, C](U32 y, DU *d) {
-        ss << _vec(d, W, C) << (y == H ? "" : "\n\t");
+    std::ostringstream o;
+    auto row = [this, &o, H, W, C](U32 y, DU *d) {
+        o << _vec(d, W, C) << (y == H ? "" : "\n\t");
     };
     
     DU *d = td;
@@ -182,47 +182,47 @@ AIO::_mat(DU *td, U32 *shape) {
     }
 
     U32 ym = (H <= _thres) ? rh : H - rh;
-    if (ym > rh) ss << "...\n\t";                       ///< row break
+    if (ym > rh) o << "...\n\t";                        ///< row break
     else ym = rh;
     
     d = td + ym * WC;
     for (U32 y=ym, y1=y+1; y<H; y++, y1++, d+=WC) {     ///< trailing rows
         row(y1, d);
     }
-    return ss.str();
+    return o.str();
 }
 __HOST__ std::string
 AIO::_tensor(Tensor &t) {
     DU *td = t.data;                                    /// * short hand
     DEBUG("  aio#print_tensor T=%p data=%p\n", &t, td);
-    std::ostringstream ss;
+    std::ostringstream o;
 
     switch (t.rank) {
     case 1: {
-        ss << "vector" << shape(t) << " = ";
-        ss << _vec(td, t.numel, 1);
+        o << "vector" << shape(t) << " = ";
+        o << _vec(td, t.numel, 1);
     } break;
     case 2: {
-        ss << "matrix" << shape(t) << " = {\n\t";
-        ss << _mat(td, t.shape);
-        ss << " }";
+        o << "matrix" << shape(t) << " = {\n\t";
+        o << _mat(td, t.shape);
+        o << " }";
     } break;
     case 4: {
         int N = t.N();
-        ss << "tensor" << shape(t) << " = { {\n\t";
+        o << "tensor" << shape(t) << " = { {\n\t";
         for (int n = 0; n < N; n++, td += t.HWC()) {
-            ss << _mat(td, t.shape);
-            ss << ((n+1) < N ? " } {\n\t" : "");
+            o << _mat(td, t.shape);
+            o << ((n+1) < N ? " } {\n\t" : "");
         }
-        ss << " } }";
+        o << " } }";
     } break;
     case 5: {
-        ss << "tensor[" << t.iparm << "]" << shape(t) << " = {...}";
+        o << "tensor[" << t.iparm << "]" << shape(t) << " = {...}";
     } break;        
-    default: ss << "tensor rank=" << t.rank << " not supported";
+    default: o << "tensor rank=" << t.rank << " not supported";
     }
-    ss << '\n';
-    return ss.str();
+    o << '\n';
+    return o.str();
 }
 ///
 /// Tensor & NN model persistence (i.e. serialization) methods

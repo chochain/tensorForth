@@ -58,18 +58,18 @@ AIO::to_s(DU v, int base) {                        ///< display pure value
 
 __HOST__ std::string
 AIO::to_s(void *vp, U8 gt) {
-    std::ostringstream ss;
+    std::ostringstream o;
     switch (gt) {
-    case GT_INT:   ss << (*(S32*)vp);               break;
-    case GT_U32:   ss << (*(U32*)vp);               break;
-    case GT_FLOAT: ss << (*(DU*)vp);                break;
-    case GT_STR:   ss << (char*)vp;                 break;
-    case GT_OBJ:   ss << "ERROR: see sys#marshall"; break;
-    case GT_FMT:   ss << "ERROR: see debug#print";  break;
+    case GT_INT:   o << (*(S32*)vp);               break;
+    case GT_U32:   o << (*(U32*)vp);               break;
+    case GT_FLOAT: o << (*(DU*)vp);                break;
+    case GT_STR:   o << (char*)vp;                 break;
+    case GT_OBJ:   o << "ERROR: see sys#marshall"; break;
+    case GT_FMT:   o << "ERROR: see debug#print";  break;
     }
     DEBUG("  aio#print(fs, *v=0x%lx=%g, gt=%x)\n", (UFP)vp, *(DU*)vp, gt);
     
-    return ss.str();
+    return o.str();
 }
 
 } // namespace t4::io

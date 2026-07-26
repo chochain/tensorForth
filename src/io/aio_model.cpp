@@ -16,7 +16,7 @@ namespace t4::io {
 __HOST__ int
 AIO::nsave(Model &m, char* fname, U8 mode) {
     IO_DB("AIO::save model to '%s' {\n", fname);
-    std::ofstream fs(fname, std::ios_base::binary);     ///< open an output file
+    std::ofstream fs(fname, std::ios_base::binary);       ///< open an output file
     if (!fs.is_open()) {
         ERROR("} => failed to open for output\n");
         return 1;
@@ -26,7 +26,7 @@ AIO::nsave(Model &m, char* fname, U8 mode) {
         /// TODO: raw format (.npy, .petastorm, hdf5)
     }
     else {
-        _nsave_model(fs, m);                  /// * blank line as section break
+        _nsave_model(fs, m);                             /// * blank line as section break
         _nsave_param(fs, m);
     }
     fs << "\n---" << std::endl;
@@ -64,38 +64,38 @@ AIO::nload(Model &m, char* fname, U8 mode, char *tib) {
 ///
 __HOST__ std::string
 AIO::_model(Model &m) {
-    std::ostringstream ss;
-    auto tinfo = [&ss](Tensor &t, int i, int fn) {      ///< layer info
-        ss << '[' << std::setw(3) << i << "] "
-           << Model::nname(fn) << ": "
-           << to_s(t, false);
+    std::ostringstream o;
+    auto tinfo = [&o](Tensor &t, int i, int fn) {       ///< layer info
+        o << '[' << std::setw(3) << i << "] "
+          << Model::nname(fn) << ": "
+          << to_s(t, false);
         int sz = 0;
         for (int n = 0; n < 5; n++) {
             sz += t.grad[n] ? t.grad[n]->numel : 0;
         }
-        ss << " #p=" << sz << ' ';
+        o << " #p=" << sz << ' ';
     };
-    auto finfo = [&ss](Tensor **g) {                    ///< gradient tensor info
+    auto finfo = [&o](Tensor **g) {                     ///< gradient tensor info
         for (int i=0; g[i] && i < 2; i++) {
-            ss << to_s(*g[i], false) << ' ';
+            o << to_s(*g[i], false) << ' ';
         }
-        if (g[4]) ss << to_s(*g[4], false) << ' ';
+        if (g[4]) o << to_s(*g[4], false) << ' ';
     };
     if (!m.is_model()) {
-        ss << "ERROR, not an NN Model!";
-        return ss.str();
+        o << "ERROR, not an NN Model!";
+        return o.str();
     }
     int n = (int)m.numel;
 
-    ss << "NN Model[" << (n-1) << '/' << T4_NET_SZ << "]\n";
+    o << "NN Model[" << (n-1) << '/' << T4_NET_SZ << "]\n";
     for (int i = 0; i < n; i++) {
         Tensor &in = m[i], &out = m[i+1];
         tinfo(in, (int)i, in.grad_fn);
         finfo(in.grad);
-        ss << _parm(in, out) << '\n';     /// << std::end;
+        o << _parm(in, out) << '\n';      /// << std::end;
     }
 
-    return ss.str();
+    return o.str();
 }
 ///
 /// print model layer parameters
@@ -106,38 +106,38 @@ AIO::_parm(Tensor &in, Tensor &out) {
     int      S  = in.stride[0];           ///< stride or pool kernel
     DU       p  = in.xparm;               ///< layer parameter
     
-    std::ostringstream ss;
+    std::ostringstream o;
     switch(fn) {
     case L_NONE:    /* do nothing  */                  break;
     case L_CONV:
-    case L_DCONV:  ss << "bias=" << p
-                      << ", C="  << out.C()
-                      << ", K=" << in.grad[0]->H()
-                      << ", S=" << S
-                      << ", P=" << in.stride[2];       break;
-    case L_LINEAR: ss << "bias=" << p
-                      << ", H="  << in.grad[0]->H();   break;
+    case L_DCONV:  o << "bias=" << p
+                     << ", C="  << out.C()
+                     << ", K="  << in.grad[0]->H()
+                     << ", S="  << S
+                     << ", P="  << in.stride[2];       break;
+    case L_LINEAR: o << "bias=" << p
+                     << ", H="  << in.grad[0]->H();    break;
     case L_FLATTEN:
     case L_RELU:
     case L_TANH:
     case L_SIGMOID: /* do nothing */                   break;
     case L_SELU:
     case L_LEAKYRL:
-    case L_ELU:     ss << "bias=" << p;                break;
-    case L_DROPOUT: ss << "rate=" << p*100.0 << '%';   break;
+    case L_ELU:     o << "bias=" << p;                 break;
+    case L_DROPOUT: o << "rate=" << p*100.0 << '%';    break;
     case L_SOFTMAX:
     case L_LOGSMAX: /* do nothing */                   break;
     case L_AVGPOOL:
     case L_MAXPOOL:
-    case L_MINPOOL: ss << S << "x" << S;               break;
-    case L_BATCHNM: ss << "mtum=" << p;                break;
+    case L_MINPOOL: o << S << "x" << S;                break;
+    case L_BATCHNM: o << "mtum=" << p;                 break;
     case L_USAMPLE: {
         const char *nm[] = { "nearest", "linear", "bilinear", "cubic" };
-        ss << S << "x" << S << " " << nm[in.iparm];
+        o << S << "x" << S << " " << nm[in.iparm];
     } break;
-    default: ss << "unknown layer=" << fn;             break;
+    default: o << "unknown layer=" << fn;              break;
     }
-    return ss.str();
+    return o.str();
 }
 
 __HOST__ int
