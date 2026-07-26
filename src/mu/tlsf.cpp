@@ -76,7 +76,7 @@ TLSF::init(U8 *mem, U64 sz, U64 off) {
 __HOST__ void*
 TLSF::malloc(U64 sz) {
     _dump_freelist();
-    MM_DB("  tlsf#malloc(0x%lx) {\n", sz);
+    DEBUG("  tlsf#malloc(0x%lx) {\n", sz);
     U64 bsz = ALIGN8(sz) + sizeof(used_block);         ///< logical => physical size
 
     LOCK();
@@ -91,7 +91,7 @@ TLSF::malloc(U64 sz) {
     ASSERT(blk->bsz >= bsz);                           /// * make sure it provides big enough a block
 
     void *data = BLK_DATA(blk);
-    MM_DB("  } tlsf#malloc => %x:%lx\n", TADDR(data), sz);
+    DEBUG("  } tlsf#malloc => %x:%lx\n", TADDR(data), sz);
     GPU_CHK();
     
     return data;                                       /// * pointer to raw space
@@ -148,14 +148,14 @@ TLSF::free(void *ptr) {
 
     LOCK();
     free_block *blk = (free_block *)BLK_HEAD(ptr);     ///< get block header
-    MM_DB("  tlsf#free(%x) %x:%x:%x {\n", TADDR(ptr), TADDR(blk), blk->bsz, blk->psz);
+    DEBUG("  tlsf#free(%x) %x:%x:%x {\n", TADDR(ptr), TADDR(blk), blk->bsz, blk->psz);
     SET_FREE(blk);                                     /// * tick free flag
     _merge_next(blk);                                  /// * see there's more free blocks
     _set_free(blk);                                    /// * update freelist
 
     /// the block is free now, try to merge a free block before if exists
     _merge_prev(blk);
-    MM_DB("  } tlsf#free(%x)\n", TADDR(ptr));
+    DEBUG("  } tlsf#free(%x)\n", TADDR(ptr));
     
     GPU_CHK();
 }
@@ -192,7 +192,7 @@ TLSF::_idx(U64 sz) {
 
     U32 l2 = (sz >> (l1 - L2_BITS)) & L2_MASK;        ///< 1 shift, 1 minus, 1 and
 
-    MM_DB("    tlsf#idx(%lx) INDEX(%x,%x) => %x\n", sz, l1, l2, INDEX(l1, l2));
+    DEBUG("    tlsf#idx(%lx) INDEX(%x,%x) => %x\n", sz, l1, l2, INDEX(l1, l2));
 
     return INDEX(l1, l2);
 }
@@ -221,7 +221,7 @@ TLSF::_find_free_index(U64 sz) {
     U32 l1 = L1(index);
     U32 l2 = L2(index);
     U32 m1 = 0, m2 = _l2_map[l1] >> (l2+1);           ///< get SLI one size bigger
-    MM_DB("    tlsf#find(%x) l2_map[%x]=%x", index, l1, _l2_map[l1]);
+    DEBUG("    tlsf#find(%x) l2_map[%x]=%x", index, l1, _l2_map[l1]);
     if (m2) {                                         /// * check if any 2nd level slot available
         l2 = ffs0(m2 << (l2+1));                      /// * MSB represent the smallest slot that fits
     }
@@ -232,7 +232,7 @@ TLSF::_find_free_index(U64 sz) {
     else {
         l1 = l2 = 0xff;                               /// * out of memory
     }
-    MM_DB(", (m1|m2)=%x|%x, INDEX(%x,%x) => %x\n", m1, m2, l1, l2, INDEX(l1, l2));
+    DEBUG(", (m1|m2)=%x|%x, INDEX(%x,%x) => %x\n", m1, m2, l1, l2, INDEX(l1, l2));
 
     return INDEX(l1, l2);                             /// * index to freelist head
 }
@@ -254,12 +254,12 @@ TLSF::_split(free_block *blk, U64 bsz) {
     free_block *free = (free_block *)U8PADD(blk, bsz);                ///< future next block (i.e. alot bsz bytes)
     free_block *aft  = (free_block *)BLK_AFTER(blk);                  ///< next adjacent block
 
-    MM_DB("    tlsf#split(%x:%x,%lx) => ", TADDR(blk), blk->bsz, bsz);
+    DEBUG("    tlsf#split(%x:%x,%lx) => ", TADDR(blk), blk->bsz, bsz);
     free->bsz = blk->bsz - bsz;                                       /// * carve out the acquired block
     free->psz = bsz;                                                  /// * positive offset to previous block
     SET_FREE(free);                                                   /// * tick free flag
     blk->bsz  = bsz;                                                  /// * allocate target block
-    MM_DB("%x:%x:%x + %x:%x:%x\n", TADDR(blk), blk->bsz, blk->psz, TADDR(free), free->bsz, free->psz);
+    DEBUG("%x:%x:%x + %x:%x:%x\n", TADDR(blk), blk->bsz, blk->psz, TADDR(free), free->bsz, free->psz);
 
     if (aft) {
         aft->psz = free->bsz | (aft->psz & FREE_FLAG);                /// * backward offset (positive)
@@ -283,14 +283,14 @@ TLSF::_pack(free_block *b0, free_block *b1) {
     // remove b0, b1 from free list first (sizes will not change)
     _unmap(b1);
 
-    MM_DB("    tlsf#pack(%x:%x:%x + %x:%x:%x) ", TADDR(b0), b0->bsz, b0->psz, TADDR(b1), b1->bsz, b1->psz);
+    DEBUG("    tlsf#pack(%x:%x:%x + %x:%x:%x) ", TADDR(b0), b0->bsz, b0->psz, TADDR(b1), b1->bsz, b1->psz);
     // merge b0 and b1, retain b0.FREE_FLAG
     used_block *b2 = (used_block *)BLK_AFTER(b1);
-    MM_DB(" b2=%x:%x:%x => ", TADDR(b2), b2->bsz, b2->psz);
+    DEBUG(" b2=%x:%x:%x => ", TADDR(b2), b2->bsz, b2->psz);
     b0->bsz += b1->bsz;                                             /// * include the block header
     b2->psz = b0->bsz | (b2->psz & FREE_FLAG);                      /// * watch for the block->flag
 
-    MM_DB("%x:%x:%x b2=%x:%x:%x\n", TADDR(b0), b0->bsz, b0->psz, TADDR(b2), b2->bsz, b2->psz);
+    DEBUG("%x:%x:%x b2=%x:%x:%x\n", TADDR(b0), b0->bsz, b0->psz, TADDR(b2), b2->bsz, b2->psz);
 }
 
 //================================================================
@@ -300,7 +300,7 @@ TLSF::_pack(free_block *b0, free_block *b1) {
 */
 __HOST__ void
 TLSF::_unmap(free_block *blk, U32 bidx) {
-    MM_DB("    tlsf#unmap(%x:%x,%x)\n", TADDR(blk), blk->bsz, bidx);
+    DEBUG("    tlsf#unmap(%x:%x,%x)\n", TADDR(blk), blk->bsz, bidx);
     ASSERT(IS_FREE(blk));                                           /// * ensure block is free
 
     U32 index = bidx ? bidx : _idx(blk->bsz);
@@ -334,7 +334,7 @@ TLSF::_set_free(free_block *blk) {
     U32 index = _idx(blk->bsz);
     // update block attributes
     free_block *head = _free_list[index];
-    MM_DB("    tlsf#set_free(<%x> => %x:%x:%x)\n", index, TADDR(blk), blk->bsz, blk->psz);
+    DEBUG("    tlsf#set_free(<%x> => %x:%x:%x)\n", index, TADDR(blk), blk->bsz, blk->psz);
 
     blk->next = head ? TADDR(head) : 0;                /// * setup linked list
     blk->prev = 0;
@@ -349,7 +349,7 @@ TLSF::_set_free(free_block *blk) {
 
 __HOST__ free_block*
 TLSF::_set_used(U32 index) {
-    MM_DB("    tlsf#set_used(<%x>)\n", index);
+    DEBUG("    tlsf#set_used(<%x>)\n", index);
     free_block *blk  = _free_list[index];
     ASSERT(blk);
     ASSERT(IS_FREE(blk));
@@ -363,7 +363,7 @@ TLSF::_set_used(U32 index) {
 __HOST__ void
 TLSF::_merge_next(free_block *b0) {
     free_block *b1 = (free_block *)BLK_AFTER(b0);
-    MM_DB("    tlsf#merge_next %x:%x:%x + %x:%x:%x\n",
+    DEBUG("    tlsf#merge_next %x:%x:%x + %x:%x:%x\n",
           TADDR(b0), b0->bsz, b0->psz, TADDR(b1), b1->bsz, b1->psz);
     while (b1 && IS_FREE(b1) && b1->bsz != 0) {
         _pack(b0, b1);
@@ -376,7 +376,7 @@ TLSF::_merge_prev(free_block *b1) {
     ASSERT(IS_FREE(b1));
     
     free_block *b0 = (free_block *)BLK_BEFORE(b1);
-    MM_DB("    tlsf#merge_prev %x:%x:%x + %x:%x:%x\n",
+    DEBUG("    tlsf#merge_prev %x:%x:%x + %x:%x:%x\n",
           b0 ? TADDR(b0) : 0,
           b0 ? b0->bsz   : 0,
           b0 ? b0->psz   : 0,
@@ -448,23 +448,23 @@ TLSF::_show_stat() {
 __HOST__ void
 TLSF::_dump_freelist() {
     LOCK();
-    MM_DB("  tlsf#L1=%4x: ", _l1_map);
+    DEBUG("  tlsf#L1=%4x: ", _l1_map);
     for (int i=L1_BITS-1; i>=0; i--) {
-        MM_DB("%02x%s", _l2_map[i], i%4==0 ? " " : "");
+        DEBUG("%02x%s", _l2_map[i], i%4==0 ? " " : "");
     }
     for (int i=FL_SLOTS-1; i>=0; i--) {
         if (!_free_list[i]) continue;
-        MM_DB("\n\t<%02x>=>[", i);
+        DEBUG("\n\t<%02x>=>[", i);
         for (free_block *b = _free_list[i]; b!=NULL; b=NEXT_FREE(b)) {
-            MM_DB(" %x:%x:%x", TADDR(b), b->bsz, b->psz);
+            DEBUG(" %x:%x:%x", TADDR(b), b->bsz, b->psz);
             if (IS_USED(b)) {
-                MM_DB("<-USED?");
+                DEBUG("<-USED?");
                 break;                /// * something is wrong (link is broken here)
             }
         }
-        MM_DB(" ] ");
+        DEBUG(" ] ");
     }
-    MM_DB("\n");
+    DEBUG("\n");
 }
 
 } // namespace t4::mu

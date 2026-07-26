@@ -55,20 +55,20 @@ void *Mpool::init(size_t bsz, int nblock) {
 // ============================================================================
 void *Mpool::malloc() {
     LOCK();
-    MM_DB("  mpool#malloc() {\n");
+    DEBUG("  mpool#malloc() {\n");
     if (!_free_head) throw std::bad_alloc{};
 
     void* blk = _free_head;
     _free_head  = *(void**)_free_head;
     ++_alloc_cnt;
     
-    MM_DB("    mpool#alloc_cnt = %d\n"
+    DEBUG("    mpool#alloc_cnt = %d\n"
           "  } mpoolf#malloc => %zx:%zx\n", _alloc_cnt, OFFSET(blk), _bsz);
     return blk;
 }
 
 void Mpool::free(void *ptr) {
-    MM_DB("  mpool#free(%zx) %zd(0x%zx) {\n", OFFSET(ptr), _bsz, _bsz);
+    DEBUG("  mpool#free(%zx) %zd(0x%zx) {\n", OFFSET(ptr), _bsz, _bsz);
     if (!ptr) return;
 
     assert(is_own(ptr) && "Mpool::dealloc: pointer does not belong to this pool");
@@ -78,13 +78,13 @@ void Mpool::free(void *ptr) {
     *(void**)ptr = _free_head;
     _free_head = ptr;
     _alloc_cnt--;
-    MM_DB("    mpool#alloc_cnt = %d\n"
+    DEBUG("    mpool#alloc_cnt = %d\n"
           "  } mpool#free(%zx)\n", _alloc_cnt, OFFSET(ptr));
 }
 
 void Mpool::status() {
     LOCK();
-    MM_DB("\\ OBJ : used[%d] (fixed 0x%zxB), free[%d/%d]\n",
+    DEBUG("\\ OBJ : used[%d] (fixed 0x%zxB), free[%d/%d]\n",
          _alloc_cnt, _bsz, (_nblock - _alloc_cnt), _nblock);
 }
 
