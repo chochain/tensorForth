@@ -64,14 +64,21 @@ In the end, languages don't really matter. It's the problem they solve. Having a
 
 ## Features
 <table><tr><th>Release</th><th>New Features</th></tr>
-<tr><td><a href="./docs/v3_progress.md">3.2</a></td>
+<tr><td><a href="./docs/v4_progress.md">4.0</a><br/>Work in progress<br/>CUDA 12.2+ only</td>
+<td><pre>
+  * add TensorBoard interface
+  * optimize CUDA kernels with Claude
+  * separate CUDA from pure C++ modules
+  * change build system from Makefile to CMake
+<tr><td><a href="./docs/v3_progress.md">3.2</a><br/>Stable</td>
 <td><pre>
   * NN model - supports GAN
   * optimization - adam, sgd with momentum, grad_zero
   * layers - conv1x1, upsample, batchnorm
   * activation - tanh, selu, leakyrelu, elu
-  * loss - bce<br/>* tensor op - std (stdvar), sqrt</pre></td></tr>
-<tr><td><a href="./docs/v3_progress.md">3.0</a></td>
+  * loss - bce
+  * tensor op - std (stdvar), sqrt</pre></td></tr>
+<tr><td><a href="./docs/v3_progress.md">3.0</a><br/>Stable</td>
 <td><pre>
   * NN model creation and persistence
   * NN model batch control (feed forward, backprop w/ autograd)
@@ -85,7 +92,7 @@ In the end, languages don't really matter. It's the problem they solve. Having a
   * mini-batch fetch
   * dataset loader - MNIST
   * OpenGL dataset Viewer</pre></td></tr>
-<tr><td><a href="./docs/v2_progress.md">2.0</a></td>
+<tr><td><a href="./docs/v2_progress.md">2.0</a><br/>Stable</td>
 <td><pre>
   * vector, matrix, tensor objects (modeled to PyTorch)
   * TLSF tensor storage manager (now 4G max)
@@ -101,7 +108,8 @@ In the end, languages don't really matter. It's the problem they solve. Having a
 <tr><td><a href="./docs/v1_progress.md">1.0</a></td>
 <td><pre>
   * Dr. Ting's eForth words with F32 as data unit, U16 instruction unit
-  * Support parallel Forth VMs<br/>* Lambda-based Forth microcode
+  * Support parallel Forth VMs
+  * Lambda-based Forth microcode
   * Memory management unit handles dictionary, stack, and parameter blocks in CUDA
   * Managed memory debug utilities, words, see, ss_dump, mem_dump
   * String handling utilities in CUDA
