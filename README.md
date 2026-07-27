@@ -62,14 +62,20 @@ It would be amusing to find someone brave enough to work the NVVM IR or even PTX
 
 In the end, languages don't really matter. It's the problem they solve. Having an interactive Forth in GPU does not mean a lot by itself. However, by adding matrix for linear algebra, or tensors for machine learning following the path from Numpy to PyTorch, with massively parallelism plus the cleanness of **Forth**, it might be useful one day, hopefully!
 
-## Features
+### Features
+
+<details><summary><b>click here to expand the section</b></summary>
+
 <table><tr><th>Release</th><th>New Features</th></tr>
-<tr><td><a href="./docs/v4_progress.md">4.0</a><br/>in progress<br/>CUDA 12.2+</td>
+<tr><td><a href="./docs/v4_progress.md">4.0</a><br/>Work in progress</td>
 <td>
-  * TensorBoard interface added<br/>
-  * CUDA kernels optimized with Claude<br/>
+  * Dynamic Parallelism 2.0, i.e. CUDA 12.2+
+  * Memory Pool added for host-based VM, dictionary, object metadata
   * Modulization, CUDA modules separated from pure C++<br/>
-  * Build system changed from Makefile to CMake</td></tr>
+  * TensorBoard interface added, FlatBuffer used<br/>
+  * CUDA kernels optimized with Claude<br/>
+  * Build system changed from Makefile to CMake
+  * Demo/Examples revised with detailed comments</td></tr>
 <tr><td><a href="./docs/v3_progress.md">3.2</a><br/>Stable</td>
 <td>
   * NN model - supports GAN<br/>
@@ -115,9 +121,13 @@ In the end, languages don't really matter. It's the problem they solve. Having a
   * String handling utilities in CUDA<br/>
   * Light-weight vector class, no dependency on STL<br/>
   * Output Stream, async from GPU to host</td>/<tr>
-</table>    
+</table>
 
-### Example - Small Matrix ops
+</details>
+
+### Example
+#### Small Matrix ops
+
 <pre>
 > ten4                # enter tensorForth
 tensorForth 2.0
@@ -150,7 +160,7 @@ bye                                  \ exit tensorForth
 tensorForth 2.0 done.
 </pre>
 
-### Example - Larger Matrix ops - benchmark 1024x2048 x 2048x512 matrices - 1000 loops
+#### Larger Matrix ops - 1024x2048 @ 2048x512 matrices - 1000 loops
 <pre>
 1024 2048 matrix rand                \ create a 1024x2048 matrix with uniform random values
  <0 T2[1024,2048]> ok                
@@ -177,7 +187,7 @@ matrix[1024,512] = {                 \ in PyTorch style (edgeitem=3)
  <0 T2[1024,2048] T2[2048,512] 3584> ok     \ that is 3.584 sec (i.e. ~3.6ms / loop)
 </pre>
 
-### Example - CNN Training on MNIST dataset
+#### CNN Training on MNIST dataset
 <pre>
 10 constant N                               \ mini-batch sample count
 N 28 28 1 nn.model                          \ create a network model (input dimensions)
@@ -266,7 +276,7 @@ If all goes well, some warnings aside, *~/tests/ten4* is your executable. The fo
 </pre>
 
 ### Verifcation Cases
-* Test v1 eForth ops
+#### v1 eForth ops
 
     ~/build/tests> ./ten4 < ../examples/t4_10a.4th # for basic syntax checks
 
@@ -286,7 +296,7 @@ If all goes well, some warnings aside, *~/tests/ten4* is your executable. The fo
     ...
     </pre>
 
-* Test v2 matrix ops
+#### v2 matrix ops
 
     ~> ./build/tests/ten4 < ./examples/t4_20a.4th # for matrix ops
     <pre>
@@ -307,7 +317,7 @@ If all goes well, some warnings aside, *~/tests/ten4* is your executable. The fo
     ...
     </pre>
 
-* Test v3/v4 ML ops
+#### v3 ML ops
 
     ~> ./build/tests/ten4 < ./examples/t4_30a.4th # NN model - single pass forward
     <pre>
@@ -362,7 +372,7 @@ If all goes well, some warnings aside, *~/tests/ten4* is your executable. The fo
 
     ~> ./build/tests/ten4 < ./examples/t4_32a.4th # GAN on NN single sample linear 2x2 layer verify
 
-* Tests v4.0 CNN with TensorBoard output
+#### v4.0 CNN with TensorBoard output
 
     ~> ./build/tests/ten4 -t/tmp/tb -rr1 < ./examples/t4_40a.4th # CNN - MNIST, output to tensorboard
     note: -t{logdir} -r{run_id} where tensorboard can pick up the event files
