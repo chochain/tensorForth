@@ -77,7 +77,20 @@ ds1                                       \ put dataset on TOS
     > + OpenGL for dataset
     > + Output tensor in HWC raw format with util to convert to PNG
 
-### Machine Learning vocabularies
+### Machine Learning words
+#### TensorBoard API (when ~/src/ten4_config::T4_DO_TB enabled)
+|word|param/example|tensor creation ops|
+|---|---|---|
+|.tbinit |( logdir len -- )        |initialize TensorBoard logdir|
+|.tbstep |( i -- )                 |set TensorBoard step id|
+|.scalar |( v tag len)             |send a scalar|
+|.text   |( txt_addr len tag len ) |send text at text_addr|
+|.image  |( T tag len -- )         |send a tensor (raw image) to TensorBoard|
+|.tile   |( T n_wide tag len -- )  |send a tensor, display as n-wide format|
+|.histo  |( T n_bucket tag len -- )|send a tensor, display as n-bucket histogram|
+|.embed  |( T tag len -- )         |send a tensor, display in projector|
+|.graph  |( N -- )                 |send the network, display as graph|
+
 #### Model creation, query, and persistence
 |word|param/example|tensor creation ops|
 |---|---|---|

@@ -314,7 +314,23 @@ If all goes well, some warnings aside, *~/tests/ten4* is your executable. The fo
 
     ~> ./build/tests/ten4 -t/tmp/tb -rr2 < ./examples/t4_40b.4th # GAN on MINST dataset, 100 epochs
 
-## Machine Learning vocabularies (see [doc3](./docs/v3_progress.md) for detail and examples)
+## TensorBoard words (see [doc3](./docs/v3_progress.md) for detail and examples)
+
+## Machine Learning words (see [doc3](./docs/v3_progress.md) for detail and examples)
+### TensorBoard API (when ~/src/ten4_config::T4_DO_TB enabled)
+<pre>
+  Note: tag len is the tag_addr and tag_len created by a Forth string 
+  .tbinit    ( logdir len -- )         - initialize TensorBoard logdir, s" /tmp/tb"
+  .tbstep    ( i -- )                  - set TensorBoard step id
+  .scalar    ( v tag len)              - send a scalar
+  .text      ( txt_addr len tag len )  - send text at text_addr
+  .image     ( T tag len -- )          - send a tensor (raw image) to TensorBoard
+  .tile      ( T n_wide tag len -- )   - send a tensor, display as n-wide format
+  .histo     ( T n_bucket tag len -- ) - send a tensor, display as n-bucket histogram
+  .embed     ( T tag len -- )          - send a tensor, display in projector
+  .graph     ( N -- )                  - send the network, display as graph
+</pre>
+
 ### Model creation, query, and persistence
 <pre>
   nn.model   ( n h w c -- M )      - create a Neural Network model with (n,h,w,c) input
