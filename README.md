@@ -66,15 +66,13 @@ In the end, languages don't really matter. It's the problem they solve. Having a
 
 | Release | New Features |
 | ---     | --- |
-|[3.2](./docs/v3_progress.md)|<pre> \
-* NN model - supports GAN \
+|[3.2](./docs/v3_progress.md)|<pre>* NN model - supports GAN \
 * optimization - adam, sgd with momentum, grad_zero \
 * layers - conv1x1, upsample, batchnorm \
 * activation - tanh, selu, leakyrelu, elu \
 * loss - bce \
 * tensor op - std (stdvar), sqrt</pre>|
-|[3.0](./docs/v3_progress.md)|<pre> \
-* NN model creation and persistence \
+|[3.0](./docs/v3_progress.md)|<pre>* NN model creation and persistence \
 * NN model batch control (feed forward, backprop w/ autograd) \
 * optimization - sgd \
 * layers - conv2d, linear, flatten \
@@ -86,8 +84,7 @@ In the end, languages don't really matter. It's the problem they solve. Having a
 * mini-batch fetch \
 * dataset loader - MNIST \
 * OpenGL dataset Viewer</pre>|
-|[2.0](./docs/v2_progress.md)|<pre> \
-* vector, matrix, tensor objects (modeled to PyTorch) \
+|[2.0](./docs/v2_progress.md)|<pre>* vector, matrix, tensor objects (modeled to PyTorch) \
 * TLSF tensor storage manager (now 4G max) \
 * matrix arithmetic (i.e. +, -, *, copy, matmul, transpose) \
 * matrix fill (i.e. zeros, ones, fill, eye, random) \
@@ -98,8 +95,7 @@ In the end, languages don't really matter. It's the problem they solve. Having a
 * command line option: debug print level control (T4_DEBUG) \
 * command line option: list (all) device properties \
 * use cuRAND kernel randomizer for uniform and standard normal distribution</pre>|
-|[1.0](./docs/v1_progress.md)|<pre> \
-* Dr. Ting's eForth words with F32 as data unit, U16 instruction unit \
+|[1.0](./docs/v1_progress.md)|<pre>* Dr. Ting's eForth words with F32 as data unit, U16 instruction unit \
 * Support parallel Forth VMs \
 * Lambda-based Forth microcode \
 * Memory management unit handles dictionary, stack, and parameter blocks in CUDA \
