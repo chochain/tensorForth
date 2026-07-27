@@ -66,14 +66,14 @@ In the end, languages don't really matter. It's the problem they solve. Having a
 
 | Release | New Features |
 | ---     | --- |
-|[3.2](./docs/v3_progress.md)|
+|[3.2](./docs/v3_progress.md)|<br/>
 * NN model - supports GAN<br/>
 * optimization - adam, sgd with momentum, grad_zero<br/>
 * layers - conv1x1, upsample, batchnorm<br/>
 * activation - tanh, selu, leakyrelu, elu<br/>
 * loss - bce<br/>
 * tensor op - std (stdvar), sqrt<br/>|
-|[3.0](./docs/v3_progress.md)|
+|[3.0](./docs/v3_progress.md)|<br/>
 * NN model creation and persistence<br/>
 * NN model batch control (feed forward, backprop w/ autograd)<br/>
 * optimization - sgd<br/>
@@ -86,7 +86,7 @@ In the end, languages don't really matter. It's the problem they solve. Having a
 * mini-batch fetch<br/>
 * dataset loader - MNIST<br/>
 * OpenGL dataset Viewer<br/>|
-|[2.0](./docs/v2_progress.md)|
+|[2.0](./docs/v2_progress.md)|<br/>
 * vector, matrix, tensor objects (modeled to PyTorch)<br/>
 * TLSF tensor storage manager (now 4G max)<br/>
 * matrix arithmetic (i.e. +, -, *, copy, matmul, transpose)<br/>
@@ -98,7 +98,7 @@ In the end, languages don't really matter. It's the problem they solve. Having a
 * command line option: debug print level control (T4_DEBUG)<br/>
 * command line option: list (all) device properties<br/>
 * use cuRAND kernel randomizer for uniform and standard normal distribution<br/>|
-|[1.0](./docs/v1_progress.md)|
+|[1.0](./docs/v1_progress.md)|<br/>
 * Dr. Ting's eForth words with F32 as data unit, U16 instruction unit<br/>
 * Support parallel Forth VMs<br/>
 * Lambda-based Forth microcode<br/>
