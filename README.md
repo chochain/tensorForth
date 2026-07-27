@@ -63,14 +63,13 @@ It would be amusing to find someone brave enough to work the NVVM IR or even PTX
 In the end, languages don't really matter. It's the problem they solve. Having an interactive Forth in GPU does not mean a lot by itself. However, by adding matrix for linear algebra, or tensors for machine learning following the path from Numpy to PyTorch, with massively parallelism plus the cleanness of **Forth**, it might be useful one day, hopefully!
 
 ## Features
-
 <table><tr><th>Release</th><th>New Features</th></tr>
 <tr><td><a href="./docs/v4_progress.md">4.0</a><br/>in progress<br/>CUDA 12.2+</td>
 <td>
-  * add TensorBoard interface<br/>
-  * optimize CUDA kernels with Claude<br/>
-  * separate CUDA from pure C++ modules<br/>
-  * change build system from Makefile to CMake</td></tr>
+  * TensorBoard interface added<br/>
+  * CUDA kernels optimized with Claude<br/>
+  * Modulization, CUDA modules separated from pure C++<br/>
+  * Build system changed from Makefile to CMake</td></tr>
 <tr><td><a href="./docs/v3_progress.md">3.2</a><br/>Stable</td>
 <td>
   * NN model - supports GAN<br/>
