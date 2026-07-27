@@ -378,9 +378,10 @@ If all goes well, some warnings aside, *~/tests/ten4* is your executable. The fo
     ~> ./build/tests/ten4 -t/tmp/tb -rr2 < ./examples/t4_40b.4th # GAN on MINST dataset, 100 epochs
 </div></details>
 
+<p/>
 ## Volcabularies
 <details><summary><h3>Machine Learning words</h3></summary><div>
-see [doc3](./docs/v3_progress.md) for etail and examples
+see <a href="./docs/v3_progress.md">doc3</a> for etail and examples
 
 #### TensorBoard API (with ~/src/ten4_config::T4_DO_TB enabled)
 <pre>
@@ -488,7 +489,7 @@ see [doc3](./docs/v3_progress.md) for etail and examples
 </div></details>
 
 <details><summary><h3>Tensor Calculus words</h3></summary><div>
-see [doc2](./docs/v2_progress.md) for detail and examples
+see <a href="./docs/v2_progress.md">doc2</a> for detail and examples
 
 #### Tensor Creation
 <pre>
@@ -632,7 +633,8 @@ see [doc2](./docs/v2_progress.md) for detail and examples
 </pre>
 </div></details>
 
-<details><summary><h3>TODO - by priorities</h3></summary><div>
+## ** TODO **
+<details><summary><h3>Priorities</h3></summary><div>
 * Refactor
   + host/kernel code separation 
   + study Scikit-learn (discrete functions)
