@@ -60,7 +60,53 @@ Since GPUs have good compiler support nowadays and I've ported the latest [*eFor
 
 It would be amusing to find someone brave enough to work the NVVM IR or even PTX assembly into a Forth that resides on GPU micro-cores in the fashion of [*GreenArray*](https://www.greenarraychips.com/), or to forge an FPGA doing similar kind of things.
 
-In the end, languages don't really matter. It's the problem they solve. Having an interactive Forth in GPU does not mean a lot by itself. However, by adding matrix for linear algebra, or tensors for machine learning following the path from Numpy to PyTorch, with massively parallelism plus the cleanness of **Forth**, it might be useful one day, hopefully! 
+In the end, languages don't really matter. It's the problem they solve. Having an interactive Forth in GPU does not mean a lot by itself. However, by adding matrix for linear algebra, or tensors for machine learning following the path from Numpy to PyTorch, with massively parallelism plus the cleanness of **Forth**, it might be useful one day, hopefully!
+
+## Features
+
+| Release | New Features |
+| ---     | --- |
+|[3.2](./docs/v3_progress.md)|
+* NN model - supports GAN<br/>
+* optimization - adam, sgd with momentum, grad_zero<br/>
+* layers - conv1x1, upsample, batchnorm<br/>
+* activation - tanh, selu, leakyrelu, elu<br/>
+* loss - bce<br/>
+* tensor op - std (stdvar), sqrt<br/>|
+|[3.0](./docs/v3_progress.md)|
+* NN model creation and persistence<br/>
+* NN model batch control (feed forward, backprop w/ autograd)<br/>
+* optimization - sgd<br/>
+* layers - conv2d, linear, flatten<br/>
+* pooling - maxpool, minpool, avgpool, dropout<br/>
+* activation - relu, sigmoid, softmax, log_softmax<br/>
+* loss - ce, mse, nll<br/>
+* formatted data - NHWC (as in TensorFlow)<br/>
+* dataset rewind<br/>
+* mini-batch fetch<br/>
+* dataset loader - MNIST<br/>
+* OpenGL dataset Viewer<br/>|
+|[2.0](./docs/v2_progress.md)|
+* vector, matrix, tensor objects (modeled to PyTorch)<br/>
+* TLSF tensor storage manager (now 4G max)<br/>
+* matrix arithmetic (i.e. +, -, *, copy, matmul, transpose)<br/>
+* matrix fill (i.e. zeros, ones, fill, eye, random)<br/>
+* matrix console input (i.e. matrix[..., array[..., and T![)<br/>
+* matrix print (i.e PyTorch-style, adjustable edge elements)<br/>
+* tensor view (i.e. dup, over, pick, r@)<br/>
+* GEMM (i.e. a * A x B + b * C, use CUDA Dynamic Parallelism)<br/>
+* command line option: debug print level control (T4_DEBUG)<br/>
+* command line option: list (all) device properties<br/>
+* use cuRAND kernel randomizer for uniform and standard normal distribution<br/>|
+|[1.0](./docs/v1_progress.md)|
+* Dr. Ting's eForth words with F32 as data unit, U16 instruction unit<br/>
+* Support parallel Forth VMs<br/>
+* Lambda-based Forth microcode<br/>
+* Memory management unit handles dictionary, stack, and parameter blocks in CUDA<br/>
+* Managed memory debug utilities, words, see, ss_dump, mem_dump<br/>
+* String handling utilities in CUDA<br/>
+* Light-weight vector class, no dependency on STL<br/>
+* Output Stream, async from GPU to host<br/>|
 
 ### Example - Small Matrix ops
 <pre>
@@ -676,49 +722,4 @@ If all goes well, some warnings aside, *~/tests/ten4* is your executable. The fo
   + pre-processor (DALI) + GPUDirect - heavy, later
   + calling API - Python(cffi), Ruby(FFI)
 
-## History
-### [Release 1.0](./docs/v1_progress.md) features
-* Dr. Ting's eForth words with F32 as data unit, U16 instruction unit
-* Support parallel Forth VMs
-* Lambda-based Forth microcode
-* Memory management unit handles dictionary, stack, and parameter blocks in CUDA
-* Managed memory debug utilities, words, see, ss_dump, mem_dump
-* String handling utilities in CUDA
-* Light-weight vector class, no dependency on STL
-* Output Stream, async from GPU to host
-
-### [Release 2.0](./docs/v2_progress.md) features
-* vector, matrix, tensor objects (modeled to PyTorch)
-* TLSF tensor storage manager (now 4G max)
-* matrix arithmetic (i.e. +, -, *, copy, matmul, transpose)
-* matrix fill (i.e. zeros, ones, fill, eye, random)
-* matrix console input (i.e. matrix[..., array[..., and T![)
-* matrix print (i.e PyTorch-style, adjustable edge elements)
-* tensor view (i.e. dup, over, pick, r@)
-* GEMM (i.e. a * A x B + b * C, use CUDA Dynamic Parallelism)
-* command line option: debug print level control (T4_DEBUG)
-* command line option: list (all) device properties
-* use cuRAND kernel randomizer for uniform and standard normal distribution
-
-### [Release 3.0](./docs/v3_progress.md) features
-* NN model creation and persistence
-* NN model batch control (feed forward, backprop w/ autograd)
-* optimization - sgd
-* layers - conv2d, linear, flatten
-* pooling - maxpool, minpool, avgpool, dropout
-* activation - relu, sigmoid, softmax, log_softmax
-* loss - ce, mse, nll
-* formatted data - NHWC (as in TensorFlow)
-* dataset rewind
-* mini-batch fetch
-* dataset loader - MNIST
-* OpenGL dataset Viewer
-
-### [Release 3.2](./docs/v3_progress.md)
-* NN model - supports GAN
-* optimization - adam, sgd with momentum, grad_zero
-* layers - conv1x1, upsample, batchnorm
-* activation - tanh, selu, leakyrelu, elu
-* loss - bce
-* tensor op - std (stdvar), sqrt
 
