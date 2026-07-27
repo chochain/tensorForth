@@ -62,9 +62,7 @@ It would be amusing to find someone brave enough to work the NVVM IR or even PTX
 
 In the end, languages don't really matter. It's the problem they solve. Having an interactive Forth in GPU does not mean a lot by itself. However, by adding matrix for linear algebra, or tensors for machine learning following the path from Numpy to PyTorch, with massively parallelism plus the cleanness of **Forth**, it might be useful one day, hopefully!
 
-### Features
-
-<details><summary><b>click here to expand the section</b></summary>
+<details><summary><h3>Features</h3></summary>
 
 <table><tr><th>Release</th><th>New Features</th></tr>
 <tr><td><a href="./docs/v4_progress.md">4.0</a><br/>Work in progress</td>
@@ -124,8 +122,8 @@ In the end, languages don't really matter. It's the problem they solve. Having a
 </table>
 
 </details>
+<details><summary><h3>Examples</h3></summary>
 
-### Example
 #### Small Matrix ops
 
 <pre>
@@ -215,7 +213,9 @@ ds0 20 cnn                                  \ put dataset as TOS, run the CNN fo
 s" model/my_net.t4" save                    \ persist the trained network
 </pre>
 
-### To Build, and Verify
+</details>
+<details><summary><h3>Build</h3></summary>
+
 There are two versions of **tensorForth**. After nVidia moved to CUDA12, the Dynamic Parallelism of child-grid is now async. The CUDA11.4, synced version, can work only on older GPUs. Check the compability chart first [here](https://forums.developer.nvidia.com/t/ubuntu-install-specific-old-cuda-drivers-combo/214601/5)
 
 Here's how to build
@@ -275,7 +275,9 @@ If all goes well, some warnings aside, *~/tests/ten4* is your executable. The fo
     \-v verbo_level - set verbosity level 0: off (default), 1: mmu tracing on, 2: detailed trace
 </pre>
 
-### Verifcation Cases
+</details>
+<details><summary><h3>Validation</h3></summary>
+
 #### v1 eForth ops
 
     ~/build/tests> ./ten4 < ../examples/t4_10a.4th # for basic syntax checks
@@ -379,8 +381,12 @@ If all goes well, some warnings aside, *~/tests/ten4* is your executable. The fo
 
     ~> ./build/tests/ten4 -t/tmp/tb -rr2 < ./examples/t4_40b.4th # GAN on MINST dataset, 100 epochs
 
-## Machine Learning words (see [doc3](./docs/v3_progress.md) for detail and examples)
-### TensorBoard API (when ~/src/ten4_config::T4_DO_TB enabled)
+</details>
+
+## Volcabularies
+<details><summary><h3>Machine Learning words</h3> (see [doc3](./docs/v3_progress.md) for etail and examples)</summary>
+
+#### TensorBoard API (with ~/src/ten4_config::T4_DO_TB enabled)
 <pre>
   Note: tag len is the tag_addr and tag_len created by a Forth string 
   .tbinit    ( logdir len -- )         - initialize TensorBoard logdir, s" /tmp/tb"
@@ -394,7 +400,7 @@ If all goes well, some warnings aside, *~/tests/ten4* is your executable. The fo
   .graph     ( N -- )                  - send the network, display as graph
 </pre>
 
-### Model creation, query, and persistence
+#### Model creation, query, and persistence
 <pre>
   nn.model   ( n h w c -- M )      - create a Neural Network model with (n,h,w,c) input
   >n         ( M T -- M' )         - manually add tensor to model
@@ -412,7 +418,7 @@ If all goes well, some warnings aside, *~/tests/ten4* is your executable. The fo
   save       ( M adr len [fam] -- M )  - export network as a file
 </pre>
 
-### Dataset and Batch controls
+#### Dataset and Batch controls
 <pre>
   dataset    ( n -- D )            - create a dataset with batch size = n, and given name i.e. 10 dataset abc
   normalize  ( D m s -- D' )
@@ -431,7 +437,7 @@ If all goes well, some warnings aside, *~/tests/ten4* is your executable. The fo
   trainable  ( M f -- M' )         - enable/disable network trainable flag
 </pre>
 
-### Convolution, Dense, and Pooling Layers
+#### Convoltuion, Dense, and Pooling Layers
 <pre>
   conv2d     ( M -- M' )           - create a 2D convolution 3x3 filter, stride=1, padding=same, dilation=0, bias=0.5
   conv2d     ( M b c -- M' )       - create a 2D convolution, bias=b, c channels output, with default 3x3 filter
@@ -452,7 +458,7 @@ If all goes well, some warnings aside, *~/tests/ten4* is your executable. The fo
   batchnorm  ( M m -- M' )         - batch normal with momentum=m
 </pre>
 
-### Activation (non-linear) and Classifier
+#### Activation (non-linear) and Classifier
 <pre>
   tanh       ( M -- M' )           - add tanh layer to network model
   relu       ( M -- M' )           - add Rectified Linear Unit to network model
@@ -465,7 +471,7 @@ If all goes well, some warnings aside, *~/tests/ten4* is your executable. The fo
   logsoftmax ( M -- M' )           - add probability vector x - log(sum(exp(x))) to network model, feeds loss.nll, used in multi-class
 </pre>
 
-### Loss and Gradient ops
+#### Loss and Gradient ops
 <pre>
   loss.mse   ( M Ta -- M Ta n )    - mean squared error, takes output from linear layer
   loss.bce   ( M Ta -- M Ta n )    - binary cross-entropy, takes output from sigmoid activation
@@ -484,8 +490,10 @@ If all goes well, some warnings aside, *~/tests/ten4* is your executable. The fo
   nn.hit     ( M -- M n )          - get number of hit (per mini-batch) of a model
 </pre>
 
-## Tensor Calculus vocabularies (see [doc2](./docs/v2_progress.md) for detail and examples)
-### Tensor creation
+</details>
+<details><summary><h3>Tensor Calculus words</h3> see [doc2](./docs/v2_progress.md) for detail and examples</summary>
+
+#### Tensor Creation
 <pre>
   vector    ( n       -- T1 )      - create a 1-D array and place on top of stack (TOS)
   matrix    ( h w     -- T2 )      - create 2-D matrix and place on TOS
@@ -496,7 +504,7 @@ If all goes well, some warnings aside, *~/tests/ten4* is your executable. The fo
   copy      ( T       -- T T' )    - duplicate (deep copy) a tensor on TOS
 </pre>
 
-### Duplication ops (reference creation)
+#### Duplication ops
 <pre>
   dup       ( Ta    -- Ta Ta )    - create a reference of a tensor on TOS
   over      ( Ta Tb -- Ta Tb Ta ) - create a reference of the 2nd item (NOS)
@@ -504,14 +512,14 @@ If all goes well, some warnings aside, *~/tests/ten4* is your executable. The fo
   2over     ( Ta Tb Tc Td -- Ta Tb Tc Td Ta Tb )
 </pre>
 
-### Tensor/View print (destructive as in Forth)
+#### Tensor/View print (destructive as in Forth) 
 <pre>
   . (dot)   ( V -- )  - print a view of a tensor
   . (dot)   ( T -- )  - print a vector, matrix, or tensor
   . (dot)   ( M -- )  - print a neaural network model
 </pre>
 
-### Shape adjustment (change shape of original tensor or view)
+#### Shape adjustment (change shape of original tensor or view)
 <pre>
   flatten   ( T -- T1' )             - reshape a tensor or view to 1-D array
   reshape2  ( T h w -- T2' )         - reshape to a 2-D matrix view
@@ -519,7 +527,7 @@ If all goes well, some warnings aside, *~/tests/ten4* is your executable. The fo
   same_shape? ( Ta Tb -- Ta Tb T/F ) - check whether Ta and Tb are the same shape
 </pre>
 
-### Fill tensor with init values (data updated to original tensor)
+#### Fill tensor with init values (data updated to original tensor)
 <pre>
   zeros     ( T   -- T' )   - fill tensor with zeros
   ones      ( T   -- T' )   - fill tensor with ones
@@ -532,7 +540,7 @@ If all goes well, some warnings aside, *~/tests/ten4* is your executable. The fo
   ={        ( T n -- T' )   - fill tensor with console input starting at n'th element
 </pre>
 
-### Tensor slice and dice
+#### Tensor slice and dice
 <pre>
   dim       ( T -- T Td )   - tensor dimensions, Td is a vector[4] of { N, H, W, C }
   t@        ( T i -- T n )  - fetch ith element from a tensor (in NHWC order)
@@ -540,7 +548,7 @@ If all goes well, some warnings aside, *~/tests/ten4* is your executable. The fo
   slice     ( T i0 i1 j0 j1 -- T T' ) - numpy.slice[i0:i1,j0:j1,]
 </pre>
 
-### Tensor-scalar, tensor-tensor arithmetic (by default non-destructive)
+#### Tensor-scalar, tensor-tensor arithmetic (by default non-destructive)
 <pre>
   +         ( Ta Tb -- Ta Tb Tc )  - tensor element-wise addition Tc = Ta + Tb
   +         ( Ta n  -- Ta n  Ta' ) - tensor-scalar addition (broadcast) Ta' = Ta + n
@@ -563,7 +571,7 @@ If all goes well, some warnings aside, *~/tests/ten4* is your executable. The fo
   min       ( T     -- T n )       - min of all elements of a tensor
 </pre>
 
-### Tensor element-wise math ops (destructive, as in Forth)
+#### Tensor element-wise math ops (destructive, as in Forth)
 <pre>
   abs       ( T -- T' )   - absolute T' = abs(T)
   exp       ( T -- T' )   - exponential T' = exp(T)
@@ -579,7 +587,7 @@ If all goes well, some warnings aside, *~/tests/ten4* is your executable. The fo
   negate    ( T -- T' )   - negate   T' = -(T)
 </pre>
 
-### Tensor-tensor arithmetic (destructive, as in Forth)
+#### Tensor-tensor arithmetic (destructive, as in Forth)
 <pre>
   +=        ( Ta Tb -- Tc )    - tensor element-wise addition Tc = Ta + Tb
   +=        ( Ta n  -- Ta' )   - tensor-scalar addition (broadcast) Ta' = Ta + n
@@ -598,7 +606,7 @@ If all goes well, some warnings aside, *~/tests/ten4* is your executable. The fo
   /=        ( Ta n  -- Ta' )   - tensor-scalar scale down multiplication Ta' = 1/n * Ta
 </pre>
 
-### Tensor-Tensor loss functions (by default destructive, as in Forth)
+#### Tensor-Tensor loss functions (by default destructive, as in Forth)
 <pre>
   loss.mse  ( Ta Tb -- Ta' )   - Mean Square Loss
   loss.bce  ( Ta Tb -- Ta' )   - Binary Cross Entropy Loss
@@ -606,7 +614,7 @@ If all goes well, some warnings aside, *~/tests/ten4* is your executable. The fo
   loss.nll  ( Ta Tb -- Ta' )   - Negative Log Likelihood Loss
 </pre>
 
-### Linear Algebra (by default non-destructive)
+#### Linear Algebra (by default non-destructive)
 <pre>
   matmul    ( Ta Tb -- Ta Tb Tc ) - matrix-matrix multiplication Tc = Ma @ Mb
   matdiv    ( Ta Tb -- Ta Tb Tc ) - matrix-matrix division Mc = Ma @ inverse(Mb)
@@ -621,12 +629,16 @@ If all goes well, some warnings aside, *~/tests/ten4* is your executable. The fo
   gemm      ( a b Ta Tb Tc -- a b Tb Tb Tc' ) - GEMM Tc' = a * Ta * Tb + b * Tc
 </pre>
 
-### Tensor I/O, Persistence
+#### Tensor I/O, Persistence
 <pre>
   save      ( T adr len [fam] -- T ) - pickle tensor to OS file (default text mode)
 </pre>
 
-### TODO - by priorities
+</details>
+
+</details>
+<details><summary><h3>TODO - by priorities</h3></summary>
+
 * Refactor
   + host/kernel code separation 
   + study Scikit-learn (discrete functions)
@@ -710,7 +722,9 @@ If all goes well, some warnings aside, *~/tests/ten4* is your executable. The fo
   + Mamba - State Space Model [mamba](https://www.ibm.com/think/topics/mamba-model)
   + Multi-Domain, i.e. MDNet
 
-### LATER
+</details>
+<details><summary><h3>LATER</h3></summary>
+
 * Tuning
   + Graph (CUDA 10.x) - host-only, to reduce repetitive launch overhead
   + HMM (CUDA 12.2) - unify CPU-GPU memory allocation
@@ -741,4 +755,4 @@ If all goes well, some warnings aside, *~/tests/ten4* is your executable. The fo
   + pre-processor (DALI) + GPUDirect - heavy, later
   + calling API - Python(cffi), Ruby(FFI)
 
-
+</details>
