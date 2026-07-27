@@ -64,49 +64,49 @@ In the end, languages don't really matter. It's the problem they solve. Having a
 
 ## Features
 <table><tr><th>Release</th><th>New Features</th></tr>
-<tr><td><a href="./docs/v3_progress.md">3.2</a><td>
+<tr><td><a href="./docs/v3_progress.md">3.2</a></td>
 <td><pre>
-    * NN model - supports GAN
-    * optimization - adam, sgd with momentum, grad_zero
-    * layers - conv1x1, upsample, batchnorm
-    * activation - tanh, selu, leakyrelu, elu
-    * loss - bce<br/>* tensor op - std (stdvar), sqrt</pre></td></tr>
-<tr><td><a href="./docs/v3_progress.md">3.0</a><td>
+  * NN model - supports GAN
+  * optimization - adam, sgd with momentum, grad_zero
+  * layers - conv1x1, upsample, batchnorm
+  * activation - tanh, selu, leakyrelu, elu
+  * loss - bce<br/>* tensor op - std (stdvar), sqrt</pre></td></tr>
+<tr><td><a href="./docs/v3_progress.md">3.0</a></td>
 <td><pre>
-    * NN model creation and persistence
-    * NN model batch control (feed forward, backprop w/ autograd)
-    * optimization - sgd
-    * layers - conv2d, linear, flatten
-    * pooling - maxpool, minpool, avgpool, dropout
-    * activation - relu, sigmoid, softmax, log_softmax
-    * loss - ce, mse, nll
-    * formatted data - NHWC (as in TensorFlow)
-    * dataset rewind
-    * mini-batch fetch
-    * dataset loader - MNIST
-    * OpenGL dataset Viewer</pre></td></tr>
-<tr><td><a href="./docs/v2_progress.md">2.0</a><td>
+  * NN model creation and persistence
+  * NN model batch control (feed forward, backprop w/ autograd)
+  * optimization - sgd
+  * layers - conv2d, linear, flatten
+  * pooling - maxpool, minpool, avgpool, dropout
+  * activation - relu, sigmoid, softmax, log_softmax
+  * loss - ce, mse, nll
+  * formatted data - NHWC (as in TensorFlow)
+  * dataset rewind
+  * mini-batch fetch
+  * dataset loader - MNIST
+  * OpenGL dataset Viewer</pre></td></tr>
+<tr><td><a href="./docs/v2_progress.md">2.0</a></td>
 <td><pre>
-    * vector, matrix, tensor objects (modeled to PyTorch)
-    * TLSF tensor storage manager (now 4G max)
-    * matrix arithmetic (i.e. +, -, *, copy, matmul, transpose)
-    * matrix fill (i.e. zeros, ones, fill, eye, random)
-    * matrix console input (i.e. matrix[..., array[..., and T![)
-    * matrix print (i.e PyTorch-style, adjustable edge elements)
-    * tensor view (i.e. dup, over, pick, r@)
-    * GEMM (i.e. a * A x B + b * C, use CUDA Dynamic Parallelism)
-    * command line option: debug print level control (T4_DEBUG)
-    * command line option: list (all) device properties
-    * use cuRAND kernel randomizer for uniform and standard normal distribution</pre></td></tr>
-<tr><td><a href="./docs/v1_progress.md">1.0</a><td>
+  * vector, matrix, tensor objects (modeled to PyTorch)
+  * TLSF tensor storage manager (now 4G max)
+  * matrix arithmetic (i.e. +, -, *, copy, matmul, transpose)
+  * matrix fill (i.e. zeros, ones, fill, eye, random)
+  * matrix console input (i.e. matrix[..., array[..., and T![)
+  * matrix print (i.e PyTorch-style, adjustable edge elements)
+  * tensor view (i.e. dup, over, pick, r@)
+  * GEMM (i.e. a * A x B + b * C, use CUDA Dynamic Parallelism)
+  * command line option: debug print level control (T4_DEBUG)
+  * command line option: list (all) device properties
+  * use cuRAND kernel randomizer for uniform and standard normal distribution</pre></td></tr>
+<tr><td><a href="./docs/v1_progress.md">1.0</a></td>
 <td><pre>
-    * Dr. Ting's eForth words with F32 as data unit, U16 instruction unit
-    * Support parallel Forth VMs<br/>* Lambda-based Forth microcode
-    * Memory management unit handles dictionary, stack, and parameter blocks in CUDA
-    * Managed memory debug utilities, words, see, ss_dump, mem_dump
-    * String handling utilities in CUDA
-    * Light-weight vector class, no dependency on STL
-    * Output Stream, async from GPU to host</pre></td>/<tr>
+  * Dr. Ting's eForth words with F32 as data unit, U16 instruction unit
+  * Support parallel Forth VMs<br/>* Lambda-based Forth microcode
+  * Memory management unit handles dictionary, stack, and parameter blocks in CUDA
+  * Managed memory debug utilities, words, see, ss_dump, mem_dump
+  * String handling utilities in CUDA
+  * Light-weight vector class, no dependency on STL
+  * Output Stream, async from GPU to host</pre></td>/<tr>
 </table>    
 
 ### Example - Small Matrix ops
