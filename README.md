@@ -212,6 +212,7 @@ s" model/my_net.t4" save                    \ persist the trained network
 </pre>
 </div></details>
 
+## ** BUILD and TEST **
 <details><summary><h3>Build</h3></summary><div>
 There are two versions of **tensorForth**. After nVidia moved to CUDA12, the Dynamic Parallelism of child-grid is now async. The CUDA11.4, synced version, can work only on older GPUs. Check the compability chart first [here](https://forums.developer.nvidia.com/t/ubuntu-install-specific-old-cuda-drivers-combo/214601/5)
 
@@ -378,8 +379,7 @@ If all goes well, some warnings aside, *~/tests/ten4* is your executable. The fo
     ~> ./build/tests/ten4 -t/tmp/tb -rr2 < ./examples/t4_40b.4th # GAN on MINST dataset, 100 epochs
 </div></details>
 
-<p/>
-## Volcabularies
+## ** Volcabularies **
 <details><summary><h3>Machine Learning words</h3></summary><div>
 see <a href="./docs/v3_progress.md">doc3</a> for etail and examples
 
