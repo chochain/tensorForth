@@ -314,8 +314,6 @@ If all goes well, some warnings aside, *~/tests/ten4* is your executable. The fo
 
     ~> ./build/tests/ten4 -t/tmp/tb -rr2 < ./examples/t4_40b.4th # GAN on MINST dataset, 100 epochs
 
-## TensorBoard words (see [doc3](./docs/v3_progress.md) for detail and examples)
-
 ## Machine Learning words (see [doc3](./docs/v3_progress.md) for detail and examples)
 ### TensorBoard API (when ~/src/ten4_config::T4_DO_TB enabled)
 <pre>
