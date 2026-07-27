@@ -62,8 +62,7 @@ It would be amusing to find someone brave enough to work the NVVM IR or even PTX
 
 In the end, languages don't really matter. It's the problem they solve. Having an interactive Forth in GPU does not mean a lot by itself. However, by adding matrix for linear algebra, or tensors for machine learning following the path from Numpy to PyTorch, with massively parallelism plus the cleanness of **Forth**, it might be useful one day, hopefully!
 
-<details><summary><h3>Features</h3></summary>
-
+<details><summary><h3>Features</h3></summary></div>
 <table><tr><th>Release</th><th>New Features</th></tr>
 <tr><td><a href="./docs/v4_progress.md">4.0</a><br/>Work in progress</td>
 <td>
@@ -120,10 +119,9 @@ In the end, languages don't really matter. It's the problem they solve. Having a
   * Light-weight vector class, no dependency on STL<br/>
   * Output Stream, async from GPU to host</td>/<tr>
 </table>
+</div></details>
 
-</details>
-<details><summary><h3>Examples</h3></summary>
-
+<details><summary><h3>Examples</h3></summary><div>
 #### Small Matrix ops
 
 <pre>
@@ -212,10 +210,9 @@ constant ds0                                \ keep the dataset as a constant
 ds0 20 cnn                                  \ put dataset as TOS, run the CNN for 20 epochs
 s" model/my_net.t4" save                    \ persist the trained network
 </pre>
+</div></details>
 
-</details>
-<details><summary><h3>Build</h3></summary>
-
+<details><summary><h3>Build</h3></summary><div>
 There are two versions of **tensorForth**. After nVidia moved to CUDA12, the Dynamic Parallelism of child-grid is now async. The CUDA11.4, synced version, can work only on older GPUs. Check the compability chart first [here](https://forums.developer.nvidia.com/t/ubuntu-install-specific-old-cuda-drivers-combo/214601/5)
 
 Here's how to build
@@ -274,10 +271,9 @@ If all goes well, some warnings aside, *~/tests/ten4* is your executable. The fo
     \-d device_id   - select GPU device id
     \-v verbo_level - set verbosity level 0: off (default), 1: mmu tracing on, 2: detailed trace
 </pre>
+</div></details>
 
-</details>
-<details><summary><h3>Validation</h3></summary>
-
+<details><summary><h3>Validation</h3></summary><div>
 #### v1 eForth ops
 
     ~/build/tests> ./ten4 < ../examples/t4_10a.4th # for basic syntax checks
@@ -380,11 +376,11 @@ If all goes well, some warnings aside, *~/tests/ten4* is your executable. The fo
     note: -t{logdir} -r{run_id} where tensorboard can pick up the event files
 
     ~> ./build/tests/ten4 -t/tmp/tb -rr2 < ./examples/t4_40b.4th # GAN on MINST dataset, 100 epochs
-
-</details>
+</div></details>
 
 ## Volcabularies
-<details><summary><h3>Machine Learning words</h3> (see [doc3](./docs/v3_progress.md) for etail and examples)</summary>
+<details><summary><h3>Machine Learning words</h3></summary><div>
+see [doc3](./docs/v3_progress.md) for etail and examples
 
 #### TensorBoard API (with ~/src/ten4_config::T4_DO_TB enabled)
 <pre>
@@ -489,9 +485,10 @@ If all goes well, some warnings aside, *~/tests/ten4* is your executable. The fo
   nn.onehot  ( M -- M T )          - get cached onehot vector from a model
   nn.hit     ( M -- M n )          - get number of hit (per mini-batch) of a model
 </pre>
+</div></details>
 
-</details>
-<details><summary><h3>Tensor Calculus words</h3> see [doc2](./docs/v2_progress.md) for detail and examples</summary>
+<details><summary><h3>Tensor Calculus words</h3></summary><div>
+see [doc2](./docs/v2_progress.md) for detail and examples
 
 #### Tensor Creation
 <pre>
@@ -633,12 +630,9 @@ If all goes well, some warnings aside, *~/tests/ten4* is your executable. The fo
 <pre>
   save      ( T adr len [fam] -- T ) - pickle tensor to OS file (default text mode)
 </pre>
+</div></details>
 
-</details>
-
-</details>
-<details><summary><h3>TODO - by priorities</h3></summary>
-
+<details><summary><h3>TODO - by priorities</h3></summary><div>
 * Refactor
   + host/kernel code separation 
   + study Scikit-learn (discrete functions)
@@ -721,10 +715,9 @@ If all goes well, some warnings aside, *~/tests/ten4* is your executable. The fo
   + GNN - dynamic graph with VMs. Value proposition.
   + Mamba - State Space Model [mamba](https://www.ibm.com/think/topics/mamba-model)
   + Multi-Domain, i.e. MDNet
+</div></details>
 
-</details>
-<details><summary><h3>LATER</h3></summary>
-
+<details><summary><h3>LATER</h3></summary><div>
 * Tuning
   + Graph (CUDA 10.x) - host-only, to reduce repetitive launch overhead
   + HMM (CUDA 12.2) - unify CPU-GPU memory allocation
@@ -754,5 +747,4 @@ If all goes well, some warnings aside, *~/tests/ten4* is your executable. The fo
   + integrate CUB, CUTLASS (utilities.init, gemm_api) - slow, later
   + pre-processor (DALI) + GPUDirect - heavy, later
   + calling API - Python(cffi), Ruby(FFI)
-
-</details>
+</div></details>
