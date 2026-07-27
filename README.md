@@ -3,25 +3,6 @@
 ## tensorForth - lives in GPU, does linear algebra and machine learning
 * Forth VM that supports tensor calculus and Convolution Neural Network with dynamic parallelism in CUDA
 
-### Status
-* **CUDA12+** current, for Turing, Ampere, and on
-
-|version|feature|stage|description|conceptual comparable|
-|---|---|---|---|---|
-|5.0|**Transformer**|developing|add Transformer ops|PyTorch.Transformer|
-|4.2|**Retentive**|analyzing|add RetNet ops|PyTorch.RetNet|
-|[4.0](https://github.com/chochain/tensorForth/releases/tag/v4.0.0)|**GAN + TB**|beta|+ TensorBoard output|PyTorch.GAN|
-
-* **CUDA11.4** legacy version, for Kepler, Maxwell (i.e. Jetson Nano/TX), Pascal, and Volta only
-
-|version|feature|stage|description|conceptual comparable|
-|---|---|---|---|---|
-|[3.2](https://github.com/chochain/tensorForth/releases/tag/v3.2.0)|**GAN**|beta|+ Generative Adversarial Net|PyTorch.GAN|
-|[3.0](https://github.com/chochain/tensorForth/releases/tag/v3.0.0)|**CNN**|production|+ Machine Learning with autograd|Torch|
-|[2.2](https://github.com/chochain/tensorForth/releases/tag/v2.2.2)|**lapack**|production|+ linear algebra methods|SciPy|
-|[2.0](https://github.com/chochain/tensorForth/releases/tag/v2.0.2)|**matrix**|production|+ vector and matrix objects|NumPy|
-|[1.0](https://github.com/chochain/tensorForth/releases/tag/v1.0.2)|**float**|production|extended eForth with F32 float|Python|
-
 ### What?
 More details later, but here are some samples of tensorForth in action
 
@@ -61,6 +42,25 @@ Since GPUs have good compiler support nowadays and I've ported the latest [*eFor
 It would be amusing to find someone brave enough to work the NVVM IR or even PTX assembly into a Forth that resides on GPU micro-cores in the fashion of [*GreenArray*](https://www.greenarraychips.com/), or to forge an FPGA doing similar kind of things.
 
 In the end, languages don't really matter. It's the problem they solve. Having an interactive Forth in GPU does not mean a lot by itself. However, by adding matrix for linear algebra, or tensors for machine learning following the path from Numpy to PyTorch, with massively parallelism plus the cleanness of **Forth**, it might be useful one day, hopefully!
+
+### Status
+* **CUDA12+** current, for Turing, Ampere, and on
+
+|version|feature|stage|description|conceptual comparable|
+|---|---|---|---|---|
+|5.0|**Transformer**|developing|add Transformer ops|PyTorch.Transformer|
+|4.2|**Retentive**|analyzing|add RetNet ops|PyTorch.RetNet|
+|[4.0](https://github.com/chochain/tensorForth/releases/tag/v4.0.0)|**GAN + TB**|beta|+ TensorBoard output|PyTorch.GAN|
+
+* **CUDA11.4** legacy version, for Kepler, Maxwell (i.e. Jetson Nano/TX), Pascal, and Volta only
+
+|version|feature|stage|description|conceptual comparable|
+|---|---|---|---|---|
+|[3.2](https://github.com/chochain/tensorForth/releases/tag/v3.2.0)|**GAN**|beta|+ Generative Adversarial Net|PyTorch.GAN|
+|[3.0](https://github.com/chochain/tensorForth/releases/tag/v3.0.0)|**CNN**|production|+ Machine Learning with autograd|Torch|
+|[2.2](https://github.com/chochain/tensorForth/releases/tag/v2.2.2)|**lapack**|production|+ linear algebra methods|SciPy|
+|[2.0](https://github.com/chochain/tensorForth/releases/tag/v2.0.2)|**matrix**|production|+ vector and matrix objects|NumPy|
+|[1.0](https://github.com/chochain/tensorForth/releases/tag/v1.0.2)|**float**|production|extended eForth with F32 float|Python|
 
 <details><summary><h3>Features</h3></summary></div>
 
