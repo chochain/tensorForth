@@ -264,7 +264,7 @@ MMU::free(Tensor &t) {
     }
     _mpool.free(&t);              /// * free tensor object itself
     status();
-    MM_DB("} mmu#free(T%d)\n", n);
+    MM_DB("} mmu#free(T%d)\n", t.rank);
 }
 ///
 /// deep copy a tensor
