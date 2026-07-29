@@ -159,7 +159,7 @@ Model::_iconv(Tensor &in, U32 C0, DU bias, U16 *opt, bool txn) {
     DU k = SQRT(6.0 * RCP(Kx * Ky * C1));            /// * filter default range - Kaiming
 #if MM_DEBUG
     INFO("    WARN MM_DEBUG _iconv: W=0.5, B=-0.5\n");
-    f->map(FILL, 0.5);                           /// * debug
+    f->map(FILL, 0.5);                               /// * debug
     b->map(FILL, -0.5);
     
     TRACE("    f[%d,%d,%d,%d]=", C1, Kx, Ky, C0);
@@ -169,13 +169,13 @@ Model::_iconv(Tensor &in, U32 C0, DU bias, U16 *opt, bool txn) {
     for (U64 i=0; i < b->numel; i++) TRACE("%6.3f", b->data[i]);
     TRACE("\n");
 #else  // !MM_DEBUG
-    RAND(*f, k);                                 /// * randomize f [-k, k)
-    RAND(*b, bias);                              /// * randomize b [-bias, bias)
+    RAND(*f, k);                                     /// * randomize f [-k, k)
+    RAND(*b, bias);                                  /// * randomize b [-bias, bias)
     
 #endif // MM_DEBUG
     
-    Tensor &out= T4(N1, H0, W0, C0);             ///> output tensor
-    npush(out);                                  /// * stage for next stage
+    Tensor &out= T4(N1, H0, W0, C0);                 ///> output tensor
+    npush(out);                                      /// * stage for next stage
     NN_DB("    } model#i%s => k=%6.3f, f.std=%6.3f b.std=%6.3f\n", nm, k, f->std(), b->std());
 }
 
@@ -188,7 +188,7 @@ Model::_ilinear(Tensor &in, U32 E0, DU bias) {
     Tensor *b  = in.grad[1] = &VEC(E0);           ///> b
     in.grad[2] = &T4(1, E0, E1, 1).zeros();       ///> dw
     in.grad[3] = &VEC(E0).zeros();                ///> db
-    
+
     if (in.W() != E1) {
         INFO("    WARN linear: treats in[%d,%d,%d,%d] as [%d,1,%ld,1]\n",
              N1, in.H(), in.W(), in.C(), N1, E1);
