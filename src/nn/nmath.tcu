@@ -99,7 +99,7 @@ __KERN__ void k_conv2d(
                 sum += _F[y][x] * _I[si0 + y][sj0 + x];
             }
         }
-        n_O[((long)W0 * i0 + j0) * C0 + c0] = sum;   ///< single write, no atomic
+        atomicAdd(&n_O[((long)W0 * i0 + j0) * C0 + c0], sum);   ///< single write, no atomic
     }
 }
 
@@ -263,13 +263,19 @@ __KERN__ void k_dconv2d(
         _df[t / KS][t % KS] = DU0;
     }
     __syncthreads();
+    
+    const bool active   = (tx < TS && ty < TS && i0 < H0 && j0 < W0);
+    const DU   dO_val   = active ? _O[ty][tx] : DU0;
+    const long zf_base  = (long)c1 * KS * KS * C0 + c0;
+    const int  lane     = (ty * blockDim.x + tx) & 31;  ///< warp lane (avoids % each iter)
     ///
     /// dB — sum dO over spatial positions; warp-reduce then atomic
     ///
-    DU db = (train && tx < TS && ty < TS && i0 < H0 && j0 < W0)
-            ? _O[ty][tx] : DU0;
-    WARP_SUM(db);
-    if ((ty * blockDim.x + tx) % 32 == 0) atomicAdd(&DB[c0], db);
+    if (train && c1 == 0) {
+        DU db = dO_val;
+        WARP_SUM(db);
+        if (lane == 0) atomicAdd(&DB[c0], db);
+    }
     ///
     /// dX and dF — iterate over kernel positions
     ///
@@ -278,10 +284,6 @@ __KERN__ void k_dconv2d(
     ///   dX[i0*S+ky, j0*S+kx] += F[ky,kx]  * dO[i0,j0]    (scatter → atomic)
     ///   dF[ky,kx]             += I[i0*S+ky, j0*S+kx] * dO[i0,j0]  (reduce)
     ///
-    const bool active   = (tx < TS && ty < TS && i0 < H0 && j0 < W0);
-    const DU   dO_val   = active ? _O[ty][tx] : DU0;
-    const long zf_base  = (long)c1 * KS * KS * C0 + c0;
-    const int  lane     = (ty * blockDim.x + tx) & 31;  ///< warp lane (avoids % each iter)
     ///
     /// pass 1: compute dX into registers and dF into shared — no atomics yet for dX.
     /// With 16 registers free (48 used, 64 ceiling), dx_acc[KS][KS] fits cleanly.
