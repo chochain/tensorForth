@@ -134,6 +134,8 @@ Model::_fconv(Tensor &in, Tensor &out) {
     const U32 KS = f.H();                               ///< kernel side length
     const U32 S  = in.stride[0];                        ///< stride (stored in Tensor.stride[0])
     const U32 P  = in.stride[2];                        ///< padding (stored in Tensor.stride[2])
+    
+    cudaMemset(out.data, 0, out.size() * sizeof(DU));   ///< zero output before accumulation
     ///
     /// dispatch on (kernel size, stride, padding) triples.
     ///
@@ -176,7 +178,7 @@ Model::_flinear(Tensor &in, Tensor &out) {
     
     if (*_trace > 1) {
         _dump_w("w", w, w.numel < T4_DIM_SQ);
-        _dump_b("b", b);
+        _dump_b("b", b); INFO("\n");
     }
 
     if (0 && w.numel < T4_DIM_SQ) {                        /// * threshold control
