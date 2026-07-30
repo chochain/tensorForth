@@ -90,7 +90,7 @@ __KERN__ void k_conv2d(
     /// Y = sum(F * X) + B  — each thread owns one output pixel
     ///
     if (tx < TS && ty < TS && i0 < H0 && j0 < W0) {
-        DU sum = B[c0];
+        DU sum = (c1 ==0 ) ? B[c0] : DU0;      ///< add only once
         const int si0 = ty * S, sj0 = tx * S;  ///< top-left of receptive field in _I
         #pragma unroll
         for (int y = 0; y < KS; y++) {
@@ -99,7 +99,7 @@ __KERN__ void k_conv2d(
                 sum += _F[y][x] * _I[si0 + y][sj0 + x];
             }
         }
-        atomicAdd(&n_O[((long)W0 * i0 + j0) * C0 + c0], sum);   ///< single write, no atomic
+        atomicAdd(&n_O[((long)W0 * i0 + j0) * C0 + c0], sum);   ///< accumulate from each channel
     }
 }
 
