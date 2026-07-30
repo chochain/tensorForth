@@ -143,7 +143,7 @@ Model::_bstep(Tensor &in, Tensor &out, bool last_layer) {
 #define DCONV(ks,s,p) do {                                              \
         constexpr int TS = (T4_DIM_SZ - (ks) + (s)) / (s);              \
         dim3 blk(T4_DIM_SZ, T4_DIM_SZ, 1);                              \
-        dim3 grd(TILE(W0, TS), TILE(H0, TS), C0*C1*N);                  \
+        dim3 grd(TILE(W0, TS), TILE(H0, TS), C0 * C1 * N);              \
         k_dconv2d<TS, (ks), (s), (p)><<<grd,blk>>>(                     \
             in.data, out.data, dx.data, f.data, df.data, db.data,       \
             H1, W1, H0, W0, C0, C1, train);                             \
@@ -163,7 +163,7 @@ Model::_bconv(Tensor &in, Tensor &out) {
 
     if (*_trace > 1) {
         _dump_b("before b",   b); _dump_f("before f",  f);
-        _dump_b("before db", db); _dump_f("before df", df);
+        _dump_b("before db", db); _dump_f("before df", df); INFO("\n");
     }
 
     cudaMemset(dx.data, 0, dx.numel * sizeof(DU));         ///< pre-zero dX
@@ -185,7 +185,7 @@ Model::_bconv(Tensor &in, Tensor &out) {
     in = dx;                                                ///< x = dX (overwrite)
 
     if (*_trace > 1) {
-        _dump_b("after db", db); _dump_f("after df", df);
+        _dump_b("after db", db); _dump_f("after df", df); INFO("\n");
     }
     return 0;
 }
@@ -201,7 +201,7 @@ Model::_blinear(Tensor &in, Tensor &out) {
     NN_DB("\n\tin[%d,%ld] = out[%d,%ld] @ w[%d,%d]", N, E1, N, E0, C0, C1);
     if (train && *_trace > 1) {
         _dump_b("before db", db);
-        _dump_w("before dw", dw, dw.numel < T4_DIM_SQ);
+        _dump_w("before dw", dw, dw.numel < T4_DIM_SQ); INFO("\n");
     }
     
     auto qa_calc = [&]() {
@@ -246,7 +246,7 @@ Model::_blinear(Tensor &in, Tensor &out) {
     }
     if (train && *_trace > 1) {
         _dump_b("after db", db);
-        _dump_w("after dw", dw, dw.numel < T4_DIM_SQ);
+        _dump_w("after dw", dw, dw.numel < T4_DIM_SQ); INFO("\n");
     }
     return 0;
 }
@@ -354,7 +354,7 @@ Model::_bbatchnorm(Tensor &in, Tensor &out) {
     
     if (*_trace > 1) {
         _dump_b("db=sum_s0", db);
-        _dump_b("dw-sum_s1", dw);
+        _dump_b("dw-sum_s1", dw); INFO("\n");
     }
     return 0;
 }
