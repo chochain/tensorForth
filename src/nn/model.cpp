@@ -276,13 +276,13 @@ Model::_ipool(Tensor &in, U16 k) {
 __HOST__ void
 Model::_ibatchnorm(Tensor &in, DU m) {
     NN_DB("    model#ibatchnorm m=%5.3f {\n", m);
-    const int N = in.N(), C = in.C();            /// C0==C1
+    const int C = in.C();                        /// C0==C1
     in.grad[0] = &VEC(C).map(FILL, DU1);         ///> gamma (default 1.0)
     in.grad[2] = &VEC(C);                        ///> d_gamma
     in.grad[1] = &VEC(C).zeros();                ///> beta  (default 0.0)
     in.grad[3] = &VEC(C);                        ///> d_beta
     in.grad[4] = &T4(in);                        ///> x_hat [in.NHWC]
-    in.mtum[4] = &VEC(N * C * 2 + C);            ///> s1[NC] + s2[NC] + var[C]
+    in.mtum[4] = &VEC(C * 3);                    ///> s1[C] + s2[C] + var[C]
 
     in.xparm = m;                                ///> default EMA momentum = 0.1
     
