@@ -211,14 +211,14 @@ Model::_blinear(Tensor &in, Tensor &out) {
                 DU *dp = dw.data;
                 for (int c0 = 0; c0 < C0; c0++) {     /// W[C0=E0,C1=E1]
                     DU dy = y[c0];
-                    db[c0] += dy;                     /// * db += dY
+                    db[c0] += dy;                     /// * dB += dY
                     for (int c1 =0; c1 < C1; c1++) {
-                        *dp++ += dy * x[c1];          /// * dw += dYᵀ @ X
+                        *dp++ += dy * x[c1];          /// * dW += dYᵀ @ X
                     }
                 }
             }
             DU *wd = w.data;
-            for (int c1 = 0; c1 < C1; c1++) {         /// * dX = w @ dY
+            for (int c1 = 0; c1 < C1; c1++) {         /// * dX = dY @ W
                 DU sum = DU0;
                 for (int c0 = 0; c0 < C0; c0++) {
                     sum += wd[C1 * c0 + c1] * y[c0];
@@ -235,12 +235,13 @@ Model::_blinear(Tensor &in, Tensor &out) {
     else {
         if (train) {
             NN_DB("\n  dW[E0,E1] += dYᵀ[E0,N] @ X[N,E1]");
+            /// dW, dB should be zeroed by gradient already
             FORK3(k_dlinear_db, N, E0, 1, out.data, db.data);    /// * dB += sum(dY)
             Tensor::linear(                           /// * dW[E0,E1] += dYᵀ[E0,N] @ X[N,E1]
                 out, in, dw, E0, E1, N, DU1, DU1, true, false);
         }
-        in.zeros();                                   /// * dX = 0
         NN_DB("  dX[N,E1]   = dY[N,E0] @ W[E0,E1]");
+        /// beta=0, (alpha=1), so out.data does not need to be zeroed
         Tensor::linear(                               /// * dX[N,E1] = dY[N,E0] @ W[E0,E1]
             out, w, in, N, E1, E0, DU1, DU0, false, false);
     }
@@ -311,39 +312,44 @@ Model::_bbatchnorm(Tensor &in, Tensor &out) {
     const U32 N   = in.N(), H = in.H(), W = in.W(), C = in.C();  ///< in==out
     const U32 HW  = H * W;
     const U64 NHW = HW * N;
-    const U32 NC2 = N * C * 2;
 
     Tensor &w   = *in.grad[0], &b = *in.grad[1]; ///< gamma[C], beta[C]
     Tensor &dw  = *in.grad[2], &db= *in.grad[3]; ///< d_gamma[C], d_beta[C]
     Tensor &xht = *in.grad[4];                   ///< x_hat          [NHWC]
     
-    DU *s1  = &in.mtum[4]->data[0];              ///< sum_dout       [NC]  (reused as s1 after scale)
-    DU *s2  = &in.mtum[4]->data[N*C];            ///< sum_dout_xhat  [NC]  (reused as s2 after scale)
-    DU *var = &in.mtum[4]->data[NC2];            ///< 1/sqrt(var+e)  [C]
+    DU *s1  = &in.mtum[4]->data[0];              ///< sum_dout       [C]  (reused as s1 after scale)
+    DU *s2  = &in.mtum[4]->data[C];              ///< sum_dout_xhat  [C]  (reused as s2 after scale)
+    DU *var = &in.mtum[4]->data[C*2];            ///< 1/sqrt(var+e)  [C]
 
     // zero the accumulators before reduction
-    cudaMemset(s1, 0, NC2 * sizeof(DU));
+    cudaMemset(s1, 0, C * 2 * sizeof(DU));
     
     auto dump_s = [&]() {
-        std::vector<F32> hx(NC2);
-        D2H(&hx[0], s1, NC2 * sizeof(DU));
-        for (int n=0; n<N; n++) {
-            INFO("\n    s%d= ", n);
-            for (int c=0; c<C; c++) INFO("%8.2g/%8.2g ", hx[n*C+c], hx[(N+n)*C+c]);
-        }
+        std::vector<F32> hx(C * 2);
+        D2H(&hx[0], s1, C * 2 * sizeof(DU));
+        INFO("\n    s= ");
+        for (int c=0; c<C; c++) INFO("%8.2g/%8.2g ", hx[c], hx[N + c]);
     };
     /// 1. fused reduction ---
+    ///    all N*ceil(HW/256) blocks per channel atomicAdd into the SAME
+    ///    sum_d0[c]/sum_d0xh[c] slot, giving a true batch-wide sum per
+    ///    channel (mirrors k_batchnorm_1's avg[c]/var[c] accumulation).
     ///<<<((HW+255)/256,C,N),(256,1,1)>>>
     {
-        const U32 nwarp   = (T4_DIM_SQ + 31) >> 5;
-        const U32 smem_sz = 2 * nwarp * sizeof(DU);
-        FORK4(k_dbatchnorm_1, smem_sz, out.data, xht.data, s1, s2, HW); 
+        const int  nwarp   = (T4_DIM_SQ + 31) >> 5;
+        const int  smem_sz = 2 * nwarp * sizeof(DU);
+        FORK4(k_dbatchnorm_1, smem_sz, out.data, xht.data, s1, s2, HW);
         if (*_trace > 1) dump_s();
     }
     /// 2. per-channel scale (no CPU sync needed) ---
-    ///   launched as <<<N, C>>> so each channel is one thread in one block;
+    ///    one thread per channel, same launch pattern as forward's
+    ///    k_batchnorm_2, so small C (e.g. CIFAR-10's C=3) still fills
+    ///    at least one full warp per block.
+    ///<<<(C+_b-1)/_b, max(32,min(C,1024))>>> one thread per (n,c), flattened + guarded
     {
-        k_dbatchnorm_2<<<N, C>>>(dw.data, db.data, s1, s2, NHW, train);
+        const int _b  = std::max(32, std::min((int)C, 1024));
+        const int _g  = ((int)C + _b - 1) / _b;
+        k_dbatchnorm_2<<<_g, _b>>>(dw.data, db.data, s1, s2, NHW, C, train);
         GPU_CHK();
         if (*_trace > 1) dump_s();
     }
