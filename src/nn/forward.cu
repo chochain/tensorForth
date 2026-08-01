@@ -262,17 +262,16 @@ Model::_flogsoftmax(Tensor &in, Tensor &out) {
 ///
 __HOST__ int
 Model::_fbatchnorm(Tensor &in, Tensor &out) {
-    const cudaStream_t st = 0;
     const U32 N   = out.N(), C = out.C(), H = out.H(), W = out.W();  ///< in==out
     const U32 HW  = H * W;
     const U64 NHW = (U64)HW * N;
-    const U32 NC2 = N * C * 2;
 
+    cudaStream_t st = 0;
     Tensor &w   = *in.grad[0], &b = *in.grad[1]; ///< gamma[C], beta[C]
     Tensor &xht = *in.grad[4];                   ///< x_hat  [in.NHWC]
         
-    DU *avg = &in.mtum[4]->data[0];              ///< avg    [C] - tmp, also s1/s2 in backprop
-    DU *var = &in.mtum[4]->data[NC2];            ///< var    [C] - read by backprop as rvar
+    DU *avg = &in.mtum[4]->data[0];              ///< avg[C] - tmp, also s1/s2 in backprop
+    DU *var = &in.mtum[4]->data[2 * C];          ///< var[C] - read by backprop as rvar
 
     cudaMemsetAsync(avg, 0, C * sizeof(DU), st); ///< zeros avg
     cudaMemsetAsync(var, 0, C * sizeof(DU), st); ///< zeros var
