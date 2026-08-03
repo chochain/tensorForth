@@ -78,8 +78,6 @@ struct Tensor : public T4Base {
     static __HOST__  Tensor &lu_inverse(Tensor &A, Tensor &I, int *d_piv); /// inverse w PLU
     static __HOST__  Tensor &plu(Tensor &A, Tensor &I, int *d_piv);        /// LU+permutation vector (in-place)
     static __HOST__  Tensor &lu(Tensor &LU, bool get_u);                   /// L\U => L or U
-    static __HOST__  Tensor &batchsum(Tensor &A, Tensor &O);
-    static __HOST__  Tensor &batchvar(Tensor &A, Tensor &G, Tensor &O);
     ///
     /// class contructors
     ///

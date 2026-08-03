@@ -217,29 +217,6 @@ Tensor::transpose(Tensor &A, Tensor &T) {
     }
     return T;
 }
-__HOST__ Tensor&
-Tensor::batchsum(Tensor &A, Tensor &O) {
-    U32 N = A.N(), H = A.H(), W = A.W(), C = A.C();
-    MM_DB("  tensor#batchsum A[%d,%d,%d,%d] => O[%d, %d]\n", N, H, W, C, N, C);
-    O.zeros();
-    FORK4(k_batchsum, 0, A.data, O.data, (U64)H*W);
-    return O;
-}
-__HOST__ Tensor&
-Tensor::batchvar(Tensor &A, Tensor &G, Tensor &O) {
-    U32 N = A.N(), H = A.H(), W = A.W(), C = A.C();
-    U64 NHW = (U64)N*H*W;
-    MM_DB("  tensor#batchvar A[%d,%d,%d,%d] => O[%d,%d]\n", N, H, W, C, N, C);
-    batchsum(A, G);
-    G *= DU1 / NHW;
-    O.zeros();
-    FORK4(k_batchnvar, 0, A.data, G.data, O.data, (U64)H*W);
-
-    for (int i=0; i< O.numel; i++) {
-        O.data[i] = SQRT(O.data[i] / NHW);
-    }
-    return O;
-}
 
 ///=======================================================================
 /// tensor arithmetics
