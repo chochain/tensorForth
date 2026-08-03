@@ -325,6 +325,9 @@ Model::_bbatchnorm(Tensor &in, Tensor &out) {
     // zero the accumulators before reduction
     cudaMemset(s1, 0, C * 2 * sizeof(DU));
     
+    if (*_trace > 1) {                           /// out = (xht = (I - avg) * rvar) * w + b
+        INFO("\n    xht="); xht.show();
+    }
     auto dump_s = [&]() {
         std::vector<F32> hx(C * 2);
         D2H(&hx[0], s1, C * 2 * sizeof(DU));
@@ -337,7 +340,6 @@ Model::_bbatchnorm(Tensor &in, Tensor &out) {
     ///    channel (mirrors k_batchnorm_1's avg[c]/var[c] accumulation).
     ///<<<((HW+255)/256,C,N),(256,1,1)>>>
     {
-        if (*_trace > 1) INFO("\n    xht="); xht.show();  /// out = (xht = (I - avg) * rvar) * w + b
         const int  nwarp   = (T4_DIM_SQ + 31) >> 5;
         const int  smem_sz = 2 * nwarp * sizeof(DU);
         FORK4(k_dbatchnorm_1, smem_sz, out.data, xht.data, s1, s2, HW);
@@ -355,7 +357,8 @@ Model::_bbatchnorm(Tensor &in, Tensor &out) {
         GPU_CHK();
         if (*_trace > 1) dump_s();
     }
-    if (*_trace > 1) {
+    
+    if (train && *_trace > 1) {
         _dump_b("db=sum_dout     ", db);
         _dump_b("dw-sum_dout_xhat", dw); INFO("\n");
     }
@@ -363,7 +366,6 @@ Model::_bbatchnorm(Tensor &in, Tensor &out) {
     ///<<<((HW+255)/256,C,N),(256,1,1)>>>
     FORK4(k_dbatchnorm_3, 0,
           w.data, out.data, xht.data, in.data, s1, s2, var, HW);
-    
     return 0;
 }
 
