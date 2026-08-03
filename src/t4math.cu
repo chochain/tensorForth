@@ -125,43 +125,6 @@ k_max(DP_R src, DP_W rst, bool find_max, long numel) {         ///< FORK(k_max, 
     }
     if (t0 == 0) d__max(rst, _smem[0], find_max);
 }
-///
-///> Batch sum (NHW per channel)
-///
-__KERN__ void
-k_batchsum(DP_R src, DP_W sum, long HW) {
-    const long j  = (long)blockIdx.x*blockDim.x + threadIdx.x;     ///< element index
-    const int  c  = blockIdx.y, C = gridDim.y;                     ///< channel
-    const int  n  = blockIdx.z;                                    ///< batch slice index
-    const long ns = HW * C * n;                                
-    
-    DU v = (c < C && j < HW) ? src[ns + j * C + c] : 0.0f;
-    WARP_SUM(v);                                                   ///< collect sum per warp
-    ///
-    /// sum up atomically (per channel, for batchnorm)
-    /// slower than grid-stride loop when blocks are many
-    ///
-    auto tp = cg::tiled_partition<32>(cg::this_thread_block());
-    if (c < C && tp.thread_rank() == 0) atomicAdd_block(&sum[c], v);  ///< serialize sum
-}
-///
-///> batch variance (NHW per channel)
-///
-__KERN__ void
-k_batchnvar(DP_R src, DP_R avg, DP_W var, long HW) {
-    const long j  = (long)blockIdx.x * blockDim.x + threadIdx.x;  ///< element index
-    const int  c  = blockIdx.y, C = gridDim.y;                    ///< channel
-    const int  n  = blockIdx.z;                                   ///< batch slice index
-    const long ns = HW * C * n;
-    DU v0 = (c < C && j < HW) ? src[(long)C * j + ns + c] - avg[c] : 0.0f;
-    DU v  = v0 * v0;
-    WARP_SUM(v);                                                  ///< collect sum per warp
-    ///
-    /// sum up atomically (per channel, for batchnorm)
-    ///
-    auto tp = cg::tiled_partition<32>(cg::this_thread_block());
-    if (c < C && tp.thread_rank() == 0) atomicAdd_block(&var[c], v);
-}
 
 struct Align4 { DU data[4]; };
 __KERN__ void
@@ -310,13 +273,17 @@ k_bce(DP_R T, DP_R O, DP_W loss, long numel) {
 ///
 __KERN__ void
 k_nan_inf(DP_R src, int *cnt, long numel) {
-    const long j = (long)blockIdx.x*blockDim.x + threadIdx.x; ///< element index
-    
-    int v = j < numel && (isnan(src[j]) || isinf(src[j])) ? 1 : 0;
-    WARP_SUM(v);
-    
-    auto tp = cg::tiled_partition<32>(cg::this_thread_block());
-    if (tp.thread_rank() == 0) atomicAdd_block(cnt, v);        ///< serialize sum
+    int v = 0;                                              ///< thread-local accumulator
+    const long tx   = blockIdx.x * blockDim.x + threadIdx.x;
+    const long step = (long)gridDim.x * blockDim.x;
+
+    for (long j = tx; j < numel; j += step) {
+        if (isnan(src[j]) || isinf(src[j])) v++;
+    }
+    WARP_SUM(v);                                            ///< reduce once, not per-element
+
+    const int lane = threadIdx.x & 31;                      ///< classic warp-lane id (0..31)
+    if (lane == 0) atomicAdd(cnt, v);                       ///< device-scope atomic: cnt is shared across ALL blocks
 }
 __KERN__ void
 k_dummy() {}
