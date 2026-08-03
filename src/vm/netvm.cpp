@@ -469,20 +469,6 @@ NetVM::init() {
     CODE("nn.ex",   _get_parm(4));                 ///< tensor.extended
     CODE("nn.w=",   _set_parm(0));                 ///< populate tensor.weight
     CODE("nn.b=",   _set_parm(1));                 ///< populate tensor.bias
-    CODE("bsum",
-         if (!IS_OBJ(tos)) return;
-         Tensor &A = TTOS;
-         Tensor &O = mmu.tensor(A.C());
-         Tensor::batchsum(A, O);
-         PUSH(O));
-    CODE("bvar",
-         if (!IS_OBJ(tos)) return;
-         Tensor &A = TTOS;
-         Tensor &O = mmu.tensor(A.C());
-         Tensor &G = COPY(O);
-         Tensor::batchvar(A, G, O);
-         PUSH(O);
-         FREE(G));
     ///@}
     /// ===========================================================================
     ///
