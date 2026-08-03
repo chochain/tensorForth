@@ -270,18 +270,16 @@ Model::_fbatchnorm(Tensor &in, Tensor &out) {
     Tensor &w   = *in.grad[0], &b = *in.grad[1]; ///< gamma[C], beta[C]
     Tensor &xht = *in.grad[4];                   ///< x_hat  [in.NHWC]
         
-    DU *avg = &in.mtum[4]->data[0];              ///< avg[C] - tmp, also s1/s2 in backprop
-    DU *var = &in.mtum[4]->data[2 * C];          ///< var[C] - read by backprop as rvar
+    DU *var = &in.mtum[4]->data[0];              ///< var[C] - read by backprop as rvar
+    DU *avg = &in.mtum[4]->data[C];              ///< avg[C] - tmp, also s1/s2 in backprop
 
-    cudaMemsetAsync(avg, 0, C * sizeof(DU), st); ///< zeros avg
-    cudaMemsetAsync(var, 0, C * sizeof(DU), st); ///< zeros var
+    cudaMemsetAsync(var, 0, 2 * C * sizeof(DU), st); ///< zeros avg,var
 
     auto dump_av = [&]() {
-        std::vector<F32> hx(C*2);
-        D2H(&hx[0], avg, sizeof(DU) * C);
-        D2H(&hx[C], var, sizeof(DU) * C);
-        INFO("\navg/var");
-        for (int c=0; c<C; c++) INFO("%8.2g/%8.2g ", hx[c], hx[C+c]);
+        std::vector<F32> hx(2 * C);
+        D2H(&hx[0], var, 2 * C * sizeof(DU));
+        INFO("\n    var/avg= ");
+        for (int c=0; c<C; c++) INFO("%.3g/%.3g ", hx[c], hx[C+c]);
     };
     /// 1. accumulate Σx and Σx² per channel
     {
@@ -305,7 +303,7 @@ Model::_fbatchnorm(Tensor &in, Tensor &out) {
     if (*_trace > 1) {
         _dump_b("w", w);             /// 1.0
         _dump_b("b", b);             /// 0.0
-        INFO("\nxht="); xht.show();  /// out = (xht = (I - avg) * rvar) * w + b
+        INFO("\n    xht="); xht.show();  /// out = (xht = (I - avg) * rvar) * w + b
     }
     return 0;
 }
