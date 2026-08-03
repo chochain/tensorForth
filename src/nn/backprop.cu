@@ -234,9 +234,10 @@ Model::_blinear(Tensor &in, Tensor &out) {
     }
     else {
         if (train) {
-            NN_DB("\n  dW[E0,E1] += dYᵀ[E0,N] @ X[N,E1]");
             /// dW, dB should be zeroed by gradient already
-            FORK3(k_dlinear_db, N, E0, 1, out.data, db.data);    /// * dB += sum(dY)
+            NN_DB("\n  dB[E0]    += ΣdY");
+            FORK3(k_dlinear_db, N, E0, 1, out.data, db.data);    /// * dB += Σ(dY)
+            NN_DB("\n  dW[E0,E1] += dYᵀ[E0,N] @ X[N,E1]");
             Tensor::linear(                           /// * dW[E0,E1] += dYᵀ[E0,N] @ X[N,E1]
                 out, in, dw, E0, E1, N, DU1, DU1, true, false);
         }
@@ -317,9 +318,9 @@ Model::_bbatchnorm(Tensor &in, Tensor &out) {
     Tensor &dw  = *in.grad[2], &db= *in.grad[3]; ///< d_gamma[C], d_beta[C]
     Tensor &xht = *in.grad[4];                   ///< x_hat          [NHWC]
     
-    DU *s1  = &in.mtum[4]->data[0];              ///< sum_dout       [C]  (reused as s1 after scale)
-    DU *s2  = &in.mtum[4]->data[C];              ///< sum_dout_xhat  [C]  (reused as s2 after scale)
-    DU *var = &in.mtum[4]->data[C*2];            ///< 1/sqrt(var+e)  [C]
+    DU *var = &in.mtum[4]->data[0];              ///< 1/sqrt(var+e)  [C]
+    DU *s1  = &in.mtum[4]->data[C];              ///< sum_dout       [C]  (reused as s1 after scale)
+    DU *s2  = &in.mtum[4]->data[2*C];            ///< sum_dout_xhat  [C]  (reused as s2 after scale)
 
     // zero the accumulators before reduction
     cudaMemset(s1, 0, C * 2 * sizeof(DU));
@@ -328,7 +329,7 @@ Model::_bbatchnorm(Tensor &in, Tensor &out) {
         std::vector<F32> hx(C * 2);
         D2H(&hx[0], s1, C * 2 * sizeof(DU));
         INFO("\n    s= ");
-        for (int c=0; c<C; c++) INFO("%8.2g/%8.2g ", hx[c], hx[N + c]);
+        for (int c=0; c<C; c++) INFO("%.3g/%.3g ", hx[c], hx[C + c]);
     };
     /// 1. fused reduction ---
     ///    all N*ceil(HW/256) blocks per channel atomicAdd into the SAME
@@ -336,6 +337,7 @@ Model::_bbatchnorm(Tensor &in, Tensor &out) {
     ///    channel (mirrors k_batchnorm_1's avg[c]/var[c] accumulation).
     ///<<<((HW+255)/256,C,N),(256,1,1)>>>
     {
+        if (*_trace > 1) INFO("\n    xht="); xht.show();  /// out = (xht = (I - avg) * rvar) * w + b
         const int  nwarp   = (T4_DIM_SQ + 31) >> 5;
         const int  smem_sz = 2 * nwarp * sizeof(DU);
         FORK4(k_dbatchnorm_1, smem_sz, out.data, xht.data, s1, s2, HW);
@@ -353,15 +355,15 @@ Model::_bbatchnorm(Tensor &in, Tensor &out) {
         GPU_CHK();
         if (*_trace > 1) dump_s();
     }
+    if (*_trace > 1) {
+        _dump_b("db=sum_dout     ", db);
+        _dump_b("dw-sum_dout_xhat", dw); INFO("\n");
+    }
     /// 3. fused dX update ---
     ///<<<((HW+255)/256,C,N),(256,1,1)>>>
     FORK4(k_dbatchnorm_3, 0,
           w.data, out.data, xht.data, in.data, s1, s2, var, HW);
     
-    if (*_trace > 1) {
-        _dump_b("db=sum_s0", db);
-        _dump_b("dw-sum_s1", dw); INFO("\n");
-    }
     return 0;
 }
 
