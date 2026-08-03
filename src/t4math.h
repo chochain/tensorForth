@@ -138,8 +138,6 @@ typedef uint32_t  U32;
 __KERN__ void k_sum(DP_R src, DP_W sum, long numel);
 __KERN__ void k_nvar(DP_R src, DU avg, DP_W var, long numel);          ///< n * variance
 __KERN__ void k_max(DP_R src, DP_W rst, bool find_max, long numel);    ///< find_max=true max or false=min
-__KERN__ void k_batchsum(DP_R src, DP_W sum, long numel);
-__KERN__ void k_batchnvar(DP_R src, DP_R avg, DP_W var, long numel);
 __KERN__ void k_copy(DP_R src, DP_W dst, long n);                      ///< Note: (src, dst)
 __KERN__ void k_transpose(DP_R src, DP_W dst, int h, int w);           ///< Note: (src, dst), TODO: CDP
 __KERN__ void k_identity(DP_W T, int h, int w);
