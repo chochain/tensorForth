@@ -28,9 +28,9 @@ k_sum(DP_R src, DP_W sum, long numel) {
     const long tx   = blockIdx.x * blockDim.x + t0;
     const long step = gridDim.x * blockDim.x;
 
-    DU v =  { 0.0f };                                          /// grid-stride loop (handles any N)
-    for (long i = tx; i < numel; i += step) {
-        v += src[i];
+    DU v =  { DU0 };                                           /// grid-stride loop (handles any N)
+    for (long j = tx; j < numel; j += step) {
+        v += src[j];
     }
     WARP_SUM(v);
 
@@ -38,7 +38,7 @@ k_sum(DP_R src, DP_W sum, long numel) {
     __syncthreads();
 
     if (ti == 0) {                                             /// share mem reduction
-        v = (t0 < (blockDim.x / 32)) ? _sum[tj] : 0.0f;
+        v = (t0 < (blockDim.x / 32)) ? _sum[tj] : DU0;
         WARP_SUM(v);
         if (tj == 0) atomicAdd(sum, v);                        /// * one add per block
     }
@@ -53,9 +53,9 @@ k_nvar(DP_R src, DU avg, DP_W var, long numel) {               ///< sum of T4_DI
     const long tx   = blockIdx.x * blockDim.x + t0;
     const long step = gridDim.x * blockDim.x;
 
-    DU v =  { 0.0f };                                          ///< grid-stride loop (handles any N)
-    for (long i = tx; i < numel; i += step) {
-        DU v0 = src[i] - avg;
+    DU v =  { DU0 };                                           ///< grid-stride loop (handles any N)
+    for (long j = tx; j < numel; j += step) {
+        DU v0 = src[j] - avg;
         v += v0 * v0;
     }
     WARP_SUM(v);
@@ -65,7 +65,7 @@ k_nvar(DP_R src, DU avg, DP_W var, long numel) {               ///< sum of T4_DI
     __syncthreads();
 
     if (ti == 0) {                                             /// share mem reduction
-        v = (t0 < (blockDim.x / 32)) ? _sum[tj] : 0.0f;
+        v = (t0 < (blockDim.x / 32)) ? _sum[tj] : DU0;
         WARP_SUM(v);
         if (tj == 0) atomicAdd(var, v);                        /// * one add per block
     }
@@ -159,7 +159,7 @@ k_transpose(DP_R src, DP_W dst, int H, int W) {                 ///< Note: (src,
 }
 __KERN__ void
 k_identity(DP_W T, int H, int W) {                              ///< identity matrix (tensor)
-    const DU i01[2] = { 0.0f, 1.0f };
+    const DU i01[2] = { DU0, DU1 };
     const int j = blockIdx.x * blockDim.x + threadIdx.x;
     const int i = blockIdx.y * blockDim.y + threadIdx.y;
     const int c = blockIdx.z, C = gridDim.z;                    ///< channel deep
@@ -185,7 +185,7 @@ k_math(math_op op, DP_X A, DU v, long n) {                     ///< self modifyi
         case TANH:  A[j] = TANH(ak);                  break;
         case RELU:  A[j] = RELU(ak);                  break;
         case SIGM:  A[j] = SIGMOID(ak);               break;
-        case SQRT:  A[j] = _SQRT(MAX(ak, 0.0));       break;   /// * guarded
+        case SQRT:  A[j] = _SQRT(MAX(ak, DU0));       break;   /// * guarded
         case RCP:   A[j] = _RCP(ak);                  break;   /// 1/x
         case SAT:   A[j] = _SAT(ak);                  break;   /// [0.0..1.0]
         case FILL:  A[j] = v;                         break;
@@ -255,10 +255,10 @@ k_bce(DP_R T, DP_R O, DP_W loss, long numel) {
     const long step = (long)gridDim.x  * blockDim.x;
 
     /// --- grid-stride: accumulate BCE locally ---
-    DU v = 0.0f;
+    DU v = DU0;
     for (long j = tx; j < numel; j += step) {
         DU t = T[j], o = O[j];
-        v += t * _LN(o + DU_EPS) + (1.0f - t) * _LN(1.0f - o + DU_EPS);
+        v += t * _LN(o + DU_EPS) + (DU1 - t) * _LN(DU1 - o + DU_EPS);
     }
     /// --- warp-level shuffle reduction ---
     WARP_SUM(v);
@@ -267,7 +267,7 @@ k_bce(DP_R T, DP_R O, DP_W loss, long numel) {
 
     /// --- block-level reduction over warp sums ---
     if (ti == 0) {
-        v = (t0 < (blockDim.x / 32)) ? _sum[tj] : 0.0f;
+        v = (t0 < (blockDim.x / 32)) ? _sum[tj] : DU0;
         WARP_SUM(v);
         if (tj == 0) atomicAdd(loss, v);                    ///< one atomic per block
     }
@@ -323,7 +323,7 @@ k_dot(
     //   The inner VLEN-unrolled loop amortises loop overhead and lets the
     //   compiler issue independent FMAs for better ILP.
     // -------------------------------------------------------------------------
-    DU acc = { 0.0f };
+    DU acc = { DU0 };
 
     int k = tx * VLEN;                               ///< stride index
     #pragma unroll 4
@@ -741,15 +741,15 @@ k_gemm_tile_claude_x2(
 ///
 __KERN__ void
 k_find_pivot(const DU *da, int *d_pivot, int z, long K) {
-    __shared__ DU _val[T4_DIM_SQ];
-    __shared__ int   _idx[T4_DIM_SQ];
+    __shared__ DU  _val[T4_DIM_SQ];
+    __shared__ int _idx[T4_DIM_SQ];
 
-    const int tx = threadIdx.x;
-    DU val = -1.0f;
-    int   idx = z;
+    const long tx = threadIdx.x;
+    DU  val = -DU1;
+    int idx = z;
 
-    for (int j = z + tx; j < K; j += blockDim.x) {             /// grid-stride over given rows i = z .. n-1
-        DU v = ABS(da[z + j * K]);
+    for (long j = tx + z; j < K; j += blockDim.x) {             /// grid-stride over given rows i = z .. n-1
+        DU v = ABS(da[j * K + z]);
         if (v > val) { val = v; idx = j; }
     }
 
@@ -782,9 +782,9 @@ k_swap_rows(DU *da, DU *di, int u, int z, long K) {
     const long tx   = blockIdx.x * blockDim.x + threadIdx.x;
     const long step = gridDim.x * blockDim.x;
 
-    for (long i = tx; i < K; i += step) {
-        const int iz = i + z * K;
-        const int iu = i + u * K;
+    for (long j = tx; j < K; j += step) {
+        const int iz = j + z * K;
+        const int iu = j + u * K;
 
         DU ta = da[iz]; da[iz] = da[iu]; da[iu] = ta;
         if (di) { DU ti = di[iz]; di[iz] = di[iu]; di[iu] = ti; }
@@ -800,9 +800,9 @@ k_diag(DU *da, DU *di, int z, long K) {
     const long tx   = blockIdx.x * blockDim.x + threadIdx.x;
     const long step = gridDim.x * blockDim.x;
 
-    for (long i = tx; i < K; i += step) {
+    for (long j = tx; j < K; j += step) {
         const DU  r0 = da[z + z * K];               ///< pivot value (already != 0)
-        const int kj = i + z * K;
+        const int kj = j + z * K;
         
         da[kj] /= r0;
         di[kj] /= r0;
@@ -821,14 +821,14 @@ k_elim(DU *da, DU *di, int z, long K) {
     const long tx   = blockIdx.x * blockDim.x + threadIdx.x;
     const long step = gridDim.x * blockDim.x;
 
-    for (long i = tx; i < K; i += step) {
-        if (i == z) continue;
+    for (long j = tx; j < K; j += step) {
+        if (j == z) continue;
 
-        const DU r1 = da[z + i * K];             ///< A[z, i]
+        const DU r1 = da[j * K + z];             ///< A[z, j]
         if (ABS(r1) < DU_EPS) continue;          ///< row already zeroed — skip
 
-        for (int k = 0; k < K; k++) {
-            const int ki = k + i * K, kz = k + z * K;
+        for (long k = 0; k < K; k++) {
+            const long ki = k + j * K, kz = k + K * z;
             da[ki] -= r1 * da[kz];
             di[ki] -= r1 * di[kz];
         }
@@ -856,15 +856,15 @@ k_lu_col(DU *da, int z, long K) {
     const long tx   = blockIdx.x * blockDim.x + threadIdx.x;
     const long step = gridDim.x * blockDim.x;
 
-    for (long i = tx; i < K; i += step) {
-        if (i <= z) continue;                     ///< rows below pivot only
+    for (long j = tx; j < K; j += step) {
+        if (j <= z) continue;                     ///< rows below pivot only
     
-        const DU pivot = da[z + z * K];           ///< U[z,z]
-        const DU lik   = da[z + i * K] / pivot;   ///< multiplier L[i,z]
-        da[z + i * K]  = lik;                     ///< store in-place (lower tri)
+        const DU pivot = da[K * z + z];           ///< U[z,z]
+        const DU lik   = da[K * j + z] / pivot;   ///< multiplier L[i,z]
+        da[K * j + z]  = lik;                     ///< store in-place (lower tri)
 
-        for (int k = z + 1; k < K; k++)           ///< Schur complement
-            da[k + i * K] -= lik * da[k + z * K];
+        for (long k = (long)z + 1; k < K; k++)    ///< Schur complement
+            da[K * j + k] -= lik * da[K * z + k];
     }
 }
 
@@ -888,12 +888,14 @@ k_pivot(const DU *lu, const int *d_piv, DU *di, long K) {
     const long tx   = blockIdx.x * blockDim.x + threadIdx.x;  ///< column of di
     const long step = gridDim.x * blockDim.x;
 
-    for (long i = tx; i < K; i += step) {
+    for (long j = tx; j < K; j += step) {
         /// apply row permutation to column j of I
-        for (int k = 0; k < K; k++) {
+        for (long k = 0; k < K; k++) {
             int pk = d_piv[k];
             if (pk != k) {
-                DU t = di[i + k * K]; di[i + k * K] = di[i + pk * K]; di[i + pk * K] = t;
+                DU t = di[j + k * K];
+                di[j + k * K]  = di[j + pk * K];
+                di[j + pk * K] = t;
             }
         }
     }
@@ -905,9 +907,9 @@ k_fsub(const DU *lu, DU *di, long K) {
 
     for (long i = tx; i < K; i += step) {
         /// forward substitution: unit lower triangular (diagonal = 1 not stored)
-        for (int k = 1; k < K; k++) {                      ///< rows of di
+        for (long k = 1; k < K; k++) {                      ///< rows of di
             DU s = di[i + k * K];
-            for (int j = 0; j < k; j++)                    ///< inner rows (lower triangle of row k)
+            for (long j = 0; j < k; j++)                    ///< inner rows (lower triangle of row k)
                 s -= lu[j + k * K] * di[i + j * K];        /// * L[k,j] * y[j]
             di[i + k * K] = s;
         }
@@ -921,9 +923,9 @@ k_bsub(const DU *lu, DU *di, long K) {
 
     for (long i = tx; i < K; i += step) {
         /// backward substitution: upper triangular with explicit diagonal
-        for (int j = K - 1; j >= 0; j--) {                 ///< rows of di
+        for (long j = K - 1; j >= 0; j--) {                ///< rows of di
             DU s = di[i + j * K];
-            for (int k = j + 1; k < K; k++)                ///< inner rows (lower triangle of row k)
+            for (long k = j + 1; k < K; k++)               ///< inner rows (lower triangle of row k)
                 s -= lu[k + j * K] * di[i + k * K];        /// * U[i,k] * x[k]
             di[i + j * K] = s / lu[j + j * K];             /// * divided by U[j,j]
         }
@@ -957,7 +959,7 @@ k_logdet(const DU *lu, DU *d_logdet, int *d_sign, long K) {
 
     for (long j = tx; j < K; j += blockDim.x) {              ///< block-stride
         DU u = lu[j + j * K];                                ///< U[j,j] on diag
-        if (u < 0.0f) { sign = -sign; u = -u; }
+        if (u < DU0) { sign = -sign; u = -u; }
         acc += LN(u);
     }
     
@@ -1137,7 +1139,7 @@ h_plu(DU *da, DU *dp, int *ns, int n) {
 ///
 __HOST__ DU
 h_det(DU *data, int n) {
-    DU v = 1.0f;
+    DU v = DU1;
     
     for (int z = 0; z < n; z++) v *= data[z + z * n];
 
