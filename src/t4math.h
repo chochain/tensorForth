@@ -172,16 +172,16 @@ __KERN__ void k_gemm_tile_claude_x2(
 ///@}
 ///@name Matrix inversion ops - Gauss-Jordan, LU
 ///@{
-__KERN__ void k_find_pivot(const DU *da, int *d_pivot, int z, int K);
-__KERN__ void k_swap_rows(DU *da, DU *di, int u, int z, int K);
-__KERN__ void k_diag(DU *da, DU *di, int z, int K);
-__KERN__ void k_elim(DU *da, DU *di, int z, int K);
-__KERN__ void k_lu_col(DU *da, int z, int K);
-__KERN__ void k_pivot(const DU *lu, const int *d_piv, DU *di, int K);
-__KERN__ void k_fsub(const DU *lu, DU *di, int K);
-__KERN__ void k_bsub(const DU *lu, DU *di, int K);
-__KERN__ void k_lu(DU *lu, bool get_u, int _K, int K);
-__KERN__ void k_logdet(const DU *lu, DU *d_logdet, int *d_sign, int K);
+__KERN__ void k_find_pivot(const DU *da, int *d_pivot, int z, long K);
+__KERN__ void k_swap_rows(DU *da, DU *di, int u, int z, long K);
+__KERN__ void k_diag(DU *da, DU *di, int z, long K);
+__KERN__ void k_elim(DU *da, DU *di, int z, long K);
+__KERN__ void k_lu_col(DU *da, int z, long K);
+__KERN__ void k_pivot(const DU *lu, const int *d_piv, DU *di, long K);
+__KERN__ void k_fsub(const DU *lu, DU *di, long K);
+__KERN__ void k_bsub(const DU *lu, DU *di, long K);
+__KERN__ void k_lu(DU *lu, bool get_u, int _K, long K);
+__KERN__ void k_logdet(const DU *lu, DU *d_logdet, int *d_sign, long K);
 ///@}
 #endif  // __CUDACC__
 
