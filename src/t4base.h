@@ -126,9 +126,12 @@ struct T4Base {
     for (int off = 16; off > 0; off >>= 1)                  \
         v = MAX(v, __shfl_down_sync(0xffffffff, v, off))
 
+#define BLOCKS_PER_DEV 128              /** 512 for RTX3090 */
+#define STRIDE_BLKS(n) (((n) + T4_DIM_SQ - 1) / T4_DIM_SQ)
+#define GRID_BLKS(n)   (std::max<int>(std::min<int>(STRIDE_BLKS(n), BLOCKS_PER_DEV), 1))
 #define FORK(fn,n,...) {                                    \
     const dim3 _b(T4_DIM_SQ, 1, 1);                         \
-    const dim3 _g(((n) + _b.x - 1) / _b.x, 1, 1);           \
+    const dim3 _g(GRID_BLKS(n), 1, 1);                      \
     fn<<<_g,_b>>>(__VA_ARGS__,n);                           \
     GPU_CHK();                                              \
 }
