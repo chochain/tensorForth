@@ -1,0 +1,60 @@
+name: CUDA tests (simulated H100)
+
+# Optional, non-required check. The hosted runners have no GPU, so this builds
+# the ten4 interpreter with the Makefile (the non-GL modules) and runs the
+# example Forth scripts on a simulated NVIDIA H100
+# (https://github.com/pantheongpu/pantheonsim). A simulator cannot reproduce
+# hardware-specific behavior or timing, so it complements real-GPU testing
+# and does not replace it.
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - "src/**"
+      - "examples/**"
+      - "Makefile"
+      - "module_rules.mk"
+      - ".github/gpu-sim/**"
+      - ".github/workflows/gpu-sim.yml"
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  cuda-sim:
+    name: CUDA 12.6, simulated H100
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
+        with:
+          persist-credentials: false
+
+      - name: Set up the simulated GPU and CUDA toolkit
+        uses: pantheongpu/setup-pantheonsim@656f502ef4782d94d34d8ddd368e333960609639 # v0.1.8
+        with:
+          gpu: nvidia/h100
+          cuda-toolkit: "12.6"
+
+      # The simulator runs PTX only (compute_90) and needs a shared CUDA
+      # runtime. The Makefile swallows compile errors, so fail on its markers.
+      - name: Build ten4
+        run: |
+          set -o pipefail
+          mkdir -p tests
+          make -j3 ten4 \
+            CUDA_HOME=/usr/local/cuda-12.6 \
+            APP_HOME="$PWD" \
+            CUDA_ARCH=compute_90 CUDA_CODE=compute_90 \
+            CUDA_LIB="-cudart shared" 2>&1 | tee build.log
+          ! grep -E '^(NVCC|CC)_FAILED' build.log
+          test -x tests/ten4
+
+      - name: Run example scripts and check results
+        run: .github/gpu-sim/check.sh tests/ten4
